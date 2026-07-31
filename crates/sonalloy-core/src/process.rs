@@ -75,7 +75,7 @@ pub struct ScheduledEvent {
     pub kind: ProcessEventKind,
 }
 
-/// Normalized event payload reserved for the later voice runtime.
+/// Normalized event payload consumed by the voice runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessEventKind {
     /// Start a note.

@@ -50,7 +50,7 @@ pub enum DiagnosticCode {
     /// A referenced asset cannot be decoded.
     #[serde(rename = "ASSET_DECODE_FAILED")]
     AssetDecodeFailed,
-    /// A source asset was downmixed to the P1/P2 internal format.
+    /// A source asset was downmixed to the engine's internal format.
     #[serde(rename = "ASSET_DOWNMIXED")]
     AssetDownmixed,
     /// Process contract violation.

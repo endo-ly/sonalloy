@@ -52,7 +52,7 @@ enum Command {
 
 #[derive(Debug, Subcommand)]
 enum InstrumentCommand {
-    /// Create a minimal P1 Definition.
+    /// Create a minimal oscillator Definition.
     Init(InitArgs),
     /// Parse, validate, and compile a Definition.
     Validate(DefinitionArgs),
@@ -676,7 +676,7 @@ fn default_definition() -> InstrumentDefinition {
         metadata: InstrumentMetadata {
             name: "Basic Poly Synth".to_owned(),
             author: None,
-            description: Some("A headless P1 oscillator instrument".to_owned()),
+            description: Some("A headless oscillator instrument".to_owned()),
         },
         performance: PerformanceDefinition {
             polyphony: 16,
@@ -746,7 +746,7 @@ fn make_inspect_report(
                     velocity_max: layer.trigger.velocity_max,
                 },
                 generator,
-                asset_status: "not_applicable (oscillator-only P1)",
+                asset_status: "not_applicable (oscillator-only instrument)",
                 gain_db: 20.0 * layer.gain_linear.log10(),
                 gain_linear: layer.gain_linear,
                 pan: layer.pan,
@@ -823,7 +823,7 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
             layer.trigger.velocity_min,
             layer.trigger.velocity_max,
         );
-        println!("  asset: not_applicable (oscillator-only P1)");
+        println!("  asset: not_applicable (oscillator-only instrument)");
         println!(
             "  gain: {:.3} dB ({:.6} linear) pan: {:.3}",
             20.0 * layer.gain_linear.log10(),

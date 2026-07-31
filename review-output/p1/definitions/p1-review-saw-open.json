@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "metadata": {
-    "name": "P1 Review Saw Open",
+    "name": "Saw Registers Open",
     "author": null,
-    "description": "P1 Saw register review with the voice filter open"
+    "description": "Saw register review with the voice filter open"
   },
   "performance": {
     "polyphony": 16,

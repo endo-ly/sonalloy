@@ -1,9 +1,9 @@
-# Sonalloy Core MVP（P0〜P2）詳細設計・実装計画
+# Sonalloy Core（音声処理基盤からHybrid Instrumentまで）詳細設計・実装計画
 
 - **版**：4.0
-- **対象**：Sonalloyの最初のMVP実装
-- **対象フェーズ**：P0〜P2
-- **用途**：実装を担当するAIエージェントへの指示、実装レビュー、フェーズ完了判定
+- **対象**：Sonalloy Coreの対象機能
+- **対象範囲**：音声処理基盤〜Hybrid Instrument
+- **用途**：仕様、責務、検証条件の定義
 - **前提文書**：`Sonalloy 要件定義・基本設計`
 - **正本**：本Markdownを正本とし、HTML版は本文を一切省略せず同じ内容から生成する
 - **文書言語**：日本語。型名、API名、コマンド名、ファイル名だけ英語を使用する
@@ -13,41 +13,41 @@
 ## 0. この計画書の位置づけ
 
 本書は、Sonalloy全体の要件を置き換える文書ではない。  
-製品全体の機能・責務・将来像は「Sonalloy 要件定義・基本設計」を正本とし、本書はそのうち最初に実装するP0〜P2を、実装可能な粒度まで具体化する。
+製品全体の機能・責務・将来像は「Sonalloy 要件定義・基本設計」を正本とし、本書はそのうち音声処理基盤からHybrid Instrumentまでを、実装可能な粒度まで具体化する。
 
 本書で固定するものは次のとおりである。
 
-- MVPで実装する機能と、MVP後へ延期する機能
+- 現在実装する機能と、将来へ延期する機能
 - Rust CoreとDaisySPの責務境界
 - Instrument Definition、Compiled Instrument、Runtime Instanceの構造
 - Process Contract、Event順序、Block内処理
 - Voiceの状態、割り当て、終了、Voice Stealing
-- Oscillator、Envelope、Filter、Sample再生のMVP実装
+- Oscillator、Envelope、Filter、Sample再生の実装
 - Asset解決、Decode、Sample Rate変換、欠落時の挙動
-- P0、P1、P2の作業順、成果物、テスト、完了条件
-- AIエージェントが用意する試聴用音源と、人間による音質承認
+- 機能領域ごとの作業、成果物、テスト、完了条件
+- 試聴用音源と、人間による音質承認
 - 実装と同時に整備するドキュメント
 
 本書で先回りして固定しないものは次のとおりである。
 
-- P3以降のRealtime Device実装
+- 将来拡張となるRealtime Device実装
 - Riffra、JUCE、CLAP、VST3の具体的なAdapter API
-- Wavetable、FM、GranularなどMVP外Generatorの内部設計
+- Wavetable、FM、Granularなど未対応Generatorの内部設計
 - 自由なAudio Graph
 - 長期的なPreset配布形式
 - 本格的なCPU性能予算
 - 将来機能だけを目的とした汎用Framework
 
-### AIエージェントへの基本指示
+### 実装方針
 
-実装エージェントは、各フェーズの「完了条件」を満たすことを目的にする。  
+各機能領域について、「完了条件」を満たすことを確認する。
 記載された名詞をすべてClassやTraitへ変換することを目的にしてはならない。
 
 判断に迷った場合は、次の順序で優先する。
 
 1. 元の要件定義
 2. 本書の責務分離と不変条件
-3. 現在のフェーズの完成状態
+3. 現在の対象範囲の完成状態
 4. 実装の単純さ
 5. 将来拡張
 
@@ -55,32 +55,32 @@
 
 ---
 
-# 1. MVPの目的と完成像
+# 1. 対象範囲の目的と完成像
 
-## 1.1 MVPで証明すること
+## 1.1 対象範囲で証明すること
 
 Sonalloyは、SamplerとSynthesizerを別々に提供する製品ではない。  
 異なる音生成方式をLayerとして一つのVoice内で組み合わせ、一つのInstrumentとして保存・再構築・演奏できることが中心価値である。
 
-P0〜P2では次を順番に証明する。
+音声処理基盤からHybrid Instrumentまで、次を順番に成立させる。
 
-| フェーズ | 証明すること | その段階だけでは不足するもの |
+| 領域 | 証明すること | 追加していないもの |
 |---|---|---|
-| **P0：音声処理基盤** | RustからDaisySPを安全に利用し、共通Process経路から決定論的な音声を生成できる | Instrument、Voice、Layerはまだない |
-| **P1：演奏可能シンセ** | JSON DefinitionからPolyphonic Synthを構築し、Note / MIDIからWAVを生成できる | 一般的なSynthの範囲で、Sonalloy固有価値はまだない |
-| **P2：Hybrid Instrument** | Oscillator LayerとSample Layerを同じVoice内で融合し、一つの音色として成立させられる | Realtime DeviceやPlugin配布はまだない |
+| **音声処理基盤** | RustからDaisySPを安全に利用し、共通Process経路から決定論的な音声を生成できる | Instrument、Voice、Layerはまだない |
+| **演奏可能シンセ** | JSON DefinitionからPolyphonic Synthを構築し、Note / MIDIからWAVを生成できる | 一般的なSynthの範囲で、Sonalloy固有価値はまだない |
+| **Hybrid Instrument** | Oscillator LayerとSample Layerを同じVoice内で融合し、一つの音色として成立させられる | Realtime DeviceやPlugin配布はまだない |
 
-MVPの完成状態は次である。
+対象範囲の完成状態は次である。
 
 > JSONで保存したInstrument DefinitionをCompileし、Oscillator LayerとSample Layerを一つのVoice内で発音・混合し、同じMIDI入力から同等のHybrid Instrument音声をWAVとして再現できる。
 
-## 1.2 MVPの代表成果物
+## 1.2 代表成果物
 
-MVP完了時には、少なくとも次の二つのReference InstrumentをRepositoryへ含める。
+対象範囲の完了時には、少なくとも次の二つのReference InstrumentをRepositoryへ含める。
 
 ### Basic Poly Synth
 
-P1の成果物。  
+演奏可能シンセの成果物。
 Oscillator、Envelope、Voice、Filterの品質と演奏処理を確認する。
 
 ```text
@@ -93,7 +93,7 @@ Saw Oscillator
 
 ### Metallic Hybrid
 
-P2の成果物。  
+Hybrid Instrumentの成果物。
 Sampleをアタック成分、Oscillatorを音の芯と余韻として利用する。
 
 ```text
@@ -115,11 +115,11 @@ Metallic Hybridは技術Demoではなく、人間が「曲で使ってみたい�
 
 ---
 
-# 2. MVPスコープ
+# 2. 対象範囲
 
 このスコープは、実装計画を詳しくする過程で広げてはならない。
 
-## 2.1 MVPに含める機能
+## 2.1 含める機能
 
 ### 共通基盤
 
@@ -138,7 +138,7 @@ Metallic Hybridは技術Demoではなく、人間が「曲で使ってみたい�
 - 同じ入力条件から同等のRender結果を得る再現性
 - 構造化Diagnostics
 
-### P1：Oscillator Instrument
+### Oscillator Instrument
 
 - 一つのOscillator Layer
 - Sine
@@ -153,7 +153,7 @@ Metallic Hybridは技術Demoではなく、人間が「曲で使ってみたい�
 - 連続値変更時の最低限のSmoothing
 - CLIによるValidation、内容表示、単音Render、MIDI Render
 
-### P2：Hybrid Instrument
+### Hybrid Instrument
 
 - 複数Layer
 - Oscillator Layer
@@ -171,9 +171,9 @@ Metallic Hybridは技術Demoではなく、人間が「曲で使ってみたい�
 - Missing Assetの部分読込
 - Oscillator + SampleのReference Hybrid Instrument
 
-## 2.2 MVPに含めない機能
+## 2.2 対象外の機能
 
-次は製品要件から削除するのではなく、MVP後へ延期する。
+次は製品要件から削除するのではなく、将来へ延期する。
 
 - Noise Generator
 - Square / Triangleの正式対応
@@ -208,10 +208,10 @@ Metallic Hybridは技術Demoではなく、人間が「曲で使ってみたい�
 - Feedback Routing
 - 本格的な性能測定と性能最適化
 
-## 2.3 MVPで求める品質
+## 2.3 求める品質
 
 品質を重視するとは、測定Frameworkや管理機能を大量に作ることではない。  
-MVPで優先する品質は次のとおりである。
+優先する品質は次のとおりである。
 
 1. 音声Bufferを壊さない
 2. NaN / Infinityを出さない
@@ -233,7 +233,7 @@ MVPで優先する品質は次のとおりである。
 
 ## 3.1 使用する技術
 
-| 領域 | 選定 | MVPでの用途 |
+| 領域 | 選定 | 用途 |
 |---|---|---|
 | Core | Rust | Definition、Compiler、Voice、Layer、Runtime、Asset準備、Offline Render |
 | DSP Primitive | DaisySP | OscillatorとFilter |
@@ -281,7 +281,7 @@ ADSRは、VoiceとLayerの状態遷移に密接であり、Unit Testしやすく
 
 ## 3.3 DaisySPへ委譲する責務
 
-MVPでは、DaisySPへ次を委譲する。
+DaisySPへ次を委譲する。
 
 - Sine Oscillator
 - Saw Oscillator
@@ -294,14 +294,14 @@ DaisySPのClass名、Enum、Parameter名をDefinitionやPublicなRust Modelへ�
 
 JUCEは、将来のRiffra、Standalone、VST3 Adapterで利用する方針を維持する。
 
-P0〜P2で依存に追加しない理由：
+対象範囲で依存に追加しない理由：
 
-- Offline Core MVPにAudio DeviceやPlugin APIは不要
+- Offline CoreにAudio DeviceやPlugin APIは不要
 - CoreとAdapterの境界を先に安定させる必要がある
 - Buildと依存を増やさず、音源本体に集中する
 - JUCE固有のLifecycleや型をCoreへ漏らさない
 
-P0〜P2でJUCE型をDefinition、Compiled Instrument、Runtimeへ持ち込んではならない。
+音声処理基盤〜Hybrid InstrumentでJUCE型をDefinition、Compiled Instrument、Runtimeへ持ち込んではならない。
 
 ---
 
@@ -330,7 +330,7 @@ sonalloy/
 │  │  │  ├─ runtime/
 │  │  │  └─ render/
 │  │  └─ tests/
-│  │     ├─ core_mvp.rs
+│  │     ├─ core_process.rs
 │  │     └─ support/
 │  │
 │  ├─ sonalloy-dsp-sys/
@@ -379,7 +379,7 @@ sonalloy/
 ### `sonalloy-core`
 
 製品の中心となるDefinition、Compiler、Runtimeを同じCrateに置く。  
-Definition、Compiler、Runtimeを別Crateへ分割すると、MVPでは型変換と依存管理だけが増えるため分けない。
+Definition、Compiler、Runtimeを別Crateへ分割すると、対象範囲では型変換と依存管理だけが増えるため分けない。
 
 ### `sonalloy-dsp-sys`
 
@@ -429,7 +429,7 @@ Private状態や内部関数を確認するテストは同じModuleに置く。
 
 CrateのPublic APIを利用するテストだけを、各Crate直下の`tests/`へ置く。
 
-- `sonalloy-core/tests/core_mvp.rs`
+- `sonalloy-core/tests/core_process.rs`
 - `sonalloy-dsp-sys/tests/ffi.rs`
 - `sonalloy-cli/tests/cli.rs`
 
@@ -450,7 +450,7 @@ Workspace RootにCargo Integration Test用の`tests/`は作らない。
 Definitionは編集・保存・差分管理する正本である。  
 Audio処理から直接利用しない。
 
-### P2完了時の概念Model
+### Hybrid Instrumentの完了時の概念Model
 
 ```rust
 pub struct InstrumentDefinition {
@@ -535,7 +535,7 @@ pub struct VelocityResponseDefinition {
 
 ## 5.2 Definitionの値と単位
 
-| 項目 | 単位 | MVPの許容範囲 | 備考 |
+| 項目 | 単位 | 許容範囲 | 備考 |
 |---|---|---:|---|
 | `polyphony` | Voice数 | 1〜64 | Referenceは16 |
 | `gain_db` | dB | -60〜+12 | Layer単位 |
@@ -555,7 +555,7 @@ pub struct VelocityResponseDefinition {
 
 ## 5.3 Velocity Response
 
-汎用Modulation MatrixはMVPで作らない。  
+汎用Modulation Matrixは作らない。
 Velocityに対する反応だけを明示的な構造として実装する。
 
 ### Layer Gain
@@ -699,7 +699,7 @@ Compiled Instrument
 7. Asset PathをDefinition FileのDirectoryから解決
 8. Asset存在とHashを確認
 9. WAVをDecode
-10. Source ChannelをMVP内部形式へ変換
+10. Source Channelをエンジン内部形式へ変換
 11. RubatoでEngine Sample Rateへ変換
 12. Prepared Sampleを生成
 13. dB、cent、Velocity Responseを実行値へ変換
@@ -721,7 +721,7 @@ Instrument全体を実行できない状態。
 - Parameterが範囲外
 - 未対応Generator
 - Polyphony不正
-- Oscillator LayerがP1制約に違反
+- Oscillator Layerが演奏可能シンセの制約に違反
 - Process Sample Rate不正
 
 ### Compile Warning
@@ -745,7 +745,7 @@ Instrumentは実行可能だが、一部が無効または補正される状態�
 - 全LayerがDisabledの場合もCompiled Instrumentを返し、Runtimeは無音を出力
 - Definitionを修正して再Compileすれば復旧可能
 
-MVPでは専用のAsset Relink Commandを必須にしない。  
+専用のAsset Relink Commandを必須にしない。
 JSONのPathとHashを修正し、再Validation・再Compileできればよい。
 
 ---
@@ -754,7 +754,7 @@ JSONのPathとHashを修正し、再Validation・再Compileできればよい。
 
 ## 7.1 Lifecycle
 
-MVPでCoreが提供するLifecycle：
+Coreが提供するLifecycle：
 
 ```text
 Compile
@@ -825,7 +825,7 @@ pub struct ProcessBlock<'a> {
 
 - `sample_rate > 0`
 - `max_block_size > 0`
-- MVP出力はStereo固定
+- 出力はStereo固定
 - `frames <= max_block_size`
 - 各Output Channelは`frames`以上
 - Process開始時に対象範囲をZero Clear
@@ -833,7 +833,7 @@ pub struct ProcessBlock<'a> {
 
 ## 7.3 Event Model
 
-P0〜P2で扱うEvent：
+対象範囲で扱うEvent：
 
 ```rust
 pub enum EventKind {
@@ -900,8 +900,8 @@ Block Sizeを変えても、Absolute Frame上のNote開始・終了位置は変�
 - Panic
 - C++例外の境界越え
 
-本格的なCPU BenchmarkはP3以降で行う。  
-MVPでは、明らかに不必要なAllocationやI/OをAudio Pathへ入れないことだけを求める。
+本格的なCPU Benchmarkは将来拡張で行う。
+明らかに不必要なAllocationやI/OをAudio Pathへ入れないことだけを求める。
 
 ---
 
@@ -909,7 +909,7 @@ MVPでは、明らかに不必要なAllocationやI/OをAudio Pathへ入れない
 
 ## 8.1 内部FFIと将来のPublic C ABIを分ける
 
-P0で作るのは、RustからDaisySPを呼ぶための内部FFIである。
+音声処理基盤で作るのは、RustからDaisySPを呼ぶための内部FFIである。
 
 ```text
 Rust Runtime
@@ -919,7 +919,7 @@ Rust Runtime
 ```
 
 Riffraや外部アプリからSonalloyを呼ぶPublic C ABIではない。  
-Public C ABIをP0で固定してはならない。
+Public C ABIを固定してはならない。
 
 ## 8.2 Opaque Handle
 
@@ -985,16 +985,16 @@ int32_t sonalloy_dsp_filter_process(
 
 ## 8.4 Runtime内のNative Object
 
-P1：
+演奏可能シンセ：
 
 - Oscillator LayerごとにOscillator Handle
 - VoiceのLeft / Right ChannelごとにFilter Handle
 
-P2：
+Hybrid Instrument：
 
 - Sample LayerはNative Handleを持たない
 - Oscillator LayerだけがOscillator Handleを持つ
-- Voice FilterはP1と同じ
+- Voice Filterは演奏可能シンセと同じ
 
 RustがVoiceとLayerのLifecycleを所有し、DaisySPへVoice Allocationを任せない。
 
@@ -1052,7 +1052,7 @@ Note On時：
 
 VoiceをSample境界で即時切断するとクリックが出るため、固定の短いFadeを使用する。
 
-- MVP初期値：5 ms
+- 初期値：5 ms
 - 定数は一か所で管理
 - Sound Reviewで調整可能
 - Fade中に新Noteを同じVoiceへ即時重ねず、Fade完了後に開始
@@ -1083,7 +1083,7 @@ Filterの内部値はVoice終了時にResetする。
 
 Voice Stealing選択用の厳密なLoudness計算は行わない。
 
-MVPでは、直近BlockのVoice出力Peakを指数移動平均で保持し、`estimated_level`とする。
+直近BlockのVoice出力Peakを指数移動平均で保持し、`estimated_level`とする。
 
 この値は音質処理へ使わず、Voice選択だけに使う。
 
@@ -1163,7 +1163,7 @@ Layer Gain、Velocity Gain、ADSRを乗算する。
 
 複数Layer、複数VoiceでPeakが上がるため、Reference InstrumentではLayer GainにHeadroomを持たせる。
 
-MVPではEngine内部へ自動Limiterを常時挿入しない。  
+Engine内部へ自動Limiterを常時挿入しない。
 ClippingはDefinition調整とTestで防ぐ。
 
 ## 10.6 Pan
@@ -1216,7 +1216,7 @@ Release
 
 ## 11.3 Curve
 
-MVPでは、単純なLinear Rampではなく、音量用途に適したExponential寄りのCurveを使用する。
+単純なLinear Rampではなく、音量用途に適したExponential寄りのCurveを使用する。
 
 実装方法は次のどちらかを採用してよい。
 
@@ -1251,25 +1251,25 @@ Sustain Levelへ戻してからReleaseを開始してはならない。
 
 ## 12.1 Oscillator
 
-P1の正式対応：
+演奏可能シンセでの正式対応：
 
 - Sine
 - Saw
 
-Square / TriangleはMVP外であり、Definitionへ指定された場合はCompile Errorにする。
+Square / Triangleは未対応であり、Definitionへ指定された場合はCompile Errorにする。
 
 ### Phase Reset
 
 - `phase_reset = true`：Note Onごとに同じPhaseから開始
 - `phase_reset = false`：Voiceの前回Phaseを使わず、Voice開始時にEngine既定Phaseを利用
 
-MVPでは再現性を優先し、Reference Instrumentは`phase_reset = true`を使う。
+再現性を優先し、Reference Instrumentは`phase_reset = true`を使う。
 
 ## 12.2 Sawの品質確認
 
 DaisySPのSawを無条件に高品質とみなさない。
 
-P1 Sound Reviewで次を確認する。
+演奏可能シンセのSound Reviewで次を確認する。
 
 - C2、C4、C6付近の単音
 - 44.1kHz、48kHz
@@ -1287,7 +1287,7 @@ P1 Sound Reviewで次を確認する。
 
 ## 12.3 Filter
 
-MVPではVoice Mix後のStereo Low-pass Filterだけを実装する。
+Voice Mix後のStereo Low-pass Filterだけを実装する。
 
 - Left / Rightで同一設定、独立State
 - CutoffはHz
@@ -1307,11 +1307,11 @@ Definition値が上限を超えた場合、Compile時にClampしWarningを返す
 
 Voice開始時にVelocityからVoice固有Cutoffを計算する。
 
-MVPではNote中にVelocityが変化しないため、Voice開始後の継続Modulationはない。
+Note中にVelocityが変化しないため、Voice開始後の継続Modulationはない。
 
 ## 12.5 Smoothing
 
-MVPでSmoothingが必要な対象：
+Smoothingが必要な対象：
 
 - Voice開始時のFilter Cutoff設定
 - Segment境界で値が変わる可能性があるGain
@@ -1331,7 +1331,7 @@ MVPでSmoothingが必要な対象：
 
 # 13. Sample Engine設計
 
-## 13.1 MVPのSample範囲
+## 13.1 Sample範囲
 
 - WAV
 - One-shot
@@ -1348,13 +1348,13 @@ MVPでSmoothingが必要な対象：
 
 ## 13.2 Reference Sample
 
-P2ではLicenseが明確なReference Sampleを使用する。
+Hybrid InstrumentではLicenseが明確なReference Sampleを使用する。
 
 優先順位：
 
 1. ユーザー提供のSample
 2. Projectが所有する録音
-3. 実装エージェントが決定論的に生成したMetal Hit WAV
+3. 決定論的に生成したMetal Hit WAV
 
 外部配布Sampleを無断でRepositoryへ含めない。
 
@@ -1390,20 +1390,20 @@ P2ではLicenseが明確なReference Sampleを使用する。
 
 SymphoniaでDecodeし、`f32`へ変換する。
 
-MVP受入対象：
+受入対象：
 
 - PCM WAV
 - 16-bit / 24-bit / 32-bit float
 - Mono / Stereo
 - 44.1kHz / 48kHz / 96kHz
 
-Stereo AssetはMVP内部でMonoへDownmixする。
+Stereo Assetはエンジン内部でMonoへDownmixする。
 
 ```text
 mono = (left + right) × 0.5
 ```
 
-Stereoの空間情報保持はMVP外。  
+Stereoの空間情報保持は未対応。
 Stereo AssetをDownmixした場合はCompile Warningへ記録する。
 
 ## 13.6 Sample Rate変換
@@ -1449,7 +1449,7 @@ pub struct SampleRuntime {
 
 ## 13.9 補間
 
-MVPでは4-point Cubic Hermite相当の補間を使用する。
+4-point Cubic Hermite相当の補間を使用する。
 
 - Buffer先頭・終端で範囲外参照をしない
 - 必要に応じて端点を複製
@@ -1548,7 +1548,7 @@ Coreへ持ち込まないもの：
 - File選択
 - Process終了Code
 
-## 15.2 MVP Command
+## 15.2 Core Command
 
 ```bash
 sonalloy instrument init <path>
@@ -1560,7 +1560,7 @@ sonalloy render midi <definition> <midi> [options]
 
 ### `instrument init`
 
-最小のP1 Definitionを生成する。  
+最小のOscillator Definitionを生成する。
 複雑なAuthoring CLIは作らない。
 
 ### `instrument validate`
@@ -1625,7 +1625,7 @@ Warningだけの場合は0。
 
 ## 16.1 使用するLibrary
 
-MVP開始時点では次に限定する。
+実装開始時点では次に限定する。
 
 | 用途 | Library |
 |---|---|
@@ -1729,11 +1729,11 @@ Unit Testは対象Codeと同じModuleに置く。
 
 LinuxではAddressSanitizer / UndefinedBehaviorSanitizerを使用する。
 
-C++ Wrapperに独自Domain Logicを入れないため、P0〜P2ではGoogleTest / Catch2を必須にしない。
+C++ Wrapperに独自Domain Logicを入れないため、対象範囲ではGoogleTest / Catch2を必須にしない。
 
 ## 16.4 Core結合テスト
 
-`sonalloy-core/tests/core_mvp.rs`。
+`sonalloy-core/tests/core_process.rs`。
 
 - Definition → Compile
 - Compile → Instantiate → Prepare
@@ -1743,8 +1743,8 @@ C++ Wrapperに独自Domain Logicを入れないため、P0〜P2ではGoogleTest 
 - Block Size 64 / 257 / 1024
 - Polyphony Limit
 - Voice Stealing
-- P1 Definition再読込
-- P2 Hybrid
+- 演奏可能シンセのDefinition再読込
+- Hybrid Instrument
 - Missing Asset
 - Source Sample Rate違い
 - Reset後の再Render
@@ -1814,7 +1814,7 @@ Windows / Linux間では、浮動小数点実装差を考慮し、次で同等�
 - Sampleごとの許容誤差
 - 人間による試聴差
 
-Cross-platform完全Bit一致をMVPの前提にしないが、差が大きい場合は原因を調査する。
+Cross-platform完全Bit一致を前提にしないが、差が大きい場合は原因を調査する。
 
 ---
 
@@ -1825,17 +1825,17 @@ Cross-platform完全Bit一致をMVPの前提にしないが、差が大きい場
 | 担当 | 役割 |
 |---|---|
 | 自動Test | 壊れた出力、Timing、範囲外、再現性、明確な不連続を確認 |
-| AIエージェント | 固定条件のWAV、Definition、MIDI、測定結果、確認点を整理 |
+| Review Package生成 | 固定条件のWAV、Definition、MIDI、測定結果、確認点を整理 |
 | 人間 | 耳障りさ、自然さ、演奏感、音の魅力、Layerの融合を判断 |
 
-AIエージェントは音質を自己承認しない。
+音質は自己承認せず、人間が確認する。
 
 ## 17.2 Review Package
 
-P1 / P2終了時に次を一式で生成する。
+演奏可能シンセ / Hybrid Instrumentの完了時に次を一式で生成する。
 
 ```text
-review-output/<phase>/
+review-output/<package>/
 ├─ audio/
 ├─ definitions/
 ├─ midi/
@@ -1854,11 +1854,11 @@ review-output/<phase>/
 - 自動Test結果
 - Metricsの要約
 - 既知の制約
-- AIが認識した懸念
+- 試聴時の注意
 - 人間へ確認してほしい項目
 - 人間の回答欄
 
-## 17.3 P1試聴用音源
+## 17.3 演奏可能シンセの試聴用音源
 
 ### 01-sine-reference.wav
 
@@ -1919,7 +1919,7 @@ review-output/<phase>/
 
 確認：実際に曲で使えるか。
 
-## 17.4 P1の人間評価項目
+## 17.4 演奏可能シンセの人間評価項目
 
 - Sawの高音域が明確に耳障りでないか
 - Note On / OffにClickがないか
@@ -1930,9 +1930,9 @@ review-output/<phase>/
 - Velocity Responseが自然か
 - Bass / Lead / Pluckの素材として使いたいか
 
-人間の明示的な承認までP1を完了扱いにしない。
+人間の明示的な承認まで演奏可能シンセを完了扱いにしない。
 
-## 17.5 P2試聴用音源
+## 17.5 Hybrid Instrumentの試聴用音源
 
 ### 01-sample-source.wav
 
@@ -1983,7 +1983,7 @@ Sample Assetを欠落させ、OscillatorだけでRender。
 
 確認：部分読込が音声処理を壊さないか。
 
-## 17.6 P2の人間評価項目
+## 17.6 Hybrid Instrumentの人間評価項目
 
 - Decode後に原音が不自然に変化していないか
 - Sample Pitchが確認範囲で許容できるか
@@ -1995,7 +1995,7 @@ Sample Assetを欠落させ、OscillatorだけでRender。
 - 高音・低音で破綻しないか
 - Musical Phraseで使いたい音になっているか
 
-人間の明示的な承認までP2とMVPを完了扱いにしない。
+人間の明示的な承認までHybrid Instrumentと対象範囲全体を完了扱いにしない。
 
 ## 17.7 修正と再評価
 
@@ -2016,10 +2016,10 @@ Sample Assetを欠落させ、OscillatorだけでRender。
 
 ## 18.1 詳細設計と実装計画の関係
 
-1〜17章は、Sonalloy Core MVPを**どのような仕組みにするか**を定める詳細設計である。  
+1〜17章は、Sonalloy Coreを**どのような仕組みにするか**を定める詳細設計である。
 19〜21章は、その設計を**どの順番で、どの成果物として実装するか**へ変換した実行計画である。
 
-実装エージェントは、作業パッケージだけを読んで独自設計してはならない。各パッケージの「参照設計」に示す章を確認し、その設計を実装へ反映する。
+作業パッケージだけで独自設計せず、各パッケージの「参照設計」に示す章を確認して実装へ反映する。
 
 一方で、1〜17章の内容を19〜21章へ全文転載はしない。重複による不整合を防ぐため、実装計画では次を具体化する。
 
@@ -2074,40 +2074,40 @@ DaisySP
 - `runtime → JSON / filesystem`
 - `sonalloy-dsp-sys → SonalloyのDefinitionやVoice設計`
 
-## 18.4 フェーズ間ゲート
+## 18.4 領域間の依存
 
 ```text
-P0 自動受入
+音声処理基盤の自動受入
    ↓
-P1 実装・自動テスト
+演奏可能シンセの実装・自動テスト
    ↓
-P1 試聴Package生成
+演奏可能シンセの試聴Package生成
    ↓
 人間の音質承認
    ↓
-P2 実装・自動テスト
+Hybrid Instrumentの実装・自動テスト
    ↓
-P2 試聴Package生成
+Hybrid Instrumentの試聴Package生成
    ↓
 人間の音質・Hybrid価値承認
    ↓
-Core MVP完了
+Core全体の完了
 ```
 
-P1の人間承認前にP2の実装へ進んではならない。  
-P1でOscillator、Envelope、Filter、Voice遷移の品質に問題が残ったままSample Layerを追加すると、問題の原因が判別しにくくなるためである。
+演奏可能シンセの人間承認前にHybrid Instrumentの実装へ進んではならない。
+演奏可能シンセでOscillator、Envelope、Filter、Voice遷移の品質に問題が残ったままSample Layerを追加すると、問題の原因が判別しにくくなるためである。
 
 ---
 
-# 19. P0実装計画：音声処理基盤
+# 19. 音声処理基盤の実装計画
 
-## 19.1 P0の目的と完了状態
+## 19.1 音声処理基盤の目的と完了状態
 
 ### 目的
 
-Rust CoreとDaisySPの境界、共通Process Contract、Offline Renderを実コードで成立させる。P1以降が「音声生成の基盤を作り直す」必要がない状態を作る。
+Rust CoreとDaisySPの境界、共通Process Contract、Offline Renderを実コードで成立させる。演奏可能シンセ以降が「音声生成の基盤を作り直す」必要がない状態を作る。
 
-### P0完了時に成立している流れ
+### 音声処理基盤の完了時に成立している流れ
 
 ```text
 CLI開発Command
@@ -2119,7 +2119,7 @@ CLI開発Command
             → Stereo WAV
 ```
 
-### P0の受入Command
+### 音声処理基盤の受入Command
 
 ```bash
 sonalloy dev render-sine \
@@ -2134,7 +2134,7 @@ Command名やOption構文は実装上の整合性に合わせて調整してよ�
 
 ---
 
-## 19.2 P0-1：Workspace・Native Build・依存境界
+## 19.2 Workspace・Native Build・依存境界
 
 ### 目的
 
@@ -2182,7 +2182,7 @@ Rust Workspace、C++ Wrapper、DaisySPのBuildとLinkをWindows / Linuxで再現
 - Native Libraryの探索を開発者固有の絶対Pathに依存させない
 - DaisySPのSourceを無断で改変しない。必要なAdaptationはWrapper側に置く
 - Warningを大量に無視する設定でBuildを通さない
-- P0のためにJUCEやAudio Device Libraryを追加しない
+- 音声処理基盤のためにJUCEやAudio Device Libraryを追加しない
 
 ### Unit / Build Test
 
@@ -2215,7 +2215,7 @@ cargo test --workspace
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
 - Native Build
-- Linux Native Sanitizer JobはP0-2で有効化する
+- Linux Native Sanitizer JobはFFI領域で有効化する
 
 ### 成果物
 
@@ -2256,7 +2256,7 @@ cargo test --workspace
 
 ---
 
-## 19.3 P0-2：内部DSP FFIとSafe Rust Wrapper
+## 19.3 内部DSP FFIとSafe Rust Wrapper
 
 ### 目的
 
@@ -2264,7 +2264,7 @@ DaisySPのOscillatorをOpaque Handle越しに所有・初期化・Reset・Block�
 
 ### 前提
 
-- P0-1完了
+- Workspace領域完了
 
 ### 参照設計
 
@@ -2397,15 +2397,15 @@ impl DspOscillator {
 
 ---
 
-## 19.4 P0-3：Process ContractとRuntime Skeleton
+## 19.4 Process ContractとRuntime Skeleton
 
 ### 目的
 
-P1・P2と将来Adapterが共通利用するPrepare / Process / Resetの意味、Buffer、Frame、Contextを実装する。
+演奏可能シンセ・Hybrid Instrumentと将来Adapterが共通利用するPrepare / Process / Resetの意味、Buffer、Frame、Contextを実装する。
 
 ### 前提
 
-- P0-2完了
+- FFI領域完了
 
 ### 参照設計
 
@@ -2419,7 +2419,7 @@ P1・P2と将来Adapterが共通利用するPrepare / Process / Resetの意味�
 - `sonalloy-core::process`
 - `sonalloy-core::runtime`
 - `sonalloy-core::render`のInterface
-- `sonalloy-core/tests/core_mvp.rs`
+- `sonalloy-core/tests/core_process.rs`
 
 ### Public Contract
 
@@ -2459,7 +2459,7 @@ Trait採用が既存設計に不要な場合はConcrete APIでもよい。Lifecy
 2. `ProcessContext`とAbsolute Frameの意味を定義する。
 3. Output BufferのValidationを実装する。
 4. Process開始時に対象Frame範囲をZero ClearするUtilityを作る。
-5. P0用のSine Runtimeを実装する。
+5. 音声処理基盤用のSine Runtimeを実装する。
 6. Prepare時にOscillatorを初期化する。
 7. Processで可変Frame数を処理する。
 8. Process完了後にAbsolute Frameを進める。
@@ -2469,7 +2469,7 @@ Trait採用が既存設計に不要な場合はConcrete APIでもよい。Lifecy
 
 ### 不変条件
 
-- MVP Output ChannelはStereo。2以外はPrepare Error
+- 標準Output ChannelはStereo。2以外はPrepare Error
 - `frames <= max_block_size`
 - 各Output Slice長は`frames`以上
 - Process対象範囲を必ず全Sample書く
@@ -2515,7 +2515,7 @@ Trait採用が既存設計に不要な場合はConcrete APIでもよい。Lifecy
 ### 成果物
 
 - Process Contract
-- P0 Runtime Skeleton
+- 音声処理基盤のRuntime Skeleton
 - Validation
 - Process Error
 - Core結合テスト
@@ -2532,7 +2532,7 @@ Trait採用が既存設計に不要な場合はConcrete APIでもよい。Lifecy
 
 ### 完了条件
 
-- P0 Sine Runtimeを共通Process経路で実行できる
+- 音声処理基盤用Sine Runtimeを共通Process経路で実行できる
 - 可変Block Sizeを安全に処理できる
 - Resetで初期状態へ戻る
 - Error時のOutput規則がTestされている
@@ -2548,15 +2548,15 @@ Trait採用が既存設計に不要な場合はConcrete APIでもよい。Lifecy
 
 ---
 
-## 19.5 P0-4：Offline Renderer・Diagnostics・CLI Smoke・P0受入
+## 19.5 Offline Renderer・Diagnostics・CLI Smoke・音声処理基盤の受入
 
 ### 目的
 
-共通Process Contractを繰り返して、指定時間のStereo WAVを生成し、失敗を構造化Diagnosticsとして利用者へ返す。P0をEnd-to-Endで完了させる。
+共通Process Contractを繰り返して、指定時間のStereo WAVを生成し、失敗を構造化Diagnosticsとして利用者へ返す。音声処理基盤をEnd-to-Endで完了させる。
 
 ### 前提
 
-- P0-1〜P0-3完了
+- WorkspaceからProcess Contractまで完了
 
 ### 参照設計
 
@@ -2593,7 +2593,7 @@ pub struct RenderedAudio {
 }
 ```
 
-長時間RenderのMemory問題はMVPでは主要課題ではないが、CLI側でBlockごとにWAV Writerへ流せる構造が自然なら採用してよい。CoreとFile Writerの責務分離は維持する。
+長時間RenderのMemory問題は対象範囲では主要課題ではないが、CLI側でBlockごとにWAV Writerへ流せる構造が自然なら採用してよい。CoreとFile Writerの責務分離は維持する。
 
 ### 実装順
 
@@ -2607,7 +2607,7 @@ pub struct RenderedAudio {
 8. Text / JSON Error表示の最小形を実装する。
 9. CLI結合テストを追加する。
 10. CIで短いSmoke WAVを生成する。
-11. P0受入音源とMetricsを生成する。
+11. 音声処理基盤の受入音源とMetricsを生成する。
 
 ### 不変条件
 
@@ -2667,7 +2667,7 @@ sonalloy dev render-sine \
 - JSON Modeでは機械可読
 - 成功扱いしない
 
-### P0 Review Artifact
+### 音声処理基盤のReview Artifact
 
 ```text
 review-output/p0/
@@ -2676,7 +2676,7 @@ review-output/p0/
 └─ summary.md
 ```
 
-P0では人間承認をGateにしない。P1以降との基準比較に使う。
+音声処理基盤では人間承認をGateにしない。演奏可能シンセ以降との基準比較に使う。
 
 ### 成果物
 
@@ -2684,7 +2684,7 @@ P0では人間承認をGateにしない。P1以降との基準比較に使う。
 - Diagnostics
 - CLI Smoke Command
 - WAV出力
-- P0 Review Artifact
+- 音声処理基盤のReview Artifact
 - CI Smoke Render
 
 ### ドキュメント更新
@@ -2694,19 +2694,19 @@ P0では人間承認をGateにしない。P1以降との基準比較に使う。
 - `docs/cli.md`
   - `dev render-sine`
 - `docs/testing-and-sound-review.md`
-  - P0 Metrics
+  - 音声処理基盤のMetrics
 - `docs/runtime-processing.md`
   - Offline Render Loop
 
-### P0完了条件
+### 音声処理基盤の完了条件
 
 - Windows / LinuxのClean Build成功
-- 全P0 Test成功
+- 音声処理基盤の全Test成功
 - 共通Process Contract経由でStereo Sine WAV生成
 - 64 / 257 / 1024のBlock SizeでFrame数・周波数が同等
 - Reset後に同等出力
 - Native Sanitizer成功
-- P0 Review Artifact生成
+- 音声処理基盤のReview Artifact生成
 - 関連文書が実装と一致
 
 ### 非対象
@@ -2721,15 +2721,15 @@ P0では人間承認をGateにしない。P1以降との基準比較に使う。
 
 ---
 
-# 20. P1実装計画：演奏可能な高品質シンセ
+# 20. 演奏可能シンセの実装計画
 
-## 20.1 P1の目的と完了状態
+## 20.1 演奏可能シンセの目的と完了状態
 
 ### 目的
 
 JSONで保存した一つのOscillator Layerから、PolyphonicなBasic Poly SynthをCompile・演奏・Offline Renderできる状態を作る。Generator追加ではなく、Oscillator、ADSR、Filter、Voice遷移の品質を確立する。
 
-### P1完了時のEnd-to-End
+### 演奏可能シンセの完了時のEnd-to-End
 
 ```text
 basic-poly-synth.json
@@ -2745,7 +2745,7 @@ basic-poly-synth.json
                     → 人間承認
 ```
 
-### P1受入Command
+### 演奏可能シンセの受入Command
 
 ```bash
 sonalloy instrument validate examples/instruments/basic-poly-synth.json
@@ -2761,15 +2761,15 @@ sonalloy render midi \
 
 ---
 
-## 20.2 P1-1：Definition・Schema・Validation・Diagnostics
+## 20.2 Definition・Schema・Validation・Diagnostics
 
 ### 目的
 
-P1 InstrumentをJSONとして保存・読込し、構造・値・MVP制約の誤りをAudio処理前に検出できるようにする。
+演奏可能シンセのInstrumentをJSONとして保存・読込し、構造・値・演奏可能シンセの制約に関する誤りをAudio処理前に検出できるようにする。
 
 ### 前提
 
-- P0完了
+- 音声処理基盤の完了
 
 ### 参照設計
 
@@ -2802,9 +2802,9 @@ P1 InstrumentをJSONとして保存・読込し、構造・値・MVP制約の誤
 - JSON Load / Save
 - Validation Result
 
-### P1制約
+### 演奏可能シンセの制約
 
-- Layerは配列で保存するが、P1では有効Layer数1だけを許可
+- Layerは配列で保存するが、演奏可能シンセでは有効Layer数1だけを許可
 - GeneratorはOscillatorだけ
 - WaveformはSine / Sawだけ
 - Voice Filterは0または1個
@@ -2819,11 +2819,11 @@ P1 InstrumentをJSONとして保存・読込し、構造・値・MVP制約の誤
 3. 構造Validationを実装する。
 4. Field Range Validationを実装する。
 5. ID重複を検査する。
-6. P1のLayer数・Generator制約を検査する。
+6. 演奏可能シンセのLayer数・Generator制約を検査する。
 7. FilterをSample Rate非依存の範囲で一次Validationする。
 8. Validation ErrorをField Path付きDiagnosticへ変換する。
 9. JSON Round Trip Testを追加する。
-10. P1 Valid / Invalid Fixtureを追加する。
+10. 演奏可能シンセのValid / Invalid Fixtureを追加する。
 
 ### 不変条件
 
@@ -2832,7 +2832,7 @@ P1 InstrumentをJSONとして保存・読込し、構造・値・MVP制約の誤
 - Deserialize成功とValidation成功を同一視しない
 - 値を黙って補正しない。補正する場合はCompilerでWarning
 - Layer IDを配列Indexの代わりに使わない
-- P2拡張時にP1 JSONが読めなくなる変更をしない
+- Hybrid Instrument拡張時に演奏可能シンセのJSONが読めなくなる変更をしない
 
 ### Unit Test
 
@@ -2861,7 +2861,7 @@ P1 InstrumentをJSONとして保存・読込し、構造・値・MVP制約の誤
 
 ### 成果物
 
-- P1 Definition Model
+- 演奏可能シンセのDefinition Model
 - Validation
 - Diagnostic Paths
 - Valid / Invalid Fixture
@@ -2870,7 +2870,7 @@ P1 InstrumentをJSONとして保存・読込し、構造・値・MVP制約の誤
 ### ドキュメント更新
 
 - `docs/instrument-definition.md`
-  - P1 Field、型、単位、Range、完全JSON
+  - 演奏可能シンセのField、型、単位、Range、完全JSON
 - `docs/architecture.md`
   - Definitionの責務
 - `docs/testing-and-sound-review.md`
@@ -2878,9 +2878,9 @@ P1 InstrumentをJSONとして保存・読込し、構造・値・MVP制約の誤
 
 ### 完了条件
 
-- Valid P1 JSONを損失なくRound Tripできる
+- 演奏可能シンセのValid JSONを損失なくRound Tripできる
 - Invalid値をField Path付きで検出できる
-- P1外Generator / Layer数を拒否できる
+- 未対応Generator / Layer数を拒否できる
 - DefinitionへRuntime / DaisySP型が混入していない
 - Example JSONと文書が一致する
 
@@ -2894,7 +2894,7 @@ P1 InstrumentをJSONとして保存・読込し、構造・値・MVP制約の誤
 
 ---
 
-## 20.3 P1-2：Compiler・Compiled Instrument・Instantiation
+## 20.3 Compiler・Compiled Instrument・Instantiation
 
 ### 目的
 
@@ -2902,7 +2902,7 @@ Definitionを、Audio Pathで追加解釈せず実行できるCompiled Instrumen
 
 ### 前提
 
-- P1-1完了
+- Definition領域完了
 
 ### 参照設計
 
@@ -2937,7 +2937,7 @@ pub fn compile_instrument(
 ) -> CompileResult;
 ```
 
-P1ではAssetを使わないが、P2でCompileContextへAsset基準Directoryを追加し直さないため、責務として定義してよい。
+演奏可能シンセではAssetを使わないが、Hybrid InstrumentでCompileContextへAsset基準Directoryを追加し直さないため、責務として定義してよい。
 
 ### 実装順
 
@@ -2963,7 +2963,7 @@ P1ではAssetを使わないが、P2でCompileContextへAsset基準Directoryを�
 - RuntimeはJSON文字列やField Pathを参照しない
 - dB / cent / ClampをProcess中に毎Block計算しない
 - Compile失敗で既存Compiled Instrumentを破壊しないAPI形にする
-- P1ではSample用の空Objectや未使用抽象化を作らない
+- 演奏可能シンセではSample用の空Objectや未使用抽象化を作らない
 
 ### Unit Test
 
@@ -3017,7 +3017,7 @@ P1ではAssetを使わないが、P2でCompileContextへAsset基準Directoryを�
 
 ### 完了条件
 
-- P1 DefinitionからCompiled Instrumentを生成できる
+- 演奏可能シンセのDefinitionからCompiled Instrumentを生成できる
 - Error / Warning規則がTestされている
 - Runtime Instanceを生成できる
 - Process中にDefinition再解釈が不要
@@ -3032,7 +3032,7 @@ P1ではAssetを使わないが、P2でCompileContextへAsset基準Directoryを�
 
 ---
 
-## 20.4 P1-3：ADSR・Voice Pool・Note Lifecycle・Voice Stealing
+## 20.4 ADSR・Voice Pool・Note Lifecycle・Voice Stealing
 
 ### 目的
 
@@ -3040,8 +3040,8 @@ Note OnからVoiceを開始し、Note Off後に自然にReleaseし、Voiceを再
 
 ### 前提
 
-- P1-2完了
-- P0 Process Contract完了
+- Compiler領域完了
+- 音声処理基盤のProcess Contract完了
 
 ### 参照設計
 
@@ -3219,7 +3219,7 @@ Then：
 
 ---
 
-## 20.5 P1-4：Sample Accurate Event SchedulerとSegment Renderer
+## 20.5 Sample Accurate Event SchedulerとSegment Renderer
 
 ### 目的
 
@@ -3227,7 +3227,7 @@ Block内の正確なSample位置でNote Eventを適用し、Block Sizeが変わ�
 
 ### 前提
 
-- P1-3完了
+- Voice領域完了
 
 ### 参照設計
 
@@ -3331,16 +3331,16 @@ Block内の正確なSample位置でNote Eventを適用し、Block Sizeが変わ�
 
 ---
 
-## 20.6 P1-5：Oscillator・Stereo Mix・Voice Filter・Smoothing統合
+## 20.6 Oscillator・Stereo Mix・Voice Filter・Smoothing統合
 
 ### 目的
 
-Voice Engineへ実際のOscillator音声を接続し、ADSR、Gain、Pan、Tuning、Velocity Response、Stereo Filterを通したP1信号経路を完成させる。
+Voice Engineへ実際のOscillator音声を接続し、ADSR、Gain、Pan、Tuning、Velocity Response、Stereo Filterを通した演奏可能シンセの信号経路を完成させる。
 
 ### 前提
 
-- P1-4完了
-- P0 Oscillator FFI完了
+- Event領域完了
+- 音声処理基盤のOscillator FFI完了
 
 ### 参照設計
 
@@ -3362,7 +3362,7 @@ Voice Engineへ実際のOscillator音声を接続し、ADSR、Gain、Pan、Tunin
 
 ### 実装順
 
-1. P0のFFIパターンでFilter HandleとSafe Wrapperを追加する。
+1. 音声処理基盤のFFIパターンでFilter HandleとSafe Wrapperを追加する。
 2. Voice Runtime生成時にOscillatorとLeft / Right Filterを準備する。
 3. MIDI Note、TuningからFrequencyを計算する。
 4. OscillatorでLayer Mono Scratchを生成する。
@@ -3439,7 +3439,7 @@ Voice Engineへ実際のOscillator音声を接続し、ADSR、Gain、Pan、Tunin
 ### 成果物
 
 - Filter FFI / Wrapper
-- P1信号経路
+- 演奏可能シンセの信号経路
 - Scratch / Mix
 - Velocity Response
 - Smoothing
@@ -3461,7 +3461,7 @@ Voice Engineへ実際のOscillator音声を接続し、ADSR、Gain、Pan、Tunin
 
 ### 完了条件
 
-- Sine / SawをP1信号経路でStereo出力できる
+- Sine / Sawを演奏可能シンセの信号経路でStereo出力できる
 - Note / Velocity / Pan / Tuning / FilterがDefinitionどおり反映
 - Voice Stealingを含め明確なClickが機械検査で検出されない
 - Human Reviewへ渡せる音声生成が可能
@@ -3477,21 +3477,21 @@ Voice Engineへ実際のOscillator音声を接続し、ADSR、Gain、Pan、Tunin
 
 ---
 
-## 20.7 P1-6：CLI・MIDI Adapter・Basic Poly Synth
+## 20.7 CLI・MIDI Adapter・Basic Poly Synth
 
 ### 目的
 
-DefinitionをCLIからValidation・Inspectし、単音またはMIDI Fileを同じCore RuntimeでRenderできるようにする。P1 Reference Instrumentを完成させる。
+DefinitionをCLIからValidation・Inspectし、単音またはMIDI Fileを同じCore RuntimeでRenderできるようにする。演奏可能シンセのReference Instrumentを完成させる。
 
 ### 前提
 
-- P1-5完了
+- Oscillator統合領域完了
 
 ### 参照設計
 
 - §15 CLI設計
 - §16.5 CLI結合テスト
-- §17 P1試聴用音源
+- §17 演奏可能シンセの試聴用音源
 
 ### 主な対象
 
@@ -3502,7 +3502,7 @@ DefinitionをCLIからValidation・Inspectし、単音またはMIDI Fileを同�
 
 ### 実装順
 
-1. `instrument init`で最小P1 JSONを生成する。
+1. `instrument init`で最小の演奏可能シンセのJSONを生成する。
 2. `instrument validate`でParse / Compile / Diagnosticsを実行する。
 3. `instrument inspect`で構成を人間向けに表示する。
 4. `render note`でNote On / Off Event列を生成する。
@@ -3515,14 +3515,14 @@ DefinitionをCLIからValidation・Inspectし、単音またはMIDI Fileを同�
 11. Basic Poly Synth Definitionを調整する。
 12. CLI結合テストを追加する。
 
-### MIDI AdapterのMVP規則
+### MIDI Adapterの実装規則
 
 - Note On velocity 0はNote Offとして扱う
 - MIDI ChannelはNote ID生成に利用する
 - Note IDはChannel、Note Number、発音Serialから生成
 - Tempo Eventを解釈する
 - Sustain Pedalは無視し、InfoまたはWarningを出すか明示的に非対応とする
-- Pitch Bend等のMVP外Eventは無視する規則を文書化
+- Pitch Bend等の未対応Eventは無視する規則を文書化
 - Track順による同一Tick Event順序を安定させる
 
 ### 不変条件
@@ -3551,15 +3551,15 @@ DefinitionをCLIからValidation・Inspectし、単音またはMIDI Fileを同�
 ### Reference Instrument完成条件
 
 - Headroomを持つ
-- P1全機能を使用
+- 演奏可能シンセの全機能を使用
 - Bass / Pluck向けの明確なCharacter
 - Review PhraseでClippingしない
 - Sine / Saw切替版を必要なら比較可能
-- DefinitionにMVP外Fieldを使わない
+- Definitionに未対応Fieldを使わない
 
 ### 成果物
 
-- P1 CLI
+- 演奏可能シンセのCLI
 - MIDI Adapter
 - Basic Poly Synth
 - Review MIDI
@@ -3568,13 +3568,13 @@ DefinitionをCLIからValidation・Inspectし、単音またはMIDI Fileを同�
 ### ドキュメント更新
 
 - `README.md`
-  - P1 Quick Start
+  - 演奏可能シンセ Quick Start
 - `docs/cli.md`
   - Command、Option、Exit Code、例
 - `docs/instrument-definition.md`
   - Basic Poly Synth完全JSON
 - `docs/testing-and-sound-review.md`
-  - P1 Review入力
+  - 演奏可能シンセのReview入力
 
 ### 完了条件
 
@@ -3582,7 +3582,7 @@ DefinitionをCLIからValidation・Inspectし、単音またはMIDI Fileを同�
 - MIDI FileからSample Accurate Eventを生成できる
 - Basic Poly Synthを同じCore RuntimeでRenderできる
 - 全CLI Test成功
-- P1 Review Package生成の前提が揃う
+- 演奏可能シンセのReview Package生成の前提が揃う
 
 ### 非対象
 
@@ -3594,20 +3594,20 @@ DefinitionをCLIからValidation・Inspectし、単音またはMIDI Fileを同�
 
 ---
 
-## 20.8 P1-7：音質Review・修正・P1完了判定
+## 20.8 音質Review・修正・演奏可能シンセの完了判定
 
 ### 目的
 
-P1の自動テストで壊れていないことを確認したうえで、AIエージェントが比較可能な試聴資料を生成し、人間がOscillator Instrumentとしての音質を承認できる状態にする。
+演奏可能シンセの自動テストで壊れていないことを確認したうえで、比較可能な試聴資料を生成し、人間がOscillator Instrumentとしての音質を承認できる状態にする。
 
 ### 前提
 
-- P1-1〜P1-6完了
-- 全P1自動テスト成功
+- DefinitionからCLIまで完了
+- 演奏可能シンセの全自動テスト成功
 
 ### 参照設計
 
-- §17.1〜17.4 P1 Review
+- §17.1〜17.4 演奏可能シンセのReview
 - §12.2 Saw品質確認
 - §16 機械的音声確認
 
@@ -3626,11 +3626,11 @@ P1の自動テストで壊れていないことを確認したうえで、AIエ�
 5. Peak / RMS / DC /基本周波数 /大きな不連続を計算する。
 6. Saw Spectrumを参考としてMetricsへ追加する。
 7. `review-summary.md`へ各WAVの目的と懸念を書く。
-8. AIは音質合否を記載せず、人間へ具体的な確認項目を提示する。
+8. 音質の合否は自動判定せず、人間へ具体的な確認項目を提示する。
 9. 人間の回答を記録する。
 10. 修正指示があれば再現条件へ落とし込み、関連Taskへ戻る。
 11. 同じ条件で修正前後WAVを再生成する。
-12. 人間の明示的承認後にP1を完了する。
+12. 人間の明示的承認後に演奏可能シンセを完了する。
 
 ### Review Package
 
@@ -3659,28 +3659,28 @@ review-output/p1/
 - Voice Stealingが目立たないか
 - Filter / Velocity Responseは自然か
 - 楽曲で使いたい基礎音色か
-- P2へ進めてよいか
+- Hybrid Instrumentへ進めてよいか
 
 ### 不変条件
 
-- AIは「機械検査合格＝音質合格」としない
+- 機械検査の合格を音質合格とみなさない
 - Review条件を修正ごとに変更しない
 - Definition調整とDSP修正を区別して報告する
 - 不都合なWAVを省略しない
-- 人間承認なしでP2へ進まない
+- 人間承認なしでHybrid Instrumentへ進まない
 
 ### 成果物
 
-- P1 Review Package一式
+- 演奏可能シンセのReview Package一式
 - 人間の評価結果
 - 修正があった場合の前後比較WAV
-- P1承認時のDefinition / MIDI / Metrics
-- P2着手可否の記録
+- 演奏可能シンセ承認時のDefinition / MIDI / Metrics
+- Hybrid Instrument着手可否の記録
 
 ### ドキュメント更新
 
 - `docs/testing-and-sound-review.md`
-  - P1 Review条件
+  - 演奏可能シンセのReview条件
   - 人間の評価項目
   - 修正・再評価手順
 - `README.md`
@@ -3688,12 +3688,12 @@ review-output/p1/
 
 ### 完了条件
 
-- 全P1 Code / Test / Docs完了
+- 演奏可能シンセの全Code / Test / Docs完了
 - Review Package完全
 - 既知の制約が記録済み
-- 人間がP1音質を承認
+- 人間が演奏可能シンセの音質を承認
 - 承認時のDefinition / MIDI / Metricsを特定可能
-- P2着手可能と明示
+- Hybrid Instrument着手可能と明示
 
 ### 非対象
 
@@ -3702,19 +3702,19 @@ review-output/p1/
 - Modulation Matrix
 - Realtime Device
 - JUCE
-- P1の音質問題をSampleやEffectで隠すこと
+- 演奏可能シンセの音質問題をSampleやEffectで隠すこと
 
 ---
 
-# 21. P2実装計画：最小Hybrid Instrument
+# 21. Hybrid Instrumentの実装計画
 
-## 21.1 P2の目的と完了状態
+## 21.1 Hybrid Instrumentの目的と完了状態
 
 ### 目的
 
-P1で承認されたOscillator InstrumentへSample Layerを追加し、同じNoteから複数Layerを発音・混合する。Sonalloyの差別化である「異なる方式の融合」を実際の音で成立させる。
+演奏可能シンセで承認されたOscillator InstrumentへSample Layerを追加し、同じNoteから複数Layerを発音・混合する。Sonalloyの差別化である「異なる方式の融合」を実際の音で成立させる。
 
-### P2完了時のEnd-to-End
+### Hybrid Instrumentの完了時のEnd-to-End
 
 ```text
 metallic-hybrid.json
@@ -3731,7 +3731,7 @@ metallic-hybrid.json
                   → Human Review
 ```
 
-### P2受入Command
+### Hybrid Instrumentの受入Command
 
 ```bash
 sonalloy instrument validate examples/instruments/metallic-hybrid.json
@@ -3747,15 +3747,15 @@ sonalloy render midi \
 
 ---
 
-## 21.2 P2-1：複数Layer Definition・Compile・Runtime
+## 21.2 複数Layer Definition・Compile・Runtime
 
 ### 目的
 
-P1の一Layer制約を解除し、一つのNoteから複数LayerをTrigger・初期化・Render・終了できるようにする。
+演奏可能シンセの一Layer制約を解除し、一つのNoteから複数LayerをTrigger・初期化・Render・終了できるようにする。
 
 ### 前提
 
-- P1完了・人間承認済み
+- 演奏可能シンセの完了・人間承認済み
 
 ### 参照設計
 
@@ -3770,11 +3770,11 @@ P1の一Layer制約を解除し、一つのNoteから複数LayerをTrigger・初
 - `sonalloy-core::compiler::layer`
 - `sonalloy-core::runtime::layer`
 - `sonalloy-core::runtime::voice`
-- P2 Definition Fixture
+- Hybrid InstrumentのDefinition Fixture
 
 ### 実装順
 
-1. P1の有効Layer数1制約をP2 Compilerから解除する。
+1. 演奏可能シンセの有効Layer数1制約をHybrid InstrumentのCompilerから解除する。
 2. Layer ID重複Validationを維持する。
 3. Layer TriggerをCompiled値へ変換する。
 4. Voice RuntimeがCompiled Layer数分のLayer Runtimeを持つようにする。
@@ -3796,7 +3796,7 @@ P1の一Layer制約を解除し、一つのNoteから複数LayerをTrigger・初
 - Voice FilterはLayer Mix後に一度だけ適用
 - Layer順で音量結果が変わらない加算にする
 - Layer数に応じたRuntime容量はInstantiate / Prepareで確定
-- P1 Definitionをそのまま読み込める
+- 演奏可能シンセのDefinitionをそのまま読み込める
 
 ### Unit Test
 
@@ -3834,7 +3834,7 @@ P1の一Layer制約を解除し、一つのNoteから複数LayerをTrigger・初
 - Multi Layer Definition / Compiler / Runtime
 - Trigger
 - Layer Mix
-- P1互換Test
+- 演奏可能シンセ互換Test
 
 ### ドキュメント更新
 
@@ -3850,7 +3850,7 @@ P1の一Layer制約を解除し、一つのNoteから複数LayerをTrigger・初
 - 一つのVoice内で複数Oscillator Layerを発音できる
 - TriggerがKey / Velocityどおり
 - Note OffとVoice終了が正しい
-- P1 Definition / Review音が退行していない
+- 演奏可能シンセのDefinition / Review音が退行していない
 - Runtime容量がProcess中に増えない
 
 ### 非対象
@@ -3863,7 +3863,7 @@ P1の一Layer制約を解除し、一つのNoteから複数LayerをTrigger・初
 
 ---
 
-## 21.3 P2-2：Asset Reference・Decode・Downmix・Resample・Prepared Sample
+## 21.3 Asset Reference・Decode・Downmix・Resample・Prepared Sample
 
 ### 目的
 
@@ -3871,7 +3871,7 @@ Definitionが参照するWAV AssetをControl側で解決・検証・Decode・Eng
 
 ### 前提
 
-- P2-1完了
+- 複数Layer領域完了
 
 ### 参照設計
 
@@ -3899,7 +3899,7 @@ pub struct SampleDefinition {
 }
 ```
 
-MVPで許可：
+許可する値：
 
 - `playback_mode = one_shot`
 - `interpolation = cubic`
@@ -3989,7 +3989,7 @@ Then：
 
 ### Reference Asset
 
-Assetが未提供の場合、実装エージェントは決定論的なMetal Hit Fixtureを生成する。  
+Assetが未提供の場合、決定論的なMetal Hit Fixtureを生成する。
 生成方法、License、Sample Rate、Bit Depth、Root Noteの根拠を`testdata/assets/README.md`へ記録する。
 
 ### 成果物
@@ -4035,7 +4035,7 @@ Assetが未提供の場合、実装エージェントは決定論的なMetal Hit
 
 ---
 
-## 21.4 P2-3：Sample Runtime・Pitch Playback・Interpolation・終了処理
+## 21.4 Sample Runtime・Pitch Playback・Interpolation・終了処理
 
 ### 目的
 
@@ -4043,7 +4043,7 @@ Prepared SampleをRoot Noteから音程展開し、One-shot Sample Layerとし�
 
 ### 前提
 
-- P2-2完了
+- Asset領域完了
 
 ### 参照設計
 
@@ -4191,7 +4191,7 @@ pub struct SampleRuntime {
 
 ---
 
-## 21.5 P2-4：Hybrid統合・Velocity Response・Missing Asset動作
+## 21.5 Hybrid統合・Velocity Response・Missing Asset動作
 
 ### 目的
 
@@ -4199,14 +4199,14 @@ Oscillator LayerとSample Layerを同じVoice内で同時発音し、Velocity Re
 
 ### 前提
 
-- P2-3完了
+- Sample Runtime領域完了
 
 ### 参照設計
 
 - §10 Layer Runtimeと信号処理
 - §5.3 Velocity Response
 - §6.4 Missing Asset
-- §17.6 P2人間評価
+- §17.6 Hybrid Instrumentの人間評価
 
 ### 主な対象
 
@@ -4228,7 +4228,7 @@ Oscillator LayerとSample Layerを同じVoice内で同時発音し、Velocity Re
 9. Note Offを全Active Layerへ伝える。
 10. 全Layer終了でVoiceを終了する。
 11. Hybrid Integration Testを追加する。
-12. P1 Regression Testを再実行する。
+12. 演奏可能シンセのRegression Testを再実行する。
 
 ### 不変条件
 
@@ -4239,7 +4239,7 @@ Oscillator LayerとSample Layerを同じVoice内で同時発音し、Velocity Re
 - Missing Asset WarningをRuntimeで再生成しない
 - Disabled LayerをProcessしない
 - Sample不足時にOscillator音を変化させない
-- Hybrid追加でP1 Basic Poly Synthの出力を不要に変えない
+- Hybrid追加で演奏可能シンセのBasic Poly Synthの出力を不要に変えない
 
 ### 結合テスト
 
@@ -4273,8 +4273,8 @@ Oscillator LayerとSample Layerを同じVoice内で同時発音し、Velocity Re
 
 #### Regression
 
-- P1 Review Definition
-- P1 Metrics
+- 演奏可能シンセのReview Definition
+- 演奏可能シンセのMetrics
 - Event Timing
 - Voice Stealing
 
@@ -4301,7 +4301,7 @@ Oscillator LayerとSample Layerを同じVoice内で同時発音し、Velocity Re
 - Layer単体とMixを生成可能
 - Velocity Responseが仕様どおり
 - Missing AssetでOscillatorが継続
-- P1 Regression成功
+- 演奏可能シンセのRegression成功
 - Review用音声を生成できる状態
 
 ### 非対象
@@ -4314,21 +4314,21 @@ Oscillator LayerとSample Layerを同じVoice内で同時発音し、Velocity Re
 
 ---
 
-## 21.6 P2-5：Metallic Hybrid・CLI統合・Fixture完成
+## 21.6 Metallic Hybrid・CLI統合・Fixture完成
 
 ### 目的
 
-P2機能を一つのReference Instrumentとしてまとめ、CLIからValidation・Inspect・MIDI Renderできる状態を作る。
+Hybrid Instrumentの機能を一つのReference Instrumentとしてまとめ、CLIからValidation・Inspect・MIDI Renderできる状態を作る。
 
 ### 前提
 
-- P2-4完了
+- Hybrid統合領域完了
 
 ### 参照設計
 
 - §1.2 Metallic Hybrid
 - §15 CLI
-- §17.5 P2試聴用音源
+- §17.5 Hybrid Instrumentの試聴用音源
 - §13.2 Reference Sample
 
 ### 主な対象
@@ -4350,7 +4350,7 @@ P2機能を一つのReference Instrumentとしてまとめ、CLIからValidation
 7. `instrument validate`でAsset状態を表示する。
 8. `instrument inspect`でLayer / Asset / Disabled状態を表示する。
 9. `render note`でHybridをRenderする。
-10. `render midi`でP2 Review MIDIをRenderする。
+10. `render midi`でHybrid InstrumentのReview MIDIをRenderする。
 11. Missing Asset Fixtureを用意する。
 12. CLI結合テストを追加する。
 13. Clippingや明確なClickを自動確認する。
@@ -4377,7 +4377,7 @@ P2機能を一つのReference Instrumentとしてまとめ、CLIからValidation
 ### 不変条件
 
 - Effectで問題を隠さない
-- P2外FieldをDefinitionへ追加しない
+- 未対応FieldをDefinitionへ追加しない
 - 外部SampleのLicense不明状態でRepositoryへCommitしない
 - Review MIDIを修正ごとに都合よく変更しない
 - CLIがSample Decodeを直接行わない
@@ -4399,9 +4399,9 @@ P2機能を一つのReference Instrumentとしてまとめ、CLIからValidation
 
 - Metallic Hybrid Definition
 - Reference Sample + Provenance
-- P2 Review MIDI
+- Hybrid InstrumentのReview MIDI
 - Missing Asset Fixture
-- CLI P2対応
+- CLIでのHybrid Instrument対応
 - End-to-End Test
 
 ### ドキュメント更新
@@ -4409,21 +4409,21 @@ P2機能を一つのReference Instrumentとしてまとめ、CLIからValidation
 - `README.md`
   - Metallic Hybrid Quick Start
 - `docs/instrument-definition.md`
-  - P2完全JSON
+  - Hybrid Instrumentの完全JSON
 - `docs/cli.md`
   - Asset Warning / Hybrid Render
 - `testdata/assets/README.md`
   - Provenance
 - `docs/testing-and-sound-review.md`
-  - P2 Review入力
+  - Hybrid InstrumentのReview入力
 
 ### 完了条件
 
 - CLIでHybridをValidation / Inspect / Renderできる
 - Reference Assetの権利と技術情報が明確
 - Missing Asset Fixtureが再現可能
-- P2 Review Package生成の入力が固定
-- 全P2自動テスト成功
+- Hybrid InstrumentのReview Package生成の入力が固定
+- Hybrid Instrumentの全自動テスト成功
 
 ### 非対象
 
@@ -4435,33 +4435,33 @@ P2機能を一つのReference Instrumentとしてまとめ、CLIからValidation
 
 ---
 
-## 21.7 P2-6：音質・Hybrid価値Review・MVP完了判定
+## 21.7 音質・Hybrid価値Review・対象範囲全体の完了判定
 
 ### 目的
 
-Hybrid Instrumentの機械的正常性だけでなく、SampleとOscillatorが一つの音色として成立しているかを人間が判断できる資料を生成し、Core MVPを正式に完了する。
+Hybrid Instrumentの機械的正常性だけでなく、SampleとOscillatorが一つの音色として成立しているかを人間が判断できる資料を生成し、Coreを正式に完了する。
 
 ### 前提
 
-- P2-1〜P2-5完了
-- P1 Regressionを含む全自動テスト成功
+- 複数LayerからReference Hybridまで完了
+- 演奏可能シンセのRegressionを含む全自動テスト成功
 
 ### 参照設計
 
-- §17.5〜17.7 P2 Review
-- §2.3 MVP品質
-- §24 MVP全体完了条件
+- §17.5〜17.7 Hybrid InstrumentのReview
+- §2.3 対象範囲の品質
+- §24 対象範囲全体の完了条件
 
 ### 主な対象
 
 - `review-output/p2`
 - Review生成Script / CLI
 - `docs/testing-and-sound-review.md`
-- MVP完了Report
+- 対象範囲全体の完了Report
 
 ### 実装順
 
-1. P2 Review Definition、MIDI、Assetを固定する。
+1. Hybrid InstrumentのReview Definition、MIDI、Assetを固定する。
 2. Source Sample原音をPackageへ含める。
 3. Root Note Decode / Resample版を生成する。
 4. ±12 semitone Pitch Rangeを生成する。
@@ -4472,11 +4472,11 @@ Hybrid Instrumentの機械的正常性だけでなく、SampleとOscillatorが�
 9. Musical Phraseを生成する。
 10. Missing Asset Fallbackを生成する。
 11. Peak / RMS / DC / Pitch /終端不連続をMetricsへ記録する。
-12. AIが各Layerの意図、既知の制約、確認点をまとめる。
+12. 各Layerの意図、既知の制約、確認点をまとめる。
 13. 人間へ音質・Hybrid価値の判断を依頼する。
 14. 修正指示があれば、Definition調整かDSP修正か分類する。
 15. 同じ入力条件で修正前後を再生成する。
-16. 人間承認後、MVP完了Reportを作る。
+16. 人間承認後、対象範囲全体の完了Reportを作る。
 
 ### Review Package
 
@@ -4502,7 +4502,7 @@ review-output/p2/
 ### 人間に求める判断
 
 - Decode / Resampleで原音が不自然に変化していないか
-- Pitch RangeがMVP用途で許容できるか
+- Pitch Rangeが対象用途で許容できるか
 - Sample終端にClickがないか
 - Attack Layerが役割を果たしているか
 - Body Layerが芯と余韻を作っているか
@@ -4510,37 +4510,37 @@ review-output/p2/
 - Velocity Responseは自然か
 - Musical Phraseで使いたい音か
 - SonalloyのHybrid価値を確認できたか
-- Core MVPを完了してよいか
+- Coreを完了してよいか
 
 ### 不変条件
 
-- AIはHybrid価値を自己承認しない
+- Hybrid価値は自動判定せず、人間が確認する
 - Source / Solo / Mixをすべて提示する
 - 修正ごとに入力条件を変えない
 - Sampleの権利情報をPackageから外さない
-- 音質問題をMVP外Effect追加で解決しない
-- 人間承認前にMVP完了と記録しない
+- 音質問題を未対応Effect追加で解決しない
+- 人間承認前に対象範囲全体の完了と記録しない
 
-### MVP完了Report
+### 対象範囲全体の完了Report
 
 以下を記載する。
 
 - 完了したScope
-- MVP外へ残した機能
+- 未対応へ残した機能
 - Build / Test結果
-- P1 / P2 Review承認
+- 演奏可能シンセ / Hybrid InstrumentのReview承認
 - Reference Instrument
 - 既知の制約
-- P3へ持ち越す課題
+- 将来拡張へ持ち越す課題
 - 文書一覧
 - Reproduction Command
 
 ### 成果物
 
-- P2 Review Package一式
+- Hybrid InstrumentのReview Package一式
 - 人間の評価結果
 - 修正があった場合の前後比較WAV
-- MVP完了Report
+- 対象範囲全体の完了Report
 - 承認済みMetallic Hybrid Definition / MIDI / Asset / Metrics
 
 ### ドキュメント更新
@@ -4548,7 +4548,7 @@ review-output/p2/
 - `README.md`
   - 承認済みMetallic Hybridの再現Command
 - `docs/testing-and-sound-review.md`
-  - P2 Review条件
+  - Hybrid InstrumentのReview条件
   - Hybrid価値の評価項目
   - 修正・再評価手順
 - 関連する全設計文書
@@ -4556,11 +4556,11 @@ review-output/p2/
 
 ### 完了条件
 
-- P2全自動テスト成功
-- P1 Regression成功
-- P2 Review Package完全
+- Hybrid Instrumentの全自動テスト成功
+- 演奏可能シンセのRegression成功
+- Hybrid InstrumentのReview Package完全
 - 人間が音質とHybrid価値を承認
-- MVP完了Report作成
+- 対象範囲全体の完了Report作成
 - README / Architecture / Definition / Runtime / CLI / Test文書更新
 - Windows / Linuxで受入Command成功
 - Scope外機能が混入していない
@@ -4576,7 +4576,7 @@ review-output/p2/
 - Realtime
 - JUCE
 - Plugin
-- P3の設計開始
+- 将来拡張の設計開始
 
 ---
 
@@ -4585,7 +4585,7 @@ review-output/p2/
 ## 22.1 README.md
 
 - Sonalloyの概要
-- MVPでできること
+- 対象範囲でできること
 - Windows / Linux Build
 - Test
 - CLI最短例
@@ -4612,7 +4612,7 @@ review-output/p2/
 - Oscillator Layer
 - Sample Layer
 - Velocity Response
-- P1 / P2完全JSON
+- 演奏可能シンセ / Hybrid Instrumentの完全JSON
 - Validation Error例
 
 ## 22.4 docs/runtime-processing.md
@@ -4646,7 +4646,7 @@ review-output/p2/
 - CI
 - Metrics
 - Review Package
-- P1 / P2のWAV生成条件
+- 演奏可能シンセ / Hybrid InstrumentのWAV生成条件
 - 人間の評価
 - 再評価
 
@@ -4664,20 +4664,20 @@ License名や原文のCopyright Noticeは改変しない。
 
 ---
 
-# 23. AIエージェントの作業ルール
+# 23. 実装の作業ルール
 
 ## 23.1 実装前
 
 1. 元要件と本書を読む
 2. Repositoryの現状を確認
-3. 対象フェーズとの差分を整理
-4. 変更対象をフェーズ内に限定
+3. 対象範囲との差分を整理
+4. 変更対象を領域内に限定
 5. 既存Codeの責務を確認
 
 ## 23.2 実装中に禁止すること
 
-- 複数フェーズを同時に完了させる
-- MVP外機能を先行実装
+- 複数領域を同時に完了させる
+- 未対応機能を先行実装
 - Crateを勝手に増やす
 - DSP Libraryを勝手に増やす
 - JUCEを追加
@@ -4694,16 +4694,16 @@ License名や原文のCopyright Noticeは改変しない。
 
 - 必要な変更
 - 現在の設計では不可能な理由
-- MVPへの影響
+- 対象範囲への影響
 - 代替案
 - 追加依存
 - 後戻り範囲
 
 承認前にScopeを変更しない。
 
-## 23.4 フェーズ終了報告
+## 23.4 領域終了報告
 
-1. フェーズ目的
+1. 目的
 2. 実装内容
 3. 主要File
 4. Contract変更
@@ -4718,7 +4718,7 @@ License名や原文のCopyright Noticeは改変しない。
 
 ---
 
-# 24. MVP全体の完了条件
+# 24. 対象範囲全体の完了条件
 
 ## 24.1 機能
 
@@ -4747,8 +4747,8 @@ License名や原文のCopyright Noticeは改変しない。
 - Reset再現性
 - Block SizeでTiming不変
 - Windows / Linux Test成功
-- P1人間承認
-- P2人間承認
+- 演奏可能シンセの人間承認
+- Hybrid Instrumentの人間承認
 
 ## 24.3 ドキュメント
 
@@ -4768,11 +4768,11 @@ License名や原文のCopyright Noticeは改変しない。
 
 ## 25.1 スコープ整合
 
-- P0〜P2の目的は元要件の「音声素材と音響合成の融合」に一致している。
-- MVPのGeneratorはSine / Saw Oscillatorと単一Sampleに限定した。
+- 音声処理基盤〜Hybrid Instrumentの目的は元要件の「音声素材と音響合成の融合」に一致している。
+- 対象範囲で使用するGeneratorはSine / Saw Oscillatorと単一Sampleに限定した。
 - Noise、複数Sample Zone、Round Robin、Loop、汎用Modulation、Effectsを戻していない。
-- P1でSynth品質を承認してからP2へ進むため、問題原因を分離できる。
-- P2で同じVoice内のLayer融合を実装し、Sonalloy固有価値を検証できる。
+- 演奏可能シンセでSynth品質を承認してからHybrid Instrumentへ進むため、問題原因を分離できる。
+- Hybrid Instrumentで同じVoice内のLayer融合を実装し、Sonalloy固有価値を検証できる。
 - JUCE、Realtime Device、PluginはAdapter段階まで延期している。
 
 ## 25.2 詳細設計と実装計画の対応
@@ -4781,29 +4781,29 @@ License名や原文のCopyright Noticeは改変しない。
 
 | 詳細設計 | 主な実装パッケージ |
 |---|---|
-| Repository /依存境界 | P0-1 |
-| Rust–DaisySP FFI | P0-2、P1-5 |
-| Process Contract | P0-3 |
-| Offline Render / Diagnostics | P0-4 |
-| Definition / Validation | P1-1 |
-| Compiled Instrument | P1-2 |
-| ADSR / Voice / Stealing | P1-3 |
-| Sample Accurate Event | P1-4 |
-| Oscillator / Filter / Mix | P1-5 |
-| CLI / MIDI | P1-6 |
-| P1音質Review | P1-7 |
-| 複数Layer | P2-1 |
-| Asset Compile | P2-2 |
-| Sample Runtime | P2-3 |
-| Hybrid / Missing Asset | P2-4 |
-| Reference Hybrid / CLI | P2-5 |
-| P2音質Review / MVP完了 | P2-6 |
+| Repository /依存境界 | Workspace領域 |
+| Rust–DaisySP FFI | FFI領域、Oscillator統合領域 |
+| Process Contract | Process Contract領域 |
+| Offline Render / Diagnostics | Renderer領域 |
+| Definition / Validation | Definition領域 |
+| Compiled Instrument | Compiler領域 |
+| ADSR / Voice / Stealing | Voice領域 |
+| Sample Accurate Event | Event領域 |
+| Oscillator / Filter / Mix | Oscillator統合領域 |
+| CLI / MIDI | CLI領域 |
+| 演奏可能シンセの音質Review | 音質確認領域 |
+| 複数Layer | 複数Layer領域 |
+| Asset Compile | Asset領域 |
+| Sample Runtime | Sample Runtime領域 |
+| Hybrid / Missing Asset | Hybrid統合領域 |
+| Reference Hybrid / CLI | Reference Hybrid領域 |
+| Hybrid Instrument音質Review / 対象範囲全体の完了 | 全体音質確認領域 |
 
 設計だけ存在して実装順へ落ちていない主要項目、または設計にない大きな作業は残していない。
 
 ## 25.3 各作業パッケージの実行可能性
 
-P0-1〜P2-6の全パッケージについて、次を記載した。
+音声処理基盤の準備からHybrid Instrumentの仕上げまでの全パッケージについて、次を記載した。
 
 - 目的
 - 前提
@@ -4817,7 +4817,7 @@ P0-1〜P2-6の全パッケージについて、次を記載した。
 - 完了条件
 - 非対象
 
-実装エージェントが作業名だけから独自設計する必要を減らし、1〜17章の設計へ戻れる構造にした。
+作業名だけから独自設計する必要を減らし、1〜17章の設計へ戻れる構造にした。
 
 ## 25.4 オーバーエンジニアリングの抑制
 
@@ -4831,15 +4831,15 @@ P0-1〜P2-6の全パッケージについて、次を記載した。
 - Voice Loudnessは厳密解析ではなくSteal選択用の簡易推定
 - Sampleは一Layer一Asset、One-shot、Mono内部再生
 - CLIはValidation / Inspect / Render中心
-- 音質問題をMVP外Effectで隠さない
+- 音質問題を未対応Effectで隠さない
 
 ## 25.5 品質確認
 
 - 自動TestはBuffer、Timing、状態遷移、再現性、明確な不連続を確認する。
 - Spectrumなどは人間Reviewの参考情報に留める。
-- P1 / P2で固定条件のReview Packageを生成する。
-- AIは音質を自己承認しない。
-- 人間の承認をフェーズ完了条件とする。
+- 演奏可能シンセ / Hybrid Instrumentで固定条件のReview Packageを生成する。
+- 音質は自動判定せず、人間が確認する。
+- 人間の承認を各領域の完了条件とする。
 - 修正時は同じ入力条件の前後比較を生成する。
 
 ## 25.6 Test配置と依存
@@ -4864,7 +4864,7 @@ P0-1〜P2-6の全パッケージについて、次を記載した。
 - `THIRD_PARTY_NOTICES.md`
 - `testdata/assets/README.md`
 
-各作業パッケージに更新対象を紐づけ、MVP終了時だけまとめて書く構造にしていない。
+各作業パッケージに更新対象を紐づけ、対象範囲全体の完了時だけまとめて書く構造にしていない。
 
 ## 25.8 HTML / Markdown同一性
 
@@ -4874,12 +4874,12 @@ Markdownを唯一の正本とする。HTMLは同じMarkdown本文を省略せず
 
 - 全見出しがHTMLに存在する
 - Markdown本文の主要TextがHTMLに存在する
-- P0-1〜P2-6の全作業パッケージがHTMLに存在する
+- 音声処理基盤の準備からHybrid Instrumentの仕上げまでの全作業パッケージがHTMLに存在する
 - HTML / Markdownの本文量に大きな差がない
 
 ## 25.9 最終判断
 
-本書は、Sonalloy Core MVPについて、次の二つを一つの文書で接続している。
+本書は、Sonalloy Coreについて、次の二つを一つの文書で接続している。
 
 1. どのような仕組みにするかを定める詳細設計
 2. その設計をどの順番で実装・検証・承認するかを定める実装計画
@@ -4888,4 +4888,4 @@ Markdownを唯一の正本とする。HTMLは同じMarkdown本文を省略せず
 
 > 保存可能なInstrument Definition、安定したVoice / DSP処理、Sample Layerとの融合を通じて、人間が実際に使いたいと思えるHybrid Instrumentを一つ完成させること。
 
-P0〜P2のScopeを超える機能を先回りせず、実装エージェントが各作業を具体的に開始・終了判定できる粒度まで落とし込んだ。
+音声処理基盤〜Hybrid InstrumentのScopeを超える機能を先回りせず、各作業を具体的に開始・終了判定できる粒度まで落とし込んだ。

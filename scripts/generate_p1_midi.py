@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the deterministic MIDI phrase used by the P1 review package."""
+"""Generate the deterministic MIDI phrase used by the sound review package."""
 
 from __future__ import annotations
 

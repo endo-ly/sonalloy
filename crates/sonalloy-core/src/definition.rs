@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 
-/// The only Definition schema accepted by the MVP compiler.
+/// The Definition schema accepted by the compiler.
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 
 /// Stable identifier assigned to a layer.
@@ -24,7 +24,7 @@ pub struct InstrumentDefinition {
     pub layers: Vec<LayerDefinition>,
     /// Optional filter applied after the voice layer mix.
     pub voice_filter: Option<FilterDefinition>,
-    /// Explicit velocity behavior for the P1 signal path.
+    /// Explicit velocity behavior for the signal path.
     pub velocity_response: VelocityResponseDefinition,
 }
 
@@ -48,11 +48,11 @@ pub struct InstrumentMetadata {
 pub struct PerformanceDefinition {
     /// Maximum number of simultaneous voices.
     pub polyphony: u16,
-    /// P1 voice stealing policy.
+    /// Voice stealing policy.
     pub voice_stealing: VoiceStealingDefinition,
 }
 
-/// Voice stealing policies supported by the MVP.
+/// Voice stealing policies supported by the runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VoiceStealingDefinition {
@@ -148,7 +148,7 @@ pub struct FilterDefinition {
     pub resonance: f32,
 }
 
-/// Explicit P1 velocity response.
+/// Explicit velocity response.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VelocityResponseDefinition {
@@ -204,7 +204,7 @@ impl InstrumentDefinition {
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::LayerRangeInvalid,
-                    "P1 requires exactly one enabled layer",
+                    "exactly one enabled layer is required",
                 )
                 .with_path("layers"),
             );
@@ -457,7 +457,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn p1_rejects_more_than_one_enabled_layer() {
+    fn validation_rejects_more_than_one_enabled_layer() {
         let mut value = definition();
         value.layers.push(value.layers[0].clone());
         value.layers[1].id = "second".to_owned();

@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Basic Poly Synth Poly4",
     "author": null,
-    "description": "Four-voice reference for the P1 stealing review"
+    "description": "Four-voice reference for voice stealing review"
   },
   "performance": {
     "polyphony": 4,

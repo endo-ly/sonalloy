@@ -10,7 +10,7 @@ sonalloy instrument validate <definition>
 sonalloy instrument inspect <definition>
 ```
 
-`init`は最小のP1 Definitionを生成します。`validate`はJSON Parse、Definition Validation、Compile Diagnosticsまでを行い、WAVは生成しません。`inspect`はMetadata、Polyphony、Layer Trigger、Generator、Phase Reset、P1では該当しないAsset状態、Gain、Pan、Tuning、Envelope、Voice Filter、Velocity Response、Warningを表示します。`--json`を付けると同じ構成を機械可読形式で返します。
+`init`は最小のOscillator Definitionを生成します。`validate`はJSON Parse、Definition Validation、Compile Diagnosticsまでを行い、WAVは生成しません。`inspect`はMetadata、Polyphony、Layer Trigger、Generator、Phase Reset、Oscillator Instrumentでは使用しないAssetの状態、Gain、Pan、Tuning、Envelope、Voice Filter、Velocity Response、Warningを表示します。`--json`を付けると同じ構成を機械可読形式で返します。
 
 ## Render Command
 
@@ -34,7 +34,7 @@ sonalloy render midi \
   --output out/p1-basic-poly-synth.wav
 ```
 
-MIDI FileのTick、Tempo、Channel、NoteをCLI側でAbsolute Frameの`ScheduledEvent`へ変換します。Note OnのVelocity 0はNote Offとして扱い、Note IDはChannel・Note Number・発音Serialから生成します。Sustain Pedal、Pitch Bend、Aftertouch、Program Change等のMVP外Eventは無視し、Warningを返します。Coreへ`midly`型は渡しません。
+MIDI FileのTick、Tempo、Channel、NoteをCLI側でAbsolute Frameの`ScheduledEvent`へ変換します。Note OnのVelocity 0はNote Offとして扱い、Note IDはChannel・Note Number・発音Serialから生成します。Sustain Pedal、Pitch Bend、Aftertouch、Program Change等の未対応Eventは無視し、Warningを返します。Coreへ`midly`型は渡しません。
 
 ## `dev render-sine`
 
@@ -87,7 +87,7 @@ sonalloy dev render-sine \
 }
 ```
 
-DefinitionやEventの主な診断Codeは`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`FILTER_CUTOFF_CLAMPED`、`EVENT_ORDER_INVALID`、`DSP_ERROR`です。P2のAsset処理に備えたAsset系Codeも共通Enumで予約しています。
+DefinitionやEventの主な診断Codeは`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`FILTER_CUTOFF_CLAMPED`、`EVENT_ORDER_INVALID`、`DSP_ERROR`です。Asset処理に使う診断Codeも共通Enumで定義しています。
 
 ## 責務境界
 

@@ -7,7 +7,7 @@ pub(crate) fn constant_power_pan(pan: f32) -> (f32, f32) {
     (angle.cos(), angle.sin())
 }
 
-/// Convert normalized MIDI velocity to the explicit P1 gain response.
+/// Convert normalized MIDI velocity to the explicit gain response.
 #[must_use]
 pub(crate) fn velocity_gain(velocity: u8, amount: f32) -> f32 {
     let normalized = f32::from(velocity) / 127.0;

@@ -12,7 +12,7 @@ use crate::runtime::InstrumentRuntime;
 /// Input required to compile a Definition for one engine configuration.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompileContext {
-    /// Directory used to resolve referenced assets in later phases.
+    /// Directory used to resolve referenced assets.
     pub definition_base_dir: PathBuf,
     /// Engine sample rate and block configuration.
     pub process_spec: ProcessSpec,
@@ -34,7 +34,7 @@ pub struct CompiledInstrument {
     pub metadata: CompiledMetadata,
     /// Compiled performance settings.
     pub performance: CompiledPerformance,
-    /// One validated P1 layer.
+    /// One validated oscillator layer.
     pub layers: Box<[CompiledLayer]>,
     /// Optional voice filter.
     pub voice_filter: Option<CompiledFilter>,
@@ -195,7 +195,7 @@ pub fn compile_instrument(
         diagnostics.push(
             Diagnostic::error(
                 DiagnosticCode::RequiredFieldMissing,
-                "P1 requires one enabled layer to compile",
+                "one enabled layer is required to compile",
             )
             .with_path("layers"),
         );

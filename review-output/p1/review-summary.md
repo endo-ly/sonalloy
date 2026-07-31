@@ -1,4 +1,4 @@
-# P1 Sound Review
+# Basic Poly Synth Sound Review
 
 ## Render条件
 
@@ -9,7 +9,6 @@
 - Platform：Windows
 - Rust：1.97.0
 - CMake：3.31.6
-- 作業開始時のHEAD：`267777c`
 
 ## 入力
 
@@ -31,14 +30,6 @@ python scripts/generate_p1_review.py
 ```
 
 このScriptはMIDI、基準WAV、比較用WAVを生成し、Block Size 64 / 257 / 1024で同じ入力を再RenderしてMetricsへ比較結果を保存します。
-
-## P1 Runtime修正後の再生成
-
-- Voice Stealing中に旧Envelopeが先に終了しても、Pending Noteへ同一Block内で切り替わることを自動Testで確認済み
-- Steal Fade中のPending Note Offは開始前にキャンセルし、Runtime ResetではPendingを破棄
-- Trigger不一致のNote OnはVoice Allocation前に無視
-- `phase_reset`はNote開始時だけ設定に従い、Prepare / Runtime Resetでは常にOscillatorをReset
-- 上記修正後に本Packageを再生成済み。既存の基準入力ではWAVの内容に差分はなく、Block Size比較も全件互換
 
 ## 音声一覧
 
@@ -66,21 +57,21 @@ python scripts/generate_p1_review.py
 - Block Size 64 / 257 / 1024で同じ入力を実際に再Renderし、基準WAVとの差分を比較
 - 自動Limiterや自動Normalizeで問題を隠していない
 
-## 既知の制約
+## 現在の制約
 
-- P1は有効Oscillator Layer一つに限定しています。
+- 有効Oscillator Layerは一つに限定しています。
 - Sample、Noise、Sustain Pedal、Pitch Bend、Aftertouch、Realtime Device、Pluginは対象外です。
-- MIDIのMVP外EventはWarningを出して無視します。
-- Cutoffの連続Parameter変更はP1のEventとして公開していません。Voice開始時のVelocity Responseだけを適用します。
+- 未対応のMIDI EventはWarningを出して無視します。
+- Cutoffの連続Parameter変更は公開していません。Voice開始時のVelocity Responseだけを適用します。
 - Metricsと自動Testは、音の魅力・自然さ・Alias感・演奏感を判定しません。
 
-## AIが認識した懸念
+## 試聴時の注意
 
 隣接Frame差分を0.25以上とする機械的な候補検出は、Saw波形の通常の急峻な変化や複数Voiceの重なりでも発生し得る値です。クリックの有無は判定していないため、該当WAVのVoice Stealing、Note境界、Phrase冒頭を重点的に試聴してください。Block Size比較は`metrics.json`の`block_size_comparisons`に記録します。
 
 ## 人間の確認欄
 
-次の項目を試聴して記録してください。未確認のままP2へ進めません。
+次の項目を試聴して記録してください。
 
 - [ ] SawのC6付近に明確な耳障りさがない
 - [ ] Note On / Note Off境界にClickがない
@@ -91,7 +82,6 @@ python scripts/generate_p1_review.py
 - [ ] Filterの変化が滑らかである
 - [ ] Velocity Responseが自然である
 - [ ] Bass / Lead / Pluckの素材として使いたい
-- [ ] P2へ進めてよい
 
 ### 人間の回答
 

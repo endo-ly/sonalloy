@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the machine-readable metrics for the P1 review package."""
+"""Generate machine-readable metrics for the sound review package."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def main() -> None:
             for name in all_names
         },
     }
-    with tempfile.TemporaryDirectory(prefix="sonalloy-p1-blocks-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="sonalloy-review-blocks-") as temporary:
         temporary_dir = Path(temporary)
         block_comparisons = {}
         for job in PRIMARY_RENDERS:

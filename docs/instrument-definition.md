@@ -2,7 +2,7 @@
 
 Instrument Definitionは、編集・保存・差分管理するJSONの正本です。Audio処理はDefinitionを直接参照せず、`compile_instrument`で`CompiledInstrument`へ変換された値だけを使用します。
 
-## P1の完全なDefinition
+## 完全なDefinition
 
 ```json
 {
@@ -10,7 +10,7 @@ Instrument Definitionは、編集・保存・差分管理するJSONの正本で�
   "metadata": {
     "name": "Basic Poly Synth",
     "author": null,
-    "description": "A headless P1 oscillator instrument"
+    "description": "A headless oscillator instrument"
   },
   "performance": {
     "polyphony": 16,
@@ -54,7 +54,7 @@ Instrument Definitionは、編集・保存・差分管理するJSONの正本で�
 }
 ```
 
-## P1の制約
+## Definitionの制約
 
 - `schema_version`は`1`だけを受け付ける。
 - `layers`は配列で保存し、有効Layerをちょうど1個にする。

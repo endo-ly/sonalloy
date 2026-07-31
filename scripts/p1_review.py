@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared manifest and render helpers for the deterministic P1 review package."""
+"""Shared manifest and render helpers for the deterministic sound review package."""
 
 from __future__ import annotations
 

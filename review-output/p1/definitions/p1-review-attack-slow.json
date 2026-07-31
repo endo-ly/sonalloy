@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "metadata": {
-    "name": "P1 Review Slow Attack",
+    "name": "Slow Attack",
     "author": null,
-    "description": "P1 envelope review with a slow attack and long release"
+    "description": "Envelope review with a slow attack and long release"
   },
   "performance": {
     "polyphony": 16,

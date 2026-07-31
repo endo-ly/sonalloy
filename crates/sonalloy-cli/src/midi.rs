@@ -120,7 +120,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                             diagnostics.push(
                                 Diagnostic::warning(
                                     DiagnosticCode::MidiError,
-                                    "sustain pedal event ignored by the MVP",
+                                    "sustain pedal event is not supported and was ignored",
                                 )
                                 .with_path(format!("track[{track_index}].event[{event_index}]")),
                             );
@@ -133,7 +133,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                             diagnostics.push(
                                 Diagnostic::warning(
                                     DiagnosticCode::MidiError,
-                                    "unsupported MIDI event ignored by the MVP",
+                                    "unsupported MIDI event was ignored",
                                 )
                                 .with_path(format!("track[{track_index}].event[{event_index}]")),
                             );

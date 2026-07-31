@@ -24,7 +24,7 @@
 - Process領域の前後にGuardを置くTestでは、領域外が変更されていないことを確認します。
 - Native境界を含むTestは、Linux CIでAddressSanitizer、UndefinedBehaviorSanitizer、Leak Detectionの対象にします。
 
-## P1自動検証
+## 自動検証
 
 - DefinitionのSchema Version、未知Field、必須Field、Range、Layer数、ID重複、NaN/Infinityを検証します。
 - CompilerのdB→Linear、cent→Ratio、ADSR Frame変換、Filter Cutoff ClampとWarningを検証します。
@@ -40,9 +40,9 @@
 - Review Artifactには、音声、Metrics、Render条件、受入結果を保存します。
 - 自動TestではWAV Metadata、Finite性、再現性、Metricsを確認し、音質の最終判断は人間が行います。
 
-## P1 Review Package
+## Review Package
 
-P1の試聴資料は`review-output/p1/`へ保存します。
+試聴資料は`review-output/p1/`へ保存します。
 
 ```text
 review-output/p1/
@@ -72,4 +72,4 @@ Review資料の刺激条件を変えずに再生成する場合は、次を実�
 python scripts/generate_p1_review.py
 ```
 
-SawのFilter開閉は`02-saw-registers.wav`と`02-saw-registers-filter-closed.wav`、Attack/Releaseは`03-attack-release.wav`と`03-attack-release-slow-attack.wav`を同じヘッドホン/音量で比較します。P1の実装範囲では音色の最終的な魅力を自動判定せず、人間が試聴します。
+SawのFilter開閉は`02-saw-registers.wav`と`02-saw-registers-filter-closed.wav`、Attack/Releaseは`03-attack-release.wav`と`03-attack-release-slow-attack.wav`を同じヘッドホン/音量で比較します。音色の最終的な魅力は自動判定せず、人間が試聴します。

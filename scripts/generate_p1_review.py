@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the complete deterministic P1 review package."""
+"""Generate the complete deterministic sound review package."""
 
 from __future__ import annotations
 

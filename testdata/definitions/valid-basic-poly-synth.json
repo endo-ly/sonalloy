@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Basic Poly Synth",
     "author": null,
-    "description": "A headless P1 oscillator instrument"
+    "description": "A headless oscillator instrument"
   },
   "performance": {
     "polyphony": 16,

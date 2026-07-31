@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Basic Poly Synth Sine",
     "author": null,
-    "description": "Sine reference for the P1 oscillator review"
+    "description": "Sine oscillator reference for sound review"
   },
   "performance": {
     "polyphony": 16,
