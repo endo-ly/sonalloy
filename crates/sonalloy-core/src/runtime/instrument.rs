@@ -123,6 +123,17 @@ impl InstrumentRuntime {
                 note_number,
                 velocity,
             } => {
+                let trigger = self
+                    .compiled
+                    .layers
+                    .first()
+                    .ok_or(ProcessError::DspFailure {
+                        kind: crate::process::DspFailureKind::InvalidInput,
+                    })?
+                    .trigger;
+                if !trigger.matches(note_number, velocity) {
+                    return Ok(());
+                }
                 let voice_index = self.select_voice();
                 let fade_frames = rounded_frame_count(spec.sample_rate * STEAL_FADE_SECONDS);
                 self.voices[voice_index].request_note(
@@ -261,16 +272,26 @@ mod tests {
     use crate::definition::tests::definition;
     use crate::process::ProcessEvent;
 
-    fn runtime() -> InstrumentRuntime {
-        let definition = definition();
+    fn runtime_with(definition: &crate::definition::InstrumentDefinition) -> InstrumentRuntime {
         let result = compile_instrument(
-            &definition,
+            definition,
             &CompileContext {
                 definition_base_dir: ".".into(),
                 process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
             },
         );
         result.instrument.expect("compiled").instantiate()
+    }
+
+    fn runtime() -> InstrumentRuntime {
+        let definition = definition();
+        runtime_with(&definition)
+    }
+
+    fn prepare(runtime: &mut InstrumentRuntime) {
+        runtime
+            .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"))
+            .expect("prepare");
     }
 
     fn process(
@@ -412,5 +433,365 @@ mod tests {
         let _ = process(&mut runtime, 16, 0, &events);
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
         assert_eq!(runtime.voice_state(1), Some(VoiceState::Active));
+    }
+
+    #[test]
+    fn steal_starts_pending_note_when_release_finishes_before_fade() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].envelope = crate::definition::AdsrDefinition {
+            attack_seconds: 0.0,
+            decay_seconds: 0.0,
+            sustain_level: 1.0,
+            release_seconds: 0.001,
+        };
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let _ = process(
+            &mut runtime,
+            64,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        let audio = process(
+            &mut runtime,
+            64,
+            64,
+            &[
+                ProcessEvent {
+                    sample_offset: 0,
+                    kind: ProcessEventKind::NoteOff { note_id: 1 },
+                },
+                ProcessEvent {
+                    sample_offset: 47,
+                    kind: ProcessEventKind::NoteOn {
+                        note_id: 2,
+                        note_number: 64,
+                        velocity: 127,
+                    },
+                },
+            ],
+        );
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+        assert!(audio[0][48..].iter().any(|sample| sample.abs() > 1.0e-6));
+    }
+
+    #[test]
+    fn steal_fade_completes_across_multiple_blocks() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].envelope.attack_seconds = 0.0;
+        source.layers[0].envelope.decay_seconds = 0.0;
+        source.layers[0].envelope.sustain_level = 1.0;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let _ = process(
+            &mut runtime,
+            64,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        let _ = process(
+            &mut runtime,
+            64,
+            64,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 64,
+                    velocity: 127,
+                },
+            }],
+        );
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::StealFading));
+        let empty: [ProcessEvent; 0] = [];
+        let _ = process(&mut runtime, 64, 128, &empty);
+        let _ = process(&mut runtime, 64, 192, &empty);
+        let _ = process(&mut runtime, 64, 256, &empty);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+    }
+
+    #[test]
+    fn pending_note_off_cancels_note_before_steal_completion() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].envelope.attack_seconds = 0.0;
+        source.layers[0].envelope.decay_seconds = 0.0;
+        source.layers[0].envelope.sustain_level = 1.0;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let _ = process(
+            &mut runtime,
+            64,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        let _ = process(
+            &mut runtime,
+            64,
+            64,
+            &[
+                ProcessEvent {
+                    sample_offset: 0,
+                    kind: ProcessEventKind::NoteOn {
+                        note_id: 2,
+                        note_number: 64,
+                        velocity: 127,
+                    },
+                },
+                ProcessEvent {
+                    sample_offset: 1,
+                    kind: ProcessEventKind::NoteOff { note_id: 2 },
+                },
+            ],
+        );
+        let empty: [ProcessEvent; 0] = [];
+        let _ = process(&mut runtime, 64, 128, &empty);
+        let _ = process(&mut runtime, 64, 192, &empty);
+        let _ = process(&mut runtime, 64, 256, &empty);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
+    }
+
+    #[test]
+    fn reset_discards_pending_note_during_steal() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].envelope.attack_seconds = 0.0;
+        source.layers[0].envelope.decay_seconds = 0.0;
+        source.layers[0].envelope.sustain_level = 1.0;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let _ = process(
+            &mut runtime,
+            64,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        let _ = process(
+            &mut runtime,
+            64,
+            64,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 64,
+                    velocity: 127,
+                },
+            }],
+        );
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::StealFading));
+        runtime.reset().expect("reset");
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
+    }
+
+    #[test]
+    fn out_of_range_key_does_not_steal_a_full_voice() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].trigger.key_min = 60;
+        source.layers[0].trigger.key_max = 72;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let _ = process(
+            &mut runtime,
+            64,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        let _ = process(
+            &mut runtime,
+            64,
+            64,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 59,
+                    velocity: 127,
+                },
+            }],
+        );
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+    }
+
+    #[test]
+    fn out_of_range_velocity_does_not_steal_a_full_voice() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].trigger.velocity_min = 64;
+        source.layers[0].trigger.velocity_max = 127;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let _ = process(
+            &mut runtime,
+            64,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 64,
+                },
+            }],
+        );
+        let _ = process(
+            &mut runtime,
+            64,
+            64,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 60,
+                    velocity: 63,
+                },
+            }],
+        );
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+    }
+
+    #[test]
+    fn out_of_range_note_does_not_start_an_idle_voice_and_boundaries_trigger() {
+        let mut source = definition();
+        source.layers[0].trigger.key_min = 60;
+        source.layers[0].trigger.key_max = 60;
+        source.layers[0].trigger.velocity_min = 64;
+        source.layers[0].trigger.velocity_max = 64;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let _ = process(
+            &mut runtime,
+            1,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 59,
+                    velocity: 64,
+                },
+            }],
+        );
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
+        let _ = process(
+            &mut runtime,
+            1,
+            1,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 60,
+                    velocity: 64,
+                },
+            }],
+        );
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+    }
+
+    fn phase_runtime(phase_reset: bool) -> InstrumentRuntime {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].envelope.attack_seconds = 0.0;
+        source.layers[0].envelope.decay_seconds = 0.0;
+        source.layers[0].envelope.sustain_level = 1.0;
+        match &mut source.layers[0].generator {
+            crate::definition::GeneratorDefinition::Oscillator(oscillator) => {
+                oscillator.phase_reset = phase_reset;
+            }
+        }
+        runtime_with(&source)
+    }
+
+    #[test]
+    fn phase_reset_changes_retriggered_note_phase() {
+        let mut reset_runtime = phase_runtime(true);
+        let mut continue_runtime = phase_runtime(false);
+        prepare(&mut reset_runtime);
+        prepare(&mut continue_runtime);
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let _ = process(&mut reset_runtime, 64, 0, &first_note);
+        let _ = process(&mut continue_runtime, 64, 0, &first_note);
+        let retrigger = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let reset_audio = process(&mut reset_runtime, 257, 64, &retrigger);
+        let continue_audio = process(&mut continue_runtime, 257, 64, &retrigger);
+        assert!(
+            reset_audio[0][240..]
+                .iter()
+                .zip(&continue_audio[0][240..])
+                .any(|(reset, continued)| (reset - continued).abs() > 1.0e-4)
+        );
+    }
+
+    #[test]
+    fn full_reset_restarts_phase_even_when_note_phase_reset_is_disabled() {
+        let mut runtime = phase_runtime(false);
+        prepare(&mut runtime);
+        let note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let first = process(&mut runtime, 64, 0, &note);
+        runtime.reset().expect("reset");
+        let second = process(&mut runtime, 64, 0, &note);
+        for (left, right) in first[0].iter().zip(&second[0]) {
+            assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
+        }
     }
 }

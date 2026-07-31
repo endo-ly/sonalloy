@@ -63,7 +63,11 @@ jobs:
       SONALLOY_DSP_TEST_HOOKS: 1
       CXXFLAGS: -fsanitize=address,undefined -fno-omit-frame-pointer
       CFLAGS: -fsanitize=address,undefined -fno-omit-frame-pointer
-      RUSTFLAGS: -C link-arg=-fsanitize=address -C link-arg=-fsanitize=undefined
+      RUSTFLAGS: >-
+        -C link-arg=-fsanitize=address
+        -C link-arg=-fsanitize=undefined
+        -C link-arg=-lasan
+        -C link-arg=-lubsan
       ASAN_OPTIONS: detect_leaks=1
     steps:
       - uses: actions/checkout@v4

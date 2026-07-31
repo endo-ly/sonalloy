@@ -124,6 +124,14 @@ impl AdsrRuntime {
         self.state == AdsrState::Idle
     }
 
+    pub(crate) fn frames_until_idle(&self) -> Option<usize> {
+        match self.state {
+            AdsrState::Idle => Some(0),
+            AdsrState::Release => Some(self.config.release_samples.saturating_sub(self.elapsed)),
+            AdsrState::Attack | AdsrState::Decay | AdsrState::Sustain => None,
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn state(&self) -> AdsrState {
         self.state
@@ -215,5 +223,17 @@ mod tests {
             let _ = adsr.next_sample();
         }
         assert!(adsr.is_idle());
+    }
+
+    #[test]
+    fn frames_until_idle_tracks_release_remaining() {
+        let mut adsr = envelope(0, 0, 1.0, 4);
+        adsr.note_on();
+        let _ = adsr.next_sample();
+        assert_eq!(adsr.frames_until_idle(), None);
+        adsr.note_off();
+        assert_eq!(adsr.frames_until_idle(), Some(4));
+        let _ = adsr.next_sample();
+        assert_eq!(adsr.frames_until_idle(), Some(3));
     }
 }

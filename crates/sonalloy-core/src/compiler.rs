@@ -111,6 +111,13 @@ pub struct CompiledLayerTrigger {
     pub velocity_max: u8,
 }
 
+impl CompiledLayerTrigger {
+    pub(crate) fn matches(self, note_number: u8, velocity: u8) -> bool {
+        (self.key_min..=self.key_max).contains(&note_number)
+            && (self.velocity_min..=self.velocity_max).contains(&velocity)
+    }
+}
+
 /// Compiled generator variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompiledGenerator {

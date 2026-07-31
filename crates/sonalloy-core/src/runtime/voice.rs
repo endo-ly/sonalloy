@@ -51,6 +51,7 @@ struct LayerRuntime {
     trigger: crate::compiler::CompiledLayerTrigger,
     envelope: AdsrRuntime,
     oscillator: DspOscillator,
+    phase_reset: bool,
     gain_linear: f32,
     pan_left: f32,
     pan_right: f32,
@@ -125,6 +126,7 @@ impl VoiceRuntime {
                 trigger: compiled_layer.trigger,
                 envelope: AdsrRuntime::new(compiled_layer.envelope),
                 oscillator,
+                phase_reset: oscillator_definition.phase_reset,
                 gain_linear: compiled_layer.gain_linear,
                 pan_left,
                 pan_right,
@@ -173,6 +175,9 @@ impl VoiceRuntime {
         fade_frames: usize,
         velocity_response: crate::compiler::CompiledVelocityResponse,
     ) -> Result<(), ProcessError> {
+        if !self.layer.trigger.matches(note.note_number, note.velocity) {
+            return Ok(());
+        }
         if self.state == VoiceState::Idle {
             self.start_note(note, sample_rate, velocity_response)?;
             return Ok(());
@@ -188,6 +193,12 @@ impl VoiceRuntime {
     }
 
     pub(crate) fn release_note(&mut self, note_id: NoteId) {
+        if self
+            .pending
+            .is_some_and(|pending| pending.note_id == note_id)
+        {
+            self.pending = None;
+        }
         if self.note_id != Some(note_id) {
             return;
         }
@@ -212,73 +223,80 @@ impl VoiceRuntime {
         layer_mono[..frames].fill(0.0);
         voice_left[..frames].fill(0.0);
         voice_right[..frames].fill(0.0);
-        if self.state == VoiceState::Idle || !self.layer.active {
+        if self.state == VoiceState::Idle {
             return Ok(());
         }
-        self.layer
-            .oscillator
-            .process(self.layer.frequency_hz, &mut layer_mono[..frames])
-            .map_err(ProcessError::from_dsp_error)?;
-        for index in 0..frames {
-            let envelope = self.layer.envelope.next_sample();
-            let gain = self.layer.gain_smoother.next();
-            let mono = layer_mono[index] * envelope * gain;
-            voice_left[index] = mono * self.layer.pan_left;
-            voice_right[index] = mono * self.layer.pan_right;
-            if self.layer.envelope.is_idle() {
-                self.layer.active = false;
+        let mut peak = 0.0_f32;
+        let mut offset = 0;
+        while offset < frames {
+            if self.state == VoiceState::Idle {
+                break;
             }
-        }
 
-        if let Some(filter) = self.filter {
-            if self.filter_cutoff.is_smoothing() {
-                for index in 0..frames {
-                    let cutoff = self.filter_cutoff.next().max(1.0);
-                    self.filter_left
-                        .process(cutoff, filter.resonance, &mut voice_left[index..=index])
-                        .map_err(ProcessError::from_filter_error)?;
-                    self.filter_right
-                        .process(cutoff, filter.resonance, &mut voice_right[index..=index])
-                        .map_err(ProcessError::from_filter_error)?;
+            if self.state == VoiceState::StealFading {
+                if !self.layer.active {
+                    self.complete_steal(sample_rate, velocity_response)?;
+                    continue;
+                }
+                let envelope_remaining = self
+                    .layer
+                    .envelope
+                    .frames_until_idle()
+                    .unwrap_or(usize::MAX);
+                let chunk = self
+                    .steal_fade_remaining
+                    .min(frames - offset)
+                    .min(envelope_remaining);
+                if chunk == 0 {
+                    self.complete_steal(sample_rate, velocity_response)?;
+                    continue;
+                }
+                self.render_active_segment(
+                    chunk,
+                    &mut layer_mono[offset..offset + chunk],
+                    &mut voice_left[offset..offset + chunk],
+                    &mut voice_right[offset..offset + chunk],
+                )?;
+                #[allow(clippy::cast_precision_loss)]
+                let total = self.steal_fade_total.max(1) as f32;
+                for index in offset..offset + chunk {
+                    #[allow(clippy::cast_precision_loss)]
+                    let gain = self.steal_fade_remaining as f32 / total;
+                    voice_left[index] *= gain;
+                    voice_right[index] *= gain;
+                    self.steal_fade_remaining = self.steal_fade_remaining.saturating_sub(1);
+                    peak = peak
+                        .max(voice_left[index].abs())
+                        .max(voice_right[index].abs());
+                }
+                offset += chunk;
+                if !self.layer.active || self.steal_fade_remaining == 0 {
+                    self.complete_steal(sample_rate, velocity_response)?;
                 }
             } else {
-                let cutoff = self.filter_cutoff.value().max(1.0);
-                self.filter_left
-                    .process(cutoff, filter.resonance, &mut voice_left[..frames])
-                    .map_err(ProcessError::from_filter_error)?;
-                self.filter_right
-                    .process(cutoff, filter.resonance, &mut voice_right[..frames])
-                    .map_err(ProcessError::from_filter_error)?;
-            }
-        }
-
-        let mut peak = 0.0_f32;
-        if self.state == VoiceState::StealFading {
-            #[allow(clippy::cast_precision_loss)]
-            let total = self.steal_fade_total.max(1) as f32;
-            for index in 0..frames {
-                #[allow(clippy::cast_precision_loss)]
-                let gain = self.steal_fade_remaining as f32 / total;
-                voice_left[index] *= gain;
-                voice_right[index] *= gain;
-                self.steal_fade_remaining = self.steal_fade_remaining.saturating_sub(1);
-                peak = peak
-                    .max(voice_left[index].abs())
-                    .max(voice_right[index].abs());
-            }
-        } else {
-            for index in 0..frames {
-                peak = peak
-                    .max(voice_left[index].abs())
-                    .max(voice_right[index].abs());
+                if !self.layer.active {
+                    self.reset_to_idle()?;
+                    break;
+                }
+                let chunk = frames - offset;
+                self.render_active_segment(
+                    chunk,
+                    &mut layer_mono[offset..offset + chunk],
+                    &mut voice_left[offset..offset + chunk],
+                    &mut voice_right[offset..offset + chunk],
+                )?;
+                for index in offset..offset + chunk {
+                    peak = peak
+                        .max(voice_left[index].abs())
+                        .max(voice_right[index].abs());
+                }
+                offset += chunk;
+                if !self.layer.active {
+                    self.reset_to_idle()?;
+                }
             }
         }
         self.estimated_level = self.estimated_level.mul_add(0.95, peak * 0.05);
-        if self.state != VoiceState::StealFading && !self.layer.active {
-            self.reset_to_idle()?;
-        } else if self.state == VoiceState::StealFading && self.steal_fade_remaining == 0 {
-            self.complete_steal(sample_rate, velocity_response)?;
-        }
         Ok(())
     }
 
@@ -292,19 +310,14 @@ impl VoiceRuntime {
         sample_rate: f64,
         velocity_response: crate::compiler::CompiledVelocityResponse,
     ) -> Result<(), ProcessError> {
-        self.reset_dsp_state()?;
+        if !self.layer.trigger.matches(note.note_number, note.velocity) {
+            return Ok(());
+        }
+        self.reset_note_state()?;
         self.note_id = Some(note.note_id);
         self.note_number = note.note_number;
         self.velocity = note.velocity;
         self.started_at_frame = note.started_at_frame;
-        if note.note_number < self.layer.trigger.key_min
-            || note.note_number > self.layer.trigger.key_max
-            || note.velocity < self.layer.trigger.velocity_min
-            || note.velocity > self.layer.trigger.velocity_max
-        {
-            self.reset_to_idle()?;
-            return Ok(());
-        }
         self.layer.frequency_hz = midi_note_frequency(note.note_number, self.layer.tuning_ratio);
         if !self.layer.frequency_hz.is_finite()
             || self.layer.frequency_hz < 0.0
@@ -342,13 +355,63 @@ impl VoiceRuntime {
         velocity_response: crate::compiler::CompiledVelocityResponse,
     ) -> Result<(), ProcessError> {
         let pending = self.pending.take();
-        self.reset_dsp_state()?;
         self.note_id = None;
         self.state = VoiceState::Idle;
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
         if let Some(note) = pending {
             self.start_note(note, sample_rate, velocity_response)?;
+        } else {
+            self.reset_to_idle()?;
+        }
+        Ok(())
+    }
+
+    fn render_active_segment(
+        &mut self,
+        frames: usize,
+        layer_mono: &mut [f32],
+        voice_left: &mut [f32],
+        voice_right: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        layer_mono[..frames].fill(0.0);
+        voice_left[..frames].fill(0.0);
+        voice_right[..frames].fill(0.0);
+        self.layer
+            .oscillator
+            .process(self.layer.frequency_hz, &mut layer_mono[..frames])
+            .map_err(ProcessError::from_dsp_error)?;
+        for index in 0..frames {
+            let envelope = self.layer.envelope.next_sample();
+            let gain = self.layer.gain_smoother.next();
+            let mono = layer_mono[index] * envelope * gain;
+            voice_left[index] = mono * self.layer.pan_left;
+            voice_right[index] = mono * self.layer.pan_right;
+            if self.layer.envelope.is_idle() {
+                self.layer.active = false;
+            }
+        }
+
+        if let Some(filter) = self.filter {
+            if self.filter_cutoff.is_smoothing() {
+                for index in 0..frames {
+                    let cutoff = self.filter_cutoff.next().max(1.0);
+                    self.filter_left
+                        .process(cutoff, filter.resonance, &mut voice_left[index..=index])
+                        .map_err(ProcessError::from_filter_error)?;
+                    self.filter_right
+                        .process(cutoff, filter.resonance, &mut voice_right[index..=index])
+                        .map_err(ProcessError::from_filter_error)?;
+                }
+            } else {
+                let cutoff = self.filter_cutoff.value().max(1.0);
+                self.filter_left
+                    .process(cutoff, filter.resonance, &mut voice_left[..frames])
+                    .map_err(ProcessError::from_filter_error)?;
+                self.filter_right
+                    .process(cutoff, filter.resonance, &mut voice_right[..frames])
+                    .map_err(ProcessError::from_filter_error)?;
+            }
         }
         Ok(())
     }
@@ -374,6 +437,24 @@ impl VoiceRuntime {
             .oscillator
             .reset()
             .map_err(ProcessError::from_dsp_error)?;
+        self.filter_left
+            .reset()
+            .map_err(ProcessError::from_filter_error)?;
+        self.filter_right
+            .reset()
+            .map_err(ProcessError::from_filter_error)?;
+        self.layer.envelope.reset();
+        self.layer.active = false;
+        Ok(())
+    }
+
+    fn reset_note_state(&mut self) -> Result<(), ProcessError> {
+        if self.layer.phase_reset {
+            self.layer
+                .oscillator
+                .reset()
+                .map_err(ProcessError::from_dsp_error)?;
+        }
         self.filter_left
             .reset()
             .map_err(ProcessError::from_filter_error)?;

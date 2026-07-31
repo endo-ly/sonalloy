@@ -32,6 +32,14 @@ python scripts/generate_p1_review.py
 
 このScriptはMIDI、基準WAV、比較用WAVを生成し、Block Size 64 / 257 / 1024で同じ入力を再RenderしてMetricsへ比較結果を保存します。
 
+## P1 Runtime修正後の再生成
+
+- Voice Stealing中に旧Envelopeが先に終了しても、Pending Noteへ同一Block内で切り替わることを自動Testで確認済み
+- Steal Fade中のPending Note Offは開始前にキャンセルし、Runtime ResetではPendingを破棄
+- Trigger不一致のNote OnはVoice Allocation前に無視
+- `phase_reset`はNote開始時だけ設定に従い、Prepare / Runtime Resetでは常にOscillatorをReset
+- 上記修正後に本Packageを再生成済み。既存の基準入力ではWAVの内容に差分はなく、Block Size比較も全件互換
+
 ## 音声一覧
 
 | WAV | 目的 |
