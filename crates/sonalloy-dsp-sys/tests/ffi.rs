@@ -175,6 +175,10 @@ fn filter_lifecycle_and_reset_are_safe() {
         .process(1_000.0, 0.1, &mut after_reset)
         .expect("filter process after reset");
     assert!(after_reset.iter().all(|sample| sample.is_finite()));
+    filter
+        .process_ramp(500.0, 4_000.0, 0.1, &mut after_reset)
+        .expect("native cutoff ramp process");
+    assert!(after_reset.iter().all(|sample| sample.is_finite()));
 }
 
 #[test]
@@ -190,6 +194,12 @@ fn filter_rejects_invalid_parameters_and_clears_output() {
     output.fill(1.0);
     assert_eq!(
         filter.process(1_000.0, 1.1, &mut output),
+        Err(DspFilterError::InvalidArgument)
+    );
+    assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+    output.fill(1.0);
+    assert_eq!(
+        filter.process_ramp(1_000.0, 0.0, 0.1, &mut output),
         Err(DspFilterError::InvalidArgument)
     );
     assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));

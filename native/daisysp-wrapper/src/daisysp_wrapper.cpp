@@ -279,6 +279,61 @@ extern "C" int32_t sonalloy_dsp_filter_process(
     }
 }
 
+extern "C" int32_t sonalloy_dsp_filter_process_ramp(
+    sonalloy_dsp_filter* handle,
+    float start_cutoff_hz,
+    float end_cutoff_hz,
+    float resonance,
+    float* buffer,
+    uint32_t frames
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (frames > 0u && buffer == nullptr) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    if (!handle->prepared) {
+        if (buffer != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                buffer[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    if (!valid_cutoff(start_cutoff_hz, handle->sample_rate) ||
+        !valid_cutoff(end_cutoff_hz, handle->sample_rate) ||
+        !valid_resonance(resonance)) {
+        if (buffer != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                buffer[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    try {
+        handle->filter.SetRes(resonance);
+        for (uint32_t index = 0; index < frames; ++index) {
+            const float position = frames <= 1u
+                ? 0.0f
+                : static_cast<float>(index) / static_cast<float>(frames - 1u);
+            const float cutoff_hz = start_cutoff_hz +
+                (end_cutoff_hz - start_cutoff_hz) * position;
+            handle->filter.SetFreq(cutoff_hz);
+            handle->filter.Process(buffer[index]);
+            buffer[index] = handle->filter.Low();
+        }
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        if (buffer != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                buffer[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
 #ifdef SONALLOY_DSP_TEST_HOOKS
 extern "C" void sonalloy_dsp_test_arm_process_exception(
     sonalloy_dsp_oscillator* handle

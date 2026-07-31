@@ -557,24 +557,42 @@ impl VoiceRuntime {
         }
 
         if let Some(filter) = self.filter {
-            if self.filter_cutoff.is_smoothing() {
-                for index in 0..frames {
-                    let cutoff = self.filter_cutoff.next().max(1.0);
+            let mut offset = 0;
+            while offset < frames {
+                if self.filter_cutoff.is_smoothing() {
+                    let ramp_frames = self.filter_cutoff.remaining().min(frames - offset);
+                    let cutoff_start = self.filter_cutoff.next().max(1.0);
+                    let mut cutoff_end = cutoff_start;
+                    for _ in 1..ramp_frames {
+                        cutoff_end = self.filter_cutoff.next().max(1.0);
+                    }
                     self.filter_left
-                        .process(cutoff, filter.resonance, &mut voice_left[index..=index])
+                        .process_ramp(
+                            cutoff_start,
+                            cutoff_end,
+                            filter.resonance,
+                            &mut voice_left[offset..offset + ramp_frames],
+                        )
                         .map_err(ProcessError::from_filter_error)?;
                     self.filter_right
-                        .process(cutoff, filter.resonance, &mut voice_right[index..=index])
+                        .process_ramp(
+                            cutoff_start,
+                            cutoff_end,
+                            filter.resonance,
+                            &mut voice_right[offset..offset + ramp_frames],
+                        )
                         .map_err(ProcessError::from_filter_error)?;
+                    offset += ramp_frames;
+                } else {
+                    let cutoff = self.filter_cutoff.value().max(1.0);
+                    self.filter_left
+                        .process(cutoff, filter.resonance, &mut voice_left[offset..frames])
+                        .map_err(ProcessError::from_filter_error)?;
+                    self.filter_right
+                        .process(cutoff, filter.resonance, &mut voice_right[offset..frames])
+                        .map_err(ProcessError::from_filter_error)?;
+                    break;
                 }
-            } else {
-                let cutoff = self.filter_cutoff.value().max(1.0);
-                self.filter_left
-                    .process(cutoff, filter.resonance, &mut voice_left[..frames])
-                    .map_err(ProcessError::from_filter_error)?;
-                self.filter_right
-                    .process(cutoff, filter.resonance, &mut voice_right[..frames])
-                    .map_err(ProcessError::from_filter_error)?;
             }
         }
         Ok(())

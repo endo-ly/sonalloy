@@ -51,7 +51,7 @@ Instrument Definition
         → 固定Voice Pool / Scratch / Native Handle
 ```
 
-`CompiledInstrument`はRuntime状態を持たない不変値です。Compile時にSample AssetのSHA-256検証、WAV Decode、Mono Downmix、必要なResampleを行い、Decode済みBufferをCompiled Sampleへ保持します。`InstrumentRuntime`はPrepare時にDefinitionのPolyphony分のVoiceを作り、Voiceごとに複数Layer、LayerごとのOscillatorまたはSample Runtime、左右独立のFilterを所有します。Process中にJSON Parse、File I/O、Decode、Resample、Hash計算、Voice Pool拡張を行いません。
+`CompiledInstrument`はRuntime状態を持たない不変値です。Compile時にSample AssetのSHA-256検証、WAV Decode、Mono Downmix、必要なResampleを行い、Decode済みBufferとCompile時のProcess Sample RateをCompiled Instrumentへ保持します。`InstrumentRuntime`はPrepare時にDefinitionのPolyphony分のVoiceを作り、Voiceごとに複数Layer、LayerごとのOscillatorまたはSample Runtime、左右独立のFilterを所有します。Runtime PrepareはCompile時と異なるSample Rateを明示的に拒否し、Block Sizeだけの変更は許可します。Process中にJSON Parse、File I/O、Decode、Resample、Hash計算、Voice Pool拡張を行いません。
 
 ## VoiceとADSR
 
@@ -67,7 +67,7 @@ Block Start
   → Block EndまでRender
 ```
 
-各SegmentではLayerごとのOscillatorまたはSampleのMono信号へADSRとLayer Gainを乗算し、Constant-power PanでStereo化します。複数Layerを同じVoice内でMixした後にVoice FilterのLeft/Rightを適用し、Instrument Outputへ加算します。Gainは5 ms、Voice開始時のFilter Cutoffは10 msの固定Smootherを使用します。Cutoffの更新はHost Block Sizeに依存しないSample単位で進みます。
+各SegmentではLayerごとのOscillatorまたはSampleのMono信号へADSRとLayer Gainを乗算し、Constant-power PanでStereo化します。複数Layerを同じVoice内でMixした後にVoice FilterのLeft/Rightを適用し、Instrument Outputへ加算します。Gainは5 ms、Voice開始時のFilter Cutoffは10 msの固定Smootherを使用します。CutoffのRampはSample単位の値をNative側の1回のBlock処理へ渡し、Host Block Sizeに依存しないままRustとNativeの境界越えをBlock単位に抑えます。
 
 ## 信号経路
 
@@ -101,7 +101,7 @@ Processでは、Native OscillatorでScratch BufferへBlock生成し、同じ信�
 
 PrepareでCompile済みのMono Sampleを各VoiceのSample Runtimeへ共有し、VoiceごとにCursorだけを所有します。Note OnでCursorを0へ戻し、MIDI NoteとSample Root Noteの差を半音単位の`2^((note - root) / 12)`へ変換してLayer Tuning Ratioを乗算します。CursorはSample Rateへ応じた再生速度で進み、4点Cubic Interpolationで読み出します。
 
-Sampleの`one_shot`は末尾でGeneratorを完了させます。Note OffではCursorを停止せず、LayerのADSRだけをReleaseへ遷移させます。Sample AssetがCompileできなかったLayerはDisabledとして扱い、ほかの有効Layerの処理を継続します。
+Sampleの`one_shot`は末尾でGeneratorを完了させます。終端の最後5 ms（短いSourceでは全再生区間以内）は出力上の残りFrame数を基準に0へFadeし、Sourceの最後の値が0でない場合も不連続を作りません。Note OffではCursorを停止せず、LayerのADSRだけをReleaseへ遷移させます。Sample AssetがCompileできなかったLayerはDisabledとして扱い、ほかの有効Layerの処理を継続します。
 
 ## Offline Render Loop
 

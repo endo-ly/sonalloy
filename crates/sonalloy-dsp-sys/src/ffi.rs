@@ -53,6 +53,14 @@ unsafe extern "C" {
         buffer: *mut c_float,
         frames: c_uint,
     ) -> c_int;
+    pub(crate) fn sonalloy_dsp_filter_process_ramp(
+        handle: *mut DspFilter,
+        start_cutoff_hz: c_float,
+        end_cutoff_hz: c_float,
+        resonance: c_float,
+        buffer: *mut c_float,
+        frames: c_uint,
+    ) -> c_int;
 
     #[cfg(all(sonalloy_test_hooks, test))]
     pub(crate) fn sonalloy_dsp_test_arm_process_exception(handle: *mut DspOscillator);

@@ -61,6 +61,14 @@ int32_t sonalloy_dsp_filter_process(
     float* buffer,
     uint32_t frames
 );
+int32_t sonalloy_dsp_filter_process_ramp(
+    sonalloy_dsp_filter* handle,
+    float start_cutoff_hz,
+    float end_cutoff_hz,
+    float resonance,
+    float* buffer,
+    uint32_t frames
+);
 
 #ifdef __cplusplus
 }

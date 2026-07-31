@@ -56,6 +56,10 @@ impl Smoother {
     pub(crate) fn is_smoothing(&self) -> bool {
         self.remaining != 0
     }
+
+    pub(crate) fn remaining(&self) -> usize {
+        self.remaining
+    }
 }
 
 #[cfg(test)]
