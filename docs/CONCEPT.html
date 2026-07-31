@@ -1,0 +1,1154 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sonalloy — 要件定義・基本設計</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f1218; --panel:#161a22; --panel2:#1c212c; --line:#242b38; --line2:#313a4a;
+  --text:#e9edf4; --body-c:#c6cfdd; --muted:#94a0b4; --dim:#67718a;
+  --amber:#ffb454; --cyan:#53d7e8; --coral:#ff7a6b; --green:#7ee787; --lav:#c0a8ff; --gray:#a8b0bf;
+  --disp:'Chakra Petch',sans-serif; --sans:'IBM Plex Sans JP',sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--sans); color:var(--body-c); font-size:15.5px; line-height:1.9; letter-spacing:.01em;
+  background:
+    radial-gradient(1000px 520px at 88% -8%, rgba(83,215,232,.055), transparent 62%),
+    radial-gradient(820px 620px at -8% 18%, rgba(255,180,84,.05), transparent 60%),
+    linear-gradient(rgba(255,255,255,.016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.016) 1px, transparent 1px),
+    var(--bg);
+  background-size:auto,auto,44px 44px,44px 44px,auto;
+}
+::selection{background:rgba(255,180,84,.28);color:#fff}
+a{color:var(--cyan);text-decoration:none}
+strong{color:#fff;font-weight:700}
+em{font-style:normal;color:var(--amber)}
+code{font-family:var(--mono);font-size:.86em;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:#dfe6f0}
+
+/* ---------- progress / back-to-top ---------- */
+#prog{position:fixed;top:0;left:0;height:2px;width:0;background:linear-gradient(90deg,var(--amber),var(--cyan));z-index:200}
+#toTop{position:fixed;right:26px;bottom:26px;width:42px;height:42px;border-radius:50%;border:1px solid var(--line2);
+  background:var(--panel);color:var(--muted);font-family:var(--mono);cursor:pointer;opacity:0;pointer-events:none;
+  transition:opacity .3s,transform .2s,border-color .2s;z-index:150}
+#toTop.show{opacity:1;pointer-events:auto}
+#toTop:hover{border-color:var(--amber);color:var(--amber);transform:translateY(-3px)}
+
+/* ---------- header ---------- */
+header.mast{border-bottom:1px solid var(--line);background:linear-gradient(180deg, rgba(22,26,34,.6), rgba(15,18,24,.2))}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 48px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;color:var(--muted)}
+.topbar .logo{font-family:var(--disp);font-weight:700;font-size:.95rem;letter-spacing:.22em;color:var(--text)}
+.topbar .logo b{color:var(--amber)}
+.mast-grid{display:grid;grid-template-columns:1.02fr 1.25fr;gap:44px;align-items:center;padding:56px 48px 44px;max-width:1360px;margin:0 auto}
+.overline{font-family:var(--mono);font-size:.7rem;letter-spacing:.24em;color:var(--amber);text-transform:uppercase;margin-bottom:16px}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(3rem,6.5vw,4.8rem);line-height:1.02;color:#fff;letter-spacing:.01em}
+h1 span{color:transparent;-webkit-text-stroke:1.6px var(--amber)}
+.tagline{margin-top:18px;font-size:1.05rem;color:var(--text);font-weight:500}
+.mast-sub{margin-top:12px;color:var(--muted);font-size:.92rem;max-width:44ch}
+.name-chips{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+.name-chips .nc{font-family:var(--mono);font-size:.74rem;letter-spacing:.08em;border:1px solid var(--line2);border-radius:5px;padding:6px 12px;background:var(--panel)}
+.name-chips .nc b{color:var(--amber);font-weight:500}
+.name-chips .plus{align-self:center;color:var(--dim);font-family:var(--mono)}
+
+/* oscilloscope */
+.scope-wrap{border:1px solid var(--line2);border-radius:10px;background:
+  linear-gradient(180deg, rgba(83,215,232,.03), transparent 30%), var(--panel);
+  box-shadow:0 24px 60px -30px rgba(0,0,0,.8), inset 0 0 60px rgba(0,0,0,.35);overflow:hidden;position:relative}
+.scope-head{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:.66rem;letter-spacing:.18em;color:var(--muted)}
+.scope-head .live{display:flex;align-items:center;gap:7px}
+.scope-head .live i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.35}}
+#scope{display:block;width:100%;height:clamp(220px,26vw,290px)}
+.scope-wrap::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(180deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px)}
+.chips-row{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px;border-top:1px solid var(--line)}
+.chips-label{width:100%;font-family:var(--mono);font-size:.62rem;letter-spacing:.2em;color:var(--dim);margin-bottom:2px}
+.g-chip{--c:#fff;font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;display:inline-flex;align-items:center;gap:8px;
+  padding:6px 12px;border-radius:999px;border:1px solid var(--line2);background:var(--panel2);color:var(--text);cursor:pointer;
+  transition:transform .15s,border-color .15s,opacity .2s,background .2s}
+.g-chip i{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 9px var(--c);transition:box-shadow .2s,background .2s}
+.g-chip:hover{transform:translateY(-2px);border-color:var(--c)}
+.g-chip.off{opacity:.42;border-style:dashed}
+.g-chip.off i{background:transparent;box-shadow:none;border:1.5px solid var(--c)}
+
+/* stats strip */
+.stats{display:flex;border-top:1px solid var(--line);max-width:1360px;margin:0 auto}
+.stat{flex:1;padding:18px 24px;border-left:1px solid var(--line);display:flex;align-items:baseline;gap:12px}
+.stat:first-child{border-left:none}
+.stat b{font-family:var(--disp);font-size:1.9rem;font-weight:700;color:var(--amber)}
+.stat span{font-family:var(--mono);font-size:.64rem;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:236px minmax(0,1fr);max-width:1360px;margin:0 auto}
+nav.toc{position:sticky;top:0;height:100vh;overflow-y:auto;padding:44px 22px 40px;border-right:1px solid var(--line)}
+.toc-label{font-family:var(--mono);font-size:.62rem;letter-spacing:.22em;color:var(--dim);margin-bottom:18px;text-transform:uppercase}
+.toc a{display:flex;gap:12px;align-items:baseline;padding:8px 10px;border-left:2px solid transparent;color:var(--muted);font-size:.84rem;transition:all .18s}
+.toc a i{font-family:var(--mono);font-style:normal;font-size:.68rem;color:var(--dim)}
+.toc a:hover{color:var(--text);border-left-color:var(--line2);padding-left:14px}
+.toc a.active{color:var(--amber);border-left-color:var(--amber);background:linear-gradient(90deg, rgba(255,180,84,.07), transparent)}
+.toc a.active i{color:var(--amber)}
+
+main{padding:68px 60px 140px;max-width:1020px;min-width:0}
+section.sec{margin-bottom:104px;scroll-margin-top:24px}
+
+/* section head */
+.sec-head{display:flex;gap:24px;align-items:flex-start;margin-bottom:36px}
+.sec-num{font-family:var(--disp);font-weight:700;font-size:3.6rem;line-height:1;color:transparent;-webkit-text-stroke:1.4px var(--amber);flex-shrink:0}
+@supports not (-webkit-text-stroke:1px black){.sec-num{color:var(--amber)}}
+.sec-kicker{font-family:var(--mono);font-size:.66rem;letter-spacing:.26em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+h2{font-family:var(--disp);font-weight:700;font-size:clamp(1.7rem,3.2vw,2.3rem);color:#fff;letter-spacing:.01em;line-height:1.25}
+h3{display:flex;align-items:baseline;gap:12px;font-size:1.28rem;font-weight:700;color:var(--text);margin:56px 0 18px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+h3 i{font-family:var(--mono);font-style:normal;font-size:.82rem;color:var(--amber)}
+h4{font-family:var(--mono);font-size:.7rem;letter-spacing:.2em;color:var(--cyan);text-transform:uppercase;margin:26px 0 12px}
+p{margin:14px 0}
+.lead{font-size:1.02rem;color:var(--text)}
+
+/* reveal */
+.rv{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}
+.rv.in{opacity:1;transform:none}
+
+/* callouts */
+.callout{border:1px solid var(--line2);border-left:3px solid var(--amber);border-radius:0 8px 8px 0;
+  background:linear-gradient(180deg, rgba(255,180,84,.05), transparent 45%), var(--panel);padding:16px 22px;margin:24px 0}
+.callout .co-label{font-family:var(--mono);font-size:.64rem;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:6px}
+.callout p{margin:4px 0}
+.callout.info{border-left-color:var(--cyan);background:linear-gradient(180deg, rgba(83,215,232,.05), transparent 45%), var(--panel)}
+.callout.info .co-label{color:var(--cyan)}
+.callout.warn{border-left-color:var(--coral);background:linear-gradient(180deg, rgba(255,122,107,.06), transparent 45%), var(--panel)}
+.callout.warn .co-label{color:var(--coral)}
+
+.pull{font-family:var(--disp);font-weight:700;font-size:clamp(1.5rem,3.2vw,2.3rem);color:#fff;line-height:1.55;
+  padding:10px 0 10px 28px;border-left:4px solid var(--amber);margin:30px 0}
+
+/* tables */
+.tablewrap{border:1px solid var(--line);border-radius:10px;overflow-x:auto;background:var(--panel);margin:22px 0}
+table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:540px}
+th{font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  text-align:left;padding:12px 16px;border-bottom:2px solid var(--line2);background:var(--panel2);white-space:nowrap}
+td{padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--body-c)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:rgba(255,180,84,.045)}
+td:first-child{color:var(--text);font-weight:500}
+th.yes{color:var(--green)} th.no{color:var(--coral)}
+
+/* chips */
+.chipset{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.chip{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;padding:5px 12px;border-radius:999px;
+  border:1px solid var(--line2);background:var(--panel2);color:var(--text);transition:all .15s;display:inline-block}
+.chip:hover{border-color:var(--amber);transform:translateY(-2px)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c);margin-right:9px;vertical-align:1px}
+
+/* flow diagrams */
+.flow{display:flex;flex-direction:column;align-items:center;margin:28px 0}
+.fbox{border:1px solid var(--line2);background:var(--panel);border-radius:8px;padding:14px 26px;text-align:center;
+  font-family:var(--disp);font-weight:600;letter-spacing:.06em;color:var(--text);min-width:min(340px,86%);
+  transition:transform .2s,border-color .2s,box-shadow .2s}
+.fbox:hover{transform:translateY(-2px);border-color:var(--amber);box-shadow:0 10px 28px -14px rgba(255,180,84,.35)}
+.fbox small{display:block;font-family:var(--mono);font-weight:400;font-size:.64rem;letter-spacing:.12em;color:var(--muted);margin-top:4px}
+.fbox.engine{border-color:var(--amber);background:linear-gradient(180deg, rgba(255,180,84,.1), rgba(255,180,84,.03));color:var(--amber);font-size:1.05rem}
+.fbox.hot{border-color:var(--amber);background:linear-gradient(180deg, rgba(255,180,84,.08), transparent)}
+.fconn{width:2px;height:30px;position:relative;
+  background:repeating-linear-gradient(180deg, rgba(255,180,84,.65) 0 5px, transparent 5px 11px);
+  animation:flowdown .8s linear infinite}
+@keyframes flowdown{to{background-position:0 11px}}
+.fconn::after{content:'';position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);
+  border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid rgba(255,180,84,.75)}
+.fconn .cl{position:absolute;left:16px;top:50%;transform:translateY(-50%);white-space:nowrap;
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;color:var(--dim)}
+.io-row{display:flex;gap:16px;width:100%;justify-content:center;flex-wrap:wrap}
+.io-box{border:1px solid var(--line2);background:var(--panel);border-radius:8px;padding:16px 22px;min-width:230px;flex:1;max-width:300px;transition:transform .2s,border-color .2s}
+.io-box:hover{transform:translateY(-3px);border-color:var(--cyan)}
+.io-box.out:hover{border-color:var(--amber)}
+.io-tag{font-family:var(--mono);font-size:.62rem;letter-spacing:.2em;color:var(--cyan);margin-bottom:4px}
+.io-box.out .io-tag{color:var(--amber)}
+.io-box h5{font-family:var(--disp);font-size:1rem;font-weight:600;color:#fff;letter-spacing:.04em;margin-bottom:8px}
+.io-box ul{list-style:none}
+.io-box li{font-size:.82rem;color:var(--muted);padding:2px 0 2px 14px;position:relative}
+.io-box li::before{content:'▸';position:absolute;left:0;color:var(--dim);font-size:.7rem}
+.voice-frame{border:1px dashed var(--line2);border-radius:12px;padding:34px 20px 20px;position:relative;width:100%;
+  display:flex;flex-direction:column;align-items:center;background:rgba(28,33,44,.4)}
+.voice-frame .vf-label{position:absolute;top:-9px;left:22px;background:var(--bg);padding:0 10px;
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.22em;color:var(--muted)}
+.gen-chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px}
+.gen-chips .gc{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;padding:3px 10px;border-radius:999px;
+  border:1px solid color-mix(in srgb, var(--c) 55%, transparent);color:var(--c);background:color-mix(in srgb, var(--c) 9%, transparent)}
+
+/* stack diagrams */
+.stack{margin:26px 0;border-radius:10px;overflow:hidden;border:1px solid var(--line2)}
+.tier{padding:15px 24px;border-top:1px solid var(--line);background:var(--panel);display:flex;justify-content:space-between;gap:16px;align-items:baseline;transition:background .2s}
+.tier:first-child{border-top:none}
+.tier:hover{background:var(--panel2)}
+.tier b{font-family:var(--disp);font-weight:600;letter-spacing:.05em;color:var(--text)}
+.tier span{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;color:var(--dim);text-align:right}
+.tier.star{background:linear-gradient(90deg, rgba(255,180,84,.12), rgba(255,180,84,.03));border-top:1px solid var(--amber);border-bottom:1px solid var(--amber)}
+.tier.star b{color:var(--amber)}
+.tier.star span{color:var(--amber)}
+
+/* tree */
+ul.tree{list-style:none;font-family:var(--mono);font-size:.84rem;margin:22px 0;padding:20px 24px;border:1px solid var(--line);border-radius:10px;background:var(--panel);line-height:2.1}
+ul.tree ul{list-style:none;padding-left:24px}
+ul.tree li{position:relative;padding-left:20px}
+ul.tree li::before{content:'';position:absolute;left:0;top:0;bottom:0;border-left:1px solid var(--line2)}
+ul.tree li::after{content:'';position:absolute;left:0;top:15px;width:14px;border-top:1px solid var(--line2)}
+ul.tree li:last-child::before{height:15px;bottom:auto}
+ul.tree>li::before,ul.tree>li::after{display:none}
+ul.tree>li{padding-left:0}
+ul.tree .k{color:var(--text);font-weight:500;transition:color .15s}
+ul.tree li:hover>.k{color:var(--amber)}
+ul.tree .c{color:var(--dim);font-size:.76rem}
+
+/* value rows */
+.value-row{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:start;padding:20px 24px;margin:14px 0;
+  border:1px solid var(--line);border-left:3px solid var(--line2);border-radius:8px;background:var(--panel);transition:transform .2s,border-color .2s}
+.value-row:hover{transform:translateX(4px)}
+.value-row .v-num{font-family:var(--disp);font-weight:700;font-size:2.4rem;line-height:1.1;color:transparent;-webkit-text-stroke:1.2px var(--line2)}
+.value-row h5{font-size:1.02rem;font-weight:700;color:#fff;margin-bottom:4px}
+.value-row p{font-size:.86rem;color:var(--muted);margin:0}
+.value-row.key{border-left-color:var(--amber);background:linear-gradient(90deg, rgba(255,180,84,.06), transparent 55%), var(--panel)}
+.value-row.key .v-num{-webkit-text-stroke:1.2px var(--amber)}
+.badge{font-family:var(--mono);font-size:.58rem;letter-spacing:.16em;padding:3px 8px;border:1px solid var(--amber);color:var(--amber);border-radius:3px;text-transform:uppercase;margin-left:10px;vertical-align:2px;white-space:nowrap}
+
+/* steps */
+ol.steps{list-style:none;counter-reset:s;margin:22px 0}
+ol.steps li{counter-increment:s;position:relative;padding:15px 20px 15px 70px;border:1px solid var(--line);border-radius:8px;background:var(--panel);margin-bottom:10px;transition:border-color .2s,transform .2s}
+ol.steps li:hover{border-color:var(--line2);transform:translateX(4px)}
+ol.steps li::before{content:counter(s,decimal-leading-zero);position:absolute;left:22px;top:15px;font-family:var(--disp);font-weight:700;font-size:1.15rem;color:var(--amber)}
+
+/* lifecycle */
+.lifecycle{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:26px 0}
+.lc-box{font-family:var(--disp);font-weight:600;letter-spacing:.06em;border:1px solid var(--line2);background:var(--panel);border-radius:7px;padding:11px 20px;color:var(--text);transition:all .2s}
+.lc-box:hover{border-color:var(--cyan);transform:translateY(-2px)}
+.lc-box.loop{border-color:var(--cyan);color:var(--cyan)}
+.lc-box.loop em{color:var(--cyan)}
+.lc-arrow{font-family:var(--mono);color:var(--dim)}
+
+/* checklist */
+.check2{display:grid;grid-template-columns:1fr 1fr;gap:6px 28px;margin:18px 0;list-style:none}
+.check2 li{font-size:.88rem;padding:5px 0 5px 20px;position:relative;color:var(--body-c)}
+.check2 li::before{content:'▸';position:absolute;left:2px;color:var(--amber);font-size:.72rem;top:8px}
+
+/* riffra arrow */
+.rel{display:flex;align-items:center;justify-content:center;gap:20px;margin:28px 0;flex-wrap:wrap}
+.rel .rbox{font-family:var(--disp);font-weight:600;letter-spacing:.08em;border:1px solid var(--line2);background:var(--panel);border-radius:8px;padding:14px 30px;color:var(--text)}
+.rel .rbox.s{border-color:var(--amber);color:var(--amber)}
+.rel .rarrow{font-family:var(--mono);font-size:.72rem;color:var(--muted);letter-spacing:.1em}
+.rel .rarrow b{display:block;color:var(--cyan);font-weight:400}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:34px 48px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;color:var(--dim);max-width:1360px;margin:0 auto}
+footer b{color:var(--muted);font-weight:400}
+
+@media (max-width:1020px){
+  nav.toc{display:none}
+  .shell{grid-template-columns:1fr}
+  main{padding:52px 26px 110px}
+  .mast-grid{grid-template-columns:1fr;padding:44px 26px 36px;gap:32px}
+  .topbar{padding:12px 26px}
+  .stats{flex-wrap:wrap}
+  .stat{flex:1 1 50%;border-top:1px solid var(--line)}
+  .check2{grid-template-columns:1fr}
+  .sec-num{font-size:2.6rem}
+  footer{padding:30px 26px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .rv{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<div id="prog"></div>
+<button id="toTop" aria-label="ページ上部へ戻る">↑</button>
+
+<!-- ================= HEADER ================= -->
+<header class="mast">
+  <div class="topbar">
+    <div class="logo">◈ SONAL<b>LOY</b></div>
+    <div>REQ / DESIGN — REV 1.0 — 2026.07</div>
+  </div>
+
+  <div class="mast-grid">
+    <div>
+      <p class="overline">Hybrid Instrument Engine — 要件定義・基本設計</p>
+      <h1>Sonal<span>loy</span></h1>
+      <p class="tagline">音の合金 —— 素材と合成を重ねて、一つの楽器へ。</p>
+      <p class="mast-sub">音声素材と複数の音生成方式を Layer として組み合わせ、演奏可能な独自 Instrument を構築するエンジン。CLI を第一級のインターフェースとして扱う。</p>
+      <div class="name-chips">
+        <span class="nc"><b>Son</b> = 音</span>
+        <span class="plus">+</span>
+        <span class="nc"><b>Alloy</b> = 合金</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="scope-wrap">
+        <div class="scope-head">
+          <span class="live"><i></i>COMPOSITE OUTPUT</span>
+          <span id="layerCount">4/6 LAYERS</span>
+        </div>
+        <canvas id="scope" aria-label="レイヤー合成波形のオシロスコープ"></canvas>
+        <div class="chips-row" id="chips">
+          <span class="chips-label">LAYER MIX — クリックで層の ON / OFF</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>6</b><span>Generator Types</span></div>
+    <div class="stat"><b>3</b><span>Processing Units</span></div>
+    <div class="stat"><b>1</b><span>Definition Format</span></div>
+    <div class="stat"><b>0</b><span>Host Dependencies</span></div>
+  </div>
+</header>
+
+<!-- ================= SHELL ================= -->
+<div class="shell">
+
+<nav class="toc">
+  <p class="toc-label">Contents</p>
+  <a href="#s1"><i>01</i>製品概要</a>
+  <a href="#s2"><i>02</i>アーキテクチャ設計</a>
+  <a href="#s3"><i>03</i>機能仕様</a>
+  <a href="#s4"><i>04</i>データモデル</a>
+  <a href="#s5"><i>05</i>インターフェース</a>
+  <a href="#s6"><i>06</i>システム構成と技術選定</a>
+  <a href="#s7"><i>07</i>Riffra との関係</a>
+  <a href="#s8"><i>08</i>非機能要件</a>
+  <a href="#s9"><i>09</i>完成像</a>
+</nav>
+
+<main>
+
+<!-- ================= 1 ================= -->
+<section class="sec" id="s1">
+  <header class="sec-head rv">
+    <span class="sec-num">01</span>
+    <div><p class="sec-kicker">Product Overview</p><h2>製品概要</h2></div>
+  </header>
+
+  <h3 class="rv"><i>1.1</i>コンセプト</h3>
+  <p class="rv"><strong>Sonalloy</strong> は、音声素材と複数の音生成方式を組み合わせて、演奏可能な独自 Instrument を構築するハイブリッド音源エンジンである。CLI を第一級のインターフェースとして扱う。</p>
+  <p class="rv">名前の由来は <code>Son</code>（音）+ <code>Alloy</code>（合金）。性質の異なる素材や生成方式を Layer として組み合わせ、単独では得られない音色を生み出す——この製品思想をそのまま名前にしている。</p>
+
+  <h3 class="rv"><i>1.2</i>入力と出力</h3>
+  <figure class="flow rv">
+    <div class="io-row">
+      <div class="io-box">
+        <p class="io-tag">INPUT A</p><h5>音声素材</h5>
+        <ul><li>録音ファイル</li><li>既存サンプル</li><li>フィールド録音</li></ul>
+      </div>
+      <div class="io-box">
+        <p class="io-tag">INPUT B</p><h5>音響合成</h5>
+        <ul><li>Oscillator</li><li>FM / Wavetable</li><li>Granular / Noise</li></ul>
+      </div>
+    </div>
+    <div class="fconn"></div>
+    <div class="fbox engine">SONALLOY ENGINE</div>
+    <div class="fconn"></div>
+    <div class="io-box out" style="max-width:420px">
+      <p class="io-tag">OUTPUT</p><h5>Instrument</h5>
+      <ul><li>MIDI / ノートで演奏可能</li><li>定義ファイルとして保存</li><li>複数 Frontend から利用</li></ul>
+    </div>
+  </figure>
+  <p class="rv">A と B は単独でも、複数の Layer として組み合わせても使える。この「組み合わせ」が Sonalloy の核となる価値である。</p>
+
+  <h3 class="rv"><i>1.3</i>三つの中心価値</h3>
+  <div class="value-row rv">
+    <span class="v-num">01</span>
+    <div><h5>任意の音を楽器化できる</h5><p>ギター単音 → 音程展開 → Guitar Instrument ／ 雨音 → Granular + Pitch + 長い Env → Pad</p></div>
+  </div>
+  <div class="value-row rv">
+    <span class="v-num">02</span>
+    <div><h5>ゼロから音を生成できる</h5><p>FM → Bell ／ Wavetable → 動的 Pad ／ Noise → Percussion</p></div>
+  </div>
+  <div class="value-row key rv">
+    <span class="v-num">03</span>
+    <div><h5>複数方式を一つの Instrument に融合できる<span class="badge">Differentiator</span></h5><p>FM（金属倍音）+ Sine（低域の芯）+ Metal Hit Sample（アタック）+ Noise（質感）→ Metallic Bass</p></div>
+  </div>
+  <p class="rv"><em>価値3が差別化ポイントである。</em>Sampler と Synth を同梱する製品は既に存在する。Sonalloy の違いは、各 Generator を単に並べるのではなく、発音条件・音量・定位・音程・Envelope・音響処理を持つ <strong>Layer</strong> として定義し、一つの Voice 内で融合・個別編集・個別変調できる点にある。</p>
+
+  <h3 class="rv"><i>1.4</i>エコシステム内の位置</h3>
+  <p class="rv">Sonalloy は、部品としての DSP ライブラリと完成品としての DAW プラグインの中間に位置する、<strong>楽器を成立させるエンジン</strong>である。</p>
+  <div class="stack rv">
+    <div class="tier"><b>Host / DAW</b><span>Riffra, Ableton, Bitwig, Reaper, ...</span></div>
+    <div class="tier"><b>Plugin / Frontend</b><span>CLAP, VST3, CLI, Standalone, ...</span></div>
+    <div class="tier star"><b>★ Sonalloy（Instrument Engine）</b><span>Layer / Generator / Voice / Modulation / Runtime</span></div>
+    <div class="tier"><b>DSP Primitives</b><span>Oscillator, Filter, FFT, Resampler, ...</span></div>
+  </div>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>レイヤー</th><th>責務</th><th>Sonalloy との関係</th></tr></thead>
+      <tbody>
+        <tr><td>DSP Primitives</td><td>波形計算・信号処理の部品</td><td>Sonalloy が<strong>利用する</strong></td></tr>
+        <tr><td><strong>Sonalloy</strong></td><td>Instrument 構築・発音制御・音色設計・演奏管理</td><td><strong>本体</strong></td></tr>
+        <tr><td>Plugin / Frontend</td><td>DAW やアプリから Sonalloy を呼び出す形式</td><td>Sonalloy が<strong>利用される</strong></td></tr>
+        <tr><td>Host / DAW</td><td>楽曲制作・ミキシング・マスタリング</td><td>Sonalloy の管轄外</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="rv">Sonalloy 本体は Plugin API・Audio Device API・MIDI Device API に依存しない。CLAP/VST3、Standalone、各 Device 接続はすべて Adapter として外側に置く。</p>
+
+  <h3 class="rv"><i>1.5</i>スコープ境界</h3>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th class="yes">扱う</th><th class="no">現時点で扱わない（将来の拡張は構造的に許容）</th></tr></thead>
+      <tbody>
+        <tr><td>Sampling / Multi Sample / Oscillator / Subtractive / Noise / Wavetable / FM / Granular / Hybrid 構成</td><td>完全自由な Modular Graph</td></tr>
+        <tr><td>Polyphony / Voice Management / Modulation</td><td>Feedback Routing</td></tr>
+        <tr><td>基本 Effects / MIDI 演奏 / Realtime &amp; Offline Render</td><td>DAW 機能、大規模 Mixing・Mastering</td></tr>
+        <tr><td>CLI / CLAP・VST3 展開 / Riffra 組み込み</td><td>巨大 Effect Suite、Physical Modeling、Additive Synthesis</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 2 ================= -->
+<section class="sec" id="s2">
+  <header class="sec-head rv">
+    <span class="sec-num">02</span>
+    <div><p class="sec-kicker">Architecture</p><h2>アーキテクチャ設計</h2></div>
+  </header>
+
+  <h3 class="rv"><i>2.1</i>設計原則</h3>
+  <p class="pull rv">音の配線は固定、音の変化は自由。</p>
+  <p class="rv">信号経路（音の配線）は Sonalloy 側で固定する。一方、各パラメータの時間変化（Modulation）には高い自由度を持たせる。この非対称性がアーキテクチャ全体を貫く原則である。</p>
+  <p class="rv">完全自由なモジュラーシンセ方式（任意の Audio Graph・Feedback Routing・循環接続）は採用しない。</p>
+  <div class="callout rv">
+    <p class="co-label">採用しない理由</p>
+    <p>Graph Scheduling・Cycle 管理・計算量予測まで製品責務が膨張し、リアルタイム安全性の保証が著しく困難になるため。</p>
+  </div>
+
+  <h3 class="rv"><i>2.2</i>信号経路：半固定パイプライン</h3>
+  <figure class="flow rv">
+    <div class="fbox">Note Event</div>
+    <div class="fconn"></div>
+    <div class="fbox">Voice Allocation</div>
+    <div class="fconn"></div>
+    <div class="voice-frame">
+      <span class="vf-label">PER VOICE</span>
+      <div class="fbox">Layer Trigger Evaluation</div>
+      <div class="fconn"></div>
+      <div class="fbox">Generators
+        <div class="gen-chips">
+          <span class="gc" style="--c:var(--amber)">SAMPLE</span>
+          <span class="gc" style="--c:var(--cyan)">OSC</span>
+          <span class="gc" style="--c:var(--coral)">FM</span>
+          <span class="gc" style="--c:var(--green)">WAVETABLE</span>
+          <span class="gc" style="--c:var(--lav)">GRANULAR</span>
+          <span class="gc" style="--c:var(--gray)">NOISE</span>
+        </div>
+      </div>
+      <div class="fconn"></div>
+      <div class="fbox">Layer Envelope / Layer Processing</div>
+      <div class="fconn"></div>
+      <div class="fbox">Layer Mix</div>
+      <div class="fconn"></div>
+      <div class="fbox">Voice Processing / Amplifier</div>
+    </div>
+    <div class="fconn"></div>
+    <div class="fbox">Voice Sum</div>
+    <div class="fconn"></div>
+    <div class="fbox">Global Effects<small>INSTRUMENT 単位</small></div>
+    <div class="fconn"></div>
+    <div class="fbox engine">Output</div>
+  </figure>
+  <p class="rv">段階間の接続順序は固定する。各段階の<strong>内部パラメータ</strong>には自由度を持たせる。処理の責務は次の3単位に分割する。</p>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>単位</th><th>責務</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Layer</strong></td><td>Generator、発音条件、Layer Envelope、Layer Processing、Gain / Pan / Tuning</td></tr>
+        <tr><td><strong>Voice</strong></td><td>同一 Note から生じる複数 Layer の Mix、Voice Processing、Amplifier</td></tr>
+        <tr><td><strong>Instrument</strong></td><td>複数 Voice の合流、Global Effects、最終 Output</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="rv"><i>2.3</i>Modulation システム</h3>
+  <h4 class="rv">Source（変調源）— 最低限サポート</h4>
+  <div class="chipset rv">
+    <span class="chip">LFO</span><span class="chip">Envelope</span><span class="chip">Velocity</span><span class="chip">Key Tracking</span>
+    <span class="chip">Pitch Bend</span><span class="chip">Mod Wheel</span><span class="chip">Aftertouch</span><span class="chip">Random</span>
+  </div>
+
+  <h4 class="rv">接続例</h4>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>Source</th><th>→ Target</th><th>効果</th></tr></thead>
+      <tbody>
+        <tr><td>LFO</td><td>Filter Cutoff</td><td>周期的な明るさの変化</td></tr>
+        <tr><td>LFO</td><td>Sample Position</td><td>素材内の揺らぎ</td></tr>
+        <tr><td>Envelope</td><td>Pitch / FM Amount</td><td>発音時の音程・倍音変化</td></tr>
+        <tr><td>Velocity</td><td>Layer Gain / Filter Cutoff</td><td>演奏強度の反映</td></tr>
+        <tr><td>Random</td><td>Layer Pan</td><td>定位の散らばり</td></tr>
+        <tr><td>Mod Wheel</td><td>Granular Density</td><td>演奏中の質感操作</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="rv">Target は、Layer 共通 Parameter・Generator 固有 Parameter・Voice Processing・Global Effects の Parameter を区別して解決する。Frontend 固有の Parameter 表現を Core へ持ち込まず、Instrument Definition 上の対象を Compile 時に実行用参照へ変換する。</p>
+
+  <h4 class="rv">共通規則 — Parameter 定義</h4>
+  <ul class="check2 rv">
+    <li>各 Parameter は、Definition 内で一意かつ安定した ID、値の型、単位、最小値・最大値・初期値を持つ</li>
+    <li>連続値（音量、Filter Cutoff 等）は変調可能。離散値（波形種類、FM Algorithm 等）は変調対象外</li>
+  </ul>
+
+  <h4 class="rv">共通規則 — Route 定義</h4>
+  <ul class="check2 rv">
+    <li>Modulation Route は、Source・Target Parameter・Amount・Curve を持つ</li>
+    <li>Amount は Target の可変範囲に対する割合として扱う</li>
+    <li>Source の出力は正規化：単方向の値は <code>0〜1</code>、正負の値は <code>-1〜1</code></li>
+    <li>複数 Route が一つの Target に接続された場合、変調量を加算し min/max へ Clamp</li>
+  </ul>
+
+  <h4 class="rv">共通規則 — 評価単位</h4>
+  <ul class="check2 rv">
+    <li><strong>Voice 単位</strong>：Velocity、Key Tracking、Voice 内の Envelope・LFO（Note ごとに決まる値）</li>
+    <li><strong>Instrument 単位</strong>：Mod Wheel 等（演奏全体に作用する値）</li>
+  </ul>
+
+  <h4 class="rv">共通規則 — 変更の反映</h4>
+  <ul class="check2 rv">
+    <li>連続値の変更：平滑化を適用し、クリックノイズを避ける</li>
+    <li>離散値・処理構成の変更：Audio 処理中に直接切り替えず、Compiled Instrument の更新として扱う（<a href="#s4">§4.3</a> 参照）</li>
+  </ul>
+  <p class="rv">この規則は CLI・Riffra・CLAP・VST3・Instrument Definition・Runtime で共通利用する。Frontend ごとに Parameter の意味を再定義しない。</p>
+</section>
+
+<!-- ================= 3 ================= -->
+<section class="sec" id="s3">
+  <header class="sec-head rv">
+    <span class="sec-num">03</span>
+    <div><p class="sec-kicker">Functional Spec</p><h2>機能仕様</h2></div>
+  </header>
+
+  <h3 class="rv"><i>3.1</i>Instrument（中心概念）</h3>
+  <p class="rv">Sonalloy の最上位モデル。一つの Instrument が一つの「楽器」を表す。</p>
+  <ul class="tree rv">
+    <li><span class="k">Instrument</span>
+      <ul>
+        <li><span class="k">Layers[]</span> <span class="c">← 音色を構成する Layer（複数可）</span>
+          <ul>
+            <li><span class="k">Generator</span> <span class="c">← 音の発生方式</span></li>
+            <li><span class="k">Trigger Conditions</span></li>
+            <li><span class="k">Gain / Pan / Tuning</span></li>
+            <li><span class="k">Layer Envelope</span></li>
+            <li><span class="k">Layer Processing</span></li>
+          </ul>
+        </li>
+        <li><span class="k">Voice Processing</span> <span class="c">← Layer Mix 後の Filter, Drive, EQ 等</span></li>
+        <li><span class="k">Modulation Matrix</span> <span class="c">← Source → Target の接続群</span></li>
+        <li><span class="k">Global Effects</span> <span class="c">← Voice Sum 後の Chorus, Delay, Reverb 等</span></li>
+        <li><span class="k">Performance Settings</span> <span class="c">← 発音方式、同時発音数、音のつながり方等</span></li>
+        <li><span class="k">Asset References</span> <span class="c">← 外部 Sample ファイルへの参照</span></li>
+      </ul>
+    </li>
+  </ul>
+  <div class="callout info rv">
+    <p class="co-label">Layer と Generator の責務分離</p>
+    <p>Generator は「どの方式で音を発生させるか」を担い、Layer は「いつ・どの範囲で・どのように Instrument へ混ぜるか」を担う。</p>
+  </div>
+  <p class="rv">Instrument 内の Parameter は、所属先（Layer / Generator / Voice Processing / Global Effects）を明示し、安定した Parameter ID で識別する。特定の Frontend や DAW に依存しないデータとして保存可能であり、Definition から実行可能な Instrument を再構築できることが要件である。</p>
+
+  <h3 class="rv"><i>3.2</i>Generator（音の発生源）</h3>
+  <p class="rv">各 Layer は一つの Generator を持つ。Generator は音の発生方式と、その方式に固有の Parameter だけを担う。</p>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>Generator</th><th>概要</th><th>固有の主要パラメータ</th></tr></thead>
+      <tbody>
+        <tr><td><span class="dot" style="--c:var(--amber)"></span><strong>Sample</strong></td><td>音声素材の再生</td><td>Sample Zones, Playback Interpolation</td></tr>
+        <tr><td><span class="dot" style="--c:var(--cyan)"></span><strong>Oscillator</strong></td><td>基本波形の生成（Sine/Saw/Square/Triangle）</td><td>Waveform, Phase, Phase Reset, Alias 対策済み生成方式</td></tr>
+        <tr><td><span class="dot" style="--c:var(--gray)"></span><strong>Noise</strong></td><td>White Noise 等のノイズ信号</td><td>Type, Color</td></tr>
+        <tr><td><span class="dot" style="--c:var(--green)"></span><strong>Wavetable</strong></td><td>複数波形間の連続移動</td><td>Table, Position（Modulation 対象）, Interpolation</td></tr>
+        <tr><td><span class="dot" style="--c:var(--coral)"></span><strong>FM</strong></td><td>Oscillator 間の周波数変調</td><td>Operator 構成, Ratio, Index, Algorithm（専用構造として表現）</td></tr>
+        <tr><td><span class="dot" style="--c:var(--lav)"></span><strong>Granular</strong></td><td>素材を Grain 単位で分割・再構成</td><td>Position, Grain Size, Density, Grain Pitch, Randomness, Pan Spread</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout rv">
+    <p class="co-label">設計判断</p>
+    <p><strong>Subtractive Synthesis</strong>：独立 Generator を設けず、Oscillator/Noise + Layer/Voice Processing の Filter・Amplifier の組み合わせで表現する。</p>
+    <p><strong>FM</strong>：一般的な Audio Graph へ無理に変換せず、Operator/Algorithm 構造をそのまま保持する専用 Generator とする。</p>
+  </div>
+  <h4 class="rv">Layer 側に属するもの（Generator の責務外）</h4>
+  <div class="chipset rv">
+    <span class="chip">Key Range</span><span class="chip">Velocity Range</span><span class="chip">Note On/Off 等の Trigger Conditions</span>
+    <span class="chip">Gain</span><span class="chip">Pan</span><span class="chip">共通 Tuning</span><span class="chip">Layer Envelope</span><span class="chip">Layer Processing</span>
+  </div>
+  <p class="rv"><strong>Sample Generator 内の Sample Zone</strong>：音声素材ごとに Root Note・Key Range・Velocity Range・Round Robin Group・Loop・Playback Mode を保持する。これらは Sample Layer 自体の発音可否を判断する Trigger Conditions とは別の責務である（<a href="#s3-4">§3.4</a> 参照）。</p>
+
+  <h3 class="rv"><i>3.3</i>Voice Management</h3>
+  <p class="rv">Voice は、一つの Note On から発生する Layer 群と、その演奏中状態をまとめる単位である。</p>
+  <h4 class="rv">発音方式（Performance Settings で選択）</h4>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>方式</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>Polyphonic</td><td>複数の Note を独立した Voice として同時に発音</td></tr>
+        <tr><td>Monophonic</td><td>同時に一つの Voice のみ使用</td></tr>
+        <tr><td>Legato</td><td>前の鍵盤を押したまま次の鍵盤を押した場合、Envelope を再開始せず同じ Voice の音程を移行</td></tr>
+        <tr><td>Portamento</td><td>設定された時間をかけて音程を滑らかに移動</td></tr>
+        <tr><td>Sustain Pedal</td><td>鍵盤を離しても保持を続け、ペダル解除時に Release へ移行</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h4 class="rv">Voice 管理機能</h4>
+  <ul class="check2 rv">
+    <li>Note On / Note Off の処理</li>
+    <li>Note ID による Note と Voice の対応付け</li>
+    <li>Voice Allocation（空き Voice の割り当て）</li>
+    <li>Layer Trigger Evaluation（Note・Velocity・Trigger 種別に応じた発音 Layer の決定）</li>
+    <li>Voice Stealing（上限到達時の Voice 入れ替え）</li>
+    <li>Release 処理（Note Off / ペダル解除後の減衰）</li>
+    <li>Polyphony Limit（同時発音数の上限設定）</li>
+  </ul>
+  <h4 class="rv">Note ID</h4>
+  <p class="rv">各 Note On には、Frontend または Adapter が一意な Note ID を付与する。Note Off・音程変更・Note 単位の表現変更は同じ Note ID で対象 Voice を特定する。Note ID を持たない入力形式では、Adapter が Channel + Note Number を基に生成・対応付けする。</p>
+  <h4 class="rv">Voice Stealing 規則</h4>
+  <p class="rv">Release 中で出力の小さい Voice を優先し、該当がなければ最も古い Voice を対象とする。入れ替え時は短い減衰を入れ、波形の不連続によるクリックノイズを避ける。</p>
+  <h4 class="rv">Runtime 状態（Definition に保存しない）</h4>
+  <p class="rv">各 Layer の Generator 状態、Envelope 状態、Voice Processing 状態、鍵盤の押下状態、ペダルによる保持状態など、演奏中に変化する状態。</p>
+
+  <h3 class="rv" id="s3-4"><i>3.4</i>Sample Mapping</h3>
+  <p class="rv">Sample Mapping は、Sample Generator を持つ Layer が発音対象になった<strong>後</strong>に、実際に使用する Sample Zone を選択する機能である。</p>
+  <figure class="flow rv">
+    <div class="fbox">Layer Trigger Conditions<small>その LAYER を発音するか</small></div>
+    <div class="fconn"></div>
+    <div class="fbox">Sample Layer を発音</div>
+    <div class="fconn"></div>
+    <div class="fbox hot">Key × Velocity × Round Robin<small>SAMPLE ZONE の選択</small></div>
+  </figure>
+  <p class="rv">Sample Zone の保持情報：Asset Reference・Root Note・Key Range・Velocity Range・Round Robin Group・Loop・Playback Mode。この責務分離により、以下を同じ Sample Generator モデルで表現できる：</p>
+  <ul class="check2 rv">
+    <li>単一 Sample の音域展開（Pitch Shift）</li>
+    <li>Multi Sample Instrument（音域ごとに異なる録音）</li>
+    <li>強弱に応じた Sample Zone の切り替え</li>
+    <li>Drum Kit（Key ごとに異なる One-shot）</li>
+  </ul>
+  <div class="callout warn rv">
+    <p class="co-label">Round Robin 規則</p>
+    <p>同じ Key Range・Velocity Range に複数の Sample Zone が該当する場合、同一 Round Robin Group 内から順番に選択する。異なる Group が同時に該当する構成は Validation Error とし、選択結果が実装依存にならないようにする。</p>
+  </div>
+
+  <h3 class="rv"><i>3.5</i>Effects</h3>
+  <p class="rv">音源設計に直接必要な範囲のみ内蔵する：</p>
+  <div class="chipset rv">
+    <span class="chip">Filter</span><span class="chip">Drive / Saturation</span><span class="chip">EQ</span>
+    <span class="chip">Chorus</span><span class="chip">Delay</span><span class="chip">Reverb</span>
+  </div>
+  <h4 class="rv">適用位置</h4>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>適用範囲</th><th>対象</th><th>使用可能な Effect</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Layer Processing</strong></td><td>特定の Layer だけ</td><td>Filter, Drive, EQ</td></tr>
+        <tr><td><strong>Voice Processing</strong></td><td>一つの Note から発生した Layer Mix 全体</td><td>Filter, Drive, EQ</td></tr>
+        <tr><td><strong>Global Effects</strong></td><td>複数 Voice を合流した Instrument 全体</td><td>Filter, Drive, EQ, Chorus, Delay, Reverb</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="rv">Delay・Reverb・Chorus は発音 Voice 数に比例して状態を複製しないよう、基本的に Global Effects として扱う。</p>
+  <h4 class="rv">処理規則</h4>
+  <ul class="check2 rv">
+    <li>各処理は Definition に記載された順序で直列に適用。任意 Routing や Feedback 接続は扱わない</li>
+    <li>各 Effect の連続 Parameter は Modulation および演奏中の変更対象にできる</li>
+    <li>Effect の追加・削除・並べ替えは処理構成の変更として扱い、Compiled Instrument を更新して反映（<a href="#s4">§4.3</a> 参照）</li>
+  </ul>
+  <p class="rv">高度な Mastering 処理や総合ミキシングは Host・外部 Plugin の責務であり、Sonalloy が担うのは音源設計に直結する範囲までとする。</p>
+</section>
+
+<!-- ================= 4 ================= -->
+<section class="sec" id="s4">
+  <header class="sec-head rv">
+    <span class="sec-num">04</span>
+    <div><p class="sec-kicker">Data Model</p><h2>データモデル：Instrument Definition</h2></div>
+  </header>
+
+  <h3 class="rv"><i>4.1</i>三層構造</h3>
+  <p class="rv">Instrument の構成は、バージョン管理可能なテキストデータ（JSON）で表現する。</p>
+  <div class="callout rv">
+    <p class="co-label">JSON を採用する理由</p>
+    <p>バイナリ内部状態のダンプでは再現性・可読性・差分管理が担保できないため。</p>
+  </div>
+  <p class="rv">Definition は編集・保存用の正本であり、Audio 処理から直接利用しない。読み込み後に Validation・Asset 解決・Parameter/Modulation 参照解決を行い、実行用の Compiled Instrument へ変換する。</p>
+  <figure class="flow rv">
+    <div class="fbox">Instrument Definition（JSON）+ Referenced Assets（WAV 等）</div>
+    <div class="fconn"><span class="cl">LOAD / VALIDATE / RESOLVE / COMPILE</span></div>
+    <div class="fbox hot">Compiled Instrument</div>
+    <div class="fconn"><span class="cl">INSTANTIATE</span></div>
+    <div class="fbox">Instrument Runtime Instance</div>
+  </figure>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>モデル</th><th>責務</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Instrument Definition</strong></td><td>編集・保存・差分管理可能な Instrument 構成の正本</td></tr>
+        <tr><td><strong>Compiled Instrument</strong></td><td>Asset や参照を解決し、Audio 処理前に準備された実行用の不変構造</td></tr>
+        <tr><td><strong>Instrument Runtime Instance</strong></td><td>Voice、Envelope、Oscillator Phase、Filter・Effect 状態など演奏中に変化する状態</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout info rv">
+    <p class="co-label">再現性要件</p>
+    <p>同一の Definition + Referenced Assets から同等の Compiled Instrument を構築し、Instrument を再現できること。</p>
+  </div>
+
+  <h3 class="rv"><i>4.2</i>保持内容</h3>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>カテゴリ</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>識別</td><td>Schema Version, Metadata（名前、作者、説明）</td></tr>
+        <tr><td>音源構成</td><td>Layer 一覧, 各 Layer の Trigger Conditions・Mix・Processing, 各 Generator の種類と固有 Parameter</td></tr>
+        <tr><td>Parameter</td><td>Parameter ID, 値の型, 単位, 最小値, 最大値, 初期値</td></tr>
+        <tr><td>変調</td><td>Modulation Matrix（Source → Target Parameter ID, Amount, Curve）</td></tr>
+        <tr><td>マッピング</td><td>Sample Generator 内の Sample Zones（Key/Velocity/RR → Zone）</td></tr>
+        <tr><td>演奏</td><td>発音方式, 同時発音数, Voice Stealing Rule, Sustain Pedal, Legato/Portamento 設定</td></tr>
+        <tr><td>効果</td><td>Layer Processing, Voice Processing, Global Effects</td></tr>
+        <tr><td>再現性</td><td>Random Seed, 参照 Asset の Hash</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h4 class="rv">Compile 時に解決するもの</h4>
+  <div class="chipset rv">
+    <span class="chip">Asset 参照</span><span class="chip">Decode 済み / 再生準備済み Sample</span><span class="chip">Parameter 参照</span>
+    <span class="chip">Modulation Target</span><span class="chip">Processor 構成</span><span class="chip">実行時メモリ配置</span>
+  </div>
+  <h4 class="rv">保存対象外</h4>
+  <div class="chipset rv">
+    <span class="chip">Compiled Instrument</span><span class="chip">ランタイム状態</span><span class="chip">Decode 済み音声 Buffer</span>
+    <span class="chip">Voice 状態</span><span class="chip">一時計算結果</span>
+  </div>
+  <p class="rv">正本形式はバージョン付き JSON とし、Rust 内部では Serde で Definition 型と相互変換する。</p>
+
+  <h3 class="rv"><i>4.3</i>読み込みと更新のルール</h3>
+  <h4 class="rv">読み込み時のエラー処理</h4>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>状況</th><th>対応</th></tr></thead>
+      <tbody>
+        <tr><td>Definition の構造や値に矛盾がある</td><td>Compile を失敗させ、現在利用中の Compiled Instrument を維持</td></tr>
+        <tr><td>参照する音声素材が見つからない</td><td>Instrument 全体の読み込みは失敗させず、該当 Sample Zone を無効化。依存 Layer はその部分だけ無音、他 Layer/Generator は利用可能</td></tr>
+        <tr><td>不足 Asset がある</td><td>診断情報として Frontend へ返し、参照先を指定し直して再 Compile 可能にする</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h4 class="rv">変更時の反映規則</h4>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>変更種別</th><th>反映方法</th></tr></thead>
+      <tbody>
+        <tr><td>連続値の変更（音量、Filter Cutoff、変調量等）</td><td>Parameter Change Event として Runtime へ渡し、発音中の Voice にも平滑化して反映</td></tr>
+        <tr><td>構成変更（Layer/Generator/Effect の追加・削除・並べ替え、離散 Parameter 変更）</td><td>Control 側で新しい Compiled Instrument を生成</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h4 class="rv">構成変更の反映タイミング</h4>
+  <ul class="check2 rv">
+    <li>Compile に成功した構成は Audio Block 境界で公開し、新しく開始する Voice から利用</li>
+    <li>発音中の Voice は、発音開始時に参照した構成を Release 完了まで使用</li>
+    <li>Compile に失敗した場合は、現在の Compiled Instrument を変更しない</li>
+    <li>Global Effects の構成変更は Audio Block 境界で切り替え、短い出力平滑化でクリックノイズを回避</li>
+    <li>Effect の連続 Parameter 変更は構成変更を伴わず、発音中の音にも反映</li>
+  </ul>
+</section>
+
+<!-- ================= 5 ================= -->
+<section class="sec" id="s5">
+  <header class="sec-head rv">
+    <span class="sec-num">05</span>
+    <div><p class="sec-kicker">Interfaces</p><h2>インターフェース</h2></div>
+  </header>
+
+  <h3 class="rv"><i>5.1</i>CLI（第一級）</h3>
+  <p class="rv">GUI や DAW がなくても、CLI だけで Sonalloy の主要機能を完結できる。</p>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>操作カテゴリ</th><th>具体機能</th></tr></thead>
+      <tbody>
+        <tr><td><strong>作る</strong></td><td>新規作成, Layer 追加・削除, Generator 設定, Sample 追加, Parameter・Modulation 設定</td></tr>
+        <tr><td><strong>理解する</strong></td><td>内容表示, 構成解析, Validation, 不足 Asset の確認</td></tr>
+        <tr><td><strong>演奏する</strong></td><td>単音発音, Note Sequence, MIDI File 再生</td></tr>
+        <tr><td><strong>書き出す</strong></td><td>Offline Render, WAV 等への Export</td></tr>
+        <tr><td><strong>リアルタイム</strong></td><td>MIDI Device + Audio Device による演奏（Linux 含む）</td></tr>
+        <tr><td><strong>修復する</strong></td><td>不足 Asset の参照先を指定し直し、再 Validation・再 Compile</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="rv">CLI が操作する正本は Instrument Definition であり、コマンド列は Definition を操作する手段に過ぎない。リアルタイム演奏時の MIDI Device・Audio Device 管理は CLI / Standalone 側の Adapter が担い、Sonalloy Core には正規化された Event・Process Context・Audio Buffer を渡す。</p>
+
+  <h3 class="rv"><i>5.2</i>Plugin（CLAP / VST3）</h3>
+  <p class="rv">外部 DAW から Sonalloy Instrument を利用するための Adapter。Sonalloy Core は Plugin API を知らない（<a href="#s1">§1.4</a> の原則）。CLAP / VST3 Adapter は、Host 固有の Event・Transport 情報・Audio Buffer を Sonalloy 共通の Process Contract へ変換し、Core の出力を Host へ返す。</p>
+
+  <h3 class="rv"><i>5.3</i>Rust API / C ABI</h3>
+  <p class="rv">Sonalloy Core は、接続元に依存しない共通のライフサイクルと Process Contract を公開する。</p>
+  <h4 class="rv">ライフサイクル</h4>
+  <div class="lifecycle rv">
+    <span class="lc-box">Prepare</span><span class="lc-arrow">→</span>
+    <span class="lc-box">Activate</span><span class="lc-arrow">→</span>
+    <span class="lc-box loop">Process <em>⟲</em></span><span class="lc-arrow">→</span>
+    <span class="lc-box">Reset / Deactivate</span>
+  </div>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>フェーズ</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Prepare</strong></td><td>Sample Rate、最大 Block Size、出力 Channel 数を受け取り、必要な Buffer を事前確保</td></tr>
+        <tr><td><strong>Activate</strong></td><td>Audio 処理を開始できる状態へ移行</td></tr>
+        <tr><td><strong>Process</strong></td><td>現在の Frame 数、Process Context、Event 列、出力 Buffer を受け取り、音声を生成</td></tr>
+        <tr><td><strong>Reset</strong></td><td>発音中 Voice、Envelope、Effect 状態等を初期状態へ戻す</td></tr>
+        <tr><td><strong>Deactivate</strong></td><td>Audio 処理を終了</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 class="rv">Process Contract</h4>
+  <ul class="tree rv">
+    <li><span class="k">Process</span>
+      <ul>
+        <li><span class="k">Process Context</span> <span class="c">（Current Frame Count, Tempo / Time Signature / Transport）</span></li>
+        <li><span class="k">Events[]</span> <span class="c">（Event Type, Note ID, Sample Offset, Payload）</span></li>
+        <li><span class="k">Output Buffers</span></li>
+      </ul>
+    </li>
+  </ul>
+  <ul class="check2 rv">
+    <li>Sample Rate・最大 Block Size・出力 Channel 数は Prepare 時に確定</li>
+    <li>一回の Process で扱う Frame 数は最大 Block Size以下。呼び出しごとに変化してよい</li>
+    <li>Audio Sample Format は <code>f32</code>、Buffer は Channel ごとに分離した Planar 形式。少なくとも Mono と Stereo 出力を扱う</li>
+    <li>Event は Sample Offset の昇順で渡す。同一 Offset では入力順を維持。ただし同一 Note の Note Off と Note On が同時の場合は Note Off を先に処理</li>
+    <li>Audio Callback 内で回復不能な例外を外部へ送出しない。処理できない Event は診断対象とし、その Process は無音または処理可能な範囲で継続</li>
+  </ul>
+
+  <h4 class="rv">正規化 Event</h4>
+  <p class="rv">Core へ渡す Event は、生の MIDI バイト列や Plugin 固有 Event ではなく、以下へ正規化する：</p>
+  <div class="chipset rv">
+    <span class="chip">Note On</span><span class="chip">Note Off</span><span class="chip">Sustain Pedal</span><span class="chip">Pitch Bend</span>
+    <span class="chip">Mod Wheel</span><span class="chip">Aftertouch</span><span class="chip">Parameter Change</span>
+  </div>
+  <p class="rv">各 Event は Audio Block 内の Sample Offset を持ち、Frontend の種類にかかわらず同じ Runtime で Sample 単位のタイミングを処理できる。</p>
+
+  <h4 class="rv">接続先一覧</h4>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>接続先</th><th>方式</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr><td>Sonalloy CLI / Standalone</td><td>Rust API（直接）</td><td>Device・MIDI 入力を共通 Process Contract へ変換</td></tr>
+        <tr><td>Riffra（C++ / JUCE）</td><td>C ABI</td><td>JUCE の Audio/MIDI を共通 Process Contract へ変換</td></tr>
+        <tr><td>外部 DAW</td><td>CLAP / VST3</td><td>Host 固有 Event・Buffer を共通 Process Contract へ変換</td></tr>
+        <tr><td>オフライン外部処理</td><td>CLI or プロセス間連携</td><td>Event 列と Process Context を用いた Batch 処理</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 class="rv">C ABI の境界規則</h4>
+  <ul class="check2 rv">
+    <li>Rust 内部型を直接公開せず、不透明 Handle を通じて Instrument Instance を操作</li>
+    <li>Instance の生成・破棄は Sonalloy 側が実施。Audio Buffer と Event 列は呼び出し側が Process 中だけ所有・貸与</li>
+    <li>Rust Panic や C++ 例外を境界の外へ伝播させず、結果コードと診断情報で失敗を返す</li>
+  </ul>
+</section>
+
+<!-- ================= 6 ================= -->
+<section class="sec" id="s6">
+  <header class="sec-head rv">
+    <span class="sec-num">06</span>
+    <div><p class="sec-kicker">System &amp; Tech</p><h2>システム構成と技術選定</h2></div>
+  </header>
+
+  <h3 class="rv"><i>6.1</i>依存方向とレイヤー構造</h3>
+  <div class="stack rv">
+    <div class="tier"><b>Frontend / Adapter</b><span>CLI / Standalone / Riffra / CLAP / VST3 — Device・Host 固有形式を変換</span></div>
+    <div class="tier star"><b>Sonalloy Public Contract</b><span>Definition API / Compile API / Lifecycle API / Process API / C ABI</span></div>
+    <div class="tier"><b>Control 側 → Instrument Compiler</b><span>Validation / Asset Resolution / Parameter・Modulation Resolution</span></div>
+    <div class="tier"><b>Compiled Instrument</b><span>Audio Block 境界で公開</span></div>
+    <div class="tier"><b>Instrument Runtime Instance</b><span>Event 処理, Voice 管理, Layer 処理, Modulation</span></div>
+    <div class="tier"><b>Generator Engines</b><span>Sample, Osc, FM, WT, Granular, Noise</span></div>
+    <div class="tier"><b>DSP Core</b><span>波形生成, Filter, FFT, Resampler, Envelope</span></div>
+  </div>
+  <div class="callout warn rv">
+    <p class="co-label">禁止事項</p>
+    <p><strong>Sonalloy Core が CLI・Riffra・JUCE・CPAL・midir・CLAP・VST3 を知ることは禁止。</strong></p>
+  </div>
+  <h4 class="rv">Control 側と Audio 側の責務分離</h4>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>側</th><th>責務</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Control 側</strong></td><td>Definition 編集、Validation、Asset 解決、Compile、不足 Asset の診断、Compiled Instrument の公開準備</td></tr>
+        <tr><td><strong>Audio 側</strong></td><td>Process Event の適用、Voice 生成・終了、Modulation 評価、音声生成、事前準備済み構成への切替</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="rv">Compiled Instrument の公開は Audio Block 境界で行う。Audio 側で JSON 解析・Asset 解決・構成構築を行わない。発音中 Voice が参照する旧構成は、その Voice の終了まで破棄しない。</p>
+
+  <h3 class="rv"><i>6.2</i>技術候補</h3>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>領域</th><th>選定</th><th>備考</th></tr></thead>
+      <tbody>
+        <tr><td>言語</td><td>Rust</td><td>独立 Workspace</td></tr>
+        <tr><td>Serialization</td><td>Serde / JSON</td><td>Definition 正本</td></tr>
+        <tr><td>Realtime Audio</td><td>CPAL</td><td>Standalone Adapter で Audio Device を管理</td></tr>
+        <tr><td>Audio Decode</td><td>Symphonia</td><td>Compile 前後の Asset 準備で WAV/FLAC/OGG 等を Decode</td></tr>
+        <tr><td>Resampling</td><td>Rubato</td><td>Sample Rate 非依存</td></tr>
+        <tr><td>FFT</td><td>RustFFT</td><td>Granular, 分析系</td></tr>
+        <tr><td>Realtime MIDI</td><td>midir</td><td>Standalone Adapter で Device 入出力を管理</td></tr>
+        <tr><td>MIDI File</td><td>midly</td><td>MIDI File を共通 Event 列へ変換</td></tr>
+        <tr><td>CLAP</td><td>clack ecosystem</td><td>Plugin Adapter</td></tr>
+        <tr><td>Riffra 統合</td><td>C ABI / FFI</td><td>共通 Process Contract を公開する安定境界</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="rv"><i>6.3</i>所有と利用の境界</h3>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>区分</th><th>対象</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Sonalloy が所有</strong><br><span style="font-weight:400;color:var(--dim);font-size:.78rem">製品の中核</span></td><td>Instrument Definition, Layer, Generator, Instrument Compiler, Compiled Instrument, Voice, Modulation, Instrument Runtime, Sample Mapping, 共通 Event・Process Contract</td></tr>
+        <tr><td><strong>Frontend / Adapter が所有</strong><br><span style="font-weight:400;color:var(--dim);font-size:.78rem">利用環境との接続</span></td><td>Audio Device, MIDI Device, Plugin Host API, JUCE / CPAL / CLAP / VST3 固有の Event・Buffer 変換</td></tr>
+        <tr><td><strong>既存ライブラリに委譲</strong><br><span style="font-weight:400;color:var(--dim);font-size:.78rem">汎用基盤</span></td><td>FFT, Resampling, Codec, Audio Device 接続, MIDI Device 接続</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 7 ================= -->
+<section class="sec" id="s7">
+  <header class="sec-head rv">
+    <span class="sec-num">07</span>
+    <div><p class="sec-kicker">Integration</p><h2>Riffra との関係</h2></div>
+  </header>
+
+  <p class="pull rv">コードベースは分離、製品体験は深く統合。</p>
+  <div class="rel rv">
+    <span class="rbox">Riffra</span>
+    <span class="rarrow">── 利用 ──▶<b>C ABI / Process Contract</b></span>
+    <span class="rbox s">Sonalloy</span>
+  </div>
+  <p class="rv">依存の矢印は <code>Riffra → Sonalloy</code> の一方向のみ。Sonalloy は Riffra がなくても単独で全機能動作する。</p>
+
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>Riffra 画面</th><th>Sonalloy との関わり</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Design</strong></td><td>Instrument の視覚的エディタ（Layer 追加, Generator 設定, Sample 選択, Env 編集, Mod Routing, Effect 設定, 保存）。Instrument Definition を共通モデルとして扱い、意味の再実装はしない。</td></tr>
+        <tr><td><strong>Play</strong></td><td>MIDI 鍵盤等からのリアルタイム演奏。Performance Settings に従い Polyphonic / Monophonic / Legato / Portamento / Sustain Pedal を利用。C++ / JUCE 側で Audio/MIDI を Process Contract へ変換し、C ABI 経由で渡す。</td></tr>
+        <tr><td><strong>Arrange</strong></td><td>楽曲内での Instrument 利用。純粋に「使う側」であり、音源設計・Compile・発音ロジックは Sonalloy が担う。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="rv"><strong>所有関係</strong>：Riffra は Audio Device および JUCE Audio Callback を所有する。Sonalloy は渡された Process Context・Event・Audio Buffer に対して処理する。Sonalloy 側から Riffra や JUCE 固有 API を呼び出さない。</p>
+
+  <h4 class="rv">Design 画面での構成変更フロー</h4>
+  <ol class="steps rv">
+    <li>Riffra が Control 側で Compile を要求する。</li>
+    <li><strong>成功</strong> → Compiled Instrument を Audio Block 境界で公開。</li>
+    <li><strong>失敗</strong> → 現在の Instrument を維持し、診断内容を画面へ表示。</li>
+    <li><strong>Asset 不足</strong> → Instrument 自体は開き、不足箇所を明示。該当 Sample Zone のみ無効化された状態で他 Layer は利用可能。Riffra から参照先を指定し直して再 Compile できる。</li>
+  </ol>
+</section>
+
+<!-- ================= 8 ================= -->
+<section class="sec" id="s8">
+  <header class="sec-head rv">
+    <span class="sec-num">08</span>
+    <div><p class="sec-kicker">Non-Functional</p><h2>非機能要件</h2></div>
+  </header>
+  <div class="tablewrap rv">
+    <table>
+      <thead><tr><th>要件</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Cross-platform</strong></td><td>Linux / Windows を主要対象。Core は OS 固有機能へ直接依存しない。</td></tr>
+        <tr><td><strong>Headless</strong></td><td>GUI なしで全主要機能を利用可能（必須）。</td></tr>
+        <tr><td><strong>Realtime Safety</strong></td><td>Audio Callback では Compiled Instrument と事前確保済み Runtime 状態のみを使用。ファイル I/O・Asset Decode・大規模 alloc・JSON 解析・Blocking Lock・Network Access・Device 操作は禁止。</td></tr>
+        <tr><td><strong>演奏継続性</strong></td><td>演奏中の Parameter 変更や構成変更で Audio 処理を停止しない。Compile 失敗時は現在の正常な Compiled Instrument を維持。</td></tr>
+        <tr><td><strong>部分的な読込</strong></td><td>参照 Asset 不足でも Instrument 全体を読込不能にせず、該当 Sample Zone のみ無効化して診断情報を返す。</td></tr>
+        <tr><td><strong>再現性</strong></td><td>同一の Definition + Event + Sample Rate + Asset + Random Seed → 同一の Offline Render 結果。Random Source は Instrument Seed・Note ID・Layer ID から独立した系列を生成し、Voice 処理順の違いで結果が変わらないようにする。</td></tr>
+        <tr><td><strong>Sample Rate 非依存</strong></td><td>DSP 実装で固定 Sample Rate を前提としない。</td></tr>
+        <tr><td><strong>Frontend 非依存</strong></td><td>Frontend 固有の MIDI・Audio・Plugin 形式は Adapter で共通 Process Contract へ変換し、Core へ持ち込まない。</td></tr>
+        <tr><td><strong>境界安全性</strong></td><td>Rust API / C ABI から Panic や例外を漏らさず、所有権と寿命が明示された Handle・Buffer・Event Contract を使用。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 9 ================= -->
+<section class="sec" id="s9">
+  <header class="sec-head rv">
+    <span class="sec-num">09</span>
+    <div><p class="sec-kicker">The Big Picture</p><h2>完成像</h2></div>
+  </header>
+
+  <p class="pull rv">任意の音を取り込み、必要ならゼロから生成し、異なる生成方式を Layer として融合して、一つの演奏可能な Instrument として保存・再利用できるハイブリッド音源エンジン。</p>
+
+  <p class="rv">ユーザーは同じ Instrument Definition を、CLI / Riffra / CLAP Host / VST3 Host / その他アプリケーションから利用できる。Definition は事前に Compiled Instrument へ変換され、各 Frontend は共通の Event・Process Contract を通じて同じ Instrument Runtime を使用する。Sonalloy は特定の DAW・GUI・Plugin 規格・Device API に縛られず、独立して動作する。</p>
+
+  <h4 class="rv">製品の中心軸</h4>
+  <figure class="flow rv">
+    <div class="fbox">Sound<small>素材・波形</small></div><div class="fconn"></div>
+    <div class="fbox">Generation / Sampling<small>音の発生</small></div><div class="fconn"></div>
+    <div class="fbox">Layering / Hybridization<small>構成・融合</small></div><div class="fconn"></div>
+    <div class="fbox">Modulation<small>時間変化</small></div><div class="fconn"></div>
+    <div class="fbox">Instrument Definition<small>保存可能な楽器定義</small></div><div class="fconn"></div>
+    <div class="fbox">Compile / Runtime<small>実行可能な楽器</small></div><div class="fconn"></div>
+    <div class="fbox engine">Performance<small>演奏</small></div>
+  </figure>
+
+  <p class="rv" style="text-align:center;margin-top:36px;font-size:1.05rem;color:var(--text)">この一連の流れを、一つのエンジンとして完結させることが<br><em>Sonalloy の存在意義</em>である。</p>
+</section>
+
+</main>
+</div>
+
+<footer>
+  <div><b>◈ SONALLOY</b> — 要件定義・基本設計</div>
+  <div>REV 1.0 — 2026.07 — HYBRID INSTRUMENT ENGINE</div>
+</footer>
+
+<script>
+(function(){
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- oscilloscope ---------- */
+  const TAU = Math.PI*2;
+  const canvas = document.getElementById('scope');
+  const ctx = canvas.getContext('2d');
+  let W=0, H=0;
+  function resize(){
+    const dpr = Math.min(devicePixelRatio||1, 2);
+    const r = canvas.getBoundingClientRect();
+    W = r.width; H = r.height;
+    canvas.width = W*dpr; canvas.height = H*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  const noise = Float32Array.from({length:4096}, ()=>Math.random()*2-1);
+  function nAt(u){
+    const i = ((Math.floor(u))%4096+4096)%4096, j=(i+1)%4096, f=u-Math.floor(u);
+    return noise[i]*(1-f)+noise[j]*f;
+  }
+  function saw(u){ u/=TAU; return 2*(u-Math.floor(u))-1; }
+  function tri(u){ return 2*Math.abs(saw(u))-1; }
+  function hash(i){ const s=Math.sin(i*127.1)*43758.5453; return s-Math.floor(s); }
+
+  const layers = [
+    {id:'sample',  label:'SAMPLE',    color:'#ffb454', on:true,  f:(x,t)=> Math.sin(2*x+2.4*t)*Math.exp(-2.4*((x/TAU)%1))},
+    {id:'osc',     label:'OSC',       color:'#53d7e8', on:true,  f:(x,t)=> saw(x+.7*t)*.9},
+    {id:'fm',      label:'FM',        color:'#ff7a6b', on:true,  f:(x,t)=> Math.sin(2*x+t+2.6*Math.sin(6*x+2.8*t))},
+    {id:'wt',      label:'WAVETABLE', color:'#7ee787', on:true,  f:(x,t)=>{const m=.5+.5*Math.sin(.6*t);return m*Math.sin(2*x+1.2*t)+(1-m)*tri(x+.5*t);}},
+    {id:'granular',label:'GRANULAR',  color:'#c0a8ff', on:false, f:(x,t)=>{const seg=x/1.35,i=Math.floor(seg),fr=seg-i,gate=hash(i+Math.floor(t*.5))>.4?1:0;return Math.sin(16*x+7*t+i*2.1)*Math.pow(Math.sin(Math.PI*fr),2)*gate;}},
+    {id:'noise',   label:'NOISE',     color:'#a8b0bf', on:false, f:(x,t)=> nAt((x+t*2.2)*60)*.75},
+  ];
+
+  const chipsBox = document.getElementById('chips');
+  const countEl  = document.getElementById('layerCount');
+  layers.forEach(l=>{
+    const b = document.createElement('button');
+    b.className = 'g-chip'; b.style.setProperty('--c', l.color);
+    b.setAttribute('aria-pressed', l.on);
+    b.innerHTML = '<i></i>'+l.label;
+    b.addEventListener('click', ()=>{
+      l.on = !l.on;
+      b.classList.toggle('off', !l.on);
+      b.setAttribute('aria-pressed', l.on);
+      updateCount();
+      if(reduced) draw(1.2);
+    });
+    if(!l.on) b.classList.add('off');
+    chipsBox.appendChild(b);
+  });
+  function updateCount(){
+    countEl.textContent = layers.filter(l=>l.on).length + '/6 LAYERS';
+  }
+  updateCount();
+
+  function draw(t){
+    ctx.clearRect(0,0,W,H);
+    const mid = H/2, amp = H*.36, step = 2;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,.05)';
+    for(let g=1; g<4; g++){
+      const y = H*g/4;
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+    const act = layers.filter(l=>l.on);
+    const n = Math.max(1, act.length);
+    for(const l of act){
+      ctx.beginPath();
+      for(let px=0; px<=W; px+=step){
+        const x = (px/W)*TAU*2.2;
+        const y = mid - l.f(x,t)*amp*.55;
+        px===0 ? ctx.moveTo(px,y) : ctx.lineTo(px,y);
+      }
+      ctx.strokeStyle = l.color; ctx.globalAlpha = .38; ctx.lineWidth = 1.3;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    for(let px=0; px<=W; px+=step){
+      const x = (px/W)*TAU*2.2;
+      let s = 0;
+      for(const l of act) s += l.f(x,t);
+      s = Math.max(-1.15, Math.min(1.15, s/(n*.85)));
+      const y = mid - s*amp*.62;
+      px===0 ? ctx.moveTo(px,y) : ctx.lineTo(px,y);
+    }
+    ctx.strokeStyle = '#ffe2b8'; ctx.lineWidth = 2.4;
+    ctx.shadowColor = 'rgba(255,180,84,.55)'; ctx.shadowBlur = 14;
+    ctx.stroke(); ctx.shadowBlur = 0;
+  }
+
+  let visible = true, raf = null, t0 = performance.now();
+  function loop(now){
+    if(visible && !reduced){ draw((now-t0)/1000); }
+    raf = requestAnimationFrame(loop);
+  }
+  resize();
+  addEventListener('resize', ()=>{ resize(); if(reduced) draw(1.2); });
+  new IntersectionObserver(e=>{ visible = e[0].isIntersecting; }).observe(canvas);
+  if(reduced){ draw(1.2); } else { raf = requestAnimationFrame(loop); }
+
+  /* ---------- scroll progress + back-to-top ---------- */
+  const prog = document.getElementById('prog');
+  const toTop = document.getElementById('toTop');
+  addEventListener('scroll', ()=>{
+    const h = document.documentElement;
+    const p = h.scrollTop / (h.scrollHeight - h.clientHeight);
+    prog.style.width = (p*100) + '%';
+    toTop.classList.toggle('show', h.scrollTop > 600);
+  }, {passive:true});
+  toTop.addEventListener('click', ()=> scrollTo({top:0, behavior: reduced ? 'auto' : 'smooth'}));
+
+  /* ---------- scroll reveal ---------- */
+  const io = new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, {threshold:.1});
+  document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+
+  /* ---------- scroll spy ---------- */
+  const links = [...document.querySelectorAll('.toc a')];
+  const spy = new IntersectionObserver(es=>{
+    es.forEach(e=>{
+      if(e.isIntersecting){
+        links.forEach(a=>a.classList.toggle('active', a.getAttribute('href') === '#'+e.target.id));
+      }
+    });
+  }, {rootMargin:'-35% 0px -55% 0px'});
+  document.querySelectorAll('section.sec').forEach(s=>spy.observe(s));
+})();
+</script>
+</body>
+</html>
