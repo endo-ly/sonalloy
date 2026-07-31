@@ -1,0 +1,27 @@
+[package]
+name = "sonalloy-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "sonalloy"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.6.4", features = ["derive"] }
+hound = "3.5.1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sonalloy-core = { path = "../sonalloy-core" }
+sonalloy-dsp-sys = { path = "../sonalloy-dsp-sys" }
+
+[dev-dependencies]
+assert_cmd = "2.2.2"
+hound = "3.5.1"
+predicates = "3.1.4"
+tempfile = "3.27.0"
+
+[lints]
+workspace = true

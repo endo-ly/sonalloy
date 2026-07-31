@@ -1,0 +1,15 @@
+[package]
+name = "sonalloy-dsp-sys"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+
+[dependencies]
+thiserror = "2.0.19"
+
+[build-dependencies]
+cmake = "0.1.58"
+
+[lints]
+workspace = true

@@ -1,0 +1,16 @@
+[package]
+name = "sonalloy-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+sonalloy-dsp-sys = { path = "../sonalloy-dsp-sys" }
+thiserror = "2.0.19"
+
+[dev-dependencies]
+approx = "0.5.1"
+
+[lints]
+workspace = true
