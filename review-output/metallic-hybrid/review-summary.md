@@ -3,7 +3,7 @@
 ## Reference
 
 - Definition: metallic-hybrid.json
-- Source implementation commit: aa025a81ba88ce80d70974053400b7710b8aca26
+- Source implementation commit: 71b1e51640546039603f1eb8b54b7661f6cbe368
 - Asset: metal-hit.wav
 - MIDI inputs: metallic-hybrid-phrase.mid, metallic-hybrid-pitch-range.mid, metallic-hybrid-velocity.mid
 - Sample rate: 48,000 Hz

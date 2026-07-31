@@ -59,6 +59,6 @@ python scripts/review/generate_metallic_hybrid_package.py
 
 ## 主要Revision
 
-- 実装：`aa025a81ba88ce80d70974053400b7710b8aca26`
-- レビュー資料：`e3cd9adb78a08b5720b6d5ce01f25c6ba2897acb`
+- 実装：`71b1e51640546039603f1eb8b54b7661f6cbe368`
+- レビュー資料：`502cbac797a073834b4cc5af5cd152add9f03c35`
 - 完了日：2026-08-01
