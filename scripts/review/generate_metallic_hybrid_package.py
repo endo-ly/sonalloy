@@ -37,7 +37,18 @@ def run_cli(arguments: list[str]) -> str:
 
 def source_commit() -> str:
     result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
+        [
+            "git",
+            "log",
+            "-1",
+            "--format=%H",
+            "--",
+            "crates/sonalloy-core/src/compiler.rs",
+            "crates/sonalloy-core/src/runtime/sample.rs",
+            "crates/sonalloy-core/src/runtime/voice.rs",
+            "crates/sonalloy-dsp-sys",
+            "native/daisysp-wrapper",
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,
