@@ -77,4 +77,6 @@ jobs:
       - name: Install native tools
         run: sudo apt-get update && sudo apt-get install --yes cmake g++
       - name: FFI sanitizer test
-        run: cargo test -p sonalloy-dsp-sys
+        run: |
+          export LD_PRELOAD="$(g++ -print-file-name=libasan.so)"
+          cargo test -p sonalloy-dsp-sys
