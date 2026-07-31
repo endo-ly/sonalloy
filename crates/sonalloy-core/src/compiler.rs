@@ -32,6 +32,8 @@ pub struct CompileResult {
 /// Runtime-independent instrument configuration.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledInstrument {
+    /// Sample rate used to compile sample and time-dependent values.
+    pub process_sample_rate: f64,
     /// Metadata copied from the Definition.
     pub metadata: CompiledMetadata,
     /// Compiled performance settings.
@@ -276,6 +278,7 @@ pub fn compile_instrument(
         .collect::<Vec<_>>()
         .into_boxed_slice();
     let compiled = CompiledInstrument {
+        process_sample_rate: context.process_spec.sample_rate,
         metadata: CompiledMetadata {
             name: definition.metadata.name.clone(),
             author: definition.metadata.author.clone(),

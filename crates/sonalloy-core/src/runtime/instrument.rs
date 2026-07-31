@@ -194,13 +194,23 @@ impl InstrumentRuntime {
 
 impl InstrumentProcessor for InstrumentRuntime {
     fn prepare(&mut self, spec: ProcessSpec) -> Result<(), ProcessError> {
+        spec.validate()?;
+        if spec
+            .sample_rate
+            .total_cmp(&self.compiled.process_sample_rate)
+            != std::cmp::Ordering::Equal
+        {
+            return Err(ProcessError::SampleRateMismatch {
+                compiled: self.compiled.process_sample_rate,
+                requested: spec.sample_rate,
+            });
+        }
         self.spec = None;
         self.voices.clear();
         self.scratch.layer_mono.clear();
         self.scratch.voice_left.clear();
         self.scratch.voice_right.clear();
         self.absolute_frame = 0;
-        spec.validate()?;
         self.scratch.layer_mono.resize(spec.max_block_size, 0.0);
         self.scratch.voice_left.resize(spec.max_block_size, 0.0);
         self.scratch.voice_right.resize(spec.max_block_size, 0.0);
@@ -338,6 +348,29 @@ mod tests {
         }];
         let _ = process(&mut runtime, 256, 128, &off);
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
+    }
+
+    #[test]
+    fn prepare_requires_the_compiled_sample_rate_but_allows_block_size_changes() {
+        let mut runtime = runtime();
+        runtime
+            .prepare(ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec"))
+            .expect("matching sample rate and changed block size are valid");
+    }
+
+    #[test]
+    fn prepare_rejects_a_sample_rate_different_from_compile_time() {
+        let mut runtime = runtime();
+        let error = runtime
+            .prepare(ProcessSpec::new(44_100.0, 257, 2).expect("valid process spec"))
+            .expect_err("a compiled instrument cannot be prepared at another sample rate");
+        assert_eq!(
+            error,
+            ProcessError::SampleRateMismatch {
+                compiled: 48_000.0,
+                requested: 44_100.0,
+            }
+        );
     }
 
     #[test]

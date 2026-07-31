@@ -2,11 +2,17 @@ use std::sync::Arc;
 
 use crate::asset::PreparedSample;
 
+use super::smoothing::rounded_frame_count;
+
+const END_FADE_SECONDS: f64 = 0.005;
+
 /// One-shot sample playback state owned by a voice layer.
 pub(crate) struct SampleRuntime {
     source: Arc<[f32]>,
     position: f64,
     playback_ratio: f64,
+    end_fade_frames: usize,
+    active_fade_frames: usize,
     finished: bool,
 }
 
@@ -16,6 +22,8 @@ impl SampleRuntime {
             source: Arc::clone(&source.samples),
             position: 0.0,
             playback_ratio: 1.0,
+            end_fade_frames: rounded_frame_count(source.sample_rate * END_FADE_SECONDS).max(1),
+            active_fade_frames: 0,
             finished: false,
         }
     }
@@ -23,12 +31,18 @@ impl SampleRuntime {
     pub(crate) fn start(&mut self, playback_ratio: f64) {
         self.position = 0.0;
         self.playback_ratio = playback_ratio;
+        self.active_fade_frames = self.end_fade_frames.min(remaining_output_frames(
+            self.source.len(),
+            0.0,
+            playback_ratio,
+        ));
         self.finished = self.source.is_empty();
     }
 
     pub(crate) fn reset(&mut self) {
         self.position = 0.0;
         self.playback_ratio = 1.0;
+        self.active_fade_frames = self.end_fade_frames;
         self.finished = false;
     }
 
@@ -37,12 +51,23 @@ impl SampleRuntime {
         if self.finished {
             return 0.0;
         }
+        if !self.playback_ratio.is_finite() || self.playback_ratio <= 0.0 {
+            self.finished = true;
+            return 0.0;
+        }
+        let remaining_frames =
+            remaining_output_frames(self.source.len(), self.position, self.playback_ratio);
         let sample = cubic_sample(&self.source, self.position);
         self.position += self.playback_ratio;
         if self.position >= self.source.len() as f64 {
             self.finished = true;
         }
-        sample
+        let gain = if remaining_frames <= self.active_fade_frames {
+            end_fade_gain(remaining_frames, self.active_fade_frames)
+        } else {
+            1.0
+        };
+        sample * gain
     }
 
     pub(crate) fn is_finished(&self) -> bool {
@@ -53,6 +78,26 @@ impl SampleRuntime {
     pub(crate) fn position(&self) -> f64 {
         self.position
     }
+}
+
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss
+)]
+fn remaining_output_frames(source_len: usize, position: f64, playback_ratio: f64) -> usize {
+    let remaining = ((source_len as f64 - position) / playback_ratio).ceil();
+    remaining.max(1.0) as usize
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn end_fade_gain(remaining_frames: usize, fade_frames: usize) -> f32 {
+    if fade_frames <= 1 {
+        return 0.0;
+    }
+    let numerator = remaining_frames.saturating_sub(1) as f32;
+    let denominator = (fade_frames - 1) as f32;
+    (numerator / denominator).clamp(0.0, 1.0)
 }
 
 pub(crate) fn playback_ratio(note_number: u8, root_note: u8, tuning_ratio: f32) -> f64 {
@@ -130,6 +175,40 @@ mod tests {
         assert!(values[3..].iter().all(|value| value.abs() < 1.0e-6));
         assert!(runtime.is_finished());
         assert!((runtime.position() - 3.0).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn sample_runtime_fades_nonzero_ends_at_multiple_playback_ratios() {
+        for (last_value, playback_ratio) in [(0.3, 1.0), (-0.8, 0.5), (0.8, 2.0)] {
+            let mut values = vec![0.25; 2_048];
+            *values.last_mut().expect("fixture has samples") = last_value;
+            let source = sample(&values);
+            let mut runtime = SampleRuntime::new(&source);
+            runtime.start(playback_ratio);
+            let mut rendered = Vec::new();
+            while !runtime.is_finished() {
+                rendered.push(runtime.next_sample());
+            }
+            assert!(rendered.iter().all(|value| value.is_finite()));
+            assert!(rendered.last().is_some_and(|value| value.abs() < 1.0e-6));
+            assert!(
+                rendered[rendered.len().saturating_sub(240)..]
+                    .windows(2)
+                    .all(|window| (window[1] - window[0]).abs() < 0.01)
+            );
+        }
+    }
+
+    #[test]
+    fn sample_runtime_fade_is_bounds_safe_for_short_sources() {
+        for values in [&[][..], &[1.0][..], &[1.0, 2.0][..], &[1.0, 2.0, 3.0][..]] {
+            let source = sample(values);
+            let mut runtime = SampleRuntime::new(&source);
+            runtime.start(0.5);
+            for _ in 0..8 {
+                assert!(runtime.next_sample().is_finite());
+            }
+        }
     }
 
     #[test]

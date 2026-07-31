@@ -215,6 +215,14 @@ pub enum ProcessError {
     /// The sample rate is not finite and positive.
     #[error("sample rate must be finite and greater than zero")]
     InvalidSampleRate,
+    /// The runtime was prepared at a different sample rate from the compiled instrument.
+    #[error("compiled instrument uses sample rate {compiled} Hz, requested {requested} Hz")]
+    SampleRateMismatch {
+        /// Sample rate captured during compilation.
+        compiled: f64,
+        /// Sample rate requested by the runtime host.
+        requested: f64,
+    },
     /// The maximum block size must be positive.
     #[error("maximum block size must be greater than zero")]
     InvalidMaxBlockSize,
