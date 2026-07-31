@@ -94,6 +94,31 @@ pub struct ProcessEvent {
     pub kind: ProcessEventKind,
 }
 
+/// Backend-independent categories for DSP failures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DspFailureKind {
+    /// The processor could not allocate required resources.
+    ResourceUnavailable,
+    /// The processor received an invalid input.
+    InvalidInput,
+    /// The processor was in an invalid lifecycle state.
+    InvalidState,
+    /// The backend failed without a caller-correctable cause.
+    BackendFailure,
+}
+
+impl std::fmt::Display for DspFailureKind {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let message = match self {
+            Self::ResourceUnavailable => "resource unavailable",
+            Self::InvalidInput => "invalid input",
+            Self::InvalidState => "invalid state",
+            Self::BackendFailure => "backend failure",
+        };
+        formatter.write_str(message)
+    }
+}
+
 /// Planar output buffers and the context for one process call.
 pub struct ProcessBlock<'a> {
     /// Number of frames to process.
@@ -135,7 +160,7 @@ impl ProcessBlock<'_> {
             }
         }
         for event in self.events {
-            if event.sample_offset > self.frames {
+            if event.sample_offset >= self.frames {
                 return Err(ProcessError::EventOffsetOutOfRange {
                     offset: event.sample_offset,
                     frames: self.frames,
@@ -207,9 +232,27 @@ pub enum ProcessError {
     /// The absolute frame counter would overflow.
     #[error("absolute frame counter overflow")]
     FrameOverflow,
-    /// The native DSP wrapper failed.
-    #[error("dsp error: {0}")]
-    Dsp(#[from] sonalloy_dsp_sys::DspError),
+    /// The DSP backend failed.
+    #[error("dsp failure: {kind}")]
+    DspFailure {
+        /// Backend-independent failure category.
+        kind: DspFailureKind,
+    },
+}
+
+impl ProcessError {
+    pub(crate) fn from_dsp_error(error: sonalloy_dsp_sys::DspError) -> Self {
+        let kind = match error {
+            sonalloy_dsp_sys::DspError::AllocationFailed => DspFailureKind::ResourceUnavailable,
+            sonalloy_dsp_sys::DspError::InvalidArgument
+            | sonalloy_dsp_sys::DspError::UnsupportedWaveform => DspFailureKind::InvalidInput,
+            sonalloy_dsp_sys::DspError::NotPrepared => DspFailureKind::InvalidState,
+            sonalloy_dsp_sys::DspError::NullHandle
+            | sonalloy_dsp_sys::DspError::NativeException
+            | sonalloy_dsp_sys::DspError::Unknown(_) => DspFailureKind::BackendFailure,
+        };
+        Self::DspFailure { kind }
+    }
 }
 
 /// A processor that follows the prepare/process/reset lifecycle.
@@ -353,23 +396,37 @@ mod tests {
             Err(ProcessError::InvalidOutputChannels { actual: 1 })
         );
 
-        let event = ProcessEvent {
-            sample_offset: 9,
-            kind: ProcessEventKind::NoteOff { note_id: 1 },
-        };
-        let mut event_left = [0.0_f32; 8];
-        let mut event_right = [0.0_f32; 8];
-        let mut event_output: [&mut [f32]; 2] = [&mut event_left, &mut event_right];
-        let event_block = ProcessBlock {
-            frames: 8,
-            context: context(),
-            events: &[event],
-            output: &mut event_output,
-        };
+        assert!(validate_event(spec, 64, 0).is_ok());
+        assert!(validate_event(spec, 64, 63).is_ok());
         assert!(matches!(
-            event_block.validate_for(spec),
+            validate_event(spec, 64, 64),
             Err(ProcessError::EventOffsetOutOfRange { .. })
         ));
+        assert!(matches!(
+            validate_event(spec, 0, 0),
+            Err(ProcessError::EventOffsetOutOfRange { .. })
+        ));
+    }
+
+    fn validate_event(
+        spec: ProcessSpec,
+        frames: usize,
+        sample_offset: usize,
+    ) -> Result<(), ProcessError> {
+        let event = ProcessEvent {
+            sample_offset,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        };
+        let mut left = [0.0_f32; 64];
+        let mut right = [0.0_f32; 64];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        ProcessBlock {
+            frames,
+            context: context(),
+            events: &[event],
+            output: &mut output,
+        }
+        .validate_for(spec)
     }
 
     #[test]

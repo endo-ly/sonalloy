@@ -82,7 +82,7 @@ impl Diagnostic {
 /// Convert a process failure to a frontend diagnostic.
 #[must_use]
 pub fn from_process_error(error: &ProcessError) -> Diagnostic {
-    let code = if matches!(error, ProcessError::Dsp(_)) {
+    let code = if matches!(error, ProcessError::DspFailure { .. }) {
         DiagnosticCode::DspError
     } else {
         DiagnosticCode::ProcessError
@@ -93,7 +93,7 @@ pub fn from_process_error(error: &ProcessError) -> Diagnostic {
 /// Convert a render failure to a frontend diagnostic.
 #[must_use]
 pub fn from_render_error(error: &RenderError) -> Diagnostic {
-    let code = if matches!(error, RenderError::Process(ProcessError::Dsp(_))) {
+    let code = if matches!(error, RenderError::Process(ProcessError::DspFailure { .. })) {
         DiagnosticCode::DspError
     } else if matches!(error, RenderError::Process(_)) {
         DiagnosticCode::ProcessError

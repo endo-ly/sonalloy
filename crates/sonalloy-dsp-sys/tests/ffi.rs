@@ -64,6 +64,35 @@ fn lifecycle_and_reset_are_safe() {
 }
 
 #[test]
+fn failed_prepare_invalidates_previous_preparation() {
+    let mut oscillator = DspOscillator::new().expect("oscillator allocation");
+    oscillator
+        .prepare(48_000.0, DspOscillatorWaveform::Sine)
+        .expect("oscillator preparation");
+
+    let mut output = [1.0_f32; 2];
+    oscillator
+        .process(440.0, &mut output)
+        .expect("initial oscillator process");
+
+    assert_eq!(
+        oscillator.prepare(0.0, DspOscillatorWaveform::Sine),
+        Err(DspError::InvalidArgument)
+    );
+    output.fill(1.0);
+    assert_eq!(
+        oscillator.process(440.0, &mut output),
+        Err(DspError::NotPrepared)
+    );
+    assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+
+    oscillator
+        .prepare(48_000.0, DspOscillatorWaveform::Sine)
+        .expect("oscillator re-preparation");
+    assert!(oscillator.process(440.0, &mut output).is_ok());
+}
+
+#[test]
 fn block_sizes_produce_the_same_signal() {
     let reference = render_blocks(64, DspOscillatorWaveform::Sine);
     for block_size in [257, 1024] {

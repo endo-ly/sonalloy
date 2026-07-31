@@ -31,6 +31,7 @@ Prepare時の制約は次のとおりです。
 - Output Channel数は2
 - 一回のProcessのFrame数は最大Block Size以下
 - 全Output SliceはFrame数以上
+- EventのSample Offsetは0以上、Block Frames未満
 
 Process開始時に対象範囲をZero Clearし、Runtimeは対象範囲の全Sampleを書き込みます。0 Frameは安全なNo-opです。
 
@@ -73,7 +74,7 @@ Core RendererはFile PathやWAV Writerを知りません。`RenderedAudio`を返
 
 - Prepare失敗時はRuntimeを利用可能状態にしない。
 - 有効なBufferでProcessのContextまたはEventが不正な場合、対象範囲を無音にする。
-- Native DSP ErrorはCoreの`ProcessError::Dsp`へ変換する。
+- Native DSP ErrorはCoreの`ProcessError::DspFailure`へ変換する。
 - CLIはProcess ErrorをExit Code 3、Input ErrorをExit Code 2で返す。
 - WAV書き込みの失敗はExit Code 4で返し、成功結果を表示しない。
 

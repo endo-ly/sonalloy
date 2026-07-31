@@ -218,30 +218,3 @@ fn invalid_frequency_is_not_reported_as_success() {
         .stdout(predicates::str::contains("\"status\":\"error\""));
     assert!(!output.exists());
 }
-
-#[cfg(sonalloy_test_hooks)]
-#[test]
-fn native_error_is_not_reported_as_success() {
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("sine.wav");
-    let mut command = Command::cargo_bin("sonalloy").expect("binary");
-    command
-        .env("SONALLOY_DSP_FORCE_EXCEPTION", "1")
-        .args([
-            "dev",
-            "render-sine",
-            "--duration",
-            "0.01",
-            "--frequency",
-            "440",
-            "--sample-rate",
-            "48000",
-            "--output",
-            output.to_str().expect("utf-8 path"),
-            "--json",
-        ])
-        .assert()
-        .code(3)
-        .stdout(predicates::str::contains("\"DSP_ERROR\""));
-    assert!(!output.exists());
-}

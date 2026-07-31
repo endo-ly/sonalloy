@@ -24,7 +24,7 @@ impl SineRuntime {
         }
         Ok(Self {
             frequency_hz,
-            oscillator: DspOscillator::new()?,
+            oscillator: DspOscillator::new().map_err(ProcessError::from_dsp_error)?,
             spec: None,
             scratch: Vec::new(),
             absolute_frame: 0,
@@ -46,14 +46,19 @@ impl SineRuntime {
 
 impl InstrumentProcessor for SineRuntime {
     fn prepare(&mut self, spec: ProcessSpec) -> Result<(), ProcessError> {
+        self.spec = None;
+        self.scratch.clear();
+        self.absolute_frame = 0;
         spec.validate()?;
         if f64::from(self.frequency_hz) > spec.sample_rate * 0.5 {
             return Err(ProcessError::InvalidFrequency);
         }
         self.oscillator
-            .prepare(spec.sample_rate, DspOscillatorWaveform::Sine)?;
-        self.oscillator.reset()?;
-        self.scratch.clear();
+            .prepare(spec.sample_rate, DspOscillatorWaveform::Sine)
+            .map_err(ProcessError::from_dsp_error)?;
+        self.oscillator
+            .reset()
+            .map_err(ProcessError::from_dsp_error)?;
         self.scratch.resize(spec.max_block_size, 0.0);
         self.spec = Some(spec);
         self.absolute_frame = 0;
@@ -80,7 +85,8 @@ impl InstrumentProcessor for SineRuntime {
         }
 
         self.oscillator
-            .process(self.frequency_hz, &mut self.scratch[..block.frames])?;
+            .process(self.frequency_hz, &mut self.scratch[..block.frames])
+            .map_err(ProcessError::from_dsp_error)?;
         for channel in &mut *block.output {
             channel[..block.frames].copy_from_slice(&self.scratch[..block.frames]);
         }
@@ -92,7 +98,9 @@ impl InstrumentProcessor for SineRuntime {
         if self.spec.is_none() {
             return Err(ProcessError::NotPrepared);
         }
-        self.oscillator.reset()?;
+        self.oscillator
+            .reset()
+            .map_err(ProcessError::from_dsp_error)?;
         self.scratch.fill(0.0);
         self.absolute_frame = 0;
         Ok(())
@@ -195,6 +203,59 @@ mod tests {
         for (first, second) in first_right.iter().zip(second_right.iter()) {
             assert_relative_eq!(*first, *second, epsilon = 1.0e-7);
         }
+    }
+
+    #[test]
+    fn failed_prepare_makes_runtime_unprepared() {
+        let valid_spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let invalid_frequency_spec =
+            ProcessSpec::new(600.0, 64, 2).expect("valid process spec with low sample rate");
+        let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
+        runtime
+            .prepare(valid_spec)
+            .expect("initial runtime preparation");
+
+        assert_eq!(
+            runtime.prepare(invalid_frequency_spec),
+            Err(ProcessError::InvalidFrequency)
+        );
+        {
+            let mut left = [1.0_f32; 2];
+            let mut right = [1.0_f32; 2];
+            let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+            assert_eq!(
+                runtime.process(ProcessBlock {
+                    frames: 2,
+                    context: ProcessContext {
+                        absolute_frame: 0,
+                        tempo_bpm: 120.0,
+                    },
+                    events: &[],
+                    output: &mut output,
+                }),
+                Err(ProcessError::NotPrepared)
+            );
+            assert!(left.iter().all(|sample| sample.abs() < f32::EPSILON));
+            assert!(right.iter().all(|sample| sample.abs() < f32::EPSILON));
+        }
+
+        runtime.prepare(valid_spec).expect("runtime re-preparation");
+        let mut left = [0.0_f32; 2];
+        let mut right = [0.0_f32; 2];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        assert!(
+            runtime
+                .process(ProcessBlock {
+                    frames: 2,
+                    context: ProcessContext {
+                        absolute_frame: 0,
+                        tempo_bpm: 120.0,
+                    },
+                    events: &[],
+                    output: &mut output,
+                })
+                .is_ok()
+        );
     }
 
     #[test]

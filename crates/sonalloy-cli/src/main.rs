@@ -4,8 +4,8 @@ use std::process::ExitCode;
 use clap::{Args, Parser, Subcommand};
 use serde::Serialize;
 use sonalloy_core::{
-    Diagnostic, DiagnosticCode, RenderError, RenderRequest, from_render_error, render_sine,
-    seconds_to_frames,
+    Diagnostic, DiagnosticCode, RenderError, RenderRequest, backend_info, from_render_error,
+    render_sine, seconds_to_frames,
 };
 
 #[derive(Debug, Parser)]
@@ -133,7 +133,7 @@ fn render_sine_command(args: &RenderSineArgs) -> Result<SuccessReport, (u8, Diag
         channels: audio.channels.len(),
         frames: audio.frames(),
         output: args.output.to_string_lossy().into_owned(),
-        backend: sonalloy_dsp_sys::backend_version(),
+        backend: backend_info().version,
     })
 }
 
@@ -231,9 +231,9 @@ mod tests {
 
     #[test]
     fn native_error_maps_to_process_exit_and_diagnostic() {
-        let error = RenderError::Process(sonalloy_core::ProcessError::Dsp(
-            sonalloy_dsp_sys::DspError::InvalidArgument,
-        ));
+        let error = RenderError::Process(sonalloy_core::ProcessError::DspFailure {
+            kind: sonalloy_core::DspFailureKind::InvalidInput,
+        });
         let (code, diagnostic) = render_error_result(&error);
         assert_eq!(code, 3);
         assert_eq!(diagnostic.code, DiagnosticCode::DspError);

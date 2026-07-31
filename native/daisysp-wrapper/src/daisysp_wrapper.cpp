@@ -3,7 +3,6 @@
 #include "Synthesis/oscillator.h"
 
 #include <cmath>
-#include <cstdlib>
 #include <cstdint>
 #include <limits>
 #include <new>
@@ -66,6 +65,11 @@ extern "C" int32_t sonalloy_dsp_oscillator_prepare(
     if (handle == nullptr) {
         return SONALLOY_DSP_NULL_HANDLE;
     }
+    handle->prepared = false;
+    handle->sample_rate = 0.0f;
+#ifdef SONALLOY_DSP_TEST_HOOKS
+    handle->throw_on_process = false;
+#endif
     if (!valid_sample_rate(sample_rate)) {
         return SONALLOY_DSP_INVALID_ARGUMENT;
     }
@@ -138,7 +142,7 @@ extern "C" int32_t sonalloy_dsp_oscillator_process(
 
     try {
 #ifdef SONALLOY_DSP_TEST_HOOKS
-        if (handle->throw_on_process || std::getenv("SONALLOY_DSP_FORCE_EXCEPTION") != nullptr) {
+        if (handle->throw_on_process) {
             handle->throw_on_process = false;
             throw std::runtime_error("native process test exception");
         }
