@@ -66,6 +66,15 @@ pub struct ProcessContext {
 /// Stable identity used by normalized note events.
 pub type NoteId = u64;
 
+/// A normalized event positioned on the absolute engine timeline.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScheduledEvent {
+    /// Absolute frame at which the event is applied.
+    pub absolute_frame: u64,
+    /// Event payload.
+    pub kind: ProcessEventKind,
+}
+
 /// Normalized event payload reserved for the later voice runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessEventKind {
@@ -167,6 +176,35 @@ impl ProcessBlock<'_> {
                 });
             }
         }
+        for window in self.events.windows(2) {
+            if window[0].sample_offset > window[1].sample_offset {
+                return Err(ProcessError::EventsNotSorted {
+                    previous_offset: window[0].sample_offset,
+                    current_offset: window[1].sample_offset,
+                });
+            }
+        }
+        let mut group_start = 0;
+        while group_start < self.events.len() {
+            let offset = self.events[group_start].sample_offset;
+            let mut group_end = group_start + 1;
+            while group_end < self.events.len() && self.events[group_end].sample_offset == offset {
+                group_end += 1;
+            }
+            for on_index in group_start..group_end {
+                if !is_note_on(self.events[on_index].kind) {
+                    continue;
+                }
+                for off_index in (on_index + 1)..group_end {
+                    if is_same_note_id(self.events[on_index].kind, self.events[off_index].kind)
+                        && is_note_off(self.events[off_index].kind)
+                    {
+                        return Err(ProcessError::EventOrderInvalid);
+                    }
+                }
+            }
+            group_start = group_end;
+        }
         Ok(())
     }
 }
@@ -212,6 +250,17 @@ pub enum ProcessError {
         /// Block length.
         frames: usize,
     },
+    /// Events are not ordered by sample offset.
+    #[error("events must be ordered by non-decreasing sample offset")]
+    EventsNotSorted {
+        /// Previous event offset.
+        previous_offset: usize,
+        /// Current event offset.
+        current_offset: usize,
+    },
+    /// A Note On precedes the matching Note Off at one sample offset.
+    #[error("same-note Note Off must precede Note On at the same sample offset")]
+    EventOrderInvalid,
     /// A runtime has not been prepared.
     #[error("processor is not prepared")]
     NotPrepared,
@@ -252,6 +301,38 @@ impl ProcessError {
             | sonalloy_dsp_sys::DspError::Unknown(_) => DspFailureKind::BackendFailure,
         };
         Self::DspFailure { kind }
+    }
+
+    pub(crate) fn from_filter_error(error: sonalloy_dsp_sys::DspFilterError) -> Self {
+        let kind = match error {
+            sonalloy_dsp_sys::DspFilterError::AllocationFailed => {
+                DspFailureKind::ResourceUnavailable
+            }
+            sonalloy_dsp_sys::DspFilterError::InvalidArgument => DspFailureKind::InvalidInput,
+            sonalloy_dsp_sys::DspFilterError::NotPrepared => DspFailureKind::InvalidState,
+            sonalloy_dsp_sys::DspFilterError::NullHandle
+            | sonalloy_dsp_sys::DspFilterError::NativeException
+            | sonalloy_dsp_sys::DspFilterError::Unknown(_) => DspFailureKind::BackendFailure,
+        };
+        Self::DspFailure { kind }
+    }
+}
+
+fn is_note_on(event: ProcessEventKind) -> bool {
+    matches!(event, ProcessEventKind::NoteOn { .. })
+}
+
+fn is_note_off(event: ProcessEventKind) -> bool {
+    matches!(event, ProcessEventKind::NoteOff { .. })
+}
+
+fn is_same_note_id(left: ProcessEventKind, right: ProcessEventKind) -> bool {
+    match (left, right) {
+        (
+            ProcessEventKind::NoteOn { note_id: left, .. },
+            ProcessEventKind::NoteOff { note_id: right },
+        ) => left == right,
+        _ => false,
     }
 }
 
@@ -406,6 +487,71 @@ mod tests {
             validate_event(spec, 0, 0),
             Err(ProcessError::EventOffsetOutOfRange { .. })
         ));
+    }
+
+    #[test]
+    fn same_offset_note_off_precedes_matching_note_on() {
+        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let invalid_events = [
+            ProcessEvent {
+                sample_offset: 4,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 7,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            ProcessEvent {
+                sample_offset: 4,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 8,
+                    note_number: 64,
+                    velocity: 100,
+                },
+            },
+            ProcessEvent {
+                sample_offset: 4,
+                kind: ProcessEventKind::NoteOff { note_id: 7 },
+            },
+        ];
+        let mut left = [0.0_f32; 64];
+        let mut right = [0.0_f32; 64];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        let block = ProcessBlock {
+            frames: 64,
+            context: context(),
+            events: &invalid_events,
+            output: &mut output,
+        };
+        assert_eq!(
+            block.validate_for(spec),
+            Err(ProcessError::EventOrderInvalid)
+        );
+
+        let valid_events = [
+            ProcessEvent {
+                sample_offset: 4,
+                kind: ProcessEventKind::NoteOff { note_id: 7 },
+            },
+            ProcessEvent {
+                sample_offset: 4,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 7,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+        ];
+        let mut left = [0.0_f32; 64];
+        let mut right = [0.0_f32; 64];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        let block = ProcessBlock {
+            frames: 64,
+            context: context(),
+            events: &valid_events,
+            output: &mut output,
+        };
+        assert!(block.validate_for(spec).is_ok());
     }
 
     fn validate_event(

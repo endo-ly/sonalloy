@@ -10,7 +10,7 @@ Sonalloyは次の外部ソフトウェアを直接利用します。各License�
 - Fixed Commit: `a0494a3adb67f549e18dfd71a35fa656f65b38b6`
 - Repository: <https://github.com/electro-smith/DaisySP>
 - License: MIT License
-- Usage: `Source/Synthesis/oscillator.cpp`によるSine / PolyBLEP Saw生成
+- Usage: `Source/Synthesis/oscillator.cpp`によるSine / PolyBLEP Saw生成、`Source/Filters/svf.cpp`によるVoice Low-pass Filter
 
 SonalloyではDaisySPのSourceを変更せず、Sonalloy固有のOpaque HandleとResult CodeをWrapper側へ実装しています。
 
@@ -24,6 +24,7 @@ SonalloyではDaisySPのSourceを変更せず、Sonalloy固有のOpaque Handle�
 | `serde_json` | CLI JSON Output | MIT OR Apache-2.0 |
 | `clap` | CLI Argument Parse | MIT OR Apache-2.0 |
 | `hound` | WAV Encode | Apache-2.0 |
+| `midly` | Standard MIDI File Decode | MIT |
 
 ## Test-only direct dependencies
 

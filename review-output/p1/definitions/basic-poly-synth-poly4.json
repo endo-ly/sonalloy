@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Basic Poly Synth Poly4",
+    "author": null,
+    "description": "Four-voice reference for the P1 stealing review"
+  },
+  "performance": {
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.18,
+        "sustain_level": 0.65,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": "saw",
+          "phase_reset": true
+        }
+      }
+    }
+  ],
+  "voice_filter": {
+    "cutoff_hz": 12000.0,
+    "resonance": 0.12
+  },
+  "velocity_response": {
+    "layer_gain_amount": 0.7,
+    "filter_cutoff_octaves": 1.5
+  }
+}

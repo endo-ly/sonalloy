@@ -1,0 +1,382 @@
+{
+  "sample_rate": 48000,
+  "block_size": 257,
+  "files": {
+    "01-sine-reference.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 184001,
+      "duration_seconds": 3.8333541666666666,
+      "finite": true,
+      "peak": 0.12285690009593964,
+      "rms": 0.046319578731189616,
+      "dc": -1.1208802451980823e-05,
+      "positive_zero_crossings_left": 1757,
+      "estimated_frequency_hz": 458.34533507970065,
+      "max_adjacent_frame_delta": 0.016351846046745777,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    },
+    "02-saw-registers.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 280001,
+      "duration_seconds": 5.833354166666667,
+      "finite": true,
+      "peak": 0.11892707645893097,
+      "rms": 0.03864497575981166,
+      "dc": 5.307056273287955e-06,
+      "positive_zero_crossings_left": 2168,
+      "estimated_frequency_hz": 371.6558155149446,
+      "max_adjacent_frame_delta": 0.10467368923127651,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ],
+      "spectrum_reference": {
+        "fft_size": 4096,
+        "window_start_frame": 9600,
+        "peaks": [
+          {
+            "frequency_hz": 70.3125,
+            "relative_amplitude": 1.0
+          },
+          {
+            "frequency_hz": 58.59375,
+            "relative_amplitude": 0.896484956118644
+          },
+          {
+            "frequency_hz": 128.90625,
+            "relative_amplitude": 0.5525426773026018
+          },
+          {
+            "frequency_hz": 199.21875,
+            "relative_amplitude": 0.3585411593121437
+          },
+          {
+            "frequency_hz": 140.625,
+            "relative_amplitude": 0.3471222144677875
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_amplitude": 0.26199468223817934
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_amplitude": 0.2571049326038626
+          },
+          {
+            "frequency_hz": 82.03125,
+            "relative_amplitude": 0.23953510613382129
+          }
+        ]
+      }
+    },
+    "03-attack-release.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 348001,
+      "duration_seconds": 7.250020833333333,
+      "finite": true,
+      "peak": 0.14375349879264832,
+      "rms": 0.03342317201443866,
+      "dc": -1.8768451045642386e-06,
+      "positive_zero_crossings_left": 1697,
+      "estimated_frequency_hz": 234.0682929072043,
+      "max_adjacent_frame_delta": 0.14099745824933052,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    },
+    "04-repeated-notes.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 234001,
+      "duration_seconds": 4.875020833333333,
+      "finite": true,
+      "peak": 0.14369525015354156,
+      "rms": 0.03542778876813628,
+      "dc": 2.7061145211512757e-06,
+      "positive_zero_crossings_left": 1114,
+      "estimated_frequency_hz": 228.51184396647878,
+      "max_adjacent_frame_delta": 0.13847193494439125,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    },
+    "05-polyphony-and-stealing.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 115001,
+      "duration_seconds": 2.3958541666666666,
+      "finite": true,
+      "peak": 0.3166954517364502,
+      "rms": 0.05949608663683096,
+      "dc": -2.179280158742386e-05,
+      "positive_zero_crossings_left": 1059,
+      "estimated_frequency_hz": 442.0135477082808,
+      "max_adjacent_frame_delta": 0.2001335211098194,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    },
+    "06-filter-and-velocity.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 138001,
+      "duration_seconds": 2.875020833333333,
+      "finite": true,
+      "peak": 0.15686030685901642,
+      "rms": 0.03179041519880279,
+      "dc": 1.5354774497383599e-06,
+      "positive_zero_crossings_left": 594,
+      "estimated_frequency_hz": 206.60719849856162,
+      "max_adjacent_frame_delta": 0.16526104882359505,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    },
+    "07-musical-phrase.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 489601,
+      "duration_seconds": 10.200020833333333,
+      "finite": true,
+      "peak": 0.42673414945602417,
+      "rms": 0.06968652173082254,
+      "dc": -1.4816545400955444e-05,
+      "positive_zero_crossings_left": 2111,
+      "estimated_frequency_hz": 206.96036160056863,
+      "max_adjacent_frame_delta": 0.29482388496398926,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 6,
+      "large_discontinuity_frames": [
+        736,
+        96736,
+        211855,
+        211856,
+        269238,
+        327136
+      ],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    },
+    "02-saw-registers-filter-closed.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 280001,
+      "duration_seconds": 5.833354166666667,
+      "finite": true,
+      "peak": 0.20819994807243347,
+      "rms": 0.045917713200374057,
+      "dc": -4.701249488578924e-05,
+      "positive_zero_crossings_left": 2690,
+      "estimated_frequency_hz": 461.14121020996356,
+      "max_adjacent_frame_delta": 0.03285596799105406,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    },
+    "03-attack-release-slow-attack.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 348001,
+      "duration_seconds": 7.250020833333333,
+      "finite": true,
+      "peak": 0.150356262922287,
+      "rms": 0.03624562264374256,
+      "dc": -3.5771577380449127e-07,
+      "positive_zero_crossings_left": 2288,
+      "estimated_frequency_hz": 315.5853000422413,
+      "max_adjacent_frame_delta": 0.14719029143452644,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    }
+  },
+  "block_size_comparisons": {
+    "01-sine-reference.wav": {
+      "64": {
+        "compatible": true,
+        "max_abs_difference": 5.21540641784668e-08,
+        "rms_difference": 1.626951497703153e-10,
+        "different_sample_count": 414
+      },
+      "257": {
+        "compatible": true,
+        "max_abs_difference": 0.0,
+        "rms_difference": 0.0,
+        "different_sample_count": 0
+      },
+      "1024": {
+        "compatible": true,
+        "max_abs_difference": 4.190951585769653e-08,
+        "rms_difference": 1.0120917895054852e-10,
+        "different_sample_count": 154
+      }
+    },
+    "02-saw-registers.wav": {
+      "64": {
+        "compatible": true,
+        "max_abs_difference": 4.0046870708465576e-08,
+        "rms_difference": 1.3706889501081488e-10,
+        "different_sample_count": 146
+      },
+      "257": {
+        "compatible": true,
+        "max_abs_difference": 0.0,
+        "rms_difference": 0.0,
+        "different_sample_count": 0
+      },
+      "1024": {
+        "compatible": true,
+        "max_abs_difference": 2.60770320892334e-08,
+        "rms_difference": 5.125288815836201e-11,
+        "different_sample_count": 646
+      }
+    },
+    "03-attack-release.wav": {
+      "64": {
+        "compatible": true,
+        "max_abs_difference": 9.386950852036113e-13,
+        "rms_difference": 2.24020705945013e-15,
+        "different_sample_count": 602
+      },
+      "257": {
+        "compatible": true,
+        "max_abs_difference": 0.0,
+        "rms_difference": 0.0,
+        "different_sample_count": 0
+      },
+      "1024": {
+        "compatible": true,
+        "max_abs_difference": 8.991829625630122e-18,
+        "rms_difference": 1.650819778303592e-20,
+        "different_sample_count": 262
+      }
+    },
+    "04-repeated-notes.wav": {
+      "64": {
+        "compatible": true,
+        "max_abs_difference": 4.470348358154297e-08,
+        "rms_difference": 9.610927305853865e-11,
+        "different_sample_count": 36
+      },
+      "257": {
+        "compatible": true,
+        "max_abs_difference": 0.0,
+        "rms_difference": 0.0,
+        "different_sample_count": 0
+      },
+      "1024": {
+        "compatible": true,
+        "max_abs_difference": 4.470348358154297e-08,
+        "rms_difference": 9.610927305853865e-11,
+        "different_sample_count": 134
+      }
+    },
+    "05-polyphony-and-stealing.wav": {
+      "64": {
+        "compatible": true,
+        "max_abs_difference": 9.982164400623716e-11,
+        "rms_difference": 3.6427650336304595e-13,
+        "different_sample_count": 122
+      },
+      "257": {
+        "compatible": true,
+        "max_abs_difference": 0.0,
+        "rms_difference": 0.0,
+        "different_sample_count": 0
+      },
+      "1024": {
+        "compatible": true,
+        "max_abs_difference": 5.981437063628106e-29,
+        "rms_difference": 2.5378917781721934e-31,
+        "different_sample_count": 114
+      }
+    },
+    "06-filter-and-velocity.wav": {
+      "64": {
+        "compatible": true,
+        "max_abs_difference": 2.3996461179833033e-29,
+        "rms_difference": 7.242433962268238e-32,
+        "different_sample_count": 76
+      },
+      "257": {
+        "compatible": true,
+        "max_abs_difference": 0.0,
+        "rms_difference": 0.0,
+        "different_sample_count": 0
+      },
+      "1024": {
+        "compatible": true,
+        "max_abs_difference": 2.3996461179833033e-29,
+        "rms_difference": 7.242433962268238e-32,
+        "different_sample_count": 76
+      }
+    },
+    "07-musical-phrase.wav": {
+      "64": {
+        "compatible": true,
+        "max_abs_difference": 6.332993507385254e-08,
+        "rms_difference": 1.8224739600823227e-10,
+        "different_sample_count": 314
+      },
+      "257": {
+        "compatible": true,
+        "max_abs_difference": 0.0,
+        "rms_difference": 0.0,
+        "different_sample_count": 0
+      },
+      "1024": {
+        "compatible": true,
+        "max_abs_difference": 0.0,
+        "rms_difference": 0.0,
+        "different_sample_count": 0
+      }
+    }
+  }
+}

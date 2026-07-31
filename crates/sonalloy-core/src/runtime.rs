@@ -1,3 +1,12 @@
+pub(crate) mod adsr;
+mod instrument;
+pub(crate) mod mix;
+pub(crate) mod smoothing;
+mod voice;
+
+pub use instrument::InstrumentRuntime;
+pub use voice::VoiceState;
+
 use sonalloy_dsp_sys::{DspOscillator, DspOscillatorWaveform};
 
 use crate::process::{InstrumentProcessor, ProcessBlock, ProcessError, ProcessSpec, clear_output};

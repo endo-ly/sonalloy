@@ -1,6 +1,7 @@
 #include "sonalloy_dsp.h"
 
 #include "Synthesis/oscillator.h"
+#include "Filters/svf.h"
 
 #include <cmath>
 #include <cstdint>
@@ -17,6 +18,12 @@ struct sonalloy_dsp_oscillator {
 #endif
 };
 
+struct sonalloy_dsp_filter {
+    daisysp::Svf filter;
+    float sample_rate = 0.0f;
+    bool prepared = false;
+};
+
 namespace {
 
 constexpr const char* kBackendVersion =
@@ -30,6 +37,15 @@ bool valid_sample_rate(double sample_rate) {
 bool valid_frequency(float frequency_hz, float sample_rate) {
     return std::isfinite(frequency_hz) && frequency_hz >= 0.0f &&
            frequency_hz <= sample_rate * 0.5f;
+}
+
+bool valid_cutoff(float cutoff_hz, float sample_rate) {
+    return std::isfinite(cutoff_hz) && cutoff_hz > 0.0f &&
+           cutoff_hz <= sample_rate * 0.45f;
+}
+
+bool valid_resonance(float resonance) {
+    return std::isfinite(resonance) && resonance >= 0.0f && resonance <= 1.0f;
 }
 
 }  // namespace
@@ -156,6 +172,107 @@ extern "C" int32_t sonalloy_dsp_oscillator_process(
         if (output != nullptr) {
             for (uint32_t index = 0; index < frames; ++index) {
                 output[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" sonalloy_dsp_filter* sonalloy_dsp_filter_create(void) {
+    try {
+        return new sonalloy_dsp_filter();
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+extern "C" void sonalloy_dsp_filter_destroy(sonalloy_dsp_filter* handle) {
+    try {
+        delete handle;
+    } catch (...) {
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_filter_prepare(
+    sonalloy_dsp_filter* handle,
+    double sample_rate
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    handle->prepared = false;
+    handle->sample_rate = 0.0f;
+    if (!valid_sample_rate(sample_rate)) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    try {
+        handle->sample_rate = static_cast<float>(sample_rate);
+        handle->filter.Init(handle->sample_rate);
+        handle->prepared = true;
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        handle->prepared = false;
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_filter_reset(sonalloy_dsp_filter* handle) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (!handle->prepared) {
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    try {
+        handle->filter.Init(handle->sample_rate);
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_filter_process(
+    sonalloy_dsp_filter* handle,
+    float cutoff_hz,
+    float resonance,
+    float* buffer,
+    uint32_t frames
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (frames > 0u && buffer == nullptr) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    if (!handle->prepared) {
+        if (buffer != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                buffer[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    if (!valid_cutoff(cutoff_hz, handle->sample_rate) ||
+        !valid_resonance(resonance)) {
+        if (buffer != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                buffer[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    try {
+        handle->filter.SetFreq(cutoff_hz);
+        handle->filter.SetRes(resonance);
+        for (uint32_t index = 0; index < frames; ++index) {
+            handle->filter.Process(buffer[index]);
+            buffer[index] = handle->filter.Low();
+        }
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        if (buffer != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                buffer[index] = 0.0f;
             }
         }
         return SONALLOY_DSP_NATIVE_EXCEPTION;

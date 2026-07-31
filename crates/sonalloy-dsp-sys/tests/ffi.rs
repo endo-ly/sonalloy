@@ -1,5 +1,6 @@
 use sonalloy_dsp_sys::{
-    DspError, DspOscillator, DspOscillatorWaveform, backend_version, capabilities,
+    DspError, DspFilter, DspFilterError, DspOscillator, DspOscillatorWaveform, backend_version,
+    capabilities,
 };
 
 fn render_blocks(block_size: usize, waveform: DspOscillatorWaveform) -> Vec<f32> {
@@ -150,4 +151,46 @@ fn backend_reports_capabilities() {
             saw: true,
         }
     );
+}
+
+#[test]
+fn filter_lifecycle_and_reset_are_safe() {
+    let mut filter = DspFilter::new().expect("filter allocation");
+    let mut output = [1.0_f32; 64];
+    assert_eq!(
+        filter.process(1_000.0, 0.1, &mut output),
+        Err(DspFilterError::NotPrepared)
+    );
+    assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+    filter.prepare(48_000.0).expect("filter preparation");
+    output.fill(1.0);
+    filter
+        .process(1_000.0, 0.1, &mut output)
+        .expect("filter process");
+    assert!(output.iter().all(|sample| sample.is_finite()));
+    assert!(output.iter().any(|sample| sample.abs() > 0.0));
+    filter.reset().expect("filter reset");
+    let mut after_reset = [1.0_f32; 64];
+    filter
+        .process(1_000.0, 0.1, &mut after_reset)
+        .expect("filter process after reset");
+    assert!(after_reset.iter().all(|sample| sample.is_finite()));
+}
+
+#[test]
+fn filter_rejects_invalid_parameters_and_clears_output() {
+    let mut filter = DspFilter::new().expect("filter allocation");
+    filter.prepare(48_000.0).expect("filter preparation");
+    let mut output = [1.0_f32; 8];
+    assert_eq!(
+        filter.process(0.0, 0.1, &mut output),
+        Err(DspFilterError::InvalidArgument)
+    );
+    assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+    output.fill(1.0);
+    assert_eq!(
+        filter.process(1_000.0, 1.1, &mut output),
+        Err(DspFilterError::InvalidArgument)
+    );
+    assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
 }

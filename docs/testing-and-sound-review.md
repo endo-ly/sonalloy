@@ -24,9 +24,52 @@
 - Process領域の前後にGuardを置くTestでは、領域外が変更されていないことを確認します。
 - Native境界を含むTestは、Linux CIでAddressSanitizer、UndefinedBehaviorSanitizer、Leak Detectionの対象にします。
 
+## P1自動検証
+
+- DefinitionのSchema Version、未知Field、必須Field、Range、Layer数、ID重複、NaN/Infinityを検証します。
+- CompilerのdB→Linear、cent→Ratio、ADSR Frame変換、Filter Cutoff ClampとWarningを検証します。
+- ADSRの0秒Segment、Attack中Note Off、Release、Voice Allocation、Note ID、Steal Fadeを検証します。
+- EventのSample Offset、同一Offset順序、Block Size 64/257/1024のTiming一致を検証します。
+- Sine/Saw、Stereo Mix、Pan、Velocity、Filter、Reset再現性、Finite性、Peak/RMS/DCを検証します。
+- CLIの`instrument init/validate/inspect`、`render note`、`render midi`、Invalid Definition、MIDI Tempo、WAV出力を検証します。
+
 ## 音声Reviewのルール
 
 - Metricsは手入力せず、`scripts/measure_wav.py`でWAVから生成します。
 - 自動Testの期待値は`testdata/expected/sine_metrics.json`で管理します。
 - Review Artifactには、音声、Metrics、Render条件、受入結果を保存します。
 - 自動TestではWAV Metadata、Finite性、再現性、Metricsを確認し、音質の最終判断は人間が行います。
+
+## P1 Review Package
+
+P1の試聴資料は`review-output/p1/`へ保存します。
+
+```text
+review-output/p1/
+├─ audio/
+│  ├─ 01-sine-reference.wav
+│  ├─ 02-saw-registers.wav
+│  ├─ 02-saw-registers-filter-closed.wav
+│  ├─ 03-attack-release.wav
+│  ├─ 03-attack-release-slow-attack.wav
+│  ├─ 04-repeated-notes.wav
+│  ├─ 05-polyphony-and-stealing.wav
+│  ├─ 06-filter-and-velocity.wav
+│  └─ 07-musical-phrase.wav
+├─ definitions/
+├─ midi/
+├─ metrics.json
+└─ review-summary.md
+```
+
+すべてのWAVは48 kHz、Block Size 257を基準に生成し、`scripts/measure_wav.py`でMetricsを生成します。Metrics合格は音質合格を意味しません。人間はSaw高音域、Note境界、Attack/Release、同音連打、Voice Stealing、Filter/Velocity、楽曲での実用性を確認します。
+
+MetricsにはFinite性、Peak / RMS / DC、推定基本周波数、隣接Frame差分、大きな不連続候補数と候補Frame位置を含めます。Saw比較には参考用の簡易Spectrumピークも保存します。さらに、基準WAVをBlock Size 64 / 257 / 1024で実際に再Renderし、`block_size_comparisons`へSample差分を記録します。これらは不具合の切り分け用であり、Alias感や音の魅力の合否判定には使いません。
+
+Review資料の刺激条件を変えずに再生成する場合は、次を実行します。
+
+```bash
+python scripts/generate_p1_review.py
+```
+
+SawのFilter開閉は`02-saw-registers.wav`と`02-saw-registers-filter-closed.wav`、Attack/Releaseは`03-attack-release.wav`と`03-attack-release-slow-attack.wav`を同じヘッドホン/音量で比較します。P1の実装範囲では音色の最終的な魅力を自動判定せず、人間が試聴します。

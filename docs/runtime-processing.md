@@ -39,7 +39,49 @@ Process開始時に対象範囲をZero Clearし、Runtimeは対象範囲の全Sa
 
 `absolute_frame`はRender開始からの絶対位置です。Runtime内部のFrame位置とContextが一致しない場合は処理を失敗させ、対象Bufferを無音にします。これにより、Block分割や呼び出し側の位置ずれを黙って受け入れません。
 
-Sine RuntimeはEventを適用しません。Event列が渡された場合は無音化して`EventsUnsupported`を返します。Event型はNote IDとSample Offsetを持つため、後続Runtimeが同じContractへ接続できます。
+Sine RuntimeはEventを適用しません。Event列が渡された場合は無音化して`EventsUnsupported`を返します。Event型はNote IDとSample Offsetを持ち、同一Offsetではmatching Note OffをNote Onより先に適用します。非昇順Eventや同一Noteの順序違反はProcess Errorです。
+
+## P1 CompileとRuntime
+
+```text
+Instrument Definition
+  → Parse / Validate
+    → Compile（dB、cent、ADSR、Filter上限を変換）
+      → InstrumentRuntime::prepare
+        → 固定Voice Pool / Scratch / Native Handle
+```
+
+`CompiledInstrument`はRuntime状態を持たない不変値です。`InstrumentRuntime`はPrepare時にDefinitionのPolyphony分のVoiceを作り、VoiceごとにOscillatorと左右独立のFilterを所有します。Process中にJSON Parse、File I/O、Decode、Voice Pool拡張を行いません。
+
+## P1 VoiceとADSR
+
+VoiceのStateは`Idle → Active → Releasing → Idle`です。Note OffはNote IDで対象Voiceを特定し、現在のEnvelope値からReleaseを開始します。ADSRはAttack、Decay、Sustain、ReleaseをSample単位で更新し、0秒Segmentは次のStateへ直ちに進みます。Voice StealingはIdle、最も小さい`estimated_level`のReleasing、最古のActiveの順に候補を選び、5 msのSteal Fade後にPending Noteを開始します。
+
+## Sample Accurate Segment Render
+
+```text
+Block Start
+  → Event OffsetまでRender
+  → OffsetのEventを適用
+  → 次のEvent OffsetまでRender
+  → Block EndまでRender
+```
+
+各SegmentではOscillator Mono信号へADSRとLayer Gainを乗算し、Constant-power PanでStereo化します。Layer Mix後にVoice FilterのLeft/Rightを適用し、Instrument Outputへ加算します。Gainは5 ms、Voice開始時のFilter Cutoffは10 msの固定Smootherを使用します。Cutoffの更新はHost Block Sizeに依存しないSample単位で進みます。
+
+## P1信号経路
+
+```text
+MIDI Note
+  → Voice Allocation
+    → MIDI Note × Tuning Ratio
+      → DaisySP Sine / Saw
+        → ADSR
+          → Layer Gain × Velocity Gain
+            → Constant-power Pan
+              → Voice Low-pass Filter
+                → Stereo Output
+```
 
 ## Sine Runtime
 

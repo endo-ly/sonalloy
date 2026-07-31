@@ -1,9 +1,13 @@
+use std::sync::Arc;
+
 use thiserror::Error;
 
+use crate::compiler::CompiledInstrument;
 use crate::process::{
-    InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessSpec,
+    InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessEvent, ProcessSpec,
+    ScheduledEvent,
 };
-use crate::runtime::SineRuntime;
+use crate::runtime::{InstrumentRuntime, SineRuntime};
 
 const U64_LIMIT_AS_F64: f64 = 18_446_744_073_709_551_616.0;
 
@@ -84,6 +88,15 @@ pub enum RenderError {
     /// The runtime rejected a process block.
     #[error("process failed: {0}")]
     Process(#[from] ProcessError),
+    /// Scheduled events are not ordered by absolute frame.
+    #[error("scheduled events must be ordered by absolute frame")]
+    ScheduledEventsNotSorted,
+    /// A scheduled event lies outside the requested render.
+    #[error("scheduled event at frame {frame} is outside the render")]
+    ScheduledEventOutOfRange {
+        /// Invalid absolute frame.
+        frame: u64,
+    },
 }
 
 /// Convert seconds to an exact frame count using round-to-nearest.
@@ -124,14 +137,49 @@ pub fn render_sine(
     render_processor(&mut runtime, request)
 }
 
+/// Render a compiled instrument from absolute-frame normalized events.
+///
+/// # Errors
+///
+/// Returns an error when the request, event timeline, or instrument runtime is invalid.
+pub fn render_instrument(
+    compiled: Arc<CompiledInstrument>,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+) -> Result<RenderedAudio, RenderError> {
+    let mut runtime = InstrumentRuntime::new(compiled);
+    render_processor_with_events(&mut runtime, request, events)
+}
+
 fn render_processor<P: InstrumentProcessor>(
     processor: &mut P,
     request: RenderRequest,
+) -> Result<RenderedAudio, RenderError> {
+    render_processor_with_events(processor, request, &[])
+}
+
+fn render_processor_with_events<P: InstrumentProcessor>(
+    processor: &mut P,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
 ) -> Result<RenderedAudio, RenderError> {
     let total_frames = request.total_frames()?;
     let spec = request.process_spec()?;
     let total_frames_usize =
         usize::try_from(total_frames).map_err(|_| RenderError::FrameCountOverflow)?;
+    for window in events.windows(2) {
+        if window[0].absolute_frame > window[1].absolute_frame {
+            return Err(RenderError::ScheduledEventsNotSorted);
+        }
+    }
+    if let Some(event) = events
+        .iter()
+        .find(|event| event.absolute_frame >= total_frames)
+    {
+        return Err(RenderError::ScheduledEventOutOfRange {
+            frame: event.absolute_frame,
+        });
+    }
     processor.prepare(spec)?;
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -141,9 +189,24 @@ fn render_processor<P: InstrumentProcessor>(
         channels: vec![vec![0.0; total_frames_usize], vec![0.0; total_frames_usize]],
     };
     let mut offset = 0_usize;
+    let mut event_index = 0_usize;
+    let mut block_events = Vec::with_capacity(events.len());
     while offset < total_frames_usize {
         let frames = (total_frames_usize - offset).min(request.block_size);
         let end = offset + frames;
+        block_events.clear();
+        while event_index < events.len() && events[event_index].absolute_frame < end as u64 {
+            let scheduled = events[event_index];
+            if scheduled.absolute_frame < offset as u64 {
+                return Err(RenderError::ScheduledEventsNotSorted);
+            }
+            block_events.push(ProcessEvent {
+                sample_offset: usize::try_from(scheduled.absolute_frame - offset as u64)
+                    .map_err(|_| RenderError::FrameCountOverflow)?,
+                kind: scheduled.kind,
+            });
+            event_index += 1;
+        }
         {
             let (left_channel, right_channel) = audio.channels.split_at_mut(1);
             let mut output: [&mut [f32]; 2] = [
@@ -156,7 +219,7 @@ fn render_processor<P: InstrumentProcessor>(
                     absolute_frame: offset as u64,
                     tempo_bpm: 120.0,
                 },
-                events: &[],
+                events: &block_events,
                 output: &mut output,
             };
             processor.process(block)?;

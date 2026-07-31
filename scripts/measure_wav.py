@@ -62,7 +62,64 @@ def positive_zero_crossings(samples: list[float]) -> int:
     )
 
 
-def measure(path: Path, block_sizes: list[int]) -> dict[str, object]:
+def max_adjacent_frame_delta(
+    samples: list[float], channels: int, frames: int
+) -> tuple[float, int, list[int]]:
+    threshold = 0.25
+    maximum = 0.0
+    large_count = 0
+    candidate_frames: list[int] = []
+    for frame in range(1, frames):
+        previous = frame - 1
+        frame_delta = max(
+            abs(samples[frame * channels + channel] - samples[previous * channels + channel])
+            for channel in range(channels)
+        )
+        maximum = max(maximum, frame_delta)
+        if frame_delta > threshold:
+            large_count += 1
+            if len(candidate_frames) < 16:
+                candidate_frames.append(frame)
+    return maximum, large_count, candidate_frames
+
+
+def spectrum_reference(
+    left: list[float], sample_rate: int, frames: int
+) -> dict[str, object]:
+    fft_size = min(4096, frames)
+    if fft_size < 4:
+        return {"fft_size": fft_size, "peaks": []}
+    start = min(frames - fft_size, int(sample_rate * 0.2))
+    window = [
+        left[start + index]
+        * (0.5 - 0.5 * math.cos(2.0 * math.pi * index / (fft_size - 1)))
+        for index in range(fft_size)
+    ]
+    magnitudes: list[tuple[float, int]] = []
+    for bin_index in range(1, fft_size // 2 + 1):
+        real = 0.0
+        imaginary = 0.0
+        angle_step = 2.0 * math.pi * bin_index / fft_size
+        for index, sample in enumerate(window):
+            angle = angle_step * index
+            real += sample * math.cos(angle)
+            imaginary -= sample * math.sin(angle)
+        magnitudes.append((math.hypot(real, imaginary), bin_index))
+    peak_magnitude = max((magnitude for magnitude, _ in magnitudes), default=0.0)
+    peaks = []
+    for magnitude, bin_index in sorted(magnitudes, reverse=True)[:8]:
+        peaks.append(
+            {
+                "frequency_hz": bin_index * sample_rate / fft_size,
+                "relative_amplitude": magnitude / peak_magnitude if peak_magnitude else 0.0,
+            }
+        )
+    return {"fft_size": fft_size, "window_start_frame": start, "peaks": peaks}
+
+
+def measure(
+    path: Path, block_sizes: list[int], include_spectrum: bool = False
+) -> dict[str, object]:
     sample_rate, channels, samples = read_float_wav(path)
     if len(samples) % channels != 0:
         raise ValueError("sample count is not divisible by channel count")
@@ -74,6 +131,9 @@ def measure(path: Path, block_sizes: list[int]) -> dict[str, object]:
     dc = sum(samples) / len(samples) if samples else 0.0
     crossings = positive_zero_crossings(left)
     estimated_frequency = crossings * sample_rate / frames if frames else 0.0
+    max_delta, large_count, candidate_frames = max_adjacent_frame_delta(
+        samples, channels, frames
+    )
     return {
         "sample_rate": sample_rate,
         "channels": channels,
@@ -85,7 +145,54 @@ def measure(path: Path, block_sizes: list[int]) -> dict[str, object]:
         "dc": dc,
         "positive_zero_crossings_left": crossings,
         "estimated_frequency_hz": estimated_frequency,
+        "max_adjacent_frame_delta": max_delta,
+        "large_discontinuity_threshold": 0.25,
+        "large_discontinuity_count": large_count,
+        "large_discontinuity_frames": candidate_frames,
         "block_sizes_checked": block_sizes,
+        **(
+            {"spectrum_reference": spectrum_reference(left, sample_rate, frames)}
+            if include_spectrum
+            else {}
+        ),
+    }
+
+
+def compare_wav(reference: Path, candidate: Path) -> dict[str, object]:
+    """Compare two rendered float32 WAVs sample by sample."""
+
+    reference_rate, reference_channels, reference_samples = read_float_wav(reference)
+    candidate_rate, candidate_channels, candidate_samples = read_float_wav(candidate)
+    if (
+        reference_rate != candidate_rate
+        or reference_channels != candidate_channels
+        or len(reference_samples) != len(candidate_samples)
+    ):
+        return {
+            "compatible": False,
+            "reference_sample_rate": reference_rate,
+            "candidate_sample_rate": candidate_rate,
+            "reference_channels": reference_channels,
+            "candidate_channels": candidate_channels,
+            "reference_samples": len(reference_samples),
+            "candidate_samples": len(candidate_samples),
+        }
+
+    differences = [
+        abs(reference - candidate)
+        for reference, candidate in zip(reference_samples, candidate_samples)
+    ]
+    max_difference = max(differences, default=0.0)
+    rms_difference = (
+        math.sqrt(sum(difference * difference for difference in differences) / len(differences))
+        if differences
+        else 0.0
+    )
+    return {
+        "compatible": True,
+        "max_abs_difference": max_difference,
+        "rms_difference": rms_difference,
+        "different_sample_count": sum(difference != 0.0 for difference in differences),
     }
 
 
@@ -97,7 +204,7 @@ def main() -> None:
     args = parser.parse_args()
     metrics = measure(args.input, args.block_size)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
+    args.output.write_bytes((json.dumps(metrics, indent=2) + "\n").encode("utf-8"))
 
 
 if __name__ == "__main__":

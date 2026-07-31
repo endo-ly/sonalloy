@@ -1,6 +1,40 @@
 # CLI
 
-Binary名は`sonalloy`です。CLIはCoreのRendererを呼び出し、生成されたAudioをWAVへ保存します。
+Binary名は`sonalloy`です。CLIはDefinitionの読込・表示・Compileを行い、CoreのRendererを呼び出して生成されたAudioをWAVへ保存します。
+
+## Instrument Command
+
+```bash
+sonalloy instrument init <path>
+sonalloy instrument validate <definition>
+sonalloy instrument inspect <definition>
+```
+
+`init`は最小のP1 Definitionを生成します。`validate`はJSON Parse、Definition Validation、Compile Diagnosticsまでを行い、WAVは生成しません。`inspect`はMetadata、Polyphony、Layer Trigger、Generator、Phase Reset、P1では該当しないAsset状態、Gain、Pan、Tuning、Envelope、Voice Filter、Velocity Response、Warningを表示します。`--json`を付けると同じ構成を機械可読形式で返します。
+
+## Render Command
+
+### `render note`
+
+```bash
+sonalloy render note examples/instruments/basic-poly-synth.json \
+  --note 60 --velocity 100 --gate 0.5 --tail 0.5 \
+  --sample-rate 48000 --block-size 257 --output out/note.wav
+```
+
+`render note`はCoreへNote OnとNote Offを渡します。
+
+### `render midi`
+
+```bash
+sonalloy render midi \
+  examples/instruments/basic-poly-synth.json \
+  testdata/midi/p1-review.mid \
+  --sample-rate 48000 --block-size 257 --tail 1.0 \
+  --output out/p1-basic-poly-synth.wav
+```
+
+MIDI FileのTick、Tempo、Channel、NoteをCLI側でAbsolute Frameの`ScheduledEvent`へ変換します。Note OnのVelocity 0はNote Offとして扱い、Note IDはChannel・Note Number・発音Serialから生成します。Sustain Pedal、Pitch Bend、Aftertouch、Program Change等のMVP外Eventは無視し、Warningを返します。Coreへ`midly`型は渡しません。
 
 ## `dev render-sine`
 
@@ -30,7 +64,7 @@ sonalloy dev render-sine \
 | Code | 意味 |
 |---:|---|
 | `0` | 成功 |
-| `1` | Definition / Compile Error（予約） |
+| `1` | Definition / Compile Error |
 | `2` | CLI入力またはRender Request Error |
 | `3` | Core Process / Render Error |
 | `4` | WAV出力 Error |
@@ -52,6 +86,8 @@ sonalloy dev render-sine \
   ]
 }
 ```
+
+DefinitionやEventの主な診断Codeは`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`FILTER_CUTOFF_CLAMPED`、`EVENT_ORDER_INVALID`、`DSP_ERROR`です。P2のAsset処理に備えたAsset系Codeも共通Enumで予約しています。
 
 ## 責務境界
 

@@ -1,6 +1,15 @@
 use assert_cmd::Command;
 use tempfile::tempdir;
 
+fn reference_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/basic-poly-synth.json")
+}
+
+fn reference_midi() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../testdata/midi/p1-review.mid")
+}
+
 fn positive_zero_crossings(samples: &[f32]) -> usize {
     samples
         .windows(2)
@@ -217,4 +226,198 @@ fn invalid_frequency_is_not_reported_as_success() {
         .code(3)
         .stdout(predicates::str::contains("\"status\":\"error\""));
     assert!(!output.exists());
+}
+
+#[test]
+fn instrument_init_validate_and_inspect_are_available() {
+    let directory = tempdir().expect("temporary directory");
+    let definition = directory.path().join("init.json");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "init",
+            definition.to_str().expect("utf-8 path"),
+        ])
+        .assert()
+        .success();
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            definition.to_str().expect("utf-8 path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            definition.to_str().expect("utf-8 path"),
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("polyphony: 16"))
+        .stdout(predicates::str::contains("layer body"))
+        .stdout(predicates::str::contains("envelope:"))
+        .stdout(predicates::str::contains("asset: not_applicable"));
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"metadata\""))
+        .stdout(predicates::str::contains("\"envelope\""))
+        .stdout(predicates::str::contains("\"phase_reset\":true"))
+        .stdout(predicates::str::contains("\"asset_status\""));
+}
+
+#[test]
+fn render_note_uses_the_compiled_instrument() {
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("note.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "note",
+            reference_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            "--gate",
+            "0.01",
+            "--tail",
+            "0.01",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+        ])
+        .assert()
+        .success();
+    let reader = hound::WavReader::open(output).expect("rendered WAV");
+    assert_eq!(reader.spec().channels, 2);
+}
+
+#[test]
+fn render_midi_converts_tempo_and_note_events() {
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("midi.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            reference_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            reference_midi().to_str().expect("utf-8 MIDI path"),
+            "--tail",
+            "0.01",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    let reader = hound::WavReader::open(output).expect("rendered MIDI WAV");
+    assert!(reader.duration() > 0);
+}
+
+#[test]
+fn invalid_definition_returns_exit_code_one() {
+    let directory = tempdir().expect("temporary directory");
+    let definition = directory.path().join("invalid.json");
+    std::fs::write(&definition, "{\"schema_version\": 1}").expect("write invalid JSON");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            definition.to_str().expect("utf-8 path"),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicates::str::contains("\"status\":\"error\""));
+}
+
+#[test]
+fn invalid_definition_json_has_a_specific_diagnostic_code() {
+    let directory = tempdir().expect("temporary directory");
+    let definition = directory.path().join("invalid.json");
+    std::fs::write(&definition, "not json").expect("write invalid JSON");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicates::str::contains("\"JSON_INVALID\""));
+}
+
+#[test]
+fn missing_definition_field_has_a_specific_diagnostic_code() {
+    let directory = tempdir().expect("temporary directory");
+    let definition = directory.path().join("missing.json");
+    std::fs::write(&definition, "{\"schema_version\":1}").expect("write incomplete JSON");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicates::str::contains("\"REQUIRED_FIELD_MISSING\""));
+}
+
+#[test]
+fn render_note_rejects_midi_values_above_127() {
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("note.wav");
+    for argument in [["--note", "128"], ["--velocity", "128"]] {
+        Command::cargo_bin("sonalloy")
+            .expect("binary")
+            .args([
+                "render",
+                "note",
+                reference_definition()
+                    .to_str()
+                    .expect("utf-8 definition path"),
+                argument[0],
+                argument[1],
+                "--gate",
+                "0.01",
+                "--output",
+                output.to_str().expect("utf-8 output path"),
+                "--json",
+            ])
+            .assert()
+            .code(2)
+            .stdout(predicates::str::contains("\"VALUE_OUT_OF_RANGE\""));
+    }
 }

@@ -5,6 +5,11 @@ pub(crate) struct DspOscillator {
     _private: [u8; 0],
 }
 
+#[repr(C)]
+pub(crate) struct DspFilter {
+    _private: [u8; 0],
+}
+
 pub(crate) const OK: c_int = 0;
 pub(crate) const INVALID_ARGUMENT: c_int = 1;
 pub(crate) const NULL_HANDLE: c_int = 2;
@@ -31,6 +36,21 @@ unsafe extern "C" {
         handle: *mut DspOscillator,
         frequency_hz: c_float,
         output: *mut c_float,
+        frames: c_uint,
+    ) -> c_int;
+
+    pub(crate) fn sonalloy_dsp_filter_create() -> *mut DspFilter;
+    pub(crate) fn sonalloy_dsp_filter_destroy(handle: *mut DspFilter);
+    pub(crate) fn sonalloy_dsp_filter_prepare(
+        handle: *mut DspFilter,
+        sample_rate: c_double,
+    ) -> c_int;
+    pub(crate) fn sonalloy_dsp_filter_reset(handle: *mut DspFilter) -> c_int;
+    pub(crate) fn sonalloy_dsp_filter_process(
+        handle: *mut DspFilter,
+        cutoff_hz: c_float,
+        resonance: c_float,
+        buffer: *mut c_float,
         frames: c_uint,
     ) -> c_int;
 

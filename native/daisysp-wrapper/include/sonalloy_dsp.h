@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 typedef struct sonalloy_dsp_oscillator sonalloy_dsp_oscillator;
+typedef struct sonalloy_dsp_filter sonalloy_dsp_filter;
 
 enum sonalloy_dsp_result {
     SONALLOY_DSP_OK = 0,
@@ -43,6 +44,21 @@ int32_t sonalloy_dsp_oscillator_process(
     sonalloy_dsp_oscillator* handle,
     float frequency_hz,
     float* output,
+    uint32_t frames
+);
+
+sonalloy_dsp_filter* sonalloy_dsp_filter_create(void);
+void sonalloy_dsp_filter_destroy(sonalloy_dsp_filter* handle);
+int32_t sonalloy_dsp_filter_prepare(
+    sonalloy_dsp_filter* handle,
+    double sample_rate
+);
+int32_t sonalloy_dsp_filter_reset(sonalloy_dsp_filter* handle);
+int32_t sonalloy_dsp_filter_process(
+    sonalloy_dsp_filter* handle,
+    float cutoff_hz,
+    float resonance,
+    float* buffer,
     uint32_t frames
 );
 
