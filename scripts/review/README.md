@@ -22,3 +22,5 @@ python scripts/review/generate_metallic_hybrid_package.py
 ```
 
 生成先は`review-output/basic-poly-synth/`と`review-output/metallic-hybrid/`です。Package内のDefinitionは同梱された入力を参照するため、コピー後の内容だけでも再確認できます。
+
+Metallic Hybridの生成時は、`instrument inspect --json`のSample Layer状態、許容されたAsset Warning、DefinitionとSource AssetのSHA-256一致、Sample-only出力の非無音性、Hybrid MixとOscillator-onlyの差分も自動検査します。検査に失敗した場合はMetricsやReview資料を更新せず終了します。

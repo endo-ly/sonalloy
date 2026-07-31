@@ -374,6 +374,24 @@ mod tests {
     }
 
     #[test]
+    fn prepare_accepts_an_instrument_compiled_at_44_1_khz() {
+        let result = compile_instrument(
+            &definition(),
+            &CompileContext {
+                definition_base_dir: ".".into(),
+                process_spec: ProcessSpec::new(44_100.0, 257, 2).expect("valid process spec"),
+            },
+        );
+        let mut runtime = result
+            .instrument
+            .expect("compiled instrument")
+            .instantiate();
+        runtime
+            .prepare(ProcessSpec::new(44_100.0, 257, 2).expect("valid process spec"))
+            .expect("matching 44.1 kHz sample rate is valid");
+    }
+
+    #[test]
     fn note_timing_is_independent_of_block_size() {
         let mut first = runtime();
         let mut second = runtime();

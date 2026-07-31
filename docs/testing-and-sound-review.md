@@ -32,6 +32,8 @@
 - EventのSample Offset、同一Offset順序、Block Size 64/257/1024のTiming一致を検証します。
 - Sine/Saw、Stereo Mix、Pan、Velocity、Filter、Reset再現性、Finite性、Peak/RMS/DCを検証します。
 - CLIの`instrument init/validate/inspect`、`render note`、`render midi`、Invalid Definition、MIDI Tempo、WAV出力を検証します。
+- Compiled InstrumentのSample RateとRuntime Prepareの一致、異なるSample Rateを明示的に拒否することを検証します。
+- Sample終端の短いFade、短いSource、Pitch Ratio 0.5 / 1.0 / 2.0でのFinite性と終端0を検証します。
 
 ## 音声Reviewのルール
 
@@ -103,7 +105,7 @@ review-output/metallic-hybrid/
 python scripts/review/generate_metallic_hybrid_package.py
 ```
 
-基準条件は48 kHz、Block Size 257、Stereo、32-bit float WAVです。`metrics.json`では全SampleのFinite性、Peak、RMS、DC、推定基本周波数、隣接Frame差分、終端候補、Block Size 64 / 257 / 1024の再現性を確認します。Metrics合格はHybridの音質合格を意味しません。
+基準条件は48 kHz、Block Size 257、Stereo、32-bit float WAVです。`metrics.json`では全SampleのFinite性、Peak、RMS、DC、推定基本周波数、隣接Frame差分、終端候補、Block Size 64 / 257 / 1024の再現性を確認します。生成時には`instrument inspect --json`でSample Layerの有効状態とAsset Warningを確認し、Definitionと同梱AssetのSHA-256一致、Sample-only出力の非無音性、Hybrid MixとOscillator-onlyの差分も検査します。Metrics合格はHybridの音質合格を意味しません。
 
 | 音源 | 人間が確認する意図 |
 |---|---|

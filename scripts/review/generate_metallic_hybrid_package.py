@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import shutil
 import subprocess
 import sys
@@ -13,15 +14,25 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from measure_wav import compare_wav, measure  # noqa: E402
+from measure_wav import compare_wav, measure, read_float_wav  # noqa: E402
 
 
-def run_cli(arguments: list[str]) -> None:
-    subprocess.run(
+def run_cli(arguments: list[str]) -> str:
+    result = subprocess.run(
         ["cargo", "run", "-q", "-p", "sonalloy-cli", "--", *arguments],
         cwd=ROOT,
-        check=True,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
+    if result.returncode != 0:
+        details = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
+        raise RuntimeError(
+            f"CLI failed with exit code {result.returncode}: {details}"
+        )
+    return result.stdout
 
 
 def source_commit() -> str:
@@ -88,7 +99,79 @@ def copy_definition(source: Path, destination: Path, asset_path: str | None) -> 
             if sample is not None:
                 sample["asset"]["path"] = asset_path
     destination.write_text(
-        json.dumps(definition, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        json.dumps(definition, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def inspect_definition(definition: Path) -> dict[str, object]:
+    output = run_cli(["instrument", "inspect", str(definition), "--json"])
+    try:
+        report = json.loads(output)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"inspect did not return JSON for {definition}: {output}") from error
+    if report.get("status") != "ok":
+        raise RuntimeError(f"inspect failed for {definition}: {report}")
+    return report
+
+
+def validate_definition(
+    definition: Path,
+    expected_asset_status: dict[str, str],
+    expected_diagnostic_codes: set[str],
+    asset_must_exist: bool,
+) -> None:
+    report = inspect_definition(definition)
+    diagnostics = report.get("diagnostics", [])
+    diagnostic_codes = {diagnostic["code"] for diagnostic in diagnostics}
+    if diagnostic_codes != expected_diagnostic_codes:
+        raise RuntimeError(
+            f"unexpected diagnostics for {definition}: "
+            f"expected {sorted(expected_diagnostic_codes)}, got {sorted(diagnostic_codes)}"
+        )
+    layers = {layer["id"]: layer for layer in report["layers"]}
+    for layer_id, expected_status in expected_asset_status.items():
+        layer = layers.get(layer_id)
+        if layer is None:
+            raise RuntimeError(f"missing inspected layer {layer_id} in {definition}")
+        if not layer["enabled"] or layer["asset_status"] != expected_status:
+            raise RuntimeError(
+                f"unexpected layer status for {layer_id} in {definition}: {layer}"
+            )
+
+    definition_value = json.loads(definition.read_text(encoding="utf-8"))
+    for layer in definition_value["layers"]:
+        sample = layer.get("generator", {}).get("sample")
+        if sample is None:
+            continue
+        asset_path = (definition.parent / sample["asset"]["path"]).resolve()
+        if not asset_path.exists():
+            if asset_must_exist:
+                raise RuntimeError(f"expected sample asset is missing: {asset_path}")
+            continue
+        expected_hash = sample["asset"].get("sha256")
+        if expected_hash is None:
+            raise RuntimeError(f"sample asset hash is missing in {definition}")
+        actual_hash = hashlib.sha256(asset_path.read_bytes()).hexdigest()
+        if actual_hash != expected_hash:
+            raise RuntimeError(
+                f"sample asset hash mismatch in {definition}: "
+                f"expected {expected_hash}, got {actual_hash}"
+            )
+
+
+def shared_prefix_difference(first: Path, second: Path) -> float:
+    first_rate, first_channels, first_samples = read_float_wav(first)
+    second_rate, second_channels, second_samples = read_float_wav(second)
+    if first_rate != second_rate or first_channels != second_channels:
+        raise RuntimeError(f"WAV metadata differs between {first} and {second}")
+    shared_samples = min(len(first_samples), len(second_samples))
+    return max(
+        (
+            abs(first_samples[index] - second_samples[index])
+            for index in range(shared_samples)
+        ),
+        default=0.0,
     )
 
 
@@ -161,6 +244,30 @@ def main() -> None:
     oscillator_only = definitions["metallic-hybrid-oscillator-only.json"]
     hybrid = definitions["metallic-hybrid.json"]
     missing = definitions["metallic-hybrid-missing-asset.json"]
+    validate_definition(
+        hybrid,
+        {"attack": "enabled", "body": "not_applicable (oscillator-only instrument)"},
+        {"ASSET_RESAMPLED"},
+        asset_must_exist=True,
+    )
+    validate_definition(
+        sample_only,
+        {"attack": "enabled"},
+        {"ASSET_RESAMPLED"},
+        asset_must_exist=True,
+    )
+    validate_definition(
+        oscillator_only,
+        {"body": "not_applicable (oscillator-only instrument)"},
+        set(),
+        asset_must_exist=True,
+    )
+    validate_definition(
+        missing,
+        {"attack": "disabled", "body": "not_applicable (oscillator-only instrument)"},
+        {"ASSET_NOT_FOUND"},
+        asset_must_exist=False,
+    )
     render_note(sample_only, audio_dir / "02-sample-decoded-root.wav")
     render_midi(
         sample_only,
@@ -245,11 +352,39 @@ def main() -> None:
     rendered_discontinuities_absent = all(
         item["large_discontinuity_count"] == 0 for item in rendered_metrics.values()
     )
-    metrics["automatic_checks"] = {
+    sample_render_names = (
+        "02-sample-decoded-root.wav",
+        "03-sample-pitch-range.wav",
+        "05-sample-only.wav",
+    )
+    sample_renders_non_silent = all(
+        audio_metrics[name]["peak"] > 1.0e-3 and audio_metrics[name]["rms"] > 1.0e-5
+        for name in sample_render_names
+    )
+    hybrid_differs_from_oscillator = (
+        shared_prefix_difference(
+            audio_dir / "06-hybrid-mix.wav", audio_dir / "04-oscillator-only.wav"
+        )
+        > 1.0e-6
+    )
+    missing_asset_fallback_non_silent = (
+        audio_metrics["09-missing-asset-fallback.wav"]["peak"] > 1.0e-3
+    )
+    automatic_checks = {
         "all_audio_finite": finite,
         "rendered_peaks_within_float_wav_range": rendered_peaks_safe,
         "rendered_large_discontinuities_absent": rendered_discontinuities_absent,
         "rendered_block_sizes_reproducible": block_size_stable,
+        "sample_renders_are_non_silent": sample_renders_non_silent,
+        "hybrid_differs_from_oscillator_only": hybrid_differs_from_oscillator,
+        "missing_asset_fallback_is_non_silent": missing_asset_fallback_non_silent,
+    }
+    if not all(automatic_checks.values()):
+        raise RuntimeError(f"review automatic checks failed: {automatic_checks}")
+    metrics["automatic_checks"] = {
+        **automatic_checks,
+        "sample_asset_hashes_match_definitions": True,
+        "inspect_reports_match_expected_asset_state": True,
     }
     (review_root / "metrics.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2) + "\n",
@@ -274,6 +409,11 @@ def main() -> None:
 - Rendered peaks stay within the float WAV range: {"pass" if rendered_peaks_safe else "fail"}
 - Rendered outputs have no adjacent-frame discontinuity candidates over 0.25: {"pass" if rendered_discontinuities_absent else "fail"}
 - All rendered outputs remain reproducible across block sizes 64, 257, and 1024: {"pass" if block_size_stable else "fail"}
+- Sample renders are finite and non-silent: {"pass" if sample_renders_non_silent else "fail"}
+- Hybrid Mix differs from Oscillator-only: {"pass" if hybrid_differs_from_oscillator else "fail"}
+- Missing-asset fallback remains non-silent: {"pass" if missing_asset_fallback_non_silent else "fail"}
+- Inspect reports show expected Sample Layer state and only expected asset diagnostics: pass
+- Source asset hashes match the copied Definitions: pass
 - Maximum rendered-output absolute peak: {peak:.6f}
 - Maximum rendered-output adjacent-frame difference: {max_delta:.6f}
 - Source asset metrics are retained as 01-sample-source.wav in metrics.json

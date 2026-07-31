@@ -3,7 +3,7 @@
 ## Reference
 
 - Definition: metallic-hybrid.json
-- Source implementation commit: 71b1e51640546039603f1eb8b54b7661f6cbe368
+- Source implementation commit: dc53482ccd4d85198814711d25691e7c2afda789
 - Asset: metal-hit.wav
 - MIDI inputs: metallic-hybrid-phrase.mid, metallic-hybrid-pitch-range.mid, metallic-hybrid-velocity.mid
 - Sample rate: 48,000 Hz
@@ -17,6 +17,11 @@
 - Rendered peaks stay within the float WAV range: pass
 - Rendered outputs have no adjacent-frame discontinuity candidates over 0.25: pass
 - All rendered outputs remain reproducible across block sizes 64, 257, and 1024: pass
+- Sample renders are finite and non-silent: pass
+- Hybrid Mix differs from Oscillator-only: pass
+- Missing-asset fallback remains non-silent: pass
+- Inspect reports show expected Sample Layer state and only expected asset diagnostics: pass
+- Source asset hashes match the copied Definitions: pass
 - Maximum rendered-output absolute peak: 0.341414
 - Maximum rendered-output adjacent-frame difference: 0.134538
 - Source asset metrics are retained as 01-sample-source.wav in metrics.json
@@ -42,16 +47,16 @@
 
 | Item | Result | Notes |
 |---|---|---|
-| Source and decoded root sound natural | 承認 | 利用者確認済み |
-| Pitch range is usable | 承認 | 利用者確認済み |
-| Sample ending is free of an audible click | 承認 | 利用者確認済み |
-| Attack layer has a clear transient role | 承認 | 利用者確認済み |
-| Body layer provides pitch and sustain | 承認 | 利用者確認済み |
-| Solo layers combine into one instrument | 承認 | 利用者確認済み |
-| Velocity response is natural | 承認 | 利用者確認済み |
-| Musical phrase is usable | 承認 | 利用者確認済み |
-| Hybrid value is clear | 承認 | 利用者確認済み |
-| Instrument is ready for use | 承認 | 利用者確認済み |
+| Source and decoded root sound natural |  |  |
+| Pitch range is usable |  |  |
+| Sample ending is free of an audible click |  |  |
+| Attack layer has a clear transient role |  |  |
+| Body layer provides pitch and sustain |  |  |
+| Solo layers combine into one instrument |  |  |
+| Velocity response is natural |  |  |
+| Musical phrase is usable |  |  |
+| Hybrid value is clear |  |  |
+| Instrument is ready for use |  |  |
 
 ## Files
 
