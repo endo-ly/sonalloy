@@ -301,7 +301,11 @@ impl VoiceRuntime {
     }
 
     pub(crate) fn reset(&mut self) -> Result<(), ProcessError> {
-        self.reset_to_idle()
+        self.reset_to_idle()?;
+        self.layer
+            .oscillator
+            .reset()
+            .map_err(ProcessError::from_dsp_error)
     }
 
     fn start_note(
@@ -417,7 +421,12 @@ impl VoiceRuntime {
     }
 
     fn reset_to_idle(&mut self) -> Result<(), ProcessError> {
-        self.reset_dsp_state()?;
+        self.filter_left
+            .reset()
+            .map_err(ProcessError::from_filter_error)?;
+        self.filter_right
+            .reset()
+            .map_err(ProcessError::from_filter_error)?;
         self.state = VoiceState::Idle;
         self.note_id = None;
         self.velocity = 0;
@@ -429,22 +438,6 @@ impl VoiceRuntime {
         self.layer.envelope.reset();
         self.layer.gain_smoother.reset(0.0);
         self.filter_cutoff.reset(self.default_filter_cutoff);
-        Ok(())
-    }
-
-    fn reset_dsp_state(&mut self) -> Result<(), ProcessError> {
-        self.layer
-            .oscillator
-            .reset()
-            .map_err(ProcessError::from_dsp_error)?;
-        self.filter_left
-            .reset()
-            .map_err(ProcessError::from_filter_error)?;
-        self.filter_right
-            .reset()
-            .map_err(ProcessError::from_filter_error)?;
-        self.layer.envelope.reset();
-        self.layer.active = false;
         Ok(())
     }
 

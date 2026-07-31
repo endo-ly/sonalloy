@@ -1261,7 +1261,7 @@ Square / Triangleは未対応であり、Definitionへ指定された場合はCo
 ### Phase Reset
 
 - `phase_reset = true`：Note Onごとに同じPhaseから開始
-- `phase_reset = false`：Voiceの前回Phaseを使わず、Voice開始時にEngine既定Phaseを利用
+- `phase_reset = false`：Note On時にPhaseをリセットせず、Voiceが保持するPhaseから継続
 
 再現性を優先し、Reference Instrumentは`phase_reset = true`を使う。
 

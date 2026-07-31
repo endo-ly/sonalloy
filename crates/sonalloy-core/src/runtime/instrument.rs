@@ -733,6 +733,7 @@ mod tests {
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
+        source.layers[0].envelope.release_seconds = 0.001;
         match &mut source.layers[0].generator {
             crate::definition::GeneratorDefinition::Oscillator(oscillator) => {
                 oscillator.phase_reset = phase_reset;
@@ -793,5 +794,46 @@ mod tests {
         for (left, right) in first[0].iter().zip(&second[0]) {
             assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
         }
+    }
+
+    #[test]
+    fn phase_reset_disabled_preserves_phase_after_release() {
+        let mut runtime = phase_runtime(false);
+        prepare(&mut runtime);
+        let note_on = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let first = process(&mut runtime, 64, 0, &note_on);
+        let note_off = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        }];
+        let _ = process(&mut runtime, 64, 64, &note_off);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
+
+        let continued = process(
+            &mut runtime,
+            64,
+            128,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        assert!(
+            continued[0]
+                .iter()
+                .zip(&first[0])
+                .any(|(continued, first)| (continued - first).abs() > 1.0e-4)
+        );
     }
 }
