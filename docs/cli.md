@@ -10,7 +10,7 @@ sonalloy instrument validate <definition>
 sonalloy instrument inspect <definition>
 ```
 
-`init`は最小のOscillator Definitionを生成します。`validate`はJSON Parse、Definition Validation、Compile Diagnosticsまでを行い、WAVは生成しません。`inspect`はMetadata、Polyphony、Layer Trigger、Generator、Phase Reset、Oscillator Instrumentでは使用しないAssetの状態、Gain、Pan、Tuning、Envelope、Voice Filter、Velocity Response、Warningを表示します。`--json`を付けると同じ構成を機械可読形式で返します。
+`init`は最小のOscillator Definitionを生成します。`validate`はJSON Parse、Definition Validation、Compile Diagnosticsまでを行い、WAVは生成しません。`inspect`はMetadata、Polyphony、Layer Trigger、Generator、OscillatorのPhase Reset、SampleのAsset Path、Root Note、Playback Mode、Interpolation、Source Metadata、Prepared Frame数、Gain、Pan、Tuning、Envelope、Voice Filter、Velocity Response、Warningを表示します。`--json`を付けると同じ構成を機械可読形式で返します。
 
 ## Render Command
 
@@ -29,9 +29,9 @@ sonalloy render note examples/instruments/basic-poly-synth.json \
 ```bash
 sonalloy render midi \
   examples/instruments/basic-poly-synth.json \
-  testdata/midi/p1-review.mid \
+  testdata/midi/basic-poly-synth-phrase.mid \
   --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --output out/p1-basic-poly-synth.wav
+  --output out/basic-poly-synth.wav
 ```
 
 MIDI FileのTick、Tempo、Channel、NoteをCLI側でAbsolute Frameの`ScheduledEvent`へ変換します。Note OnのVelocity 0はNote Offとして扱い、Note IDはChannel・Note Number・発音Serialから生成します。Sustain Pedal、Pitch Bend、Aftertouch、Program Change等の未対応Eventは無視し、Warningを返します。Coreへ`midly`型は渡しません。
@@ -88,6 +88,17 @@ sonalloy dev render-sine \
 ```
 
 DefinitionやEventの主な診断Codeは`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`FILTER_CUTOFF_CLAMPED`、`EVENT_ORDER_INVALID`、`DSP_ERROR`です。Asset処理に使う診断Codeも共通Enumで定義しています。
+
+Asset処理の診断Codeは`ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`ASSET_HASH_MISSING`、`ASSET_ABSOLUTE_PATH`です。MissingやDecode失敗はWarningとして表示され、ほかの有効LayerがあればRenderは継続します。
+
+SampleとOscillatorを組み合わせたInstrumentは次のように確認できます。
+
+```bash
+sonalloy instrument inspect examples/instruments/metallic-hybrid.json --json
+sonalloy render midi examples/instruments/metallic-hybrid.json \
+  testdata/midi/metallic-hybrid-phrase.mid --sample-rate 48000 --block-size 257 \
+  --tail 1.0 --output out/metallic-hybrid.wav
+```
 
 ## 責務境界
 

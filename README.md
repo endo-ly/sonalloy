@@ -5,16 +5,18 @@ Sonalloyは、音声素材と音響合成をLayerとして組み合わせ、演�
 ## 処理経路
 
 ```text
-sonalloy dev render-sine
+sonalloy instrument Definition
+  → Parse / Validate / Compile
+  → Asset Decode / Resample
   → Offline Renderer
   → Process Contract
   → Safe Rust DSP Wrapper
   → Internal C ABI
-  → DaisySP Oscillator / Voice Filter
+  → DaisySP Oscillator / Prepared Sample / Voice Filter
   → Stereo WAV
 ```
 
-Process中はJSON解析、File I/O、Asset Decode、Native Heap Allocationを行いません。RuntimeはDaisySPのSine/Saw、ADSR、Velocity Response、Pan、左右独立Voice FilterをStereoへ処理します。
+Compile時にAssetのSHA-256検証、WAV Decode、StereoからMonoへのDownmix、必要なSample Rate変換を完了します。Process中はJSON解析、File I/O、Asset Decode、Resample、Hash計算、Native Heap Allocationを行いません。RuntimeはDaisySPのSine/SawとOne-shot Sampleを複数Layerとして同じVoiceへ処理し、ADSR、Velocity Response、Pan、左右独立Voice FilterをStereoへ適用します。
 
 ## Basic Poly Synth
 
@@ -24,12 +26,32 @@ cargo run -p sonalloy-cli -- instrument validate \
 
 cargo run -p sonalloy-cli -- render midi \
   examples/instruments/basic-poly-synth.json \
-  testdata/midi/p1-review.mid \
+  testdata/midi/basic-poly-synth-phrase.mid \
   --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --output out/p1-basic-poly-synth.wav
+  --output out/basic-poly-synth.wav
 ```
 
 JSON Definitionから一つのSine/Saw Oscillator LayerをCompileし、Polyphonic Voice、ADSR、Velocity Response、Constant-power Pan、Voice Low-pass Filter、Sample Accurate Note Eventを経由してStereo WAVを生成します。
+
+## Metallic Hybrid
+
+Sample AttackとOscillator Bodyを一つのVoiceへ組み合わせるDefinitionです。
+
+```bash
+cargo run -p sonalloy-cli -- instrument validate \
+  examples/instruments/metallic-hybrid.json --json
+
+cargo run -p sonalloy-cli -- instrument inspect \
+  examples/instruments/metallic-hybrid.json --json
+
+cargo run -p sonalloy-cli -- render midi \
+  examples/instruments/metallic-hybrid.json \
+  testdata/midi/metallic-hybrid-phrase.mid \
+  --sample-rate 48000 --block-size 257 --tail 1.0 \
+  --output out/metallic-hybrid.wav
+```
+
+同じ入力から音声とMetricsを再生成する場合は、`python scripts/review/generate_metallic_hybrid_package.py`を実行します。レビュー用の音声、Definition、MIDI、Metricsは`review-output/metallic-hybrid/`に保存されます。
 
 ## 必要なツール
 
@@ -72,13 +94,17 @@ cargo run -p sonalloy-cli -- dev render-sine \
 | `crates/sonalloy-cli` | CLI引数、WAV出力、Exit Code、Diagnostics表示 |
 | `native/daisysp-wrapper` | C++ Opaque HandleとDaisySP呼び出し |
 | `testdata/definitions` | DefinitionのValid / Invalid Fixture |
+| `testdata/assets` | WAV Sample FixtureとSHA-256の基準 |
 | `testdata/midi` | MIDI入力Fixture |
-| `review-output/p1` | 試聴用WAV、Metrics、確認資料 |
+| `review-output/basic-poly-synth` | 試聴用WAV、Metrics、確認資料 |
+| `review-output/metallic-hybrid` | Sample / HybridのWAV、Metrics、確認資料 |
+| `scripts/review` | 再現可能なレビュー用Fixture、Render、Metricsの生成 |
 | `testdata/expected` | 自動Testの期待Metrics |
 | `docs/architecture.md` | 依存方向と所有権 |
 | `docs/runtime-processing.md` | LifecycleとBuffer Contract |
 | `docs/cli.md` | CLI仕様 |
 | `docs/instrument-definition.md` | Definition、Validation、Compile仕様 |
 | `docs/testing-and-sound-review.md` | TestとReview Artifact仕様 |
+| `docs/completion-report.md` | 完了範囲、検証結果、試聴結果 |
 
 詳細な製品要件は [`docs/CONCEPT.md`](docs/CONCEPT.md)を参照してください。

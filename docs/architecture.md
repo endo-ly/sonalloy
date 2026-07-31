@@ -27,11 +27,12 @@ Coreが所有するProcess ContractとRuntimeを提供します。
 - `process`: `ProcessSpec`、`ProcessContext`、`ProcessBlock`、共通Lifecycle
 - `definition`: JSONへ保存するInstrument DefinitionとValidation
 - `compiler`: DefinitionからCompiled Instrumentへの変換
-- `runtime`: Polyphonic Voice、ADSR、Layer、Filter、Sine Runtime
+- `asset`: SHA-256検証、Symphonia WAV Decode、Stereo Downmix、Rubato Resample、Prepared Sample
+- `runtime`: Polyphonic Voice、ADSR、複数Layer、One-shot Sample、Filter、Sine / Saw Runtime
 - `render`: Frame単位のOffline Render LoopとScheduled Event供給
 - `diagnostics`: Frontend非依存のCode、Severity、Message
 
-CoreのAudio Pathは、Prepare時に確保したScratch BufferとNative Handleだけを使用します。
+Compile時にFile I/Oを完了し、Decode済みMono Sampleを`Arc`でCompiled Layerへ共有します。CoreのAudio Pathは、Prepare時に確保したScratch Buffer、Native Handle、Compiled Sampleだけを使用します。
 
 ### `sonalloy-dsp-sys`
 
@@ -89,4 +90,4 @@ Native関数はNull Handle、引数、Buffer、例外を検査し、整数Result
 Prepare → Process（繰り返し） → Reset
 ```
 
-CompileでDefinitionを不変の実行値へ変換し、PrepareでSample Rate、最大Block Size、Stereo出力、Voice Pool、Scratch Buffer、Oscillator、左右Filterを確定します。ProcessはBlockのFrame数だけを扱い、Resetは全Voice、Oscillator Phase、ADSR、Filter、Scratch、Absolute Frameを初期化します。同じ入力をReset後に再度与えると同じ出力になります。
+CompileでDefinitionを不変の実行値へ変換し、Assetを検証・Decode・Downmix・Resampleします。PrepareでSample Rate、最大Block Size、Stereo出力、Voice Pool、Scratch Buffer、LayerごとのOscillatorまたはSample Runtime、左右Filterを確定します。ProcessはBlockのFrame数だけを扱い、Resetは全Voice、Oscillator Phase、Sample Cursor、ADSR、Filter、Scratch、Absolute Frameを初期化します。同じ入力をReset後に再度与えると同じ出力になります。

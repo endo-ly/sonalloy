@@ -16,23 +16,26 @@ SonalloyではDaisySPのSourceを変更せず、Sonalloy固有のOpaque Handle�
 
 ## Rust direct dependencies
 
-| Crate | 用途 | License |
-|---|---|---|
-| `cmake` | Native CMake Build | MIT OR Apache-2.0 |
-| `thiserror` | 構造化Error | MIT OR Apache-2.0 |
-| `serde` | Diagnostic Serialize | MIT OR Apache-2.0 |
-| `serde_json` | CLI JSON Output | MIT OR Apache-2.0 |
-| `clap` | CLI Argument Parse | MIT OR Apache-2.0 |
-| `hound` | WAV Encode | Apache-2.0 |
-| `midly` | Standard MIDI File Decode | MIT |
+| Crate | Version | 用途 | License |
+|---|---|---|---|
+| `cmake` | 0.1.58 | Native CMake Build | MIT OR Apache-2.0 |
+| `thiserror` | 2.0.19 | 構造化Error | MIT OR Apache-2.0 |
+| `serde` | 1.0.229 | Diagnostic Serialize | MIT OR Apache-2.0 |
+| `serde_json` | 1.0.151 | CLI JSON Output | MIT OR Apache-2.0 |
+| `clap` | 4.6.4 | CLI Argument Parse | MIT OR Apache-2.0 |
+| `hound` | 3.5.1 | WAV Encode | Apache-2.0 |
+| `midly` | 0.5.3 | Standard MIDI File Decode | MIT |
+| `sha2` | 0.11.0 | Sample Asset SHA-256検証 | MIT OR Apache-2.0 |
+| `rubato` | 4.0.0 | Sample Rate変換 | MIT OR Apache-2.0 |
+| `symphonia` | 0.6.0 | WAV Asset Probe / Decode | MPL-2.0 |
 
 ## Test-only direct dependencies
 
-| Crate | 用途 | License |
-|---|---|---|
-| `approx` | Float近似比較 | MIT OR Apache-2.0 |
-| `assert_cmd` | CLI結合Test | MIT OR Apache-2.0 |
-| `predicates` | CLI出力確認 | MIT OR Apache-2.0 |
-| `tempfile` | 一時Directory | MIT OR Apache-2.0 |
+| Crate | Version | 用途 | License |
+|---|---|---|---|
+| `approx` | 0.5.1 | Float近似比較 | MIT OR Apache-2.0 |
+| `assert_cmd` | 2.2.2 | CLI結合Test | MIT OR Apache-2.0 |
+| `predicates` | 3.1.4 | CLI出力確認 | MIT OR Apache-2.0 |
+| `tempfile` | 3.27.0 | 一時Directory | MIT OR Apache-2.0 |
 
 `Cargo.lock`で使用Versionを固定しています。間接依存もそれぞれのLicense条件に従います。

@@ -51,7 +51,7 @@ Instrument Definition
         → 固定Voice Pool / Scratch / Native Handle
 ```
 
-`CompiledInstrument`はRuntime状態を持たない不変値です。`InstrumentRuntime`はPrepare時にDefinitionのPolyphony分のVoiceを作り、VoiceごとにOscillatorと左右独立のFilterを所有します。Process中にJSON Parse、File I/O、Decode、Voice Pool拡張を行いません。
+`CompiledInstrument`はRuntime状態を持たない不変値です。Compile時にSample AssetのSHA-256検証、WAV Decode、Mono Downmix、必要なResampleを行い、Decode済みBufferをCompiled Sampleへ保持します。`InstrumentRuntime`はPrepare時にDefinitionのPolyphony分のVoiceを作り、Voiceごとに複数Layer、LayerごとのOscillatorまたはSample Runtime、左右独立のFilterを所有します。Process中にJSON Parse、File I/O、Decode、Resample、Hash計算、Voice Pool拡張を行いません。
 
 ## VoiceとADSR
 
@@ -67,20 +67,22 @@ Block Start
   → Block EndまでRender
 ```
 
-各SegmentではOscillator Mono信号へADSRとLayer Gainを乗算し、Constant-power PanでStereo化します。Layer Mix後にVoice FilterのLeft/Rightを適用し、Instrument Outputへ加算します。Gainは5 ms、Voice開始時のFilter Cutoffは10 msの固定Smootherを使用します。Cutoffの更新はHost Block Sizeに依存しないSample単位で進みます。
+各SegmentではLayerごとのOscillatorまたはSampleのMono信号へADSRとLayer Gainを乗算し、Constant-power PanでStereo化します。複数Layerを同じVoice内でMixした後にVoice FilterのLeft/Rightを適用し、Instrument Outputへ加算します。Gainは5 ms、Voice開始時のFilter Cutoffは10 msの固定Smootherを使用します。Cutoffの更新はHost Block Sizeに依存しないSample単位で進みます。
 
 ## 信号経路
 
 ```text
 MIDI Note
   → Voice Allocation
-    → MIDI Note × Tuning Ratio
-      → DaisySP Sine / Saw
-        → ADSR
-          → Layer Gain × Velocity Gain
-            → Constant-power Pan
-              → Voice Low-pass Filter
-                → Stereo Output
+      → Layer Trigger
+        ├─ MIDI Note × Tuning Ratio → DaisySP Sine / Saw
+        └─ Root Note × Tuning Ratio → Sample Cursor / Cubic Interpolation
+              → ADSR
+                → Layer Gain × Velocity Gain
+                  → Constant-power Pan
+                    → Layer Mix
+                      → Voice Low-pass Filter
+                        → Stereo Output
 ```
 
 ## Sine Runtime
@@ -94,6 +96,12 @@ Prepareで次を行います。
 5. Absolute Frameを0へ戻す。
 
 Processでは、Native OscillatorでScratch BufferへBlock生成し、同じ信号をLeft / Rightへコピーします。Scratch BufferはPrepare時に確保済みで、Process中の容量拡張はありません。
+
+## Sample Runtime
+
+PrepareでCompile済みのMono Sampleを各VoiceのSample Runtimeへ共有し、VoiceごとにCursorだけを所有します。Note OnでCursorを0へ戻し、MIDI NoteとSample Root Noteの差を半音単位の`2^((note - root) / 12)`へ変換してLayer Tuning Ratioを乗算します。CursorはSample Rateへ応じた再生速度で進み、4点Cubic Interpolationで読み出します。
+
+Sampleの`one_shot`は末尾でGeneratorを完了させます。Note OffではCursorを停止せず、LayerのADSRだけをReleaseへ遷移させます。Sample AssetがCompileできなかったLayerはDisabledとして扱い、ほかの有効Layerの処理を継続します。
 
 ## Offline Render Loop
 
@@ -115,6 +123,7 @@ Core RendererはFile PathやWAV Writerを知りません。`RenderedAudio`を返
 ## Error時の規則
 
 - Prepare失敗時はRuntimeを利用可能状態にしない。
+- AssetのMissing、Hash Mismatch、Decode、Resample失敗はCompile Warningとして保持し、同じInstrumentのほかの有効LayerをRenderできる。
 - 有効なBufferでProcessのContextまたはEventが不正な場合、対象範囲を無音にする。
 - Native DSP ErrorはCoreの`ProcessError::DspFailure`へ変換する。
 - CLIはProcess ErrorをExit Code 3、Input ErrorをExit Code 2で返す。
