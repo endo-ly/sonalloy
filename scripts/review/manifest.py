@@ -29,7 +29,7 @@ PRIMARY_RENDERS = (
     ),
     RenderJob(
         "02-saw-registers.wav",
-        "examples/instruments/p1-review-saw-open.json",
+        "examples/instruments/basic-poly-synth-saw-open.json",
         "testdata/midi/saw-registers.mid",
     ),
     RenderJob(
@@ -55,19 +55,19 @@ PRIMARY_RENDERS = (
     RenderJob(
         "07-musical-phrase.wav",
         "examples/instruments/basic-poly-synth.json",
-        "testdata/midi/p1-review.mid",
+        "testdata/midi/basic-poly-synth-phrase.mid",
     ),
 )
 
 COMPANION_RENDERS = (
     RenderJob(
         "02-saw-registers-filter-closed.wav",
-        "examples/instruments/p1-review-saw-closed.json",
+        "examples/instruments/basic-poly-synth-saw-closed.json",
         "testdata/midi/saw-registers.mid",
     ),
     RenderJob(
         "03-attack-release-slow-attack.wav",
-        "examples/instruments/p1-review-attack-slow.json",
+        "examples/instruments/basic-poly-synth-attack-slow.json",
         "testdata/midi/attack-release.mid",
     ),
 )

@@ -41,17 +41,38 @@ def read_float_wav(path: Path) -> tuple[int, int, list[float]]:
         if len(fmt) < 40:
             raise ValueError("WAVE_FORMAT_EXTENSIBLE fmt chunk is truncated")
         subformat_tag = struct.unpack_from("<I", fmt, 24)[0]
-        if subformat_tag != 3:
-            raise ValueError("only IEEE float32 WAV input is supported")
-    elif format_tag != 3:
-        raise ValueError("only IEEE float32 WAV input is supported")
-    if bits_per_sample != 32 or block_align != channels * 4:
-        raise ValueError("expected packed float32 samples")
+        format_tag = subformat_tag
+    if format_tag not in (1, 3):
+        raise ValueError("only PCM or IEEE float WAV input is supported")
+    if format_tag == 3 and bits_per_sample != 32:
+        raise ValueError("expected float32 samples")
+    if format_tag == 1 and bits_per_sample not in (16, 24, 32):
+        raise ValueError("expected PCM16, PCM24, or PCM32 samples")
+    bytes_per_sample = bits_per_sample // 8
+    if block_align != channels * bytes_per_sample:
+        raise ValueError("invalid WAV block alignment")
     if channels == 0 or len(audio_data) % block_align != 0:
         raise ValueError("invalid WAV channel layout or data length")
 
-    sample_count = len(audio_data) // 4
-    samples = list(struct.unpack(f"<{sample_count}f", audio_data))
+    sample_count = len(audio_data) // bytes_per_sample
+    if format_tag == 3:
+        samples = list(struct.unpack(f"<{sample_count}f", audio_data))
+    elif bits_per_sample == 16:
+        samples = [
+            value / 32768.0
+            for value in struct.unpack(f"<{sample_count}h", audio_data)
+        ]
+    elif bits_per_sample == 24:
+        samples = [
+            int.from_bytes(audio_data[index : index + 3], "little", signed=True)
+            / 8388608.0
+            for index in range(0, len(audio_data), 3)
+        ]
+    else:
+        samples = [
+            value / 2147483648.0
+            for value in struct.unpack(f"<{sample_count}i", audio_data)
+        ]
     return sample_rate, channels, samples
 
 

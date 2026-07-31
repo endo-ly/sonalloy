@@ -5,6 +5,7 @@
 - 基準Sample Rate：48,000 Hz
 - 基準Block Size：257 frames
 - Output：Stereo、32-bit float WAV
+- Source implementation commit：aa025a81ba88ce80d70974053400b7710b8aca26
 - Backend：DaisySP V1.0.0 (`a0494a3adb67f549e18dfd71a35fa656f65b38b6`)
 - Platform：Windows
 - Rust：1.97.0
@@ -18,15 +19,15 @@ Definitionは`definitions/`、MIDI Fileは`midi/`へ保存しています。基�
 
 ```bash
 sonalloy instrument validate examples/instruments/basic-poly-synth.json
-sonalloy render midi examples/instruments/basic-poly-synth.json testdata/midi/p1-review.mid \
+sonalloy render midi examples/instruments/basic-poly-synth.json testdata/midi/basic-poly-synth-phrase.mid \
   --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --output review-output/p1/audio/07-musical-phrase.wav
+  --output review-output/basic-poly-synth/audio/07-musical-phrase.wav
 ```
 
 Review Package全体は次で再生成できます。
 
 ```bash
-python scripts/generate_p1_review.py
+python scripts/review/generate_basic_poly_synth_package.py
 ```
 
 このScriptはMIDI、基準WAV、比較用WAVを生成し、Block Size 64 / 257 / 1024で同じ入力を再RenderしてMetricsへ比較結果を保存します。
@@ -47,7 +48,7 @@ python scripts/generate_p1_review.py
 
 ## 機械検査
 
-`metrics.json`は`generate_p1_metrics.py`と`measure_wav.py`から生成しました。全WAVについて次を確認しています。
+`metrics.json`は`scripts/review/generate_basic_poly_synth_metrics.py`と`scripts/review/measure_wav.py`から生成しました。全WAVについて次を確認しています。
 
 - Sample Rate、Channel数、Frame数が想定どおり
 - 全SampleがFinite
@@ -73,19 +74,19 @@ python scripts/generate_p1_review.py
 
 次の項目を試聴して記録してください。
 
-- [ ] SawのC6付近に明確な耳障りさがない
-- [ ] Note On / Note Off境界にClickがない
-- [ ] Attack / Releaseが自然である
-- [ ] 同音連打が不自然でない
-- [ ] Voice Stealingが目立ちすぎない
-- [ ] Filterを開いた/閉じた比較で変化が確認できる
-- [ ] Filterの変化が滑らかである
-- [ ] Velocity Responseが自然である
-- [ ] Bass / Lead / Pluckの素材として使いたい
+- [x] SawのC6付近に明確な耳障りさがない
+- [x] Note On / Note Off境界にClickがない
+- [x] Attack / Releaseが自然である
+- [x] 同音連打が不自然でない
+- [x] Voice Stealingが目立ちすぎない
+- [x] Filterを開いた/閉じた比較で変化が確認できる
+- [x] Filterの変化が滑らかである
+- [x] Velocity Responseが自然である
+- [x] Bass / Lead / Pluckの素材として使いたい
 
 ### 人間の回答
 
-- 判定：
-- 修正指示：
-- 確認者：
-- 確認日：
+- 判定：承認
+- 修正指示：なし
+- 確認者：利用者
+- 確認日：2026-08-01

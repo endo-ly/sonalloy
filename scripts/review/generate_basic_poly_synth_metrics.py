@@ -8,15 +8,15 @@ import sys
 import tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from measure_wav import compare_wav, measure  # noqa: E402
-from p1_review import BASE_BLOCK_SIZE, BLOCK_SIZES, PRIMARY_RENDERS, render_job  # noqa: E402
+from manifest import BASE_BLOCK_SIZE, BLOCK_SIZES, PRIMARY_RENDERS, render_job  # noqa: E402
 
 
 def main() -> None:
-    audio_dir = ROOT / "review-output" / "p1" / "audio"
+    audio_dir = ROOT / "review-output" / "basic-poly-synth" / "audio"
     names = [job.audio_name for job in PRIMARY_RENDERS]
     companion_names = [
         path.name
@@ -54,7 +54,7 @@ def main() -> None:
                     )
                 block_comparisons[job.audio_name][str(block_size)] = comparison
         metrics["block_size_comparisons"] = block_comparisons
-    output = ROOT / "review-output" / "p1" / "metrics.json"
+    output = ROOT / "review-output" / "basic-poly-synth" / "metrics.json"
     output.write_bytes((json.dumps(metrics, indent=2) + "\n").encode("utf-8"))
 
 

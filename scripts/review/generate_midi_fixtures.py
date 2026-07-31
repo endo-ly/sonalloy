@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the deterministic MIDI phrase used by the sound review package."""
+"""Generate deterministic MIDI fixtures used by the sound review packages."""
 
 from __future__ import annotations
 
@@ -113,11 +113,11 @@ def make_note_midi(
 
 
 def main() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     output_dir = root / "testdata" / "midi"
     output_dir.mkdir(parents=True, exist_ok=True)
     outputs = {
-        "p1-review.mid": make_midi(),
+        "basic-poly-synth-phrase.mid": make_midi(),
         "sine-reference.mid": make_note_midi(
             [(0, 800, 48, 100), (960, 800, 69, 100), (1920, 800, 84, 100)]
         ),

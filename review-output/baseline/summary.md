@@ -24,7 +24,7 @@ BackendはDaisySP V1.0.0（`a0494a3adb67f549e18dfd71a35fa656f65b38b6`）です�
 - Block Size `64 / 257 / 1024`で同等出力をTest済み
 - Reset後に初期波形を再現
 
-Metricsは`scripts/measure_wav.py`でWAVから再生成しています。
+Metricsは`scripts/review/measure_wav.py`でWAVから再生成しています。
 
 ## 判定
 

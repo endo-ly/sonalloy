@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Metallic Hybrid Body",
+    "author": "Sonalloy",
+    "description": "The oscillator body used by Metallic Hybrid"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.28,
+        "sustain_level": 0.68,
+        "release_seconds": 0.36
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": "sine",
+          "phase_reset": true
+        }
+      }
+    }
+  ],
+  "voice_filter": {
+    "cutoff_hz": 8500.0,
+    "resonance": 0.15
+  },
+  "velocity_response": {
+    "layer_gain_amount": 0.8,
+    "filter_cutoff_octaves": 1.2
+  }
+}
