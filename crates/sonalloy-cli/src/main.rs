@@ -243,6 +243,20 @@ struct InspectGenerator {
     kind: &'static str,
     waveform: &'static str,
     phase_reset: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    asset_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    root_note: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    playback_mode: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    interpolation: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_sample_rate: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_channels: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prepared_frames: Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -724,8 +738,8 @@ fn make_inspect_report(
         .layers
         .iter()
         .map(|layer| {
-            let generator = match layer.generator {
-                sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => {
+            let (generator, asset_status) = match &layer.generator {
+                sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => (
                     InspectGenerator {
                         kind: "oscillator",
                         waveform: match oscillator.waveform {
@@ -733,7 +747,40 @@ fn make_inspect_report(
                             OscillatorWaveform::Saw => "saw",
                         },
                         phase_reset: oscillator.phase_reset,
-                    }
+                        asset_path: None,
+                        root_note: None,
+                        playback_mode: None,
+                        interpolation: None,
+                        source_sample_rate: None,
+                        source_channels: None,
+                        prepared_frames: None,
+                    },
+                    "not_applicable (oscillator-only instrument)",
+                ),
+                sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
+                    let metadata = sample.source.as_ref().map(|source| &source.source_metadata);
+                    (
+                        InspectGenerator {
+                            kind: "sample",
+                            waveform: "none",
+                            phase_reset: false,
+                            asset_path: Some(sample.asset_path.clone()),
+                            root_note: Some(sample.root_note),
+                            playback_mode: Some("one_shot"),
+                            interpolation: Some("cubic"),
+                            source_sample_rate: metadata.map(|value| value.source_sample_rate),
+                            source_channels: metadata.map(|value| value.source_channels),
+                            prepared_frames: sample
+                                .source
+                                .as_ref()
+                                .map(|source| source.samples.len()),
+                        },
+                        if sample.enabled {
+                            "enabled"
+                        } else {
+                            "disabled"
+                        },
+                    )
                 }
             };
             InspectLayer {
@@ -746,7 +793,7 @@ fn make_inspect_report(
                     velocity_max: layer.trigger.velocity_max,
                 },
                 generator,
-                asset_status: "not_applicable (oscillator-only instrument)",
+                asset_status,
                 gain_db: 20.0 * layer.gain_linear.log10(),
                 gain_linear: layer.gain_linear,
                 pan: layer.pan,
@@ -802,20 +849,41 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     println!("polyphony: {}", compiled.performance.polyphony);
     println!("voice stealing: quietest_releasing_then_oldest");
     for layer in &compiled.layers {
-        let (generator, waveform, phase_reset) = match layer.generator {
-            sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => (
-                "oscillator",
-                match oscillator.waveform {
-                    OscillatorWaveform::Sine => "sine",
-                    OscillatorWaveform::Saw => "saw",
-                },
-                oscillator.phase_reset,
-            ),
+        let asset_status = match &layer.generator {
+            sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => {
+                println!(
+                    "layer {}: enabled true generator oscillator/{} phase_reset {}",
+                    layer.id,
+                    match oscillator.waveform {
+                        OscillatorWaveform::Sine => "sine",
+                        OscillatorWaveform::Saw => "saw",
+                    },
+                    oscillator.phase_reset
+                );
+                "not_applicable (oscillator-only instrument)"
+            }
+            sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
+                println!(
+                    "layer {}: enabled true generator sample/one_shot interpolation cubic",
+                    layer.id
+                );
+                println!("  sample asset: {}", sample.asset_path);
+                println!("  sample root_note: {}", sample.root_note);
+                if let Some(source) = &sample.source {
+                    println!(
+                        "  sample prepared: {} frames at {} Hz from {} channels",
+                        source.samples.len(),
+                        source.sample_rate,
+                        source.source_metadata.source_channels
+                    );
+                }
+                if sample.enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                }
+            }
         };
-        println!(
-            "layer {}: enabled true generator {generator}/{waveform} phase_reset {phase_reset}",
-            layer.id,
-        );
         println!(
             "  trigger: key {}..{} velocity {}..{}",
             layer.trigger.key_min,
@@ -823,7 +891,7 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
             layer.trigger.velocity_min,
             layer.trigger.velocity_max,
         );
-        println!("  asset: not_applicable (oscillator-only instrument)");
+        println!("  asset: {asset_status}");
         println!(
             "  gain: {:.3} dB ({:.6} linear) pan: {:.3}",
             20.0 * layer.gain_linear.log10(),

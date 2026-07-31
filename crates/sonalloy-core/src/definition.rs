@@ -102,6 +102,8 @@ pub struct LayerTriggerDefinition {
 pub enum GeneratorDefinition {
     /// A DaisySP-backed oscillator.
     Oscillator(OscillatorDefinition),
+    /// A one-shot sample loaded during compilation.
+    Sample(SampleDefinition),
 }
 
 /// Oscillator generator settings.
@@ -112,6 +114,47 @@ pub struct OscillatorDefinition {
     pub waveform: OscillatorWaveform,
     /// Whether every Note On starts at the engine's initial phase.
     pub phase_reset: bool,
+}
+
+/// Sample generator settings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SampleDefinition {
+    /// Referenced audio asset.
+    pub asset: AssetReference,
+    /// MIDI note represented by the source recording.
+    pub root_note: u8,
+    /// Sample playback mode.
+    pub playback_mode: SamplePlaybackMode,
+    /// Sample interpolation mode.
+    pub interpolation: SampleInterpolation,
+}
+
+/// A source file referenced by a Definition.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AssetReference {
+    /// Relative or absolute path to the asset.
+    pub path: String,
+    /// Optional SHA-256 digest of the file bytes.
+    #[serde(default)]
+    pub sha256: Option<String>,
+}
+
+/// Supported sample playback modes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SamplePlaybackMode {
+    /// Play the source once from the beginning.
+    OneShot,
+}
+
+/// Supported sample interpolation modes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SampleInterpolation {
+    /// Four-point cubic interpolation.
+    Cubic,
 }
 
 /// Oscillator waveforms exposed by Sonalloy, independent of `DaisySP` names.
@@ -200,16 +243,6 @@ impl InstrumentDefinition {
                 .with_path("layers"),
             );
         }
-        if self.layers.iter().filter(|layer| layer.enabled).count() != 1 {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::LayerRangeInvalid,
-                    "exactly one enabled layer is required",
-                )
-                .with_path("layers"),
-            );
-        }
-
         let mut ids = HashSet::new();
         for (index, layer) in self.layers.iter().enumerate() {
             let path = format!("layers[{index}]");
@@ -253,6 +286,9 @@ impl InstrumentDefinition {
             validate_adsr(&mut diagnostics, &path, layer.envelope);
             match &layer.generator {
                 GeneratorDefinition::Oscillator(_) => {}
+                GeneratorDefinition::Sample(sample) => {
+                    validate_sample(&mut diagnostics, &path, sample);
+                }
             }
         }
 
@@ -287,6 +323,30 @@ impl InstrumentDefinition {
             "filter_cutoff_octaves must be finite and between 0 and 4",
         );
         diagnostics
+    }
+}
+
+fn validate_sample(diagnostics: &mut Vec<Diagnostic>, path: &str, sample: &SampleDefinition) {
+    if sample.asset.path.trim().is_empty() {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::RequiredFieldMissing,
+                "sample asset path must not be empty",
+            )
+            .with_path(format!("{path}.generator.sample.asset.path")),
+        );
+    }
+    if let Some(hash) = &sample.asset.sha256 {
+        let valid = hash.len() == 64 && hash.bytes().all(|byte| byte.is_ascii_hexdigit());
+        if !valid {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    "sample asset sha256 must be 64 hexadecimal characters",
+                )
+                .with_path(format!("{path}.generator.sample.asset.sha256")),
+            );
+        }
     }
 }
 
@@ -457,16 +517,11 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn validation_rejects_more_than_one_enabled_layer() {
+    fn validation_accepts_multiple_enabled_layers() {
         let mut value = definition();
         value.layers.push(value.layers[0].clone());
         value.layers[1].id = "second".to_owned();
-        assert!(
-            value
-                .validate()
-                .iter()
-                .any(|diagnostic| diagnostic.path.as_deref() == Some("layers"))
-        );
+        assert!(value.validate().is_empty());
     }
 
     #[test]

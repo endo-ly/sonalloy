@@ -1,9 +1,11 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::asset::{AssetError, PreparedSample, SampleMetadata, prepare_asset};
 use crate::definition::{
     AdsrDefinition, GeneratorDefinition, InstrumentDefinition, LayerId, LayerTriggerDefinition,
-    OscillatorDefinition, OscillatorWaveform, VoiceStealingDefinition,
+    OscillatorDefinition, OscillatorWaveform, SampleInterpolation, SamplePlaybackMode,
+    VoiceStealingDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::process::ProcessSpec;
@@ -34,7 +36,7 @@ pub struct CompiledInstrument {
     pub metadata: CompiledMetadata,
     /// Compiled performance settings.
     pub performance: CompiledPerformance,
-    /// One validated oscillator layer.
+    /// Validated layers in Definition order.
     pub layers: Box<[CompiledLayer]>,
     /// Optional voice filter.
     pub voice_filter: Option<CompiledFilter>,
@@ -119,10 +121,12 @@ impl CompiledLayerTrigger {
 }
 
 /// Compiled generator variants.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CompiledGenerator {
     /// Oscillator generator.
     Oscillator(CompiledOscillator),
+    /// Prepared sample generator.
+    Sample(CompiledSample),
 }
 
 /// Compiled oscillator settings.
@@ -132,6 +136,27 @@ pub struct CompiledOscillator {
     pub waveform: OscillatorWaveform,
     /// Whether Note On resets the phase.
     pub phase_reset: bool,
+}
+
+/// Compiled sample configuration and prepared source.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledSample {
+    /// Prepared mono source, absent when the asset could not be loaded.
+    pub source: Option<Arc<PreparedSample>>,
+    /// MIDI note represented by the source recording.
+    pub root_note: u8,
+    /// Sample playback mode.
+    pub playback_mode: SamplePlaybackMode,
+    /// Sample interpolation mode.
+    pub interpolation: SampleInterpolation,
+    /// Path as written in the Definition.
+    pub asset_path: String,
+    /// Expected SHA-256 digest, when present.
+    pub asset_sha256: Option<String>,
+    /// Whether the sample can be triggered.
+    pub enabled: bool,
+    /// Source metadata when the asset was loaded.
+    pub source_metadata: Option<SampleMetadata>,
 }
 
 /// Sample-rate-specific ADSR settings.
@@ -186,39 +211,6 @@ pub fn compile_instrument(
         };
     }
 
-    let Some((layer_index, layer)) = definition
-        .layers
-        .iter()
-        .enumerate()
-        .find(|(_, layer)| layer.enabled)
-    else {
-        diagnostics.push(
-            Diagnostic::error(
-                DiagnosticCode::RequiredFieldMissing,
-                "one enabled layer is required to compile",
-            )
-            .with_path("layers"),
-        );
-        return CompileResult {
-            instrument: None,
-            diagnostics,
-        };
-    };
-    let generator = match layer.generator {
-        GeneratorDefinition::Oscillator(OscillatorDefinition {
-            waveform,
-            phase_reset,
-        }) => CompiledGenerator::Oscillator(CompiledOscillator {
-            waveform,
-            phase_reset,
-        }),
-    };
-    let envelope = compile_adsr(
-        layer.envelope,
-        context.process_spec.sample_rate,
-        layer_index,
-        &mut diagnostics,
-    );
     let voice_filter = definition.voice_filter.map(|filter| {
         #[allow(clippy::manual_clamp)]
         let effective_max_f64 = (context.process_spec.sample_rate * 0.45)
@@ -252,6 +244,37 @@ pub fn compile_instrument(
             }
         },
     };
+    let layers = definition
+        .layers
+        .iter()
+        .enumerate()
+        .filter(|(_, layer)| layer.enabled)
+        .map(|(layer_index, layer)| {
+            let generator = compile_generator(
+                &layer.generator,
+                layer_index,
+                &context.definition_base_dir,
+                context.process_spec.sample_rate,
+                &mut diagnostics,
+            );
+            let envelope = compile_adsr(
+                layer.envelope,
+                context.process_spec.sample_rate,
+                layer_index,
+                &mut diagnostics,
+            );
+            CompiledLayer {
+                id: layer.id.clone(),
+                trigger: compile_trigger(layer.trigger),
+                gain_linear: db_to_linear(layer.gain_db),
+                pan: layer.pan,
+                tuning_ratio: cents_to_ratio(layer.tuning_cents),
+                envelope,
+                generator,
+            }
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
     let compiled = CompiledInstrument {
         metadata: CompiledMetadata {
             name: definition.metadata.name.clone(),
@@ -259,16 +282,7 @@ pub fn compile_instrument(
             description: definition.metadata.description.clone(),
         },
         performance,
-        layers: vec![CompiledLayer {
-            id: layer.id.clone(),
-            trigger: compile_trigger(layer.trigger),
-            gain_linear: db_to_linear(layer.gain_db),
-            pan: layer.pan,
-            tuning_ratio: cents_to_ratio(layer.tuning_cents),
-            envelope,
-            generator,
-        }]
-        .into_boxed_slice(),
+        layers,
         voice_filter,
         velocity_response: CompiledVelocityResponse {
             layer_gain_amount: definition.velocity_response.layer_gain_amount,
@@ -284,6 +298,112 @@ pub fn compile_instrument(
     CompileResult {
         instrument: Some(Arc::new(compiled)),
         diagnostics,
+    }
+}
+
+fn compile_generator(
+    generator: &GeneratorDefinition,
+    layer_index: usize,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledGenerator {
+    match generator {
+        GeneratorDefinition::Oscillator(OscillatorDefinition {
+            waveform,
+            phase_reset,
+        }) => CompiledGenerator::Oscillator(CompiledOscillator {
+            waveform: *waveform,
+            phase_reset: *phase_reset,
+        }),
+        GeneratorDefinition::Sample(sample) => {
+            let path = format!("layers[{layer_index}].generator.sample.asset.path");
+            let mut compiled = CompiledSample {
+                source: None,
+                root_note: sample.root_note,
+                playback_mode: sample.playback_mode,
+                interpolation: sample.interpolation,
+                asset_path: sample.asset.path.clone(),
+                asset_sha256: sample.asset.sha256.clone(),
+                enabled: false,
+                source_metadata: None,
+            };
+            if Path::new(&sample.asset.path).is_absolute() {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::AssetAbsolutePath,
+                        "absolute asset paths reduce Definition portability",
+                    )
+                    .with_path(path.clone()),
+                );
+            }
+            match prepare_asset(&sample.asset, definition_base_dir, sample_rate) {
+                Ok(prepared) => {
+                    if sample.asset.sha256.is_none() {
+                        diagnostics.push(
+                            Diagnostic::warning(
+                                DiagnosticCode::AssetHashMissing,
+                                "asset sha256 is not specified",
+                            )
+                            .with_path(format!(
+                                "layers[{layer_index}].generator.sample.asset.sha256"
+                            )),
+                        );
+                    }
+                    if prepared.downmixed {
+                        diagnostics.push(
+                            Diagnostic::warning(
+                                DiagnosticCode::AssetDownmixed,
+                                "stereo asset was downmixed to mono",
+                            )
+                            .with_path(path.clone()),
+                        );
+                    }
+                    if (f64::from(prepared.sample.source_metadata.source_sample_rate) - sample_rate)
+                        .abs()
+                        > f64::EPSILON
+                    {
+                        diagnostics.push(
+                            Diagnostic::warning(
+                                DiagnosticCode::AssetResampled,
+                                "asset was resampled to the process sample rate",
+                            )
+                            .with_path(path.clone()),
+                        );
+                    }
+                    compiled.source_metadata = Some(prepared.sample.source_metadata.clone());
+                    compiled.source = Some(Arc::new(prepared.sample));
+                    compiled.enabled = true;
+                }
+                Err(error) => {
+                    let (code, message) = asset_diagnostic(&error);
+                    diagnostics.push(
+                        Diagnostic::warning(code, message)
+                            .with_path(path)
+                            .with_detail(error.to_string()),
+                    );
+                }
+            }
+            CompiledGenerator::Sample(compiled)
+        }
+    }
+}
+
+fn asset_diagnostic(error: &AssetError) -> (DiagnosticCode, &'static str) {
+    match error {
+        AssetError::NotFound(_) => (DiagnosticCode::AssetNotFound, "sample asset is unavailable"),
+        AssetError::HashMismatch { .. } => (
+            DiagnosticCode::AssetHashMismatch,
+            "sample asset sha256 does not match",
+        ),
+        AssetError::Decode(_) => (
+            DiagnosticCode::AssetDecodeFailed,
+            "sample asset could not be decoded",
+        ),
+        AssetError::Resample(_) => (
+            DiagnosticCode::AssetDecodeFailed,
+            "sample asset could not be prepared",
+        ),
     }
 }
 

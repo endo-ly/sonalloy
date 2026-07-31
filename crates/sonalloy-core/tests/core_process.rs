@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use approx::assert_relative_eq;
 use sonalloy_core::{
-    CompileContext, InstrumentDefinition, InstrumentProcessor, ProcessBlock, ProcessContext,
-    ProcessEventKind, ProcessSpec, RenderRequest, ScheduledEvent, SineRuntime, compile_instrument,
-    render_instrument,
+    CompileContext, DiagnosticCode, InstrumentDefinition, InstrumentProcessor, ProcessBlock,
+    ProcessContext, ProcessEventKind, ProcessSpec, RenderRequest, ScheduledEvent, SineRuntime,
+    compile_instrument, render_instrument,
 };
 
 fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
@@ -175,4 +175,275 @@ fn absolute_event_timing_is_stable_across_block_sizes() {
             assert_relative_eq!(*left, *right, epsilon = 1.0e-5);
         }
     }
+}
+
+fn hybrid_definition() -> InstrumentDefinition {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/metallic-hybrid.json");
+    serde_json::from_str(&std::fs::read_to_string(path).expect("hybrid Definition exists"))
+        .expect("hybrid Definition parses")
+}
+
+#[test]
+fn hybrid_compiles_two_layers_and_prepares_the_sample() {
+    let definition = hybrid_definition();
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    let instrument = result.instrument.expect("hybrid compiles");
+    assert_eq!(instrument.layers.len(), 2);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.code == DiagnosticCode::AssetResampled })
+    );
+    match &instrument.layers[0].generator {
+        sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
+            assert!(sample.enabled);
+            assert!(sample.source.is_some());
+        }
+        sonalloy_core::compiler::CompiledGenerator::Oscillator(_) => {
+            panic!("attack layer must be a sample")
+        }
+    }
+}
+
+#[test]
+fn hybrid_layers_share_one_voice_and_render_finite_audio() {
+    let definition = hybrid_definition();
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    let instrument = result.instrument.expect("hybrid compiles");
+    let events = [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 7,
+                note_number: 60,
+                velocity: 110,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 4_800,
+            kind: ProcessEventKind::NoteOff { note_id: 7 },
+        },
+    ];
+    let audio = render_instrument(
+        std::sync::Arc::clone(&instrument),
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 24_000,
+            tail_frames: 24_000,
+        },
+        &events,
+    )
+    .expect("hybrid render succeeds");
+    assert_eq!(audio.channels.len(), 2);
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .any(|sample| sample.abs() > 0.01)
+    );
+}
+
+#[test]
+fn missing_sample_keeps_the_oscillator_available() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/metallic-hybrid-missing-asset.json");
+    let definition: InstrumentDefinition =
+        serde_json::from_str(&std::fs::read_to_string(path).expect("missing fixture exists"))
+            .expect("missing fixture parses");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    let instrument = result.instrument.expect("missing asset is recoverable");
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.code == DiagnosticCode::AssetNotFound })
+    );
+    let audio = render_instrument(
+        std::sync::Arc::clone(&instrument),
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 1_024,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }],
+    )
+    .expect("oscillator fallback renders");
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .any(|sample| sample.abs() > 0.01)
+    );
+}
+
+#[test]
+fn sample_without_hash_is_enabled_with_a_warning() {
+    let mut definition = hybrid_definition();
+    match &mut definition.layers[0].generator {
+        sonalloy_core::GeneratorDefinition::Sample(sample) => sample.asset.sha256 = None,
+        sonalloy_core::GeneratorDefinition::Oscillator(_) => {
+            panic!("attack layer must be a sample")
+        }
+    }
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    let instrument = result.instrument.expect("sample without hash compiles");
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == DiagnosticCode::AssetHashMissing)
+    );
+    match &instrument.layers[0].generator {
+        sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
+            assert!(sample.enabled);
+            assert!(sample.source.is_some());
+        }
+        sonalloy_core::compiler::CompiledGenerator::Oscillator(_) => {
+            panic!("attack layer must be a sample")
+        }
+    }
+}
+
+#[test]
+fn absolute_sample_path_is_enabled_with_a_warning() {
+    let mut definition = hybrid_definition();
+    let asset_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/assets/metal-hit.wav")
+        .canonicalize()
+        .expect("reference asset exists");
+    match &mut definition.layers[0].generator {
+        sonalloy_core::GeneratorDefinition::Sample(sample) => {
+            sample.asset.path = asset_path.to_string_lossy().into_owned();
+        }
+        sonalloy_core::GeneratorDefinition::Oscillator(_) => {
+            panic!("attack layer must be a sample")
+        }
+    }
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+        },
+    );
+    assert!(result.instrument.is_some());
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == DiagnosticCode::AssetAbsolutePath)
+    );
+}
+
+#[test]
+fn mismatched_sample_hash_disables_only_the_sample_layer() {
+    let mut definition = hybrid_definition();
+    match &mut definition.layers[0].generator {
+        sonalloy_core::GeneratorDefinition::Sample(sample) => {
+            sample.asset.sha256 = Some("00".repeat(32));
+        }
+        sonalloy_core::GeneratorDefinition::Oscillator(_) => {
+            panic!("attack layer must be a sample")
+        }
+    }
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    let instrument = result
+        .instrument
+        .expect("mismatched hash partially compiles");
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == DiagnosticCode::AssetHashMismatch)
+    );
+    match &instrument.layers[0].generator {
+        sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
+            assert!(!sample.enabled);
+            assert!(sample.source.is_none());
+        }
+        sonalloy_core::compiler::CompiledGenerator::Oscillator(_) => {
+            panic!("attack layer must be a sample")
+        }
+    }
+    let audio = render_instrument(
+        std::sync::Arc::clone(&instrument),
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 1_024,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }],
+    )
+    .expect("oscillator remains renderable");
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .any(|sample| sample.abs() > 0.01)
+    );
 }

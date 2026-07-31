@@ -7,7 +7,23 @@ fn reference_definition() -> std::path::PathBuf {
 }
 
 fn reference_midi() -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../testdata/midi/p1-review.mid")
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/midi/basic-poly-synth-phrase.mid")
+}
+
+fn hybrid_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/metallic-hybrid.json")
+}
+
+fn hybrid_midi() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/midi/metallic-hybrid-phrase.mid")
+}
+
+fn missing_asset_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/metallic-hybrid-missing-asset.json")
 }
 
 fn positive_zero_crossings(samples: &[f32]) -> usize {
@@ -420,4 +436,94 @@ fn render_note_rejects_midi_values_above_127() {
             .code(2)
             .stdout(predicates::str::contains("\"VALUE_OUT_OF_RANGE\""));
     }
+}
+
+#[test]
+fn hybrid_validate_and_inspect_report_sample_layers() {
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            hybrid_definition().to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"ASSET_RESAMPLED\""));
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            hybrid_definition().to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"layer_count\":2"))
+        .stdout(predicates::str::contains("\"kind\":\"sample\""))
+        .stdout(predicates::str::contains("\"asset_status\":\"enabled\""));
+}
+
+#[test]
+fn hybrid_midi_render_writes_stereo_audio() {
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("hybrid.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            hybrid_definition().to_str().expect("utf-8 definition path"),
+            hybrid_midi().to_str().expect("utf-8 MIDI path"),
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--tail",
+            "0.5",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+        ])
+        .assert()
+        .success();
+    let mut reader = hound::WavReader::open(output).expect("hybrid WAV");
+    assert_eq!(reader.spec().channels, 2);
+    let samples: Vec<f32> = reader
+        .samples()
+        .map(|sample| sample.expect("finite sample"))
+        .collect();
+    assert!(samples.iter().all(|sample| sample.is_finite()));
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
+fn missing_asset_is_a_warning_and_body_still_renders() {
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("fallback.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            missing_asset_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            hybrid_midi().to_str().expect("utf-8 MIDI path"),
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--tail",
+            "0.5",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"ASSET_NOT_FOUND\""));
+    assert!(hound::WavReader::open(output).is_ok());
 }

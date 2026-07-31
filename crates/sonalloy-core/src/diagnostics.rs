@@ -53,6 +53,15 @@ pub enum DiagnosticCode {
     /// A source asset was downmixed to the engine's internal format.
     #[serde(rename = "ASSET_DOWNMIXED")]
     AssetDownmixed,
+    /// A relative asset path was absolute.
+    #[serde(rename = "ASSET_ABSOLUTE_PATH")]
+    AssetAbsolutePath,
+    /// A referenced asset has no digest.
+    #[serde(rename = "ASSET_HASH_MISSING")]
+    AssetHashMissing,
+    /// A source asset was resampled for the process configuration.
+    #[serde(rename = "ASSET_RESAMPLED")]
+    AssetResampled,
     /// Process contract violation.
     #[serde(rename = "PROCESS_ERROR")]
     ProcessError,

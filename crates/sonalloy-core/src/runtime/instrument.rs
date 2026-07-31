@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::compiler::CompiledInstrument;
+use crate::compiler::{CompiledGenerator, CompiledInstrument};
 use crate::process::{
     InstrumentProcessor, ProcessBlock, ProcessError, ProcessEventKind, ProcessSpec, clear_output,
 };
@@ -123,15 +123,18 @@ impl InstrumentRuntime {
                 note_number,
                 velocity,
             } => {
-                let trigger = self
-                    .compiled
-                    .layers
-                    .first()
-                    .ok_or(ProcessError::DspFailure {
-                        kind: crate::process::DspFailureKind::InvalidInput,
-                    })?
-                    .trigger;
-                if !trigger.matches(note_number, velocity) {
+                let can_trigger = self.compiled.layers.iter().any(|layer| {
+                    if !layer.trigger.matches(note_number, velocity) {
+                        return false;
+                    }
+                    match &layer.generator {
+                        CompiledGenerator::Oscillator(_) => true,
+                        CompiledGenerator::Sample(sample) => {
+                            sample.enabled && sample.source.is_some()
+                        }
+                    }
+                });
+                if !can_trigger {
                     return Ok(());
                 }
                 let voice_index = self.select_voice();
@@ -198,11 +201,6 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.scratch.voice_right.clear();
         self.absolute_frame = 0;
         spec.validate()?;
-        if self.compiled.layers.len() != 1 {
-            return Err(ProcessError::DspFailure {
-                kind: crate::process::DspFailureKind::InvalidInput,
-            });
-        }
         self.scratch.layer_mono.resize(spec.max_block_size, 0.0);
         self.scratch.voice_left.resize(spec.max_block_size, 0.0);
         self.scratch.voice_right.resize(spec.max_block_size, 0.0);
@@ -737,6 +735,9 @@ mod tests {
         match &mut source.layers[0].generator {
             crate::definition::GeneratorDefinition::Oscillator(oscillator) => {
                 oscillator.phase_reset = phase_reset;
+            }
+            crate::definition::GeneratorDefinition::Sample(_) => {
+                panic!("test fixture must use an oscillator");
             }
         }
         runtime_with(&source)

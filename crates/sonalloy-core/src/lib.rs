@@ -1,3 +1,4 @@
+pub mod asset;
 pub mod compiler;
 pub mod definition;
 pub mod diagnostics;
@@ -7,10 +8,10 @@ pub mod runtime;
 
 pub use compiler::{CompileContext, CompileResult, CompiledInstrument, compile_instrument};
 pub use definition::{
-    AdsrDefinition, CURRENT_SCHEMA_VERSION, FilterDefinition, GeneratorDefinition,
+    AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, FilterDefinition, GeneratorDefinition,
     InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition,
-    OscillatorDefinition, OscillatorWaveform, PerformanceDefinition, VelocityResponseDefinition,
-    VoiceStealingDefinition,
+    OscillatorDefinition, OscillatorWaveform, PerformanceDefinition, SampleDefinition,
+    SampleInterpolation, SamplePlaybackMode, VelocityResponseDefinition, VoiceStealingDefinition,
 };
 pub use diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity, from_render_error};
 pub use process::{
