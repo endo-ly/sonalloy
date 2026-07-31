@@ -23,20 +23,20 @@
 | 環境 | 結果 |
 |---|---|
 | Windows: `cargo fmt --all -- --check` | Pass |
-| Windows: `cargo test --workspace` | Pass、105 tests |
+| Windows: `cargo test --workspace` | Pass、110 tests |
 | Windows: `cargo clippy --workspace --all-targets -- -D warnings` | Pass |
 | Windows: `cargo build --workspace --release` | Pass |
-| Ubuntu 22.04 WSL: `cargo test --workspace` | Pass、105 tests |
-| Ubuntu 22.04 WSL: `cargo clippy --workspace --all-targets -- -D warnings` | Pass |
-| Ubuntu 22.04 WSL: `cargo build --workspace --release` | Pass |
+| Ubuntu 22.04 WSL: `cargo test --workspace` | 未実施（環境に`cargo`が存在しない） |
+| Ubuntu 22.04 WSL: `cargo clippy --workspace --all-targets -- -D warnings` | 未実施（環境に`cargo`が存在しない） |
+| Ubuntu 22.04 WSL: `cargo build --workspace --release` | 未実施（環境に`cargo`が存在しない） |
 | Basic Poly Synth / Metallic Hybrid review package生成 | Pass |
 
-Review MetricsではWAV Metadata、Finite性、Peak / RMS / DC、推定基本周波数、隣接Frame差分、複数Block Sizeでの再現性を確認しています。音質の最終判断は試聴結果に記録しています。
+Review MetricsではWAV Metadata、Finite性、Peak / RMS / DC、推定基本周波数、隣接Frame差分、複数Block Sizeでの再現性を確認しています。Metallic Hybridではさらに、`instrument inspect --json`のAsset状態、DefinitionとAssetのSHA-256一致、Sample-only出力の非無音性、Hybrid MixとOscillator-onlyの差分を自動検査しています。音質の最終判断は試聴結果に記録しています。
 
 ## 試聴結果
 
-- Basic Poly Synth：利用者確認済み、承認、修正指示なし。
-- Metallic Hybrid：利用者確認済み、全確認項目を承認。
+- Basic Poly Synth：既存Packageは利用者確認済み、承認、修正指示なし。Filter Ramp変更後のPackageを再生成済み。
+- Metallic Hybrid：既存Packageは利用者確認済み、全確認項目を承認。Sample終端Fade変更後のPackageを再生成済み。
 - `02-sample-decoded-root.wav`と`03-sample-pitch-range.wav`の音量が小さく聞こえることは、Sample Layer Gain、One-shot後の無音、音量補正なしという設計結果です。
 - `06-hybrid-mix.wav`はSample AttackとOscillator Bodyを一つのNote Onから開始するため、一音のInstrumentとして聞こえることが設計結果です。
 
@@ -59,6 +59,6 @@ python scripts/review/generate_metallic_hybrid_package.py
 
 ## 主要Revision
 
-- 実装：`71b1e51640546039603f1eb8b54b7661f6cbe368`
-- レビュー資料：`502cbac797a073834b4cc5af5cd152add9f03c35`
+- 実装：`dc53482ccd4d85198814711d25691e7c2afda789`
+- レビュー資料：`83a00922bab7b813d33d078e6c64e3d02ec791b0`
 - 完了日：2026-08-01
