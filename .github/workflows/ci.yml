@@ -78,5 +78,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes cmake g++
       - name: FFI sanitizer test
         run: |
-          export LD_PRELOAD="$(g++ -print-file-name=libasan.so)"
-          cargo test -p sonalloy-dsp-sys
+          cargo test -p sonalloy-dsp-sys --no-run
+          asan_runtime="$(g++ -print-file-name=libasan.so)"
+          for test_binary in target/debug/deps/sonalloy_dsp_sys-* target/debug/deps/ffi-*; do
+            if [[ -x "$test_binary" ]]; then
+              LD_PRELOAD="$asan_runtime" "$test_binary" --test-threads=1
+            fi
+          done
