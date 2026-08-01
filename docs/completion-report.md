@@ -23,7 +23,7 @@
 | 環境 | 結果 |
 |---|---|
 | Windows: `cargo fmt --all -- --check` | Pass |
-| Windows: `cargo test --workspace` | Pass、110 tests |
+| Windows: `cargo test --workspace` | Pass、112 tests |
 | Windows: `cargo clippy --workspace --all-targets -- -D warnings` | Pass |
 | Windows: `cargo build --workspace --release` | Pass |
 | Ubuntu 22.04 WSL: `cargo test --workspace` | 未実施（環境に`cargo`が存在しない） |
@@ -36,7 +36,7 @@ Review MetricsではWAV Metadata、Finite性、Peak / RMS / DC、推定基本周
 ## 試聴結果
 
 - Basic Poly Synth：既存Packageは利用者確認済み、承認、修正指示なし。Filter Ramp変更後のPackageを再生成済み。
-- Metallic Hybrid：既存Packageは利用者確認済み、全確認項目を承認。Sample終端Fade変更後のPackageを再生成済み。
+- Metallic Hybrid：既存Packageは利用者確認済み、全確認項目を承認。Sample終端FadeとPrepare Lifecycle修正後のPackageを再生成済み。再生成後の音声は利用者の再試聴待ち。
 - `02-sample-decoded-root.wav`と`03-sample-pitch-range.wav`の音量が小さく聞こえることは、Sample Layer Gain、One-shot後の無音、音量補正なしという設計結果です。
 - `06-hybrid-mix.wav`はSample AttackとOscillator Bodyを一つのNote Onから開始するため、一音のInstrumentとして聞こえることが設計結果です。
 
@@ -59,6 +59,6 @@ python scripts/review/generate_metallic_hybrid_package.py
 
 ## 主要Revision
 
-- 実装：`dc53482ccd4d85198814711d25691e7c2afda789`
-- レビュー資料：`519e6eb4b751cb8bf67f7a24a5690bc74216b9bf`
+- 実装：`9702f24ede1903cfaf00d6d2e771d51d74134123`
+- レビュー資料：`ae78e90e780c21bfba992b36fdf34c09b47750f1`
 - 完了日：2026-08-01
