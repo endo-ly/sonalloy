@@ -1,8 +1,17 @@
-# Instrument Definition
+# 音源定義（Instrument Definition）
 
-Instrument Definitionは、編集・保存・差分管理するJSONの正本です。Audio処理はDefinitionを直接参照せず、`compile_instrument`で`CompiledInstrument`へ変換された値だけを使用します。
+## 本書の範囲
 
-## 完全なDefinition
+本書ではInstrument Definitionファイルの**データ形式**を説明します。JSONの書き方、各項目の制約、Compile時の変換とError / Warningの扱いです。
+
+| 本書で扱わない内容 | 参照先 |
+|---|---|
+| 実行時の動き（Voice・ADSR・Sampleの再生） | `docs/runtime-processing.md` |
+| CLIの使い方・Option | `docs/cli.md` |
+
+Instrument Definitionは、手で編集して保存・管理するJSONファイルの正本です。Audio処理はDefinitionを直接使わず、`compile_instrument`で変換した`CompiledInstrument`の値だけを使います。
+
+## 全体の例
 
 ```json
 {
@@ -54,22 +63,28 @@ Instrument Definitionは、編集・保存・差分管理するJSONの正本で�
 }
 ```
 
-## Definitionの制約
+## 各項目の制約
 
-- `schema_version`は`1`だけを受け付ける。
-- `layers`は配列で保存し、少なくとも1個のLayerを含める。有効Layerは複数指定でき、Definitionの順序で同じVoiceへMixする。`enabled: false`のLayerはCompile対象から除外する。
-- Generatorは`oscillator`または`sample`を指定する。OscillatorのWaveformは`sine`または`saw`に限る。
-- SampleはWAVの相対または絶対Path、任意のSHA-256、MIDI Root Note、`one_shot`、`cubic`を持つ。
-- `polyphony`は1〜64、`gain_db`は-60〜12 dB、`pan`は-1〜1、`tuning_cents`は-1200〜1200 cent。
-- Keyは0〜127、Velocityは1〜127で、各Rangeのminはmax以下にする。
-- ADSRの時間は0〜30秒、Sustainは0〜1にする。0秒Segmentは次のStateへ直ちに遷移する。
-- Voice FilterのCutoffは20〜20000 Hz、Resonanceは0〜1にする。CutoffがProcess Sample Rateの上限を超えた場合だけCompile時にWarningを出して`min(20000, sample_rate × 0.45)`へ制限する。
-- 未知Fieldは無視せず、JSON Parse Errorとして扱う。
-- Runtime状態、DaisySP Handle、Decode済みBuffer、Filter State、Scratch Bufferは保存しない。
+| 項目 | 制約 |
+|---|---|
+| `schema_version` | 1のみ |
+| `layers` | 1個以上。複数のLayerは書かれた順に同じVoiceへMixされます。`enabled`が`false`のLayerはCompile対象外 |
+| `generator` | `oscillator`（`sine` / `saw`）または`sample` |
+| `polyphony` | 1〜64 |
+| `gain_db` | -60〜12 dB |
+| `pan` | -1〜1 |
+| `tuning_cents` | -1200〜1200 |
+| Key / Velocity | 0〜127。最小値は最大値以下 |
+| ADSR | Attack / Decay / Releaseは0〜30秒、Sustainは0〜1 |
+| Voice Filter | Cutoff 20〜20000Hz、Resonance 0〜1。CutoffがSample Rateの上限を超える場合はWarningを出して`min(20000, Sample Rate × 0.45)`に制限します |
+| 未知のField | JSON Parse Errorとして扱います |
+| 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Filter状態、Scratch Buffer |
 
-## Sample Generator
+Validation Errorには`layers[0].envelope.attack_seconds`のようなField Pathが付きます。
 
-Sample Layerの最小構成は次のとおりです。
+## Sample Layer
+
+Sampleを使うLayerの最小構成です。
 
 ```json
 {
@@ -104,33 +119,31 @@ Sample Layerの最小構成は次のとおりです。
 }
 ```
 
-Asset PathはDefinitionのあるDirectoryを基準に解決します。Compile時にSHA-256を検証してからSymphoniaでWAVをDecodeし、StereoはMonoへ平均Downmixします。Process Sample Rateと異なる場合はCompile時にRubatoでResampleします。SourceのSample Rate、Channel数、Bit Depth、Frame数はCompiled Sampleへ保持します。
+**Assetの読み込み（Compile時）**
 
-SHA-256を省略した場合はWarningを出します。Assetが見つからない、Hashが一致しない、DecodeまたはResampleに失敗した場合、そのSample Layerは無効化してWarningを保持し、ほかの有効LayerがあればCompileとRenderを継続します。
+- Asset PathはDefinitionがあるフォルダを基準に解決します
+- SHA-256を照合してから、SymphoniaでWAVを読み込みます
+- StereoのWAVは左右の平均を取ってMonoへ変換します
+- 再生時のSample Rateと違う場合は、RubatoでSample Rateを変換します
+- 元のSample Rate、Channel数、Bit Depth、Frame数はCompiled Sampleに保持します
 
-SampleはNote OnでCursorを0から開始し、`root_note`との差とLayer Tuningから再生速度を決めます。4点Cubic Interpolationで読み出し、`one_shot`の末尾でLayerをIdleにします。Note OffはSampleのCursorを停止せず、Layer EnvelopeをReleaseへ遷移させます。
+Sampleの再生の動き（Cursor、再生速度、補間、終端の扱い）は、`docs/runtime-processing.md`の「Sample Runtime」を参照してください。
 
-## Metallic Hybrid Definition
+## Compile時の変換
 
-`examples/instruments/metallic-hybrid.json`は、全Key / 全VelocityをTriggerするSample Attack LayerとSine Body Layerを一つのVoiceへ定義した完全なReference Definitionです。Attackは短いDecayと低いSustainでTransientを担当し、Bodyは長いADSRで音程の芯と余韻を担当します。`voice_filter`と`velocity_response`はLayer Mix後のVoice処理へ適用します。
+Compileで一度だけ計算します。
 
-## Compile後の変換
+| 変換 | 内容 |
+|---|---|
+| dB → Gain | `gain_db`を線形のGainへ |
+| cent → 音程比 | `tuning_cents`を再生速度の比へ |
+| ADSRの秒 → Frame数 | Sample Rateに依存するFrame数へ |
+| Filter Cutoff | Sample Rateの上限へ制限 |
+| Velocity Response | `layer_gain_amount`と`filter_cutoff_octaves`を実行時の値へ |
 
-Compile時に次を一度だけ計算します。
+**ErrorとWarning**
 
-- dB → Linear Gain
-- cent → Tuning Ratio
-- ADSR秒 → Sample Rate依存のFrame数
-- Voice Filter CutoffのProcess Sample Rate上限
-- Velocity Responseの実行値
-
-Compile Errorが一つでもある場合は`CompiledInstrument`を返しません。Warningだけの場合は、Warningを保持した`CompiledInstrument`を返し、Renderを継続できます。
-
-## CLIでの確認
-
-```bash
-sonalloy instrument validate examples/instruments/basic-poly-synth.json
-sonalloy instrument inspect examples/instruments/basic-poly-synth.json
-```
-
-Validation Errorには`layers[0].envelope.attack_seconds`のようなField Pathが付きます。Definitionの基準DirectoryはCompilerへ渡しますが、Definition自身には保持しません。
+- Errorが1つでもあれば、`CompiledInstrument`を返しません
+- Warningだけなら、Warning付きの`CompiledInstrument`を返して処理を続けます
+- AssetのSHA-256省略はWarningです（Layerは有効のまま）
+- Assetの欠落・Hash不一致・読み込み失敗のあるSample Layerは無効にしてWarningを残し、ほかの有効なLayerがあれば処理を続けます

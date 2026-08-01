@@ -1,132 +1,147 @@
-# Runtime Processing
+# 実行時の動作
 
-## Process Contract
+## 本書の範囲
 
-CoreはChannel分離のPlanar `f32` Bufferを使用します。出力はStereo固定です。
+本書ではSonalloyの**実行時の動作**を説明します。1つのNoteが鳴って消えるまでの仕組み、1つのBlockの処理手順、Sampleの再生、準備とリセット、エラー時の扱いです。
 
-```rust
-pub struct ProcessSpec {
-    pub sample_rate: f64,
-    pub max_block_size: usize,
-    pub output_channels: usize,
-}
+| 本書で扱わない内容 | 参照先 |
+|---|---|
+| 部品の構造と所有関係 | `docs/architecture.md` |
+| CLIの使い方・Option・Exit Code | `docs/cli.md` |
+| Instrument Definition（JSON）の形式と制約 | `docs/instrument-definition.md` |
 
-pub struct ProcessContext {
-    pub absolute_frame: u64,
-    pub tempo_bpm: f64,
-}
+## 全体像
 
-pub struct ProcessBlock<'a> {
-    pub frames: usize,
-    pub context: ProcessContext,
-    pub events: &'a [ProcessEvent],
-    pub output: &'a mut [&'a mut [f32]],
-}
+音源（Instrument Runtime）は、Polyphony数分のVoiceを固定で持っています。`process`を呼ばれるたびに、1つのBlock（最大Block SizeまでのSample列）を出力します。
+
+1回の`process`は次の順で進みます。
+
+```mermaid
+flowchart LR
+    A[出力をゼロで埋める] --> B[Eventの位置で区切る]
+    B --> C[区間ごとにVoiceを鳴らす]
+    C --> D[Eventを適用]
+    D --> E{次のEventはあるか}
+    E -- あり --> C
+    E -- なし --> F[Blockの最後まで鳴らす]
 ```
 
-Prepare時の制約は次のとおりです。
+- 出力はStereoで、左右のチャンネルを分けた`f32`バッファに書き込みます
+- Eventは「いつ・どのNoteを押す/離す」の情報だけで、音の計算は毎Sample行われます
+- Note OnからNote Offまでの間、そのNoteは1つのVoiceに割り当てられます
 
-- Sample Rateは有限かつ正の値
-- 最大Block Sizeは1以上
-- Output Channel数は2
-- 一回のProcessのFrame数は最大Block Size以下
-- 全Output SliceはFrame数以上
-- EventのSample Offsetは0以上、Block Frames未満
+## Blockの処理
 
-Process開始時に対象範囲をZero Clearし、Runtimeは対象範囲の全Sampleを書き込みます。0 Frameは安全なNo-opです。
+`process`に渡すものは、処理するFrame数、Blockの先頭位置（`absolute_frame`）、Event列、出力バッファです。EventはBlock内のSample位置（`sample_offset`）を持ち、その位置で正確に適用されます。
 
-## FrameとContext
+- 出力は先にゼロで埋めてから書き込みます。前のBlockの残りは混ざりません
+- 区間ごとのRenderとEventの適用を繰り返し、最後にBlockの末尾まで鳴らします
+- Frame数が0のBlockは、何もせず成功として扱います
 
-`absolute_frame`はRender開始からの絶対位置です。Runtime内部のFrame位置とContextが一致しない場合は処理を失敗させ、対象Bufferを無音にします。これにより、Block分割や呼び出し側の位置ずれを黙って受け入れません。
+**Eventの規則**
 
-Sine RuntimeはEventを適用しません。Event列が渡された場合は無音化して`EventsUnsupported`を返します。Event型はNote IDとSample Offsetを持ち、同一Offsetではmatching Note OffをNote Onより先に適用します。非昇順Eventや同一Noteの順序違反はProcess Errorです。
+- Eventは`sample_offset`の昇順に並べます
+- 同じ位置では、対応するNote OffをNote Onより先に置きます
+- 位置が前後している、または同じNoteの順序が不正な場合はエラーになります
 
-## CompileとRuntime
+## Noteの一生
 
-```text
-Instrument Definition
-  → Parse / Validate
-    → Compile（dB、cent、ADSR、Filter上限を変換）
-      → InstrumentRuntime::prepare
-        → 固定Voice Pool / Scratch / Native Handle
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Active: Note On
+    Active --> Releasing: Note Off
+    Releasing --> Idle: Release完了
+    Active --> StealFading: 別のNoteに奪われる
+    StealFading --> Active: Fade完了で新しいNoteを開始
+    StealFading --> Idle: 新しいNoteがキャンセルされた
 ```
 
-`CompiledInstrument`はRuntime状態を持たない不変値です。Compile時にSample AssetのSHA-256検証、WAV Decode、Mono Downmix、必要なResampleを行い、Decode済みBufferとCompile時のProcess Sample RateをCompiled Instrumentへ保持します。`InstrumentRuntime`はPrepare時にDefinitionのPolyphony分のVoiceを作り、Voiceごとに複数Layer、LayerごとのOscillatorまたはSample Runtime、左右独立のFilterを所有します。Runtime PrepareはCompile時と異なるSample Rateを明示的に拒否し、Block Sizeだけの変更は許可します。Process中にJSON Parse、File I/O、Decode、Resample、Hash計算、Voice Pool拡張を行いません。
+**Note On**
 
-## VoiceとADSR
+1. どのLayerもTrigger条件（Key / Velocity）に合わないNoteは無視します
+2. Voiceを1つ選びます。Idle → 最も音量の小さいReleasing → 最古のActive の順です
+3. 選んだVoiceがIdleなら即座にNoteを開始します。空きがない場合は、5msのFadeで古い音を消してから新しいNoteを開始します（Voice Stealing）
 
-VoiceのStateは`Idle → Active → Releasing → Idle`です。Note OffはNote IDで対象Voiceを特定し、現在のEnvelope値からReleaseを開始します。ADSRはAttack、Decay、Sustain、ReleaseをSample単位で更新し、0秒Segmentは次のStateへ直ちに進みます。Voice StealingはIdle、最も小さい`estimated_level`のReleasing、最古のActiveの順に候補を選び、5 msのSteal Fade後にPending Noteを開始します。
+**Note Off**
 
-## Sample Accurate Segment Render
+- Note IDでVoiceを探し、今のADSRの値からReleaseを始めます
+- Voice Stealingの待機中だったNoteは、ここでキャンセルできます
 
-```text
-Block Start
-  → Event OffsetまでRender
-  → OffsetのEventを適用
-  → 次のEvent OffsetまでRender
-  → Block EndまでRender
+**Voice Stealing**
+
+- 古い音は5msで音量をゼロへFadeします。Fade中にNote Offが来たら、待機中の新しいNoteをキャンセルします
+- Fadeが終わると待機していたNoteを開始し、すべてのLayerが終わったらIdleへ戻ります
+
+## Voiceの中身
+
+Voiceは複数のLayerと左右独立のFilterを持ちます。Layerは「Generator + ADSR + Gain + Pan」のセットで、Trigger条件に合ったLayerだけが鳴ります。
+
+```mermaid
+flowchart TD
+    G[Generator] --> E[ADSR]
+    E --> A[Gain]
+    A --> P[Pan]
+    P --> M[Layerの出力をすべて合成]
+    M --> F[Voice Filter 左右独立]
+    F --> O[Stereo出力]
 ```
 
-各SegmentではLayerごとのOscillatorまたはSampleのMono信号へADSRとLayer Gainを乗算し、Constant-power PanでStereo化します。複数Layerを同じVoice内でMixした後にVoice FilterのLeft/Rightを適用し、Instrument Outputへ加算します。Gainは5 ms、Voice開始時のFilter Cutoffは10 msの固定Smootherを使用します。CutoffのRampはSample単位の値をNative側の1回のBlock処理へ渡し、Host Block Sizeに依存しないままRustとNativeの境界越えをBlock単位に抑えます。
+- **ADSR**：Note OnでAttackから始まり、Decayを経てSustainで待ちます。Note Offで現在の値からReleaseへ進みます。長さ0の区間は飛ばします
+- **Gain**：5msで目標へ滑らかに変化させ、Note開始時のクリックを防ぎます。目標値はLayerのGainにVelocity応答を掛けた値です
+- **Pan**：Constant-powerで左右へ振り分けます
+- **Filter**：Cutoffは10msで滑らかに変化し、Velocity応答で開閉します。`voice_filter`が無ければかけません
 
-## 信号経路
+**Generatorの種類**
 
-```text
-MIDI Note
-  → Voice Allocation
-      → Layer Trigger
-        ├─ MIDI Note × Tuning Ratio → DaisySP Sine / Saw
-        └─ Root Note × Tuning Ratio → Sample Cursor / Cubic Interpolation
-              → ADSR
-                → Layer Gain × Velocity Gain
-                  → Constant-power Pan
-                    → Layer Mix
-                      → Voice Low-pass Filter
-                        → Stereo Output
+- **Oscillator**：Note番号とTuningから周波数を決め、Sine / Sawを生成します。`phase_reset`が有効ならNoteごとに位相を先頭へ戻します
+- **Sample**：後述のSample再生を使います。Compileで無効になったLayerは鳴りません
+
+## Sampleの再生
+
+SampleはCompile時に読み込み済みで、全Voiceで共有します。Voiceごとに再生位置（Cursor）だけを持ちます。
+
+- Note OnでCursorを先頭へ戻し、再生速度は`2^((note - root) / 12) × Tuning`です
+- Cursorは再生速度で進み、4点Cubic補間で読み出します
+- one_shotでは末尾の5msをゼロへFadeし、音が急に切れないようにします
+- Note OffではCursorを止めず、ADSRのReleaseだけが進みます。Sampleが終わるとそのLayerの音は終わります
+
+## 準備とリセット
+
+- **Prepare**：Polyphony数分のVoiceを作り、Scratch BufferとNative Handleを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
+- **Reset**：全Voice、Oscillatorの位相、SampleのCursor、ADSR、Filter、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
+
+## Sine Runtime（開発用）
+
+- `dev render-sine`で使う単音のRuntimeです。Voiceの仕組みはなく、Event列を受け取るとエラーになります
+- Prepareで周波数を検証し（Nyquist以下）、Native Oscillatorで生成した同じ信号を左右へコピーします
+
+## 約束事
+
+**Process中にしてはいけないこと**
+
+- JSONの解析、ファイルの読み書き、素材の読み込み・Sample Rate変換・Hash計算
+- メモリの新規確保
+- 通信、同期型のログ出力、ブロックする待ち合わせ
+
+**エラー時の扱い**
+
+- 不正な入力や位置のずれ（Context不一致）はエラーにし、そのBlockの出力は無音にします
+- Native側の失敗は`ProcessError::DspFailure`へ変換します
+- エラーとExit Codeの対応は`docs/cli.md`を参照してください
+
+## 書き出し（Offline Render）
+
+ファイルへの書き出しは、CoreのRendererが同じProcessをBlock単位で繰り返します。
+
+```mermaid
+flowchart LR
+    A[長さをFrame数へ変換] --> B[Prepare]
+    B --> C[BlockごとにProcess]
+    C --> D[RenderedAudio]
 ```
 
-## Sine Runtime
-
-Prepareで次を行います。
-
-1. `ProcessSpec`を検証する。
-2. Native OscillatorをSample RateとSineへ設定する。
-3. OscillatorをResetする。
-4. 最大Block SizeのScratch Bufferを確保する。
-5. Absolute Frameを0へ戻す。
-
-Processでは、Native OscillatorでScratch BufferへBlock生成し、同じ信号をLeft / Rightへコピーします。Scratch BufferはPrepare時に確保済みで、Process中の容量拡張はありません。
-
-## Sample Runtime
-
-PrepareでCompile済みのMono Sampleを各VoiceのSample Runtimeへ共有し、VoiceごとにCursorだけを所有します。Note OnでCursorを0へ戻し、MIDI NoteとSample Root Noteの差を半音単位の`2^((note - root) / 12)`へ変換してLayer Tuning Ratioを乗算します。CursorはSample Rateへ応じた再生速度で進み、4点Cubic Interpolationで読み出します。
-
-Sampleの`one_shot`は末尾でGeneratorを完了させます。終端の最後5 ms（短いSourceでは全再生区間以内）は出力上の残りFrame数を基準に0へFadeし、Sourceの最後の値が0でない場合も不連続を作りません。Note OffではCursorを停止せず、LayerのADSRだけをReleaseへ遷移させます。Sample AssetがCompileできなかったLayerはDisabledとして扱い、ほかの有効Layerの処理を継続します。
-
-## Offline Render Loop
-
-RendererはCore内で次の順序を繰り返します。
-
-```text
-Request検証
-  → Runtime Prepare
-    → 可変長Blockを切り出す
-      → ProcessContextを付与
-        → Process
-          → RenderedAudioへ格納
-```
-
-Durationは秒をSample Rateへ乗算し、最近傍へ丸めてFrameへ変換します。TailはDurationへ加算されます。最終Blockは残りFrameだけを渡すため、余分なSampleは生成しません。
-
-Core RendererはFile PathやWAV Writerを知りません。`RenderedAudio`を返し、ファイル形式の変換はCLIが担当します。
-
-## Error時の規則
-
-- Prepare失敗時はRuntimeを利用可能状態にしない。
-- AssetのMissing、Hash Mismatch、Decode、Resample失敗はCompile Warningとして保持し、同じInstrumentのほかの有効LayerをRenderできる。
-- 有効なBufferでProcessのContextまたはEventが不正な場合、対象範囲を無音にする。
-- Native DSP ErrorはCoreの`ProcessError::DspFailure`へ変換する。
-- CLIはProcess ErrorをExit Code 3、Input ErrorをExit Code 2で返す。
-- WAV書き込みの失敗はExit Code 4で返し、成功結果を表示しない。
-
-Process中にJSON解析、File I/O、Decode、Resample、Hash計算、Network、同期I/O Logging、Blocking Mutexを行いません。
+- 長さは「秒 × Sample Rate」を最も近い整数に丸め、TailのFrame数を足します
+- 最後のBlockは残りのFrame数だけを処理するので、余分なSampleはできません
+- Coreは`RenderedAudio`（左右のSample列）を返し、WAVへの変換はCLI側の仕事です

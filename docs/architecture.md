@@ -1,70 +1,64 @@
-# Sonalloy Architecture
+# アーキテクチャ
 
-## 責務境界
+## 本書の範囲
 
-依存方向は一方向です。
+本書ではSonalloyの**静的な構造**を説明します。クレート構成、クレート間の参照関係、外部との境界、所有関係です。
 
-```text
-sonalloy-cli
-    ↓
-sonalloy-core
-    ↓
-sonalloy-dsp-sys
-    ↓
-Internal C ABI
-    ↓
-DaisySP
+| 本書で扱わない内容 | 参照先 |
+|---|---|
+| 実行時の動作（Process仕様、Lifecycle、Error時の扱い） | `docs/runtime-processing.md` |
+| CLIの使い方・Option・Exit Code | `docs/cli.md` |
+| Instrument Definition（JSON）の形式と制約 | `docs/instrument-definition.md` |
+| テストと試聴の手順 | `docs/testing-and-sound-review.md` |
+
+## 部品の関係
+
+参照は一方向です。下位のクレートは上位のクレートの存在を知りません。
+
+```mermaid
+flowchart TD
+    CLI[sonalloy-cli] --> Core[sonalloy-core]
+    Core --> Sys[sonalloy-dsp-sys]
+    Sys --> ABI[Internal C ABI]
+    ABI --> DSP[DaisySP]
 ```
 
-`sonalloy-core`はCLI、clap、hound、midly、C++ Header、Audio Device APIを知りません。CLIはCoreのDefinition/Compile APIとRendererを呼び出し、Coreが返したPlanar AudioをWAVへ変換します。
+- `sonalloy-core` は、CLIやclap、hound、midly、C++ヘッダー、Audio Device APIを知りません
+- `sonalloy-cli` は `sonalloy-core` のRendererを呼び出し、Coreが返したPlanar AudioをWAVファイルへ変換します
 
-## Crate
+## 部品の構成
 
 ### `sonalloy-core`
 
-Coreが所有するProcess ContractとRuntimeを提供します。
+Process仕様と実行時の仕組みを提供します。
 
-- `process`: `ProcessSpec`、`ProcessContext`、`ProcessBlock`、共通Lifecycle
-- `definition`: JSONへ保存するInstrument DefinitionとValidation
-- `compiler`: DefinitionからCompiled Instrumentへの変換
-- `asset`: SHA-256検証、Symphonia WAV Decode、Stereo Downmix、Rubato Resample、Prepared Sample
-- `runtime`: Polyphonic Voice、ADSR、複数Layer、One-shot Sample、Filter、Sine / Saw Runtime
-- `render`: Frame単位のOffline Render LoopとScheduled Event供給
-- `diagnostics`: Frontend非依存のCode、Severity、Message
+| Module | 担当 |
+|---|---|
+| `process` | Process仕様と共通のLifecycle |
+| `definition` | Instrument Definitionの読み込みとValidation |
+| `compiler` | DefinitionからCompiled Instrumentへの変換 |
+| `asset` | SHA-256照合、WAV読み込み、Mono変換、Sample Rate変換 |
+| `runtime` | Voice、ADSR、Layer、Sample、Filter |
+| `render` | Offline Render LoopとEventの供給 |
+| `diagnostics` | 画面表示に依存しないError Code、Severity、Message |
 
-Compile時にFile I/Oを完了し、Decode済みMono Sampleを`Arc`でCompiled Layerへ共有します。CoreのAudio Pathは、Prepare時に確保したScratch Buffer、Native Handle、Compiled Sampleだけを使用します。
+Compileの段階でファイルの読み込みを完了し、Decode済みのMono Sampleを`Arc`で共有します。Process中は、Prepareで確保したScratch Buffer、Native Handle、Compiled Sampleだけを使います。
 
 ### `sonalloy-dsp-sys`
 
-Native ABIの宣言と、Raw Pointerを隠蔽するSafe Rust Wrapperを所有します。`DspOscillator`がOpaque HandleをDrop時に破棄し、CoreへResult CodeやNative Layoutを漏らしません。
+Internal C ABIの宣言と、Raw Pointerを隠蔽するSafe Rust Wrapperを提供します。
 
-Build Scriptは`native/daisysp-wrapper`をCMakeでBuildし、Static LibraryをRustへLinkします。DaisySPのVersionは次の固定Commitです。
-
-```text
-DaisySP V1.0.0
-a0494a3adb67f549e18dfd71a35fa656f65b38b6
-```
-
-Native WrapperはDaisySPの`oscillator.cpp`と`svf.cpp`だけをTargetへ追加します。DaisySPのClass名やEnumはWrapperの実装内部に留まり、DefinitionやCore Public APIには露出しません。CoreはOscillatorと左右独立のVoice FilterをSafe Wrapper越しに使用します。
+- DaisySP V1.0.0（コミット`a0494a3adb67f549e18dfd71a35fa656f65b38b6`）をCMakeでBuildし、Static LibraryとしてLinkします
+- Native Wrapperは、DaisySPの`oscillator.cpp`と`svf.cpp`だけをBuild対象に追加します
+- DaisySPのClass名やEnumはWrapperの内側に留め、DefinitionやCoreのPublic APIには露出しません
 
 ### `sonalloy-cli`
 
-CLI固有の責務を所有します。
-
-- clapによる引数解釈
-- 秒からFrameへの変換
-- Core Rendererの呼び出し
-- Definitionの読込、Validation、Compile、Inspect
-- MIDI FileのCore Eventへの変換
-- houndによるStereo WAV出力
-- Text / JSON Diagnostics
-- Process終了Code
-
-CLIはDaisySP FFIを直接呼びません。
+引数解釈（clap）、MIDI→Event変換、WAV出力（hound）、Diagnostics表示、Exit Codeを担当します。DaisySPのFFIは直接呼びません。
 
 ## Native境界
 
-C ABIは外部製品向けのPublic ABIではなく、`sonalloy-dsp-sys`からNative Wrapperを呼ぶための内部境界です。
+C ABIは、`sonalloy-dsp-sys`からNative Wrapperを呼ぶための内部境界です。外部製品向けのPublic ABIではありません。
 
 ```c
 typedef struct sonalloy_dsp_oscillator sonalloy_dsp_oscillator;
@@ -82,12 +76,11 @@ int32_t sonalloy_dsp_filter_process(...);
 void sonalloy_dsp_filter_destroy(...);
 ```
 
-Native関数はNull Handle、引数、Buffer、例外を検査し、整数Result Codeへ変換します。Process CallはCaller所有のBufferへ書き込み、Native側で継続的なHeap Allocationを行いません。
+Native関数はNull Handle、引数、Buffer、例外を検査して整数のResult Codeへ変換します。Process中にNative側で新規にメモリを確保することはありません。
 
 ## Lifecycle
 
-```text
-Prepare → Process（繰り返し） → Reset
-```
+詳しい流れは`docs/runtime-processing.md`の「Lifecycle」を参照してください。ここでは所有関係だけを説明します。
 
-CompileでDefinitionを不変の実行値へ変換し、Assetを検証・Decode・Downmix・Resampleします。PrepareでSample Rate、最大Block Size、Stereo出力、Voice Pool、Scratch Buffer、LayerごとのOscillatorまたはSample Runtime、左右Filterを確定します。ProcessはBlockのFrame数だけを扱い、Resetは全Voice、Oscillator Phase、Sample Cursor、ADSR、Filter、Scratch、Absolute Frameを初期化します。同じ入力をReset後に再度与えると同じ出力になります。
+- **Compile**：Definitionを、変更できない`CompiledInstrument`へ変換します（`sonalloy-core`が所有します）
+- **Prepare / Process / Reset**：`InstrumentRuntime`の状態を進めます。Scratch BufferとNative HandleはPrepareで確保し、Process中には拡張しません
