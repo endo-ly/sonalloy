@@ -23,6 +23,7 @@ def source_commit() -> str:
             "--format=%H",
             "--",
             "crates/sonalloy-core/src/compiler.rs",
+            "crates/sonalloy-core/src/runtime/instrument.rs",
             "crates/sonalloy-core/src/runtime/sample.rs",
             "crates/sonalloy-core/src/runtime/voice.rs",
             "crates/sonalloy-dsp-sys",

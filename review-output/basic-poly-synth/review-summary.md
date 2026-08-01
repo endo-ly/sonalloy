@@ -5,7 +5,7 @@
 - 基準Sample Rate：48,000 Hz
 - 基準Block Size：257 frames
 - Output：Stereo、32-bit float WAV
-- Source implementation commit：dc53482ccd4d85198814711d25691e7c2afda789
+- Source implementation commit：9702f24ede1903cfaf00d6d2e771d51d74134123
 - Backend：DaisySP V1.0.0 (`a0494a3adb67f549e18dfd71a35fa656f65b38b6`)
 - Platform：Windows
 - Rust：1.97.0
