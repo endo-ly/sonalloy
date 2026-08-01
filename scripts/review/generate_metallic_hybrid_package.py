@@ -466,7 +466,7 @@ def main() -> None:
 
 The audio, copied Definitions, MIDI inputs, source asset, metrics, and this record are kept in this directory.
 """
-    (review_root / "review-summary.md").write_text(summary, encoding="utf-8")
+    (review_root / "review-summary.md").write_bytes(summary.encode("utf-8"))
 
 
 if __name__ == "__main__":
