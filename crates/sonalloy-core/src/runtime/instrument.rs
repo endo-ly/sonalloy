@@ -194,6 +194,14 @@ impl InstrumentRuntime {
 
 impl InstrumentProcessor for InstrumentRuntime {
     fn prepare(&mut self, spec: ProcessSpec) -> Result<(), ProcessError> {
+        // A failed preparation must not leave an older prepared state usable.
+        self.spec = None;
+        self.voices.clear();
+        self.scratch.layer_mono.clear();
+        self.scratch.voice_left.clear();
+        self.scratch.voice_right.clear();
+        self.absolute_frame = 0;
+
         spec.validate()?;
         if spec
             .sample_rate
@@ -205,12 +213,6 @@ impl InstrumentProcessor for InstrumentRuntime {
                 requested: spec.sample_rate,
             });
         }
-        self.spec = None;
-        self.voices.clear();
-        self.scratch.layer_mono.clear();
-        self.scratch.voice_left.clear();
-        self.scratch.voice_right.clear();
-        self.absolute_frame = 0;
         self.scratch.layer_mono.resize(spec.max_block_size, 0.0);
         self.scratch.voice_left.resize(spec.max_block_size, 0.0);
         self.scratch.voice_right.resize(spec.max_block_size, 0.0);
@@ -371,6 +373,89 @@ mod tests {
                 requested: 44_100.0,
             }
         );
+    }
+
+    #[test]
+    fn failed_sample_rate_prepare_invalidates_previous_runtime_and_allows_reprepare() {
+        let mut runtime = runtime();
+        let valid_spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        runtime
+            .prepare(valid_spec)
+            .expect("initial runtime preparation");
+        assert!(runtime.voice_count() > 0);
+
+        assert_eq!(
+            runtime.prepare(ProcessSpec::new(44_100.0, 64, 2).expect("valid process spec")),
+            Err(ProcessError::SampleRateMismatch {
+                compiled: 48_000.0,
+                requested: 44_100.0,
+            })
+        );
+        assert_eq!(runtime.voice_count(), 0);
+        assert_eq!(runtime.absolute_frame(), 0);
+
+        let mut left = [1.0_f32; 8];
+        let mut right = [1.0_f32; 8];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        assert_eq!(
+            runtime.process(ProcessBlock {
+                frames: 8,
+                context: crate::process::ProcessContext {
+                    absolute_frame: 0,
+                    tempo_bpm: 120.0,
+                },
+                events: &[],
+                output: &mut output,
+            }),
+            Err(ProcessError::NotPrepared)
+        );
+        assert!(left.iter().all(|sample| sample.abs() < f32::EPSILON));
+        assert!(right.iter().all(|sample| sample.abs() < f32::EPSILON));
+
+        runtime.prepare(valid_spec).expect("runtime re-preparation");
+        let _ = process(&mut runtime, 8, 0, &[]);
+    }
+
+    #[test]
+    fn invalid_prepare_invalidates_previous_runtime_and_allows_reprepare() {
+        let mut runtime = runtime();
+        let valid_spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        runtime
+            .prepare(valid_spec)
+            .expect("initial runtime preparation");
+
+        let invalid_spec = ProcessSpec {
+            sample_rate: 48_000.0,
+            max_block_size: 0,
+            output_channels: 2,
+        };
+        assert_eq!(
+            runtime.prepare(invalid_spec),
+            Err(ProcessError::InvalidMaxBlockSize)
+        );
+        assert_eq!(runtime.voice_count(), 0);
+        assert_eq!(runtime.absolute_frame(), 0);
+
+        let mut left = [1.0_f32; 8];
+        let mut right = [1.0_f32; 8];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        assert_eq!(
+            runtime.process(ProcessBlock {
+                frames: 8,
+                context: crate::process::ProcessContext {
+                    absolute_frame: 0,
+                    tempo_bpm: 120.0,
+                },
+                events: &[],
+                output: &mut output,
+            }),
+            Err(ProcessError::NotPrepared)
+        );
+        assert!(left.iter().all(|sample| sample.abs() < f32::EPSILON));
+        assert!(right.iter().all(|sample| sample.abs() < f32::EPSILON));
+
+        runtime.prepare(valid_spec).expect("runtime re-preparation");
+        let _ = process(&mut runtime, 8, 0, &[]);
     }
 
     #[test]
