@@ -370,7 +370,7 @@ pub fn compile_instrument(
                 Diagnostic::warning(
                     DiagnosticCode::FilterCutoffClamped,
                     format!(
-                        "cutoff clamped to {effective_max_cutoff_hz:.3} Hz for the process sample rate"
+                        "cutoff exceeds the process-safe maximum and will be clamped to {effective_max_cutoff_hz:.3} Hz during DSP processing"
                     ),
                 )
                 .with_path("voice_filter.cutoff_hz"),
@@ -899,10 +899,14 @@ mod tests {
         };
         let result = compile_instrument(&source, &low_rate);
         let compiled = result.instrument.expect("compiled");
-        assert!(result.diagnostics.iter().any(|diagnostic| {
+        let warning = result.diagnostics.iter().find(|diagnostic| {
             diagnostic.severity == DiagnosticSeverity::Warning
                 && diagnostic.code == DiagnosticCode::FilterCutoffClamped
-        }));
+        });
+        assert_eq!(
+            warning.expect("cutoff warning").message,
+            "cutoff exceeds the process-safe maximum and will be clamped to 9922.500 Hz during DSP processing"
+        );
         assert!(
             (compiled
                 .voice_filter

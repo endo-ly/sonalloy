@@ -372,6 +372,7 @@ impl InstrumentProcessor for InstrumentRuntime {
                 let event = block.events[event_index].kind;
                 if let Err(error) = self.apply_event(event, self.absolute_frame + cursor as u64) {
                     clear_output(&mut *block.output, block.frames);
+                    self.spec = None;
                     return Err(error);
                 }
                 event_index += 1;
@@ -382,8 +383,10 @@ impl InstrumentProcessor for InstrumentRuntime {
                 end = end.min(next_event.sample_offset);
             }
             let absolute = self.absolute_frame + cursor as u64;
-            let absolute_frame =
-                usize::try_from(absolute).map_err(|_| ProcessError::FrameOverflow)?;
+            let Ok(absolute_frame) = usize::try_from(absolute) else {
+                self.spec = None;
+                return Err(ProcessError::FrameOverflow);
+            };
             let quantum = QUANTUM_FRAMES - (absolute_frame % QUANTUM_FRAMES);
             end = end.min(cursor + quantum);
             if let Some(remaining) = self.shared_target_remaining() {
@@ -421,6 +424,7 @@ impl InstrumentProcessor for InstrumentRuntime {
                 shared,
             ) {
                 clear_output(&mut *block.output, block.frames);
+                self.spec = None;
                 return Err(error);
             }
             cursor = end;
@@ -434,7 +438,10 @@ impl InstrumentProcessor for InstrumentRuntime {
             return Err(ProcessError::NotPrepared);
         }
         for voice in &mut self.voices {
-            voice.reset()?;
+            if let Err(error) = voice.reset() {
+                self.spec = None;
+                return Err(error);
+            }
         }
         for (state, descriptor) in self
             .parameter_states
@@ -443,7 +450,10 @@ impl InstrumentProcessor for InstrumentRuntime {
         {
             let normalized = descriptor
                 .normalize(descriptor.default)
-                .map_err(|_| ProcessError::InvalidCompiledParameterDefault)?;
+                .map_err(|_| ProcessError::InvalidCompiledParameterDefault)
+                .inspect_err(|_| {
+                    self.spec = None;
+                })?;
             state.reset(normalized);
         }
         self.pitch_bend.reset(0.0);

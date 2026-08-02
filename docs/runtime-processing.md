@@ -130,6 +130,7 @@ SampleはCompile時に読み込み済みで、全Voiceで共有します。Voice
 - **Prepare**：Polyphony数分のVoiceを作り、Scratch BufferとNative Handleを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
 - **Reset**：全Voice、Oscillatorの位相、SampleのCursor、ADSR、Voice Source、Base Parameter、External Control、Filter、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
+- ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 
 ## Sine Runtime（開発用）
 

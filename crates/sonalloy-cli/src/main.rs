@@ -1062,7 +1062,8 @@ fn default_definition() -> InstrumentDefinition {
 fn parameter_default(compiled: &CompiledInstrument, handle: ParameterHandle) -> f32 {
     compiled
         .parameter_descriptor(handle)
-        .map_or(0.0, |descriptor| descriptor.default)
+        .expect("compiled parameter handle must be valid")
+        .default
 }
 
 fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSource {
@@ -1113,12 +1114,12 @@ fn source_id(
     source: sonalloy_core::compiler::CompiledSourceRef,
 ) -> String {
     match source {
-        sonalloy_core::compiler::CompiledSourceRef::Voice(handle) => {
-            compiled.sources.get(handle.index()).map_or_else(
-                || format!("source.{}", handle.index()),
-                |value| value.id.clone(),
-            )
-        }
+        sonalloy_core::compiler::CompiledSourceRef::Voice(handle) => compiled
+            .sources
+            .get(handle.index())
+            .expect("compiled voice source handle must be valid")
+            .id
+            .clone(),
         sonalloy_core::compiler::CompiledSourceRef::PitchBend => "pitch_bend".to_owned(),
         sonalloy_core::compiler::CompiledSourceRef::ModWheel => "mod_wheel".to_owned(),
         sonalloy_core::compiler::CompiledSourceRef::Aftertouch => "aftertouch".to_owned(),
@@ -1239,10 +1240,11 @@ fn make_inspect_report(
         .iter()
         .map(|route| InspectRoute {
             source: source_id(compiled, route.source),
-            target: compiled.parameter_descriptor(route.target).map_or_else(
-                || format!("handle.{}", route.target.index()),
-                |value| value.id.clone(),
-            ),
+            target: compiled
+                .parameter_descriptor(route.target)
+                .expect("compiled route target handle must be valid")
+                .id
+                .clone(),
             amount: route.amount,
             curve: route.curve,
         })
@@ -1413,10 +1415,10 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
         println!(
             "route {} -> {} amount {:.3} curve {:?}",
             source_id(compiled, route.source),
-            compiled.parameter_descriptor(route.target).map_or_else(
-                || format!("handle.{}", route.target.index()),
-                |value| value.id.clone()
-            ),
+            compiled
+                .parameter_descriptor(route.target)
+                .expect("compiled route target handle must be valid")
+                .id,
             route.amount,
             route.curve
         );

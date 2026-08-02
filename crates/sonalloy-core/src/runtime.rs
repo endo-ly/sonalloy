@@ -95,9 +95,14 @@ impl InstrumentProcessor for SineRuntime {
             return Err(ProcessError::EventsUnsupported);
         }
 
-        self.oscillator
+        if let Err(error) = self
+            .oscillator
             .process(self.frequency_hz, &mut self.scratch[..block.frames])
-            .map_err(ProcessError::from_dsp_error)?;
+            .map_err(ProcessError::from_dsp_error)
+        {
+            self.spec = None;
+            return Err(error);
+        }
         for channel in &mut *block.output {
             channel[..block.frames].copy_from_slice(&self.scratch[..block.frames]);
         }
@@ -109,9 +114,14 @@ impl InstrumentProcessor for SineRuntime {
         if self.spec.is_none() {
             return Err(ProcessError::NotPrepared);
         }
-        self.oscillator
+        if let Err(error) = self
+            .oscillator
             .reset()
-            .map_err(ProcessError::from_dsp_error)?;
+            .map_err(ProcessError::from_dsp_error)
+        {
+            self.spec = None;
+            return Err(error);
+        }
         self.scratch.fill(0.0);
         self.absolute_frame = 0;
         Ok(())

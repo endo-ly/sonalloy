@@ -159,7 +159,7 @@ Standard MIDI FileをAbsolute Frameの`ScheduledEvent`へ変換してRenderし�
 - 同一FrameのNote On / Note Offはゼロ長Noteとして両方を除外する
 - Sustain Pedal、Polyphonic Aftertouch、CC1以外のController、Program Change等は無視し、Warningを返す
 - 複数ChannelのNoteを一つのInstrumentへ統合した場合はWarningを返す
-- Controlは、Note Channel以外からの入力、発音時間帯が重なる複数Note Channel間で異なる値を統合する場合にWarningを返す
+- Controlは、Active Noteへ適用されるInstrument Scope値が複数Channelから供給され、Channelごとの値と統合値が異なる場合にWarningを返す
 - Note Eventを含まないMIDI FileはErrorとして拒否する
 - Coreへ`midly`型は渡さない
 

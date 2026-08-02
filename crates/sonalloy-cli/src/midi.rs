@@ -427,8 +427,6 @@ fn control_warning_needed(kind: ControlKind, events: &[ConvertedEvent]) -> bool 
     let mut active_notes = [0_u32; 16];
     let mut channel_values = [0.0_f32; 16];
     let mut merged_value = 0.0_f32;
-    let mut control_channels = [false; 16];
-    let mut note_channels = [false; 16];
     let mut index = 0;
 
     while index < events.len() {
@@ -442,22 +440,18 @@ fn control_warning_needed(kind: ControlKind, events: &[ConvertedEvent]) -> bool 
                 }
                 ProcessEventKind::NoteOn { .. } => {
                     active_notes[channel] = active_notes[channel].saturating_add(1);
-                    note_channels[channel] = true;
                 }
                 ProcessEventKind::PitchBend { value } if kind == ControlKind::PitchBend => {
                     channel_values[channel] = value;
                     merged_value = value;
-                    control_channels[channel] = true;
                 }
                 ProcessEventKind::ModWheel { value } if kind == ControlKind::ModWheel => {
                     channel_values[channel] = value;
                     merged_value = value;
-                    control_channels[channel] = true;
                 }
                 ProcessEventKind::Aftertouch { value } if kind == ControlKind::Aftertouch => {
                     channel_values[channel] = value;
                     merged_value = value;
-                    control_channels[channel] = true;
                 }
                 _ => {}
             }
@@ -471,11 +465,7 @@ fn control_warning_needed(kind: ControlKind, events: &[ConvertedEvent]) -> bool 
             return true;
         }
     }
-
-    control_channels
-        .iter()
-        .zip(note_channels)
-        .any(|(has_control, has_note)| *has_control && !has_note)
+    false
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -676,6 +666,22 @@ mod tests {
         ]);
         let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
         assert!(render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("pitch bend controls from MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn control_after_all_notes_end_needs_no_warning() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            note_off_with_delta(0, 480),
+            pitch_bend_with_delta(1, 4096, 480),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(!render.diagnostics.iter().any(|diagnostic| {
             diagnostic
                 .message
                 .contains("pitch bend controls from MIDI channels")
