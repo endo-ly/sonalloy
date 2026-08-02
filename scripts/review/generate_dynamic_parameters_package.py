@@ -111,25 +111,43 @@ def render_midi(definition: Path, midi: Path, output: Path, block_size: int) -> 
     )
 
 
+def copy_definition(source: Path, destination: Path) -> None:
+    value = json.loads(source.read_text(encoding="utf-8"))
+    for layer in value["layers"]:
+        sample = layer.get("generator", {}).get("sample")
+        if sample is not None:
+            sample["asset"]["path"] = "../assets/metal-hit.wav"
+    destination.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> None:
     review_root = ROOT / "review-output" / "dynamic-parameters"
     audio_dir = review_root / "audio"
     definition_dir = review_root / "definitions"
     event_dir = review_root / "events"
     midi_dir = review_root / "midi"
-    for directory in (audio_dir, definition_dir, event_dir, midi_dir):
+    asset_dir = review_root / "assets"
+    for directory in (audio_dir, definition_dir, event_dir, midi_dir, asset_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
     moving_source = ROOT / "examples" / "instruments" / "moving-hybrid-pad.json"
     expressive_source = ROOT / "examples" / "instruments" / "expressive-hybrid-lead.json"
     moving_definition = definition_dir / moving_source.name
     expressive_definition = definition_dir / expressive_source.name
-    shutil.copy2(moving_source, moving_definition)
-    shutil.copy2(expressive_source, expressive_definition)
+    copy_definition(moving_source, moving_definition)
+    copy_definition(expressive_source, expressive_definition)
+    shutil.copy2(ROOT / "testdata" / "assets" / "metal-hit.wav", asset_dir / "metal-hit.wav")
 
     stealing_definition = definition_dir / "moving-hybrid-pad-stealing.json"
     stealing_value = json.loads(moving_source.read_text(encoding="utf-8"))
     stealing_value["performance"]["polyphony"] = 2
+    for layer in stealing_value["layers"]:
+        sample = layer.get("generator", {}).get("sample")
+        if sample is not None:
+            sample["asset"]["path"] = "../assets/metal-hit.wav"
     stealing_definition.write_text(
         json.dumps(stealing_value, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

@@ -31,7 +31,7 @@
       "generator": {
         "sample": {
           "asset": {
-            "path": "../../testdata/assets/metal-hit.wav",
+            "path": "../assets/metal-hit.wav",
             "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
           },
           "root_note": 60,
@@ -127,7 +127,7 @@
       {
         "source": "voice_pan",
         "target": "layer.body.pan",
-        "amount": 0.10,
+        "amount": 0.1,
         "curve": "linear"
       }
     ]
