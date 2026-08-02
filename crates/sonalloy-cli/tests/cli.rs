@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use midly::{Format, Header, MidiMessage, PitchBend, Smf, Timing, TrackEvent, TrackEventKind};
 use tempfile::tempdir;
 
 fn reference_definition() -> std::path::PathBuf {
@@ -21,6 +22,16 @@ fn hybrid_midi() -> std::path::PathBuf {
         .join("../../testdata/midi/metallic-hybrid-phrase.mid")
 }
 
+fn expressive_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/expressive-hybrid-lead.json")
+}
+
+fn expressive_midi() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/midi/expressive-hybrid-controls.mid")
+}
+
 fn missing_asset_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/instruments/metallic-hybrid-missing-asset.json")
@@ -31,6 +42,31 @@ fn positive_zero_crossings(samples: &[f32]) -> usize {
         .windows(2)
         .filter(|window| window[0] <= 0.0 && window[1] > 0.0)
         .count()
+}
+
+fn write_control_only_midi(directory: &std::path::Path) -> std::path::PathBuf {
+    let path = directory.join("control-only.mid");
+    let mut smf = Smf::new(Header::new(
+        Format::SingleTrack,
+        Timing::Metrical(480.into()),
+    ));
+    smf.tracks.push(vec![
+        TrackEvent {
+            delta: 0.into(),
+            kind: TrackEventKind::Midi {
+                channel: 0.into(),
+                message: MidiMessage::PitchBend {
+                    bend: PitchBend::from_int(0),
+                },
+            },
+        },
+        TrackEvent {
+            delta: 0.into(),
+            kind: TrackEventKind::Meta(midly::MetaMessage::EndOfTrack),
+        },
+    ]);
+    smf.save(&path).expect("control-only MIDI fixture");
+    path
 }
 
 #[test]
@@ -280,6 +316,7 @@ fn instrument_init_validate_and_inspect_are_available() {
         .stdout(predicates::str::contains("polyphony: 16"))
         .stdout(predicates::str::contains("layer body"))
         .stdout(predicates::str::contains("envelope:"))
+        .stdout(predicates::str::contains("parameter layer.body.gain:"))
         .stdout(predicates::str::contains("asset: not_applicable"));
 
     Command::cargo_bin("sonalloy")
@@ -294,8 +331,34 @@ fn instrument_init_validate_and_inspect_are_available() {
         .success()
         .stdout(predicates::str::contains("\"metadata\""))
         .stdout(predicates::str::contains("\"envelope\""))
+        .stdout(predicates::str::contains("\"parameters\""))
+        .stdout(predicates::str::contains("layer.body.gain"))
         .stdout(predicates::str::contains("\"phase_reset\":true"))
-        .stdout(predicates::str::contains("\"asset_status\""));
+        .stdout(predicates::str::contains("\"asset_status\""))
+        .stdout(predicates::str::contains("\"cutoff_default_hz\""))
+        .stdout(predicates::str::contains("\"effective_max_cutoff_hz\""))
+        .stdout(predicates::str::contains("\"resonance_default\""));
+}
+
+#[test]
+fn inspect_lists_external_modulation_sources() {
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            expressive_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"id\":\"pitch_bend\""))
+        .stdout(predicates::str::contains("\"id\":\"mod_wheel\""))
+        .stdout(predicates::str::contains("\"id\":\"aftertouch\""))
+        .stdout(predicates::str::contains("\"scope\":\"instrument\""))
+        .stdout(predicates::str::contains("\"kind\":\"external_control\""));
 }
 
 #[test]
@@ -328,6 +391,125 @@ fn render_note_uses_the_compiled_instrument() {
 }
 
 #[test]
+fn render_events_supports_parameter_and_external_control_events() {
+    let directory = tempdir().expect("temporary directory");
+    let events = directory.path().join("events.json");
+    std::fs::write(
+        &events,
+        r#"{
+          "events": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 128, "type": "parameter_change", "parameter": "layer.body.gain", "normalized": 0.9},
+            {"absolute_frame": 256, "type": "pitch_bend", "value": 0.5},
+            {"absolute_frame": 384, "type": "mod_wheel", "value": 1.0},
+            {"absolute_frame": 512, "type": "aftertouch", "value": 0.75},
+            {"absolute_frame": 768, "type": "note_off", "note_id": 1}
+          ]
+        }"#,
+    )
+    .expect("event sequence fixture");
+    let output = directory.path().join("events.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "events",
+            reference_definition().to_str().expect("definition path"),
+            events.to_str().expect("events path"),
+            "--duration-frames",
+            "1024",
+            "--tail",
+            "0",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    let mut reader = hound::WavReader::open(output).expect("event render output");
+    assert_eq!(reader.duration(), 1024);
+    assert!(
+        reader
+            .samples::<f32>()
+            .map(|sample| sample.expect("valid sample"))
+            .all(f32::is_finite)
+    );
+}
+
+#[test]
+fn render_events_rejects_an_unknown_parameter_before_rendering() {
+    let directory = tempdir().expect("temporary directory");
+    let events = directory.path().join("events.json");
+    std::fs::write(
+        &events,
+        r#"{"events":[{"absolute_frame":0,"type":"parameter_change","parameter":"layer.missing.gain","normalized":0.5}]}"#,
+    )
+    .expect("event sequence fixture");
+    let output = directory.path().join("events.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "events",
+            reference_definition().to_str().expect("definition path"),
+            events.to_str().expect("events path"),
+            "--duration-frames",
+            "128",
+            "--tail",
+            "0",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .assert()
+        .code(2)
+        .stdout(predicates::str::contains("\"PARAMETER_NOT_FOUND\""));
+    assert!(!output.exists());
+}
+
+#[test]
+fn render_events_rejects_descending_absolute_frames_before_rendering() {
+    let directory = tempdir().expect("temporary directory");
+    let events = directory.path().join("events.json");
+    std::fs::write(
+        &events,
+        r#"{
+          "events": [
+            {"absolute_frame": 128, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 64, "type": "note_off", "note_id": 1}
+          ]
+        }"#,
+    )
+    .expect("event sequence fixture");
+    let output = directory.path().join("events.wav");
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "events",
+            reference_definition().to_str().expect("definition path"),
+            events.to_str().expect("events path"),
+            "--duration-frames",
+            "256",
+            "--tail",
+            "0",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .assert()
+        .code(2)
+        .stdout(predicates::str::contains("\"EVENT_ORDER_INVALID\""));
+    assert!(!output.exists());
+}
+
+#[test]
 fn render_midi_converts_tempo_and_note_events() {
     let directory = tempdir().expect("temporary directory");
     let output = directory.path().join("midi.wav");
@@ -355,6 +537,69 @@ fn render_midi_converts_tempo_and_note_events() {
         .stdout(predicates::str::contains("\"status\":\"ok\""));
     let reader = hound::WavReader::open(output).expect("rendered MIDI WAV");
     assert!(reader.duration() > 0);
+}
+
+#[test]
+fn render_midi_converts_external_controls() {
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("external-controls.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            expressive_definition().to_str().expect("definition path"),
+            expressive_midi().to_str().expect("MIDI path"),
+            "--tail",
+            "0.5",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    let mut reader = hound::WavReader::open(output).expect("external control WAV");
+    let samples: Vec<f32> = reader
+        .samples()
+        .map(|sample| sample.expect("finite sample"))
+        .collect();
+    assert!(samples.iter().all(|sample| sample.is_finite()));
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
+fn render_midi_rejects_control_only_input() {
+    let directory = tempdir().expect("temporary directory");
+    let midi = write_control_only_midi(directory.path());
+    let output = directory.path().join("control-only.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            reference_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            midi.to_str().expect("utf-8 MIDI path"),
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "64",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+            "--json",
+        ])
+        .assert()
+        .code(2)
+        .stdout(predicates::str::contains(
+            "MIDI file contains no note events",
+        ));
+    assert!(!output.exists());
 }
 
 #[test]

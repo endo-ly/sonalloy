@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Moving Hybrid Pad",
+    "author": "Sonalloy",
+    "description": "A hybrid pad with internal modulation across layers and filter"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "attack",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.05,
+        "release_seconds": 0.25
+      },
+      "generator": {
+        "sample": {
+          "asset": {
+            "path": "../assets/metal-hit.wav",
+            "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+          },
+          "root_note": 60,
+          "playback_mode": "one_shot",
+          "interpolation": "cubic"
+        }
+      }
+    },
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.3,
+        "decay_seconds": 1.2,
+        "sustain_level": 0.7,
+        "release_seconds": 2.0
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": "saw",
+          "phase_reset": true
+        }
+      }
+    }
+  ],
+  "voice_filter": {
+    "cutoff_hz": 1800.0,
+    "resonance": 0.18
+  },
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.attack.gain",
+        "amount": 0.08,
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "amount": 0.08,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.filter.resonance",
+        "amount": 0.5,
+        "curve": "linear"
+      }
+    ]
+  }
+}

@@ -10,9 +10,7 @@ const END_FADE_SECONDS: f64 = 0.005;
 pub(crate) struct SampleRuntime {
     source: Arc<[f32]>,
     position: f64,
-    playback_ratio: f64,
     end_fade_frames: usize,
-    active_fade_frames: usize,
     finished: bool,
 }
 
@@ -21,62 +19,50 @@ impl SampleRuntime {
         Self {
             source: Arc::clone(&source.samples),
             position: 0.0,
-            playback_ratio: 1.0,
             end_fade_frames: rounded_frame_count(source.sample_rate * END_FADE_SECONDS).max(1),
-            active_fade_frames: 0,
             finished: false,
         }
     }
 
-    pub(crate) fn start(&mut self, playback_ratio: f64) {
+    pub(crate) fn start(&mut self) {
         self.position = 0.0;
-        self.playback_ratio = playback_ratio;
-        self.active_fade_frames = self.end_fade_frames.min(remaining_output_frames(
-            self.source.len(),
-            0.0,
-            playback_ratio,
-        ));
         self.finished = self.source.is_empty();
     }
 
     pub(crate) fn reset(&mut self) {
         self.position = 0.0;
-        self.playback_ratio = 1.0;
-        self.active_fade_frames = self.end_fade_frames;
         self.finished = false;
     }
 
-    #[allow(clippy::cast_precision_loss)]
-    pub(crate) fn next_sample(&mut self) -> f32 {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    pub(crate) fn next_sample_with_ratio(&mut self, playback_ratio: f64) -> f32 {
         if self.finished {
             return 0.0;
         }
-        if !self.playback_ratio.is_finite() || self.playback_ratio <= 0.0 {
+        if !playback_ratio.is_finite() || playback_ratio <= 0.0 {
             self.finished = true;
             return 0.0;
         }
-        let remaining_frames =
-            remaining_output_frames(self.source.len(), self.position, self.playback_ratio);
         let sample = cubic_sample(&self.source, self.position);
-        self.position += self.playback_ratio;
+        let next_position = self.position + playback_ratio;
+        self.position = next_position;
         if self.position >= self.source.len() as f64 {
             self.finished = true;
         }
-        let gain = if remaining_frames <= self.active_fade_frames {
-            end_fade_gain(remaining_frames, self.active_fade_frames)
-        } else {
+        let fade_end = self.source.len().saturating_sub(1) as f64;
+        let fade_length = (self.end_fade_frames as f64).min(fade_end);
+        let gain = if fade_length == 0.0 {
+            0.0
+        } else if next_position < fade_end - fade_length {
             1.0
+        } else {
+            ((fade_end - next_position) / fade_length).clamp(0.0, 1.0) as f32
         };
         sample * gain
     }
 
     pub(crate) fn is_finished(&self) -> bool {
         self.finished
-    }
-
-    #[cfg(test)]
-    pub(crate) fn position(&self) -> f64 {
-        self.position
     }
 }
 
@@ -85,21 +71,6 @@ impl SampleRuntime {
     clippy::cast_precision_loss,
     clippy::cast_sign_loss
 )]
-fn remaining_output_frames(source_len: usize, position: f64, playback_ratio: f64) -> usize {
-    let remaining = ((source_len as f64 - position) / playback_ratio).ceil();
-    remaining.max(1.0) as usize
-}
-
-#[allow(clippy::cast_precision_loss)]
-fn end_fade_gain(remaining_frames: usize, fade_frames: usize) -> f32 {
-    if fade_frames <= 1 {
-        return 0.0;
-    }
-    let numerator = remaining_frames.saturating_sub(1) as f32;
-    let denominator = (fade_frames - 1) as f32;
-    (numerator / denominator).clamp(0.0, 1.0)
-}
-
 pub(crate) fn playback_ratio(note_number: u8, root_note: u8, tuning_ratio: f32) -> f64 {
     let semitones = f64::from(note_number) - f64::from(root_note);
     2.0_f64.powf(semitones / 12.0) * f64::from(tuning_ratio)
@@ -137,6 +108,10 @@ mod tests {
     use super::*;
     use crate::asset::{PreparedSample, SampleMetadata};
 
+    fn next_sample(runtime: &mut SampleRuntime, playback_ratio: f64) -> f32 {
+        runtime.next_sample_with_ratio(playback_ratio)
+    }
+
     fn sample(values: &[f32]) -> PreparedSample {
         PreparedSample {
             sample_rate: 48_000.0,
@@ -169,12 +144,12 @@ mod tests {
     fn sample_runtime_finishes_without_out_of_bounds_reads() {
         let source = sample(&[0.1, 0.2, 0.3]);
         let mut runtime = SampleRuntime::new(&source);
-        runtime.start(1.0);
-        let values: Vec<f32> = (0..5).map(|_| runtime.next_sample()).collect();
+        runtime.start();
+        let values: Vec<f32> = (0..5).map(|_| next_sample(&mut runtime, 1.0)).collect();
         assert!(values[..3].iter().all(|value| value.is_finite()));
         assert!(values[3..].iter().all(|value| value.abs() < 1.0e-6));
         assert!(runtime.is_finished());
-        assert!((runtime.position() - 3.0).abs() < 1.0e-6);
+        assert!((runtime.position - 3.0).abs() < 1.0e-6);
     }
 
     #[test]
@@ -184,10 +159,10 @@ mod tests {
             *values.last_mut().expect("fixture has samples") = last_value;
             let source = sample(&values);
             let mut runtime = SampleRuntime::new(&source);
-            runtime.start(playback_ratio);
+            runtime.start();
             let mut rendered = Vec::new();
             while !runtime.is_finished() {
-                rendered.push(runtime.next_sample());
+                rendered.push(next_sample(&mut runtime, playback_ratio));
             }
             assert!(rendered.iter().all(|value| value.is_finite()));
             assert!(rendered.last().is_some_and(|value| value.abs() < 1.0e-6));
@@ -204,21 +179,9 @@ mod tests {
         for values in [&[][..], &[1.0][..], &[1.0, 2.0][..], &[1.0, 2.0, 3.0][..]] {
             let source = sample(values);
             let mut runtime = SampleRuntime::new(&source);
-            runtime.start(0.5);
+            runtime.start();
             for _ in 0..8 {
-                assert!(runtime.next_sample().is_finite());
-            }
-        }
-    }
-
-    #[test]
-    fn fractional_positions_are_finite_for_short_buffers() {
-        for values in [&[][..], &[1.0][..], &[1.0, 2.0][..], &[1.0, 2.0, 3.0][..]] {
-            let source = sample(values);
-            let mut runtime = SampleRuntime::new(&source);
-            runtime.start(0.5);
-            for _ in 0..8 {
-                assert!(runtime.next_sample().is_finite());
+                assert!(next_sample(&mut runtime, 0.5).is_finite());
             }
         }
     }

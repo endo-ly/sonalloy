@@ -178,6 +178,45 @@ impl DspOscillator {
         }
         result
     }
+
+    /// Render a block while ramping frequency in the native oscillator.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid frequencies, an unprepared oscillator, or a native
+    /// processing failure. The output is cleared on failure.
+    pub fn process_ramp(
+        &mut self,
+        start_frequency_hz: f32,
+        end_frequency_hz: f32,
+        output: &mut [f32],
+    ) -> Result<(), DspError> {
+        if !self.prepared {
+            output.fill(0.0);
+            return Err(DspError::NotPrepared);
+        }
+        let frames = u32::try_from(output.len()).map_err(|_| {
+            output.fill(0.0);
+            DspError::InvalidArgument
+        })?;
+        if output.is_empty() {
+            return Ok(());
+        }
+        let code = unsafe {
+            ffi::sonalloy_dsp_oscillator_process_ramp(
+                self.handle.as_ptr(),
+                start_frequency_hz,
+                end_frequency_hz,
+                output.as_mut_ptr(),
+                frames,
+            )
+        };
+        let result = result_from_code(code);
+        if result.is_err() {
+            output.fill(0.0);
+        }
+        result
+    }
 }
 
 impl Drop for DspOscillator {
@@ -189,6 +228,11 @@ impl Drop for DspOscillator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(sonalloy_test_hooks)]
+    unsafe extern "C" {
+        fn sonalloy_dsp_test_arm_process_exception(handle: *mut ffi::DspOscillator);
+    }
 
     #[test]
     fn null_handle_is_reported_by_the_ffi() {
@@ -295,12 +339,32 @@ mod tests {
         oscillator
             .prepare(48_000.0, DspOscillatorWaveform::Sine)
             .expect("oscillator preparation");
-        unsafe { ffi::sonalloy_dsp_test_arm_process_exception(oscillator.handle.as_ptr()) };
+        unsafe { sonalloy_dsp_test_arm_process_exception(oscillator.handle.as_ptr()) };
         let mut output = [1.0_f32; 2];
         assert_eq!(
             oscillator.process(440.0, &mut output),
             Err(DspError::NativeException)
         );
         assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+    }
+
+    #[cfg(sonalloy_test_hooks)]
+    #[test]
+    fn native_ramp_exception_is_caught_and_consumes_the_hook() {
+        let mut oscillator = DspOscillator::new().expect("oscillator allocation");
+        oscillator
+            .prepare(48_000.0, DspOscillatorWaveform::Sine)
+            .expect("oscillator preparation");
+        unsafe { sonalloy_dsp_test_arm_process_exception(oscillator.handle.as_ptr()) };
+        let mut output = [1.0_f32; 2];
+        assert_eq!(
+            oscillator.process_ramp(440.0, 880.0, &mut output),
+            Err(DspError::NativeException)
+        );
+        assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+
+        oscillator
+            .process(440.0, &mut output)
+            .expect("exception hook is consumed after one process");
     }
 }

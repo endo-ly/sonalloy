@@ -19,15 +19,15 @@
 ```mermaid
 flowchart LR
     A[出力をゼロで埋める] --> B[Eventの位置で区切る]
-    B --> C[区間ごとにVoiceを鳴らす]
-    C --> D[Eventを適用]
+    B --> C[その位置のEventを適用]
+    C --> D[区間ごとにVoiceを鳴らす]
     D --> E{次のEventはあるか}
-    E -- あり --> C
+    E -- あり --> B
     E -- なし --> F[Blockの最後まで鳴らす]
 ```
 
 - 出力はStereoで、左右のチャンネルを分けた`f32`バッファに書き込みます
-- Eventは「いつ・どのNoteを押す/離す」の情報だけで、音の計算は毎Sample行われます
+- EventはNote、Parameter Change、Pitch Bend、Mod Wheel、Aftertouchを含みます。音の計算は毎Sample行われます
 - Note OnからNote Offまでの間、そのNoteは1つのVoiceに割り当てられます
 
 ## Blockの処理
@@ -41,8 +41,9 @@ flowchart LR
 **Eventの規則**
 
 - Eventは`sample_offset`の昇順に並べます
-- 同じ位置では、対応するNote OffをNote Onより先に置きます
-- 位置が前後している、または同じNoteの順序が不正な場合はエラーになります
+- 同じ位置では`Note Off`、`Parameter Change`、`Pitch Bend`、`Mod Wheel`、`Aftertouch`、`Note On`の順に置きます
+- 位置が前後している、または同じ位置の優先順位が不正な場合はエラーになります
+- Parameter Handle、Normalized値、External Control値はBlock開始前に全件検証します。不正EventがあればStateを変更せず、対象Blockを無音にします
 
 ## Noteの一生
 
@@ -75,7 +76,7 @@ stateDiagram-v2
 
 ## Voiceの中身
 
-Voiceは複数のLayerと左右独立のFilterを持ちます。Layerは「Generator + ADSR + Gain + Pan」のセットで、Trigger条件に合ったLayerだけが鳴ります。
+Voiceは複数のLayer、Voice Source State、左右独立のFilterを持ちます。Layerは「Generator + ADSR + Gain + Pan」のセットで、Trigger条件に合ったLayerだけが鳴ります。Base ParameterとInstrument ScopeのExternal Controlは全Voiceで共有し、LFO、Modulation Envelope、RandomはVoiceごとに保持します。
 
 ```mermaid
 flowchart TD
@@ -85,12 +86,30 @@ flowchart TD
     P --> M[Layerの出力をすべて合成]
     M --> F[Voice Filter 左右独立]
     F --> O[Stereo出力]
+    S[Voice Source] --> T[Route評価]
+    X[Shared Base / External Control] --> T
+    T --> A
+    T --> P
+    T --> G
+    T --> F
 ```
 
 - **ADSR**：Note OnでAttackから始まり、Decayを経てSustainで待ちます。Note Offで現在の値からReleaseへ進みます。長さ0の区間は飛ばします
-- **Gain**：5msで目標へ滑らかに変化させ、Note開始時のクリックを防ぎます。目標値はLayerのGainにVelocity応答を掛けた値です
+- **Gain**：Base値とRouteをdB Domainで加算し、RangeへClampした後にLinear Gainへ変換します。Note開始Fade、Amplitude ADSR、Dynamic Gainを順に乗算します
 - **Pan**：Constant-powerで左右へ振り分けます
-- **Filter**：Cutoffは10msで滑らかに変化し、Velocity応答で開閉します。`voice_filter`が無ければかけません
+- **Tuning**：Base値とRouteをcentで加算し、OscillatorのFrequencyまたはSampleのPlayback Ratioへ変換します
+- **Filter**：CutoffはLog2、ResonanceはLinearで評価して10msで滑らかに変化させます。`voice_filter`が無ければかけません
+
+## ParameterとModulation
+
+Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを持ちます。Process側はCatalogのDense Handleだけを使い、ID文字列を音声処理へ渡しません。
+
+- Base ParameterはNormalized値をSmootherへ入れ、5ms（Filterは10ms）でTargetへ近づけます
+- Routeは同じTargetについて書かれた順にSource値へAmountを掛けて加算します。Linear ParameterはNative範囲、Log2 ParameterはLog2範囲で加算し、最後にClampします
+- Shared Parameter Spanは最大32Frame単位で全Voiceへ同じ値を渡します。Voice SourceはVoiceごとにSpanを計算します
+- `velocity`、`key_tracking`、LFO、Modulation Envelope、RandomはVoiceに属します。Pitch Bend、Mod Wheel、Aftertouchは共有External Controlです
+- Note OffはAmplitude ADSRとModulation Envelopeへ伝えます。LFOとRandomはVoice終了まで保持し、Voice終了時に初期値へ戻します
+- Instrument ResetではBase ParameterとExternal ControlもDefinition Defaultへ戻します
 
 **Generatorの種類**
 
@@ -101,7 +120,7 @@ flowchart TD
 
 SampleはCompile時に読み込み済みで、全Voiceで共有します。Voiceごとに再生位置（Cursor）だけを持ちます。
 
-- Note OnでCursorを先頭へ戻し、再生速度は`2^((note - root) / 12) × Tuning`です
+- Note OnでCursorを先頭へ戻し、再生速度は`2^((note - root) / 12) × Tuning Ratio`です。Tuning RatioはParameter SpanのStart / EndからLog Domainで補間します
 - Cursorは再生速度で進み、4点Cubic補間で読み出します
 - one_shotでは末尾の5msをゼロへFadeし、音が急に切れないようにします
 - Note OffではCursorを止めず、ADSRのReleaseだけが進みます。Sampleが終わるとそのLayerの音は終わります
@@ -109,8 +128,9 @@ SampleはCompile時に読み込み済みで、全Voiceで共有します。Voice
 ## 準備とリセット
 
 - **Prepare**：Polyphony数分のVoiceを作り、Scratch BufferとNative Handleを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、Oscillatorの位相、SampleのCursor、ADSR、Filter、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- **Reset**：全Voice、Oscillatorの位相、SampleのCursor、ADSR、Voice Source、Base Parameter、External Control、Filter、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
+- ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 
 ## Sine Runtime（開発用）
 

@@ -37,8 +37,5 @@
     }
   ],
   "voice_filter": null,
-  "velocity_response": {
-    "layer_gain_amount": 0.5,
-    "filter_cutoff_octaves": 1.0
-  }
+  "modulation": null
 }

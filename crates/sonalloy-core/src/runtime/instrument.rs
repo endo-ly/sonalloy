@@ -5,15 +5,19 @@ use crate::process::{
     InstrumentProcessor, ProcessBlock, ProcessError, ProcessEventKind, ProcessSpec, clear_output,
 };
 
-use super::smoothing::rounded_frame_count;
+use super::modulation::{ParameterSpanValue, SharedParameterSpan, ValueSpan};
+use super::smoothing::{Smoother, rounded_frame_count};
 use super::voice::{NoteRequest, VoiceRuntime, VoiceState};
 
+const CONTROL_SMOOTHING_SECONDS: f64 = 0.005;
 const STEAL_FADE_SECONDS: f64 = 0.005;
+const QUANTUM_FRAMES: usize = 32;
 
 struct RuntimeScratch {
     layer_mono: Vec<f32>,
     voice_left: Vec<f32>,
     voice_right: Vec<f32>,
+    parameter_spans: Vec<ParameterSpanValue>,
 }
 
 /// Prepared polyphonic runtime for one immutable compiled instrument.
@@ -21,6 +25,10 @@ pub struct InstrumentRuntime {
     compiled: Arc<CompiledInstrument>,
     voices: Vec<VoiceRuntime>,
     scratch: RuntimeScratch,
+    parameter_states: Vec<Smoother>,
+    pitch_bend: Smoother,
+    mod_wheel: Smoother,
+    aftertouch: Smoother,
     spec: Option<ProcessSpec>,
     absolute_frame: u64,
 }
@@ -36,7 +44,12 @@ impl InstrumentRuntime {
                 layer_mono: Vec::new(),
                 voice_left: Vec::new(),
                 voice_right: Vec::new(),
+                parameter_spans: Vec::new(),
             },
+            parameter_states: Vec::new(),
+            pitch_bend: Smoother::new(0.0),
+            mod_wheel: Smoother::new(0.0),
+            aftertouch: Smoother::new(0.0),
             spec: None,
             absolute_frame: 0,
         }
@@ -66,46 +79,42 @@ impl InstrumentRuntime {
         self.voices.get(index).map(VoiceRuntime::state)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_range(
-        &mut self,
+        voices: &mut [VoiceRuntime],
+        compiled: &CompiledInstrument,
+        layer_mono: &mut [f32],
+        voice_left: &mut [f32],
+        voice_right: &mut [f32],
         output: &mut [&mut [f32]],
         start: usize,
         end: usize,
         sample_rate: f64,
+        shared: SharedParameterSpan<'_>,
     ) -> Result<(), ProcessError> {
         if start >= end {
             return Ok(());
         }
         let frames = end - start;
-        let velocity_response = self.compiled.velocity_response;
         let (left_channels, right_channels) = output.split_at_mut(1);
         let left = &mut left_channels[0][start..end];
         let right = &mut right_channels[0][start..end];
-        for voice in &mut self.voices {
-            let mut offset = 0;
-            while offset < frames {
-                let remaining = frames - offset;
-                let chunk = if voice.is_stealing() {
-                    voice.steal_frames_remaining().min(remaining)
-                } else {
-                    remaining
-                };
-                if chunk == 0 {
-                    break;
-                }
-                voice.render(
-                    chunk,
-                    sample_rate,
-                    velocity_response,
-                    &mut self.scratch.layer_mono,
-                    &mut self.scratch.voice_left,
-                    &mut self.scratch.voice_right,
-                )?;
-                for index in 0..chunk {
-                    left[offset + index] += self.scratch.voice_left[index];
-                    right[offset + index] += self.scratch.voice_right[index];
-                }
-                offset += chunk;
+        for voice in voices {
+            if voice.state() == VoiceState::Idle {
+                continue;
+            }
+            voice.render_span(
+                frames,
+                sample_rate,
+                compiled,
+                shared,
+                &mut layer_mono[..frames],
+                &mut voice_left[..frames],
+                &mut voice_right[..frames],
+            )?;
+            for index in 0..frames {
+                left[index] += voice_left[index];
+                right[index] += voice_right[index];
             }
         }
         Ok(())
@@ -141,15 +150,39 @@ impl InstrumentRuntime {
                 let fade_frames = rounded_frame_count(spec.sample_rate * STEAL_FADE_SECONDS);
                 self.voices[voice_index].request_note(
                     NoteRequest::new(note_id, note_number, velocity, absolute_frame),
-                    spec.sample_rate,
                     fade_frames,
-                    self.compiled.velocity_response,
                 )?;
             }
             ProcessEventKind::NoteOff { note_id } => {
                 for voice in &mut self.voices {
                     voice.release_note(note_id);
                 }
+            }
+            ProcessEventKind::ParameterChange {
+                parameter,
+                normalized,
+            } => {
+                let descriptor = self.compiled.parameter_descriptor(parameter).ok_or(
+                    ProcessError::ParameterHandleOutOfRange {
+                        handle: parameter.index(),
+                    },
+                )?;
+                let frames =
+                    rounded_frame_count(f64::from(descriptor.smoothing_seconds) * spec.sample_rate)
+                        .max(1);
+                self.parameter_states[parameter.index()].set_target(normalized, frames);
+            }
+            ProcessEventKind::PitchBend { value } => {
+                self.pitch_bend
+                    .set_target(value, control_smoothing_frames(spec.sample_rate));
+            }
+            ProcessEventKind::ModWheel { value } => {
+                self.mod_wheel
+                    .set_target(value, control_smoothing_frames(spec.sample_rate));
+            }
+            ProcessEventKind::Aftertouch { value } => {
+                self.aftertouch
+                    .set_target(value, control_smoothing_frames(spec.sample_rate));
             }
         }
         Ok(())
@@ -190,16 +223,83 @@ impl InstrumentRuntime {
             .min_by_key(|(_, voice)| voice.started_at_frame())
             .map_or(0, |(index, _)| index)
     }
+
+    fn validate_parameter_events(
+        &self,
+        events: &[crate::process::ProcessEvent],
+    ) -> Result<(), ProcessError> {
+        for event in events {
+            if let ProcessEventKind::ParameterChange { parameter, .. } = event.kind
+                && self.compiled.parameter_descriptor(parameter).is_none()
+            {
+                return Err(ProcessError::ParameterHandleOutOfRange {
+                    handle: parameter.index(),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn shared_target_remaining(&self) -> Option<usize> {
+        let mut remaining = self
+            .parameter_states
+            .iter()
+            .filter_map(Smoother::frames_until_target)
+            .min();
+        for control in [
+            self.pitch_bend.frames_until_target(),
+            self.mod_wheel.frames_until_target(),
+            self.aftertouch.frames_until_target(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            remaining = Some(remaining.map_or(control, |value| value.min(control)));
+        }
+        remaining
+    }
+
+    fn advance_shared(&mut self, frames: usize) -> (ValueSpan, ValueSpan, ValueSpan) {
+        for (state, span) in self
+            .parameter_states
+            .iter_mut()
+            .zip(&mut self.scratch.parameter_spans)
+        {
+            let (start, end) = state.span(frames);
+            *span = ParameterSpanValue { start, end };
+        }
+        let (pitch_start, pitch_end) = self.pitch_bend.span(frames);
+        let (wheel_start, wheel_end) = self.mod_wheel.span(frames);
+        let (touch_start, touch_end) = self.aftertouch.span(frames);
+        (
+            ValueSpan {
+                start: pitch_start,
+                end: pitch_end,
+            },
+            ValueSpan {
+                start: wheel_start,
+                end: wheel_end,
+            },
+            ValueSpan {
+                start: touch_start,
+                end: touch_end,
+            },
+        )
+    }
 }
 
 impl InstrumentProcessor for InstrumentRuntime {
     fn prepare(&mut self, spec: ProcessSpec) -> Result<(), ProcessError> {
-        // A failed preparation must not leave an older prepared state usable.
         self.spec = None;
         self.voices.clear();
         self.scratch.layer_mono.clear();
         self.scratch.voice_left.clear();
         self.scratch.voice_right.clear();
+        self.scratch.parameter_spans.clear();
+        self.parameter_states.clear();
+        self.pitch_bend.reset(0.0);
+        self.mod_wheel.reset(0.0);
+        self.aftertouch.reset(0.0);
         self.absolute_frame = 0;
 
         spec.validate()?;
@@ -216,6 +316,24 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.scratch.layer_mono.resize(spec.max_block_size, 0.0);
         self.scratch.voice_left.resize(spec.max_block_size, 0.0);
         self.scratch.voice_right.resize(spec.max_block_size, 0.0);
+        self.scratch.parameter_spans.resize(
+            self.compiled.parameters().len(),
+            ParameterSpanValue {
+                start: 0.0,
+                end: 0.0,
+            },
+        );
+        self.parameter_states = self
+            .compiled
+            .parameters()
+            .iter()
+            .map(|descriptor| {
+                descriptor
+                    .normalize(descriptor.default)
+                    .map(Smoother::new)
+                    .map_err(|_| ProcessError::InvalidCompiledParameterDefault)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let mut voices = Vec::with_capacity(self.compiled.performance.polyphony);
         for _ in 0..self.compiled.performance.polyphony {
             voices.push(VoiceRuntime::new(&self.compiled, spec)?);
@@ -229,6 +347,7 @@ impl InstrumentProcessor for InstrumentRuntime {
         clear_output(&mut *block.output, block.frames);
         let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
         block.validate_for(spec)?;
+        self.validate_parameter_events(block.events)?;
         if block.context.absolute_frame != self.absolute_frame {
             return Err(ProcessError::ContextDiscontinuity {
                 received: block.context.absolute_frame,
@@ -239,21 +358,77 @@ impl InstrumentProcessor for InstrumentRuntime {
             .absolute_frame
             .checked_add(block.frames as u64)
             .ok_or(ProcessError::FrameOverflow)?;
+        if block.frames == 0 {
+            self.absolute_frame = next_frame;
+            return Ok(());
+        }
+
         let mut cursor = 0;
         let mut event_index = 0;
-        while event_index < block.events.len() {
-            let offset = block.events[event_index].sample_offset;
-            self.render_range(block.output, cursor, offset, spec.sample_rate)?;
+        while cursor < block.frames {
             while event_index < block.events.len()
-                && block.events[event_index].sample_offset == offset
+                && block.events[event_index].sample_offset == cursor
             {
                 let event = block.events[event_index].kind;
-                self.apply_event(event, block.context.absolute_frame + offset as u64)?;
+                if let Err(error) = self.apply_event(event, self.absolute_frame + cursor as u64) {
+                    clear_output(&mut *block.output, block.frames);
+                    self.spec = None;
+                    return Err(error);
+                }
                 event_index += 1;
             }
-            cursor = offset;
+
+            let mut end = block.frames;
+            if let Some(next_event) = block.events.get(event_index) {
+                end = end.min(next_event.sample_offset);
+            }
+            let absolute = self.absolute_frame + cursor as u64;
+            let Ok(absolute_frame) = usize::try_from(absolute) else {
+                self.spec = None;
+                return Err(ProcessError::FrameOverflow);
+            };
+            let quantum = QUANTUM_FRAMES - (absolute_frame % QUANTUM_FRAMES);
+            end = end.min(cursor + quantum);
+            if let Some(remaining) = self.shared_target_remaining() {
+                end = end.min(cursor + remaining);
+            }
+            if end <= cursor {
+                end = cursor + 1;
+            }
+
+            let frames = end - cursor;
+            let (pitch_bend, mod_wheel, aftertouch) = self.advance_shared(frames);
+            let RuntimeScratch {
+                layer_mono,
+                voice_left,
+                voice_right,
+                parameter_spans,
+            } = &mut self.scratch;
+            let shared = SharedParameterSpan::new(
+                &*parameter_spans,
+                pitch_bend,
+                mod_wheel,
+                aftertouch,
+                frames,
+            );
+            if let Err(error) = Self::render_range(
+                &mut self.voices,
+                &self.compiled,
+                layer_mono,
+                voice_left,
+                voice_right,
+                block.output,
+                cursor,
+                end,
+                spec.sample_rate,
+                shared,
+            ) {
+                clear_output(&mut *block.output, block.frames);
+                self.spec = None;
+                return Err(error);
+            }
+            cursor = end;
         }
-        self.render_range(block.output, cursor, block.frames, spec.sample_rate)?;
         self.absolute_frame = next_frame;
         Ok(())
     }
@@ -263,14 +438,41 @@ impl InstrumentProcessor for InstrumentRuntime {
             return Err(ProcessError::NotPrepared);
         }
         for voice in &mut self.voices {
-            voice.reset()?;
+            if let Err(error) = voice.reset() {
+                self.spec = None;
+                return Err(error);
+            }
         }
+        for (state, descriptor) in self
+            .parameter_states
+            .iter_mut()
+            .zip(self.compiled.parameters())
+        {
+            let normalized = descriptor
+                .normalize(descriptor.default)
+                .map_err(|_| ProcessError::InvalidCompiledParameterDefault)
+                .inspect_err(|_| {
+                    self.spec = None;
+                })?;
+            state.reset(normalized);
+        }
+        self.pitch_bend.reset(0.0);
+        self.mod_wheel.reset(0.0);
+        self.aftertouch.reset(0.0);
         self.scratch.layer_mono.fill(0.0);
         self.scratch.voice_left.fill(0.0);
         self.scratch.voice_right.fill(0.0);
+        self.scratch.parameter_spans.fill(ParameterSpanValue {
+            start: 0.0,
+            end: 0.0,
+        });
         self.absolute_frame = 0;
         Ok(())
     }
+}
+
+fn control_smoothing_frames(sample_rate: f64) -> usize {
+    rounded_frame_count(sample_rate * CONTROL_SMOOTHING_SECONDS).max(1)
 }
 
 #[cfg(test)]
@@ -280,7 +482,22 @@ mod tests {
     use super::*;
     use crate::compiler::{CompileContext, compile_instrument};
     use crate::definition::tests::definition;
+    use crate::parameter::ParameterHandle;
     use crate::process::ProcessEvent;
+
+    fn compiled(polyphony: u16) -> Arc<CompiledInstrument> {
+        let mut definition = definition();
+        definition.performance.polyphony = polyphony;
+        compile_instrument(
+            &definition,
+            &CompileContext {
+                definition_base_dir: ".".into(),
+                process_spec: ProcessSpec::new(48_000.0, 64, 2).expect("valid spec"),
+            },
+        )
+        .instrument
+        .expect("definition compiles")
+    }
 
     fn runtime_with(definition: &crate::definition::InstrumentDefinition) -> InstrumentRuntime {
         let result = compile_instrument(
@@ -294,8 +511,7 @@ mod tests {
     }
 
     fn runtime() -> InstrumentRuntime {
-        let definition = definition();
-        runtime_with(&definition)
+        runtime_with(&definition())
     }
 
     fn prepare(runtime: &mut InstrumentRuntime) {
@@ -330,9 +546,7 @@ mod tests {
     #[test]
     fn note_lifecycle_produces_stereo_audio_and_release() {
         let mut runtime = runtime();
-        runtime
-            .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"))
-            .expect("prepare");
+        prepare(&mut runtime);
         let on = [ProcessEvent {
             sample_offset: 0,
             kind: ProcessEventKind::NoteOn {
@@ -464,7 +678,7 @@ mod tests {
             &definition(),
             &CompileContext {
                 definition_base_dir: ".".into(),
-                process_spec: ProcessSpec::new(44_100.0, 257, 2).expect("valid process spec"),
+                process_spec: ProcessSpec::new(44_100.0, 257, 2).expect("valid spec"),
             },
         );
         let mut runtime = result
@@ -472,7 +686,7 @@ mod tests {
             .expect("compiled instrument")
             .instantiate();
         runtime
-            .prepare(ProcessSpec::new(44_100.0, 257, 2).expect("valid process spec"))
+            .prepare(ProcessSpec::new(44_100.0, 257, 2).expect("valid spec"))
             .expect("matching 44.1 kHz sample rate is valid");
     }
 
@@ -519,8 +733,7 @@ mod tests {
     #[test]
     fn reset_restarts_the_same_render() {
         let mut runtime = runtime();
-        let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid spec");
-        runtime.prepare(spec).expect("prepare");
+        prepare(&mut runtime);
         let event = [ProcessEvent {
             sample_offset: 0,
             kind: ProcessEventKind::NoteOn {
@@ -540,8 +753,7 @@ mod tests {
     #[test]
     fn releasing_voice_is_selected_before_active_voice() {
         let mut runtime = runtime();
-        let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid spec");
-        runtime.prepare(spec).expect("prepare");
+        prepare(&mut runtime);
         let events = [
             ProcessEvent {
                 sample_offset: 0,
@@ -879,6 +1091,265 @@ mod tests {
         runtime_with(&source)
     }
 
+    fn modulated_steal_definition() -> crate::definition::InstrumentDefinition {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].envelope.attack_seconds = 0.0;
+        source.layers[0].envelope.decay_seconds = 0.0;
+        source.layers[0].envelope.sustain_level = 1.0;
+        source.layers[0].envelope.release_seconds = 0.25;
+        source.voice_filter = Some(crate::definition::FilterDefinition {
+            cutoff_hz: 2_000.0,
+            resonance: 0.15,
+        });
+        source.modulation = Some(crate::definition::ModulationDefinition {
+            sources: vec![
+                crate::definition::ModulationSourceDefinition::Lfo(
+                    crate::definition::LfoDefinition {
+                        id: "steal_lfo".to_owned(),
+                        waveform: crate::definition::LfoWaveform::Triangle,
+                        rate_hz: 37.0,
+                        phase: 0.0,
+                    },
+                ),
+                crate::definition::ModulationSourceDefinition::Envelope(
+                    crate::definition::ModEnvelopeDefinition {
+                        id: "steal_envelope".to_owned(),
+                        attack_seconds: 0.01,
+                        decay_seconds: 0.03,
+                        sustain_level: 0.4,
+                        release_seconds: 0.1,
+                    },
+                ),
+            ],
+            routes: vec![
+                crate::definition::ModulationRouteDefinition {
+                    source: "steal_lfo".to_owned(),
+                    target: "layer.body.gain".to_owned(),
+                    amount: 0.5,
+                    curve: crate::definition::ModulationCurve::Linear,
+                },
+                crate::definition::ModulationRouteDefinition {
+                    source: "steal_lfo".to_owned(),
+                    target: "voice.filter.cutoff".to_owned(),
+                    amount: 0.25,
+                    curve: crate::definition::ModulationCurve::Linear,
+                },
+                crate::definition::ModulationRouteDefinition {
+                    source: "steal_envelope".to_owned(),
+                    target: "layer.body.tuning".to_owned(),
+                    amount: 0.1,
+                    curve: crate::definition::ModulationCurve::Linear,
+                },
+            ],
+        });
+        source
+    }
+
+    #[test]
+    fn steal_fade_continues_parameter_lfo_and_envelope_processing() {
+        let dynamic_definition = modulated_steal_definition();
+        let mut static_definition = dynamic_definition.clone();
+        static_definition.modulation = None;
+        let mut dynamic = runtime_with(&dynamic_definition);
+        let mut static_runtime = runtime_with(&static_definition);
+        prepare(&mut dynamic);
+        prepare(&mut static_runtime);
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let _ = process(&mut dynamic, 256, 0, &first_note);
+        let _ = process(&mut static_runtime, 256, 0, &first_note);
+        let dynamic_gain = dynamic
+            .compiled()
+            .parameter_handle("layer.body.gain")
+            .expect("body gain parameter");
+        let static_gain = static_runtime
+            .compiled()
+            .parameter_handle("layer.body.gain")
+            .expect("body gain parameter");
+        let steal_events = [
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 67,
+                    velocity: 110,
+                },
+            },
+            ProcessEvent {
+                sample_offset: 32,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: dynamic_gain,
+                    normalized: 1.0,
+                },
+            },
+        ];
+        let static_events = [
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 67,
+                    velocity: 110,
+                },
+            },
+            ProcessEvent {
+                sample_offset: 32,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: static_gain,
+                    normalized: 1.0,
+                },
+            },
+        ];
+        let dynamic_audio = process(&mut dynamic, 256, 256, &steal_events);
+        let static_audio = process(&mut static_runtime, 256, 256, &static_events);
+        assert_eq!(dynamic.voice_state(0), Some(VoiceState::Active));
+        assert_eq!(static_runtime.voice_state(0), Some(VoiceState::Active));
+        assert!(
+            dynamic_audio
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
+        );
+        assert!(
+            dynamic_audio[0][..240]
+                .iter()
+                .zip(&static_audio[0][..240])
+                .any(|(dynamic, static_sample)| (dynamic - static_sample).abs() > 1.0e-5)
+        );
+    }
+
+    #[test]
+    fn steal_completion_inside_a_control_span_starts_the_pending_note() {
+        let mut runtime = runtime_with(&modulated_steal_definition());
+        prepare(&mut runtime);
+        let _ = process(
+            &mut runtime,
+            256,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        let audio = process(
+            &mut runtime,
+            256,
+            256,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 67,
+                    velocity: 110,
+                },
+            }],
+        );
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+        assert!(audio.iter().flatten().all(|sample| sample.is_finite()));
+        assert!(audio[0][240..].iter().any(|sample| sample.abs() > 1.0e-6));
+        assert!((audio[0][240] - audio[0][239]).abs() < 0.5);
+    }
+
+    #[test]
+    fn static_and_dynamic_targets_render_finite_audio() {
+        let mut static_runtime = runtime();
+        prepare(&mut static_runtime);
+        let static_audio = process(
+            &mut static_runtime,
+            128,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            }],
+        );
+        assert!(
+            static_audio
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
+        );
+        assert!(
+            static_audio
+                .iter()
+                .flatten()
+                .any(|sample| sample.abs() > 1.0e-6)
+        );
+
+        let mut static_filter_definition = modulated_steal_definition();
+        static_filter_definition.modulation = None;
+        let mut static_filter_runtime = runtime_with(&static_filter_definition);
+        prepare(&mut static_filter_runtime);
+        let static_filter_audio = process(
+            &mut static_filter_runtime,
+            128,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            }],
+        );
+        assert!(
+            static_filter_audio
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
+        );
+        assert!(
+            static_filter_audio
+                .iter()
+                .flatten()
+                .any(|sample| sample.abs() > 1.0e-6)
+        );
+
+        let mut dynamic_runtime = runtime_with(&modulated_steal_definition());
+        prepare(&mut dynamic_runtime);
+        let dynamic_audio = process(
+            &mut dynamic_runtime,
+            256,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            }],
+        );
+        assert!(
+            dynamic_audio
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
+        );
+        assert!(
+            dynamic_audio
+                .iter()
+                .flatten()
+                .any(|sample| sample.abs() > 1.0e-6)
+        );
+    }
+
     #[test]
     fn phase_reset_changes_retriggered_note_phase() {
         let mut reset_runtime = phase_runtime(true);
@@ -972,5 +1443,113 @@ mod tests {
                 .zip(&first[0])
                 .any(|(continued, first)| (continued - first).abs() > 1.0e-4)
         );
+    }
+
+    fn process_parameter_event(runtime: &mut InstrumentRuntime, event: ProcessEventKind) {
+        let mut left = [1.0_f32; 32];
+        let mut right = [1.0_f32; 32];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        runtime
+            .process(ProcessBlock {
+                frames: 32,
+                context: crate::process::ProcessContext {
+                    absolute_frame: 0,
+                    tempo_bpm: 120.0,
+                },
+                events: &[ProcessEvent {
+                    sample_offset: 0,
+                    kind: event,
+                }],
+                output: &mut output,
+            })
+            .expect("parameter event process");
+    }
+
+    #[test]
+    fn invalid_parameter_event_leaves_runtime_state_unchanged() {
+        let instrument = compiled(2);
+        let mut runtime = instrument.instantiate();
+        runtime
+            .prepare(ProcessSpec::new(48_000.0, 64, 2).expect("valid spec"))
+            .expect("runtime preparation");
+        let invalid = ProcessEvent {
+            sample_offset: 8,
+            kind: ProcessEventKind::ParameterChange {
+                parameter: ParameterHandle::new(instrument.parameters().len()),
+                normalized: 0.5,
+            },
+        };
+        let note_on = ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        };
+        let mut left = [1.0_f32; 32];
+        let mut right = [1.0_f32; 32];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        let error = runtime.process(ProcessBlock {
+            frames: 32,
+            context: crate::process::ProcessContext {
+                absolute_frame: 0,
+                tempo_bpm: 120.0,
+            },
+            events: &[note_on, invalid],
+            output: &mut output,
+        });
+        assert_eq!(
+            error,
+            Err(ProcessError::ParameterHandleOutOfRange {
+                handle: instrument.parameters().len(),
+            })
+        );
+        assert_eq!(runtime.absolute_frame(), 0);
+        assert!(
+            runtime
+                .voices
+                .iter()
+                .all(|voice| voice.state() == VoiceState::Idle)
+        );
+        assert!(left.iter().all(|sample| sample.abs() < f32::EPSILON));
+        assert!(right.iter().all(|sample| sample.abs() < f32::EPSILON));
+    }
+
+    #[test]
+    fn shared_parameter_state_advances_once_for_any_voice_count() {
+        let mut one_voice = compiled(1).instantiate();
+        let mut eight_voices = compiled(8).instantiate();
+        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid spec");
+        one_voice.prepare(spec).expect("one voice preparation");
+        eight_voices.prepare(spec).expect("eight voice preparation");
+        let parameter = one_voice.compiled().parameters()[0].id.clone();
+        let one_handle = one_voice
+            .compiled()
+            .parameter_handle(&parameter)
+            .expect("parameter handle");
+        let eight_handle = eight_voices
+            .compiled()
+            .parameter_handle(&parameter)
+            .expect("parameter handle");
+        process_parameter_event(
+            &mut one_voice,
+            ProcessEventKind::ParameterChange {
+                parameter: one_handle,
+                normalized: 1.0,
+            },
+        );
+        process_parameter_event(
+            &mut eight_voices,
+            ProcessEventKind::ParameterChange {
+                parameter: eight_handle,
+                normalized: 1.0,
+            },
+        );
+        let one_current = one_voice.parameter_states[one_handle.index()].span(0).0;
+        let eight_current = eight_voices.parameter_states[eight_handle.index()]
+            .span(0)
+            .0;
+        assert!((one_current - eight_current).abs() < f32::EPSILON);
     }
 }

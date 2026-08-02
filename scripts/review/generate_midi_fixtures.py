@@ -112,6 +112,24 @@ def make_note_midi(
     return b"MThd" + struct.pack(">IHHH", 6, 1, 2, 480) + track(tempo_track_events) + track(note_track_events)
 
 
+def make_control_midi() -> bytes:
+    events = [
+        (0, bytes((0x90, 60, 112))),
+        (480, bytes((0xB0, 1, 100))),
+        (960, bytes((0xE0, 0, 96))),
+        (1440, bytes((0xD0, 96))),
+        (1920, bytes((0xE0, 0, 64))),
+        (2400, bytes((0x80, 60, 0))),
+    ]
+    note_events = [
+        (tick - (events[index - 1][0] if index else 0), payload)
+        for index, (tick, payload) in enumerate(events)
+    ]
+    tempo_track = track([(0, b"\xff\x51\x03\x07\xa1\x20")])
+    control_track = track(note_events)
+    return b"MThd" + struct.pack(">IHHH", 6, 1, 2, 480) + tempo_track + control_track
+
+
 def main() -> None:
     root = Path(__file__).resolve().parents[2]
     output_dir = root / "testdata" / "midi"
@@ -150,6 +168,7 @@ def main() -> None:
         "filter-velocity.mid": make_note_midi(
             [(index * 480, 360, 60, velocity) for index, velocity in enumerate((32, 64, 96, 127))]
         ),
+        "expressive-hybrid-controls.mid": make_control_midi(),
     }
     for name, data in outputs.items():
         (output_dir / name).write_bytes(data)

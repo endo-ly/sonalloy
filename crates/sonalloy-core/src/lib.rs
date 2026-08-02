@@ -2,6 +2,7 @@ pub mod asset;
 pub mod compiler;
 pub mod definition;
 pub mod diagnostics;
+pub mod parameter;
 pub mod process;
 pub mod render;
 pub mod runtime;
@@ -11,9 +12,18 @@ pub use definition::{
     AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, FilterDefinition, GeneratorDefinition,
     InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition,
     OscillatorDefinition, OscillatorWaveform, PerformanceDefinition, SampleDefinition,
-    SampleInterpolation, SamplePlaybackMode, VelocityResponseDefinition, VoiceStealingDefinition,
+    SampleInterpolation, SamplePlaybackMode, VoiceStealingDefinition,
+};
+pub use definition::{
+    LfoDefinition, LfoWaveform, ModEnvelopeDefinition, ModulationCurve, ModulationDefinition,
+    ModulationRouteDefinition, ModulationSourceDefinition, RandomDefinition,
 };
 pub use diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity, from_render_error};
+pub use parameter::{
+    BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterDescriptor, ParameterHandle, ParameterOwner,
+    ParameterScale, ParameterUnit, ParameterValueError, is_component_id, is_parameter_id,
+    layer_parameter_id,
+};
 pub use process::{
     DspFailureKind, InstrumentProcessor, NoteId, ProcessBlock, ProcessContext, ProcessError,
     ProcessEvent, ProcessEventKind, ProcessSpec, ScheduledEvent,

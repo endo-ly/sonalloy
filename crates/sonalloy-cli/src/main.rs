@@ -5,14 +5,14 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use clap::{Args, Parser, Subcommand};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sonalloy_core::{
     AdsrDefinition, CompileContext, CompiledInstrument, Diagnostic, DiagnosticCode,
     InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition,
-    OscillatorDefinition, OscillatorWaveform, PerformanceDefinition, ProcessSpec, RenderError,
-    RenderRequest, ScheduledEvent, VelocityResponseDefinition, VoiceStealingDefinition,
-    backend_info, compile_instrument, from_render_error, render_instrument, render_sine,
-    seconds_to_frames,
+    ModulationCurve, OscillatorDefinition, OscillatorWaveform, ParameterHandle, ParameterOwner,
+    ParameterScale, ParameterUnit, PerformanceDefinition, ProcessEventKind, ProcessSpec,
+    RenderError, RenderRequest, ScheduledEvent, VoiceStealingDefinition, backend_info,
+    compile_instrument, from_render_error, render_instrument, render_sine, seconds_to_frames,
 };
 
 use crate::midi::read_midi;
@@ -64,6 +64,8 @@ enum InstrumentCommand {
 enum RenderCommand {
     /// Render one Note On / Note Off pair.
     Note(RenderNoteArgs),
+    /// Render an absolute-frame event sequence.
+    Events(RenderEventsArgs),
     /// Render events from a Standard MIDI File.
     Midi(RenderMidiArgs),
 }
@@ -143,6 +145,32 @@ struct RenderMidiArgs {
 }
 
 #[derive(Debug, Args)]
+struct RenderEventsArgs {
+    /// Definition JSON path.
+    definition: PathBuf,
+    /// Absolute-frame event sequence JSON path.
+    events: PathBuf,
+    /// Main render duration in frames.
+    #[arg(long)]
+    duration_frames: u64,
+    /// Additional render tail in seconds.
+    #[arg(long, default_value_t = 1.0)]
+    tail: f64,
+    /// Sample rate in Hz.
+    #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
+    sample_rate: u32,
+    /// Maximum process block size.
+    #[arg(long, default_value_t = DEFAULT_BLOCK_SIZE)]
+    block_size: usize,
+    /// Destination WAV path.
+    #[arg(long)]
+    output: PathBuf,
+    /// Emit machine-readable JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
 struct RenderSineArgs {
     /// Oscillator frequency in Hz.
     #[arg(long, default_value_t = 440.0)]
@@ -203,7 +231,9 @@ struct InspectReport {
     layer_count: usize,
     layers: Vec<InspectLayer>,
     voice_filter: Option<InspectFilter>,
-    velocity_response: InspectVelocityResponse,
+    parameters: Vec<InspectParameter>,
+    sources: Vec<InspectSource>,
+    routes: Vec<InspectRoute>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     diagnostics: Vec<Diagnostic>,
 }
@@ -269,14 +299,90 @@ struct InspectEnvelope {
 
 #[derive(Debug, Serialize)]
 struct InspectFilter {
-    cutoff_hz: f32,
-    resonance: f32,
+    cutoff_default_hz: f32,
+    effective_max_cutoff_hz: f32,
+    resonance_default: f32,
 }
 
 #[derive(Debug, Serialize)]
-struct InspectVelocityResponse {
-    layer_gain_amount: f32,
-    filter_cutoff_octaves: f32,
+struct InspectParameter {
+    id: String,
+    owner: ParameterOwner,
+    unit: ParameterUnit,
+    min: f32,
+    max: f32,
+    default: f32,
+    scale: ParameterScale,
+    smoothing_seconds: f32,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectSource {
+    id: String,
+    scope: &'static str,
+    kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    waveform: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rate_hz: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    phase: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    attack_samples: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    decay_samples: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sustain_level: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    release_samples: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    seed: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectRoute {
+    source: String,
+    target: String,
+    amount: f32,
+    curve: ModulationCurve,
+}
+
+#[derive(Debug, Deserialize)]
+struct EventSequence {
+    events: Vec<EventSequenceEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EventSequenceEntry {
+    absolute_frame: u64,
+    #[serde(flatten)]
+    event: EventSequenceKind,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum EventSequenceKind {
+    NoteOn {
+        note: u8,
+        velocity: u8,
+        note_id: u64,
+    },
+    NoteOff {
+        note_id: u64,
+    },
+    ParameterChange {
+        parameter: String,
+        normalized: f32,
+    },
+    PitchBend {
+        value: f32,
+    },
+    ModWheel {
+        value: f32,
+    },
+    Aftertouch {
+        value: f32,
+    },
 }
 
 fn main() -> ExitCode {
@@ -285,6 +391,7 @@ fn main() -> ExitCode {
         Command::Instrument { command } => run_instrument(command),
         Command::Render { command } => match command {
             RenderCommand::Note(args) => run_render_note(&args),
+            RenderCommand::Events(args) => run_render_events(&args),
             RenderCommand::Midi(args) => run_render_midi(&args),
         },
         Command::Dev { command } => match command {
@@ -519,6 +626,231 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
     )
 }
 
+fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
+    let sample_rate = f64::from(args.sample_rate);
+    let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
+        Ok(frames) => frames,
+        Err(error) => return finish_failure(args.json, input_failure(&error)),
+    };
+    let (compiled, diagnostics) =
+        match load_and_compile(&args.definition, args.sample_rate, args.block_size) {
+            Ok(result) => result,
+            Err(failure) => return finish_failure(args.json, failure),
+        };
+    let sequence = match load_event_sequence(&args.events) {
+        Ok(sequence) => sequence,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    let events = match compile_event_sequence(&sequence, &compiled, args.duration_frames) {
+        Ok(events) => events,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    let request = RenderRequest {
+        sample_rate,
+        block_size: args.block_size,
+        duration_frames: args.duration_frames,
+        tail_frames,
+    };
+    let audio = match render_instrument(Arc::clone(&compiled), request, &events) {
+        Ok(audio) => audio,
+        Err(error) => return finish_failure(args.json, render_failure(&error)),
+    };
+    if let Err(error) = write_wav(&args.output, &audio) {
+        return finish_failure(
+            args.json,
+            CliFailure {
+                code: 4,
+                diagnostics: vec![error],
+            },
+        );
+    }
+    print_success(
+        args.json,
+        SuccessReport {
+            status: "ok",
+            sample_rate: audio.sample_rate,
+            channels: audio.channels.len(),
+            frames: audio.frames(),
+            output: args.output.to_string_lossy().into_owned(),
+            backend: backend_info().version,
+            diagnostics,
+        },
+    )
+}
+
+fn load_event_sequence(path: &Path) -> Result<EventSequence, CliFailure> {
+    let text = std::fs::read_to_string(path).map_err(|error| CliFailure {
+        code: 2,
+        diagnostics: vec![
+            Diagnostic::error(
+                DiagnosticCode::DefinitionError,
+                "could not read event input",
+            )
+            .with_path(path.to_string_lossy())
+            .with_detail(error.to_string()),
+        ],
+    })?;
+    serde_json::from_str(&text).map_err(|error| CliFailure {
+        code: 1,
+        diagnostics: vec![
+            Diagnostic::error(DiagnosticCode::JsonInvalid, "could not parse event JSON")
+                .with_path(path.to_string_lossy())
+                .with_detail(format!(
+                    "line {}, column {}: {error}",
+                    error.line(),
+                    error.column()
+                )),
+        ],
+    })
+}
+
+#[allow(clippy::too_many_lines)]
+fn compile_event_sequence(
+    sequence: &EventSequence,
+    compiled: &CompiledInstrument,
+    duration_frames: u64,
+) -> Result<Vec<ScheduledEvent>, CliFailure> {
+    let mut diagnostics = Vec::new();
+    let mut events = Vec::with_capacity(sequence.events.len());
+    let mut previous_absolute_frame = None;
+    for (index, entry) in sequence.events.iter().enumerate() {
+        let event_path = format!("events[{index}]");
+        if previous_absolute_frame.is_some_and(|previous| entry.absolute_frame < previous) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::EventOrderInvalid,
+                    "event absolute_frame values must be in ascending order",
+                )
+                .with_path(format!("{event_path}.absolute_frame")),
+            );
+        }
+        previous_absolute_frame = Some(entry.absolute_frame);
+        if entry.absolute_frame >= duration_frames {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    "event frame must be less than duration_frames",
+                )
+                .with_path(format!("{event_path}.absolute_frame")),
+            );
+            continue;
+        }
+        let kind = match &entry.event {
+            EventSequenceKind::NoteOn {
+                note,
+                velocity,
+                note_id,
+            } => {
+                if *note > 127 {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "note must be between 0 and 127",
+                        )
+                        .with_path(format!("{event_path}.note")),
+                    );
+                }
+                if *velocity == 0 || *velocity > 127 {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "velocity must be between 1 and 127",
+                        )
+                        .with_path(format!("{event_path}.velocity")),
+                    );
+                }
+                ProcessEventKind::NoteOn {
+                    note_id: *note_id,
+                    note_number: *note,
+                    velocity: *velocity,
+                }
+            }
+            EventSequenceKind::NoteOff { note_id } => {
+                ProcessEventKind::NoteOff { note_id: *note_id }
+            }
+            EventSequenceKind::ParameterChange {
+                parameter,
+                normalized,
+            } => {
+                let Some(handle) = compiled.parameter_handle(parameter) else {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ParameterNotFound,
+                            "parameter id is not present in the compiled catalog",
+                        )
+                        .with_path(format!("{event_path}.parameter")),
+                    );
+                    continue;
+                };
+                if !normalized.is_finite() || !(0.0..=1.0).contains(normalized) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "normalized must be finite and between 0 and 1",
+                        )
+                        .with_path(format!("{event_path}.normalized")),
+                    );
+                }
+                ProcessEventKind::ParameterChange {
+                    parameter: handle,
+                    normalized: *normalized,
+                }
+            }
+            EventSequenceKind::PitchBend { value } => {
+                if !value.is_finite() || !(-1.0..=1.0).contains(value) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "pitch bend value must be finite and between -1 and 1",
+                        )
+                        .with_path(format!("{event_path}.value")),
+                    );
+                }
+                ProcessEventKind::PitchBend { value: *value }
+            }
+            EventSequenceKind::ModWheel { value } => {
+                if !value.is_finite() || !(0.0..=1.0).contains(value) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "mod wheel value must be finite and between 0 and 1",
+                        )
+                        .with_path(format!("{event_path}.value")),
+                    );
+                }
+                ProcessEventKind::ModWheel { value: *value }
+            }
+            EventSequenceKind::Aftertouch { value } => {
+                if !value.is_finite() || !(0.0..=1.0).contains(value) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "aftertouch value must be finite and between 0 and 1",
+                        )
+                        .with_path(format!("{event_path}.value")),
+                    );
+                }
+                ProcessEventKind::Aftertouch { value: *value }
+            }
+        };
+        events.push((
+            index,
+            ScheduledEvent {
+                absolute_frame: entry.absolute_frame,
+                kind,
+            },
+        ));
+    }
+    if !diagnostics.is_empty() {
+        return Err(CliFailure {
+            code: 2,
+            diagnostics,
+        });
+    }
+    events.sort_by_key(|(index, event)| (event.absolute_frame, event.kind.priority(), *index));
+    Ok(events.into_iter().map(|(_, event)| event).collect())
+}
+
 fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
     let sample_rate = f64::from(args.sample_rate);
     let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
@@ -723,13 +1055,105 @@ fn default_definition() -> InstrumentDefinition {
             cutoff_hz: 12_000.0,
             resonance: 0.12,
         }),
-        velocity_response: VelocityResponseDefinition {
-            layer_gain_amount: 0.7,
-            filter_cutoff_octaves: 1.5,
-        },
+        modulation: None,
     }
 }
 
+fn parameter_default(compiled: &CompiledInstrument, handle: ParameterHandle) -> f32 {
+    compiled
+        .parameter_descriptor(handle)
+        .expect("compiled parameter handle must be valid")
+        .default
+}
+
+fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSource {
+    let mut result = InspectSource {
+        id: source.id.clone(),
+        scope: "voice",
+        kind: "unknown",
+        waveform: None,
+        rate_hz: None,
+        phase: None,
+        attack_samples: None,
+        decay_samples: None,
+        sustain_level: None,
+        release_samples: None,
+        seed: None,
+    };
+    match &source.source {
+        sonalloy_core::compiler::CompiledVoiceSource::Velocity => result.kind = "velocity",
+        sonalloy_core::compiler::CompiledVoiceSource::KeyTracking => {
+            result.kind = "key_tracking";
+        }
+        sonalloy_core::compiler::CompiledVoiceSource::Lfo(value) => {
+            result.kind = "lfo";
+            result.waveform = Some(match value.waveform {
+                sonalloy_core::LfoWaveform::Sine => "sine",
+                sonalloy_core::LfoWaveform::Triangle => "triangle",
+            });
+            result.rate_hz = Some(value.rate_hz);
+            result.phase = Some(value.phase);
+        }
+        sonalloy_core::compiler::CompiledVoiceSource::Envelope(value) => {
+            result.kind = "envelope";
+            result.attack_samples = Some(value.envelope.attack_samples);
+            result.decay_samples = Some(value.envelope.decay_samples);
+            result.sustain_level = Some(value.envelope.sustain_level);
+            result.release_samples = Some(value.envelope.release_samples);
+        }
+        sonalloy_core::compiler::CompiledVoiceSource::Random(value) => {
+            result.kind = "random";
+            result.seed = Some(value.seed);
+        }
+    }
+    result
+}
+
+fn source_id(
+    compiled: &CompiledInstrument,
+    source: sonalloy_core::compiler::CompiledSourceRef,
+) -> String {
+    match source {
+        sonalloy_core::compiler::CompiledSourceRef::Voice(handle) => compiled
+            .sources
+            .get(handle.index())
+            .expect("compiled voice source handle must be valid")
+            .id
+            .clone(),
+        sonalloy_core::compiler::CompiledSourceRef::PitchBend => "pitch_bend".to_owned(),
+        sonalloy_core::compiler::CompiledSourceRef::ModWheel => "mod_wheel".to_owned(),
+        sonalloy_core::compiler::CompiledSourceRef::Aftertouch => "aftertouch".to_owned(),
+    }
+}
+
+fn external_source_name(
+    source: sonalloy_core::compiler::CompiledSourceRef,
+) -> Option<&'static str> {
+    match source {
+        sonalloy_core::compiler::CompiledSourceRef::PitchBend => Some("pitch_bend"),
+        sonalloy_core::compiler::CompiledSourceRef::ModWheel => Some("mod_wheel"),
+        sonalloy_core::compiler::CompiledSourceRef::Aftertouch => Some("aftertouch"),
+        sonalloy_core::compiler::CompiledSourceRef::Voice(_) => None,
+    }
+}
+
+fn inspect_external_source(id: &'static str) -> InspectSource {
+    InspectSource {
+        id: id.to_owned(),
+        scope: "instrument",
+        kind: "external_control",
+        waveform: None,
+        rate_hz: None,
+        phase: None,
+        attack_samples: None,
+        decay_samples: None,
+        sustain_level: None,
+        release_samples: None,
+        seed: None,
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 fn make_inspect_report(
     compiled: &CompiledInstrument,
     diagnostics: Vec<Diagnostic>,
@@ -738,6 +1162,9 @@ fn make_inspect_report(
         .layers
         .iter()
         .map(|layer| {
+            let gain_db = parameter_default(compiled, layer.parameters.gain);
+            let pan = parameter_default(compiled, layer.parameters.pan);
+            let tuning_cents = parameter_default(compiled, layer.parameters.tuning);
             let (generator, asset_status) = match &layer.generator {
                 sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => (
                     InspectGenerator {
@@ -794,11 +1221,11 @@ fn make_inspect_report(
                 },
                 generator,
                 asset_status,
-                gain_db: 20.0 * layer.gain_linear.log10(),
-                gain_linear: layer.gain_linear,
-                pan: layer.pan,
-                tuning_cents: 1200.0 * layer.tuning_ratio.log2(),
-                tuning_ratio: layer.tuning_ratio,
+                gain_db,
+                gain_linear: 10.0_f32.powf(gain_db / 20.0),
+                pan,
+                tuning_cents,
+                tuning_ratio: 2.0_f32.powf(tuning_cents / 1200.0),
                 envelope: InspectEnvelope {
                     attack_samples: layer.envelope.attack_samples,
                     decay_samples: layer.envelope.decay_samples,
@@ -808,6 +1235,33 @@ fn make_inspect_report(
             }
         })
         .collect::<Vec<_>>();
+    let routes = compiled
+        .routes
+        .iter()
+        .map(|route| InspectRoute {
+            source: source_id(compiled, route.source),
+            target: compiled
+                .parameter_descriptor(route.target)
+                .expect("compiled route target handle must be valid")
+                .id
+                .clone(),
+            amount: route.amount,
+            curve: route.curve,
+        })
+        .collect::<Vec<_>>();
+    let mut sources = compiled
+        .sources
+        .iter()
+        .map(inspect_source)
+        .collect::<Vec<_>>();
+    for route in &compiled.routes {
+        let Some(id) = external_source_name(route.source) else {
+            continue;
+        };
+        if !sources.iter().any(|source| source.id == id) {
+            sources.push(inspect_external_source(id));
+        }
+    }
     InspectReport {
         status: "ok",
         name: compiled.metadata.name.clone(),
@@ -825,17 +1279,31 @@ fn make_inspect_report(
         layer_count: layers.len(),
         layers,
         voice_filter: compiled.voice_filter.map(|filter| InspectFilter {
-            cutoff_hz: filter.cutoff_hz,
-            resonance: filter.resonance,
+            cutoff_default_hz: parameter_default(compiled, filter.parameters.cutoff),
+            effective_max_cutoff_hz: filter.effective_max_cutoff_hz,
+            resonance_default: parameter_default(compiled, filter.parameters.resonance),
         }),
-        velocity_response: InspectVelocityResponse {
-            layer_gain_amount: compiled.velocity_response.layer_gain_amount,
-            filter_cutoff_octaves: compiled.velocity_response.filter_cutoff_octaves,
-        },
+        parameters: compiled
+            .parameters()
+            .iter()
+            .map(|parameter| InspectParameter {
+                id: parameter.id.clone(),
+                owner: parameter.owner,
+                unit: parameter.unit,
+                min: parameter.min,
+                max: parameter.max,
+                default: parameter.default,
+                scale: parameter.scale,
+                smoothing_seconds: parameter.smoothing_seconds,
+            })
+            .collect(),
+        sources,
+        routes,
         diagnostics,
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     println!("metadata.name: {}", compiled.metadata.name);
     println!(
@@ -894,14 +1362,14 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
         println!("  asset: {asset_status}");
         println!(
             "  gain: {:.3} dB ({:.6} linear) pan: {:.3}",
-            20.0 * layer.gain_linear.log10(),
-            layer.gain_linear,
-            layer.pan
+            parameter_default(compiled, layer.parameters.gain),
+            10.0_f32.powf(parameter_default(compiled, layer.parameters.gain) / 20.0),
+            parameter_default(compiled, layer.parameters.pan)
         );
         println!(
             "  tuning: {:.3} cents ({:.6} ratio)",
-            1200.0 * layer.tuning_ratio.log2(),
-            layer.tuning_ratio
+            parameter_default(compiled, layer.parameters.tuning),
+            2.0_f32.powf(parameter_default(compiled, layer.parameters.tuning) / 1200.0)
         );
         println!(
             "  envelope: attack {} samples decay {} samples sustain {:.3} release {} samples",
@@ -913,17 +1381,48 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     }
     if let Some(filter) = compiled.voice_filter {
         println!(
-            "voice filter: cutoff {:.2} Hz resonance {:.3}",
-            filter.cutoff_hz, filter.resonance
+            "voice filter: cutoff default {:.2} Hz effective max {:.2} Hz resonance default {:.3}",
+            parameter_default(compiled, filter.parameters.cutoff),
+            filter.effective_max_cutoff_hz,
+            parameter_default(compiled, filter.parameters.resonance),
         );
     } else {
         println!("voice filter: none");
     }
-    println!(
-        "velocity response: gain_amount {:.3} cutoff_octaves {:.3}",
-        compiled.velocity_response.layer_gain_amount,
-        compiled.velocity_response.filter_cutoff_octaves
-    );
+    for parameter in compiled.parameters() {
+        println!("parameter {}:", parameter.id);
+        println!("  owner: {:?}", parameter.owner);
+        println!("  unit: {:?}", parameter.unit);
+        println!("  range: {:.3} .. {:.3}", parameter.min, parameter.max);
+        println!("  default: {:.3}", parameter.default);
+        println!("  scale: {:?}", parameter.scale);
+        println!("  smoothing: {:.3} s", parameter.smoothing_seconds);
+    }
+    for source in &compiled.sources {
+        println!("source {}: {:?} (Voice)", source.id, source.source);
+    }
+    let mut external_sources = Vec::new();
+    for route in &compiled.routes {
+        let Some(id) = external_source_name(route.source) else {
+            continue;
+        };
+        if !external_sources.contains(&id) {
+            external_sources.push(id);
+            println!("source {id}: external_control (Instrument)");
+        }
+    }
+    for route in &compiled.routes {
+        println!(
+            "route {} -> {} amount {:.3} curve {:?}",
+            source_id(compiled, route.source),
+            compiled
+                .parameter_descriptor(route.target)
+                .expect("compiled route target handle must be valid")
+                .id,
+            route.amount,
+            route.curve
+        );
+    }
     print_warnings(diagnostics);
 }
 

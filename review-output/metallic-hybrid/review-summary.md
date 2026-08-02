@@ -3,7 +3,6 @@
 ## Reference
 
 - Definition: metallic-hybrid.json
-- Source implementation commit: 9702f24ede1903cfaf00d6d2e771d51d74134123
 - Asset: metal-hit.wav
 - MIDI inputs: metallic-hybrid-phrase.mid, metallic-hybrid-pitch-range.mid, metallic-hybrid-velocity.mid
 - Sample rate: 48,000 Hz
@@ -22,8 +21,8 @@
 - Missing-asset fallback remains non-silent: pass
 - Inspect reports show expected Sample Layer state and only expected asset diagnostics: pass
 - Source asset hashes match the copied Definitions: pass
-- Maximum rendered-output absolute peak: 0.341414
-- Maximum rendered-output adjacent-frame difference: 0.134538
+- Maximum rendered-output absolute peak: 0.567113
+- Maximum rendered-output adjacent-frame difference: 0.234021
 - Source asset metrics are retained as 01-sample-source.wav in metrics.json
 - Missing asset render retains the oscillator layer: 09-missing-asset-fallback.wav
 - 02-sample-decoded-root.wav and 03-sample-pitch-range.wav are not loudness-matched to the source; they use the sample-only layer gain and include one-shot silence.

@@ -45,8 +45,21 @@
     "cutoff_hz": 8500.0,
     "resonance": 0.15
   },
-  "velocity_response": {
-    "layer_gain_amount": 0.8,
-    "filter_cutoff_octaves": 1.2
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.attack.gain",
+        "amount": 0.06,
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.filter.cutoff",
+        "amount": 0.06,
+        "curve": "linear"
+      }
+    ]
   }
 }

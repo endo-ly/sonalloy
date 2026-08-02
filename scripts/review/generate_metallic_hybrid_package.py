@@ -35,29 +35,6 @@ def run_cli(arguments: list[str]) -> str:
     return result.stdout
 
 
-def source_commit() -> str:
-    result = subprocess.run(
-        [
-            "git",
-            "log",
-            "-1",
-            "--format=%H",
-            "--",
-            "crates/sonalloy-core/src/compiler.rs",
-            "crates/sonalloy-core/src/runtime/instrument.rs",
-            "crates/sonalloy-core/src/runtime/sample.rs",
-            "crates/sonalloy-core/src/runtime/voice.rs",
-            "crates/sonalloy-dsp-sys",
-            "native/daisysp-wrapper",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
-
-
 def render_note(definition: Path, output: Path, gate: str = "0.5") -> None:
     run_cli(
         [
@@ -113,6 +90,7 @@ def copy_definition(source: Path, destination: Path, asset_path: str | None) -> 
     destination.write_text(
         json.dumps(definition, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 
@@ -401,13 +379,13 @@ def main() -> None:
     (review_root / "metrics.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     summary = f"""# Metallic Hybrid Sound Review
 
 ## Reference
 
 - Definition: metallic-hybrid.json
-- Source implementation commit: {source_commit()}
 - Asset: metal-hit.wav
 - MIDI inputs: metallic-hybrid-phrase.mid, metallic-hybrid-pitch-range.mid, metallic-hybrid-velocity.mid
 - Sample rate: 48,000 Hz

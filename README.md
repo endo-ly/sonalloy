@@ -17,6 +17,12 @@ cargo run -p sonalloy-cli -- render midi \
   examples/instruments/basic-poly-synth.json \
   testdata/midi/basic-poly-synth-phrase.mid \
   --output out/basic-poly-synth.wav
+
+# 発音中のParameter / Control Eventを再現する
+cargo run -p sonalloy-cli -- render events \
+  examples/instruments/expressive-hybrid-lead.json \
+  testdata/events/expressive-hybrid-lead.json \
+  --duration-frames 96000 --output out/expressive-lead.wav
 ```
 
 ## 必要なツール
@@ -49,4 +55,5 @@ cargo test --workspace
 | [`docs/instrument-definition.md`](docs/instrument-definition.md) | Definitionのデータ仕様・制約・Compile |
 | [`docs/testing-and-sound-review.md`](docs/testing-and-sound-review.md) | 検証とReviewの手順 |
 | [`docs/CONCEPT.md`](docs/CONCEPT.md) | 要件定義・基本設計 |
+| [`docs/plan/plan-dynamic-parameters.md`](docs/plan/plan-dynamic-parameters.md) | Dynamic Parameter / Modulationの詳細設計 |
 | [`docs/plan/plan-mvp.md`](docs/plan/plan-mvp.md) | 詳細設計・実装計画 |

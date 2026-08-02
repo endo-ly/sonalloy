@@ -178,6 +178,78 @@ extern "C" int32_t sonalloy_dsp_oscillator_process(
     }
 }
 
+extern "C" int32_t sonalloy_dsp_oscillator_process_ramp(
+    sonalloy_dsp_oscillator* handle,
+    float start_frequency_hz,
+    float end_frequency_hz,
+    float* output,
+    uint32_t frames
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (frames > 0u && output == nullptr) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    if (!handle->prepared) {
+        if (output != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                output[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    if (!valid_frequency(start_frequency_hz, handle->sample_rate) ||
+        !valid_frequency(end_frequency_hz, handle->sample_rate)) {
+        if (output != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                output[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+
+    try {
+#ifdef SONALLOY_DSP_TEST_HOOKS
+        if (handle->throw_on_process) {
+            handle->throw_on_process = false;
+            throw std::runtime_error("native ramp process test exception");
+        }
+#endif
+        if (start_frequency_hz > 0.0f && end_frequency_hz > 0.0f) {
+            const float frequency_step = frames == 0u
+                ? 1.0f
+                : std::exp(
+                    std::log(end_frequency_hz / start_frequency_hz) /
+                    static_cast<float>(frames));
+            float frequency_hz = start_frequency_hz;
+            for (uint32_t index = 0; index < frames; ++index) {
+                handle->oscillator.SetFreq(frequency_hz);
+                output[index] = handle->oscillator.Process();
+                frequency_hz *= frequency_step;
+            }
+        } else {
+            for (uint32_t index = 0; index < frames; ++index) {
+                const float position = frames <= 1u
+                    ? 0.0f
+                    : static_cast<float>(index) / static_cast<float>(frames);
+                const float frequency_hz = start_frequency_hz +
+                    (end_frequency_hz - start_frequency_hz) * position;
+                handle->oscillator.SetFreq(frequency_hz);
+                output[index] = handle->oscillator.Process();
+            }
+        }
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        if (output != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                output[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
 extern "C" sonalloy_dsp_filter* sonalloy_dsp_filter_create(void) {
     try {
         return new sonalloy_dsp_filter();
@@ -316,10 +388,69 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp(
         for (uint32_t index = 0; index < frames; ++index) {
             const float position = frames <= 1u
                 ? 0.0f
-                : static_cast<float>(index) / static_cast<float>(frames - 1u);
+                : static_cast<float>(index) / static_cast<float>(frames);
             const float cutoff_hz = start_cutoff_hz +
                 (end_cutoff_hz - start_cutoff_hz) * position;
             handle->filter.SetFreq(cutoff_hz);
+            handle->filter.Process(buffer[index]);
+            buffer[index] = handle->filter.Low();
+        }
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        if (buffer != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                buffer[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_filter_process_ramp_with_resonance(
+    sonalloy_dsp_filter* handle,
+    float start_cutoff_hz,
+    float end_cutoff_hz,
+    float start_resonance,
+    float end_resonance,
+    float* buffer,
+    uint32_t frames
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (frames > 0u && buffer == nullptr) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    if (!handle->prepared) {
+        if (buffer != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                buffer[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    if (!valid_cutoff(start_cutoff_hz, handle->sample_rate) ||
+        !valid_cutoff(end_cutoff_hz, handle->sample_rate) ||
+        !valid_resonance(start_resonance) ||
+        !valid_resonance(end_resonance)) {
+        if (buffer != nullptr) {
+            for (uint32_t index = 0; index < frames; ++index) {
+                buffer[index] = 0.0f;
+            }
+        }
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    try {
+        for (uint32_t index = 0; index < frames; ++index) {
+            const float position = frames <= 1u
+                ? 0.0f
+                : static_cast<float>(index) / static_cast<float>(frames);
+            const float cutoff_hz = start_cutoff_hz +
+                (end_cutoff_hz - start_cutoff_hz) * position;
+            const float resonance = start_resonance +
+                (end_resonance - start_resonance) * position;
+            handle->filter.SetFreq(cutoff_hz);
+            handle->filter.SetRes(resonance);
             handle->filter.Process(buffer[index]);
             buffer[index] = handle->filter.Low();
         }

@@ -48,8 +48,9 @@ impl AdsrRuntime {
         if matches!(self.state, AdsrState::Idle | AdsrState::Release) {
             return;
         }
+        let current_level = self.level.clamp(0.0, 1.0);
         self.state = AdsrState::Release;
-        self.start_level = self.level.clamp(0.0, 1.0);
+        self.start_level = current_level;
         self.elapsed = 0;
         if self.config.release_samples == 0 {
             self.reset();
@@ -120,21 +121,108 @@ impl AdsrRuntime {
         }
     }
 
+    pub(crate) fn span(&mut self, frames: usize) -> (f32, f32) {
+        let start = self.current_value();
+        self.advance(frames);
+        (start, self.current_value())
+    }
+
+    pub(crate) fn frames_until_segment_end(&self) -> Option<usize> {
+        match self.state {
+            AdsrState::Attack => Some(self.config.attack_samples.saturating_sub(self.elapsed)),
+            AdsrState::Decay => Some(self.config.decay_samples.saturating_sub(self.elapsed)),
+            AdsrState::Release => Some(self.config.release_samples.saturating_sub(self.elapsed)),
+            AdsrState::Idle | AdsrState::Sustain => None,
+        }
+    }
+
     pub(crate) fn is_idle(&self) -> bool {
         self.state == AdsrState::Idle
     }
 
-    pub(crate) fn frames_until_idle(&self) -> Option<usize> {
+    fn current_value(&self) -> f32 {
         match self.state {
-            AdsrState::Idle => Some(0),
-            AdsrState::Release => Some(self.config.release_samples.saturating_sub(self.elapsed)),
-            AdsrState::Attack | AdsrState::Decay | AdsrState::Sustain => None,
+            AdsrState::Idle => 0.0,
+            AdsrState::Attack => {
+                exponential_rise(progress(self.elapsed, self.config.attack_samples))
+            }
+            AdsrState::Decay => exponential_fall(
+                1.0,
+                self.config.sustain_level,
+                progress(self.elapsed, self.config.decay_samples),
+            ),
+            AdsrState::Sustain => self.config.sustain_level,
+            AdsrState::Release => exponential_fall(
+                self.start_level,
+                0.0,
+                progress(self.elapsed, self.config.release_samples),
+            ),
         }
     }
 
-    #[cfg(test)]
-    pub(crate) fn state(&self) -> AdsrState {
-        self.state
+    fn advance(&mut self, mut frames: usize) {
+        self.skip_zero_duration_segments();
+        while frames > 0 {
+            match self.state {
+                AdsrState::Idle | AdsrState::Sustain => {
+                    self.level = self.current_value();
+                    return;
+                }
+                AdsrState::Attack => {
+                    let remaining = self.config.attack_samples.saturating_sub(self.elapsed);
+                    if remaining == 0 {
+                        self.state = AdsrState::Decay;
+                        self.elapsed = 0;
+                        self.level = 1.0;
+                        self.skip_zero_duration_segments();
+                        continue;
+                    }
+                    if frames < remaining {
+                        self.elapsed += frames;
+                        self.level = self.current_value();
+                        return;
+                    }
+                    frames -= remaining;
+                    self.state = AdsrState::Decay;
+                    self.elapsed = 0;
+                    self.level = 1.0;
+                    self.skip_zero_duration_segments();
+                }
+                AdsrState::Decay => {
+                    let remaining = self.config.decay_samples.saturating_sub(self.elapsed);
+                    if remaining == 0 {
+                        self.state = AdsrState::Sustain;
+                        self.elapsed = 0;
+                        self.level = self.config.sustain_level;
+                        continue;
+                    }
+                    if frames < remaining {
+                        self.elapsed += frames;
+                        self.level = self.current_value();
+                        return;
+                    }
+                    frames -= remaining;
+                    self.state = AdsrState::Sustain;
+                    self.elapsed = 0;
+                    self.level = self.config.sustain_level;
+                }
+                AdsrState::Release => {
+                    let remaining = self.config.release_samples.saturating_sub(self.elapsed);
+                    if remaining == 0 {
+                        self.reset();
+                        return;
+                    }
+                    if frames < remaining {
+                        self.elapsed += frames;
+                        self.level = self.current_value();
+                        return;
+                    }
+                    self.reset();
+                    frames -= remaining;
+                }
+            }
+        }
+        self.level = self.current_value();
     }
 }
 
@@ -193,7 +281,6 @@ mod tests {
     fn zero_duration_segments_advance_without_looping() {
         let mut adsr = envelope(0, 0, 0.5, 0);
         adsr.note_on();
-        assert_eq!(adsr.state(), AdsrState::Sustain);
         assert!((adsr.next_sample() - 0.5).abs() < 1.0e-6);
         adsr.note_off();
         assert!(adsr.is_idle());
@@ -226,14 +313,14 @@ mod tests {
     }
 
     #[test]
-    fn frames_until_idle_tracks_release_remaining() {
+    fn frames_until_segment_end_tracks_release_remaining() {
         let mut adsr = envelope(0, 0, 1.0, 4);
         adsr.note_on();
         let _ = adsr.next_sample();
-        assert_eq!(adsr.frames_until_idle(), None);
+        assert_eq!(adsr.frames_until_segment_end(), None);
         adsr.note_off();
-        assert_eq!(adsr.frames_until_idle(), Some(4));
+        assert_eq!(adsr.frames_until_segment_end(), Some(4));
         let _ = adsr.next_sample();
-        assert_eq!(adsr.frames_until_idle(), Some(3));
+        assert_eq!(adsr.frames_until_segment_end(), Some(3));
     }
 }
