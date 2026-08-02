@@ -1,8 +1,19 @@
-# Sonalloy Dynamic Parameters / Modulation 詳細設計・実装計画
-## 0. Dynamic Parameters
-既存CoreへDynamic ParametersとModulationを追加する。
+# Sonalloy P3 Dynamic Parameters / Modulation 詳細設計・実装計画
+- **対象Repository**：`endo-ly/sonalloy`
+- **正本要件**：`docs/CONCEPT.md`
+- **前提実装**：`docs/plan/plan-mvp.md`で完了した既存Core
+- **用途**：実装エージェントへ渡す詳細設計・実装計画
+- **文書言語**：日本語。型名、API名、Parameter ID、File Pathのみ英語を使用する
+- **成果物**：Markdownのみ。HTML版は作成しない
 
-要件として次を満たす。
+---
+
+## 0. この計画書の位置づけ
+本書は、既存Coreの次に実装するDynamic ParametersとModulationを、一括で完成させるための計画書である。
+
+製品全体の要件、責務、将来像は`docs/CONCEPT.md`を正本とする。
+
+本書は`CONCEPT.md`のうち、次の要件を現在のコードベースへ実装可能な粒度へ落とす。
 - 安定したParameter ID
 - DefinitionからCompiled InstrumentへのParameter参照解決
 - 発音中に反映できる連続Parameter Change
@@ -11,21 +22,29 @@
 - SourceからTargetへのModulation Route
 - 複数Routeの加算、Clamp、Smoothing
 - CLIとMIDI Fileからの再現可能なOffline Render
+P3は一つの実装単位として扱う。
 
-Dynamic Parametersは既存のDefinition、Compiler、Voice、Runtime、Rendererを横断して拡張する。
+`plan-mvp.md`で扱った範囲が音声処理基盤からHybrid Instrumentまでを含むのに対し、P3は既存のDefinition、Compiler、Voice、Runtime、Rendererを横断して拡張する。
 
-### 0.1 優先順位
+そのため別Phaseへ分割せず、本書の実装順に沿って一括で実装・検証する。
+### 0.1 名称の扱い
+`P3`はこの計画を識別するためだけの名称である。
+
+コード、型名、関数名、Module名、Fixture名、Diagnostic、コメント、利用者向けの恒久文書へ`P3`を残さない。
+
+既存の`docs/plan/plan-mvp.md`は完了済みの履歴文書としてそのまま残す。
+### 0.2 実装判断の優先順位
 判断に迷った場合は、次の順序で優先する。
-1. `docs/CONCEPT.md`の固定要件
-2. Dynamic Parametersで固定した責務と不変条件
+1. `docs/CONCEPT.md`
+2. 本書で固定した責務と不変条件
 3. 現在の既存Coreの挙動を壊さないこと
 4. Audio Threadでの単純さと安全性
 5. 将来のGenerator、Effect、Adapterへの拡張
 将来使う可能性だけを理由に、現在使わないFramework、抽象化、Crate、依存、設定項目を追加しない。
 
 一方、Parameter ID、Compile時参照解決、Runtimeの所有関係など、後続機能が共通利用する契約は現在の段階で曖昧にしない。
-### 0.2 固定するもの
-- この機能の対象範囲と対象外
+### 0.3 本書で固定するもの
+- P3の対象範囲と対象外
 - 現行コードのどこを変更するか
 - Definition上のParameter IDとModulation構造
 - Compile時のTarget解決
@@ -38,7 +57,7 @@ Dynamic Parametersは既存のDefinition、Compiler、Voice、Runtime、Renderer
 - CLI、MIDI、Reference Instrument
 - Unit Test、結合テスト、音声確認
 - 実装順序と完了条件
-### 0.3 固定しないもの
+### 0.4 本書で固定しないもの
 - Realtime Audio Device
 - Realtime MIDI Device
 - Riffra統合
@@ -84,8 +103,8 @@ Dynamic Parametersは既存のDefinition、Compiler、Voice、Runtime、Renderer
 Velocityは`velocity_response`という専用構造と専用関数で処理されており、他のSourceと同じRouteとして扱われていない。
 
 MIDIのPitch Bend、Mod Wheel、Aftertouchは無視される。
-## 1.2 Dynamic Parametersで成立させること
-Instrument内の連続Parameterを共通の契約で識別し、Definition、CLI、将来Adapter、Runtimeで同じ意味を共有できるようにする。
+## 1.2 P3で成立させること
+P3では、Instrument内の連続Parameterを共通の契約で識別し、Definition、CLI、将来Adapter、Runtimeで同じ意味を共有できるようにする。
 
 そのうえで、ParameterのBase値を演奏中に変更し、複数のModulation Sourceから時間変化を加えられるようにする。
 
@@ -120,11 +139,11 @@ Gain / Pan / Pitch / Filterへ滑らかに反映
 Offline Stereo WAV
 ```
 ## 1.3 完成状態
-完成状態は次である。
+P3の完成状態は次である。
 
 > Definitionに保存したModulation SourceとRoute、およびSample AccurateなParameter / External Control EventをCompileし、発音中のHybrid Instrumentへ滑らかかつ決定的に反映し、Block Sizeが変わっても同等の音声をOffline Renderできる。
-## 1.4 Reference Instrumentと検証シナリオ
-次のReference InstrumentをRepositoryへ含める。
+## 1.4 代表成果物
+P3の完了時には、次のReference InstrumentをRepositoryへ含める。
 ### Moving Hybrid Pad
 既存のOscillator + Sample Hybridを利用し、内部Modulationの動作を確認する。
 ```text
@@ -162,9 +181,10 @@ Voice Filter
 - Pitch BendがOscillatorとSampleへ同じ音程変化を与える
 - Aftertouchが発音中のVoiceへ反映される
 - MIDI FileとCLI Event Sequenceで同じCore Eventを利用する
-## 1.5 証明する設計上の価値
-単にLFOを追加するのではなく、次の設計を後続機能でも使えることを証明する。
+## 1.5 P3で証明する設計上の価値
+P3は単にLFOを追加する作業ではない。
 
+次の設計が後続機能でも使えることを証明する。
 - GeneratorやEffectを追加してもParameter IDの意味が変わらない
 - FrontendがCore内部のField配置を知らなくてよい
 - Runtimeが文字列検索やDefinition再解釈をしない
@@ -242,7 +262,7 @@ ADSR時間、波形種類、Generator種類、Layer Trigger、Asset Pathなど�
 - 音声のfinite / peak / discontinuity確認
 - 人間による試聴
 ## 2.2 対象外
-次はDynamic Parametersへ含めない。
+次はP3へ含めない。
 - Discrete Parameterの演奏中変更
 - Generator追加
 - Noise
@@ -272,7 +292,7 @@ ADSR時間、波形種類、Generator種類、Layer Trigger、Asset Pathなど�
 - SourceからSourceへのModulation
 - 任意のModulation Graph
 ## 2.3 求める品質
-Dynamic Parametersでは次を優先する。
+P3では次を優先する。
 1. Existing 既存Coreの音声処理を壊さない
 2. ModulationなしのInstrumentが従来と同等に鳴る
 3. Parameter Changeで明確なClickを出さない
@@ -284,7 +304,7 @@ Dynamic Parametersでは次を優先する。
 9. 同じDefinition、Event、Random Seedから同等出力を得る
 10. Reference Instrumentが技術Demoだけでなく音色として成立する
 ## 2.4 性能方針
-Dynamic Parametersで本格的なBenchmark Frameworkは導入しない。
+P3で本格的なBenchmark Frameworkは導入しない。
 
 ただし次を守る。
 - Compile時にRouteとTargetを解決する
@@ -309,7 +329,7 @@ sonalloy-dsp-sys
     ↓
 DaisySP
 ```
-Dynamic Parametersで新しいCrateを追加しない。
+P3で新しいCrateを追加しない。
 ## 3.2 Definition
 現在の`InstrumentDefinition`は、おおむね次を保持する。
 - `metadata`
@@ -323,7 +343,7 @@ Dynamic Parametersで新しいCrateを追加しない。
 - `tuning_cents`
 - `envelope`
 - `generator`
-Dynamic Parametersでは`velocity_response`を削除し、Velocity Routeへ統合する。
+P3では`velocity_response`を削除し、Velocity Routeへ統合する。
 
 `gain_db`などのBase値は既存位置に残す。
 
@@ -335,7 +355,7 @@ Parameterを別の汎用Mapへ移し、Definitionの可読性を落としては�
 - ADSR秒 → Sample数
 - Sample Asset → Prepared Sample
 - Filter Cutoff → Sample Rate上限を適用した値
-Dynamic Parametersではこれに次を追加する。
+P3ではこれに次を追加する。
 - Canonical Parameter ID生成
 - Parameter Descriptor生成
 - Parameter Handle割当
@@ -349,7 +369,7 @@ Compile後のAudio PathでDefinition文字列を再解釈しない。
 
 `InstrumentRuntime::process`は、Event OffsetごとにBlockをSegmentへ分割する。
 
-Dynamic Parametersでは同じ仕組みに次を追加する。
+P3では同じ仕組みに次を追加する。
 - Parameter Change
 - Pitch Bend
 - Mod Wheel
@@ -367,7 +387,7 @@ EventのSample Offset契約は変更しない。
 - Process Spec
 - Voice Stealing設定
 - Velocity Response
-Dynamic Parametersでは次を追加する。
+P3では次を追加する。
 - Shared Parameter State
 - External Control State
 - Control Clock
@@ -385,7 +405,7 @@ Velocity Response専用Stateは削除する。
 - Filter State
 - Pending Note
 - Steal Fade
-Dynamic Parametersでは次を追加する。
+P3では次を追加する。
 - Voice Source State
 - Effective Target Scratch
 - Modulation Envelope State
@@ -401,7 +421,7 @@ VoiceごとにShared Parameter Smootherを複製しない。
 - 固定Pan Gain
 - 固定Tuning Ratio
 - Gain Smoother
-Dynamic Parametersでは固定Gain / Pan / TuningをHandle参照とEffective Spanへ置き換える。
+P3では固定Gain / Pan / TuningをHandle参照とEffective Spanへ置き換える。
 
 発音開始時のFadeとDynamic Gain変更は別の状態として扱う。
 ## 3.8 Velocity専用経路
@@ -409,13 +429,13 @@ Dynamic Parametersでは固定Gain / Pan / TuningをHandle参照とEffective Spa
 
 `InstrumentRuntime::render_range`、`VoiceRuntime::request_note`、`VoiceRuntime::render`もVelocity Responseを引数として渡している。
 
-Dynamic ParametersではこれらをVelocity SourceとRouteへ置き換える。
+P3ではこれらをVelocity SourceとRouteへ置き換える。
 
 移行完了後は、Velocityを二重適用しないよう専用型、専用引数、専用計算関数、`lib.rs`のExportを削除する。
 ## 3.9 Existing Smoother
 現在の`Smoother`は、Current、Target、Remaining Frameを持つ線形Smootherである。
 
-Dynamic ParametersではBase Parameter Changeに再利用できる。
+P3ではBase Parameter Changeに再利用できる。
 
 ただし一つのSmootherをVoiceごとに`next()`してはならない。
 
@@ -423,7 +443,7 @@ Instrument Runtimeが一度だけ進め、VoiceへStart / End値を渡す。
 ## 3.10 ADSR
 現在の`AdsrRuntime`はAmplitude EnvelopeとしてLayerに属する。
 
-Dynamic ParametersのModulation Envelopeは同じCurve計算を再利用してよい。
+P3のModulation Envelopeは同じCurve計算を再利用してよい。
 
 ただしAmplitude ADSRのStateや出力を直接Modulation Sourceとして共有しない。
 
@@ -431,7 +451,7 @@ Dynamic ParametersのModulation Envelopeは同じCurve計算を再利用して�
 ## 3.11 Sample Runtime
 現在のSample Runtimeは、固定`playback_ratio`でFractional Cursorを進める。
 
-Dynamic ParametersではSpan内でRatioを滑らかに変更できるようにする。
+P3ではSpan内でRatioを滑らかに変更できるようにする。
 
 Pitch変化中もPositionは単調増加し、範囲外参照しない。
 
@@ -441,7 +461,7 @@ Sample終端Fadeは残りOutput Frame数を固定Ratioで計算しているた�
 
 現在のFilter APIは、CutoffだけをRampできる。
 
-Dynamic Parametersでは次のNative API拡張が必要になる。
+P3では次のNative API拡張が必要になる。
 - Oscillator Frequency Ramp
 - Filter Cutoff / Resonance Ramp
 内部C ABIであり、Public C ABIにはしない。
@@ -454,13 +474,13 @@ Dynamic Parametersでは次のNative API拡張が必要になる。
 - `render midi`
 現在のMIDI AdapterはNoteとTempoを変換し、Controller、Pitch Bend、AftertouchをWarning付きで無視する。
 
-Dynamic Parametersでは対応ControlだけをCore Eventへ変換する。
+P3では対応ControlだけをCore Eventへ変換する。
 
 ---
 
 # 4. 設計原則
 ## 4.1 音声配線は変えない
-Dynamic Parametersは信号経路を変更しない。
+P3は信号経路を変更しない。
 ```text
 Generator
   → Layer ADSR
@@ -695,7 +715,7 @@ Definitionへ保存しない。
 
 異なるCompiled Instrument間で同じ数値Handleを同一Parameterとみなさない。
 
-HandleへCatalog UUIDやGenerationを埋め込む仕組みはDynamic Parametersでは追加しない。
+HandleへCatalog UUIDやGenerationを埋め込む仕組みはP3では追加しない。
 
 呼び出し側はCompile後にHandleを解決し直し、同じCompiled Instrumentから生成したRuntimeへだけ渡す。
 ## 6.4 Parameter Descriptor
@@ -712,13 +732,13 @@ pub struct ParameterDescriptor {
     pub smoothing_seconds: f32,
 }
 ```
-Dynamic Parametersで公開するParameterはすべて連続`f32`である。
+P3で公開するParameterはすべて連続`f32`である。
 
 一種類しか存在しない段階で`ParameterValueType`の一要素Enumは追加しない。
 
 離散ParameterをCatalogへ追加する段階で型情報の表現を拡張する。
 
-`id`と表示用文字列もDynamic Parametersでは分けず、Frontend向けLabelが必要になった時点で追加する。
+`id`と表示用文字列もP3では分けず、Frontend向けLabelが必要になった時点で追加する。
 ### Parameter Owner
 ```rust
 pub enum ParameterOwner {
@@ -831,7 +851,7 @@ CLIはRender開始前にIDをHandleへ解決する。
 ## 6.9 Initial Targetだけを一般化する
 Parameter Infrastructureは将来Target追加を可能にする。
 
-ただしDynamic Parametersで未実装TargetのDescriptor、Handle、空Stateを作らない。
+ただしP3で未実装TargetのDescriptor、Handle、空Stateを作らない。
 
 特に次をCatalogへ含めない。
 - ADSR Attack / Decay / Sustain / Release
@@ -849,7 +869,7 @@ Parameter Infrastructureは将来Target追加を可能にする。
 
 # 7. DefinitionとModulation Model
 ## 7.1 Instrument Definition
-Dynamic Parametersでは現在のDefinition構造を直接更新する。
+P3では現在のDefinition構造を直接更新する。
 
 概念構造は次とする。
 ```rust
@@ -923,7 +943,7 @@ LFOはVoice Scopeとする。
 
 Note On時にDefinitionのPhaseから開始し、Voice終了まで継続する。
 
-Free-running Instrument LFO、Tempo Sync、Random PhaseはDynamic Parametersへ含めない。
+Free-running Instrument LFO、Tempo Sync、Random PhaseはP3へ含めない。
 ## 7.6 Modulation Envelope Definition
 ```rust
 pub struct ModEnvelopeDefinition {
@@ -954,7 +974,7 @@ Note On時に一度`-1..=1`の値を生成し、Voice終了まで保持する。
 
 複数の独立Randomが必要な場合は、異なるIDとSeedを持つSourceを複数定義する。
 
-周期更新Random、Noise Generator、現在時刻を利用するSeedはDynamic Parametersへ含めない。
+周期更新Random、Noise Generator、現在時刻を利用するSeedはP3へ含めない。
 ## 7.8 Route Definition
 ```rust
 pub struct ModulationRouteDefinition {
@@ -1177,7 +1197,7 @@ Instrument Scope：
 - Pitch Bend
 - Mod Wheel
 - Aftertouch
-Dynamic ParametersのTargetはすべてVoice内のLayerまたはVoice Filterへ適用される。
+P3のTargetはすべてVoice内のLayerまたはVoice Filterへ適用される。
 
 Instrument ScopeはSource Stateの所有者を表し、Global Effect Targetの先行実装を意味しない。
 ## 8.4 Compiled Source
@@ -1498,7 +1518,7 @@ Steal Fade完了が共有Span途中の場合：
 5. 共有Span残り区間を新NoteでRender
 Shared Parameter StateとExternal Control Stateを再Advanceしない。
 ## 10.9 Tempo
-Dynamic Parameters SourceはTempoを使用しない。
+P3 SourceはTempoを使用しない。
 
 `ProcessContext.tempo_bpm`は既存Contractとして保持する。
 
@@ -1531,7 +1551,7 @@ value = note_number / 127 × 2 - 1
 ```
 MIDI Note 0を-1、127を+1とするBipolar Sourceである。
 
-特定のCenter Noteやoctave単位の追従率はDynamic Parametersで追加しない。
+特定のCenter Noteやoctave単位の追従率はP3で追加しない。
 
 必要な効果量はBase値とRoute Amountで調整する。
 ## 11.4 LFO
@@ -1629,7 +1649,7 @@ Pitch Bendの可動幅はTuning TargetへのRoute AmountでDefinitionに明示�
 
 これによりPitch BendをFilterやPanへ利用する場合も同じ仕組みを使える。
 
-MIDI Channelごとに独立したControl StateはDynamic Parametersへ含めない。
+MIDI Channelごとに独立したControl StateはP3へ含めない。
 
 CLIのMIDI Adapterは、読み込んだChannel Controlを一つのInstrument Scopeへ時系列順に統合する。
 
@@ -2012,13 +2032,13 @@ Coreへ`ModWheel` Eventとして渡す。
 
 CC1以外の未対応Controllerは既存Warning方針を維持する。
 
-Sustain PedalはDynamic Parameters対象外のままとする。
+Sustain PedalはP3対象外のままとする。
 ## 15.6 MIDI Channel Aftertouch
 `ChannelAftertouch`を0〜1へ変換する。
 
-Polyphonic AftertouchはDynamic Parameters対象外としWarningを返す。
+Polyphonic AftertouchはP3対象外としWarningを返す。
 ## 15.7 MIDI Channelの扱い
-Sonalloy CoreはDynamic ParametersでMIDI ChannelをDomain Modelへ追加しない。
+Sonalloy CoreはP3でMIDI ChannelをDomain Modelへ追加しない。
 
 CLIが一つのMIDI Fileを一つのInstrumentへRenderする際、Channel ControlをInstrument Scopeへ統合する。
 
@@ -2043,7 +2063,6 @@ Channel対応を正確にするためだけにVoiceへMIDI Channelを恒久的�
 - MIDI Channel Aftertouch
 - Polyphonic Aftertouch Warning
 - 複数Channel Control Warning
-- Note Eventを含まないMIDIの拒否
 - Unsupported Controller Warning
 - Output WAV生成
 - Exit Code
@@ -2052,7 +2071,7 @@ Channel対応を正確にするためだけにVoiceへMIDI Channelを恒久的�
 
 # 16. テスト戦略
 ## 16.1 基本方針
-Dynamic Parametersは横断変更であるため、新機能のTestだけでなく既存音声処理のRegressionを必須とする。
+P3は横断変更であるため、新機能のTestだけでなく既存音声処理のRegressionを必須とする。
 
 Test Frameworkは現在のRust標準Testと既存Dev Dependencyを利用する。
 
@@ -2140,7 +2159,7 @@ Shared Stateの重複更新Testでは、同じEvent列をVoice数1とVoice数8�
 - 中央付近
 - Range内
 ### LFO
-- 初期位相0
+- Phase 0
 - Phase Wrap
 - Sine四分点
 - Triangle頂点 / 谷
@@ -2380,20 +2399,6 @@ Moving Hybrid PadまたはExpressive Hybrid Leadで4〜8小節。
 - SampleとOscillatorの一体感
 - 過度な揺れやPitch不安定がないか
 - 実際に使いたい音か
-### 08-key-tracking.wav
-低音から高音までを含むMIDI入力で、Key TrackingからVoice Filter Cutoffを変化させる。
-
-確認：
-- 音域に応じたCutoff変化
-- 低音から高音までの音色の自然さ
-- Cutoff以外のTargetへ影響が漏れていないこと
-### 09-resonance-control.wav
-Event SequenceからMod WheelをVoice Filter Resonanceへ接続し、発音中に変化させる。
-
-確認：
-- Resonanceの変化量
-- 発散、異常な発振、音量急落がないこと
-- Event位置のSmoothingとClick
 ## 17.3 人間の確認項目
 - Parameter Changeに明確なClickがないか
 - LFOが階段状に聞こえないか
@@ -2478,7 +2483,11 @@ crates/sonalloy-cli/src/
 ---
 
 # 19. 実装順序
-次の順序で契約を固定し、各段階の終了時にTestを通す。後段で全面変更する仮Contractを残さない。
+P3は一つの実装単位である。
+
+以下は別Phaseではなく、同じ変更を安全に完成させるための着手順である。
+
+各段階の終了時にTestを通し、未完成の仮Contractを後段で全面変更する前提にしない。
 ## 19.1 Definition・Parameter Catalog・Compiler
 ### 目的
 保存形式とCompile後のParameter参照を先に固定する。
@@ -2615,7 +2624,7 @@ Voice固有SourceとInstrument共有SourceをTargetへ加算する。
 - Base値へModulationを書き戻さない
 ## 19.5 CLI・MIDI・Reference Instrument
 ### 目的
-Dynamic Parameters機能をCLIだけで理解・再現・試聴できるようにする。
+P3機能をCLIだけで理解・再現・試聴できるようにする。
 ### 主な変更
 - Inspect
 - Event Sequence Render
@@ -2664,6 +2673,7 @@ Dynamic Parameters機能をCLIだけで理解・再現・試聴できるよう�
 - 人間の音質確認完了
 - Known Limitationが記録済み
 - 恒久文書と実装が一致
+- P3という名称が実装や恒久文書へ残っていない
 
 ---
 
@@ -2701,13 +2711,15 @@ Dynamic Parameters機能をCLIだけで理解・再現・試聴できるよう�
 - Warning / Exit Code
 ## 20.4 `docs/testing-and-sound-review.md`
 更新する内容：
-- Dynamic Parameter / ModulationのTest
+- P3機能名ではなくDynamic Parameter / ModulationのTest
 - Block Size比較
 - Random決定性
 - Review WAV
 - 人間の確認項目
 ## 20.5 `docs/architecture.md`
 Parameter Catalog、Compiled Route、Runtime Stateの責務境界を理解するために必要な最小限だけ更新する。
+
+実装計画の実装順、Test一覧、進行名称を転載しない。
 ## 20.6 README
 通常利用者のQuick Startが変わる場合だけ、Reference Instrumentまたは`render events`への短い入口を追加する。
 
@@ -2716,7 +2728,23 @@ Parameter Catalog、Compiled Route、Runtime Stateの責務境界を理解する
 ---
 
 # 21. 実装時の注意
-## 21.1 過剰な抽象化を避ける
+## 21.1 進行名称
+`P3`は本計画書内だけで使用する。
+
+次へ残さない。
+- Code
+- Type
+- Function
+- Module
+- Test名
+- Fixture名
+- Diagnostic
+- Comment
+- Example Instrument名
+- README
+- 恒久設計文書
+既存の`docs/plan/plan-mvp.md`は完了済み履歴として変更しない。
+## 21.2 過剰な抽象化を避ける
 次を作らない。
 - Generic Audio Graph
 - SourceからSourceへのGraph
@@ -2728,7 +2756,29 @@ Parameter Catalog、Compiled Route、Runtime Stateの責務境界を理解する
 - 不要なThread / Queue
 - 将来Target用の空Descriptor
 - 使用しないEffect / Generator用型
-新しい抽象化を追加する場合、複数の実利用箇所があることを確認する。
+新しい抽象化を追加する場合、P3内で二つ以上の実利用箇所があることを確認する。
+## 21.3 計画との差分
+本書の責務や不変条件を変更する必要が出た場合、実装を続ける前に次を記録する。
+- 問題
+- 該当する現行Code
+- 本書どおり実装できない理由
+- 最小の変更案
+- 音声挙動への影響
+- Test変更
+- 将来機能への影響
+名称やFile配置の小変更だけで計画改定を要求しない。
+## 21.4 作業報告
+実装完了時は次をまとめる。
+- 実装した機能
+- 主要変更File
+- Contract変更
+- Test結果
+- Regression結果
+- Review Artifact
+- Known Limitation
+- 更新した恒久文書
+- Scope外へ残したもの
+自己評価のための長いチェックリストを作らない。
 
 ---
 
@@ -2793,6 +2843,7 @@ Parameter Catalog、Compiled Route、Runtime Stateの責務境界を理解する
 - Process中の継続Allocationなし
 - Internal DSP ABIとProduct Interfaceを混同しない
 - Realtime / Riffra / Pluginを先行実装していない
+- P3名称が恒久物へ残っていない
 ## 22.6 ドキュメント
 - Instrument Definition
 - Runtime Processing
@@ -2804,11 +2855,4 @@ Parameter Catalog、Compiled Route、Runtime Stateの責務境界を理解する
 ---
 
 # 23. 自己レビュー
-実装完了時に、次の順で突合する。
-
-1. `docs/CONCEPT.md`の固定要件と本設計のParameter、Source、Route、Runtime責務を突合する。
-2. 本設計のDefinition、Compiler、Process、Runtime、CLI、MIDIの契約を実装と突合する。
-3. `cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace`を実行する。
-4. Event位置、同一Offsetの優先順位、Block Size非依存、Reset再現性、Random決定性を自動Testの結果で確認する。
-5. `docs/instrument-definition.md`、`docs/runtime-processing.md`、`docs/cli.md`、`docs/testing-and-sound-review.md`、`docs/architecture.md`の記述を実装と突合する。
-6. Review用WAVのMetricsを生成し、音量、Click、Pitch、Filter、Pan、Voice Stealingを試聴して記録する。
+CONCEPT.mdと本Planの整合を確認する。
