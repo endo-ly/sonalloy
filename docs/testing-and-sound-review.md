@@ -43,6 +43,8 @@ Dynamic Parameterを追加・変更した場合は、次の観点をUnit Testま
 - LFO、Modulation Envelope、Random、Velocity、Key TrackingのSourceが同じDefinitionとEventから決定的に再現される
 - Block Sizeを変更してもSourceの時間軸、Event位置、出力のFinite性が変わらない
 - Reset後の出力が初回Renderと一致し、Voice Stealing後も新旧VoiceのParameter Stateが混ざらない
+- Routeのない静的Targetは通常のDSP処理を使い、動的TargetだけRamp処理を使う
+- MIDIのControl Channel統合警告とNote Event必須条件がCLI経路で検証される
 - NativeのOscillator / Filter Rampが有効なBuffer境界を守り、故障時に無音化とError伝播を行う
 
 Testは時刻、外部MIDI Device、OS依存の乱数、ファイル更新時刻に依存させず、乱数SeedとEvent Sequenceを固定します。公開経路は`tests/`、内部計算は実装Module内のUnit Testへ置きます。

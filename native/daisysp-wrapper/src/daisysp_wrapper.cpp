@@ -210,20 +210,28 @@ extern "C" int32_t sonalloy_dsp_oscillator_process_ramp(
     }
 
     try {
-        for (uint32_t index = 0; index < frames; ++index) {
-            const float position = frames <= 1u
-                ? 0.0f
-                : static_cast<float>(index) / static_cast<float>(frames);
+        if (start_frequency_hz > 0.0f && end_frequency_hz > 0.0f) {
+            const float frequency_step = frames == 0u
+                ? 1.0f
+                : std::exp(
+                    std::log(end_frequency_hz / start_frequency_hz) /
+                    static_cast<float>(frames));
             float frequency_hz = start_frequency_hz;
-            if (start_frequency_hz > 0.0f && end_frequency_hz > 0.0f) {
-                frequency_hz = start_frequency_hz * std::exp(
-                    std::log(end_frequency_hz / start_frequency_hz) * position);
-            } else {
-                frequency_hz = start_frequency_hz +
-                    (end_frequency_hz - start_frequency_hz) * position;
+            for (uint32_t index = 0; index < frames; ++index) {
+                handle->oscillator.SetFreq(frequency_hz);
+                output[index] = handle->oscillator.Process();
+                frequency_hz *= frequency_step;
             }
-            handle->oscillator.SetFreq(frequency_hz);
-            output[index] = handle->oscillator.Process();
+        } else {
+            for (uint32_t index = 0; index < frames; ++index) {
+                const float position = frames <= 1u
+                    ? 0.0f
+                    : static_cast<float>(index) / static_cast<float>(frames);
+                const float frequency_hz = start_frequency_hz +
+                    (end_frequency_hz - start_frequency_hz) * position;
+                handle->oscillator.SetFreq(frequency_hz);
+                output[index] = handle->oscillator.Process();
+            }
         }
         return SONALLOY_DSP_OK;
     } catch (...) {

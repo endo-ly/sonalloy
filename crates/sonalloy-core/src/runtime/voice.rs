@@ -177,9 +177,14 @@ impl LayerRuntime {
                 }
                 start_frequency = start_frequency.min(max_frequency);
                 end_frequency = end_frequency.min(max_frequency);
-                oscillator
-                    .process_ramp(start_frequency, end_frequency, &mut output[..frames])
-                    .map_err(ProcessError::from_dsp_error)?;
+                match oscillator_processing_mode(start_frequency, end_frequency) {
+                    OscillatorProcessingMode::Constant => oscillator
+                        .process(start_frequency, &mut output[..frames])
+                        .map_err(ProcessError::from_dsp_error)?,
+                    OscillatorProcessingMode::Ramp => oscillator
+                        .process_ramp(start_frequency, end_frequency, &mut output[..frames])
+                        .map_err(ProcessError::from_dsp_error)?,
+                }
                 Ok(false)
             }
             GeneratorRuntime::Sample { sample } => {
@@ -599,24 +604,64 @@ impl VoiceRuntime {
             }
         }
         if let (Some(filter), Some(target)) = (self.filter, targets.filter) {
-            self.filter_left
-                .process_ramp_with_resonance(
-                    target.cutoff.start.min(filter.effective_max_cutoff_hz),
-                    target.cutoff.end.min(filter.effective_max_cutoff_hz),
-                    target.resonance.start,
-                    target.resonance.end,
-                    &mut voice_left[..frames],
-                )
-                .map_err(ProcessError::from_filter_error)?;
-            self.filter_right
-                .process_ramp_with_resonance(
-                    target.cutoff.start.min(filter.effective_max_cutoff_hz),
-                    target.cutoff.end.min(filter.effective_max_cutoff_hz),
-                    target.resonance.start,
-                    target.resonance.end,
-                    &mut voice_right[..frames],
-                )
-                .map_err(ProcessError::from_filter_error)?;
+            self.render_filter(
+                filter,
+                target,
+                &mut voice_left[..frames],
+                &mut voice_right[..frames],
+            )?;
+        }
+        Ok(())
+    }
+
+    fn render_filter(
+        &mut self,
+        filter: crate::compiler::CompiledFilter,
+        target: FilterTargetSpan,
+        voice_left: &mut [f32],
+        voice_right: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        let cutoff_start = target.cutoff.start.min(filter.effective_max_cutoff_hz);
+        let cutoff_end = target.cutoff.end.min(filter.effective_max_cutoff_hz);
+        let resonance_start = target.resonance.start;
+        let resonance_end = target.resonance.end;
+        match filter_processing_mode(cutoff_start, cutoff_end, resonance_start, resonance_end) {
+            FilterProcessingMode::Constant => {
+                self.filter_left
+                    .process(cutoff_start, resonance_start, voice_left)
+                    .map_err(ProcessError::from_filter_error)?;
+                self.filter_right
+                    .process(cutoff_start, resonance_start, voice_right)
+                    .map_err(ProcessError::from_filter_error)?;
+            }
+            FilterProcessingMode::CutoffRamp => {
+                self.filter_left
+                    .process_ramp(cutoff_start, cutoff_end, resonance_start, voice_left)
+                    .map_err(ProcessError::from_filter_error)?;
+                self.filter_right
+                    .process_ramp(cutoff_start, cutoff_end, resonance_start, voice_right)
+                    .map_err(ProcessError::from_filter_error)?;
+            }
+            FilterProcessingMode::CutoffAndResonanceRamp => {
+                self.filter_left
+                    .process_ramp_with_resonance(
+                        cutoff_start,
+                        cutoff_end,
+                        resonance_start,
+                        resonance_end,
+                        voice_left,
+                    )
+                    .map_err(ProcessError::from_filter_error)?;
+                self.filter_right
+                    .process_ramp_with_resonance(
+                        cutoff_start,
+                        cutoff_end,
+                        resonance_start,
+                        resonance_end,
+                        voice_right,
+                    )
+                    .map_err(ProcessError::from_filter_error)?;
+            }
         }
         Ok(())
     }
@@ -908,6 +953,48 @@ fn lfo_value(waveform: LfoWaveform, phase: f32) -> f32 {
     }
 }
 
+fn span_is_constant(start: f32, end: f32) -> bool {
+    start.total_cmp(&end) == std::cmp::Ordering::Equal
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OscillatorProcessingMode {
+    Constant,
+    Ramp,
+}
+
+fn oscillator_processing_mode(start: f32, end: f32) -> OscillatorProcessingMode {
+    if span_is_constant(start, end) {
+        OscillatorProcessingMode::Constant
+    } else {
+        OscillatorProcessingMode::Ramp
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FilterProcessingMode {
+    Constant,
+    CutoffRamp,
+    CutoffAndResonanceRamp,
+}
+
+fn filter_processing_mode(
+    cutoff_start: f32,
+    cutoff_end: f32,
+    resonance_start: f32,
+    resonance_end: f32,
+) -> FilterProcessingMode {
+    if span_is_constant(cutoff_start, cutoff_end)
+        && span_is_constant(resonance_start, resonance_end)
+    {
+        FilterProcessingMode::Constant
+    } else if span_is_constant(resonance_start, resonance_end) {
+        FilterProcessingMode::CutoffRamp
+    } else {
+        FilterProcessingMode::CutoffAndResonanceRamp
+    }
+}
+
 fn curve_value(value: f32, curve: crate::definition::ModulationCurve) -> f32 {
     match curve {
         crate::definition::ModulationCurve::Linear => value,
@@ -949,6 +1036,30 @@ fn splitmix64_finalizer(mut value: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn processing_modes_select_constant_and_dynamic_paths() {
+        assert_eq!(
+            oscillator_processing_mode(440.0, 440.0),
+            OscillatorProcessingMode::Constant
+        );
+        assert_eq!(
+            oscillator_processing_mode(440.0, 441.0),
+            OscillatorProcessingMode::Ramp
+        );
+        assert_eq!(
+            filter_processing_mode(1_000.0, 1_000.0, 0.1, 0.1),
+            FilterProcessingMode::Constant
+        );
+        assert_eq!(
+            filter_processing_mode(1_000.0, 1_100.0, 0.1, 0.1),
+            FilterProcessingMode::CutoffRamp
+        );
+        assert_eq!(
+            filter_processing_mode(1_000.0, 1_000.0, 0.1, 0.2),
+            FilterProcessingMode::CutoffAndResonanceRamp
+        );
+    }
 
     #[test]
     fn lfo_waveforms_match_the_definition() {

@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use midly::{Format, Header, MidiMessage, PitchBend, Smf, Timing, TrackEvent, TrackEventKind};
 use tempfile::tempdir;
 
 fn reference_definition() -> std::path::PathBuf {
@@ -41,6 +42,31 @@ fn positive_zero_crossings(samples: &[f32]) -> usize {
         .windows(2)
         .filter(|window| window[0] <= 0.0 && window[1] > 0.0)
         .count()
+}
+
+fn write_control_only_midi(directory: &std::path::Path) -> std::path::PathBuf {
+    let path = directory.join("control-only.mid");
+    let mut smf = Smf::new(Header::new(
+        Format::SingleTrack,
+        Timing::Metrical(480.into()),
+    ));
+    smf.tracks.push(vec![
+        TrackEvent {
+            delta: 0.into(),
+            kind: TrackEventKind::Midi {
+                channel: 0.into(),
+                message: MidiMessage::PitchBend {
+                    bend: PitchBend::from_int(0),
+                },
+            },
+        },
+        TrackEvent {
+            delta: 0.into(),
+            kind: TrackEventKind::Meta(midly::MetaMessage::EndOfTrack),
+        },
+    ]);
+    smf.save(&path).expect("control-only MIDI fixture");
+    path
 }
 
 #[test]
@@ -504,6 +530,36 @@ fn render_midi_converts_external_controls() {
         .collect();
     assert!(samples.iter().all(|sample| sample.is_finite()));
     assert!(samples.iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
+fn render_midi_rejects_control_only_input() {
+    let directory = tempdir().expect("temporary directory");
+    let midi = write_control_only_midi(directory.path());
+    let output = directory.path().join("control-only.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            reference_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            midi.to_str().expect("utf-8 MIDI path"),
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "64",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+            "--json",
+        ])
+        .assert()
+        .code(2)
+        .stdout(predicates::str::contains(
+            "MIDI file contains no note events",
+        ));
+    assert!(!output.exists());
 }
 
 #[test]

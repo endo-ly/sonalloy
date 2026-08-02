@@ -2043,6 +2043,7 @@ Channel対応を正確にするためだけにVoiceへMIDI Channelを恒久的�
 - MIDI Channel Aftertouch
 - Polyphonic Aftertouch Warning
 - 複数Channel Control Warning
+- Note Eventを含まないMIDIの拒否
 - Unsupported Controller Warning
 - Output WAV生成
 - Exit Code

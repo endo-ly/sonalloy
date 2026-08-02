@@ -157,6 +157,7 @@ Standard MIDI FileをAbsolute Frameの`ScheduledEvent`へ変換してRenderし�
 - CC1はMod Wheel、Pitch Bendは-1〜1、Channel Aftertouchは0〜1へ変換する
 - Sustain Pedal、Polyphonic Aftertouch、CC1以外のController、Program Change等は無視し、Warningを返す
 - 複数ChannelのNoteまたはControlを一つのInstrument Scopeへ統合した場合はWarningを返す
+- Note Eventを含まないMIDI FileはErrorとして拒否する
 - Coreへ`midly`型は渡さない
 
 ```bash
