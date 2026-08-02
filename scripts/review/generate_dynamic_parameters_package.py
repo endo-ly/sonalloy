@@ -27,6 +27,11 @@ def cli_command() -> list[str]:
     return ["cargo", "run", "-q", "-p", "sonalloy-cli", "--"]
 
 
+def write_utf8(path: Path, content: str) -> None:
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(content)
+
+
 def run_cli(arguments: list[str]) -> None:
     result = subprocess.run(
         cli_command() + arguments,
@@ -117,9 +122,9 @@ def copy_definition(source: Path, destination: Path) -> None:
         sample = layer.get("generator", {}).get("sample")
         if sample is not None:
             sample["asset"]["path"] = "../assets/metal-hit.wav"
-    destination.write_text(
+    write_utf8(
+        destination,
         json.dumps(value, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
     )
 
 
@@ -148,9 +153,9 @@ def main() -> None:
         sample = layer.get("generator", {}).get("sample")
         if sample is not None:
             sample["asset"]["path"] = "../assets/metal-hit.wav"
-    stealing_definition.write_text(
+    write_utf8(
+        stealing_definition,
         json.dumps(stealing_value, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
     )
 
     event_source = ROOT / "testdata" / "events" / "expressive-hybrid-lead.json"
@@ -212,11 +217,12 @@ def main() -> None:
             for block_size in BLOCK_SIZES
         },
     }
-    (review_root / "metrics.json").write_text(
+    write_utf8(
+        review_root / "metrics.json",
         json.dumps(metrics, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
     )
-    (review_root / "review-summary.md").write_text(
+    write_utf8(
+        review_root / "review-summary.md",
         """# Dynamic Parameter Review
 
 ## Inputs
@@ -238,7 +244,6 @@ def main() -> None:
 
 Metricsは同じディレクトリの`metrics.json`に保存する。
 """,
-        encoding="utf-8",
     )
 
 
