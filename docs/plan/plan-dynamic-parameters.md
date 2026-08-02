@@ -1,19 +1,8 @@
 # Sonalloy Dynamic Parameters / Modulation 詳細設計・実装計画
-- **対象Repository**：`endo-ly/sonalloy`
-- **正本要件**：`docs/CONCEPT.md`
-- **前提実装**：`docs/plan/plan-mvp.md`で完了した既存Core
-- **用途**：実装エージェントへ渡す詳細設計・実装計画
-- **文書言語**：日本語。型名、API名、Parameter ID、File Pathのみ英語を使用する
-- **成果物**：Markdownのみ。HTML版は作成しない
+## 0. Dynamic Parameters
+既存CoreへDynamic ParametersとModulationを追加する。
 
----
-
-## 0. 設計の位置づけ
-既存CoreへDynamic ParametersとModulationを追加するための詳細設計である。
-
-製品全体の要件、責務、将来像は`docs/CONCEPT.md`を正本とする。
-
-`CONCEPT.md`のうち、次の要件を現在のコードベースへ実装可能な粒度へ落とす。
+要件として次を満たす。
 - 安定したParameter ID
 - DefinitionからCompiled InstrumentへのParameter参照解決
 - 発音中に反映できる連続Parameter Change
@@ -23,15 +12,12 @@
 - 複数Routeの加算、Clamp、Smoothing
 - CLIとMIDI Fileからの再現可能なOffline Render
 
-`plan-mvp.md`で扱った範囲が音声処理基盤からHybrid Instrumentまでを含むのに対し、この機能は既存のDefinition、Compiler、Voice、Runtime、Rendererを横断して拡張する。
+Dynamic Parametersは既存のDefinition、Compiler、Voice、Runtime、Rendererを横断して拡張する。
 
-実装順序に沿って契約を固定し、各契約を検証しながら実装する。
-
-既存の`docs/plan/plan-mvp.md`は完了済みの履歴文書としてそのまま残す。
-### 0.1 実装判断の優先順位
+### 0.1 優先順位
 判断に迷った場合は、次の順序で優先する。
-1. `docs/CONCEPT.md`
-2. この文書で固定した責務と不変条件
+1. `docs/CONCEPT.md`の固定要件
+2. Dynamic Parametersで固定した責務と不変条件
 3. 現在の既存Coreの挙動を壊さないこと
 4. Audio Threadでの単純さと安全性
 5. 将来のGenerator、Effect、Adapterへの拡張
@@ -137,7 +123,7 @@ Offline Stereo WAV
 完成状態は次である。
 
 > Definitionに保存したModulation SourceとRoute、およびSample AccurateなParameter / External Control EventをCompileし、発音中のHybrid Instrumentへ滑らかかつ決定的に反映し、Block Sizeが変わっても同等の音声をOffline Renderできる。
-## 1.4 代表成果物
+## 1.4 Reference Instrumentと検証シナリオ
 次のReference InstrumentをRepositoryへ含める。
 ### Moving Hybrid Pad
 既存のOscillator + Sample Hybridを利用し、内部Modulationの動作を確認する。
