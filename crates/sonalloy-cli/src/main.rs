@@ -1117,6 +1117,33 @@ fn source_id(
     }
 }
 
+fn external_source_name(
+    source: sonalloy_core::compiler::CompiledSourceRef,
+) -> Option<&'static str> {
+    match source {
+        sonalloy_core::compiler::CompiledSourceRef::PitchBend => Some("pitch_bend"),
+        sonalloy_core::compiler::CompiledSourceRef::ModWheel => Some("mod_wheel"),
+        sonalloy_core::compiler::CompiledSourceRef::Aftertouch => Some("aftertouch"),
+        sonalloy_core::compiler::CompiledSourceRef::Voice(_) => None,
+    }
+}
+
+fn inspect_external_source(id: &'static str) -> InspectSource {
+    InspectSource {
+        id: id.to_owned(),
+        scope: "instrument",
+        kind: "external_control",
+        waveform: None,
+        rate_hz: None,
+        phase: None,
+        attack_samples: None,
+        decay_samples: None,
+        sustain_level: None,
+        release_samples: None,
+        seed: None,
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 fn make_inspect_report(
     compiled: &CompiledInstrument,
@@ -1199,6 +1226,32 @@ fn make_inspect_report(
             }
         })
         .collect::<Vec<_>>();
+    let routes = compiled
+        .routes
+        .iter()
+        .map(|route| InspectRoute {
+            source: source_id(compiled, route.source),
+            target: compiled.parameter_descriptor(route.target).map_or_else(
+                || format!("handle.{}", route.target.index()),
+                |value| value.id.clone(),
+            ),
+            amount: route.amount,
+            curve: route.curve,
+        })
+        .collect::<Vec<_>>();
+    let mut sources = compiled
+        .sources
+        .iter()
+        .map(inspect_source)
+        .collect::<Vec<_>>();
+    for route in &compiled.routes {
+        let Some(id) = external_source_name(route.source) else {
+            continue;
+        };
+        if !sources.iter().any(|source| source.id == id) {
+            sources.push(inspect_external_source(id));
+        }
+    }
     InspectReport {
         status: "ok",
         name: compiled.metadata.name.clone(),
@@ -1233,20 +1286,8 @@ fn make_inspect_report(
                 smoothing_seconds: parameter.smoothing_seconds,
             })
             .collect(),
-        sources: compiled.sources.iter().map(inspect_source).collect(),
-        routes: compiled
-            .routes
-            .iter()
-            .map(|route| InspectRoute {
-                source: source_id(compiled, route.source),
-                target: compiled.parameter_descriptor(route.target).map_or_else(
-                    || format!("handle.{}", route.target.index()),
-                    |value| value.id.clone(),
-                ),
-                amount: route.amount,
-                curve: route.curve,
-            })
-            .collect(),
+        sources,
+        routes,
         diagnostics,
     }
 }
@@ -1349,6 +1390,16 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
             "source {}: {:?} ({:?})",
             source.id, source.source, source.scope
         );
+    }
+    let mut external_sources = Vec::new();
+    for route in &compiled.routes {
+        let Some(id) = external_source_name(route.source) else {
+            continue;
+        };
+        if !external_sources.contains(&id) {
+            external_sources.push(id);
+            println!("source {id}: external_control (Instrument)");
+        }
     }
     for route in &compiled.routes {
         println!(

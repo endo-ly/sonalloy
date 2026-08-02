@@ -439,3 +439,35 @@ fn round_frame(frames: f64) -> Result<u64, Vec<Diagnostic>> {
     let frame = frames.round() as u64;
     Ok(frame)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pitch_bend_conversion_uses_the_asymmetric_midi_center() {
+        assert!((pitch_bend_value(-8192) + 1.0).abs() < f32::EPSILON);
+        assert!(pitch_bend_value(0).abs() < f32::EPSILON);
+        assert!((pitch_bend_value(8191) - 1.0).abs() < f32::EPSILON);
+        assert!((-1.0..=1.0).contains(&pitch_bend_value(4096)));
+    }
+
+    #[test]
+    fn event_priority_orders_note_off_before_controls_and_note_on() {
+        let mut events = [
+            ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+            ProcessEventKind::Aftertouch { value: 0.5 },
+            ProcessEventKind::NoteOff { note_id: 1 },
+            ProcessEventKind::PitchBend { value: 0.5 },
+        ];
+        events.sort_by_key(|event| event.priority());
+        assert_eq!(events[0].priority(), 0);
+        assert_eq!(events[1].priority(), 2);
+        assert_eq!(events[2].priority(), 4);
+        assert_eq!(events[3].priority(), 5);
+    }
+}

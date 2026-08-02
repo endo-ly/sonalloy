@@ -163,6 +163,55 @@ fn reference_definition_compiles_and_renders_stereo() {
 }
 
 #[test]
+fn moving_hybrid_routes_cover_the_reference_signal_paths() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/moving-hybrid-pad.json");
+    let definition: InstrumentDefinition = serde_json::from_str(
+        &std::fs::read_to_string(path).expect("moving hybrid Definition exists"),
+    )
+    .expect("moving hybrid Definition parses");
+    let routes = &definition
+        .modulation
+        .as_ref()
+        .expect("moving hybrid modulation")
+        .routes;
+    for expected in [
+        ("velocity", "layer.attack.gain"),
+        ("velocity", "layer.body.gain"),
+        ("voice_pan", "layer.attack.pan"),
+        ("filter_motion", "layer.attack.pan"),
+        ("pitch_motion", "layer.body.tuning"),
+        ("filter_motion", "voice.filter.cutoff"),
+        ("key_tracking", "voice.filter.cutoff"),
+        ("mod_wheel", "voice.filter.cutoff"),
+    ] {
+        assert!(
+            routes
+                .iter()
+                .any(|route| (route.source.as_str(), route.target.as_str()) == expected),
+            "missing route {} -> {}",
+            expected.0,
+            expected.1
+        );
+    }
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/instruments"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    assert!(result.instrument.is_some(), "moving hybrid should compile");
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| { diagnostic.severity != sonalloy_core::DiagnosticSeverity::Error })
+    );
+}
+
+#[test]
 fn absolute_event_timing_is_stable_across_block_sizes() {
     let reference = render_instrument_blocks(64);
     for candidate in [

@@ -278,6 +278,7 @@ pub(crate) struct VoiceRuntime {
     source_states: Vec<VoiceSourceRuntime>,
     source_spans: Vec<ValueSpan>,
     source_definitions: Vec<CompiledVoiceSource>,
+    source_used: Vec<bool>,
     targets: VoiceTargetScratch,
     pending: Option<NoteRequest>,
     steal_fade_total: usize,
@@ -326,6 +327,14 @@ impl VoiceRuntime {
             };
             source_definitions.len()
         ];
+        let mut source_used = vec![false; source_definitions.len()];
+        for route in &compiled.routes {
+            if let CompiledSourceRef::Voice(handle) = route.source {
+                if let Some(used) = source_used.get_mut(handle.index()) {
+                    *used = true;
+                }
+            }
+        }
         Ok(Self {
             state: VoiceState::Idle,
             note_id: None,
@@ -340,6 +349,7 @@ impl VoiceRuntime {
             source_states,
             source_spans,
             source_definitions,
+            source_used,
             targets: VoiceTargetScratch::new(
                 compiled.layers.len(),
                 compiled.voice_filter.is_some(),
@@ -659,6 +669,9 @@ impl VoiceRuntime {
             .zip(&mut self.source_states)
             .enumerate()
         {
+            if !self.source_used[index] {
+                continue;
+            }
             match (definition, state) {
                 (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value)) => {
                     *value = f32::from(note.velocity) / 127.0;
@@ -705,12 +718,20 @@ impl VoiceRuntime {
     }
 
     fn advance_source_spans(&mut self, frames: usize, sample_rate: f64) {
-        for ((definition, state), span) in self
+        for (((definition, state), span), used) in self
             .source_definitions
             .iter()
             .zip(&mut self.source_states)
             .zip(&mut self.source_spans)
+            .zip(&self.source_used)
         {
+            if !*used {
+                *span = ValueSpan {
+                    start: 0.0,
+                    end: 0.0,
+                };
+                continue;
+            }
             match (definition, state) {
                 (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value))
                 | (CompiledVoiceSource::KeyTracking, VoiceSourceRuntime::KeyTracking(value))
@@ -810,7 +831,11 @@ impl VoiceRuntime {
         let mut logarithmic_start = 0.0;
         let mut logarithmic_end = 0.0;
         let range = descriptor.max - descriptor.min;
-        let log_range = (descriptor.max / descriptor.min).log2();
+        let log_range = if descriptor.scale == ParameterScale::Log2 {
+            (descriptor.max / descriptor.min).log2()
+        } else {
+            0.0
+        };
         for route in compiled.routes_for(handle) {
             let source = match route.source {
                 CompiledSourceRef::Voice(handle) => self.source_spans[handle.index()],
@@ -930,4 +955,52 @@ fn splitmix64_finalizer(mut value: u64) -> u64 {
     value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
     value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
     value ^ (value >> 31)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lfo_waveforms_match_the_definition() {
+        assert!((lfo_value(LfoWaveform::Sine, 0.0)).abs() < 1.0e-6);
+        assert!((lfo_value(LfoWaveform::Sine, 0.25) - 1.0).abs() < 1.0e-6);
+        assert!((lfo_value(LfoWaveform::Sine, 0.5)).abs() < 1.0e-6);
+        assert!((lfo_value(LfoWaveform::Triangle, 0.0) + 1.0).abs() < 1.0e-6);
+        assert!(lfo_value(LfoWaveform::Triangle, 0.5) - 1.0 < 1.0e-6);
+        assert!((lfo_value(LfoWaveform::Triangle, 1.0) + 1.0).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn triangle_boundary_is_sample_accurate() {
+        assert_eq!(lfo_boundary(0.0, 1.0, 48_000.0, 30_000), 24_000);
+        assert_eq!(lfo_boundary(0.5, 1.0, 48_000.0, 128), 128);
+        assert_eq!(lfo_boundary(0.9, 1.0, 48_000.0, 128), 128);
+    }
+
+    #[test]
+    fn smooth_step_preserves_bipolar_sign() {
+        assert!(
+            (curve_value(0.5, crate::definition::ModulationCurve::SmoothStep) - 0.5).abs() < 1.0e-6
+        );
+        assert!(
+            (curve_value(-0.5, crate::definition::ModulationCurve::SmoothStep) + 0.5).abs()
+                < 1.0e-6
+        );
+        assert!(
+            (curve_value(-1.0, crate::definition::ModulationCurve::SmoothStep) + 1.0).abs()
+                < 1.0e-6
+        );
+    }
+
+    #[test]
+    fn random_mix_is_stable_and_bipolar() {
+        let value = deterministic_random(8128, 60, "voice_pan");
+        assert!((value - 0.094_552_636).abs() < 1.0e-6);
+        assert!((-1.0..=1.0).contains(&value));
+        assert!((value - deterministic_random(8128, 60, "voice_pan")).abs() < f32::EPSILON);
+        assert!((value - deterministic_random(8129, 60, "voice_pan")).abs() > f32::EPSILON);
+        assert!((value - deterministic_random(8128, 61, "voice_pan")).abs() > f32::EPSILON);
+        assert!((value - deterministic_random(8128, 60, "other_pan")).abs() > f32::EPSILON);
+    }
 }

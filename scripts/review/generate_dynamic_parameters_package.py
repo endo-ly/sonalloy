@@ -145,6 +145,7 @@ def copy_modulation_variant(
     source: Path,
     destination: Path,
     route_keys: set[tuple[str, str]],
+    extra_routes: list[dict[str, object]] | None = None,
 ) -> None:
     value = json.loads(source.read_text(encoding="utf-8"))
     for layer in value["layers"]:
@@ -159,6 +160,7 @@ def copy_modulation_variant(
         for route in modulation["routes"]
         if (route["source"], route["target"]) in route_keys
     ]
+    routes.extend(extra_routes or [])
     user_source_ids = {
         route["source"]
         for route in routes
@@ -225,7 +227,15 @@ def main() -> None:
     copy_modulation_variant(
         moving_source,
         moving_resonance_definition,
-        velocity_gain_routes | {("mod_wheel", "voice.filter.resonance")},
+        velocity_gain_routes,
+        extra_routes=[
+            {
+                "source": "mod_wheel",
+                "target": "voice.filter.resonance",
+                "amount": 0.5,
+                "curve": "linear",
+            }
+        ],
     )
     shutil.copy2(ROOT / "testdata" / "assets" / "metal-hit.wav", asset_dir / "metal-hit.wav")
 

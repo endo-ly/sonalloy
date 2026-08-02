@@ -9,7 +9,7 @@
 | `generate_basic_poly_synth_metrics.py` | Basic Poly SynthのWAV MetricsとBlock Size比較を生成する |
 | `generate_metallic_hybrid_inputs.py` | Metallic Hybridの決定論的AssetとMIDI入力を生成する |
 | `generate_metallic_hybrid_package.py` | Metallic HybridのDefinition、MIDI、Asset、WAV、MetricsをReview Packageへまとめる |
-| `generate_dynamic_parameters_package.py` | Dynamic ParameterのEvent、MIDI、Reference Instrument、WAV、MetricsをReview Packageへまとめる |
+| `generate_dynamic_parameters_package.py` | Dynamic ParameterのEvent、MIDI、Reference Instrument、Source／Target別WAV、MetricsをReview Packageへまとめる |
 | `manifest.py` | Basic Poly Synthの固定Render条件と共通Render処理を定義する |
 | `measure_wav.py` | WAVのMetadata、Finite性、Peak、RMS、DC、周波数、境界差分を測定する |
 

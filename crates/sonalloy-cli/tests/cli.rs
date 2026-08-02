@@ -312,6 +312,27 @@ fn instrument_init_validate_and_inspect_are_available() {
 }
 
 #[test]
+fn inspect_lists_external_modulation_sources() {
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            expressive_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"id\":\"pitch_bend\""))
+        .stdout(predicates::str::contains("\"id\":\"mod_wheel\""))
+        .stdout(predicates::str::contains("\"id\":\"aftertouch\""))
+        .stdout(predicates::str::contains("\"scope\":\"instrument\""))
+        .stdout(predicates::str::contains("\"kind\":\"external_control\""));
+}
+
+#[test]
 fn render_note_uses_the_compiled_instrument() {
     let directory = tempdir().expect("temporary directory");
     let output = directory.path().join("note.wav");

@@ -366,7 +366,10 @@ impl InstrumentProcessor for InstrumentRuntime {
                 && block.events[event_index].sample_offset == cursor
             {
                 let event = block.events[event_index].kind;
-                self.apply_event(event, self.absolute_frame + cursor as u64)?;
+                if let Err(error) = self.apply_event(event, self.absolute_frame + cursor as u64) {
+                    clear_output(&mut *block.output, block.frames);
+                    return Err(error);
+                }
                 event_index += 1;
             }
 
@@ -401,7 +404,7 @@ impl InstrumentProcessor for InstrumentRuntime {
                 aftertouch,
                 frames,
             );
-            Self::render_range(
+            if let Err(error) = Self::render_range(
                 &mut self.voices,
                 &self.compiled,
                 layer_mono,
@@ -412,7 +415,10 @@ impl InstrumentProcessor for InstrumentRuntime {
                 end,
                 spec.sample_rate,
                 shared,
-            )?;
+            ) {
+                clear_output(&mut *block.output, block.frames);
+                return Err(error);
+            }
             cursor = end;
         }
         self.absolute_frame = next_frame;
@@ -451,4 +457,135 @@ impl InstrumentProcessor for InstrumentRuntime {
 
 fn control_smoothing_frames(sample_rate: f64) -> usize {
     rounded_frame_count(sample_rate * CONTROL_SMOOTHING_SECONDS).max(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::compiler::{CompileContext, compile_instrument};
+    use crate::definition::tests::definition;
+    use crate::parameter::ParameterHandle;
+    use crate::process::ProcessEvent;
+
+    fn compiled(polyphony: u16) -> Arc<CompiledInstrument> {
+        let mut definition = definition();
+        definition.performance.polyphony = polyphony;
+        compile_instrument(
+            &definition,
+            &CompileContext {
+                definition_base_dir: ".".into(),
+                process_spec: ProcessSpec::new(48_000.0, 64, 2).expect("valid spec"),
+            },
+        )
+        .instrument
+        .expect("definition compiles")
+    }
+
+    fn process_parameter_event(runtime: &mut InstrumentRuntime, event: ProcessEventKind) {
+        let mut left = [1.0_f32; 32];
+        let mut right = [1.0_f32; 32];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        runtime
+            .process(ProcessBlock {
+                frames: 32,
+                context: crate::process::ProcessContext {
+                    absolute_frame: 0,
+                    tempo_bpm: 120.0,
+                },
+                events: &[ProcessEvent {
+                    sample_offset: 0,
+                    kind: event,
+                }],
+                output: &mut output,
+            })
+            .expect("parameter event process");
+    }
+
+    #[test]
+    fn invalid_parameter_event_leaves_runtime_state_unchanged() {
+        let instrument = compiled(2);
+        let mut runtime = instrument.instantiate();
+        runtime
+            .prepare(ProcessSpec::new(48_000.0, 64, 2).expect("valid spec"))
+            .expect("runtime preparation");
+        let invalid = ProcessEvent {
+            sample_offset: 8,
+            kind: ProcessEventKind::ParameterChange {
+                parameter: ParameterHandle::new(instrument.parameters().len()),
+                normalized: 0.5,
+            },
+        };
+        let note_on = ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        };
+        let mut left = [1.0_f32; 32];
+        let mut right = [1.0_f32; 32];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        let error = runtime.process(ProcessBlock {
+            frames: 32,
+            context: crate::process::ProcessContext {
+                absolute_frame: 0,
+                tempo_bpm: 120.0,
+            },
+            events: &[note_on, invalid],
+            output: &mut output,
+        });
+        assert_eq!(
+            error,
+            Err(ProcessError::ParameterHandleOutOfRange {
+                handle: instrument.parameters().len(),
+            })
+        );
+        assert_eq!(runtime.absolute_frame(), 0);
+        assert!(
+            runtime
+                .voices
+                .iter()
+                .all(|voice| voice.state() == VoiceState::Idle)
+        );
+        assert!(left.iter().all(|sample| sample.abs() < f32::EPSILON));
+        assert!(right.iter().all(|sample| sample.abs() < f32::EPSILON));
+    }
+
+    #[test]
+    fn shared_parameter_state_advances_once_for_any_voice_count() {
+        let mut one_voice = compiled(1).instantiate();
+        let mut eight_voices = compiled(8).instantiate();
+        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid spec");
+        one_voice.prepare(spec).expect("one voice preparation");
+        eight_voices.prepare(spec).expect("eight voice preparation");
+        let parameter = one_voice.compiled().parameters()[0].id.clone();
+        let one_handle = one_voice
+            .compiled()
+            .parameter_handle(&parameter)
+            .expect("parameter handle");
+        let eight_handle = eight_voices
+            .compiled()
+            .parameter_handle(&parameter)
+            .expect("parameter handle");
+        process_parameter_event(
+            &mut one_voice,
+            ProcessEventKind::ParameterChange {
+                parameter: one_handle,
+                normalized: 1.0,
+            },
+        );
+        process_parameter_event(
+            &mut eight_voices,
+            ProcessEventKind::ParameterChange {
+                parameter: eight_handle,
+                normalized: 1.0,
+            },
+        );
+        let one_current = one_voice.parameter_states[one_handle.index()].span(0).0;
+        let eight_current = eight_voices.parameter_states[eight_handle.index()]
+            .span(0)
+            .0;
+        assert!((one_current - eight_current).abs() < f32::EPSILON);
+    }
 }
