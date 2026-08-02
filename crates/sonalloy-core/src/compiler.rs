@@ -313,6 +313,8 @@ pub struct CompiledModEnvelope {
 pub struct CompiledRandom {
     /// Explicit source seed.
     pub seed: u64,
+    /// FNV-1a hash of the stable source identifier, precomputed off the audio path.
+    pub source_hash: u64,
 }
 
 /// A source reference in a compiled route.
@@ -550,7 +552,10 @@ fn compile_modulation(
                     })
                 }
                 ModulationSourceDefinition::Random(value) => {
-                    CompiledVoiceSource::Random(CompiledRandom { seed: value.seed })
+                    CompiledVoiceSource::Random(CompiledRandom {
+                        seed: value.seed,
+                        source_hash: source_id_hash(&value.id),
+                    })
                 }
             };
             let handle = SourceHandle(sources.len());
@@ -635,6 +640,15 @@ fn source_id(source: &ModulationSourceDefinition) -> &str {
         ModulationSourceDefinition::Envelope(value) => &value.id,
         ModulationSourceDefinition::Random(value) => &value.id,
     }
+}
+
+pub(crate) fn source_id_hash(source_id: &str) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in source_id.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
 }
 
 fn compile_lfo(value: &LfoDefinition) -> CompiledLfo {

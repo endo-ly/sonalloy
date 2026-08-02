@@ -148,7 +148,6 @@ impl InstrumentRuntime {
                 self.voices[voice_index].request_note(
                     NoteRequest::new(note_id, note_number, velocity, absolute_frame),
                     fade_frames,
-                    &self.compiled,
                 )?;
             }
             ProcessEventKind::NoteOff { note_id } => {

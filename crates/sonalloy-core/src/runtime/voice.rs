@@ -376,13 +376,12 @@ impl VoiceRuntime {
         &mut self,
         note: NoteRequest,
         fade_frames: usize,
-        compiled: &CompiledInstrument,
     ) -> Result<(), ProcessError> {
         if !self.can_trigger(note.note_number, note.velocity) {
             return Ok(());
         }
         if self.state == VoiceState::Idle {
-            self.start_note(note, compiled)?;
+            self.start_note(note)?;
             return Ok(());
         }
         self.pending = Some(note);
@@ -390,7 +389,7 @@ impl VoiceRuntime {
         self.steal_fade_total = fade_frames;
         self.steal_fade_remaining = fade_frames;
         if fade_frames == 0 {
-            self.complete_steal(compiled)?;
+            self.complete_steal()?;
         }
         Ok(())
     }
@@ -452,7 +451,7 @@ impl VoiceRuntime {
             }
             if chunk == 0 {
                 if self.state == VoiceState::StealFading {
-                    self.complete_steal(compiled)?;
+                    self.complete_steal()?;
                     continue;
                 }
                 chunk = 1.min(frames - offset);
@@ -490,12 +489,12 @@ impl VoiceRuntime {
             offset += chunk;
             if !self.has_active_layer() {
                 if self.state == VoiceState::StealFading {
-                    self.complete_steal(compiled)?;
+                    self.complete_steal()?;
                 } else {
                     self.reset_to_idle()?;
                 }
             } else if self.state == VoiceState::StealFading && self.steal_fade_remaining == 0 {
-                self.complete_steal(compiled)?;
+                self.complete_steal()?;
             }
         }
         self.estimated_level = self.estimated_level.mul_add(0.95, peak * 0.05);
@@ -521,11 +520,7 @@ impl VoiceRuntime {
         self.layers.iter().any(|layer| layer.active)
     }
 
-    fn start_note(
-        &mut self,
-        note: NoteRequest,
-        compiled: &CompiledInstrument,
-    ) -> Result<(), ProcessError> {
+    fn start_note(&mut self, note: NoteRequest) -> Result<(), ProcessError> {
         self.reset_note_state()?;
         self.note_id = Some(note.note_id);
         self.note_number = note.note_number;
@@ -534,7 +529,7 @@ impl VoiceRuntime {
         for layer in &mut self.layers {
             let _ = layer.start(note)?;
         }
-        self.initialize_source_state(note, compiled);
+        self.initialize_source_state(note);
         if !self.has_active_layer() {
             self.reset_to_idle()?;
             return Ok(());
@@ -544,14 +539,14 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    fn complete_steal(&mut self, compiled: &CompiledInstrument) -> Result<(), ProcessError> {
+    fn complete_steal(&mut self) -> Result<(), ProcessError> {
         let pending = self.pending.take();
         self.note_id = None;
         self.state = VoiceState::Idle;
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
         if let Some(note) = pending {
-            self.start_note(note, compiled)?;
+            self.start_note(note)?;
         } else {
             self.reset_to_idle()?;
         }
@@ -662,7 +657,7 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    fn initialize_source_state(&mut self, note: NoteRequest, compiled: &CompiledInstrument) {
+    fn initialize_source_state(&mut self, note: NoteRequest) {
         for (index, (definition, state)) in self
             .source_definitions
             .iter()
@@ -686,8 +681,7 @@ impl VoiceRuntime {
                     envelope.note_on();
                 }
                 (CompiledVoiceSource::Random(value), VoiceSourceRuntime::Random(random)) => {
-                    let id = &compiled.sources[index].id;
-                    *random = deterministic_random(value.seed, note.note_id, id);
+                    *random = deterministic_random(value.seed, note.note_id, value.source_hash);
                 }
                 _ => {}
             }
@@ -939,13 +933,8 @@ fn lfo_boundary(phase: f32, rate_hz: f32, sample_rate: f64, remaining: usize) ->
     frames.max(1).min(remaining)
 }
 
-fn deterministic_random(seed: u64, note_id: NoteId, source_id: &str) -> f32 {
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for byte in source_id.bytes() {
-        hash ^= u64::from(byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    let mixed = splitmix64_finalizer(seed ^ note_id ^ hash);
+fn deterministic_random(seed: u64, note_id: NoteId, source_hash: u64) -> f32 {
+    let mixed = splitmix64_finalizer(seed ^ note_id ^ source_hash);
     #[allow(clippy::cast_precision_loss)]
     let unit = (mixed >> 40) as f32 / (1_u32 << 24) as f32;
     unit * 2.0 - 1.0
@@ -995,12 +984,17 @@ mod tests {
 
     #[test]
     fn random_mix_is_stable_and_bipolar() {
-        let value = deterministic_random(8128, 60, "voice_pan");
+        let source_hash = crate::compiler::source_id_hash("voice_pan");
+        let value = deterministic_random(8128, 60, source_hash);
         assert!((value - 0.094_552_636).abs() < 1.0e-6);
         assert!((-1.0..=1.0).contains(&value));
-        assert!((value - deterministic_random(8128, 60, "voice_pan")).abs() < f32::EPSILON);
-        assert!((value - deterministic_random(8129, 60, "voice_pan")).abs() > f32::EPSILON);
-        assert!((value - deterministic_random(8128, 61, "voice_pan")).abs() > f32::EPSILON);
-        assert!((value - deterministic_random(8128, 60, "other_pan")).abs() > f32::EPSILON);
+        assert!((value - deterministic_random(8128, 60, source_hash)).abs() < f32::EPSILON);
+        assert!((value - deterministic_random(8129, 60, source_hash)).abs() > f32::EPSILON);
+        assert!((value - deterministic_random(8128, 61, source_hash)).abs() > f32::EPSILON);
+        assert!(
+            (value - deterministic_random(8128, 60, crate::compiler::source_id_hash("other_pan"),))
+                .abs()
+                > f32::EPSILON
+        );
     }
 }

@@ -2379,6 +2379,20 @@ Moving Hybrid PadまたはExpressive Hybrid Leadで4〜8小節。
 - SampleとOscillatorの一体感
 - 過度な揺れやPitch不安定がないか
 - 実際に使いたい音か
+### 08-key-tracking.wav
+低音から高音までを含むMIDI入力で、Key TrackingからVoice Filter Cutoffを変化させる。
+
+確認：
+- 音域に応じたCutoff変化
+- 低音から高音までの音色の自然さ
+- Cutoff以外のTargetへ影響が漏れていないこと
+### 09-resonance-control.wav
+Event SequenceからMod WheelをVoice Filter Resonanceへ接続し、発音中に変化させる。
+
+確認：
+- Resonanceの変化量
+- 発散、異常な発振、音量急落がないこと
+- Event位置のSmoothingとClick
 ## 17.3 人間の確認項目
 - Parameter Changeに明確なClickがないか
 - LFOが階段状に聞こえないか

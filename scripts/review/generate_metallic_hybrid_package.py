@@ -113,6 +113,7 @@ def copy_definition(source: Path, destination: Path, asset_path: str | None) -> 
     destination.write_text(
         json.dumps(definition, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 
@@ -401,6 +402,7 @@ def main() -> None:
     (review_root / "metrics.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     summary = f"""# Metallic Hybrid Sound Review
 
