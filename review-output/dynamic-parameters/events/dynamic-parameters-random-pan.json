@@ -1,0 +1,40 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note": 36,
+      "velocity": 100,
+      "note_id": 1
+    },
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note": 60,
+      "velocity": 100,
+      "note_id": 2
+    },
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note": 84,
+      "velocity": 100,
+      "note_id": 3
+    },
+    {
+      "absolute_frame": 72000,
+      "type": "note_off",
+      "note_id": 1
+    },
+    {
+      "absolute_frame": 72000,
+      "type": "note_off",
+      "note_id": 2
+    },
+    {
+      "absolute_frame": 72000,
+      "type": "note_off",
+      "note_id": 3
+    }
+  ]
+}

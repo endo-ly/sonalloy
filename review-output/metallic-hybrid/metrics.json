@@ -45,12 +45,12 @@
       "frames": 48001,
       "duration_seconds": 1.0000208333333334,
       "finite": true,
-      "peak": 0.15543445944786072,
-      "rms": 0.006894572648333811,
-      "dc": 8.162429641300785e-06,
-      "positive_zero_crossings_left": 540,
-      "estimated_frequency_hz": 539.9887502343702,
-      "max_adjacent_frame_delta": 0.08035868965089321,
+      "peak": 0.2583732008934021,
+      "rms": 0.011115181573232314,
+      "dc": 1.4061852025248067e-05,
+      "positive_zero_crossings_left": 480,
+      "estimated_frequency_hz": 479.990000208329,
+      "max_adjacent_frame_delta": 0.12862440571188927,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -64,12 +64,12 @@
       "frames": 144001,
       "duration_seconds": 3.000020833333333,
       "finite": true,
-      "peak": 0.16610264778137207,
-      "rms": 0.006578475195228416,
-      "dc": 1.774892379084099e-05,
-      "positive_zero_crossings_left": 1458,
-      "estimated_frequency_hz": 485.99662502343733,
-      "max_adjacent_frame_delta": 0.11933549121022224,
+      "peak": 0.2801658511161804,
+      "rms": 0.010846535515241899,
+      "dc": 3.0775607974355284e-05,
+      "positive_zero_crossings_left": 1373,
+      "estimated_frequency_hz": 457.6634884479969,
+      "max_adjacent_frame_delta": 0.22260157018899918,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -83,12 +83,12 @@
       "frames": 276001,
       "duration_seconds": 5.750020833333333,
       "finite": true,
-      "peak": 0.1532602608203888,
-      "rms": 0.04046911884680568,
-      "dc": -1.3499235817737706e-05,
-      "positive_zero_crossings_left": 1508,
-      "estimated_frequency_hz": 262.25991934811833,
-      "max_adjacent_frame_delta": 0.005611863452941179,
+      "peak": 0.2629227638244629,
+      "rms": 0.07207003554946075,
+      "dc": -2.5099830338241857e-05,
+      "positive_zero_crossings_left": 1497,
+      "estimated_frequency_hz": 260.34688280114926,
+      "max_adjacent_frame_delta": 0.009655782952904701,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -105,31 +105,31 @@
           },
           {
             "frequency_hz": 128.90625,
-            "relative_amplitude": 0.906167306749879
+            "relative_amplitude": 0.9735926770825565
           },
           {
             "frequency_hz": 269.53125,
-            "relative_amplitude": 0.7915021476380293
+            "relative_amplitude": 0.7915018973835944
           },
           {
             "frequency_hz": 140.625,
-            "relative_amplitude": 0.5734859034654826
+            "relative_amplitude": 0.6161541270605253
           },
           {
             "frequency_hz": 117.1875,
-            "relative_amplitude": 0.3509152804987203
+            "relative_amplitude": 0.3770239113164682
           },
           {
             "frequency_hz": 246.09375,
-            "relative_amplitude": 0.29009311062352927
+            "relative_amplitude": 0.2900927971621302
           },
           {
             "frequency_hz": 281.25,
-            "relative_amplitude": 0.09629981433157744
+            "relative_amplitude": 0.09629990317844324
           },
           {
             "frequency_hz": 152.34375,
-            "relative_amplitude": 0.03281806649772688
+            "relative_amplitude": 0.03526284617456749
           }
         ]
       }
@@ -140,12 +140,12 @@
       "frames": 276001,
       "duration_seconds": 5.750020833333333,
       "finite": true,
-      "peak": 0.23913252353668213,
-      "rms": 0.009240428489651073,
-      "dc": 2.7636081503059114e-05,
-      "positive_zero_crossings_left": 4108,
-      "estimated_frequency_hz": 714.4321940862533,
-      "max_adjacent_frame_delta": 0.13109219074249268,
+      "peak": 0.3925935626029968,
+      "rms": 0.015464986123075128,
+      "dc": 5.028230234879113e-05,
+      "positive_zero_crossings_left": 3959,
+      "estimated_frequency_hz": 688.519244495491,
+      "max_adjacent_frame_delta": 0.22847583889961243,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -159,12 +159,12 @@
       "frames": 40801,
       "duration_seconds": 0.8500208333333333,
       "finite": true,
-      "peak": 0.19727574288845062,
-      "rms": 0.027776967678032973,
-      "dc": 1.1899818034419812e-05,
-      "positive_zero_crossings_left": 251,
-      "estimated_frequency_hz": 295.28688022352395,
-      "max_adjacent_frame_delta": 0.08305229991674423,
+      "peak": 0.3196014165878296,
+      "rms": 0.04762241954732778,
+      "dc": 2.048692400120062e-05,
+      "positive_zero_crossings_left": 233,
+      "estimated_frequency_hz": 274.1109286537095,
+      "max_adjacent_frame_delta": 0.1332634910941124,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -181,31 +181,31 @@
           },
           {
             "frequency_hz": 269.53125,
-            "relative_amplitude": 0.7908560997894059
+            "relative_amplitude": 0.7908560803345623
           },
           {
             "frequency_hz": 246.09375,
-            "relative_amplitude": 0.2905426659762477
+            "relative_amplitude": 0.2905426648295132
           },
           {
             "frequency_hz": 281.25,
-            "relative_amplitude": 0.09606816612392559
+            "relative_amplitude": 0.09606819022485238
           },
           {
             "frequency_hz": 234.375,
-            "relative_amplitude": 0.02839195907326898
+            "relative_amplitude": 0.028391937404072618
           },
           {
             "frequency_hz": 292.96875,
-            "relative_amplitude": 0.01768171742012482
+            "relative_amplitude": 0.017681727576161915
           },
           {
             "frequency_hz": 222.65625,
-            "relative_amplitude": 0.008690907749152696
+            "relative_amplitude": 0.00869089092223589
           },
           {
             "frequency_hz": 304.6875,
-            "relative_amplitude": 0.00634213784678516
+            "relative_amplitude": 0.0063421484725575275
           }
         ]
       }
@@ -216,12 +216,12 @@
       "frames": 132001,
       "duration_seconds": 2.750020833333333,
       "finite": true,
-      "peak": 0.21776893734931946,
-      "rms": 0.022506059908583356,
-      "dc": 1.1899352481798134e-05,
-      "positive_zero_crossings_left": 786,
-      "estimated_frequency_hz": 285.8160165453292,
-      "max_adjacent_frame_delta": 0.09328732080757618,
+      "peak": 0.3416450321674347,
+      "rms": 0.0422689000748274,
+      "dc": 2.3319839740312864e-05,
+      "positive_zero_crossings_left": 745,
+      "estimated_frequency_hz": 270.907038583041,
+      "max_adjacent_frame_delta": 0.1406496111303568,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -235,12 +235,12 @@
       "frames": 276001,
       "duration_seconds": 5.750020833333333,
       "finite": true,
-      "peak": 0.3414139449596405,
-      "rms": 0.04074350182773022,
-      "dc": 1.4136833071909259e-05,
-      "positive_zero_crossings_left": 1960,
-      "estimated_frequency_hz": 340.8683301872095,
-      "max_adjacent_frame_delta": 0.1345379650592804,
+      "peak": 0.5671131014823914,
+      "rms": 0.07234146129706648,
+      "dc": 2.518247107586046e-05,
+      "positive_zero_crossings_left": 1920,
+      "estimated_frequency_hz": 333.91183365277664,
+      "max_adjacent_frame_delta": 0.23402085900306702,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -257,31 +257,31 @@
           },
           {
             "frequency_hz": 128.90625,
-            "relative_amplitude": 0.8936824154193942
+            "relative_amplitude": 0.9601791914530616
           },
           {
             "frequency_hz": 269.53125,
-            "relative_amplitude": 0.7908462937886561
+            "relative_amplitude": 0.7908460971372796
           },
           {
             "frequency_hz": 140.625,
-            "relative_amplitude": 0.5660533403724355
+            "relative_amplitude": 0.6081686951594494
           },
           {
             "frequency_hz": 117.1875,
-            "relative_amplitude": 0.34575148421800933
+            "relative_amplitude": 0.37147602114349193
           },
           {
             "frequency_hz": 246.09375,
-            "relative_amplitude": 0.2905318679133231
+            "relative_amplitude": 0.2905316703975879
           },
           {
             "frequency_hz": 281.25,
-            "relative_amplitude": 0.09607089434384926
+            "relative_amplitude": 0.09607095242165818
           },
           {
             "frequency_hz": 152.34375,
-            "relative_amplitude": 0.032519914074876574
+            "relative_amplitude": 0.0349423475330563
           }
         ]
       }
@@ -292,12 +292,12 @@
       "frames": 276001,
       "duration_seconds": 5.750020833333333,
       "finite": true,
-      "peak": 0.1532602608203888,
-      "rms": 0.04046911884680568,
-      "dc": -1.3499235817737706e-05,
-      "positive_zero_crossings_left": 1508,
-      "estimated_frequency_hz": 262.25991934811833,
-      "max_adjacent_frame_delta": 0.005611863452941179,
+      "peak": 0.2629227638244629,
+      "rms": 0.07207003554946075,
+      "dc": -2.5099830338241857e-05,
+      "positive_zero_crossings_left": 1497,
+      "estimated_frequency_hz": 260.34688280114926,
+      "max_adjacent_frame_delta": 0.009655782952904701,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -309,15 +309,15 @@
   "block_size_comparisons": {
     "64": {
       "compatible": true,
-      "max_abs_difference": 2.8312206268310547e-07,
-      "rms_difference": 4.05929295329276e-09,
-      "different_sample_count": 4150
+      "max_abs_difference": 0.0,
+      "rms_difference": 0.0,
+      "different_sample_count": 0
     },
     "1024": {
       "compatible": true,
-      "max_abs_difference": 4.880130290985107e-07,
-      "rms_difference": 8.233231847022496e-09,
-      "different_sample_count": 5512
+      "max_abs_difference": 0.0,
+      "rms_difference": 0.0,
+      "different_sample_count": 0
     }
   },
   "automatic_checks": {

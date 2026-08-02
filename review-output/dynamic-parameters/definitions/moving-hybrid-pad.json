@@ -113,9 +113,21 @@
         "curve": "smooth_step"
       },
       {
+        "source": "filter_motion",
+        "target": "layer.attack.pan",
+        "amount": 0.08,
+        "curve": "linear"
+      },
+      {
         "source": "key_tracking",
         "target": "voice.filter.cutoff",
         "amount": 0.08,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.filter.cutoff",
+        "amount": 0.12,
         "curve": "linear"
       },
       {
@@ -126,7 +138,7 @@
       },
       {
         "source": "voice_pan",
-        "target": "layer.body.pan",
+        "target": "layer.attack.pan",
         "amount": 0.1,
         "curve": "linear"
       }

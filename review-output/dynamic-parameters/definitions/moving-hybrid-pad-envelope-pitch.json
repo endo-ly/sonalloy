@@ -6,7 +6,7 @@
     "description": "A hybrid pad with internal modulation across layers and filter"
   },
   "performance": {
-    "polyphony": 2,
+    "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -73,24 +73,12 @@
   "modulation": {
     "sources": [
       {
-        "type": "lfo",
-        "id": "filter_motion",
-        "waveform": "sine",
-        "rate_hz": 0.25,
-        "phase": 0.0
-      },
-      {
         "type": "envelope",
         "id": "pitch_motion",
         "attack_seconds": 0.08,
         "decay_seconds": 0.6,
         "sustain_level": 0.0,
         "release_seconds": 0.2
-      },
-      {
-        "type": "random",
-        "id": "voice_pan",
-        "seed": 8128
       }
     ],
     "routes": [
@@ -107,39 +95,9 @@
         "curve": "linear"
       },
       {
-        "source": "filter_motion",
-        "target": "voice.filter.cutoff",
-        "amount": 0.18,
-        "curve": "smooth_step"
-      },
-      {
-        "source": "filter_motion",
-        "target": "layer.attack.pan",
-        "amount": 0.08,
-        "curve": "linear"
-      },
-      {
-        "source": "key_tracking",
-        "target": "voice.filter.cutoff",
-        "amount": 0.08,
-        "curve": "linear"
-      },
-      {
-        "source": "mod_wheel",
-        "target": "voice.filter.cutoff",
-        "amount": 0.12,
-        "curve": "linear"
-      },
-      {
         "source": "pitch_motion",
         "target": "layer.body.tuning",
         "amount": 0.04,
-        "curve": "linear"
-      },
-      {
-        "source": "voice_pan",
-        "target": "layer.attack.pan",
-        "amount": 0.1,
         "curve": "linear"
       }
     ]
