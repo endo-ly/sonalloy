@@ -33,6 +33,20 @@
 - Guard付きTestでProcess領域外が変更されていないことを確認する
 - Native境界を含むTestはLinux CIでASan / UBSan / Leak検出の対象にする
 
+## Dynamic Parameterの検証
+
+Dynamic Parameterを追加・変更した場合は、次の観点をUnit TestまたはIntegration Testで検証します。
+
+- Parameter IDの重複、未知のTarget、未知のSource、Range違反がCompile時に診断される
+- Parameter Change、Pitch Bend、Mod Wheel、Aftertouchが絶対Frame位置へ反映され、同一Offsetのイベントが優先順位どおりに処理される
+- Layer Gain / Pan / Tuning、Voice Filter Cutoff / ResonanceがTargetのUnitとRangeへ変換され、Routeの加算後にClampされる
+- LFO、Modulation Envelope、Random、Velocity、Key TrackingのSourceが同じDefinitionとEventから決定的に再現される
+- Block Sizeを変更してもSourceの時間軸、Event位置、出力のFinite性が変わらない
+- Reset後の出力が初回Renderと一致し、Voice Stealing後も新旧VoiceのParameter Stateが混ざらない
+- NativeのOscillator / Filter Rampが有効なBuffer境界を守り、故障時に無音化とError伝播を行う
+
+Testは時刻、外部MIDI Device、OS依存の乱数、ファイル更新時刻に依存させず、乱数SeedとEvent Sequenceを固定します。公開経路は`tests/`、内部計算は実装Module内のUnit Testへ置きます。
+
 ## 音声Review
 
 - Metricsは`scripts/review/measure_wav.py`でWAVから生成する（手入力しない）
@@ -64,5 +78,12 @@ flowchart LR
 - 生成：`python scripts/review/generate_metallic_hybrid_package.py`
 - Metrics：Basicと同じ内容に加え、Sample Layerの有効状態、AssetのSHA-256一致、Sample-onlyの非無音性、Hybrid MixとOscillator-onlyの差分を検査
 - 人間の確認：原音との差、Pitch品質、Sample終端のClick、Attackの初速、Bodyの芯と余韻、SoloとMixの一体感、Velocityの自然さ、Phraseでの実用性
+
+### Dynamic Parameters
+
+- 保存先：`review-output/dynamic-parameters/`（audio / definitions / events / midi / metrics.json / review-summary.md）
+- 生成：`render events`と`render midi`で同じDefinitionを固定EventへRenderする
+- Metrics：Finite性、Peak / RMS / DC、Parameter Change前後のFrame差分、Block Size 32 / 64 / 257 / 1024の出力比較、Random Seed再現性、Pitch Bendの連続性
+- 人間の確認：LFOの周期と位相、EnvelopeのAttack / Decay / Sustain / Release、Velocityの音量変化、Key Trackingの音域変化、Random Panの左右定位、Pitch Bendの滑らかさ、Mod Wheel / AftertouchによるFilter変化、Voice Stealing、Parameter ChangeのClick、OscillatorとSampleの音程一致
 
 試聴の際は同じ再生環境・音量で比較し、確認結果を`review-summary.md`へ記録します。

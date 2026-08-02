@@ -26,7 +26,7 @@ pub struct InstrumentDefinition {
     /// Optional filter applied after the voice layer mix.
     pub voice_filter: Option<FilterDefinition>,
     /// Optional modulation sources and routes.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modulation: Option<ModulationDefinition>,
 }
 

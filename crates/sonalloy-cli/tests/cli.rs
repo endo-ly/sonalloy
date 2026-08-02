@@ -377,7 +377,7 @@ fn render_events_supports_parameter_and_external_control_events() {
         reader
             .samples::<f32>()
             .map(|sample| sample.expect("valid sample"))
-            .all(|sample| sample.is_finite())
+            .all(f32::is_finite)
     );
 }
 

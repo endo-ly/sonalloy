@@ -1,5 +1,3 @@
-use std::f64::consts::TAU;
-
 use sonalloy_dsp_sys::{DspFilter, DspOscillator, DspOscillatorWaveform};
 
 use crate::compiler::{
@@ -168,6 +166,7 @@ impl LayerRuntime {
                     midi_note_frequency(note_number, cents_to_ratio(tuning_start));
                 let mut end_frequency =
                     midi_note_frequency(note_number, cents_to_ratio(tuning_end));
+                #[allow(clippy::cast_possible_truncation)]
                 let max_frequency = (sample_rate * 0.45) as f32;
                 if !start_frequency.is_finite()
                     || !end_frequency.is_finite()
@@ -411,6 +410,7 @@ impl VoiceRuntime {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn render_span(
         &mut self,
         frames: usize,
@@ -685,7 +685,7 @@ impl VoiceRuntime {
         for (definition, state) in self.source_definitions.iter().zip(&mut self.source_states) {
             match (definition, state) {
                 (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value)) => {
-                    *value = 0.0
+                    *value = 0.0;
                 }
                 (CompiledVoiceSource::KeyTracking, VoiceSourceRuntime::KeyTracking(value)) => {
                     *value = -1.0;
@@ -712,13 +712,9 @@ impl VoiceRuntime {
             .zip(&mut self.source_spans)
         {
             match (definition, state) {
-                (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value)) => {
-                    *span = ValueSpan {
-                        start: *value,
-                        end: *value,
-                    };
-                }
-                (CompiledVoiceSource::KeyTracking, VoiceSourceRuntime::KeyTracking(value)) => {
+                (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value))
+                | (CompiledVoiceSource::KeyTracking, VoiceSourceRuntime::KeyTracking(value))
+                | (CompiledVoiceSource::Random(_), VoiceSourceRuntime::Random(value)) => {
                     *span = ValueSpan {
                         start: *value,
                         end: *value,
@@ -728,6 +724,7 @@ impl VoiceRuntime {
                     let start_phase = *phase;
                     #[allow(clippy::cast_precision_loss)]
                     let increment = f64::from(value.rate_hz) / sample_rate * frames as f64;
+                    #[allow(clippy::cast_possible_truncation)]
                     let end_phase = (f64::from(start_phase) + increment).fract() as f32;
                     *phase = end_phase;
                     *span = ValueSpan {
@@ -738,12 +735,6 @@ impl VoiceRuntime {
                 (CompiledVoiceSource::Envelope(_), VoiceSourceRuntime::Envelope(envelope)) => {
                     let (start, end) = envelope.span(frames);
                     *span = ValueSpan { start, end };
-                }
-                (CompiledVoiceSource::Random(_), VoiceSourceRuntime::Random(value)) => {
-                    *span = ValueSpan {
-                        start: *value,
-                        end: *value,
-                    };
                 }
                 _ => {
                     *span = ValueSpan {
@@ -893,7 +884,7 @@ impl VoiceRuntime {
 
 fn lfo_value(waveform: LfoWaveform, phase: f32) -> f32 {
     match waveform {
-        LfoWaveform::Sine => (TAU as f32 * phase).sin(),
+        LfoWaveform::Sine => (std::f32::consts::TAU * phase).sin(),
         LfoWaveform::Triangle => 1.0 - 4.0 * (phase - 0.5).abs(),
     }
 }

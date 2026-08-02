@@ -36,9 +36,10 @@ Process仕様と実行時の仕組みを提供します。
 |---|---|
 | `process` | Process仕様と共通のLifecycle |
 | `definition` | Instrument Definitionの読み込みとValidation |
+| `parameter` | Canonical Parameter ID、Descriptor、Normalize / Denormalize、Catalog |
 | `compiler` | DefinitionからCompiled Instrumentへの変換 |
 | `asset` | SHA-256照合、WAV読み込み、Mono変換、Sample Rate変換 |
-| `runtime` | Voice、ADSR、Layer、Sample、Filter |
+| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Sample、Filter |
 | `render` | Offline Render LoopとEventの供給 |
 | `diagnostics` | 画面表示に依存しないError Code、Severity、Message |
 
@@ -68,11 +69,14 @@ sonalloy_dsp_oscillator* sonalloy_dsp_oscillator_create(void);
 int32_t sonalloy_dsp_oscillator_prepare(...);
 int32_t sonalloy_dsp_oscillator_reset(...);
 int32_t sonalloy_dsp_oscillator_process(...);
+int32_t sonalloy_dsp_oscillator_process_ramp(...);
 void sonalloy_dsp_oscillator_destroy(...);
 sonalloy_dsp_filter* sonalloy_dsp_filter_create(void);
 int32_t sonalloy_dsp_filter_prepare(...);
 int32_t sonalloy_dsp_filter_reset(...);
 int32_t sonalloy_dsp_filter_process(...);
+int32_t sonalloy_dsp_filter_process_ramp(...);
+int32_t sonalloy_dsp_filter_process_ramp_with_resonance(...);
 void sonalloy_dsp_filter_destroy(...);
 ```
 
@@ -83,4 +87,7 @@ Native関数はNull Handle、引数、Buffer、例外を検査して整数のRes
 詳しい流れは`docs/runtime-processing.md`の「Lifecycle」を参照してください。ここでは所有関係だけを説明します。
 
 - **Compile**：Definitionを、変更できない`CompiledInstrument`へ変換します（`sonalloy-core`が所有します）
+- **Compile**：Parameter Catalog、Source Table、Target別Route Tableを確定し、Parameter IDをDense Handleへ解決します
 - **Prepare / Process / Reset**：`InstrumentRuntime`の状態を進めます。Scratch BufferとNative HandleはPrepareで確保し、Process中には拡張しません
+
+`CompiledInstrument`はDefinitionのMetadata、Performance、Enabled Layer、Filter、Parameter Catalog、Source、Route、Asset Warningを保持します。Runtimeが持つBase Smoother、External Control、Voice Source、Generator Cursor、Filter StateはCompiled値から作る可変状態で、DefinitionやCompiled Instrumentへ書き戻しません。

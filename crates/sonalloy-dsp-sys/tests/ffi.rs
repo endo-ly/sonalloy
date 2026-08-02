@@ -153,8 +153,8 @@ fn oscillator_frequency_ramp_is_finite_and_preserves_guards() {
     oscillator
         .process_ramp(220.0, 880.0, &mut output[1..65])
         .expect("oscillator frequency ramp");
-    assert_eq!(output[0], 7.0);
-    assert_eq!(output[65], 8.0);
+    assert!((output[0] - 7.0).abs() < f32::EPSILON);
+    assert!((output[65] - 8.0).abs() < f32::EPSILON);
     assert!(output[1..65].iter().all(|sample| sample.is_finite()));
     assert!(output[1..65].iter().any(|sample| sample.abs() > 0.1));
 }

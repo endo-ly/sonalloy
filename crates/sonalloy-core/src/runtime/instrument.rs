@@ -79,6 +79,7 @@ impl InstrumentRuntime {
         self.voices.get(index).map(VoiceRuntime::state)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_range(
         voices: &mut [VoiceRuntime],
         compiled: &CompiledInstrument,
@@ -374,7 +375,9 @@ impl InstrumentProcessor for InstrumentRuntime {
                 end = end.min(next_event.sample_offset);
             }
             let absolute = self.absolute_frame + cursor as u64;
-            let quantum = QUANTUM_FRAMES - (absolute as usize % QUANTUM_FRAMES);
+            let absolute_frame =
+                usize::try_from(absolute).map_err(|_| ProcessError::FrameOverflow)?;
+            let quantum = QUANTUM_FRAMES - (absolute_frame % QUANTUM_FRAMES);
             end = end.min(cursor + quantum);
             if let Some(remaining) = self.shared_target_remaining() {
                 end = end.min(cursor + remaining);

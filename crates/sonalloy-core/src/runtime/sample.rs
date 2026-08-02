@@ -45,7 +45,7 @@ impl SampleRuntime {
         self.next_sample_with_ratio(playback_ratio)
     }
 
-    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
     pub(crate) fn next_sample_with_ratio(&mut self, playback_ratio: f64) -> f32 {
         if self.finished {
             return 0.0;
@@ -61,7 +61,7 @@ impl SampleRuntime {
             self.finished = true;
         }
         let fade_end = self.source.len().saturating_sub(1) as f64;
-        let fade_length = self.end_fade_frames.min(fade_end as usize) as f64;
+        let fade_length = (self.end_fade_frames as f64).min(fade_end);
         let gain = if fade_length == 0.0 {
             0.0
         } else if next_position < fade_end - fade_length {

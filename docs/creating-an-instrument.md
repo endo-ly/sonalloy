@@ -87,7 +87,21 @@ Level
 | `pan` | 左右位置（-1 = 左、0 = 中央、1 = 右） | Constant-powerで自然に定位する |
 | `tuning_cents` | 半音の100分の1単位の音程調整 | -1200〜1200 |
 | `voice_filter` | 全Layer Mix後のLow-pass Filter | `cutoff_hz`（20〜20000）と`resonance`（0〜1） |
-| `velocity_response` | 打鍵の強さへの反応 | `layer_gain_amount`で音量、`filter_cutoff_octaves`でFilterの開き |
+| `modulation` | Velocity、LFO、Envelope、RandomなどのSourceをTargetへ接続 | `routes`でLayer Gain、Pan、Tuning、Filterへ反映 |
+
+打鍵の強さや発音中の変化を設定する場合は、`modulation.sources`へSourceを定義し、`modulation.routes`でTargetへ接続します。VelocityとKey Trackingは組み込みSourceなので、Source定義なしで参照できます。詳細なID、Range、Curveは[`docs/instrument-definition.md`](instrument-definition.md)を参照してください。
+
+```json
+"modulation": {
+  "routes": [
+    { "source": "velocity", "target": "layer.main.gain_db", "amount": 12.0, "curve": "linear" },
+    { "source": "lfo", "target": "voice_filter.cutoff_hz", "amount": 1200.0, "curve": "linear" }
+  ],
+  "sources": [
+    { "id": "lfo", "kind": "lfo", "waveform": "sine", "rate_hz": 0.5, "phase": 0.0 }
+  ]
+}
+```
 
 ## Step 3. 検証する
 
@@ -99,8 +113,16 @@ sonalloy instrument inspect my-instrument.json
 ```
 
 - `validate`はJSON Parse、Validation、Compileまで実行し、問題がなければ`valid`と表示されます。
-- `inspect`は実行値を人間が読める形で表示します（`--json`で機械可読）。Gain・Pan・Tuning・Envelopeが意図どおりに変換されたかをここで確認します。
+- `inspect`は実行値を人間が読める形で表示します（`--json`で機械可読）。Gain・Pan・Tuning・Envelopeに加え、Parameter、Source、Routeが意図どおりにCompileされたかをここで確認します。
 - Errorには`layers[0].envelope.attack_seconds`のようなField Pathが付くので、そのまま該当箇所を修正できます。
+
+発音中のParameter変更を確認する場合は、Event Sequence JSONを用意して次のようにRenderします。
+
+```bash
+sonalloy render events my-instrument.json events.json --duration-frames 96000 --output out/events.wav
+```
+
+Event SequenceではNote Eventと同じ絶対Frame位置にParameter Change、Pitch Bend、Mod Wheel、Aftertouchを記述できます。`render midi`ではMIDI Pitch Bend、CC1、Channel Aftertouchも同じRuntime Eventへ変換されます。
 
 ## Step 4. 自作WAVをSampleとして使う
 

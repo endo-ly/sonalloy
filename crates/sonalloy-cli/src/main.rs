@@ -327,6 +327,14 @@ struct InspectSource {
     #[serde(skip_serializing_if = "Option::is_none")]
     phase: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    attack_samples: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    decay_samples: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sustain_level: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    release_samples: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     seed: Option<u64>,
 }
 
@@ -696,6 +704,7 @@ fn load_event_sequence(path: &Path) -> Result<EventSequence, CliFailure> {
     })
 }
 
+#[allow(clippy::too_many_lines)]
 fn compile_event_sequence(
     sequence: &EventSequence,
     compiled: &CompiledInstrument,
@@ -1056,6 +1065,10 @@ fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSo
         waveform: None,
         rate_hz: None,
         phase: None,
+        attack_samples: None,
+        decay_samples: None,
+        sustain_level: None,
+        release_samples: None,
         seed: None,
     };
     match &source.source {
@@ -1072,8 +1085,12 @@ fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSo
             result.rate_hz = Some(value.rate_hz);
             result.phase = Some(value.phase);
         }
-        sonalloy_core::compiler::CompiledVoiceSource::Envelope(_) => {
+        sonalloy_core::compiler::CompiledVoiceSource::Envelope(value) => {
             result.kind = "envelope";
+            result.attack_samples = Some(value.envelope.attack_samples);
+            result.decay_samples = Some(value.envelope.decay_samples);
+            result.sustain_level = Some(value.envelope.sustain_level);
+            result.release_samples = Some(value.envelope.release_samples);
         }
         sonalloy_core::compiler::CompiledVoiceSource::Random(value) => {
             result.kind = "random";
@@ -1100,6 +1117,7 @@ fn source_id(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn make_inspect_report(
     compiled: &CompiledInstrument,
     diagnostics: Vec<Diagnostic>,
@@ -1233,6 +1251,7 @@ fn make_inspect_report(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     println!("metadata.name: {}", compiled.metadata.name);
     println!(

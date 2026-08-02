@@ -351,7 +351,14 @@ pub struct RouteRange {
 }
 
 /// Compile a validated Definition for a process configuration.
+///
+/// # Panics
+///
+/// Panics only if the parameter catalog does not contain a parameter generated
+/// from the same Definition. Validation and catalog construction keep those
+/// entries synchronized.
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn compile_instrument(
     definition: &InstrumentDefinition,
     context: &CompileContext,
@@ -492,16 +499,19 @@ pub fn compile_instrument(
     }
 }
 
+type CompiledModulation = (
+    Box<[CompiledSource]>,
+    Box<[CompiledRoute]>,
+    Box<[RouteRange]>,
+);
+
+#[allow(clippy::too_many_lines)]
 fn compile_modulation(
     definition: &InstrumentDefinition,
     catalog: &ParameterCatalog,
     sample_rate: f64,
     diagnostics: &mut Vec<Diagnostic>,
-) -> (
-    Box<[CompiledSource]>,
-    Box<[CompiledRoute]>,
-    Box<[RouteRange]>,
-) {
+) -> CompiledModulation {
     let mut sources = Vec::with_capacity(BUILTIN_SOURCE_IDS.len());
     sources.push(CompiledSource {
         id: "velocity".to_owned(),
@@ -927,7 +937,7 @@ mod tests {
                 && diagnostic.code == DiagnosticCode::FilterCutoffClamped
         }));
         assert!((compiled.voice_filter.expect("filter").cutoff_hz - 9_922.5).abs() < 0.1);
-        assert_eq!(compiled.parameters().last().expect("resonance").max, 1.0);
+        assert!((compiled.parameters().last().expect("resonance").max - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -968,8 +978,8 @@ mod tests {
         let compiled = result.instrument.expect("routes compile");
         let routes = compiled.routes_for(compiled.layers[0].parameters.gain);
         assert_eq!(routes.len(), 2);
-        assert_eq!(routes[0].amount, 0.1);
-        assert_eq!(routes[1].amount, -0.2);
+        assert!((routes[0].amount - 0.1).abs() < f32::EPSILON);
+        assert!((routes[1].amount + 0.2).abs() < f32::EPSILON);
     }
 
     #[test]
