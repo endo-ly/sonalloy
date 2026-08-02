@@ -212,6 +212,68 @@ fn moving_hybrid_routes_cover_the_reference_signal_paths() {
 }
 
 #[test]
+fn expressive_reference_renders_at_supported_sample_rates() {
+    let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/expressive-hybrid-lead.json");
+    let definition: InstrumentDefinition = serde_json::from_str(
+        &std::fs::read_to_string(&definition_path).expect("expressive Definition exists"),
+    )
+    .expect("expressive Definition parses");
+    let definition_base_dir =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    for sample_rate in [44_100.0, 48_000.0, 96_000.0] {
+        let process_spec = ProcessSpec::new(sample_rate, 257, 2).expect("valid process spec");
+        let instrument = compile_instrument(
+            &definition,
+            &CompileContext {
+                definition_base_dir: definition_base_dir.clone(),
+                process_spec,
+            },
+        )
+        .instrument
+        .expect("expressive Definition compiles");
+        let audio = render_instrument(
+            instrument,
+            RenderRequest {
+                sample_rate,
+                block_size: 257,
+                duration_frames: 4_096,
+                tail_frames: 0,
+            },
+            &[
+                ScheduledEvent {
+                    absolute_frame: 0,
+                    kind: ProcessEventKind::NoteOn {
+                        note_id: 1,
+                        note_number: 60,
+                        velocity: 112,
+                    },
+                },
+                ScheduledEvent {
+                    absolute_frame: 2_048,
+                    kind: ProcessEventKind::NoteOff { note_id: 1 },
+                },
+            ],
+        )
+        .expect("reference render succeeds");
+        assert!(
+            audio
+                .channels
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
+        );
+        assert!(
+            audio
+                .channels
+                .iter()
+                .flatten()
+                .any(|sample| sample.abs() > 0.01)
+        );
+    }
+}
+
+#[test]
 fn absolute_event_timing_is_stable_across_block_sizes() {
     let reference = render_instrument_blocks(64);
     for candidate in [
