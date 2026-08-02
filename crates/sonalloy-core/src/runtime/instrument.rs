@@ -100,6 +100,9 @@ impl InstrumentRuntime {
         let left = &mut left_channels[0][start..end];
         let right = &mut right_channels[0][start..end];
         for voice in voices {
+            if voice.state() == VoiceState::Idle {
+                continue;
+            }
             voice.render_span(
                 frames,
                 sample_rate,

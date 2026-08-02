@@ -231,10 +231,6 @@ pub struct CompiledFilterParameters {
 /// Compiled voice filter.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CompiledFilter {
-    /// Base cutoff after the process-rate warning clamp used by inspection.
-    pub cutoff_hz: f32,
-    /// Base resonance.
-    pub resonance: f32,
     /// Runtime parameter bindings.
     pub parameters: CompiledFilterParameters,
     /// Safe DSP cutoff upper bound for this process sample rate.
@@ -369,7 +365,7 @@ pub fn compile_instrument(
     let parameter_catalog = ParameterCatalog::from_definition(definition);
     let effective_max_cutoff_hz = effective_max_cutoff(context.process_spec.sample_rate);
     let voice_filter = definition.voice_filter.map(|filter| {
-        let cutoff_hz = if filter.cutoff_hz > effective_max_cutoff_hz {
+        if filter.cutoff_hz > effective_max_cutoff_hz {
             diagnostics.push(
                 Diagnostic::warning(
                     DiagnosticCode::FilterCutoffClamped,
@@ -379,10 +375,7 @@ pub fn compile_instrument(
                 )
                 .with_path("voice_filter.cutoff_hz"),
             );
-            effective_max_cutoff_hz
-        } else {
-            filter.cutoff_hz
-        };
+        }
         let cutoff = parameter_catalog
             .parameter_handle("voice.filter.cutoff")
             .expect("filter catalog entry exists");
@@ -390,8 +383,6 @@ pub fn compile_instrument(
             .parameter_handle("voice.filter.resonance")
             .expect("filter catalog entry exists");
         CompiledFilter {
-            cutoff_hz,
-            resonance: filter.resonance,
             parameters: CompiledFilterParameters { cutoff, resonance },
             effective_max_cutoff_hz,
         }
@@ -912,7 +903,26 @@ mod tests {
             diagnostic.severity == DiagnosticSeverity::Warning
                 && diagnostic.code == DiagnosticCode::FilterCutoffClamped
         }));
-        assert!((compiled.voice_filter.expect("filter").cutoff_hz - 9_922.5).abs() < 0.1);
+        assert!(
+            (compiled
+                .voice_filter
+                .expect("filter")
+                .effective_max_cutoff_hz
+                - 9_922.5)
+                .abs()
+                < 0.1
+        );
+        assert!(
+            (compiled
+                .parameters()
+                .iter()
+                .find(|parameter| parameter.id == "voice.filter.cutoff")
+                .expect("cutoff parameter")
+                .default
+                - 20_000.0)
+                .abs()
+                < 0.1
+        );
         assert!((compiled.parameters().last().expect("resonance").max - 1.0).abs() < f32::EPSILON);
     }
 

@@ -299,8 +299,9 @@ struct InspectEnvelope {
 
 #[derive(Debug, Serialize)]
 struct InspectFilter {
-    cutoff_hz: f32,
-    resonance: f32,
+    cutoff_default_hz: f32,
+    effective_max_cutoff_hz: f32,
+    resonance_default: f32,
 }
 
 #[derive(Debug, Serialize)]
@@ -1276,8 +1277,9 @@ fn make_inspect_report(
         layer_count: layers.len(),
         layers,
         voice_filter: compiled.voice_filter.map(|filter| InspectFilter {
-            cutoff_hz: filter.cutoff_hz,
-            resonance: filter.resonance,
+            cutoff_default_hz: parameter_default(compiled, filter.parameters.cutoff),
+            effective_max_cutoff_hz: filter.effective_max_cutoff_hz,
+            resonance_default: parameter_default(compiled, filter.parameters.resonance),
         }),
         parameters: compiled
             .parameters()
@@ -1377,8 +1379,10 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     }
     if let Some(filter) = compiled.voice_filter {
         println!(
-            "voice filter: cutoff {:.2} Hz resonance {:.3}",
-            filter.cutoff_hz, filter.resonance
+            "voice filter: cutoff default {:.2} Hz effective max {:.2} Hz resonance default {:.3}",
+            parameter_default(compiled, filter.parameters.cutoff),
+            filter.effective_max_cutoff_hz,
+            parameter_default(compiled, filter.parameters.resonance),
         );
     } else {
         println!("voice filter: none");

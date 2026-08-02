@@ -334,7 +334,10 @@ fn instrument_init_validate_and_inspect_are_available() {
         .stdout(predicates::str::contains("\"parameters\""))
         .stdout(predicates::str::contains("layer.body.gain"))
         .stdout(predicates::str::contains("\"phase_reset\":true"))
-        .stdout(predicates::str::contains("\"asset_status\""));
+        .stdout(predicates::str::contains("\"asset_status\""))
+        .stdout(predicates::str::contains("\"cutoff_default_hz\""))
+        .stdout(predicates::str::contains("\"effective_max_cutoff_hz\""))
+        .stdout(predicates::str::contains("\"resonance_default\""));
 }
 
 #[test]

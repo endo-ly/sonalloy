@@ -239,23 +239,10 @@ impl LayerRuntime {
         self.active = false;
     }
 
-    fn reset_for_note(&mut self) -> Result<(), ProcessError> {
-        match &mut self.generator {
-            GeneratorRuntime::Oscillator {
-                oscillator,
-                phase_reset,
-            } => {
-                if *phase_reset {
-                    oscillator.reset().map_err(ProcessError::from_dsp_error)?;
-                }
-            }
-            GeneratorRuntime::Sample { sample, .. } => sample.reset(),
-            GeneratorRuntime::Disabled => {}
-        }
+    fn reset_for_note(&mut self) {
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
         self.active = false;
-        Ok(())
     }
 }
 
@@ -688,7 +675,7 @@ impl VoiceRuntime {
 
     fn reset_note_state(&mut self) -> Result<(), ProcessError> {
         for layer in &mut self.layers {
-            layer.reset_for_note()?;
+            layer.reset_for_note();
         }
         self.filter_left
             .reset()
@@ -810,6 +797,9 @@ impl VoiceRuntime {
         shared: SharedParameterSpan<'_>,
     ) -> Result<(), ProcessError> {
         for (index, layer) in compiled.layers.iter().enumerate() {
+            if !self.layers[index].active {
+                continue;
+            }
             self.targets.layers[index] = LayerTargetSpan {
                 gain: self.evaluate_target(compiled, layer.parameters.gain, shared)?,
                 pan_left: ValueSpan {
@@ -923,7 +913,15 @@ impl VoiceRuntime {
                 }
             }
         }
-        for (definition, state) in self.source_definitions.iter().zip(&self.source_states) {
+        for ((definition, state), used) in self
+            .source_definitions
+            .iter()
+            .zip(&self.source_states)
+            .zip(&self.source_used)
+        {
+            if !*used {
+                continue;
+            }
             if let (CompiledVoiceSource::Lfo(value), VoiceSourceRuntime::Lfo { phase }) =
                 (definition, state)
             {

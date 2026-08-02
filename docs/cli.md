@@ -59,7 +59,7 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Sample | Asset Path、Root Note、Playback Mode、Interpolation、Source Metadata、Prepared Frame数 |
 | Parameter | Canonical ID、Owner、Unit、Range、Default、Scale、Smoothing |
 | Modulation | Source ID、Source種類、Scope、Target、Amount、Curve |
-| Voice処理 | Voice Filter |
+| Voice処理 | Voice FilterのParameter DefaultとDSP適用上限 |
 | Warning | Compile時の警告一覧 |
 
 ```bash
@@ -68,6 +68,7 @@ sonalloy instrument inspect <definition> --json
 ```
 
 `inspect`のParameter IDはCompiled Catalogから取得したCanonical IDです。RouteのSource ID、Target ID、設定値もCompiled Instrumentの内容をそのまま表示します。
+Voice Filterは`cutoff_default_hz`、`effective_max_cutoff_hz`、`resonance_default`として、ParameterのDefaultとSample Rateに応じたDSP適用上限を分けて表示します。
 
 ## `render` Command
 
@@ -155,6 +156,7 @@ Standard MIDI FileをAbsolute Frameの`ScheduledEvent`へ変換してRenderし�
 - Note OnのVelocity 0はNote Offとして扱う
 - Note IDはChannel・Note Number・発音Serialから生成する
 - CC1はMod Wheel、Pitch Bendは-1〜1、Channel Aftertouchは0〜1へ変換する
+- 同一FrameのNote On / Note Offはゼロ長Noteとして両方を除外する
 - Sustain Pedal、Polyphonic Aftertouch、CC1以外のController、Program Change等は無視し、Warningを返す
 - 複数ChannelのNoteを一つのInstrumentへ統合した場合はWarningを返す
 - Controlは、Note Channel以外からの入力、発音時間帯が重なる複数Note Channel間で異なる値を統合する場合にWarningを返す

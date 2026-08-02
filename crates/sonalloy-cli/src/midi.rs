@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 use midly::{MidiMessage, Smf, Timing, TrackEventKind};
@@ -37,6 +37,7 @@ struct ConvertedEvent {
     frame: u64,
     track: usize,
     index: usize,
+    channel: u8,
     kind: ProcessEventKind,
 }
 
@@ -57,21 +58,6 @@ impl ControlKind {
             Self::Aftertouch => "aftertouch",
         }
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ControlObservation {
-    frame: u64,
-    kind: ControlKind,
-    channel: u8,
-    value: f32,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct NoteActivity {
-    channel: u8,
-    start_frame: u64,
-    end_frame: u64,
 }
 
 /// Parse a Standard MIDI File and convert it to normalized absolute-frame events.
@@ -257,11 +243,8 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
     let mut cursor_tick = 0_u64;
     let mut cursor_frames = 0.0_f64;
     let mut active_notes: HashMap<(u8, u8), VecDeque<(u64, u64)>> = HashMap::new();
-    let mut note_activities = Vec::new();
     let mut serials: HashMap<(u8, u8), u32> = HashMap::new();
-    let mut note_channels = HashSet::new();
-    let mut control_observations = Vec::new();
-    let mut has_note_event = false;
+    let mut zero_length_note_ids = HashSet::new();
     let mut converted = Vec::new();
     for raw in raw_events {
         advance_tempo(
@@ -282,8 +265,6 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                 note,
                 velocity,
             } => {
-                has_note_event = true;
-                note_channels.insert(channel);
                 let key = (channel, note);
                 let serial = serials.entry(key).or_default();
                 let note_id =
@@ -302,6 +283,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                     frame,
                     track: raw.track,
                     index: raw.index,
+                    channel,
                     kind: ProcessEventKind::NoteOn {
                         note_id,
                         note_number: note,
@@ -323,66 +305,60 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                     );
                     continue;
                 };
-                note_activities.push(NoteActivity {
-                    channel,
-                    start_frame,
-                    end_frame: frame,
-                });
-                converted.push(ConvertedEvent {
-                    frame,
-                    track: raw.track,
-                    index: raw.index,
-                    kind: ProcessEventKind::NoteOff { note_id },
-                });
+                if start_frame == frame {
+                    zero_length_note_ids.insert(note_id);
+                } else {
+                    converted.push(ConvertedEvent {
+                        frame,
+                        track: raw.track,
+                        index: raw.index,
+                        channel,
+                        kind: ProcessEventKind::NoteOff { note_id },
+                    });
+                }
             }
             RawKind::PitchBend { channel, value } => {
                 let normalized = pitch_bend_value(value);
-                control_observations.push(ControlObservation {
-                    frame,
-                    kind: ControlKind::PitchBend,
-                    channel,
-                    value: normalized,
-                });
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
                     index: raw.index,
+                    channel,
                     kind: ProcessEventKind::PitchBend { value: normalized },
                 });
             }
             RawKind::ModWheel { channel, value } => {
                 let normalized = f32::from(value) / 127.0;
-                control_observations.push(ControlObservation {
-                    frame,
-                    kind: ControlKind::ModWheel,
-                    channel,
-                    value: normalized,
-                });
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
                     index: raw.index,
+                    channel,
                     kind: ProcessEventKind::ModWheel { value: normalized },
                 });
             }
             RawKind::Aftertouch { channel, value } => {
                 let normalized = f32::from(value) / 127.0;
-                control_observations.push(ControlObservation {
-                    frame,
-                    kind: ControlKind::Aftertouch,
-                    channel,
-                    value: normalized,
-                });
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
                     index: raw.index,
+                    channel,
                     kind: ProcessEventKind::Aftertouch { value: normalized },
                 });
             }
         }
     }
-    if !has_note_event {
+    converted.retain(|event| match event.kind {
+        ProcessEventKind::NoteOn { note_id, .. } | ProcessEventKind::NoteOff { note_id } => {
+            !zero_length_note_ids.contains(&note_id)
+        }
+        _ => true,
+    });
+    if !converted
+        .iter()
+        .any(|event| matches!(event.kind, ProcessEventKind::NoteOn { .. }))
+    {
         return Err(vec![
             Diagnostic::error(
                 DiagnosticCode::MidiError,
@@ -402,30 +378,21 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                 "MIDI duration overflow",
             )]
         })?;
-    for ((channel, _), starts) in active_notes {
-        for (_, start_frame) in starts {
-            if start_frame < duration_frames {
-                note_activities.push(NoteActivity {
-                    channel,
-                    start_frame,
-                    end_frame: duration_frames,
-                });
-            }
+    converted.sort_by_key(|event| (event.frame, event.kind.priority(), event.track, event.index));
+    let mut note_channels = [false; 16];
+    for event in &converted {
+        if matches!(event.kind, ProcessEventKind::NoteOn { .. }) {
+            note_channels[usize::from(event.channel)] = true;
         }
     }
-    if note_channels.len() > 1 {
+    if note_channels.iter().filter(|channel| **channel).count() > 1 {
         diagnostics.push(Diagnostic::warning(
             DiagnosticCode::MidiError,
             "notes from multiple MIDI channels were merged into one instrument",
         ));
     }
     for kind in ControlKind::ALL {
-        if control_warning_needed(
-            kind,
-            &control_observations,
-            &note_activities,
-            &note_channels,
-        ) {
+        if control_warning_needed(kind, &converted) {
             diagnostics.push(Diagnostic::warning(
                 DiagnosticCode::MidiError,
                 format!(
@@ -435,7 +402,6 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             ));
         }
     }
-    converted.sort_by_key(|event| (event.frame, event.kind.priority(), event.track, event.index));
     Ok(MidiRender {
         events: converted
             .into_iter()
@@ -457,70 +423,59 @@ fn pitch_bend_value(value: i16) -> f32 {
     }
 }
 
-fn control_warning_needed(
-    kind: ControlKind,
-    observations: &[ControlObservation],
-    note_activities: &[NoteActivity],
-    note_channels: &HashSet<u8>,
-) -> bool {
-    let relevant: Vec<&ControlObservation> = observations
-        .iter()
-        .filter(|observation| observation.kind == kind)
-        .collect();
-    if relevant.is_empty() {
-        return false;
-    }
-    if relevant
-        .iter()
-        .any(|observation| !note_channels.contains(&observation.channel))
-    {
-        return true;
-    }
+fn control_warning_needed(kind: ControlKind, events: &[ConvertedEvent]) -> bool {
+    let mut active_notes = [0_u32; 16];
+    let mut channel_values = [0.0_f32; 16];
+    let mut merged_value = 0.0_f32;
+    let mut control_channels = [false; 16];
+    let mut note_channels = [false; 16];
+    let mut index = 0;
 
-    let mut boundaries = BTreeSet::new();
-    for observation in &relevant {
-        boundaries.insert(observation.frame);
-    }
-    for activity in note_activities {
-        boundaries.insert(activity.start_frame);
-        boundaries.insert(activity.end_frame);
-    }
-
-    let mut current_values: HashMap<u8, f32> = note_channels
-        .iter()
-        .copied()
-        .map(|channel| (channel, 0.0))
-        .collect();
-    for frame in boundaries {
-        for observation in relevant
-            .iter()
-            .filter(|observation| observation.frame == frame)
-        {
-            current_values.insert(observation.channel, observation.value);
+    while index < events.len() {
+        let frame = events[index].frame;
+        while index < events.len() && events[index].frame == frame {
+            let event = events[index];
+            let channel = usize::from(event.channel);
+            match event.kind {
+                ProcessEventKind::NoteOff { .. } => {
+                    active_notes[channel] = active_notes[channel].saturating_sub(1);
+                }
+                ProcessEventKind::NoteOn { .. } => {
+                    active_notes[channel] = active_notes[channel].saturating_add(1);
+                    note_channels[channel] = true;
+                }
+                ProcessEventKind::PitchBend { value } if kind == ControlKind::PitchBend => {
+                    channel_values[channel] = value;
+                    merged_value = value;
+                    control_channels[channel] = true;
+                }
+                ProcessEventKind::ModWheel { value } if kind == ControlKind::ModWheel => {
+                    channel_values[channel] = value;
+                    merged_value = value;
+                    control_channels[channel] = true;
+                }
+                ProcessEventKind::Aftertouch { value } if kind == ControlKind::Aftertouch => {
+                    channel_values[channel] = value;
+                    merged_value = value;
+                    control_channels[channel] = true;
+                }
+                _ => {}
+            }
+            index += 1;
         }
 
-        let active_channels: Vec<u8> = note_channels
-            .iter()
-            .copied()
-            .filter(|channel| {
-                note_activities.iter().any(|activity| {
-                    activity.channel == *channel
-                        && activity.start_frame <= frame
-                        && frame < activity.end_frame
-                })
-            })
-            .collect();
-        let Some(first_channel) = active_channels.first() else {
-            continue;
-        };
-        let first_value = current_values[first_channel];
-        if active_channels.iter().skip(1).any(|channel| {
-            current_values[channel].total_cmp(&first_value) != std::cmp::Ordering::Equal
+        if (0..16).any(|channel| {
+            active_notes[channel] > 0
+                && channel_values[channel].total_cmp(&merged_value) != std::cmp::Ordering::Equal
         }) {
             return true;
         }
     }
-    false
+
+    control_channels
+        .iter()
+        .zip(note_channels)
+        .any(|(has_control, has_note)| *has_control && !has_note)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -610,10 +565,6 @@ mod tests {
         (directory, path)
     }
 
-    fn midi_event(channel: u8, message: MidiMessage) -> TrackEvent<'static> {
-        midi_event_with_delta(channel, message, 0)
-    }
-
     fn midi_event_with_delta(channel: u8, message: MidiMessage, delta: u32) -> TrackEvent<'static> {
         TrackEvent {
             delta: delta.into(),
@@ -625,31 +576,46 @@ mod tests {
     }
 
     fn note_on(channel: u8) -> TrackEvent<'static> {
-        midi_event(
+        note_on_with_delta(channel, 0)
+    }
+
+    fn note_on_with_delta(channel: u8, delta: u32) -> TrackEvent<'static> {
+        midi_event_with_delta(
             channel,
             MidiMessage::NoteOn {
                 key: u7::new(60),
                 vel: u7::new(100),
             },
+            delta,
         )
     }
 
     fn note_off(channel: u8) -> TrackEvent<'static> {
-        midi_event(
+        note_off_with_delta(channel, 0)
+    }
+
+    fn note_off_with_delta(channel: u8, delta: u32) -> TrackEvent<'static> {
+        midi_event_with_delta(
             channel,
             MidiMessage::NoteOff {
                 key: u7::new(60),
                 vel: u7::new(0),
             },
+            delta,
         )
     }
 
     fn pitch_bend(channel: u8, value: i16) -> TrackEvent<'static> {
-        midi_event(
+        pitch_bend_with_delta(channel, value, 0)
+    }
+
+    fn pitch_bend_with_delta(channel: u8, value: i16, delta: u32) -> TrackEvent<'static> {
+        midi_event_with_delta(
             channel,
             MidiMessage::PitchBend {
                 bend: PitchBend::from_int(value),
             },
+            delta,
         )
     }
 
@@ -705,7 +671,25 @@ mod tests {
         let (_directory, path) = midi_file(vec![
             note_on(0),
             pitch_bend(1, 4096),
-            note_off(0),
+            note_off_with_delta(0, 480),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("pitch bend controls from MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn control_from_a_later_note_channel_warns_during_another_channel_note() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            pitch_bend_with_delta(1, 4096, 480),
+            note_off_with_delta(0, 480),
+            note_on_with_delta(1, 480),
+            note_off_with_delta(1, 480),
             end_of_track(),
         ]);
         let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
@@ -721,7 +705,7 @@ mod tests {
         let (_directory, path) = midi_file(vec![
             note_on(0),
             pitch_bend(0, 4096),
-            note_off(0),
+            note_off_with_delta(0, 480),
             end_of_track(),
         ]);
         let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
@@ -819,6 +803,25 @@ mod tests {
             diagnostic
                 .message
                 .contains("notes from multiple MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn same_frame_note_on_and_note_off_are_removed_as_a_zero_length_note() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            note_off(0),
+            note_on_with_delta(0, 480),
+            note_off_with_delta(0, 480),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with a non-zero note is valid");
+        assert_eq!(render.events.len(), 2);
+        let surviving_note_id = (60_u64 << 48) | 1;
+        assert!(render.events.iter().all(|event| match event.kind {
+            ProcessEventKind::NoteOn { note_id, .. } | ProcessEventKind::NoteOff { note_id } =>
+                note_id == surviving_note_id,
+            _ => false,
         }));
     }
 }
