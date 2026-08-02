@@ -137,8 +137,6 @@ pub struct CompiledLayerParameters {
 pub struct CompiledLayer {
     /// Stable layer identifier.
     pub id: String,
-    /// Index in the original Definition layer array.
-    pub definition_index: usize,
     /// Compiled trigger conditions.
     pub trigger: CompiledLayerTrigger,
     /// Runtime parameter bindings.
@@ -243,15 +241,6 @@ pub struct CompiledFilter {
     pub effective_max_cutoff_hz: f32,
 }
 
-/// Scope of a compiled source.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SourceScope {
-    /// State is independent for every voice.
-    Voice,
-    /// State is shared by the instrument runtime.
-    Instrument,
-}
-
 /// Dense source handle for voice-scoped sources.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SourceHandle(usize);
@@ -269,8 +258,6 @@ impl SourceHandle {
 pub struct CompiledSource {
     /// Stable source identifier.
     pub id: String,
-    /// Source scope.
-    pub scope: SourceScope,
     /// Compiled source behavior.
     pub source: CompiledVoiceSource,
 }
@@ -431,11 +418,11 @@ pub fn compile_instrument(
                 context.process_spec.sample_rate,
                 &mut diagnostics,
             );
+            let envelope_path = format!("layers[{definition_index}].envelope");
             let envelope = compile_adsr(
                 layer.envelope,
                 context.process_spec.sample_rate,
-                definition_index,
-                "envelope",
+                &envelope_path,
                 &mut diagnostics,
             );
             let parameters = CompiledLayerParameters {
@@ -451,7 +438,6 @@ pub fn compile_instrument(
             };
             CompiledLayer {
                 id: layer.id.clone(),
-                definition_index,
                 trigger: compile_trigger(layer.trigger),
                 parameters,
                 envelope,
@@ -517,12 +503,10 @@ fn compile_modulation(
     let mut sources = Vec::with_capacity(BUILTIN_SOURCE_IDS.len());
     sources.push(CompiledSource {
         id: "velocity".to_owned(),
-        scope: SourceScope::Voice,
         source: CompiledVoiceSource::Velocity,
     });
     sources.push(CompiledSource {
         id: "key_tracking".to_owned(),
-        scope: SourceScope::Voice,
         source: CompiledVoiceSource::KeyTracking,
     });
     let mut source_lookup = HashMap::new();
@@ -536,6 +520,7 @@ fn compile_modulation(
                     CompiledVoiceSource::Lfo(compile_lfo(value))
                 }
                 ModulationSourceDefinition::Envelope(value) => {
+                    let envelope_path = format!("modulation.sources[{source_index}]");
                     CompiledVoiceSource::Envelope(CompiledModEnvelope {
                         envelope: compile_adsr(
                             AdsrDefinition {
@@ -545,8 +530,7 @@ fn compile_modulation(
                                 release_seconds: value.release_seconds,
                             },
                             sample_rate,
-                            source_index,
-                            "modulation.sources",
+                            &envelope_path,
                             diagnostics,
                         ),
                     })
@@ -562,7 +546,6 @@ fn compile_modulation(
             source_lookup.insert(source_id(source).to_owned(), handle);
             sources.push(CompiledSource {
                 id: source_id(source).to_owned(),
-                scope: SourceScope::Voice,
                 source: compiled,
             });
         }
@@ -783,24 +766,21 @@ fn compile_trigger(trigger: crate::definition::LayerTriggerDefinition) -> Compil
 fn compile_adsr(
     definition: AdsrDefinition,
     sample_rate: f64,
-    definition_index: usize,
-    path_prefix: &str,
+    base_path: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CompiledAdsr {
     CompiledAdsr {
         attack_samples: seconds_to_samples(
             definition.attack_seconds,
             sample_rate,
-            definition_index,
-            path_prefix,
+            base_path,
             "attack_seconds",
             diagnostics,
         ),
         decay_samples: seconds_to_samples(
             definition.decay_seconds,
             sample_rate,
-            definition_index,
-            path_prefix,
+            base_path,
             "decay_seconds",
             diagnostics,
         ),
@@ -808,8 +788,7 @@ fn compile_adsr(
         release_samples: seconds_to_samples(
             definition.release_seconds,
             sample_rate,
-            definition_index,
-            path_prefix,
+            base_path,
             "release_seconds",
             diagnostics,
         ),
@@ -819,8 +798,7 @@ fn compile_adsr(
 fn seconds_to_samples(
     seconds: f32,
     sample_rate: f64,
-    definition_index: usize,
-    path_prefix: &str,
+    base_path: &str,
     field: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> usize {
@@ -828,17 +806,12 @@ fn seconds_to_samples(
     #[allow(clippy::cast_precision_loss)]
     let max_usize = usize::MAX as f64;
     if !frames.is_finite() || frames < 0.0 || frames > max_usize {
-        let path = if path_prefix == "envelope" {
-            format!("layers[{definition_index}].envelope.{field}")
-        } else {
-            format!("modulation.sources[{definition_index}].{field}")
-        };
         diagnostics.push(
             Diagnostic::error(
                 DiagnosticCode::CompileError,
                 "envelope duration does not fit in the process frame counter",
             )
-            .with_path(path),
+            .with_path(format!("{base_path}.{field}")),
         );
         return 0;
     }
@@ -873,17 +846,6 @@ pub fn cents_to_ratio(cents: f32) -> f32 {
 #[must_use]
 pub fn midi_note_frequency(note_number: u8, tuning_ratio: f32) -> f32 {
     440.0 * 2.0_f32.powf((f32::from(note_number) - 69.0) / 12.0) * tuning_ratio
-}
-
-/// Return the normalized source value for a built-in source.
-#[must_use]
-pub fn source_scope(source: &CompiledSourceRef) -> SourceScope {
-    match source {
-        CompiledSourceRef::Voice(_) => SourceScope::Voice,
-        CompiledSourceRef::PitchBend
-        | CompiledSourceRef::ModWheel
-        | CompiledSourceRef::Aftertouch => SourceScope::Instrument,
-    }
 }
 
 #[cfg(test)]

@@ -136,7 +136,7 @@ Event Fileの例です。
 }
 ```
 
-対応する`type`は`note_on`、`note_off`、`parameter_change`、`pitch_bend`、`mod_wheel`、`aftertouch`です。同一FrameではCoreのEvent Priorityへ従って安定Sortします。Duration外のEvent、未解決Parameter ID、範囲外の値が一つでもあればWAVを生成しません。
+対応する`type`は`note_on`、`note_off`、`parameter_change`、`pitch_bend`、`mod_wheel`、`aftertouch`です。入力EventはAbsolute Frame昇順で並べ、同一FrameではCoreのEvent Priorityへ従って安定Sortします。Duration外のEvent、未解決Parameter ID、範囲外の値が一つでもあればWAVを生成しません。
 
 | Option | 必須 | Default | 内容 |
 |---|---:|---:|---|
@@ -157,7 +157,7 @@ Standard MIDI FileをAbsolute Frameの`ScheduledEvent`へ変換してRenderし�
 - CC1はMod Wheel、Pitch Bendは-1〜1、Channel Aftertouchは0〜1へ変換する
 - Sustain Pedal、Polyphonic Aftertouch、CC1以外のController、Program Change等は無視し、Warningを返す
 - 複数ChannelのNoteを一つのInstrumentへ統合した場合はWarningを返す
-- Controlは、Note Channel以外からの入力、複数Note Channelへの単一Channel入力、Channel間で異なる現在値の統合時にWarningを返す
+- Controlは、Note Channel以外からの入力、発音時間帯が重なる複数Note Channel間で異なる値を統合する場合にWarningを返す
 - Note Eventを含まないMIDI FileはErrorとして拒否する
 - Coreへ`midly`型は渡さない
 

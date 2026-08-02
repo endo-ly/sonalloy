@@ -78,6 +78,4 @@ unsafe extern "C" {
         frames: c_uint,
     ) -> c_int;
 
-    #[cfg(all(sonalloy_test_hooks, test))]
-    pub(crate) fn sonalloy_dsp_test_arm_process_exception(handle: *mut DspOscillator);
 }

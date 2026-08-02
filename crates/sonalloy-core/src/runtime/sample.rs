@@ -10,7 +10,6 @@ const END_FADE_SECONDS: f64 = 0.005;
 pub(crate) struct SampleRuntime {
     source: Arc<[f32]>,
     position: f64,
-    playback_ratio: f64,
     end_fade_frames: usize,
     finished: bool,
 }
@@ -20,21 +19,18 @@ impl SampleRuntime {
         Self {
             source: Arc::clone(&source.samples),
             position: 0.0,
-            playback_ratio: 1.0,
             end_fade_frames: rounded_frame_count(source.sample_rate * END_FADE_SECONDS).max(1),
             finished: false,
         }
     }
 
-    pub(crate) fn start(&mut self, playback_ratio: f64) {
+    pub(crate) fn start(&mut self) {
         self.position = 0.0;
-        self.playback_ratio = playback_ratio;
         self.finished = self.source.is_empty();
     }
 
     pub(crate) fn reset(&mut self) {
         self.position = 0.0;
-        self.playback_ratio = 1.0;
         self.finished = false;
     }
 
@@ -112,8 +108,8 @@ mod tests {
     use super::*;
     use crate::asset::{PreparedSample, SampleMetadata};
 
-    fn next_sample(runtime: &mut SampleRuntime) -> f32 {
-        runtime.next_sample_with_ratio(runtime.playback_ratio)
+    fn next_sample(runtime: &mut SampleRuntime, playback_ratio: f64) -> f32 {
+        runtime.next_sample_with_ratio(playback_ratio)
     }
 
     fn sample(values: &[f32]) -> PreparedSample {
@@ -148,8 +144,8 @@ mod tests {
     fn sample_runtime_finishes_without_out_of_bounds_reads() {
         let source = sample(&[0.1, 0.2, 0.3]);
         let mut runtime = SampleRuntime::new(&source);
-        runtime.start(1.0);
-        let values: Vec<f32> = (0..5).map(|_| next_sample(&mut runtime)).collect();
+        runtime.start();
+        let values: Vec<f32> = (0..5).map(|_| next_sample(&mut runtime, 1.0)).collect();
         assert!(values[..3].iter().all(|value| value.is_finite()));
         assert!(values[3..].iter().all(|value| value.abs() < 1.0e-6));
         assert!(runtime.is_finished());
@@ -163,10 +159,10 @@ mod tests {
             *values.last_mut().expect("fixture has samples") = last_value;
             let source = sample(&values);
             let mut runtime = SampleRuntime::new(&source);
-            runtime.start(playback_ratio);
+            runtime.start();
             let mut rendered = Vec::new();
             while !runtime.is_finished() {
-                rendered.push(next_sample(&mut runtime));
+                rendered.push(next_sample(&mut runtime, playback_ratio));
             }
             assert!(rendered.iter().all(|value| value.is_finite()));
             assert!(rendered.last().is_some_and(|value| value.abs() < 1.0e-6));
@@ -183,21 +179,9 @@ mod tests {
         for values in [&[][..], &[1.0][..], &[1.0, 2.0][..], &[1.0, 2.0, 3.0][..]] {
             let source = sample(values);
             let mut runtime = SampleRuntime::new(&source);
-            runtime.start(0.5);
+            runtime.start();
             for _ in 0..8 {
-                assert!(next_sample(&mut runtime).is_finite());
-            }
-        }
-    }
-
-    #[test]
-    fn fractional_positions_are_finite_for_short_buffers() {
-        for values in [&[][..], &[1.0][..], &[1.0, 2.0][..], &[1.0, 2.0, 3.0][..]] {
-            let source = sample(values);
-            let mut runtime = SampleRuntime::new(&source);
-            runtime.start(0.5);
-            for _ in 0..8 {
-                assert!(next_sample(&mut runtime).is_finite());
+                assert!(next_sample(&mut runtime, 0.5).is_finite());
             }
         }
     }

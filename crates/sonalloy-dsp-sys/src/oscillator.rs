@@ -229,6 +229,11 @@ impl Drop for DspOscillator {
 mod tests {
     use super::*;
 
+    #[cfg(sonalloy_test_hooks)]
+    unsafe extern "C" {
+        fn sonalloy_dsp_test_arm_process_exception(handle: *mut ffi::DspOscillator);
+    }
+
     #[test]
     fn null_handle_is_reported_by_the_ffi() {
         let code = unsafe {
@@ -334,12 +339,32 @@ mod tests {
         oscillator
             .prepare(48_000.0, DspOscillatorWaveform::Sine)
             .expect("oscillator preparation");
-        unsafe { ffi::sonalloy_dsp_test_arm_process_exception(oscillator.handle.as_ptr()) };
+        unsafe { sonalloy_dsp_test_arm_process_exception(oscillator.handle.as_ptr()) };
         let mut output = [1.0_f32; 2];
         assert_eq!(
             oscillator.process(440.0, &mut output),
             Err(DspError::NativeException)
         );
         assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+    }
+
+    #[cfg(sonalloy_test_hooks)]
+    #[test]
+    fn native_ramp_exception_is_caught_and_consumes_the_hook() {
+        let mut oscillator = DspOscillator::new().expect("oscillator allocation");
+        oscillator
+            .prepare(48_000.0, DspOscillatorWaveform::Sine)
+            .expect("oscillator preparation");
+        unsafe { sonalloy_dsp_test_arm_process_exception(oscillator.handle.as_ptr()) };
+        let mut output = [1.0_f32; 2];
+        assert_eq!(
+            oscillator.process_ramp(440.0, 880.0, &mut output),
+            Err(DspError::NativeException)
+        );
+        assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+
+        oscillator
+            .process(440.0, &mut output)
+            .expect("exception hook is consumed after one process");
     }
 }

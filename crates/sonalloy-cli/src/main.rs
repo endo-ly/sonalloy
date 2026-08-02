@@ -631,7 +631,7 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
         Ok(frames) => frames,
         Err(error) => return finish_failure(args.json, input_failure(&error)),
     };
-    let (compiled, mut diagnostics) =
+    let (compiled, diagnostics) =
         match load_and_compile(&args.definition, args.sample_rate, args.block_size) {
             Ok(result) => result,
             Err(failure) => return finish_failure(args.json, failure),
@@ -663,7 +663,6 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
             },
         );
     }
-    diagnostics.shrink_to_fit();
     print_success(
         args.json,
         SuccessReport {
@@ -712,8 +711,19 @@ fn compile_event_sequence(
 ) -> Result<Vec<ScheduledEvent>, CliFailure> {
     let mut diagnostics = Vec::new();
     let mut events = Vec::with_capacity(sequence.events.len());
+    let mut previous_absolute_frame = None;
     for (index, entry) in sequence.events.iter().enumerate() {
         let event_path = format!("events[{index}]");
+        if previous_absolute_frame.is_some_and(|previous| entry.absolute_frame < previous) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::EventOrderInvalid,
+                    "event absolute_frame values must be in ascending order",
+                )
+                .with_path(format!("{event_path}.absolute_frame")),
+            );
+        }
+        previous_absolute_frame = Some(entry.absolute_frame);
         if entry.absolute_frame >= duration_frames {
             diagnostics.push(
                 Diagnostic::error(
@@ -1057,10 +1067,7 @@ fn parameter_default(compiled: &CompiledInstrument, handle: ParameterHandle) -> 
 fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSource {
     let mut result = InspectSource {
         id: source.id.clone(),
-        scope: match source.scope {
-            sonalloy_core::compiler::SourceScope::Voice => "voice",
-            sonalloy_core::compiler::SourceScope::Instrument => "instrument",
-        },
+        scope: "voice",
         kind: "unknown",
         waveform: None,
         rate_hz: None,
@@ -1386,10 +1393,7 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
         println!("  smoothing: {:.3} s", parameter.smoothing_seconds);
     }
     for source in &compiled.sources {
-        println!(
-            "source {}: {:?} ({:?})",
-            source.id, source.source, source.scope
-        );
+        println!("source {}: {:?} (Voice)", source.id, source.source);
     }
     let mut external_sources = Vec::new();
     for route in &compiled.routes {

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 use midly::{MidiMessage, Smf, Timing, TrackEventKind};
@@ -61,9 +61,17 @@ impl ControlKind {
 
 #[derive(Debug, Clone, Copy)]
 struct ControlObservation {
+    frame: u64,
     kind: ControlKind,
     channel: u8,
     value: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct NoteActivity {
+    channel: u8,
+    start_frame: u64,
+    end_frame: u64,
 }
 
 /// Parse a Standard MIDI File and convert it to normalized absolute-frame events.
@@ -248,7 +256,8 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
     let mut tempo = 500_000_u32;
     let mut cursor_tick = 0_u64;
     let mut cursor_frames = 0.0_f64;
-    let mut active_notes: HashMap<(u8, u8), VecDeque<u64>> = HashMap::new();
+    let mut active_notes: HashMap<(u8, u8), VecDeque<(u64, u64)>> = HashMap::new();
+    let mut note_activities = Vec::new();
     let mut serials: HashMap<(u8, u8), u32> = HashMap::new();
     let mut note_channels = HashSet::new();
     let mut control_observations = Vec::new();
@@ -285,7 +294,10 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                         "MIDI note serial overflow",
                     )]
                 })?;
-                active_notes.entry(key).or_default().push_back(note_id);
+                active_notes
+                    .entry(key)
+                    .or_default()
+                    .push_back((note_id, frame));
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
@@ -299,7 +311,9 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             }
             RawKind::NoteOff { channel, note } => {
                 let key = (channel, note);
-                let Some(note_id) = active_notes.get_mut(&key).and_then(VecDeque::pop_front) else {
+                let Some((note_id, start_frame)) =
+                    active_notes.get_mut(&key).and_then(VecDeque::pop_front)
+                else {
                     diagnostics.push(
                         Diagnostic::warning(
                             DiagnosticCode::MidiError,
@@ -309,6 +323,11 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                     );
                     continue;
                 };
+                note_activities.push(NoteActivity {
+                    channel,
+                    start_frame,
+                    end_frame: frame,
+                });
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
@@ -319,6 +338,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             RawKind::PitchBend { channel, value } => {
                 let normalized = pitch_bend_value(value);
                 control_observations.push(ControlObservation {
+                    frame,
                     kind: ControlKind::PitchBend,
                     channel,
                     value: normalized,
@@ -333,6 +353,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             RawKind::ModWheel { channel, value } => {
                 let normalized = f32::from(value) / 127.0;
                 control_observations.push(ControlObservation {
+                    frame,
                     kind: ControlKind::ModWheel,
                     channel,
                     value: normalized,
@@ -347,6 +368,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             RawKind::Aftertouch { channel, value } => {
                 let normalized = f32::from(value) / 127.0;
                 control_observations.push(ControlObservation {
+                    frame,
                     kind: ControlKind::Aftertouch,
                     channel,
                     value: normalized,
@@ -369,24 +391,6 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             .with_path(path.to_string_lossy()),
         ]);
     }
-    if note_channels.len() > 1 {
-        diagnostics.push(Diagnostic::warning(
-            DiagnosticCode::MidiError,
-            "notes from multiple MIDI channels were merged into one instrument",
-        ));
-    }
-    for kind in ControlKind::ALL {
-        if control_warning_needed(kind, &control_observations, &note_channels) {
-            diagnostics.push(Diagnostic::warning(
-                DiagnosticCode::MidiError,
-                format!(
-                    "{} controls from MIDI channels were merged into one instrument",
-                    kind.label()
-                ),
-            ));
-        }
-    }
-    converted.sort_by_key(|event| (event.frame, event.kind.priority(), event.track, event.index));
     let duration_frames = converted
         .iter()
         .map(|event| event.frame)
@@ -398,6 +402,40 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                 "MIDI duration overflow",
             )]
         })?;
+    for ((channel, _), starts) in active_notes {
+        for (_, start_frame) in starts {
+            if start_frame < duration_frames {
+                note_activities.push(NoteActivity {
+                    channel,
+                    start_frame,
+                    end_frame: duration_frames,
+                });
+            }
+        }
+    }
+    if note_channels.len() > 1 {
+        diagnostics.push(Diagnostic::warning(
+            DiagnosticCode::MidiError,
+            "notes from multiple MIDI channels were merged into one instrument",
+        ));
+    }
+    for kind in ControlKind::ALL {
+        if control_warning_needed(
+            kind,
+            &control_observations,
+            &note_activities,
+            &note_channels,
+        ) {
+            diagnostics.push(Diagnostic::warning(
+                DiagnosticCode::MidiError,
+                format!(
+                    "{} controls from MIDI channels were merged into one instrument",
+                    kind.label()
+                ),
+            ));
+        }
+    }
+    converted.sort_by_key(|event| (event.frame, event.kind.priority(), event.track, event.index));
     Ok(MidiRender {
         events: converted
             .into_iter()
@@ -422,32 +460,67 @@ fn pitch_bend_value(value: i16) -> f32 {
 fn control_warning_needed(
     kind: ControlKind,
     observations: &[ControlObservation],
+    note_activities: &[NoteActivity],
     note_channels: &HashSet<u8>,
 ) -> bool {
-    let mut channels = HashSet::new();
-    let mut current_values: HashMap<u8, f32> = HashMap::new();
-    let mut values_diverged = false;
-    for observation in observations
+    let relevant: Vec<&ControlObservation> = observations
         .iter()
         .filter(|observation| observation.kind == kind)
-    {
-        channels.insert(observation.channel);
-        current_values.insert(observation.channel, observation.value);
-        let mut values = current_values.values();
-        if let Some(first) = values.next()
-            && values.any(|value| value.total_cmp(first) != std::cmp::Ordering::Equal)
-        {
-            values_diverged = true;
-            break;
-        }
-    }
-    if channels.is_empty() {
+        .collect();
+    if relevant.is_empty() {
         return false;
     }
-    let channel_not_used_by_notes = channels
+    if relevant
         .iter()
-        .any(|channel| !note_channels.contains(channel));
-    channel_not_used_by_notes || (note_channels.len() > 1 && channels.len() == 1) || values_diverged
+        .any(|observation| !note_channels.contains(&observation.channel))
+    {
+        return true;
+    }
+
+    let mut boundaries = BTreeSet::new();
+    for observation in &relevant {
+        boundaries.insert(observation.frame);
+    }
+    for activity in note_activities {
+        boundaries.insert(activity.start_frame);
+        boundaries.insert(activity.end_frame);
+    }
+
+    let mut current_values: HashMap<u8, f32> = note_channels
+        .iter()
+        .copied()
+        .map(|channel| (channel, 0.0))
+        .collect();
+    for frame in boundaries {
+        for observation in relevant
+            .iter()
+            .filter(|observation| observation.frame == frame)
+        {
+            current_values.insert(observation.channel, observation.value);
+        }
+
+        let active_channels: Vec<u8> = note_channels
+            .iter()
+            .copied()
+            .filter(|channel| {
+                note_activities.iter().any(|activity| {
+                    activity.channel == *channel
+                        && activity.start_frame <= frame
+                        && frame < activity.end_frame
+                })
+            })
+            .collect();
+        let Some(first_channel) = active_channels.first() else {
+            continue;
+        };
+        let first_value = current_values[first_channel];
+        if active_channels.iter().skip(1).any(|channel| {
+            current_values[channel].total_cmp(&first_value) != std::cmp::Ordering::Equal
+        }) {
+            return true;
+        }
+    }
+    false
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -538,8 +611,12 @@ mod tests {
     }
 
     fn midi_event(channel: u8, message: MidiMessage) -> TrackEvent<'static> {
+        midi_event_with_delta(channel, message, 0)
+    }
+
+    fn midi_event_with_delta(channel: u8, message: MidiMessage, delta: u32) -> TrackEvent<'static> {
         TrackEvent {
-            delta: 0.into(),
+            delta: delta.into(),
             kind: TrackEventKind::Midi {
                 channel: u4::new(channel),
                 message,
@@ -662,12 +739,52 @@ mod tests {
             note_on(1),
             pitch_bend(0, 0),
             pitch_bend(1, 4096),
-            note_off(0),
+            midi_event_with_delta(
+                0,
+                MidiMessage::NoteOff {
+                    key: u7::new(60),
+                    vel: u7::new(0),
+                },
+                480,
+            ),
             note_off(1),
             end_of_track(),
         ]);
         let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
         assert!(render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("pitch bend controls from MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn differing_controls_in_non_overlapping_notes_need_no_warning() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            pitch_bend(0, 4096),
+            midi_event_with_delta(
+                0,
+                MidiMessage::NoteOff {
+                    key: u7::new(60),
+                    vel: u7::new(0),
+                },
+                480,
+            ),
+            note_on(1),
+            pitch_bend(1, -4096),
+            midi_event_with_delta(
+                1,
+                MidiMessage::NoteOff {
+                    key: u7::new(60),
+                    vel: u7::new(0),
+                },
+                480,
+            ),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(!render.diagnostics.iter().any(|diagnostic| {
             diagnostic
                 .message
                 .contains("pitch bend controls from MIDI channels")
@@ -681,7 +798,14 @@ mod tests {
             note_on(1),
             pitch_bend(0, 4096),
             pitch_bend(1, 4096),
-            note_off(0),
+            midi_event_with_delta(
+                0,
+                MidiMessage::NoteOff {
+                    key: u7::new(60),
+                    vel: u7::new(0),
+                },
+                480,
+            ),
             note_off(1),
             end_of_track(),
         ]);

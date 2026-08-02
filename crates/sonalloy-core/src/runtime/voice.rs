@@ -62,6 +62,7 @@ enum GeneratorRuntime {
     },
     Sample {
         sample: SampleRuntime,
+        root_note: u8,
     },
     Disabled,
 }
@@ -73,7 +74,6 @@ struct LayerRuntime {
     active: bool,
     note_start_fade: Smoother,
     note_start_fade_frames: usize,
-    sample_root_note: u8,
 }
 
 impl LayerRuntime {
@@ -101,13 +101,10 @@ impl LayerRuntime {
                     .map_or(GeneratorRuntime::Disabled, |source| {
                         GeneratorRuntime::Sample {
                             sample: SampleRuntime::new(source),
+                            root_note: sample.root_note,
                         }
                     })
             }
-        };
-        let sample_root_note = match &compiled.generator {
-            CompiledGenerator::Sample(sample) => sample.root_note,
-            CompiledGenerator::Oscillator(_) => 69,
         };
         let note_start_fade_frames =
             rounded_frame_count(spec.sample_rate * GAIN_SMOOTHING_SECONDS).max(1);
@@ -118,7 +115,6 @@ impl LayerRuntime {
             active: false,
             note_start_fade: Smoother::new(0.0),
             note_start_fade_frames,
-            sample_root_note,
         })
     }
 
@@ -127,9 +123,9 @@ impl LayerRuntime {
             && self.trigger.matches(note_number, velocity)
     }
 
-    fn start(&mut self, note: NoteRequest) -> Result<bool, ProcessError> {
+    fn start(&mut self, note: NoteRequest) -> Result<(), ProcessError> {
         if !self.can_trigger(note.note_number, note.velocity) {
-            return Ok(false);
+            return Ok(());
         }
         match &mut self.generator {
             GeneratorRuntime::Oscillator {
@@ -140,15 +136,15 @@ impl LayerRuntime {
                     oscillator.reset().map_err(ProcessError::from_dsp_error)?;
                 }
             }
-            GeneratorRuntime::Sample { sample } => sample.start(1.0),
-            GeneratorRuntime::Disabled => return Ok(false),
+            GeneratorRuntime::Sample { sample, .. } => sample.start(),
+            GeneratorRuntime::Disabled => return Ok(()),
         }
         self.envelope.note_on();
         self.note_start_fade.reset(0.0);
         self.note_start_fade
             .set_target(1.0, self.note_start_fade_frames);
         self.active = true;
-        Ok(true)
+        Ok(())
     }
 
     fn render_source(
@@ -187,17 +183,10 @@ impl LayerRuntime {
                 }
                 Ok(false)
             }
-            GeneratorRuntime::Sample { sample } => {
-                let start_ratio = playback_ratio(
-                    note_number,
-                    self.sample_root_note,
-                    cents_to_ratio(tuning_start),
-                );
-                let end_ratio = playback_ratio(
-                    note_number,
-                    self.sample_root_note,
-                    cents_to_ratio(tuning_end),
-                );
+            GeneratorRuntime::Sample { sample, root_note } => {
+                let start_ratio =
+                    playback_ratio(note_number, *root_note, cents_to_ratio(tuning_start));
+                let end_ratio = playback_ratio(note_number, *root_note, cents_to_ratio(tuning_end));
                 if !start_ratio.is_finite()
                     || !end_ratio.is_finite()
                     || start_ratio <= 0.0
@@ -205,11 +194,21 @@ impl LayerRuntime {
                 {
                     return Err(ProcessError::InvalidFrequency);
                 }
-                for (index, value) in output[..frames].iter_mut().enumerate() {
+                if frames == 0 {
+                    return Ok(sample.is_finished());
+                }
+                if start_ratio.total_cmp(&end_ratio).is_eq() {
+                    for value in &mut output[..frames] {
+                        *value = sample.next_sample_with_ratio(start_ratio);
+                    }
+                } else {
                     #[allow(clippy::cast_precision_loss)]
-                    let position = index as f64 / frames.max(1) as f64;
-                    let ratio = start_ratio * (end_ratio / start_ratio).powf(position);
-                    *value = sample.next_sample_with_ratio(ratio);
+                    let ratio_step = (end_ratio / start_ratio).powf(1.0 / frames as f64);
+                    let mut ratio = start_ratio;
+                    for value in &mut output[..frames] {
+                        *value = sample.next_sample_with_ratio(ratio);
+                        ratio *= ratio_step;
+                    }
                 }
                 Ok(sample.is_finished())
             }
@@ -225,7 +224,7 @@ impl LayerRuntime {
             GeneratorRuntime::Oscillator { oscillator, .. } => {
                 oscillator.reset().map_err(ProcessError::from_dsp_error)?;
             }
-            GeneratorRuntime::Sample { sample } => sample.reset(),
+            GeneratorRuntime::Sample { sample, .. } => sample.reset(),
             GeneratorRuntime::Disabled => {}
         }
         self.envelope.reset();
@@ -250,7 +249,7 @@ impl LayerRuntime {
                     oscillator.reset().map_err(ProcessError::from_dsp_error)?;
                 }
             }
-            GeneratorRuntime::Sample { sample } => sample.reset(),
+            GeneratorRuntime::Sample { sample, .. } => sample.reset(),
             GeneratorRuntime::Disabled => {}
         }
         self.envelope.reset();
@@ -511,7 +510,6 @@ impl VoiceRuntime {
         for layer in &mut self.layers {
             layer.reset()?;
         }
-        self.reset_source_state();
         Ok(())
     }
 
@@ -532,7 +530,7 @@ impl VoiceRuntime {
         self.velocity = note.velocity;
         self.started_at_frame = note.started_at_frame;
         for layer in &mut self.layers {
-            let _ = layer.start(note)?;
+            layer.start(note)?;
         }
         self.initialize_source_state(note);
         if !self.has_active_layer() {

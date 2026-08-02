@@ -247,3 +247,37 @@ fn filter_cutoff_and_resonance_ramp_is_finite() {
         .expect("filter cutoff and resonance ramp");
     assert!(output.iter().all(|sample| sample.is_finite()));
 }
+
+#[test]
+fn filter_cutoff_ramp_matches_fixed_resonance_ramp() {
+    let mut cutoff_only = DspFilter::new().expect("cutoff-only filter allocation");
+    let mut fixed_resonance = DspFilter::new().expect("fixed-resonance filter allocation");
+    cutoff_only
+        .prepare(48_000.0)
+        .expect("cutoff-only filter preparation");
+    fixed_resonance
+        .prepare(48_000.0)
+        .expect("fixed-resonance filter preparation");
+    let input: Vec<f32> = (0..128)
+        .map(|index| {
+            let index = u16::try_from(index).expect("test input index fits in u16");
+            (f32::from(index) * 0.17).sin()
+        })
+        .collect();
+    let mut cutoff_only_output = input.clone();
+    let mut fixed_resonance_output = input;
+
+    cutoff_only
+        .process_ramp(500.0, 4_000.0, 0.2, &mut cutoff_only_output)
+        .expect("cutoff-only ramp");
+    fixed_resonance
+        .process_ramp_with_resonance(500.0, 4_000.0, 0.2, 0.2, &mut fixed_resonance_output)
+        .expect("fixed-resonance ramp");
+
+    assert!(
+        cutoff_only_output
+            .iter()
+            .zip(fixed_resonance_output)
+            .all(|(left, right)| (left - right).abs() <= 1.0e-6)
+    );
+}

@@ -210,6 +210,12 @@ extern "C" int32_t sonalloy_dsp_oscillator_process_ramp(
     }
 
     try {
+#ifdef SONALLOY_DSP_TEST_HOOKS
+        if (handle->throw_on_process) {
+            handle->throw_on_process = false;
+            throw std::runtime_error("native ramp process test exception");
+        }
+#endif
         if (start_frequency_hz > 0.0f && end_frequency_hz > 0.0f) {
             const float frequency_step = frames == 0u
                 ? 1.0f
@@ -382,7 +388,7 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp(
         for (uint32_t index = 0; index < frames; ++index) {
             const float position = frames <= 1u
                 ? 0.0f
-                : static_cast<float>(index) / static_cast<float>(frames - 1u);
+                : static_cast<float>(index) / static_cast<float>(frames);
             const float cutoff_hz = start_cutoff_hz +
                 (end_cutoff_hz - start_cutoff_hz) * position;
             handle->filter.SetFreq(cutoff_hz);

@@ -470,6 +470,43 @@ fn render_events_rejects_an_unknown_parameter_before_rendering() {
 }
 
 #[test]
+fn render_events_rejects_descending_absolute_frames_before_rendering() {
+    let directory = tempdir().expect("temporary directory");
+    let events = directory.path().join("events.json");
+    std::fs::write(
+        &events,
+        r#"{
+          "events": [
+            {"absolute_frame": 128, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 64, "type": "note_off", "note_id": 1}
+          ]
+        }"#,
+    )
+    .expect("event sequence fixture");
+    let output = directory.path().join("events.wav");
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "events",
+            reference_definition().to_str().expect("definition path"),
+            events.to_str().expect("events path"),
+            "--duration-frames",
+            "256",
+            "--tail",
+            "0",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .assert()
+        .code(2)
+        .stdout(predicates::str::contains("\"EVENT_ORDER_INVALID\""));
+    assert!(!output.exists());
+}
+
+#[test]
 fn render_midi_converts_tempo_and_note_events() {
     let directory = tempdir().expect("temporary directory");
     let output = directory.path().join("midi.wav");
