@@ -46,6 +46,13 @@ int32_t sonalloy_dsp_oscillator_process(
     float* output,
     uint32_t frames
 );
+int32_t sonalloy_dsp_oscillator_process_ramp(
+    sonalloy_dsp_oscillator* handle,
+    float start_frequency_hz,
+    float end_frequency_hz,
+    float* output,
+    uint32_t frames
+);
 
 sonalloy_dsp_filter* sonalloy_dsp_filter_create(void);
 void sonalloy_dsp_filter_destroy(sonalloy_dsp_filter* handle);
@@ -66,6 +73,15 @@ int32_t sonalloy_dsp_filter_process_ramp(
     float start_cutoff_hz,
     float end_cutoff_hz,
     float resonance,
+    float* buffer,
+    uint32_t frames
+);
+int32_t sonalloy_dsp_filter_process_ramp_with_resonance(
+    sonalloy_dsp_filter* handle,
+    float start_cutoff_hz,
+    float end_cutoff_hz,
+    float start_resonance,
+    float end_resonance,
     float* buffer,
     uint32_t frames
 );

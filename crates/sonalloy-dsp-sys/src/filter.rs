@@ -161,6 +161,49 @@ impl DspFilter {
         }
         result
     }
+
+    /// Process a buffer while ramping cutoff and resonance together.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid parameters, an unprepared filter, or a native failure. On
+    /// error the supplied buffer is cleared.
+    pub fn process_ramp_with_resonance(
+        &mut self,
+        start_cutoff_hz: f32,
+        end_cutoff_hz: f32,
+        start_resonance: f32,
+        end_resonance: f32,
+        buffer: &mut [f32],
+    ) -> Result<(), DspFilterError> {
+        if !self.prepared {
+            buffer.fill(0.0);
+            return Err(DspFilterError::NotPrepared);
+        }
+        let frames = u32::try_from(buffer.len()).map_err(|_| {
+            buffer.fill(0.0);
+            DspFilterError::InvalidArgument
+        })?;
+        if buffer.is_empty() {
+            return Ok(());
+        }
+        let code = unsafe {
+            ffi::sonalloy_dsp_filter_process_ramp_with_resonance(
+                self.handle.as_ptr(),
+                start_cutoff_hz,
+                end_cutoff_hz,
+                start_resonance,
+                end_resonance,
+                buffer.as_mut_ptr(),
+                frames,
+            )
+        };
+        let result = result_from_code(code);
+        if result.is_err() {
+            buffer.fill(0.0);
+        }
+        result
+    }
 }
 
 impl Drop for DspFilter {

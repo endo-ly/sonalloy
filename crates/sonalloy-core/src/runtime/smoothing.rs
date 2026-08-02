@@ -49,16 +49,33 @@ impl Smoother {
         self.current
     }
 
-    pub(crate) fn value(&self) -> f32 {
-        self.current
+    pub(crate) fn span(&mut self, frames: usize) -> (f32, f32) {
+        let start = self.current;
+        if frames == 0 {
+            return (start, start);
+        }
+        let advance = frames.min(self.remaining);
+        if advance == 0 {
+            return (start, start);
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let end = if self.remaining == 0 {
+            start
+        } else {
+            let ratio = advance as f32 / self.remaining as f32;
+            self.current + (self.target - self.current) * ratio
+        };
+        self.current = if advance == self.remaining {
+            self.target
+        } else {
+            end
+        };
+        self.remaining -= advance;
+        (start, self.current)
     }
 
-    pub(crate) fn is_smoothing(&self) -> bool {
-        self.remaining != 0
-    }
-
-    pub(crate) fn remaining(&self) -> usize {
-        self.remaining
+    pub(crate) fn frames_until_target(&self) -> Option<usize> {
+        (self.remaining != 0).then_some(self.remaining)
     }
 }
 

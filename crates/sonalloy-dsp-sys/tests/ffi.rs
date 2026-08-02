@@ -142,6 +142,38 @@ fn empty_buffer_and_native_guard_are_safe() {
 }
 
 #[test]
+fn oscillator_frequency_ramp_is_finite_and_preserves_guards() {
+    let mut oscillator = DspOscillator::new().expect("oscillator allocation");
+    oscillator
+        .prepare(48_000.0, DspOscillatorWaveform::Sine)
+        .expect("oscillator preparation");
+    let mut output = [0.0_f32; 66];
+    output[0] = 7.0;
+    output[65] = 8.0;
+    oscillator
+        .process_ramp(220.0, 880.0, &mut output[1..65])
+        .expect("oscillator frequency ramp");
+    assert_eq!(output[0], 7.0);
+    assert_eq!(output[65], 8.0);
+    assert!(output[1..65].iter().all(|sample| sample.is_finite()));
+    assert!(output[1..65].iter().any(|sample| sample.abs() > 0.1));
+}
+
+#[test]
+fn oscillator_frequency_ramp_rejects_invalid_input_and_clears_output() {
+    let mut oscillator = DspOscillator::new().expect("oscillator allocation");
+    oscillator
+        .prepare(48_000.0, DspOscillatorWaveform::Sine)
+        .expect("oscillator preparation");
+    let mut output = [1.0_f32; 8];
+    assert_eq!(
+        oscillator.process_ramp(220.0, f32::NAN, &mut output),
+        Err(DspError::InvalidArgument)
+    );
+    assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+}
+
+#[test]
 fn backend_reports_capabilities() {
     assert!(backend_version().contains("DaisySP V1.0.0"));
     assert_eq!(
@@ -203,4 +235,15 @@ fn filter_rejects_invalid_parameters_and_clears_output() {
         Err(DspFilterError::InvalidArgument)
     );
     assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+}
+
+#[test]
+fn filter_cutoff_and_resonance_ramp_is_finite() {
+    let mut filter = DspFilter::new().expect("filter allocation");
+    filter.prepare(48_000.0).expect("filter preparation");
+    let mut output = [1.0_f32; 128];
+    filter
+        .process_ramp_with_resonance(500.0, 4_000.0, 0.05, 0.35, &mut output)
+        .expect("filter cutoff and resonance ramp");
+    assert!(output.iter().all(|sample| sample.is_finite()));
 }

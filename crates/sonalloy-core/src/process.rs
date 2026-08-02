@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::parameter::ParameterHandle;
+
 /// Audio preparation settings shared by every runtime processor.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ProcessSpec {
@@ -67,7 +69,7 @@ pub struct ProcessContext {
 pub type NoteId = u64;
 
 /// A normalized event positioned on the absolute engine timeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ScheduledEvent {
     /// Absolute frame at which the event is applied.
     pub absolute_frame: u64,
@@ -76,7 +78,7 @@ pub struct ScheduledEvent {
 }
 
 /// Normalized event payload consumed by the voice runtime.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ProcessEventKind {
     /// Start a note.
     NoteOn {
@@ -92,10 +94,71 @@ pub enum ProcessEventKind {
         /// Frontend-assigned note identity.
         note_id: NoteId,
     },
+    /// Change a continuous parameter's normalized base value.
+    ParameterChange {
+        /// Compiled parameter handle resolved by control code.
+        parameter: ParameterHandle,
+        /// Target value in the inclusive zero-to-one range.
+        normalized: f32,
+    },
+    /// Change the shared pitch bend control.
+    PitchBend {
+        /// Bipolar normalized value.
+        value: f32,
+    },
+    /// Change the shared modulation wheel control.
+    ModWheel {
+        /// Unipolar normalized value.
+        value: f32,
+    },
+    /// Change the shared channel aftertouch control.
+    Aftertouch {
+        /// Unipolar normalized value.
+        value: f32,
+    },
+}
+
+impl ProcessEventKind {
+    /// Return the stable same-offset processing priority.
+    #[must_use]
+    pub const fn priority(self) -> u8 {
+        match self {
+            Self::NoteOff { .. } => 0,
+            Self::ParameterChange { .. } => 1,
+            Self::PitchBend { .. } => 2,
+            Self::ModWheel { .. } => 3,
+            Self::Aftertouch { .. } => 4,
+            Self::NoteOn { .. } => 5,
+        }
+    }
+
+    fn validate_value(self) -> Result<(), ProcessError> {
+        let (value, min, max) = match self {
+            Self::NoteOn {
+                note_number,
+                velocity,
+                ..
+            } => {
+                if note_number > 127 || !(1..=127).contains(&velocity) {
+                    return Err(ProcessError::InvalidEventValue);
+                }
+                return Ok(());
+            }
+            Self::NoteOff { .. } => return Ok(()),
+            Self::ParameterChange { normalized, .. } => (normalized, 0.0, 1.0),
+            Self::PitchBend { value } => (value, -1.0, 1.0),
+            Self::ModWheel { value } | Self::Aftertouch { value } => (value, 0.0, 1.0),
+        };
+        if value.is_finite() && (min..=max).contains(&value) {
+            Ok(())
+        } else {
+            Err(ProcessError::InvalidEventValue)
+        }
+    }
 }
 
 /// An event positioned within a process block.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ProcessEvent {
     /// Sample offset from the start of the containing block.
     pub sample_offset: usize,
@@ -168,6 +231,9 @@ impl ProcessBlock<'_> {
                 });
             }
         }
+        if self.frames == 0 && !self.events.is_empty() {
+            return Err(ProcessError::ZeroFrameEvents);
+        }
         for event in self.events {
             if event.sample_offset >= self.frames {
                 return Err(ProcessError::EventOffsetOutOfRange {
@@ -176,6 +242,9 @@ impl ProcessBlock<'_> {
                 });
             }
         }
+        for event in self.events {
+            event.kind.validate_value()?;
+        }
         for window in self.events.windows(2) {
             if window[0].sample_offset > window[1].sample_offset {
                 return Err(ProcessError::EventsNotSorted {
@@ -183,27 +252,11 @@ impl ProcessBlock<'_> {
                     current_offset: window[1].sample_offset,
                 });
             }
-        }
-        let mut group_start = 0;
-        while group_start < self.events.len() {
-            let offset = self.events[group_start].sample_offset;
-            let mut group_end = group_start + 1;
-            while group_end < self.events.len() && self.events[group_end].sample_offset == offset {
-                group_end += 1;
+            if window[0].sample_offset == window[1].sample_offset
+                && window[0].kind.priority() > window[1].kind.priority()
+            {
+                return Err(ProcessError::EventOrderInvalid);
             }
-            for on_index in group_start..group_end {
-                if !is_note_on(self.events[on_index].kind) {
-                    continue;
-                }
-                for off_index in (on_index + 1)..group_end {
-                    if is_same_note_id(self.events[on_index].kind, self.events[off_index].kind)
-                        && is_note_off(self.events[off_index].kind)
-                    {
-                        return Err(ProcessError::EventOrderInvalid);
-                    }
-                }
-            }
-            group_start = group_end;
         }
         Ok(())
     }
@@ -266,9 +319,21 @@ pub enum ProcessError {
         /// Current event offset.
         current_offset: usize,
     },
-    /// A Note On precedes the matching Note Off at one sample offset.
-    #[error("same-note Note Off must precede Note On at the same sample offset")]
+    /// Same-offset events are not ordered by the common processing priority.
+    #[error("same-offset events must follow the processing priority order")]
     EventOrderInvalid,
+    /// An event was supplied to a zero-frame block.
+    #[error("zero-frame blocks cannot contain events")]
+    ZeroFrameEvents,
+    /// An event value is non-finite or outside its normalized range.
+    #[error("event value is invalid")]
+    InvalidEventValue,
+    /// A parameter handle is not part of the compiled catalog.
+    #[error("parameter handle {handle} is outside the compiled catalog")]
+    ParameterHandleOutOfRange {
+        /// Invalid dense parameter index.
+        handle: usize,
+    },
     /// A runtime has not been prepared.
     #[error("processor is not prepared")]
     NotPrepared,
@@ -323,24 +388,6 @@ impl ProcessError {
             | sonalloy_dsp_sys::DspFilterError::Unknown(_) => DspFailureKind::BackendFailure,
         };
         Self::DspFailure { kind }
-    }
-}
-
-fn is_note_on(event: ProcessEventKind) -> bool {
-    matches!(event, ProcessEventKind::NoteOn { .. })
-}
-
-fn is_note_off(event: ProcessEventKind) -> bool {
-    matches!(event, ProcessEventKind::NoteOff { .. })
-}
-
-fn is_same_note_id(left: ProcessEventKind, right: ProcessEventKind) -> bool {
-    match (left, right) {
-        (
-            ProcessEventKind::NoteOn { note_id: left, .. },
-            ProcessEventKind::NoteOff { note_id: right },
-        ) => left == right,
-        _ => false,
     }
 }
 
@@ -493,7 +540,7 @@ mod tests {
         ));
         assert!(matches!(
             validate_event(spec, 0, 0),
-            Err(ProcessError::EventOffsetOutOfRange { .. })
+            Err(ProcessError::ZeroFrameEvents)
         ));
     }
 

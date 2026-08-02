@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 use midly::{MidiMessage, Smf, Timing, TrackEventKind};
@@ -18,6 +18,9 @@ pub(crate) struct MidiRender {
 enum RawKind {
     NoteOn { channel: u8, note: u8, velocity: u8 },
     NoteOff { channel: u8, note: u8 },
+    PitchBend { channel: u8, value: i16 },
+    ModWheel { channel: u8, value: u8 },
+    Aftertouch { channel: u8, value: u8 },
     Tempo { microseconds_per_beat: u32 },
 }
 
@@ -116,6 +119,41 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                                 },
                             });
                         }
+                        MidiMessage::PitchBend { bend } => {
+                            raw_events.push(RawEvent {
+                                tick,
+                                track: track_index,
+                                index: event_index,
+                                kind: RawKind::PitchBend {
+                                    channel,
+                                    value: bend.as_int(),
+                                },
+                            });
+                        }
+                        MidiMessage::Controller { controller, value }
+                            if controller.as_int() == 1 =>
+                        {
+                            raw_events.push(RawEvent {
+                                tick,
+                                track: track_index,
+                                index: event_index,
+                                kind: RawKind::ModWheel {
+                                    channel,
+                                    value: value.as_int(),
+                                },
+                            });
+                        }
+                        MidiMessage::ChannelAftertouch { vel } => {
+                            raw_events.push(RawEvent {
+                                tick,
+                                track: track_index,
+                                index: event_index,
+                                kind: RawKind::Aftertouch {
+                                    channel,
+                                    value: vel.as_int(),
+                                },
+                            });
+                        }
                         MidiMessage::Controller { controller, .. } if controller.as_int() == 64 => {
                             diagnostics.push(
                                 Diagnostic::warning(
@@ -125,11 +163,16 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                                 .with_path(format!("track[{track_index}].event[{event_index}]")),
                             );
                         }
-                        MidiMessage::Aftertouch { .. }
-                        | MidiMessage::Controller { .. }
-                        | MidiMessage::ProgramChange { .. }
-                        | MidiMessage::ChannelAftertouch { .. }
-                        | MidiMessage::PitchBend { .. } => {
+                        MidiMessage::Aftertouch { .. } => {
+                            diagnostics.push(
+                                Diagnostic::warning(
+                                    DiagnosticCode::MidiError,
+                                    "polyphonic aftertouch is not supported and was ignored",
+                                )
+                                .with_path(format!("track[{track_index}].event[{event_index}]")),
+                            );
+                        }
+                        MidiMessage::Controller { .. } | MidiMessage::ProgramChange { .. } => {
                             diagnostics.push(
                                 Diagnostic::warning(
                                     DiagnosticCode::MidiError,
@@ -181,6 +224,8 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
     let mut cursor_frames = 0.0_f64;
     let mut active_notes: HashMap<(u8, u8), VecDeque<u64>> = HashMap::new();
     let mut serials: HashMap<(u8, u8), u32> = HashMap::new();
+    let mut note_channels = HashSet::new();
+    let mut control_channels = HashSet::new();
     let mut converted = Vec::new();
     for raw in raw_events {
         advance_tempo(
@@ -201,6 +246,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                 note,
                 velocity,
             } => {
+                note_channels.insert(channel);
                 let key = (channel, note);
                 let serial = serials.entry(key).or_default();
                 let note_id =
@@ -242,6 +288,39 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                     kind: ProcessEventKind::NoteOff { note_id },
                 });
             }
+            RawKind::PitchBend { channel, value } => {
+                control_channels.insert(channel);
+                converted.push(ConvertedEvent {
+                    frame,
+                    track: raw.track,
+                    index: raw.index,
+                    kind: ProcessEventKind::PitchBend {
+                        value: pitch_bend_value(value),
+                    },
+                });
+            }
+            RawKind::ModWheel { channel, value } => {
+                control_channels.insert(channel);
+                converted.push(ConvertedEvent {
+                    frame,
+                    track: raw.track,
+                    index: raw.index,
+                    kind: ProcessEventKind::ModWheel {
+                        value: f32::from(value) / 127.0,
+                    },
+                });
+            }
+            RawKind::Aftertouch { channel, value } => {
+                control_channels.insert(channel);
+                converted.push(ConvertedEvent {
+                    frame,
+                    track: raw.track,
+                    index: raw.index,
+                    kind: ProcessEventKind::Aftertouch {
+                        value: f32::from(value) / 127.0,
+                    },
+                });
+            }
         }
     }
     if converted.is_empty() {
@@ -253,10 +332,19 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             .with_path(path.to_string_lossy()),
         ]);
     }
-    converted.sort_by_key(|event| {
-        let priority = u8::from(!matches!(event.kind, ProcessEventKind::NoteOff { .. }));
-        (event.frame, priority, event.track, event.index)
-    });
+    if note_channels.len() > 1 {
+        diagnostics.push(Diagnostic::warning(
+            DiagnosticCode::MidiError,
+            "notes from multiple MIDI channels were merged into one instrument",
+        ));
+    }
+    if control_channels.len() > 1 {
+        diagnostics.push(Diagnostic::warning(
+            DiagnosticCode::MidiError,
+            "controls from multiple MIDI channels were merged into one instrument",
+        ));
+    }
+    converted.sort_by_key(|event| (event.frame, event.kind.priority(), event.track, event.index));
     let duration_frames = converted
         .iter()
         .map(|event| event.frame)
@@ -279,6 +367,14 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
         duration_frames,
         diagnostics,
     })
+}
+
+fn pitch_bend_value(value: i16) -> f32 {
+    if value < 0 {
+        f32::from(value) / 8192.0
+    } else {
+        f32::from(value) / 8191.0
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

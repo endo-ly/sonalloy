@@ -3,9 +3,10 @@ use std::sync::Arc;
 
 use approx::assert_relative_eq;
 use sonalloy_core::{
-    CompileContext, DiagnosticCode, InstrumentDefinition, InstrumentProcessor, ProcessBlock,
-    ProcessContext, ProcessEventKind, ProcessSpec, RenderRequest, ScheduledEvent, SineRuntime,
-    compile_instrument, render_instrument,
+    CompileContext, DiagnosticCode, InstrumentDefinition, InstrumentProcessor, ModulationCurve,
+    ModulationDefinition, ModulationRouteDefinition, ModulationSourceDefinition, ProcessBlock,
+    ProcessContext, ProcessEventKind, ProcessSpec, RandomDefinition, RenderRequest, ScheduledEvent,
+    SineRuntime, compile_instrument, render_instrument,
 };
 
 fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
@@ -175,6 +176,112 @@ fn absolute_event_timing_is_stable_across_block_sizes() {
             assert_relative_eq!(*left, *right, epsilon = 1.0e-5);
         }
     }
+}
+
+fn absolute_energy(samples: &[f32]) -> f64 {
+    samples
+        .iter()
+        .map(|sample| f64::from(sample.abs()))
+        .sum::<f64>()
+        / f64::from(u32::try_from(samples.len()).expect("sample count fits in u32"))
+}
+
+#[test]
+fn parameter_change_updates_the_compiled_target_after_smoothing() {
+    let instrument = compile_instrument(
+        &definition(),
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+        },
+    )
+    .instrument
+    .expect("reference Definition compiles");
+    let gain = instrument
+        .parameter_handle("layer.body.gain")
+        .expect("gain parameter exists");
+    let events = [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 11,
+                note_number: 60,
+                velocity: 100,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 128,
+            kind: ProcessEventKind::ParameterChange {
+                parameter: gain,
+                normalized: 1.0,
+            },
+        },
+    ];
+    let audio = render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 768,
+            tail_frames: 0,
+        },
+        &events,
+    )
+    .expect("dynamic render succeeds");
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    let before = absolute_energy(&audio.channels[0][64..128]);
+    let after = absolute_energy(&audio.channels[0][512..576]);
+    assert!(
+        after > before * 3.0,
+        "parameter change did not reach the target"
+    );
+}
+
+#[test]
+fn deterministic_random_route_repeats_across_runtime_instances() {
+    let mut source = definition();
+    source.modulation = Some(ModulationDefinition {
+        sources: vec![ModulationSourceDefinition::Random(RandomDefinition {
+            id: "random_pan".to_owned(),
+            seed: 42,
+        })],
+        routes: vec![ModulationRouteDefinition {
+            source: "random_pan".to_owned(),
+            target: "layer.body.pan".to_owned(),
+            amount: 1.0,
+            curve: ModulationCurve::Linear,
+        }],
+    });
+    let context = CompileContext {
+        definition_base_dir: ".".into(),
+        process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+    };
+    let compiled = compile_instrument(&source, &context)
+        .instrument
+        .expect("random route compiles");
+    let events = [ScheduledEvent {
+        absolute_frame: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 17,
+            note_number: 60,
+            velocity: 100,
+        },
+    }];
+    let request = RenderRequest {
+        sample_rate: 48_000.0,
+        block_size: 257,
+        duration_frames: 256,
+        tail_frames: 0,
+    };
+    let first = render_instrument(Arc::clone(&compiled), request, &events).expect("first render");
+    let second = render_instrument(compiled, request, &events).expect("second render");
+    assert_eq!(first, second);
 }
 
 fn hybrid_definition() -> InstrumentDefinition {

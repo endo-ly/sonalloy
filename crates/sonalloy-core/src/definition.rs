@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
+use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id};
 
 /// The Definition schema accepted by the compiler.
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
@@ -24,8 +25,9 @@ pub struct InstrumentDefinition {
     pub layers: Vec<LayerDefinition>,
     /// Optional filter applied after the voice layer mix.
     pub voice_filter: Option<FilterDefinition>,
-    /// Explicit velocity behavior for the signal path.
-    pub velocity_response: VelocityResponseDefinition,
+    /// Optional modulation sources and routes.
+    #[serde(default)]
+    pub modulation: Option<ModulationDefinition>,
 }
 
 /// Human-readable instrument information.
@@ -191,14 +193,100 @@ pub struct FilterDefinition {
     pub resonance: f32,
 }
 
-/// Explicit velocity response.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Modulation sources and routes stored in a Definition.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct VelocityResponseDefinition {
-    /// Amount by which low velocity reduces layer gain.
-    pub layer_gain_amount: f32,
-    /// Number of octaves by which low velocity lowers filter cutoff.
-    pub filter_cutoff_octaves: f32,
+pub struct ModulationDefinition {
+    /// User-defined source definitions.
+    pub sources: Vec<ModulationSourceDefinition>,
+    /// Source-to-parameter connections.
+    pub routes: Vec<ModulationRouteDefinition>,
+}
+
+/// A user-defined voice-scoped modulation source.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ModulationSourceDefinition {
+    /// Periodic bipolar source.
+    Lfo(LfoDefinition),
+    /// Note lifecycle envelope source.
+    Envelope(ModEnvelopeDefinition),
+    /// Deterministic note-scoped sample-and-hold source.
+    Random(RandomDefinition),
+}
+
+/// LFO source settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LfoDefinition {
+    /// Stable source identifier.
+    pub id: String,
+    /// LFO waveform.
+    pub waveform: LfoWaveform,
+    /// Frequency in hertz.
+    pub rate_hz: f32,
+    /// Initial phase in the half-open zero-to-one range.
+    pub phase: f32,
+}
+
+/// LFO waveform.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LfoWaveform {
+    /// Sine waveform.
+    Sine,
+    /// Bipolar triangle waveform.
+    Triangle,
+}
+
+/// Note lifecycle modulation envelope settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModEnvelopeDefinition {
+    /// Stable source identifier.
+    pub id: String,
+    /// Attack duration in seconds.
+    pub attack_seconds: f32,
+    /// Decay duration in seconds.
+    pub decay_seconds: f32,
+    /// Sustain level.
+    pub sustain_level: f32,
+    /// Release duration in seconds.
+    pub release_seconds: f32,
+}
+
+/// Note-scoped deterministic random source settings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RandomDefinition {
+    /// Stable source identifier.
+    pub id: String,
+    /// Explicit deterministic seed.
+    pub seed: u64,
+}
+
+/// Source-to-target modulation connection.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModulationRouteDefinition {
+    /// Source identifier, including built-in source identifiers.
+    pub source: String,
+    /// Canonical parameter identifier.
+    pub target: String,
+    /// Signed amount in target-range units.
+    pub amount: f32,
+    /// Source shaping curve.
+    pub curve: ModulationCurve,
+}
+
+/// Curve applied to a source before its route amount.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModulationCurve {
+    /// No shaping.
+    Linear,
+    /// Smooth interpolation around zero.
+    SmoothStep,
 }
 
 impl InstrumentDefinition {
@@ -251,6 +339,15 @@ impl InstrumentDefinition {
                     Diagnostic::error(
                         DiagnosticCode::RequiredFieldMissing,
                         "layer id must not be empty",
+                    )
+                    .with_path(format!("{path}.id")),
+                );
+            }
+            if !is_component_id(&layer.id) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ParameterIdInvalid,
+                        "layer id must start with a lowercase letter and contain only lowercase letters, digits, or underscores",
                     )
                     .with_path(format!("{path}.id")),
                 );
@@ -308,22 +405,128 @@ impl InstrumentDefinition {
                 "resonance must be finite and between 0 and 1",
             );
         }
-        validate_range(
-            &mut diagnostics,
-            "velocity_response.layer_gain_amount".to_owned(),
-            self.velocity_response.layer_gain_amount,
-            0.0..=1.0,
-            "layer_gain_amount must be finite and between 0 and 1",
-        );
-        validate_range(
-            &mut diagnostics,
-            "velocity_response.filter_cutoff_octaves".to_owned(),
-            self.velocity_response.filter_cutoff_octaves,
-            0.0..=4.0,
-            "filter_cutoff_octaves must be finite and between 0 and 4",
-        );
+        if let Some(modulation) = &self.modulation {
+            validate_modulation(&mut diagnostics, modulation);
+        }
         diagnostics
     }
+}
+
+fn validate_modulation(diagnostics: &mut Vec<Diagnostic>, modulation: &ModulationDefinition) {
+    let mut source_ids = HashSet::new();
+    for (index, source) in modulation.sources.iter().enumerate() {
+        let id = match source {
+            ModulationSourceDefinition::Lfo(value) => &value.id,
+            ModulationSourceDefinition::Envelope(value) => &value.id,
+            ModulationSourceDefinition::Random(value) => &value.id,
+        };
+        let path = format!("modulation.sources[{index}].id");
+        if !is_component_id(id) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::SourceIdInvalid,
+                    "source id has invalid format",
+                )
+                .with_path(path.clone()),
+            );
+        }
+        if BUILTIN_SOURCE_IDS.contains(&id.as_str()) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::SourceIdDuplicated,
+                    "user source id conflicts with a built-in source",
+                )
+                .with_path(path.clone()),
+            );
+        }
+        if !source_ids.insert(id) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::SourceIdDuplicated,
+                    "source id must be unique",
+                )
+                .with_path(path),
+            );
+        }
+        match source {
+            ModulationSourceDefinition::Lfo(value) => {
+                validate_range(
+                    diagnostics,
+                    format!("modulation.sources[{index}].rate_hz"),
+                    value.rate_hz,
+                    0.01..=40.0,
+                    "lfo rate must be finite and between 0.01 and 40 Hz",
+                );
+                if !value.phase.is_finite() || !(0.0..1.0).contains(&value.phase) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::SourceValueInvalid,
+                            "lfo phase must be finite and between 0 and 1",
+                        )
+                        .with_path(format!("modulation.sources[{index}].phase")),
+                    );
+                }
+            }
+            ModulationSourceDefinition::Envelope(value) => {
+                validate_modulation_envelope(diagnostics, index, value);
+            }
+            ModulationSourceDefinition::Random(_) => {}
+        }
+    }
+    for (index, route) in modulation.routes.iter().enumerate() {
+        if route.source.trim().is_empty() || route.source.contains('.') {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::SourceIdInvalid,
+                    "route source id is invalid",
+                )
+                .with_path(format!("modulation.routes[{index}].source")),
+            );
+        }
+        if route.target.trim().is_empty() {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::RouteTargetInvalid,
+                    "route target must not be empty",
+                )
+                .with_path(format!("modulation.routes[{index}].target")),
+            );
+        }
+        validate_range(
+            diagnostics,
+            format!("modulation.routes[{index}].amount"),
+            route.amount,
+            -1.0..=1.0,
+            "route amount must be finite and between -1 and 1",
+        );
+    }
+}
+
+fn validate_modulation_envelope(
+    diagnostics: &mut Vec<Diagnostic>,
+    index: usize,
+    envelope: &ModEnvelopeDefinition,
+) {
+    for (field, value) in [
+        ("attack_seconds", envelope.attack_seconds),
+        ("decay_seconds", envelope.decay_seconds),
+        ("release_seconds", envelope.release_seconds),
+    ] {
+        validate_range(
+            diagnostics,
+            format!("modulation.sources[{index}].{field}"),
+            value,
+            0.0..=30.0,
+            "modulation envelope time must be finite and between 0 and 30 seconds",
+        );
+    }
+    validate_range(
+        diagnostics,
+        format!("modulation.sources[{index}].sustain_level"),
+        envelope.sustain_level,
+        0.0..=1.0,
+        "modulation envelope sustain must be finite and between 0 and 1",
+    );
 }
 
 fn validate_sample(diagnostics: &mut Vec<Diagnostic>, path: &str, sample: &SampleDefinition) {
@@ -454,10 +657,7 @@ pub(crate) mod tests {
                 }),
             }],
             voice_filter: None,
-            velocity_response: VelocityResponseDefinition {
-                layer_gain_amount: 0.5,
-                filter_cutoff_octaves: 1.0,
-            },
+            modulation: None,
         }
     }
 

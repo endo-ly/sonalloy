@@ -280,6 +280,7 @@ fn instrument_init_validate_and_inspect_are_available() {
         .stdout(predicates::str::contains("polyphony: 16"))
         .stdout(predicates::str::contains("layer body"))
         .stdout(predicates::str::contains("envelope:"))
+        .stdout(predicates::str::contains("parameter layer.body.gain:"))
         .stdout(predicates::str::contains("asset: not_applicable"));
 
     Command::cargo_bin("sonalloy")
@@ -294,6 +295,8 @@ fn instrument_init_validate_and_inspect_are_available() {
         .success()
         .stdout(predicates::str::contains("\"metadata\""))
         .stdout(predicates::str::contains("\"envelope\""))
+        .stdout(predicates::str::contains("\"parameters\""))
+        .stdout(predicates::str::contains("layer.body.gain"))
         .stdout(predicates::str::contains("\"phase_reset\":true"))
         .stdout(predicates::str::contains("\"asset_status\""));
 }
@@ -325,6 +328,88 @@ fn render_note_uses_the_compiled_instrument() {
         .success();
     let reader = hound::WavReader::open(output).expect("rendered WAV");
     assert_eq!(reader.spec().channels, 2);
+}
+
+#[test]
+fn render_events_supports_parameter_and_external_control_events() {
+    let directory = tempdir().expect("temporary directory");
+    let events = directory.path().join("events.json");
+    std::fs::write(
+        &events,
+        r#"{
+          "events": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 128, "type": "parameter_change", "parameter": "layer.body.gain", "normalized": 0.9},
+            {"absolute_frame": 256, "type": "pitch_bend", "value": 0.5},
+            {"absolute_frame": 384, "type": "mod_wheel", "value": 1.0},
+            {"absolute_frame": 512, "type": "aftertouch", "value": 0.75},
+            {"absolute_frame": 768, "type": "note_off", "note_id": 1}
+          ]
+        }"#,
+    )
+    .expect("event sequence fixture");
+    let output = directory.path().join("events.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "events",
+            reference_definition().to_str().expect("definition path"),
+            events.to_str().expect("events path"),
+            "--duration-frames",
+            "1024",
+            "--tail",
+            "0",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    let mut reader = hound::WavReader::open(output).expect("event render output");
+    assert_eq!(reader.duration(), 1024);
+    assert!(
+        reader
+            .samples::<f32>()
+            .map(|sample| sample.expect("valid sample"))
+            .all(|sample| sample.is_finite())
+    );
+}
+
+#[test]
+fn render_events_rejects_an_unknown_parameter_before_rendering() {
+    let directory = tempdir().expect("temporary directory");
+    let events = directory.path().join("events.json");
+    std::fs::write(
+        &events,
+        r#"{"events":[{"absolute_frame":0,"type":"parameter_change","parameter":"layer.missing.gain","normalized":0.5}]}"#,
+    )
+    .expect("event sequence fixture");
+    let output = directory.path().join("events.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "events",
+            reference_definition().to_str().expect("definition path"),
+            events.to_str().expect("events path"),
+            "--duration-frames",
+            "128",
+            "--tail",
+            "0",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .assert()
+        .code(2)
+        .stdout(predicates::str::contains("\"PARAMETER_NOT_FOUND\""));
+    assert!(!output.exists());
 }
 
 #[test]

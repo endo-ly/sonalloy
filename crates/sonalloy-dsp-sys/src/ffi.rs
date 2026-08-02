@@ -38,6 +38,13 @@ unsafe extern "C" {
         output: *mut c_float,
         frames: c_uint,
     ) -> c_int;
+    pub(crate) fn sonalloy_dsp_oscillator_process_ramp(
+        handle: *mut DspOscillator,
+        start_frequency_hz: c_float,
+        end_frequency_hz: c_float,
+        output: *mut c_float,
+        frames: c_uint,
+    ) -> c_int;
 
     pub(crate) fn sonalloy_dsp_filter_create() -> *mut DspFilter;
     pub(crate) fn sonalloy_dsp_filter_destroy(handle: *mut DspFilter);
@@ -58,6 +65,15 @@ unsafe extern "C" {
         start_cutoff_hz: c_float,
         end_cutoff_hz: c_float,
         resonance: c_float,
+        buffer: *mut c_float,
+        frames: c_uint,
+    ) -> c_int;
+    pub(crate) fn sonalloy_dsp_filter_process_ramp_with_resonance(
+        handle: *mut DspFilter,
+        start_cutoff_hz: c_float,
+        end_cutoff_hz: c_float,
+        start_resonance: c_float,
+        end_resonance: c_float,
         buffer: *mut c_float,
         frames: c_uint,
     ) -> c_int;

@@ -12,7 +12,6 @@ pub(crate) struct SampleRuntime {
     position: f64,
     playback_ratio: f64,
     end_fade_frames: usize,
-    active_fade_frames: usize,
     finished: bool,
 }
 
@@ -23,7 +22,6 @@ impl SampleRuntime {
             position: 0.0,
             playback_ratio: 1.0,
             end_fade_frames: rounded_frame_count(source.sample_rate * END_FADE_SECONDS).max(1),
-            active_fade_frames: 0,
             finished: false,
         }
     }
@@ -31,41 +29,45 @@ impl SampleRuntime {
     pub(crate) fn start(&mut self, playback_ratio: f64) {
         self.position = 0.0;
         self.playback_ratio = playback_ratio;
-        self.active_fade_frames = self.end_fade_frames.min(remaining_output_frames(
-            self.source.len(),
-            0.0,
-            playback_ratio,
-        ));
         self.finished = self.source.is_empty();
     }
 
     pub(crate) fn reset(&mut self) {
         self.position = 0.0;
         self.playback_ratio = 1.0;
-        self.active_fade_frames = self.end_fade_frames;
         self.finished = false;
     }
 
+    #[cfg(test)]
     #[allow(clippy::cast_precision_loss)]
     pub(crate) fn next_sample(&mut self) -> f32 {
+        let playback_ratio = self.playback_ratio;
+        self.next_sample_with_ratio(playback_ratio)
+    }
+
+    #[allow(clippy::cast_precision_loss)]
+    pub(crate) fn next_sample_with_ratio(&mut self, playback_ratio: f64) -> f32 {
         if self.finished {
             return 0.0;
         }
-        if !self.playback_ratio.is_finite() || self.playback_ratio <= 0.0 {
+        if !playback_ratio.is_finite() || playback_ratio <= 0.0 {
             self.finished = true;
             return 0.0;
         }
-        let remaining_frames =
-            remaining_output_frames(self.source.len(), self.position, self.playback_ratio);
         let sample = cubic_sample(&self.source, self.position);
-        self.position += self.playback_ratio;
+        let next_position = self.position + playback_ratio;
+        self.position = next_position;
         if self.position >= self.source.len() as f64 {
             self.finished = true;
         }
-        let gain = if remaining_frames <= self.active_fade_frames {
-            end_fade_gain(remaining_frames, self.active_fade_frames)
-        } else {
+        let fade_end = self.source.len().saturating_sub(1) as f64;
+        let fade_length = self.end_fade_frames.min(fade_end as usize) as f64;
+        let gain = if fade_length == 0.0 {
+            0.0
+        } else if next_position < fade_end - fade_length {
             1.0
+        } else {
+            ((fade_end - next_position) / fade_length).clamp(0.0, 1.0) as f32
         };
         sample * gain
     }
@@ -85,21 +87,6 @@ impl SampleRuntime {
     clippy::cast_precision_loss,
     clippy::cast_sign_loss
 )]
-fn remaining_output_frames(source_len: usize, position: f64, playback_ratio: f64) -> usize {
-    let remaining = ((source_len as f64 - position) / playback_ratio).ceil();
-    remaining.max(1.0) as usize
-}
-
-#[allow(clippy::cast_precision_loss)]
-fn end_fade_gain(remaining_frames: usize, fade_frames: usize) -> f32 {
-    if fade_frames <= 1 {
-        return 0.0;
-    }
-    let numerator = remaining_frames.saturating_sub(1) as f32;
-    let denominator = (fade_frames - 1) as f32;
-    (numerator / denominator).clamp(0.0, 1.0)
-}
-
 pub(crate) fn playback_ratio(note_number: u8, root_note: u8, tuning_ratio: f32) -> f64 {
     let semitones = f64::from(note_number) - f64::from(root_note);
     2.0_f64.powf(semitones / 12.0) * f64::from(tuning_ratio)

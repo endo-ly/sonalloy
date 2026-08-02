@@ -178,6 +178,45 @@ impl DspOscillator {
         }
         result
     }
+
+    /// Render a block while ramping frequency in the native oscillator.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid frequencies, an unprepared oscillator, or a native
+    /// processing failure. The output is cleared on failure.
+    pub fn process_ramp(
+        &mut self,
+        start_frequency_hz: f32,
+        end_frequency_hz: f32,
+        output: &mut [f32],
+    ) -> Result<(), DspError> {
+        if !self.prepared {
+            output.fill(0.0);
+            return Err(DspError::NotPrepared);
+        }
+        let frames = u32::try_from(output.len()).map_err(|_| {
+            output.fill(0.0);
+            DspError::InvalidArgument
+        })?;
+        if output.is_empty() {
+            return Ok(());
+        }
+        let code = unsafe {
+            ffi::sonalloy_dsp_oscillator_process_ramp(
+                self.handle.as_ptr(),
+                start_frequency_hz,
+                end_frequency_hz,
+                output.as_mut_ptr(),
+                frames,
+            )
+        };
+        let result = result_from_code(code);
+        if result.is_err() {
+            output.fill(0.0);
+        }
+        result
+    }
 }
 
 impl Drop for DspOscillator {

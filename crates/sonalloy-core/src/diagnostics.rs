@@ -38,6 +38,30 @@ pub enum DiagnosticCode {
     /// A layer key or velocity range is invalid.
     #[serde(rename = "LAYER_RANGE_INVALID")]
     LayerRangeInvalid,
+    /// A component identifier cannot form a canonical parameter identifier.
+    #[serde(rename = "PARAMETER_ID_INVALID")]
+    ParameterIdInvalid,
+    /// A canonical parameter identifier cannot be resolved.
+    #[serde(rename = "PARAMETER_NOT_FOUND")]
+    ParameterNotFound,
+    /// A user source identifier has invalid syntax.
+    #[serde(rename = "SOURCE_ID_INVALID")]
+    SourceIdInvalid,
+    /// A user source identifier is duplicated or reserved.
+    #[serde(rename = "SOURCE_ID_DUPLICATED")]
+    SourceIdDuplicated,
+    /// A route refers to a source that is not defined.
+    #[serde(rename = "SOURCE_NOT_FOUND")]
+    SourceNotFound,
+    /// A source setting is outside its supported range.
+    #[serde(rename = "SOURCE_VALUE_INVALID")]
+    SourceValueInvalid,
+    /// A route amount is outside its supported range.
+    #[serde(rename = "ROUTE_AMOUNT_INVALID")]
+    RouteAmountInvalid,
+    /// A route target is invalid or unsupported.
+    #[serde(rename = "ROUTE_TARGET_INVALID")]
+    RouteTargetInvalid,
     /// A generator is not supported by this build.
     #[serde(rename = "GENERATOR_UNSUPPORTED")]
     GeneratorUnsupported,
