@@ -255,6 +255,21 @@ pub fn is_component_id(value: &str) -> bool {
         && bytes.all(|byte| matches!(byte, b'a'..=b'z' | b'0'..=b'9' | b'_'))
 }
 
+/// Check the canonical parameter identifier grammar used by modulation routes.
+#[must_use]
+pub fn is_parameter_id(value: &str) -> bool {
+    let mut parts = value.split('.');
+    match (parts.next(), parts.next(), parts.next(), parts.next()) {
+        (Some("layer"), Some(layer_id), Some(parameter), None) => {
+            is_component_id(layer_id) && matches!(parameter, "gain" | "pan" | "tuning")
+        }
+        (Some("voice"), Some("filter"), Some(parameter), None) => {
+            matches!(parameter, "cutoff" | "resonance")
+        }
+        _ => false,
+    }
+}
+
 /// Built-in source identifiers accepted by routes.
 pub const BUILTIN_SOURCE_IDS: &[&str] = &[
     "velocity",
@@ -329,5 +344,31 @@ mod tests {
         assert!(!is_component_id("Body"));
         assert!(!is_component_id("body.part"));
         assert!(!is_component_id(""));
+    }
+
+    #[test]
+    fn parameter_ids_follow_the_canonical_target_grammar() {
+        for value in [
+            "layer.body.gain",
+            "layer.attack_2.pan",
+            "layer.body.tuning",
+            "voice.filter.cutoff",
+            "voice.filter.resonance",
+        ] {
+            assert!(is_parameter_id(value), "{value} should be valid");
+        }
+        for value in [
+            "",
+            "layer.body",
+            "layer.body.gain.extra",
+            "layer.Body.gain",
+            "layer.body.unknown",
+            "layer..gain",
+            "voice.filter",
+            "voice.filter.cutoff.extra",
+            "voice.Filter.cutoff",
+        ] {
+            assert!(!is_parameter_id(value), "{value} should be invalid");
+        }
     }
 }

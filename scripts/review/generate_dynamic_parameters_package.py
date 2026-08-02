@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from measure_wav import compare_wav, measure
@@ -14,6 +16,13 @@ ROOT = Path(__file__).resolve().parents[2]
 SAMPLE_RATE = 48_000
 DURATION_FRAMES = 144_000
 BLOCK_SIZES = (32, 64, 257, 1024)
+BUILTIN_SOURCE_IDS = {
+    "velocity",
+    "key_tracking",
+    "pitch_bend",
+    "mod_wheel",
+    "aftertouch",
+}
 
 
 def cli_command() -> list[str]:
@@ -122,10 +131,50 @@ def copy_definition(source: Path, destination: Path) -> None:
         sample = layer.get("generator", {}).get("sample")
         if sample is not None:
             sample["asset"]["path"] = "../assets/metal-hit.wav"
+    write_definition(destination, value)
+
+
+def write_definition(destination: Path, value: dict[str, object]) -> None:
     write_utf8(
         destination,
         json.dumps(value, ensure_ascii=False, indent=2) + "\n",
     )
+
+
+def copy_modulation_variant(
+    source: Path,
+    destination: Path,
+    route_keys: set[tuple[str, str]],
+) -> None:
+    value = json.loads(source.read_text(encoding="utf-8"))
+    for layer in value["layers"]:
+        sample = layer.get("generator", {}).get("sample")
+        if sample is not None:
+            sample["asset"]["path"] = "../assets/metal-hit.wav"
+    modulation = value.get("modulation")
+    if modulation is None:
+        raise RuntimeError(f"definition has no modulation block: {source}")
+    routes = [
+        route
+        for route in modulation["routes"]
+        if (route["source"], route["target"]) in route_keys
+    ]
+    user_source_ids = {
+        route["source"]
+        for route in routes
+        if route["source"] not in BUILTIN_SOURCE_IDS
+    }
+    modulation["sources"] = [
+        source_definition
+        for source_definition in modulation["sources"]
+        if source_definition["id"] in user_source_ids
+    ]
+    modulation["routes"] = routes
+    write_definition(destination, value)
+
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def main() -> None:
@@ -144,6 +193,40 @@ def main() -> None:
     expressive_definition = definition_dir / expressive_source.name
     copy_definition(moving_source, moving_definition)
     copy_definition(expressive_source, expressive_definition)
+    moving_lfo_definition = definition_dir / "moving-hybrid-pad-lfo-filter.json"
+    moving_envelope_definition = definition_dir / "moving-hybrid-pad-envelope-pitch.json"
+    moving_random_definition = definition_dir / "moving-hybrid-pad-random-pan.json"
+    moving_key_tracking_definition = definition_dir / "moving-hybrid-pad-key-tracking.json"
+    moving_resonance_definition = definition_dir / "moving-hybrid-pad-resonance.json"
+    velocity_gain_routes = {
+        ("velocity", "layer.attack.gain"),
+        ("velocity", "layer.body.gain"),
+    }
+    copy_modulation_variant(
+        moving_source,
+        moving_lfo_definition,
+        velocity_gain_routes | {("filter_motion", "voice.filter.cutoff")},
+    )
+    copy_modulation_variant(
+        moving_source,
+        moving_envelope_definition,
+        velocity_gain_routes | {("pitch_motion", "layer.body.tuning")},
+    )
+    copy_modulation_variant(
+        moving_source,
+        moving_random_definition,
+        velocity_gain_routes | {("voice_pan", "layer.attack.pan")},
+    )
+    copy_modulation_variant(
+        moving_source,
+        moving_key_tracking_definition,
+        velocity_gain_routes | {("key_tracking", "voice.filter.cutoff")},
+    )
+    copy_modulation_variant(
+        moving_source,
+        moving_resonance_definition,
+        velocity_gain_routes | {("mod_wheel", "voice.filter.resonance")},
+    )
     shutil.copy2(ROOT / "testdata" / "assets" / "metal-hit.wav", asset_dir / "metal-hit.wav")
 
     stealing_definition = definition_dir / "moving-hybrid-pad-stealing.json"
@@ -161,6 +244,12 @@ def main() -> None:
     event_source = ROOT / "testdata" / "events" / "expressive-hybrid-lead.json"
     event_fixture = event_dir / event_source.name
     shutil.copy2(event_source, event_fixture)
+    random_event_source = ROOT / "testdata" / "events" / "dynamic-parameters-random-pan.json"
+    random_event_fixture = event_dir / random_event_source.name
+    shutil.copy2(random_event_source, random_event_fixture)
+    resonance_event_source = ROOT / "testdata" / "events" / "dynamic-parameters-resonance.json"
+    resonance_event_fixture = event_dir / resonance_event_source.name
+    shutil.copy2(resonance_event_source, resonance_event_fixture)
     midi_source = ROOT / "testdata" / "midi" / "expressive-hybrid-controls.mid"
     midi_fixture = midi_dir / midi_source.name
     shutil.copy2(midi_source, midi_fixture)
@@ -170,19 +259,22 @@ def main() -> None:
     stealing_midi_source = ROOT / "testdata" / "midi" / "polyphony-stealing.mid"
     stealing_midi_fixture = midi_dir / stealing_midi_source.name
     shutil.copy2(stealing_midi_source, stealing_midi_fixture)
+    key_tracking_midi_source = ROOT / "testdata" / "midi" / "saw-registers.mid"
+    key_tracking_midi_fixture = midi_dir / "dynamic-parameters-key-tracking.mid"
+    shutil.copy2(key_tracking_midi_source, key_tracking_midi_fixture)
 
     jobs = {
         "01-parameter-cutoff.wav": lambda output: render_events(
             expressive_definition, event_fixture, output, 257
         ),
         "02-lfo-filter.wav": lambda output: render_note(
-            moving_definition, output, 257
+            moving_lfo_definition, output, 257
         ),
         "03-envelope-pitch.wav": lambda output: render_note(
-            moving_definition, output, 257
+            moving_envelope_definition, output, 257
         ),
-        "04-random-pan.wav": lambda output: render_note(
-            moving_definition, output, 257
+        "04-random-pan.wav": lambda output: render_events(
+            moving_random_definition, random_event_fixture, output, 257
         ),
         "05-external-controls.wav": lambda output: render_midi(
             expressive_definition, midi_fixture, output, 257
@@ -192,6 +284,12 @@ def main() -> None:
         ),
         "07-musical-phrase.wav": lambda output: render_midi(
             expressive_definition, phrase_fixture, output, 257
+        ),
+        "08-key-tracking.wav": lambda output: render_midi(
+            moving_key_tracking_definition, key_tracking_midi_fixture, output, 257
+        ),
+        "09-resonance-control.wav": lambda output: render_events(
+            moving_resonance_definition, resonance_event_fixture, output, 257
         ),
     }
     for name, render in jobs.items():
@@ -217,6 +315,14 @@ def main() -> None:
             for block_size in BLOCK_SIZES
         },
     }
+    with tempfile.TemporaryDirectory(prefix="sonalloy-dynamic-review-") as temporary:
+        repeated = Path(temporary) / "random-pan-repeat.wav"
+        render_events(moving_random_definition, random_event_fixture, repeated, 257)
+        metrics["random_pan_reproducibility"] = {
+            "first_sha256": sha256_file(audio_dir / "04-random-pan.wav"),
+            "repeat_sha256": sha256_file(repeated),
+            "wav_comparison": compare_wav(audio_dir / "04-random-pan.wav", repeated),
+        }
     write_utf8(
         review_root / "metrics.json",
         json.dumps(metrics, ensure_ascii=False, indent=2) + "\n",
@@ -229,20 +335,32 @@ def main() -> None:
 
 - Moving Hybrid Pad
 - Expressive Hybrid Lead
-- Event Sequence with Parameter Change, Pitch Bend, Mod Wheel, and Aftertouch
-- MIDI fixture with Pitch Bend, CC1, and Channel Aftertouch
+- Event Sequence with Parameter Change, Pitch Bend, Mod Wheel, Aftertouch, Random Pan, and Resonance Control
+- MIDI fixture with Pitch Bend, CC1, Channel Aftertouch, and Key Tracking notes
 
 ## Human listening items
 
-- Parameter Changeの位置、Smoothing、Click
-- LFO FilterとModulation Envelope Pitchの周期・境界
-- Random Panの左右差と再現性
-- Pitch BendでSampleとOscillatorが一致すること
-- Mod Wheel / AftertouchのFilter・Gain反映
-- Voice Stealing中のFade、Pending Note、Source初期化
-- Musical Phraseでの音色としての使いやすさ
+- `01-parameter-cutoff.wav`: Parameter Changeの位置、Smoothing、Click、変化量
+- `02-lfo-filter.wav`: LFOの周期、位相、滑らかさ、Block Size差
+- `03-envelope-pitch.wav`: Attack、Decay、Release、Pitchの連続性
+- `04-random-pan.wav`: Noteごとの左右差、同じ入力での再現、極端な偏り
+- `05-external-controls.wav`: Pitch Bend、Mod Wheel、Aftertouchの反映とSmoothing
+- `06-voice-stealing.wav`: Steal Fade、Pending Note、LFO / Envelope初期化、Click
+- `07-musical-phrase.wav`: 4〜8小節相当の音色としての使いやすさ
+- `08-key-tracking.wav`: 低音から高音までのCutoff変化と音域の自然さ
+- `09-resonance-control.wav`: Resonance変化の安定性、発散、Click
 
-Metricsは同じディレクトリの`metrics.json`に保存する。
+## 判定基準
+
+- すべての音源で明確なClick、NaN、Infinity、異常な音量落ちがない
+- LFOとEnvelopeが階段状や不連続に聞こえない
+- Pitch BendでSampleとOscillatorの音程変化が一致する
+- Random PanがNoteごとに変化し、同じ入力では再現する
+- Key TrackingとResonanceが意図したTargetだけを変化させる
+- Voice Stealing後に新しいNoteのSource Stateが前のVoiceから混ざらない
+- Reference Instrumentを実際の音色として使用できる
+
+自動測定値は同じディレクトリの`metrics.json`に保存する。音質の判定はこの記録だけでは完了しない。
 """,
     )
 

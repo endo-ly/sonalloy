@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
-use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id};
+use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id, is_parameter_id};
 
 /// The Definition schema accepted by the compiler.
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
@@ -474,7 +474,7 @@ fn validate_modulation(diagnostics: &mut Vec<Diagnostic>, modulation: &Modulatio
         }
     }
     for (index, route) in modulation.routes.iter().enumerate() {
-        if route.source.trim().is_empty() || route.source.contains('.') {
+        if !is_component_id(&route.source) {
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::SourceIdInvalid,
@@ -483,11 +483,11 @@ fn validate_modulation(diagnostics: &mut Vec<Diagnostic>, modulation: &Modulatio
                 .with_path(format!("modulation.routes[{index}].source")),
             );
         }
-        if route.target.trim().is_empty() {
+        if !is_parameter_id(&route.target) {
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::RouteTargetInvalid,
-                    "route target must not be empty",
+                    "route target has invalid format",
                 )
                 .with_path(format!("modulation.routes[{index}].target")),
             );
@@ -731,5 +731,36 @@ pub(crate) mod tests {
         let restored: InstrumentDefinition =
             serde_json::from_str(&json).expect("definition parses");
         assert_eq!(source, restored);
+    }
+
+    #[test]
+    fn modulation_route_identifiers_are_validated_without_trimming() {
+        let mut value = definition();
+        value.modulation = Some(ModulationDefinition {
+            sources: vec![],
+            routes: vec![
+                ModulationRouteDefinition {
+                    source: "bad-id".to_owned(),
+                    target: "layer.body.gain".to_owned(),
+                    amount: 0.0,
+                    curve: ModulationCurve::Linear,
+                },
+                ModulationRouteDefinition {
+                    source: "velocity".to_owned(),
+                    target: " layer.body.gain".to_owned(),
+                    amount: 0.0,
+                    curve: ModulationCurve::Linear,
+                },
+            ],
+        });
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::SourceIdInvalid
+                && diagnostic.path.as_deref() == Some("modulation.routes[0].source")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::RouteTargetInvalid
+                && diagnostic.path.as_deref() == Some("modulation.routes[1].target")
+        }));
     }
 }

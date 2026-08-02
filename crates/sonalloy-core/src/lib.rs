@@ -21,7 +21,8 @@ pub use definition::{
 pub use diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity, from_render_error};
 pub use parameter::{
     BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterDescriptor, ParameterHandle, ParameterOwner,
-    ParameterScale, ParameterUnit, ParameterValueError, is_component_id, layer_parameter_id,
+    ParameterScale, ParameterUnit, ParameterValueError, is_component_id, is_parameter_id,
+    layer_parameter_id,
 };
 pub use process::{
     DspFailureKind, InstrumentProcessor, NoteId, ProcessBlock, ProcessContext, ProcessError,

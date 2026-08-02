@@ -1051,7 +1051,7 @@ mod tests {
             sources: vec![],
             routes: vec![crate::definition::ModulationRouteDefinition {
                 source: "missing".to_owned(),
-                target: "layer.body.unknown".to_owned(),
+                target: "layer.missing.gain".to_owned(),
                 amount: 0.1,
                 curve: ModulationCurve::Linear,
             }],
