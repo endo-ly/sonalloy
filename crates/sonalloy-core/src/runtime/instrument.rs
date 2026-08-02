@@ -325,10 +325,12 @@ impl InstrumentProcessor for InstrumentRuntime {
             .parameters()
             .iter()
             .map(|descriptor| {
-                let normalized = descriptor.normalize(descriptor.default).unwrap_or(0.0);
-                Smoother::new(normalized)
+                descriptor
+                    .normalize(descriptor.default)
+                    .map(Smoother::new)
+                    .map_err(|_| ProcessError::InvalidCompiledParameterDefault)
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
         let mut voices = Vec::with_capacity(self.compiled.performance.polyphony);
         for _ in 0..self.compiled.performance.polyphony {
             voices.push(VoiceRuntime::new(&self.compiled, spec)?);
@@ -436,7 +438,9 @@ impl InstrumentProcessor for InstrumentRuntime {
             .iter_mut()
             .zip(self.compiled.parameters())
         {
-            let normalized = descriptor.normalize(descriptor.default).unwrap_or(0.0);
+            let normalized = descriptor
+                .normalize(descriptor.default)
+                .map_err(|_| ProcessError::InvalidCompiledParameterDefault)?;
             state.reset(normalized);
         }
         self.pitch_bend.reset(0.0);

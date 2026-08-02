@@ -461,7 +461,7 @@ impl VoiceRuntime {
                 }
                 chunk = 1.min(frames - offset);
             }
-            let subspan = shared.subspan(offset, chunk, frames);
+            let subspan = shared.subspan(offset, chunk);
             self.advance_source_spans(chunk, sample_rate);
             self.evaluate_targets(compiled, subspan)?;
             self.render_active_segment(

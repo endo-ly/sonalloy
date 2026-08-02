@@ -45,7 +45,7 @@ impl<'a> SharedParameterSpan<'a> {
         }
     }
 
-    pub(crate) fn subspan(self, offset: usize, length: usize, _total: usize) -> Self {
+    pub(crate) fn subspan(self, offset: usize, length: usize) -> Self {
         Self {
             offset: self.offset + offset,
             length,

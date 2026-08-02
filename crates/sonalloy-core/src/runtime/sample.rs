@@ -38,13 +38,6 @@ impl SampleRuntime {
         self.finished = false;
     }
 
-    #[cfg(test)]
-    #[allow(clippy::cast_precision_loss)]
-    pub(crate) fn next_sample(&mut self) -> f32 {
-        let playback_ratio = self.playback_ratio;
-        self.next_sample_with_ratio(playback_ratio)
-    }
-
     #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
     pub(crate) fn next_sample_with_ratio(&mut self, playback_ratio: f64) -> f32 {
         if self.finished {
@@ -74,11 +67,6 @@ impl SampleRuntime {
 
     pub(crate) fn is_finished(&self) -> bool {
         self.finished
-    }
-
-    #[cfg(test)]
-    pub(crate) fn position(&self) -> f64 {
-        self.position
     }
 }
 
@@ -124,6 +112,10 @@ mod tests {
     use super::*;
     use crate::asset::{PreparedSample, SampleMetadata};
 
+    fn next_sample(runtime: &mut SampleRuntime) -> f32 {
+        runtime.next_sample_with_ratio(runtime.playback_ratio)
+    }
+
     fn sample(values: &[f32]) -> PreparedSample {
         PreparedSample {
             sample_rate: 48_000.0,
@@ -157,11 +149,11 @@ mod tests {
         let source = sample(&[0.1, 0.2, 0.3]);
         let mut runtime = SampleRuntime::new(&source);
         runtime.start(1.0);
-        let values: Vec<f32> = (0..5).map(|_| runtime.next_sample()).collect();
+        let values: Vec<f32> = (0..5).map(|_| next_sample(&mut runtime)).collect();
         assert!(values[..3].iter().all(|value| value.is_finite()));
         assert!(values[3..].iter().all(|value| value.abs() < 1.0e-6));
         assert!(runtime.is_finished());
-        assert!((runtime.position() - 3.0).abs() < 1.0e-6);
+        assert!((runtime.position - 3.0).abs() < 1.0e-6);
     }
 
     #[test]
@@ -174,7 +166,7 @@ mod tests {
             runtime.start(playback_ratio);
             let mut rendered = Vec::new();
             while !runtime.is_finished() {
-                rendered.push(runtime.next_sample());
+                rendered.push(next_sample(&mut runtime));
             }
             assert!(rendered.iter().all(|value| value.is_finite()));
             assert!(rendered.last().is_some_and(|value| value.abs() < 1.0e-6));
@@ -193,7 +185,7 @@ mod tests {
             let mut runtime = SampleRuntime::new(&source);
             runtime.start(0.5);
             for _ in 0..8 {
-                assert!(runtime.next_sample().is_finite());
+                assert!(next_sample(&mut runtime).is_finite());
             }
         }
     }
@@ -205,7 +197,7 @@ mod tests {
             let mut runtime = SampleRuntime::new(&source);
             runtime.start(0.5);
             for _ in 0..8 {
-                assert!(runtime.next_sample().is_finite());
+                assert!(next_sample(&mut runtime).is_finite());
             }
         }
     }

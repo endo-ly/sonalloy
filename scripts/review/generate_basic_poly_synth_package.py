@@ -14,43 +14,6 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from manifest import RenderJob, all_renders, render_job  # noqa: E402
 
 
-def source_commit() -> str:
-    result = subprocess.run(
-        [
-            "git",
-            "log",
-            "-1",
-            "--format=%H",
-            "--",
-            "crates/sonalloy-core/src/compiler.rs",
-            "crates/sonalloy-core/src/runtime/instrument.rs",
-            "crates/sonalloy-core/src/runtime/sample.rs",
-            "crates/sonalloy-core/src/runtime/voice.rs",
-            "crates/sonalloy-dsp-sys",
-            "native/daisysp-wrapper",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
-
-
-def refresh_review_summary(review_root: Path) -> None:
-    summary_path = review_root / "review-summary.md"
-    content = summary_path.read_text(encoding="utf-8")
-    marker = "- Source implementation commit："
-    lines = content.splitlines(keepends=True)
-    for index, line in enumerate(lines):
-        if line.startswith(marker):
-            line_ending = "\n" if line.endswith("\n") else ""
-            lines[index] = f"{marker}{source_commit()}{line_ending}"
-            summary_path.write_bytes("".join(lines).encode("utf-8"))
-            return
-    raise RuntimeError(f"review summary is missing the source revision marker: {summary_path}")
-
-
 def main() -> None:
     subprocess.run(
         [
@@ -93,7 +56,6 @@ def main() -> None:
         ],
         check=True,
     )
-    refresh_review_summary(review_root)
 
 
 if __name__ == "__main__":

@@ -334,6 +334,9 @@ pub enum ProcessError {
         /// Invalid dense parameter index.
         handle: usize,
     },
+    /// A compiled parameter default violates its descriptor range.
+    #[error("compiled parameter default is invalid")]
+    InvalidCompiledParameterDefault,
     /// A runtime has not been prepared.
     #[error("processor is not prepared")]
     NotPrepared,

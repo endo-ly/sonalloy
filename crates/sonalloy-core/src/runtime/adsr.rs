@@ -140,15 +140,6 @@ impl AdsrRuntime {
         self.state == AdsrState::Idle
     }
 
-    #[cfg(test)]
-    pub(crate) fn frames_until_idle(&self) -> Option<usize> {
-        match self.state {
-            AdsrState::Idle => Some(0),
-            AdsrState::Release => Some(self.config.release_samples.saturating_sub(self.elapsed)),
-            AdsrState::Attack | AdsrState::Decay | AdsrState::Sustain => None,
-        }
-    }
-
     fn current_value(&self) -> f32 {
         match self.state {
             AdsrState::Idle => 0.0,
@@ -233,11 +224,6 @@ impl AdsrRuntime {
         }
         self.level = self.current_value();
     }
-
-    #[cfg(test)]
-    pub(crate) fn state(&self) -> AdsrState {
-        self.state
-    }
 }
 
 fn progress(elapsed: usize, duration: usize) -> f32 {
@@ -295,7 +281,6 @@ mod tests {
     fn zero_duration_segments_advance_without_looping() {
         let mut adsr = envelope(0, 0, 0.5, 0);
         adsr.note_on();
-        assert_eq!(adsr.state(), AdsrState::Sustain);
         assert!((adsr.next_sample() - 0.5).abs() < 1.0e-6);
         adsr.note_off();
         assert!(adsr.is_idle());
@@ -328,14 +313,14 @@ mod tests {
     }
 
     #[test]
-    fn frames_until_idle_tracks_release_remaining() {
+    fn frames_until_segment_end_tracks_release_remaining() {
         let mut adsr = envelope(0, 0, 1.0, 4);
         adsr.note_on();
         let _ = adsr.next_sample();
-        assert_eq!(adsr.frames_until_idle(), None);
+        assert_eq!(adsr.frames_until_segment_end(), None);
         adsr.note_off();
-        assert_eq!(adsr.frames_until_idle(), Some(4));
+        assert_eq!(adsr.frames_until_segment_end(), Some(4));
         let _ = adsr.next_sample();
-        assert_eq!(adsr.frames_until_idle(), Some(3));
+        assert_eq!(adsr.frames_until_segment_end(), Some(3));
     }
 }

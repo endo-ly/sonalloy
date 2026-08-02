@@ -94,11 +94,11 @@ Level
 ```json
 "modulation": {
   "routes": [
-    { "source": "velocity", "target": "layer.main.gain_db", "amount": 12.0, "curve": "linear" },
-    { "source": "lfo", "target": "voice_filter.cutoff_hz", "amount": 1200.0, "curve": "linear" }
+    { "source": "velocity", "target": "layer.main.gain", "amount": 0.08, "curve": "linear" },
+    { "source": "lfo", "target": "voice.filter.cutoff", "amount": 0.18, "curve": "linear" }
   ],
   "sources": [
-    { "id": "lfo", "kind": "lfo", "waveform": "sine", "rate_hz": 0.5, "phase": 0.0 }
+    { "id": "lfo", "type": "lfo", "waveform": "sine", "rate_hz": 0.5, "phase": 0.0 }
   ]
 }
 ```

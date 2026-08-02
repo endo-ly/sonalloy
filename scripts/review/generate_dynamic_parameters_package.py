@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SAMPLE_RATE = 48_000
 DURATION_FRAMES = 144_000
 BLOCK_SIZES = (32, 64, 257, 1024)
+BLOCK_SIZE_MAX_DIFFERENCE = 1.0e-3
 BUILTIN_SOURCE_IDS = {
     "velocity",
     "key_tracking",
@@ -311,27 +312,54 @@ def main() -> None:
         render_events(expressive_definition, event_fixture, output, block_size)
         block_outputs[str(block_size)] = output
 
+    audio_metrics = {
+        name: measure(audio_dir / name, list(BLOCK_SIZES))
+        for name in jobs
+    }
+    invalid_audio = [
+        name
+        for name, values in audio_metrics.items()
+        if not values["finite"] or values["large_discontinuity_count"] != 0
+    ]
+    if invalid_audio:
+        raise RuntimeError(f"dynamic review audio checks failed: {invalid_audio}")
+
+    block_size_comparison = {}
+    for block_size in BLOCK_SIZES:
+        comparison = compare_wav(
+            block_outputs["257"], block_outputs[str(block_size)]
+        )
+        if (
+            not comparison.get("compatible")
+            or comparison.get("max_abs_difference", 1.0)
+            > BLOCK_SIZE_MAX_DIFFERENCE
+        ):
+            raise RuntimeError(
+                f"dynamic review block-size mismatch at {block_size}: {comparison}"
+            )
+        block_size_comparison[str(block_size)] = comparison
+
     metrics = {
         "sample_rate": SAMPLE_RATE,
         "duration_frames": DURATION_FRAMES,
-        "audio": {
-            name: measure(audio_dir / name, list(BLOCK_SIZES))
-            for name in jobs
-        },
-        "block_size_comparison": {
-            block_size: compare_wav(
-                block_outputs["257"], block_outputs[str(block_size)]
-            )
-            for block_size in BLOCK_SIZES
-        },
+        "audio": audio_metrics,
+        "block_size_comparison": block_size_comparison,
     }
     with tempfile.TemporaryDirectory(prefix="sonalloy-dynamic-review-") as temporary:
         repeated = Path(temporary) / "random-pan-repeat.wav"
         render_events(moving_random_definition, random_event_fixture, repeated, 257)
+        random_comparison = compare_wav(audio_dir / "04-random-pan.wav", repeated)
+        if (
+            not random_comparison.get("compatible")
+            or random_comparison.get("max_abs_difference", 1.0) != 0.0
+        ):
+            raise RuntimeError(
+                f"random pan render is not reproducible: {random_comparison}"
+            )
         metrics["random_pan_reproducibility"] = {
             "first_sha256": sha256_file(audio_dir / "04-random-pan.wav"),
             "repeat_sha256": sha256_file(repeated),
-            "wav_comparison": compare_wav(audio_dir / "04-random-pan.wav", repeated),
+            "wav_comparison": random_comparison,
         }
     write_utf8(
         review_root / "metrics.json",

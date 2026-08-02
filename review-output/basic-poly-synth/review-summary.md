@@ -5,7 +5,6 @@
 - 基準Sample Rate：48,000 Hz
 - 基準Block Size：257 frames
 - Output：Stereo、32-bit float WAV
-- Source implementation commit：b4f37ab1f1f3a00ce72cd6e3eb92c613325e9f27
 - Backend：DaisySP V1.0.0 (`a0494a3adb67f549e18dfd71a35fa656f65b38b6`)
 - Platform：Windows
 - Rust：1.97.0
@@ -60,10 +59,10 @@ python scripts/review/generate_basic_poly_synth_package.py
 
 ## 現在の制約
 
-- 有効Oscillator Layerは一つに限定しています。
-- Sample、Noise、Sustain Pedal、Pitch Bend、Aftertouch、Realtime Device、Pluginは対象外です。
+- このPackageは有効なOscillator Layer一つのBasic Poly Synthを対象とします。
+- Sample、Noise、Realtime Device、PluginはこのPackageの入力・評価対象に含めません。
+- Dynamic ParameterとExternal Controlは`review-output/dynamic-parameters/`で評価します。
 - 未対応のMIDI EventはWarningを出して無視します。
-- Cutoffの連続Parameter変更は公開していません。Voice開始時のVelocity Responseだけを適用します。
 - Metricsと自動Testは、音の魅力・自然さ・Alias感・演奏感を判定しません。
 
 ## 試聴時の注意

@@ -86,8 +86,7 @@ Native関数はNull Handle、引数、Buffer、例外を検査して整数のRes
 
 詳しい流れは`docs/runtime-processing.md`の「Lifecycle」を参照してください。ここでは所有関係だけを説明します。
 
-- **Compile**：Definitionを、変更できない`CompiledInstrument`へ変換します（`sonalloy-core`が所有します）
-- **Compile**：Parameter Catalog、Source Table、Target別Route Tableを確定し、Parameter IDをDense Handleへ解決します
+- **Compile**：Definitionを、Parameter Catalog、Source Table、Target別Route Tableを確定した変更不能な`CompiledInstrument`へ変換し、Parameter IDをDense Handleへ解決します（`sonalloy-core`が所有します）
 - **Prepare / Process / Reset**：`InstrumentRuntime`の状態を進めます。Scratch BufferとNative HandleはPrepareで確保し、Process中には拡張しません
 
 `CompiledInstrument`はDefinitionのMetadata、Performance、Enabled Layer、Filter、Parameter Catalog、Source、Route、Asset Warningを保持します。Runtimeが持つBase Smoother、External Control、Voice Source、Generator Cursor、Filter StateはCompiled値から作る可変状態で、DefinitionやCompiled Instrumentへ書き戻しません。
