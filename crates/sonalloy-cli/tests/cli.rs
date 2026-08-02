@@ -21,6 +21,16 @@ fn hybrid_midi() -> std::path::PathBuf {
         .join("../../testdata/midi/metallic-hybrid-phrase.mid")
 }
 
+fn expressive_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/expressive-hybrid-lead.json")
+}
+
+fn expressive_midi() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/midi/expressive-hybrid-controls.mid")
+}
+
 fn missing_asset_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/instruments/metallic-hybrid-missing-asset.json")
@@ -440,6 +450,39 @@ fn render_midi_converts_tempo_and_note_events() {
         .stdout(predicates::str::contains("\"status\":\"ok\""));
     let reader = hound::WavReader::open(output).expect("rendered MIDI WAV");
     assert!(reader.duration() > 0);
+}
+
+#[test]
+fn render_midi_converts_external_controls() {
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("external-controls.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            expressive_definition().to_str().expect("definition path"),
+            expressive_midi().to_str().expect("MIDI path"),
+            "--tail",
+            "0.5",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    let mut reader = hound::WavReader::open(output).expect("external control WAV");
+    let samples: Vec<f32> = reader
+        .samples()
+        .map(|sample| sample.expect("finite sample"))
+        .collect();
+    assert!(samples.iter().all(|sample| sample.is_finite()));
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
 }
 
 #[test]

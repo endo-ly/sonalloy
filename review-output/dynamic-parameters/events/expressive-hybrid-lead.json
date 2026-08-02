@@ -1,0 +1,37 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note": 60,
+      "velocity": 112,
+      "note_id": 1
+    },
+    {
+      "absolute_frame": 12000,
+      "type": "parameter_change",
+      "parameter": "voice.filter.cutoff",
+      "normalized": 0.62
+    },
+    {
+      "absolute_frame": 24000,
+      "type": "mod_wheel",
+      "value": 0.8
+    },
+    {
+      "absolute_frame": 36000,
+      "type": "pitch_bend",
+      "value": 0.5
+    },
+    {
+      "absolute_frame": 48000,
+      "type": "aftertouch",
+      "value": 0.75
+    },
+    {
+      "absolute_frame": 72000,
+      "type": "note_off",
+      "note_id": 1
+    }
+  ]
+}

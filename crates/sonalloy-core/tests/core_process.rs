@@ -178,6 +178,95 @@ fn absolute_event_timing_is_stable_across_block_sizes() {
     }
 }
 
+fn render_expressive_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
+    let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/expressive-hybrid-lead.json");
+    let definition: InstrumentDefinition = serde_json::from_str(
+        &std::fs::read_to_string(&definition_path).expect("expressive Definition exists"),
+    )
+    .expect("expressive Definition parses");
+    let definition_base_dir =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let instrument = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir,
+            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid spec"),
+        },
+    )
+    .instrument
+    .expect("expressive Definition compiles");
+    let events = [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 112,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 12_000,
+            kind: ProcessEventKind::ParameterChange {
+                parameter: instrument
+                    .parameter_handle("voice.filter.cutoff")
+                    .expect("filter cutoff parameter exists"),
+                normalized: 0.62,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 24_000,
+            kind: ProcessEventKind::ModWheel { value: 0.8 },
+        },
+        ScheduledEvent {
+            absolute_frame: 36_000,
+            kind: ProcessEventKind::PitchBend { value: 0.5 },
+        },
+        ScheduledEvent {
+            absolute_frame: 48_000,
+            kind: ProcessEventKind::Aftertouch { value: 0.75 },
+        },
+        ScheduledEvent {
+            absolute_frame: 72_000,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        },
+    ];
+    render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size,
+            duration_frames: 80_000,
+            tail_frames: 0,
+        },
+        &events,
+    )
+    .expect("expressive render succeeds")
+}
+
+#[test]
+fn dynamic_events_are_stable_across_block_sizes() {
+    let reference = render_expressive_blocks(64);
+    for candidate in [
+        render_expressive_blocks(257),
+        render_expressive_blocks(1024),
+    ] {
+        assert!(
+            candidate
+                .channels
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
+        );
+        for (left, right) in reference.channels[0].iter().zip(&candidate.channels[0]) {
+            assert_relative_eq!(*left, *right, epsilon = 1.0e-3);
+        }
+        for (left, right) in reference.channels[1].iter().zip(&candidate.channels[1]) {
+            assert_relative_eq!(*left, *right, epsilon = 1.0e-3);
+        }
+    }
+}
+
 fn absolute_energy(samples: &[f32]) -> f64 {
     samples
         .iter()
