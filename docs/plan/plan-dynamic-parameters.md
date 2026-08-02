@@ -2153,7 +2153,7 @@ Shared Stateの重複更新Testでは、同じEvent列をVoice数1とVoice数8�
 - 中央付近
 - Range内
 ### LFO
-- 初期Phase 0
+- 初期位相0
 - Phase Wrap
 - Sine四分点
 - Triangle頂点 / 谷
