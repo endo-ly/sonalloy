@@ -208,7 +208,7 @@ def main() -> None:
     copy_modulation_variant(
         moving_source,
         moving_lfo_definition,
-        velocity_gain_routes | {("filter_motion", "voice.filter.cutoff")},
+        velocity_gain_routes | {("filter_motion", "voice.processor.tone.cutoff")},
     )
     copy_modulation_variant(
         moving_source,
@@ -223,7 +223,7 @@ def main() -> None:
     copy_modulation_variant(
         moving_source,
         moving_key_tracking_definition,
-        velocity_gain_routes | {("key_tracking", "voice.filter.cutoff")},
+        velocity_gain_routes | {("key_tracking", "voice.processor.tone.cutoff")},
     )
     copy_modulation_variant(
         moving_source,
@@ -232,7 +232,7 @@ def main() -> None:
         extra_routes=[
             {
                 "source": "mod_wheel",
-                "target": "voice.filter.resonance",
+                "target": "voice.processor.tone.resonance",
                 "amount": 0.5,
                 "curve": "linear",
             }

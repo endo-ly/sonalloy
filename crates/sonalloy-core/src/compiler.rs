@@ -4,12 +4,13 @@ use std::sync::Arc;
 
 use crate::asset::{AssetError, PreparedSample, SampleMetadata, prepare_asset};
 use crate::definition::{
-    AdsrDefinition, GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform,
-    ModulationCurve, ModulationSourceDefinition, OscillatorDefinition, OscillatorWaveform,
-    SampleInterpolation, SamplePlaybackMode, VoiceStealingDefinition,
+    AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
+    GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
+    ModulationSourceDefinition, OscillatorDefinition, OscillatorWaveform, ProcessorDefinition,
+    ReverbProcessorDefinition, SampleInterpolation, SamplePlaybackMode, VoiceStealingDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
-use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle};
+use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
 use crate::runtime::InstrumentRuntime;
 
@@ -42,8 +43,10 @@ pub struct CompiledInstrument {
     pub performance: CompiledPerformance,
     /// Enabled layers in Definition order.
     pub layers: Box<[CompiledLayer]>,
-    /// Optional voice filter.
-    pub voice_filter: Option<CompiledFilter>,
+    /// Processors applied after the layer mix for each voice.
+    pub voice_processors: Box<[CompiledProcessor]>,
+    /// Processors applied after the voice sum for the instrument.
+    pub global_processors: Box<[CompiledProcessor]>,
     /// Dense continuous parameter catalog.
     pub parameter_catalog: ParameterCatalog,
     /// Voice-scoped source table.
@@ -145,6 +148,8 @@ pub struct CompiledLayer {
     pub envelope: CompiledAdsr,
     /// Compiled generator.
     pub generator: CompiledGenerator,
+    /// Processors applied after the generator.
+    pub processors: Box<[CompiledProcessor]>,
 }
 
 /// Compiled trigger conditions.
@@ -219,7 +224,7 @@ pub struct CompiledAdsr {
     pub release_samples: usize,
 }
 
-/// Parameter handles used by the voice filter.
+/// Parameter handles used by a filter processor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompiledFilterParameters {
     /// Cutoff handle.
@@ -228,13 +233,113 @@ pub struct CompiledFilterParameters {
     pub resonance: ParameterHandle,
 }
 
-/// Compiled voice filter.
+/// Compiled filter processor.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CompiledFilter {
+pub struct CompiledFilterProcessor {
     /// Runtime parameter bindings.
     pub parameters: CompiledFilterParameters,
     /// Safe DSP cutoff upper bound for this process sample rate.
     pub effective_max_cutoff_hz: f32,
+}
+
+/// Compiled drive processor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledDriveProcessor {
+    /// Amount handle.
+    pub amount: ParameterHandle,
+    /// Mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled delay processor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledDelayProcessor {
+    /// Integer delay length in frames.
+    pub delay_frames: usize,
+    /// Feedback handle.
+    pub feedback: ParameterHandle,
+    /// Mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Delay-line source used by one Dattorro stereo output tap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReverbTapSource {
+    /// The first long delay in the left tank.
+    LeftLongDelay,
+    /// The second all-pass delay in the left tank.
+    LeftTankAllpass,
+    /// The final output delay in the left tank.
+    LeftOutputDelay,
+    /// The first long delay in the right tank.
+    RightLongDelay,
+    /// The second all-pass delay in the right tank.
+    RightTankAllpass,
+    /// The final output delay in the right tank.
+    RightOutputDelay,
+}
+
+/// One sample-rate-scaled Dattorro output tap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReverbOutputTap {
+    /// Delay-line containing the tap source.
+    pub source: ReverbTapSource,
+    /// Offset into that delay-line.
+    pub delay_frames: usize,
+    /// Signed contribution to the output accumulator.
+    pub sign: i8,
+}
+
+/// Compiled plate reverb processor.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledReverbProcessor {
+    /// Static pre-delay in frames.
+    pub pre_delay_frames: usize,
+    /// Decay handle.
+    pub decay: ParameterHandle,
+    /// Damping handle.
+    pub damping: ParameterHandle,
+    /// Width handle.
+    pub width: ParameterHandle,
+    /// Mix handle.
+    pub mix: ParameterHandle,
+    /// Input diffusion delay lengths.
+    pub input_diffusion_lengths: [usize; 4],
+    /// Left tank delay lengths.
+    pub tank_left_lengths: [usize; 4],
+    /// Right tank delay lengths.
+    pub tank_right_lengths: [usize; 4],
+    /// Left stereo output taps.
+    pub left_output_taps: [ReverbOutputTap; 7],
+    /// Right stereo output taps.
+    pub right_output_taps: [ReverbOutputTap; 7],
+    /// Per-sample internal modulation phase increment.
+    pub modulation_increment: f32,
+    /// Sample-rate-scaled maximum modulation excursion in frames.
+    pub modulation_excursion: f32,
+}
+
+/// Processor kind with all control bindings resolved.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
+pub enum CompiledProcessorKind {
+    /// Low-pass filter processor.
+    Filter(CompiledFilterProcessor),
+    /// Soft-clipping drive processor.
+    Drive(CompiledDriveProcessor),
+    /// Stereo delay processor.
+    Delay(CompiledDelayProcessor),
+    /// Stereo plate reverb processor.
+    Reverb(CompiledReverbProcessor),
+}
+
+/// One processor in a Definition-ordered chain.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledProcessor {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Compiled processor kind.
+    pub processor: CompiledProcessorKind,
 }
 
 /// Dense source handle for voice-scoped sources.
@@ -363,30 +468,6 @@ pub fn compile_instrument(
     }
 
     let parameter_catalog = ParameterCatalog::from_definition(definition);
-    let effective_max_cutoff_hz = effective_max_cutoff(context.process_spec.sample_rate);
-    let voice_filter = definition.voice_filter.map(|filter| {
-        if filter.cutoff_hz > effective_max_cutoff_hz {
-            diagnostics.push(
-                Diagnostic::warning(
-                    DiagnosticCode::FilterCutoffClamped,
-                    format!(
-                        "cutoff exceeds the process-safe maximum and will be clamped to {effective_max_cutoff_hz:.3} Hz during DSP processing"
-                    ),
-                )
-                .with_path("voice_filter.cutoff_hz"),
-            );
-        }
-        let cutoff = parameter_catalog
-            .parameter_handle("voice.filter.cutoff")
-            .expect("filter catalog entry exists");
-        let resonance = parameter_catalog
-            .parameter_handle("voice.filter.resonance")
-            .expect("filter catalog entry exists");
-        CompiledFilter {
-            parameters: CompiledFilterParameters { cutoff, resonance },
-            effective_max_cutoff_hz,
-        }
-    });
 
     let performance = CompiledPerformance {
         polyphony: usize::from(definition.performance.polyphony),
@@ -427,16 +508,45 @@ pub fn compile_instrument(
                     .parameter_handle(&format!("layer.{}.tuning", layer.id))
                     .expect("layer tuning catalog entry exists"),
             };
+            let processors = compile_processor_chain(
+                &layer.processors,
+                ProcessorPlacement::Layer,
+                Some(&layer.id),
+                &format!("layers[{definition_index}].processors"),
+                &parameter_catalog,
+                context.process_spec.sample_rate,
+                &mut diagnostics,
+            );
             CompiledLayer {
                 id: layer.id.clone(),
                 trigger: compile_trigger(layer.trigger),
                 parameters,
                 envelope,
                 generator,
+                processors,
             }
         })
         .collect::<Vec<_>>()
         .into_boxed_slice();
+
+    let voice_processors = compile_processor_chain(
+        &definition.voice_processors,
+        ProcessorPlacement::Voice,
+        None,
+        "voice_processors",
+        &parameter_catalog,
+        context.process_spec.sample_rate,
+        &mut diagnostics,
+    );
+    let global_processors = compile_processor_chain(
+        &definition.global_processors,
+        ProcessorPlacement::Global,
+        None,
+        "global_processors",
+        &parameter_catalog,
+        context.process_spec.sample_rate,
+        &mut diagnostics,
+    );
 
     let (sources, routes, route_ranges) = compile_modulation(
         definition,
@@ -460,7 +570,8 @@ pub fn compile_instrument(
         },
         performance,
         layers,
-        voice_filter,
+        voice_processors,
+        global_processors,
         parameter_catalog,
         sources,
         routes,
@@ -475,6 +586,371 @@ pub fn compile_instrument(
     CompileResult {
         instrument: Some(Arc::new(compiled)),
         diagnostics,
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ProcessorPlacement {
+    Layer,
+    Voice,
+    Global,
+}
+
+fn compile_processor_chain(
+    processors: &[ProcessorDefinition],
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    base_path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Box<[CompiledProcessor]> {
+    processors
+        .iter()
+        .enumerate()
+        .map(|(index, processor)| {
+            compile_processor(
+                processor,
+                placement,
+                layer_id,
+                &format!("{base_path}[{index}]"),
+                catalog,
+                sample_rate,
+                diagnostics,
+            )
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
+}
+
+fn compile_processor(
+    processor: &ProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessor {
+    let id = processor.id().to_owned();
+    let processor = match processor {
+        ProcessorDefinition::Filter(value) => compile_filter_processor(
+            value,
+            placement,
+            layer_id,
+            path,
+            catalog,
+            sample_rate,
+            diagnostics,
+        ),
+        ProcessorDefinition::Drive(value) => {
+            compile_drive_processor(value, placement, layer_id, catalog)
+        }
+        ProcessorDefinition::Delay(value) => compile_delay_processor(
+            value,
+            placement,
+            layer_id,
+            path,
+            catalog,
+            sample_rate,
+            diagnostics,
+        ),
+        ProcessorDefinition::Reverb(value) => compile_reverb_processor(
+            value,
+            placement,
+            layer_id,
+            path,
+            catalog,
+            sample_rate,
+            diagnostics,
+        ),
+    };
+    CompiledProcessor { id, processor }
+}
+
+fn processor_parameter_handle(
+    catalog: &ParameterCatalog,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    processor_id: &str,
+    parameter: &str,
+) -> ParameterHandle {
+    let id = processor_parameter_id(placement, layer_id, processor_id, parameter);
+    catalog
+        .parameter_handle(&id)
+        .expect("processor parameter catalog entry exists")
+}
+
+fn compile_filter_processor(
+    value: &FilterProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessorKind {
+    let cutoff = processor_parameter_handle(catalog, placement, layer_id, &value.id, "cutoff");
+    let resonance =
+        processor_parameter_handle(catalog, placement, layer_id, &value.id, "resonance");
+    let effective_max_cutoff_hz = effective_max_cutoff(sample_rate);
+    if value.cutoff_hz > effective_max_cutoff_hz {
+        diagnostics.push(
+            Diagnostic::warning(
+                DiagnosticCode::FilterCutoffClamped,
+                format!(
+                    "cutoff exceeds the process-safe maximum and will be clamped to {effective_max_cutoff_hz:.3} Hz during DSP processing"
+                ),
+            )
+            .with_path(format!("{path}.cutoff_hz")),
+        );
+    }
+    CompiledProcessorKind::Filter(CompiledFilterProcessor {
+        parameters: CompiledFilterParameters { cutoff, resonance },
+        effective_max_cutoff_hz,
+    })
+}
+
+fn compile_drive_processor(
+    value: &DriveProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+) -> CompiledProcessorKind {
+    let amount = processor_parameter_handle(catalog, placement, layer_id, &value.id, "amount");
+    let mix = processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix");
+    CompiledProcessorKind::Drive(CompiledDriveProcessor { amount, mix })
+}
+
+fn compile_delay_processor(
+    value: &DelayProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessorKind {
+    let feedback = processor_parameter_handle(catalog, placement, layer_id, &value.id, "feedback");
+    let mix = processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix");
+    let delay_frames = processor_seconds_to_frames(
+        value.time_seconds,
+        sample_rate,
+        &format!("{path}.time_seconds"),
+        diagnostics,
+        1,
+    );
+    CompiledProcessorKind::Delay(CompiledDelayProcessor {
+        delay_frames,
+        feedback,
+        mix,
+    })
+}
+
+fn compile_reverb_processor(
+    value: &ReverbProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessorKind {
+    let decay = processor_parameter_handle(catalog, placement, layer_id, &value.id, "decay");
+    let damping = processor_parameter_handle(catalog, placement, layer_id, &value.id, "damping");
+    let width = processor_parameter_handle(catalog, placement, layer_id, &value.id, "width");
+    let mix = processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix");
+    let pre_delay_frames = processor_seconds_to_frames(
+        value.pre_delay_seconds,
+        sample_rate,
+        &format!("{path}.pre_delay_seconds"),
+        diagnostics,
+        0,
+    );
+    let input_diffusion_lengths = scale_reverb_lengths(
+        [142.0, 107.0, 379.0, 277.0],
+        sample_rate,
+        &format!("{path}.input_diffusion"),
+        diagnostics,
+    );
+    let tank_left_lengths = scale_reverb_lengths(
+        [672.0, 4_453.0, 1_800.0, 3_720.0],
+        sample_rate,
+        &format!("{path}.tank_left"),
+        diagnostics,
+    );
+    let tank_right_lengths = scale_reverb_lengths(
+        [908.0, 4_217.0, 2_656.0, 3_163.0],
+        sample_rate,
+        &format!("{path}.tank_right"),
+        diagnostics,
+    );
+    let left_output_taps = scale_reverb_taps(
+        [
+            (ReverbTapSource::RightLongDelay, 266.0, 1),
+            (ReverbTapSource::RightLongDelay, 2_974.0, 1),
+            (ReverbTapSource::RightTankAllpass, 1_913.0, -1),
+            (ReverbTapSource::RightOutputDelay, 1_996.0, 1),
+            (ReverbTapSource::LeftLongDelay, 1_990.0, -1),
+            (ReverbTapSource::LeftTankAllpass, 187.0, -1),
+            (ReverbTapSource::LeftOutputDelay, 1_066.0, -1),
+        ],
+        sample_rate,
+        &format!("{path}.left_output_taps"),
+        diagnostics,
+    );
+    let right_output_taps = scale_reverb_taps(
+        [
+            (ReverbTapSource::LeftLongDelay, 353.0, 1),
+            (ReverbTapSource::LeftLongDelay, 3_627.0, 1),
+            (ReverbTapSource::LeftTankAllpass, 1_228.0, -1),
+            (ReverbTapSource::LeftOutputDelay, 2_673.0, 1),
+            (ReverbTapSource::RightLongDelay, 2_111.0, -1),
+            (ReverbTapSource::RightTankAllpass, 335.0, -1),
+            (ReverbTapSource::RightOutputDelay, 121.0, -1),
+        ],
+        sample_rate,
+        &format!("{path}.right_output_taps"),
+        diagnostics,
+    );
+    #[allow(clippy::cast_possible_truncation)]
+    let modulation_increment = (1.0 / sample_rate) as f32;
+    let modulation_excursion = scale_reverb_excursion(
+        16.0,
+        sample_rate,
+        &format!("{path}.modulation_excursion"),
+        diagnostics,
+    );
+    CompiledProcessorKind::Reverb(CompiledReverbProcessor {
+        pre_delay_frames,
+        decay,
+        damping,
+        width,
+        mix,
+        input_diffusion_lengths,
+        tank_left_lengths,
+        tank_right_lengths,
+        left_output_taps,
+        right_output_taps,
+        modulation_increment,
+        modulation_excursion,
+    })
+}
+
+fn processor_parameter_id(
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    processor_id: &str,
+    parameter: &str,
+) -> String {
+    match placement {
+        ProcessorPlacement::Layer => format!(
+            "layer.{}.processor.{processor_id}.{parameter}",
+            layer_id.expect("layer processor has a layer id")
+        ),
+        ProcessorPlacement::Voice => format!("voice.processor.{processor_id}.{parameter}"),
+        ProcessorPlacement::Global => format!("global.processor.{processor_id}.{parameter}"),
+    }
+}
+
+fn processor_seconds_to_frames(
+    seconds: f32,
+    sample_rate: f64,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+    minimum_frames: usize,
+) -> usize {
+    let frames = (f64::from(seconds) * sample_rate).round();
+    #[allow(clippy::cast_precision_loss)]
+    let max_usize = usize::MAX as f64;
+    if !frames.is_finite() || frames < 0.0 || frames > max_usize {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "processor duration does not fit in the process frame counter",
+            )
+            .with_path(path),
+        );
+        return 1;
+    }
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        clippy::cast_sign_loss
+    )]
+    {
+        frames.max(minimum_frames as f64) as usize
+    }
+}
+
+fn scale_reverb_lengths<const N: usize>(
+    reference_lengths: [f64; N],
+    sample_rate: f64,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> [usize; N] {
+    let mut result = [1_usize; N];
+    for (index, reference) in reference_lengths.into_iter().enumerate() {
+        let seconds = reference / 29_761.0;
+        let frames = (seconds * sample_rate).round();
+        #[allow(clippy::cast_precision_loss)]
+        let max_usize = usize::MAX as f64;
+        if !frames.is_finite() || frames < 1.0 || frames > max_usize {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::CompileError,
+                    "reverb delay length does not fit in the process frame counter",
+                )
+                .with_path(format!("{path}[{index}]")),
+            );
+            continue;
+        }
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        {
+            result[index] = frames as usize;
+        }
+    }
+    result
+}
+
+fn scale_reverb_taps<const N: usize>(
+    reference_taps: [(ReverbTapSource, f64, i8); N],
+    sample_rate: f64,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> [ReverbOutputTap; N] {
+    let reference_lengths: [f64; N] = std::array::from_fn(|index| reference_taps[index].1);
+    let lengths = scale_reverb_lengths(reference_lengths, sample_rate, path, diagnostics);
+    std::array::from_fn(|index| {
+        let (source, _, sign) = reference_taps[index];
+        ReverbOutputTap {
+            source,
+            delay_frames: lengths[index],
+            sign,
+        }
+    })
+}
+
+fn scale_reverb_excursion(
+    reference_frames: f64,
+    sample_rate: f64,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> f32 {
+    let frames = reference_frames / 29_761.0 * sample_rate;
+    if !frames.is_finite() || frames <= 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "reverb modulation excursion is not finite",
+            )
+            .with_path(path),
+        );
+        return 1.0;
+    }
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        frames as f32
     }
 }
 
@@ -574,6 +1050,20 @@ fn compile_modulation(
                 );
                 continue;
             };
+            let owner = catalog
+                .descriptor(target)
+                .expect("compiled route target handle must be valid")
+                .owner;
+            if !route_source_allowed(owner, source) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::GlobalRouteScopeInvalid,
+                        "global processor targets accept only shared external controls",
+                    )
+                    .with_path(format!("modulation.routes[{index}].source")),
+                );
+                continue;
+            }
             unresolved_routes.push((
                 target.index(),
                 CompiledRoute {
@@ -606,6 +1096,15 @@ fn compile_modulation(
         routes.into_boxed_slice(),
         route_ranges.into_boxed_slice(),
     )
+}
+
+fn route_source_allowed(owner: ParameterOwner, source: CompiledSourceRef) -> bool {
+    match owner {
+        ParameterOwner::GlobalProcessor { .. } => !matches!(source, CompiledSourceRef::Voice(_)),
+        ParameterOwner::Layer { .. }
+        | ParameterOwner::LayerProcessor { .. }
+        | ParameterOwner::VoiceProcessor { .. } => true,
+    }
 }
 
 fn source_id(source: &ModulationSourceDefinition) -> &str {
@@ -889,10 +1388,13 @@ mod tests {
     #[test]
     fn cutoff_is_clamped_with_a_warning_but_catalog_range_is_stable() {
         let mut source = definition();
-        source.voice_filter = Some(crate::definition::FilterDefinition {
-            cutoff_hz: 20_000.0,
-            resonance: 0.1,
-        });
+        source.voice_processors.push(ProcessorDefinition::Filter(
+            crate::definition::FilterProcessorDefinition {
+                id: "tone".to_owned(),
+                cutoff_hz: 20_000.0,
+                resonance: 0.1,
+            },
+        ));
         let low_rate = CompileContext {
             process_spec: ProcessSpec::new(22_050.0, 257, 2).expect("valid spec"),
             ..context()
@@ -908,11 +1410,10 @@ mod tests {
             "cutoff exceeds the process-safe maximum and will be clamped to 9922.500 Hz during DSP processing"
         );
         assert!(
-            (compiled
-                .voice_filter
-                .expect("filter")
-                .effective_max_cutoff_hz
-                - 9_922.5)
+            (match &compiled.voice_processors[0].processor {
+                CompiledProcessorKind::Filter(filter) => filter.effective_max_cutoff_hz,
+                _ => panic!("voice processor must be a filter"),
+            } - 9_922.5)
                 .abs()
                 < 0.1
         );
@@ -920,7 +1421,7 @@ mod tests {
             (compiled
                 .parameters()
                 .iter()
-                .find(|parameter| parameter.id == "voice.filter.cutoff")
+                .find(|parameter| parameter.id == "voice.processor.tone.cutoff")
                 .expect("cutoff parameter")
                 .default
                 - 20_000.0)
@@ -928,6 +1429,194 @@ mod tests {
                 < 0.1
         );
         assert!((compiled.parameters().last().expect("resonance").max - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn processor_chains_compile_in_definition_order() {
+        let mut source = definition();
+        source.layers[0].processors = vec![
+            ProcessorDefinition::Filter(crate::definition::FilterProcessorDefinition {
+                id: "layer_tone".to_owned(),
+                cutoff_hz: 8_000.0,
+                resonance: 0.1,
+            }),
+            ProcessorDefinition::Drive(crate::definition::DriveProcessorDefinition {
+                id: "layer_drive".to_owned(),
+                amount: 0.2,
+                mix: 0.4,
+            }),
+        ];
+        source.voice_processors.push(ProcessorDefinition::Drive(
+            crate::definition::DriveProcessorDefinition {
+                id: "glue".to_owned(),
+                amount: 0.1,
+                mix: 0.2,
+            },
+        ));
+        source.global_processors.push(ProcessorDefinition::Delay(
+            crate::definition::DelayProcessorDefinition {
+                id: "echo".to_owned(),
+                time_seconds: 0.2,
+                feedback: 0.3,
+                mix: 0.15,
+            },
+        ));
+
+        let result = compile_instrument(&source, &context());
+        let compiled = result.instrument.expect("processor chains compile");
+
+        assert_eq!(compiled.layers[0].processors.len(), 2);
+        assert_eq!(compiled.layers[0].processors[0].id, "layer_tone");
+        assert_eq!(compiled.layers[0].processors[1].id, "layer_drive");
+        assert_eq!(compiled.voice_processors[0].id, "glue");
+        assert_eq!(compiled.global_processors[0].id, "echo");
+        assert_eq!(
+            compiled.parameters().last().expect("delay mix").id,
+            "global.processor.echo.mix"
+        );
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn reverb_compiles_reference_delay_lengths_and_output_taps() {
+        let mut source = definition();
+        source
+            .global_processors
+            .push(ProcessorDefinition::Reverb(ReverbProcessorDefinition {
+                id: "space".to_owned(),
+                pre_delay_seconds: 0.0,
+                decay: 0.5,
+                damping: 0.2,
+                width: 1.0,
+                mix: 0.3,
+            }));
+        let context = CompileContext {
+            process_spec: ProcessSpec::new(29_761.0, 257, 2).expect("valid spec"),
+            ..context()
+        };
+
+        let result = compile_instrument(&source, &context);
+        let compiled = result.instrument.expect("reverb compiles");
+        assert!(result.diagnostics.is_empty());
+
+        let CompiledProcessorKind::Reverb(reverb) = &compiled.global_processors[0].processor else {
+            panic!("global processor must be reverb");
+        };
+        assert_eq!(reverb.pre_delay_frames, 0);
+        assert_eq!(reverb.input_diffusion_lengths, [142, 107, 379, 277]);
+        assert_eq!(reverb.tank_left_lengths, [672, 4_453, 1_800, 3_720]);
+        assert_eq!(reverb.tank_right_lengths, [908, 4_217, 2_656, 3_163]);
+        assert_eq!(
+            reverb.left_output_taps,
+            [
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightLongDelay,
+                    delay_frames: 266,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightLongDelay,
+                    delay_frames: 2_974,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightTankAllpass,
+                    delay_frames: 1_913,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightOutputDelay,
+                    delay_frames: 1_996,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftLongDelay,
+                    delay_frames: 1_990,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftTankAllpass,
+                    delay_frames: 187,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftOutputDelay,
+                    delay_frames: 1_066,
+                    sign: -1,
+                },
+            ]
+        );
+        assert_eq!(
+            reverb.right_output_taps,
+            [
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftLongDelay,
+                    delay_frames: 353,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftLongDelay,
+                    delay_frames: 3_627,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftTankAllpass,
+                    delay_frames: 1_228,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftOutputDelay,
+                    delay_frames: 2_673,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightLongDelay,
+                    delay_frames: 2_111,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightTankAllpass,
+                    delay_frames: 335,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightOutputDelay,
+                    delay_frames: 121,
+                    sign: -1,
+                },
+            ]
+        );
+        assert!((reverb.modulation_increment - 1.0 / 29_761.0).abs() < 1.0e-10);
+        assert!((reverb.modulation_excursion - 16.0).abs() < 1.0e-5);
+    }
+
+    #[test]
+    fn voice_sources_cannot_target_global_processors() {
+        let mut source = definition();
+        source.global_processors.push(ProcessorDefinition::Drive(
+            crate::definition::DriveProcessorDefinition {
+                id: "master_drive".to_owned(),
+                amount: 0.1,
+                mix: 0.2,
+            },
+        ));
+        source.modulation = Some(crate::definition::ModulationDefinition {
+            sources: vec![],
+            routes: vec![crate::definition::ModulationRouteDefinition {
+                source: "velocity".to_owned(),
+                target: "global.processor.master_drive.mix".to_owned(),
+                amount: 0.2,
+                curve: ModulationCurve::Linear,
+            }],
+        });
+
+        let result = compile_instrument(&source, &context());
+
+        assert!(result.instrument.is_none());
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::GlobalRouteScopeInvalid
+                && diagnostic.path.as_deref() == Some("modulation.routes[0].source")
+        }));
     }
 
     #[test]

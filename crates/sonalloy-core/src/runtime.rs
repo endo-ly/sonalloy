@@ -2,6 +2,7 @@ pub(crate) mod adsr;
 mod instrument;
 pub(crate) mod mix;
 pub(crate) mod modulation;
+pub(crate) mod processor;
 pub(crate) mod sample;
 pub(crate) mod smoothing;
 mod voice;

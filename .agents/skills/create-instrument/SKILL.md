@@ -35,7 +35,7 @@ sonalloy instrument init <path>
 
 ## Step 2: Definitionを編集する
 
-編集対象は`metadata`、`performance`、`layers`、`voice_filter`、`velocity_response`です。制約の要点：
+編集対象は`metadata`、`performance`、`layers`、`voice_processors`、`global_processors`、`modulation`です。制約の要点：
 
 - `schema_version`は`1`のみ。未知FieldはJSON Parse Errorになる
 - `polyphony`は1〜64。`gain_db`は-60〜12、`pan`は-1〜1、`tuning_cents`は-1200〜1200
@@ -55,7 +55,7 @@ sonalloy instrument inspect <definition> --json    # 実行値を機械可読で
 ```
 
 - `validate`の成功は`valid <path>`。Warningは`print_warnings`で表示されるため必ず確認する
-- `inspect`でPolyphony、Layer Trigger、Generator、Gain、Pan、Tuning、Envelope、Voice Filter、Velocity Response、Warningを確認する
+- `inspect`でPolyphony、Layer Trigger、Generator、Gain、Pan、Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
 - Warningが1つでも残る場合は「ほかのLayerでRenderを継続する」設計のため、意図しない無効化がないかを確認する
 
 ## Step 4: Sample Layerを追加する（Sampleを使う場合）

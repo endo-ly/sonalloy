@@ -1,11 +1,15 @@
 use std::sync::Arc;
 
-use crate::compiler::{CompiledGenerator, CompiledInstrument};
+use crate::compiler::{
+    CompiledGenerator, CompiledInstrument, CompiledProcessor, CompiledProcessorKind,
+};
+use crate::parameter::ParameterScale;
 use crate::process::{
     InstrumentProcessor, ProcessBlock, ProcessError, ProcessEventKind, ProcessSpec, clear_output,
 };
 
 use super::modulation::{ParameterSpanValue, SharedParameterSpan, ValueSpan};
+use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
 use super::voice::{NoteRequest, VoiceRuntime, VoiceState};
 
@@ -29,6 +33,8 @@ pub struct InstrumentRuntime {
     pitch_bend: Smoother,
     mod_wheel: Smoother,
     aftertouch: Smoother,
+    global_processors: Option<StereoProcessorChain>,
+    global_targets: Vec<ProcessorTargetSpan>,
     spec: Option<ProcessSpec>,
     absolute_frame: u64,
 }
@@ -50,6 +56,8 @@ impl InstrumentRuntime {
             pitch_bend: Smoother::new(0.0),
             mod_wheel: Smoother::new(0.0),
             aftertouch: Smoother::new(0.0),
+            global_processors: None,
+            global_targets: Vec::new(),
             spec: None,
             absolute_frame: 0,
         }
@@ -286,6 +294,120 @@ impl InstrumentRuntime {
             },
         )
     }
+
+    fn evaluate_global_targets(
+        compiled: &CompiledInstrument,
+        targets: &mut [ProcessorTargetSpan],
+        shared: SharedParameterSpan<'_>,
+    ) -> Result<(), ProcessError> {
+        for (index, processor) in compiled.global_processors.iter().enumerate() {
+            targets[index] = Self::evaluate_global_processor_target(compiled, processor, shared)?;
+        }
+        Ok(())
+    }
+
+    fn evaluate_global_processor_target(
+        compiled: &CompiledInstrument,
+        processor: &CompiledProcessor,
+        shared: SharedParameterSpan<'_>,
+    ) -> Result<ProcessorTargetSpan, ProcessError> {
+        match &processor.processor {
+            CompiledProcessorKind::Filter(value) => Ok(ProcessorTargetSpan::Filter {
+                cutoff: clamp_filter_span(
+                    Self::evaluate_global_target(compiled, value.parameters.cutoff, shared)?,
+                    value.effective_max_cutoff_hz,
+                ),
+                resonance: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.resonance,
+                    shared,
+                )?,
+            }),
+            CompiledProcessorKind::Drive(value) => Ok(ProcessorTargetSpan::Drive {
+                amount: Self::evaluate_global_target(compiled, value.amount, shared)?,
+                mix: Self::evaluate_global_target(compiled, value.mix, shared)?,
+            }),
+            CompiledProcessorKind::Delay(value) => Ok(ProcessorTargetSpan::Delay {
+                feedback: Self::evaluate_global_target(compiled, value.feedback, shared)?,
+                mix: Self::evaluate_global_target(compiled, value.mix, shared)?,
+            }),
+            CompiledProcessorKind::Reverb(value) => Ok(ProcessorTargetSpan::Reverb {
+                decay: Self::evaluate_global_target(compiled, value.decay, shared)?,
+                damping: Self::evaluate_global_target(compiled, value.damping, shared)?,
+                width: Self::evaluate_global_target(compiled, value.width, shared)?,
+                mix: Self::evaluate_global_target(compiled, value.mix, shared)?,
+            }),
+        }
+    }
+
+    fn evaluate_global_target(
+        compiled: &CompiledInstrument,
+        handle: crate::parameter::ParameterHandle,
+        shared: SharedParameterSpan<'_>,
+    ) -> Result<ValueSpan, ProcessError> {
+        let descriptor = compiled.parameter_descriptor(handle).ok_or(
+            ProcessError::ParameterHandleOutOfRange {
+                handle: handle.index(),
+            },
+        )?;
+        let base = shared.parameter(handle);
+        let base_start = descriptor
+            .denormalize(base.start)
+            .map_err(|_| ProcessError::InvalidEventValue)?;
+        let base_end = descriptor
+            .denormalize(base.end)
+            .map_err(|_| ProcessError::InvalidEventValue)?;
+        let range = descriptor.max - descriptor.min;
+        let log_range = if descriptor.scale == ParameterScale::Log2 {
+            (descriptor.max / descriptor.min).log2()
+        } else {
+            0.0
+        };
+        let mut linear_start = 0.0;
+        let mut linear_end = 0.0;
+        let mut logarithmic_start = 0.0;
+        let mut logarithmic_end = 0.0;
+        for route in compiled.routes_for(handle) {
+            let source = match route.source {
+                crate::compiler::CompiledSourceRef::PitchBend => shared.pitch_bend(),
+                crate::compiler::CompiledSourceRef::ModWheel => shared.mod_wheel(),
+                crate::compiler::CompiledSourceRef::Aftertouch => shared.aftertouch(),
+                crate::compiler::CompiledSourceRef::Voice(_) => {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: crate::process::ProcessorFailureKind::InvalidState,
+                    });
+                }
+            };
+            let start = curve_value(source.start, route.curve);
+            let end = curve_value(source.end, route.curve);
+            match descriptor.scale {
+                ParameterScale::Linear => {
+                    linear_start += start * route.amount * range;
+                    linear_end += end * route.amount * range;
+                }
+                ParameterScale::Log2 => {
+                    logarithmic_start += start * route.amount * log_range;
+                    logarithmic_end += end * route.amount * log_range;
+                }
+            }
+        }
+        let (start, end) = match descriptor.scale {
+            ParameterScale::Linear => (
+                (base_start + linear_start).clamp(descriptor.min, descriptor.max),
+                (base_end + linear_end).clamp(descriptor.min, descriptor.max),
+            ),
+            ParameterScale::Log2 => (
+                (base_start * 2.0_f32.powf(logarithmic_start))
+                    .clamp(descriptor.min, descriptor.max),
+                (base_end * 2.0_f32.powf(logarithmic_end)).clamp(descriptor.min, descriptor.max),
+            ),
+        };
+        if start.is_finite() && end.is_finite() {
+            Ok(ValueSpan { start, end })
+        } else {
+            Err(ProcessError::InvalidEventValue)
+        }
+    }
 }
 
 impl InstrumentProcessor for InstrumentRuntime {
@@ -300,6 +422,8 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.pitch_bend.reset(0.0);
         self.mod_wheel.reset(0.0);
         self.aftertouch.reset(0.0);
+        self.global_processors = None;
+        self.global_targets.clear();
         self.absolute_frame = 0;
 
         spec.validate()?;
@@ -338,11 +462,20 @@ impl InstrumentProcessor for InstrumentRuntime {
         for _ in 0..self.compiled.performance.polyphony {
             voices.push(VoiceRuntime::new(&self.compiled, spec)?);
         }
+        let global_processors = StereoProcessorChain::new(&self.compiled.global_processors, spec)?;
         self.voices = voices;
+        self.global_targets = self
+            .compiled
+            .global_processors
+            .iter()
+            .map(zero_processor_target)
+            .collect();
+        self.global_processors = Some(global_processors);
         self.spec = Some(spec);
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     fn process(&mut self, block: ProcessBlock<'_>) -> Result<(), ProcessError> {
         clear_output(&mut *block.output, block.frames);
         let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
@@ -427,6 +560,27 @@ impl InstrumentProcessor for InstrumentRuntime {
                 self.spec = None;
                 return Err(error);
             }
+            if let Err(error) =
+                Self::evaluate_global_targets(&self.compiled, &mut self.global_targets, shared)
+            {
+                clear_output(&mut *block.output, block.frames);
+                self.spec = None;
+                return Err(error);
+            }
+            let global_result = {
+                let (left_channels, right_channels) = block.output.split_at_mut(1);
+                let left = &mut left_channels[0][cursor..end];
+                let right = &mut right_channels[0][cursor..end];
+                self.global_processors
+                    .as_mut()
+                    .ok_or(ProcessError::NotPrepared)
+                    .and_then(|processors| processors.process(&self.global_targets, left, right))
+            };
+            if let Err(error) = global_result {
+                clear_output(&mut *block.output, block.frames);
+                self.spec = None;
+                return Err(error);
+            }
             cursor = end;
         }
         self.absolute_frame = next_frame;
@@ -439,6 +593,12 @@ impl InstrumentProcessor for InstrumentRuntime {
         }
         for voice in &mut self.voices {
             if let Err(error) = voice.reset() {
+                self.spec = None;
+                return Err(error);
+            }
+        }
+        if let Some(processors) = self.global_processors.as_mut() {
+            if let Err(error) = processors.reset() {
                 self.spec = None;
                 return Err(error);
             }
@@ -466,8 +626,83 @@ impl InstrumentProcessor for InstrumentRuntime {
             start: 0.0,
             end: 0.0,
         });
+        for target in &mut self.global_targets {
+            *target = zero_processor_target_from_target(*target);
+        }
         self.absolute_frame = 0;
         Ok(())
+    }
+}
+
+fn zero_processor_target(processor: &CompiledProcessor) -> ProcessorTargetSpan {
+    let zero = ValueSpan {
+        start: 0.0,
+        end: 0.0,
+    };
+    match &processor.processor {
+        CompiledProcessorKind::Filter(_) => ProcessorTargetSpan::Filter {
+            cutoff: zero,
+            resonance: zero,
+        },
+        CompiledProcessorKind::Drive(_) => ProcessorTargetSpan::Drive {
+            amount: zero,
+            mix: zero,
+        },
+        CompiledProcessorKind::Delay(_) => ProcessorTargetSpan::Delay {
+            feedback: zero,
+            mix: zero,
+        },
+        CompiledProcessorKind::Reverb(_) => ProcessorTargetSpan::Reverb {
+            decay: zero,
+            damping: zero,
+            width: zero,
+            mix: zero,
+        },
+    }
+}
+
+fn zero_processor_target_from_target(target: ProcessorTargetSpan) -> ProcessorTargetSpan {
+    let zero = ValueSpan {
+        start: 0.0,
+        end: 0.0,
+    };
+    match target {
+        ProcessorTargetSpan::Filter { .. } => ProcessorTargetSpan::Filter {
+            cutoff: zero,
+            resonance: zero,
+        },
+        ProcessorTargetSpan::Drive { .. } => ProcessorTargetSpan::Drive {
+            amount: zero,
+            mix: zero,
+        },
+        ProcessorTargetSpan::Delay { .. } => ProcessorTargetSpan::Delay {
+            feedback: zero,
+            mix: zero,
+        },
+        ProcessorTargetSpan::Reverb { .. } => ProcessorTargetSpan::Reverb {
+            decay: zero,
+            damping: zero,
+            width: zero,
+            mix: zero,
+        },
+    }
+}
+
+fn clamp_filter_span(span: ValueSpan, maximum: f32) -> ValueSpan {
+    ValueSpan {
+        start: span.start.min(maximum),
+        end: span.end.min(maximum),
+    }
+}
+
+fn curve_value(value: f32, curve: crate::definition::ModulationCurve) -> f32 {
+    match curve {
+        crate::definition::ModulationCurve::Linear => value,
+        crate::definition::ModulationCurve::SmoothStep => {
+            let magnitude = value.abs();
+            let shaped = magnitude * magnitude * (3.0 - 2.0 * magnitude);
+            value.signum() * shaped
+        }
     }
 }
 
@@ -1098,10 +1333,15 @@ mod tests {
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
         source.layers[0].envelope.release_seconds = 0.25;
-        source.voice_filter = Some(crate::definition::FilterDefinition {
-            cutoff_hz: 2_000.0,
-            resonance: 0.15,
-        });
+        source
+            .voice_processors
+            .push(crate::definition::ProcessorDefinition::Filter(
+                crate::definition::FilterProcessorDefinition {
+                    id: "tone".to_owned(),
+                    cutoff_hz: 2_000.0,
+                    resonance: 0.15,
+                },
+            ));
         source.modulation = Some(crate::definition::ModulationDefinition {
             sources: vec![
                 crate::definition::ModulationSourceDefinition::Lfo(
@@ -1131,7 +1371,7 @@ mod tests {
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "steal_lfo".to_owned(),
-                    target: "voice.filter.cutoff".to_owned(),
+                    target: "voice.processor.tone.cutoff".to_owned(),
                     amount: 0.25,
                     curve: crate::definition::ModulationCurve::Linear,
                 },
@@ -1551,5 +1791,100 @@ mod tests {
             .span(0)
             .0;
         assert!((one_current - eight_current).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn global_feedback_targets_remain_within_descriptor_limits() {
+        let mut source = definition();
+        source.global_processors = vec![
+            crate::definition::ProcessorDefinition::Delay(
+                crate::definition::DelayProcessorDefinition {
+                    id: "echo".to_owned(),
+                    time_seconds: 0.25,
+                    feedback: 0.5,
+                    mix: 0.5,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Reverb(
+                crate::definition::ReverbProcessorDefinition {
+                    id: "space".to_owned(),
+                    pre_delay_seconds: 0.02,
+                    decay: 0.5,
+                    damping: 0.2,
+                    width: 1.0,
+                    mix: 0.3,
+                },
+            ),
+        ];
+        source.modulation = Some(crate::definition::ModulationDefinition {
+            sources: vec![],
+            routes: vec![
+                crate::definition::ModulationRouteDefinition {
+                    source: "mod_wheel".to_owned(),
+                    target: "global.processor.echo.feedback".to_owned(),
+                    amount: 1.0,
+                    curve: crate::definition::ModulationCurve::Linear,
+                },
+                crate::definition::ModulationRouteDefinition {
+                    source: "mod_wheel".to_owned(),
+                    target: "global.processor.space.decay".to_owned(),
+                    amount: 1.0,
+                    curve: crate::definition::ModulationCurve::Linear,
+                },
+            ],
+        });
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let delay_feedback = runtime
+            .compiled()
+            .parameter_handle("global.processor.echo.feedback")
+            .expect("delay feedback handle");
+        let reverb_decay = runtime
+            .compiled()
+            .parameter_handle("global.processor.space.decay")
+            .expect("reverb decay handle");
+
+        let events = [
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: delay_feedback,
+                    normalized: 1.0,
+                },
+            },
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: reverb_decay,
+                    normalized: 1.0,
+                },
+            },
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::ModWheel { value: 1.0 },
+            },
+        ];
+        let _ = process(&mut runtime, 257, 0, &events);
+        let empty: [ProcessEvent; 0] = [];
+        let _ = process(&mut runtime, 257, 257, &empty);
+        let _ = process(&mut runtime, 257, 514, &empty);
+        let _ = process(&mut runtime, 257, 771, &empty);
+
+        match runtime.global_targets[0] {
+            ProcessorTargetSpan::Delay { feedback, .. } => {
+                assert!(feedback.start <= 0.95);
+                assert!(feedback.end <= 0.95);
+                assert!(feedback.end > 0.949);
+            }
+            _ => panic!("first global processor must be delay"),
+        }
+        match runtime.global_targets[1] {
+            ProcessorTargetSpan::Reverb { decay, .. } => {
+                assert!(decay.start <= 0.98);
+                assert!(decay.end <= 0.98);
+                assert!(decay.end > 0.979);
+            }
+            _ => panic!("second global processor must be reverb"),
+        }
     }
 }

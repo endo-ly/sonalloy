@@ -36,6 +36,7 @@
       }
     }
   ],
-  "voice_filter": null,
+  "voice_processors": [],
+  "global_processors": [],
   "modulation": null
 }

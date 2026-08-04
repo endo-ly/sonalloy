@@ -179,6 +179,25 @@ pub enum DspFailureKind {
     BackendFailure,
 }
 
+/// Categories of failures produced by an in-process processor implementation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessorFailureKind {
+    /// A compiled processor or runtime state violated its lifecycle contract.
+    InvalidState,
+    /// A processor received or produced a non-finite sample.
+    NonFinite,
+}
+
+impl std::fmt::Display for ProcessorFailureKind {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let message = match self {
+            Self::InvalidState => "invalid state",
+            Self::NonFinite => "non-finite sample",
+        };
+        formatter.write_str(message)
+    }
+}
+
 impl std::fmt::Display for DspFailureKind {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let message = match self {
@@ -362,6 +381,12 @@ pub enum ProcessError {
     DspFailure {
         /// Backend-independent failure category.
         kind: DspFailureKind,
+    },
+    /// A Rust processor implementation failed its runtime contract.
+    #[error("processor failure: {kind}")]
+    ProcessorFailure {
+        /// Processor failure category.
+        kind: ProcessorFailureKind,
     },
 }
 

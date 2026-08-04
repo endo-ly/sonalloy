@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Processed Hybrid",
+    "author": "Sonalloy",
+    "description": "A sample attack and saw body through layered core effects"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "attack",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -11.0,
+      "pan": -0.08,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.03,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "sample": {
+          "asset": {
+            "path": "../assets/metal-hit.wav",
+            "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+          },
+          "root_note": 60,
+          "playback_mode": "one_shot",
+          "interpolation": "cubic"
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.012,
+      "decay": 0.7,
+      "damping": 0.32,
+      "width": 0.9,
+      "mix": 0.24
+    }
+  ],
+  "modulation": null
+}

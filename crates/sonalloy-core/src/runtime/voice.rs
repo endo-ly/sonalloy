@@ -1,8 +1,8 @@
-use sonalloy_dsp_sys::{DspFilter, DspOscillator, DspOscillatorWaveform};
+use sonalloy_dsp_sys::{DspOscillator, DspOscillatorWaveform};
 
 use crate::compiler::{
-    CompiledGenerator, CompiledInstrument, CompiledLayer, CompiledSourceRef, CompiledVoiceSource,
-    cents_to_ratio, db_to_linear, midi_note_frequency,
+    CompiledGenerator, CompiledInstrument, CompiledLayer, CompiledProcessorKind, CompiledSourceRef,
+    CompiledVoiceSource, cents_to_ratio, db_to_linear, midi_note_frequency,
 };
 use crate::definition::LfoWaveform;
 use crate::parameter::ParameterScale;
@@ -10,9 +10,8 @@ use crate::process::{NoteId, ProcessError, ProcessSpec};
 
 use super::adsr::AdsrRuntime;
 use super::mix::constant_power_pan;
-use super::modulation::{
-    FilterTargetSpan, LayerTargetSpan, SharedParameterSpan, ValueSpan, VoiceTargetScratch,
-};
+use super::modulation::{LayerTargetSpan, SharedParameterSpan, ValueSpan, VoiceTargetScratch};
+use super::processor::{LayerProcessorChain, ProcessorTargetSpan, StereoProcessorChain};
 use super::sample::{SampleRuntime, playback_ratio};
 use super::smoothing::{Smoother, rounded_frame_count};
 
@@ -71,6 +70,7 @@ struct LayerRuntime {
     trigger: crate::compiler::CompiledLayerTrigger,
     envelope: AdsrRuntime,
     generator: GeneratorRuntime,
+    processors: LayerProcessorChain,
     active: bool,
     note_start_fade: Smoother,
     note_start_fade_frames: usize,
@@ -108,10 +108,12 @@ impl LayerRuntime {
         };
         let note_start_fade_frames =
             rounded_frame_count(spec.sample_rate * GAIN_SMOOTHING_SECONDS).max(1);
+        let processors = LayerProcessorChain::new(&compiled.processors, spec)?;
         Ok(Self {
             trigger: compiled.trigger,
             envelope: AdsrRuntime::new(compiled.envelope),
             generator,
+            processors,
             active: false,
             note_start_fade: Smoother::new(0.0),
             note_start_fade_frames,
@@ -227,22 +229,27 @@ impl LayerRuntime {
             GeneratorRuntime::Sample { sample, .. } => sample.reset(),
             GeneratorRuntime::Disabled => {}
         }
+        self.processors.reset()?;
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
         self.active = false;
         Ok(())
     }
 
-    fn reset_to_idle(&mut self) {
+    fn reset_to_idle(&mut self) -> Result<(), ProcessError> {
+        self.processors.reset()?;
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
         self.active = false;
+        Ok(())
     }
 
-    fn reset_for_note(&mut self) {
+    fn reset_for_note(&mut self) -> Result<(), ProcessError> {
+        self.processors.reset()?;
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
         self.active = false;
+        Ok(())
     }
 }
 
@@ -263,9 +270,7 @@ pub(crate) struct VoiceRuntime {
     started_at_frame: u64,
     estimated_level: f32,
     layers: Vec<LayerRuntime>,
-    filter_left: DspFilter,
-    filter_right: DspFilter,
-    filter: Option<crate::compiler::CompiledFilter>,
+    processors: StereoProcessorChain,
     source_states: Vec<VoiceSourceRuntime>,
     source_spans: Vec<ValueSpan>,
     source_definitions: Vec<CompiledVoiceSource>,
@@ -286,14 +291,7 @@ impl VoiceRuntime {
             .iter()
             .map(|layer| LayerRuntime::new(layer, spec))
             .collect::<Result<Vec<_>, _>>()?;
-        let mut filter_left = DspFilter::new().map_err(ProcessError::from_filter_error)?;
-        let mut filter_right = DspFilter::new().map_err(ProcessError::from_filter_error)?;
-        filter_left
-            .prepare(spec.sample_rate)
-            .map_err(ProcessError::from_filter_error)?;
-        filter_right
-            .prepare(spec.sample_rate)
-            .map_err(ProcessError::from_filter_error)?;
+        let processors = StereoProcessorChain::new(&compiled.voice_processors, spec)?;
         let source_definitions = compiled
             .sources
             .iter()
@@ -334,17 +332,12 @@ impl VoiceRuntime {
             started_at_frame: 0,
             estimated_level: 0.0,
             layers,
-            filter_left,
-            filter_right,
-            filter: compiled.voice_filter,
+            processors,
             source_states,
             source_spans,
             source_definitions,
             source_used,
-            targets: VoiceTargetScratch::new(
-                compiled.layers.len(),
-                compiled.voice_filter.is_some(),
-            ),
+            targets: VoiceTargetScratch::new(&compiled.layers, &compiled.voice_processors),
             pending: None,
             steal_fade_total: 0,
             steal_fade_remaining: 0,
@@ -568,6 +561,9 @@ impl VoiceRuntime {
                 sample_rate,
                 layer_mono,
             )?;
+            layer
+                .processors
+                .process(&targets.layer_processors[index], &mut layer_mono[..frames])?;
             let gain_start = db_to_linear(target.gain.start);
             let gain_end = db_to_linear(target.gain.end);
             for frame in 0..frames {
@@ -588,79 +584,19 @@ impl VoiceRuntime {
                 layer.active = false;
             }
         }
-        if let (Some(filter), Some(target)) = (self.filter, targets.filter) {
-            self.render_filter(
-                filter,
-                target,
-                &mut voice_left[..frames],
-                &mut voice_right[..frames],
-            )?;
-        }
-        Ok(())
-    }
-
-    fn render_filter(
-        &mut self,
-        filter: crate::compiler::CompiledFilter,
-        target: FilterTargetSpan,
-        voice_left: &mut [f32],
-        voice_right: &mut [f32],
-    ) -> Result<(), ProcessError> {
-        let cutoff_start = target.cutoff.start.min(filter.effective_max_cutoff_hz);
-        let cutoff_end = target.cutoff.end.min(filter.effective_max_cutoff_hz);
-        let resonance_start = target.resonance.start;
-        let resonance_end = target.resonance.end;
-        match filter_processing_mode(cutoff_start, cutoff_end, resonance_start, resonance_end) {
-            FilterProcessingMode::Constant => {
-                self.filter_left
-                    .process(cutoff_start, resonance_start, voice_left)
-                    .map_err(ProcessError::from_filter_error)?;
-                self.filter_right
-                    .process(cutoff_start, resonance_start, voice_right)
-                    .map_err(ProcessError::from_filter_error)?;
-            }
-            FilterProcessingMode::CutoffRamp => {
-                self.filter_left
-                    .process_ramp(cutoff_start, cutoff_end, resonance_start, voice_left)
-                    .map_err(ProcessError::from_filter_error)?;
-                self.filter_right
-                    .process_ramp(cutoff_start, cutoff_end, resonance_start, voice_right)
-                    .map_err(ProcessError::from_filter_error)?;
-            }
-            FilterProcessingMode::CutoffAndResonanceRamp => {
-                self.filter_left
-                    .process_ramp_with_resonance(
-                        cutoff_start,
-                        cutoff_end,
-                        resonance_start,
-                        resonance_end,
-                        voice_left,
-                    )
-                    .map_err(ProcessError::from_filter_error)?;
-                self.filter_right
-                    .process_ramp_with_resonance(
-                        cutoff_start,
-                        cutoff_end,
-                        resonance_start,
-                        resonance_end,
-                        voice_right,
-                    )
-                    .map_err(ProcessError::from_filter_error)?;
-            }
-        }
+        self.processors.process(
+            &targets.voice_processors,
+            &mut voice_left[..frames],
+            &mut voice_right[..frames],
+        )?;
         Ok(())
     }
 
     fn reset_to_idle(&mut self) -> Result<(), ProcessError> {
         for layer in &mut self.layers {
-            layer.reset_to_idle();
+            layer.reset_to_idle()?;
         }
-        self.filter_left
-            .reset()
-            .map_err(ProcessError::from_filter_error)?;
-        self.filter_right
-            .reset()
-            .map_err(ProcessError::from_filter_error)?;
+        self.processors.reset()?;
         self.state = VoiceState::Idle;
         self.note_id = None;
         self.note_number = 0;
@@ -675,14 +611,9 @@ impl VoiceRuntime {
 
     fn reset_note_state(&mut self) -> Result<(), ProcessError> {
         for layer in &mut self.layers {
-            layer.reset_for_note();
+            layer.reset_for_note()?;
         }
-        self.filter_left
-            .reset()
-            .map_err(ProcessError::from_filter_error)?;
-        self.filter_right
-            .reset()
-            .map_err(ProcessError::from_filter_error)?;
+        self.processors.reset()?;
         self.reset_source_state();
         Ok(())
     }
@@ -823,16 +754,54 @@ impl VoiceRuntime {
                 start: right_start,
                 end: right_end,
             };
+            for (processor_index, processor) in layer.processors.iter().enumerate() {
+                self.targets.layer_processors[index][processor_index] =
+                    self.evaluate_processor_target(compiled, processor, shared)?;
+            }
         }
-        self.targets.filter = if let Some(filter) = self.filter {
-            Some(FilterTargetSpan {
-                cutoff: self.evaluate_target(compiled, filter.parameters.cutoff, shared)?,
-                resonance: self.evaluate_target(compiled, filter.parameters.resonance, shared)?,
-            })
-        } else {
-            None
-        };
+        for (processor_index, processor) in compiled.voice_processors.iter().enumerate() {
+            self.targets.voice_processors[processor_index] =
+                self.evaluate_processor_target(compiled, processor, shared)?;
+        }
         Ok(())
+    }
+
+    fn evaluate_processor_target(
+        &self,
+        compiled: &CompiledInstrument,
+        processor: &crate::compiler::CompiledProcessor,
+        shared: SharedParameterSpan<'_>,
+    ) -> Result<ProcessorTargetSpan, ProcessError> {
+        match &processor.processor {
+            CompiledProcessorKind::Filter(value) => {
+                let cutoff = self.evaluate_target(compiled, value.parameters.cutoff, shared)?;
+                Ok(ProcessorTargetSpan::Filter {
+                    cutoff: ValueSpan {
+                        start: cutoff.start.min(value.effective_max_cutoff_hz),
+                        end: cutoff.end.min(value.effective_max_cutoff_hz),
+                    },
+                    resonance: self.evaluate_target(
+                        compiled,
+                        value.parameters.resonance,
+                        shared,
+                    )?,
+                })
+            }
+            CompiledProcessorKind::Drive(value) => Ok(ProcessorTargetSpan::Drive {
+                amount: self.evaluate_target(compiled, value.amount, shared)?,
+                mix: self.evaluate_target(compiled, value.mix, shared)?,
+            }),
+            CompiledProcessorKind::Delay(value) => Ok(ProcessorTargetSpan::Delay {
+                feedback: self.evaluate_target(compiled, value.feedback, shared)?,
+                mix: self.evaluate_target(compiled, value.mix, shared)?,
+            }),
+            CompiledProcessorKind::Reverb(value) => Ok(ProcessorTargetSpan::Reverb {
+                decay: self.evaluate_target(compiled, value.decay, shared)?,
+                damping: self.evaluate_target(compiled, value.damping, shared)?,
+                width: self.evaluate_target(compiled, value.width, shared)?,
+                mix: self.evaluate_target(compiled, value.mix, shared)?,
+            }),
+        }
     }
 
     fn evaluate_target(
@@ -967,30 +936,6 @@ fn oscillator_processing_mode(start: f32, end: f32) -> OscillatorProcessingMode 
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FilterProcessingMode {
-    Constant,
-    CutoffRamp,
-    CutoffAndResonanceRamp,
-}
-
-fn filter_processing_mode(
-    cutoff_start: f32,
-    cutoff_end: f32,
-    resonance_start: f32,
-    resonance_end: f32,
-) -> FilterProcessingMode {
-    if span_is_constant(cutoff_start, cutoff_end)
-        && span_is_constant(resonance_start, resonance_end)
-    {
-        FilterProcessingMode::Constant
-    } else if span_is_constant(resonance_start, resonance_end) {
-        FilterProcessingMode::CutoffRamp
-    } else {
-        FilterProcessingMode::CutoffAndResonanceRamp
-    }
-}
-
 fn curve_value(value: f32, curve: crate::definition::ModulationCurve) -> f32 {
     match curve {
         crate::definition::ModulationCurve::Linear => value,
@@ -1042,18 +987,6 @@ mod tests {
         assert_eq!(
             oscillator_processing_mode(440.0, 441.0),
             OscillatorProcessingMode::Ramp
-        );
-        assert_eq!(
-            filter_processing_mode(1_000.0, 1_000.0, 0.1, 0.1),
-            FilterProcessingMode::Constant
-        );
-        assert_eq!(
-            filter_processing_mode(1_000.0, 1_100.0, 0.1, 0.1),
-            FilterProcessingMode::CutoffRamp
-        );
-        assert_eq!(
-            filter_processing_mode(1_000.0, 1_000.0, 0.1, 0.2),
-            FilterProcessingMode::CutoffAndResonanceRamp
         );
     }
 

@@ -1,0 +1,264 @@
+mod delay;
+mod drive;
+mod reverb;
+
+use sonalloy_dsp_sys::DspFilter;
+
+use crate::compiler::{CompiledProcessor, CompiledProcessorKind};
+use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
+
+use super::modulation::ValueSpan;
+
+pub(crate) use delay::StereoDelayRuntime;
+pub(crate) use drive::DriveRuntime;
+pub(crate) use reverb::PlateReverbRuntime;
+
+/// Runtime values corresponding to one compiled processor in a chain.
+#[derive(Clone, Copy)]
+pub(crate) enum ProcessorTargetSpan {
+    Filter {
+        cutoff: ValueSpan,
+        resonance: ValueSpan,
+    },
+    Drive {
+        amount: ValueSpan,
+        mix: ValueSpan,
+    },
+    Delay {
+        feedback: ValueSpan,
+        mix: ValueSpan,
+    },
+    Reverb {
+        decay: ValueSpan,
+        damping: ValueSpan,
+        width: ValueSpan,
+        mix: ValueSpan,
+    },
+}
+
+pub(crate) struct LayerProcessorChain {
+    processors: Vec<LayerProcessorRuntime>,
+}
+
+enum LayerProcessorRuntime {
+    Filter(DspFilter),
+    Drive,
+}
+
+impl LayerProcessorChain {
+    pub(crate) fn new(
+        processors: &[CompiledProcessor],
+        spec: ProcessSpec,
+    ) -> Result<Self, ProcessError> {
+        let mut runtime = Vec::with_capacity(processors.len());
+        for processor in processors {
+            match &processor.processor {
+                CompiledProcessorKind::Filter(_) => {
+                    runtime.push(LayerProcessorRuntime::Filter(prepare_filter(spec)?));
+                }
+                CompiledProcessorKind::Drive(_) => {
+                    runtime.push(LayerProcessorRuntime::Drive);
+                }
+                CompiledProcessorKind::Delay(_) | CompiledProcessorKind::Reverb(_) => {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: ProcessorFailureKind::InvalidState,
+                    });
+                }
+            }
+        }
+        Ok(Self {
+            processors: runtime,
+        })
+    }
+
+    pub(crate) fn process(
+        &mut self,
+        targets: &[ProcessorTargetSpan],
+        buffer: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        if self.processors.len() != targets.len() {
+            return Err(ProcessError::ProcessorFailure {
+                kind: ProcessorFailureKind::InvalidState,
+            });
+        }
+        for (processor, target) in self.processors.iter_mut().zip(targets) {
+            match (processor, *target) {
+                (
+                    LayerProcessorRuntime::Filter(filter),
+                    ProcessorTargetSpan::Filter { cutoff, resonance },
+                ) => process_filter(filter, cutoff, resonance, buffer)?,
+                (LayerProcessorRuntime::Drive, ProcessorTargetSpan::Drive { amount, mix }) => {
+                    DriveRuntime::process_mono(amount, mix, buffer)?;
+                }
+                _ => {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: ProcessorFailureKind::InvalidState,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn reset(&mut self) -> Result<(), ProcessError> {
+        for processor in &mut self.processors {
+            match processor {
+                LayerProcessorRuntime::Filter(filter) => {
+                    filter.reset().map_err(ProcessError::from_filter_error)?;
+                }
+                LayerProcessorRuntime::Drive => {}
+            }
+        }
+        Ok(())
+    }
+}
+
+pub(crate) struct StereoProcessorChain {
+    processors: Vec<StereoProcessorRuntime>,
+}
+
+enum StereoProcessorRuntime {
+    Filter { left: DspFilter, right: DspFilter },
+    Drive,
+    Delay(StereoDelayRuntime),
+    Reverb(Box<PlateReverbRuntime>),
+}
+
+impl StereoProcessorChain {
+    pub(crate) fn new(
+        processors: &[CompiledProcessor],
+        spec: ProcessSpec,
+    ) -> Result<Self, ProcessError> {
+        let mut runtime = Vec::with_capacity(processors.len());
+        for processor in processors {
+            match &processor.processor {
+                CompiledProcessorKind::Filter(_) => runtime.push(StereoProcessorRuntime::Filter {
+                    left: prepare_filter(spec)?,
+                    right: prepare_filter(spec)?,
+                }),
+                CompiledProcessorKind::Drive(_) => {
+                    runtime.push(StereoProcessorRuntime::Drive);
+                }
+                CompiledProcessorKind::Delay(value) => runtime.push(StereoProcessorRuntime::Delay(
+                    StereoDelayRuntime::new(value.delay_frames),
+                )),
+                CompiledProcessorKind::Reverb(value) => runtime.push(
+                    StereoProcessorRuntime::Reverb(Box::new(PlateReverbRuntime::new(value))),
+                ),
+            }
+        }
+        Ok(Self {
+            processors: runtime,
+        })
+    }
+
+    pub(crate) fn process(
+        &mut self,
+        targets: &[ProcessorTargetSpan],
+        left: &mut [f32],
+        right: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        if self.processors.len() != targets.len() {
+            return Err(ProcessError::ProcessorFailure {
+                kind: ProcessorFailureKind::InvalidState,
+            });
+        }
+        for (processor, target) in self.processors.iter_mut().zip(targets) {
+            match (processor, *target) {
+                (
+                    StereoProcessorRuntime::Filter {
+                        left: filter_left,
+                        right: filter_right,
+                    },
+                    ProcessorTargetSpan::Filter { cutoff, resonance },
+                ) => {
+                    process_filter(filter_left, cutoff, resonance, left)?;
+                    process_filter(filter_right, cutoff, resonance, right)?;
+                }
+                (StereoProcessorRuntime::Drive, ProcessorTargetSpan::Drive { amount, mix }) => {
+                    DriveRuntime::process_stereo(amount, mix, left, right)?;
+                }
+                (
+                    StereoProcessorRuntime::Delay(delay),
+                    ProcessorTargetSpan::Delay { feedback, mix },
+                ) => delay.process(feedback, mix, left, right)?,
+                (
+                    StereoProcessorRuntime::Reverb(reverb),
+                    ProcessorTargetSpan::Reverb {
+                        decay,
+                        damping,
+                        width,
+                        mix,
+                    },
+                ) => reverb.process(decay, damping, width, mix, left, right)?,
+                _ => {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: ProcessorFailureKind::InvalidState,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn reset(&mut self) -> Result<(), ProcessError> {
+        for processor in &mut self.processors {
+            match processor {
+                StereoProcessorRuntime::Filter { left, right } => {
+                    left.reset().map_err(ProcessError::from_filter_error)?;
+                    right.reset().map_err(ProcessError::from_filter_error)?;
+                }
+                StereoProcessorRuntime::Drive => {}
+                StereoProcessorRuntime::Delay(delay) => delay.reset(),
+                StereoProcessorRuntime::Reverb(reverb) => reverb.reset(),
+            }
+        }
+        Ok(())
+    }
+}
+
+fn prepare_filter(spec: ProcessSpec) -> Result<DspFilter, ProcessError> {
+    let mut filter = DspFilter::new().map_err(ProcessError::from_filter_error)?;
+    filter
+        .prepare(spec.sample_rate)
+        .map_err(ProcessError::from_filter_error)?;
+    filter.reset().map_err(ProcessError::from_filter_error)?;
+    Ok(filter)
+}
+
+fn process_filter(
+    filter: &mut DspFilter,
+    cutoff: ValueSpan,
+    resonance: ValueSpan,
+    buffer: &mut [f32],
+) -> Result<(), ProcessError> {
+    let mode = if same_value(cutoff.start, cutoff.end) && same_value(resonance.start, resonance.end)
+    {
+        0
+    } else if same_value(resonance.start, resonance.end) {
+        1
+    } else {
+        2
+    };
+    match mode {
+        0 => filter
+            .process(cutoff.start, resonance.start, buffer)
+            .map_err(ProcessError::from_filter_error),
+        1 => filter
+            .process_ramp(cutoff.start, cutoff.end, resonance.start, buffer)
+            .map_err(ProcessError::from_filter_error),
+        _ => filter
+            .process_ramp_with_resonance(
+                cutoff.start,
+                cutoff.end,
+                resonance.start,
+                resonance.end,
+                buffer,
+            )
+            .map_err(ProcessError::from_filter_error),
+    }
+}
+
+fn same_value(left: f32, right: f32) -> bool {
+    left.total_cmp(&right).is_eq()
+}

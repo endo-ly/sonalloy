@@ -23,8 +23,12 @@ pub struct InstrumentDefinition {
     pub performance: PerformanceDefinition,
     /// Ordered layer definitions.
     pub layers: Vec<LayerDefinition>,
-    /// Optional filter applied after the voice layer mix.
-    pub voice_filter: Option<FilterDefinition>,
+    /// Ordered processors applied after each layer generator.
+    #[serde(default)]
+    pub voice_processors: Vec<ProcessorDefinition>,
+    /// Ordered processors applied after the voice layer mix.
+    #[serde(default)]
+    pub global_processors: Vec<ProcessorDefinition>,
     /// Optional modulation sources and routes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modulation: Option<ModulationDefinition>,
@@ -82,6 +86,9 @@ pub struct LayerDefinition {
     pub envelope: AdsrDefinition,
     /// Layer generator.
     pub generator: GeneratorDefinition,
+    /// Ordered processors applied to the layer generator.
+    #[serde(default)]
+    pub processors: Vec<ProcessorDefinition>,
 }
 
 /// Conditions evaluated once when a Note On is received.
@@ -183,14 +190,85 @@ pub struct AdsrDefinition {
     pub release_seconds: f32,
 }
 
-/// Voice low-pass filter settings.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Processor definitions supported by the fixed signal pipeline.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ProcessorDefinition {
+    /// Low-pass filter.
+    Filter(FilterProcessorDefinition),
+    /// Soft-clipping drive.
+    Drive(DriveProcessorDefinition),
+    /// Stereo feedback delay.
+    Delay(DelayProcessorDefinition),
+    /// Stereo plate reverb.
+    Reverb(ReverbProcessorDefinition),
+}
+
+impl ProcessorDefinition {
+    pub(crate) fn id(&self) -> &str {
+        match self {
+            Self::Filter(value) => &value.id,
+            Self::Drive(value) => &value.id,
+            Self::Delay(value) => &value.id,
+            Self::Reverb(value) => &value.id,
+        }
+    }
+}
+
+/// Low-pass filter processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct FilterDefinition {
+pub struct FilterProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
     /// Cutoff frequency in Hz.
     pub cutoff_hz: f32,
     /// Normalized resonance.
     pub resonance: f32,
+}
+
+/// Soft-clipping drive processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DriveProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Soft-clipping amount.
+    pub amount: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Stereo delay processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DelayProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Static delay time in seconds.
+    pub time_seconds: f32,
+    /// Feedback amount.
+    pub feedback: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Stereo plate reverb processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReverbProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Static pre-delay in seconds.
+    pub pre_delay_seconds: f32,
+    /// Decay amount.
+    pub decay: f32,
+    /// Damping amount.
+    pub damping: f32,
+    /// Wet stereo width.
+    pub width: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
 }
 
 /// Modulation sources and routes stored in a Definition.
@@ -381,6 +459,12 @@ impl InstrumentDefinition {
                 "tuning_cents must be finite and between -1200 and 1200",
             );
             validate_adsr(&mut diagnostics, &path, layer.envelope);
+            validate_processor_chain(
+                &mut diagnostics,
+                &format!("{path}.processors"),
+                &layer.processors,
+                ProcessorPlacement::Layer,
+            );
             match &layer.generator {
                 GeneratorDefinition::Oscillator(_) => {}
                 GeneratorDefinition::Sample(sample) => {
@@ -389,26 +473,175 @@ impl InstrumentDefinition {
             }
         }
 
-        if let Some(filter) = self.voice_filter {
-            validate_range(
-                &mut diagnostics,
-                "voice_filter.cutoff_hz".to_owned(),
-                filter.cutoff_hz,
-                20.0..=20_000.0,
-                "cutoff_hz must be finite and between 20 and 20000 Hz",
-            );
-            validate_range(
-                &mut diagnostics,
-                "voice_filter.resonance".to_owned(),
-                filter.resonance,
-                0.0..=1.0,
-                "resonance must be finite and between 0 and 1",
-            );
-        }
+        validate_processor_chain(
+            &mut diagnostics,
+            "voice_processors",
+            &self.voice_processors,
+            ProcessorPlacement::Voice,
+        );
+        validate_processor_chain(
+            &mut diagnostics,
+            "global_processors",
+            &self.global_processors,
+            ProcessorPlacement::Global,
+        );
         if let Some(modulation) = &self.modulation {
             validate_modulation(&mut diagnostics, modulation);
         }
         diagnostics
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ProcessorPlacement {
+    Layer,
+    Voice,
+    Global,
+}
+
+fn validate_processor_chain(
+    diagnostics: &mut Vec<Diagnostic>,
+    base_path: &str,
+    processors: &[ProcessorDefinition],
+    placement: ProcessorPlacement,
+) {
+    let mut ids = HashSet::new();
+    for (index, processor) in processors.iter().enumerate() {
+        let path = format!("{base_path}[{index}]");
+        let id_path = format!("{path}.id");
+        if !is_component_id(processor.id()) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ProcessorIdInvalid,
+                    "processor id must start with a lowercase letter and contain only lowercase letters, digits, or underscores",
+                )
+                .with_path(id_path.clone()),
+            );
+        }
+        if !ids.insert(processor.id()) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ProcessorIdDuplicated,
+                    "processor id must be unique within its chain",
+                )
+                .with_path(id_path),
+            );
+        }
+        if let (
+            ProcessorPlacement::Layer | ProcessorPlacement::Voice,
+            ProcessorDefinition::Delay(_) | ProcessorDefinition::Reverb(_),
+        ) = (placement, processor)
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ProcessorPlacementInvalid,
+                    "delay and reverb processors are allowed only in global_processors",
+                )
+                .with_path(&path),
+            );
+        }
+        validate_processor_values(diagnostics, &path, processor);
+    }
+}
+
+fn validate_processor_values(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    processor: &ProcessorDefinition,
+) {
+    match processor {
+        ProcessorDefinition::Filter(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.cutoff_hz"),
+                value.cutoff_hz,
+                20.0..=20_000.0,
+                "cutoff_hz must be finite and between 20 and 20000 Hz",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.resonance"),
+                value.resonance,
+                0.0..=1.0,
+                "resonance must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::Drive(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.amount"),
+                value.amount,
+                0.0..=1.0,
+                "amount must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::Delay(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.time_seconds"),
+                value.time_seconds,
+                0.001..=2.0,
+                "time_seconds must be finite and between 0.001 and 2 seconds",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.feedback"),
+                value.feedback,
+                0.0..=0.95,
+                "feedback must be finite and between 0 and 0.95",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::Reverb(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.pre_delay_seconds"),
+                value.pre_delay_seconds,
+                0.0..=0.2,
+                "pre_delay_seconds must be finite and between 0 and 0.2 seconds",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.decay"),
+                value.decay,
+                0.0..=0.98,
+                "decay must be finite and between 0 and 0.98",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.damping"),
+                value.damping,
+                0.0..=1.0,
+                "damping must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.width"),
+                value.width,
+                0.0..=1.0,
+                "width must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
     }
 }
 
@@ -655,8 +888,10 @@ pub(crate) mod tests {
                     waveform: OscillatorWaveform::Sine,
                     phase_reset: true,
                 }),
+                processors: Vec::new(),
             }],
-            voice_filter: None,
+            voice_processors: Vec::new(),
+            global_processors: Vec::new(),
             modulation: None,
         }
     }
@@ -722,6 +957,91 @@ pub(crate) mod tests {
         value.layers.push(value.layers[0].clone());
         value.layers[1].id = "second".to_owned();
         assert!(value.validate().is_empty());
+    }
+
+    #[test]
+    fn processor_validation_rejects_duplicate_ids_and_invalid_placement() {
+        let mut value = definition();
+        value.layers[0].processors = vec![
+            ProcessorDefinition::Drive(DriveProcessorDefinition {
+                id: "drive".to_owned(),
+                amount: 0.2,
+                mix: 0.4,
+            }),
+            ProcessorDefinition::Delay(DelayProcessorDefinition {
+                id: "echo".to_owned(),
+                time_seconds: 0.2,
+                feedback: 0.3,
+                mix: 0.2,
+            }),
+        ];
+        value.voice_processors = vec![
+            ProcessorDefinition::Filter(FilterProcessorDefinition {
+                id: "tone".to_owned(),
+                cutoff_hz: 1_000.0,
+                resonance: 0.1,
+            }),
+            ProcessorDefinition::Drive(DriveProcessorDefinition {
+                id: "tone".to_owned(),
+                amount: 0.2,
+                mix: 0.4,
+            }),
+        ];
+
+        let diagnostics = value.validate();
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::ProcessorPlacementInvalid
+                && diagnostic.path.as_deref() == Some("layers[0].processors[1]")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::ProcessorIdDuplicated
+                && diagnostic.path.as_deref() == Some("voice_processors[1].id")
+        }));
+    }
+
+    #[test]
+    fn processor_validation_rejects_invalid_ids_and_values() {
+        let mut value = definition();
+        value.global_processors = vec![ProcessorDefinition::Reverb(ReverbProcessorDefinition {
+            id: "Space".to_owned(),
+            pre_delay_seconds: 0.3,
+            decay: 1.0,
+            damping: 0.5,
+            width: 0.5,
+            mix: 0.5,
+        })];
+
+        let diagnostics = value.validate();
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::ProcessorIdInvalid
+                && diagnostic.path.as_deref() == Some("global_processors[0].id")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::ValueOutOfRange
+                && diagnostic.path.as_deref() == Some("global_processors[0].pre_delay_seconds")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::ValueOutOfRange
+                && diagnostic.path.as_deref() == Some("global_processors[0].decay")
+        }));
+    }
+
+    #[test]
+    fn serde_rejects_unknown_processor_fields() {
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["voice_processors"] = serde_json::json!([{
+            "type": "filter",
+            "id": "tone",
+            "cutoff_hz": 1_000.0,
+            "resonance": 0.1,
+            "unexpected": true,
+        }]);
+
+        let parsed = serde_json::from_value::<InstrumentDefinition>(value);
+
+        assert!(parsed.is_err());
     }
 
     #[test]

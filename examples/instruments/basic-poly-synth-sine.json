@@ -36,10 +36,15 @@
       }
     }
   ],
-  "voice_filter": {
-    "cutoff_hz": 20000.0,
-    "resonance": 0.0
-  },
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "cutoff_hz": 20000.0,
+      "resonance": 0.0
+    }
+  ],
+  "global_processors": [],
   "modulation": {
     "sources": [],
     "routes": [
@@ -51,7 +56,7 @@
       },
       {
         "source": "velocity",
-        "target": "voice.filter.cutoff",
+        "target": "voice.processor.tone.cutoff",
         "amount": 0.08,
         "curve": "linear"
       }

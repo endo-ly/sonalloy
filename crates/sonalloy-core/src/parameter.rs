@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::definition::InstrumentDefinition;
+use crate::definition::{InstrumentDefinition, ProcessorDefinition};
 
 /// Dense reference to a parameter in one compiled instrument.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
@@ -27,8 +27,23 @@ impl ParameterHandle {
 pub enum ParameterOwner {
     /// A shared value belonging to a Definition layer.
     Layer { definition_index: usize },
-    /// A value belonging to the per-voice filter.
-    VoiceFilter,
+    /// A value belonging to a layer processor.
+    LayerProcessor {
+        /// Original Definition layer index.
+        definition_index: usize,
+        /// Processor index within the layer chain.
+        processor_index: usize,
+    },
+    /// A value belonging to a voice processor.
+    VoiceProcessor {
+        /// Processor index within the voice chain.
+        processor_index: usize,
+    },
+    /// A value belonging to a global processor.
+    GlobalProcessor {
+        /// Processor index within the global chain.
+        processor_index: usize,
+    },
 }
 
 /// Native unit exposed by the parameter contract.
@@ -148,7 +163,7 @@ pub struct ParameterCatalog {
 
 impl ParameterCatalog {
     pub(crate) fn from_definition(definition: &InstrumentDefinition) -> Self {
-        let mut descriptors = Vec::with_capacity(definition.layers.len() * 3 + 2);
+        let mut descriptors = Vec::with_capacity(definition.layers.len() * 3);
         for (definition_index, layer) in definition.layers.iter().enumerate() {
             descriptors.push(ParameterDescriptor {
                 id: layer_parameter_id(&layer.id, "gain"),
@@ -180,28 +195,33 @@ impl ParameterCatalog {
                 default: layer.tuning_cents,
                 smoothing_seconds: 0.005,
             });
+            for (processor_index, processor) in layer.processors.iter().enumerate() {
+                push_processor_descriptors(
+                    &mut descriptors,
+                    processor,
+                    ParameterOwner::LayerProcessor {
+                        definition_index,
+                        processor_index,
+                    },
+                    &format!("layer.{}.processor", layer.id),
+                );
+            }
         }
-        if let Some(filter) = definition.voice_filter {
-            descriptors.push(ParameterDescriptor {
-                id: "voice.filter.cutoff".to_owned(),
-                owner: ParameterOwner::VoiceFilter,
-                unit: ParameterUnit::Hertz,
-                scale: ParameterScale::Log2,
-                min: 20.0,
-                max: 20_000.0,
-                default: filter.cutoff_hz,
-                smoothing_seconds: 0.010,
-            });
-            descriptors.push(ParameterDescriptor {
-                id: "voice.filter.resonance".to_owned(),
-                owner: ParameterOwner::VoiceFilter,
-                unit: ParameterUnit::Normalized,
-                scale: ParameterScale::Linear,
-                min: 0.0,
-                max: 1.0,
-                default: filter.resonance,
-                smoothing_seconds: 0.010,
-            });
+        for (processor_index, processor) in definition.voice_processors.iter().enumerate() {
+            push_processor_descriptors(
+                &mut descriptors,
+                processor,
+                ParameterOwner::VoiceProcessor { processor_index },
+                "voice.processor",
+            );
+        }
+        for (processor_index, processor) in definition.global_processors.iter().enumerate() {
+            push_processor_descriptors(
+                &mut descriptors,
+                processor,
+                ParameterOwner::GlobalProcessor { processor_index },
+                "global.processor",
+            );
         }
         let descriptors = descriptors.into_boxed_slice();
         let lookup = descriptors
@@ -238,10 +258,152 @@ impl ParameterCatalog {
     }
 }
 
+fn push_processor_descriptors(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    processor: &ProcessorDefinition,
+    owner: ParameterOwner,
+    prefix: &str,
+) {
+    let processor_id = processor.id();
+    let base = format!("{prefix}.{processor_id}");
+    match processor {
+        ProcessorDefinition::Filter(value) => {
+            descriptors.push(ParameterDescriptor {
+                id: format!("{base}.cutoff"),
+                owner,
+                unit: ParameterUnit::Hertz,
+                scale: ParameterScale::Log2,
+                min: 20.0,
+                max: 20_000.0,
+                default: value.cutoff_hz,
+                smoothing_seconds: 0.010,
+            });
+            descriptors.push(ParameterDescriptor {
+                id: format!("{base}.resonance"),
+                owner,
+                unit: ParameterUnit::Normalized,
+                scale: ParameterScale::Linear,
+                min: 0.0,
+                max: 1.0,
+                default: value.resonance,
+                smoothing_seconds: 0.010,
+            });
+        }
+        ProcessorDefinition::Drive(value) => {
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.amount"),
+                owner,
+                value.amount,
+                0.005,
+                1.0,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.005,
+                1.0,
+            );
+        }
+        ProcessorDefinition::Delay(value) => {
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.feedback"),
+                owner,
+                value.feedback,
+                0.010,
+                0.95,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.010,
+                1.0,
+            );
+        }
+        ProcessorDefinition::Reverb(value) => {
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.decay"),
+                owner,
+                value.decay,
+                0.020,
+                0.98,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.damping"),
+                owner,
+                value.damping,
+                0.020,
+                1.0,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.width"),
+                owner,
+                value.width,
+                0.020,
+                1.0,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.020,
+                1.0,
+            );
+        }
+    }
+}
+
+fn push_normalized_descriptor(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    id: String,
+    owner: ParameterOwner,
+    default: f32,
+    smoothing_seconds: f32,
+    max: f32,
+) {
+    descriptors.push(ParameterDescriptor {
+        id,
+        owner,
+        unit: ParameterUnit::Normalized,
+        scale: ParameterScale::Linear,
+        min: 0.0,
+        max,
+        default,
+        smoothing_seconds,
+    });
+}
+
 /// Build a canonical layer parameter identifier.
 #[must_use]
 pub fn layer_parameter_id(layer_id: &str, parameter: &str) -> String {
     format!("layer.{layer_id}.{parameter}")
+}
+
+/// Build a canonical layer processor parameter identifier.
+#[must_use]
+pub fn layer_processor_parameter_id(layer_id: &str, processor_id: &str, parameter: &str) -> String {
+    format!("layer.{layer_id}.processor.{processor_id}.{parameter}")
+}
+
+/// Build a canonical voice processor parameter identifier.
+#[must_use]
+pub fn voice_processor_parameter_id(processor_id: &str, parameter: &str) -> String {
+    format!("voice.processor.{processor_id}.{parameter}")
+}
+
+/// Build a canonical global processor parameter identifier.
+#[must_use]
+pub fn global_processor_parameter_id(processor_id: &str, parameter: &str) -> String {
+    format!("global.processor.{processor_id}.{parameter}")
 }
 
 /// Check the identifier grammar used by Definition components.
@@ -258,16 +420,28 @@ pub fn is_component_id(value: &str) -> bool {
 /// Check the canonical parameter identifier grammar used by modulation routes.
 #[must_use]
 pub fn is_parameter_id(value: &str) -> bool {
-    let mut parts = value.split('.');
-    match (parts.next(), parts.next(), parts.next(), parts.next()) {
-        (Some("layer"), Some(layer_id), Some(parameter), None) => {
-            is_component_id(layer_id) && matches!(parameter, "gain" | "pan" | "tuning")
+    let parts: Vec<_> = value.split('.').collect();
+    match parts.as_slice() {
+        ["layer", layer_id, parameter] => {
+            is_component_id(layer_id) && matches!(*parameter, "gain" | "pan" | "tuning")
         }
-        (Some("voice"), Some("filter"), Some(parameter), None) => {
-            matches!(parameter, "cutoff" | "resonance")
+        ["layer", layer_id, "processor", processor_id, parameter] => {
+            is_component_id(layer_id)
+                && is_component_id(processor_id)
+                && is_processor_parameter(parameter)
+        }
+        ["voice" | "global", "processor", processor_id, parameter] => {
+            is_component_id(processor_id) && is_processor_parameter(parameter)
         }
         _ => false,
     }
+}
+
+fn is_processor_parameter(value: &str) -> bool {
+    matches!(
+        value,
+        "cutoff" | "resonance" | "amount" | "mix" | "feedback" | "decay" | "damping" | "width"
+    )
 }
 
 /// Built-in source identifiers accepted by routes.
@@ -285,12 +459,22 @@ mod tests {
     use crate::definition::tests::definition;
 
     #[test]
-    fn catalog_order_is_definition_order_then_filter() {
+    fn catalog_order_is_definition_order_then_processor_scope() {
         let mut source = definition();
-        source.voice_filter = Some(crate::definition::FilterDefinition {
-            cutoff_hz: 1_000.0,
-            resonance: 0.2,
-        });
+        source.layers[0].processors.push(ProcessorDefinition::Drive(
+            crate::definition::DriveProcessorDefinition {
+                id: "drive".to_owned(),
+                amount: 0.5,
+                mix: 0.5,
+            },
+        ));
+        source.voice_processors.push(ProcessorDefinition::Filter(
+            crate::definition::FilterProcessorDefinition {
+                id: "tone".to_owned(),
+                cutoff_hz: 1_000.0,
+                resonance: 0.2,
+            },
+        ));
         let catalog = ParameterCatalog::from_definition(&source);
         let ids: Vec<_> = catalog
             .parameters()
@@ -303,8 +487,10 @@ mod tests {
                 "layer.body.gain",
                 "layer.body.pan",
                 "layer.body.tuning",
-                "voice.filter.cutoff",
-                "voice.filter.resonance"
+                "layer.body.processor.drive.amount",
+                "layer.body.processor.drive.mix",
+                "voice.processor.tone.cutoff",
+                "voice.processor.tone.resonance"
             ]
         );
     }
@@ -313,7 +499,9 @@ mod tests {
     fn linear_and_logarithmic_mappings_round_trip() {
         let linear = ParameterDescriptor {
             id: "pan".to_owned(),
-            owner: ParameterOwner::VoiceFilter,
+            owner: ParameterOwner::Layer {
+                definition_index: 0,
+            },
             unit: ParameterUnit::Pan,
             scale: ParameterScale::Linear,
             min: -1.0,
@@ -326,7 +514,9 @@ mod tests {
 
         let log = ParameterDescriptor {
             id: "cutoff".to_owned(),
-            owner: ParameterOwner::VoiceFilter,
+            owner: ParameterOwner::Layer {
+                definition_index: 0,
+            },
             unit: ParameterUnit::Hertz,
             scale: ParameterScale::Log2,
             min: 20.0,
@@ -336,6 +526,44 @@ mod tests {
         };
         let normalized = log.normalize(1_000.0).expect("normalizes");
         assert!((log.denormalize(normalized).expect("denormalizes") - 1_000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn feedback_and_decay_descriptors_bound_dynamic_values() {
+        let mut source = definition();
+        source.global_processors = vec![
+            ProcessorDefinition::Delay(crate::definition::DelayProcessorDefinition {
+                id: "echo".to_owned(),
+                time_seconds: 0.25,
+                feedback: 0.5,
+                mix: 0.5,
+            }),
+            ProcessorDefinition::Reverb(crate::definition::ReverbProcessorDefinition {
+                id: "space".to_owned(),
+                pre_delay_seconds: 0.02,
+                decay: 0.5,
+                damping: 0.2,
+                width: 1.0,
+                mix: 0.3,
+            }),
+        ];
+        let catalog = ParameterCatalog::from_definition(&source);
+
+        let delay_feedback = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "global.processor.echo.feedback")
+            .expect("delay feedback descriptor");
+        let reverb_decay = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "global.processor.space.decay")
+            .expect("reverb decay descriptor");
+
+        assert!((delay_feedback.max - 0.95).abs() < f32::EPSILON);
+        assert!((reverb_decay.max - 0.98).abs() < f32::EPSILON);
+        assert!((delay_feedback.denormalize(1.0).expect("delay max") - 0.95).abs() < f32::EPSILON);
+        assert!((reverb_decay.denormalize(1.0).expect("reverb max") - 0.98).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -352,8 +580,10 @@ mod tests {
             "layer.body.gain",
             "layer.attack_2.pan",
             "layer.body.tuning",
-            "voice.filter.cutoff",
-            "voice.filter.resonance",
+            "layer.body.processor.tone.cutoff",
+            "layer.body.processor.tone.resonance",
+            "voice.processor.tone.cutoff",
+            "global.processor.space.mix",
         ] {
             assert!(is_parameter_id(value), "{value} should be valid");
         }
@@ -364,8 +594,8 @@ mod tests {
             "layer.Body.gain",
             "layer.body.unknown",
             "layer..gain",
-            "voice.filter",
-            "voice.filter.cutoff.extra",
+            "voice.processor",
+            "voice.processor.tone.cutoff.extra",
             "voice.Filter.cutoff",
         ] {
             assert!(!is_parameter_id(value), "{value} should be invalid");
