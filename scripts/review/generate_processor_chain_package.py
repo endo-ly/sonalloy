@@ -172,6 +172,12 @@ def empty_value(source: Path) -> dict[str, object]:
     return value
 
 
+def impulse_value(source: Path) -> dict[str, object]:
+    value = empty_value(source)
+    value["layers"] = [value["layers"][0]]
+    return value
+
+
 def write_definition(path: Path, value: dict[str, object]) -> None:
     write_utf8(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
@@ -241,13 +247,13 @@ def main() -> None:
     ]
     variants["global-drive"] = value
 
-    value = empty_value(source)
+    value = impulse_value(source)
     value["global_processors"] = [
         processor("delay", "echo", time_seconds=0.24, feedback=0.34, mix=0.18)
     ]
     variants["delay"] = value
 
-    value = empty_value(source)
+    value = impulse_value(source)
     value["global_processors"] = [
         processor(
             "reverb",

@@ -40,32 +40,6 @@
         }
       },
       "processors": []
-    },
-    {
-      "id": "body",
-      "enabled": true,
-      "trigger": {
-        "key_min": 0,
-        "key_max": 127,
-        "velocity_min": 1,
-        "velocity_max": 127
-      },
-      "gain_db": -17.0,
-      "pan": 0.08,
-      "tuning_cents": 0.0,
-      "envelope": {
-        "attack_seconds": 0.01,
-        "decay_seconds": 0.3,
-        "sustain_level": 0.62,
-        "release_seconds": 0.45
-      },
-      "generator": {
-        "oscillator": {
-          "waveform": "saw",
-          "phase_reset": true
-        }
-      },
-      "processors": []
     }
   ],
   "voice_processors": [],
