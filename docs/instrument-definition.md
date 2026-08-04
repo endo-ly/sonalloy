@@ -49,13 +49,19 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
           "waveform": "saw",
           "phase_reset": true
         }
-      }
+      },
+      "processors": []
     }
   ],
-  "voice_filter": {
-    "cutoff_hz": 12000.0,
-    "resonance": 0.12
-  },
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "cutoff_hz": 12000.0,
+      "resonance": 0.12
+    }
+  ],
+  "global_processors": [],
   "modulation": {
     "sources": [],
     "routes": [
@@ -67,7 +73,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
       },
       {
         "source": "velocity",
-        "target": "voice.filter.cutoff",
+        "target": "voice.processor.tone.cutoff",
         "amount": 0.08,
         "curve": "linear"
       }
@@ -83,22 +89,81 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 | `schema_version` | 1のみ |
 | `layers` | 1個以上。複数のLayerは書かれた順に同じVoiceへMixされます。`enabled`が`false`のLayerはCompile対象外 |
 | `generator` | `oscillator`（`sine` / `saw`）または`sample` |
+| `processors` | Layerごとの直列Processor配列。書かれた順にGeneratorとLayer Mixの間で適用 |
+| `voice_processors` | Voice Mix後に適用する直列Processor配列 |
+| `global_processors` | Voice Sum後にInstrument全体へ適用する直列Processor配列 |
 | `polyphony` | 1〜64 |
 | `gain_db` | -60〜12 dB |
 | `pan` | -1〜1 |
 | `tuning_cents` | -1200〜1200 |
 | Key / Velocity | 0〜127。最小値は最大値以下 |
 | ADSR | Attack / Decay / Releaseは0〜30秒、Sustainは0〜1 |
-| Voice Filter | Cutoff 20〜20000Hz、Resonance 0〜1。CutoffがSample Rateの上限を超える場合はWarningを出して`min(20000, Sample Rate × 0.45)`に制限します |
+| Filter | `cutoff_hz`は20〜20000Hz、`resonance`は0〜1。CutoffがSample Rateの上限を超える場合はWarningを出して`min(20000, Sample Rate × 0.45)`に制限します |
+| Drive | `amount`、`mix`ともに0〜1 |
+| Delay | `time_seconds`は0.001〜2秒、`feedback`、`mix`は0〜1。Globalのみ |
+| Reverb | `pre_delay_seconds`は0〜0.2秒、`decay`は0〜0.98、`damping`、`width`、`mix`は0〜1。Globalのみ |
+| Processor ID | 各Chain内で一意。小文字で始まり、小文字・数字・`_`を使用。`.`は使用しません |
 | Layer / Source ID | 小文字で始まり、小文字・数字・`_`を使用。`.`は使用しません |
 | Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
 | LFO | Rate 0.01〜40Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
-| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`またはFilterがある場合の`voice.filter.(cutoff\|resonance)` |
+| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
 | 未知のField | JSON Parse Errorとして扱います |
-| 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Filter状態、Scratch Buffer |
+| 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Layer / Voice / Global Processor状態、Scratch Buffer |
 
 Validation Errorには`layers[0].envelope.attack_seconds`のようなField Pathが付きます。
+
+## Processor Chain
+
+Processorは配列の順序で直列に適用されます。Processorの種類と配置は固定されており、LayerとVoiceではFilterとDrive、GlobalではFilter、Drive、Delay、Reverbを指定できます。DelayとReverbをLayerまたはVoiceへ置くとValidation Errorになります。
+
+```json
+{
+  "processors": [
+    {
+      "type": "filter",
+      "id": "attack_tone",
+      "cutoff_hz": 9000.0,
+      "resonance": 0.1
+    },
+    {
+      "type": "drive",
+      "id": "attack_drive",
+      "amount": 0.25,
+      "mix": 0.4
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "delay",
+      "id": "echo",
+      "time_seconds": 0.28,
+      "feedback": 0.3,
+      "mix": 0.15
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.012,
+      "decay": 0.6,
+      "damping": 0.35,
+      "width": 1.0,
+      "mix": 0.2
+    }
+  ]
+}
+```
+
+Filterの`cutoff_hz`と`resonance`、Driveの`amount`と`mix`、Delayの`feedback`と`mix`、Reverbの`decay`、`damping`、`width`、`mix`がDynamic Parameterです。Delayの`time_seconds`とReverbの`pre_delay_seconds`、Processorの種類・ID・配置・順序はCompile時に固定されます。
+
+Canonical Parameter IDは次の形式です。
+
+- `layer.<layer_id>.processor.<processor_id>.<parameter>`
+- `voice.processor.<processor_id>.<parameter>`
+- `global.processor.<processor_id>.<parameter>`
+
+Parameter Catalogは、全Layerの基本Parameter、各Layer Processor、Voice Processor、Global Processorの順に並びます。Disabled LayerのCatalog項目もDefinitionの順序を維持します。
 
 ## Sample Layer
 
@@ -197,7 +262,7 @@ Definitionで追加できるSourceは`lfo`、`envelope`、`random`です。LFO�
       },
       {
         "source": "filter_env",
-        "target": "voice.filter.cutoff",
+        "target": "voice.processor.tone.cutoff",
         "amount": 0.2,
         "curve": "smooth_step"
       },
@@ -224,7 +289,7 @@ Compileで一度だけ計算します。
 | cent → 音程比 | `tuning_cents`を再生速度の比へ |
 | ADSRの秒 → Frame数 | Sample Rateに依存するFrame数へ |
 | Filter Cutoff | Sample Rateの上限へ制限 |
-| Parameter Catalog | LayerとFilterの連続Parameterへ安定ID、範囲、Scale、Smoothingを割り当て |
+| Parameter Catalog | LayerとProcessorの連続Parameterへ安定ID、範囲、Scale、Smoothingを割り当て |
 | Modulation | SourceをDense Tableへ、RouteをTarget別の範囲へ変換 |
 
 **ErrorとWarning**

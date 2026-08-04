@@ -39,7 +39,7 @@ Process仕様と実行時の仕組みを提供します。
 | `parameter` | Canonical Parameter ID、Descriptor、Normalize / Denormalize、Catalog |
 | `compiler` | DefinitionからCompiled Instrumentへの変換 |
 | `asset` | SHA-256照合、WAV読み込み、Mono変換、Sample Rate変換 |
-| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Sample、Filter |
+| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Sample、Processor Chain |
 | `render` | Offline Render LoopとEventの供給 |
 | `diagnostics` | 画面表示に依存しないError Code、Severity、Message |
 
@@ -89,4 +89,4 @@ Native関数はNull Handle、引数、Buffer、例外を検査して整数のRes
 - **Compile**：Definitionを、Parameter Catalog、Source Table、Target別Route Tableを確定した変更不能な`CompiledInstrument`へ変換し、Parameter IDをDense Handleへ解決します（`sonalloy-core`が所有します）
 - **Prepare / Process / Reset**：`InstrumentRuntime`の状態を進めます。Scratch BufferとNative HandleはPrepareで確保し、Process中には拡張しません
 
-`CompiledInstrument`はDefinitionのMetadata、Performance、Enabled Layer、Filter、Parameter Catalog、Source、Route、Asset Warningを保持します。Runtimeが持つBase Smoother、External Control、Voice Source、Generator Cursor、Filter StateはCompiled値から作る可変状態で、DefinitionやCompiled Instrumentへ書き戻しません。
+`CompiledInstrument`はDefinitionのMetadata、Performance、Enabled Layer、Layer/Voice/Global Processor Chain、Parameter Catalog、Source、Route、Asset Warningを保持します。Runtimeが持つBase Smoother、External Control、Voice Source、Generator Cursor、Layer/Voice/Global Processor StateはCompiled値から作る可変状態で、DefinitionやCompiled Instrumentへ書き戻しません。

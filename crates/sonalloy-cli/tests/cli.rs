@@ -37,6 +37,16 @@ fn missing_asset_definition() -> std::path::PathBuf {
         .join("../../examples/instruments/metallic-hybrid-missing-asset.json")
 }
 
+fn processed_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/processed-hybrid.json")
+}
+
+fn processed_events() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/events/processed-hybrid.json")
+}
+
 fn positive_zero_crossings(samples: &[f32]) -> usize {
     samples
         .windows(2)
@@ -335,9 +345,11 @@ fn instrument_init_validate_and_inspect_are_available() {
         .stdout(predicates::str::contains("layer.body.gain"))
         .stdout(predicates::str::contains("\"phase_reset\":true"))
         .stdout(predicates::str::contains("\"asset_status\""))
-        .stdout(predicates::str::contains("\"cutoff_default_hz\""))
+        .stdout(predicates::str::contains("\"voice.processor.tone.cutoff\""))
         .stdout(predicates::str::contains("\"effective_max_cutoff_hz\""))
-        .stdout(predicates::str::contains("\"resonance_default\""));
+        .stdout(predicates::str::contains(
+            "\"voice.processor.tone.resonance\"",
+        ));
 }
 
 #[test]
@@ -735,6 +747,74 @@ fn hybrid_midi_render_writes_stereo_audio() {
         .assert()
         .success();
     let mut reader = hound::WavReader::open(output).expect("hybrid WAV");
+    assert_eq!(reader.spec().channels, 2);
+    let samples: Vec<f32> = reader
+        .samples()
+        .map(|sample| sample.expect("finite sample"))
+        .collect();
+    assert!(samples.iter().all(|sample| sample.is_finite()));
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
+fn processed_hybrid_inspects_and_renders_processor_chains() {
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            processed_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success();
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            processed_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("attack_drive"))
+        .stdout(predicates::str::contains("body_tone"))
+        .stdout(predicates::str::contains("voice.processor.tone.cutoff"))
+        .stdout(predicates::str::contains("global.processor.space.mix"))
+        .stdout(predicates::str::contains("time_frames"))
+        .stdout(predicates::str::contains("pre_delay_frames"));
+
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("processed-hybrid.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "events",
+            processed_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            processed_events().to_str().expect("utf-8 event path"),
+            "--duration-frames",
+            "120000",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--tail",
+            "0.5",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+        ])
+        .assert()
+        .success();
+    let mut reader = hound::WavReader::open(output).expect("processed hybrid WAV");
     assert_eq!(reader.spec().channels, 2);
     let samples: Vec<f32> = reader
         .samples()

@@ -66,10 +66,15 @@
       }
     }
   ],
-  "voice_filter": {
-    "cutoff_hz": 1800.0,
-    "resonance": 0.18
-  },
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "cutoff_hz": 1800.0,
+      "resonance": 0.18
+    }
+  ],
+  "global_processors": [],
   "modulation": {
     "sources": [
       {
@@ -108,7 +113,7 @@
       },
       {
         "source": "filter_motion",
-        "target": "voice.filter.cutoff",
+        "target": "voice.processor.tone.cutoff",
         "amount": 0.18,
         "curve": "smooth_step"
       },
@@ -120,13 +125,13 @@
       },
       {
         "source": "key_tracking",
-        "target": "voice.filter.cutoff",
+        "target": "voice.processor.tone.cutoff",
         "amount": 0.08,
         "curve": "linear"
       },
       {
         "source": "mod_wheel",
-        "target": "voice.filter.cutoff",
+        "target": "voice.processor.tone.cutoff",
         "amount": 0.12,
         "curve": "linear"
       },

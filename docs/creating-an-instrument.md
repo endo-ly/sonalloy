@@ -21,7 +21,7 @@
 | Step | 内容 | 使うコマンド |
 |---|---|---|
 | 1 | ひな形の生成（新規の場合のみ） | `instrument init` |
-| 2 | 音色の編集（Layer、ADSR、Filterなど） | エディタでJSONを編集 |
+| 2 | 音色の編集（Layer、ADSR、Processorなど） | エディタでJSONを編集 |
 | 3 | 検証 | `instrument validate` / `instrument inspect` |
 | 4 | 自作WAVをSampleとして組み込み | SHA-256計算 → JSON編集 |
 | 5 | 試聴 | `render note` / `render midi` |
@@ -35,7 +35,7 @@
 sonalloy instrument init my-instrument.json
 ```
 
-生成されるJSONは、Polyphony 16、ADSR `0.005 / 0.18 / 0.65 / 0.3`、Gain `-14 dB`、Filter `12000 Hz / 0.12`のBasic Poly Synth型です。これを土台に音色を編集していきます。既存音源（`examples/instruments/`）のコピーから始めても構いません。
+生成されるJSONは、Polyphony 16、ADSR `0.005 / 0.18 / 0.65 / 0.3`、Gain `-14 dB`、Voice ProcessorのFilter `12000 Hz / 0.12`を持つBasic Poly Synth型です。これを土台に音色を編集していきます。既存音源（`examples/instruments/`）のコピーから始めても構いません。
 
 ## Step 2. 音色を編集する
 
@@ -47,9 +47,9 @@ sonalloy instrument init my-instrument.json
 Note On
   │
   ▼
-Layer 1（Oscillator）→ ADSR → Layer Gain → Pan ─┐
-                                                  ├→ Voice Filter → ステレオ出力
-Layer 2（Sample）    → ADSR → Layer Gain → Pan ─┘
+Layer 1（Oscillator）→ Layer Processor → ADSR → Layer Gain → Pan ─┐
+                                                  ├→ Voice Processor → Global Processor → ステレオ出力
+Layer 2（Sample）    → Layer Processor → ADSR → Layer Gain → Pan ─┘
 ```
 
 - Layerごとに**独立したADSR**と**Gain / Pan / Tuning**を持ちます。
@@ -86,8 +86,10 @@ Level
 | `gain_db` | Layerの音量（-60〜12 dB） | Sampleを複数重ねる場合は重なり分を下げる |
 | `pan` | 左右位置（-1 = 左、0 = 中央、1 = 右） | Constant-powerで自然に定位する |
 | `tuning_cents` | 半音の100分の1単位の音程調整 | -1200〜1200 |
-| `voice_filter` | 全Layer Mix後のLow-pass Filter | `cutoff_hz`（20〜20000）と`resonance`（0〜1） |
-| `modulation` | Velocity、LFO、Envelope、RandomなどのSourceをTargetへ接続 | `routes`でLayer Gain、Pan、Tuning、Filterへ反映 |
+| `processors` | LayerのGenerator後に直列適用するFilterまたはDrive | 配列順に適用 |
+| `voice_processors` | 全Layer Mix後に直列適用するFilterまたはDrive | `cutoff_hz`、`resonance`、`amount`、`mix` |
+| `global_processors` | Voice Sum後にInstrument全体へ適用するFilter、Drive、Delay、Reverb | Delay/ReverbのTailを保持 |
+| `modulation` | Velocity、LFO、Envelope、RandomなどのSourceをTargetへ接続 | `routes`でLayer、ProcessorのDynamic Parameterへ反映 |
 
 打鍵の強さや発音中の変化を設定する場合は、`modulation.sources`へSourceを定義し、`modulation.routes`でTargetへ接続します。VelocityとKey Trackingは組み込みSourceなので、Source定義なしで参照できます。詳細なID、Range、Curveは[`docs/instrument-definition.md`](instrument-definition.md)を参照してください。
 
@@ -95,7 +97,7 @@ Level
 "modulation": {
   "routes": [
     { "source": "velocity", "target": "layer.main.gain", "amount": 0.08, "curve": "linear" },
-    { "source": "lfo", "target": "voice.filter.cutoff", "amount": 0.18, "curve": "linear" }
+    { "source": "lfo", "target": "voice.processor.tone.cutoff", "amount": 0.18, "curve": "linear" }
   ],
   "sources": [
     { "id": "lfo", "type": "lfo", "waveform": "sine", "rate_hz": 0.5, "phase": 0.0 }

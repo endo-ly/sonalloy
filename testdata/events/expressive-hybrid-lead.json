@@ -10,7 +10,7 @@
     {
       "absolute_frame": 12000,
       "type": "parameter_change",
-      "parameter": "voice.filter.cutoff",
+      "parameter": "voice.processor.tone.cutoff",
       "normalized": 0.62
     },
     {

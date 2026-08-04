@@ -32,6 +32,15 @@ pub enum DiagnosticCode {
     /// A layer identifier is duplicated.
     #[serde(rename = "ID_DUPLICATED")]
     IdDuplicated,
+    /// A processor identifier has invalid syntax.
+    #[serde(rename = "PROCESSOR_ID_INVALID")]
+    ProcessorIdInvalid,
+    /// A processor identifier is duplicated within one chain.
+    #[serde(rename = "PROCESSOR_ID_DUPLICATED")]
+    ProcessorIdDuplicated,
+    /// A processor is placed outside its supported pipeline position.
+    #[serde(rename = "PROCESSOR_PLACEMENT_INVALID")]
+    ProcessorPlacementInvalid,
     /// Invalid process or render request.
     #[serde(rename = "VALUE_OUT_OF_RANGE")]
     ValueOutOfRange,
@@ -62,6 +71,9 @@ pub enum DiagnosticCode {
     /// A route target is invalid or unsupported.
     #[serde(rename = "ROUTE_TARGET_INVALID")]
     RouteTargetInvalid,
+    /// A route uses a source scope that is not valid for its processor target.
+    #[serde(rename = "GLOBAL_ROUTE_SCOPE_INVALID")]
+    GlobalRouteScopeInvalid,
     /// A generator is not supported by this build.
     #[serde(rename = "GENERATOR_UNSUPPORTED")]
     GeneratorUnsupported,

@@ -11,8 +11,9 @@ use sonalloy_core::{
     InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition,
     ModulationCurve, OscillatorDefinition, OscillatorWaveform, ParameterHandle, ParameterOwner,
     ParameterScale, ParameterUnit, PerformanceDefinition, ProcessEventKind, ProcessSpec,
-    RenderError, RenderRequest, ScheduledEvent, VoiceStealingDefinition, backend_info,
-    compile_instrument, from_render_error, render_instrument, render_sine, seconds_to_frames,
+    ProcessorDefinition, RenderError, RenderRequest, ScheduledEvent, VoiceStealingDefinition,
+    backend_info, compile_instrument, from_render_error, render_instrument, render_sine,
+    seconds_to_frames,
 };
 
 use crate::midi::read_midi;
@@ -230,7 +231,8 @@ struct InspectReport {
     voice_stealing: &'static str,
     layer_count: usize,
     layers: Vec<InspectLayer>,
-    voice_filter: Option<InspectFilter>,
+    voice_processors: Vec<InspectProcessor>,
+    global_processors: Vec<InspectProcessor>,
     parameters: Vec<InspectParameter>,
     sources: Vec<InspectSource>,
     routes: Vec<InspectRoute>,
@@ -258,6 +260,7 @@ struct InspectLayer {
     tuning_cents: f32,
     tuning_ratio: f32,
     envelope: InspectEnvelope,
+    processors: Vec<InspectProcessor>,
 }
 
 #[derive(Debug, Serialize)]
@@ -298,10 +301,30 @@ struct InspectEnvelope {
 }
 
 #[derive(Debug, Serialize)]
-struct InspectFilter {
-    cutoff_default_hz: f32,
-    effective_max_cutoff_hz: f32,
-    resonance_default: f32,
+struct InspectProcessor {
+    placement: &'static str,
+    chain_index: usize,
+    id: String,
+    kind: &'static str,
+    static_fields: Vec<InspectStaticField>,
+    parameters: Vec<InspectProcessorParameter>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectStaticField {
+    id: &'static str,
+    value: f32,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectProcessorParameter {
+    id: String,
+    unit: ParameterUnit,
+    min: f32,
+    max: f32,
+    default: f32,
+    scale: ParameterScale,
+    smoothing_seconds: f32,
 }
 
 #[derive(Debug, Serialize)]
@@ -1050,11 +1073,16 @@ fn default_definition() -> InstrumentDefinition {
                 waveform: OscillatorWaveform::Saw,
                 phase_reset: true,
             }),
+            processors: Vec::new(),
         }],
-        voice_filter: Some(sonalloy_core::FilterDefinition {
-            cutoff_hz: 12_000.0,
-            resonance: 0.12,
-        }),
+        voice_processors: vec![ProcessorDefinition::Filter(
+            sonalloy_core::FilterProcessorDefinition {
+                id: "tone".to_owned(),
+                cutoff_hz: 12_000.0,
+                resonance: 0.12,
+            },
+        )],
+        global_processors: Vec::new(),
         modulation: None,
     }
 }
@@ -1064,6 +1092,69 @@ fn parameter_default(compiled: &CompiledInstrument, handle: ParameterHandle) -> 
         .parameter_descriptor(handle)
         .expect("compiled parameter handle must be valid")
         .default
+}
+
+fn inspect_processor(
+    compiled: &CompiledInstrument,
+    processor: &sonalloy_core::compiler::CompiledProcessor,
+    placement: &'static str,
+    chain_index: usize,
+) -> InspectProcessor {
+    let (kind, static_fields, handles) = match &processor.processor {
+        sonalloy_core::compiler::CompiledProcessorKind::Filter(value) => (
+            "filter",
+            vec![InspectStaticField {
+                id: "effective_max_cutoff_hz",
+                value: value.effective_max_cutoff_hz,
+            }],
+            vec![value.parameters.cutoff, value.parameters.resonance],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Drive(value) => {
+            ("drive", Vec::new(), vec![value.amount, value.mix])
+        }
+        sonalloy_core::compiler::CompiledProcessorKind::Delay(value) => (
+            "delay",
+            vec![InspectStaticField {
+                id: "time_frames",
+                #[allow(clippy::cast_precision_loss)]
+                value: value.delay_frames as f32,
+            }],
+            vec![value.feedback, value.mix],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Reverb(value) => (
+            "reverb",
+            vec![InspectStaticField {
+                id: "pre_delay_frames",
+                #[allow(clippy::cast_precision_loss)]
+                value: value.pre_delay_frames as f32,
+            }],
+            vec![value.decay, value.damping, value.width, value.mix],
+        ),
+    };
+    InspectProcessor {
+        placement,
+        chain_index,
+        id: processor.id.clone(),
+        kind,
+        static_fields,
+        parameters: handles
+            .into_iter()
+            .map(|handle| {
+                let descriptor = compiled
+                    .parameter_descriptor(handle)
+                    .expect("processor parameter handle must be valid");
+                InspectProcessorParameter {
+                    id: descriptor.id.clone(),
+                    unit: descriptor.unit,
+                    min: descriptor.min,
+                    max: descriptor.max,
+                    default: descriptor.default,
+                    scale: descriptor.scale,
+                    smoothing_seconds: descriptor.smoothing_seconds,
+                }
+            })
+            .collect(),
+    }
 }
 
 fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSource {
@@ -1232,6 +1323,14 @@ fn make_inspect_report(
                     sustain_level: layer.envelope.sustain_level,
                     release_samples: layer.envelope.release_samples,
                 },
+                processors: layer
+                    .processors
+                    .iter()
+                    .enumerate()
+                    .map(|(index, processor)| {
+                        inspect_processor(compiled, processor, "layer", index)
+                    })
+                    .collect(),
             }
         })
         .collect::<Vec<_>>();
@@ -1278,11 +1377,18 @@ fn make_inspect_report(
         },
         layer_count: layers.len(),
         layers,
-        voice_filter: compiled.voice_filter.map(|filter| InspectFilter {
-            cutoff_default_hz: parameter_default(compiled, filter.parameters.cutoff),
-            effective_max_cutoff_hz: filter.effective_max_cutoff_hz,
-            resonance_default: parameter_default(compiled, filter.parameters.resonance),
-        }),
+        voice_processors: compiled
+            .voice_processors
+            .iter()
+            .enumerate()
+            .map(|(index, processor)| inspect_processor(compiled, processor, "voice", index))
+            .collect(),
+        global_processors: compiled
+            .global_processors
+            .iter()
+            .enumerate()
+            .map(|(index, processor)| inspect_processor(compiled, processor, "global", index))
+            .collect(),
         parameters: compiled
             .parameters()
             .iter()
@@ -1378,17 +1484,10 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
             layer.envelope.sustain_level,
             layer.envelope.release_samples
         );
+        print_processors(compiled, &layer.processors, "layer", &layer.id);
     }
-    if let Some(filter) = compiled.voice_filter {
-        println!(
-            "voice filter: cutoff default {:.2} Hz effective max {:.2} Hz resonance default {:.3}",
-            parameter_default(compiled, filter.parameters.cutoff),
-            filter.effective_max_cutoff_hz,
-            parameter_default(compiled, filter.parameters.resonance),
-        );
-    } else {
-        println!("voice filter: none");
-    }
+    print_processors(compiled, &compiled.voice_processors, "voice", "voice");
+    print_processors(compiled, &compiled.global_processors, "global", "global");
     for parameter in compiled.parameters() {
         println!("parameter {}:", parameter.id);
         println!("  owner: {:?}", parameter.owner);
@@ -1424,6 +1523,32 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
         );
     }
     print_warnings(diagnostics);
+}
+
+fn print_processors(
+    compiled: &CompiledInstrument,
+    processors: &[sonalloy_core::compiler::CompiledProcessor],
+    placement: &'static str,
+    owner: &str,
+) {
+    if processors.is_empty() {
+        println!("{placement} processors ({owner}): none");
+        return;
+    }
+    println!("{placement} processors ({owner}):");
+    for (index, processor) in processors.iter().enumerate() {
+        let report = inspect_processor(compiled, processor, placement, index);
+        println!(
+            "  processor[{}] {} ({})",
+            report.chain_index, report.id, report.kind
+        );
+        for field in report.static_fields {
+            println!("    {}: {:.3}", field.id, field.value);
+        }
+        for parameter in report.parameters {
+            println!("    parameter {}", parameter.id);
+        }
+    }
 }
 
 fn write_wav(path: &Path, audio: &sonalloy_core::RenderedAudio) -> Result<(), Diagnostic> {

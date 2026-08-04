@@ -76,35 +76,41 @@ stateDiagram-v2
 
 ## Voiceの中身
 
-Voiceは複数のLayer、Voice Source State、左右独立のFilterを持ちます。Layerは「Generator + ADSR + Gain + Pan」のセットで、Trigger条件に合ったLayerだけが鳴ります。Base ParameterとInstrument ScopeのExternal Controlは全Voiceで共有し、LFO、Modulation Envelope、RandomはVoiceごとに保持します。
+Voiceは複数のLayer、Voice Source State、Layer Processor Chain、Voice Processor Chainを持ちます。Layerは「Generator + Layer Processor Chain + ADSR + Gain + Pan」のセットで、Trigger条件に合ったLayerだけが鳴ります。Base ParameterとInstrument ScopeのExternal Controlは全Voiceで共有し、LFO、Modulation Envelope、RandomはVoiceごとに保持します。Global Processor ChainはInstrument Runtimeが一つだけ所有します。
 
 ```mermaid
 flowchart TD
-    G[Generator] --> E[ADSR]
+    G[Generator] --> LP[Layer Processor Chain]
+    LP --> E[ADSR]
     E --> A[Gain]
     A --> P[Pan]
     P --> M[Layerの出力をすべて合成]
-    M --> F[Voice Filter 左右独立]
-    F --> O[Stereo出力]
+    M --> VP[Voice Processor Chain 左右独立]
+    VP --> V[Voice Sum]
+    V --> GP[Global Processor Chain]
+    GP --> O[Stereo出力]
     S[Voice Source] --> T[Route評価]
     X[Shared Base / External Control] --> T
     T --> A
     T --> P
     T --> G
-    T --> F
+    T --> LP
+    T --> VP
+    T --> GP
 ```
 
 - **ADSR**：Note OnでAttackから始まり、Decayを経てSustainで待ちます。Note Offで現在の値からReleaseへ進みます。長さ0の区間は飛ばします
 - **Gain**：Base値とRouteをdB Domainで加算し、RangeへClampした後にLinear Gainへ変換します。Note開始Fade、Amplitude ADSR、Dynamic Gainを順に乗算します
 - **Pan**：Constant-powerで左右へ振り分けます
 - **Tuning**：Base値とRouteをcentで加算し、OscillatorのFrequencyまたはSampleのPlayback Ratioへ変換します
-- **Filter**：CutoffはLog2、ResonanceはLinearで評価して10msで滑らかに変化させます。`voice_filter`が無ければかけません
+- **Processor**：FilterはCutoffをLog2、ResonanceをLinearで評価して10msで滑らかに変化させます。Drive、Delay、ReverbのDynamic ParameterはDefinitionのTarget範囲でSmoothingします。Layer ProcessorはGenerator後、Voice ProcessorはLayer Mix後、Global ProcessorはVoice Sum後に適用します
+- **Global Tail**：Global DelayとReverbはActive Voiceがなくても毎Block処理されます。Note LifecycleやVoice StealingではGlobal ProcessorのStateを停止・初期化しません
 
 ## ParameterとModulation
 
 Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを持ちます。Process側はCatalogのDense Handleだけを使い、ID文字列を音声処理へ渡しません。
 
-- Base ParameterはNormalized値をSmootherへ入れ、5ms（Filterは10ms）でTargetへ近づけます
+- Base ParameterはNormalized値をSmootherへ入れ、5ms（Filterは10ms、DelayとReverbはProcessor種別に応じた固定値）でTargetへ近づけます
 - Routeは同じTargetについて書かれた順にSource値へAmountを掛けて加算します。Linear ParameterはNative範囲、Log2 ParameterはLog2範囲で加算し、最後にClampします
 - Shared Parameter Spanは最大32Frame単位で全Voiceへ同じ値を渡します。Voice SourceはVoiceごとにSpanを計算します
 - `velocity`、`key_tracking`、LFO、Modulation Envelope、RandomはVoiceに属します。Pitch Bend、Mod Wheel、Aftertouchは共有External Controlです
@@ -128,7 +134,7 @@ SampleはCompile時に読み込み済みで、全Voiceで共有します。Voice
 ## 準備とリセット
 
 - **Prepare**：Polyphony数分のVoiceを作り、Scratch BufferとNative Handleを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、Oscillatorの位相、SampleのCursor、ADSR、Voice Source、Base Parameter、External Control、Filter、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- **Reset**：全Voice、Oscillatorの位相、SampleのCursor、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 
@@ -148,7 +154,7 @@ SampleはCompile時に読み込み済みで、全Voiceで共有します。Voice
 **エラー時の扱い**
 
 - 不正な入力や位置のずれ（Context不一致）はエラーにし、そのBlockの出力は無音にします
-- Native側の失敗は`ProcessError::DspFailure`へ変換します
+- Native側の失敗は`ProcessError::DspFailure`、Rust Processor側の失敗は`ProcessError::ProcessorFailure`へ変換します
 - エラーとExit Codeの対応は`docs/cli.md`を参照してください
 
 ## 書き出し（Offline Render）

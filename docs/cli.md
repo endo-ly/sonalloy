@@ -59,7 +59,7 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Sample | Asset Path、Root Note、Playback Mode、Interpolation、Source Metadata、Prepared Frame数 |
 | Parameter | Canonical ID、Owner、Unit、Range、Default、Scale、Smoothing |
 | Modulation | Source ID、Source種類、Scope、Target、Amount、Curve |
-| Voice処理 | Voice FilterのParameter DefaultとDSP適用上限 |
+| Processor | Layer、Voice、Globalの配置、Chain順、ID、Static Field、Dynamic Parameter |
 | Warning | Compile時の警告一覧 |
 
 ```bash
@@ -68,7 +68,7 @@ sonalloy instrument inspect <definition> --json
 ```
 
 `inspect`のParameter IDはCompiled Catalogから取得したCanonical IDです。RouteのSource ID、Target ID、設定値もCompiled Instrumentの内容をそのまま表示します。
-Voice Filterは`cutoff_default_hz`、`effective_max_cutoff_hz`、`resonance_default`として、ParameterのDefaultとSample Rateに応じたDSP適用上限を分けて表示します。
+ProcessorはChainごとに`placement`、`chain_index`、`id`、`kind`、Static Field、Parameter Descriptorを表示します。FilterはParameterのDefaultとSample Rateに応じたDSP適用上限をStatic Fieldへ表示します。DelayのTimeとReverbのPre-delayはStatic Fieldです。
 
 ## `render` Command
 
@@ -113,7 +113,7 @@ Event Fileの例です。
     {
       "absolute_frame": 0,
       "type": "parameter_change",
-      "parameter": "voice.filter.cutoff",
+      "parameter": "voice.processor.tone.cutoff",
       "normalized": 0.35
     },
     {

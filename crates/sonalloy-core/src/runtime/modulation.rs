@@ -1,4 +1,7 @@
+use crate::compiler::{CompiledLayer, CompiledProcessor, CompiledProcessorKind};
 use crate::parameter::ParameterHandle;
+
+use super::processor::ProcessorTargetSpan;
 
 /// A value that changes linearly over one render span.
 #[derive(Debug, Clone, Copy)]
@@ -116,21 +119,15 @@ pub(crate) struct LayerTargetSpan {
     pub(crate) tuning: ValueSpan,
 }
 
-/// Voice filter target values after base values and routes have been evaluated.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct FilterTargetSpan {
-    pub(crate) cutoff: ValueSpan,
-    pub(crate) resonance: ValueSpan,
-}
-
 /// Reusable target scratch owned by one voice.
 pub(crate) struct VoiceTargetScratch {
     pub(crate) layers: Vec<LayerTargetSpan>,
-    pub(crate) filter: Option<FilterTargetSpan>,
+    pub(crate) layer_processors: Vec<Vec<ProcessorTargetSpan>>,
+    pub(crate) voice_processors: Vec<ProcessorTargetSpan>,
 }
 
 impl VoiceTargetScratch {
-    pub(crate) fn new(layer_count: usize, has_filter: bool) -> Self {
+    pub(crate) fn new(layers: &[CompiledLayer], voice_processors: &[CompiledProcessor]) -> Self {
         let zero = ValueSpan {
             start: 0.0,
             end: 0.0,
@@ -143,12 +140,40 @@ impl VoiceTargetScratch {
                     pan_right: zero,
                     tuning: zero,
                 };
-                layer_count
+                layers.len()
             ],
-            filter: has_filter.then_some(FilterTargetSpan {
-                cutoff: zero,
-                resonance: zero,
-            }),
+            layer_processors: layers
+                .iter()
+                .map(|layer| layer.processors.iter().map(zero_processor_target).collect())
+                .collect(),
+            voice_processors: voice_processors.iter().map(zero_processor_target).collect(),
         }
+    }
+}
+
+fn zero_processor_target(processor: &CompiledProcessor) -> ProcessorTargetSpan {
+    let zero = ValueSpan {
+        start: 0.0,
+        end: 0.0,
+    };
+    match &processor.processor {
+        CompiledProcessorKind::Filter(_) => ProcessorTargetSpan::Filter {
+            cutoff: zero,
+            resonance: zero,
+        },
+        CompiledProcessorKind::Drive(_) => ProcessorTargetSpan::Drive {
+            amount: zero,
+            mix: zero,
+        },
+        CompiledProcessorKind::Delay(_) => ProcessorTargetSpan::Delay {
+            feedback: zero,
+            mix: zero,
+        },
+        CompiledProcessorKind::Reverb(_) => ProcessorTargetSpan::Reverb {
+            decay: zero,
+            damping: zero,
+            width: zero,
+            mix: zero,
+        },
     }
 }

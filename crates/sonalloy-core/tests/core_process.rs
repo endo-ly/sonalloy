@@ -181,9 +181,9 @@ fn moving_hybrid_routes_cover_the_reference_signal_paths() {
         ("voice_pan", "layer.attack.pan"),
         ("filter_motion", "layer.attack.pan"),
         ("pitch_motion", "layer.body.tuning"),
-        ("filter_motion", "voice.filter.cutoff"),
-        ("key_tracking", "voice.filter.cutoff"),
-        ("mod_wheel", "voice.filter.cutoff"),
+        ("filter_motion", "voice.processor.tone.cutoff"),
+        ("key_tracking", "voice.processor.tone.cutoff"),
+        ("mod_wheel", "voice.processor.tone.cutoff"),
     ] {
         assert!(
             routes
@@ -320,7 +320,7 @@ fn render_expressive_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
             absolute_frame: 12_000,
             kind: ProcessEventKind::ParameterChange {
                 parameter: instrument
-                    .parameter_handle("voice.filter.cutoff")
+                    .parameter_handle("voice.processor.tone.cutoff")
                     .expect("filter cutoff parameter exists"),
                 normalized: 0.62,
             },
@@ -489,6 +489,81 @@ fn hybrid_definition() -> InstrumentDefinition {
         .join("../../examples/instruments/metallic-hybrid.json");
     serde_json::from_str(&std::fs::read_to_string(path).expect("hybrid Definition exists"))
         .expect("hybrid Definition parses")
+}
+
+fn processed_hybrid_definition() -> InstrumentDefinition {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/processed-hybrid.json");
+    serde_json::from_str(&std::fs::read_to_string(path).expect("processed hybrid exists"))
+        .expect("processed hybrid parses")
+}
+
+#[test]
+fn processed_hybrid_compiles_all_processor_scopes_and_keeps_a_global_tail() {
+    let definition = processed_hybrid_definition();
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    let instrument = result.instrument.expect("processed hybrid compiles");
+
+    assert_eq!(instrument.layers[0].processors.len(), 2);
+    assert_eq!(instrument.layers[1].processors.len(), 2);
+    assert_eq!(instrument.voice_processors.len(), 2);
+    assert_eq!(instrument.global_processors.len(), 2);
+    assert!(
+        instrument
+            .parameter_handle("layer.body.processor.body_drive.amount")
+            .is_some()
+    );
+    assert!(
+        instrument
+            .parameter_handle("global.processor.space.mix")
+            .is_some()
+    );
+
+    let audio = render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 96_000,
+            tail_frames: 48_000,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 112,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 48_000,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ],
+    )
+    .expect("processed hybrid render succeeds");
+
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert!(audio.channels[0].iter().any(|sample| sample.abs() > 0.01));
+    assert!(
+        audio.channels[0][96_000..]
+            .iter()
+            .any(|sample| sample.abs() > 1.0e-6)
+    );
 }
 
 #[test]
