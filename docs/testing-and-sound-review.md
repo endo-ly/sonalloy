@@ -97,4 +97,13 @@ flowchart LR
 - Metrics：Finite性、Peak / RMS / DC、Delay Echo位置、Delay Echo Energy、Reverb Tail、Stereo差分、Block Size差分、Reset差分、Baseline差分
 - 人間の確認：Layer単位の作用範囲、Driveの質感とAliasing、Delayの間隔・Feedback・定位、Reverbの初期反射・Tail・Damping・Width、Processed Hybridの原音とのバランス、曲での実用性
 
+### Basic Generator
+
+- 保存先：`review-output/basic-generators/`（audio/technical / definitions / events / metrics.json / review-summary.md）
+- 生成：`python scripts/review/generate_basic_generators_package.py`
+- 内容：Band-limited Square / Triangle / Pulse、Pulse Width、既存LFOによるPWM、White / Pink / Brown Noise、Stereo Correlation、Resetを同じDefinitionと固定Eventから確認する
+- Metrics：Finite性、Peak / RMS / DC、推定周波数、隣接Frame差分、固定長Spectrum、Sample Rate 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024での出力比較、Reset再現性
+- 人間の確認：波形間の音色差、高音域のAlias、Pulse Widthの差、PWMのClick、Noise色の差と周期性、Brownの低域偏り、Stereo Correlationの幅、Reset後のNoise冒頭
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
 試聴の際は同じ再生環境・音量で比較し、確認結果を`review-summary.md`へ記録します。

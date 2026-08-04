@@ -80,10 +80,10 @@ Voiceは複数のLayer、Voice Source State、Layer Processor Chain、Voice Proc
 
 ```mermaid
 flowchart TD
-    G[Generator] --> LP[Layer Processor Chain]
+    G[Generator Mono or Stereo] --> LP[Matching Layer Processor Chain]
     LP --> E[ADSR]
     E --> A[Gain]
-    A --> P[Pan]
+    A --> P[Pan or Stereo Balance]
     P --> M[Layerの出力をすべて合成]
     M --> VP[Voice Processor Chain 左右独立]
     VP --> V[Voice Sum]
@@ -103,7 +103,7 @@ flowchart TD
 - **Gain**：Base値とRouteをdB Domainで加算し、RangeへClampした後にLinear Gainへ変換します。Note開始Fade、Amplitude ADSR、Dynamic Gainを順に乗算します
 - **Pan**：Constant-powerで左右へ振り分けます
 - **Tuning**：Base値とRouteをcentで加算し、OscillatorのFrequencyまたはSampleのPlayback Ratioへ変換します
-- **Processor**：FilterはCutoffをLog2、ResonanceをLinearで評価して10msで滑らかに変化させます。Drive、Delay、ReverbのDynamic ParameterはDefinitionのTarget範囲でSmoothingします。Layer ProcessorはGenerator後、Voice ProcessorはLayer Mix後、Global ProcessorはVoice Sum後に適用します
+- **Processor**：FilterはCutoffをLog2、ResonanceをLinearで評価して10msで滑らかに変化させます。Drive、Delay、ReverbのDynamic ParameterはDefinitionのTarget範囲でSmoothingします。Layer ProcessorはGenerator後、Voice ProcessorはLayer Mix後、Global ProcessorはVoice Sum後に適用します。Stereo GeneratorのLayer Filter / Driveは左右のStateを個別に持ちます
 - **Global Tail**：Global DelayとReverbはActive Voiceがなくても毎Block処理されます。Note LifecycleやVoice StealingではGlobal ProcessorのStateを停止・初期化しません
 
 ## ParameterとModulation
@@ -119,7 +119,8 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 
 **Generatorの種類**
 
-- **Oscillator**：Note番号とTuningから周波数を決め、Sine / Sawを生成します。`phase_reset`が有効ならNoteごとに位相を先頭へ戻します
+- **Oscillator**：Note番号とTuningから周波数を決め、Sine / Saw / Square / Triangle / Pulseを生成します。`phase_reset`が有効ならNoteごとにCompiled Initial Phaseへ戻します。Pulse Widthは5msでSmoothingし、既存Modulationから制御できます
+- **Noise**：White / Pink / Brownを決定的なPRNG Streamから生成します。Shared、Left Independent、Right Independentの3 Streamを持ち、Correlationを`√correlation`と`√(1-correlation)`でMixして常にStereoで出力します
 - **Sample**：後述のSample再生を使います。Compileで無効になったLayerは鳴りません
 
 ## Sampleの再生
@@ -134,7 +135,7 @@ SampleはCompile時に読み込み済みで、全Voiceで共有します。Voice
 ## 準備とリセット
 
 - **Prepare**：Polyphony数分のVoiceを作り、Scratch BufferとNative Handleを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、Oscillatorの位相、SampleのCursor、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- **Reset**：全Voice、Oscillatorの位相、Noise Stream、SampleのCursor、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 

@@ -276,6 +276,16 @@ struct InspectGenerator {
     kind: &'static str,
     waveform: &'static str,
     phase_reset: bool,
+    phase: f32,
+    output_mode: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pulse_width: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    noise_color: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    noise_seed: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    noise_correlation_parameter: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     asset_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1072,6 +1082,7 @@ fn default_definition() -> InstrumentDefinition {
             generator: sonalloy_core::GeneratorDefinition::Oscillator(OscillatorDefinition {
                 waveform: OscillatorWaveform::Saw,
                 phase_reset: true,
+                phase: 0.0,
             }),
             processors: Vec::new(),
         }],
@@ -1263,8 +1274,23 @@ fn make_inspect_report(
                         waveform: match oscillator.waveform {
                             OscillatorWaveform::Sine => "sine",
                             OscillatorWaveform::Saw => "saw",
+                            OscillatorWaveform::Square => "square",
+                            OscillatorWaveform::Triangle => "triangle",
+                            OscillatorWaveform::Pulse { .. } => "pulse",
                         },
                         phase_reset: oscillator.phase_reset,
+                        phase: oscillator.phase,
+                        output_mode: match oscillator.output_mode {
+                            sonalloy_core::compiler::GeneratorOutputMode::Mono => "mono",
+                            sonalloy_core::compiler::GeneratorOutputMode::Stereo => "stereo",
+                        },
+                        pulse_width: oscillator
+                            .parameters
+                            .pulse_width
+                            .map(|handle| parameter_default(compiled, handle)),
+                        noise_color: None,
+                        noise_seed: None,
+                        noise_correlation_parameter: None,
                         asset_path: None,
                         root_note: None,
                         playback_mode: None,
@@ -1275,6 +1301,33 @@ fn make_inspect_report(
                     },
                     "not_applicable (oscillator-only instrument)",
                 ),
+                sonalloy_core::compiler::CompiledGenerator::Noise(noise) => (
+                    InspectGenerator {
+                        kind: "noise",
+                        waveform: "none",
+                        phase_reset: false,
+                        phase: 0.0,
+                        output_mode: "stereo",
+                        pulse_width: None,
+                        noise_color: Some(match noise.color {
+                            sonalloy_core::NoiseColor::White => "white",
+                            sonalloy_core::NoiseColor::Pink => "pink",
+                            sonalloy_core::NoiseColor::Brown => "brown",
+                        }),
+                        noise_seed: Some(noise.seed),
+                        noise_correlation_parameter: compiled
+                            .parameter_descriptor(noise.correlation)
+                            .map(|parameter| parameter.id.clone()),
+                        asset_path: None,
+                        root_note: None,
+                        playback_mode: None,
+                        interpolation: None,
+                        source_sample_rate: None,
+                        source_channels: None,
+                        prepared_frames: None,
+                    },
+                    "not_applicable (noise)",
+                ),
                 sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
                     let metadata = sample.source.as_ref().map(|source| &source.source_metadata);
                     (
@@ -1282,6 +1335,12 @@ fn make_inspect_report(
                             kind: "sample",
                             waveform: "none",
                             phase_reset: false,
+                            phase: 0.0,
+                            output_mode: "mono",
+                            pulse_width: None,
+                            noise_color: None,
+                            noise_seed: None,
+                            noise_correlation_parameter: None,
                             asset_path: Some(sample.asset_path.clone()),
                             root_note: Some(sample.root_note),
                             playback_mode: Some("one_shot"),
@@ -1426,20 +1485,45 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
         let asset_status = match &layer.generator {
             sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => {
                 println!(
-                    "layer {}: enabled true generator oscillator/{} phase_reset {}",
+                    "layer {}: enabled true generator oscillator/{} phase_reset {} phase {} output_mode {}",
                     layer.id,
                     match oscillator.waveform {
                         OscillatorWaveform::Sine => "sine",
                         OscillatorWaveform::Saw => "saw",
+                        OscillatorWaveform::Square => "square",
+                        OscillatorWaveform::Triangle => "triangle",
+                        OscillatorWaveform::Pulse { .. } => "pulse",
                     },
-                    oscillator.phase_reset
+                    oscillator.phase_reset,
+                    oscillator.phase,
+                    match oscillator.output_mode {
+                        sonalloy_core::compiler::GeneratorOutputMode::Mono => "mono",
+                        sonalloy_core::compiler::GeneratorOutputMode::Stereo => "stereo",
+                    }
                 );
+                if let Some(handle) = oscillator.parameters.pulse_width {
+                    println!("  pulse_width: {}", parameter_default(compiled, handle));
+                }
                 "not_applicable (oscillator-only instrument)"
+            }
+            sonalloy_core::compiler::CompiledGenerator::Noise(noise) => {
+                println!(
+                    "layer {}: enabled true generator noise/{} correlation {} output_mode stereo",
+                    layer.id,
+                    match noise.color {
+                        sonalloy_core::NoiseColor::White => "white",
+                        sonalloy_core::NoiseColor::Pink => "pink",
+                        sonalloy_core::NoiseColor::Brown => "brown",
+                    },
+                    parameter_default(compiled, noise.correlation)
+                );
+                println!("  noise seed: {}", noise.seed);
+                "not_applicable (noise)"
             }
             sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
                 println!(
-                    "layer {}: enabled true generator sample/one_shot interpolation cubic",
-                    layer.id
+                    "layer {}: enabled true generator sample/one_shot interpolation cubic output_mode mono",
+                    layer.id,
                 );
                 println!("  sample asset: {}", sample.asset_path);
                 println!("  sample root_note: {}", sample.root_note);

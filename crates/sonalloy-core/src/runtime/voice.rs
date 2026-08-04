@@ -1,18 +1,18 @@
-use sonalloy_dsp_sys::{DspOscillator, DspOscillatorWaveform};
-
 use crate::compiler::{
     CompiledGenerator, CompiledInstrument, CompiledLayer, CompiledProcessorKind, CompiledSourceRef,
-    CompiledVoiceSource, cents_to_ratio, db_to_linear, midi_note_frequency,
+    CompiledVoiceSource, GeneratorOutputMode, db_to_linear,
 };
 use crate::definition::LfoWaveform;
 use crate::parameter::ParameterScale;
 use crate::process::{NoteId, ProcessError, ProcessSpec};
 
 use super::adsr::AdsrRuntime;
+use super::generator::GeneratorRuntime;
 use super::mix::constant_power_pan;
-use super::modulation::{LayerTargetSpan, SharedParameterSpan, ValueSpan, VoiceTargetScratch};
+use super::modulation::{
+    LayerGeneratorTargetSpan, LayerTargetSpan, SharedParameterSpan, ValueSpan, VoiceTargetScratch,
+};
 use super::processor::{LayerProcessorChain, ProcessorTargetSpan, StereoProcessorChain};
-use super::sample::{SampleRuntime, playback_ratio};
 use super::smoothing::{Smoother, rounded_frame_count};
 
 const GAIN_SMOOTHING_SECONDS: f64 = 0.005;
@@ -54,18 +54,6 @@ impl NoteRequest {
     }
 }
 
-enum GeneratorRuntime {
-    Oscillator {
-        oscillator: DspOscillator,
-        phase_reset: bool,
-    },
-    Sample {
-        sample: SampleRuntime,
-        root_note: u8,
-    },
-    Disabled,
-}
-
 struct LayerRuntime {
     trigger: crate::compiler::CompiledLayerTrigger,
     envelope: AdsrRuntime,
@@ -78,34 +66,7 @@ struct LayerRuntime {
 
 impl LayerRuntime {
     fn new(compiled: &CompiledLayer, spec: ProcessSpec) -> Result<Self, ProcessError> {
-        let generator = match &compiled.generator {
-            CompiledGenerator::Oscillator(definition) => {
-                let mut oscillator = DspOscillator::new().map_err(ProcessError::from_dsp_error)?;
-                let waveform = match definition.waveform {
-                    crate::definition::OscillatorWaveform::Sine => DspOscillatorWaveform::Sine,
-                    crate::definition::OscillatorWaveform::Saw => DspOscillatorWaveform::Saw,
-                };
-                oscillator
-                    .prepare(spec.sample_rate, waveform)
-                    .map_err(ProcessError::from_dsp_error)?;
-                oscillator.reset().map_err(ProcessError::from_dsp_error)?;
-                GeneratorRuntime::Oscillator {
-                    oscillator,
-                    phase_reset: definition.phase_reset,
-                }
-            }
-            CompiledGenerator::Sample(sample) => {
-                sample
-                    .source
-                    .as_ref()
-                    .map_or(GeneratorRuntime::Disabled, |source| {
-                        GeneratorRuntime::Sample {
-                            sample: SampleRuntime::new(source),
-                            root_note: sample.root_note,
-                        }
-                    })
-            }
-        };
+        let generator = GeneratorRuntime::new(&compiled.generator, spec)?;
         let note_start_fade_frames =
             rounded_frame_count(spec.sample_rate * GAIN_SMOOTHING_SECONDS).max(1);
         let processors = LayerProcessorChain::new(&compiled.processors, spec)?;
@@ -121,26 +82,14 @@ impl LayerRuntime {
     }
 
     fn can_trigger(&self, note_number: u8, velocity: u8) -> bool {
-        !matches!(self.generator, GeneratorRuntime::Disabled)
-            && self.trigger.matches(note_number, velocity)
+        !self.generator.is_disabled() && self.trigger.matches(note_number, velocity)
     }
 
     fn start(&mut self, note: NoteRequest) -> Result<(), ProcessError> {
         if !self.can_trigger(note.note_number, note.velocity) {
             return Ok(());
         }
-        match &mut self.generator {
-            GeneratorRuntime::Oscillator {
-                oscillator,
-                phase_reset,
-            } => {
-                if *phase_reset {
-                    oscillator.reset().map_err(ProcessError::from_dsp_error)?;
-                }
-            }
-            GeneratorRuntime::Sample { sample, .. } => sample.start(),
-            GeneratorRuntime::Disabled => return Ok(()),
-        }
+        self.generator.start(note.note_id)?;
         self.envelope.note_on();
         self.note_start_fade.reset(0.0);
         self.note_start_fade
@@ -149,6 +98,7 @@ impl LayerRuntime {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_source(
         &mut self,
         frames: usize,
@@ -156,79 +106,26 @@ impl LayerRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        output: &mut [f32],
+        targets: LayerGeneratorTargetSpan,
+        mono: &mut [f32],
+        left: &mut [f32],
+        right: &mut [f32],
     ) -> Result<bool, ProcessError> {
-        match &mut self.generator {
-            GeneratorRuntime::Oscillator { oscillator, .. } => {
-                let mut start_frequency =
-                    midi_note_frequency(note_number, cents_to_ratio(tuning_start));
-                let mut end_frequency =
-                    midi_note_frequency(note_number, cents_to_ratio(tuning_end));
-                #[allow(clippy::cast_possible_truncation)]
-                let max_frequency = (sample_rate * 0.45) as f32;
-                if !start_frequency.is_finite()
-                    || !end_frequency.is_finite()
-                    || start_frequency <= 0.0
-                    || end_frequency <= 0.0
-                {
-                    return Err(ProcessError::InvalidFrequency);
-                }
-                start_frequency = start_frequency.min(max_frequency);
-                end_frequency = end_frequency.min(max_frequency);
-                match oscillator_processing_mode(start_frequency, end_frequency) {
-                    OscillatorProcessingMode::Constant => oscillator
-                        .process(start_frequency, &mut output[..frames])
-                        .map_err(ProcessError::from_dsp_error)?,
-                    OscillatorProcessingMode::Ramp => oscillator
-                        .process_ramp(start_frequency, end_frequency, &mut output[..frames])
-                        .map_err(ProcessError::from_dsp_error)?,
-                }
-                Ok(false)
-            }
-            GeneratorRuntime::Sample { sample, root_note } => {
-                let start_ratio =
-                    playback_ratio(note_number, *root_note, cents_to_ratio(tuning_start));
-                let end_ratio = playback_ratio(note_number, *root_note, cents_to_ratio(tuning_end));
-                if !start_ratio.is_finite()
-                    || !end_ratio.is_finite()
-                    || start_ratio <= 0.0
-                    || end_ratio <= 0.0
-                {
-                    return Err(ProcessError::InvalidFrequency);
-                }
-                if frames == 0 {
-                    return Ok(sample.is_finished());
-                }
-                if start_ratio.total_cmp(&end_ratio).is_eq() {
-                    for value in &mut output[..frames] {
-                        *value = sample.next_sample_with_ratio(start_ratio);
-                    }
-                } else {
-                    #[allow(clippy::cast_precision_loss)]
-                    let ratio_step = (end_ratio / start_ratio).powf(1.0 / frames as f64);
-                    let mut ratio = start_ratio;
-                    for value in &mut output[..frames] {
-                        *value = sample.next_sample_with_ratio(ratio);
-                        ratio *= ratio_step;
-                    }
-                }
-                Ok(sample.is_finished())
-            }
-            GeneratorRuntime::Disabled => {
-                output[..frames].fill(0.0);
-                Ok(true)
-            }
-        }
+        self.generator.render(
+            frames,
+            note_number,
+            tuning_start,
+            tuning_end,
+            sample_rate,
+            targets,
+            mono,
+            left,
+            right,
+        )
     }
 
     fn reset(&mut self) -> Result<(), ProcessError> {
-        match &mut self.generator {
-            GeneratorRuntime::Oscillator { oscillator, .. } => {
-                oscillator.reset().map_err(ProcessError::from_dsp_error)?;
-            }
-            GeneratorRuntime::Sample { sample, .. } => sample.reset(),
-            GeneratorRuntime::Disabled => {}
-        }
+        self.generator.reset()?;
         self.processors.reset()?;
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
@@ -411,6 +308,8 @@ impl VoiceRuntime {
         compiled: &CompiledInstrument,
         shared: SharedParameterSpan<'_>,
         layer_mono: &mut [f32],
+        layer_left: &mut [f32],
+        layer_right: &mut [f32],
         voice_left: &mut [f32],
         voice_right: &mut [f32],
     ) -> Result<(), ProcessError> {
@@ -418,6 +317,8 @@ impl VoiceRuntime {
             return Ok(());
         }
         layer_mono[..frames].fill(0.0);
+        layer_left[..frames].fill(0.0);
+        layer_right[..frames].fill(0.0);
         voice_left[..frames].fill(0.0);
         voice_right[..frames].fill(0.0);
         if self.state == VoiceState::Idle {
@@ -447,6 +348,8 @@ impl VoiceRuntime {
                 chunk,
                 sample_rate,
                 &mut layer_mono[offset..offset + chunk],
+                &mut layer_left[offset..offset + chunk],
+                &mut layer_right[offset..offset + chunk],
                 &mut voice_left[offset..offset + chunk],
                 &mut voice_right[offset..offset + chunk],
             )?;
@@ -536,11 +439,14 @@ impl VoiceRuntime {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_active_segment(
         &mut self,
         frames: usize,
         sample_rate: f64,
         layer_mono: &mut [f32],
+        layer_left: &mut [f32],
+        layer_right: &mut [f32],
         voice_left: &mut [f32],
         voice_right: &mut [f32],
     ) -> Result<(), ProcessError> {
@@ -553,17 +459,29 @@ impl VoiceRuntime {
             }
             let target = targets.layers[index];
             layer_mono[..frames].fill(0.0);
+            layer_left[..frames].fill(0.0);
+            layer_right[..frames].fill(0.0);
             let generator_finished = layer.render_source(
                 frames,
                 self.note_number,
                 target.tuning.start,
                 target.tuning.end,
                 sample_rate,
+                target.generator,
                 layer_mono,
+                layer_left,
+                layer_right,
             )?;
-            layer
-                .processors
-                .process(&targets.layer_processors[index], &mut layer_mono[..frames])?;
+            match layer.generator.output_mode() {
+                GeneratorOutputMode::Mono => layer
+                    .processors
+                    .process_mono(&targets.layer_processors[index], &mut layer_mono[..frames])?,
+                GeneratorOutputMode::Stereo => layer.processors.process_stereo(
+                    &targets.layer_processors[index],
+                    &mut layer_left[..frames],
+                    &mut layer_right[..frames],
+                )?,
+            }
             let gain_start = db_to_linear(target.gain.start);
             let gain_end = db_to_linear(target.gain.end);
             for frame in 0..frames {
@@ -576,9 +494,20 @@ impl VoiceRuntime {
                     + (target.pan_left.end - target.pan_left.start) * position;
                 let right = target.pan_right.start
                     + (target.pan_right.end - target.pan_right.start) * position;
-                let mono = layer_mono[frame] * envelope * fade * gain;
-                voice_left[frame] += mono * left;
-                voice_right[frame] += mono * right;
+                let amplitude = envelope * fade * gain;
+                match layer.generator.output_mode() {
+                    GeneratorOutputMode::Mono => {
+                        let mono = layer_mono[frame] * amplitude;
+                        voice_left[frame] += mono * left;
+                        voice_right[frame] += mono * right;
+                    }
+                    GeneratorOutputMode::Stereo => {
+                        let pan = target.pan.start + (target.pan.end - target.pan.start) * position;
+                        let (left_balance, right_balance) = super::mix::stereo_balance(pan);
+                        voice_left[frame] += layer_left[frame] * amplitude * left_balance;
+                        voice_right[frame] += layer_right[frame] * amplitude * right_balance;
+                    }
+                }
             }
             if layer.envelope.is_idle() || generator_finished {
                 layer.active = false;
@@ -731,8 +660,32 @@ impl VoiceRuntime {
             if !self.layers[index].active {
                 continue;
             }
+            let pan = self.evaluate_target(compiled, layer.parameters.pan, shared)?;
+            let generator = match &layer.generator {
+                CompiledGenerator::Oscillator(value) => LayerGeneratorTargetSpan {
+                    pulse_width: value
+                        .parameters
+                        .pulse_width
+                        .map(|handle| self.evaluate_target(compiled, handle, shared))
+                        .transpose()?,
+                    noise_correlation: None,
+                },
+                CompiledGenerator::Noise(value) => LayerGeneratorTargetSpan {
+                    pulse_width: None,
+                    noise_correlation: Some(self.evaluate_target(
+                        compiled,
+                        value.correlation,
+                        shared,
+                    )?),
+                },
+                CompiledGenerator::Sample(_) => LayerGeneratorTargetSpan {
+                    pulse_width: None,
+                    noise_correlation: None,
+                },
+            };
             self.targets.layers[index] = LayerTargetSpan {
                 gain: self.evaluate_target(compiled, layer.parameters.gain, shared)?,
+                pan,
                 pan_left: ValueSpan {
                     start: 0.0,
                     end: 0.0,
@@ -742,8 +695,8 @@ impl VoiceRuntime {
                     end: 0.0,
                 },
                 tuning: self.evaluate_target(compiled, layer.parameters.tuning, shared)?,
+                generator,
             };
-            let pan = self.evaluate_target(compiled, layer.parameters.pan, shared)?;
             let (left_start, right_start) = constant_power_pan(pan.start);
             let (left_end, right_end) = constant_power_pan(pan.end);
             self.targets.layers[index].pan_left = ValueSpan {
@@ -918,16 +871,19 @@ fn lfo_value(waveform: LfoWaveform, phase: f32) -> f32 {
     }
 }
 
+#[cfg(test)]
 fn span_is_constant(start: f32, end: f32) -> bool {
     start.total_cmp(&end) == std::cmp::Ordering::Equal
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 enum OscillatorProcessingMode {
     Constant,
     Ramp,
 }
 
+#[cfg(test)]
 fn oscillator_processing_mode(start: f32, end: f32) -> OscillatorProcessingMode {
     if span_is_constant(start, end) {
         OscillatorProcessingMode::Constant

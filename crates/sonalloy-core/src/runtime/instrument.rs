@@ -19,6 +19,8 @@ const QUANTUM_FRAMES: usize = 32;
 
 struct RuntimeScratch {
     layer_mono: Vec<f32>,
+    layer_left: Vec<f32>,
+    layer_right: Vec<f32>,
     voice_left: Vec<f32>,
     voice_right: Vec<f32>,
     parameter_spans: Vec<ParameterSpanValue>,
@@ -48,6 +50,8 @@ impl InstrumentRuntime {
             voices: Vec::new(),
             scratch: RuntimeScratch {
                 layer_mono: Vec::new(),
+                layer_left: Vec::new(),
+                layer_right: Vec::new(),
                 voice_left: Vec::new(),
                 voice_right: Vec::new(),
                 parameter_spans: Vec::new(),
@@ -92,6 +96,8 @@ impl InstrumentRuntime {
         voices: &mut [VoiceRuntime],
         compiled: &CompiledInstrument,
         layer_mono: &mut [f32],
+        layer_left: &mut [f32],
+        layer_right: &mut [f32],
         voice_left: &mut [f32],
         voice_right: &mut [f32],
         output: &mut [&mut [f32]],
@@ -117,6 +123,8 @@ impl InstrumentRuntime {
                 compiled,
                 shared,
                 &mut layer_mono[..frames],
+                &mut layer_left[..frames],
+                &mut layer_right[..frames],
                 &mut voice_left[..frames],
                 &mut voice_right[..frames],
             )?;
@@ -145,7 +153,7 @@ impl InstrumentRuntime {
                         return false;
                     }
                     match &layer.generator {
-                        CompiledGenerator::Oscillator(_) => true,
+                        CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => true,
                         CompiledGenerator::Sample(sample) => {
                             sample.enabled && sample.source.is_some()
                         }
@@ -415,6 +423,8 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.spec = None;
         self.voices.clear();
         self.scratch.layer_mono.clear();
+        self.scratch.layer_left.clear();
+        self.scratch.layer_right.clear();
         self.scratch.voice_left.clear();
         self.scratch.voice_right.clear();
         self.scratch.parameter_spans.clear();
@@ -438,6 +448,8 @@ impl InstrumentProcessor for InstrumentRuntime {
             });
         }
         self.scratch.layer_mono.resize(spec.max_block_size, 0.0);
+        self.scratch.layer_left.resize(spec.max_block_size, 0.0);
+        self.scratch.layer_right.resize(spec.max_block_size, 0.0);
         self.scratch.voice_left.resize(spec.max_block_size, 0.0);
         self.scratch.voice_right.resize(spec.max_block_size, 0.0);
         self.scratch.parameter_spans.resize(
@@ -533,6 +545,8 @@ impl InstrumentProcessor for InstrumentRuntime {
             let (pitch_bend, mod_wheel, aftertouch) = self.advance_shared(frames);
             let RuntimeScratch {
                 layer_mono,
+                layer_left,
+                layer_right,
                 voice_left,
                 voice_right,
                 parameter_spans,
@@ -548,6 +562,8 @@ impl InstrumentProcessor for InstrumentRuntime {
                 &mut self.voices,
                 &self.compiled,
                 layer_mono,
+                layer_left,
+                layer_right,
                 voice_left,
                 voice_right,
                 block.output,
@@ -620,6 +636,8 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.mod_wheel.reset(0.0);
         self.aftertouch.reset(0.0);
         self.scratch.layer_mono.fill(0.0);
+        self.scratch.layer_left.fill(0.0);
+        self.scratch.layer_right.fill(0.0);
         self.scratch.voice_left.fill(0.0);
         self.scratch.voice_right.fill(0.0);
         self.scratch.parameter_spans.fill(ParameterSpanValue {
@@ -1319,7 +1337,8 @@ mod tests {
             crate::definition::GeneratorDefinition::Oscillator(oscillator) => {
                 oscillator.phase_reset = phase_reset;
             }
-            crate::definition::GeneratorDefinition::Sample(_) => {
+            crate::definition::GeneratorDefinition::Sample(_)
+            | crate::definition::GeneratorDefinition::Noise(_) => {
                 panic!("test fixture must use an oscillator");
             }
         }

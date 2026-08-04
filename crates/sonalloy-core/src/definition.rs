@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id, is_parameter_id};
@@ -111,18 +111,34 @@ pub struct LayerTriggerDefinition {
 pub enum GeneratorDefinition {
     /// A DaisySP-backed oscillator.
     Oscillator(OscillatorDefinition),
+    /// A deterministic stereo noise generator.
+    Noise(NoiseDefinition),
     /// A one-shot sample loaded during compilation.
     Sample(SampleDefinition),
 }
 
 /// Oscillator generator settings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OscillatorDefinition {
     /// Selected waveform.
     pub waveform: OscillatorWaveform,
     /// Whether every Note On starts at the engine's initial phase.
     pub phase_reset: bool,
+    /// Initial oscillator phase in the inclusive zero-to-one range.
+    pub phase: f32,
+}
+
+/// Noise generator settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NoiseDefinition {
+    /// Spectral color of the generated noise.
+    pub color: NoiseColor,
+    /// Deterministic stream seed.
+    pub seed: u64,
+    /// Shared-to-independent stereo mix in the inclusive zero-to-one range.
+    pub stereo_correlation: f32,
 }
 
 /// Sample generator settings.
@@ -167,13 +183,99 @@ pub enum SampleInterpolation {
 }
 
 /// Oscillator waveforms exposed by Sonalloy, independent of `DaisySP` names.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum OscillatorWaveform {
     /// Sinusoidal oscillator.
     Sine,
     /// Band-limited saw oscillator.
     Saw,
+    /// Band-limited square oscillator with a fixed 50% duty cycle.
+    Square,
+    /// Band-limited triangle oscillator.
+    Triangle,
+    /// Band-limited square oscillator with a dynamic duty cycle.
+    Pulse {
+        /// Initial pulse width in the inclusive 0.05-to-0.95 range.
+        pulse_width: f32,
+    },
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum OscillatorWaveformType {
+    Sine,
+    Saw,
+    Square,
+    Triangle,
+    Pulse,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+enum PulseWidthField {
+    #[default]
+    Absent,
+    Null,
+    Value(f32),
+}
+
+impl<'de> Deserialize<'de> for PulseWidthField {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(match Option::<f32>::deserialize(deserializer)? {
+            Some(value) => Self::Value(value),
+            None => Self::Null,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OscillatorWaveformObject {
+    #[serde(rename = "type")]
+    kind: OscillatorWaveformType,
+    #[serde(default)]
+    pulse_width: PulseWidthField,
+}
+
+impl<'de> Deserialize<'de> for OscillatorWaveform {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error as _;
+
+        let object = OscillatorWaveformObject::deserialize(deserializer)?;
+        match (object.kind, object.pulse_width) {
+            (OscillatorWaveformType::Sine, PulseWidthField::Absent) => Ok(Self::Sine),
+            (OscillatorWaveformType::Saw, PulseWidthField::Absent) => Ok(Self::Saw),
+            (OscillatorWaveformType::Square, PulseWidthField::Absent) => Ok(Self::Square),
+            (OscillatorWaveformType::Triangle, PulseWidthField::Absent) => Ok(Self::Triangle),
+            (OscillatorWaveformType::Pulse, PulseWidthField::Value(pulse_width)) => {
+                Ok(Self::Pulse { pulse_width })
+            }
+            (OscillatorWaveformType::Pulse, PulseWidthField::Absent | PulseWidthField::Null) => {
+                Err(D::Error::missing_field("pulse_width"))
+            }
+            (_, PulseWidthField::Null | PulseWidthField::Value(_)) => Err(D::Error::custom(
+                "pulse_width is only valid for the pulse waveform",
+            )),
+        }
+    }
+}
+
+/// Noise colors exposed by the Definition model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NoiseColor {
+    /// Equal-energy white noise.
+    White,
+    /// Voss-McCartney pink noise.
+    Pink,
+    /// Leaky-integrated brown noise.
+    Brown,
 }
 
 /// ADSR envelope values in seconds and normalized amplitude.
@@ -466,7 +568,12 @@ impl InstrumentDefinition {
                 ProcessorPlacement::Layer,
             );
             match &layer.generator {
-                GeneratorDefinition::Oscillator(_) => {}
+                GeneratorDefinition::Oscillator(oscillator) => {
+                    validate_oscillator(&mut diagnostics, &path, oscillator);
+                }
+                GeneratorDefinition::Noise(noise) => {
+                    validate_noise(&mut diagnostics, &path, noise);
+                }
                 GeneratorDefinition::Sample(sample) => {
                     validate_sample(&mut diagnostics, &path, sample);
                 }
@@ -786,6 +893,39 @@ fn validate_sample(diagnostics: &mut Vec<Diagnostic>, path: &str, sample: &Sampl
     }
 }
 
+fn validate_oscillator(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    oscillator: &OscillatorDefinition,
+) {
+    validate_range(
+        diagnostics,
+        format!("{path}.generator.oscillator.phase"),
+        oscillator.phase,
+        0.0..=1.0,
+        "oscillator phase must be finite and between 0 and 1",
+    );
+    if let OscillatorWaveform::Pulse { pulse_width } = oscillator.waveform {
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.waveform.pulse_width"),
+            pulse_width,
+            0.05..=0.95,
+            "pulse_width must be finite and between 0.05 and 0.95",
+        );
+    }
+}
+
+fn validate_noise(diagnostics: &mut Vec<Diagnostic>, path: &str, noise: &NoiseDefinition) {
+    validate_range(
+        diagnostics,
+        format!("{path}.generator.noise.stereo_correlation"),
+        noise.stereo_correlation,
+        0.0..=1.0,
+        "stereo_correlation must be finite and between 0 and 1",
+    );
+}
+
 fn validate_trigger(
     diagnostics: &mut Vec<Diagnostic>,
     path: &str,
@@ -887,6 +1027,7 @@ pub(crate) mod tests {
                 generator: GeneratorDefinition::Oscillator(OscillatorDefinition {
                     waveform: OscillatorWaveform::Sine,
                     phase_reset: true,
+                    phase: 0.0,
                 }),
                 processors: Vec::new(),
             }],
@@ -1051,6 +1192,106 @@ pub(crate) mod tests {
         let restored: InstrumentDefinition =
             serde_json::from_str(&json).expect("definition parses");
         assert_eq!(source, restored);
+    }
+
+    #[test]
+    fn oscillator_waveforms_use_tagged_objects() {
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        for waveform in ["sine", "saw", "square", "triangle"] {
+            value["layers"][0]["generator"]["oscillator"]["waveform"] =
+                serde_json::json!({"type": waveform});
+            let parsed: InstrumentDefinition =
+                serde_json::from_value(value.clone()).expect("basic waveform parses");
+            assert!(matches!(
+                parsed.layers[0].generator,
+                GeneratorDefinition::Oscillator(OscillatorDefinition { .. })
+            ));
+        }
+        value["layers"][0]["generator"]["oscillator"]["waveform"] =
+            serde_json::json!({"type": "pulse", "pulse_width": 0.35});
+        let parsed: InstrumentDefinition =
+            serde_json::from_value(value).expect("pulse waveform parses");
+        assert!(matches!(
+            parsed.layers[0].generator,
+            GeneratorDefinition::Oscillator(OscillatorDefinition {
+                waveform: OscillatorWaveform::Pulse { pulse_width },
+                ..
+            }) if (pulse_width - 0.35).abs() < f32::EPSILON
+        ));
+    }
+
+    #[test]
+    fn legacy_string_waveform_is_rejected() {
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["layers"][0]["generator"]["oscillator"]["waveform"] = serde_json::json!("saw");
+        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
+    }
+
+    #[test]
+    fn oscillator_and_noise_ranges_are_validated() {
+        let mut value = definition();
+        value.layers[0].generator = GeneratorDefinition::Oscillator(OscillatorDefinition {
+            waveform: OscillatorWaveform::Pulse { pulse_width: 0.05 },
+            phase_reset: true,
+            phase: 1.0,
+        });
+        assert!(value.validate().is_empty());
+
+        if let GeneratorDefinition::Oscillator(oscillator) = &mut value.layers[0].generator {
+            oscillator.phase = -f32::EPSILON;
+            if let OscillatorWaveform::Pulse { pulse_width } = &mut oscillator.waveform {
+                *pulse_width = 0.95 + f32::EPSILON;
+            }
+        }
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("layers[0].generator.oscillator.phase")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref()
+                == Some("layers[0].generator.oscillator.waveform.pulse_width")
+        }));
+
+        value.layers[0].generator = GeneratorDefinition::Noise(NoiseDefinition {
+            color: NoiseColor::Pink,
+            seed: 42,
+            stereo_correlation: 0.0,
+        });
+        assert!(value.validate().is_empty());
+        if let GeneratorDefinition::Noise(noise) = &mut value.layers[0].generator {
+            noise.stereo_correlation = 1.0;
+        }
+        assert!(value.validate().is_empty());
+        if let GeneratorDefinition::Noise(noise) = &mut value.layers[0].generator {
+            noise.stereo_correlation = 1.0 + f32::EPSILON;
+        }
+        assert!(value.validate().iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("layers[0].generator.noise.stereo_correlation")
+        }));
+    }
+
+    #[test]
+    fn generator_unknown_fields_are_rejected() {
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["layers"][0]["generator"]["oscillator"]["waveform"] =
+            serde_json::json!({"type": "square", "unexpected": true});
+        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
+
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["layers"][0]["generator"]["oscillator"]["waveform"] =
+            serde_json::json!({"type": "square", "pulse_width": null});
+        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
+
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["layers"][0]["generator"] = serde_json::json!({
+            "noise": {
+                "color": "white",
+                "seed": 7,
+                "stereo_correlation": 0.5,
+                "unexpected": true
+            }
+        });
+        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
     }
 
     #[test]

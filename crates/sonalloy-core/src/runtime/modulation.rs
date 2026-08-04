@@ -114,9 +114,18 @@ fn interpolate(start: f32, end: f32, offset: usize, length: usize, total: usize)
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct LayerTargetSpan {
     pub(crate) gain: ValueSpan,
+    pub(crate) pan: ValueSpan,
     pub(crate) pan_left: ValueSpan,
     pub(crate) pan_right: ValueSpan,
     pub(crate) tuning: ValueSpan,
+    pub(crate) generator: LayerGeneratorTargetSpan,
+}
+
+/// Dynamic values consumed by a layer generator during one render span.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct LayerGeneratorTargetSpan {
+    pub(crate) pulse_width: Option<ValueSpan>,
+    pub(crate) noise_correlation: Option<ValueSpan>,
 }
 
 /// Reusable target scratch owned by one voice.
@@ -136,9 +145,14 @@ impl VoiceTargetScratch {
             layers: vec![
                 LayerTargetSpan {
                     gain: zero,
+                    pan: zero,
                     pan_left: zero,
                     pan_right: zero,
                     tuning: zero,
+                    generator: LayerGeneratorTargetSpan {
+                        pulse_width: None,
+                        noise_correlation: None,
+                    },
                 };
                 layers.len()
             ],

@@ -7,6 +7,11 @@ fn reference_definition() -> std::path::PathBuf {
         .join("../../examples/instruments/basic-poly-synth.json")
 }
 
+fn basic_generators_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/basic-generators-reference.json")
+}
+
 fn reference_midi() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../testdata/midi/basic-poly-synth-phrase.mid")
@@ -349,6 +354,47 @@ fn instrument_init_validate_and_inspect_are_available() {
         .stdout(predicates::str::contains("\"effective_max_cutoff_hz\""))
         .stdout(predicates::str::contains(
             "\"voice.processor.tone.resonance\"",
+        ));
+}
+
+#[test]
+fn basic_generators_validate_and_inspect_all_generator_modes() {
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            basic_generators_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            basic_generators_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"waveform\":\"square\""))
+        .stdout(predicates::str::contains("\"waveform\":\"triangle\""))
+        .stdout(predicates::str::contains("\"waveform\":\"pulse\""))
+        .stdout(predicates::str::contains("\"kind\":\"noise\""))
+        .stdout(predicates::str::contains("\"output_mode\":\"stereo\""))
+        .stdout(predicates::str::contains(
+            "layer.pulse.generator.pulse_width",
+        ))
+        .stdout(predicates::str::contains(
+            "layer.pink.generator.noise_correlation",
         ));
 }
 

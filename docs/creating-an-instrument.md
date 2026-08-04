@@ -79,6 +79,43 @@ Level
 | `sustain_level` | 押している間の音量（0〜1） | 0だと短い音、1だと伸びる音 |
 | `release_seconds` | 離してから消えるまでの時間 | 0だとバツンと切れる |
 
+### Generatorを選ぶ
+
+OscillatorのWaveformはTagged Objectで指定します。Pulseは`pulse_width`を持ち、Square / Triangle / PulseはSine / Sawと同じLayerへ配置できます。
+
+```json
+"generator": {
+  "oscillator": {
+    "waveform": { "type": "pulse", "pulse_width": 0.35 },
+    "phase_reset": true,
+    "phase": 0.0
+  }
+}
+```
+
+NoiseはColor、Seed、Stereo Correlationを指定します。ColorはWhite / Pink / Brownから選び、Correlation 0は左右独立、1は左右同一です。
+
+```json
+"generator": {
+  "noise": {
+    "color": "pink",
+    "seed": 812347,
+    "stereo_correlation": 0.65
+  }
+}
+```
+
+Pulse Widthは既存LFOなどのModulation Targetへ接続できます。
+
+```json
+{
+  "source": "pwm_lfo",
+  "target": "layer.main.generator.pulse_width",
+  "amount": 0.35,
+  "curve": "linear"
+}
+```
+
 ### そのほかのパラメータ
 
 | パラメータ | 意味 | 注意 |

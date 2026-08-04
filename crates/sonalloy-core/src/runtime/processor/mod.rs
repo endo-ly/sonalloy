@@ -41,7 +41,7 @@ pub(crate) struct LayerProcessorChain {
 }
 
 enum LayerProcessorRuntime {
-    Filter(DspFilter),
+    Filter { left: DspFilter, right: DspFilter },
     Drive,
 }
 
@@ -54,7 +54,10 @@ impl LayerProcessorChain {
         for processor in processors {
             match &processor.processor {
                 CompiledProcessorKind::Filter(_) => {
-                    runtime.push(LayerProcessorRuntime::Filter(prepare_filter(spec)?));
+                    runtime.push(LayerProcessorRuntime::Filter {
+                        left: prepare_filter(spec)?,
+                        right: prepare_filter(spec)?,
+                    });
                 }
                 CompiledProcessorKind::Drive(_) => {
                     runtime.push(LayerProcessorRuntime::Drive);
@@ -71,7 +74,7 @@ impl LayerProcessorChain {
         })
     }
 
-    pub(crate) fn process(
+    pub(crate) fn process_mono(
         &mut self,
         targets: &[ProcessorTargetSpan],
         buffer: &mut [f32],
@@ -84,7 +87,7 @@ impl LayerProcessorChain {
         for (processor, target) in self.processors.iter_mut().zip(targets) {
             match (processor, *target) {
                 (
-                    LayerProcessorRuntime::Filter(filter),
+                    LayerProcessorRuntime::Filter { left: filter, .. },
                     ProcessorTargetSpan::Filter { cutoff, resonance },
                 ) => process_filter(filter, cutoff, resonance, buffer)?,
                 (LayerProcessorRuntime::Drive, ProcessorTargetSpan::Drive { amount, mix }) => {
@@ -100,11 +103,48 @@ impl LayerProcessorChain {
         Ok(())
     }
 
+    pub(crate) fn process_stereo(
+        &mut self,
+        targets: &[ProcessorTargetSpan],
+        left: &mut [f32],
+        right: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        if self.processors.len() != targets.len() {
+            return Err(ProcessError::ProcessorFailure {
+                kind: ProcessorFailureKind::InvalidState,
+            });
+        }
+        for (processor, target) in self.processors.iter_mut().zip(targets) {
+            match (processor, *target) {
+                (
+                    LayerProcessorRuntime::Filter {
+                        left: filter_left,
+                        right: filter_right,
+                    },
+                    ProcessorTargetSpan::Filter { cutoff, resonance },
+                ) => {
+                    process_filter(filter_left, cutoff, resonance, left)?;
+                    process_filter(filter_right, cutoff, resonance, right)?;
+                }
+                (LayerProcessorRuntime::Drive, ProcessorTargetSpan::Drive { amount, mix }) => {
+                    DriveRuntime::process_stereo(amount, mix, left, right)?;
+                }
+                _ => {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: ProcessorFailureKind::InvalidState,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) fn reset(&mut self) -> Result<(), ProcessError> {
         for processor in &mut self.processors {
             match processor {
-                LayerProcessorRuntime::Filter(filter) => {
-                    filter.reset().map_err(ProcessError::from_filter_error)?;
+                LayerProcessorRuntime::Filter { left, right } => {
+                    left.reset().map_err(ProcessError::from_filter_error)?;
+                    right.reset().map_err(ProcessError::from_filter_error)?;
                 }
                 LayerProcessorRuntime::Drive => {}
             }

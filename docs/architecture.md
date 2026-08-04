@@ -39,7 +39,7 @@ Process仕様と実行時の仕組みを提供します。
 | `parameter` | Canonical Parameter ID、Descriptor、Normalize / Denormalize、Catalog |
 | `compiler` | DefinitionからCompiled Instrumentへの変換 |
 | `asset` | SHA-256照合、WAV読み込み、Mono変換、Sample Rate変換 |
-| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Sample、Processor Chain |
+| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Processor Chain |
 | `render` | Offline Render LoopとEventの供給 |
 | `diagnostics` | 画面表示に依存しないError Code、Severity、Message |
 
@@ -51,7 +51,7 @@ Internal C ABIの宣言と、Raw Pointerを隠蔽するSafe Rust Wrapperを提�
 
 - DaisySP V1.0.0（コミット`a0494a3adb67f549e18dfd71a35fa656f65b38b6`）をCMakeでBuildし、Static LibraryとしてLinkします
 - Native Wrapperは、DaisySPの`oscillator.cpp`と`svf.cpp`だけをBuild対象に追加します
-- DaisySPのClass名やEnumはWrapperの内側に留め、DefinitionやCoreのPublic APIには露出しません
+- DaisySPのClass名やEnumはWrapperの内側に留め、DefinitionやCoreのPublic APIには露出しません。SonalloyのOscillator Waveform、Noise Stream、Output ModeはCoreが所有します
 
 ### `sonalloy-cli`
 
@@ -68,8 +68,11 @@ typedef struct sonalloy_dsp_filter sonalloy_dsp_filter;
 sonalloy_dsp_oscillator* sonalloy_dsp_oscillator_create(void);
 int32_t sonalloy_dsp_oscillator_prepare(...);
 int32_t sonalloy_dsp_oscillator_reset(...);
+int32_t sonalloy_dsp_oscillator_reset_phase(...);
 int32_t sonalloy_dsp_oscillator_process(...);
+int32_t sonalloy_dsp_oscillator_process_with_pulse_width(...);
 int32_t sonalloy_dsp_oscillator_process_ramp(...);
+int32_t sonalloy_dsp_oscillator_process_ramp_with_pulse_width(...);
 void sonalloy_dsp_oscillator_destroy(...);
 sonalloy_dsp_filter* sonalloy_dsp_filter_create(void);
 int32_t sonalloy_dsp_filter_prepare(...);

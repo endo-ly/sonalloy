@@ -1,0 +1,22 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 2,
+      "note": 64,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 4096,
+      "type": "parameter_change",
+      "parameter": "layer.pink.generator.noise_correlation",
+      "normalized": 0.0
+    },
+    {
+      "absolute_frame": 12000,
+      "type": "note_off",
+      "note_id": 2
+    }
+  ]
+}

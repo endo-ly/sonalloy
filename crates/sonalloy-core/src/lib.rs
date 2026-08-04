@@ -11,9 +11,10 @@ pub use compiler::{CompileContext, CompileResult, CompiledInstrument, compile_in
 pub use definition::{
     AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, DelayProcessorDefinition,
     DriveProcessorDefinition, FilterProcessorDefinition, GeneratorDefinition, InstrumentDefinition,
-    InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, OscillatorDefinition,
-    OscillatorWaveform, PerformanceDefinition, ProcessorDefinition, ReverbProcessorDefinition,
-    SampleDefinition, SampleInterpolation, SamplePlaybackMode, VoiceStealingDefinition,
+    InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, NoiseColor, NoiseDefinition,
+    OscillatorDefinition, OscillatorWaveform, PerformanceDefinition, ProcessorDefinition,
+    ReverbProcessorDefinition, SampleDefinition, SampleInterpolation, SamplePlaybackMode,
+    VoiceStealingDefinition,
 };
 pub use definition::{
     LfoDefinition, LfoWaveform, ModEnvelopeDefinition, ModulationCurve, ModulationDefinition,
@@ -23,8 +24,8 @@ pub use diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity, from_rende
 pub use parameter::{
     BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterDescriptor, ParameterHandle, ParameterOwner,
     ParameterScale, ParameterUnit, ParameterValueError, global_processor_parameter_id,
-    is_component_id, is_parameter_id, layer_parameter_id, layer_processor_parameter_id,
-    voice_processor_parameter_id,
+    is_component_id, is_parameter_id, layer_generator_parameter_id, layer_parameter_id,
+    layer_processor_parameter_id, voice_processor_parameter_id,
 };
 pub use process::{
     DspFailureKind, InstrumentProcessor, NoteId, ProcessBlock, ProcessContext, ProcessError,

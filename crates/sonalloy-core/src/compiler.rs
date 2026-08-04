@@ -6,8 +6,9 @@ use crate::asset::{AssetError, PreparedSample, SampleMetadata, prepare_asset};
 use crate::definition::{
     AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
     GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
-    ModulationSourceDefinition, OscillatorDefinition, OscillatorWaveform, ProcessorDefinition,
-    ReverbProcessorDefinition, SampleInterpolation, SamplePlaybackMode, VoiceStealingDefinition,
+    ModulationSourceDefinition, NoiseColor, OscillatorDefinition, OscillatorWaveform,
+    ProcessorDefinition, ReverbProcessorDefinition, SampleInterpolation, SamplePlaybackMode,
+    VoiceStealingDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
@@ -177,17 +178,70 @@ impl CompiledLayerTrigger {
 pub enum CompiledGenerator {
     /// Oscillator generator.
     Oscillator(CompiledOscillator),
+    /// Noise generator.
+    Noise(CompiledNoise),
     /// Prepared sample generator.
     Sample(CompiledSample),
 }
 
-/// Compiled oscillator settings.
+/// Fixed channel layout produced by a compiled generator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GeneratorOutputMode {
+    /// A single source channel is passed through the mono layer path.
+    Mono,
+    /// Independent left and right source channels are passed through the stereo layer path.
+    Stereo,
+}
+
+impl CompiledGenerator {
+    /// Return the fixed channel layout for this generator.
+    #[must_use]
+    pub const fn output_mode(&self) -> GeneratorOutputMode {
+        match self {
+            Self::Oscillator(value) => value.output_mode,
+            Self::Noise(value) => value.output_mode,
+            Self::Sample(value) => value.output_mode,
+        }
+    }
+}
+
+/// Generator parameter handles owned by an oscillator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledOscillatorParameters {
+    /// Pulse width handle for a pulse waveform.
+    pub pulse_width: Option<ParameterHandle>,
+}
+
+/// Compiled oscillator settings.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CompiledOscillator {
     /// Waveform selected by the Definition.
     pub waveform: OscillatorWaveform,
     /// Whether Note On resets the phase.
     pub phase_reset: bool,
+    /// Initial phase used by instrument and note resets.
+    pub phase: f32,
+    /// Generator parameter bindings.
+    pub parameters: CompiledOscillatorParameters,
+    /// Fixed output channel layout.
+    pub output_mode: GeneratorOutputMode,
+}
+
+/// Compiled noise settings.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledNoise {
+    /// Spectral color selected by the Definition.
+    pub color: NoiseColor,
+    /// Deterministic Definition seed.
+    pub seed: u64,
+    /// Stereo correlation parameter handle.
+    pub correlation: ParameterHandle,
+    /// Stable hash of the owning layer identifier.
+    pub layer_hash: u64,
+    /// Sample-rate-specific Brown noise coefficient.
+    pub brown_coefficient: f32,
+    /// Fixed output channel layout.
+    pub output_mode: GeneratorOutputMode,
 }
 
 /// Compiled sample configuration and prepared source.
@@ -209,6 +263,8 @@ pub struct CompiledSample {
     pub enabled: bool,
     /// Source metadata when the asset was loaded.
     pub source_metadata: Option<SampleMetadata>,
+    /// Fixed output channel layout.
+    pub output_mode: GeneratorOutputMode,
 }
 
 /// Sample-rate-specific ADSR settings.
@@ -486,6 +542,8 @@ pub fn compile_instrument(
             let generator = compile_generator(
                 &layer.generator,
                 definition_index,
+                &layer.id,
+                &parameter_catalog,
                 &context.definition_base_dir,
                 context.process_spec.sample_rate,
                 &mut diagnostics,
@@ -1102,6 +1160,7 @@ fn route_source_allowed(owner: ParameterOwner, source: CompiledSourceRef) -> boo
     match owner {
         ParameterOwner::GlobalProcessor { .. } => !matches!(source, CompiledSourceRef::Voice(_)),
         ParameterOwner::Layer { .. }
+        | ParameterOwner::LayerGenerator { .. }
         | ParameterOwner::LayerProcessor { .. }
         | ParameterOwner::VoiceProcessor { .. } => true,
     }
@@ -1132,9 +1191,12 @@ fn compile_lfo(value: &LfoDefinition) -> CompiledLfo {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn compile_generator(
     generator: &GeneratorDefinition,
     layer_index: usize,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
     definition_base_dir: &Path,
     sample_rate: f64,
     diagnostics: &mut Vec<Diagnostic>,
@@ -1143,9 +1205,36 @@ fn compile_generator(
         GeneratorDefinition::Oscillator(OscillatorDefinition {
             waveform,
             phase_reset,
-        }) => CompiledGenerator::Oscillator(CompiledOscillator {
-            waveform: *waveform,
-            phase_reset: *phase_reset,
+            phase,
+        }) => {
+            let pulse_width = matches!(waveform, OscillatorWaveform::Pulse { .. }).then(|| {
+                catalog
+                    .parameter_handle(&crate::parameter::layer_generator_parameter_id(
+                        layer_id,
+                        "pulse_width",
+                    ))
+                    .expect("pulse width catalog entry exists")
+            });
+            CompiledGenerator::Oscillator(CompiledOscillator {
+                waveform: *waveform,
+                phase_reset: *phase_reset,
+                phase: *phase,
+                parameters: CompiledOscillatorParameters { pulse_width },
+                output_mode: GeneratorOutputMode::Mono,
+            })
+        }
+        GeneratorDefinition::Noise(noise) => CompiledGenerator::Noise(CompiledNoise {
+            color: noise.color,
+            seed: noise.seed,
+            correlation: catalog
+                .parameter_handle(&crate::parameter::layer_generator_parameter_id(
+                    layer_id,
+                    "noise_correlation",
+                ))
+                .expect("noise correlation catalog entry exists"),
+            layer_hash: source_id_hash(layer_id),
+            brown_coefficient: brown_noise_coefficient(sample_rate),
+            output_mode: GeneratorOutputMode::Stereo,
         }),
         GeneratorDefinition::Sample(sample) => {
             let path = format!("layers[{layer_index}].generator.sample.asset.path");
@@ -1158,6 +1247,7 @@ fn compile_generator(
                 asset_sha256: sample.asset.sha256.clone(),
                 enabled: false,
                 source_metadata: None,
+                output_mode: GeneratorOutputMode::Mono,
             };
             if Path::new(&sample.asset.path).is_absolute() {
                 diagnostics.push(
@@ -1218,6 +1308,12 @@ fn compile_generator(
             CompiledGenerator::Sample(compiled)
         }
     }
+}
+
+fn brown_noise_coefficient(sample_rate: f64) -> f32 {
+    #[allow(clippy::cast_possible_truncation)]
+    let coefficient = (-std::f64::consts::TAU * 20.0 / sample_rate).exp() as f32;
+    coefficient.clamp(0.0, 1.0)
 }
 
 fn asset_diagnostic(error: &AssetError) -> (DiagnosticCode, &'static str) {
@@ -1368,6 +1464,54 @@ mod tests {
         assert_eq!(
             compiled.parameter_handle("layer.body.gain"),
             Some(compiled.layers[0].parameters.gain)
+        );
+    }
+
+    #[test]
+    fn basic_generators_compile_with_parameter_handles_and_output_modes() {
+        let mut pulse_definition = definition();
+        pulse_definition.layers[0].generator =
+            GeneratorDefinition::Oscillator(OscillatorDefinition {
+                waveform: OscillatorWaveform::Pulse { pulse_width: 0.3 },
+                phase_reset: true,
+                phase: 0.25,
+            });
+        let pulse = compile_instrument(&pulse_definition, &context())
+            .instrument
+            .expect("pulse compiles");
+        let CompiledGenerator::Oscillator(pulse_oscillator) = &pulse.layers[0].generator else {
+            panic!("pulse definition must compile to an oscillator");
+        };
+        assert_eq!(pulse_oscillator.output_mode, GeneratorOutputMode::Mono);
+        assert!((pulse_oscillator.phase - 0.25).abs() < f32::EPSILON);
+        assert!(pulse_oscillator.parameters.pulse_width.is_some());
+        assert!(
+            pulse
+                .parameter_handle("layer.body.generator.pulse_width")
+                .is_some()
+        );
+
+        let mut noise_definition = definition();
+        noise_definition.layers[0].generator =
+            GeneratorDefinition::Noise(crate::definition::NoiseDefinition {
+                color: NoiseColor::Brown,
+                seed: 42,
+                stereo_correlation: 0.5,
+            });
+        let noise = compile_instrument(&noise_definition, &context())
+            .instrument
+            .expect("noise compiles");
+        let CompiledGenerator::Noise(compiled_noise) = &noise.layers[0].generator else {
+            panic!("noise definition must compile to noise");
+        };
+        assert_eq!(compiled_noise.output_mode, GeneratorOutputMode::Stereo);
+        assert_eq!(compiled_noise.color, NoiseColor::Brown);
+        assert_eq!(compiled_noise.seed, 42);
+        assert!(compiled_noise.brown_coefficient > 0.0);
+        assert!(
+            noise
+                .parameter_handle("layer.body.generator.noise_correlation")
+                .is_some()
         );
     }
 

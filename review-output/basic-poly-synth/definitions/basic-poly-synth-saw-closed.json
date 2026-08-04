@@ -30,8 +30,11 @@
       },
       "generator": {
         "oscillator": {
-          "waveform": "saw",
-          "phase_reset": true
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
         }
       }
     }
