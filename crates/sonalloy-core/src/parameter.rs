@@ -296,8 +296,16 @@ fn push_processor_descriptors(
                 owner,
                 value.amount,
                 0.005,
+                1.0,
             );
-            push_normalized_descriptor(descriptors, format!("{base}.mix"), owner, value.mix, 0.005);
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.005,
+                1.0,
+            );
         }
         ProcessorDefinition::Delay(value) => {
             push_normalized_descriptor(
@@ -306,8 +314,16 @@ fn push_processor_descriptors(
                 owner,
                 value.feedback,
                 0.010,
+                0.95,
             );
-            push_normalized_descriptor(descriptors, format!("{base}.mix"), owner, value.mix, 0.010);
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.010,
+                1.0,
+            );
         }
         ProcessorDefinition::Reverb(value) => {
             push_normalized_descriptor(
@@ -316,6 +332,7 @@ fn push_processor_descriptors(
                 owner,
                 value.decay,
                 0.020,
+                0.98,
             );
             push_normalized_descriptor(
                 descriptors,
@@ -323,6 +340,7 @@ fn push_processor_descriptors(
                 owner,
                 value.damping,
                 0.020,
+                1.0,
             );
             push_normalized_descriptor(
                 descriptors,
@@ -330,8 +348,16 @@ fn push_processor_descriptors(
                 owner,
                 value.width,
                 0.020,
+                1.0,
             );
-            push_normalized_descriptor(descriptors, format!("{base}.mix"), owner, value.mix, 0.020);
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.020,
+                1.0,
+            );
         }
     }
 }
@@ -342,6 +368,7 @@ fn push_normalized_descriptor(
     owner: ParameterOwner,
     default: f32,
     smoothing_seconds: f32,
+    max: f32,
 ) {
     descriptors.push(ParameterDescriptor {
         id,
@@ -349,7 +376,7 @@ fn push_normalized_descriptor(
         unit: ParameterUnit::Normalized,
         scale: ParameterScale::Linear,
         min: 0.0,
-        max: 1.0,
+        max,
         default,
         smoothing_seconds,
     });
@@ -499,6 +526,44 @@ mod tests {
         };
         let normalized = log.normalize(1_000.0).expect("normalizes");
         assert!((log.denormalize(normalized).expect("denormalizes") - 1_000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn feedback_and_decay_descriptors_bound_dynamic_values() {
+        let mut source = definition();
+        source.global_processors = vec![
+            ProcessorDefinition::Delay(crate::definition::DelayProcessorDefinition {
+                id: "echo".to_owned(),
+                time_seconds: 0.25,
+                feedback: 0.5,
+                mix: 0.5,
+            }),
+            ProcessorDefinition::Reverb(crate::definition::ReverbProcessorDefinition {
+                id: "space".to_owned(),
+                pre_delay_seconds: 0.02,
+                decay: 0.5,
+                damping: 0.2,
+                width: 1.0,
+                mix: 0.3,
+            }),
+        ];
+        let catalog = ParameterCatalog::from_definition(&source);
+
+        let delay_feedback = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "global.processor.echo.feedback")
+            .expect("delay feedback descriptor");
+        let reverb_decay = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "global.processor.space.decay")
+            .expect("reverb decay descriptor");
+
+        assert!((delay_feedback.max - 0.95).abs() < f32::EPSILON);
+        assert!((reverb_decay.max - 0.98).abs() < f32::EPSILON);
+        assert!((delay_feedback.denormalize(1.0).expect("delay max") - 0.95).abs() < f32::EPSILON);
+        assert!((reverb_decay.denormalize(1.0).expect("reverb max") - 0.98).abs() < f32::EPSILON);
     }
 
     #[test]

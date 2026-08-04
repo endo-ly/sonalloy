@@ -43,12 +43,12 @@ fn span_values(
     index: usize,
     length: usize,
 ) -> (f32, f32) {
-    let position = if length <= 1 {
+    let position = if length == 0 {
         0.0
     } else {
         #[allow(clippy::cast_precision_loss)]
         {
-            index as f32 / (length - 1) as f32
+            index as f32 / length as f32
         }
     };
     (
@@ -127,5 +127,57 @@ mod tests {
         DriveRuntime::process_mono(span, mix, &mut negative).expect("negative drive");
         assert!((positive[0] + negative[0]).abs() < 1.0e-6);
         assert!(positive[0].is_finite());
+    }
+
+    #[test]
+    fn ramp_is_independent_of_span_partitioning() {
+        #[allow(clippy::cast_precision_loss)]
+        let input: Vec<f32> = (0..32).map(|index| index as f32 / 31.0 - 0.5).collect();
+        let mut whole = input.clone();
+        DriveRuntime::process_mono(
+            super::super::ValueSpan {
+                start: 0.0,
+                end: 1.0,
+            },
+            super::super::ValueSpan {
+                start: 0.2,
+                end: 0.8,
+            },
+            &mut whole,
+        )
+        .expect("whole drive process");
+
+        let mut split = input;
+        DriveRuntime::process_mono(
+            super::super::ValueSpan {
+                start: 0.0,
+                end: 1.0 / 32.0,
+            },
+            super::super::ValueSpan {
+                start: 0.2,
+                end: 0.2 + 0.6 / 32.0,
+            },
+            &mut split[..1],
+        )
+        .expect("first split drive process");
+        DriveRuntime::process_mono(
+            super::super::ValueSpan {
+                start: 1.0 / 32.0,
+                end: 1.0,
+            },
+            super::super::ValueSpan {
+                start: 0.2 + 0.6 / 32.0,
+                end: 0.8,
+            },
+            &mut split[1..],
+        )
+        .expect("second split drive process");
+
+        assert!(
+            whole
+                .iter()
+                .zip(split)
+                .all(|(left, right)| (left - right).abs() < 1.0e-6)
+        );
     }
 }

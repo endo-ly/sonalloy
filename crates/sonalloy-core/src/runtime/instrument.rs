@@ -1792,4 +1792,99 @@ mod tests {
             .0;
         assert!((one_current - eight_current).abs() < f32::EPSILON);
     }
+
+    #[test]
+    fn global_feedback_targets_remain_within_descriptor_limits() {
+        let mut source = definition();
+        source.global_processors = vec![
+            crate::definition::ProcessorDefinition::Delay(
+                crate::definition::DelayProcessorDefinition {
+                    id: "echo".to_owned(),
+                    time_seconds: 0.25,
+                    feedback: 0.5,
+                    mix: 0.5,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Reverb(
+                crate::definition::ReverbProcessorDefinition {
+                    id: "space".to_owned(),
+                    pre_delay_seconds: 0.02,
+                    decay: 0.5,
+                    damping: 0.2,
+                    width: 1.0,
+                    mix: 0.3,
+                },
+            ),
+        ];
+        source.modulation = Some(crate::definition::ModulationDefinition {
+            sources: vec![],
+            routes: vec![
+                crate::definition::ModulationRouteDefinition {
+                    source: "mod_wheel".to_owned(),
+                    target: "global.processor.echo.feedback".to_owned(),
+                    amount: 1.0,
+                    curve: crate::definition::ModulationCurve::Linear,
+                },
+                crate::definition::ModulationRouteDefinition {
+                    source: "mod_wheel".to_owned(),
+                    target: "global.processor.space.decay".to_owned(),
+                    amount: 1.0,
+                    curve: crate::definition::ModulationCurve::Linear,
+                },
+            ],
+        });
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let delay_feedback = runtime
+            .compiled()
+            .parameter_handle("global.processor.echo.feedback")
+            .expect("delay feedback handle");
+        let reverb_decay = runtime
+            .compiled()
+            .parameter_handle("global.processor.space.decay")
+            .expect("reverb decay handle");
+
+        let events = [
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: delay_feedback,
+                    normalized: 1.0,
+                },
+            },
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: reverb_decay,
+                    normalized: 1.0,
+                },
+            },
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::ModWheel { value: 1.0 },
+            },
+        ];
+        let _ = process(&mut runtime, 257, 0, &events);
+        let empty: [ProcessEvent; 0] = [];
+        let _ = process(&mut runtime, 257, 257, &empty);
+        let _ = process(&mut runtime, 257, 514, &empty);
+        let _ = process(&mut runtime, 257, 771, &empty);
+
+        match runtime.global_targets[0] {
+            ProcessorTargetSpan::Delay { feedback, .. } => {
+                assert!(feedback.start <= 0.95);
+                assert!(feedback.end <= 0.95);
+                assert!(feedback.end > 0.949);
+            }
+            _ => panic!("first global processor must be delay"),
+        }
+        match runtime.global_targets[1] {
+            ProcessorTargetSpan::Reverb { decay, .. } => {
+                assert!(decay.start <= 0.98);
+                assert!(decay.end <= 0.98);
+                assert!(decay.end > 0.979);
+            }
+            _ => panic!("second global processor must be reverb"),
+        }
+    }
 }

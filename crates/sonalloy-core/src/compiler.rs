@@ -262,6 +262,34 @@ pub struct CompiledDelayProcessor {
     pub mix: ParameterHandle,
 }
 
+/// Delay-line source used by one Dattorro stereo output tap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReverbTapSource {
+    /// The first long delay in the left tank.
+    LeftLongDelay,
+    /// The second all-pass delay in the left tank.
+    LeftTankAllpass,
+    /// The final output delay in the left tank.
+    LeftOutputDelay,
+    /// The first long delay in the right tank.
+    RightLongDelay,
+    /// The second all-pass delay in the right tank.
+    RightTankAllpass,
+    /// The final output delay in the right tank.
+    RightOutputDelay,
+}
+
+/// One sample-rate-scaled Dattorro output tap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReverbOutputTap {
+    /// Delay-line containing the tap source.
+    pub source: ReverbTapSource,
+    /// Offset into that delay-line.
+    pub delay_frames: usize,
+    /// Signed contribution to the output accumulator.
+    pub sign: i8,
+}
+
 /// Compiled plate reverb processor.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledReverbProcessor {
@@ -281,14 +309,19 @@ pub struct CompiledReverbProcessor {
     pub tank_left_lengths: [usize; 4],
     /// Right tank delay lengths.
     pub tank_right_lengths: [usize; 4],
-    /// Output tap lengths for the left and right tank paths.
-    pub output_taps: [usize; 8],
+    /// Left stereo output taps.
+    pub left_output_taps: [ReverbOutputTap; 7],
+    /// Right stereo output taps.
+    pub right_output_taps: [ReverbOutputTap; 7],
     /// Per-sample internal modulation phase increment.
     pub modulation_increment: f32,
+    /// Sample-rate-scaled maximum modulation excursion in frames.
+    pub modulation_excursion: f32,
 }
 
 /// Processor kind with all control bindings resolved.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum CompiledProcessorKind {
     /// Low-pass filter processor.
     Filter(CompiledFilterProcessor),
@@ -705,6 +738,7 @@ fn compile_delay_processor(
         sample_rate,
         &format!("{path}.time_seconds"),
         diagnostics,
+        1,
     );
     CompiledProcessorKind::Delay(CompiledDelayProcessor {
         delay_frames,
@@ -731,6 +765,7 @@ fn compile_reverb_processor(
         sample_rate,
         &format!("{path}.pre_delay_seconds"),
         diagnostics,
+        0,
     );
     let input_diffusion_lengths = scale_reverb_lengths(
         [142.0, 107.0, 379.0, 277.0],
@@ -739,7 +774,7 @@ fn compile_reverb_processor(
         diagnostics,
     );
     let tank_left_lengths = scale_reverb_lengths(
-        [672.0, 445.0, 1_800.0, 3_720.0],
+        [672.0, 4_453.0, 1_800.0, 3_720.0],
         sample_rate,
         &format!("{path}.tank_left"),
         diagnostics,
@@ -750,16 +785,42 @@ fn compile_reverb_processor(
         &format!("{path}.tank_right"),
         diagnostics,
     );
-    let output_taps = scale_reverb_lengths(
+    let left_output_taps = scale_reverb_taps(
         [
-            266.0, 2_974.0, 1_913.0, 1_996.0, 1_990.0, 187.0, 1_066.0, 353.0,
+            (ReverbTapSource::RightLongDelay, 266.0, 1),
+            (ReverbTapSource::RightLongDelay, 2_974.0, 1),
+            (ReverbTapSource::RightTankAllpass, 1_913.0, -1),
+            (ReverbTapSource::RightOutputDelay, 1_996.0, 1),
+            (ReverbTapSource::LeftLongDelay, 1_990.0, -1),
+            (ReverbTapSource::LeftTankAllpass, 187.0, -1),
+            (ReverbTapSource::LeftOutputDelay, 1_066.0, -1),
         ],
         sample_rate,
-        &format!("{path}.output_taps"),
+        &format!("{path}.left_output_taps"),
+        diagnostics,
+    );
+    let right_output_taps = scale_reverb_taps(
+        [
+            (ReverbTapSource::LeftLongDelay, 353.0, 1),
+            (ReverbTapSource::LeftLongDelay, 3_627.0, 1),
+            (ReverbTapSource::LeftTankAllpass, 1_228.0, -1),
+            (ReverbTapSource::LeftOutputDelay, 2_673.0, 1),
+            (ReverbTapSource::RightLongDelay, 2_111.0, -1),
+            (ReverbTapSource::RightTankAllpass, 335.0, -1),
+            (ReverbTapSource::RightOutputDelay, 121.0, -1),
+        ],
+        sample_rate,
+        &format!("{path}.right_output_taps"),
         diagnostics,
     );
     #[allow(clippy::cast_possible_truncation)]
-    let modulation_increment = (0.1 / sample_rate) as f32;
+    let modulation_increment = (1.0 / sample_rate) as f32;
+    let modulation_excursion = scale_reverb_excursion(
+        16.0,
+        sample_rate,
+        &format!("{path}.modulation_excursion"),
+        diagnostics,
+    );
     CompiledProcessorKind::Reverb(CompiledReverbProcessor {
         pre_delay_frames,
         decay,
@@ -769,8 +830,10 @@ fn compile_reverb_processor(
         input_diffusion_lengths,
         tank_left_lengths,
         tank_right_lengths,
-        output_taps,
+        left_output_taps,
+        right_output_taps,
         modulation_increment,
+        modulation_excursion,
     })
 }
 
@@ -795,6 +858,7 @@ fn processor_seconds_to_frames(
     sample_rate: f64,
     path: &str,
     diagnostics: &mut Vec<Diagnostic>,
+    minimum_frames: usize,
 ) -> usize {
     let frames = (f64::from(seconds) * sample_rate).round();
     #[allow(clippy::cast_precision_loss)]
@@ -809,9 +873,13 @@ fn processor_seconds_to_frames(
         );
         return 1;
     }
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        clippy::cast_sign_loss
+    )]
     {
-        frames.max(1.0) as usize
+        frames.max(minimum_frames as f64) as usize
     }
 }
 
@@ -843,6 +911,47 @@ fn scale_reverb_lengths<const N: usize>(
         }
     }
     result
+}
+
+fn scale_reverb_taps<const N: usize>(
+    reference_taps: [(ReverbTapSource, f64, i8); N],
+    sample_rate: f64,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> [ReverbOutputTap; N] {
+    let reference_lengths: [f64; N] = std::array::from_fn(|index| reference_taps[index].1);
+    let lengths = scale_reverb_lengths(reference_lengths, sample_rate, path, diagnostics);
+    std::array::from_fn(|index| {
+        let (source, _, sign) = reference_taps[index];
+        ReverbOutputTap {
+            source,
+            delay_frames: lengths[index],
+            sign,
+        }
+    })
+}
+
+fn scale_reverb_excursion(
+    reference_frames: f64,
+    sample_rate: f64,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> f32 {
+    let frames = reference_frames / 29_761.0 * sample_rate;
+    if !frames.is_finite() || frames <= 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "reverb modulation excursion is not finite",
+            )
+            .with_path(path),
+        );
+        return 1.0;
+    }
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        frames as f32
+    }
 }
 
 type CompiledModulation = (
@@ -1365,6 +1474,120 @@ mod tests {
             compiled.parameters().last().expect("delay mix").id,
             "global.processor.echo.mix"
         );
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn reverb_compiles_reference_delay_lengths_and_output_taps() {
+        let mut source = definition();
+        source
+            .global_processors
+            .push(ProcessorDefinition::Reverb(ReverbProcessorDefinition {
+                id: "space".to_owned(),
+                pre_delay_seconds: 0.0,
+                decay: 0.5,
+                damping: 0.2,
+                width: 1.0,
+                mix: 0.3,
+            }));
+        let context = CompileContext {
+            process_spec: ProcessSpec::new(29_761.0, 257, 2).expect("valid spec"),
+            ..context()
+        };
+
+        let result = compile_instrument(&source, &context);
+        let compiled = result.instrument.expect("reverb compiles");
+        assert!(result.diagnostics.is_empty());
+
+        let CompiledProcessorKind::Reverb(reverb) = &compiled.global_processors[0].processor else {
+            panic!("global processor must be reverb");
+        };
+        assert_eq!(reverb.pre_delay_frames, 0);
+        assert_eq!(reverb.input_diffusion_lengths, [142, 107, 379, 277]);
+        assert_eq!(reverb.tank_left_lengths, [672, 4_453, 1_800, 3_720]);
+        assert_eq!(reverb.tank_right_lengths, [908, 4_217, 2_656, 3_163]);
+        assert_eq!(
+            reverb.left_output_taps,
+            [
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightLongDelay,
+                    delay_frames: 266,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightLongDelay,
+                    delay_frames: 2_974,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightTankAllpass,
+                    delay_frames: 1_913,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightOutputDelay,
+                    delay_frames: 1_996,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftLongDelay,
+                    delay_frames: 1_990,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftTankAllpass,
+                    delay_frames: 187,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftOutputDelay,
+                    delay_frames: 1_066,
+                    sign: -1,
+                },
+            ]
+        );
+        assert_eq!(
+            reverb.right_output_taps,
+            [
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftLongDelay,
+                    delay_frames: 353,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftLongDelay,
+                    delay_frames: 3_627,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftTankAllpass,
+                    delay_frames: 1_228,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::LeftOutputDelay,
+                    delay_frames: 2_673,
+                    sign: 1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightLongDelay,
+                    delay_frames: 2_111,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightTankAllpass,
+                    delay_frames: 335,
+                    sign: -1,
+                },
+                ReverbOutputTap {
+                    source: ReverbTapSource::RightOutputDelay,
+                    delay_frames: 121,
+                    sign: -1,
+                },
+            ]
+        );
+        assert!((reverb.modulation_increment - 1.0 / 29_761.0).abs() < 1.0e-10);
+        assert!((reverb.modulation_excursion - 16.0).abs() < 1.0e-5);
     }
 
     #[test]

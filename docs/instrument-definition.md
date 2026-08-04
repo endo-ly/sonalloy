@@ -100,7 +100,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 | ADSR | Attack / Decay / Releaseは0〜30秒、Sustainは0〜1 |
 | Filter | `cutoff_hz`は20〜20000Hz、`resonance`は0〜1。CutoffがSample Rateの上限を超える場合はWarningを出して`min(20000, Sample Rate × 0.45)`に制限します |
 | Drive | `amount`、`mix`ともに0〜1 |
-| Delay | `time_seconds`は0.001〜2秒、`feedback`、`mix`は0〜1。Globalのみ |
+| Delay | `time_seconds`は0.001〜2秒、`feedback`は0〜0.95、`mix`は0〜1。Globalのみ |
 | Reverb | `pre_delay_seconds`は0〜0.2秒、`decay`は0〜0.98、`damping`、`width`、`mix`は0〜1。Globalのみ |
 | Processor ID | 各Chain内で一意。小文字で始まり、小文字・数字・`_`を使用。`.`は使用しません |
 | Layer / Source ID | 小文字で始まり、小文字・数字・`_`を使用。`.`は使用しません |
