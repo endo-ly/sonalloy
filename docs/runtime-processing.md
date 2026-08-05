@@ -119,7 +119,7 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 
 **Generatorの種類**
 
-- **Oscillator**：Note番号とTuningから周波数を決め、Sine / Saw / Square / Triangle / Pulseを生成します。`phase_reset`が有効ならNoteごとにCompiled Initial Phaseへ戻します。Pulse Widthは5msでSmoothingし、既存Modulationから制御できます
+- **Oscillator**：Note番号とTuningから周波数を決め、Sine / Saw / Square / Triangle / Pulseを生成します。`phase_reset`が有効ならNoteごとにCompiled Initial Phaseへ戻します。Pulse Widthは5msでSmoothingし、既存Modulationから制御できます。Hard SyncはVariable Shape BackendでMaster / Slaveを生成し、RatioをLog2で5ms Smoothingします。UnisonはPrepare時に固定したComponent数でDetune、Phase、Stereo Placementを行い、2 Voice以上をStereoで出力します。WaveshapingはUnison Mix直後にAmountをLinearで5ms Smoothingして適用します
 - **Noise**：White / Pink / Brownを決定的なPRNG Streamから生成します。Shared、Left Independent、Right Independentの3 Streamを持ち、Correlationを`√correlation`と`√(1-correlation)`でMixして常にStereoで出力します
 - **Sample**：後述のSample再生を使います。Compileで無効になったLayerは鳴りません
 
@@ -138,6 +138,8 @@ SampleはCompile時に読み込み済みで、全Voiceで共有します。Voice
 - **Reset**：全Voice、Oscillatorの位相、Noise Stream、SampleのCursor、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
+
+Oscillatorの信号順序は、Component生成、Unison Mix / Stereo Placement、Generator Waveshaping、Layer Processor Chainです。Unisonの各Componentは同じDefinitionから独立したNative Stateを持ち、`1 / sqrt(voices)`で正規化します。Hard SyncのResetはNative WrapperでVariable Shape Oscillatorを再初期化し、Waveform ShapeとSync設定を復元します。
 
 ## Sine Runtime（開発用）
 

@@ -10,11 +10,11 @@ pub mod runtime;
 pub use compiler::{CompileContext, CompileResult, CompiledInstrument, compile_instrument};
 pub use definition::{
     AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, DelayProcessorDefinition,
-    DriveProcessorDefinition, FilterProcessorDefinition, GeneratorDefinition, InstrumentDefinition,
-    InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, NoiseColor, NoiseDefinition,
-    OscillatorDefinition, OscillatorWaveform, PerformanceDefinition, ProcessorDefinition,
-    ReverbProcessorDefinition, SampleDefinition, SampleInterpolation, SamplePlaybackMode,
-    VoiceStealingDefinition,
+    DriveProcessorDefinition, FilterProcessorDefinition, GeneratorDefinition, HardSyncDefinition,
+    InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, NoiseColor,
+    NoiseDefinition, OscillatorDefinition, OscillatorWaveform, PerformanceDefinition,
+    ProcessorDefinition, ReverbProcessorDefinition, SampleDefinition, SampleInterpolation,
+    SamplePlaybackMode, UnisonDefinition, VoiceStealingDefinition, WaveshapingDefinition,
 };
 pub use definition::{
     LfoDefinition, LfoWaveform, ModEnvelopeDefinition, ModulationCurve, ModulationDefinition,

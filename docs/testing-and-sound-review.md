@@ -106,4 +106,13 @@ flowchart LR
 - 人間の確認：波形間の音色差、高音域のAlias、Pulse Widthの差、PWMのClick、Noise色の差と周期性、Brownの低域偏り、Stereo Correlationの幅、Reset後のNoise冒頭
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
+### Complex Oscillator
+
+- 保存先：`review-output/complex-oscillator/`（audio/technical / definitions / events / inspect.json / metrics.json / review-summary.md）
+- 生成：`python scripts/review/generate_complex_oscillator_package.py`
+- 内容：Hard Sync Ratio 2 / 6、Ratio Sweep、Waveshaping Amount 0.5 / Sweep、Unison 3 / 5 / 8、Hard Sync + Unison、Essential Synth Referenceを同じDefinitionと固定Eventから確認する
+- Metrics：Finite性、Peak / RMS / DC、固定長Spectrum、Stereo差分、Stereo Correlation、Sample Rate 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024での出力比較、Reset再現性、Polyphony / Unison別のRender時間とピークWorking Set
+- 人間の確認：Ratio別の倍音、Ratio SweepのPitch連続性、高音域Hard SyncのAlias、Waveshapingの倍音変化とClick、UnisonのBeat・Stereo幅・Mono互換性、Voice数増加時のLevel、Hard Sync + Unison、Bass / Lead / Pad用途
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
 試聴の際は同じ再生環境・音量で比較し、確認結果を`review-summary.md`へ記録します。

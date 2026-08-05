@@ -45,7 +45,8 @@ impl GeneratorRuntime {
 
     pub(crate) fn output_mode(&self) -> GeneratorOutputMode {
         match self {
-            Self::Oscillator(_) | Self::Sample { .. } | Self::Disabled => GeneratorOutputMode::Mono,
+            Self::Oscillator(oscillator) => oscillator.output_mode(),
+            Self::Sample { .. } | Self::Disabled => GeneratorOutputMode::Mono,
             Self::Noise(_) => GeneratorOutputMode::Stereo,
         }
     }
@@ -90,8 +91,10 @@ impl GeneratorRuntime {
                     tuning_start,
                     tuning_end,
                     sample_rate,
-                    targets.pulse_width,
+                    targets,
                     mono,
+                    left,
+                    right,
                 )?;
                 Ok(false)
             }

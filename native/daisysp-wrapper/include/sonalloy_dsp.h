@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 typedef struct sonalloy_dsp_oscillator sonalloy_dsp_oscillator;
+typedef struct sonalloy_dsp_variable_oscillator sonalloy_dsp_variable_oscillator;
 typedef struct sonalloy_dsp_filter sonalloy_dsp_filter;
 
 enum sonalloy_dsp_result {
@@ -74,6 +75,36 @@ int32_t sonalloy_dsp_oscillator_process_ramp_with_pulse_width(
     sonalloy_dsp_oscillator* handle,
     float start_frequency_hz,
     float end_frequency_hz,
+    float start_pulse_width,
+    float end_pulse_width,
+    float* output,
+    uint32_t frames
+);
+
+sonalloy_dsp_variable_oscillator* sonalloy_dsp_variable_oscillator_create(void);
+void sonalloy_dsp_variable_oscillator_destroy(sonalloy_dsp_variable_oscillator* handle);
+int32_t sonalloy_dsp_variable_oscillator_prepare(
+    sonalloy_dsp_variable_oscillator* handle,
+    double sample_rate,
+    int32_t waveform
+);
+int32_t sonalloy_dsp_variable_oscillator_reset(
+    sonalloy_dsp_variable_oscillator* handle
+);
+int32_t sonalloy_dsp_variable_oscillator_process(
+    sonalloy_dsp_variable_oscillator* handle,
+    float master_frequency_hz,
+    float slave_frequency_hz,
+    float pulse_width,
+    float* output,
+    uint32_t frames
+);
+int32_t sonalloy_dsp_variable_oscillator_process_ramp(
+    sonalloy_dsp_variable_oscillator* handle,
+    float start_master_frequency_hz,
+    float end_master_frequency_hz,
+    float start_slave_frequency_hz,
+    float end_slave_frequency_hz,
     float start_pulse_width,
     float end_pulse_width,
     float* output,

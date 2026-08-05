@@ -62,6 +62,8 @@ pub enum ParameterUnit {
     Cents,
     /// Frequency in hertz.
     Hertz,
+    /// A frequency ratio.
+    Ratio,
     /// A unitless value in the inclusive zero-to-one range.
     Normalized,
 }
@@ -288,6 +290,48 @@ fn push_generator_descriptors(
                     smoothing_seconds: 0.005,
                 });
             }
+            if let Some(hard_sync) = oscillator.hard_sync {
+                descriptors.push(ParameterDescriptor {
+                    id: format!("{prefix}.sync_ratio"),
+                    owner,
+                    unit: ParameterUnit::Ratio,
+                    scale: ParameterScale::Log2,
+                    min: 1.0,
+                    max: 16.0,
+                    default: hard_sync.ratio,
+                    smoothing_seconds: 0.005,
+                });
+            }
+            if let Some(waveshaping) = oscillator.waveshaping {
+                push_normalized_descriptor(
+                    descriptors,
+                    format!("{prefix}.waveshape"),
+                    owner,
+                    waveshaping.amount,
+                    0.005,
+                    1.0,
+                );
+            }
+            if let Some(unison) = oscillator.unison {
+                descriptors.push(ParameterDescriptor {
+                    id: format!("{prefix}.unison_detune"),
+                    owner,
+                    unit: ParameterUnit::Cents,
+                    scale: ParameterScale::Linear,
+                    min: 0.0,
+                    max: 100.0,
+                    default: unison.detune_cents,
+                    smoothing_seconds: 0.010,
+                });
+                push_normalized_descriptor(
+                    descriptors,
+                    format!("{prefix}.unison_spread"),
+                    owner,
+                    unison.stereo_spread,
+                    0.010,
+                    1.0,
+                );
+            }
         }
         GeneratorDefinition::Noise(noise) => {
             descriptors.push(ParameterDescriptor {
@@ -484,7 +528,16 @@ pub fn is_parameter_id(value: &str) -> bool {
                 && is_processor_parameter(parameter)
         }
         ["layer", layer_id, "generator", parameter] => {
-            is_component_id(layer_id) && matches!(*parameter, "pulse_width" | "noise_correlation")
+            is_component_id(layer_id)
+                && matches!(
+                    *parameter,
+                    "pulse_width"
+                        | "sync_ratio"
+                        | "waveshape"
+                        | "unison_detune"
+                        | "unison_spread"
+                        | "noise_correlation"
+                )
         }
         ["voice" | "global", "processor", processor_id, parameter] => {
             is_component_id(processor_id) && is_processor_parameter(parameter)
@@ -559,6 +612,9 @@ mod tests {
                 waveform: OscillatorWaveform::Pulse { pulse_width: 0.25 },
                 phase_reset: true,
                 phase: 0.0,
+                hard_sync: None,
+                waveshaping: None,
+                unison: None,
             });
         let mut noise_layer = source.layers[0].clone();
         noise_layer.id = "texture".to_owned();
@@ -631,9 +687,61 @@ mod tests {
             "layer.body.generator.pulse_width"
         );
         assert!(is_parameter_id("layer.body.generator.pulse_width"));
+        assert!(is_parameter_id("layer.body.generator.sync_ratio"));
+        assert!(is_parameter_id("layer.body.generator.waveshape"));
+        assert!(is_parameter_id("layer.body.generator.unison_detune"));
+        assert!(is_parameter_id("layer.body.generator.unison_spread"));
         assert!(is_parameter_id("layer.body.generator.noise_correlation"));
-        assert!(!is_parameter_id("layer.body.generator.sync_ratio"));
         assert!(!is_parameter_id("layer.Body.generator.pulse_width"));
+    }
+
+    #[test]
+    fn complex_generator_parameters_preserve_catalog_metadata() {
+        let mut source = definition();
+        source.layers[0].generator =
+            GeneratorDefinition::Oscillator(crate::definition::OscillatorDefinition {
+                waveform: OscillatorWaveform::Saw,
+                phase_reset: true,
+                phase: 0.0,
+                hard_sync: Some(crate::definition::HardSyncDefinition { ratio: 3.0 }),
+                waveshaping: Some(crate::definition::WaveshapingDefinition { amount: 0.25 }),
+                unison: Some(crate::definition::UnisonDefinition {
+                    voices: 5,
+                    detune_cents: 18.0,
+                    stereo_spread: 0.8,
+                    phase_spread: 0.2,
+                }),
+            });
+        let catalog = ParameterCatalog::from_definition(&source);
+        let parameters = catalog.parameters();
+        let ids: Vec<_> = parameters
+            .iter()
+            .map(|parameter| parameter.id.as_str())
+            .collect();
+        assert_eq!(
+            &ids[3..],
+            [
+                "layer.body.generator.sync_ratio",
+                "layer.body.generator.waveshape",
+                "layer.body.generator.unison_detune",
+                "layer.body.generator.unison_spread",
+            ]
+        );
+
+        let sync = &parameters[3];
+        assert_eq!(sync.unit, ParameterUnit::Ratio);
+        assert_eq!(sync.scale, ParameterScale::Log2);
+        assert!((sync.min - 1.0).abs() < f32::EPSILON);
+        assert!((sync.max - 16.0).abs() < f32::EPSILON);
+        assert!((sync.default - 3.0).abs() < f32::EPSILON);
+        assert!((sync.smoothing_seconds - 0.005).abs() < f32::EPSILON);
+
+        let detune = &parameters[5];
+        assert_eq!(detune.unit, ParameterUnit::Cents);
+        assert!(detune.min.abs() < f32::EPSILON);
+        assert!((detune.max - 100.0).abs() < f32::EPSILON);
+        assert!((detune.default - 18.0).abs() < f32::EPSILON);
+        assert!((detune.smoothing_seconds - 0.010).abs() < f32::EPSILON);
     }
 
     #[test]

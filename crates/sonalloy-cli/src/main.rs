@@ -279,6 +279,26 @@ struct InspectGenerator {
     phase: f32,
     output_mode: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
+    backend: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hard_sync: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sync_ratio_parameter: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    waveshaping: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    waveshape_parameter: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    unison_voices: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    unison_detune_parameter: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    unison_spread_parameter: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    phase_spread: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    effective_max_frequency_hz: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pulse_width: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     noise_color: Option<&'static str>,
@@ -1083,6 +1103,9 @@ fn default_definition() -> InstrumentDefinition {
                 waveform: OscillatorWaveform::Saw,
                 phase_reset: true,
                 phase: 0.0,
+                hard_sync: None,
+                waveshaping: None,
+                unison: None,
             }),
             processors: Vec::new(),
         }],
@@ -1103,6 +1126,31 @@ fn parameter_default(compiled: &CompiledInstrument, handle: ParameterHandle) -> 
         .parameter_descriptor(handle)
         .expect("compiled parameter handle must be valid")
         .default
+}
+
+fn parameter_descriptor_id(compiled: &CompiledInstrument, handle: ParameterHandle) -> String {
+    compiled
+        .parameter_descriptor(handle)
+        .expect("compiled parameter handle must be valid")
+        .id
+        .clone()
+}
+
+fn effective_max_frequency(
+    compiled: &CompiledInstrument,
+    backend: sonalloy_core::compiler::CompiledOscillatorBackend,
+) -> f32 {
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        if matches!(
+            backend,
+            sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync
+        ) {
+            (compiled.process_sample_rate * 0.24) as f32
+        } else {
+            (compiled.process_sample_rate * 0.45) as f32
+        }
+    }
 }
 
 fn inspect_processor(
@@ -1284,6 +1332,39 @@ fn make_inspect_report(
                             sonalloy_core::compiler::GeneratorOutputMode::Mono => "mono",
                             sonalloy_core::compiler::GeneratorOutputMode::Stereo => "stereo",
                         },
+                        backend: Some(match oscillator.backend {
+                            sonalloy_core::compiler::CompiledOscillatorBackend::Basic => "basic",
+                            sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync => {
+                                "variable_shape_sync"
+                            }
+                        }),
+                        hard_sync: Some(matches!(
+                            oscillator.backend,
+                            sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync
+                        )),
+                        sync_ratio_parameter: oscillator
+                            .parameters
+                            .sync_ratio
+                            .map(|handle| parameter_descriptor_id(compiled, handle)),
+                        waveshaping: Some(oscillator.waveshaping.is_some()),
+                        waveshape_parameter: oscillator
+                            .parameters
+                            .waveshape
+                            .map(|handle| parameter_descriptor_id(compiled, handle)),
+                        unison_voices: Some(oscillator.unison.voices),
+                        unison_detune_parameter: oscillator
+                            .parameters
+                            .unison_detune
+                            .map(|handle| parameter_descriptor_id(compiled, handle)),
+                        unison_spread_parameter: oscillator
+                            .parameters
+                            .unison_spread
+                            .map(|handle| parameter_descriptor_id(compiled, handle)),
+                        phase_spread: Some(oscillator.unison.phase_spread),
+                        effective_max_frequency_hz: Some(effective_max_frequency(
+                            compiled,
+                            oscillator.backend,
+                        )),
                         pulse_width: oscillator
                             .parameters
                             .pulse_width
@@ -1308,6 +1389,16 @@ fn make_inspect_report(
                         phase_reset: false,
                         phase: 0.0,
                         output_mode: "stereo",
+                        backend: None,
+                        hard_sync: None,
+                        sync_ratio_parameter: None,
+                        waveshaping: None,
+                        waveshape_parameter: None,
+                        unison_voices: None,
+                        unison_detune_parameter: None,
+                        unison_spread_parameter: None,
+                        phase_spread: None,
+                        effective_max_frequency_hz: None,
                         pulse_width: None,
                         noise_color: Some(match noise.color {
                             sonalloy_core::NoiseColor::White => "white",
@@ -1337,6 +1428,16 @@ fn make_inspect_report(
                             phase_reset: false,
                             phase: 0.0,
                             output_mode: "mono",
+                            backend: None,
+                            hard_sync: None,
+                            sync_ratio_parameter: None,
+                            waveshaping: None,
+                            waveshape_parameter: None,
+                            unison_voices: None,
+                            unison_detune_parameter: None,
+                            unison_spread_parameter: None,
+                            phase_spread: None,
+                            effective_max_frequency_hz: None,
                             pulse_width: None,
                             noise_color: None,
                             noise_seed: None,
@@ -1501,8 +1602,63 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
                         sonalloy_core::compiler::GeneratorOutputMode::Stereo => "stereo",
                     }
                 );
+                println!(
+                    "  backend: {} effective_max_frequency_hz: {:.3}",
+                    match oscillator.backend {
+                        sonalloy_core::compiler::CompiledOscillatorBackend::Basic => "basic",
+                        sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync => {
+                            "variable_shape_sync"
+                        }
+                    },
+                    if matches!(
+                        oscillator.backend,
+                        sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync
+                    ) {
+                        compiled.process_sample_rate * 0.24
+                    } else {
+                        compiled.process_sample_rate * 0.45
+                    }
+                );
+                println!(
+                    "  hard_sync: {} waveshaping: {} unison_voices: {} phase_spread: {:.3}",
+                    matches!(
+                        oscillator.backend,
+                        sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync
+                    ),
+                    oscillator.waveshaping.is_some(),
+                    oscillator.unison.voices,
+                    oscillator.unison.phase_spread
+                );
                 if let Some(handle) = oscillator.parameters.pulse_width {
                     println!("  pulse_width: {}", parameter_default(compiled, handle));
+                }
+                if let Some(handle) = oscillator.parameters.sync_ratio {
+                    println!(
+                        "  sync_ratio: {} ({})",
+                        parameter_default(compiled, handle),
+                        parameter_descriptor_id(compiled, handle)
+                    );
+                }
+                if let Some(handle) = oscillator.parameters.waveshape {
+                    println!(
+                        "  waveshape: {} ({})",
+                        parameter_default(compiled, handle),
+                        parameter_descriptor_id(compiled, handle)
+                    );
+                }
+                if let Some(handle) = oscillator.parameters.unison_detune {
+                    println!(
+                        "  unison_detune: {} ({})",
+                        parameter_default(compiled, handle),
+                        parameter_descriptor_id(compiled, handle)
+                    );
+                }
+                if let Some(handle) = oscillator.parameters.unison_spread {
+                    println!(
+                        "  unison_spread: {} ({})",
+                        parameter_default(compiled, handle),
+                        parameter_descriptor_id(compiled, handle)
+                    );
                 }
                 "not_applicable (oscillator-only instrument)"
             }

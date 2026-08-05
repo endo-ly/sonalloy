@@ -989,6 +989,7 @@ JSON：
 
 - `hard_sync`省略時は無効
 - Sineでは使用不可
+- Variable Shape Backendは任意の開始Phaseを設定できないため、Hard Sync時の`phase`は0だけを許可
 - Master FrequencyはNote Frequency × Unison Detune
 - Slave FrequencyはMaster Frequency × Ratio
 - Slave FrequencyはBackend Safe上限へ制限
@@ -2963,8 +2964,11 @@ review-output/essential-synthesis-sampling/
 生成Script：
 
 ```text
-scripts/review/generate_essential_synthesis_sampling_package.py
+scripts/review/generate_basic_generators_package.py
+scripts/review/generate_complex_oscillator_package.py
 ```
+
+Complex Oscillator Reviewは`review-output/complex-oscillator/`へ生成する。`audio/technical/`の生出力をMetricsと人間の試聴で共用し、正規化コピーは保存しない。
 
 ## 20.2 Review音源の正本と試聴
 
@@ -3448,45 +3452,45 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 
 ## Dependency
 
-- [ ] DaisySP Commitが維持されている
-- [ ] Build対象追加が`variableshapeosc.cpp`だけである
-- [ ] 新しいProduct Crateがない
-- [ ] SFZ / Sampler / Random / DSP Frameworkを追加していない
-- [ ] `Cargo.lock`に意図しないPackage追加がない
-- [ ] Third-party Noticeが実態と一致する
+- [x] DaisySP Commitが維持されている
+- [x] Build対象追加が`variableshapeosc.cpp`だけである
+- [x] 新しいProduct Crateがない
+- [x] SFZ / Sampler / Random / DSP Frameworkを追加していない
+- [x] `Cargo.lock`に意図しないPackage追加がない
+- [x] Third-party Noticeが実態と一致する
 
 ## Definition
 
-- [ ] GeneratorがOscillator / Noise / Sampleを持つ
-- [ ] WaveformがTagged Objectである
-- [ ] Square / Triangle / Pulseが定義可能
-- [ ] Hard Sync / Waveshaping / Unisonが定義可能
-- [ ] Noise Color / Seed / Correlationが定義可能
+- [x] GeneratorがOscillator / Noise / Sampleを持つ
+- [x] WaveformがTagged Objectである
+- [x] Square / Triangle / Pulseが定義可能
+- [x] Hard Sync / Waveshaping / Unisonが定義可能
+- [x] Noise Color / Seed / Correlationが定義可能
 - [ ] Sample Zone配列が定義可能
 - [ ] Key / Velocity / Round Robin / Region / Loopが定義可能
-- [ ] Unknown Fieldを拒否する
-- [ ] 旧Waveform文字列を受け付けない
-- [ ] 旧単一Sample形式を受け付けない
-- [ ] Migration / Deprecated / Aliasがない
+- [x] Unknown Fieldを拒否する
+- [x] 旧Waveform文字列を受け付けない
+- [x] 旧単一Sample形式を受け付けない
+- [x] Migration / Deprecated / Aliasがない
 
 ## Parameter / Modulation
 
-- [ ] Generator Parameter ID
-- [ ] Pulse Width
-- [ ] Sync Ratio
-- [ ] Waveshape
-- [ ] Unison Detune
-- [ ] Unison Spread
-- [ ] Noise Correlation
-- [ ] Catalog順序
-- [ ] Unit / Scale / Range / Smoothing
-- [ ] Existing Source / Routeで制御可能
-- [ ] Static FieldがTarget外
+- [x] Generator Parameter ID
+- [x] Pulse Width
+- [x] Sync Ratio
+- [x] Waveshape
+- [x] Unison Detune
+- [x] Unison Spread
+- [x] Noise Correlation
+- [x] Catalog順序
+- [x] Unit / Scale / Range / Smoothing
+- [x] Existing Source / Routeで制御可能
+- [x] Static FieldがTarget外
 
 ## Compile
 
-- [ ] Backend選択
-- [ ] Unison Distribution
+- [x] Backend選択
+- [x] Unison Distribution
 - [ ] Asset Cache
 - [ ] Multiple Zone Asset
 - [ ] Region / Loop Frame変換
@@ -3500,10 +3504,10 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 - [ ] Square / Triangle / Pulse
 - [ ] PWM
 - [ ] White / Pink / Brown Noise
-- [ ] Hard Sync
-- [ ] Waveshaping
-- [ ] Unison 2〜8
-- [ ] Stereo Generator Layer
+- [x] Hard Sync
+- [x] Waveshaping
+- [x] Unison 2〜8
+- [x] Stereo Generator Layer
 - [ ] Sample Zone選択
 - [ ] Velocity Layer
 - [ ] Round Robin
@@ -3511,42 +3515,42 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 - [ ] Forward Loop
 - [ ] Explicit Slice
 - [ ] Voice Stealing Pending Selection
-- [ ] Reset
-- [ ] Process中Allocationなし
-- [ ] Error時無音化 / Runtime無効化
-- [ ] Block Size非依存
+- [x] Reset
+- [x] Process中Allocationなし
+- [x] Error時無音化 / Runtime無効化
+- [x] Block Size非依存
 
 ## CLI / Current Specification
 
-- [ ] Init
-- [ ] Validate
-- [ ] Inspect
-- [ ] Note / Events / MIDI Render
+- [x] Init
+- [x] Validate
+- [x] Inspect
+- [x] Note / Events / MIDI Render
 - [ ] Existing Definition更新
-- [ ] Reference Instrument追加
-- [ ] `docs/instrument-definition.md`が実装と一致
-- [ ] `docs/runtime-processing.md`が実装と一致
-- [ ] 必要な公開Documentだけ更新
-- [ ] `docs/CONCEPT.md`を不要に変更していない
-- [ ] 恒久Documentへロードマップ番号を残していない
+- [x] Reference Instrument追加
+- [x] `docs/instrument-definition.md`が実装と一致
+- [x] `docs/runtime-processing.md`が実装と一致
+- [x] 必要な公開Documentだけ更新
+- [x] `docs/CONCEPT.md`を不要に変更していない
+- [x] 恒久Documentへロードマップ番号を残していない
 
 ## Test / Review
 
-- [ ] Native Unit Test
-- [ ] Definition Unit Test
-- [ ] Parameter Unit Test
-- [ ] Compiler Unit Test
-- [ ] Oscillator Runtime Test
+- [x] Native Unit Test
+- [x] Definition Unit Test
+- [x] Parameter Unit Test
+- [x] Compiler Unit Test
+- [x] Oscillator Runtime Test
 - [ ] Noise Runtime Test
 - [ ] Sample Runtime Test
-- [ ] Core Integration Test
-- [ ] CLI Integration Test
-- [ ] 44.1 / 48 / 96 kHz
-- [ ] Block Size 32 / 64 / 257 / 1024
-- [ ] Reset再現性
-- [ ] Existing Review再生成
-- [ ] New Review生成
-- [ ] Review音源の正本とMetricsの一致
+- [x] Core Integration Test
+- [x] CLI Integration Test
+- [x] 44.1 / 48 / 96 kHz
+- [x] Block Size 32 / 64 / 257 / 1024
+- [x] Reset再現性
+- [x] Existing Review再生成
+- [x] New Review生成
+- [x] Review音源の正本とMetricsの一致
 - [ ] 人間によるBasic Generator承認
 - [ ] 人間によるComplex Oscillator承認
 - [ ] 人間によるSampling承認

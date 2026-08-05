@@ -6,6 +6,11 @@ pub(crate) struct DspOscillator {
 }
 
 #[repr(C)]
+pub(crate) struct DspVariableOscillator {
+    _private: [u8; 0],
+}
+
+#[repr(C)]
 pub(crate) struct DspFilter {
     _private: [u8; 0],
 }
@@ -66,6 +71,36 @@ unsafe extern "C" {
         handle: *mut DspOscillator,
         start_frequency_hz: c_float,
         end_frequency_hz: c_float,
+        start_pulse_width: c_float,
+        end_pulse_width: c_float,
+        output: *mut c_float,
+        frames: c_uint,
+    ) -> c_int;
+
+    pub(crate) fn sonalloy_dsp_variable_oscillator_create() -> *mut DspVariableOscillator;
+    pub(crate) fn sonalloy_dsp_variable_oscillator_destroy(handle: *mut DspVariableOscillator);
+    pub(crate) fn sonalloy_dsp_variable_oscillator_prepare(
+        handle: *mut DspVariableOscillator,
+        sample_rate: c_double,
+        waveform: c_int,
+    ) -> c_int;
+    pub(crate) fn sonalloy_dsp_variable_oscillator_reset(
+        handle: *mut DspVariableOscillator,
+    ) -> c_int;
+    pub(crate) fn sonalloy_dsp_variable_oscillator_process(
+        handle: *mut DspVariableOscillator,
+        master_frequency_hz: c_float,
+        slave_frequency_hz: c_float,
+        pulse_width: c_float,
+        output: *mut c_float,
+        frames: c_uint,
+    ) -> c_int;
+    pub(crate) fn sonalloy_dsp_variable_oscillator_process_ramp(
+        handle: *mut DspVariableOscillator,
+        start_master_frequency_hz: c_float,
+        end_master_frequency_hz: c_float,
+        start_slave_frequency_hz: c_float,
+        end_slave_frequency_hz: c_float,
         start_pulse_width: c_float,
         end_pulse_width: c_float,
         output: *mut c_float,

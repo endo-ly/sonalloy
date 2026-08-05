@@ -110,7 +110,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 | Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
 | LFO | Rate 0.01〜40Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
-| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|noise_correlation)`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
+| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|unison_detune\|unison_spread\|noise_correlation)`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
 | 未知のField | JSON Parse Errorとして扱います |
 | 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Layer / Voice / Global Processor状態、Scratch Buffer |
 
@@ -140,6 +140,50 @@ Validation Errorには`layers[0].envelope.attack_seconds`のようなField Path�
 `type`は`sine`、`saw`、`square`、`triangle`、`pulse`です。`pulse`だけが`pulse_width`を持ち、値域は0.05〜0.95です。`phase_reset`はNote Onごとの初期PhaseへのResetを、`phase`は0〜1の初期Phaseを表します。
 
 Square、Triangle、PulseはBand-limited Native Oscillatorを使用します。Pulse Widthは`layer.<layer_id>.generator.pulse_width`として5msでSmoothingされ、既存のLFO、Envelope、External ControlなどからModulationできます。
+
+### Complex Oscillator
+
+基本Oscillatorへ`hard_sync`、`waveshaping`、`unison`を追加できます。これらの設定はStatic Fieldであり、存在する設定だけがDynamic Parameter Catalogへ登録されます。
+
+```json
+{
+  "generator": {
+    "oscillator": {
+      "waveform": { "type": "saw" },
+      "phase_reset": true,
+      "phase": 0.0,
+      "hard_sync": { "ratio": 3.0 },
+      "waveshaping": { "amount": 0.25 },
+      "unison": {
+        "voices": 5,
+        "detune_cents": 18.0,
+        "stereo_spread": 0.85,
+        "phase_spread": 0.0
+      }
+    }
+  }
+}
+```
+
+| Field | Range | Dynamic | Scale | Smoothing |
+|---|---:|---:|---|---:|
+| `hard_sync.ratio` | 1〜16 | 可 | Log2 | 5ms |
+| `waveshaping.amount` | 0〜1 | 可 | Linear | 5ms |
+| `unison.voices` | 2〜8 | 不可 | — | — |
+| `unison.detune_cents` | 0〜100 | 可 | Linear | 10ms |
+| `unison.stereo_spread` | 0〜1 | 可 | Linear | 10ms |
+| `unison.phase_spread` | 0〜1 | 不可 | — | — |
+
+Hard SyncはSineでは使用できません。Saw、Square、Triangle、PulseはDaisySPのVariable Shape Oscillatorを使い、Master Frequency、Slave Frequency（Master × Ratio）、Pulse WidthをSample単位で更新します。Hard Syncは任意の開始Phaseを設定できないため、`phase`は0だけを指定できます。Hard SyncのEffective Frequency上限はBackendの安全範囲に制限されます。Hard SyncとUnisonを組み合わせる場合、`phase_spread`は0だけを指定できます。
+
+UnisonのDetune DistributionとPan Distributionは`-1`から`1`の対称係数で、Phase Distributionは`phase_spread × index / voices`です。各Voiceは`1 / sqrt(voices)`で正規化し、2 Voice以上ではStereo GeneratorとしてLayerへ渡します。WaveshapingはUnison MixとStereo Placementの直後、Layer Processorの前に適用されます。`amount = 0`は入力を変更しません。
+
+Dynamic Parameterは次のIDで既存のLFO、Envelope、Mod Wheel、Parameter Changeから制御できます。
+
+- `layer.<layer_id>.generator.sync_ratio`
+- `layer.<layer_id>.generator.waveshape`
+- `layer.<layer_id>.generator.unison_detune`
+- `layer.<layer_id>.generator.unison_spread`
 
 ### Noise
 

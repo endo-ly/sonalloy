@@ -116,6 +116,28 @@ Pulse Widthは既存LFOなどのModulation Targetへ接続できます。
 }
 ```
 
+Hard Sync、Waveshaping、UnisonはOscillator Definitionへ追加します。Hard SyncはSineでは使用できず、開始`phase`とHard Sync併用時の`phase_spread`は0にします。
+
+```json
+"generator": {
+  "oscillator": {
+    "waveform": { "type": "saw" },
+    "phase_reset": true,
+    "phase": 0.0,
+    "hard_sync": { "ratio": 3.0 },
+    "waveshaping": { "amount": 0.25 },
+    "unison": {
+      "voices": 5,
+      "detune_cents": 18.0,
+      "stereo_spread": 0.8,
+      "phase_spread": 0.0
+    }
+  }
+}
+```
+
+`sync_ratio`、`waveshape`、`unison_detune`、`unison_spread`は既存のLFO、Envelope、Mod Wheel、Parameter Changeから制御できます。値域と信号順序は[`docs/instrument-definition.md`](instrument-definition.md)を参照してください。
+
 ### そのほかのパラメータ
 
 | パラメータ | 意味 | 注意 |

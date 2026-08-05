@@ -21,7 +21,7 @@ pub enum DspOscillatorWaveform {
 }
 
 impl DspOscillatorWaveform {
-    fn as_raw(self) -> i32 {
+    pub(crate) fn as_raw(self) -> i32 {
         match self {
             Self::Sine => ffi::WAVEFORM_SINE,
             Self::Saw => ffi::WAVEFORM_SAW,
@@ -58,7 +58,7 @@ pub enum DspError {
     Unknown(i32),
 }
 
-fn result_from_code(code: i32) -> Result<(), DspError> {
+pub(crate) fn result_from_code(code: i32) -> Result<(), DspError> {
     match code {
         ffi::OK => Ok(()),
         ffi::INVALID_ARGUMENT => Err(DspError::InvalidArgument),

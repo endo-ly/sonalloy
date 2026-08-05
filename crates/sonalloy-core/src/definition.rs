@@ -127,6 +127,45 @@ pub struct OscillatorDefinition {
     pub phase_reset: bool,
     /// Initial oscillator phase in the inclusive zero-to-one range.
     pub phase: f32,
+    /// Optional hard-sync configuration.
+    #[serde(default)]
+    pub hard_sync: Option<HardSyncDefinition>,
+    /// Optional generator waveshaping configuration.
+    #[serde(default)]
+    pub waveshaping: Option<WaveshapingDefinition>,
+    /// Optional unison configuration.
+    #[serde(default)]
+    pub unison: Option<UnisonDefinition>,
+}
+
+/// Hard-sync oscillator settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HardSyncDefinition {
+    /// Slave-to-master frequency ratio.
+    pub ratio: f32,
+}
+
+/// Generator waveshaping settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WaveshapingDefinition {
+    /// Normalized waveshaping amount.
+    pub amount: f32,
+}
+
+/// Oscillator unison settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnisonDefinition {
+    /// Number of oscillator components.
+    pub voices: u8,
+    /// Maximum symmetric detune in cents.
+    pub detune_cents: f32,
+    /// Dynamic stereo spread.
+    pub stereo_spread: f32,
+    /// Static phase spread.
+    pub phase_spread: f32,
 }
 
 /// Noise generator settings.
@@ -914,6 +953,83 @@ fn validate_oscillator(
             "pulse_width must be finite and between 0.05 and 0.95",
         );
     }
+    if let Some(hard_sync) = oscillator.hard_sync {
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.hard_sync.ratio"),
+            hard_sync.ratio,
+            1.0..=16.0,
+            "hard sync ratio must be finite and between 1 and 16",
+        );
+        if oscillator.waveform == OscillatorWaveform::Sine {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sine waveform cannot use hard sync",
+                )
+                .with_path(format!("{path}.generator.oscillator.hard_sync")),
+            );
+        }
+        if oscillator.phase.is_finite() && oscillator.phase.total_cmp(&0.0).is_ne() {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "hard sync requires zero oscillator phase",
+                )
+                .with_path(format!("{path}.generator.oscillator.phase")),
+            );
+        }
+    }
+    if let Some(waveshaping) = oscillator.waveshaping {
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.waveshaping.amount"),
+            waveshaping.amount,
+            0.0..=1.0,
+            "waveshaping amount must be finite and between 0 and 1",
+        );
+    }
+    if let Some(unison) = oscillator.unison {
+        if !(2..=8).contains(&unison.voices) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    "unison voices must be between 2 and 8",
+                )
+                .with_path(format!("{path}.generator.oscillator.unison.voices")),
+            );
+        }
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.unison.detune_cents"),
+            unison.detune_cents,
+            0.0..=100.0,
+            "unison detune_cents must be finite and between 0 and 100",
+        );
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.unison.stereo_spread"),
+            unison.stereo_spread,
+            0.0..=1.0,
+            "unison stereo_spread must be finite and between 0 and 1",
+        );
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.unison.phase_spread"),
+            unison.phase_spread,
+            0.0..=1.0,
+            "unison phase_spread must be finite and between 0 and 1",
+        );
+        if oscillator.hard_sync.is_some() && unison.phase_spread.total_cmp(&0.0).is_ne() {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "hard sync does not support non-zero phase spread",
+                )
+                .with_path(format!("{path}.generator.oscillator.unison.phase_spread")),
+            );
+        }
+    }
 }
 
 fn validate_noise(diagnostics: &mut Vec<Diagnostic>, path: &str, noise: &NoiseDefinition) {
@@ -1028,6 +1144,9 @@ pub(crate) mod tests {
                     waveform: OscillatorWaveform::Sine,
                     phase_reset: true,
                     phase: 0.0,
+                    hard_sync: None,
+                    waveshaping: None,
+                    unison: None,
                 }),
                 processors: Vec::new(),
             }],
@@ -1234,6 +1353,9 @@ pub(crate) mod tests {
             waveform: OscillatorWaveform::Pulse { pulse_width: 0.05 },
             phase_reset: true,
             phase: 1.0,
+            hard_sync: None,
+            waveshaping: None,
+            unison: None,
         });
         assert!(value.validate().is_empty());
 

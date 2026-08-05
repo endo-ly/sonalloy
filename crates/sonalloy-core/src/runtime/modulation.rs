@@ -125,6 +125,10 @@ pub(crate) struct LayerTargetSpan {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct LayerGeneratorTargetSpan {
     pub(crate) pulse_width: Option<ValueSpan>,
+    pub(crate) sync_ratio: Option<ValueSpan>,
+    pub(crate) waveshape: Option<ValueSpan>,
+    pub(crate) unison_detune: Option<ValueSpan>,
+    pub(crate) unison_spread: Option<ValueSpan>,
     pub(crate) noise_correlation: Option<ValueSpan>,
 }
 
@@ -151,6 +155,10 @@ impl VoiceTargetScratch {
                     tuning: zero,
                     generator: LayerGeneratorTargetSpan {
                         pulse_width: None,
+                        sync_ratio: None,
+                        waveshape: None,
+                        unison_detune: None,
+                        unison_spread: None,
                         noise_correlation: None,
                     },
                 };

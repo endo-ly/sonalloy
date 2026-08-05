@@ -1,6 +1,7 @@
 #include "sonalloy_dsp.h"
 
 #include "Synthesis/oscillator.h"
+#include "Synthesis/variableshapeosc.h"
 #include "Filters/svf.h"
 
 #include <cmath>
@@ -12,6 +13,17 @@
 struct sonalloy_dsp_oscillator {
     daisysp::Oscillator oscillator;
     float sample_rate = 0.0f;
+    bool prepared = false;
+#ifdef SONALLOY_DSP_TEST_HOOKS
+    bool throw_on_process = false;
+#endif
+};
+
+struct sonalloy_dsp_variable_oscillator {
+    daisysp::VariableShapeOscillator oscillator;
+    float sample_rate = 0.0f;
+    float waveshape = 0.0f;
+    int32_t waveform = SONALLOY_DSP_WAVEFORM_SAW;
     bool prepared = false;
 #ifdef SONALLOY_DSP_TEST_HOOKS
     bool throw_on_process = false;
@@ -39,6 +51,11 @@ bool valid_frequency(float frequency_hz, float sample_rate) {
            frequency_hz <= sample_rate * 0.5f;
 }
 
+bool valid_variable_frequency(float frequency_hz, float sample_rate) {
+    return std::isfinite(frequency_hz) && frequency_hz > 0.0f &&
+           frequency_hz <= sample_rate * 0.5f;
+}
+
 bool valid_phase(float phase) {
     return std::isfinite(phase) && phase >= 0.0f && phase <= 1.0f;
 }
@@ -54,6 +71,35 @@ bool valid_cutoff(float cutoff_hz, float sample_rate) {
 
 bool valid_resonance(float resonance) {
     return std::isfinite(resonance) && resonance >= 0.0f && resonance <= 1.0f;
+}
+
+}  // namespace
+
+namespace {
+
+bool variable_waveshape(int32_t waveform, float* waveshape) {
+    switch (waveform) {
+        case SONALLOY_DSP_WAVEFORM_SAW:
+            *waveshape = 0.5f;
+            return true;
+        case SONALLOY_DSP_WAVEFORM_TRIANGLE:
+            *waveshape = 0.0f;
+            return true;
+        case SONALLOY_DSP_WAVEFORM_SQUARE:
+        case SONALLOY_DSP_WAVEFORM_PULSE:
+            *waveshape = 1.0f;
+            return true;
+        default:
+            return false;
+    }
+}
+
+void clear_variable_output(float* output, uint32_t frames) {
+    if (output != nullptr) {
+        for (uint32_t index = 0; index < frames; ++index) {
+            output[index] = 0.0f;
+        }
+    }
 }
 
 }  // namespace
@@ -411,6 +457,184 @@ extern "C" int32_t sonalloy_dsp_oscillator_process_ramp_with_pulse_width(
     }
 }
 
+extern "C" sonalloy_dsp_variable_oscillator*
+sonalloy_dsp_variable_oscillator_create(void) {
+    try {
+        return new sonalloy_dsp_variable_oscillator();
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+extern "C" void sonalloy_dsp_variable_oscillator_destroy(
+    sonalloy_dsp_variable_oscillator* handle
+) {
+    try {
+        delete handle;
+    } catch (...) {
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_variable_oscillator_prepare(
+    sonalloy_dsp_variable_oscillator* handle,
+    double sample_rate,
+    int32_t waveform
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    handle->prepared = false;
+    handle->sample_rate = 0.0f;
+#ifdef SONALLOY_DSP_TEST_HOOKS
+    handle->throw_on_process = false;
+#endif
+    if (!valid_sample_rate(sample_rate)) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    if (!variable_waveshape(waveform, &handle->waveshape)) {
+        return SONALLOY_DSP_UNSUPPORTED_WAVEFORM;
+    }
+    try {
+        handle->sample_rate = static_cast<float>(sample_rate);
+        handle->waveform = waveform;
+        handle->oscillator.Init(handle->sample_rate);
+        handle->oscillator.SetWaveshape(handle->waveshape);
+        handle->oscillator.SetSync(true);
+        handle->prepared = true;
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        handle->prepared = false;
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_variable_oscillator_reset(
+    sonalloy_dsp_variable_oscillator* handle
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (!handle->prepared) {
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    try {
+        handle->oscillator.Init(handle->sample_rate);
+        handle->oscillator.SetWaveshape(handle->waveshape);
+        handle->oscillator.SetSync(true);
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_variable_oscillator_process(
+    sonalloy_dsp_variable_oscillator* handle,
+    float master_frequency_hz,
+    float slave_frequency_hz,
+    float pulse_width,
+    float* output,
+    uint32_t frames
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (frames > 0u && output == nullptr) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    if (!handle->prepared) {
+        clear_variable_output(output, frames);
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    if (!valid_variable_frequency(master_frequency_hz, handle->sample_rate) ||
+        !valid_variable_frequency(slave_frequency_hz, handle->sample_rate) ||
+        !valid_pulse_width(pulse_width)) {
+        clear_variable_output(output, frames);
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    try {
+#ifdef SONALLOY_DSP_TEST_HOOKS
+        if (handle->throw_on_process) {
+            handle->throw_on_process = false;
+            throw std::runtime_error("native variable oscillator test exception");
+        }
+#endif
+        handle->oscillator.SetFreq(master_frequency_hz);
+        handle->oscillator.SetSyncFreq(slave_frequency_hz);
+        handle->oscillator.SetPW(pulse_width);
+        for (uint32_t index = 0; index < frames; ++index) {
+            output[index] = handle->oscillator.Process();
+        }
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        clear_variable_output(output, frames);
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_variable_oscillator_process_ramp(
+    sonalloy_dsp_variable_oscillator* handle,
+    float start_master_frequency_hz,
+    float end_master_frequency_hz,
+    float start_slave_frequency_hz,
+    float end_slave_frequency_hz,
+    float start_pulse_width,
+    float end_pulse_width,
+    float* output,
+    uint32_t frames
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (frames > 0u && output == nullptr) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    if (!handle->prepared) {
+        clear_variable_output(output, frames);
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    if (!valid_variable_frequency(start_master_frequency_hz, handle->sample_rate) ||
+        !valid_variable_frequency(end_master_frequency_hz, handle->sample_rate) ||
+        !valid_variable_frequency(start_slave_frequency_hz, handle->sample_rate) ||
+        !valid_variable_frequency(end_slave_frequency_hz, handle->sample_rate) ||
+        !valid_pulse_width(start_pulse_width) ||
+        !valid_pulse_width(end_pulse_width)) {
+        clear_variable_output(output, frames);
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    try {
+#ifdef SONALLOY_DSP_TEST_HOOKS
+        if (handle->throw_on_process) {
+            handle->throw_on_process = false;
+            throw std::runtime_error("native variable oscillator ramp test exception");
+        }
+#endif
+        const float master_step = std::exp(
+            std::log(end_master_frequency_hz / start_master_frequency_hz) /
+            static_cast<float>(frames == 0u ? 1u : frames));
+        const float slave_step = std::exp(
+            std::log(end_slave_frequency_hz / start_slave_frequency_hz) /
+            static_cast<float>(frames == 0u ? 1u : frames));
+        float master_frequency_hz = start_master_frequency_hz;
+        float slave_frequency_hz = start_slave_frequency_hz;
+        for (uint32_t index = 0; index < frames; ++index) {
+            const float position = static_cast<float>(index) /
+                static_cast<float>(frames);
+            const float pulse_width = start_pulse_width +
+                (end_pulse_width - start_pulse_width) * position;
+            handle->oscillator.SetFreq(master_frequency_hz);
+            handle->oscillator.SetSyncFreq(slave_frequency_hz);
+            handle->oscillator.SetPW(pulse_width);
+            output[index] = handle->oscillator.Process();
+            master_frequency_hz *= master_step;
+            slave_frequency_hz *= slave_step;
+        }
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        clear_variable_output(output, frames);
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
 extern "C" sonalloy_dsp_filter* sonalloy_dsp_filter_create(void) {
     try {
         return new sonalloy_dsp_filter();
@@ -629,6 +853,14 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp_with_resonance(
 #ifdef SONALLOY_DSP_TEST_HOOKS
 extern "C" void sonalloy_dsp_test_arm_process_exception(
     sonalloy_dsp_oscillator* handle
+) {
+    if (handle != nullptr) {
+        handle->throw_on_process = true;
+    }
+}
+
+extern "C" void sonalloy_dsp_test_arm_variable_process_exception(
+    sonalloy_dsp_variable_oscillator* handle
 ) {
     if (handle != nullptr) {
         handle->throw_on_process = true;

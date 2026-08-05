@@ -23,6 +23,7 @@ FetchContent_Populate(daisysp)
 # would also compile unrelated modules that are outside the wrapper's scope.
 add_library(DaisySP STATIC
     ${daisysp_SOURCE_DIR}/Source/Synthesis/oscillator.cpp
+    ${daisysp_SOURCE_DIR}/Source/Synthesis/variableshapeosc.cpp
     ${daisysp_SOURCE_DIR}/Source/Filters/svf.cpp
 )
 target_compile_features(DaisySP PUBLIC cxx_std_14)

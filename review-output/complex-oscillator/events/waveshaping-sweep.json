@@ -1,0 +1,28 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 2,
+      "note": 48,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 4096,
+      "type": "parameter_change",
+      "parameter": "layer.unison_body.generator.waveshape",
+      "normalized": 0.75
+    },
+    {
+      "absolute_frame": 12000,
+      "type": "parameter_change",
+      "parameter": "layer.unison_body.generator.waveshape",
+      "normalized": 0.05
+    },
+    {
+      "absolute_frame": 14000,
+      "type": "note_off",
+      "note_id": 2
+    }
+  ]
+}

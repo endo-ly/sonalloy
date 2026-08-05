@@ -55,7 +55,7 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Metadata | 名前、作者、説明 |
 | Performance | Polyphony、Voice Stealing方式 |
 | Layer | Trigger（Key / Velocity範囲）、Generator、Gain、Pan、Tuning、Envelope |
-| Oscillator | Waveform、Phase Reset、Phase、Output Mode、Pulse Width（Pulseのみ） |
+| Oscillator | Waveform、Phase Reset、Phase、Backend、Output Mode、Effective Frequency上限、Pulse Width（Pulseのみ）、Hard Sync、Waveshaping、Unison |
 | Noise | Color、Seed、Stereo Correlation Parameter、Output Mode |
 | Sample | Asset Path、Root Note、Playback Mode、Interpolation、Source Metadata、Prepared Frame数、Output Mode |
 | Parameter | Canonical ID、Owner、Unit、Range、Default、Scale、Smoothing |

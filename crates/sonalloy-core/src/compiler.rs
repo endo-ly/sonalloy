@@ -8,7 +8,7 @@ use crate::definition::{
     GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
     ModulationSourceDefinition, NoiseColor, OscillatorDefinition, OscillatorWaveform,
     ProcessorDefinition, ReverbProcessorDefinition, SampleInterpolation, SamplePlaybackMode,
-    VoiceStealingDefinition,
+    UnisonDefinition, VoiceStealingDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
@@ -210,10 +210,51 @@ impl CompiledGenerator {
 pub struct CompiledOscillatorParameters {
     /// Pulse width handle for a pulse waveform.
     pub pulse_width: Option<ParameterHandle>,
+    /// Sync ratio handle for a hard-sync oscillator.
+    pub sync_ratio: Option<ParameterHandle>,
+    /// Waveshaping amount handle.
+    pub waveshape: Option<ParameterHandle>,
+    /// Unison detune handle.
+    pub unison_detune: Option<ParameterHandle>,
+    /// Unison stereo spread handle.
+    pub unison_spread: Option<ParameterHandle>,
+}
+
+/// Backend selected for a compiled oscillator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledOscillatorBackend {
+    /// `DaisySP` basic oscillator backend.
+    Basic,
+    /// `DaisySP` variable-shape hard-sync backend.
+    VariableShapeSync,
+}
+
+/// Static unison distribution prepared by the compiler.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledUnison {
+    /// Number of oscillator components.
+    pub voices: usize,
+    /// Symmetric detune coefficients.
+    pub detune_distribution: Box<[f32]>,
+    /// Symmetric pan coefficients.
+    pub pan_distribution: Box<[f32]>,
+    /// Static phase offsets.
+    pub phase_distribution: Box<[f32]>,
+    /// Static phase spread used to build the offsets.
+    pub phase_spread: f32,
+    /// Normalization applied to the component sum.
+    pub normalization: f32,
+}
+
+/// Compiled waveshaping configuration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledWaveshaping {
+    /// Waveshaping amount parameter handle.
+    pub amount: ParameterHandle,
 }
 
 /// Compiled oscillator settings.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CompiledOscillator {
     /// Waveform selected by the Definition.
     pub waveform: OscillatorWaveform,
@@ -221,8 +262,14 @@ pub struct CompiledOscillator {
     pub phase_reset: bool,
     /// Initial phase used by instrument and note resets.
     pub phase: f32,
+    /// Native backend selected by static Definition fields.
+    pub backend: CompiledOscillatorBackend,
     /// Generator parameter bindings.
     pub parameters: CompiledOscillatorParameters,
+    /// Static Unison component configuration.
+    pub unison: CompiledUnison,
+    /// Optional generator waveshaping configuration.
+    pub waveshaping: Option<CompiledWaveshaping>,
     /// Fixed output channel layout.
     pub output_mode: GeneratorOutputMode,
 }
@@ -1206,6 +1253,9 @@ fn compile_generator(
             waveform,
             phase_reset,
             phase,
+            hard_sync,
+            waveshaping,
+            unison,
         }) => {
             let pulse_width = matches!(waveform, OscillatorWaveform::Pulse { .. }).then(|| {
                 catalog
@@ -1215,12 +1265,62 @@ fn compile_generator(
                     ))
                     .expect("pulse width catalog entry exists")
             });
+            let sync_ratio = hard_sync.as_ref().map(|_| {
+                catalog
+                    .parameter_handle(&crate::parameter::layer_generator_parameter_id(
+                        layer_id,
+                        "sync_ratio",
+                    ))
+                    .expect("sync ratio catalog entry exists")
+            });
+            let waveshape = waveshaping.as_ref().map(|_| {
+                catalog
+                    .parameter_handle(&crate::parameter::layer_generator_parameter_id(
+                        layer_id,
+                        "waveshape",
+                    ))
+                    .expect("waveshape catalog entry exists")
+            });
+            let unison_detune = unison.as_ref().map(|_| {
+                catalog
+                    .parameter_handle(&crate::parameter::layer_generator_parameter_id(
+                        layer_id,
+                        "unison_detune",
+                    ))
+                    .expect("unison detune catalog entry exists")
+            });
+            let unison_spread = unison.as_ref().map(|_| {
+                catalog
+                    .parameter_handle(&crate::parameter::layer_generator_parameter_id(
+                        layer_id,
+                        "unison_spread",
+                    ))
+                    .expect("unison spread catalog entry exists")
+            });
+            let unison = compile_unison(*unison);
             CompiledGenerator::Oscillator(CompiledOscillator {
                 waveform: *waveform,
                 phase_reset: *phase_reset,
                 phase: *phase,
-                parameters: CompiledOscillatorParameters { pulse_width },
-                output_mode: GeneratorOutputMode::Mono,
+                backend: if hard_sync.is_some() {
+                    CompiledOscillatorBackend::VariableShapeSync
+                } else {
+                    CompiledOscillatorBackend::Basic
+                },
+                parameters: CompiledOscillatorParameters {
+                    pulse_width,
+                    sync_ratio,
+                    waveshape,
+                    unison_detune,
+                    unison_spread,
+                },
+                waveshaping: waveshape.map(|amount| CompiledWaveshaping { amount }),
+                output_mode: if unison.voices == 1 {
+                    GeneratorOutputMode::Mono
+                } else {
+                    GeneratorOutputMode::Stereo
+                },
+                unison,
             })
         }
         GeneratorDefinition::Noise(noise) => CompiledGenerator::Noise(CompiledNoise {
@@ -1307,6 +1407,47 @@ fn compile_generator(
             }
             CompiledGenerator::Sample(compiled)
         }
+    }
+}
+
+fn compile_unison(unison: Option<UnisonDefinition>) -> CompiledUnison {
+    let (voices, detune_distribution, pan_distribution, phase_spread) =
+        unison.map_or((1, vec![0.0], vec![0.0], 0.0), |value| {
+            let voices = usize::from(value.voices);
+            let (detune_distribution, pan_distribution) = if voices > 1 {
+                #[allow(clippy::cast_precision_loss)]
+                let denominator = (voices - 1) as f32;
+                let distribution: Vec<f32> = (0..voices)
+                    .map(|index| {
+                        #[allow(clippy::cast_precision_loss)]
+                        let index = index as f32;
+                        -1.0 + 2.0 * index / denominator
+                    })
+                    .collect();
+                (distribution.clone(), distribution)
+            } else {
+                (vec![0.0], vec![0.0])
+            };
+            (
+                voices,
+                detune_distribution,
+                pan_distribution,
+                value.phase_spread,
+            )
+        });
+    #[allow(clippy::cast_precision_loss)]
+    let phase_distribution = (0..voices)
+        .map(|index| index as f32 / voices.max(1) as f32 * phase_spread)
+        .collect();
+    #[allow(clippy::cast_precision_loss)]
+    let normalization = 1.0 / (voices.max(1) as f32).sqrt();
+    CompiledUnison {
+        voices,
+        detune_distribution: detune_distribution.into_boxed_slice(),
+        pan_distribution: pan_distribution.into_boxed_slice(),
+        phase_distribution,
+        phase_spread,
+        normalization,
     }
 }
 
@@ -1475,6 +1616,9 @@ mod tests {
                 waveform: OscillatorWaveform::Pulse { pulse_width: 0.3 },
                 phase_reset: true,
                 phase: 0.25,
+                hard_sync: None,
+                waveshaping: None,
+                unison: None,
             });
         let pulse = compile_instrument(&pulse_definition, &context())
             .instrument

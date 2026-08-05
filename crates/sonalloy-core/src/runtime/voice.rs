@@ -668,10 +668,34 @@ impl VoiceRuntime {
                         .pulse_width
                         .map(|handle| self.evaluate_target(compiled, handle, shared))
                         .transpose()?,
+                    sync_ratio: value
+                        .parameters
+                        .sync_ratio
+                        .map(|handle| self.evaluate_target(compiled, handle, shared))
+                        .transpose()?,
+                    waveshape: value
+                        .parameters
+                        .waveshape
+                        .map(|handle| self.evaluate_target(compiled, handle, shared))
+                        .transpose()?,
+                    unison_detune: value
+                        .parameters
+                        .unison_detune
+                        .map(|handle| self.evaluate_target(compiled, handle, shared))
+                        .transpose()?,
+                    unison_spread: value
+                        .parameters
+                        .unison_spread
+                        .map(|handle| self.evaluate_target(compiled, handle, shared))
+                        .transpose()?,
                     noise_correlation: None,
                 },
                 CompiledGenerator::Noise(value) => LayerGeneratorTargetSpan {
                     pulse_width: None,
+                    sync_ratio: None,
+                    waveshape: None,
+                    unison_detune: None,
+                    unison_spread: None,
                     noise_correlation: Some(self.evaluate_target(
                         compiled,
                         value.correlation,
@@ -680,6 +704,10 @@ impl VoiceRuntime {
                 },
                 CompiledGenerator::Sample(_) => LayerGeneratorTargetSpan {
                     pulse_width: None,
+                    sync_ratio: None,
+                    waveshape: None,
+                    unison_detune: None,
+                    unison_spread: None,
                     noise_correlation: None,
                 },
             };
