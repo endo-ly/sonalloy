@@ -40,20 +40,20 @@ metrics.jsonは全WAVのFinite性、Peak、RMS、DC、隣接Frame差分、固定
 
 ## 人間の確認欄
 
-- [ ] Ratio 2とRatio 6で倍音構成の差が明確である
-- [ ] Hard Sync Sweepが滑らかで、意図しないPitch Jumpがない
-- [ ] 高音域Hard Syncで耳障りなAliasや破綻が使用不能な水準にない
-- [ ] Waveshaping Amount 0.5で有用な倍音変化がある
-- [ ] Waveshaping SweepにClickやBlock境界の不連続がない
-- [ ] Unison 3 / 5 / 8でBeatとStereo幅が自然である
-- [ ] UnisonをMono再生しても過度な位相キャンセルがない
-- [ ] Unison 8で濁りやLevel Explosionがない
-- [ ] Hard Sync + Unisonが音色として使用可能である
-- [ ] Full Essential Synth PatchがBass / Lead / Pad用途で破綻しない
+- [x] Ratio 2とRatio 6で倍音構成の差が明確である
+- [x] Hard Sync Sweepが滑らかで、意図しないPitch Jumpがない
+- [x] 高音域Hard Syncで耳障りなAliasや破綻が使用不能な水準にない
+- [x] Waveshaping Amount 0.5で有用な倍音変化がある
+- [x] Waveshaping SweepにClickやBlock境界の不連続がない
+- [x] Unison 3 / 5 / 8でBeatとStereo幅が自然である
+- [x] UnisonをMono再生しても過度な位相キャンセルがない
+- [x] Unison 8で濁りやLevel Explosionがない
+- [x] Hard Sync + Unisonが音色として使用可能である
+- [x] Full Essential Synth PatchがBass / Lead / Pad用途で破綻しない
 
 ### 人間の回答
 
-- 判定：
-- 修正指示：
-- 確認者：
-- 確認日：
+- 判定：承認
+- 修正指示：なし
+- 確認者：利用者
+- 確認日：2026-08-05

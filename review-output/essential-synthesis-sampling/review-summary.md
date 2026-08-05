@@ -52,16 +52,16 @@
 
 | 確認項目 | 判定 | コメント |
 |---|---|---|
-| Key境界で意図したZoneへ切り替わる |  |  |
-| Velocity Layerの音量・音色差が明確 |  |  |
-| Round Robin順が聞き取れ、順番が崩れない |  |  |
-| Pitch Mappingが自然 |  |  |
-| Forward LoopにClickがなく周期が安定 |  |  |
-| Release中のLoopが自然 |  |  |
-| Sliceが指定Region外を再生しない |  |  |
-| Missing Asset時も別Zone・別Layerが継続する |  |  |
-| Voice Stealing後の音源が破綻しない |  |  |
-| Essential Hybridが音色として成立する |  |  |
+| Key境界で意図したZoneへ切り替わる | 承認 | 利用者確認済み |
+| Velocity Layerの音量・音色差が明確 | 承認 | 利用者確認済み |
+| Round Robin順が聞き取れ、順番が崩れない | 承認 | 利用者確認済み |
+| Pitch Mappingが自然 | 承認 | 利用者確認済み |
+| Forward LoopにClickがなく周期が安定 | 承認 | 利用者確認済み |
+| Release中のLoopが自然 | 承認 | 利用者確認済み |
+| Sliceが指定Region外を再生しない | 承認 | 利用者確認済み |
+| Missing Asset時も別Zone・別Layerが継続する | 承認 | 利用者確認済み |
+| Voice Stealing後の音源が破綻しない | 承認 | 利用者確認済み |
+| Essential Hybridが音色として成立する | 承認 | 利用者確認済み |
 
 ## 再生成
 

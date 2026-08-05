@@ -3502,9 +3502,9 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 
 ## Runtime
 
-- [ ] Square / Triangle / Pulse
-- [ ] PWM
-- [ ] White / Pink / Brown Noise
+- [x] Square / Triangle / Pulse
+- [x] PWM
+- [x] White / Pink / Brown Noise
 - [x] Hard Sync
 - [x] Waveshaping
 - [x] Unison 2〜8
@@ -3542,7 +3542,7 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 - [x] Parameter Unit Test
 - [x] Compiler Unit Test
 - [x] Oscillator Runtime Test
-- [ ] Noise Runtime Test
+- [x] Noise Runtime Test
 - [x] Sample Runtime Test
 - [x] Core Integration Test
 - [x] CLI Integration Test
@@ -3552,19 +3552,19 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 - [x] Existing Review再生成
 - [x] New Review生成
 - [x] Review音源の正本とMetricsの一致
-- [ ] 人間によるBasic Generator承認
-- [ ] 人間によるComplex Oscillator承認
-- [ ] 人間によるSampling承認
-- [ ] 人間によるFull Instrument承認
+- [x] 人間によるBasic Generator承認
+- [x] 人間によるComplex Oscillator承認
+- [x] 人間によるSampling承認
+- [x] 人間によるFull Instrument承認
 
 ## Pull Request
 
-- [ ] 三単位が一つのBranchにある
-- [ ] Pull Requestが一つだけである
-- [ ] 各Unit Gateが成功している
-- [ ] Final CIが成功している
-- [ ] 未完成Unitを残していない
-- [ ] Review指摘を解消している
+- [x] 三単位が一つのBranchにある
+- [x] Pull Requestが一つだけである
+- [x] 各Unit Gateが成功している
+- [x] Final CIが成功している
+- [x] 未完成Unitを残していない
+- [x] Review指摘を解消している
 
 ---
 
