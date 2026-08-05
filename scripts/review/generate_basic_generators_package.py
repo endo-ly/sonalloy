@@ -53,7 +53,7 @@ def run_cli(arguments: list[str]) -> str:
 
 def write_utf8(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8", newline="\n")
+    path.write_bytes(content.encode("utf-8"))
 
 
 def write_definition(path: Path, value: dict[str, object]) -> None:

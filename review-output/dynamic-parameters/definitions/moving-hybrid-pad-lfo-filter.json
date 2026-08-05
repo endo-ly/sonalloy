@@ -30,13 +30,27 @@
       },
       "generator": {
         "sample": {
-          "asset": {
-            "path": "../assets/metal-hit.wav",
-            "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
-          },
-          "root_note": 60,
-          "playback_mode": "one_shot",
-          "interpolation": "cubic"
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "main",
+              "asset": {
+                "path": "../assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            }
+          ]
         }
       }
     },

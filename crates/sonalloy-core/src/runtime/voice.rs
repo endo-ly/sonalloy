@@ -81,15 +81,22 @@ impl LayerRuntime {
         })
     }
 
-    fn can_trigger(&self, note_number: u8, velocity: u8) -> bool {
-        !self.generator.is_disabled() && self.trigger.matches(note_number, velocity)
+    fn can_trigger(&self, note_number: u8, velocity: u8, sample_zone: Option<usize>) -> bool {
+        self.trigger.matches(note_number, velocity)
+            && (!matches!(self.generator, GeneratorRuntime::Sample { .. }) || sample_zone.is_some())
     }
 
-    fn start(&mut self, note: NoteRequest) -> Result<(), ProcessError> {
-        if !self.can_trigger(note.note_number, note.velocity) {
+    fn start(
+        &mut self,
+        note: NoteRequest,
+        sample_zone: Option<usize>,
+        compiled: &CompiledLayer,
+    ) -> Result<(), ProcessError> {
+        if !self.can_trigger(note.note_number, note.velocity, sample_zone) {
             return Ok(());
         }
-        self.generator.start(note.note_id)?;
+        self.generator
+            .start(note.note_id, sample_zone, &compiled.generator)?;
         self.envelope.note_on();
         self.note_start_fade.reset(0.0);
         self.note_start_fade
@@ -174,6 +181,8 @@ pub(crate) struct VoiceRuntime {
     source_used: Vec<bool>,
     targets: VoiceTargetScratch,
     pending: Option<NoteRequest>,
+    pending_zone_selection: Vec<Option<usize>>,
+    active_zone_selection: Vec<Option<usize>>,
     steal_fade_total: usize,
     steal_fade_remaining: usize,
 }
@@ -236,6 +245,8 @@ impl VoiceRuntime {
             source_used,
             targets: VoiceTargetScratch::new(&compiled.layers, &compiled.voice_processors),
             pending: None,
+            pending_zone_selection: vec![None; compiled.layers.len()],
+            active_zone_selection: vec![None; compiled.layers.len()],
             steal_fade_total: 0,
             steal_fade_remaining: 0,
         })
@@ -255,22 +266,25 @@ impl VoiceRuntime {
 
     pub(crate) fn request_note(
         &mut self,
+        compiled: &CompiledInstrument,
         note: NoteRequest,
+        zone_selection: &[Option<usize>],
         fade_frames: usize,
     ) -> Result<(), ProcessError> {
-        if !self.can_trigger(note.note_number, note.velocity) {
+        if !self.can_trigger(note.note_number, note.velocity, zone_selection) {
             return Ok(());
         }
         if self.state == VoiceState::Idle {
-            self.start_note(note)?;
+            self.start_note(compiled, note, zone_selection)?;
             return Ok(());
         }
         self.pending = Some(note);
+        self.pending_zone_selection.copy_from_slice(zone_selection);
         self.state = VoiceState::StealFading;
         self.steal_fade_total = fade_frames;
         self.steal_fade_remaining = fade_frames;
         if fade_frames == 0 {
-            self.complete_steal()?;
+            self.complete_steal(compiled)?;
         }
         Ok(())
     }
@@ -336,7 +350,7 @@ impl VoiceRuntime {
             }
             if chunk == 0 {
                 if self.state == VoiceState::StealFading {
-                    self.complete_steal()?;
+                    self.complete_steal(compiled)?;
                     continue;
                 }
                 chunk = 1.min(frames - offset);
@@ -376,12 +390,12 @@ impl VoiceRuntime {
             offset += chunk;
             if !self.has_active_layer() {
                 if self.state == VoiceState::StealFading {
-                    self.complete_steal()?;
+                    self.complete_steal(compiled)?;
                 } else {
                     self.reset_to_idle()?;
                 }
             } else if self.state == VoiceState::StealFading && self.steal_fade_remaining == 0 {
-                self.complete_steal()?;
+                self.complete_steal(compiled)?;
             }
         }
         self.estimated_level = self.estimated_level.mul_add(0.95, peak * 0.05);
@@ -396,24 +410,43 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    fn can_trigger(&self, note_number: u8, velocity: u8) -> bool {
+    fn can_trigger(&self, note_number: u8, velocity: u8, zone_selection: &[Option<usize>]) -> bool {
         self.layers
             .iter()
-            .any(|layer| layer.can_trigger(note_number, velocity))
+            .zip(zone_selection)
+            .any(|(layer, sample_zone)| layer.can_trigger(note_number, velocity, *sample_zone))
     }
 
     fn has_active_layer(&self) -> bool {
         self.layers.iter().any(|layer| layer.active)
     }
 
-    fn start_note(&mut self, note: NoteRequest) -> Result<(), ProcessError> {
+    fn start_note(
+        &mut self,
+        compiled: &CompiledInstrument,
+        note: NoteRequest,
+        zone_selection: &[Option<usize>],
+    ) -> Result<(), ProcessError> {
         self.reset_note_state()?;
+        self.active_zone_selection.copy_from_slice(zone_selection);
+        self.activate_note(compiled, note)
+    }
+
+    fn activate_note(
+        &mut self,
+        compiled: &CompiledInstrument,
+        note: NoteRequest,
+    ) -> Result<(), ProcessError> {
         self.note_id = Some(note.note_id);
         self.note_number = note.note_number;
         self.velocity = note.velocity;
         self.started_at_frame = note.started_at_frame;
-        for layer in &mut self.layers {
-            layer.start(note)?;
+        for (index, layer) in self.layers.iter_mut().enumerate() {
+            layer.start(
+                note,
+                self.active_zone_selection[index],
+                &compiled.layers[index],
+            )?;
         }
         self.initialize_source_state(note);
         if !self.has_active_layer() {
@@ -425,14 +458,20 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    fn complete_steal(&mut self) -> Result<(), ProcessError> {
+    fn complete_steal(&mut self, compiled: &CompiledInstrument) -> Result<(), ProcessError> {
         let pending = self.pending.take();
         self.note_id = None;
         self.state = VoiceState::Idle;
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
         if let Some(note) = pending {
-            self.start_note(note)?;
+            self.reset_note_state()?;
+            std::mem::swap(
+                &mut self.active_zone_selection,
+                &mut self.pending_zone_selection,
+            );
+            self.pending_zone_selection.fill(None);
+            self.activate_note(compiled, note)?;
         } else {
             self.reset_to_idle()?;
         }
@@ -532,6 +571,8 @@ impl VoiceRuntime {
         self.velocity = 0;
         self.estimated_level = 0.0;
         self.pending = None;
+        self.pending_zone_selection.fill(None);
+        self.active_zone_selection.fill(None);
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
         self.reset_source_state();

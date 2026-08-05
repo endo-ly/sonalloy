@@ -3,13 +3,14 @@ use std::sync::Arc;
 
 use approx::assert_relative_eq;
 use sonalloy_core::{
-    AdsrDefinition, CompileContext, DiagnosticCode, DriveProcessorDefinition, GeneratorDefinition,
-    HardSyncDefinition, InstrumentDefinition, InstrumentProcessor, LfoDefinition, LfoWaveform,
-    ModulationCurve, ModulationDefinition, ModulationRouteDefinition, ModulationSourceDefinition,
-    NoiseColor, NoiseDefinition, OscillatorDefinition, OscillatorWaveform, ProcessBlock,
-    ProcessContext, ProcessEventKind, ProcessSpec, ProcessorDefinition, RandomDefinition,
-    RenderRequest, ScheduledEvent, SineRuntime, UnisonDefinition, WaveshapingDefinition,
-    compile_instrument, render_instrument,
+    AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, DriveProcessorDefinition,
+    GeneratorDefinition, HardSyncDefinition, InstrumentDefinition, InstrumentProcessor,
+    LfoDefinition, LfoWaveform, ModulationCurve, ModulationDefinition, ModulationRouteDefinition,
+    ModulationSourceDefinition, NoiseColor, NoiseDefinition, OscillatorDefinition,
+    OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEventKind, ProcessSpec,
+    ProcessorDefinition, RandomDefinition, RenderRequest, SampleZoneDefinition,
+    SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime, UnisonDefinition,
+    WaveshapingDefinition, compile_instrument, render_instrument,
 };
 
 fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
@@ -1016,6 +1017,60 @@ fn hybrid_definition() -> InstrumentDefinition {
         .expect("hybrid Definition parses")
 }
 
+const METAL_HIT_HASH: &str = "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c";
+
+#[allow(clippy::too_many_arguments)]
+fn sample_zone(
+    id: &str,
+    asset_path: &str,
+    key_min: u8,
+    key_max: u8,
+    velocity_min: u8,
+    velocity_max: u8,
+    round_robin_group: Option<&str>,
+    start_seconds: f32,
+    end_seconds: f32,
+) -> SampleZoneDefinition {
+    SampleZoneDefinition {
+        id: id.to_owned(),
+        asset: AssetReference {
+            path: asset_path.to_owned(),
+            sha256: Some(METAL_HIT_HASH.to_owned()),
+        },
+        root_note: 60,
+        key_min,
+        key_max,
+        velocity_min,
+        velocity_max,
+        round_robin_group: round_robin_group.map(str::to_owned),
+        playback: SampleZonePlaybackDefinition::OneShot {
+            start_seconds,
+            end_seconds: Some(end_seconds),
+        },
+    }
+}
+
+fn sample_only_definition(zones: Vec<SampleZoneDefinition>) -> InstrumentDefinition {
+    let mut value = hybrid_definition();
+    value.layers.truncate(1);
+    value.layers[0].gain_db = 0.0;
+    value.layers[0].envelope = AdsrDefinition {
+        attack_seconds: 0.0,
+        decay_seconds: 0.0,
+        sustain_level: 1.0,
+        release_seconds: 0.01,
+    };
+    if let Some(modulation) = &mut value.modulation {
+        modulation.routes.clear();
+    }
+    if let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator {
+        sample.zones = zones;
+    } else {
+        panic!("hybrid attack layer must be a sample");
+    }
+    value
+}
+
 fn processed_hybrid_definition() -> InstrumentDefinition {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/instruments/processed-hybrid.json");
@@ -1112,14 +1167,411 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
     );
     match &instrument.layers[0].generator {
         sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-            assert!(sample.enabled);
-            assert!(sample.source.is_some());
+            assert_eq!(sample.zones.len(), 1);
+            assert!(sample.zones[0].enabled);
+            assert!(sample.zones[0].source.is_some());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
             panic!("attack layer must be a sample")
         }
     }
+}
+
+#[test]
+fn sample_zone_mapping_and_asset_cache_select_by_key_and_share_preparation() {
+    let definition = sample_only_definition(vec![
+        sample_zone(
+            "low",
+            "../../testdata/assets/metal-hit.wav",
+            0,
+            60,
+            1,
+            127,
+            None,
+            0.0,
+            0.08,
+        ),
+        sample_zone(
+            "high",
+            "../../testdata/assets/metal-hit.wav",
+            61,
+            127,
+            1,
+            127,
+            None,
+            0.08,
+            0.16,
+        ),
+    ]);
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    let instrument = result.instrument.expect("mapped sample compiles");
+    let sonalloy_core::compiler::CompiledGenerator::Sample(sample) =
+        &instrument.layers[0].generator
+    else {
+        panic!("sample layer compiles as a sample generator");
+    };
+    assert_eq!(sample.zones.len(), 2);
+    assert!(sample.zones.iter().all(|zone| zone.enabled));
+    assert!(Arc::ptr_eq(
+        sample.zones[0].source.as_ref().expect("low source"),
+        sample.zones[1].source.as_ref().expect("high source")
+    ));
+
+    let low = render_instrument(
+        Arc::clone(&instrument),
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 512,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }],
+    )
+    .expect("low zone renders");
+    let high = render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 512,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 61,
+                velocity: 100,
+            },
+        }],
+    )
+    .expect("high zone renders");
+    let difference = low.channels[0]
+        .iter()
+        .zip(&high.channels[0])
+        .map(|(left, right)| f64::from((*left - *right).abs()))
+        .sum::<f64>();
+    assert!(difference > 0.1, "key mapping did not change the region");
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn round_robin_selection_is_definition_ordered_and_block_independent() {
+    let definition = sample_only_definition(vec![
+        sample_zone(
+            "hit_a",
+            "../../testdata/assets/metal-hit.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.0,
+            0.08,
+        ),
+        sample_zone(
+            "hit_b",
+            "../../testdata/assets/metal-hit.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.08,
+            0.16,
+        ),
+    ]);
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let compiled_result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    let compiled = compiled_result.instrument.unwrap_or_else(|| {
+        panic!(
+            "round robin sample diagnostics: {:?}",
+            compiled_result.diagnostics
+        )
+    });
+    let sonalloy_core::compiler::CompiledGenerator::Sample(sample) = &compiled.layers[0].generator
+    else {
+        panic!("sample layer compiles as a sample generator");
+    };
+    assert_eq!(sample.groups.len(), 1);
+    assert_eq!(sample.groups[0].member_zone_indices.as_ref(), &[0, 1]);
+
+    let events = [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 2_000,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        },
+        ScheduledEvent {
+            absolute_frame: 4_000,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 60,
+                velocity: 100,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 6_000,
+            kind: ProcessEventKind::NoteOff { note_id: 2 },
+        },
+        ScheduledEvent {
+            absolute_frame: 8_000,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 3,
+                note_number: 60,
+                velocity: 100,
+            },
+        },
+    ];
+    let render = |block_size| {
+        render_instrument(
+            Arc::clone(&compiled),
+            RenderRequest {
+                sample_rate: 48_000.0,
+                block_size,
+                duration_frames: 8_512,
+                tail_frames: 0,
+            },
+            &events,
+        )
+        .expect("round robin render succeeds")
+    };
+    let reference = render(32);
+    let candidate = render(257);
+    for (left, right) in reference.channels[0].iter().zip(&candidate.channels[0]) {
+        assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
+    }
+    let first = &reference.channels[0][0..128];
+    let second = &reference.channels[0][4_000..4_128];
+    let third = &reference.channels[0][8_000..8_128];
+    assert!(
+        first
+            .iter()
+            .zip(second)
+            .map(|(left, right)| f64::from((*left - *right).abs()))
+            .sum::<f64>()
+            > 0.1
+    );
+    assert_relative_eq!(
+        first.iter().map(|value| f64::from(*value)).sum::<f64>(),
+        third.iter().map(|value| f64::from(*value)).sum::<f64>(),
+        epsilon = 0.1
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn pending_round_robin_selection_is_captured_before_voice_stealing() {
+    let mut definition = sample_only_definition(vec![
+        sample_zone(
+            "hit_a",
+            "../../testdata/assets/metal-hit.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.0,
+            0.08,
+        ),
+        sample_zone(
+            "hit_b",
+            "../../testdata/assets/metal-hit.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.08,
+            0.16,
+        ),
+    ]);
+    definition.performance.polyphony = 1;
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let compiled = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir.clone(),
+            process_spec: ProcessSpec::new(48_000.0, 32, 2).expect("valid process spec"),
+        },
+    )
+    .instrument
+    .expect("pending selection fixture compiles");
+    let stolen = render_instrument(
+        compiled,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 32,
+            duration_frames: 1_024,
+            tail_frames: 0,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 96,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 800,
+                kind: ProcessEventKind::NoteOff { note_id: 2 },
+            },
+        ],
+    )
+    .expect("voice stealing render succeeds");
+
+    let direct = sample_only_definition(vec![sample_zone(
+        "hit_b",
+        "../../testdata/assets/metal-hit.wav",
+        60,
+        60,
+        1,
+        127,
+        Some("hits"),
+        0.08,
+        0.16,
+    )]);
+    let direct = compile_instrument(
+        &direct,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 32, 2).expect("valid process spec"),
+        },
+    )
+    .instrument
+    .expect("direct pending zone fixture compiles");
+    let direct = render_instrument(
+        direct,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 32,
+            duration_frames: 128,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 3,
+                note_number: 60,
+                velocity: 100,
+            },
+        }],
+    )
+    .expect("direct zone render succeeds");
+
+    let pending_start = 96 + 240;
+    for (stolen_sample, direct_sample) in stolen.channels[0][pending_start..pending_start + 128]
+        .iter()
+        .zip(&direct.channels[0])
+    {
+        assert_relative_eq!(*stolen_sample, *direct_sample, epsilon = 1.0e-6);
+    }
+}
+
+#[test]
+fn missing_round_robin_member_is_skipped_without_disabling_valid_zone() {
+    let definition = sample_only_definition(vec![
+        sample_zone(
+            "missing",
+            "../../testdata/assets/not-present.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.0,
+            0.08,
+        ),
+        sample_zone(
+            "valid",
+            "../../testdata/assets/metal-hit.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.08,
+            0.16,
+        ),
+    ]);
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == DiagnosticCode::AssetNotFound)
+    );
+    let instrument = result.instrument.expect("partial sample compile succeeds");
+    let sonalloy_core::compiler::CompiledGenerator::Sample(sample) =
+        &instrument.layers[0].generator
+    else {
+        panic!("sample layer compiles as a sample generator");
+    };
+    assert_eq!(sample.groups[0].enabled_member_zone_indices.as_ref(), &[1]);
+    let audio = render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 512,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }],
+    )
+    .expect("valid round robin member renders");
+    assert!(audio.channels[0].iter().any(|sample| sample.abs() > 0.01));
 }
 
 #[test]
@@ -1229,7 +1681,9 @@ fn missing_sample_keeps_the_oscillator_available() {
 fn sample_without_hash_is_enabled_with_a_warning() {
     let mut definition = hybrid_definition();
     match &mut definition.layers[0].generator {
-        sonalloy_core::GeneratorDefinition::Sample(sample) => sample.asset.sha256 = None,
+        sonalloy_core::GeneratorDefinition::Sample(sample) => {
+            sample.zones[0].asset.sha256 = None;
+        }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_) => {
             panic!("attack layer must be a sample")
@@ -1252,8 +1706,8 @@ fn sample_without_hash_is_enabled_with_a_warning() {
     );
     match &instrument.layers[0].generator {
         sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-            assert!(sample.enabled);
-            assert!(sample.source.is_some());
+            assert!(sample.zones[0].enabled);
+            assert!(sample.zones[0].source.is_some());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
@@ -1271,7 +1725,7 @@ fn absolute_sample_path_is_enabled_with_a_warning() {
         .expect("reference asset exists");
     match &mut definition.layers[0].generator {
         sonalloy_core::GeneratorDefinition::Sample(sample) => {
-            sample.asset.path = asset_path.to_string_lossy().into_owned();
+            sample.zones[0].asset.path = asset_path.to_string_lossy().into_owned();
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_) => {
@@ -1300,7 +1754,7 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
     let mut definition = hybrid_definition();
     match &mut definition.layers[0].generator {
         sonalloy_core::GeneratorDefinition::Sample(sample) => {
-            sample.asset.sha256 = Some("00".repeat(32));
+            sample.zones[0].asset.sha256 = Some("00".repeat(32));
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_) => {
@@ -1326,8 +1780,8 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
     );
     match &instrument.layers[0].generator {
         sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-            assert!(!sample.enabled);
-            assert!(sample.source.is_none());
+            assert!(!sample.zones[0].enabled);
+            assert!(sample.zones[0].source.is_none());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {

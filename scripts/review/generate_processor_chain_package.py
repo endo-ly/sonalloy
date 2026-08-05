@@ -32,7 +32,7 @@ def cli_command() -> list[str]:
 
 
 def write_utf8(path: Path, content: str) -> None:
-    path.write_text(content, encoding="utf-8", newline="\n")
+    path.write_bytes(content.encode("utf-8"))
 
 
 def run_cli(arguments: list[str]) -> None:
@@ -143,7 +143,7 @@ def prepare_asset_paths(value: dict[str, object]) -> None:
         generator = layer.get("generator", {})
         sample = generator.get("sample")
         if sample is not None:
-            sample["asset"]["path"] = "../assets/metal-hit.wav"
+            sample["zones"][0]["asset"]["path"] = "../assets/metal-hit.wav"
 
 
 def processor(

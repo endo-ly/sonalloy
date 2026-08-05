@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Velocity Layer Soft Hard",
+    "author": "Sonalloy",
+    "description": "Deterministic sample mapping review fixture"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "sample",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -3.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "soft",
+              "asset": {
+                "path": "../assets/velocity-soft.wav",
+                "sha256": "c0bd3183a6c43962b3608edf4bacd97906c079fbef20fb728224a8dd28d4c545"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 70,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            },
+            {
+              "id": "hard",
+              "asset": {
+                "path": "../assets/velocity-hard.wav",
+                "sha256": "c3f7f699f51fac0bc69a4a6c7d8ee9052995cfdf5e856719bb805e3e8605745e"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 71,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": []
+  }
+}

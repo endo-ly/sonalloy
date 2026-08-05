@@ -57,7 +57,7 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Layer | Trigger（Key / Velocity範囲）、Generator、Gain、Pan、Tuning、Envelope |
 | Oscillator | Waveform、Phase Reset、Phase、Backend、Output Mode、Effective Frequency上限、Pulse Width（Pulseのみ）、Hard Sync、Waveshaping、Unison |
 | Noise | Color、Seed、Stereo Correlation Parameter、Output Mode |
-| Sample | Asset Path、Root Note、Playback Mode、Interpolation、Source Metadata、Prepared Frame数、Output Mode |
+| Sample | Zone Count、Enabled / Disabled Count、Prepared Asset共有数、Zone ID、Key / Velocity範囲、Root Note、Round Robin Group、Playback Region / Loop、Asset Metadata、Output Mode |
 | Parameter | Canonical ID、Owner、Unit、Range、Default、Scale、Smoothing |
 | Modulation | Source ID、Source種類、Scope、Target、Amount、Curve |
 | Processor | Layer、Voice、Globalの配置、Chain順、ID、Static Field、Dynamic Parameter |

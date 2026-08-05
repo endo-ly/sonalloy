@@ -14,7 +14,8 @@ pub use definition::{
     InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, NoiseColor,
     NoiseDefinition, OscillatorDefinition, OscillatorWaveform, PerformanceDefinition,
     ProcessorDefinition, ReverbProcessorDefinition, SampleDefinition, SampleInterpolation,
-    SamplePlaybackMode, UnisonDefinition, VoiceStealingDefinition, WaveshapingDefinition,
+    SampleZoneDefinition, SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition,
+    WaveshapingDefinition,
 };
 pub use definition::{
     LfoDefinition, LfoWaveform, ModEnvelopeDefinition, ModulationCurve, ModulationDefinition,

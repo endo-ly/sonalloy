@@ -1,0 +1,242 @@
+{
+  "status": "ok",
+  "name": "Mapped Sample Instrument",
+  "metadata": {
+    "name": "Mapped Sample Instrument",
+    "author": "Sonalloy",
+    "description": "Deterministic sample mapping review fixture"
+  },
+  "polyphony": 8,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "layer_count": 1,
+  "layers": [
+    {
+      "id": "sample",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "sample",
+        "waveform": "none",
+        "phase_reset": false,
+        "phase": 0.0,
+        "output_mode": "mono",
+        "interpolation": "cubic",
+        "sample_zone_count": 5,
+        "sample_enabled_zone_count": 5,
+        "sample_disabled_zone_count": 0,
+        "sample_asset_count": 4,
+        "sample_zones": [
+          {
+            "id": "low_soft",
+            "enabled": true,
+            "asset_path": "../assets/key-low.wav",
+            "root_note": 36,
+            "key_min": 0,
+            "key_max": 47,
+            "velocity_min": 1,
+            "velocity_max": 70,
+            "round_robin_group": null,
+            "playback_type": "one_shot",
+            "start_frame": 0,
+            "end_frame": 67200,
+            "loop_start_frame": null,
+            "loop_end_frame": null,
+            "source_sample_rate": 44100,
+            "source_channels": 1,
+            "prepared_frames": 67200
+          },
+          {
+            "id": "low_hard",
+            "enabled": true,
+            "asset_path": "../assets/key-low.wav",
+            "root_note": 36,
+            "key_min": 0,
+            "key_max": 47,
+            "velocity_min": 71,
+            "velocity_max": 127,
+            "round_robin_group": null,
+            "playback_type": "one_shot",
+            "start_frame": 0,
+            "end_frame": 67200,
+            "loop_start_frame": null,
+            "loop_end_frame": null,
+            "source_sample_rate": 44100,
+            "source_channels": 1,
+            "prepared_frames": 67200
+          },
+          {
+            "id": "mid",
+            "enabled": true,
+            "asset_path": "../assets/key-mid.wav",
+            "root_note": 60,
+            "key_min": 48,
+            "key_max": 83,
+            "velocity_min": 1,
+            "velocity_max": 127,
+            "round_robin_group": null,
+            "playback_type": "one_shot",
+            "start_frame": 0,
+            "end_frame": 67200,
+            "loop_start_frame": null,
+            "loop_end_frame": null,
+            "source_sample_rate": 44100,
+            "source_channels": 1,
+            "prepared_frames": 67200
+          },
+          {
+            "id": "high_a",
+            "enabled": true,
+            "asset_path": "../assets/rr-a.wav",
+            "root_note": 84,
+            "key_min": 84,
+            "key_max": 127,
+            "velocity_min": 1,
+            "velocity_max": 127,
+            "round_robin_group": "high_hits",
+            "playback_type": "one_shot",
+            "start_frame": 0,
+            "end_frame": 34560,
+            "loop_start_frame": null,
+            "loop_end_frame": null,
+            "source_sample_rate": 44100,
+            "source_channels": 1,
+            "prepared_frames": 34560
+          },
+          {
+            "id": "high_b",
+            "enabled": true,
+            "asset_path": "../assets/rr-b.wav",
+            "root_note": 84,
+            "key_min": 84,
+            "key_max": 127,
+            "velocity_min": 1,
+            "velocity_max": 127,
+            "round_robin_group": "high_hits",
+            "playback_type": "one_shot",
+            "start_frame": 0,
+            "end_frame": 34560,
+            "loop_start_frame": null,
+            "loop_end_frame": null,
+            "source_sample_rate": 44100,
+            "source_channels": 1,
+            "prepared_frames": 34560
+          }
+        ]
+      },
+      "asset_status": "enabled",
+      "gain_db": -3.0,
+      "gain_linear": 0.70794576,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 0,
+        "decay_samples": 0,
+        "sustain_level": 1.0,
+        "release_samples": 3840
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "parameters": [
+    {
+      "id": "layer.sample.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -3.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.sample.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.sample.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    }
+  ],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity"
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking"
+    }
+  ],
+  "routes": [],
+  "diagnostics": [
+    {
+      "code": "ASSET_RESAMPLED",
+      "severity": "warning",
+      "path": "layers[0].generator.sample.zones[0].asset.path",
+      "message": "asset was resampled to the process sample rate",
+      "detail": null
+    },
+    {
+      "code": "ASSET_RESAMPLED",
+      "severity": "warning",
+      "path": "layers[0].generator.sample.zones[1].asset.path",
+      "message": "asset was resampled to the process sample rate",
+      "detail": null
+    },
+    {
+      "code": "ASSET_RESAMPLED",
+      "severity": "warning",
+      "path": "layers[0].generator.sample.zones[2].asset.path",
+      "message": "asset was resampled to the process sample rate",
+      "detail": null
+    },
+    {
+      "code": "ASSET_RESAMPLED",
+      "severity": "warning",
+      "path": "layers[0].generator.sample.zones[3].asset.path",
+      "message": "asset was resampled to the process sample rate",
+      "detail": null
+    },
+    {
+      "code": "ASSET_RESAMPLED",
+      "severity": "warning",
+      "path": "layers[0].generator.sample.zones[4].asset.path",
+      "message": "asset was resampled to the process sample rate",
+      "detail": null
+    }
+  ]
+}

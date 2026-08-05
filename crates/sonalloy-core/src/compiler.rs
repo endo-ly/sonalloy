@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::asset::{AssetError, PreparedSample, SampleMetadata, prepare_asset};
+use crate::asset::{AssetError, PreparedAsset, PreparedSample, prepare_asset, resolved_asset_path};
 use crate::definition::{
     AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
     GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
     ModulationSourceDefinition, NoiseColor, OscillatorDefinition, OscillatorWaveform,
-    ProcessorDefinition, ReverbProcessorDefinition, SampleInterpolation, SamplePlaybackMode,
-    UnisonDefinition, VoiceStealingDefinition,
+    ProcessorDefinition, ReverbProcessorDefinition, SampleInterpolation, SampleZoneDefinition,
+    SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
@@ -291,27 +291,80 @@ pub struct CompiledNoise {
     pub output_mode: GeneratorOutputMode,
 }
 
-/// Compiled sample configuration and prepared source.
+/// Compiled sample configuration and prepared zones.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledSample {
+    /// Zones in Definition order.
+    pub zones: Box<[CompiledSampleZone]>,
+    /// Round Robin groups in stable Definition order.
+    pub groups: Box<[CompiledRoundRobinGroup]>,
+    /// Sample interpolation mode.
+    pub interpolation: SampleInterpolation,
+    /// Fixed output channel layout.
+    pub output_mode: GeneratorOutputMode,
+}
+
+/// Compiled Sample Zone and its prepared Asset.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledSampleZone {
+    /// Stable Definition identifier.
+    pub id: String,
     /// Prepared mono source, absent when the asset could not be loaded.
     pub source: Option<Arc<PreparedSample>>,
     /// MIDI note represented by the source recording.
     pub root_note: u8,
-    /// Sample playback mode.
-    pub playback_mode: SamplePlaybackMode,
-    /// Sample interpolation mode.
-    pub interpolation: SampleInterpolation,
+    /// Lowest accepted MIDI note.
+    pub key_min: u8,
+    /// Highest accepted MIDI note.
+    pub key_max: u8,
+    /// Lowest accepted MIDI velocity.
+    pub velocity_min: u8,
+    /// Highest accepted MIDI velocity.
+    pub velocity_max: u8,
+    /// Compiled Round Robin group handle.
+    pub group: Option<usize>,
+    /// Compiled playback region.
+    pub playback: CompiledSamplePlayback,
     /// Path as written in the Definition.
     pub asset_path: String,
     /// Expected SHA-256 digest, when present.
     pub asset_sha256: Option<String>,
-    /// Whether the sample can be triggered.
+    /// Whether this zone can be selected.
     pub enabled: bool,
-    /// Source metadata when the asset was loaded.
-    pub source_metadata: Option<SampleMetadata>,
-    /// Fixed output channel layout.
-    pub output_mode: GeneratorOutputMode,
+}
+
+/// Sample playback region in prepared frame coordinates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledSamplePlayback {
+    /// Play a finite region once.
+    OneShot {
+        /// Inclusive start frame.
+        start_frame: usize,
+        /// Exclusive end frame.
+        end_frame: usize,
+    },
+    /// Repeat a forward loop inside the region.
+    ForwardLoop {
+        /// Inclusive region start frame.
+        start_frame: usize,
+        /// Exclusive region end frame.
+        end_frame: usize,
+        /// Inclusive loop start frame.
+        loop_start_frame: usize,
+        /// Exclusive loop end frame.
+        loop_end_frame: usize,
+    },
+}
+
+/// Compiled Round Robin group.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompiledRoundRobinGroup {
+    /// Stable Definition identifier.
+    pub id: String,
+    /// All group members in Definition order.
+    pub member_zone_indices: Box<[usize]>,
+    /// Members with successfully prepared assets.
+    pub enabled_member_zone_indices: Box<[usize]>,
 }
 
 /// Sample-rate-specific ADSR settings.
@@ -571,6 +624,7 @@ pub fn compile_instrument(
     }
 
     let parameter_catalog = ParameterCatalog::from_definition(definition);
+    let mut asset_cache = HashMap::new();
 
     let performance = CompiledPerformance {
         polyphony: usize::from(definition.performance.polyphony),
@@ -593,6 +647,7 @@ pub fn compile_instrument(
                 &parameter_catalog,
                 &context.definition_base_dir,
                 context.process_spec.sample_rate,
+                &mut asset_cache,
                 &mut diagnostics,
             );
             let envelope_path = format!("layers[{definition_index}].envelope");
@@ -1238,7 +1293,7 @@ fn compile_lfo(value: &LfoDefinition) -> CompiledLfo {
     }
 }
 
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn compile_generator(
     generator: &GeneratorDefinition,
     layer_index: usize,
@@ -1246,6 +1301,7 @@ fn compile_generator(
     catalog: &ParameterCatalog,
     definition_base_dir: &Path,
     sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CompiledGenerator {
     match generator {
@@ -1336,78 +1392,308 @@ fn compile_generator(
             brown_coefficient: brown_noise_coefficient(sample_rate),
             output_mode: GeneratorOutputMode::Stereo,
         }),
-        GeneratorDefinition::Sample(sample) => {
-            let path = format!("layers[{layer_index}].generator.sample.asset.path");
-            let mut compiled = CompiledSample {
-                source: None,
-                root_note: sample.root_note,
-                playback_mode: sample.playback_mode,
-                interpolation: sample.interpolation,
-                asset_path: sample.asset.path.clone(),
-                asset_sha256: sample.asset.sha256.clone(),
-                enabled: false,
-                source_metadata: None,
-                output_mode: GeneratorOutputMode::Mono,
-            };
-            if Path::new(&sample.asset.path).is_absolute() {
-                diagnostics.push(
-                    Diagnostic::warning(
-                        DiagnosticCode::AssetAbsolutePath,
-                        "absolute asset paths reduce Definition portability",
-                    )
-                    .with_path(path.clone()),
-                );
-            }
-            match prepare_asset(&sample.asset, definition_base_dir, sample_rate) {
-                Ok(prepared) => {
-                    if sample.asset.sha256.is_none() {
-                        diagnostics.push(
-                            Diagnostic::warning(
-                                DiagnosticCode::AssetHashMissing,
-                                "asset sha256 is not specified",
-                            )
-                            .with_path(format!(
-                                "layers[{layer_index}].generator.sample.asset.sha256"
-                            )),
-                        );
-                    }
-                    if prepared.downmixed {
-                        diagnostics.push(
-                            Diagnostic::warning(
-                                DiagnosticCode::AssetDownmixed,
-                                "stereo asset was downmixed to mono",
-                            )
-                            .with_path(path.clone()),
-                        );
-                    }
-                    if (f64::from(prepared.sample.source_metadata.source_sample_rate) - sample_rate)
-                        .abs()
-                        > f64::EPSILON
-                    {
-                        diagnostics.push(
-                            Diagnostic::warning(
-                                DiagnosticCode::AssetResampled,
-                                "asset was resampled to the process sample rate",
-                            )
-                            .with_path(path.clone()),
-                        );
-                    }
-                    compiled.source_metadata = Some(prepared.sample.source_metadata.clone());
-                    compiled.source = Some(Arc::new(prepared.sample));
-                    compiled.enabled = true;
-                }
-                Err(error) => {
-                    let (code, message) = asset_diagnostic(&error);
+        GeneratorDefinition::Sample(sample) => CompiledGenerator::Sample(compile_sample(
+            sample,
+            layer_index,
+            definition_base_dir,
+            sample_rate,
+            asset_cache,
+            diagnostics,
+        )),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct AssetCacheKey {
+    path: PathBuf,
+    sha256: Option<String>,
+    sample_rate_bits: u64,
+}
+
+fn prepare_cached_asset(
+    reference: &crate::definition::AssetReference,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+) -> Result<PreparedAsset, AssetError> {
+    let resolved = resolved_asset_path(definition_base_dir, &reference.path);
+    let path = std::fs::canonicalize(&resolved).unwrap_or(resolved);
+    let key = AssetCacheKey {
+        path,
+        sha256: reference
+            .sha256
+            .as_ref()
+            .map(|value| value.to_ascii_lowercase()),
+        sample_rate_bits: sample_rate.to_bits(),
+    };
+    if let Some(result) = asset_cache.get(&key) {
+        return result.clone();
+    }
+    let result = prepare_asset(reference, definition_base_dir, sample_rate);
+    asset_cache.insert(key, result.clone());
+    result
+}
+
+#[allow(clippy::too_many_lines)]
+fn compile_sample(
+    sample: &crate::definition::SampleDefinition,
+    layer_index: usize,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledSample {
+    let mut zones = Vec::with_capacity(sample.zones.len());
+    for (zone_index, zone) in sample.zones.iter().enumerate() {
+        let zone_path = format!("layers[{layer_index}].generator.sample.zones[{zone_index}]");
+        let mut compiled = CompiledSampleZone {
+            id: zone.id.clone(),
+            source: None,
+            root_note: zone.root_note,
+            key_min: zone.key_min,
+            key_max: zone.key_max,
+            velocity_min: zone.velocity_min,
+            velocity_max: zone.velocity_max,
+            group: None,
+            playback: CompiledSamplePlayback::OneShot {
+                start_frame: 0,
+                end_frame: 0,
+            },
+            asset_path: zone.asset.path.clone(),
+            asset_sha256: zone.asset.sha256.clone(),
+            enabled: false,
+        };
+        if Path::new(&zone.asset.path).is_absolute() {
+            diagnostics.push(
+                Diagnostic::warning(
+                    DiagnosticCode::AssetAbsolutePath,
+                    "absolute asset paths reduce Definition portability",
+                )
+                .with_path(format!("{zone_path}.asset.path")),
+            );
+        }
+        match prepare_cached_asset(&zone.asset, definition_base_dir, sample_rate, asset_cache) {
+            Ok(prepared) => {
+                if zone.asset.sha256.is_none() {
                     diagnostics.push(
-                        Diagnostic::warning(code, message)
-                            .with_path(path)
-                            .with_detail(error.to_string()),
+                        Diagnostic::warning(
+                            DiagnosticCode::AssetHashMissing,
+                            "asset sha256 is not specified",
+                        )
+                        .with_path(format!("{zone_path}.asset.sha256")),
                     );
                 }
+                if prepared.downmixed {
+                    diagnostics.push(
+                        Diagnostic::warning(
+                            DiagnosticCode::AssetDownmixed,
+                            "stereo asset was downmixed to mono",
+                        )
+                        .with_path(format!("{zone_path}.asset.path")),
+                    );
+                }
+                if (f64::from(prepared.sample.source_metadata.source_sample_rate) - sample_rate)
+                    .abs()
+                    > f64::EPSILON
+                {
+                    diagnostics.push(
+                        Diagnostic::warning(
+                            DiagnosticCode::AssetResampled,
+                            "asset was resampled to the process sample rate",
+                        )
+                        .with_path(format!("{zone_path}.asset.path")),
+                    );
+                }
+                if let Some(playback) = compile_sample_playback(
+                    zone,
+                    prepared.sample.samples.len(),
+                    sample_rate,
+                    &format!("{zone_path}.playback"),
+                    diagnostics,
+                ) {
+                    compiled.playback = playback;
+                    compiled.source = Some(Arc::clone(&prepared.sample));
+                    compiled.enabled = true;
+                }
             }
-            CompiledGenerator::Sample(compiled)
+            Err(error) => {
+                let (code, message) = asset_diagnostic(&error);
+                diagnostics.push(
+                    Diagnostic::warning(code, message)
+                        .with_path(format!("{zone_path}.asset.path"))
+                        .with_detail(error.to_string()),
+                );
+            }
         }
+        zones.push(compiled);
     }
+
+    let mut group_indices = HashMap::<String, usize>::new();
+    let mut group_ids = Vec::new();
+    let mut member_indices = Vec::<Vec<usize>>::new();
+    let mut zone_groups = vec![None; sample.zones.len()];
+    for (zone_index, zone) in sample.zones.iter().enumerate() {
+        let Some(group_id) = &zone.round_robin_group else {
+            continue;
+        };
+        let group_index = if let Some(index) = group_indices.get(group_id) {
+            *index
+        } else {
+            let index = group_ids.len();
+            group_indices.insert(group_id.clone(), index);
+            group_ids.push(group_id.clone());
+            member_indices.push(Vec::new());
+            index
+        };
+        member_indices[group_index].push(zone_index);
+        zone_groups[zone_index] = Some(group_index);
+    }
+    for (zone, group) in zones.iter_mut().zip(zone_groups) {
+        zone.group = group;
+    }
+    let groups = group_ids
+        .into_iter()
+        .zip(member_indices)
+        .map(|(id, members)| {
+            let enabled = members
+                .iter()
+                .copied()
+                .filter(|index| zones[*index].enabled)
+                .collect::<Vec<_>>();
+            CompiledRoundRobinGroup {
+                id,
+                member_zone_indices: members.into_boxed_slice(),
+                enabled_member_zone_indices: enabled.into_boxed_slice(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+
+    CompiledSample {
+        zones: zones.into_boxed_slice(),
+        groups,
+        interpolation: sample.interpolation,
+        output_mode: GeneratorOutputMode::Mono,
+    }
+}
+
+fn compile_sample_playback(
+    zone: &SampleZoneDefinition,
+    source_frames: usize,
+    sample_rate: f64,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<CompiledSamplePlayback> {
+    let (start_seconds, end_seconds, loop_seconds) = match zone.playback {
+        SampleZonePlaybackDefinition::OneShot {
+            start_seconds,
+            end_seconds,
+        } => (start_seconds, end_seconds, None),
+        SampleZonePlaybackDefinition::ForwardLoop {
+            start_seconds,
+            end_seconds,
+            loop_start_seconds,
+            loop_end_seconds,
+        } => (
+            start_seconds,
+            end_seconds,
+            Some((loop_start_seconds, loop_end_seconds)),
+        ),
+    };
+    let start_frame = sample_time_to_frame(
+        start_seconds,
+        sample_rate,
+        path,
+        "start_seconds",
+        diagnostics,
+    )?;
+    let end_frame = end_seconds.map_or(Some(source_frames), |seconds| {
+        sample_time_to_frame(seconds, sample_rate, path, "end_seconds", diagnostics)
+    })?;
+    if start_frame >= source_frames || end_frame > source_frames || end_frame <= start_frame {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "sample region must fit inside the prepared asset",
+            )
+            .with_path(path),
+        );
+        return None;
+    }
+    if end_frame - start_frame < 2 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "sample region must contain at least two prepared frames",
+            )
+            .with_path(path),
+        );
+        return None;
+    }
+    let Some((loop_start_seconds, loop_end_seconds)) = loop_seconds else {
+        return Some(CompiledSamplePlayback::OneShot {
+            start_frame,
+            end_frame,
+        });
+    };
+    let loop_start_frame = sample_time_to_frame(
+        loop_start_seconds,
+        sample_rate,
+        path,
+        "loop_start_seconds",
+        diagnostics,
+    )?;
+    let loop_end_frame = sample_time_to_frame(
+        loop_end_seconds,
+        sample_rate,
+        path,
+        "loop_end_seconds",
+        diagnostics,
+    )?;
+    if loop_start_frame < start_frame
+        || loop_end_frame > end_frame
+        || loop_end_frame <= loop_start_frame
+        || loop_end_frame - loop_start_frame < 2
+    {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "forward loop must contain at least two frames inside the sample region",
+            )
+            .with_path(path),
+        );
+        return None;
+    }
+    Some(CompiledSamplePlayback::ForwardLoop {
+        start_frame,
+        end_frame,
+        loop_start_frame,
+        loop_end_frame,
+    })
+}
+
+fn sample_time_to_frame(
+    seconds: f32,
+    sample_rate: f64,
+    path: &str,
+    field: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<usize> {
+    let frames = (f64::from(seconds) * sample_rate).round();
+    #[allow(clippy::cast_precision_loss)]
+    let max_usize = usize::MAX as f64;
+    if !frames.is_finite() || frames < 0.0 || frames > max_usize {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "sample playback time does not fit in the process frame counter",
+            )
+            .with_path(format!("{path}.{field}")),
+        );
+        return None;
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    Some(frames as usize)
 }
 
 fn compile_unison(unison: Option<UnisonDefinition>) -> CompiledUnison {

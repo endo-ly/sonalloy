@@ -280,13 +280,27 @@ Sampleを使うLayerの最小構成です。
   },
   "generator": {
     "sample": {
-      "asset": {
-        "path": "../../testdata/assets/metal-hit.wav",
-        "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
-      },
-      "root_note": 60,
-      "playback_mode": "one_shot",
-      "interpolation": "cubic"
+      "interpolation": "cubic",
+      "zones": [
+        {
+          "id": "main",
+          "asset": {
+            "path": "../../testdata/assets/metal-hit.wav",
+            "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+          },
+          "root_note": 60,
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127,
+          "round_robin_group": null,
+          "playback": {
+            "type": "one_shot",
+            "start_seconds": 0.0,
+            "end_seconds": null
+          }
+        }
+      ]
     }
   }
 }
@@ -299,6 +313,23 @@ Sampleを使うLayerの最小構成です。
 - StereoのWAVは左右の平均を取ってMonoへ変換します
 - 再生時のSample Rateと違う場合は、RubatoでSample Rateを変換します
 - 元のSample Rate、Channel数、Bit Depth、Frame数はCompiled Sampleに保持します
+- 同一Assetを参照するZoneはCompile時にPrepared Sampleを共有します
+- Assetの欠落・Hash不一致・Decode失敗はそのZoneだけを無効化し、ほかのZoneとLayerのCompileを継続します
+
+**Sample Zone**
+
+- `id`はSample Generator内で一意なComponent IDです
+- `key_min` / `key_max`と`velocity_min` / `velocity_max`で発音範囲を指定します
+- 重なるZoneは同じ`round_robin_group`と完全一致するKey / Velocity範囲を持つ必要があります
+- Velocity Layerは重ならないVelocity範囲で記述します。範囲のGapでは発音しません
+- 同じRound Robin Groupの選択はDefinition順で、Instrument単位のCounterによりA/B/A/Bと進みます
+
+**Playback Region**
+
+- `one_shot`は`start_seconds`から`end_seconds`（`null`はAsset終端）までを一度だけ再生します
+- `forward_loop`はRegion内の`loop_start_seconds`から`loop_end_seconds`へ到達するとLoop Startへ戻ります
+- RegionとLoopはCompile時にEngine Sample RateのFrameへ変換され、最低2 Frameが必要です
+- Explicit Sliceは同じAssetと異なるOne-shot Regionを持つ複数Zoneで表現します
 
 Sampleの再生の動き（Cursor、再生速度、補間、終端の扱い）は、`docs/runtime-processing.md`の「Sample Runtime」を参照してください。
 
@@ -386,6 +417,6 @@ Compileで一度だけ計算します。
 
 - Errorが1つでもあれば、`CompiledInstrument`を返しません
 - Warningだけなら、Warning付きの`CompiledInstrument`を返して処理を続けます
-- AssetのSHA-256省略はWarningです（Layerは有効のまま）
-- Assetの欠落・Hash不一致・読み込み失敗のあるSample Layerは無効にしてWarningを残し、ほかの有効なLayerがあれば処理を続けます
+- Zone AssetのSHA-256省略はWarningです（Assetを読み込めたZoneは有効のまま）
+- Assetの欠落・Hash不一致・読み込み失敗のあるSample Zoneは無効にしてWarningを残し、ほかの有効なZoneやLayerがあれば処理を続けます
 - Parameter ID、Source ID、Source設定、Route Target、AmountのErrorはCompile前にまとめて返します

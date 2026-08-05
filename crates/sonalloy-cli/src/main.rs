@@ -307,18 +307,37 @@ struct InspectGenerator {
     #[serde(skip_serializing_if = "Option::is_none")]
     noise_correlation_parameter: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    asset_path: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    root_note: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    playback_mode: Option<&'static str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     interpolation: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    sample_zone_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sample_enabled_zone_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sample_disabled_zone_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sample_asset_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sample_zones: Option<Vec<InspectSampleZone>>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectSampleZone {
+    id: String,
+    enabled: bool,
+    asset_path: String,
+    root_note: u8,
+    key_min: u8,
+    key_max: u8,
+    velocity_min: u8,
+    velocity_max: u8,
+    round_robin_group: Option<String>,
+    playback_type: &'static str,
+    start_frame: usize,
+    end_frame: usize,
+    loop_start_frame: Option<usize>,
+    loop_end_frame: Option<usize>,
     source_sample_rate: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     source_channels: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     prepared_frames: Option<usize>,
 }
 
@@ -1303,6 +1322,69 @@ fn inspect_external_source(id: &'static str) -> InspectSource {
     }
 }
 
+fn inspect_sample_zones(
+    sample: &sonalloy_core::compiler::CompiledSample,
+) -> (Vec<InspectSampleZone>, usize) {
+    let mut unique_sources: Vec<Arc<[f32]>> = Vec::new();
+    let zones = sample
+        .zones
+        .iter()
+        .map(|zone| {
+            let metadata = zone.source.as_ref().map(|source| {
+                if !unique_sources
+                    .iter()
+                    .any(|candidate| Arc::ptr_eq(candidate, &source.samples))
+                {
+                    unique_sources.push(Arc::clone(&source.samples));
+                }
+                &source.source_metadata
+            });
+            let (playback_type, start_frame, end_frame, loop_start_frame, loop_end_frame) =
+                match zone.playback {
+                    sonalloy_core::compiler::CompiledSamplePlayback::OneShot {
+                        start_frame,
+                        end_frame,
+                    } => ("one_shot", start_frame, end_frame, None, None),
+                    sonalloy_core::compiler::CompiledSamplePlayback::ForwardLoop {
+                        start_frame,
+                        end_frame,
+                        loop_start_frame,
+                        loop_end_frame,
+                    } => (
+                        "forward_loop",
+                        start_frame,
+                        end_frame,
+                        Some(loop_start_frame),
+                        Some(loop_end_frame),
+                    ),
+                };
+            InspectSampleZone {
+                id: zone.id.clone(),
+                enabled: zone.enabled,
+                asset_path: zone.asset_path.clone(),
+                root_note: zone.root_note,
+                key_min: zone.key_min,
+                key_max: zone.key_max,
+                velocity_min: zone.velocity_min,
+                velocity_max: zone.velocity_max,
+                round_robin_group: zone
+                    .group
+                    .and_then(|index| sample.groups.get(index))
+                    .map(|group| group.id.clone()),
+                playback_type,
+                start_frame,
+                end_frame,
+                loop_start_frame,
+                loop_end_frame,
+                source_sample_rate: metadata.map(|value| value.source_sample_rate),
+                source_channels: metadata.map(|value| value.source_channels),
+                prepared_frames: zone.source.as_ref().map(|source| source.samples.len()),
+            }
+        })
+        .collect();
+    (zones, unique_sources.len())
+}
+
 #[allow(clippy::too_many_lines)]
 fn make_inspect_report(
     compiled: &CompiledInstrument,
@@ -1372,13 +1454,12 @@ fn make_inspect_report(
                         noise_color: None,
                         noise_seed: None,
                         noise_correlation_parameter: None,
-                        asset_path: None,
-                        root_note: None,
-                        playback_mode: None,
                         interpolation: None,
-                        source_sample_rate: None,
-                        source_channels: None,
-                        prepared_frames: None,
+                        sample_zone_count: None,
+                        sample_enabled_zone_count: None,
+                        sample_disabled_zone_count: None,
+                        sample_asset_count: None,
+                        sample_zones: None,
                     },
                     "not_applicable (oscillator-only instrument)",
                 ),
@@ -1409,18 +1490,19 @@ fn make_inspect_report(
                         noise_correlation_parameter: compiled
                             .parameter_descriptor(noise.correlation)
                             .map(|parameter| parameter.id.clone()),
-                        asset_path: None,
-                        root_note: None,
-                        playback_mode: None,
                         interpolation: None,
-                        source_sample_rate: None,
-                        source_channels: None,
-                        prepared_frames: None,
+                        sample_zone_count: None,
+                        sample_enabled_zone_count: None,
+                        sample_disabled_zone_count: None,
+                        sample_asset_count: None,
+                        sample_zones: None,
                     },
                     "not_applicable (noise)",
                 ),
                 sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-                    let metadata = sample.source.as_ref().map(|source| &source.source_metadata);
+                    let (sample_zones, sample_asset_count) = inspect_sample_zones(sample);
+                    let sample_zone_count = sample.zones.len();
+                    let sample_enabled_zone_count = sample.zones.iter().filter(|zone| zone.enabled).count();
                     (
                         InspectGenerator {
                             kind: "sample",
@@ -1442,18 +1524,16 @@ fn make_inspect_report(
                             noise_color: None,
                             noise_seed: None,
                             noise_correlation_parameter: None,
-                            asset_path: Some(sample.asset_path.clone()),
-                            root_note: Some(sample.root_note),
-                            playback_mode: Some("one_shot"),
                             interpolation: Some("cubic"),
-                            source_sample_rate: metadata.map(|value| value.source_sample_rate),
-                            source_channels: metadata.map(|value| value.source_channels),
-                            prepared_frames: sample
-                                .source
-                                .as_ref()
-                                .map(|source| source.samples.len()),
+                            sample_zone_count: Some(sample_zone_count),
+                            sample_enabled_zone_count: Some(sample_enabled_zone_count),
+                            sample_disabled_zone_count: Some(
+                                sample_zone_count - sample_enabled_zone_count,
+                            ),
+                            sample_asset_count: Some(sample_asset_count),
+                            sample_zones: Some(sample_zones),
                         },
-                        if sample.enabled {
+                        if sample_enabled_zone_count > 0 {
                             "enabled"
                         } else {
                             "disabled"
@@ -1677,21 +1757,39 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
                 "not_applicable (noise)"
             }
             sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
+                let (zones, asset_count) = inspect_sample_zones(sample);
+                let enabled_count = zones.iter().filter(|zone| zone.enabled).count();
                 println!(
-                    "layer {}: enabled true generator sample/one_shot interpolation cubic output_mode mono",
+                    "layer {}: enabled {} generator sample interpolation cubic output_mode mono",
                     layer.id,
+                    enabled_count > 0,
                 );
-                println!("  sample asset: {}", sample.asset_path);
-                println!("  sample root_note: {}", sample.root_note);
-                if let Some(source) = &sample.source {
+                println!("  sample zones: {}/{} enabled", enabled_count, zones.len());
+                println!("  sample prepared assets: {asset_count}");
+                for zone in zones {
                     println!(
-                        "  sample prepared: {} frames at {} Hz from {} channels",
-                        source.samples.len(),
-                        source.sample_rate,
-                        source.source_metadata.source_channels
+                        "  zone {}: enabled {} key {}..{} velocity {}..{} root_note {} playback {} frames {}..{}",
+                        zone.id,
+                        zone.enabled,
+                        zone.key_min,
+                        zone.key_max,
+                        zone.velocity_min,
+                        zone.velocity_max,
+                        zone.root_note,
+                        zone.playback_type,
+                        zone.start_frame,
+                        zone.end_frame,
                     );
+                    if let (Some(loop_start), Some(loop_end)) =
+                        (zone.loop_start_frame, zone.loop_end_frame)
+                    {
+                        println!("    loop: {loop_start}..{loop_end}");
+                    }
+                    if let Some(group) = zone.round_robin_group {
+                        println!("    round_robin_group: {group}");
+                    }
                 }
-                if sample.enabled {
+                if enabled_count > 0 {
                     "enabled"
                 } else {
                     "disabled"

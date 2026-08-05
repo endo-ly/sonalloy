@@ -840,7 +840,12 @@ fn hybrid_validate_and_inspect_report_sample_layers() {
         .success()
         .stdout(predicates::str::contains("\"layer_count\":2"))
         .stdout(predicates::str::contains("\"kind\":\"sample\""))
-        .stdout(predicates::str::contains("\"asset_status\":\"enabled\""));
+        .stdout(predicates::str::contains("\"asset_status\":\"enabled\""))
+        .stdout(predicates::str::contains("\"sample_zone_count\":1"))
+        .stdout(predicates::str::contains("\"sample_enabled_zone_count\":1"))
+        .stdout(predicates::str::contains("\"sample_asset_count\":1"))
+        .stdout(predicates::str::contains("\"sample_zones\""))
+        .stdout(predicates::str::contains("\"playback_type\":\"one_shot\""));
 }
 
 #[test]

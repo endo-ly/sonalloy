@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::compiler::{
     CompiledGenerator, CompiledInstrument, CompiledProcessor, CompiledProcessorKind,
+    CompiledSampleZone,
 };
 use crate::parameter::ParameterScale;
 use crate::process::{
@@ -37,6 +38,8 @@ pub struct InstrumentRuntime {
     aftertouch: Smoother,
     global_processors: Option<StereoProcessorChain>,
     global_targets: Vec<ProcessorTargetSpan>,
+    round_robin_counters: Vec<Vec<u64>>,
+    note_zone_selection: Vec<Option<usize>>,
     spec: Option<ProcessSpec>,
     absolute_frame: u64,
 }
@@ -62,6 +65,8 @@ impl InstrumentRuntime {
             aftertouch: Smoother::new(0.0),
             global_processors: None,
             global_targets: Vec::new(),
+            round_robin_counters: Vec::new(),
+            note_zone_selection: Vec::new(),
             spec: None,
             absolute_frame: 0,
         }
@@ -148,24 +153,34 @@ impl InstrumentRuntime {
                 note_number,
                 velocity,
             } => {
-                let can_trigger = self.compiled.layers.iter().any(|layer| {
-                    if !layer.trigger.matches(note_number, velocity) {
-                        return false;
-                    }
-                    match &layer.generator {
-                        CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => true,
-                        CompiledGenerator::Sample(sample) => {
-                            sample.enabled && sample.source.is_some()
-                        }
-                    }
-                });
+                self.select_sample_zones(note_number, velocity);
+                let can_trigger =
+                    self.compiled
+                        .layers
+                        .iter()
+                        .enumerate()
+                        .any(|(layer_index, layer)| {
+                            if !layer.trigger.matches(note_number, velocity) {
+                                return false;
+                            }
+                            match &layer.generator {
+                                CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => {
+                                    true
+                                }
+                                CompiledGenerator::Sample(_) => {
+                                    self.note_zone_selection[layer_index].is_some()
+                                }
+                            }
+                        });
                 if !can_trigger {
                     return Ok(());
                 }
                 let voice_index = self.select_voice();
                 let fade_frames = rounded_frame_count(spec.sample_rate * STEAL_FADE_SECONDS);
                 self.voices[voice_index].request_note(
+                    &self.compiled,
                     NoteRequest::new(note_id, note_number, velocity, absolute_frame),
+                    &self.note_zone_selection,
                     fade_frames,
                 )?;
             }
@@ -238,6 +253,64 @@ impl InstrumentRuntime {
             .enumerate()
             .min_by_key(|(_, voice)| voice.started_at_frame())
             .map_or(0, |(index, _)| index)
+    }
+
+    fn select_sample_zones(&mut self, note_number: u8, velocity: u8) {
+        self.note_zone_selection.fill(None);
+        for layer_index in 0..self.compiled.layers.len() {
+            if !self.compiled.layers[layer_index]
+                .trigger
+                .matches(note_number, velocity)
+            {
+                continue;
+            }
+            let selection = {
+                let Some(sample) = (match &self.compiled.layers[layer_index].generator {
+                    CompiledGenerator::Sample(sample) => Some(sample),
+                    CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => None,
+                }) else {
+                    continue;
+                };
+                let first_match =
+                    sample.zones.iter().enumerate().find(|(_, zone)| {
+                        zone.enabled && zone_matches(zone, note_number, velocity)
+                    });
+                let Some((first_index, first_zone)) = first_match else {
+                    continue;
+                };
+                let Some(group_index) = first_zone.group else {
+                    self.note_zone_selection[layer_index] = Some(first_index);
+                    continue;
+                };
+                let matching_count = sample.groups[group_index]
+                    .enabled_member_zone_indices
+                    .iter()
+                    .filter(|index| zone_matches(&sample.zones[**index], note_number, velocity))
+                    .count();
+                if matching_count == 0 {
+                    (group_index, None, 0)
+                } else {
+                    let counter = self.round_robin_counters[layer_index][group_index];
+                    let selected_offset = usize::try_from(
+                        counter % u64::try_from(matching_count).expect("count fits in u64"),
+                    )
+                    .expect("counter offset fits in usize");
+                    let selected = sample.groups[group_index]
+                        .enabled_member_zone_indices
+                        .iter()
+                        .copied()
+                        .filter(|index| zone_matches(&sample.zones[*index], note_number, velocity))
+                        .nth(selected_offset)
+                        .expect("matching count guarantees a selected zone");
+                    (group_index, Some(selected), counter.wrapping_add(1))
+                }
+            };
+            let (group_index, selected, next_counter) = selection;
+            self.note_zone_selection[layer_index] = selected;
+            if selected.is_some() {
+                self.round_robin_counters[layer_index][group_index] = next_counter;
+            }
+        }
     }
 
     fn validate_parameter_events(
@@ -434,6 +507,8 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.aftertouch.reset(0.0);
         self.global_processors = None;
         self.global_targets.clear();
+        self.round_robin_counters.clear();
+        self.note_zone_selection.clear();
         self.absolute_frame = 0;
 
         spec.validate()?;
@@ -470,6 +545,16 @@ impl InstrumentProcessor for InstrumentRuntime {
                     .map_err(|_| ProcessError::InvalidCompiledParameterDefault)
             })
             .collect::<Result<Vec<_>, _>>()?;
+        self.round_robin_counters = self
+            .compiled
+            .layers
+            .iter()
+            .map(|layer| match &layer.generator {
+                CompiledGenerator::Sample(sample) => vec![0; sample.groups.len()],
+                CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => Vec::new(),
+            })
+            .collect();
+        self.note_zone_selection = vec![None; self.compiled.layers.len()];
         let mut voices = Vec::with_capacity(self.compiled.performance.polyphony);
         for _ in 0..self.compiled.performance.polyphony {
             voices.push(VoiceRuntime::new(&self.compiled, spec)?);
@@ -647,6 +732,10 @@ impl InstrumentProcessor for InstrumentRuntime {
         for target in &mut self.global_targets {
             *target = zero_processor_target_from_target(*target);
         }
+        for counters in &mut self.round_robin_counters {
+            counters.fill(0);
+        }
+        self.note_zone_selection.fill(None);
         self.absolute_frame = 0;
         Ok(())
     }
@@ -726,6 +815,12 @@ fn curve_value(value: f32, curve: crate::definition::ModulationCurve) -> f32 {
 
 fn control_smoothing_frames(sample_rate: f64) -> usize {
     rounded_frame_count(sample_rate * CONTROL_SMOOTHING_SECONDS).max(1)
+}
+
+fn zone_matches(zone: &CompiledSampleZone, note_number: u8, velocity: u8) -> bool {
+    zone.enabled
+        && (zone.key_min..=zone.key_max).contains(&note_number)
+        && (zone.velocity_min..=zone.velocity_max).contains(&velocity)
 }
 
 #[cfg(test)]
@@ -992,6 +1087,57 @@ mod tests {
             kind: ProcessEventKind::NoteOn {
                 note_id: 3,
                 note_number: 64,
+                velocity: 100,
+            },
+        }];
+        let first = process(&mut runtime, 128, 0, &event);
+        runtime.reset().expect("reset");
+        let second = process(&mut runtime, 128, 0, &event);
+        for (left, right) in first[0].iter().zip(&second[0]) {
+            assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
+        }
+    }
+
+    #[test]
+    fn reset_restarts_round_robin_selection_from_the_first_zone() {
+        let asset_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata/assets/metal-hit.wav")
+            .to_string_lossy()
+            .into_owned();
+        let asset = |start_seconds, end_seconds| crate::definition::SampleZoneDefinition {
+            id: if start_seconds == 0.0 {
+                "hit_a".to_owned()
+            } else {
+                "hit_b".to_owned()
+            },
+            asset: crate::definition::AssetReference {
+                path: asset_path.clone(),
+                sha256: None,
+            },
+            root_note: 60,
+            key_min: 0,
+            key_max: 127,
+            velocity_min: 1,
+            velocity_max: 127,
+            round_robin_group: Some("hits".to_owned()),
+            playback: crate::definition::SampleZonePlaybackDefinition::OneShot {
+                start_seconds,
+                end_seconds: Some(end_seconds),
+            },
+        };
+        let mut source = definition();
+        source.layers[0].generator =
+            crate::definition::GeneratorDefinition::Sample(crate::definition::SampleDefinition {
+                interpolation: crate::definition::SampleInterpolation::Cubic,
+                zones: vec![asset(0.0, 0.08), asset(0.08, 0.16)],
+            });
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 3,
+                note_number: 60,
                 velocity: 100,
             },
         }];

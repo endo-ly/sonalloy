@@ -225,10 +225,20 @@ sha256sum testdata/assets/my-sample.wav
   },
   "generator": {
     "sample": {
-      "asset": { "path": "../../testdata/assets/my-sample.wav", "sha256": "<計算した値>" },
-      "root_note": 60,
-      "playback_mode": "one_shot",
-      "interpolation": "cubic"
+      "interpolation": "cubic",
+      "zones": [
+        {
+          "id": "main",
+          "asset": { "path": "../../testdata/assets/my-sample.wav", "sha256": "<計算した値>" },
+          "root_note": 60,
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127,
+          "round_robin_group": null,
+          "playback": { "type": "one_shot", "start_seconds": 0.0, "end_seconds": null }
+        }
+      ]
     }
   }
 }
@@ -236,13 +246,16 @@ sha256sum testdata/assets/my-sample.wav
 
 | パラメータ | 意味 |
 |---|---|
-| `asset.path` | DefinitionのあるDirectoryを基準にした相対Path（または絶対Path） |
-| `asset.sha256` | 起動時の検証用ハッシュ。省略するとWarningが出ます |
-| `root_note` | このSampleが基準の音程（MIDI Note番号。60 = C4） |
-| `playback_mode` | `one_shot`（最後まで1回だけ再生） |
+| `zones[].asset.path` | DefinitionのあるDirectoryを基準にした相対Path（または絶対Path） |
+| `zones[].asset.sha256` | 起動時の検証用ハッシュ。省略するとWarningが出ます |
+| `zones[].root_note` | このZoneのSampleが基準とする音程（MIDI Note番号。60 = C4） |
+| `zones[].key_min` / `key_max` | Zoneが受け付けるMIDI Note範囲 |
+| `zones[].velocity_min` / `velocity_max` | Zoneが受け付けるVelocity範囲 |
+| `zones[].round_robin_group` | 同一条件のZoneをDefinition順に選択するGroup。不要なら`null` |
+| `zones[].playback` | `one_shot`または`forward_loop`とRegion / Loop位置 |
 | `interpolation` | `cubic`（4点補間） |
 
-SampleのPath違いやハッシュ不一致の場合は**そのSample Layerだけが無効化され**、ほかのLayerでRenderは継続します。SHA-256を省略した場合はWarningだけが付きます。
+SampleのPath違いやハッシュ不一致の場合は**そのZoneだけが無効化され**、ほかのZoneやLayerでRenderは継続します。SHA-256を省略した場合はWarningだけが付きます。
 
 ## Step 5. 音を出す
 

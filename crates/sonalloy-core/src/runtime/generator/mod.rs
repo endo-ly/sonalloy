@@ -13,11 +13,7 @@ use oscillator::OscillatorRuntime;
 pub(super) enum GeneratorRuntime {
     Oscillator(OscillatorRuntime),
     Noise(Box<NoiseRuntime>),
-    Sample {
-        sample: SampleRuntime,
-        root_note: u8,
-    },
-    Disabled,
+    Sample { sample: SampleRuntime },
 }
 
 impl GeneratorRuntime {
@@ -30,43 +26,49 @@ impl GeneratorRuntime {
                 Ok(Self::Oscillator(OscillatorRuntime::new(value, spec)?))
             }
             CompiledGenerator::Noise(value) => Ok(Self::Noise(Box::new(NoiseRuntime::new(value)))),
-            CompiledGenerator::Sample(value) => value
-                .source
-                .as_ref()
-                .filter(|_| value.enabled)
-                .map_or(Ok(Self::Disabled), |source| {
-                    Ok(Self::Sample {
-                        sample: SampleRuntime::new(source),
-                        root_note: value.root_note,
-                    })
-                }),
+            CompiledGenerator::Sample(_) => Ok(Self::Sample {
+                sample: SampleRuntime::new(),
+            }),
         }
     }
 
     pub(crate) fn output_mode(&self) -> GeneratorOutputMode {
         match self {
             Self::Oscillator(oscillator) => oscillator.output_mode(),
-            Self::Sample { .. } | Self::Disabled => GeneratorOutputMode::Mono,
+            Self::Sample { .. } => GeneratorOutputMode::Mono,
             Self::Noise(_) => GeneratorOutputMode::Stereo,
         }
     }
 
-    pub(crate) fn is_disabled(&self) -> bool {
-        matches!(self, Self::Disabled)
-    }
-
-    pub(crate) fn start(&mut self, note_id: NoteId) -> Result<(), ProcessError> {
+    pub(crate) fn start(
+        &mut self,
+        note_id: NoteId,
+        sample_zone: Option<usize>,
+        compiled: &CompiledGenerator,
+    ) -> Result<(), ProcessError> {
         match self {
             Self::Oscillator(oscillator) => oscillator.start(),
             Self::Noise(noise) => {
                 noise.start(note_id);
                 Ok(())
             }
-            Self::Sample { sample, .. } => {
-                sample.start();
+            Self::Sample { sample } => {
+                let CompiledGenerator::Sample(compiled) = compiled else {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: crate::process::ProcessorFailureKind::InvalidState,
+                    });
+                };
+                let selected_index = sample_zone.and_then(|index| {
+                    compiled
+                        .zones
+                        .get(index)
+                        .filter(|zone| zone.enabled)
+                        .map(|_| index)
+                });
+                let zone = selected_index.and_then(|index| compiled.zones.get(index));
+                sample.start(selected_index, zone);
                 Ok(())
             }
-            Self::Disabled => Ok(()),
         }
     }
 
@@ -102,15 +104,15 @@ impl GeneratorRuntime {
                 noise.render(frames, targets.noise_correlation, left, right)?;
                 Ok(false)
             }
-            Self::Sample { sample, root_note } => {
+            Self::Sample { sample } => {
                 let start_ratio = playback_ratio(
                     note_number,
-                    *root_note,
+                    sample.root_note(),
                     crate::compiler::cents_to_ratio(tuning_start),
                 );
                 let end_ratio = playback_ratio(
                     note_number,
-                    *root_note,
+                    sample.root_note(),
                     crate::compiler::cents_to_ratio(tuning_end),
                 );
                 if !start_ratio.is_finite()
@@ -138,12 +140,6 @@ impl GeneratorRuntime {
                 }
                 Ok(sample.is_finished())
             }
-            Self::Disabled => {
-                mono[..frames].fill(0.0);
-                left[..frames].fill(0.0);
-                right[..frames].fill(0.0);
-                Ok(true)
-            }
         }
     }
 
@@ -158,7 +154,6 @@ impl GeneratorRuntime {
                 sample.reset();
                 Ok(())
             }
-            Self::Disabled => Ok(()),
         }
     }
 }

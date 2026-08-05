@@ -2966,6 +2966,7 @@ review-output/essential-synthesis-sampling/
 ```text
 scripts/review/generate_basic_generators_package.py
 scripts/review/generate_complex_oscillator_package.py
+scripts/review/generate_essential_synthesis_sampling_package.py
 ```
 
 Complex Oscillator Reviewは`review-output/complex-oscillator/`へ生成する。`audio/technical/`の生出力をMetricsと人間の試聴で共用し、正規化コピーは保存しない。
@@ -3466,8 +3467,8 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 - [x] Square / Triangle / Pulseが定義可能
 - [x] Hard Sync / Waveshaping / Unisonが定義可能
 - [x] Noise Color / Seed / Correlationが定義可能
-- [ ] Sample Zone配列が定義可能
-- [ ] Key / Velocity / Round Robin / Region / Loopが定義可能
+- [x] Sample Zone配列が定義可能
+- [x] Key / Velocity / Round Robin / Region / Loopが定義可能
 - [x] Unknown Fieldを拒否する
 - [x] 旧Waveform文字列を受け付けない
 - [x] 旧単一Sample形式を受け付けない
@@ -3491,13 +3492,13 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 
 - [x] Backend選択
 - [x] Unison Distribution
-- [ ] Asset Cache
-- [ ] Multiple Zone Asset
-- [ ] Region / Loop Frame変換
-- [ ] Overlap Validation
-- [ ] Round Robin Group
-- [ ] Missing Asset Partial Compile
-- [ ] Error時Compiled Instrumentなし
+- [x] Asset Cache
+- [x] Multiple Zone Asset
+- [x] Region / Loop Frame変換
+- [x] Overlap Validation
+- [x] Round Robin Group
+- [x] Missing Asset Partial Compile
+- [x] Error時Compiled Instrumentなし
 
 ## Runtime
 
@@ -3508,13 +3509,13 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 - [x] Waveshaping
 - [x] Unison 2〜8
 - [x] Stereo Generator Layer
-- [ ] Sample Zone選択
-- [ ] Velocity Layer
-- [ ] Round Robin
-- [ ] One-shot Region
-- [ ] Forward Loop
-- [ ] Explicit Slice
-- [ ] Voice Stealing Pending Selection
+- [x] Sample Zone選択
+- [x] Velocity Layer
+- [x] Round Robin
+- [x] One-shot Region
+- [x] Forward Loop
+- [x] Explicit Slice
+- [x] Voice Stealing Pending Selection
 - [x] Reset
 - [x] Process中Allocationなし
 - [x] Error時無音化 / Runtime無効化
@@ -3526,7 +3527,7 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 - [x] Validate
 - [x] Inspect
 - [x] Note / Events / MIDI Render
-- [ ] Existing Definition更新
+- [x] Existing Definition更新
 - [x] Reference Instrument追加
 - [x] `docs/instrument-definition.md`が実装と一致
 - [x] `docs/runtime-processing.md`が実装と一致
@@ -3542,7 +3543,7 @@ Unitごとの設計が正しくても、三単位の統合でReference Instrumen
 - [x] Compiler Unit Test
 - [x] Oscillator Runtime Test
 - [ ] Noise Runtime Test
-- [ ] Sample Runtime Test
+- [x] Sample Runtime Test
 - [x] Core Integration Test
 - [x] CLI Integration Test
 - [x] 44.1 / 48 / 96 kHz

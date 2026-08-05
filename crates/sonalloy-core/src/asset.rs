@@ -44,7 +44,7 @@ pub struct PreparedSample {
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedAsset {
     /// Prepared sample data.
-    pub sample: PreparedSample,
+    pub sample: Arc<PreparedSample>,
     /// Whether stereo source data was downmixed.
     pub downmixed: bool,
 }
@@ -128,7 +128,7 @@ pub(crate) fn prepare_asset(
     }
 
     Ok(PreparedAsset {
-        sample: PreparedSample {
+        sample: Arc::new(PreparedSample {
             sample_rate: target_sample_rate,
             samples: Arc::from(samples),
             source_metadata: SampleMetadata {
@@ -137,9 +137,13 @@ pub(crate) fn prepare_asset(
                 bits_per_sample: decoded.bits_per_sample,
                 source_frames: decoded.samples.len() / decoded.channels,
             },
-        },
+        }),
         downmixed,
     })
+}
+
+pub(crate) fn resolved_asset_path(base_dir: &Path, reference: &str) -> PathBuf {
+    resolve_path(base_dir, reference)
 }
 
 fn resolve_path(base_dir: &Path, reference: &str) -> PathBuf {

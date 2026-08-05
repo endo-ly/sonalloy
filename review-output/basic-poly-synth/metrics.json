@@ -9,7 +9,7 @@
       "duration_seconds": 3.8333541666666666,
       "finite": true,
       "peak": 0.24330398440361023,
-      "rms": 0.09173060608229916,
+      "rms": 0.09173060608230067,
       "dc": -2.2197755566206194e-05,
       "positive_zero_crossings_left": 1757,
       "estimated_frequency_hz": 458.34533507970065,
@@ -30,7 +30,7 @@
       "duration_seconds": 5.833354166666667,
       "finite": true,
       "peak": 0.23552142083644867,
-      "rms": 0.07653193643523909,
+      "rms": 0.0765319364352423,
       "dc": 1.0510034586639851e-05,
       "positive_zero_crossings_left": 2168,
       "estimated_frequency_hz": 371.6558155149446,
@@ -53,7 +53,7 @@
           },
           {
             "frequency_hz": 58.59375,
-            "relative_amplitude": 0.8964849535612653
+            "relative_amplitude": 0.8964849535612657
           },
           {
             "frequency_hz": 128.90625,
@@ -61,23 +61,23 @@
           },
           {
             "frequency_hz": 199.21875,
-            "relative_amplitude": 0.3585411502248365
+            "relative_amplitude": 0.35854115022483657
           },
           {
             "frequency_hz": 140.625,
-            "relative_amplitude": 0.347122214001766
+            "relative_amplitude": 0.34712221400176607
           },
           {
             "frequency_hz": 257.8125,
-            "relative_amplitude": 0.2619946729180544
+            "relative_amplitude": 0.26199467291805445
           },
           {
             "frequency_hz": 187.5,
-            "relative_amplitude": 0.25710492528302303
+            "relative_amplitude": 0.2571049252830231
           },
           {
             "frequency_hz": 82.03125,
-            "relative_amplitude": 0.23953510664116984
+            "relative_amplitude": 0.23953510664116986
           }
         ]
       }
@@ -89,7 +89,7 @@
       "duration_seconds": 7.250020833333333,
       "finite": true,
       "peak": 0.25433897972106934,
-      "rms": 0.06574427736615121,
+      "rms": 0.06574427736615435,
       "dc": -4.273984784563454e-06,
       "positive_zero_crossings_left": 1613,
       "estimated_frequency_hz": 222.48211930425487,
@@ -115,7 +115,7 @@
       "duration_seconds": 4.875020833333333,
       "finite": true,
       "peak": 0.24684283137321472,
-      "rms": 0.06977542491830739,
+      "rms": 0.06977542491830956,
       "dc": 4.729386468193668e-06,
       "positive_zero_crossings_left": 1087,
       "estimated_frequency_hz": 222.97340609655515,
@@ -153,7 +153,7 @@
       "duration_seconds": 2.3958541666666666,
       "finite": true,
       "peak": 0.5597437024116516,
-      "rms": 0.1177302934139369,
+      "rms": 0.11773029341393718,
       "dc": -4.4832576543055255e-05,
       "positive_zero_crossings_left": 1008,
       "estimated_frequency_hz": 420.7267762889018,
@@ -191,7 +191,7 @@
       "duration_seconds": 2.875020833333333,
       "finite": true,
       "peak": 0.272189199924469,
-      "rms": 0.06484111969654413,
+      "rms": 0.06484111969654612,
       "dc": 2.753873340266978e-06,
       "positive_zero_crossings_left": 570,
       "estimated_frequency_hz": 198.25943290266014,
@@ -216,7 +216,7 @@
       "duration_seconds": 10.200020833333333,
       "finite": true,
       "peak": 0.7322463393211365,
-      "rms": 0.13960015853527372,
+      "rms": 0.1396001585352883,
       "dc": -2.975047743043984e-05,
       "positive_zero_crossings_left": 2074,
       "estimated_frequency_hz": 203.33291802917068,
@@ -254,7 +254,7 @@
       "duration_seconds": 5.833354166666667,
       "finite": true,
       "peak": 0.4020700752735138,
-      "rms": 0.08494462041129873,
+      "rms": 0.08494462041130081,
       "dc": -0.00015563008432953077,
       "positive_zero_crossings_left": 3352,
       "estimated_frequency_hz": 574.6265191910029,
@@ -275,7 +275,7 @@
       "duration_seconds": 7.250020833333333,
       "finite": true,
       "peak": 0.25759726762771606,
-      "rms": 0.07129881020817495,
+      "rms": 0.07129881020817813,
       "dc": -1.393071600650611e-06,
       "positive_zero_crossings_left": 2237,
       "estimated_frequency_hz": 308.5508374975934,

@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Key Zone Scale",
+    "author": "Sonalloy",
+    "description": "Deterministic sample mapping review fixture"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "sample",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -3.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "low",
+              "asset": {
+                "path": "../assets/key-low.wav",
+                "sha256": "7475b06b17a33ef6c60163487c199884501ff83147b87e5c1d51d587e75ffe72"
+              },
+              "root_note": 36,
+              "key_min": 0,
+              "key_max": 47,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            },
+            {
+              "id": "mid",
+              "asset": {
+                "path": "../assets/key-mid.wav",
+                "sha256": "ad709c781af64b52cb8468e234aec24e83021d130f754af8085fd423e1e55fbd"
+              },
+              "root_note": 60,
+              "key_min": 48,
+              "key_max": 83,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            },
+            {
+              "id": "high",
+              "asset": {
+                "path": "../assets/key-high.wav",
+                "sha256": "770ce8ecfbc01e413d494c888441005b87390d0eb86b84235b8fd71653c40808"
+              },
+              "root_note": 84,
+              "key_min": 84,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": []
+  }
+}

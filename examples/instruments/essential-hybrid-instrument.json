@@ -1,0 +1,286 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Essential Hybrid Instrument",
+    "author": "Sonalloy",
+    "description": "Pulse, hard sync, noise, and mapped sample layers through shared processing"
+  },
+  "performance": {
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0.25,
+        "sustain_level": 0.65,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.45
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "hard_sync": null,
+          "waveshaping": {
+            "amount": 0.18
+          },
+          "unison": {
+            "voices": 5,
+            "detune_cents": 16.0,
+            "stereo_spread": 0.75,
+            "phase_spread": 0.2
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "body_tone",
+          "cutoff_hz": 7600.0,
+          "resonance": 0.12
+        }
+      ]
+    },
+    {
+      "id": "attack",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -22.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.28,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "hard_sync": {
+            "ratio": 3.0
+          },
+          "waveshaping": {
+            "amount": 0.12
+          },
+          "unison": {
+            "voices": 3,
+            "detune_cents": 8.0,
+            "stereo_spread": 0.35,
+            "phase_spread": 0.0
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "drive",
+          "id": "attack_drive",
+          "amount": 0.18,
+          "mix": 0.25
+        }
+      ]
+    },
+    {
+      "id": "noise",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -30.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.2,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 8142,
+          "stereo_correlation": 0.35
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "sample",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.08,
+        "sustain_level": 0.05,
+        "release_seconds": 0.16
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "soft_a",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 70,
+              "round_robin_group": "soft_hits",
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": 0.08
+              }
+            },
+            {
+              "id": "soft_b",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 70,
+              "round_robin_group": "soft_hits",
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.08,
+                "end_seconds": 0.16
+              }
+            },
+            {
+              "id": "hard_a",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 71,
+              "velocity_max": 127,
+              "round_robin_group": "hard_hits",
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": 0.08
+              }
+            },
+            {
+              "id": "hard_b",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 71,
+              "velocity_max": 127,
+              "round_robin_group": "hard_hits",
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.08,
+                "end_seconds": 0.16
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "voice_tone",
+      "cutoff_hz": 7200.0,
+      "resonance": 0.14
+    },
+    {
+      "type": "drive",
+      "id": "voice_glue",
+      "amount": 0.1,
+      "mix": 0.25
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "delay",
+      "id": "echo",
+      "time_seconds": 0.22,
+      "feedback": 0.3,
+      "mix": 0.16
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.01,
+      "decay": 0.65,
+      "damping": 0.35,
+      "width": 0.85,
+      "mix": 0.2
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "type": "lfo",
+        "id": "body_motion",
+        "waveform": "sine",
+        "rate_hz": 0.28,
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "body_motion",
+        "target": "layer.body.generator.pulse_width",
+        "amount": 0.2,
+        "curve": "linear"
+      }
+    ]
+  }
+}

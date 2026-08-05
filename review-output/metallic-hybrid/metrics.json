@@ -46,10 +46,10 @@
       "duration_seconds": 1.0000208333333334,
       "finite": true,
       "peak": 0.2583732604980469,
-      "rms": 0.011115181576045198,
-      "dc": 1.406184668214712e-05,
-      "positive_zero_crossings_left": 480,
-      "estimated_frequency_hz": 479.990000208329,
+      "rms": 0.011115181580189069,
+      "dc": 1.4061917484405611e-05,
+      "positive_zero_crossings_left": 479,
+      "estimated_frequency_hz": 478.9900210412283,
       "max_adjacent_frame_delta": 0.12862440943717957,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
@@ -65,10 +65,10 @@
       "duration_seconds": 3.000020833333333,
       "finite": true,
       "peak": 0.2801658511161804,
-      "rms": 0.01084653551491563,
-      "dc": 3.0775607767292645e-05,
-      "positive_zero_crossings_left": 1373,
-      "estimated_frequency_hz": 457.6634884479969,
+      "rms": 0.010846535517017196,
+      "dc": 3.077564644530029e-05,
+      "positive_zero_crossings_left": 1372,
+      "estimated_frequency_hz": 457.3301574294623,
       "max_adjacent_frame_delta": 0.22260159254074097,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
@@ -84,7 +84,7 @@
       "duration_seconds": 5.750020833333333,
       "finite": true,
       "peak": 0.2629227638244629,
-      "rms": 0.07207003574233048,
+      "rms": 0.07207003574233463,
       "dc": -2.5099837283676397e-05,
       "positive_zero_crossings_left": 1497,
       "estimated_frequency_hz": 260.34688280114926,
@@ -141,10 +141,10 @@
       "duration_seconds": 5.750020833333333,
       "finite": true,
       "peak": 0.3925935924053192,
-      "rms": 0.015464986130647786,
-      "dc": 5.028230483668514e-05,
-      "positive_zero_crossings_left": 3959,
-      "estimated_frequency_hz": 688.519244495491,
+      "rms": 0.015464986128793535,
+      "dc": 5.028238536948015e-05,
+      "positive_zero_crossings_left": 3958,
+      "estimated_frequency_hz": 688.3453320821301,
       "max_adjacent_frame_delta": 0.22847586125135422,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
@@ -160,8 +160,8 @@
       "duration_seconds": 0.8500208333333333,
       "finite": true,
       "peak": 0.3196014165878296,
-      "rms": 0.047622419511987306,
-      "dc": 2.048693637090799e-05,
+      "rms": 0.04762241951628298,
+      "dc": 2.048693733601871e-05,
       "positive_zero_crossings_left": 233,
       "estimated_frequency_hz": 274.1109286537095,
       "max_adjacent_frame_delta": 0.1332635059952736,
@@ -189,7 +189,7 @@
           },
           {
             "frequency_hz": 281.25,
-            "relative_amplitude": 0.09606819169130824
+            "relative_amplitude": 0.09606819169130823
           },
           {
             "frequency_hz": 234.375,
@@ -217,8 +217,8 @@
       "duration_seconds": 2.750020833333333,
       "finite": true,
       "peak": 0.3416450321674347,
-      "rms": 0.042268900048380575,
-      "dc": 2.3319831578943917e-05,
+      "rms": 0.04226890004838225,
+      "dc": 2.3319831578943914e-05,
       "positive_zero_crossings_left": 745,
       "estimated_frequency_hz": 270.907038583041,
       "max_adjacent_frame_delta": 0.1406496074050665,
@@ -236,8 +236,8 @@
       "duration_seconds": 5.750020833333333,
       "finite": true,
       "peak": 0.5671131014823914,
-      "rms": 0.0723414614926512,
-      "dc": 2.518245779648546e-05,
+      "rms": 0.07234146254761138,
+      "dc": 2.5182538871554716e-05,
       "positive_zero_crossings_left": 1920,
       "estimated_frequency_hz": 333.91183365277664,
       "max_adjacent_frame_delta": 0.2340208739042282,
@@ -261,7 +261,7 @@
           },
           {
             "frequency_hz": 269.53125,
-            "relative_amplitude": 0.7908460978009911
+            "relative_amplitude": 0.790846097800991
           },
           {
             "frequency_hz": 140.625,
@@ -273,15 +273,15 @@
           },
           {
             "frequency_hz": 246.09375,
-            "relative_amplitude": 0.29053167148067227
+            "relative_amplitude": 0.2905316714806722
           },
           {
             "frequency_hz": 281.25,
-            "relative_amplitude": 0.09607095659320829
+            "relative_amplitude": 0.09607095659320831
           },
           {
             "frequency_hz": 152.34375,
-            "relative_amplitude": 0.034942347487472984
+            "relative_amplitude": 0.03494234748747298
           }
         ]
       }
@@ -293,7 +293,7 @@
       "duration_seconds": 5.750020833333333,
       "finite": true,
       "peak": 0.2629227638244629,
-      "rms": 0.07207003574233048,
+      "rms": 0.07207003574233463,
       "dc": -2.5099837283676397e-05,
       "positive_zero_crossings_left": 1497,
       "estimated_frequency_hz": 260.34688280114926,

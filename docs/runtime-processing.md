@@ -121,21 +121,23 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 
 - **Oscillator**：Note番号とTuningから周波数を決め、Sine / Saw / Square / Triangle / Pulseを生成します。`phase_reset`が有効ならNoteごとにCompiled Initial Phaseへ戻します。Pulse Widthは5msでSmoothingし、既存Modulationから制御できます。Hard SyncはVariable Shape BackendでMaster / Slaveを生成し、RatioをLog2で5ms Smoothingします。UnisonはPrepare時に固定したComponent数でDetune、Phase、Stereo Placementを行い、2 Voice以上をStereoで出力します。WaveshapingはUnison Mix直後にAmountをLinearで5ms Smoothingして適用します
 - **Noise**：White / Pink / Brownを決定的なPRNG Streamから生成します。Shared、Left Independent、Right Independentの3 Streamを持ち、Correlationを`√correlation`と`√(1-correlation)`でMixして常にStereoで出力します
-- **Sample**：後述のSample再生を使います。Compileで無効になったLayerは鳴りません
+- **Sample**：後述のSample Zone選択と再生を使います。Compileで無効になったZoneは選択候補から除外されます
 
 ## Sampleの再生
 
-SampleはCompile時に読み込み済みで、全Voiceで共有します。Voiceごとに再生位置（Cursor）だけを持ちます。
+SampleはCompile時にZoneごとのRegionへ変換し、同じAssetのPrepared Bufferを全Voiceで共有します。Voiceごとに選択Zone、再生位置（Cursor）、Loop状態だけを持ちます。
 
-- Note OnでCursorを先頭へ戻し、再生速度は`2^((note - root) / 12) × Tuning Ratio`です。Tuning RatioはParameter SpanのStart / EndからLog Domainで補間します
+- Layer Trigger判定後、NoteとVelocityに一致するZoneを選択します。同じ条件のRound Robin GroupはInstrument単位のCounterをDefinition順に進めます。Voice StealingでNote開始が遅れても、Note Event時点のZone選択を保持します
+- Note Onで選択ZoneのRegion StartへCursorを設定し、再生速度は`2^((note - root) / 12) × Tuning Ratio`です。Tuning RatioはParameter SpanのStart / EndからLog Domainで補間します
 - Cursorは再生速度で進み、4点Cubic補間で読み出します
-- one_shotでは末尾の5msをゼロへFadeし、音が急に切れないようにします
-- Note OffではCursorを止めず、ADSRのReleaseだけが進みます。Sampleが終わるとそのLayerの音は終わります
+- Region外を補間へ参照しません。one_shotではRegion末尾の5msをゼロへFadeし、音が急に切れないようにします
+- forward_loopではLoop End到達時のFractional Overshootを保持してLoop Startへ戻ります。Loop境界の補間はLoop Region内だけを参照します
+- Note Offではforward_loopのCursorを止めず、ADSRのReleaseだけが進みます。Envelope終了でそのLayerの音は終わります
 
 ## 準備とリセット
 
 - **Prepare**：Polyphony数分のVoiceを作り、Scratch BufferとNative Handleを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、Oscillatorの位相、Noise Stream、SampleのCursor、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- **Reset**：全Voice、Oscillatorの位相、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Round Robin Counter、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 
