@@ -990,6 +990,33 @@ fn validate_sample(diagnostics: &mut Vec<Diagnostic>, path: &str, sample: &Sampl
             );
         }
         validate_asset_reference(diagnostics, &zone_path, &zone.asset);
+        if zone.root_note > 127 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone root note must be between 0 and 127",
+                )
+                .with_path(format!("{zone_path}.root_note")),
+            );
+        }
+        if zone.key_min > 127 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone key range must be between 0 and 127",
+                )
+                .with_path(format!("{zone_path}.key_min")),
+            );
+        }
+        if zone.key_max > 127 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone key range must be between 0 and 127",
+                )
+                .with_path(format!("{zone_path}.key_max")),
+            );
+        }
         if zone.key_min > zone.key_max {
             diagnostics.push(
                 Diagnostic::error(
@@ -999,11 +1026,29 @@ fn validate_sample(diagnostics: &mut Vec<Diagnostic>, path: &str, sample: &Sampl
                 .with_path(format!("{zone_path}.key_min")),
             );
         }
-        if zone.velocity_min == 0 || zone.velocity_min > zone.velocity_max {
+        if zone.velocity_min == 0 || zone.velocity_min > 127 {
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::LayerRangeInvalid,
-                    "sample zone velocity range must be between 1 and 127 and ordered",
+                    "sample zone velocity range must be between 1 and 127",
+                )
+                .with_path(format!("{zone_path}.velocity_min")),
+            );
+        }
+        if zone.velocity_max > 127 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone velocity range must be between 1 and 127",
+                )
+                .with_path(format!("{zone_path}.velocity_max")),
+            );
+        }
+        if zone.velocity_min > zone.velocity_max {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone velocity range must be ordered",
                 )
                 .with_path(format!("{zone_path}.velocity_min")),
             );
@@ -1442,6 +1487,17 @@ pub(crate) mod tests {
         }
     }
 
+    fn set_sample_zone_midi_field(zone: &mut SampleZoneDefinition, field: &str, value: u8) {
+        match field {
+            "root_note" => zone.root_note = value,
+            "key_min" => zone.key_min = value,
+            "key_max" => zone.key_max = value,
+            "velocity_min" => zone.velocity_min = value,
+            "velocity_max" => zone.velocity_max = value,
+            _ => panic!("unknown sample zone MIDI field: {field}"),
+        }
+    }
+
     fn sample_definition(zones: Vec<SampleZoneDefinition>) -> InstrumentDefinition {
         let mut value = definition();
         value.layers[0].generator = GeneratorDefinition::Sample(SampleDefinition {
@@ -1764,6 +1820,58 @@ pub(crate) mod tests {
             diagnostic.code == DiagnosticCode::DefinitionError
                 && diagnostic.path.as_deref() == Some("layers[0].generator.sample.zones[1].id")
         }));
+    }
+
+    #[test]
+    fn sample_zone_midi_fields_have_explicit_bounds() {
+        let one_shot = SampleZonePlaybackDefinition::OneShot {
+            start_seconds: 0.0,
+            end_seconds: None,
+        };
+        let fields = [
+            ("root_note", "layers[0].generator.sample.zones[0].root_note"),
+            ("key_min", "layers[0].generator.sample.zones[0].key_min"),
+            ("key_max", "layers[0].generator.sample.zones[0].key_max"),
+            (
+                "velocity_min",
+                "layers[0].generator.sample.zones[0].velocity_min",
+            ),
+            (
+                "velocity_max",
+                "layers[0].generator.sample.zones[0].velocity_max",
+            ),
+        ];
+
+        for (field, path) in fields {
+            let mut value =
+                sample_definition(vec![sample_zone("valid", 0, 127, 1, 127, None, one_shot)]);
+            if let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator {
+                set_sample_zone_midi_field(&mut sample.zones[0], field, 127);
+            }
+            assert!(value.validate().is_empty(), "{field}=127 must be valid");
+
+            for invalid in [128, 255] {
+                let mut value =
+                    sample_definition(vec![sample_zone("invalid", 0, 127, 1, 127, None, one_shot)]);
+                if let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator {
+                    let zone = &mut sample.zones[0];
+                    match field {
+                        "key_min" => zone.key_max = 255,
+                        "velocity_min" => zone.velocity_max = 255,
+                        _ => {}
+                    }
+                    set_sample_zone_midi_field(zone, field, invalid);
+                }
+                let diagnostics = value.validate();
+                assert!(
+                    diagnostics.iter().any(|diagnostic| {
+                        diagnostic.code == DiagnosticCode::LayerRangeInvalid
+                            && diagnostic.path.as_deref() == Some(path)
+                    }),
+                    "{field}={invalid} must report {path}: {diagnostics:?}"
+                );
+            }
+        }
     }
 
     #[test]

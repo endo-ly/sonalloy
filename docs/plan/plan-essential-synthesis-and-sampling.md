@@ -164,7 +164,7 @@
 | Sine | 既存DaisySP `Oscillator` | なし | 現在の出力とPhase Reset契約を維持する |
 | Saw | 既存DaisySP `Oscillator::WAVE_POLYBLEP_SAW` | なし | Processor Chain以前のBaselineを維持する |
 | Square | DaisySP `Oscillator::WAVE_POLYBLEP_SQUARE` | Wrapper API拡張のみ | Naive Squareを新規実装しない |
-| Triangle | DaisySP `Oscillator::WAVE_POLYBLEP_TRI` | Wrapper API拡張のみ | Band-limited Triangleを利用する |
+| Triangle | Sonalloy Native WrapperのReset可能なPolyBLEP Triangle（DaisySPアルゴリズム） | Wrapper API拡張のみ | Band-limited TriangleとIntegrator StateのResetをSonalloyで所有する |
 | Pulse / PWM | DaisySP PolyBLEP Square + `SetPw` | Wrapper API拡張のみ | Pulse WidthをSampleごとにRamp可能にする |
 | Hard Sync | DaisySP `VariableShapeOscillator` | `variableshapeosc.cpp`をBuild対象へ追加 | BLEP補正を持つ既存実装を利用し、単純な強制Phase Resetを独自実装しない |
 | Waveshaping | Rust独自実装 | なし | Generator内部の小さな正規化Nonlinear処理として実装する |
@@ -237,6 +237,7 @@ Source/Filters/svf.cpp
 - Pulse Width設定
 - Pulse Width Ramp
 - 任意PhaseへのReset
+- TriangleのPhaseとIntegrator Stateの初期化
 - FrequencyとPulse Widthの同時Ramp
 - 既存Fault Injection、無音化、Error Code契約の維持
 
@@ -275,7 +276,7 @@ DspVariableOscillator
 | Sine | `DspOscillator::Sine` | 不可 |
 | Saw | `DspOscillator::PolyBlepSaw` | `DspVariableOscillator` shape 0.5 |
 | Square | `DspOscillator::PolyBlepSquare`、PW 0.5 | `DspVariableOscillator` shape 1.0、PW 0.5 |
-| Triangle | `DspOscillator::PolyBlepTriangle` | `DspVariableOscillator` shape 0.0、PW 0.5 |
+| Triangle | Sonalloy Native WrapperのReset可能なPolyBLEP Triangle | `DspVariableOscillator` shape 0.0、PW 0.5 |
 | Pulse | `DspOscillator::PolyBlepSquare`、Dynamic PW | `DspVariableOscillator` shape 1.0、Dynamic PW |
 
 Sine + Hard SyncはDefinition Validation Errorとする。
@@ -2014,11 +2015,13 @@ Frequency、Pulse WidthはControl SpanのStart / EndをNative Wrapperへ渡す�
 
 - Note Onで各ComponentをCompiled Initial PhaseへReset
 - Unison Phase Distributionを加算
+- TriangleのIntegrator Stateも初期化
 
 `phase_reset = false`：
 
 - Note OnでPhaseを変更しない
 - Instrument ResetではCompiled Initial Phaseへ戻す
+- Instrument ResetではTriangleのIntegrator Stateも初期化する
 
 ## 11.3 Pulse Width
 

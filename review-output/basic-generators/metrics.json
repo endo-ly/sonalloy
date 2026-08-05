@@ -201,11 +201,11 @@
       "duration_seconds": 0.25002083333333336,
       "finite": true,
       "peak": 0.18894635140895844,
-      "rms": 0.05210681942040274,
-      "dc": 0.0020721258251097164,
+      "rms": 0.052106821185181285,
+      "dc": 0.002072093640456871,
       "positive_zero_crossings_left": 41,
       "estimated_frequency_hz": 163.9863344721273,
-      "max_adjacent_frame_delta": 0.0028579682111740112,
+      "max_adjacent_frame_delta": 0.0028579533100128174,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -225,36 +225,36 @@
           },
           {
             "frequency_hz": 175.78125,
-            "relative_amplitude": 0.570510815315736
+            "relative_amplitude": 0.5705111891396047
           },
           {
             "frequency_hz": 152.34375,
-            "relative_amplitude": 0.478420650581566
+            "relative_amplitude": 0.478420347650497
           },
           {
             "frequency_hz": 492.1875,
-            "relative_amplitude": 0.11009658505934125
+            "relative_amplitude": 0.11009652959709228
           },
           {
             "frequency_hz": 503.90625,
-            "relative_amplitude": 0.07439890888991091
+            "relative_amplitude": 0.0743989959053029
           },
           {
             "frequency_hz": 187.5,
-            "relative_amplitude": 0.06839724928331661
+            "relative_amplitude": 0.06839728562809676
           },
           {
             "frequency_hz": 140.625,
-            "relative_amplitude": 0.05460564168678389
+            "relative_amplitude": 0.05460564670361615
           },
           {
             "frequency_hz": 480.46875,
-            "relative_amplitude": 0.043759750045035295
+            "relative_amplitude": 0.043759650129870854
           }
         ]
       },
-      "stereo_rms_difference": 0.020331078860841782,
-      "stereo_correlation": 0.9999999999999941
+      "stereo_rms_difference": 0.020331079543188402,
+      "stereo_correlation": 0.9999999999999963
     },
     "05-pulse-width-025.wav": {
       "sample_rate": 48000,

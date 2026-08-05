@@ -319,6 +319,7 @@ Sampleを使うLayerの最小構成です。
 **Sample Zone**
 
 - `id`はSample Generator内で一意なComponent IDです
+- `root_note`は0〜127、`key_min` / `key_max`は0〜127、`velocity_min` / `velocity_max`は1〜127です。各範囲は`min <= max`で記述します
 - `key_min` / `key_max`と`velocity_min` / `velocity_max`で発音範囲を指定します
 - 重なるZoneは同じ`round_robin_group`と完全一致するKey / Velocity範囲を持つ必要があります
 - Velocity Layerは重ならないVelocity範囲で記述します。範囲のGapでは発音しません

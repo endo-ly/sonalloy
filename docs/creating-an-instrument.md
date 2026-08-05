@@ -248,9 +248,9 @@ sha256sum testdata/assets/my-sample.wav
 |---|---|
 | `zones[].asset.path` | DefinitionのあるDirectoryを基準にした相対Path（または絶対Path） |
 | `zones[].asset.sha256` | 起動時の検証用ハッシュ。省略するとWarningが出ます |
-| `zones[].root_note` | このZoneのSampleが基準とする音程（MIDI Note番号。60 = C4） |
-| `zones[].key_min` / `key_max` | Zoneが受け付けるMIDI Note範囲 |
-| `zones[].velocity_min` / `velocity_max` | Zoneが受け付けるVelocity範囲 |
+| `zones[].root_note` | このZoneのSampleが基準とする音程（MIDI Note番号。0〜127、60 = C4） |
+| `zones[].key_min` / `key_max` | Zoneが受け付けるMIDI Note範囲（0〜127、min <= max） |
+| `zones[].velocity_min` / `velocity_max` | Zoneが受け付けるVelocity範囲（1〜127、min <= max） |
 | `zones[].round_robin_group` | 同一条件のZoneをDefinition順に選択するGroup。不要なら`null` |
 | `zones[].playback` | `one_shot`または`forward_loop`とRegion / Loop位置 |
 | `interpolation` | `cubic`（4点補間） |

@@ -360,7 +360,7 @@
         1024
       ]
     },
-    "34-reset-a.wav": {
+    "34-repeat-a.wav": {
       "sample_rate": 48000,
       "channels": 2,
       "frames": 55000,
@@ -382,7 +382,7 @@
         1024
       ]
     },
-    "34-reset-b.wav": {
+    "34-repeat-b.wav": {
       "sample_rate": 48000,
       "channels": 2,
       "frames": 55000,
@@ -521,7 +521,7 @@
       ]
     }
   },
-  "reset_comparison": {
+  "repeat_comparison": {
     "compatible": true,
     "max_abs_difference": 0.0,
     "rms_difference": 0.0,
@@ -565,7 +565,7 @@
     "all_audio_finite": true,
     "rendered_peaks_within_float_wav_range": true,
     "block_sizes_reproducible": true,
-    "reset_repeat_reproducible": true,
+    "repeat_render_reproducible": true,
     "key_zones_are_non_silent": true,
     "velocity_layers_differ": true,
     "round_robin_order_is_definition_ordered": true,

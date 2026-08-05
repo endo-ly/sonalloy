@@ -535,12 +535,12 @@ def main() -> None:
         sample_rate_paths[str(sample_rate)] = path
         audio_paths[path.name] = path
 
-    reset_a = audio_dir / "34-reset-a.wav"
-    reset_b = audio_dir / "34-reset-b.wav"
-    render_events(regression_definition, regression_events, reset_a, 55_000)
-    render_events(regression_definition, regression_events, reset_b, 55_000)
-    audio_paths[reset_a.name] = reset_a
-    audio_paths[reset_b.name] = reset_b
+    repeat_a = audio_dir / "34-repeat-a.wav"
+    repeat_b = audio_dir / "34-repeat-b.wav"
+    render_events(regression_definition, regression_events, repeat_a, 55_000)
+    render_events(regression_definition, regression_events, repeat_b, 55_000)
+    audio_paths[repeat_a.name] = repeat_a
+    audio_paths[repeat_b.name] = repeat_b
 
     stealing_value = copy.deepcopy(definition_values["full-mapped-sample-instrument.json"])
     stealing_value["performance"]["polyphony"] = 1
@@ -602,9 +602,9 @@ def main() -> None:
     ):
         raise RuntimeError(f"sample block-size comparison failed: {block_comparisons}")
 
-    reset_comparison = compare_wav(reset_a, reset_b)
-    if not reset_comparison.get("compatible") or reset_comparison.get("max_abs_difference", 1.0) != 0.0:
-        raise RuntimeError(f"sample reset comparison failed: {reset_comparison}")
+    repeat_comparison = compare_wav(repeat_a, repeat_b)
+    if not repeat_comparison.get("compatible") or repeat_comparison.get("max_abs_difference", 1.0) != 0.0:
+        raise RuntimeError(f"sample repeat comparison failed: {repeat_comparison}")
 
     rr_audio = audio_paths["25-round-robin-repeated-hit.wav"]
     rr_order = ["hit_a", "hit_b", "hit_a", "hit_b"]
@@ -633,7 +633,7 @@ def main() -> None:
             and comparison.get("max_abs_difference", 1.0) <= MAX_BLOCK_DIFFERENCE
             for comparison in block_comparisons.values()
         ),
-        "reset_repeat_reproducible": reset_comparison.get("max_abs_difference") == 0.0,
+        "repeat_render_reproducible": repeat_comparison.get("max_abs_difference") == 0.0,
         "key_zones_are_non_silent": all(value > 1.0e-3 for value in key_rms),
         "velocity_layers_differ": velocity_rms[1] > velocity_rms[0] * 1.2,
         "round_robin_order_is_definition_ordered": True,
@@ -657,10 +657,10 @@ def main() -> None:
             sample_rate: audio_metrics[path.name]
             for sample_rate, path in sample_rate_paths.items()
         },
-        "reset_comparison": {
-            **reset_comparison,
-            "reference_sha256": sha256_file(reset_a),
-            "repeat_sha256": sha256_file(reset_b),
+        "repeat_comparison": {
+            **repeat_comparison,
+            "reference_sha256": sha256_file(repeat_a),
+            "repeat_sha256": sha256_file(repeat_b),
         },
         "round_robin_selection_order": rr_order,
         "round_robin_segment_rms": rr_rms,
@@ -695,7 +695,7 @@ def main() -> None:
 - 全WAVがFinite：{"pass" if automatic_checks["all_audio_finite"] else "fail"}
 - Float WAV範囲内：{"pass" if automatic_checks["rendered_peaks_within_float_wav_range"] else "fail"}
 - Block Size再現：{"pass" if automatic_checks["block_sizes_reproducible"] else "fail"}
-- 同一入力の再Render再現：{"pass" if automatic_checks["reset_repeat_reproducible"] else "fail"}
+- 別Runtimeの同一入力再Render再現：{"pass" if automatic_checks["repeat_render_reproducible"] else "fail"}
 - Key Zone切替：{"pass" if automatic_checks["key_zones_are_non_silent"] else "fail"}
 - Velocity Layer差：{"pass" if automatic_checks["velocity_layers_differ"] else "fail"}
 - Round Robin順序：{"pass" if automatic_checks["round_robin_order_is_definition_ordered"] else "fail"}
@@ -723,7 +723,7 @@ def main() -> None:
 | `31-essential-hybrid-instrument.wav` | Sample、Oscillator、Processor ChainのHybrid |
 | `32-regression-block-*.wav` | Block Size比較 |
 | `33-sample-rate-*.wav` | Sample Rate比較 |
-| `34-reset-*.wav` | 同一入力の再現性 |
+| `34-repeat-*.wav` | 別Runtimeの同一入力再Render再現性 |
 | `35-voice-stealing-pending-zone.wav` | Pending NoteのZone選択保持 |
 
 ## 人間の確認欄

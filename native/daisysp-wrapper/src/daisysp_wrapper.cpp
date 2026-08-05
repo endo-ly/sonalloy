@@ -13,6 +13,11 @@
 struct sonalloy_dsp_oscillator {
     daisysp::Oscillator oscillator;
     float sample_rate = 0.0f;
+    // DaisySP's PolyBLEP Triangle retains an integrator state that Reset does not clear.
+    int32_t waveform = SONALLOY_DSP_WAVEFORM_SINE;
+    float triangle_phase = 0.0f;
+    float triangle_phase_inc = 0.0f;
+    float triangle_last_out = 0.0f;
     bool prepared = false;
 #ifdef SONALLOY_DSP_TEST_HOOKS
     bool throw_on_process = false;
@@ -102,6 +107,59 @@ void clear_variable_output(float* output, uint32_t frames) {
     }
 }
 
+float triangle_polyblep(float phase_inc, float phase) {
+    if (phase_inc <= 0.0f) {
+        return 0.0f;
+    }
+    if (phase < phase_inc) {
+        phase /= phase_inc;
+        return phase + phase - phase * phase - 1.0f;
+    }
+    if (phase > 1.0f - phase_inc) {
+        phase = (phase - 1.0f) / phase_inc;
+        return phase * phase + phase + phase + 1.0f;
+    }
+    return 0.0f;
+}
+
+float triangle_fastmod1f(float phase) {
+    return phase >= 1.0f ? phase - 1.0f : phase;
+}
+
+float process_triangle_sample(sonalloy_dsp_oscillator* handle) {
+    const float phase = handle->triangle_phase;
+    float output = phase < 0.5f ? 1.0f : -1.0f;
+    output += triangle_polyblep(handle->triangle_phase_inc, phase);
+    output -= triangle_polyblep(
+        handle->triangle_phase_inc,
+        triangle_fastmod1f(phase + 0.5f)
+    );
+    output = handle->triangle_phase_inc * output +
+        (1.0f - handle->triangle_phase_inc) * handle->triangle_last_out;
+    handle->triangle_last_out = output;
+    output *= 4.0f;
+
+    handle->triangle_phase += handle->triangle_phase_inc;
+    if (handle->triangle_phase > 1.0f) {
+        handle->triangle_phase -= 1.0f;
+    }
+    return output;
+}
+
+void set_oscillator_frequency(sonalloy_dsp_oscillator* handle, float frequency_hz) {
+    handle->oscillator.SetFreq(frequency_hz);
+    if (handle->waveform == SONALLOY_DSP_WAVEFORM_TRIANGLE) {
+        handle->triangle_phase_inc = frequency_hz / handle->sample_rate;
+    }
+}
+
+float process_oscillator_sample(sonalloy_dsp_oscillator* handle) {
+    if (handle->waveform == SONALLOY_DSP_WAVEFORM_TRIANGLE) {
+        return process_triangle_sample(handle);
+    }
+    return handle->oscillator.Process();
+}
+
 }  // namespace
 
 extern "C" const char* sonalloy_dsp_backend_version(void) {
@@ -170,6 +228,10 @@ extern "C" int32_t sonalloy_dsp_oscillator_prepare(
         handle->oscillator.Init(handle->sample_rate);
         handle->oscillator.SetAmp(1.0f);
         handle->oscillator.SetWaveform(native_waveform);
+        handle->waveform = waveform;
+        handle->triangle_phase = 0.0f;
+        handle->triangle_phase_inc = 100.0f / handle->sample_rate;
+        handle->triangle_last_out = 0.0f;
         handle->prepared = true;
         return SONALLOY_DSP_OK;
     } catch (...) {
@@ -198,6 +260,10 @@ extern "C" int32_t sonalloy_dsp_oscillator_reset_phase(
 
     try {
         handle->oscillator.Reset(phase);
+        if (handle->waveform == SONALLOY_DSP_WAVEFORM_TRIANGLE) {
+            handle->triangle_phase = phase;
+            handle->triangle_last_out = 0.0f;
+        }
         return SONALLOY_DSP_OK;
     } catch (...) {
         return SONALLOY_DSP_NATIVE_EXCEPTION;
@@ -242,10 +308,10 @@ extern "C" int32_t sonalloy_dsp_oscillator_process_with_pulse_width(
             throw std::runtime_error("native process test exception");
         }
 #endif
-        handle->oscillator.SetFreq(frequency_hz);
+        set_oscillator_frequency(handle, frequency_hz);
         handle->oscillator.SetPw(pulse_width);
         for (uint32_t index = 0; index < frames; ++index) {
-            output[index] = handle->oscillator.Process();
+            output[index] = process_oscillator_sample(handle);
         }
         return SONALLOY_DSP_OK;
     } catch (...) {
@@ -294,9 +360,9 @@ extern "C" int32_t sonalloy_dsp_oscillator_process(
             throw std::runtime_error("native process test exception");
         }
 #endif
-        handle->oscillator.SetFreq(frequency_hz);
+        set_oscillator_frequency(handle, frequency_hz);
         for (uint32_t index = 0; index < frames; ++index) {
-            output[index] = handle->oscillator.Process();
+            output[index] = process_oscillator_sample(handle);
         }
         return SONALLOY_DSP_OK;
     } catch (...) {
@@ -355,8 +421,8 @@ extern "C" int32_t sonalloy_dsp_oscillator_process_ramp(
                     static_cast<float>(frames));
             float frequency_hz = start_frequency_hz;
             for (uint32_t index = 0; index < frames; ++index) {
-                handle->oscillator.SetFreq(frequency_hz);
-                output[index] = handle->oscillator.Process();
+                set_oscillator_frequency(handle, frequency_hz);
+                output[index] = process_oscillator_sample(handle);
                 frequency_hz *= frequency_step;
             }
         } else {
@@ -366,8 +432,8 @@ extern "C" int32_t sonalloy_dsp_oscillator_process_ramp(
                     : static_cast<float>(index) / static_cast<float>(frames);
                 const float frequency_hz = start_frequency_hz +
                     (end_frequency_hz - start_frequency_hz) * position;
-                handle->oscillator.SetFreq(frequency_hz);
-                output[index] = handle->oscillator.Process();
+                set_oscillator_frequency(handle, frequency_hz);
+                output[index] = process_oscillator_sample(handle);
             }
         }
         return SONALLOY_DSP_OK;
@@ -437,14 +503,14 @@ extern "C" int32_t sonalloy_dsp_oscillator_process_ramp_with_pulse_width(
             const float pulse_width = start_pulse_width +
                 (end_pulse_width - start_pulse_width) * position;
             if (start_frequency_hz > 0.0f && end_frequency_hz > 0.0f) {
-                handle->oscillator.SetFreq(frequency_hz);
+                set_oscillator_frequency(handle, frequency_hz);
                 frequency_hz *= frequency_step;
             } else {
-                handle->oscillator.SetFreq(start_frequency_hz +
+                set_oscillator_frequency(handle, start_frequency_hz +
                     (end_frequency_hz - start_frequency_hz) * position);
             }
             handle->oscillator.SetPw(pulse_width);
-            output[index] = handle->oscillator.Process();
+            output[index] = process_oscillator_sample(handle);
         }
         return SONALLOY_DSP_OK;
     } catch (...) {

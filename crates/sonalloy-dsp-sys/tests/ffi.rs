@@ -216,6 +216,44 @@ fn arbitrary_phase_reset_is_reproducible() {
 }
 
 #[test]
+fn triangle_reset_clears_integrator_state() {
+    let mut reused = DspOscillator::new().expect("reused oscillator allocation");
+    let mut fresh = DspOscillator::new().expect("fresh oscillator allocation");
+    reused
+        .prepare(48_000.0, DspOscillatorWaveform::Triangle)
+        .expect("reused oscillator preparation");
+    fresh
+        .prepare(48_000.0, DspOscillatorWaveform::Triangle)
+        .expect("fresh oscillator preparation");
+
+    let mut warmup = [0.0_f32; 512];
+    reused
+        .process(440.0, &mut warmup)
+        .expect("triangle warmup process");
+    reused.reset_phase(0.25).expect("triangle phase reset");
+    fresh.reset_phase(0.25).expect("fresh triangle phase reset");
+
+    let mut reused_output = [0.0_f32; 128];
+    let mut fresh_output = [0.0_f32; 128];
+    reused
+        .process(440.0, &mut reused_output)
+        .expect("reused triangle process after reset");
+    fresh
+        .process(440.0, &mut fresh_output)
+        .expect("fresh triangle process");
+    assert_eq!(
+        reused_output
+            .iter()
+            .map(|sample| sample.to_bits())
+            .collect::<Vec<_>>(),
+        fresh_output
+            .iter()
+            .map(|sample| sample.to_bits())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn pulse_width_ramp_is_stable_when_partitioned() {
     let mut whole = DspOscillator::new().expect("whole oscillator allocation");
     let mut split = DspOscillator::new().expect("split oscillator allocation");

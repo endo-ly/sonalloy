@@ -155,7 +155,7 @@ impl DspOscillator {
         Ok(())
     }
 
-    /// Reset the oscillator phase to its prepared initial state.
+    /// Reset the oscillator phase and waveform state to their prepared initial states.
     ///
     /// # Errors
     ///
@@ -165,7 +165,7 @@ impl DspOscillator {
         result_from_code(code)
     }
 
-    /// Reset the oscillator phase to an arbitrary normalized phase.
+    /// Reset the oscillator phase and waveform state to an arbitrary normalized phase.
     ///
     /// # Errors
     ///

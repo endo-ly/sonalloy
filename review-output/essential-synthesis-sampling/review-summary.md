@@ -17,7 +17,7 @@
 - 全WAVがFinite：pass
 - Float WAV範囲内：pass
 - Block Size再現：pass
-- 同一入力の再Render再現：pass
+- 別Runtimeの同一入力再Render再現：pass
 - Key Zone切替：pass
 - Velocity Layer差：pass
 - Round Robin順序：pass
@@ -45,7 +45,7 @@
 | `31-essential-hybrid-instrument.wav` | Sample、Oscillator、Processor ChainのHybrid |
 | `32-regression-block-*.wav` | Block Size比較 |
 | `33-sample-rate-*.wav` | Sample Rate比較 |
-| `34-reset-*.wav` | 同一入力の再現性 |
+| `34-repeat-*.wav` | 別Runtimeの同一入力再Render再現性 |
 | `35-voice-stealing-pending-zone.wav` | Pending NoteのZone選択保持 |
 
 ## 人間の確認欄

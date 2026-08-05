@@ -1472,7 +1472,10 @@ mod tests {
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
     }
 
-    fn phase_runtime(phase_reset: bool) -> InstrumentRuntime {
+    fn phase_runtime_with_waveform(
+        phase_reset: bool,
+        waveform: crate::definition::OscillatorWaveform,
+    ) -> InstrumentRuntime {
         let mut source = definition();
         source.performance.polyphony = 1;
         source.layers[0].envelope.attack_seconds = 0.0;
@@ -1482,6 +1485,7 @@ mod tests {
         match &mut source.layers[0].generator {
             crate::definition::GeneratorDefinition::Oscillator(oscillator) => {
                 oscillator.phase_reset = phase_reset;
+                oscillator.waveform = waveform;
             }
             crate::definition::GeneratorDefinition::Sample(_)
             | crate::definition::GeneratorDefinition::Noise(_) => {
@@ -1489,6 +1493,10 @@ mod tests {
             }
         }
         runtime_with(&source)
+    }
+
+    fn phase_runtime(phase_reset: bool) -> InstrumentRuntime {
+        phase_runtime_with_waveform(phase_reset, crate::definition::OscillatorWaveform::Sine)
     }
 
     fn modulated_steal_definition() -> crate::definition::InstrumentDefinition {
@@ -1806,6 +1814,108 @@ mod tests {
         let second = process(&mut runtime, 64, 0, &note);
         for (left, right) in first[0].iter().zip(&second[0]) {
             assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
+        }
+    }
+
+    #[test]
+    fn triangle_retrigger_after_release_matches_first_render() {
+        let mut runtime =
+            phase_runtime_with_waveform(true, crate::definition::OscillatorWaveform::Triangle);
+        prepare(&mut runtime);
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let first = process(&mut runtime, 64, 0, &first_note);
+        let note_off = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        }];
+        let _ = process(&mut runtime, 64, 64, &note_off);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
+
+        let second_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let second = process(&mut runtime, 64, 128, &second_note);
+        for (first, second) in first[0].iter().zip(&second[0]) {
+            assert_relative_eq!(*first, *second, epsilon = 1.0e-6);
+        }
+    }
+
+    #[test]
+    fn triangle_instrument_reset_matches_a_fresh_runtime() {
+        let mut runtime =
+            phase_runtime_with_waveform(false, crate::definition::OscillatorWaveform::Triangle);
+        prepare(&mut runtime);
+        let note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let first = process(&mut runtime, 64, 0, &note);
+        runtime.reset().expect("reset");
+        let second = process(&mut runtime, 64, 0, &note);
+        for (first, second) in first[0].iter().zip(&second[0]) {
+            assert_relative_eq!(*first, *second, epsilon = 1.0e-6);
+        }
+    }
+
+    #[test]
+    fn triangle_voice_stealing_starts_from_the_compiled_phase() {
+        let mut stolen =
+            phase_runtime_with_waveform(true, crate::definition::OscillatorWaveform::Triangle);
+        let mut direct =
+            phase_runtime_with_waveform(true, crate::definition::OscillatorWaveform::Triangle);
+        prepare(&mut stolen);
+        prepare(&mut direct);
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let _ = process(&mut stolen, 64, 0, &first_note);
+
+        let pending_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let stolen_audio = process(&mut stolen, 256, 64, &pending_note);
+        let direct_audio = process(
+            &mut direct,
+            16,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 3,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        assert_eq!(stolen.voice_state(0), Some(VoiceState::Active));
+        for (stolen_sample, direct_sample) in stolen_audio[0][240..].iter().zip(&direct_audio[0]) {
+            assert_relative_eq!(*stolen_sample, *direct_sample, epsilon = 1.0e-6);
         }
     }
 
