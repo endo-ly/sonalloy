@@ -10,6 +10,20 @@ pub(crate) struct ValueSpan {
     pub(crate) end: f32,
 }
 
+impl ValueSpan {
+    pub(crate) fn value_at(self, index: usize, frames: usize) -> f32 {
+        let position = if frames == 0 {
+            0.0
+        } else {
+            #[allow(clippy::cast_precision_loss)]
+            {
+                index as f32 / frames as f32
+            }
+        };
+        self.start + (self.end - self.start) * position
+    }
+}
+
 /// One base parameter value after smoothing for a render span.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ParameterSpanValue {
@@ -56,15 +70,15 @@ impl<'a> SharedParameterSpan<'a> {
         }
     }
 
-    pub(crate) fn parameter(self, handle: ParameterHandle) -> ValueSpan {
-        let value = self.values[handle.index()];
-        interpolate(
+    pub(crate) fn parameter(self, handle: ParameterHandle) -> Option<ValueSpan> {
+        let value = *self.values.get(handle.index())?;
+        Some(interpolate(
             value.start,
             value.end,
             self.offset,
             self.length,
             self.total_length,
-        )
+        ))
     }
 
     pub(crate) fn pitch_bend(self) -> ValueSpan {
@@ -115,21 +129,24 @@ fn interpolate(start: f32, end: f32, offset: usize, length: usize, total: usize)
 pub(crate) struct LayerTargetSpan {
     pub(crate) gain: ValueSpan,
     pub(crate) pan: ValueSpan,
-    pub(crate) pan_left: ValueSpan,
-    pub(crate) pan_right: ValueSpan,
     pub(crate) tuning: ValueSpan,
     pub(crate) generator: LayerGeneratorTargetSpan,
 }
 
 /// Dynamic values consumed by a layer generator during one render span.
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct LayerGeneratorTargetSpan {
-    pub(crate) pulse_width: Option<ValueSpan>,
-    pub(crate) sync_ratio: Option<ValueSpan>,
-    pub(crate) waveshape: Option<ValueSpan>,
-    pub(crate) unison_detune: Option<ValueSpan>,
-    pub(crate) unison_spread: Option<ValueSpan>,
-    pub(crate) noise_correlation: Option<ValueSpan>,
+pub(crate) enum LayerGeneratorTargetSpan {
+    Oscillator {
+        pulse_width: Option<ValueSpan>,
+        sync_ratio: Option<ValueSpan>,
+        waveshape: Option<ValueSpan>,
+        unison_detune: Option<ValueSpan>,
+        unison_spread: Option<ValueSpan>,
+    },
+    Noise {
+        correlation: ValueSpan,
+    },
+    Sample,
 }
 
 /// Reusable target scratch owned by one voice.
@@ -150,17 +167,8 @@ impl VoiceTargetScratch {
                 LayerTargetSpan {
                     gain: zero,
                     pan: zero,
-                    pan_left: zero,
-                    pan_right: zero,
                     tuning: zero,
-                    generator: LayerGeneratorTargetSpan {
-                        pulse_width: None,
-                        sync_ratio: None,
-                        waveshape: None,
-                        unison_detune: None,
-                        unison_spread: None,
-                        noise_correlation: None,
-                    },
+                    generator: LayerGeneratorTargetSpan::Sample,
                 };
                 layers.len()
             ],
@@ -197,5 +205,22 @@ fn zero_processor_target(processor: &CompiledProcessor) -> ProcessorTargetSpan {
             width: zero,
             mix: zero,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn value_span_uses_one_shared_ramp_formula() {
+        let span = ValueSpan {
+            start: 2.0,
+            end: 6.0,
+        };
+
+        assert!((span.value_at(0, 4) - 2.0).abs() < f32::EPSILON);
+        assert!((span.value_at(2, 4) - 4.0).abs() < f32::EPSILON);
+        assert!((span.value_at(4, 4) - 6.0).abs() < f32::EPSILON);
     }
 }

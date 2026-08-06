@@ -40,7 +40,7 @@ python scripts/review/generate_basic_generators_package.py
 
 ## 機械検査
 
-`metrics.json`は全WAVのFinite性、Peak、RMS、DC、隣接Frame差分、固定長Spectrum、左右差、Stereo Correlation、Sample Rate別値、Block Size比較、Reset比較を記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。聴感比較時の音量は再生側で調整してください。
+`metrics.json`は全WAVのFinite性、Peak、RMS、DC、隣接Frame差分、固定長Spectrum、左右差、Stereo Correlation、Sample Rate別値、Block Size比較、新規Runtime間の再現性比較を記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。聴感比較時の音量は再生側で調整してください。
 
 ## 人間の確認欄
 
@@ -52,7 +52,7 @@ python scripts/review/generate_basic_generators_package.py
 - [x] Brownが低域へ過度に偏らず、DC感が強すぎない
 - [x] Pinkに不自然な周期性がない
 - [x] Correlation 0 / 1でStereo幅の差が明確である
-- [x] Reset後にNoiseの冒頭が不自然に変化しない
+- [x] 同じDefinitionの新規Runtime間でNoiseの冒頭が一致する
 
 ### 人間の回答
 

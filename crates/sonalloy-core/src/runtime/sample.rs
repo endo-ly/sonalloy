@@ -9,7 +9,6 @@ const END_FADE_SECONDS: f64 = 0.005;
 /// Sample playback state owned by a voice layer.
 pub(crate) struct SampleRuntime {
     source: Option<Arc<[f32]>>,
-    selected_zone_index: Option<usize>,
     root_note: u8,
     position: f64,
     start_frame: usize,
@@ -23,7 +22,6 @@ impl SampleRuntime {
     pub(crate) fn new() -> Self {
         Self {
             source: None,
-            selected_zone_index: None,
             root_note: 60,
             position: 0.0,
             start_frame: 0,
@@ -35,7 +33,7 @@ impl SampleRuntime {
     }
 
     #[allow(clippy::cast_precision_loss)]
-    pub(crate) fn start(&mut self, zone_index: Option<usize>, zone: Option<&CompiledSampleZone>) {
+    pub(crate) fn start(&mut self, zone: Option<&CompiledSampleZone>) {
         let Some(zone) = zone else {
             self.reset();
             self.finished = true;
@@ -46,7 +44,6 @@ impl SampleRuntime {
             self.finished = true;
             return;
         };
-        self.selected_zone_index = zone_index;
         self.source = Some(Arc::clone(&source.samples));
         self.root_note = zone.root_note;
         self.end_fade_frames = rounded_frame_count(source.sample_rate * END_FADE_SECONDS).max(1);
@@ -76,7 +73,6 @@ impl SampleRuntime {
 
     pub(crate) fn reset(&mut self) {
         self.source = None;
-        self.selected_zone_index = None;
         self.root_note = 60;
         self.position = 0.0;
         self.start_frame = 0;
@@ -88,7 +84,6 @@ impl SampleRuntime {
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
     pub(crate) fn next_sample_with_ratio(&mut self, playback_ratio: f64) -> f32 {
-        debug_assert_eq!(self.selected_zone_index.is_some(), self.source.is_some());
         let Some(source) = self.source.as_deref() else {
             self.finished = true;
             return 0.0;
@@ -194,15 +189,38 @@ fn sample_at(
     loop_frames: Option<(usize, usize)>,
 ) -> f32 {
     if let Some((loop_start, loop_end)) = loop_frames {
-        let length = isize::try_from(loop_end - loop_start).unwrap_or(isize::MAX);
-        let relative =
-            (index - isize::try_from(loop_start).unwrap_or(isize::MAX)).rem_euclid(length);
-        return source[loop_start + usize::try_from(relative).unwrap_or(0)];
+        let Some(loop_length) = loop_end.checked_sub(loop_start) else {
+            return 0.0;
+        };
+        let Ok(length) = isize::try_from(loop_length) else {
+            return 0.0;
+        };
+        if length == 0 {
+            return 0.0;
+        }
+        let Ok(loop_start) = isize::try_from(loop_start) else {
+            return 0.0;
+        };
+        let relative = (index - loop_start).rem_euclid(length);
+        let Ok(relative) = usize::try_from(relative) else {
+            return 0.0;
+        };
+        return loop_start
+            .try_into()
+            .ok()
+            .and_then(|start: usize| start.checked_add(relative))
+            .and_then(|source_index| source.get(source_index))
+            .copied()
+            .unwrap_or(0.0);
     }
     let start = isize::try_from(start_frame).unwrap_or(isize::MAX);
     let end = isize::try_from(end_frame.saturating_sub(1)).unwrap_or(isize::MAX);
     let index = index.clamp(start, end);
-    source[usize::try_from(index).unwrap_or(start_frame)]
+    usize::try_from(index)
+        .ok()
+        .and_then(|source_index| source.get(source_index))
+        .copied()
+        .unwrap_or(0.0)
 }
 
 #[cfg(test)]
@@ -240,8 +258,6 @@ mod tests {
             group: None,
             playback,
             asset_path: "test.wav".to_owned(),
-            asset_sha256: None,
-            enabled: true,
         }
     }
 
@@ -270,7 +286,7 @@ mod tests {
             },
         );
         let mut runtime = SampleRuntime::new();
-        runtime.start(Some(0), Some(&zone));
+        runtime.start(Some(&zone));
         let values: Vec<f32> = (0..5).map(|_| next_sample(&mut runtime, 1.0)).collect();
         assert!(values[..3].iter().all(|value| value.is_finite()));
         assert!(values[3..].iter().all(|value| value.abs() < 1.0e-6));
@@ -288,7 +304,7 @@ mod tests {
             },
         );
         let mut runtime = SampleRuntime::new();
-        runtime.start(Some(0), Some(&zone));
+        runtime.start(Some(&zone));
 
         let values: Vec<f32> = (0..6).map(|_| next_sample(&mut runtime, 1.0)).collect();
 
@@ -312,7 +328,7 @@ mod tests {
             },
         );
         let mut runtime = SampleRuntime::new();
-        runtime.start(Some(0), Some(&zone));
+        runtime.start(Some(&zone));
 
         let first = next_sample(&mut runtime, 2.5);
         let second = next_sample(&mut runtime, 2.5);
@@ -353,7 +369,7 @@ mod tests {
                 },
             );
             let mut runtime = SampleRuntime::new();
-            runtime.start(Some(0), Some(&zone));
+            runtime.start(Some(&zone));
             let mut rendered = Vec::new();
             while !runtime.is_finished() {
                 rendered.push(next_sample(&mut runtime, playback_ratio));
@@ -380,7 +396,7 @@ mod tests {
                 },
             );
             let mut runtime = SampleRuntime::new();
-            runtime.start(Some(0), Some(&zone));
+            runtime.start(Some(&zone));
             for _ in 0..8 {
                 assert!(next_sample(&mut runtime, 0.5).is_finite());
             }

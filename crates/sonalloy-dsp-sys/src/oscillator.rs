@@ -12,7 +12,7 @@ pub enum DspOscillatorWaveform {
     Sine,
     /// A band-limited saw wave provided by `DaisySP`.
     Saw,
-    /// A band-limited triangle wave provided by `DaisySP`.
+    /// A band-limited triangle using the `DaisySP` `PolyBLEP` algorithm with resettable state owned by the Sonalloy wrapper.
     Triangle,
     /// A band-limited square wave provided by `DaisySP`.
     Square,

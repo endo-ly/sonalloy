@@ -36,7 +36,7 @@ python scripts/review/generate_complex_oscillator_package.py
 
 ## 機械検査
 
-metrics.jsonは全WAVのFinite性、Peak、RMS、DC、隣接Frame差分、固定長Spectrum、左右差、Stereo Correlation、Sample Rate別値、Block Size比較、Reset比較、Basic Saw / Hard Sync / Waveshaping / Processor ChainをPolyphony 1 / 8 / 16、Unison 1 / 4 / 8で実行したRender時間とピークWorking Setを記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。聴感比較時の音量は再生側で調整してください。
+metrics.jsonは全WAVのFinite性、Peak、RMS、DC、隣接Frame差分、固定長Spectrum、左右差、Stereo Correlation、Sample Rate別値、Block Size比較、新規Runtime間の再現性比較、Basic Saw / Hard Sync / Waveshaping / Processor ChainをPolyphony 1 / 8 / 16、Unison 1 / 4 / 8で実際に同時発音させたCLI Render時間とピークWorking Setを記録します。性能値にはCLI起動・Definition Compile・WAV出力を含むため参考値として扱い、Runtime単体のリアルタイム性能とは分けて扱います。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。聴感比較時の音量は再生側で調整してください。
 
 ## 人間の確認欄
 

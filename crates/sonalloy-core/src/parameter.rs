@@ -6,6 +6,10 @@ use thiserror::Error;
 use crate::definition::{
     GeneratorDefinition, InstrumentDefinition, OscillatorWaveform, ProcessorDefinition,
 };
+use crate::generator_parameters::{
+    GeneratorParameterSpec, NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
+    UNISON_SPREAD, WAVESHAPE,
+};
 
 /// Dense reference to a parameter in one compiled instrument.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
@@ -279,74 +283,67 @@ fn push_generator_descriptors(
     match generator {
         GeneratorDefinition::Oscillator(oscillator) => {
             if let OscillatorWaveform::Pulse { pulse_width } = oscillator.waveform {
-                descriptors.push(ParameterDescriptor {
-                    id: format!("{prefix}.pulse_width"),
-                    owner,
-                    unit: ParameterUnit::Normalized,
-                    scale: ParameterScale::Linear,
-                    min: 0.05,
-                    max: 0.95,
-                    default: pulse_width,
-                    smoothing_seconds: 0.005,
-                });
+                push_generator_descriptor(descriptors, prefix, owner, PULSE_WIDTH, pulse_width);
             }
             if let Some(hard_sync) = oscillator.hard_sync {
-                descriptors.push(ParameterDescriptor {
-                    id: format!("{prefix}.sync_ratio"),
-                    owner,
-                    unit: ParameterUnit::Ratio,
-                    scale: ParameterScale::Log2,
-                    min: 1.0,
-                    max: 16.0,
-                    default: hard_sync.ratio,
-                    smoothing_seconds: 0.005,
-                });
+                push_generator_descriptor(descriptors, prefix, owner, SYNC_RATIO, hard_sync.ratio);
             }
             if let Some(waveshaping) = oscillator.waveshaping {
-                push_normalized_descriptor(
+                push_generator_descriptor(
                     descriptors,
-                    format!("{prefix}.waveshape"),
+                    prefix,
                     owner,
+                    WAVESHAPE,
                     waveshaping.amount,
-                    0.005,
-                    1.0,
                 );
             }
             if let Some(unison) = oscillator.unison {
-                descriptors.push(ParameterDescriptor {
-                    id: format!("{prefix}.unison_detune"),
-                    owner,
-                    unit: ParameterUnit::Cents,
-                    scale: ParameterScale::Linear,
-                    min: 0.0,
-                    max: 100.0,
-                    default: unison.detune_cents,
-                    smoothing_seconds: 0.010,
-                });
-                push_normalized_descriptor(
+                push_generator_descriptor(
                     descriptors,
-                    format!("{prefix}.unison_spread"),
+                    prefix,
                     owner,
+                    UNISON_DETUNE,
+                    unison.detune_cents,
+                );
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    UNISON_SPREAD,
                     unison.stereo_spread,
-                    0.010,
-                    1.0,
                 );
             }
         }
         GeneratorDefinition::Noise(noise) => {
-            descriptors.push(ParameterDescriptor {
-                id: format!("{prefix}.noise_correlation"),
+            push_generator_descriptor(
+                descriptors,
+                prefix,
                 owner,
-                unit: ParameterUnit::Normalized,
-                scale: ParameterScale::Linear,
-                min: 0.0,
-                max: 1.0,
-                default: noise.stereo_correlation,
-                smoothing_seconds: 0.010,
-            });
+                NOISE_CORRELATION,
+                noise.stereo_correlation,
+            );
         }
         GeneratorDefinition::Sample(_) => {}
     }
+}
+
+fn push_generator_descriptor(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    prefix: &str,
+    owner: ParameterOwner,
+    spec: GeneratorParameterSpec,
+    default: f32,
+) {
+    descriptors.push(ParameterDescriptor {
+        id: format!("{prefix}.{}", spec.suffix),
+        owner,
+        unit: spec.unit,
+        scale: spec.scale,
+        min: spec.min,
+        max: spec.max,
+        default,
+        smoothing_seconds: spec.smoothing_seconds,
+    });
 }
 
 fn push_processor_descriptors(
@@ -528,16 +525,7 @@ pub fn is_parameter_id(value: &str) -> bool {
                 && is_processor_parameter(parameter)
         }
         ["layer", layer_id, "generator", parameter] => {
-            is_component_id(layer_id)
-                && matches!(
-                    *parameter,
-                    "pulse_width"
-                        | "sync_ratio"
-                        | "waveshape"
-                        | "unison_detune"
-                        | "unison_spread"
-                        | "noise_correlation"
-                )
+            is_component_id(layer_id) && crate::generator_parameters::is_suffix(parameter)
         }
         ["voice" | "global", "processor", processor_id, parameter] => {
             is_component_id(processor_id) && is_processor_parameter(parameter)

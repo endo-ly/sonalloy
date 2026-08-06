@@ -287,27 +287,21 @@ fn complex_oscillator_compiles_backend_parameters_and_distributions() {
     };
     assert_eq!(
         oscillator.backend,
-        sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync
+        sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync {
+            sync_ratio: instrument
+                .parameter_handle("layer.body.generator.sync_ratio")
+                .expect("sync ratio handle is present")
+        }
     );
     assert_eq!(
-        oscillator.output_mode,
+        instrument.layers[0].generator.output_mode(),
         sonalloy_core::compiler::GeneratorOutputMode::Stereo
     );
-    assert_eq!(oscillator.unison.voices, 5);
-    assert_eq!(oscillator.unison.detune_distribution.len(), 5);
-    assert_eq!(oscillator.unison.pan_distribution.len(), 5);
+    assert_eq!(oscillator.unison.position_distribution.len(), 5);
     assert_eq!(oscillator.unison.phase_distribution.len(), 5);
     for (actual, expected) in oscillator
         .unison
-        .detune_distribution
-        .iter()
-        .zip([-1.0, -0.5, 0.0, 0.5, 1.0])
-    {
-        assert_relative_eq!(*actual, expected, epsilon = 1.0e-6);
-    }
-    for (actual, expected) in oscillator
-        .unison
-        .pan_distribution
+        .position_distribution
         .iter()
         .zip([-1.0, -0.5, 0.0, 0.5, 1.0])
     {
@@ -322,7 +316,10 @@ fn complex_oscillator_compiles_backend_parameters_and_distributions() {
         assert_relative_eq!(*actual, expected, epsilon = 1.0e-6);
     }
     assert_relative_eq!(oscillator.unison.normalization, 1.0 / 5.0_f32.sqrt());
-    assert!(oscillator.parameters.sync_ratio.is_some());
+    assert!(matches!(
+        oscillator.backend,
+        sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync { .. }
+    ));
     assert!(oscillator.parameters.waveshape.is_some());
     assert!(oscillator.parameters.unison_detune.is_some());
     assert!(oscillator.parameters.unison_spread.is_some());
@@ -1168,7 +1165,7 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
     match &instrument.layers[0].generator {
         sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
             assert_eq!(sample.zones.len(), 1);
-            assert!(sample.zones[0].enabled);
+            assert!(sample.zones[0].is_enabled());
             assert!(sample.zones[0].source.is_some());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
@@ -1219,7 +1216,12 @@ fn sample_zone_mapping_and_asset_cache_select_by_key_and_share_preparation() {
         panic!("sample layer compiles as a sample generator");
     };
     assert_eq!(sample.zones.len(), 2);
-    assert!(sample.zones.iter().all(|zone| zone.enabled));
+    assert!(
+        sample
+            .zones
+            .iter()
+            .all(sonalloy_core::compiler::CompiledSampleZone::is_enabled)
+    );
     assert!(Arc::ptr_eq(
         sample.zones[0].source.as_ref().expect("low source"),
         sample.zones[1].source.as_ref().expect("high source")
@@ -1315,7 +1317,10 @@ fn round_robin_selection_is_definition_ordered_and_block_independent() {
         panic!("sample layer compiles as a sample generator");
     };
     assert_eq!(sample.groups.len(), 1);
-    assert_eq!(sample.groups[0].member_zone_indices.as_ref(), &[0, 1]);
+    assert_eq!(
+        sample.groups[0].enabled_member_zone_indices.as_ref(),
+        &[0, 1]
+    );
 
     let events = [
         ScheduledEvent {
@@ -1706,7 +1711,7 @@ fn sample_without_hash_is_enabled_with_a_warning() {
     );
     match &instrument.layers[0].generator {
         sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-            assert!(sample.zones[0].enabled);
+            assert!(sample.zones[0].is_enabled());
             assert!(sample.zones[0].source.is_some());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
@@ -1780,7 +1785,7 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
     );
     match &instrument.layers[0].generator {
         sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-            assert!(!sample.zones[0].enabled);
+            assert!(!sample.zones[0].is_enabled());
             assert!(sample.zones[0].source.is_none());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)

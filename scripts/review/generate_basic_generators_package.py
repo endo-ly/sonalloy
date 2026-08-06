@@ -4,64 +4,26 @@
 from __future__ import annotations
 
 import copy
-import hashlib
 import json
-import math
-import subprocess
 from pathlib import Path
 
-from measure_wav import compare_wav, measure, read_float_wav
+from common import (
+    BASE_BLOCK_SIZE,
+    BLOCK_SIZES,
+    ROOT,
+    SAMPLE_RATE,
+    measure_stereo,
+    render_events,
+    render_note,
+    run_cli,
+    sha256_file,
+    write_definition,
+    write_events,
+    write_utf8,
+)
+from measure_wav import compare_wav, measure
 
-ROOT = Path(__file__).resolve().parents[2]
-SAMPLE_RATE = 48_000
-BASE_BLOCK_SIZE = 257
-BLOCK_SIZES = (32, 64, 257, 1024)
 BLOCK_SIZE_MAX_DIFFERENCE = 1.0e-5
-EVENT_DURATION_FRAMES = 16_384
-
-
-def cli_command() -> list[str]:
-    candidates = (
-        ROOT / "target" / "debug" / "sonalloy.exe",
-        ROOT / "target" / "debug" / "sonalloy",
-        ROOT / "target" / "release" / "sonalloy.exe",
-        ROOT / "target" / "release" / "sonalloy",
-    )
-    for candidate in candidates:
-        if candidate.exists():
-            return [str(candidate)]
-    return ["cargo", "run", "--quiet", "-p", "sonalloy-cli", "--"]
-
-
-def run_cli(arguments: list[str]) -> str:
-    result = subprocess.run(
-        cli_command() + arguments,
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    if result.returncode != 0:
-        details = "\n".join(
-            part for part in (result.stdout, result.stderr) if part
-        ).strip()
-        raise RuntimeError(f"CLI failed with exit code {result.returncode}: {details}")
-    return result.stdout
-
-
-def write_utf8(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content.encode("utf-8"))
-
-
-def write_definition(path: Path, value: dict[str, object]) -> None:
-    write_utf8(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
-
-
-def write_events(path: Path, events: list[dict[str, object]]) -> None:
-    write_utf8(path, json.dumps({"events": events}, ensure_ascii=False, indent=2) + "\n")
 
 
 def layer(value: dict[str, object], layer_id: str) -> dict[str, object]:
@@ -91,94 +53,6 @@ def set_oscillator_waveform(
 
 def set_noise_correlation(value: dict[str, object], correlation: float) -> None:
     layer(value, "pink")["generator"]["noise"]["stereo_correlation"] = correlation
-
-
-def render_note(
-    definition: Path,
-    note: int,
-    output: Path,
-    block_size: int,
-    sample_rate: int = SAMPLE_RATE,
-) -> None:
-    run_cli(
-        [
-            "render",
-            "note",
-            str(definition),
-            "--note",
-            str(note),
-            "--velocity",
-            "112",
-            "--gate",
-            "0.15",
-            "--tail",
-            "0.1",
-            "--sample-rate",
-            str(sample_rate),
-            "--block-size",
-            str(block_size),
-            "--output",
-            str(output),
-            "--json",
-        ]
-    )
-
-
-def render_events(definition: Path, events: Path, output: Path, block_size: int) -> None:
-    run_cli(
-        [
-            "render",
-            "events",
-            str(definition),
-            str(events),
-            "--duration-frames",
-            str(EVENT_DURATION_FRAMES),
-            "--sample-rate",
-            str(SAMPLE_RATE),
-            "--block-size",
-            str(block_size),
-            "--tail",
-            "0",
-            "--output",
-            str(output),
-            "--json",
-        ]
-    )
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(65_536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def measure_stereo(path: Path) -> dict[str, object]:
-    sample_rate, channels, samples = read_float_wav(path)
-    if channels != 2:
-        raise ValueError(f"expected stereo WAV: {path}")
-    left = samples[0::2]
-    right = samples[1::2]
-    left_mean = sum(left) / len(left) if left else 0.0
-    right_mean = sum(right) / len(right) if right else 0.0
-    covariance = sum(
-        (left_sample - left_mean) * (right_sample - right_mean)
-        for left_sample, right_sample in zip(left, right)
-    )
-    left_variance = sum((sample - left_mean) ** 2 for sample in left)
-    right_variance = sum((sample - right_mean) ** 2 for sample in right)
-    denominator = math.sqrt(left_variance * right_variance)
-    correlation = covariance / denominator if denominator > 0.0 else 1.0
-    difference_rms = math.sqrt(
-        sum((left_sample - right_sample) ** 2 for left_sample, right_sample in zip(left, right))
-        / len(left)
-    ) if left else 0.0
-    return {
-        "sample_rate": sample_rate,
-        "stereo_rms_difference": difference_rms,
-        "stereo_correlation": correlation,
-    }
 
 
 def main() -> None:
@@ -300,23 +174,28 @@ def main() -> None:
         ("11-pink-correlation-0.wav", "pink-correlation-0", 64),
         ("14-high-register-square.wav", "square-high-register", 108),
     ]
+    note_audio_paths: list[Path] = []
     for audio_name, definition_name, note in note_jobs:
+        audio_path = technical_dir / audio_name
         render_note(
             definition_paths[definition_name],
             note,
-            technical_dir / audio_name,
+            audio_path,
             BASE_BLOCK_SIZE,
         )
+        note_audio_paths.append(audio_path)
+    pwm_audio_path = technical_dir / "12-pwm-lfo.wav"
     render_events(
         definition_paths["basic-generators-reference"],
         pwm_events,
-        technical_dir / "12-pwm-lfo.wav",
+        pwm_audio_path,
         BASE_BLOCK_SIZE,
     )
+    correlation_audio_path = technical_dir / "13-noise-correlation-ramp.wav"
     render_events(
         definition_paths["noise-correlation-ramp"],
         correlation_events,
-        technical_dir / "13-noise-correlation-ramp.wav",
+        correlation_audio_path,
         BASE_BLOCK_SIZE,
     )
 
@@ -326,10 +205,10 @@ def main() -> None:
         path = technical_dir / f"regression-block-{block_size}.wav"
         render_note(regression_definition, 64, path, block_size)
         regression_paths[str(block_size)] = path
-    reset_a = technical_dir / "regression-reset-a.wav"
-    reset_b = technical_dir / "regression-reset-b.wav"
-    render_note(regression_definition, 64, reset_a, BASE_BLOCK_SIZE)
-    render_note(regression_definition, 64, reset_b, BASE_BLOCK_SIZE)
+    fresh_a = technical_dir / "regression-fresh-a.wav"
+    fresh_b = technical_dir / "regression-fresh-b.wav"
+    render_note(regression_definition, 64, fresh_a, BASE_BLOCK_SIZE)
+    render_note(regression_definition, 64, fresh_b, BASE_BLOCK_SIZE)
 
     sample_rate_paths: dict[str, Path] = {}
     for sample_rate in (44_100, SAMPLE_RATE, 96_000):
@@ -337,8 +216,15 @@ def main() -> None:
         render_note(regression_definition, 64, path, BASE_BLOCK_SIZE, sample_rate)
         sample_rate_paths[str(sample_rate)] = path
 
+    generated_audio_paths = (
+        note_audio_paths
+        + [pwm_audio_path, correlation_audio_path]
+        + list(regression_paths.values())
+        + [fresh_a, fresh_b]
+        + list(sample_rate_paths.values())
+    )
     technical_metrics: dict[str, dict[str, object]] = {}
-    for path in sorted(technical_dir.glob("*.wav")):
+    for path in sorted(generated_audio_paths):
         values = measure(
             path,
             list(BLOCK_SIZES),
@@ -371,12 +257,14 @@ def main() -> None:
     }
     if invalid_block_comparisons:
         raise RuntimeError(f"basic generator block-size mismatch: {invalid_block_comparisons}")
-    reset_comparison = compare_wav(reset_a, reset_b)
+    fresh_comparison = compare_wav(fresh_a, fresh_b)
     if (
-        not reset_comparison.get("compatible")
-        or reset_comparison.get("max_abs_difference", 1.0) != 0.0
+        not fresh_comparison.get("compatible")
+        or fresh_comparison.get("max_abs_difference", 1.0) != 0.0
     ):
-        raise RuntimeError(f"basic generator reset is not reproducible: {reset_comparison}")
+        raise RuntimeError(
+            f"basic generator fresh render is not reproducible: {fresh_comparison}"
+        )
     metrics = {
         "sample_rate": SAMPLE_RATE,
         "base_block_size": BASE_BLOCK_SIZE,
@@ -387,10 +275,10 @@ def main() -> None:
             sample_rate: technical_metrics[path.name]
             for sample_rate, path in sample_rate_paths.items()
         },
-        "reset_comparison": {
-            **reset_comparison,
-            "reference_sha256": sha256_file(reset_a),
-            "repeat_sha256": sha256_file(reset_b),
+        "fresh_render_comparison": {
+            **fresh_comparison,
+            "first_sha256": sha256_file(fresh_a),
+            "second_sha256": sha256_file(fresh_b),
         },
     }
     write_utf8(review_root / "metrics.json", json.dumps(metrics, ensure_ascii=False, indent=2) + "\n")
@@ -437,7 +325,7 @@ python scripts/review/generate_basic_generators_package.py
 
 ## 機械検査
 
-`metrics.json`は全WAVのFinite性、Peak、RMS、DC、隣接Frame差分、固定長Spectrum、左右差、Stereo Correlation、Sample Rate別値、Block Size比較、Reset比較を記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。聴感比較時の音量は再生側で調整してください。
+`metrics.json`は全WAVのFinite性、Peak、RMS、DC、隣接Frame差分、固定長Spectrum、左右差、Stereo Correlation、Sample Rate別値、Block Size比較、新規Runtime間の再現性比較を記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。聴感比較時の音量は再生側で調整してください。
 
 ## 人間の確認欄
 
@@ -449,7 +337,7 @@ python scripts/review/generate_basic_generators_package.py
 - [ ] Brownが低域へ過度に偏らず、DC感が強すぎない
 - [ ] Pinkに不自然な周期性がない
 - [ ] Correlation 0 / 1でStereo幅の差が明確である
-- [ ] Reset後にNoiseの冒頭が不自然に変化しない
+- [ ] 同じDefinitionの新規Runtime間でNoiseの冒頭が一致する
 
 ### 人間の回答
 

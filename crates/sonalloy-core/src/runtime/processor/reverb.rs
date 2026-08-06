@@ -59,11 +59,10 @@ impl PlateReverbRuntime {
             });
         }
         for index in 0..left.len() {
-            let position = span_position(index, left.len());
-            let decay = span_value(decay, position);
-            let damping = span_value(damping, position);
-            let width = span_value(width, position);
-            let mix = span_value(mix, position);
+            let decay = decay.value_at(index, left.len());
+            let damping = damping.value_at(index, left.len());
+            let width = width.value_at(index, left.len());
+            let mix = mix.value_at(index, left.len());
             let dry_left = left[index];
             let dry_right = right[index];
             if !dry_left.is_finite()
@@ -435,21 +434,6 @@ impl DelayLine {
         self.read_position = 0;
         self.write_position = self.write_offset;
     }
-}
-
-fn span_position(index: usize, length: usize) -> f32 {
-    if length == 0 {
-        0.0
-    } else {
-        #[allow(clippy::cast_precision_loss)]
-        {
-            index as f32 / length as f32
-        }
-    }
-}
-
-fn span_value(span: ValueSpan, position: f32) -> f32 {
-    span.start + (span.end - span.start) * position
 }
 
 #[cfg(test)]

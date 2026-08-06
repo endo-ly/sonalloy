@@ -11,7 +11,8 @@ impl DriveRuntime {
         buffer: &mut [f32],
     ) -> Result<(), ProcessError> {
         for index in 0..buffer.len() {
-            let (amount, mix) = span_values(amount, mix, index, buffer.len());
+            let amount = amount.value_at(index, buffer.len());
+            let mix = mix.value_at(index, buffer.len());
             buffer[index] = process_sample(buffer[index], amount, mix)?;
         }
         Ok(())
@@ -29,32 +30,13 @@ impl DriveRuntime {
             });
         }
         for index in 0..left.len() {
-            let (amount, mix) = span_values(amount, mix, index, left.len());
+            let amount = amount.value_at(index, left.len());
+            let mix = mix.value_at(index, left.len());
             left[index] = process_sample(left[index], amount, mix)?;
             right[index] = process_sample(right[index], amount, mix)?;
         }
         Ok(())
     }
-}
-
-fn span_values(
-    amount: super::ValueSpan,
-    mix: super::ValueSpan,
-    index: usize,
-    length: usize,
-) -> (f32, f32) {
-    let position = if length == 0 {
-        0.0
-    } else {
-        #[allow(clippy::cast_precision_loss)]
-        {
-            index as f32 / length as f32
-        }
-    };
-    (
-        amount.start + (amount.end - amount.start) * position,
-        mix.start + (mix.end - mix.start) * position,
-    )
 }
 
 fn process_sample(input: f32, amount: f32, mix: f32) -> Result<f32, ProcessError> {

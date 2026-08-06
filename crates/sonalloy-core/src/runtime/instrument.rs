@@ -12,7 +12,9 @@ use crate::process::{
 use super::modulation::{ParameterSpanValue, SharedParameterSpan, ValueSpan};
 use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
-use super::voice::{NoteRequest, VoiceRuntime, VoiceState};
+use super::voice::{
+    NoteRequest, PreparedLayerSelection, PreparedNoteRequest, VoiceRuntime, VoiceState,
+};
 
 const CONTROL_SMOOTHING_SECONDS: f64 = 0.005;
 const STEAL_FADE_SECONDS: f64 = 0.005;
@@ -39,7 +41,6 @@ pub struct InstrumentRuntime {
     global_processors: Option<StereoProcessorChain>,
     global_targets: Vec<ProcessorTargetSpan>,
     round_robin_counters: Vec<Vec<u64>>,
-    note_zone_selection: Vec<Option<usize>>,
     spec: Option<ProcessSpec>,
     absolute_frame: u64,
 }
@@ -66,7 +67,6 @@ impl InstrumentRuntime {
             global_processors: None,
             global_targets: Vec::new(),
             round_robin_counters: Vec::new(),
-            note_zone_selection: Vec::new(),
             spec: None,
             absolute_frame: 0,
         }
@@ -115,9 +115,18 @@ impl InstrumentRuntime {
             return Ok(());
         }
         let frames = end - start;
+        if output.len() < 2 {
+            return Err(invalid_state());
+        }
         let (left_channels, right_channels) = output.split_at_mut(1);
-        let left = &mut left_channels[0][start..end];
-        let right = &mut right_channels[0][start..end];
+        let left = left_channels
+            .first_mut()
+            .and_then(|channel| channel.get_mut(start..end))
+            .ok_or_else(invalid_state)?;
+        let right = right_channels
+            .first_mut()
+            .and_then(|channel| channel.get_mut(start..end))
+            .ok_or_else(invalid_state)?;
         for voice in voices {
             if voice.state() == VoiceState::Idle {
                 continue;
@@ -153,36 +162,16 @@ impl InstrumentRuntime {
                 note_number,
                 velocity,
             } => {
-                self.select_sample_zones(note_number, velocity);
-                let can_trigger =
-                    self.compiled
-                        .layers
-                        .iter()
-                        .enumerate()
-                        .any(|(layer_index, layer)| {
-                            if !layer.trigger.matches(note_number, velocity) {
-                                return false;
-                            }
-                            match &layer.generator {
-                                CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => {
-                                    true
-                                }
-                                CompiledGenerator::Sample(_) => {
-                                    self.note_zone_selection[layer_index].is_some()
-                                }
-                            }
-                        });
-                if !can_trigger {
+                let request = NoteRequest::new(note_id, note_number, velocity, absolute_frame);
+                let Some(request) = self.prepare_note_request(request)? else {
                     return Ok(());
-                }
+                };
                 let voice_index = self.select_voice();
                 let fade_frames = rounded_frame_count(spec.sample_rate * STEAL_FADE_SECONDS);
-                self.voices[voice_index].request_note(
-                    &self.compiled,
-                    NoteRequest::new(note_id, note_number, velocity, absolute_frame),
-                    &self.note_zone_selection,
-                    fade_frames,
-                )?;
+                self.voices
+                    .get_mut(voice_index)
+                    .ok_or_else(invalid_state)?
+                    .request_note(&self.compiled, request, fade_frames)?;
             }
             ProcessEventKind::NoteOff { note_id } => {
                 for voice in &mut self.voices {
@@ -201,7 +190,10 @@ impl InstrumentRuntime {
                 let frames =
                     rounded_frame_count(f64::from(descriptor.smoothing_seconds) * spec.sample_rate)
                         .max(1);
-                self.parameter_states[parameter.index()].set_target(normalized, frames);
+                self.parameter_states
+                    .get_mut(parameter.index())
+                    .ok_or_else(invalid_state)?
+                    .set_target(normalized, frames);
             }
             ProcessEventKind::PitchBend { value } => {
                 self.pitch_bend
@@ -255,62 +247,108 @@ impl InstrumentRuntime {
             .map_or(0, |(index, _)| index)
     }
 
-    fn select_sample_zones(&mut self, note_number: u8, velocity: u8) {
-        self.note_zone_selection.fill(None);
-        for layer_index in 0..self.compiled.layers.len() {
-            if !self.compiled.layers[layer_index]
-                .trigger
-                .matches(note_number, velocity)
-            {
+    fn prepare_note_request(
+        &mut self,
+        note: NoteRequest,
+    ) -> Result<Option<PreparedNoteRequest>, ProcessError> {
+        let mut layer_selection =
+            vec![PreparedLayerSelection::Inactive; self.compiled.layers.len()];
+        let mut can_trigger = false;
+        let compiled = Arc::clone(&self.compiled);
+        for (layer_index, layer) in compiled.layers.iter().enumerate() {
+            if !layer.trigger.matches(note.note_number, note.velocity) {
                 continue;
             }
-            let selection = {
-                let Some(sample) = (match &self.compiled.layers[layer_index].generator {
-                    CompiledGenerator::Sample(sample) => Some(sample),
-                    CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => None,
-                }) else {
-                    continue;
-                };
-                let first_match =
-                    sample.zones.iter().enumerate().find(|(_, zone)| {
-                        zone.enabled && zone_matches(zone, note_number, velocity)
-                    });
-                let Some((first_index, first_zone)) = first_match else {
-                    continue;
-                };
-                let Some(group_index) = first_zone.group else {
-                    self.note_zone_selection[layer_index] = Some(first_index);
-                    continue;
-                };
-                let matching_count = sample.groups[group_index]
-                    .enabled_member_zone_indices
-                    .iter()
-                    .filter(|index| zone_matches(&sample.zones[**index], note_number, velocity))
-                    .count();
-                if matching_count == 0 {
-                    (group_index, None, 0)
-                } else {
-                    let counter = self.round_robin_counters[layer_index][group_index];
-                    let selected_offset = usize::try_from(
-                        counter % u64::try_from(matching_count).expect("count fits in u64"),
-                    )
-                    .expect("counter offset fits in usize");
-                    let selected = sample.groups[group_index]
-                        .enabled_member_zone_indices
-                        .iter()
-                        .copied()
-                        .filter(|index| zone_matches(&sample.zones[*index], note_number, velocity))
-                        .nth(selected_offset)
-                        .expect("matching count guarantees a selected zone");
-                    (group_index, Some(selected), counter.wrapping_add(1))
+            match &layer.generator {
+                CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => {
+                    *layer_selection
+                        .get_mut(layer_index)
+                        .ok_or_else(invalid_state)? =
+                        PreparedLayerSelection::Active { sample_zone: None };
+                    can_trigger = true;
                 }
-            };
-            let (group_index, selected, next_counter) = selection;
-            self.note_zone_selection[layer_index] = selected;
-            if selected.is_some() {
-                self.round_robin_counters[layer_index][group_index] = next_counter;
+                CompiledGenerator::Sample(sample) => {
+                    if let Some(zone_index) = self.select_sample_zone(
+                        layer_index,
+                        sample,
+                        note.note_number,
+                        note.velocity,
+                    )? {
+                        *layer_selection
+                            .get_mut(layer_index)
+                            .ok_or_else(invalid_state)? = PreparedLayerSelection::Active {
+                            sample_zone: Some(zone_index),
+                        };
+                        can_trigger = true;
+                    }
+                }
             }
         }
+        Ok(can_trigger.then(|| PreparedNoteRequest {
+            note,
+            layer_selection: layer_selection.into_boxed_slice(),
+        }))
+    }
+
+    fn select_sample_zone(
+        &mut self,
+        layer_index: usize,
+        sample: &crate::compiler::CompiledSample,
+        note_number: u8,
+        velocity: u8,
+    ) -> Result<Option<usize>, ProcessError> {
+        let Some((first_index, first_zone)) = sample
+            .zones
+            .iter()
+            .enumerate()
+            .find(|(_, zone)| zone_matches(zone, note_number, velocity))
+        else {
+            return Ok(None);
+        };
+        let Some(group_index) = first_zone.group else {
+            return Ok(Some(first_index));
+        };
+        let group = sample.groups.get(group_index).ok_or_else(invalid_state)?;
+        let counter = self
+            .round_robin_counters
+            .get(layer_index)
+            .and_then(|counters| counters.get(group_index))
+            .copied()
+            .ok_or_else(invalid_state)?;
+        let matching_count = group
+            .enabled_member_zone_indices
+            .iter()
+            .filter(|index| {
+                sample
+                    .zones
+                    .get(**index)
+                    .is_some_and(|zone| zone_matches(zone, note_number, velocity))
+            })
+            .count();
+        if matching_count == 0 {
+            return Ok(None);
+        }
+        let divisor = u64::try_from(matching_count).map_err(|_| invalid_state())?;
+        let selected_offset = usize::try_from(counter % divisor).map_err(|_| invalid_state())?;
+        let selected = group
+            .enabled_member_zone_indices
+            .iter()
+            .copied()
+            .filter(|index| {
+                sample
+                    .zones
+                    .get(*index)
+                    .is_some_and(|zone| zone_matches(zone, note_number, velocity))
+            })
+            .nth(selected_offset)
+            .ok_or_else(invalid_state)?;
+        let next_counter = counter.wrapping_add(1);
+        *self
+            .round_robin_counters
+            .get_mut(layer_index)
+            .and_then(|counters| counters.get_mut(group_index))
+            .ok_or_else(invalid_state)? = next_counter;
+        Ok(Some(selected))
     }
 
     fn validate_parameter_events(
@@ -381,8 +419,11 @@ impl InstrumentRuntime {
         targets: &mut [ProcessorTargetSpan],
         shared: SharedParameterSpan<'_>,
     ) -> Result<(), ProcessError> {
-        for (index, processor) in compiled.global_processors.iter().enumerate() {
-            targets[index] = Self::evaluate_global_processor_target(compiled, processor, shared)?;
+        if targets.len() != compiled.global_processors.len() {
+            return Err(invalid_state());
+        }
+        for (target, processor) in targets.iter_mut().zip(&compiled.global_processors) {
+            *target = Self::evaluate_global_processor_target(compiled, processor, shared)?;
         }
         Ok(())
     }
@@ -431,7 +472,7 @@ impl InstrumentRuntime {
                 handle: handle.index(),
             },
         )?;
-        let base = shared.parameter(handle);
+        let base = shared.parameter(handle).ok_or_else(invalid_state)?;
         let base_start = descriptor
             .denormalize(base.start)
             .map_err(|_| ProcessError::InvalidEventValue)?;
@@ -448,7 +489,10 @@ impl InstrumentRuntime {
         let mut linear_end = 0.0;
         let mut logarithmic_start = 0.0;
         let mut logarithmic_end = 0.0;
-        for route in compiled.routes_for(handle) {
+        let routes = compiled
+            .routes_for_checked(handle)
+            .ok_or_else(invalid_state)?;
+        for route in routes {
             let source = match route.source {
                 crate::compiler::CompiledSourceRef::PitchBend => shared.pitch_bend(),
                 crate::compiler::CompiledSourceRef::ModWheel => shared.mod_wheel(),
@@ -508,7 +552,6 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.global_processors = None;
         self.global_targets.clear();
         self.round_robin_counters.clear();
-        self.note_zone_selection.clear();
         self.absolute_frame = 0;
 
         spec.validate()?;
@@ -554,7 +597,6 @@ impl InstrumentProcessor for InstrumentRuntime {
                 CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => Vec::new(),
             })
             .collect();
-        self.note_zone_selection = vec![None; self.compiled.layers.len()];
         let mut voices = Vec::with_capacity(self.compiled.performance.polyphony);
         for _ in 0..self.compiled.performance.polyphony {
             voices.push(VoiceRuntime::new(&self.compiled, spec)?);
@@ -669,13 +711,27 @@ impl InstrumentProcessor for InstrumentRuntime {
                 return Err(error);
             }
             let global_result = {
-                let (left_channels, right_channels) = block.output.split_at_mut(1);
-                let left = &mut left_channels[0][cursor..end];
-                let right = &mut right_channels[0][cursor..end];
-                self.global_processors
-                    .as_mut()
-                    .ok_or(ProcessError::NotPrepared)
-                    .and_then(|processors| processors.process(&self.global_targets, left, right))
+                if block.output.len() < 2 {
+                    Err(invalid_state())
+                } else {
+                    let (left_channels, right_channels) = block.output.split_at_mut(1);
+                    let left = left_channels
+                        .first_mut()
+                        .and_then(|channel| channel.get_mut(cursor..end));
+                    let right = right_channels
+                        .first_mut()
+                        .and_then(|channel| channel.get_mut(cursor..end));
+                    match (left, right) {
+                        (Some(left), Some(right)) => self
+                            .global_processors
+                            .as_mut()
+                            .ok_or(ProcessError::NotPrepared)
+                            .and_then(|processors| {
+                                processors.process(&self.global_targets, left, right)
+                            }),
+                        _ => Err(invalid_state()),
+                    }
+                }
             };
             if let Err(error) = global_result {
                 clear_output(&mut *block.output, block.frames);
@@ -735,7 +791,6 @@ impl InstrumentProcessor for InstrumentRuntime {
         for counters in &mut self.round_robin_counters {
             counters.fill(0);
         }
-        self.note_zone_selection.fill(None);
         self.absolute_frame = 0;
         Ok(())
     }
@@ -818,9 +873,15 @@ fn control_smoothing_frames(sample_rate: f64) -> usize {
 }
 
 fn zone_matches(zone: &CompiledSampleZone, note_number: u8, velocity: u8) -> bool {
-    zone.enabled
+    zone.is_enabled()
         && (zone.key_min..=zone.key_max).contains(&note_number)
         && (zone.velocity_min..=zone.velocity_max).contains(&velocity)
+}
+
+fn invalid_state() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: crate::process::ProcessorFailureKind::InvalidState,
+    }
 }
 
 #[cfg(test)]
@@ -912,6 +973,40 @@ mod tests {
         }];
         let _ = process(&mut runtime, 256, 128, &off);
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
+    }
+
+    #[test]
+    fn note_on_activates_only_layers_matching_the_note() {
+        let single_layer = definition();
+        let mut layered = single_layer.clone();
+        let mut non_matching = layered.layers[0].clone();
+        non_matching.id = "non_matching".to_owned();
+        non_matching.trigger.key_min = 72;
+        non_matching.trigger.key_max = 72;
+        non_matching.gain_db = 0.0;
+        non_matching.envelope.attack_seconds = 0.0;
+        non_matching.envelope.decay_seconds = 0.0;
+        non_matching.envelope.sustain_level = 1.0;
+        layered.layers.push(non_matching);
+
+        let mut single_runtime = runtime_with(&single_layer);
+        let mut layered_runtime = runtime_with(&layered);
+        prepare(&mut single_runtime);
+        prepare(&mut layered_runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+
+        let single_audio = process(&mut single_runtime, 128, 0, &event);
+        let layered_audio = process(&mut layered_runtime, 128, 0, &event);
+
+        assert_eq!(single_audio[0], layered_audio[0]);
+        assert_eq!(single_audio[1], layered_audio[1]);
     }
 
     #[test]

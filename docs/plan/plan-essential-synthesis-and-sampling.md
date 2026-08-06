@@ -435,7 +435,7 @@ FunDSP、SynFX、Surge DSP等は、次の理由で導入しない。
 
 | Dependency | Version / Pin | License | 現在用途 | 新P5での変更 |
 |---|---|---|---|---|
-| DaisySP | Commit `a0494a3adb67f549e18dfd71a35fa656f65b38b6` | MIT | Oscillator、SVF | `variableshapeosc.cpp`を追加し、Square / Triangle / Pulse / Hard Syncへ利用 |
+| DaisySP | Commit `a0494a3adb67f549e18dfd71a35fa656f65b38b6` | MIT | Oscillator、SVF | `variableshapeosc.cpp`を追加し、Square / Pulse / Hard SyncとTriangleのWrapper実装へ利用 |
 | `cmake` | 現在Pin | MIT OR Apache-2.0 | Native Build | Source一覧だけ更新 |
 | `serde` | 現在Pin | MIT OR Apache-2.0 | Definition | Generator / Zone Definitionを更新 |
 | `serde_json` | 現在Pin | MIT OR Apache-2.0 | CLI / Test JSON | 新DefinitionとInspectを更新 |
@@ -454,7 +454,7 @@ FunDSP、SynFX、Surge DSP等は、次の理由で導入しない。
 | 実装単位 | 領域 | 機能 | 実装・依存 | 主な責務 |
 |---|---|---|---|---|
 | 1 | Oscillator | Square | DaisySP PolyBLEP | Band-limited波形 |
-| 1 | Oscillator | Triangle | DaisySP PolyBLEP | Band-limited波形 |
+| 1 | Oscillator | Triangle | Sonalloy Native WrapperのReset可能なPolyBLEP（DaisySPアルゴリズム） | Band-limited波形とIntegrator StateのReset |
 | 1 | Oscillator | Pulse | DaisySP PolyBLEP Square | Pulse Widthを持つ波形 |
 | 1 | Oscillator | PWM | DaisySP + 既存Modulation | Pulse Width Ramp |
 | 1 | Noise | White | Rust独自 | 決定的PRNG |
@@ -1527,7 +1527,7 @@ pub enum CompiledGenerator {
 }
 ```
 
-各Compiled Generatorは`GeneratorOutputMode`を返す。
+`CompiledGenerator::output_mode()`は、OscillatorのUnison配置とGenerator種別から出力モードを導出する。Output ModeをGeneratorごとに重複保存しない。
 
 ## 8.2 Compiled Oscillator
 
@@ -1540,16 +1540,16 @@ pub struct CompiledOscillator {
     pub phase: f32,
     pub backend: CompiledOscillatorBackend,
     pub parameters: CompiledOscillatorParameters,
-    pub unison: CompiledUnison,
-    pub waveshaping: Option<CompiledWaveshaping>,
-    pub output_mode: GeneratorOutputMode,
+    pub unison: Arc<CompiledUnison>,
 }
 ```
 
 ```rust
 pub enum CompiledOscillatorBackend {
     Basic,
-    VariableShapeSync,
+    VariableShapeSync {
+        sync_ratio: ParameterHandle,
+    },
 }
 ```
 
@@ -1570,7 +1570,6 @@ pub enum CompiledOscillatorWaveform {
 ```rust
 pub struct CompiledOscillatorParameters {
     pub pulse_width: Option<ParameterHandle>,
-    pub sync_ratio: Option<ParameterHandle>,
     pub waveshape: Option<ParameterHandle>,
     pub unison_detune: Option<ParameterHandle>,
     pub unison_spread: Option<ParameterHandle>,
@@ -1581,15 +1580,14 @@ pub struct CompiledOscillatorParameters {
 
 ```rust
 pub struct CompiledUnison {
-    pub voices: usize,
-    pub detune_distribution: Box<[f32]>,
-    pub pan_distribution: Box<[f32]>,
+    pub position_distribution: Box<[f32]>,
     pub phase_distribution: Box<[f32]>,
+    pub phase_spread: f32,
     pub normalization: f32,
 }
 ```
 
-Prepare前に長さを固定する。
+Prepare前に長さを固定する。`position_distribution`はDetuneとStereo Positionで共有する。
 
 Distribution生成：
 
@@ -1600,8 +1598,6 @@ voices == 1:
 voices > 1:
   d[i] = -1 + 2 × i / (voices - 1)
 ```
-
-Pan Distributionも同じ対称係数を使用する。
 
 Phase Distribution：
 
@@ -1626,7 +1622,6 @@ pub struct CompiledNoise {
     pub correlation: ParameterHandle,
     pub layer_hash: u64,
     pub brown_coefficient: f32,
-    pub output_mode: GeneratorOutputMode,
 }
 ```
 
@@ -1638,10 +1633,10 @@ Sample Rate依存のBrown係数はCompileまたはPrepare前に計算する。
 pub struct CompiledSample {
     pub zones: Box<[CompiledSampleZone]>,
     pub groups: Box<[CompiledRoundRobinGroup]>,
-    pub interpolation: SampleInterpolation,
-    pub output_mode: GeneratorOutputMode,
 }
 ```
+
+Sample Playbackは4点Cubic Interpolationを使用する。Definitionの補間指定はCompile済みSampleへ重複保存しない。
 
 ## 8.6 Compiled Sample Zone
 
@@ -1657,10 +1652,10 @@ pub struct CompiledSampleZone {
     pub group: Option<RoundRobinGroupHandle>,
     pub playback: CompiledSamplePlayback,
     pub asset_path: String,
-    pub asset_sha256: Option<String>,
-    pub enabled: bool,
 }
 ```
+
+`source.is_some()`がZoneの有効状態を表す。
 
 ## 8.7 Compiled Playback
 
@@ -1686,7 +1681,6 @@ FrameはPrepared SampleのEngine Sample Rate Bufferを基準にする。
 ```rust
 pub struct CompiledRoundRobinGroup {
     pub id: String,
-    pub member_zone_indices: Box<[usize]>,
     pub enabled_member_zone_indices: Box<[usize]>,
 }
 ```
@@ -1898,9 +1892,10 @@ GeneratorごとにCrateを分けない。
 pub struct OscillatorRuntime {
     pub components: Vec<OscillatorComponentRuntime>,
     pub waveshaping: bool,
-    pub output_mode: GeneratorOutputMode,
 }
 ```
+
+Output ModeはCompiled Generatorから導出し、Layer RuntimeがRender Dispatch用に保持する。
 
 `components`はPrepare時にUnison Voice Countで確保し、その後Capacityを変更しない。
 
@@ -2070,7 +2065,7 @@ frequency_i = base_frequency × 2^(detune_cents_i / 1200)
 Pan：
 
 ```text
-pan_i = pan_distribution[i] × current_stereo_spread
+pan_i = position_distribution[i] × current_stereo_spread
 left_gain_i  = cos((pan_i + 1) × π / 4)
 right_gain_i = sin((pan_i + 1) × π / 4)
 ```

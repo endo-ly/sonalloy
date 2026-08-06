@@ -3,6 +3,9 @@ use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
+use crate::generator_parameters::{
+    NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVESHAPE,
+};
 use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id, is_parameter_id};
 
 /// The Definition schema accepted by the compiler.
@@ -1255,7 +1258,7 @@ fn validate_oscillator(
             diagnostics,
             format!("{path}.generator.oscillator.waveform.pulse_width"),
             pulse_width,
-            0.05..=0.95,
+            PULSE_WIDTH.min..=PULSE_WIDTH.max,
             "pulse_width must be finite and between 0.05 and 0.95",
         );
     }
@@ -1264,7 +1267,7 @@ fn validate_oscillator(
             diagnostics,
             format!("{path}.generator.oscillator.hard_sync.ratio"),
             hard_sync.ratio,
-            1.0..=16.0,
+            SYNC_RATIO.min..=SYNC_RATIO.max,
             "hard sync ratio must be finite and between 1 and 16",
         );
         if oscillator.waveform == OscillatorWaveform::Sine {
@@ -1291,7 +1294,7 @@ fn validate_oscillator(
             diagnostics,
             format!("{path}.generator.oscillator.waveshaping.amount"),
             waveshaping.amount,
-            0.0..=1.0,
+            WAVESHAPE.min..=WAVESHAPE.max,
             "waveshaping amount must be finite and between 0 and 1",
         );
     }
@@ -1309,14 +1312,14 @@ fn validate_oscillator(
             diagnostics,
             format!("{path}.generator.oscillator.unison.detune_cents"),
             unison.detune_cents,
-            0.0..=100.0,
+            UNISON_DETUNE.min..=UNISON_DETUNE.max,
             "unison detune_cents must be finite and between 0 and 100",
         );
         validate_range(
             diagnostics,
             format!("{path}.generator.oscillator.unison.stereo_spread"),
             unison.stereo_spread,
-            0.0..=1.0,
+            UNISON_SPREAD.min..=UNISON_SPREAD.max,
             "unison stereo_spread must be finite and between 0 and 1",
         );
         validate_range(
@@ -1343,7 +1346,7 @@ fn validate_noise(diagnostics: &mut Vec<Diagnostic>, path: &str, noise: &NoiseDe
         diagnostics,
         format!("{path}.generator.noise.stereo_correlation"),
         noise.stereo_correlation,
-        0.0..=1.0,
+        NOISE_CORRELATION.min..=NOISE_CORRELATION.max,
         "stereo_correlation must be finite and between 0 and 1",
     );
 }

@@ -1,7 +1,12 @@
+use std::sync::Arc;
+
 use sonalloy_dsp_sys::{DspOscillator, DspOscillatorWaveform, DspVariableOscillator};
 
 use crate::compiler::{CompiledOscillator, CompiledOscillatorBackend, CompiledUnison};
 use crate::definition::OscillatorWaveform;
+use crate::generator_parameters::{
+    PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVESHAPE,
+};
 use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
 
 use super::super::modulation::LayerGeneratorTargetSpan;
@@ -18,9 +23,8 @@ pub(crate) struct OscillatorRuntime {
     waveform: OscillatorWaveform,
     phase_reset: bool,
     phase: f32,
-    unison: CompiledUnison,
+    unison: Arc<CompiledUnison>,
     waveshaping: bool,
-    output_mode: crate::compiler::GeneratorOutputMode,
 }
 
 impl OscillatorRuntime {
@@ -28,12 +32,8 @@ impl OscillatorRuntime {
         compiled: &CompiledOscillator,
         spec: ProcessSpec,
     ) -> Result<Self, ProcessError> {
-        let voices = compiled.unison.voices;
-        if voices == 0
-            || compiled.unison.detune_distribution.len() != voices
-            || compiled.unison.pan_distribution.len() != voices
-            || compiled.unison.phase_distribution.len() != voices
-        {
+        let voices = compiled.unison.position_distribution.len();
+        if voices == 0 || compiled.unison.phase_distribution.len() != voices {
             return Err(invalid_state());
         }
         let mut components = Vec::with_capacity(voices);
@@ -53,7 +53,7 @@ impl OscillatorRuntime {
                         .map_err(ProcessError::from_dsp_error)?;
                     OscillatorComponentRuntime::Basic(oscillator)
                 }
-                CompiledOscillatorBackend::VariableShapeSync => {
+                CompiledOscillatorBackend::VariableShapeSync { .. } => {
                     let mut oscillator =
                         DspVariableOscillator::new().map_err(ProcessError::from_dsp_error)?;
                     oscillator
@@ -71,9 +71,8 @@ impl OscillatorRuntime {
             waveform: compiled.waveform,
             phase_reset: compiled.phase_reset,
             phase: compiled.phase,
-            unison: compiled.unison.clone(),
-            waveshaping: compiled.waveshaping.is_some(),
-            output_mode: compiled.output_mode,
+            unison: Arc::clone(&compiled.unison),
+            waveshaping: compiled.parameters.waveshape.is_some(),
         })
     }
 
@@ -101,41 +100,61 @@ impl OscillatorRuntime {
         if frames == 0 {
             return Ok(());
         }
-        let hard_sync = self.backend == CompiledOscillatorBackend::VariableShapeSync;
-        let sync_ratio = if hard_sync {
-            Some(targets.sync_ratio.ok_or_else(invalid_state)?)
-        } else {
-            None
+        let LayerGeneratorTargetSpan::Oscillator {
+            pulse_width,
+            sync_ratio,
+            waveshape,
+            unison_detune,
+            unison_spread,
+        } = targets
+        else {
+            return Err(invalid_state());
         };
-        let detune = targets.unison_detune.unwrap_or(ValueSpan {
+        let hard_sync = matches!(
+            self.backend,
+            CompiledOscillatorBackend::VariableShapeSync { .. }
+        );
+        let sync_ratio = match self.backend {
+            CompiledOscillatorBackend::Basic => None,
+            CompiledOscillatorBackend::VariableShapeSync { .. } => {
+                Some(sync_ratio.ok_or_else(invalid_state)?)
+            }
+        };
+        let detune = unison_detune.unwrap_or(ValueSpan {
             start: 0.0,
             end: 0.0,
         });
-        let spread = targets.unison_spread.unwrap_or(ValueSpan {
+        let spread = unison_spread.unwrap_or(ValueSpan {
             start: 0.0,
             end: 0.0,
         });
-        validate_span(detune, 0.0, 100.0)?;
-        validate_span(spread, 0.0, 1.0)?;
+        validate_span(detune, UNISON_DETUNE)?;
+        validate_span(spread, UNISON_SPREAD)?;
         if let Some(ratio) = sync_ratio {
-            validate_span(ratio, 1.0, 16.0)?;
+            validate_span(ratio, SYNC_RATIO)?;
         }
         let (base_start, base_end) = base_frequencies(note_number, tuning_start, tuning_end)?;
         let pulse_width = if matches!(self.waveform, OscillatorWaveform::Pulse { .. }) {
-            targets.pulse_width.ok_or_else(invalid_state)?
+            pulse_width.ok_or_else(invalid_state)?
         } else {
             ValueSpan {
                 start: 0.5,
                 end: 0.5,
             }
         };
-        validate_span(pulse_width, 0.05, 0.95)?;
+        validate_span(pulse_width, PULSE_WIDTH)?;
 
-        if self.unison.voices == 1 {
+        if self.unison.position_distribution.len() == 1 {
+            let position = self
+                .unison
+                .position_distribution
+                .first()
+                .copied()
+                .ok_or_else(invalid_state)?;
             let (start_master, end_master) = component_frequency(
                 base_start,
                 base_end,
-                self.unison.detune_distribution[0],
+                position,
                 detune,
                 sample_rate,
                 hard_sync,
@@ -159,21 +178,18 @@ impl OscillatorRuntime {
                 mono,
             )?;
             if self.waveshaping {
-                apply_waveshaping(
-                    targets.waveshape.ok_or_else(invalid_state)?,
-                    &mut mono[..frames],
-                )?;
+                apply_waveshaping(waveshape.ok_or_else(invalid_state)?, &mut mono[..frames])?;
             }
             return ensure_finite(&mono[..frames]);
         }
 
         left[..frames].fill(0.0);
         right[..frames].fill(0.0);
-        for index in 0..self.unison.voices {
+        for index in 0..self.unison.position_distribution.len() {
             let (start_master, end_master) = component_frequency(
                 base_start,
                 base_end,
-                self.unison.detune_distribution[index],
+                self.unison.position_distribution[index],
                 detune,
                 sample_rate,
                 hard_sync,
@@ -201,13 +217,13 @@ impl OscillatorRuntime {
                 mono,
                 &mut left[..frames],
                 &mut right[..frames],
-                self.unison.pan_distribution[index],
+                self.unison.position_distribution[index],
                 spread,
                 self.unison.normalization,
             )?;
         }
         if self.waveshaping {
-            let amount = targets.waveshape.ok_or_else(invalid_state)?;
+            let amount = waveshape.ok_or_else(invalid_state)?;
             apply_waveshaping(amount, &mut left[..frames])?;
             apply_waveshaping(amount, &mut right[..frames])?;
         }
@@ -302,11 +318,6 @@ impl OscillatorRuntime {
         }
         Ok(())
     }
-
-    #[allow(dead_code)]
-    pub(super) fn output_mode(&self) -> crate::compiler::GeneratorOutputMode {
-        self.output_mode
-    }
 }
 
 fn base_frequencies(
@@ -388,29 +399,34 @@ fn mix_component(
     if !normalization.is_finite() || normalization <= 0.0 {
         return Err(invalid_state());
     }
+    let (left_start, right_start) =
+        super::super::mix::constant_power_pan(pan_distribution * spread.start);
+    let (left_end, right_end) =
+        super::super::mix::constant_power_pan(pan_distribution * spread.end);
+    let left_gain = ValueSpan {
+        start: left_start,
+        end: left_end,
+    };
+    let right_gain = ValueSpan {
+        start: right_start,
+        end: right_end,
+    };
     for index in 0..frames {
-        #[allow(clippy::cast_precision_loss)]
-        let position = index as f32 / frames.max(1) as f32;
-        let current_spread = spread.start + (spread.end - spread.start) * position;
-        let pan = (pan_distribution * current_spread).clamp(-1.0, 1.0);
-        let angle = (pan + 1.0) * std::f32::consts::FRAC_PI_4;
         let sample = component[index];
-        left[index] += sample * angle.cos() * normalization;
-        right[index] += sample * angle.sin() * normalization;
+        left[index] += sample * left_gain.value_at(index, frames) * normalization;
+        right[index] += sample * right_gain.value_at(index, frames) * normalization;
     }
     Ok(())
 }
 
 fn apply_waveshaping(amount: ValueSpan, output: &mut [f32]) -> Result<(), ProcessError> {
-    validate_span(amount, 0.0, 1.0)?;
+    validate_span(amount, WAVESHAPE)?;
     if same_value(amount.start, 0.0) && same_value(amount.end, 0.0) {
         return Ok(());
     }
-    let length = output.len().max(1);
+    let frames = output.len();
     for (index, sample) in output.iter_mut().enumerate() {
-        #[allow(clippy::cast_precision_loss)]
-        let position = index as f32 / length as f32;
-        let current_amount = amount.start + (amount.end - amount.start) * position;
+        let current_amount = amount.value_at(index, frames);
         if same_value(current_amount, 0.0) {
             continue;
         }
@@ -429,16 +445,17 @@ fn apply_waveshaping(amount: ValueSpan, output: &mut [f32]) -> Result<(), Proces
     Ok(())
 }
 
-fn validate_span(span: ValueSpan, minimum: f32, maximum: f32) -> Result<(), ProcessError> {
-    if !span.start.is_finite()
-        || !span.end.is_finite()
-        || !(minimum..=maximum).contains(&span.start)
-        || !(minimum..=maximum).contains(&span.end)
-    {
-        Err(non_finite())
-    } else {
-        Ok(())
+fn validate_span(
+    span: ValueSpan,
+    spec: crate::generator_parameters::GeneratorParameterSpec,
+) -> Result<(), ProcessError> {
+    if !span.start.is_finite() || !span.end.is_finite() {
+        return Err(non_finite());
     }
+    if !(spec.min..=spec.max).contains(&span.start) || !(spec.min..=spec.max).contains(&span.end) {
+        return Err(invalid_input());
+    }
+    Ok(())
 }
 
 fn ensure_finite(samples: &[f32]) -> Result<(), ProcessError> {
@@ -458,6 +475,12 @@ fn non_finite() -> ProcessError {
 fn invalid_state() -> ProcessError {
     ProcessError::ProcessorFailure {
         kind: ProcessorFailureKind::InvalidState,
+    }
+}
+
+fn invalid_input() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: ProcessorFailureKind::InvalidInput,
     }
 }
 

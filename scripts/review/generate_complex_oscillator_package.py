@@ -1,71 +1,39 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Generate the deterministic Complex Oscillator sound review package."""
 
 from __future__ import annotations
 
 import copy
 import ctypes
-import hashlib
 import json
-import math
 import os
 import subprocess
-import tempfile
 import time
+import tempfile
 from pathlib import Path
 
+from common import (
+    BASE_BLOCK_SIZE,
+    BLOCK_SIZES,
+    ROOT,
+    SAMPLE_RATE,
+    cli_command,
+    measure_stereo,
+    render_events,
+    render_note as render_common_note,
+    run_cli,
+    sha256_file,
+    write_definition,
+    write_events,
+    write_utf8,
+)
 from measure_wav import compare_wav, measure, read_float_wav
 
-ROOT = Path(__file__).resolve().parents[2]
-SAMPLE_RATE = 48_000
-BASE_BLOCK_SIZE = 257
-BLOCK_SIZES = (32, 64, 257, 1024)
 BLOCK_SIZE_MAX_DIFFERENCE = 1.0e-5
-EVENT_DURATION_FRAMES = 16_384
-
-
-def cli_command() -> list[str]:
-    candidates = (
-        ROOT / "target" / "debug" / "sonalloy.exe",
-        ROOT / "target" / "debug" / "sonalloy",
-        ROOT / "target" / "release" / "sonalloy.exe",
-        ROOT / "target" / "release" / "sonalloy",
-    )
-    for candidate in candidates:
-        if candidate.exists():
-            return [str(candidate)]
-    return ["cargo", "run", "--quiet", "-p", "sonalloy-cli", "--"]
-
-
-def run_cli(arguments: list[str]) -> str:
-    result = subprocess.run(
-        cli_command() + arguments,
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    if result.returncode != 0:
-        details = "\n".join(
-            part for part in (result.stdout, result.stderr) if part
-        ).strip()
-        raise RuntimeError(f"CLI failed with exit code {result.returncode}: {details}")
-    return result.stdout
-
-
-def write_utf8(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content.encode("utf-8"))
-
-
-def write_definition(path: Path, value: dict[str, object]) -> None:
-    write_utf8(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
-
-
-def write_events(path: Path, events: list[dict[str, object]]) -> None:
-    write_utf8(path, json.dumps({"events": events}, ensure_ascii=False, indent=2) + "\n")
+COMPLEX_GATE_SECONDS = 0.35
+PERFORMANCE_DURATION_FRAMES = SAMPLE_RATE
+PERFORMANCE_GATE_FRAMES = PERFORMANCE_DURATION_FRAMES // 2
 
 
 def layer(value: dict[str, object], layer_id: str) -> dict[str, object]:
@@ -122,101 +90,6 @@ def set_performance(value: dict[str, object], polyphony: int) -> None:
     value["performance"]["polyphony"] = polyphony
 
 
-def render_note(
-    definition: Path,
-    note: int,
-    output: Path,
-    block_size: int,
-    sample_rate: int = SAMPLE_RATE,
-) -> None:
-    run_cli(
-        [
-            "render",
-            "note",
-            str(definition),
-            "--note",
-            str(note),
-            "--velocity",
-            "112",
-            "--gate",
-            "0.35",
-            "--tail",
-            "0.1",
-            "--sample-rate",
-            str(sample_rate),
-            "--block-size",
-            str(block_size),
-            "--output",
-            str(output),
-            "--json",
-        ]
-    )
-
-
-def render_events(definition: Path, events: Path, output: Path, block_size: int) -> None:
-    run_cli(
-        [
-            "render",
-            "events",
-            str(definition),
-            str(events),
-            "--duration-frames",
-            str(EVENT_DURATION_FRAMES),
-            "--sample-rate",
-            str(SAMPLE_RATE),
-            "--block-size",
-            str(block_size),
-            "--tail",
-            "0",
-            "--output",
-            str(output),
-            "--json",
-        ]
-    )
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(65_536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def measure_stereo(path: Path) -> dict[str, object]:
-    sample_rate, channels, samples = read_float_wav(path)
-    if channels != 2:
-        raise ValueError(f"expected stereo WAV: {path}")
-    left = samples[0::2]
-    right = samples[1::2]
-    left_mean = sum(left) / len(left) if left else 0.0
-    right_mean = sum(right) / len(right) if right else 0.0
-    covariance = sum(
-        (left_sample - left_mean) * (right_sample - right_mean)
-        for left_sample, right_sample in zip(left, right)
-    )
-    left_variance = sum((sample - left_mean) ** 2 for sample in left)
-    right_variance = sum((sample - right_mean) ** 2 for sample in right)
-    denominator = math.sqrt(left_variance * right_variance)
-    correlation = covariance / denominator if denominator > 0.0 else 1.0
-    difference_rms = (
-        math.sqrt(
-            sum(
-                (left_sample - right_sample) ** 2
-                for left_sample, right_sample in zip(left, right)
-            )
-            / len(left)
-        )
-        if left
-        else 0.0
-    )
-    return {
-        "sample_rate": sample_rate,
-        "stereo_rms_difference": difference_rms,
-        "stereo_correlation": correlation,
-    }
-
-
 def process_working_set_bytes(process: subprocess.Popen[str]) -> int | None:
     if os.name != "nt":
         return None
@@ -271,17 +144,19 @@ def process_working_set_bytes(process: subprocess.Popen[str]) -> int | None:
     return peak or None
 
 
-def timed_render(definition: Path, output: Path) -> dict[str, object]:
+def timed_render(
+    definition: Path,
+    events: Path,
+    output: Path,
+    duration_frames: int,
+) -> dict[str, object]:
     command = cli_command() + [
         "render",
-        "note",
+        "events",
         str(definition),
-        "--note",
-        "60",
-        "--velocity",
-        "112",
-        "--gate",
-        "0.5",
+        str(events),
+        "--duration-frames",
+        str(duration_frames),
         "--tail",
         "0",
         "--sample-rate",
@@ -312,7 +187,11 @@ def timed_render(definition: Path, output: Path) -> dict[str, object]:
         "elapsed_seconds": time.perf_counter() - started,
         "frames": len(samples) // channels,
         "channels": channels,
+        "duration_frames": duration_frames,
     }
+    result["cli_realtime_factor"] = result["frames"] / (
+        result["elapsed_seconds"] * SAMPLE_RATE
+    )
     if peak_working_set is not None:
         result["peak_working_set_bytes"] = peak_working_set
     return result
@@ -452,23 +331,29 @@ def main() -> None:
         ("21-hard-sync-unison.wav", "hard-sync-unison", 60),
         ("22-full-essential-synth-patch.wav", "full-essential-synth-patch", 48),
     ]
+    note_audio_paths: list[Path] = []
     for audio_name, definition_name, note in note_jobs:
-        render_note(
+        audio_path = technical_dir / audio_name
+        render_common_note(
             definition_paths[definition_name],
             note,
-            technical_dir / audio_name,
+            audio_path,
             BASE_BLOCK_SIZE,
+            gate_seconds=COMPLEX_GATE_SECONDS,
         )
+        note_audio_paths.append(audio_path)
+    hard_sync_sweep_audio_path = technical_dir / "15-hard-sync-sweep.wav"
     render_events(
         definition_paths["hard-sync-sweep"],
         hard_sync_events,
-        technical_dir / "15-hard-sync-sweep.wav",
+        hard_sync_sweep_audio_path,
         BASE_BLOCK_SIZE,
     )
+    waveshaping_sweep_audio_path = technical_dir / "17-waveshaping-sweep.wav"
     render_events(
         definition_paths["waveshaping-sweep"],
         waveshape_events,
-        technical_dir / "17-waveshaping-sweep.wav",
+        waveshaping_sweep_audio_path,
         BASE_BLOCK_SIZE,
     )
 
@@ -476,19 +361,51 @@ def main() -> None:
     regression_paths: dict[str, Path] = {}
     for block_size in BLOCK_SIZES:
         path = technical_dir / f"regression-block-{block_size}.wav"
-        render_note(regression_definition, 60, path, block_size)
+        render_common_note(
+            regression_definition,
+            60,
+            path,
+            block_size,
+            gate_seconds=COMPLEX_GATE_SECONDS,
+        )
         regression_paths[str(block_size)] = path
-    reset_a = technical_dir / "regression-reset-a.wav"
-    reset_b = technical_dir / "regression-reset-b.wav"
-    render_note(regression_definition, 60, reset_a, BASE_BLOCK_SIZE)
-    render_note(regression_definition, 60, reset_b, BASE_BLOCK_SIZE)
+    fresh_a = technical_dir / "regression-fresh-a.wav"
+    fresh_b = technical_dir / "regression-fresh-b.wav"
+    render_common_note(
+        regression_definition,
+        60,
+        fresh_a,
+        BASE_BLOCK_SIZE,
+        gate_seconds=COMPLEX_GATE_SECONDS,
+    )
+    render_common_note(
+        regression_definition,
+        60,
+        fresh_b,
+        BASE_BLOCK_SIZE,
+        gate_seconds=COMPLEX_GATE_SECONDS,
+    )
 
     sample_rate_paths: dict[str, Path] = {}
     for sample_rate in (44_100, SAMPLE_RATE, 96_000):
         path = technical_dir / f"sample-rate-{sample_rate}.wav"
-        render_note(regression_definition, 60, path, BASE_BLOCK_SIZE, sample_rate)
+        render_common_note(
+            regression_definition,
+            60,
+            path,
+            BASE_BLOCK_SIZE,
+            sample_rate,
+            COMPLEX_GATE_SECONDS,
+        )
         sample_rate_paths[str(sample_rate)] = path
 
+    generated_audio_paths = (
+        note_audio_paths
+        + [hard_sync_sweep_audio_path, waveshaping_sweep_audio_path]
+        + list(regression_paths.values())
+        + [fresh_a, fresh_b]
+        + list(sample_rate_paths.values())
+    )
     technical_metrics: dict[str, dict[str, object]] = {}
     spectrum_names = {
         "13-hard-sync-ratio-2.wav",
@@ -498,7 +415,7 @@ def main() -> None:
         "21-hard-sync-unison.wav",
         "22-full-essential-synth-patch.wav",
     }
-    for path in sorted(technical_dir.glob("*.wav")):
+    for path in sorted(generated_audio_paths):
         values = measure(
             path,
             list(BLOCK_SIZES),
@@ -523,12 +440,14 @@ def main() -> None:
     }
     if invalid_block_comparisons:
         raise RuntimeError(f"complex oscillator block-size mismatch: {invalid_block_comparisons}")
-    reset_comparison = compare_wav(reset_a, reset_b)
+    fresh_comparison = compare_wav(fresh_a, fresh_b)
     if (
-        not reset_comparison.get("compatible")
-        or reset_comparison.get("max_abs_difference", 1.0) != 0.0
+        not fresh_comparison.get("compatible")
+        or fresh_comparison.get("max_abs_difference", 1.0) != 0.0
     ):
-        raise RuntimeError(f"complex oscillator reset is not reproducible: {reset_comparison}")
+        raise RuntimeError(
+            f"complex oscillator fresh render is not reproducible: {fresh_comparison}"
+        )
 
     performance: dict[str, dict[str, object]] = {}
     performance_modes = {
@@ -562,11 +481,41 @@ def main() -> None:
                         layer(value, layer_id)["processors"] = []
                     set_performance(value, polyphony)
                     path = temporary_root / f"{mode}-poly{polyphony}-voices{voices}.json"
+                    events_path = temporary_root / (
+                        f"{mode}-poly{polyphony}-voices{voices}.events.json"
+                    )
                     audio_path = temporary_root / f"{mode}-poly{polyphony}-voices{voices}.wav"
                     write_definition(path, value)
                     run_cli(["instrument", "validate", str(path), "--json"])
+                    note_on_events = []
+                    note_off_events = []
+                    for voice_index in range(polyphony):
+                        note_id = voice_index + 1
+                        note_on_events.append(
+                            {
+                                "absolute_frame": 0,
+                                "type": "note_on",
+                                "note_id": note_id,
+                                "note": 48 + voice_index % 36,
+                                "velocity": 112,
+                            }
+                        )
+                        note_off_events.append(
+                            {
+                                "absolute_frame": PERFORMANCE_GATE_FRAMES,
+                                "type": "note_off",
+                                "note_id": note_id,
+                            }
+                        )
+                    events = note_on_events + note_off_events
+                    write_events(events_path, events)
                     performance[f"{mode}_polyphony_{polyphony}_unison_{voices}"] = (
-                        timed_render(path, audio_path)
+                        timed_render(
+                            path,
+                            events_path,
+                            audio_path,
+                            PERFORMANCE_DURATION_FRAMES,
+                        )
                     )
 
     metrics = {
@@ -579,10 +528,10 @@ def main() -> None:
             sample_rate: technical_metrics[path.name]
             for sample_rate, path in sample_rate_paths.items()
         },
-        "reset_comparison": {
-            **reset_comparison,
-            "reference_sha256": sha256_file(reset_a),
-            "repeat_sha256": sha256_file(reset_b),
+        "fresh_render_comparison": {
+            **fresh_comparison,
+            "first_sha256": sha256_file(fresh_a),
+            "second_sha256": sha256_file(fresh_b),
         },
         "performance": performance,
     }
@@ -626,7 +575,7 @@ python scripts/review/generate_complex_oscillator_package.py
 
 ## 機械検査
 
-metrics.jsonは全WAVのFinite性、Peak、RMS、DC、隣接Frame差分、固定長Spectrum、左右差、Stereo Correlation、Sample Rate別値、Block Size比較、Reset比較、Basic Saw / Hard Sync / Waveshaping / Processor ChainをPolyphony 1 / 8 / 16、Unison 1 / 4 / 8で実行したRender時間とピークWorking Setを記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。聴感比較時の音量は再生側で調整してください。
+metrics.jsonは全WAVのFinite性、Peak、RMS、DC、隣接Frame差分、固定長Spectrum、左右差、Stereo Correlation、Sample Rate別値、Block Size比較、新規Runtime間の再現性比較、Basic Saw / Hard Sync / Waveshaping / Processor ChainをPolyphony 1 / 8 / 16、Unison 1 / 4 / 8で実際に同時発音させたCLI Render時間とピークWorking Setを記録します。性能値にはCLI起動・Definition Compile・WAV出力を含むため参考値として扱い、Runtime単体のリアルタイム性能とは分けて扱います。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。聴感比較時の音量は再生側で調整してください。
 
 ## 人間の確認欄
 

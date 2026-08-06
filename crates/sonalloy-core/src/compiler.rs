@@ -7,10 +7,14 @@ use crate::definition::{
     AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
     GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
     ModulationSourceDefinition, NoiseColor, OscillatorDefinition, OscillatorWaveform,
-    ProcessorDefinition, ReverbProcessorDefinition, SampleInterpolation, SampleZoneDefinition,
+    ProcessorDefinition, ReverbProcessorDefinition, SampleZoneDefinition,
     SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
+use crate::generator_parameters::{
+    GeneratorParameterSpec, NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
+    UNISON_SPREAD, WAVESHAPE,
+};
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
 use crate::runtime::InstrumentRuntime;
@@ -94,7 +98,16 @@ impl CompiledInstrument {
         let Some(range) = self.route_ranges.get(handle.index()) else {
             return &[];
         };
-        &self.routes[range.start..range.start + range.len]
+        let Some(end) = range.start.checked_add(range.len) else {
+            return &[];
+        };
+        self.routes.get(range.start..end).unwrap_or(&[])
+    }
+
+    pub(crate) fn routes_for_checked(&self, handle: ParameterHandle) -> Option<&[CompiledRoute]> {
+        let range = self.route_ranges.get(handle.index())?;
+        let end = range.start.checked_add(range.len)?;
+        self.routes.get(range.start..end)
     }
 }
 
@@ -196,11 +209,17 @@ pub enum GeneratorOutputMode {
 impl CompiledGenerator {
     /// Return the fixed channel layout for this generator.
     #[must_use]
-    pub const fn output_mode(&self) -> GeneratorOutputMode {
+    pub fn output_mode(&self) -> GeneratorOutputMode {
         match self {
-            Self::Oscillator(value) => value.output_mode,
-            Self::Noise(value) => value.output_mode,
-            Self::Sample(value) => value.output_mode,
+            Self::Oscillator(value) => {
+                if value.unison.position_distribution.len() == 1 {
+                    GeneratorOutputMode::Mono
+                } else {
+                    GeneratorOutputMode::Stereo
+                }
+            }
+            Self::Noise(_) => GeneratorOutputMode::Stereo,
+            Self::Sample(_) => GeneratorOutputMode::Mono,
         }
     }
 }
@@ -210,8 +229,6 @@ impl CompiledGenerator {
 pub struct CompiledOscillatorParameters {
     /// Pulse width handle for a pulse waveform.
     pub pulse_width: Option<ParameterHandle>,
-    /// Sync ratio handle for a hard-sync oscillator.
-    pub sync_ratio: Option<ParameterHandle>,
     /// Waveshaping amount handle.
     pub waveshape: Option<ParameterHandle>,
     /// Unison detune handle.
@@ -226,31 +243,23 @@ pub enum CompiledOscillatorBackend {
     /// `DaisySP` basic oscillator backend.
     Basic,
     /// `DaisySP` variable-shape hard-sync backend.
-    VariableShapeSync,
+    VariableShapeSync {
+        /// Sync ratio handle for the hard-sync oscillator.
+        sync_ratio: ParameterHandle,
+    },
 }
 
 /// Static unison distribution prepared by the compiler.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledUnison {
-    /// Number of oscillator components.
-    pub voices: usize,
-    /// Symmetric detune coefficients.
-    pub detune_distribution: Box<[f32]>,
-    /// Symmetric pan coefficients.
-    pub pan_distribution: Box<[f32]>,
+    /// Symmetric position coefficients used for detune and pan.
+    pub position_distribution: Box<[f32]>,
     /// Static phase offsets.
     pub phase_distribution: Box<[f32]>,
     /// Static phase spread used to build the offsets.
     pub phase_spread: f32,
     /// Normalization applied to the component sum.
     pub normalization: f32,
-}
-
-/// Compiled waveshaping configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CompiledWaveshaping {
-    /// Waveshaping amount parameter handle.
-    pub amount: ParameterHandle,
 }
 
 /// Compiled oscillator settings.
@@ -267,11 +276,7 @@ pub struct CompiledOscillator {
     /// Generator parameter bindings.
     pub parameters: CompiledOscillatorParameters,
     /// Static Unison component configuration.
-    pub unison: CompiledUnison,
-    /// Optional generator waveshaping configuration.
-    pub waveshaping: Option<CompiledWaveshaping>,
-    /// Fixed output channel layout.
-    pub output_mode: GeneratorOutputMode,
+    pub unison: Arc<CompiledUnison>,
 }
 
 /// Compiled noise settings.
@@ -287,8 +292,6 @@ pub struct CompiledNoise {
     pub layer_hash: u64,
     /// Sample-rate-specific Brown noise coefficient.
     pub brown_coefficient: f32,
-    /// Fixed output channel layout.
-    pub output_mode: GeneratorOutputMode,
 }
 
 /// Compiled sample configuration and prepared zones.
@@ -298,10 +301,6 @@ pub struct CompiledSample {
     pub zones: Box<[CompiledSampleZone]>,
     /// Round Robin groups in stable Definition order.
     pub groups: Box<[CompiledRoundRobinGroup]>,
-    /// Sample interpolation mode.
-    pub interpolation: SampleInterpolation,
-    /// Fixed output channel layout.
-    pub output_mode: GeneratorOutputMode,
 }
 
 /// Compiled Sample Zone and its prepared Asset.
@@ -327,10 +326,14 @@ pub struct CompiledSampleZone {
     pub playback: CompiledSamplePlayback,
     /// Path as written in the Definition.
     pub asset_path: String,
-    /// Expected SHA-256 digest, when present.
-    pub asset_sha256: Option<String>,
-    /// Whether this zone can be selected.
-    pub enabled: bool,
+}
+
+impl CompiledSampleZone {
+    /// Return whether the zone has a prepared source and can be selected.
+    #[must_use]
+    pub fn is_enabled(&self) -> bool {
+        self.source.is_some()
+    }
 }
 
 /// Sample playback region in prepared frame coordinates.
@@ -361,8 +364,6 @@ pub enum CompiledSamplePlayback {
 pub struct CompiledRoundRobinGroup {
     /// Stable Definition identifier.
     pub id: String,
-    /// All group members in Definition order.
-    pub member_zone_indices: Box<[usize]>,
     /// Members with successfully prepared assets.
     pub enabled_member_zone_indices: Box<[usize]>,
 }
@@ -1313,84 +1314,44 @@ fn compile_generator(
             waveshaping,
             unison,
         }) => {
-            let pulse_width = matches!(waveform, OscillatorWaveform::Pulse { .. }).then(|| {
-                catalog
-                    .parameter_handle(&crate::parameter::layer_generator_parameter_id(
-                        layer_id,
-                        "pulse_width",
-                    ))
-                    .expect("pulse width catalog entry exists")
-            });
-            let sync_ratio = hard_sync.as_ref().map(|_| {
-                catalog
-                    .parameter_handle(&crate::parameter::layer_generator_parameter_id(
-                        layer_id,
-                        "sync_ratio",
-                    ))
-                    .expect("sync ratio catalog entry exists")
-            });
-            let waveshape = waveshaping.as_ref().map(|_| {
-                catalog
-                    .parameter_handle(&crate::parameter::layer_generator_parameter_id(
-                        layer_id,
-                        "waveshape",
-                    ))
-                    .expect("waveshape catalog entry exists")
-            });
-            let unison_detune = unison.as_ref().map(|_| {
-                catalog
-                    .parameter_handle(&crate::parameter::layer_generator_parameter_id(
-                        layer_id,
-                        "unison_detune",
-                    ))
-                    .expect("unison detune catalog entry exists")
-            });
-            let unison_spread = unison.as_ref().map(|_| {
-                catalog
-                    .parameter_handle(&crate::parameter::layer_generator_parameter_id(
-                        layer_id,
-                        "unison_spread",
-                    ))
-                    .expect("unison spread catalog entry exists")
-            });
+            let pulse_width = matches!(waveform, OscillatorWaveform::Pulse { .. })
+                .then(|| generator_parameter_handle(catalog, layer_id, PULSE_WIDTH));
+            let waveshape = waveshaping
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, WAVESHAPE));
+            let unison_detune = unison
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_DETUNE));
+            let unison_spread = unison
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_SPREAD));
             let unison = compile_unison(*unison);
             CompiledGenerator::Oscillator(CompiledOscillator {
                 waveform: *waveform,
                 phase_reset: *phase_reset,
                 phase: *phase,
                 backend: if hard_sync.is_some() {
-                    CompiledOscillatorBackend::VariableShapeSync
+                    CompiledOscillatorBackend::VariableShapeSync {
+                        sync_ratio: generator_parameter_handle(catalog, layer_id, SYNC_RATIO),
+                    }
                 } else {
                     CompiledOscillatorBackend::Basic
                 },
                 parameters: CompiledOscillatorParameters {
                     pulse_width,
-                    sync_ratio,
                     waveshape,
                     unison_detune,
                     unison_spread,
                 },
-                waveshaping: waveshape.map(|amount| CompiledWaveshaping { amount }),
-                output_mode: if unison.voices == 1 {
-                    GeneratorOutputMode::Mono
-                } else {
-                    GeneratorOutputMode::Stereo
-                },
-                unison,
+                unison: Arc::new(unison),
             })
         }
         GeneratorDefinition::Noise(noise) => CompiledGenerator::Noise(CompiledNoise {
             color: noise.color,
             seed: noise.seed,
-            correlation: catalog
-                .parameter_handle(&crate::parameter::layer_generator_parameter_id(
-                    layer_id,
-                    "noise_correlation",
-                ))
-                .expect("noise correlation catalog entry exists"),
+            correlation: generator_parameter_handle(catalog, layer_id, NOISE_CORRELATION),
             layer_hash: source_id_hash(layer_id),
             brown_coefficient: brown_noise_coefficient(sample_rate),
-            output_mode: GeneratorOutputMode::Stereo,
         }),
         GeneratorDefinition::Sample(sample) => CompiledGenerator::Sample(compile_sample(
             sample,
@@ -1401,6 +1362,19 @@ fn compile_generator(
             diagnostics,
         )),
     }
+}
+
+fn generator_parameter_handle(
+    catalog: &ParameterCatalog,
+    layer_id: &str,
+    spec: GeneratorParameterSpec,
+) -> ParameterHandle {
+    catalog
+        .parameter_handle(&crate::parameter::layer_generator_parameter_id(
+            layer_id,
+            spec.suffix,
+        ))
+        .expect("generator parameter catalog entry exists")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1460,8 +1434,6 @@ fn compile_sample(
                 end_frame: 0,
             },
             asset_path: zone.asset.path.clone(),
-            asset_sha256: zone.asset.sha256.clone(),
-            enabled: false,
         };
         if Path::new(&zone.asset.path).is_absolute() {
             diagnostics.push(
@@ -1513,7 +1485,6 @@ fn compile_sample(
                 ) {
                     compiled.playback = playback;
                     compiled.source = Some(Arc::clone(&prepared.sample));
-                    compiled.enabled = true;
                 }
             }
             Err(error) => {
@@ -1558,11 +1529,10 @@ fn compile_sample(
             let enabled = members
                 .iter()
                 .copied()
-                .filter(|index| zones[*index].enabled)
+                .filter(|index| zones[*index].is_enabled())
                 .collect::<Vec<_>>();
             CompiledRoundRobinGroup {
                 id,
-                member_zone_indices: members.into_boxed_slice(),
                 enabled_member_zone_indices: enabled.into_boxed_slice(),
             }
         })
@@ -1572,8 +1542,6 @@ fn compile_sample(
     CompiledSample {
         zones: zones.into_boxed_slice(),
         groups,
-        interpolation: sample.interpolation,
-        output_mode: GeneratorOutputMode::Mono,
     }
 }
 
@@ -1697,30 +1665,24 @@ fn sample_time_to_frame(
 }
 
 fn compile_unison(unison: Option<UnisonDefinition>) -> CompiledUnison {
-    let (voices, detune_distribution, pan_distribution, phase_spread) =
-        unison.map_or((1, vec![0.0], vec![0.0], 0.0), |value| {
-            let voices = usize::from(value.voices);
-            let (detune_distribution, pan_distribution) = if voices > 1 {
-                #[allow(clippy::cast_precision_loss)]
-                let denominator = (voices - 1) as f32;
-                let distribution: Vec<f32> = (0..voices)
-                    .map(|index| {
-                        #[allow(clippy::cast_precision_loss)]
-                        let index = index as f32;
-                        -1.0 + 2.0 * index / denominator
-                    })
-                    .collect();
-                (distribution.clone(), distribution)
-            } else {
-                (vec![0.0], vec![0.0])
-            };
-            (
-                voices,
-                detune_distribution,
-                pan_distribution,
-                value.phase_spread,
-            )
-        });
+    let (position_distribution, phase_spread) = unison.map_or((vec![0.0], 0.0), |value| {
+        let voices = usize::from(value.voices);
+        let distribution = if voices > 1 {
+            #[allow(clippy::cast_precision_loss)]
+            let denominator = (voices - 1) as f32;
+            (0..voices)
+                .map(|index| {
+                    #[allow(clippy::cast_precision_loss)]
+                    let index = index as f32;
+                    -1.0 + 2.0 * index / denominator
+                })
+                .collect()
+        } else {
+            vec![0.0]
+        };
+        (distribution, value.phase_spread)
+    });
+    let voices = position_distribution.len();
     #[allow(clippy::cast_precision_loss)]
     let phase_distribution = (0..voices)
         .map(|index| index as f32 / voices.max(1) as f32 * phase_spread)
@@ -1728,9 +1690,7 @@ fn compile_unison(unison: Option<UnisonDefinition>) -> CompiledUnison {
     #[allow(clippy::cast_precision_loss)]
     let normalization = 1.0 / (voices.max(1) as f32).sqrt();
     CompiledUnison {
-        voices,
-        detune_distribution: detune_distribution.into_boxed_slice(),
-        pan_distribution: pan_distribution.into_boxed_slice(),
+        position_distribution: position_distribution.into_boxed_slice(),
         phase_distribution,
         phase_spread,
         normalization,
@@ -1912,7 +1872,10 @@ mod tests {
         let CompiledGenerator::Oscillator(pulse_oscillator) = &pulse.layers[0].generator else {
             panic!("pulse definition must compile to an oscillator");
         };
-        assert_eq!(pulse_oscillator.output_mode, GeneratorOutputMode::Mono);
+        assert_eq!(
+            pulse.layers[0].generator.output_mode(),
+            GeneratorOutputMode::Mono
+        );
         assert!((pulse_oscillator.phase - 0.25).abs() < f32::EPSILON);
         assert!(pulse_oscillator.parameters.pulse_width.is_some());
         assert!(
@@ -1934,7 +1897,10 @@ mod tests {
         let CompiledGenerator::Noise(compiled_noise) = &noise.layers[0].generator else {
             panic!("noise definition must compile to noise");
         };
-        assert_eq!(compiled_noise.output_mode, GeneratorOutputMode::Stereo);
+        assert_eq!(
+            noise.layers[0].generator.output_mode(),
+            GeneratorOutputMode::Stereo
+        );
         assert_eq!(compiled_noise.color, NoiseColor::Brown);
         assert_eq!(compiled_noise.seed, 42);
         assert!(compiled_noise.brown_coefficient > 0.0);

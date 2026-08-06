@@ -3,13 +3,12 @@ use crate::definition::NoiseColor;
 use crate::process::{ProcessError, ProcessorFailureKind};
 
 use super::super::modulation::ValueSpan;
+use super::super::random::{bipolar_f32, splitmix64_finalizer};
 
 const STREAM_SHARED: u64 = 0x7368_6172_6564_0001;
 const STREAM_LEFT: u64 = 0x6c65_6674_0000_0002;
 const STREAM_RIGHT: u64 = 0x7269_6768_7400_0003;
 const PINK_ROWS: usize = 16;
-const PINK_LAST_ROW: u32 = 15;
-const BROWN_NORMALIZATION: f32 = 1.0;
 const BROWN_ZERO_THRESHOLD: f32 = f32::EPSILON;
 
 pub(crate) struct NoiseRuntime {
@@ -59,19 +58,14 @@ impl NoiseRuntime {
     pub(super) fn render(
         &mut self,
         frames: usize,
-        correlation: Option<ValueSpan>,
+        correlation: ValueSpan,
         left: &mut [f32],
         right: &mut [f32],
     ) -> Result<(), ProcessError> {
-        let correlation = correlation.ok_or(ProcessError::ProcessorFailure {
-            kind: ProcessorFailureKind::InvalidState,
-        })?;
+        validate_correlation(correlation)?;
         for index in 0..frames {
             #[allow(clippy::cast_precision_loss)]
-            let position = index as f32 / frames.max(1) as f32;
-            let correlation = (correlation.start
-                + (correlation.end - correlation.start) * position)
-                .clamp(0.0, 1.0);
+            let correlation = correlation.value_at(index, frames);
             let shared = self.shared.next(self.color, self.brown_coefficient);
             let independent_left = self.left.next(self.color, self.brown_coefficient);
             let independent_right = self.right.next(self.color, self.brown_coefficient);
@@ -98,6 +92,20 @@ impl NoiseRuntime {
         self.left.reset(2);
         self.right.reset(3);
     }
+}
+
+fn validate_correlation(correlation: ValueSpan) -> Result<(), ProcessError> {
+    if !correlation.start.is_finite() || !correlation.end.is_finite() {
+        return Err(ProcessError::ProcessorFailure {
+            kind: ProcessorFailureKind::NonFinite,
+        });
+    }
+    if !(0.0..=1.0).contains(&correlation.start) || !(0.0..=1.0).contains(&correlation.end) {
+        return Err(ProcessError::ProcessorFailure {
+            kind: ProcessorFailureKind::InvalidInput,
+        });
+    }
+    Ok(())
 }
 
 struct NoiseStream {
@@ -138,14 +146,16 @@ impl NoiseStream {
                 if self.brown_state.abs() < BROWN_ZERO_THRESHOLD {
                     self.brown_state = 0.0;
                 }
-                self.brown_state * BROWN_NORMALIZATION
+                self.brown_state
             }
         }
     }
 
     fn next_pink(&mut self, white: f32) -> f32 {
         self.pink_counter = self.pink_counter.wrapping_add(1);
-        let row = self.pink_counter.trailing_zeros().min(PINK_LAST_ROW) as usize;
+        let row = usize::try_from(self.pink_counter.trailing_zeros())
+            .unwrap_or(usize::MAX)
+            .min(PINK_ROWS - 1);
         let replacement = self.random.next_bipolar();
         self.pink_sum += replacement - self.pink_rows[row];
         self.pink_rows[row] = replacement;
@@ -170,10 +180,7 @@ impl Prng {
 
     fn next_bipolar(&mut self) -> f32 {
         self.state = self.state.wrapping_add(0x9e37_79b9_7f4a_7c15);
-        let value = splitmix64_finalizer(self.state);
-        #[allow(clippy::cast_precision_loss)]
-        let unit = (value >> 40) as f32 / (1_u32 << 24) as f32;
-        unit * 2.0 - 1.0
+        bipolar_f32(splitmix64_finalizer(self.state))
     }
 }
 
@@ -181,16 +188,10 @@ fn stream_seed(seed: u64, layer_hash: u64, note_id: u64, stream: u64) -> u64 {
     splitmix64_finalizer(seed ^ layer_hash ^ note_id ^ stream)
 }
 
-fn splitmix64_finalizer(mut value: u64) -> u64 {
-    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    value ^ (value >> 31)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::compiler::{CompiledNoise, GeneratorOutputMode};
+    use crate::compiler::CompiledNoise;
     use crate::parameter::ParameterHandle;
 
     fn compiled_noise(color: NoiseColor, seed: u64) -> CompiledNoise {
@@ -200,7 +201,6 @@ mod tests {
             correlation: ParameterHandle::new(0),
             layer_hash: 0x1234_5678_9abc_def0,
             brown_coefficient: 0.997,
-            output_mode: GeneratorOutputMode::Stereo,
         }
     }
 
@@ -242,7 +242,7 @@ mod tests {
         let mut left = vec![0.0; 512];
         let mut right = vec![0.0; 512];
         correlated
-            .render(512, Some(span), &mut left, &mut right)
+            .render(512, span, &mut left, &mut right)
             .expect("correlated noise renders");
         assert_eq!(left, right);
 
@@ -253,10 +253,10 @@ mod tests {
         independent
             .render(
                 512,
-                Some(ValueSpan {
+                ValueSpan {
                     start: 0.0,
                     end: 0.0,
-                }),
+                },
                 &mut independent_left,
                 &mut independent_right,
             )
@@ -273,7 +273,7 @@ mod tests {
         let mut repeated_left = vec![0.0; 512];
         let mut repeated_right = vec![0.0; 512];
         correlated
-            .render(512, Some(span), &mut repeated_left, &mut repeated_right)
+            .render(512, span, &mut repeated_left, &mut repeated_right)
             .expect("reset noise renders");
         assert_eq!(left, repeated_left);
         assert_eq!(right, repeated_right);
@@ -291,7 +291,7 @@ mod tests {
         let mut whole_left = vec![0.0; 257];
         let mut whole_right = vec![0.0; 257];
         one_block
-            .render(257, Some(span), &mut whole_left, &mut whole_right)
+            .render(257, span, &mut whole_left, &mut whole_right)
             .expect("whole block renders");
 
         let mut split = NoiseRuntime::new(&compiled);
@@ -303,7 +303,7 @@ mod tests {
             split
                 .render(
                     length,
-                    Some(span),
+                    span,
                     &mut split_left[offset..offset + length],
                     &mut split_right[offset..offset + length],
                 )

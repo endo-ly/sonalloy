@@ -2,6 +2,7 @@ pub mod asset;
 pub mod compiler;
 pub mod definition;
 pub mod diagnostics;
+mod generator_parameters;
 pub mod parameter;
 pub mod process;
 pub mod render;

@@ -1,7 +1,7 @@
 mod noise;
 mod oscillator;
 
-use crate::compiler::{CompiledGenerator, GeneratorOutputMode};
+use crate::compiler::CompiledGenerator;
 use crate::process::{NoteId, ProcessError, ProcessSpec};
 
 use super::modulation::LayerGeneratorTargetSpan;
@@ -32,14 +32,6 @@ impl GeneratorRuntime {
         }
     }
 
-    pub(crate) fn output_mode(&self) -> GeneratorOutputMode {
-        match self {
-            Self::Oscillator(oscillator) => oscillator.output_mode(),
-            Self::Sample { .. } => GeneratorOutputMode::Mono,
-            Self::Noise(_) => GeneratorOutputMode::Stereo,
-        }
-    }
-
     pub(crate) fn start(
         &mut self,
         note_id: NoteId,
@@ -62,11 +54,11 @@ impl GeneratorRuntime {
                     compiled
                         .zones
                         .get(index)
-                        .filter(|zone| zone.enabled)
+                        .filter(|zone| zone.is_enabled())
                         .map(|_| index)
                 });
                 let zone = selected_index.and_then(|index| compiled.zones.get(index));
-                sample.start(selected_index, zone);
+                sample.start(zone);
                 Ok(())
             }
         }
@@ -85,6 +77,11 @@ impl GeneratorRuntime {
         left: &mut [f32],
         right: &mut [f32],
     ) -> Result<bool, ProcessError> {
+        if mono.len() < frames || left.len() < frames || right.len() < frames {
+            return Err(ProcessError::ProcessorFailure {
+                kind: crate::process::ProcessorFailureKind::InvalidState,
+            });
+        }
         match self {
             Self::Oscillator(oscillator) => {
                 oscillator.render(
@@ -101,10 +98,20 @@ impl GeneratorRuntime {
                 Ok(false)
             }
             Self::Noise(noise) => {
-                noise.render(frames, targets.noise_correlation, left, right)?;
+                let LayerGeneratorTargetSpan::Noise { correlation } = targets else {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: crate::process::ProcessorFailureKind::InvalidState,
+                    });
+                };
+                noise.render(frames, correlation, left, right)?;
                 Ok(false)
             }
             Self::Sample { sample } => {
+                if !matches!(targets, LayerGeneratorTargetSpan::Sample) {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: crate::process::ProcessorFailureKind::InvalidState,
+                    });
+                }
                 let start_ratio = playback_ratio(
                     note_number,
                     sample.root_note(),

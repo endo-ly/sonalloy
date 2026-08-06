@@ -13,6 +13,7 @@ use super::modulation::{
     LayerGeneratorTargetSpan, LayerTargetSpan, SharedParameterSpan, ValueSpan, VoiceTargetScratch,
 };
 use super::processor::{LayerProcessorChain, ProcessorTargetSpan, StereoProcessorChain};
+use super::random::{bipolar_f32, splitmix64_finalizer};
 use super::smoothing::{Smoother, rounded_frame_count};
 
 const GAIN_SMOOTHING_SECONDS: f64 = 0.005;
@@ -38,6 +39,17 @@ pub(crate) struct NoteRequest {
     pub(crate) started_at_frame: u64,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum PreparedLayerSelection {
+    Inactive,
+    Active { sample_zone: Option<usize> },
+}
+
+pub(crate) struct PreparedNoteRequest {
+    pub(crate) note: NoteRequest,
+    pub(crate) layer_selection: Box<[PreparedLayerSelection]>,
+}
+
 impl NoteRequest {
     pub(crate) fn new(
         note_id: NoteId,
@@ -55,9 +67,9 @@ impl NoteRequest {
 }
 
 struct LayerRuntime {
-    trigger: crate::compiler::CompiledLayerTrigger,
     envelope: AdsrRuntime,
     generator: GeneratorRuntime,
+    output_mode: GeneratorOutputMode,
     processors: LayerProcessorChain,
     active: bool,
     note_start_fade: Smoother,
@@ -71,8 +83,8 @@ impl LayerRuntime {
             rounded_frame_count(spec.sample_rate * GAIN_SMOOTHING_SECONDS).max(1);
         let processors = LayerProcessorChain::new(&compiled.processors, spec)?;
         Ok(Self {
-            trigger: compiled.trigger,
             envelope: AdsrRuntime::new(compiled.envelope),
+            output_mode: compiled.generator.output_mode(),
             generator,
             processors,
             active: false,
@@ -81,20 +93,12 @@ impl LayerRuntime {
         })
     }
 
-    fn can_trigger(&self, note_number: u8, velocity: u8, sample_zone: Option<usize>) -> bool {
-        self.trigger.matches(note_number, velocity)
-            && (!matches!(self.generator, GeneratorRuntime::Sample { .. }) || sample_zone.is_some())
-    }
-
     fn start(
         &mut self,
         note: NoteRequest,
         sample_zone: Option<usize>,
         compiled: &CompiledLayer,
     ) -> Result<(), ProcessError> {
-        if !self.can_trigger(note.note_number, note.velocity, sample_zone) {
-            return Ok(());
-        }
         self.generator
             .start(note.note_id, sample_zone, &compiled.generator)?;
         self.envelope.note_on();
@@ -180,9 +184,7 @@ pub(crate) struct VoiceRuntime {
     source_definitions: Vec<CompiledVoiceSource>,
     source_used: Vec<bool>,
     targets: VoiceTargetScratch,
-    pending: Option<NoteRequest>,
-    pending_zone_selection: Vec<Option<usize>>,
-    active_zone_selection: Vec<Option<usize>>,
+    pending: Option<PreparedNoteRequest>,
     steal_fade_total: usize,
     steal_fade_remaining: usize,
 }
@@ -245,8 +247,6 @@ impl VoiceRuntime {
             source_used,
             targets: VoiceTargetScratch::new(&compiled.layers, &compiled.voice_processors),
             pending: None,
-            pending_zone_selection: vec![None; compiled.layers.len()],
-            active_zone_selection: vec![None; compiled.layers.len()],
             steal_fade_total: 0,
             steal_fade_remaining: 0,
         })
@@ -267,19 +267,17 @@ impl VoiceRuntime {
     pub(crate) fn request_note(
         &mut self,
         compiled: &CompiledInstrument,
-        note: NoteRequest,
-        zone_selection: &[Option<usize>],
+        request: PreparedNoteRequest,
         fade_frames: usize,
     ) -> Result<(), ProcessError> {
-        if !self.can_trigger(note.note_number, note.velocity, zone_selection) {
-            return Ok(());
+        if request.layer_selection.len() != self.layers.len() {
+            return Err(invalid_state());
         }
         if self.state == VoiceState::Idle {
-            self.start_note(compiled, note, zone_selection)?;
+            self.start_note(compiled, &request)?;
             return Ok(());
         }
-        self.pending = Some(note);
-        self.pending_zone_selection.copy_from_slice(zone_selection);
+        self.pending = Some(request);
         self.state = VoiceState::StealFading;
         self.steal_fade_total = fade_frames;
         self.steal_fade_remaining = fade_frames;
@@ -292,7 +290,8 @@ impl VoiceRuntime {
     pub(crate) fn release_note(&mut self, note_id: NoteId) {
         if self
             .pending
-            .is_some_and(|pending| pending.note_id == note_id)
+            .as_ref()
+            .is_some_and(|pending| pending.note.note_id == note_id)
         {
             self.pending = None;
         }
@@ -329,6 +328,27 @@ impl VoiceRuntime {
     ) -> Result<(), ProcessError> {
         if frames == 0 {
             return Ok(());
+        }
+        if self.layers.len() != compiled.layers.len()
+            || self.targets.layers.len() != compiled.layers.len()
+            || self.targets.layer_processors.len() != compiled.layers.len()
+            || self.targets.voice_processors.len() != compiled.voice_processors.len()
+            || self.source_states.len() != self.source_definitions.len()
+            || self.source_spans.len() != self.source_definitions.len()
+            || self.source_used.len() != self.source_definitions.len()
+            || layer_mono.len() < frames
+            || layer_left.len() < frames
+            || layer_right.len() < frames
+            || voice_left.len() < frames
+            || voice_right.len() < frames
+            || self
+                .targets
+                .layer_processors
+                .iter()
+                .zip(&compiled.layers)
+                .any(|(targets, layer)| targets.len() != layer.processors.len())
+        {
+            return Err(invalid_state());
         }
         layer_mono[..frames].fill(0.0);
         layer_left[..frames].fill(0.0);
@@ -410,13 +430,6 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    fn can_trigger(&self, note_number: u8, velocity: u8, zone_selection: &[Option<usize>]) -> bool {
-        self.layers
-            .iter()
-            .zip(zone_selection)
-            .any(|(layer, sample_zone)| layer.can_trigger(note_number, velocity, *sample_zone))
-    }
-
     fn has_active_layer(&self) -> bool {
         self.layers.iter().any(|layer| layer.active)
     }
@@ -424,29 +437,30 @@ impl VoiceRuntime {
     fn start_note(
         &mut self,
         compiled: &CompiledInstrument,
-        note: NoteRequest,
-        zone_selection: &[Option<usize>],
+        request: &PreparedNoteRequest,
     ) -> Result<(), ProcessError> {
         self.reset_note_state()?;
-        self.active_zone_selection.copy_from_slice(zone_selection);
-        self.activate_note(compiled, note)
+        self.activate_note(compiled, request.note, &request.layer_selection)
     }
 
     fn activate_note(
         &mut self,
         compiled: &CompiledInstrument,
         note: NoteRequest,
+        layer_selection: &[PreparedLayerSelection],
     ) -> Result<(), ProcessError> {
+        if layer_selection.len() != self.layers.len() {
+            return Err(invalid_state());
+        }
         self.note_id = Some(note.note_id);
         self.note_number = note.note_number;
         self.velocity = note.velocity;
         self.started_at_frame = note.started_at_frame;
-        for (index, layer) in self.layers.iter_mut().enumerate() {
-            layer.start(
-                note,
-                self.active_zone_selection[index],
-                &compiled.layers[index],
-            )?;
+        for (index, (layer, selection)) in self.layers.iter_mut().zip(layer_selection).enumerate() {
+            if let PreparedLayerSelection::Active { sample_zone } = selection {
+                let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
+                layer.start(note, *sample_zone, compiled_layer)?;
+            }
         }
         self.initialize_source_state(note);
         if !self.has_active_layer() {
@@ -464,14 +478,9 @@ impl VoiceRuntime {
         self.state = VoiceState::Idle;
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
-        if let Some(note) = pending {
+        if let Some(request) = pending {
             self.reset_note_state()?;
-            std::mem::swap(
-                &mut self.active_zone_selection,
-                &mut self.pending_zone_selection,
-            );
-            self.pending_zone_selection.fill(None);
-            self.activate_note(compiled, note)?;
+            self.activate_note(compiled, request.note, &request.layer_selection)?;
         } else {
             self.reset_to_idle()?;
         }
@@ -511,7 +520,7 @@ impl VoiceRuntime {
                 layer_left,
                 layer_right,
             )?;
-            match layer.generator.output_mode() {
+            match layer.output_mode {
                 GeneratorOutputMode::Mono => layer
                     .processors
                     .process_mono(&targets.layer_processors[index], &mut layer_mono[..frames])?,
@@ -521,30 +530,46 @@ impl VoiceRuntime {
                     &mut layer_right[..frames],
                 )?,
             }
-            let gain_start = db_to_linear(target.gain.start);
-            let gain_end = db_to_linear(target.gain.end);
+            let gain = ValueSpan {
+                start: db_to_linear(target.gain.start),
+                end: db_to_linear(target.gain.end),
+            };
+            let (mono_left_start, mono_right_start) = constant_power_pan(target.pan.start);
+            let (mono_left_end, mono_right_end) = constant_power_pan(target.pan.end);
+            let mono_left = ValueSpan {
+                start: mono_left_start,
+                end: mono_left_end,
+            };
+            let mono_right = ValueSpan {
+                start: mono_right_start,
+                end: mono_right_end,
+            };
+            let (stereo_left_start, stereo_right_start) =
+                super::mix::stereo_balance(target.pan.start);
+            let (stereo_left_end, stereo_right_end) = super::mix::stereo_balance(target.pan.end);
+            let stereo_left = ValueSpan {
+                start: stereo_left_start,
+                end: stereo_left_end,
+            };
+            let stereo_right = ValueSpan {
+                start: stereo_right_start,
+                end: stereo_right_end,
+            };
             for frame in 0..frames {
                 let envelope = layer.envelope.next_sample();
                 let fade = layer.note_start_fade.next();
-                #[allow(clippy::cast_precision_loss)]
-                let position = frame as f32 / frames.max(1) as f32;
-                let gain = gain_start + (gain_end - gain_start) * position;
-                let left = target.pan_left.start
-                    + (target.pan_left.end - target.pan_left.start) * position;
-                let right = target.pan_right.start
-                    + (target.pan_right.end - target.pan_right.start) * position;
-                let amplitude = envelope * fade * gain;
-                match layer.generator.output_mode() {
+                let amplitude = envelope * fade * gain.value_at(frame, frames);
+                match layer.output_mode {
                     GeneratorOutputMode::Mono => {
                         let mono = layer_mono[frame] * amplitude;
-                        voice_left[frame] += mono * left;
-                        voice_right[frame] += mono * right;
+                        voice_left[frame] += mono * mono_left.value_at(frame, frames);
+                        voice_right[frame] += mono * mono_right.value_at(frame, frames);
                     }
                     GeneratorOutputMode::Stereo => {
-                        let pan = target.pan.start + (target.pan.end - target.pan.start) * position;
-                        let (left_balance, right_balance) = super::mix::stereo_balance(pan);
-                        voice_left[frame] += layer_left[frame] * amplitude * left_balance;
-                        voice_right[frame] += layer_right[frame] * amplitude * right_balance;
+                        voice_left[frame] +=
+                            layer_left[frame] * amplitude * stereo_left.value_at(frame, frames);
+                        voice_right[frame] +=
+                            layer_right[frame] * amplitude * stereo_right.value_at(frame, frames);
                     }
                 }
             }
@@ -571,8 +596,6 @@ impl VoiceRuntime {
         self.velocity = 0;
         self.estimated_level = 0.0;
         self.pending = None;
-        self.pending_zone_selection.fill(None);
-        self.active_zone_selection.fill(None);
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
         self.reset_source_state();
@@ -703,78 +726,47 @@ impl VoiceRuntime {
             }
             let pan = self.evaluate_target(compiled, layer.parameters.pan, shared)?;
             let generator = match &layer.generator {
-                CompiledGenerator::Oscillator(value) => LayerGeneratorTargetSpan {
-                    pulse_width: value
-                        .parameters
-                        .pulse_width
-                        .map(|handle| self.evaluate_target(compiled, handle, shared))
-                        .transpose()?,
-                    sync_ratio: value
-                        .parameters
-                        .sync_ratio
-                        .map(|handle| self.evaluate_target(compiled, handle, shared))
-                        .transpose()?,
-                    waveshape: value
-                        .parameters
-                        .waveshape
-                        .map(|handle| self.evaluate_target(compiled, handle, shared))
-                        .transpose()?,
-                    unison_detune: value
-                        .parameters
-                        .unison_detune
-                        .map(|handle| self.evaluate_target(compiled, handle, shared))
-                        .transpose()?,
-                    unison_spread: value
-                        .parameters
-                        .unison_spread
-                        .map(|handle| self.evaluate_target(compiled, handle, shared))
-                        .transpose()?,
-                    noise_correlation: None,
+                CompiledGenerator::Oscillator(value) => {
+                    let sync_ratio = match value.backend {
+                        crate::compiler::CompiledOscillatorBackend::Basic => None,
+                        crate::compiler::CompiledOscillatorBackend::VariableShapeSync {
+                            sync_ratio,
+                        } => Some(self.evaluate_target(compiled, sync_ratio, shared)?),
+                    };
+                    LayerGeneratorTargetSpan::Oscillator {
+                        pulse_width: value
+                            .parameters
+                            .pulse_width
+                            .map(|handle| self.evaluate_target(compiled, handle, shared))
+                            .transpose()?,
+                        sync_ratio,
+                        waveshape: value
+                            .parameters
+                            .waveshape
+                            .map(|handle| self.evaluate_target(compiled, handle, shared))
+                            .transpose()?,
+                        unison_detune: value
+                            .parameters
+                            .unison_detune
+                            .map(|handle| self.evaluate_target(compiled, handle, shared))
+                            .transpose()?,
+                        unison_spread: value
+                            .parameters
+                            .unison_spread
+                            .map(|handle| self.evaluate_target(compiled, handle, shared))
+                            .transpose()?,
+                    }
+                }
+                CompiledGenerator::Noise(value) => LayerGeneratorTargetSpan::Noise {
+                    correlation: self.evaluate_target(compiled, value.correlation, shared)?,
                 },
-                CompiledGenerator::Noise(value) => LayerGeneratorTargetSpan {
-                    pulse_width: None,
-                    sync_ratio: None,
-                    waveshape: None,
-                    unison_detune: None,
-                    unison_spread: None,
-                    noise_correlation: Some(self.evaluate_target(
-                        compiled,
-                        value.correlation,
-                        shared,
-                    )?),
-                },
-                CompiledGenerator::Sample(_) => LayerGeneratorTargetSpan {
-                    pulse_width: None,
-                    sync_ratio: None,
-                    waveshape: None,
-                    unison_detune: None,
-                    unison_spread: None,
-                    noise_correlation: None,
-                },
+                CompiledGenerator::Sample(_) => LayerGeneratorTargetSpan::Sample,
             };
             self.targets.layers[index] = LayerTargetSpan {
                 gain: self.evaluate_target(compiled, layer.parameters.gain, shared)?,
                 pan,
-                pan_left: ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                },
-                pan_right: ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                },
                 tuning: self.evaluate_target(compiled, layer.parameters.tuning, shared)?,
                 generator,
-            };
-            let (left_start, right_start) = constant_power_pan(pan.start);
-            let (left_end, right_end) = constant_power_pan(pan.end);
-            self.targets.layers[index].pan_left = ValueSpan {
-                start: left_start,
-                end: left_end,
-            };
-            self.targets.layers[index].pan_right = ValueSpan {
-                start: right_start,
-                end: right_end,
             };
             for (processor_index, processor) in layer.processors.iter().enumerate() {
                 self.targets.layer_processors[index][processor_index] =
@@ -837,7 +829,7 @@ impl VoiceRuntime {
                 handle: handle.index(),
             },
         )?;
-        let base = shared.parameter(handle);
+        let base = shared.parameter(handle).ok_or_else(invalid_state)?;
         let base_start = descriptor
             .denormalize(base.start)
             .map_err(|_| ProcessError::InvalidEventValue)?;
@@ -854,9 +846,16 @@ impl VoiceRuntime {
         } else {
             0.0
         };
-        for route in compiled.routes_for(handle) {
+        let routes = compiled
+            .routes_for_checked(handle)
+            .ok_or_else(invalid_state)?;
+        for route in routes {
             let source = match route.source {
-                CompiledSourceRef::Voice(handle) => self.source_spans[handle.index()],
+                CompiledSourceRef::Voice(handle) => self
+                    .source_spans
+                    .get(handle.index())
+                    .copied()
+                    .ok_or_else(invalid_state)?,
                 CompiledSourceRef::PitchBend => shared.pitch_bend(),
                 CompiledSourceRef::ModWheel => shared.mod_wheel(),
                 CompiledSourceRef::Aftertouch => shared.aftertouch(),
@@ -940,24 +939,9 @@ fn lfo_value(waveform: LfoWaveform, phase: f32) -> f32 {
     }
 }
 
-#[cfg(test)]
-fn span_is_constant(start: f32, end: f32) -> bool {
-    start.total_cmp(&end) == std::cmp::Ordering::Equal
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg(test)]
-enum OscillatorProcessingMode {
-    Constant,
-    Ramp,
-}
-
-#[cfg(test)]
-fn oscillator_processing_mode(start: f32, end: f32) -> OscillatorProcessingMode {
-    if span_is_constant(start, end) {
-        OscillatorProcessingMode::Constant
-    } else {
-        OscillatorProcessingMode::Ramp
+fn invalid_state() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: crate::process::ProcessorFailureKind::InvalidState,
     }
 }
 
@@ -987,33 +971,12 @@ fn lfo_boundary(phase: f32, rate_hz: f32, sample_rate: f64, remaining: usize) ->
 }
 
 fn deterministic_random(seed: u64, note_id: NoteId, source_hash: u64) -> f32 {
-    let mixed = splitmix64_finalizer(seed ^ note_id ^ source_hash);
-    #[allow(clippy::cast_precision_loss)]
-    let unit = (mixed >> 40) as f32 / (1_u32 << 24) as f32;
-    unit * 2.0 - 1.0
-}
-
-fn splitmix64_finalizer(mut value: u64) -> u64 {
-    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    value ^ (value >> 31)
+    bipolar_f32(splitmix64_finalizer(seed ^ note_id ^ source_hash))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn processing_modes_select_constant_and_dynamic_paths() {
-        assert_eq!(
-            oscillator_processing_mode(440.0, 440.0),
-            OscillatorProcessingMode::Constant
-        );
-        assert_eq!(
-            oscillator_processing_mode(440.0, 441.0),
-            OscillatorProcessingMode::Ramp
-        );
-    }
 
     #[test]
     fn lfo_waveforms_match_the_definition() {

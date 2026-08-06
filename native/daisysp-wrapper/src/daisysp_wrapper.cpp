@@ -28,7 +28,6 @@ struct sonalloy_dsp_variable_oscillator {
     daisysp::VariableShapeOscillator oscillator;
     float sample_rate = 0.0f;
     float waveshape = 0.0f;
-    int32_t waveform = SONALLOY_DSP_WAVEFORM_SAW;
     bool prepared = false;
 #ifdef SONALLOY_DSP_TEST_HOOKS
     bool throw_on_process = false;
@@ -147,9 +146,10 @@ float process_triangle_sample(sonalloy_dsp_oscillator* handle) {
 }
 
 void set_oscillator_frequency(sonalloy_dsp_oscillator* handle, float frequency_hz) {
-    handle->oscillator.SetFreq(frequency_hz);
     if (handle->waveform == SONALLOY_DSP_WAVEFORM_TRIANGLE) {
         handle->triangle_phase_inc = frequency_hz / handle->sample_rate;
+    } else {
+        handle->oscillator.SetFreq(frequency_hz);
     }
 }
 
@@ -562,7 +562,6 @@ extern "C" int32_t sonalloy_dsp_variable_oscillator_prepare(
     }
     try {
         handle->sample_rate = static_cast<float>(sample_rate);
-        handle->waveform = waveform;
         handle->oscillator.Init(handle->sample_rate);
         handle->oscillator.SetWaveshape(handle->waveshape);
         handle->oscillator.SetSync(true);

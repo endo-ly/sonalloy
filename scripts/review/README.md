@@ -13,6 +13,7 @@
 | `generate_processor_chain_package.py` | Processor ChainのDefinition、Event、MIDI、Asset、WAV、MetricsをReview Packageへまとめる |
 | `generate_basic_generators_package.py` | Basic GeneratorのDefinition、Event、WAV、MetricsをReview Packageへまとめる |
 | `generate_complex_oscillator_package.py` | Complex OscillatorのDefinition、Event、WAV、Metrics、性能計測をReview Packageへまとめる |
+| `common.py` | Review Package生成で共有するCLI実行、入力出力、Render、WAV測定補助を定義する |
 | `generate_essential_synthesis_sampling_package.py` | Sample Zone、Velocity Layer、Round Robin、Loop、Slice、HybridのDefinition、Event、Synthetic Asset、WAV、MetricsをReview Packageへまとめる |
 | `manifest.py` | Basic Poly Synthの固定Render条件と共通Render処理を定義する |
 | `measure_wav.py` | WAVのMetadata、Finite性、Peak、RMS、DC、周波数、境界差分を測定する |

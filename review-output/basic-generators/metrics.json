@@ -706,7 +706,7 @@
       "stereo_rms_difference": 0.0,
       "stereo_correlation": 1.0
     },
-    "regression-reset-a.wav": {
+    "regression-fresh-a.wav": {
       "sample_rate": 48000,
       "channels": 2,
       "frames": 12001,
@@ -730,7 +730,7 @@
       "stereo_rms_difference": 0.0,
       "stereo_correlation": 1.0
     },
-    "regression-reset-b.wav": {
+    "regression-fresh-b.wav": {
       "sample_rate": 48000,
       "channels": 2,
       "frames": 12001,
@@ -927,12 +927,12 @@
       "stereo_correlation": 1.0
     }
   },
-  "reset_comparison": {
+  "fresh_render_comparison": {
     "compatible": true,
     "max_abs_difference": 0.0,
     "rms_difference": 0.0,
     "different_sample_count": 0,
-    "reference_sha256": "78794aca6940dfb671d0072136f505b85f938e565891a96b11604b8c25fa80a3",
-    "repeat_sha256": "78794aca6940dfb671d0072136f505b85f938e565891a96b11604b8c25fa80a3"
+    "first_sha256": "78794aca6940dfb671d0072136f505b85f938e565891a96b11604b8c25fa80a3",
+    "second_sha256": "78794aca6940dfb671d0072136f505b85f938e565891a96b11604b8c25fa80a3"
   }
 }
