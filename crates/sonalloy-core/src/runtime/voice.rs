@@ -422,10 +422,11 @@ impl VoiceRuntime {
     }
 
     pub(crate) fn reset(&mut self) -> Result<(), ProcessError> {
-        self.reset_to_idle()?;
         for layer in &mut self.layers {
             layer.reset()?;
         }
+        self.processors.reset()?;
+        self.clear_assignment_state();
         Ok(())
     }
 
@@ -603,6 +604,11 @@ impl VoiceRuntime {
             layer.reset_state()?;
         }
         self.processors.reset()?;
+        self.clear_assignment_state();
+        Ok(())
+    }
+
+    fn clear_assignment_state(&mut self) {
         self.state = VoiceState::Idle;
         self.note_id = None;
         self.note_number = 0;
@@ -612,7 +618,6 @@ impl VoiceRuntime {
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
         self.reset_source_state();
-        Ok(())
     }
 
     fn reset_note_state(&mut self) -> Result<(), ProcessError> {

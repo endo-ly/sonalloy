@@ -905,6 +905,28 @@ mod tests {
         vec![left, right]
     }
 
+    fn process_with_stack_output(
+        runtime: &mut InstrumentRuntime,
+        absolute_frame: u64,
+        events: &[ProcessEvent],
+    ) {
+        const FRAMES: usize = 64;
+        let mut left = [0.0_f32; FRAMES];
+        let mut right = [0.0_f32; FRAMES];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        runtime
+            .process(ProcessBlock {
+                frames: FRAMES,
+                context: crate::process::ProcessContext {
+                    absolute_frame,
+                    tempo_bpm: 120.0,
+                },
+                events,
+                output: &mut output,
+            })
+            .expect("process succeeds");
+    }
+
     #[test]
     fn note_lifecycle_produces_stereo_audio_and_release() {
         let mut runtime = runtime();
@@ -962,6 +984,66 @@ mod tests {
             runtime.voices[0].pending_layer_selection_capacity(),
             pending_layer_capacity
         );
+    }
+
+    #[test]
+    fn idle_note_on_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+
+        let _ = process(&mut runtime, 64, 0, &event);
+        runtime.reset().expect("reset");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
+    fn voice_stealing_note_on_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let first_event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let second_event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 64,
+                velocity: 100,
+            },
+        }];
+
+        let _ = process(&mut runtime, 64, 0, &first_event);
+        let _ = process(&mut runtime, 64, 64, &second_event);
+        runtime.reset().expect("reset");
+        let _ = process(&mut runtime, 64, 0, &first_event);
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 64, &second_event);
+        });
+
+        assert_eq!(allocations, 0);
     }
 
     #[test]

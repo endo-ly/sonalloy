@@ -52,3 +52,70 @@ pub fn backend_info() -> BackendInfo {
         version: sonalloy_dsp_sys::backend_version(),
     }
 }
+
+#[cfg(test)]
+mod test_allocator {
+    use std::alloc::{GlobalAlloc, Layout, System};
+    use std::cell::Cell;
+
+    thread_local! {
+        static ALLOCATION_COUNT: Cell<Option<usize>> = const { Cell::new(None) };
+    }
+
+    struct CountingAllocator;
+
+    #[global_allocator]
+    static ALLOCATOR: CountingAllocator = CountingAllocator;
+
+    unsafe impl GlobalAlloc for CountingAllocator {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            let pointer = unsafe { System.alloc(layout) };
+            if !pointer.is_null() {
+                record_allocation();
+            }
+            pointer
+        }
+
+        unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+            let pointer = unsafe { System.alloc_zeroed(layout) };
+            if !pointer.is_null() {
+                record_allocation();
+            }
+            pointer
+        }
+
+        unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
+            unsafe { System.dealloc(pointer, layout) };
+        }
+
+        unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+            let pointer = unsafe { System.realloc(pointer, layout, new_size) };
+            if !pointer.is_null() {
+                record_allocation();
+            }
+            pointer
+        }
+    }
+
+    fn record_allocation() {
+        ALLOCATION_COUNT.with(|count| {
+            if let Some(value) = count.get() {
+                count.set(Some(value.saturating_add(1)));
+            }
+        });
+    }
+
+    pub(crate) fn count_allocations(function: impl FnOnce()) -> usize {
+        let previous = ALLOCATION_COUNT.with(|count| count.replace(Some(0)));
+        assert!(
+            previous.is_none(),
+            "allocation measurement cannot be nested"
+        );
+        function();
+        ALLOCATION_COUNT.with(|count| {
+            count
+                .replace(None)
+                .expect("allocation measurement was unexpectedly disabled")
+        })
+    }
+}
