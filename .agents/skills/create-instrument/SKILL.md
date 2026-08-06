@@ -13,6 +13,7 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 |---|---|
 | 対象 | 新規Instrumentの作成、既存Definitionの編集、Sample Layerの追加、音源の試聴・修正 |
 | 対象外 | 仕様の説明（`docs/instrument-definition.md`）、CLIの全コマンド解説（`docs/cli.md`）、実行時挙動（`docs/runtime-processing.md`） |
+| 成果物 | Definition JSONと、`render`で生成した試聴用WAV（`out/<name>/`配下） |
 
 ## 実行フロー
 
@@ -22,7 +23,7 @@ Step 2  Definitionを編集する
 Step 3  instrument validate で検証する
 Step 4  Sample Layerを追加する（Sampleを使う場合）
 Step 5  render note / render midi で試聴する
-Step 6  仕上げる（関連docsへの反映、Git管理）
+Step 6  仕上げる（関連docsへの反映、差分確認）
 ```
 
 ## Step 1: ひな形を生成する
@@ -98,7 +99,7 @@ sha256sum <path>
 ```bash
 sonalloy render note <definition> \
   --note 60 --velocity 100 --gate 0.5 --tail 0.5 \
-  --sample-rate 48000 --block-size 257 --output out/note.wav
+  --sample-rate 48000 --block-size 257 --output out/<name>/note.wav
 ```
 
 フレーズの確認：
@@ -106,10 +107,10 @@ sonalloy render note <definition> \
 ```bash
 sonalloy render midi <definition> <midi-file> \
   --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --output out/phrase.wav
+  --output out/<name>/phrase.wav
 ```
 
-出力は32-bit float、2 Channel、指定Sample RateのStereo WAVです。親Directoryは事前に作成してください。生成後は`scripts/review/measure_wav.py`でFinite性・Peak / RMS / DCを確認できます。
+出力は32-bit float、2 Channel、指定Sample RateのStereo WAVです。試聴WAVは音源ごとに`out/<name>/`へ分けて出力し、親Directoryは事前に作成してください。生成後は`scripts/review/measure_wav.py`でFinite性・Peak / RMS / DCを確認できます。
 
 ## 失敗時の対処
 

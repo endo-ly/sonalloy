@@ -180,7 +180,7 @@ sonalloy instrument inspect my-instrument.json
 発音中のParameter変更を確認する場合は、Event Sequence JSONを用意して次のようにRenderします。
 
 ```bash
-sonalloy render events my-instrument.json events.json --duration-frames 96000 --output out/events.wav
+sonalloy render events my-instrument.json events.json --duration-frames 96000 --output out/my-instrument/events.wav
 ```
 
 Event SequenceではNote Eventと同じ絶対Frame位置にParameter Change、Pitch Bend、Mod Wheel、Aftertouchを記述できます。`render midi`ではMIDI Pitch Bend、CC1、Channel Aftertouchも同じRuntime Eventへ変換されます。
@@ -264,7 +264,7 @@ SampleのPath違いやハッシュ不一致の場合は**そのZoneだけが無�
 ```bash
 sonalloy render note my-instrument.json \
   --note 60 --velocity 100 --gate 0.5 --tail 0.5 \
-  --sample-rate 48000 --block-size 257 --output out/note.wav
+  --sample-rate 48000 --block-size 257 --output out/my-instrument/note.wav
 ```
 
 **フレーズの確認**（演奏感を確かめます）：
@@ -273,7 +273,7 @@ sonalloy render note my-instrument.json \
 sonalloy render midi my-instrument.json \
   testdata/midi/basic-poly-synth-phrase.mid \
   --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --output out/phrase.wav
+  --output out/my-instrument/phrase.wav
 ```
 
 | Option | 意味 | 既定値 |
@@ -291,7 +291,6 @@ sonalloy render midi my-instrument.json \
 ## Step 6. 仕上げる
 
 - `metadata.name`と`metadata.description`を実際の音色に合わせます。
-- 音色の設計意図（どのパラメータをどう調整したか）はDefinition内には書かず、必要な場合は`review-output/`のReview Packageへ記録します。
 - 音源作成の一連の流れをAgentに実行させる場合は、`.agents/skills/create-instrument/`の手順が利用できます。
 
 ## 困ったときは

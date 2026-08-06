@@ -377,13 +377,14 @@ impl DelayLine {
                 kind: ProcessorFailureKind::InvalidState,
             });
         }
-        #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-        let position = self.read_position as f32 - offset;
-        let length = self.buffer.len() as f32;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+        let position = self.read_position as f64 - f64::from(offset);
+        let length = self.buffer.len() as f64;
         let wrapped = position.rem_euclid(length);
         let index = wrapped.floor() as usize;
         let next = (index + 1) % self.buffer.len();
-        let fraction = wrapped - index as f32;
+        #[allow(clippy::cast_precision_loss)]
+        let fraction = (wrapped - wrapped.floor()) as f32;
         let value = self.buffer[index] + (self.buffer[next] - self.buffer[index]) * fraction;
         self.read_position = (self.read_position + 1) % self.buffer.len();
         if value.is_finite() {
@@ -676,5 +677,13 @@ mod tests {
         assert!((modulation_offset(0.0, 16.0) - 8.0).abs() < 1.0e-6);
         assert!((modulation_offset(std::f32::consts::FRAC_PI_2, 16.0) - 16.0).abs() < 1.0e-6);
         assert!(modulation_offset(-std::f32::consts::FRAC_PI_2, 16.0).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn read_modulated_keeps_index_in_bounds_when_position_is_below_zero() {
+        let mut line = DelayLine::with_extra_capacity(1491, 0.0);
+        let value = line.read_modulated(5.0e-5).expect("interpolated read near zero");
+        assert!(value.is_finite());
+        assert!(line.read_position < line.buffer.len());
     }
 }
