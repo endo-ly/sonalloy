@@ -272,23 +272,65 @@ struct InspectTrigger {
 }
 
 #[derive(Debug, Serialize)]
-struct InspectGenerator {
-    kind: &'static str,
-    waveform: &'static str,
-    phase_reset: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    asset_path: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    root_note: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    playback_mode: Option<&'static str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    interpolation: Option<&'static str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum InspectGenerator {
+    Oscillator {
+        waveform: &'static str,
+        phase_reset: bool,
+        phase: f32,
+        output_mode: &'static str,
+        backend: &'static str,
+        hard_sync: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        sync_ratio_parameter: Option<String>,
+        waveshaping: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        waveshape_parameter: Option<String>,
+        unison_voices: usize,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        unison_detune_parameter: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        unison_spread_parameter: Option<String>,
+        phase_spread: f32,
+        effective_max_frequency_hz: f32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pulse_width: Option<f32>,
+    },
+    Noise {
+        output_mode: &'static str,
+        noise_color: &'static str,
+        noise_seed: u64,
+        noise_correlation_parameter: String,
+    },
+    Sample {
+        output_mode: &'static str,
+        interpolation: &'static str,
+        sample_zone_count: usize,
+        sample_enabled_zone_count: usize,
+        sample_disabled_zone_count: usize,
+        sample_asset_count: usize,
+        sample_zones: Vec<InspectSampleZone>,
+    },
+}
+
+#[derive(Debug, Serialize)]
+struct InspectSampleZone {
+    id: String,
+    enabled: bool,
+    asset_path: String,
+    root_note: u8,
+    key_min: u8,
+    key_max: u8,
+    velocity_min: u8,
+    velocity_max: u8,
+    round_robin_group: Option<String>,
+    playback_type: &'static str,
+    start_frame: usize,
+    end_frame: usize,
+    loop_start_frame: Option<usize>,
+    loop_end_frame: Option<usize>,
     source_sample_rate: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     source_channels: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     prepared_frames: Option<usize>,
 }
 
@@ -1072,6 +1114,10 @@ fn default_definition() -> InstrumentDefinition {
             generator: sonalloy_core::GeneratorDefinition::Oscillator(OscillatorDefinition {
                 waveform: OscillatorWaveform::Saw,
                 phase_reset: true,
+                phase: 0.0,
+                hard_sync: None,
+                waveshaping: None,
+                unison: None,
             }),
             processors: Vec::new(),
         }],
@@ -1092,6 +1138,14 @@ fn parameter_default(compiled: &CompiledInstrument, handle: ParameterHandle) -> 
         .parameter_descriptor(handle)
         .expect("compiled parameter handle must be valid")
         .default
+}
+
+fn parameter_descriptor_id(compiled: &CompiledInstrument, handle: ParameterHandle) -> String {
+    compiled
+        .parameter_descriptor(handle)
+        .expect("compiled parameter handle must be valid")
+        .id
+        .clone()
 }
 
 fn inspect_processor(
@@ -1244,6 +1298,168 @@ fn inspect_external_source(id: &'static str) -> InspectSource {
     }
 }
 
+fn inspect_sample_zones(
+    sample: &sonalloy_core::compiler::CompiledSample,
+) -> (Vec<InspectSampleZone>, usize) {
+    let mut unique_sources: Vec<Arc<[f32]>> = Vec::new();
+    let zones = sample
+        .zones
+        .iter()
+        .map(|zone| {
+            let metadata = zone.source.as_ref().map(|source| {
+                if !unique_sources
+                    .iter()
+                    .any(|candidate| Arc::ptr_eq(candidate, &source.samples))
+                {
+                    unique_sources.push(Arc::clone(&source.samples));
+                }
+                &source.source_metadata
+            });
+            let (playback_type, start_frame, end_frame, loop_start_frame, loop_end_frame) =
+                match zone.playback {
+                    sonalloy_core::compiler::CompiledSamplePlayback::OneShot {
+                        start_frame,
+                        end_frame,
+                    } => ("one_shot", start_frame, end_frame, None, None),
+                    sonalloy_core::compiler::CompiledSamplePlayback::ForwardLoop {
+                        start_frame,
+                        end_frame,
+                        loop_start_frame,
+                        loop_end_frame,
+                    } => (
+                        "forward_loop",
+                        start_frame,
+                        end_frame,
+                        Some(loop_start_frame),
+                        Some(loop_end_frame),
+                    ),
+                };
+            InspectSampleZone {
+                id: zone.id.clone(),
+                enabled: zone.is_enabled(),
+                asset_path: zone.asset_path.clone(),
+                root_note: zone.root_note,
+                key_min: zone.key_min,
+                key_max: zone.key_max,
+                velocity_min: zone.velocity_min,
+                velocity_max: zone.velocity_max,
+                round_robin_group: zone
+                    .group
+                    .and_then(|index| sample.groups.get(index))
+                    .map(|group| group.id.clone()),
+                playback_type,
+                start_frame,
+                end_frame,
+                loop_start_frame,
+                loop_end_frame,
+                source_sample_rate: metadata.map(|value| value.source_sample_rate),
+                source_channels: metadata.map(|value| value.source_channels),
+                prepared_frames: zone.source.as_ref().map(|source| source.samples.len()),
+            }
+        })
+        .collect();
+    (zones, unique_sources.len())
+}
+
+fn output_mode_name(mode: sonalloy_core::compiler::GeneratorOutputMode) -> &'static str {
+    match mode {
+        sonalloy_core::compiler::GeneratorOutputMode::Mono => "mono",
+        sonalloy_core::compiler::GeneratorOutputMode::Stereo => "stereo",
+    }
+}
+
+fn inspect_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+) -> (InspectGenerator, &'static str) {
+    match generator {
+        sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => {
+            let (backend, sync_ratio) = match oscillator.backend {
+                sonalloy_core::compiler::CompiledOscillatorBackend::Basic => ("basic", None),
+                sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync {
+                    sync_ratio,
+                } => ("variable_shape_sync", Some(sync_ratio)),
+            };
+            (
+                InspectGenerator::Oscillator {
+                    waveform: match oscillator.waveform {
+                        OscillatorWaveform::Sine => "sine",
+                        OscillatorWaveform::Saw => "saw",
+                        OscillatorWaveform::Square => "square",
+                        OscillatorWaveform::Triangle => "triangle",
+                        OscillatorWaveform::Pulse { .. } => "pulse",
+                    },
+                    phase_reset: oscillator.phase_reset,
+                    phase: oscillator.phase,
+                    output_mode: output_mode_name(generator.output_mode()),
+                    backend,
+                    hard_sync: sync_ratio.is_some(),
+                    sync_ratio_parameter: sync_ratio
+                        .map(|handle| parameter_descriptor_id(compiled, handle)),
+                    waveshaping: oscillator.parameters.waveshape.is_some(),
+                    waveshape_parameter: oscillator
+                        .parameters
+                        .waveshape
+                        .map(|handle| parameter_descriptor_id(compiled, handle)),
+                    unison_voices: oscillator.unison.position_distribution.len(),
+                    unison_detune_parameter: oscillator
+                        .parameters
+                        .unison_detune
+                        .map(|handle| parameter_descriptor_id(compiled, handle)),
+                    unison_spread_parameter: oscillator
+                        .parameters
+                        .unison_spread
+                        .map(|handle| parameter_descriptor_id(compiled, handle)),
+                    phase_spread: oscillator.unison.phase_spread,
+                    effective_max_frequency_hz: oscillator
+                        .backend
+                        .effective_max_frequency(compiled.process_sample_rate),
+                    pulse_width: oscillator
+                        .parameters
+                        .pulse_width
+                        .map(|handle| parameter_default(compiled, handle)),
+                },
+                "not_applicable (oscillator-only instrument)",
+            )
+        }
+        sonalloy_core::compiler::CompiledGenerator::Noise(noise) => (
+            InspectGenerator::Noise {
+                output_mode: output_mode_name(generator.output_mode()),
+                noise_color: match noise.color {
+                    sonalloy_core::NoiseColor::White => "white",
+                    sonalloy_core::NoiseColor::Pink => "pink",
+                    sonalloy_core::NoiseColor::Brown => "brown",
+                },
+                noise_seed: noise.seed,
+                noise_correlation_parameter: parameter_descriptor_id(compiled, noise.correlation),
+            },
+            "not_applicable (noise)",
+        ),
+        sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
+            let (sample_zones, sample_asset_count) = inspect_sample_zones(sample);
+            let sample_zone_count = sample.zones.len();
+            let sample_enabled_zone_count =
+                sample.zones.iter().filter(|zone| zone.is_enabled()).count();
+            (
+                InspectGenerator::Sample {
+                    output_mode: output_mode_name(generator.output_mode()),
+                    interpolation: "cubic",
+                    sample_zone_count,
+                    sample_enabled_zone_count,
+                    sample_disabled_zone_count: sample_zone_count - sample_enabled_zone_count,
+                    sample_asset_count,
+                    sample_zones,
+                },
+                if sample_enabled_zone_count > 0 {
+                    "enabled"
+                } else {
+                    "disabled"
+                },
+            )
+        }
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 fn make_inspect_report(
     compiled: &CompiledInstrument,
@@ -1256,51 +1472,7 @@ fn make_inspect_report(
             let gain_db = parameter_default(compiled, layer.parameters.gain);
             let pan = parameter_default(compiled, layer.parameters.pan);
             let tuning_cents = parameter_default(compiled, layer.parameters.tuning);
-            let (generator, asset_status) = match &layer.generator {
-                sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => (
-                    InspectGenerator {
-                        kind: "oscillator",
-                        waveform: match oscillator.waveform {
-                            OscillatorWaveform::Sine => "sine",
-                            OscillatorWaveform::Saw => "saw",
-                        },
-                        phase_reset: oscillator.phase_reset,
-                        asset_path: None,
-                        root_note: None,
-                        playback_mode: None,
-                        interpolation: None,
-                        source_sample_rate: None,
-                        source_channels: None,
-                        prepared_frames: None,
-                    },
-                    "not_applicable (oscillator-only instrument)",
-                ),
-                sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-                    let metadata = sample.source.as_ref().map(|source| &source.source_metadata);
-                    (
-                        InspectGenerator {
-                            kind: "sample",
-                            waveform: "none",
-                            phase_reset: false,
-                            asset_path: Some(sample.asset_path.clone()),
-                            root_note: Some(sample.root_note),
-                            playback_mode: Some("one_shot"),
-                            interpolation: Some("cubic"),
-                            source_sample_rate: metadata.map(|value| value.source_sample_rate),
-                            source_channels: metadata.map(|value| value.source_channels),
-                            prepared_frames: sample
-                                .source
-                                .as_ref()
-                                .map(|source| source.samples.len()),
-                        },
-                        if sample.enabled {
-                            "enabled"
-                        } else {
-                            "disabled"
-                        },
-                    )
-                }
-            };
+            let (generator, asset_status) = inspect_generator(compiled, &layer.generator);
             InspectLayer {
                 id: layer.id.clone(),
                 enabled: true,
@@ -1411,53 +1583,20 @@ fn make_inspect_report(
 
 #[allow(clippy::too_many_lines)]
 fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
-    println!("metadata.name: {}", compiled.metadata.name);
+    let report = make_inspect_report(compiled, diagnostics.to_vec());
+    println!("metadata.name: {}", report.metadata.name);
     println!(
         "metadata.author: {}",
-        compiled.metadata.author.as_deref().unwrap_or("none")
+        report.metadata.author.as_deref().unwrap_or("none")
     );
     println!(
         "metadata.description: {}",
-        compiled.metadata.description.as_deref().unwrap_or("none")
+        report.metadata.description.as_deref().unwrap_or("none")
     );
-    println!("polyphony: {}", compiled.performance.polyphony);
+    println!("polyphony: {}", report.polyphony);
     println!("voice stealing: quietest_releasing_then_oldest");
-    for layer in &compiled.layers {
-        let asset_status = match &layer.generator {
-            sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => {
-                println!(
-                    "layer {}: enabled true generator oscillator/{} phase_reset {}",
-                    layer.id,
-                    match oscillator.waveform {
-                        OscillatorWaveform::Sine => "sine",
-                        OscillatorWaveform::Saw => "saw",
-                    },
-                    oscillator.phase_reset
-                );
-                "not_applicable (oscillator-only instrument)"
-            }
-            sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-                println!(
-                    "layer {}: enabled true generator sample/one_shot interpolation cubic",
-                    layer.id
-                );
-                println!("  sample asset: {}", sample.asset_path);
-                println!("  sample root_note: {}", sample.root_note);
-                if let Some(source) = &sample.source {
-                    println!(
-                        "  sample prepared: {} frames at {} Hz from {} channels",
-                        source.samples.len(),
-                        source.sample_rate,
-                        source.source_metadata.source_channels
-                    );
-                }
-                if sample.enabled {
-                    "enabled"
-                } else {
-                    "disabled"
-                }
-            }
-        };
+    for layer in &report.layers {
+        print_generator(&layer.id, &layer.generator);
         println!(
             "  trigger: key {}..{} velocity {}..{}",
             layer.trigger.key_min,
@@ -1465,17 +1604,14 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
             layer.trigger.velocity_min,
             layer.trigger.velocity_max,
         );
-        println!("  asset: {asset_status}");
+        println!("  asset: {}", layer.asset_status);
         println!(
             "  gain: {:.3} dB ({:.6} linear) pan: {:.3}",
-            parameter_default(compiled, layer.parameters.gain),
-            10.0_f32.powf(parameter_default(compiled, layer.parameters.gain) / 20.0),
-            parameter_default(compiled, layer.parameters.pan)
+            layer.gain_db, layer.gain_linear, layer.pan
         );
         println!(
             "  tuning: {:.3} cents ({:.6} ratio)",
-            parameter_default(compiled, layer.parameters.tuning),
-            2.0_f32.powf(parameter_default(compiled, layer.parameters.tuning) / 1200.0)
+            layer.tuning_cents, layer.tuning_ratio
         );
         println!(
             "  envelope: attack {} samples decay {} samples sustain {:.3} release {} samples",
@@ -1484,11 +1620,11 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
             layer.envelope.sustain_level,
             layer.envelope.release_samples
         );
-        print_processors(compiled, &layer.processors, "layer", &layer.id);
+        print_processor_reports(&layer.processors, "layer", &layer.id);
     }
-    print_processors(compiled, &compiled.voice_processors, "voice", "voice");
-    print_processors(compiled, &compiled.global_processors, "global", "global");
-    for parameter in compiled.parameters() {
+    print_processor_reports(&report.voice_processors, "voice", "voice");
+    print_processor_reports(&report.global_processors, "global", "global");
+    for parameter in &report.parameters {
         println!("parameter {}:", parameter.id);
         println!("  owner: {:?}", parameter.owner);
         println!("  unit: {:?}", parameter.unit);
@@ -1497,55 +1633,129 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
         println!("  scale: {:?}", parameter.scale);
         println!("  smoothing: {:.3} s", parameter.smoothing_seconds);
     }
-    for source in &compiled.sources {
-        println!("source {}: {:?} (Voice)", source.id, source.source);
+    for source in &report.sources {
+        println!("source {}: {} ({})", source.id, source.kind, source.scope);
     }
-    let mut external_sources = Vec::new();
-    for route in &compiled.routes {
-        let Some(id) = external_source_name(route.source) else {
-            continue;
-        };
-        if !external_sources.contains(&id) {
-            external_sources.push(id);
-            println!("source {id}: external_control (Instrument)");
-        }
-    }
-    for route in &compiled.routes {
+    for route in &report.routes {
         println!(
             "route {} -> {} amount {:.3} curve {:?}",
-            source_id(compiled, route.source),
-            compiled
-                .parameter_descriptor(route.target)
-                .expect("compiled route target handle must be valid")
-                .id,
-            route.amount,
-            route.curve
+            route.source, route.target, route.amount, route.curve
         );
     }
-    print_warnings(diagnostics);
+    print_warnings(&report.diagnostics);
 }
 
-fn print_processors(
-    compiled: &CompiledInstrument,
-    processors: &[sonalloy_core::compiler::CompiledProcessor],
-    placement: &'static str,
-    owner: &str,
-) {
+fn print_generator(layer_id: &str, generator: &InspectGenerator) {
+    match generator {
+        InspectGenerator::Oscillator {
+            waveform,
+            phase_reset,
+            phase,
+            output_mode,
+            backend,
+            hard_sync,
+            sync_ratio_parameter,
+            waveshaping,
+            waveshape_parameter,
+            unison_voices,
+            unison_detune_parameter,
+            unison_spread_parameter,
+            phase_spread,
+            effective_max_frequency_hz,
+            pulse_width,
+        } => {
+            println!(
+                "layer {layer_id}: enabled true generator oscillator/{waveform} phase_reset {phase_reset} phase {phase} output_mode {output_mode}"
+            );
+            println!(
+                "  backend: {backend} effective_max_frequency_hz: {effective_max_frequency_hz:.3}"
+            );
+            println!(
+                "  hard_sync: {hard_sync} waveshaping: {waveshaping} unison_voices: {unison_voices} phase_spread: {phase_spread:.3}"
+            );
+            if let Some(value) = pulse_width {
+                println!("  pulse_width: {value}");
+            }
+            print_parameter_reference("sync_ratio", sync_ratio_parameter.as_ref());
+            print_parameter_reference("waveshape", waveshape_parameter.as_ref());
+            print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
+            print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
+        }
+        InspectGenerator::Noise {
+            output_mode,
+            noise_color,
+            noise_seed,
+            noise_correlation_parameter,
+        } => {
+            println!(
+                "layer {layer_id}: enabled true generator noise/{noise_color} output_mode {output_mode}"
+            );
+            println!("  noise seed: {noise_seed}");
+            println!("  noise correlation parameter: {noise_correlation_parameter}");
+        }
+        InspectGenerator::Sample {
+            output_mode,
+            interpolation,
+            sample_zone_count,
+            sample_enabled_zone_count,
+            sample_disabled_zone_count: _,
+            sample_asset_count,
+            sample_zones,
+        } => {
+            println!(
+                "layer {layer_id}: enabled {} generator sample interpolation {interpolation} output_mode {output_mode}",
+                *sample_enabled_zone_count > 0,
+            );
+            println!("  sample zones: {sample_enabled_zone_count}/{sample_zone_count} enabled");
+            println!("  sample prepared assets: {sample_asset_count}");
+            for zone in sample_zones {
+                println!(
+                    "  zone {}: enabled {} key {}..{} velocity {}..{} root_note {} playback {} frames {}..{}",
+                    zone.id,
+                    zone.enabled,
+                    zone.key_min,
+                    zone.key_max,
+                    zone.velocity_min,
+                    zone.velocity_max,
+                    zone.root_note,
+                    zone.playback_type,
+                    zone.start_frame,
+                    zone.end_frame,
+                );
+                if let (Some(loop_start), Some(loop_end)) =
+                    (zone.loop_start_frame, zone.loop_end_frame)
+                {
+                    println!("    loop: {loop_start}..{loop_end}");
+                }
+                if let Some(group) = &zone.round_robin_group {
+                    println!("    round_robin_group: {group}");
+                }
+            }
+        }
+    }
+}
+
+fn print_parameter_reference(name: &str, parameter: Option<&String>) {
+    if let Some(id) = parameter {
+        println!("  {name}: ({id})");
+    }
+}
+
+fn print_processor_reports(processors: &[InspectProcessor], placement: &'static str, owner: &str) {
     if processors.is_empty() {
         println!("{placement} processors ({owner}): none");
         return;
     }
     println!("{placement} processors ({owner}):");
-    for (index, processor) in processors.iter().enumerate() {
-        let report = inspect_processor(compiled, processor, placement, index);
+    for report in processors {
         println!(
             "  processor[{}] {} ({})",
             report.chain_index, report.id, report.kind
         );
-        for field in report.static_fields {
+        for field in &report.static_fields {
             println!("    {}: {:.3}", field.id, field.value);
         }
-        for parameter in report.parameters {
+        for parameter in &report.parameters {
             println!("    parameter {}", parameter.id);
         }
     }

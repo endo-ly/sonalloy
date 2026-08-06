@@ -40,7 +40,8 @@ sonalloy instrument init <path>
 - `schema_version`は`1`のみ。未知FieldはJSON Parse Errorになる
 - `polyphony`は1〜64。`gain_db`は-60〜12、`pan`は-1〜1、`tuning_cents`は-1200〜1200
 - ADSRは0〜30秒、Sustainは0〜1。Keyは0〜127、Velocityは1〜127
-- Generatorは`oscillator`（`sine` / `saw`）または`sample`
+- Generatorは`oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、または`sample`
+- Oscillatorの`waveform`は`{"type": "..."}`形式。Pulseは`pulse_width`、全Oscillatorは`phase_reset`と`phase`を持つ
 - 全Fieldの意味・単位・Rangeは`docs/instrument-definition.md`が正本
 
 ```bash
@@ -55,7 +56,7 @@ sonalloy instrument inspect <definition> --json    # 実行値を機械可読で
 ```
 
 - `validate`の成功は`valid <path>`。Warningは`print_warnings`で表示されるため必ず確認する
-- `inspect`でPolyphony、Layer Trigger、Generator、Gain、Pan、Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
+- `inspect`でPolyphony、Layer Trigger、GeneratorのWaveform / Color / Seed / Output Mode、Gain、Pan、Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
 - Warningが1つでも残る場合は「ほかのLayerでRenderを継続する」設計のため、意図しない無効化がないかを確認する
 
 ## Step 4: Sample Layerを追加する（Sampleを使う場合）

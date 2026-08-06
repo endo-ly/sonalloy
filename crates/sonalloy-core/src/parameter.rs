@@ -3,7 +3,13 @@ use std::collections::HashMap;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::definition::{InstrumentDefinition, ProcessorDefinition};
+use crate::definition::{
+    GeneratorDefinition, InstrumentDefinition, OscillatorWaveform, ProcessorDefinition,
+};
+use crate::generator_parameters::{
+    GeneratorParameterSpec, NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
+    UNISON_SPREAD, WAVESHAPE,
+};
 
 /// Dense reference to a parameter in one compiled instrument.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
@@ -27,6 +33,8 @@ impl ParameterHandle {
 pub enum ParameterOwner {
     /// A shared value belonging to a Definition layer.
     Layer { definition_index: usize },
+    /// A continuous value belonging to a layer generator.
+    LayerGenerator { definition_index: usize },
     /// A value belonging to a layer processor.
     LayerProcessor {
         /// Original Definition layer index.
@@ -58,6 +66,8 @@ pub enum ParameterUnit {
     Cents,
     /// Frequency in hertz.
     Hertz,
+    /// A frequency ratio.
+    Ratio,
     /// A unitless value in the inclusive zero-to-one range.
     Normalized,
 }
@@ -195,6 +205,12 @@ impl ParameterCatalog {
                 default: layer.tuning_cents,
                 smoothing_seconds: 0.005,
             });
+            push_generator_descriptors(
+                &mut descriptors,
+                &layer.generator,
+                ParameterOwner::LayerGenerator { definition_index },
+                &format!("layer.{}.generator", layer.id),
+            );
             for (processor_index, processor) in layer.processors.iter().enumerate() {
                 push_processor_descriptors(
                     &mut descriptors,
@@ -256,6 +272,78 @@ impl ParameterCatalog {
     pub(crate) fn len(&self) -> usize {
         self.descriptors.len()
     }
+}
+
+fn push_generator_descriptors(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    generator: &GeneratorDefinition,
+    owner: ParameterOwner,
+    prefix: &str,
+) {
+    match generator {
+        GeneratorDefinition::Oscillator(oscillator) => {
+            if let OscillatorWaveform::Pulse { pulse_width } = oscillator.waveform {
+                push_generator_descriptor(descriptors, prefix, owner, PULSE_WIDTH, pulse_width);
+            }
+            if let Some(hard_sync) = oscillator.hard_sync {
+                push_generator_descriptor(descriptors, prefix, owner, SYNC_RATIO, hard_sync.ratio);
+            }
+            if let Some(waveshaping) = oscillator.waveshaping {
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    WAVESHAPE,
+                    waveshaping.amount,
+                );
+            }
+            if let Some(unison) = oscillator.unison {
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    UNISON_DETUNE,
+                    unison.detune_cents,
+                );
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    UNISON_SPREAD,
+                    unison.stereo_spread,
+                );
+            }
+        }
+        GeneratorDefinition::Noise(noise) => {
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                NOISE_CORRELATION,
+                noise.stereo_correlation,
+            );
+        }
+        GeneratorDefinition::Sample(_) => {}
+    }
+}
+
+fn push_generator_descriptor(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    prefix: &str,
+    owner: ParameterOwner,
+    spec: GeneratorParameterSpec,
+    default: f32,
+) {
+    descriptors.push(ParameterDescriptor {
+        id: format!("{prefix}.{}", spec.suffix),
+        owner,
+        unit: spec.unit,
+        scale: spec.scale,
+        min: spec.min,
+        max: spec.max,
+        default,
+        smoothing_seconds: spec.smoothing_seconds,
+    });
 }
 
 fn push_processor_descriptors(
@@ -388,6 +476,12 @@ pub fn layer_parameter_id(layer_id: &str, parameter: &str) -> String {
     format!("layer.{layer_id}.{parameter}")
 }
 
+/// Build a canonical layer generator parameter identifier.
+#[must_use]
+pub fn layer_generator_parameter_id(layer_id: &str, parameter: &str) -> String {
+    format!("layer.{layer_id}.generator.{parameter}")
+}
+
 /// Build a canonical layer processor parameter identifier.
 #[must_use]
 pub fn layer_processor_parameter_id(layer_id: &str, processor_id: &str, parameter: &str) -> String {
@@ -429,6 +523,9 @@ pub fn is_parameter_id(value: &str) -> bool {
             is_component_id(layer_id)
                 && is_component_id(processor_id)
                 && is_processor_parameter(parameter)
+        }
+        ["layer", layer_id, "generator", parameter] => {
+            is_component_id(layer_id) && crate::generator_parameters::is_suffix(parameter)
         }
         ["voice" | "global", "processor", processor_id, parameter] => {
             is_component_id(processor_id) && is_processor_parameter(parameter)
@@ -493,6 +590,146 @@ mod tests {
                 "voice.processor.tone.resonance"
             ]
         );
+    }
+
+    #[test]
+    fn generator_parameters_follow_layer_parameters_and_preserve_metadata() {
+        let mut source = definition();
+        source.layers[0].generator =
+            GeneratorDefinition::Oscillator(crate::definition::OscillatorDefinition {
+                waveform: OscillatorWaveform::Pulse { pulse_width: 0.25 },
+                phase_reset: true,
+                phase: 0.0,
+                hard_sync: None,
+                waveshaping: None,
+                unison: None,
+            });
+        let mut noise_layer = source.layers[0].clone();
+        noise_layer.id = "texture".to_owned();
+        noise_layer.generator = GeneratorDefinition::Noise(crate::definition::NoiseDefinition {
+            color: crate::definition::NoiseColor::White,
+            seed: 7,
+            stereo_correlation: 0.6,
+        });
+        source.layers.push(noise_layer);
+
+        let catalog = ParameterCatalog::from_definition(&source);
+        let ids: Vec<_> = catalog
+            .parameters()
+            .iter()
+            .map(|item| item.id.as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                "layer.body.gain",
+                "layer.body.pan",
+                "layer.body.tuning",
+                "layer.body.generator.pulse_width",
+                "layer.texture.gain",
+                "layer.texture.pan",
+                "layer.texture.tuning",
+                "layer.texture.generator.noise_correlation",
+            ]
+        );
+
+        let pulse = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "layer.body.generator.pulse_width")
+            .expect("pulse width descriptor");
+        assert_eq!(
+            pulse.owner,
+            ParameterOwner::LayerGenerator {
+                definition_index: 0
+            }
+        );
+        assert_eq!(pulse.unit, ParameterUnit::Normalized);
+        assert_eq!(pulse.scale, ParameterScale::Linear);
+        assert!((pulse.min - 0.05).abs() < f32::EPSILON);
+        assert!((pulse.max - 0.95).abs() < f32::EPSILON);
+        assert!((pulse.default - 0.25).abs() < f32::EPSILON);
+        assert!((pulse.smoothing_seconds - 0.005).abs() < f32::EPSILON);
+
+        let correlation = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "layer.texture.generator.noise_correlation")
+            .expect("noise correlation descriptor");
+        assert_eq!(
+            correlation.owner,
+            ParameterOwner::LayerGenerator {
+                definition_index: 1
+            }
+        );
+        assert!((correlation.min - 0.0).abs() < f32::EPSILON);
+        assert!((correlation.max - 1.0).abs() < f32::EPSILON);
+        assert!((correlation.default - 0.6).abs() < f32::EPSILON);
+        assert!((correlation.smoothing_seconds - 0.010).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn generator_parameter_ids_follow_the_canonical_grammar() {
+        assert_eq!(
+            layer_generator_parameter_id("body", "pulse_width"),
+            "layer.body.generator.pulse_width"
+        );
+        assert!(is_parameter_id("layer.body.generator.pulse_width"));
+        assert!(is_parameter_id("layer.body.generator.sync_ratio"));
+        assert!(is_parameter_id("layer.body.generator.waveshape"));
+        assert!(is_parameter_id("layer.body.generator.unison_detune"));
+        assert!(is_parameter_id("layer.body.generator.unison_spread"));
+        assert!(is_parameter_id("layer.body.generator.noise_correlation"));
+        assert!(!is_parameter_id("layer.Body.generator.pulse_width"));
+    }
+
+    #[test]
+    fn complex_generator_parameters_preserve_catalog_metadata() {
+        let mut source = definition();
+        source.layers[0].generator =
+            GeneratorDefinition::Oscillator(crate::definition::OscillatorDefinition {
+                waveform: OscillatorWaveform::Saw,
+                phase_reset: true,
+                phase: 0.0,
+                hard_sync: Some(crate::definition::HardSyncDefinition { ratio: 3.0 }),
+                waveshaping: Some(crate::definition::WaveshapingDefinition { amount: 0.25 }),
+                unison: Some(crate::definition::UnisonDefinition {
+                    voices: 5,
+                    detune_cents: 18.0,
+                    stereo_spread: 0.8,
+                    phase_spread: 0.2,
+                }),
+            });
+        let catalog = ParameterCatalog::from_definition(&source);
+        let parameters = catalog.parameters();
+        let ids: Vec<_> = parameters
+            .iter()
+            .map(|parameter| parameter.id.as_str())
+            .collect();
+        assert_eq!(
+            &ids[3..],
+            [
+                "layer.body.generator.sync_ratio",
+                "layer.body.generator.waveshape",
+                "layer.body.generator.unison_detune",
+                "layer.body.generator.unison_spread",
+            ]
+        );
+
+        let sync = &parameters[3];
+        assert_eq!(sync.unit, ParameterUnit::Ratio);
+        assert_eq!(sync.scale, ParameterScale::Log2);
+        assert!((sync.min - 1.0).abs() < f32::EPSILON);
+        assert!((sync.max - 16.0).abs() < f32::EPSILON);
+        assert!((sync.default - 3.0).abs() < f32::EPSILON);
+        assert!((sync.smoothing_seconds - 0.005).abs() < f32::EPSILON);
+
+        let detune = &parameters[5];
+        assert_eq!(detune.unit, ParameterUnit::Cents);
+        assert!(detune.min.abs() < f32::EPSILON);
+        assert!((detune.max - 100.0).abs() < f32::EPSILON);
+        assert!((detune.default - 18.0).abs() < f32::EPSILON);
+        assert!((detune.smoothing_seconds - 0.010).abs() < f32::EPSILON);
     }
 
     #[test]

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::compiler::{
     CompiledGenerator, CompiledInstrument, CompiledProcessor, CompiledProcessorKind,
+    CompiledSampleZone,
 };
 use crate::parameter::ParameterScale;
 use crate::process::{
@@ -11,7 +12,7 @@ use crate::process::{
 use super::modulation::{ParameterSpanValue, SharedParameterSpan, ValueSpan};
 use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
-use super::voice::{NoteRequest, VoiceRuntime, VoiceState};
+use super::voice::{NoteRequest, PreparedLayerSelection, VoiceRuntime, VoiceState};
 
 const CONTROL_SMOOTHING_SECONDS: f64 = 0.005;
 const STEAL_FADE_SECONDS: f64 = 0.005;
@@ -19,6 +20,8 @@ const QUANTUM_FRAMES: usize = 32;
 
 struct RuntimeScratch {
     layer_mono: Vec<f32>,
+    layer_left: Vec<f32>,
+    layer_right: Vec<f32>,
     voice_left: Vec<f32>,
     voice_right: Vec<f32>,
     parameter_spans: Vec<ParameterSpanValue>,
@@ -29,12 +32,14 @@ pub struct InstrumentRuntime {
     compiled: Arc<CompiledInstrument>,
     voices: Vec<VoiceRuntime>,
     scratch: RuntimeScratch,
+    note_layer_selection: Vec<PreparedLayerSelection>,
     parameter_states: Vec<Smoother>,
     pitch_bend: Smoother,
     mod_wheel: Smoother,
     aftertouch: Smoother,
     global_processors: Option<StereoProcessorChain>,
     global_targets: Vec<ProcessorTargetSpan>,
+    round_robin_counters: Vec<Vec<u64>>,
     spec: Option<ProcessSpec>,
     absolute_frame: u64,
 }
@@ -48,16 +53,20 @@ impl InstrumentRuntime {
             voices: Vec::new(),
             scratch: RuntimeScratch {
                 layer_mono: Vec::new(),
+                layer_left: Vec::new(),
+                layer_right: Vec::new(),
                 voice_left: Vec::new(),
                 voice_right: Vec::new(),
                 parameter_spans: Vec::new(),
             },
+            note_layer_selection: Vec::new(),
             parameter_states: Vec::new(),
             pitch_bend: Smoother::new(0.0),
             mod_wheel: Smoother::new(0.0),
             aftertouch: Smoother::new(0.0),
             global_processors: None,
             global_targets: Vec::new(),
+            round_robin_counters: Vec::new(),
             spec: None,
             absolute_frame: 0,
         }
@@ -92,6 +101,8 @@ impl InstrumentRuntime {
         voices: &mut [VoiceRuntime],
         compiled: &CompiledInstrument,
         layer_mono: &mut [f32],
+        layer_left: &mut [f32],
+        layer_right: &mut [f32],
         voice_left: &mut [f32],
         voice_right: &mut [f32],
         output: &mut [&mut [f32]],
@@ -104,9 +115,18 @@ impl InstrumentRuntime {
             return Ok(());
         }
         let frames = end - start;
+        if output.len() < 2 {
+            return Err(invalid_state());
+        }
         let (left_channels, right_channels) = output.split_at_mut(1);
-        let left = &mut left_channels[0][start..end];
-        let right = &mut right_channels[0][start..end];
+        let left = left_channels
+            .first_mut()
+            .and_then(|channel| channel.get_mut(start..end))
+            .ok_or_else(invalid_state)?;
+        let right = right_channels
+            .first_mut()
+            .and_then(|channel| channel.get_mut(start..end))
+            .ok_or_else(invalid_state)?;
         for voice in voices {
             if voice.state() == VoiceState::Idle {
                 continue;
@@ -117,6 +137,8 @@ impl InstrumentRuntime {
                 compiled,
                 shared,
                 &mut layer_mono[..frames],
+                &mut layer_left[..frames],
+                &mut layer_right[..frames],
                 &mut voice_left[..frames],
                 &mut voice_right[..frames],
             )?;
@@ -140,26 +162,21 @@ impl InstrumentRuntime {
                 note_number,
                 velocity,
             } => {
-                let can_trigger = self.compiled.layers.iter().any(|layer| {
-                    if !layer.trigger.matches(note_number, velocity) {
-                        return false;
-                    }
-                    match &layer.generator {
-                        CompiledGenerator::Oscillator(_) => true,
-                        CompiledGenerator::Sample(sample) => {
-                            sample.enabled && sample.source.is_some()
-                        }
-                    }
-                });
-                if !can_trigger {
+                let request = NoteRequest::new(note_id, note_number, velocity, absolute_frame);
+                if !self.prepare_note_request(request)? {
                     return Ok(());
                 }
                 let voice_index = self.select_voice();
                 let fade_frames = rounded_frame_count(spec.sample_rate * STEAL_FADE_SECONDS);
-                self.voices[voice_index].request_note(
-                    NoteRequest::new(note_id, note_number, velocity, absolute_frame),
-                    fade_frames,
-                )?;
+                self.voices
+                    .get_mut(voice_index)
+                    .ok_or_else(invalid_state)?
+                    .request_note(
+                        &self.compiled,
+                        request,
+                        &self.note_layer_selection,
+                        fade_frames,
+                    )?;
             }
             ProcessEventKind::NoteOff { note_id } => {
                 for voice in &mut self.voices {
@@ -178,7 +195,10 @@ impl InstrumentRuntime {
                 let frames =
                     rounded_frame_count(f64::from(descriptor.smoothing_seconds) * spec.sample_rate)
                         .max(1);
-                self.parameter_states[parameter.index()].set_target(normalized, frames);
+                self.parameter_states
+                    .get_mut(parameter.index())
+                    .ok_or_else(invalid_state)?
+                    .set_target(normalized, frames);
             }
             ProcessEventKind::PitchBend { value } => {
                 self.pitch_bend
@@ -230,6 +250,109 @@ impl InstrumentRuntime {
             .enumerate()
             .min_by_key(|(_, voice)| voice.started_at_frame())
             .map_or(0, |(index, _)| index)
+    }
+
+    fn prepare_note_request(&mut self, note: NoteRequest) -> Result<bool, ProcessError> {
+        if self.note_layer_selection.len() != self.compiled.layers.len() {
+            return Err(invalid_state());
+        }
+        self.note_layer_selection
+            .fill(PreparedLayerSelection::Inactive);
+        let mut can_trigger = false;
+        let compiled = Arc::clone(&self.compiled);
+        for (layer_index, layer) in compiled.layers.iter().enumerate() {
+            if !layer.trigger.matches(note.note_number, note.velocity) {
+                continue;
+            }
+            match &layer.generator {
+                CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => {
+                    *self
+                        .note_layer_selection
+                        .get_mut(layer_index)
+                        .ok_or_else(invalid_state)? =
+                        PreparedLayerSelection::Active { sample_zone: None };
+                    can_trigger = true;
+                }
+                CompiledGenerator::Sample(sample) => {
+                    if let Some(zone_index) = self.select_sample_zone(
+                        layer_index,
+                        sample,
+                        note.note_number,
+                        note.velocity,
+                    )? {
+                        *self
+                            .note_layer_selection
+                            .get_mut(layer_index)
+                            .ok_or_else(invalid_state)? = PreparedLayerSelection::Active {
+                            sample_zone: Some(zone_index),
+                        };
+                        can_trigger = true;
+                    }
+                }
+            }
+        }
+        Ok(can_trigger)
+    }
+
+    fn select_sample_zone(
+        &mut self,
+        layer_index: usize,
+        sample: &crate::compiler::CompiledSample,
+        note_number: u8,
+        velocity: u8,
+    ) -> Result<Option<usize>, ProcessError> {
+        let Some((first_index, first_zone)) = sample
+            .zones
+            .iter()
+            .enumerate()
+            .find(|(_, zone)| zone_matches(zone, note_number, velocity))
+        else {
+            return Ok(None);
+        };
+        let Some(group_index) = first_zone.group else {
+            return Ok(Some(first_index));
+        };
+        let group = sample.groups.get(group_index).ok_or_else(invalid_state)?;
+        let counter = self
+            .round_robin_counters
+            .get(layer_index)
+            .and_then(|counters| counters.get(group_index))
+            .copied()
+            .ok_or_else(invalid_state)?;
+        let matching_count = group
+            .enabled_member_zone_indices
+            .iter()
+            .filter(|index| {
+                sample
+                    .zones
+                    .get(**index)
+                    .is_some_and(|zone| zone_matches(zone, note_number, velocity))
+            })
+            .count();
+        if matching_count == 0 {
+            return Ok(None);
+        }
+        let divisor = u64::try_from(matching_count).map_err(|_| invalid_state())?;
+        let selected_offset = usize::try_from(counter % divisor).map_err(|_| invalid_state())?;
+        let selected = group
+            .enabled_member_zone_indices
+            .iter()
+            .copied()
+            .filter(|index| {
+                sample
+                    .zones
+                    .get(*index)
+                    .is_some_and(|zone| zone_matches(zone, note_number, velocity))
+            })
+            .nth(selected_offset)
+            .ok_or_else(invalid_state)?;
+        let next_counter = counter.wrapping_add(1);
+        *self
+            .round_robin_counters
+            .get_mut(layer_index)
+            .and_then(|counters| counters.get_mut(group_index))
+            .ok_or_else(invalid_state)? = next_counter;
+        Ok(Some(selected))
     }
 
     fn validate_parameter_events(
@@ -300,8 +423,11 @@ impl InstrumentRuntime {
         targets: &mut [ProcessorTargetSpan],
         shared: SharedParameterSpan<'_>,
     ) -> Result<(), ProcessError> {
-        for (index, processor) in compiled.global_processors.iter().enumerate() {
-            targets[index] = Self::evaluate_global_processor_target(compiled, processor, shared)?;
+        if targets.len() != compiled.global_processors.len() {
+            return Err(invalid_state());
+        }
+        for (target, processor) in targets.iter_mut().zip(&compiled.global_processors) {
+            *target = Self::evaluate_global_processor_target(compiled, processor, shared)?;
         }
         Ok(())
     }
@@ -350,7 +476,7 @@ impl InstrumentRuntime {
                 handle: handle.index(),
             },
         )?;
-        let base = shared.parameter(handle);
+        let base = shared.parameter(handle).ok_or_else(invalid_state)?;
         let base_start = descriptor
             .denormalize(base.start)
             .map_err(|_| ProcessError::InvalidEventValue)?;
@@ -367,7 +493,10 @@ impl InstrumentRuntime {
         let mut linear_end = 0.0;
         let mut logarithmic_start = 0.0;
         let mut logarithmic_end = 0.0;
-        for route in compiled.routes_for(handle) {
+        let routes = compiled
+            .routes_for_checked(handle)
+            .ok_or_else(invalid_state)?;
+        for route in routes {
             let source = match route.source {
                 crate::compiler::CompiledSourceRef::PitchBend => shared.pitch_bend(),
                 crate::compiler::CompiledSourceRef::ModWheel => shared.mod_wheel(),
@@ -415,15 +544,19 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.spec = None;
         self.voices.clear();
         self.scratch.layer_mono.clear();
+        self.scratch.layer_left.clear();
+        self.scratch.layer_right.clear();
         self.scratch.voice_left.clear();
         self.scratch.voice_right.clear();
         self.scratch.parameter_spans.clear();
+        self.note_layer_selection.clear();
         self.parameter_states.clear();
         self.pitch_bend.reset(0.0);
         self.mod_wheel.reset(0.0);
         self.aftertouch.reset(0.0);
         self.global_processors = None;
         self.global_targets.clear();
+        self.round_robin_counters.clear();
         self.absolute_frame = 0;
 
         spec.validate()?;
@@ -438,6 +571,8 @@ impl InstrumentProcessor for InstrumentRuntime {
             });
         }
         self.scratch.layer_mono.resize(spec.max_block_size, 0.0);
+        self.scratch.layer_left.resize(spec.max_block_size, 0.0);
+        self.scratch.layer_right.resize(spec.max_block_size, 0.0);
         self.scratch.voice_left.resize(spec.max_block_size, 0.0);
         self.scratch.voice_right.resize(spec.max_block_size, 0.0);
         self.scratch.parameter_spans.resize(
@@ -447,6 +582,8 @@ impl InstrumentProcessor for InstrumentRuntime {
                 end: 0.0,
             },
         );
+        self.note_layer_selection
+            .resize(self.compiled.layers.len(), PreparedLayerSelection::Inactive);
         self.parameter_states = self
             .compiled
             .parameters()
@@ -458,6 +595,15 @@ impl InstrumentProcessor for InstrumentRuntime {
                     .map_err(|_| ProcessError::InvalidCompiledParameterDefault)
             })
             .collect::<Result<Vec<_>, _>>()?;
+        self.round_robin_counters = self
+            .compiled
+            .layers
+            .iter()
+            .map(|layer| match &layer.generator {
+                CompiledGenerator::Sample(sample) => vec![0; sample.groups.len()],
+                CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => Vec::new(),
+            })
+            .collect();
         let mut voices = Vec::with_capacity(self.compiled.performance.polyphony);
         for _ in 0..self.compiled.performance.polyphony {
             voices.push(VoiceRuntime::new(&self.compiled, spec)?);
@@ -468,7 +614,7 @@ impl InstrumentProcessor for InstrumentRuntime {
             .compiled
             .global_processors
             .iter()
-            .map(zero_processor_target)
+            .map(|processor| ProcessorTargetSpan::zero_for(&processor.processor))
             .collect();
         self.global_processors = Some(global_processors);
         self.spec = Some(spec);
@@ -533,6 +679,8 @@ impl InstrumentProcessor for InstrumentRuntime {
             let (pitch_bend, mod_wheel, aftertouch) = self.advance_shared(frames);
             let RuntimeScratch {
                 layer_mono,
+                layer_left,
+                layer_right,
                 voice_left,
                 voice_right,
                 parameter_spans,
@@ -548,6 +696,8 @@ impl InstrumentProcessor for InstrumentRuntime {
                 &mut self.voices,
                 &self.compiled,
                 layer_mono,
+                layer_left,
+                layer_right,
                 voice_left,
                 voice_right,
                 block.output,
@@ -568,13 +718,27 @@ impl InstrumentProcessor for InstrumentRuntime {
                 return Err(error);
             }
             let global_result = {
-                let (left_channels, right_channels) = block.output.split_at_mut(1);
-                let left = &mut left_channels[0][cursor..end];
-                let right = &mut right_channels[0][cursor..end];
-                self.global_processors
-                    .as_mut()
-                    .ok_or(ProcessError::NotPrepared)
-                    .and_then(|processors| processors.process(&self.global_targets, left, right))
+                if block.output.len() < 2 {
+                    Err(invalid_state())
+                } else {
+                    let (left_channels, right_channels) = block.output.split_at_mut(1);
+                    let left = left_channels
+                        .first_mut()
+                        .and_then(|channel| channel.get_mut(cursor..end));
+                    let right = right_channels
+                        .first_mut()
+                        .and_then(|channel| channel.get_mut(cursor..end));
+                    match (left, right) {
+                        (Some(left), Some(right)) => self
+                            .global_processors
+                            .as_mut()
+                            .ok_or(ProcessError::NotPrepared)
+                            .and_then(|processors| {
+                                processors.process(&self.global_targets, left, right)
+                            }),
+                        _ => Err(invalid_state()),
+                    }
+                }
             };
             if let Err(error) = global_result {
                 clear_output(&mut *block.output, block.frames);
@@ -620,6 +784,8 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.mod_wheel.reset(0.0);
         self.aftertouch.reset(0.0);
         self.scratch.layer_mono.fill(0.0);
+        self.scratch.layer_left.fill(0.0);
+        self.scratch.layer_right.fill(0.0);
         self.scratch.voice_left.fill(0.0);
         self.scratch.voice_right.fill(0.0);
         self.scratch.parameter_spans.fill(ParameterSpanValue {
@@ -627,64 +793,13 @@ impl InstrumentProcessor for InstrumentRuntime {
             end: 0.0,
         });
         for target in &mut self.global_targets {
-            *target = zero_processor_target_from_target(*target);
+            target.clear();
+        }
+        for counters in &mut self.round_robin_counters {
+            counters.fill(0);
         }
         self.absolute_frame = 0;
         Ok(())
-    }
-}
-
-fn zero_processor_target(processor: &CompiledProcessor) -> ProcessorTargetSpan {
-    let zero = ValueSpan {
-        start: 0.0,
-        end: 0.0,
-    };
-    match &processor.processor {
-        CompiledProcessorKind::Filter(_) => ProcessorTargetSpan::Filter {
-            cutoff: zero,
-            resonance: zero,
-        },
-        CompiledProcessorKind::Drive(_) => ProcessorTargetSpan::Drive {
-            amount: zero,
-            mix: zero,
-        },
-        CompiledProcessorKind::Delay(_) => ProcessorTargetSpan::Delay {
-            feedback: zero,
-            mix: zero,
-        },
-        CompiledProcessorKind::Reverb(_) => ProcessorTargetSpan::Reverb {
-            decay: zero,
-            damping: zero,
-            width: zero,
-            mix: zero,
-        },
-    }
-}
-
-fn zero_processor_target_from_target(target: ProcessorTargetSpan) -> ProcessorTargetSpan {
-    let zero = ValueSpan {
-        start: 0.0,
-        end: 0.0,
-    };
-    match target {
-        ProcessorTargetSpan::Filter { .. } => ProcessorTargetSpan::Filter {
-            cutoff: zero,
-            resonance: zero,
-        },
-        ProcessorTargetSpan::Drive { .. } => ProcessorTargetSpan::Drive {
-            amount: zero,
-            mix: zero,
-        },
-        ProcessorTargetSpan::Delay { .. } => ProcessorTargetSpan::Delay {
-            feedback: zero,
-            mix: zero,
-        },
-        ProcessorTargetSpan::Reverb { .. } => ProcessorTargetSpan::Reverb {
-            decay: zero,
-            damping: zero,
-            width: zero,
-            mix: zero,
-        },
     }
 }
 
@@ -708,6 +823,18 @@ fn curve_value(value: f32, curve: crate::definition::ModulationCurve) -> f32 {
 
 fn control_smoothing_frames(sample_rate: f64) -> usize {
     rounded_frame_count(sample_rate * CONTROL_SMOOTHING_SECONDS).max(1)
+}
+
+fn zone_matches(zone: &CompiledSampleZone, note_number: u8, velocity: u8) -> bool {
+    zone.is_enabled()
+        && (zone.key_min..=zone.key_max).contains(&note_number)
+        && (zone.velocity_min..=zone.velocity_max).contains(&velocity)
+}
+
+fn invalid_state() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: crate::process::ProcessorFailureKind::InvalidState,
+    }
 }
 
 #[cfg(test)]
@@ -778,6 +905,28 @@ mod tests {
         vec![left, right]
     }
 
+    fn process_with_stack_output(
+        runtime: &mut InstrumentRuntime,
+        absolute_frame: u64,
+        events: &[ProcessEvent],
+    ) {
+        const FRAMES: usize = 64;
+        let mut left = [0.0_f32; FRAMES];
+        let mut right = [0.0_f32; FRAMES];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        runtime
+            .process(ProcessBlock {
+                frames: FRAMES,
+                context: crate::process::ProcessContext {
+                    absolute_frame,
+                    tempo_bpm: 120.0,
+                },
+                events,
+                output: &mut output,
+            })
+            .expect("process succeeds");
+    }
+
     #[test]
     fn note_lifecycle_produces_stereo_audio_and_release() {
         let mut runtime = runtime();
@@ -799,6 +948,136 @@ mod tests {
         }];
         let _ = process(&mut runtime, 256, 128, &off);
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
+    }
+
+    #[test]
+    fn note_on_reuses_prepared_layer_selection_storage() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let note_layer_capacity = runtime.note_layer_selection.capacity();
+        let pending_layer_capacity = runtime.voices[0].pending_layer_selection_capacity();
+
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &first_note);
+
+        let second_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 64,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 64, &second_note);
+
+        assert_eq!(runtime.note_layer_selection.capacity(), note_layer_capacity);
+        assert_eq!(
+            runtime.voices[0].pending_layer_selection_capacity(),
+            pending_layer_capacity
+        );
+    }
+
+    #[test]
+    fn idle_note_on_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+
+        let _ = process(&mut runtime, 64, 0, &event);
+        runtime.reset().expect("reset");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
+    fn voice_stealing_note_on_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let first_event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let second_event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 64,
+                velocity: 100,
+            },
+        }];
+
+        let _ = process(&mut runtime, 64, 0, &first_event);
+        let _ = process(&mut runtime, 64, 64, &second_event);
+        runtime.reset().expect("reset");
+        let _ = process(&mut runtime, 64, 0, &first_event);
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 64, &second_event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
+    fn note_on_activates_only_layers_matching_the_note() {
+        let single_layer = definition();
+        let mut layered = single_layer.clone();
+        let mut non_matching = layered.layers[0].clone();
+        non_matching.id = "non_matching".to_owned();
+        non_matching.trigger.key_min = 72;
+        non_matching.trigger.key_max = 72;
+        non_matching.gain_db = 0.0;
+        non_matching.envelope.attack_seconds = 0.0;
+        non_matching.envelope.decay_seconds = 0.0;
+        non_matching.envelope.sustain_level = 1.0;
+        layered.layers.push(non_matching);
+
+        let mut single_runtime = runtime_with(&single_layer);
+        let mut layered_runtime = runtime_with(&layered);
+        prepare(&mut single_runtime);
+        prepare(&mut layered_runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+
+        let single_audio = process(&mut single_runtime, 128, 0, &event);
+        let layered_audio = process(&mut layered_runtime, 128, 0, &event);
+
+        assert_eq!(single_audio[0], layered_audio[0]);
+        assert_eq!(single_audio[1], layered_audio[1]);
     }
 
     #[test]
@@ -974,6 +1253,57 @@ mod tests {
             kind: ProcessEventKind::NoteOn {
                 note_id: 3,
                 note_number: 64,
+                velocity: 100,
+            },
+        }];
+        let first = process(&mut runtime, 128, 0, &event);
+        runtime.reset().expect("reset");
+        let second = process(&mut runtime, 128, 0, &event);
+        for (left, right) in first[0].iter().zip(&second[0]) {
+            assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
+        }
+    }
+
+    #[test]
+    fn reset_restarts_round_robin_selection_from_the_first_zone() {
+        let asset_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata/assets/metal-hit.wav")
+            .to_string_lossy()
+            .into_owned();
+        let asset = |start_seconds, end_seconds| crate::definition::SampleZoneDefinition {
+            id: if start_seconds == 0.0 {
+                "hit_a".to_owned()
+            } else {
+                "hit_b".to_owned()
+            },
+            asset: crate::definition::AssetReference {
+                path: asset_path.clone(),
+                sha256: None,
+            },
+            root_note: 60,
+            key_min: 0,
+            key_max: 127,
+            velocity_min: 1,
+            velocity_max: 127,
+            round_robin_group: Some("hits".to_owned()),
+            playback: crate::definition::SampleZonePlaybackDefinition::OneShot {
+                start_seconds,
+                end_seconds: Some(end_seconds),
+            },
+        };
+        let mut source = definition();
+        source.layers[0].generator =
+            crate::definition::GeneratorDefinition::Sample(crate::definition::SampleDefinition {
+                interpolation: crate::definition::SampleInterpolation::Cubic,
+                zones: vec![asset(0.0, 0.08), asset(0.08, 0.16)],
+            });
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 3,
+                note_number: 60,
                 velocity: 100,
             },
         }];
@@ -1308,7 +1638,10 @@ mod tests {
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
     }
 
-    fn phase_runtime(phase_reset: bool) -> InstrumentRuntime {
+    fn phase_runtime_with_waveform(
+        phase_reset: bool,
+        waveform: crate::definition::OscillatorWaveform,
+    ) -> InstrumentRuntime {
         let mut source = definition();
         source.performance.polyphony = 1;
         source.layers[0].envelope.attack_seconds = 0.0;
@@ -1318,12 +1651,18 @@ mod tests {
         match &mut source.layers[0].generator {
             crate::definition::GeneratorDefinition::Oscillator(oscillator) => {
                 oscillator.phase_reset = phase_reset;
+                oscillator.waveform = waveform;
             }
-            crate::definition::GeneratorDefinition::Sample(_) => {
+            crate::definition::GeneratorDefinition::Sample(_)
+            | crate::definition::GeneratorDefinition::Noise(_) => {
                 panic!("test fixture must use an oscillator");
             }
         }
         runtime_with(&source)
+    }
+
+    fn phase_runtime(phase_reset: bool) -> InstrumentRuntime {
+        phase_runtime_with_waveform(phase_reset, crate::definition::OscillatorWaveform::Sine)
     }
 
     fn modulated_steal_definition() -> crate::definition::InstrumentDefinition {
@@ -1641,6 +1980,108 @@ mod tests {
         let second = process(&mut runtime, 64, 0, &note);
         for (left, right) in first[0].iter().zip(&second[0]) {
             assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
+        }
+    }
+
+    #[test]
+    fn triangle_retrigger_after_release_matches_first_render() {
+        let mut runtime =
+            phase_runtime_with_waveform(true, crate::definition::OscillatorWaveform::Triangle);
+        prepare(&mut runtime);
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let first = process(&mut runtime, 64, 0, &first_note);
+        let note_off = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        }];
+        let _ = process(&mut runtime, 64, 64, &note_off);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
+
+        let second_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let second = process(&mut runtime, 64, 128, &second_note);
+        for (first, second) in first[0].iter().zip(&second[0]) {
+            assert_relative_eq!(*first, *second, epsilon = 1.0e-6);
+        }
+    }
+
+    #[test]
+    fn triangle_instrument_reset_matches_a_fresh_runtime() {
+        let mut runtime =
+            phase_runtime_with_waveform(false, crate::definition::OscillatorWaveform::Triangle);
+        prepare(&mut runtime);
+        let note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let first = process(&mut runtime, 64, 0, &note);
+        runtime.reset().expect("reset");
+        let second = process(&mut runtime, 64, 0, &note);
+        for (first, second) in first[0].iter().zip(&second[0]) {
+            assert_relative_eq!(*first, *second, epsilon = 1.0e-6);
+        }
+    }
+
+    #[test]
+    fn triangle_voice_stealing_starts_from_the_compiled_phase() {
+        let mut stolen =
+            phase_runtime_with_waveform(true, crate::definition::OscillatorWaveform::Triangle);
+        let mut direct =
+            phase_runtime_with_waveform(true, crate::definition::OscillatorWaveform::Triangle);
+        prepare(&mut stolen);
+        prepare(&mut direct);
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let _ = process(&mut stolen, 64, 0, &first_note);
+
+        let pending_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let stolen_audio = process(&mut stolen, 256, 64, &pending_note);
+        let direct_audio = process(
+            &mut direct,
+            16,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 3,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        assert_eq!(stolen.voice_state(0), Some(VoiceState::Active));
+        for (stolen_sample, direct_sample) in stolen_audio[0][240..].iter().zip(&direct_audio[0]) {
+            assert_relative_eq!(*stolen_sample, *direct_sample, epsilon = 1.0e-6);
         }
     }
 

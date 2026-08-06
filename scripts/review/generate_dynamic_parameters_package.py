@@ -131,7 +131,7 @@ def copy_definition(source: Path, destination: Path) -> None:
     for layer in value["layers"]:
         sample = layer.get("generator", {}).get("sample")
         if sample is not None:
-            sample["asset"]["path"] = "../assets/metal-hit.wav"
+            sample["zones"][0]["asset"]["path"] = "../assets/metal-hit.wav"
     write_definition(destination, value)
 
 
@@ -152,7 +152,7 @@ def copy_modulation_variant(
     for layer in value["layers"]:
         sample = layer.get("generator", {}).get("sample")
         if sample is not None:
-            sample["asset"]["path"] = "../assets/metal-hit.wav"
+            sample["zones"][0]["asset"]["path"] = "../assets/metal-hit.wav"
     modulation = value.get("modulation")
     if modulation is None:
         raise RuntimeError(f"definition has no modulation block: {source}")
@@ -246,7 +246,7 @@ def main() -> None:
     for layer in stealing_value["layers"]:
         sample = layer.get("generator", {}).get("sample")
         if sample is not None:
-            sample["asset"]["path"] = "../assets/metal-hit.wav"
+            sample["zones"][0]["asset"]["path"] = "../assets/metal-hit.wav"
     write_utf8(
         stealing_definition,
         json.dumps(stealing_value, ensure_ascii=False, indent=2) + "\n",

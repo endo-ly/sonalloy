@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Mapped Sample Instrument",
+    "author": "Sonalloy",
+    "description": "Key zones, velocity layers, round robin, and explicit sample regions"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "sample",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -3.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "low_soft",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 36,
+              "key_min": 0,
+              "key_max": 47,
+              "velocity_min": 1,
+              "velocity_max": 70,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": 0.08
+              }
+            },
+            {
+              "id": "low_hard",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 36,
+              "key_min": 0,
+              "key_max": 47,
+              "velocity_min": 71,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.08,
+                "end_seconds": 0.16
+              }
+            },
+            {
+              "id": "mid",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 60,
+              "key_min": 48,
+              "key_max": 83,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": 0.16
+              }
+            },
+            {
+              "id": "high_a",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 84,
+              "key_min": 84,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": "high_hits",
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": 0.08
+              }
+            },
+            {
+              "id": "high_b",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 84,
+              "key_min": 84,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": "high_hits",
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.08,
+                "end_seconds": 0.16
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": []
+  }
+}

@@ -46,16 +46,16 @@
 
 | Item | Result | Notes |
 |---|---|---|
-| Source and decoded root sound natural |  |  |
-| Pitch range is usable |  |  |
-| Sample ending is free of an audible click |  |  |
-| Attack layer has a clear transient role |  |  |
-| Body layer provides pitch and sustain |  |  |
-| Solo layers combine into one instrument |  |  |
-| Velocity response is natural |  |  |
-| Musical phrase is usable |  |  |
-| Hybrid value is clear |  |  |
-| Instrument is ready for use |  |  |
+| Source and decoded root sound natural | 承認 | 利用者確認済み |
+| Pitch range is usable | 承認 | 利用者確認済み |
+| Sample ending is free of an audible click | 承認 | 利用者確認済み |
+| Attack layer has a clear transient role | 承認 | 利用者確認済み |
+| Body layer provides pitch and sustain | 承認 | 利用者確認済み |
+| Solo layers combine into one instrument | 承認 | 利用者確認済み |
+| Velocity response is natural | 承認 | 利用者確認済み |
+| Musical phrase is usable | 承認 | 利用者確認済み |
+| Hybrid value is clear | 承認 | 利用者確認済み |
+| Instrument is ready for use | 承認 | 利用者確認済み |
 
 ## Files
 

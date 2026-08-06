@@ -1,18 +1,19 @@
-use sonalloy_dsp_sys::{DspOscillator, DspOscillatorWaveform};
-
 use crate::compiler::{
     CompiledGenerator, CompiledInstrument, CompiledLayer, CompiledProcessorKind, CompiledSourceRef,
-    CompiledVoiceSource, cents_to_ratio, db_to_linear, midi_note_frequency,
+    CompiledVoiceSource, GeneratorOutputMode, db_to_linear,
 };
 use crate::definition::LfoWaveform;
 use crate::parameter::ParameterScale;
 use crate::process::{NoteId, ProcessError, ProcessSpec};
 
 use super::adsr::AdsrRuntime;
+use super::generator::GeneratorRuntime;
 use super::mix::constant_power_pan;
-use super::modulation::{LayerTargetSpan, SharedParameterSpan, ValueSpan, VoiceTargetScratch};
+use super::modulation::{
+    LayerGeneratorTargetSpan, LayerTargetSpan, SharedParameterSpan, ValueSpan, VoiceTargetScratch,
+};
 use super::processor::{LayerProcessorChain, ProcessorTargetSpan, StereoProcessorChain};
-use super::sample::{SampleRuntime, playback_ratio};
+use super::random::{bipolar_f32, splitmix64_finalizer};
 use super::smoothing::{Smoother, rounded_frame_count};
 
 const GAIN_SMOOTHING_SECONDS: f64 = 0.005;
@@ -38,6 +39,12 @@ pub(crate) struct NoteRequest {
     pub(crate) started_at_frame: u64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PreparedLayerSelection {
+    Inactive,
+    Active { sample_zone: Option<usize> },
+}
+
 impl NoteRequest {
     pub(crate) fn new(
         note_id: NoteId,
@@ -54,22 +61,10 @@ impl NoteRequest {
     }
 }
 
-enum GeneratorRuntime {
-    Oscillator {
-        oscillator: DspOscillator,
-        phase_reset: bool,
-    },
-    Sample {
-        sample: SampleRuntime,
-        root_note: u8,
-    },
-    Disabled,
-}
-
 struct LayerRuntime {
-    trigger: crate::compiler::CompiledLayerTrigger,
     envelope: AdsrRuntime,
     generator: GeneratorRuntime,
+    output_mode: GeneratorOutputMode,
     processors: LayerProcessorChain,
     active: bool,
     note_start_fade: Smoother,
@@ -78,40 +73,13 @@ struct LayerRuntime {
 
 impl LayerRuntime {
     fn new(compiled: &CompiledLayer, spec: ProcessSpec) -> Result<Self, ProcessError> {
-        let generator = match &compiled.generator {
-            CompiledGenerator::Oscillator(definition) => {
-                let mut oscillator = DspOscillator::new().map_err(ProcessError::from_dsp_error)?;
-                let waveform = match definition.waveform {
-                    crate::definition::OscillatorWaveform::Sine => DspOscillatorWaveform::Sine,
-                    crate::definition::OscillatorWaveform::Saw => DspOscillatorWaveform::Saw,
-                };
-                oscillator
-                    .prepare(spec.sample_rate, waveform)
-                    .map_err(ProcessError::from_dsp_error)?;
-                oscillator.reset().map_err(ProcessError::from_dsp_error)?;
-                GeneratorRuntime::Oscillator {
-                    oscillator,
-                    phase_reset: definition.phase_reset,
-                }
-            }
-            CompiledGenerator::Sample(sample) => {
-                sample
-                    .source
-                    .as_ref()
-                    .map_or(GeneratorRuntime::Disabled, |source| {
-                        GeneratorRuntime::Sample {
-                            sample: SampleRuntime::new(source),
-                            root_note: sample.root_note,
-                        }
-                    })
-            }
-        };
+        let generator = GeneratorRuntime::new(&compiled.generator, spec)?;
         let note_start_fade_frames =
             rounded_frame_count(spec.sample_rate * GAIN_SMOOTHING_SECONDS).max(1);
         let processors = LayerProcessorChain::new(&compiled.processors, spec)?;
         Ok(Self {
-            trigger: compiled.trigger,
             envelope: AdsrRuntime::new(compiled.envelope),
+            output_mode: compiled.generator.output_mode(),
             generator,
             processors,
             active: false,
@@ -120,27 +88,14 @@ impl LayerRuntime {
         })
     }
 
-    fn can_trigger(&self, note_number: u8, velocity: u8) -> bool {
-        !matches!(self.generator, GeneratorRuntime::Disabled)
-            && self.trigger.matches(note_number, velocity)
-    }
-
-    fn start(&mut self, note: NoteRequest) -> Result<(), ProcessError> {
-        if !self.can_trigger(note.note_number, note.velocity) {
-            return Ok(());
-        }
-        match &mut self.generator {
-            GeneratorRuntime::Oscillator {
-                oscillator,
-                phase_reset,
-            } => {
-                if *phase_reset {
-                    oscillator.reset().map_err(ProcessError::from_dsp_error)?;
-                }
-            }
-            GeneratorRuntime::Sample { sample, .. } => sample.start(),
-            GeneratorRuntime::Disabled => return Ok(()),
-        }
+    fn start(
+        &mut self,
+        note: NoteRequest,
+        sample_zone: Option<usize>,
+        compiled: &CompiledLayer,
+    ) -> Result<(), ProcessError> {
+        self.generator
+            .start(note.note_id, sample_zone, &compiled.generator)?;
         self.envelope.note_on();
         self.note_start_fade.reset(0.0);
         self.note_start_fade
@@ -149,6 +104,7 @@ impl LayerRuntime {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_source(
         &mut self,
         frames: usize,
@@ -156,79 +112,26 @@ impl LayerRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        output: &mut [f32],
+        targets: LayerGeneratorTargetSpan,
+        mono: &mut [f32],
+        left: &mut [f32],
+        right: &mut [f32],
     ) -> Result<bool, ProcessError> {
-        match &mut self.generator {
-            GeneratorRuntime::Oscillator { oscillator, .. } => {
-                let mut start_frequency =
-                    midi_note_frequency(note_number, cents_to_ratio(tuning_start));
-                let mut end_frequency =
-                    midi_note_frequency(note_number, cents_to_ratio(tuning_end));
-                #[allow(clippy::cast_possible_truncation)]
-                let max_frequency = (sample_rate * 0.45) as f32;
-                if !start_frequency.is_finite()
-                    || !end_frequency.is_finite()
-                    || start_frequency <= 0.0
-                    || end_frequency <= 0.0
-                {
-                    return Err(ProcessError::InvalidFrequency);
-                }
-                start_frequency = start_frequency.min(max_frequency);
-                end_frequency = end_frequency.min(max_frequency);
-                match oscillator_processing_mode(start_frequency, end_frequency) {
-                    OscillatorProcessingMode::Constant => oscillator
-                        .process(start_frequency, &mut output[..frames])
-                        .map_err(ProcessError::from_dsp_error)?,
-                    OscillatorProcessingMode::Ramp => oscillator
-                        .process_ramp(start_frequency, end_frequency, &mut output[..frames])
-                        .map_err(ProcessError::from_dsp_error)?,
-                }
-                Ok(false)
-            }
-            GeneratorRuntime::Sample { sample, root_note } => {
-                let start_ratio =
-                    playback_ratio(note_number, *root_note, cents_to_ratio(tuning_start));
-                let end_ratio = playback_ratio(note_number, *root_note, cents_to_ratio(tuning_end));
-                if !start_ratio.is_finite()
-                    || !end_ratio.is_finite()
-                    || start_ratio <= 0.0
-                    || end_ratio <= 0.0
-                {
-                    return Err(ProcessError::InvalidFrequency);
-                }
-                if frames == 0 {
-                    return Ok(sample.is_finished());
-                }
-                if start_ratio.total_cmp(&end_ratio).is_eq() {
-                    for value in &mut output[..frames] {
-                        *value = sample.next_sample_with_ratio(start_ratio);
-                    }
-                } else {
-                    #[allow(clippy::cast_precision_loss)]
-                    let ratio_step = (end_ratio / start_ratio).powf(1.0 / frames as f64);
-                    let mut ratio = start_ratio;
-                    for value in &mut output[..frames] {
-                        *value = sample.next_sample_with_ratio(ratio);
-                        ratio *= ratio_step;
-                    }
-                }
-                Ok(sample.is_finished())
-            }
-            GeneratorRuntime::Disabled => {
-                output[..frames].fill(0.0);
-                Ok(true)
-            }
-        }
+        self.generator.render(
+            frames,
+            note_number,
+            tuning_start,
+            tuning_end,
+            sample_rate,
+            targets,
+            mono,
+            left,
+            right,
+        )
     }
 
     fn reset(&mut self) -> Result<(), ProcessError> {
-        match &mut self.generator {
-            GeneratorRuntime::Oscillator { oscillator, .. } => {
-                oscillator.reset().map_err(ProcessError::from_dsp_error)?;
-            }
-            GeneratorRuntime::Sample { sample, .. } => sample.reset(),
-            GeneratorRuntime::Disabled => {}
-        }
+        self.generator.reset()?;
         self.processors.reset()?;
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
@@ -236,15 +139,7 @@ impl LayerRuntime {
         Ok(())
     }
 
-    fn reset_to_idle(&mut self) -> Result<(), ProcessError> {
-        self.processors.reset()?;
-        self.envelope.reset();
-        self.note_start_fade.reset(0.0);
-        self.active = false;
-        Ok(())
-    }
-
-    fn reset_for_note(&mut self) -> Result<(), ProcessError> {
+    fn reset_state(&mut self) -> Result<(), ProcessError> {
         self.processors.reset()?;
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
@@ -277,6 +172,7 @@ pub(crate) struct VoiceRuntime {
     source_used: Vec<bool>,
     targets: VoiceTargetScratch,
     pending: Option<NoteRequest>,
+    pending_layer_selection: Vec<PreparedLayerSelection>,
     steal_fade_total: usize,
     steal_fade_remaining: usize,
 }
@@ -339,6 +235,7 @@ impl VoiceRuntime {
             source_used,
             targets: VoiceTargetScratch::new(&compiled.layers, &compiled.voice_processors),
             pending: None,
+            pending_layer_selection: vec![PreparedLayerSelection::Inactive; compiled.layers.len()],
             steal_fade_total: 0,
             steal_fade_remaining: 0,
         })
@@ -356,24 +253,35 @@ impl VoiceRuntime {
         self.estimated_level
     }
 
+    #[cfg(test)]
+    pub(super) fn pending_layer_selection_capacity(&self) -> usize {
+        self.pending_layer_selection.capacity()
+    }
+
     pub(crate) fn request_note(
         &mut self,
-        note: NoteRequest,
+        compiled: &CompiledInstrument,
+        request: NoteRequest,
+        layer_selection: &[PreparedLayerSelection],
         fade_frames: usize,
     ) -> Result<(), ProcessError> {
-        if !self.can_trigger(note.note_number, note.velocity) {
-            return Ok(());
+        if layer_selection.len() != self.layers.len()
+            || self.pending_layer_selection.len() != self.layers.len()
+        {
+            return Err(invalid_state());
         }
         if self.state == VoiceState::Idle {
-            self.start_note(note)?;
+            self.start_note(compiled, request, layer_selection)?;
             return Ok(());
         }
-        self.pending = Some(note);
+        self.pending_layer_selection
+            .copy_from_slice(layer_selection);
+        self.pending = Some(request);
         self.state = VoiceState::StealFading;
         self.steal_fade_total = fade_frames;
         self.steal_fade_remaining = fade_frames;
         if fade_frames == 0 {
-            self.complete_steal()?;
+            self.complete_steal(compiled)?;
         }
         Ok(())
     }
@@ -381,6 +289,7 @@ impl VoiceRuntime {
     pub(crate) fn release_note(&mut self, note_id: NoteId) {
         if self
             .pending
+            .as_ref()
             .is_some_and(|pending| pending.note_id == note_id)
         {
             self.pending = None;
@@ -411,13 +320,38 @@ impl VoiceRuntime {
         compiled: &CompiledInstrument,
         shared: SharedParameterSpan<'_>,
         layer_mono: &mut [f32],
+        layer_left: &mut [f32],
+        layer_right: &mut [f32],
         voice_left: &mut [f32],
         voice_right: &mut [f32],
     ) -> Result<(), ProcessError> {
         if frames == 0 {
             return Ok(());
         }
+        if self.layers.len() != compiled.layers.len()
+            || self.targets.layers.len() != compiled.layers.len()
+            || self.targets.layer_processors.len() != compiled.layers.len()
+            || self.targets.voice_processors.len() != compiled.voice_processors.len()
+            || self.source_states.len() != self.source_definitions.len()
+            || self.source_spans.len() != self.source_definitions.len()
+            || self.source_used.len() != self.source_definitions.len()
+            || layer_mono.len() < frames
+            || layer_left.len() < frames
+            || layer_right.len() < frames
+            || voice_left.len() < frames
+            || voice_right.len() < frames
+            || self
+                .targets
+                .layer_processors
+                .iter()
+                .zip(&compiled.layers)
+                .any(|(targets, layer)| targets.len() != layer.processors.len())
+        {
+            return Err(invalid_state());
+        }
         layer_mono[..frames].fill(0.0);
+        layer_left[..frames].fill(0.0);
+        layer_right[..frames].fill(0.0);
         voice_left[..frames].fill(0.0);
         voice_right[..frames].fill(0.0);
         if self.state == VoiceState::Idle {
@@ -435,7 +369,7 @@ impl VoiceRuntime {
             }
             if chunk == 0 {
                 if self.state == VoiceState::StealFading {
-                    self.complete_steal()?;
+                    self.complete_steal(compiled)?;
                     continue;
                 }
                 chunk = 1.min(frames - offset);
@@ -447,6 +381,8 @@ impl VoiceRuntime {
                 chunk,
                 sample_rate,
                 &mut layer_mono[offset..offset + chunk],
+                &mut layer_left[offset..offset + chunk],
+                &mut layer_right[offset..offset + chunk],
                 &mut voice_left[offset..offset + chunk],
                 &mut voice_right[offset..offset + chunk],
             )?;
@@ -473,12 +409,12 @@ impl VoiceRuntime {
             offset += chunk;
             if !self.has_active_layer() {
                 if self.state == VoiceState::StealFading {
-                    self.complete_steal()?;
+                    self.complete_steal(compiled)?;
                 } else {
                     self.reset_to_idle()?;
                 }
             } else if self.state == VoiceState::StealFading && self.steal_fade_remaining == 0 {
-                self.complete_steal()?;
+                self.complete_steal(compiled)?;
             }
         }
         self.estimated_level = self.estimated_level.mul_add(0.95, peak * 0.05);
@@ -486,31 +422,46 @@ impl VoiceRuntime {
     }
 
     pub(crate) fn reset(&mut self) -> Result<(), ProcessError> {
-        self.reset_to_idle()?;
         for layer in &mut self.layers {
             layer.reset()?;
         }
+        self.processors.reset()?;
+        self.clear_assignment_state();
         Ok(())
-    }
-
-    fn can_trigger(&self, note_number: u8, velocity: u8) -> bool {
-        self.layers
-            .iter()
-            .any(|layer| layer.can_trigger(note_number, velocity))
     }
 
     fn has_active_layer(&self) -> bool {
         self.layers.iter().any(|layer| layer.active)
     }
 
-    fn start_note(&mut self, note: NoteRequest) -> Result<(), ProcessError> {
+    fn start_note(
+        &mut self,
+        compiled: &CompiledInstrument,
+        request: NoteRequest,
+        layer_selection: &[PreparedLayerSelection],
+    ) -> Result<(), ProcessError> {
         self.reset_note_state()?;
+        self.activate_note(compiled, request, layer_selection)
+    }
+
+    fn activate_note(
+        &mut self,
+        compiled: &CompiledInstrument,
+        note: NoteRequest,
+        layer_selection: &[PreparedLayerSelection],
+    ) -> Result<(), ProcessError> {
+        if layer_selection.len() != self.layers.len() {
+            return Err(invalid_state());
+        }
         self.note_id = Some(note.note_id);
         self.note_number = note.note_number;
         self.velocity = note.velocity;
         self.started_at_frame = note.started_at_frame;
-        for layer in &mut self.layers {
-            layer.start(note)?;
+        for (index, (layer, selection)) in self.layers.iter_mut().zip(layer_selection).enumerate() {
+            if let PreparedLayerSelection::Active { sample_zone } = selection {
+                let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
+                layer.start(note, *sample_zone, compiled_layer)?;
+            }
         }
         self.initialize_source_state(note);
         if !self.has_active_layer() {
@@ -522,25 +473,42 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    fn complete_steal(&mut self) -> Result<(), ProcessError> {
+    fn complete_steal(&mut self, compiled: &CompiledInstrument) -> Result<(), ProcessError> {
         let pending = self.pending.take();
         self.note_id = None;
         self.state = VoiceState::Idle;
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
-        if let Some(note) = pending {
-            self.start_note(note)?;
+        if let Some(request) = pending {
+            self.activate_pending_note(compiled, request)?;
         } else {
             self.reset_to_idle()?;
         }
         Ok(())
     }
 
+    fn activate_pending_note(
+        &mut self,
+        compiled: &CompiledInstrument,
+        request: NoteRequest,
+    ) -> Result<(), ProcessError> {
+        let pending_layer_selection = std::mem::take(&mut self.pending_layer_selection);
+        let result = (|| {
+            self.reset_note_state()?;
+            self.activate_note(compiled, request, &pending_layer_selection)
+        })();
+        self.pending_layer_selection = pending_layer_selection;
+        result
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn render_active_segment(
         &mut self,
         frames: usize,
         sample_rate: f64,
         layer_mono: &mut [f32],
+        layer_left: &mut [f32],
+        layer_right: &mut [f32],
         voice_left: &mut [f32],
         voice_right: &mut [f32],
     ) -> Result<(), ProcessError> {
@@ -553,32 +521,71 @@ impl VoiceRuntime {
             }
             let target = targets.layers[index];
             layer_mono[..frames].fill(0.0);
+            layer_left[..frames].fill(0.0);
+            layer_right[..frames].fill(0.0);
             let generator_finished = layer.render_source(
                 frames,
                 self.note_number,
                 target.tuning.start,
                 target.tuning.end,
                 sample_rate,
+                target.generator,
                 layer_mono,
+                layer_left,
+                layer_right,
             )?;
-            layer
-                .processors
-                .process(&targets.layer_processors[index], &mut layer_mono[..frames])?;
-            let gain_start = db_to_linear(target.gain.start);
-            let gain_end = db_to_linear(target.gain.end);
+            match layer.output_mode {
+                GeneratorOutputMode::Mono => layer
+                    .processors
+                    .process_mono(&targets.layer_processors[index], &mut layer_mono[..frames])?,
+                GeneratorOutputMode::Stereo => layer.processors.process_stereo(
+                    &targets.layer_processors[index],
+                    &mut layer_left[..frames],
+                    &mut layer_right[..frames],
+                )?,
+            }
+            let gain = ValueSpan {
+                start: db_to_linear(target.gain.start),
+                end: db_to_linear(target.gain.end),
+            };
+            let (mono_left_start, mono_right_start) = constant_power_pan(target.pan.start);
+            let (mono_left_end, mono_right_end) = constant_power_pan(target.pan.end);
+            let mono_left = ValueSpan {
+                start: mono_left_start,
+                end: mono_left_end,
+            };
+            let mono_right = ValueSpan {
+                start: mono_right_start,
+                end: mono_right_end,
+            };
+            let (stereo_left_start, stereo_right_start) =
+                super::mix::stereo_balance(target.pan.start);
+            let (stereo_left_end, stereo_right_end) = super::mix::stereo_balance(target.pan.end);
+            let stereo_left = ValueSpan {
+                start: stereo_left_start,
+                end: stereo_left_end,
+            };
+            let stereo_right = ValueSpan {
+                start: stereo_right_start,
+                end: stereo_right_end,
+            };
             for frame in 0..frames {
                 let envelope = layer.envelope.next_sample();
                 let fade = layer.note_start_fade.next();
-                #[allow(clippy::cast_precision_loss)]
-                let position = frame as f32 / frames.max(1) as f32;
-                let gain = gain_start + (gain_end - gain_start) * position;
-                let left = target.pan_left.start
-                    + (target.pan_left.end - target.pan_left.start) * position;
-                let right = target.pan_right.start
-                    + (target.pan_right.end - target.pan_right.start) * position;
-                let mono = layer_mono[frame] * envelope * fade * gain;
-                voice_left[frame] += mono * left;
-                voice_right[frame] += mono * right;
+                let amplitude = envelope * fade * gain.value_at(frame, frames);
+                match layer.output_mode {
+                    GeneratorOutputMode::Mono => {
+                        let mono = layer_mono[frame] * amplitude;
+                        voice_left[frame] += mono * mono_left.value_at(frame, frames);
+                        voice_right[frame] += mono * mono_right.value_at(frame, frames);
+                    }
+                    GeneratorOutputMode::Stereo => {
+                        voice_left[frame] +=
+                            layer_left[frame] * amplitude * stereo_left.value_at(frame, frames);
+                        voice_right[frame] +=
+                            layer_right[frame] * amplitude * stereo_right.value_at(frame, frames);
+                    }
+                }
             }
             if layer.envelope.is_idle() || generator_finished {
                 layer.active = false;
@@ -594,9 +601,14 @@ impl VoiceRuntime {
 
     fn reset_to_idle(&mut self) -> Result<(), ProcessError> {
         for layer in &mut self.layers {
-            layer.reset_to_idle()?;
+            layer.reset_state()?;
         }
         self.processors.reset()?;
+        self.clear_assignment_state();
+        Ok(())
+    }
+
+    fn clear_assignment_state(&mut self) {
         self.state = VoiceState::Idle;
         self.note_id = None;
         self.note_number = 0;
@@ -606,12 +618,11 @@ impl VoiceRuntime {
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
         self.reset_source_state();
-        Ok(())
     }
 
     fn reset_note_state(&mut self) -> Result<(), ProcessError> {
         for layer in &mut self.layers {
-            layer.reset_for_note()?;
+            layer.reset_state()?;
         }
         self.processors.reset()?;
         self.reset_source_state();
@@ -731,28 +742,49 @@ impl VoiceRuntime {
             if !self.layers[index].active {
                 continue;
             }
+            let pan = self.evaluate_target(compiled, layer.parameters.pan, shared)?;
+            let generator = match &layer.generator {
+                CompiledGenerator::Oscillator(value) => {
+                    let sync_ratio = match value.backend {
+                        crate::compiler::CompiledOscillatorBackend::Basic => None,
+                        crate::compiler::CompiledOscillatorBackend::VariableShapeSync {
+                            sync_ratio,
+                        } => Some(self.evaluate_target(compiled, sync_ratio, shared)?),
+                    };
+                    LayerGeneratorTargetSpan::Oscillator {
+                        pulse_width: value
+                            .parameters
+                            .pulse_width
+                            .map(|handle| self.evaluate_target(compiled, handle, shared))
+                            .transpose()?,
+                        sync_ratio,
+                        waveshape: value
+                            .parameters
+                            .waveshape
+                            .map(|handle| self.evaluate_target(compiled, handle, shared))
+                            .transpose()?,
+                        unison_detune: value
+                            .parameters
+                            .unison_detune
+                            .map(|handle| self.evaluate_target(compiled, handle, shared))
+                            .transpose()?,
+                        unison_spread: value
+                            .parameters
+                            .unison_spread
+                            .map(|handle| self.evaluate_target(compiled, handle, shared))
+                            .transpose()?,
+                    }
+                }
+                CompiledGenerator::Noise(value) => LayerGeneratorTargetSpan::Noise {
+                    correlation: self.evaluate_target(compiled, value.correlation, shared)?,
+                },
+                CompiledGenerator::Sample(_) => LayerGeneratorTargetSpan::Sample,
+            };
             self.targets.layers[index] = LayerTargetSpan {
                 gain: self.evaluate_target(compiled, layer.parameters.gain, shared)?,
-                pan_left: ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                },
-                pan_right: ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                },
+                pan,
                 tuning: self.evaluate_target(compiled, layer.parameters.tuning, shared)?,
-            };
-            let pan = self.evaluate_target(compiled, layer.parameters.pan, shared)?;
-            let (left_start, right_start) = constant_power_pan(pan.start);
-            let (left_end, right_end) = constant_power_pan(pan.end);
-            self.targets.layers[index].pan_left = ValueSpan {
-                start: left_start,
-                end: left_end,
-            };
-            self.targets.layers[index].pan_right = ValueSpan {
-                start: right_start,
-                end: right_end,
+                generator,
             };
             for (processor_index, processor) in layer.processors.iter().enumerate() {
                 self.targets.layer_processors[index][processor_index] =
@@ -815,7 +847,7 @@ impl VoiceRuntime {
                 handle: handle.index(),
             },
         )?;
-        let base = shared.parameter(handle);
+        let base = shared.parameter(handle).ok_or_else(invalid_state)?;
         let base_start = descriptor
             .denormalize(base.start)
             .map_err(|_| ProcessError::InvalidEventValue)?;
@@ -832,9 +864,16 @@ impl VoiceRuntime {
         } else {
             0.0
         };
-        for route in compiled.routes_for(handle) {
+        let routes = compiled
+            .routes_for_checked(handle)
+            .ok_or_else(invalid_state)?;
+        for route in routes {
             let source = match route.source {
-                CompiledSourceRef::Voice(handle) => self.source_spans[handle.index()],
+                CompiledSourceRef::Voice(handle) => self
+                    .source_spans
+                    .get(handle.index())
+                    .copied()
+                    .ok_or_else(invalid_state)?,
                 CompiledSourceRef::PitchBend => shared.pitch_bend(),
                 CompiledSourceRef::ModWheel => shared.mod_wheel(),
                 CompiledSourceRef::Aftertouch => shared.aftertouch(),
@@ -918,21 +957,9 @@ fn lfo_value(waveform: LfoWaveform, phase: f32) -> f32 {
     }
 }
 
-fn span_is_constant(start: f32, end: f32) -> bool {
-    start.total_cmp(&end) == std::cmp::Ordering::Equal
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum OscillatorProcessingMode {
-    Constant,
-    Ramp,
-}
-
-fn oscillator_processing_mode(start: f32, end: f32) -> OscillatorProcessingMode {
-    if span_is_constant(start, end) {
-        OscillatorProcessingMode::Constant
-    } else {
-        OscillatorProcessingMode::Ramp
+fn invalid_state() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: crate::process::ProcessorFailureKind::InvalidState,
     }
 }
 
@@ -962,33 +989,12 @@ fn lfo_boundary(phase: f32, rate_hz: f32, sample_rate: f64, remaining: usize) ->
 }
 
 fn deterministic_random(seed: u64, note_id: NoteId, source_hash: u64) -> f32 {
-    let mixed = splitmix64_finalizer(seed ^ note_id ^ source_hash);
-    #[allow(clippy::cast_precision_loss)]
-    let unit = (mixed >> 40) as f32 / (1_u32 << 24) as f32;
-    unit * 2.0 - 1.0
-}
-
-fn splitmix64_finalizer(mut value: u64) -> u64 {
-    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    value ^ (value >> 31)
+    bipolar_f32(splitmix64_finalizer(seed ^ note_id ^ source_hash))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn processing_modes_select_constant_and_dynamic_paths() {
-        assert_eq!(
-            oscillator_processing_mode(440.0, 440.0),
-            OscillatorProcessingMode::Constant
-        );
-        assert_eq!(
-            oscillator_processing_mode(440.0, 441.0),
-            OscillatorProcessingMode::Ramp
-        );
-    }
 
     #[test]
     fn lfo_waveforms_match_the_definition() {

@@ -1,0 +1,52 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 1,
+      "note": 36,
+      "velocity": 45
+    },
+    {
+      "absolute_frame": 8000,
+      "type": "note_off",
+      "note_id": 1
+    },
+    {
+      "absolute_frame": 12000,
+      "type": "note_on",
+      "note_id": 2,
+      "note": 36,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 20000,
+      "type": "note_off",
+      "note_id": 2
+    },
+    {
+      "absolute_frame": 24000,
+      "type": "note_on",
+      "note_id": 3,
+      "note": 60,
+      "velocity": 96
+    },
+    {
+      "absolute_frame": 32000,
+      "type": "note_off",
+      "note_id": 3
+    },
+    {
+      "absolute_frame": 36000,
+      "type": "note_on",
+      "note_id": 4,
+      "note": 90,
+      "velocity": 110
+    },
+    {
+      "absolute_frame": 44000,
+      "type": "note_off",
+      "note_id": 4
+    }
+  ]
+}

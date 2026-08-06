@@ -12,13 +12,22 @@ pub enum DspOscillatorWaveform {
     Sine,
     /// A band-limited saw wave provided by `DaisySP`.
     Saw,
+    /// A band-limited triangle using the `DaisySP` `PolyBLEP` algorithm with resettable state owned by the Sonalloy wrapper.
+    Triangle,
+    /// A band-limited square wave provided by `DaisySP`.
+    Square,
+    /// A band-limited square wave with a dynamic pulse width.
+    Pulse,
 }
 
 impl DspOscillatorWaveform {
-    fn as_raw(self) -> i32 {
+    pub(crate) fn as_raw(self) -> i32 {
         match self {
             Self::Sine => ffi::WAVEFORM_SINE,
             Self::Saw => ffi::WAVEFORM_SAW,
+            Self::Triangle => ffi::WAVEFORM_TRIANGLE,
+            Self::Square => ffi::WAVEFORM_SQUARE,
+            Self::Pulse => ffi::WAVEFORM_PULSE,
         }
     }
 }
@@ -49,7 +58,7 @@ pub enum DspError {
     Unknown(i32),
 }
 
-fn result_from_code(code: i32) -> Result<(), DspError> {
+pub(crate) fn result_from_code(code: i32) -> Result<(), DspError> {
     match code {
         ffi::OK => Ok(()),
         ffi::INVALID_ARGUMENT => Err(DspError::InvalidArgument),
@@ -62,12 +71,19 @@ fn result_from_code(code: i32) -> Result<(), DspError> {
 }
 
 /// Capabilities reported by the fixed native backend.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DspCapabilities {
     /// Whether sine generation is available.
     pub sine: bool,
     /// Whether saw generation is available.
     pub saw: bool,
+    /// Whether triangle generation is available.
+    pub triangle: bool,
+    /// Whether square generation is available.
+    pub square: bool,
+    /// Whether pulse generation is available.
+    pub pulse: bool,
 }
 
 /// Return the native backend version string.
@@ -88,6 +104,9 @@ pub fn capabilities() -> DspCapabilities {
     DspCapabilities {
         sine: bits & ffi::CAPABILITY_SINE != 0,
         saw: bits & ffi::CAPABILITY_SAW != 0,
+        triangle: bits & ffi::CAPABILITY_TRIANGLE != 0,
+        square: bits & ffi::CAPABILITY_SQUARE != 0,
+        pulse: bits & ffi::CAPABILITY_PULSE != 0,
     }
 }
 
@@ -136,13 +155,24 @@ impl DspOscillator {
         Ok(())
     }
 
-    /// Reset the oscillator phase to its prepared initial state.
+    /// Reset the oscillator phase and waveform state to their prepared initial states.
     ///
     /// # Errors
     ///
     /// Returns [`DspError::NotPrepared`] before successful preparation, or a native error.
     pub fn reset(&mut self) -> Result<(), DspError> {
         let code = unsafe { ffi::sonalloy_dsp_oscillator_reset(self.handle.as_ptr()) };
+        result_from_code(code)
+    }
+
+    /// Reset the oscillator phase and waveform state to an arbitrary normalized phase.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the phase is outside the inclusive zero-to-one range, before
+    /// preparation, or when the native implementation reports an exception.
+    pub fn reset_phase(&mut self, phase: f32) -> Result<(), DspError> {
+        let code = unsafe { ffi::sonalloy_dsp_oscillator_reset_phase(self.handle.as_ptr(), phase) };
         result_from_code(code)
     }
 
@@ -168,6 +198,45 @@ impl DspOscillator {
             ffi::sonalloy_dsp_oscillator_process(
                 self.handle.as_ptr(),
                 frequency_hz,
+                output.as_mut_ptr(),
+                frames,
+            )
+        };
+        let result = result_from_code(code);
+        if result.is_err() {
+            output.fill(0.0);
+        }
+        result
+    }
+
+    /// Render a block with a fixed pulse width.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for an invalid frequency or pulse width, an unprepared oscillator, or
+    /// a native processing failure. The output is cleared on failure.
+    pub fn process_with_pulse_width(
+        &mut self,
+        frequency_hz: f32,
+        pulse_width: f32,
+        output: &mut [f32],
+    ) -> Result<(), DspError> {
+        if !self.prepared {
+            output.fill(0.0);
+            return Err(DspError::NotPrepared);
+        }
+        let frames = u32::try_from(output.len()).map_err(|_| {
+            output.fill(0.0);
+            DspError::InvalidArgument
+        })?;
+        if output.is_empty() {
+            return Ok(());
+        }
+        let code = unsafe {
+            ffi::sonalloy_dsp_oscillator_process_with_pulse_width(
+                self.handle.as_ptr(),
+                frequency_hz,
+                pulse_width,
                 output.as_mut_ptr(),
                 frames,
             )
@@ -207,6 +276,49 @@ impl DspOscillator {
                 self.handle.as_ptr(),
                 start_frequency_hz,
                 end_frequency_hz,
+                output.as_mut_ptr(),
+                frames,
+            )
+        };
+        let result = result_from_code(code);
+        if result.is_err() {
+            output.fill(0.0);
+        }
+        result
+    }
+
+    /// Render a block while ramping frequency and pulse width.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid frequencies or pulse widths, an unprepared oscillator, or a
+    /// native processing failure. The output is cleared on failure.
+    pub fn process_ramp_with_pulse_width(
+        &mut self,
+        start_frequency_hz: f32,
+        end_frequency_hz: f32,
+        start_pulse_width: f32,
+        end_pulse_width: f32,
+        output: &mut [f32],
+    ) -> Result<(), DspError> {
+        if !self.prepared {
+            output.fill(0.0);
+            return Err(DspError::NotPrepared);
+        }
+        let frames = u32::try_from(output.len()).map_err(|_| {
+            output.fill(0.0);
+            DspError::InvalidArgument
+        })?;
+        if output.is_empty() {
+            return Ok(());
+        }
+        let code = unsafe {
+            ffi::sonalloy_dsp_oscillator_process_ramp_with_pulse_width(
+                self.handle.as_ptr(),
+                start_frequency_hz,
+                end_frequency_hz,
+                start_pulse_width,
+                end_pulse_width,
                 output.as_mut_ptr(),
                 frames,
             )

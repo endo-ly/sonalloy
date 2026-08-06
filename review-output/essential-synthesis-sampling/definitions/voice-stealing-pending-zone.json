@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Mapped Sample Instrument",
+    "author": "Sonalloy",
+    "description": "Deterministic sample mapping review fixture"
+  },
+  "performance": {
+    "polyphony": 1,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "sample",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -3.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "low_soft",
+              "asset": {
+                "path": "../assets/key-low.wav",
+                "sha256": "7475b06b17a33ef6c60163487c199884501ff83147b87e5c1d51d587e75ffe72"
+              },
+              "root_note": 36,
+              "key_min": 0,
+              "key_max": 47,
+              "velocity_min": 1,
+              "velocity_max": 70,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            },
+            {
+              "id": "low_hard",
+              "asset": {
+                "path": "../assets/key-low.wav",
+                "sha256": "7475b06b17a33ef6c60163487c199884501ff83147b87e5c1d51d587e75ffe72"
+              },
+              "root_note": 36,
+              "key_min": 0,
+              "key_max": 47,
+              "velocity_min": 71,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            },
+            {
+              "id": "mid",
+              "asset": {
+                "path": "../assets/key-mid.wav",
+                "sha256": "ad709c781af64b52cb8468e234aec24e83021d130f754af8085fd423e1e55fbd"
+              },
+              "root_note": 60,
+              "key_min": 48,
+              "key_max": 83,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            },
+            {
+              "id": "high_a",
+              "asset": {
+                "path": "../assets/rr-a.wav",
+                "sha256": "b48683025d155c9376610f2e43b12a468c29a28691ac137ce238e5007c415436"
+              },
+              "root_note": 84,
+              "key_min": 84,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": "high_hits",
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            },
+            {
+              "id": "high_b",
+              "asset": {
+                "path": "../assets/rr-b.wav",
+                "sha256": "5cbc5f2494ba8366e115f46ef61e6753759ff7ae67bf0d7498b7424d5060f0a7"
+              },
+              "root_note": 84,
+              "key_min": 84,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": "high_hits",
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": []
+  }
+}

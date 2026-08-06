@@ -1,8 +1,10 @@
 pub(crate) mod adsr;
+pub(crate) mod generator;
 mod instrument;
 pub(crate) mod mix;
 pub(crate) mod modulation;
 pub(crate) mod processor;
+mod random;
 pub(crate) mod sample;
 pub(crate) mod smoothing;
 mod voice;
@@ -105,7 +107,12 @@ impl InstrumentProcessor for SineRuntime {
             return Err(error);
         }
         for channel in &mut *block.output {
-            channel[..block.frames].copy_from_slice(&self.scratch[..block.frames]);
+            for (sample, output) in self.scratch[..block.frames]
+                .iter()
+                .zip((*channel).iter_mut())
+            {
+                *output = *sample;
+            }
         }
         self.absolute_frame = next_frame;
         Ok(())

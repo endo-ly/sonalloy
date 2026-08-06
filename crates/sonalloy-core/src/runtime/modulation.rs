@@ -1,4 +1,4 @@
-use crate::compiler::{CompiledLayer, CompiledProcessor, CompiledProcessorKind};
+use crate::compiler::{CompiledLayer, CompiledProcessor};
 use crate::parameter::ParameterHandle;
 
 use super::processor::ProcessorTargetSpan;
@@ -8,6 +8,20 @@ use super::processor::ProcessorTargetSpan;
 pub(crate) struct ValueSpan {
     pub(crate) start: f32,
     pub(crate) end: f32,
+}
+
+impl ValueSpan {
+    pub(crate) fn value_at(self, index: usize, frames: usize) -> f32 {
+        let position = if frames == 0 {
+            0.0
+        } else {
+            #[allow(clippy::cast_precision_loss)]
+            {
+                index as f32 / frames as f32
+            }
+        };
+        self.start + (self.end - self.start) * position
+    }
 }
 
 /// One base parameter value after smoothing for a render span.
@@ -56,15 +70,15 @@ impl<'a> SharedParameterSpan<'a> {
         }
     }
 
-    pub(crate) fn parameter(self, handle: ParameterHandle) -> ValueSpan {
-        let value = self.values[handle.index()];
-        interpolate(
+    pub(crate) fn parameter(self, handle: ParameterHandle) -> Option<ValueSpan> {
+        let value = *self.values.get(handle.index())?;
+        Some(interpolate(
             value.start,
             value.end,
             self.offset,
             self.length,
             self.total_length,
-        )
+        ))
     }
 
     pub(crate) fn pitch_bend(self) -> ValueSpan {
@@ -114,9 +128,25 @@ fn interpolate(start: f32, end: f32, offset: usize, length: usize, total: usize)
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct LayerTargetSpan {
     pub(crate) gain: ValueSpan,
-    pub(crate) pan_left: ValueSpan,
-    pub(crate) pan_right: ValueSpan,
+    pub(crate) pan: ValueSpan,
     pub(crate) tuning: ValueSpan,
+    pub(crate) generator: LayerGeneratorTargetSpan,
+}
+
+/// Dynamic values consumed by a layer generator during one render span.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum LayerGeneratorTargetSpan {
+    Oscillator {
+        pulse_width: Option<ValueSpan>,
+        sync_ratio: Option<ValueSpan>,
+        waveshape: Option<ValueSpan>,
+        unison_detune: Option<ValueSpan>,
+        unison_spread: Option<ValueSpan>,
+    },
+    Noise {
+        correlation: ValueSpan,
+    },
+    Sample,
 }
 
 /// Reusable target scratch owned by one voice.
@@ -136,44 +166,43 @@ impl VoiceTargetScratch {
             layers: vec![
                 LayerTargetSpan {
                     gain: zero,
-                    pan_left: zero,
-                    pan_right: zero,
+                    pan: zero,
                     tuning: zero,
+                    generator: LayerGeneratorTargetSpan::Sample,
                 };
                 layers.len()
             ],
             layer_processors: layers
                 .iter()
-                .map(|layer| layer.processors.iter().map(zero_processor_target).collect())
+                .map(|layer| {
+                    layer
+                        .processors
+                        .iter()
+                        .map(|processor| ProcessorTargetSpan::zero_for(&processor.processor))
+                        .collect()
+                })
                 .collect(),
-            voice_processors: voice_processors.iter().map(zero_processor_target).collect(),
+            voice_processors: voice_processors
+                .iter()
+                .map(|processor| ProcessorTargetSpan::zero_for(&processor.processor))
+                .collect(),
         }
     }
 }
 
-fn zero_processor_target(processor: &CompiledProcessor) -> ProcessorTargetSpan {
-    let zero = ValueSpan {
-        start: 0.0,
-        end: 0.0,
-    };
-    match &processor.processor {
-        CompiledProcessorKind::Filter(_) => ProcessorTargetSpan::Filter {
-            cutoff: zero,
-            resonance: zero,
-        },
-        CompiledProcessorKind::Drive(_) => ProcessorTargetSpan::Drive {
-            amount: zero,
-            mix: zero,
-        },
-        CompiledProcessorKind::Delay(_) => ProcessorTargetSpan::Delay {
-            feedback: zero,
-            mix: zero,
-        },
-        CompiledProcessorKind::Reverb(_) => ProcessorTargetSpan::Reverb {
-            decay: zero,
-            damping: zero,
-            width: zero,
-            mix: zero,
-        },
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn value_span_uses_one_shared_ramp_formula() {
+        let span = ValueSpan {
+            start: 2.0,
+            end: 6.0,
+        };
+
+        assert!((span.value_at(0, 4) - 2.0).abs() < f32::EPSILON);
+        assert!((span.value_at(2, 4) - 4.0).abs() < f32::EPSILON);
+        assert!((span.value_at(4, 4) - 6.0).abs() < f32::EPSILON);
     }
 }

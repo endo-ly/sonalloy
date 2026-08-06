@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Basic Generators Reference",
+    "author": null,
+    "description": "Basic oscillators, pulse width modulation, and colored noise generators"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "square",
+      "enabled": true,
+      "trigger": {
+        "key_min": 48,
+        "key_max": 48,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": -0.25,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.1,
+        "sustain_level": 0.75,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "square"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "triangle",
+      "enabled": true,
+      "trigger": {
+        "key_min": 52,
+        "key_max": 52,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": 0.25,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.1,
+        "sustain_level": 0.75,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "pulse",
+      "enabled": true,
+      "trigger": {
+        "key_min": 55,
+        "key_max": 55,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.1,
+        "sustain_level": 0.75,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.25
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "white",
+      "enabled": true,
+      "trigger": {
+        "key_min": 60,
+        "key_max": 60,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -24.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.1,
+        "sustain_level": 0.75,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 7101,
+          "stereo_correlation": 1.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "pink",
+      "enabled": true,
+      "trigger": {
+        "key_min": 64,
+        "key_max": 64,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -24.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.1,
+        "sustain_level": 0.75,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 7102,
+          "stereo_correlation": 1.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "brown",
+      "enabled": true,
+      "trigger": {
+        "key_min": 67,
+        "key_max": 67,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -30.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.1,
+        "sustain_level": 0.75,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "noise": {
+          "color": "brown",
+          "seed": 7103,
+          "stereo_correlation": 0.5
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": []
+}

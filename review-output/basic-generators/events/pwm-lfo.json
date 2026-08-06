@@ -1,0 +1,22 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 1,
+      "note": 55,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 4096,
+      "type": "parameter_change",
+      "parameter": "layer.pulse.generator.pulse_width",
+      "normalized": 0.7777778
+    },
+    {
+      "absolute_frame": 12000,
+      "type": "note_off",
+      "note_id": 1
+    }
+  ]
+}

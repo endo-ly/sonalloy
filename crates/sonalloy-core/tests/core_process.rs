@@ -3,10 +3,14 @@ use std::sync::Arc;
 
 use approx::assert_relative_eq;
 use sonalloy_core::{
-    CompileContext, DiagnosticCode, InstrumentDefinition, InstrumentProcessor, ModulationCurve,
-    ModulationDefinition, ModulationRouteDefinition, ModulationSourceDefinition, ProcessBlock,
-    ProcessContext, ProcessEventKind, ProcessSpec, RandomDefinition, RenderRequest, ScheduledEvent,
-    SineRuntime, compile_instrument, render_instrument,
+    AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, DriveProcessorDefinition,
+    GeneratorDefinition, HardSyncDefinition, InstrumentDefinition, InstrumentProcessor,
+    LfoDefinition, LfoWaveform, ModulationCurve, ModulationDefinition, ModulationRouteDefinition,
+    ModulationSourceDefinition, NoiseColor, NoiseDefinition, OscillatorDefinition,
+    OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEventKind, ProcessSpec,
+    ProcessorDefinition, RandomDefinition, RenderRequest, SampleZoneDefinition,
+    SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime, UnisonDefinition,
+    WaveshapingDefinition, compile_instrument, render_instrument,
 };
 
 fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
@@ -140,6 +144,419 @@ fn render_instrument_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
     .expect("instrument render succeeds")
 }
 
+fn basic_generator_definition() -> InstrumentDefinition {
+    let mut value = definition();
+    value.layers[0].gain_db = 0.0;
+    value.layers[0].envelope = AdsrDefinition {
+        attack_seconds: 0.0,
+        decay_seconds: 0.0,
+        sustain_level: 1.0,
+        release_seconds: 0.01,
+    };
+    value
+}
+
+fn noise_definition(color: NoiseColor, correlation: f32, pan: f32) -> InstrumentDefinition {
+    let mut value = basic_generator_definition();
+    value.layers[0].pan = pan;
+    value.layers[0].generator = GeneratorDefinition::Noise(NoiseDefinition {
+        color,
+        seed: 7,
+        stereo_correlation: correlation,
+    });
+    value
+}
+
+fn pulse_definition(with_modulation: bool) -> InstrumentDefinition {
+    let mut value = basic_generator_definition();
+    value.layers[0].generator = GeneratorDefinition::Oscillator(OscillatorDefinition {
+        waveform: OscillatorWaveform::Pulse { pulse_width: 0.25 },
+        phase_reset: true,
+        phase: 0.0,
+        hard_sync: None,
+        waveshaping: None,
+        unison: None,
+    });
+    if with_modulation {
+        value.modulation = Some(ModulationDefinition {
+            sources: vec![ModulationSourceDefinition::Lfo(LfoDefinition {
+                id: "pwm_lfo".to_owned(),
+                waveform: LfoWaveform::Sine,
+                rate_hz: 2.0,
+                phase: 0.0,
+            })],
+            routes: vec![ModulationRouteDefinition {
+                source: "pwm_lfo".to_owned(),
+                target: "layer.body.generator.pulse_width".to_owned(),
+                amount: 0.5,
+                curve: ModulationCurve::Linear,
+            }],
+        });
+    }
+    value
+}
+
+fn render_basic_generator(
+    definition: &InstrumentDefinition,
+    block_size: usize,
+    duration_frames: usize,
+) -> sonalloy_core::RenderedAudio {
+    render_basic_generator_at_note(definition, block_size, duration_frames, 60)
+}
+
+fn render_basic_generator_at_note(
+    definition: &InstrumentDefinition,
+    block_size: usize,
+    duration_frames: usize,
+    note_number: u8,
+) -> sonalloy_core::RenderedAudio {
+    let instrument = compile_instrument(
+        definition,
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec"),
+        },
+    )
+    .instrument
+    .expect("basic generator compiles");
+    render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size,
+            duration_frames: u64::try_from(duration_frames).expect("duration fits in u64"),
+            tail_frames: 0,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 11,
+                    note_number,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: u64::try_from(duration_frames / 2)
+                    .expect("event frame fits in u64"),
+                kind: ProcessEventKind::NoteOff { note_id: 11 },
+            },
+        ],
+    )
+    .expect("basic generator render succeeds")
+}
+
+fn complex_oscillator_definition(
+    hard_sync: bool,
+    waveshaping: bool,
+    unison_voices: Option<u8>,
+) -> InstrumentDefinition {
+    let mut value = basic_generator_definition();
+    value.layers[0].generator = GeneratorDefinition::Oscillator(OscillatorDefinition {
+        waveform: OscillatorWaveform::Saw,
+        phase_reset: true,
+        phase: 0.0,
+        hard_sync: hard_sync.then_some(HardSyncDefinition { ratio: 3.0 }),
+        waveshaping: waveshaping.then_some(WaveshapingDefinition { amount: 0.45 }),
+        unison: unison_voices.map(|voices| UnisonDefinition {
+            voices,
+            detune_cents: 18.0,
+            stereo_spread: 0.8,
+            phase_spread: if hard_sync { 0.0 } else { 0.2 },
+        }),
+    });
+    value
+}
+
+#[test]
+fn complex_oscillator_compiles_backend_parameters_and_distributions() {
+    let definition = complex_oscillator_definition(true, true, Some(5));
+    assert!(definition.validate().is_empty());
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+        },
+    );
+    let instrument = result.instrument.expect("complex oscillator compiles");
+    let sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) =
+        &instrument.layers[0].generator
+    else {
+        panic!("complex definition must compile to an oscillator");
+    };
+    assert_eq!(
+        oscillator.backend,
+        sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync {
+            sync_ratio: instrument
+                .parameter_handle("layer.body.generator.sync_ratio")
+                .expect("sync ratio handle is present")
+        }
+    );
+    assert_eq!(
+        instrument.layers[0].generator.output_mode(),
+        sonalloy_core::compiler::GeneratorOutputMode::Stereo
+    );
+    assert_eq!(oscillator.unison.position_distribution.len(), 5);
+    assert_eq!(oscillator.unison.phase_distribution.len(), 5);
+    for (actual, expected) in oscillator
+        .unison
+        .position_distribution
+        .iter()
+        .zip([-1.0, -0.5, 0.0, 0.5, 1.0])
+    {
+        assert_relative_eq!(*actual, expected, epsilon = 1.0e-6);
+    }
+    for (actual, expected) in oscillator
+        .unison
+        .phase_distribution
+        .iter()
+        .zip([0.0, 0.0, 0.0, 0.0, 0.0])
+    {
+        assert_relative_eq!(*actual, expected, epsilon = 1.0e-6);
+    }
+    assert_relative_eq!(oscillator.unison.normalization, 1.0 / 5.0_f32.sqrt());
+    assert!(matches!(
+        oscillator.backend,
+        sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync { .. }
+    ));
+    assert!(oscillator.parameters.waveshape.is_some());
+    assert!(oscillator.parameters.unison_detune.is_some());
+    assert!(oscillator.parameters.unison_spread.is_some());
+    assert!(
+        instrument
+            .parameter_handle("layer.body.generator.sync_ratio")
+            .is_some()
+    );
+    assert!(
+        instrument
+            .parameter_handle("layer.body.generator.waveshape")
+            .is_some()
+    );
+    assert!(
+        instrument
+            .parameter_handle("layer.body.generator.unison_detune")
+            .is_some()
+    );
+    assert!(
+        instrument
+            .parameter_handle("layer.body.generator.unison_spread")
+            .is_some()
+    );
+}
+
+#[test]
+fn basic_unison_compiles_phase_distribution() {
+    let definition = complex_oscillator_definition(false, false, Some(5));
+    assert!(definition.validate().is_empty());
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+        },
+    );
+    let instrument = result.instrument.expect("basic unison compiles");
+    let sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) =
+        &instrument.layers[0].generator
+    else {
+        panic!("basic unison definition must compile to an oscillator");
+    };
+    for (actual, expected) in oscillator
+        .unison
+        .phase_distribution
+        .iter()
+        .zip([0.0, 0.04, 0.08, 0.12, 0.16])
+    {
+        assert_relative_eq!(*actual, expected, epsilon = 1.0e-6);
+    }
+}
+
+#[test]
+fn oscillator_definition_rejects_invalid_complex_combinations() {
+    let mut sine_sync = complex_oscillator_definition(true, false, None);
+    if let GeneratorDefinition::Oscillator(oscillator) = &mut sine_sync.layers[0].generator {
+        oscillator.waveform = OscillatorWaveform::Sine;
+    }
+    assert!(sine_sync.validate().iter().any(|diagnostic| {
+        diagnostic.path.as_deref() == Some("layers[0].generator.oscillator.hard_sync")
+    }));
+
+    let mut phase_spread = complex_oscillator_definition(true, false, Some(3));
+    if let GeneratorDefinition::Oscillator(oscillator) = &mut phase_spread.layers[0].generator {
+        if let Some(unison) = &mut oscillator.unison {
+            unison.phase_spread = 0.2;
+        }
+    }
+    assert!(phase_spread.validate().iter().any(|diagnostic| {
+        diagnostic.path.as_deref() == Some("layers[0].generator.oscillator.unison.phase_spread")
+    }));
+
+    let mut phase = complex_oscillator_definition(true, false, None);
+    if let GeneratorDefinition::Oscillator(oscillator) = &mut phase.layers[0].generator {
+        oscillator.phase = 0.5;
+    }
+    assert!(phase.validate().iter().any(|diagnostic| {
+        diagnostic.path.as_deref() == Some("layers[0].generator.oscillator.phase")
+    }));
+
+    let mut invalid_voices = complex_oscillator_definition(false, false, Some(9));
+    assert!(invalid_voices.validate().iter().any(|diagnostic| {
+        diagnostic.path.as_deref() == Some("layers[0].generator.oscillator.unison.voices")
+    }));
+    if let GeneratorDefinition::Oscillator(oscillator) = &mut invalid_voices.layers[0].generator {
+        oscillator.waveshaping = Some(WaveshapingDefinition { amount: 1.1 });
+    }
+    assert!(invalid_voices.validate().iter().any(|diagnostic| {
+        diagnostic.path.as_deref() == Some("layers[0].generator.oscillator.waveshaping.amount")
+    }));
+}
+
+#[test]
+fn waveshape_zero_is_an_exact_identity() {
+    let baseline = complex_oscillator_definition(false, false, None);
+    let mut identity = baseline.clone();
+    if let GeneratorDefinition::Oscillator(oscillator) = &mut identity.layers[0].generator {
+        oscillator.waveshaping = Some(WaveshapingDefinition { amount: 0.0 });
+    }
+    let baseline_audio = render_basic_generator(&baseline, 257, 2_048);
+    let identity_audio = render_basic_generator(&identity, 257, 2_048);
+    assert_eq!(
+        baseline_audio.channels[0]
+            .iter()
+            .map(|sample| sample.to_bits())
+            .collect::<Vec<_>>(),
+        identity_audio.channels[0]
+            .iter()
+            .map(|sample| sample.to_bits())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        baseline_audio.channels[1]
+            .iter()
+            .map(|sample| sample.to_bits())
+            .collect::<Vec<_>>(),
+        identity_audio.channels[1]
+            .iter()
+            .map(|sample| sample.to_bits())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn hard_sync_and_unison_render_finite_stereo_audio_across_blocks() {
+    let hard_sync = complex_oscillator_definition(true, false, Some(3));
+    let unison = complex_oscillator_definition(false, true, Some(8));
+    let hard_sync_audio = render_basic_generator(&hard_sync, 32, 4_096);
+    let unison_audio = render_basic_generator(&unison, 257, 4_096);
+    for audio in [hard_sync_audio, unison_audio] {
+        assert!(
+            audio
+                .channels
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
+        );
+        assert!(
+            audio.channels[0]
+                .iter()
+                .zip(&audio.channels[1])
+                .any(|(left, right)| (left - right).abs() > 1.0e-4)
+        );
+        assert!(
+            audio
+                .channels
+                .iter()
+                .flatten()
+                .any(|sample| sample.abs() > 0.01)
+        );
+    }
+}
+
+#[test]
+fn hard_sync_high_register_is_clamped_to_finite_audio() {
+    let mut definition = complex_oscillator_definition(true, true, Some(8));
+    if let GeneratorDefinition::Oscillator(oscillator) = &mut definition.layers[0].generator {
+        oscillator.hard_sync = Some(HardSyncDefinition { ratio: 16.0 });
+    }
+    let audio = render_basic_generator_at_note(&definition, 257, 4_096, 127);
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .any(|sample| sample.abs() > 0.01)
+    );
+}
+
+#[test]
+fn complex_oscillator_parameter_changes_are_block_size_independent() {
+    let mut definition = complex_oscillator_definition(true, true, Some(5));
+    definition.modulation = None;
+    let instrument = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+        },
+    )
+    .instrument
+    .expect("complex instrument compiles");
+    let ratio = instrument
+        .parameter_handle("layer.body.generator.sync_ratio")
+        .expect("sync ratio parameter");
+    let events = [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 512,
+            kind: ProcessEventKind::ParameterChange {
+                parameter: ratio,
+                normalized: 1.0,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 1_536,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        },
+    ];
+    let render = |block_size| {
+        render_instrument(
+            Arc::clone(&instrument),
+            RenderRequest {
+                sample_rate: 48_000.0,
+                block_size,
+                duration_frames: 2_048,
+                tail_frames: 0,
+            },
+            &events,
+        )
+        .expect("complex parameter render")
+    };
+    let reference = render(32);
+    let candidate = render(257);
+    assert_eq!(reference.frames(), candidate.frames());
+    for (left, right) in reference.channels[0].iter().zip(&candidate.channels[0]) {
+        assert_relative_eq!(*left, *right, epsilon = 1.0e-5);
+    }
+    for (left, right) in reference.channels[1].iter().zip(&candidate.channels[1]) {
+        assert_relative_eq!(*left, *right, epsilon = 1.0e-5);
+    }
+}
+
 #[test]
 fn reference_definition_compiles_and_renders_stereo() {
     let audio = render_instrument_blocks(257);
@@ -160,6 +577,112 @@ fn reference_definition_compiles_and_renders_stereo() {
             .flatten()
             .any(|sample| sample.abs() > 0.01)
     );
+}
+
+#[test]
+fn noise_is_stereo_deterministic_and_block_size_independent() {
+    let correlated_definition = noise_definition(NoiseColor::White, 1.0, 0.0);
+    let correlated = render_basic_generator(&correlated_definition, 257, 2_048);
+    assert!(
+        correlated
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert!(
+        correlated.channels[0]
+            .iter()
+            .any(|sample| sample.abs() > 0.01)
+    );
+    assert_eq!(correlated.channels[0], correlated.channels[1]);
+
+    let independent_definition = noise_definition(NoiseColor::White, 0.0, 0.0);
+    let independent = render_basic_generator(&independent_definition, 257, 2_048);
+    assert!(
+        independent.channels[0]
+            .iter()
+            .zip(&independent.channels[1])
+            .any(|(left, right)| left.to_bits() != right.to_bits())
+    );
+
+    let reference =
+        render_basic_generator(&noise_definition(NoiseColor::Pink, 0.4, 0.0), 32, 2_048);
+    for block_size in [64, 257, 1_024] {
+        let candidate = render_basic_generator(
+            &noise_definition(NoiseColor::Pink, 0.4, 0.0),
+            block_size,
+            2_048,
+        );
+        for (expected, actual) in reference.channels[0].iter().zip(&candidate.channels[0]) {
+            assert_relative_eq!(*expected, *actual, epsilon = 1.0e-6);
+        }
+        for (expected, actual) in reference.channels[1].iter().zip(&candidate.channels[1]) {
+            assert_relative_eq!(*expected, *actual, epsilon = 1.0e-6);
+        }
+    }
+    let repeated = render_basic_generator(&correlated_definition, 257, 2_048);
+    assert_eq!(correlated, repeated);
+
+    for color in [NoiseColor::White, NoiseColor::Pink, NoiseColor::Brown] {
+        let audio = render_basic_generator(&noise_definition(color, 0.5, 0.0), 257, 2_048);
+        assert!(
+            audio
+                .channels
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
+        );
+        assert!(audio.channels[0].iter().any(|sample| sample.abs() > 0.001));
+    }
+}
+
+#[test]
+fn stereo_layer_processors_and_balance_preserve_the_generator_contract() {
+    let mut definition = noise_definition(NoiseColor::White, 1.0, 0.0);
+    definition.layers[0].processors = vec![
+        ProcessorDefinition::Filter(sonalloy_core::FilterProcessorDefinition {
+            id: "tone".to_owned(),
+            cutoff_hz: 8_000.0,
+            resonance: 0.1,
+        }),
+        ProcessorDefinition::Drive(DriveProcessorDefinition {
+            id: "drive".to_owned(),
+            amount: 0.2,
+            mix: 0.4,
+        }),
+    ];
+    let centered = render_basic_generator(&definition, 257, 2_048);
+    assert_eq!(centered.channels[0], centered.channels[1]);
+
+    definition.layers[0].pan = -1.0;
+    let left = render_basic_generator(&definition, 257, 2_048);
+    assert!(left.channels[0].iter().any(|sample| sample.abs() > 0.01));
+    assert!(left.channels[1].iter().all(|sample| sample.abs() < 1.0e-6));
+
+    definition.layers[0].pan = 1.0;
+    let right = render_basic_generator(&definition, 257, 2_048);
+    assert!(right.channels[0].iter().all(|sample| sample.abs() < 1.0e-6));
+    assert!(right.channels[1].iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
+fn existing_lfo_modulation_controls_pulse_width() {
+    let static_audio = render_basic_generator(&pulse_definition(false), 257, 4_096);
+    let pwm_audio = render_basic_generator(&pulse_definition(true), 257, 4_096);
+    assert!(
+        pwm_audio
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    let difference = static_audio.channels[0]
+        .iter()
+        .zip(&pwm_audio.channels[0])
+        .map(|(static_sample, pwm_sample)| f64::from((*static_sample - pwm_sample).abs()))
+        .sum::<f64>();
+    assert!(difference > 1.0);
 }
 
 #[test]
@@ -491,6 +1014,60 @@ fn hybrid_definition() -> InstrumentDefinition {
         .expect("hybrid Definition parses")
 }
 
+const METAL_HIT_HASH: &str = "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c";
+
+#[allow(clippy::too_many_arguments)]
+fn sample_zone(
+    id: &str,
+    asset_path: &str,
+    key_min: u8,
+    key_max: u8,
+    velocity_min: u8,
+    velocity_max: u8,
+    round_robin_group: Option<&str>,
+    start_seconds: f32,
+    end_seconds: f32,
+) -> SampleZoneDefinition {
+    SampleZoneDefinition {
+        id: id.to_owned(),
+        asset: AssetReference {
+            path: asset_path.to_owned(),
+            sha256: Some(METAL_HIT_HASH.to_owned()),
+        },
+        root_note: 60,
+        key_min,
+        key_max,
+        velocity_min,
+        velocity_max,
+        round_robin_group: round_robin_group.map(str::to_owned),
+        playback: SampleZonePlaybackDefinition::OneShot {
+            start_seconds,
+            end_seconds: Some(end_seconds),
+        },
+    }
+}
+
+fn sample_only_definition(zones: Vec<SampleZoneDefinition>) -> InstrumentDefinition {
+    let mut value = hybrid_definition();
+    value.layers.truncate(1);
+    value.layers[0].gain_db = 0.0;
+    value.layers[0].envelope = AdsrDefinition {
+        attack_seconds: 0.0,
+        decay_seconds: 0.0,
+        sustain_level: 1.0,
+        release_seconds: 0.01,
+    };
+    if let Some(modulation) = &mut value.modulation {
+        modulation.routes.clear();
+    }
+    if let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator {
+        sample.zones = zones;
+    } else {
+        panic!("hybrid attack layer must be a sample");
+    }
+    value
+}
+
 fn processed_hybrid_definition() -> InstrumentDefinition {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/instruments/processed-hybrid.json");
@@ -587,13 +1164,419 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
     );
     match &instrument.layers[0].generator {
         sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-            assert!(sample.enabled);
-            assert!(sample.source.is_some());
+            assert_eq!(sample.zones.len(), 1);
+            assert!(sample.zones[0].is_enabled());
+            assert!(sample.zones[0].source.is_some());
         }
-        sonalloy_core::compiler::CompiledGenerator::Oscillator(_) => {
+        sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
+        | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
             panic!("attack layer must be a sample")
         }
     }
+}
+
+#[test]
+fn sample_zone_mapping_and_asset_cache_select_by_key_and_share_preparation() {
+    let definition = sample_only_definition(vec![
+        sample_zone(
+            "low",
+            "../../testdata/assets/metal-hit.wav",
+            0,
+            60,
+            1,
+            127,
+            None,
+            0.0,
+            0.08,
+        ),
+        sample_zone(
+            "high",
+            "../../testdata/assets/metal-hit.wav",
+            61,
+            127,
+            1,
+            127,
+            None,
+            0.08,
+            0.16,
+        ),
+    ]);
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    let instrument = result.instrument.expect("mapped sample compiles");
+    let sonalloy_core::compiler::CompiledGenerator::Sample(sample) =
+        &instrument.layers[0].generator
+    else {
+        panic!("sample layer compiles as a sample generator");
+    };
+    assert_eq!(sample.zones.len(), 2);
+    assert!(
+        sample
+            .zones
+            .iter()
+            .all(sonalloy_core::compiler::CompiledSampleZone::is_enabled)
+    );
+    assert!(Arc::ptr_eq(
+        sample.zones[0].source.as_ref().expect("low source"),
+        sample.zones[1].source.as_ref().expect("high source")
+    ));
+
+    let low = render_instrument(
+        Arc::clone(&instrument),
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 512,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }],
+    )
+    .expect("low zone renders");
+    let high = render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 512,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 61,
+                velocity: 100,
+            },
+        }],
+    )
+    .expect("high zone renders");
+    let difference = low.channels[0]
+        .iter()
+        .zip(&high.channels[0])
+        .map(|(left, right)| f64::from((*left - *right).abs()))
+        .sum::<f64>();
+    assert!(difference > 0.1, "key mapping did not change the region");
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn round_robin_selection_is_definition_ordered_and_block_independent() {
+    let definition = sample_only_definition(vec![
+        sample_zone(
+            "hit_a",
+            "../../testdata/assets/metal-hit.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.0,
+            0.08,
+        ),
+        sample_zone(
+            "hit_b",
+            "../../testdata/assets/metal-hit.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.08,
+            0.16,
+        ),
+    ]);
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let compiled_result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    let compiled = compiled_result.instrument.unwrap_or_else(|| {
+        panic!(
+            "round robin sample diagnostics: {:?}",
+            compiled_result.diagnostics
+        )
+    });
+    let sonalloy_core::compiler::CompiledGenerator::Sample(sample) = &compiled.layers[0].generator
+    else {
+        panic!("sample layer compiles as a sample generator");
+    };
+    assert_eq!(sample.groups.len(), 1);
+    assert_eq!(
+        sample.groups[0].enabled_member_zone_indices.as_ref(),
+        &[0, 1]
+    );
+
+    let events = [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 2_000,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        },
+        ScheduledEvent {
+            absolute_frame: 4_000,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 60,
+                velocity: 100,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 6_000,
+            kind: ProcessEventKind::NoteOff { note_id: 2 },
+        },
+        ScheduledEvent {
+            absolute_frame: 8_000,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 3,
+                note_number: 60,
+                velocity: 100,
+            },
+        },
+    ];
+    let render = |block_size| {
+        render_instrument(
+            Arc::clone(&compiled),
+            RenderRequest {
+                sample_rate: 48_000.0,
+                block_size,
+                duration_frames: 8_512,
+                tail_frames: 0,
+            },
+            &events,
+        )
+        .expect("round robin render succeeds")
+    };
+    let reference = render(32);
+    let candidate = render(257);
+    for (left, right) in reference.channels[0].iter().zip(&candidate.channels[0]) {
+        assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
+    }
+    let first = &reference.channels[0][0..128];
+    let second = &reference.channels[0][4_000..4_128];
+    let third = &reference.channels[0][8_000..8_128];
+    assert!(
+        first
+            .iter()
+            .zip(second)
+            .map(|(left, right)| f64::from((*left - *right).abs()))
+            .sum::<f64>()
+            > 0.1
+    );
+    assert_relative_eq!(
+        first.iter().map(|value| f64::from(*value)).sum::<f64>(),
+        third.iter().map(|value| f64::from(*value)).sum::<f64>(),
+        epsilon = 0.1
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn pending_round_robin_selection_is_captured_before_voice_stealing() {
+    let mut definition = sample_only_definition(vec![
+        sample_zone(
+            "hit_a",
+            "../../testdata/assets/metal-hit.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.0,
+            0.08,
+        ),
+        sample_zone(
+            "hit_b",
+            "../../testdata/assets/metal-hit.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.08,
+            0.16,
+        ),
+    ]);
+    definition.performance.polyphony = 1;
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let compiled = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir.clone(),
+            process_spec: ProcessSpec::new(48_000.0, 32, 2).expect("valid process spec"),
+        },
+    )
+    .instrument
+    .expect("pending selection fixture compiles");
+    let stolen = render_instrument(
+        compiled,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 32,
+            duration_frames: 1_024,
+            tail_frames: 0,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 96,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 800,
+                kind: ProcessEventKind::NoteOff { note_id: 2 },
+            },
+        ],
+    )
+    .expect("voice stealing render succeeds");
+
+    let direct = sample_only_definition(vec![sample_zone(
+        "hit_b",
+        "../../testdata/assets/metal-hit.wav",
+        60,
+        60,
+        1,
+        127,
+        Some("hits"),
+        0.08,
+        0.16,
+    )]);
+    let direct = compile_instrument(
+        &direct,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 32, 2).expect("valid process spec"),
+        },
+    )
+    .instrument
+    .expect("direct pending zone fixture compiles");
+    let direct = render_instrument(
+        direct,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 32,
+            duration_frames: 128,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 3,
+                note_number: 60,
+                velocity: 100,
+            },
+        }],
+    )
+    .expect("direct zone render succeeds");
+
+    let pending_start = 96 + 240;
+    for (stolen_sample, direct_sample) in stolen.channels[0][pending_start..pending_start + 128]
+        .iter()
+        .zip(&direct.channels[0])
+    {
+        assert_relative_eq!(*stolen_sample, *direct_sample, epsilon = 1.0e-6);
+    }
+}
+
+#[test]
+fn missing_round_robin_member_is_skipped_without_disabling_valid_zone() {
+    let definition = sample_only_definition(vec![
+        sample_zone(
+            "missing",
+            "../../testdata/assets/not-present.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.0,
+            0.08,
+        ),
+        sample_zone(
+            "valid",
+            "../../testdata/assets/metal-hit.wav",
+            60,
+            60,
+            1,
+            127,
+            Some("hits"),
+            0.08,
+            0.16,
+        ),
+    ]);
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == DiagnosticCode::AssetNotFound)
+    );
+    let instrument = result.instrument.expect("partial sample compile succeeds");
+    let sonalloy_core::compiler::CompiledGenerator::Sample(sample) =
+        &instrument.layers[0].generator
+    else {
+        panic!("sample layer compiles as a sample generator");
+    };
+    assert_eq!(sample.groups[0].enabled_member_zone_indices.as_ref(), &[1]);
+    let audio = render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 512,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }],
+    )
+    .expect("valid round robin member renders");
+    assert!(audio.channels[0].iter().any(|sample| sample.abs() > 0.01));
 }
 
 #[test]
@@ -703,8 +1686,11 @@ fn missing_sample_keeps_the_oscillator_available() {
 fn sample_without_hash_is_enabled_with_a_warning() {
     let mut definition = hybrid_definition();
     match &mut definition.layers[0].generator {
-        sonalloy_core::GeneratorDefinition::Sample(sample) => sample.asset.sha256 = None,
-        sonalloy_core::GeneratorDefinition::Oscillator(_) => {
+        sonalloy_core::GeneratorDefinition::Sample(sample) => {
+            sample.zones[0].asset.sha256 = None;
+        }
+        sonalloy_core::GeneratorDefinition::Oscillator(_)
+        | sonalloy_core::GeneratorDefinition::Noise(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -725,10 +1711,11 @@ fn sample_without_hash_is_enabled_with_a_warning() {
     );
     match &instrument.layers[0].generator {
         sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-            assert!(sample.enabled);
-            assert!(sample.source.is_some());
+            assert!(sample.zones[0].is_enabled());
+            assert!(sample.zones[0].source.is_some());
         }
-        sonalloy_core::compiler::CompiledGenerator::Oscillator(_) => {
+        sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
+        | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -743,9 +1730,10 @@ fn absolute_sample_path_is_enabled_with_a_warning() {
         .expect("reference asset exists");
     match &mut definition.layers[0].generator {
         sonalloy_core::GeneratorDefinition::Sample(sample) => {
-            sample.asset.path = asset_path.to_string_lossy().into_owned();
+            sample.zones[0].asset.path = asset_path.to_string_lossy().into_owned();
         }
-        sonalloy_core::GeneratorDefinition::Oscillator(_) => {
+        sonalloy_core::GeneratorDefinition::Oscillator(_)
+        | sonalloy_core::GeneratorDefinition::Noise(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -771,9 +1759,10 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
     let mut definition = hybrid_definition();
     match &mut definition.layers[0].generator {
         sonalloy_core::GeneratorDefinition::Sample(sample) => {
-            sample.asset.sha256 = Some("00".repeat(32));
+            sample.zones[0].asset.sha256 = Some("00".repeat(32));
         }
-        sonalloy_core::GeneratorDefinition::Oscillator(_) => {
+        sonalloy_core::GeneratorDefinition::Oscillator(_)
+        | sonalloy_core::GeneratorDefinition::Noise(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -796,10 +1785,11 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
     );
     match &instrument.layers[0].generator {
         sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-            assert!(!sample.enabled);
-            assert!(sample.source.is_none());
+            assert!(!sample.zones[0].is_enabled());
+            assert!(sample.zones[0].source.is_none());
         }
-        sonalloy_core::compiler::CompiledGenerator::Oscillator(_) => {
+        sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
+        | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
             panic!("attack layer must be a sample")
         }
     }

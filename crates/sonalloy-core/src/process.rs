@@ -184,6 +184,8 @@ pub enum DspFailureKind {
 pub enum ProcessorFailureKind {
     /// A compiled processor or runtime state violated its lifecycle contract.
     InvalidState,
+    /// A finite input violated a processor's parameter contract.
+    InvalidInput,
     /// A processor received or produced a non-finite sample.
     NonFinite,
 }
@@ -192,6 +194,7 @@ impl std::fmt::Display for ProcessorFailureKind {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let message = match self {
             Self::InvalidState => "invalid state",
+            Self::InvalidInput => "invalid input",
             Self::NonFinite => "non-finite sample",
         };
         formatter.write_str(message)

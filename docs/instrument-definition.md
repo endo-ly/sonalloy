@@ -46,8 +46,11 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
       },
       "generator": {
         "oscillator": {
-          "waveform": "saw",
-          "phase_reset": true
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
         }
       },
       "processors": []
@@ -88,7 +91,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 |---|---|
 | `schema_version` | 1のみ |
 | `layers` | 1個以上。複数のLayerは書かれた順に同じVoiceへMixされます。`enabled`が`false`のLayerはCompile対象外 |
-| `generator` | `oscillator`（`sine` / `saw`）または`sample` |
+| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、または`sample` |
 | `processors` | Layerごとの直列Processor配列。書かれた順にGeneratorとLayer Mixの間で適用 |
 | `voice_processors` | Voice Mix後に適用する直列Processor配列 |
 | `global_processors` | Voice Sum後にInstrument全体へ適用する直列Processor配列 |
@@ -107,11 +110,98 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 | Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
 | LFO | Rate 0.01〜40Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
-| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
+| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|unison_detune\|unison_spread\|noise_correlation)`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
 | 未知のField | JSON Parse Errorとして扱います |
 | 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Layer / Voice / Global Processor状態、Scratch Buffer |
 
 Validation Errorには`layers[0].envelope.attack_seconds`のようなField Pathが付きます。
+
+## Generator
+
+### Oscillator
+
+`waveform`はTagged Objectです。文字列だけのWaveformは受け付けません。
+
+```json
+{
+  "generator": {
+    "oscillator": {
+      "waveform": {
+        "type": "pulse",
+        "pulse_width": 0.35
+      },
+      "phase_reset": true,
+      "phase": 0.0
+    }
+  }
+}
+```
+
+`type`は`sine`、`saw`、`square`、`triangle`、`pulse`です。`pulse`だけが`pulse_width`を持ち、値域は0.05〜0.95です。`phase_reset`はNote Onごとの初期PhaseへのResetを、`phase`は0〜1の初期Phaseを表します。
+
+Square、Triangle、PulseはBand-limited Native Oscillatorを使用します。Pulse Widthは`layer.<layer_id>.generator.pulse_width`として5msでSmoothingされ、既存のLFO、Envelope、External ControlなどからModulationできます。
+
+### Complex Oscillator
+
+基本Oscillatorへ`hard_sync`、`waveshaping`、`unison`を追加できます。これらの設定はStatic Fieldであり、存在する設定だけがDynamic Parameter Catalogへ登録されます。
+
+```json
+{
+  "generator": {
+    "oscillator": {
+      "waveform": { "type": "saw" },
+      "phase_reset": true,
+      "phase": 0.0,
+      "hard_sync": { "ratio": 3.0 },
+      "waveshaping": { "amount": 0.25 },
+      "unison": {
+        "voices": 5,
+        "detune_cents": 18.0,
+        "stereo_spread": 0.85,
+        "phase_spread": 0.0
+      }
+    }
+  }
+}
+```
+
+| Field | Range | Dynamic | Scale | Smoothing |
+|---|---:|---:|---|---:|
+| `hard_sync.ratio` | 1〜16 | 可 | Log2 | 5ms |
+| `waveshaping.amount` | 0〜1 | 可 | Linear | 5ms |
+| `unison.voices` | 2〜8 | 不可 | — | — |
+| `unison.detune_cents` | 0〜100 | 可 | Linear | 10ms |
+| `unison.stereo_spread` | 0〜1 | 可 | Linear | 10ms |
+| `unison.phase_spread` | 0〜1 | 不可 | — | — |
+
+Hard SyncはSineでは使用できません。Saw、Square、Triangle、PulseはDaisySPのVariable Shape Oscillatorを使い、Master Frequency、Slave Frequency（Master × Ratio）、Pulse WidthをSample単位で更新します。Hard Syncは任意の開始Phaseを設定できないため、`phase`は0だけを指定できます。Hard SyncのEffective Frequency上限はBackendの安全範囲に制限されます。Hard SyncとUnisonを組み合わせる場合、`phase_spread`は0だけを指定できます。
+
+UnisonのDetune DistributionとPan Distributionは`-1`から`1`の対称係数で、Phase Distributionは`phase_spread × index / voices`です。各Voiceは`1 / sqrt(voices)`で正規化し、2 Voice以上ではStereo GeneratorとしてLayerへ渡します。WaveshapingはUnison MixとStereo Placementの直後、Layer Processorの前に適用されます。`amount = 0`は入力を変更しません。
+
+Dynamic Parameterは次のIDで既存のLFO、Envelope、Mod Wheel、Parameter Changeから制御できます。
+
+- `layer.<layer_id>.generator.sync_ratio`
+- `layer.<layer_id>.generator.waveshape`
+- `layer.<layer_id>.generator.unison_detune`
+- `layer.<layer_id>.generator.unison_spread`
+
+### Noise
+
+```json
+{
+  "generator": {
+    "noise": {
+      "color": "pink",
+      "seed": 812347,
+      "stereo_correlation": 0.65
+    }
+  }
+}
+```
+
+`color`は`white`、`pink`、`brown`です。`seed`、Layer ID、Note ID、Stream種別から決定的なNoise Streamを生成します。`stereo_correlation`は0〜1で、0は左右独立、1は左右同一のStreamです。このParameterは`layer.<layer_id>.generator.noise_correlation`として10msでSmoothingされます。Noise Generatorは常にStereoです。
+
+Generator ParameterはLayer Gain / Pan / Tuningの後、Layer Processorの前にParameter Catalogへ追加されます。Sample GeneratorにはGenerator Dynamic Parameterはありません。
 
 ## Processor Chain
 
@@ -163,7 +253,7 @@ Canonical Parameter IDは次の形式です。
 - `voice.processor.<processor_id>.<parameter>`
 - `global.processor.<processor_id>.<parameter>`
 
-Parameter Catalogは、全Layerの基本Parameter、各Layer Processor、Voice Processor、Global Processorの順に並びます。Disabled LayerのCatalog項目もDefinitionの順序を維持します。
+Parameter Catalogは、各Layerの基本Parameter、Generator Parameter、Layer Processor、Voice Processor、Global Processorの順に並びます。Disabled LayerのCatalog項目もDefinitionの順序を維持します。
 
 ## Sample Layer
 
@@ -190,13 +280,27 @@ Sampleを使うLayerの最小構成です。
   },
   "generator": {
     "sample": {
-      "asset": {
-        "path": "../../testdata/assets/metal-hit.wav",
-        "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
-      },
-      "root_note": 60,
-      "playback_mode": "one_shot",
-      "interpolation": "cubic"
+      "interpolation": "cubic",
+      "zones": [
+        {
+          "id": "main",
+          "asset": {
+            "path": "../../testdata/assets/metal-hit.wav",
+            "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+          },
+          "root_note": 60,
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127,
+          "round_robin_group": null,
+          "playback": {
+            "type": "one_shot",
+            "start_seconds": 0.0,
+            "end_seconds": null
+          }
+        }
+      ]
     }
   }
 }
@@ -209,6 +313,24 @@ Sampleを使うLayerの最小構成です。
 - StereoのWAVは左右の平均を取ってMonoへ変換します
 - 再生時のSample Rateと違う場合は、RubatoでSample Rateを変換します
 - 元のSample Rate、Channel数、Bit Depth、Frame数はCompiled Sampleに保持します
+- 同一Assetを参照するZoneはCompile時にPrepared Sampleを共有します
+- Assetの欠落・Hash不一致・Decode失敗はそのZoneだけを無効化し、ほかのZoneとLayerのCompileを継続します
+
+**Sample Zone**
+
+- `id`はSample Generator内で一意なComponent IDです
+- `root_note`は0〜127、`key_min` / `key_max`は0〜127、`velocity_min` / `velocity_max`は1〜127です。各範囲は`min <= max`で記述します
+- `key_min` / `key_max`と`velocity_min` / `velocity_max`で発音範囲を指定します
+- 重なるZoneは同じ`round_robin_group`と完全一致するKey / Velocity範囲を持つ必要があります
+- Velocity Layerは重ならないVelocity範囲で記述します。範囲のGapでは発音しません
+- 同じRound Robin Groupの選択はDefinition順で、Instrument単位のCounterによりA/B/A/Bと進みます
+
+**Playback Region**
+
+- `one_shot`は`start_seconds`から`end_seconds`（`null`はAsset終端）までを一度だけ再生します
+- `forward_loop`はRegion内の`loop_start_seconds`から`loop_end_seconds`へ到達するとLoop Startへ戻ります
+- RegionとLoopはCompile時にEngine Sample RateのFrameへ変換され、最低2 Frameが必要です
+- Explicit Sliceは同じAssetと異なるOne-shot Regionを持つ複数Zoneで表現します
 
 Sampleの再生の動き（Cursor、再生速度、補間、終端の扱い）は、`docs/runtime-processing.md`の「Sample Runtime」を参照してください。
 
@@ -296,6 +418,6 @@ Compileで一度だけ計算します。
 
 - Errorが1つでもあれば、`CompiledInstrument`を返しません
 - Warningだけなら、Warning付きの`CompiledInstrument`を返して処理を続けます
-- AssetのSHA-256省略はWarningです（Layerは有効のまま）
-- Assetの欠落・Hash不一致・読み込み失敗のあるSample Layerは無効にしてWarningを残し、ほかの有効なLayerがあれば処理を続けます
+- Zone AssetのSHA-256省略はWarningです（Assetを読み込めたZoneは有効のまま）
+- Assetの欠落・Hash不一致・読み込み失敗のあるSample Zoneは無効にしてWarningを残し、ほかの有効なZoneやLayerがあれば処理を続けます
 - Parameter ID、Source ID、Source設定、Route Target、AmountのErrorはCompile前にまとめて返します

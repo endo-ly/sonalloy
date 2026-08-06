@@ -121,6 +121,193 @@ fn signal_frequency_and_saw_generation_are_verified() {
 }
 
 #[test]
+fn triangle_square_and_pulse_generation_are_finite() {
+    for waveform in [
+        DspOscillatorWaveform::Triangle,
+        DspOscillatorWaveform::Square,
+        DspOscillatorWaveform::Pulse,
+    ] {
+        let mut oscillator = DspOscillator::new().expect("oscillator allocation");
+        oscillator
+            .prepare(48_000.0, waveform)
+            .expect("oscillator preparation");
+        let mut output = [0.0_f32; 4_096];
+        if waveform == DspOscillatorWaveform::Pulse {
+            oscillator
+                .process_with_pulse_width(440.0, 0.5, &mut output)
+                .expect("pulse process");
+        } else {
+            oscillator
+                .process(440.0, &mut output)
+                .expect("waveform process");
+        }
+        assert!(output.iter().all(|sample| sample.is_finite()));
+        assert!(output.iter().any(|sample| sample.abs() > 0.1));
+        let peak = output.iter().map(|sample| sample.abs()).fold(0.0, f32::max);
+        assert!(peak <= 2.0, "{waveform:?} peak was {peak}");
+    }
+}
+
+#[test]
+fn pulse_width_changes_the_native_waveform() {
+    let mut narrow = DspOscillator::new().expect("narrow oscillator allocation");
+    let mut wide = DspOscillator::new().expect("wide oscillator allocation");
+    narrow
+        .prepare(48_000.0, DspOscillatorWaveform::Pulse)
+        .expect("narrow oscillator preparation");
+    wide.prepare(48_000.0, DspOscillatorWaveform::Pulse)
+        .expect("wide oscillator preparation");
+    let mut narrow_output = [0.0_f32; 4_096];
+    let mut wide_output = [0.0_f32; 4_096];
+    narrow
+        .process_with_pulse_width(220.0, 0.25, &mut narrow_output)
+        .expect("narrow pulse process");
+    wide.process_with_pulse_width(220.0, 0.75, &mut wide_output)
+        .expect("wide pulse process");
+    let difference = narrow_output
+        .iter()
+        .zip(wide_output)
+        .map(|(narrow, wide)| f64::from((*narrow - wide).abs()))
+        .sum::<f64>();
+    assert!(difference > 10.0);
+}
+
+#[test]
+fn arbitrary_phase_reset_is_reproducible() {
+    let mut oscillator = DspOscillator::new().expect("oscillator allocation");
+    oscillator
+        .prepare(48_000.0, DspOscillatorWaveform::Sine)
+        .expect("oscillator preparation");
+    let mut initial = [0.0_f32; 64];
+    oscillator
+        .process(440.0, &mut initial)
+        .expect("initial process");
+    oscillator.reset_phase(0.25).expect("phase reset");
+    let mut shifted = [0.0_f32; 64];
+    oscillator
+        .process(440.0, &mut shifted)
+        .expect("shifted process");
+    assert!(
+        initial
+            .iter()
+            .zip(shifted)
+            .any(|(initial, shifted)| (initial - shifted).abs() > 0.01)
+    );
+
+    oscillator.reset_phase(0.25).expect("repeat phase reset");
+    let mut repeated = [0.0_f32; 64];
+    oscillator
+        .process(440.0, &mut repeated)
+        .expect("repeated shifted process");
+    assert_eq!(
+        shifted
+            .iter()
+            .map(|sample| sample.to_bits())
+            .collect::<Vec<_>>(),
+        repeated
+            .iter()
+            .map(|sample| sample.to_bits())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        oscillator.reset_phase(f32::NAN),
+        Err(DspError::InvalidArgument)
+    );
+}
+
+#[test]
+fn triangle_reset_clears_integrator_state() {
+    let mut reused = DspOscillator::new().expect("reused oscillator allocation");
+    let mut fresh = DspOscillator::new().expect("fresh oscillator allocation");
+    reused
+        .prepare(48_000.0, DspOscillatorWaveform::Triangle)
+        .expect("reused oscillator preparation");
+    fresh
+        .prepare(48_000.0, DspOscillatorWaveform::Triangle)
+        .expect("fresh oscillator preparation");
+
+    let mut warmup = [0.0_f32; 512];
+    reused
+        .process(440.0, &mut warmup)
+        .expect("triangle warmup process");
+    reused.reset_phase(0.25).expect("triangle phase reset");
+    fresh.reset_phase(0.25).expect("fresh triangle phase reset");
+
+    let mut reused_output = [0.0_f32; 128];
+    let mut fresh_output = [0.0_f32; 128];
+    reused
+        .process(440.0, &mut reused_output)
+        .expect("reused triangle process after reset");
+    fresh
+        .process(440.0, &mut fresh_output)
+        .expect("fresh triangle process");
+    assert_eq!(
+        reused_output
+            .iter()
+            .map(|sample| sample.to_bits())
+            .collect::<Vec<_>>(),
+        fresh_output
+            .iter()
+            .map(|sample| sample.to_bits())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn pulse_width_ramp_is_stable_when_partitioned() {
+    let mut whole = DspOscillator::new().expect("whole oscillator allocation");
+    let mut split = DspOscillator::new().expect("split oscillator allocation");
+    whole
+        .prepare(48_000.0, DspOscillatorWaveform::Pulse)
+        .expect("whole oscillator preparation");
+    split
+        .prepare(48_000.0, DspOscillatorWaveform::Pulse)
+        .expect("split oscillator preparation");
+    whole.reset_phase(0.0).expect("whole reset");
+    split.reset_phase(0.0).expect("split reset");
+    let mut whole_output = [0.0_f32; 128];
+    whole
+        .process_ramp_with_pulse_width(220.0, 880.0, 0.25, 0.75, &mut whole_output)
+        .expect("whole pulse ramp");
+    let mut split_output = [0.0_f32; 128];
+    split
+        .process_ramp_with_pulse_width(220.0, 440.0, 0.25, 0.5, &mut split_output[..64])
+        .expect("first pulse ramp");
+    split
+        .process_ramp_with_pulse_width(440.0, 880.0, 0.5, 0.75, &mut split_output[64..])
+        .expect("second pulse ramp");
+    let maximum_difference = whole_output
+        .iter()
+        .zip(split_output)
+        .map(|(whole, split)| (whole - split).abs())
+        .fold(0.0, f32::max);
+    assert!(
+        maximum_difference <= 5.0e-5,
+        "partitioned pulse ramp differed by {maximum_difference}"
+    );
+}
+
+#[test]
+fn pulse_width_errors_clear_the_output() {
+    let mut oscillator = DspOscillator::new().expect("oscillator allocation");
+    oscillator
+        .prepare(48_000.0, DspOscillatorWaveform::Pulse)
+        .expect("oscillator preparation");
+    let mut output = [1.0_f32; 8];
+    assert_eq!(
+        oscillator.process_with_pulse_width(440.0, -0.1, &mut output),
+        Err(DspError::InvalidArgument)
+    );
+    assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+    output.fill(1.0);
+    assert_eq!(
+        oscillator.process_ramp_with_pulse_width(440.0, 880.0, 0.5, 1.1, &mut output),
+        Err(DspError::InvalidArgument)
+    );
+    assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+}
+
+#[test]
 fn empty_buffer_and_native_guard_are_safe() {
     let mut oscillator = DspOscillator::new().expect("oscillator allocation");
     oscillator
@@ -181,6 +368,9 @@ fn backend_reports_capabilities() {
         sonalloy_dsp_sys::DspCapabilities {
             sine: true,
             saw: true,
+            triangle: true,
+            square: true,
+            pulse: true,
         }
     );
 }

@@ -2,14 +2,19 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::asset::{AssetError, PreparedSample, SampleMetadata, prepare_asset};
+use crate::asset::{AssetError, PreparedAsset, PreparedSample, prepare_asset, resolved_asset_path};
 use crate::definition::{
     AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
     GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
-    ModulationSourceDefinition, OscillatorDefinition, OscillatorWaveform, ProcessorDefinition,
-    ReverbProcessorDefinition, SampleInterpolation, SamplePlaybackMode, VoiceStealingDefinition,
+    ModulationSourceDefinition, NoiseColor, OscillatorDefinition, OscillatorWaveform,
+    ProcessorDefinition, ReverbProcessorDefinition, SampleZoneDefinition,
+    SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
+use crate::generator_parameters::{
+    GeneratorParameterSpec, NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
+    UNISON_SPREAD, WAVESHAPE,
+};
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
 use crate::runtime::InstrumentRuntime;
@@ -93,7 +98,16 @@ impl CompiledInstrument {
         let Some(range) = self.route_ranges.get(handle.index()) else {
             return &[];
         };
-        &self.routes[range.start..range.start + range.len]
+        let Some(end) = range.start.checked_add(range.len) else {
+            return &[];
+        };
+        self.routes.get(range.start..end).unwrap_or(&[])
+    }
+
+    pub(crate) fn routes_for_checked(&self, handle: ParameterHandle) -> Option<&[CompiledRoute]> {
+        let range = self.route_ranges.get(handle.index())?;
+        let end = range.start.checked_add(range.len)?;
+        self.routes.get(range.start..end)
     }
 }
 
@@ -177,38 +191,196 @@ impl CompiledLayerTrigger {
 pub enum CompiledGenerator {
     /// Oscillator generator.
     Oscillator(CompiledOscillator),
+    /// Noise generator.
+    Noise(CompiledNoise),
     /// Prepared sample generator.
     Sample(CompiledSample),
 }
 
-/// Compiled oscillator settings.
+/// Fixed channel layout produced by a compiled generator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GeneratorOutputMode {
+    /// A single source channel is passed through the mono layer path.
+    Mono,
+    /// Independent left and right source channels are passed through the stereo layer path.
+    Stereo,
+}
+
+impl CompiledGenerator {
+    /// Return the fixed channel layout for this generator.
+    #[must_use]
+    pub fn output_mode(&self) -> GeneratorOutputMode {
+        match self {
+            Self::Oscillator(value) => {
+                if value.unison.position_distribution.len() == 1 {
+                    GeneratorOutputMode::Mono
+                } else {
+                    GeneratorOutputMode::Stereo
+                }
+            }
+            Self::Noise(_) => GeneratorOutputMode::Stereo,
+            Self::Sample(_) => GeneratorOutputMode::Mono,
+        }
+    }
+}
+
+/// Generator parameter handles owned by an oscillator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledOscillatorParameters {
+    /// Pulse width handle for a pulse waveform.
+    pub pulse_width: Option<ParameterHandle>,
+    /// Waveshaping amount handle.
+    pub waveshape: Option<ParameterHandle>,
+    /// Unison detune handle.
+    pub unison_detune: Option<ParameterHandle>,
+    /// Unison stereo spread handle.
+    pub unison_spread: Option<ParameterHandle>,
+}
+
+/// Backend selected for a compiled oscillator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledOscillatorBackend {
+    /// `DaisySP` basic oscillator backend.
+    Basic,
+    /// `DaisySP` variable-shape hard-sync backend.
+    VariableShapeSync {
+        /// Sync ratio handle for the hard-sync oscillator.
+        sync_ratio: ParameterHandle,
+    },
+}
+
+impl CompiledOscillatorBackend {
+    /// Return the maximum frequency accepted by the selected oscillator backend.
+    #[must_use]
+    pub fn effective_max_frequency(self, sample_rate: f64) -> f32 {
+        let ratio = match self {
+            Self::Basic => 0.45,
+            Self::VariableShapeSync { .. } => 0.24,
+        };
+        #[allow(clippy::cast_possible_truncation)]
+        {
+            (sample_rate * ratio) as f32
+        }
+    }
+}
+
+/// Static unison distribution prepared by the compiler.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledUnison {
+    /// Symmetric position coefficients used for detune and pan.
+    pub position_distribution: Box<[f32]>,
+    /// Static phase offsets.
+    pub phase_distribution: Box<[f32]>,
+    /// Static phase spread used to build the offsets.
+    pub phase_spread: f32,
+    /// Normalization applied to the component sum.
+    pub normalization: f32,
+}
+
+/// Compiled oscillator settings.
+#[derive(Debug, Clone, PartialEq)]
 pub struct CompiledOscillator {
     /// Waveform selected by the Definition.
     pub waveform: OscillatorWaveform,
     /// Whether Note On resets the phase.
     pub phase_reset: bool,
+    /// Initial phase used by instrument and note resets.
+    pub phase: f32,
+    /// Native backend selected by static Definition fields.
+    pub backend: CompiledOscillatorBackend,
+    /// Generator parameter bindings.
+    pub parameters: CompiledOscillatorParameters,
+    /// Static Unison component configuration.
+    pub unison: Arc<CompiledUnison>,
 }
 
-/// Compiled sample configuration and prepared source.
+/// Compiled noise settings.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledNoise {
+    /// Spectral color selected by the Definition.
+    pub color: NoiseColor,
+    /// Deterministic Definition seed.
+    pub seed: u64,
+    /// Stereo correlation parameter handle.
+    pub correlation: ParameterHandle,
+    /// Stable hash of the owning layer identifier.
+    pub layer_hash: u64,
+    /// Sample-rate-specific Brown noise coefficient.
+    pub brown_coefficient: f32,
+}
+
+/// Compiled sample configuration and prepared zones.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledSample {
+    /// Zones in Definition order.
+    pub zones: Box<[CompiledSampleZone]>,
+    /// Round Robin groups in stable Definition order.
+    pub groups: Box<[CompiledRoundRobinGroup]>,
+}
+
+/// Compiled Sample Zone and its prepared Asset.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledSampleZone {
+    /// Stable Definition identifier.
+    pub id: String,
     /// Prepared mono source, absent when the asset could not be loaded.
     pub source: Option<Arc<PreparedSample>>,
     /// MIDI note represented by the source recording.
     pub root_note: u8,
-    /// Sample playback mode.
-    pub playback_mode: SamplePlaybackMode,
-    /// Sample interpolation mode.
-    pub interpolation: SampleInterpolation,
+    /// Lowest accepted MIDI note.
+    pub key_min: u8,
+    /// Highest accepted MIDI note.
+    pub key_max: u8,
+    /// Lowest accepted MIDI velocity.
+    pub velocity_min: u8,
+    /// Highest accepted MIDI velocity.
+    pub velocity_max: u8,
+    /// Compiled Round Robin group handle.
+    pub group: Option<usize>,
+    /// Compiled playback region.
+    pub playback: CompiledSamplePlayback,
     /// Path as written in the Definition.
     pub asset_path: String,
-    /// Expected SHA-256 digest, when present.
-    pub asset_sha256: Option<String>,
-    /// Whether the sample can be triggered.
-    pub enabled: bool,
-    /// Source metadata when the asset was loaded.
-    pub source_metadata: Option<SampleMetadata>,
+}
+
+impl CompiledSampleZone {
+    /// Return whether the zone has a prepared source and can be selected.
+    #[must_use]
+    pub fn is_enabled(&self) -> bool {
+        self.source.is_some()
+    }
+}
+
+/// Sample playback region in prepared frame coordinates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledSamplePlayback {
+    /// Play a finite region once.
+    OneShot {
+        /// Inclusive start frame.
+        start_frame: usize,
+        /// Exclusive end frame.
+        end_frame: usize,
+    },
+    /// Repeat a forward loop inside the region.
+    ForwardLoop {
+        /// Inclusive region start frame.
+        start_frame: usize,
+        /// Exclusive region end frame.
+        end_frame: usize,
+        /// Inclusive loop start frame.
+        loop_start_frame: usize,
+        /// Exclusive loop end frame.
+        loop_end_frame: usize,
+    },
+}
+
+/// Compiled Round Robin group.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompiledRoundRobinGroup {
+    /// Stable Definition identifier.
+    pub id: String,
+    /// Members with successfully prepared assets.
+    pub enabled_member_zone_indices: Box<[usize]>,
 }
 
 /// Sample-rate-specific ADSR settings.
@@ -468,6 +640,7 @@ pub fn compile_instrument(
     }
 
     let parameter_catalog = ParameterCatalog::from_definition(definition);
+    let mut asset_cache = HashMap::new();
 
     let performance = CompiledPerformance {
         polyphony: usize::from(definition.performance.polyphony),
@@ -486,8 +659,11 @@ pub fn compile_instrument(
             let generator = compile_generator(
                 &layer.generator,
                 definition_index,
+                &layer.id,
+                &parameter_catalog,
                 &context.definition_base_dir,
                 context.process_spec.sample_rate,
+                &mut asset_cache,
                 &mut diagnostics,
             );
             let envelope_path = format!("layers[{definition_index}].envelope");
@@ -1102,6 +1278,7 @@ fn route_source_allowed(owner: ParameterOwner, source: CompiledSourceRef) -> boo
     match owner {
         ParameterOwner::GlobalProcessor { .. } => !matches!(source, CompiledSourceRef::Voice(_)),
         ParameterOwner::Layer { .. }
+        | ParameterOwner::LayerGenerator { .. }
         | ParameterOwner::LayerProcessor { .. }
         | ParameterOwner::VoiceProcessor { .. } => true,
     }
@@ -1132,92 +1309,413 @@ fn compile_lfo(value: &LfoDefinition) -> CompiledLfo {
     }
 }
 
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn compile_generator(
     generator: &GeneratorDefinition,
     layer_index: usize,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
     definition_base_dir: &Path,
     sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CompiledGenerator {
     match generator {
         GeneratorDefinition::Oscillator(OscillatorDefinition {
             waveform,
             phase_reset,
-        }) => CompiledGenerator::Oscillator(CompiledOscillator {
-            waveform: *waveform,
-            phase_reset: *phase_reset,
+            phase,
+            hard_sync,
+            waveshaping,
+            unison,
+        }) => {
+            let pulse_width = matches!(waveform, OscillatorWaveform::Pulse { .. })
+                .then(|| generator_parameter_handle(catalog, layer_id, PULSE_WIDTH));
+            let waveshape = waveshaping
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, WAVESHAPE));
+            let unison_detune = unison
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_DETUNE));
+            let unison_spread = unison
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_SPREAD));
+            let unison = compile_unison(*unison);
+            CompiledGenerator::Oscillator(CompiledOscillator {
+                waveform: *waveform,
+                phase_reset: *phase_reset,
+                phase: *phase,
+                backend: if hard_sync.is_some() {
+                    CompiledOscillatorBackend::VariableShapeSync {
+                        sync_ratio: generator_parameter_handle(catalog, layer_id, SYNC_RATIO),
+                    }
+                } else {
+                    CompiledOscillatorBackend::Basic
+                },
+                parameters: CompiledOscillatorParameters {
+                    pulse_width,
+                    waveshape,
+                    unison_detune,
+                    unison_spread,
+                },
+                unison: Arc::new(unison),
+            })
+        }
+        GeneratorDefinition::Noise(noise) => CompiledGenerator::Noise(CompiledNoise {
+            color: noise.color,
+            seed: noise.seed,
+            correlation: generator_parameter_handle(catalog, layer_id, NOISE_CORRELATION),
+            layer_hash: source_id_hash(layer_id),
+            brown_coefficient: brown_noise_coefficient(sample_rate),
         }),
-        GeneratorDefinition::Sample(sample) => {
-            let path = format!("layers[{layer_index}].generator.sample.asset.path");
-            let mut compiled = CompiledSample {
-                source: None,
-                root_note: sample.root_note,
-                playback_mode: sample.playback_mode,
-                interpolation: sample.interpolation,
-                asset_path: sample.asset.path.clone(),
-                asset_sha256: sample.asset.sha256.clone(),
-                enabled: false,
-                source_metadata: None,
-            };
-            if Path::new(&sample.asset.path).is_absolute() {
-                diagnostics.push(
-                    Diagnostic::warning(
-                        DiagnosticCode::AssetAbsolutePath,
-                        "absolute asset paths reduce Definition portability",
-                    )
-                    .with_path(path.clone()),
-                );
-            }
-            match prepare_asset(&sample.asset, definition_base_dir, sample_rate) {
-                Ok(prepared) => {
-                    if sample.asset.sha256.is_none() {
-                        diagnostics.push(
-                            Diagnostic::warning(
-                                DiagnosticCode::AssetHashMissing,
-                                "asset sha256 is not specified",
-                            )
-                            .with_path(format!(
-                                "layers[{layer_index}].generator.sample.asset.sha256"
-                            )),
-                        );
-                    }
-                    if prepared.downmixed {
-                        diagnostics.push(
-                            Diagnostic::warning(
-                                DiagnosticCode::AssetDownmixed,
-                                "stereo asset was downmixed to mono",
-                            )
-                            .with_path(path.clone()),
-                        );
-                    }
-                    if (f64::from(prepared.sample.source_metadata.source_sample_rate) - sample_rate)
-                        .abs()
-                        > f64::EPSILON
-                    {
-                        diagnostics.push(
-                            Diagnostic::warning(
-                                DiagnosticCode::AssetResampled,
-                                "asset was resampled to the process sample rate",
-                            )
-                            .with_path(path.clone()),
-                        );
-                    }
-                    compiled.source_metadata = Some(prepared.sample.source_metadata.clone());
-                    compiled.source = Some(Arc::new(prepared.sample));
-                    compiled.enabled = true;
-                }
-                Err(error) => {
-                    let (code, message) = asset_diagnostic(&error);
+        GeneratorDefinition::Sample(sample) => CompiledGenerator::Sample(compile_sample(
+            sample,
+            layer_index,
+            definition_base_dir,
+            sample_rate,
+            asset_cache,
+            diagnostics,
+        )),
+    }
+}
+
+fn generator_parameter_handle(
+    catalog: &ParameterCatalog,
+    layer_id: &str,
+    spec: GeneratorParameterSpec,
+) -> ParameterHandle {
+    catalog
+        .parameter_handle(&crate::parameter::layer_generator_parameter_id(
+            layer_id,
+            spec.suffix,
+        ))
+        .expect("generator parameter catalog entry exists")
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct AssetCacheKey {
+    path: PathBuf,
+    sha256: Option<String>,
+    sample_rate_bits: u64,
+}
+
+fn prepare_cached_asset(
+    reference: &crate::definition::AssetReference,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+) -> Result<PreparedAsset, AssetError> {
+    let resolved = resolved_asset_path(definition_base_dir, &reference.path);
+    let path = std::fs::canonicalize(&resolved).unwrap_or(resolved);
+    let key = AssetCacheKey {
+        path,
+        sha256: reference
+            .sha256
+            .as_ref()
+            .map(|value| value.to_ascii_lowercase()),
+        sample_rate_bits: sample_rate.to_bits(),
+    };
+    if let Some(result) = asset_cache.get(&key) {
+        return result.clone();
+    }
+    let result = prepare_asset(reference, definition_base_dir, sample_rate);
+    asset_cache.insert(key, result.clone());
+    result
+}
+
+#[allow(clippy::too_many_lines)]
+fn compile_sample(
+    sample: &crate::definition::SampleDefinition,
+    layer_index: usize,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledSample {
+    let mut zones = Vec::with_capacity(sample.zones.len());
+    for (zone_index, zone) in sample.zones.iter().enumerate() {
+        let zone_path = format!("layers[{layer_index}].generator.sample.zones[{zone_index}]");
+        let mut compiled = CompiledSampleZone {
+            id: zone.id.clone(),
+            source: None,
+            root_note: zone.root_note,
+            key_min: zone.key_min,
+            key_max: zone.key_max,
+            velocity_min: zone.velocity_min,
+            velocity_max: zone.velocity_max,
+            group: None,
+            playback: CompiledSamplePlayback::OneShot {
+                start_frame: 0,
+                end_frame: 0,
+            },
+            asset_path: zone.asset.path.clone(),
+        };
+        if Path::new(&zone.asset.path).is_absolute() {
+            diagnostics.push(
+                Diagnostic::warning(
+                    DiagnosticCode::AssetAbsolutePath,
+                    "absolute asset paths reduce Definition portability",
+                )
+                .with_path(format!("{zone_path}.asset.path")),
+            );
+        }
+        match prepare_cached_asset(&zone.asset, definition_base_dir, sample_rate, asset_cache) {
+            Ok(prepared) => {
+                if zone.asset.sha256.is_none() {
                     diagnostics.push(
-                        Diagnostic::warning(code, message)
-                            .with_path(path)
-                            .with_detail(error.to_string()),
+                        Diagnostic::warning(
+                            DiagnosticCode::AssetHashMissing,
+                            "asset sha256 is not specified",
+                        )
+                        .with_path(format!("{zone_path}.asset.sha256")),
                     );
                 }
+                if prepared.downmixed {
+                    diagnostics.push(
+                        Diagnostic::warning(
+                            DiagnosticCode::AssetDownmixed,
+                            "stereo asset was downmixed to mono",
+                        )
+                        .with_path(format!("{zone_path}.asset.path")),
+                    );
+                }
+                if (f64::from(prepared.sample.source_metadata.source_sample_rate) - sample_rate)
+                    .abs()
+                    > f64::EPSILON
+                {
+                    diagnostics.push(
+                        Diagnostic::warning(
+                            DiagnosticCode::AssetResampled,
+                            "asset was resampled to the process sample rate",
+                        )
+                        .with_path(format!("{zone_path}.asset.path")),
+                    );
+                }
+                if let Some(playback) = compile_sample_playback(
+                    zone,
+                    prepared.sample.samples.len(),
+                    sample_rate,
+                    &format!("{zone_path}.playback"),
+                    diagnostics,
+                ) {
+                    compiled.playback = playback;
+                    compiled.source = Some(Arc::clone(&prepared.sample));
+                }
             }
-            CompiledGenerator::Sample(compiled)
+            Err(error) => {
+                let (code, message) = asset_diagnostic(&error);
+                diagnostics.push(
+                    Diagnostic::warning(code, message)
+                        .with_path(format!("{zone_path}.asset.path"))
+                        .with_detail(error.to_string()),
+                );
+            }
         }
+        zones.push(compiled);
     }
+
+    let mut group_indices = HashMap::<String, usize>::new();
+    let mut group_ids = Vec::new();
+    let mut member_indices = Vec::<Vec<usize>>::new();
+    let mut zone_groups = vec![None; sample.zones.len()];
+    for (zone_index, zone) in sample.zones.iter().enumerate() {
+        let Some(group_id) = &zone.round_robin_group else {
+            continue;
+        };
+        let group_index = if let Some(index) = group_indices.get(group_id) {
+            *index
+        } else {
+            let index = group_ids.len();
+            group_indices.insert(group_id.clone(), index);
+            group_ids.push(group_id.clone());
+            member_indices.push(Vec::new());
+            index
+        };
+        member_indices[group_index].push(zone_index);
+        zone_groups[zone_index] = Some(group_index);
+    }
+    for (zone, group) in zones.iter_mut().zip(zone_groups) {
+        zone.group = group;
+    }
+    let groups = group_ids
+        .into_iter()
+        .zip(member_indices)
+        .map(|(id, members)| {
+            let enabled = members
+                .iter()
+                .copied()
+                .filter(|index| zones[*index].is_enabled())
+                .collect::<Vec<_>>();
+            CompiledRoundRobinGroup {
+                id,
+                enabled_member_zone_indices: enabled.into_boxed_slice(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+
+    CompiledSample {
+        zones: zones.into_boxed_slice(),
+        groups,
+    }
+}
+
+fn compile_sample_playback(
+    zone: &SampleZoneDefinition,
+    source_frames: usize,
+    sample_rate: f64,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<CompiledSamplePlayback> {
+    let (start_seconds, end_seconds, loop_seconds) = match zone.playback {
+        SampleZonePlaybackDefinition::OneShot {
+            start_seconds,
+            end_seconds,
+        } => (start_seconds, end_seconds, None),
+        SampleZonePlaybackDefinition::ForwardLoop {
+            start_seconds,
+            end_seconds,
+            loop_start_seconds,
+            loop_end_seconds,
+        } => (
+            start_seconds,
+            end_seconds,
+            Some((loop_start_seconds, loop_end_seconds)),
+        ),
+    };
+    let start_frame = sample_time_to_frame(
+        start_seconds,
+        sample_rate,
+        path,
+        "start_seconds",
+        diagnostics,
+    )?;
+    let end_frame = end_seconds.map_or(Some(source_frames), |seconds| {
+        sample_time_to_frame(seconds, sample_rate, path, "end_seconds", diagnostics)
+    })?;
+    if start_frame >= source_frames || end_frame > source_frames || end_frame <= start_frame {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "sample region must fit inside the prepared asset",
+            )
+            .with_path(path),
+        );
+        return None;
+    }
+    if end_frame - start_frame < 2 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "sample region must contain at least two prepared frames",
+            )
+            .with_path(path),
+        );
+        return None;
+    }
+    let Some((loop_start_seconds, loop_end_seconds)) = loop_seconds else {
+        return Some(CompiledSamplePlayback::OneShot {
+            start_frame,
+            end_frame,
+        });
+    };
+    let loop_start_frame = sample_time_to_frame(
+        loop_start_seconds,
+        sample_rate,
+        path,
+        "loop_start_seconds",
+        diagnostics,
+    )?;
+    let loop_end_frame = sample_time_to_frame(
+        loop_end_seconds,
+        sample_rate,
+        path,
+        "loop_end_seconds",
+        diagnostics,
+    )?;
+    if loop_start_frame < start_frame
+        || loop_end_frame > end_frame
+        || loop_end_frame <= loop_start_frame
+        || loop_end_frame - loop_start_frame < 2
+    {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "forward loop must contain at least two frames inside the sample region",
+            )
+            .with_path(path),
+        );
+        return None;
+    }
+    Some(CompiledSamplePlayback::ForwardLoop {
+        start_frame,
+        end_frame,
+        loop_start_frame,
+        loop_end_frame,
+    })
+}
+
+fn sample_time_to_frame(
+    seconds: f32,
+    sample_rate: f64,
+    path: &str,
+    field: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<usize> {
+    let frames = (f64::from(seconds) * sample_rate).round();
+    #[allow(clippy::cast_precision_loss)]
+    let max_usize = usize::MAX as f64;
+    if !frames.is_finite() || frames < 0.0 || frames > max_usize {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "sample playback time does not fit in the process frame counter",
+            )
+            .with_path(format!("{path}.{field}")),
+        );
+        return None;
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    Some(frames as usize)
+}
+
+fn compile_unison(unison: Option<UnisonDefinition>) -> CompiledUnison {
+    let (position_distribution, phase_spread) = unison.map_or((vec![0.0], 0.0), |value| {
+        let voices = usize::from(value.voices);
+        let distribution = if voices > 1 {
+            #[allow(clippy::cast_precision_loss)]
+            let denominator = (voices - 1) as f32;
+            (0..voices)
+                .map(|index| {
+                    #[allow(clippy::cast_precision_loss)]
+                    let index = index as f32;
+                    -1.0 + 2.0 * index / denominator
+                })
+                .collect()
+        } else {
+            vec![0.0]
+        };
+        (distribution, value.phase_spread)
+    });
+    let voices = position_distribution.len();
+    #[allow(clippy::cast_precision_loss)]
+    let phase_distribution = (0..voices)
+        .map(|index| index as f32 / voices.max(1) as f32 * phase_spread)
+        .collect();
+    #[allow(clippy::cast_precision_loss)]
+    let normalization = 1.0 / (voices.max(1) as f32).sqrt();
+    CompiledUnison {
+        position_distribution: position_distribution.into_boxed_slice(),
+        phase_distribution,
+        phase_spread,
+        normalization,
+    }
+}
+
+fn brown_noise_coefficient(sample_rate: f64) -> f32 {
+    #[allow(clippy::cast_possible_truncation)]
+    let coefficient = (-std::f64::consts::TAU * 20.0 / sample_rate).exp() as f32;
+    coefficient.clamp(0.0, 1.0)
 }
 
 fn asset_diagnostic(error: &AssetError) -> (DiagnosticCode, &'static str) {
@@ -1358,6 +1856,23 @@ mod tests {
     }
 
     #[test]
+    fn oscillator_backend_frequency_limits_are_rate_derived() {
+        assert!(
+            (CompiledOscillatorBackend::Basic.effective_max_frequency(48_000.0) - 21_600.0).abs()
+                < f32::EPSILON
+        );
+        assert!(
+            (CompiledOscillatorBackend::VariableShapeSync {
+                sync_ratio: ParameterHandle::new(0),
+            }
+            .effective_max_frequency(48_000.0)
+                - 11_520.0)
+                .abs()
+                < f32::EPSILON
+        );
+    }
+
+    #[test]
     fn valid_definition_compiles_to_catalog_bindings() {
         let source = definition();
         let result = compile_instrument(&source, &context());
@@ -1368,6 +1883,63 @@ mod tests {
         assert_eq!(
             compiled.parameter_handle("layer.body.gain"),
             Some(compiled.layers[0].parameters.gain)
+        );
+    }
+
+    #[test]
+    fn basic_generators_compile_with_parameter_handles_and_output_modes() {
+        let mut pulse_definition = definition();
+        pulse_definition.layers[0].generator =
+            GeneratorDefinition::Oscillator(OscillatorDefinition {
+                waveform: OscillatorWaveform::Pulse { pulse_width: 0.3 },
+                phase_reset: true,
+                phase: 0.25,
+                hard_sync: None,
+                waveshaping: None,
+                unison: None,
+            });
+        let pulse = compile_instrument(&pulse_definition, &context())
+            .instrument
+            .expect("pulse compiles");
+        let CompiledGenerator::Oscillator(pulse_oscillator) = &pulse.layers[0].generator else {
+            panic!("pulse definition must compile to an oscillator");
+        };
+        assert_eq!(
+            pulse.layers[0].generator.output_mode(),
+            GeneratorOutputMode::Mono
+        );
+        assert!((pulse_oscillator.phase - 0.25).abs() < f32::EPSILON);
+        assert!(pulse_oscillator.parameters.pulse_width.is_some());
+        assert!(
+            pulse
+                .parameter_handle("layer.body.generator.pulse_width")
+                .is_some()
+        );
+
+        let mut noise_definition = definition();
+        noise_definition.layers[0].generator =
+            GeneratorDefinition::Noise(crate::definition::NoiseDefinition {
+                color: NoiseColor::Brown,
+                seed: 42,
+                stereo_correlation: 0.5,
+            });
+        let noise = compile_instrument(&noise_definition, &context())
+            .instrument
+            .expect("noise compiles");
+        let CompiledGenerator::Noise(compiled_noise) = &noise.layers[0].generator else {
+            panic!("noise definition must compile to noise");
+        };
+        assert_eq!(
+            noise.layers[0].generator.output_mode(),
+            GeneratorOutputMode::Stereo
+        );
+        assert_eq!(compiled_noise.color, NoiseColor::Brown);
+        assert_eq!(compiled_noise.seed, 42);
+        assert!(compiled_noise.brown_coefficient > 0.0);
+        assert!(
+            noise
+                .parameter_handle("layer.body.generator.noise_correlation")
+                .is_some()
         );
     }
 

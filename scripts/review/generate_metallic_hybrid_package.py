@@ -86,11 +86,9 @@ def copy_definition(source: Path, destination: Path, asset_path: str | None) -> 
         for layer in definition["layers"]:
             sample = layer.get("generator", {}).get("sample")
             if sample is not None:
-                sample["asset"]["path"] = asset_path
-    destination.write_text(
-        json.dumps(definition, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-        newline="\n",
+                sample["zones"][0]["asset"]["path"] = asset_path
+    destination.write_bytes(
+        (json.dumps(definition, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     )
 
 
@@ -134,12 +132,12 @@ def validate_definition(
         sample = layer.get("generator", {}).get("sample")
         if sample is None:
             continue
-        asset_path = (definition.parent / sample["asset"]["path"]).resolve()
+        asset_path = (definition.parent / sample["zones"][0]["asset"]["path"]).resolve()
         if not asset_path.exists():
             if asset_must_exist:
                 raise RuntimeError(f"expected sample asset is missing: {asset_path}")
             continue
-        expected_hash = sample["asset"].get("sha256")
+        expected_hash = sample["zones"][0]["asset"].get("sha256")
         if expected_hash is None:
             raise RuntimeError(f"sample asset hash is missing in {definition}")
         actual_hash = hashlib.sha256(asset_path.read_bytes()).hexdigest()
@@ -376,10 +374,8 @@ def main() -> None:
         "sample_asset_hashes_match_definitions": True,
         "inspect_reports_match_expected_asset_state": True,
     }
-    (review_root / "metrics.json").write_text(
-        json.dumps(metrics, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-        newline="\n",
+    (review_root / "metrics.json").write_bytes(
+        (json.dumps(metrics, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     )
     summary = f"""# Metallic Hybrid Sound Review
 

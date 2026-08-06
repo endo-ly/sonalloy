@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Essential Hybrid Instrument",
+    "author": "Sonalloy",
+    "description": "Mapped sample attack, oscillator body, and processors"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "attack",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -11.0,
+      "pan": -0.08,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.03,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "hit_a",
+              "asset": {
+                "path": "../assets/rr-a.wav",
+                "sha256": "b48683025d155c9376610f2e43b12a468c29a28691ac137ce238e5007c415436"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": "hits",
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            },
+            {
+              "id": "hit_b",
+              "asset": {
+                "path": "../assets/rr-b.wav",
+                "sha256": "5cbc5f2494ba8366e115f46ef61e6753759ff7ae67bf0d7498b7424d5060f0a7"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": "hits",
+              "playback": {
+                "type": "one_shot",
+                "start_seconds": 0.0,
+                "end_seconds": null
+              }
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "attack_tone",
+          "cutoff_hz": 10000.0,
+          "resonance": 0.08
+        },
+        {
+          "type": "drive",
+          "id": "attack_drive",
+          "amount": 0.18,
+          "mix": 0.35
+        }
+      ]
+    },
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.0,
+      "pan": 0.08,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.62,
+        "release_seconds": 0.45
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": [
+        {
+          "type": "drive",
+          "id": "body_drive",
+          "amount": 0.28,
+          "mix": 0.45
+        },
+        {
+          "type": "filter",
+          "id": "body_tone",
+          "cutoff_hz": 5200.0,
+          "resonance": 0.12
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "cutoff_hz": 6800.0,
+      "resonance": 0.14
+    },
+    {
+      "type": "drive",
+      "id": "glue",
+      "amount": 0.12,
+      "mix": 0.3
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "delay",
+      "id": "echo",
+      "time_seconds": 0.24,
+      "feedback": 0.34,
+      "mix": 0.18
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.012,
+      "decay": 0.7,
+      "damping": 0.32,
+      "width": 0.9,
+      "mix": 0.24
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.attack.processor.attack_drive.mix",
+        "amount": 0.18,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.space.mix",
+        "amount": 0.35,
+        "curve": "linear"
+      }
+    ]
+  }
+}

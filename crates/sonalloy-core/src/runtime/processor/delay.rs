@@ -28,16 +28,8 @@ impl StereoDelayRuntime {
             });
         }
         for index in 0..left.len() {
-            let position = if left.is_empty() {
-                0.0
-            } else {
-                #[allow(clippy::cast_precision_loss)]
-                {
-                    index as f32 / left.len() as f32
-                }
-            };
-            let feedback = feedback.start + (feedback.end - feedback.start) * position;
-            let mix = mix.start + (mix.end - mix.start) * position;
+            let feedback = feedback.value_at(index, left.len());
+            let mix = mix.value_at(index, left.len());
             let left_input = left[index];
             let right_input = right[index];
             let left_delayed = self.left.read();

@@ -1,0 +1,579 @@
+{
+  "sample_rate": 48000,
+  "base_block_size": 257,
+  "block_sizes": [
+    32,
+    64,
+    257,
+    1024
+  ],
+  "audio": {
+    "23-key-zone-scale.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 40000,
+      "duration_seconds": 0.8333333333333334,
+      "finite": true,
+      "peak": 0.3116728365421295,
+      "rms": 0.06612523086569448,
+      "dc": 0.00016202891459862246,
+      "positive_zero_crossings_left": 308,
+      "estimated_frequency_hz": 369.6,
+      "max_adjacent_frame_delta": 0.04245803086087108,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "24-velocity-layer-soft-hard.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 30000,
+      "duration_seconds": 0.625,
+      "finite": true,
+      "peak": 0.30513572692871094,
+      "rms": 0.09279656187400315,
+      "dc": 9.028930254556583e-05,
+      "positive_zero_crossings_left": 166,
+      "estimated_frequency_hz": 265.6,
+      "max_adjacent_frame_delta": 0.01137163070961833,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "25-round-robin-repeated-hit.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 56000,
+      "duration_seconds": 1.1666666666666667,
+      "finite": true,
+      "peak": 0.31668275594711304,
+      "rms": 0.06453916439154564,
+      "dc": 0.0001228853839839419,
+      "positive_zero_crossings_left": 394,
+      "estimated_frequency_hz": 337.7142857142857,
+      "max_adjacent_frame_delta": 0.03013727068901062,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "26-forward-loop-hold.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 80000,
+      "duration_seconds": 1.6666666666666667,
+      "finite": true,
+      "peak": 0.20229820907115936,
+      "rms": 0.12129297181149276,
+      "dc": 1.265939146491828e-05,
+      "positive_zero_crossings_left": 396,
+      "estimated_frequency_hz": 237.6,
+      "max_adjacent_frame_delta": 0.006640592589974403,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "27-forward-loop-release.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 70000,
+      "duration_seconds": 1.4583333333333333,
+      "finite": true,
+      "peak": 0.20229820907115936,
+      "rms": 0.09180826448547397,
+      "dc": 1.3939588276260346e-05,
+      "positive_zero_crossings_left": 223,
+      "estimated_frequency_hz": 152.9142857142857,
+      "max_adjacent_frame_delta": 0.006640592589974403,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "28-explicit-slice-sequence.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 42000,
+      "duration_seconds": 0.875,
+      "finite": true,
+      "peak": 0.2587570250034332,
+      "rms": 0.04553904934917996,
+      "dc": 1.4194841825975058e-11,
+      "positive_zero_crossings_left": 483,
+      "estimated_frequency_hz": 552.0,
+      "max_adjacent_frame_delta": 0.018337601330131292,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "29-multi-sample-melody.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.1458333333333333,
+      "finite": true,
+      "peak": 0.32238641381263733,
+      "rms": 0.06963014843300681,
+      "dc": 0.0003421510772567611,
+      "positive_zero_crossings_left": 356,
+      "estimated_frequency_hz": 310.6909090909091,
+      "max_adjacent_frame_delta": 0.04245782503858209,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "30-full-mapped-sample-instrument.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.1458333333333333,
+      "finite": true,
+      "peak": 0.3116728365421295,
+      "rms": 0.06306918213961177,
+      "dc": 0.00020006268257547375,
+      "positive_zero_crossings_left": 310,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.022723138332366943,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "31-essential-hybrid-instrument.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 70000,
+      "duration_seconds": 1.4583333333333333,
+      "finite": true,
+      "peak": 0.31587928533554077,
+      "rms": 0.07363624139964757,
+      "dc": -0.0006121539995637453,
+      "positive_zero_crossings_left": 1790,
+      "estimated_frequency_hz": 1227.4285714285713,
+      "max_adjacent_frame_delta": 0.07692165672779083,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "32-regression-block-1024.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.1458333333333333,
+      "finite": true,
+      "peak": 0.3116728365421295,
+      "rms": 0.06306918213961177,
+      "dc": 0.00020006268257547375,
+      "positive_zero_crossings_left": 310,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.022723138332366943,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "32-regression-block-257.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.1458333333333333,
+      "finite": true,
+      "peak": 0.3116728365421295,
+      "rms": 0.06306918213961177,
+      "dc": 0.00020006268257547375,
+      "positive_zero_crossings_left": 310,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.022723138332366943,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "32-regression-block-32.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.1458333333333333,
+      "finite": true,
+      "peak": 0.3116728365421295,
+      "rms": 0.06306918213961177,
+      "dc": 0.00020006268257547375,
+      "positive_zero_crossings_left": 310,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.022723138332366943,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "32-regression-block-64.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.1458333333333333,
+      "finite": true,
+      "peak": 0.3116728365421295,
+      "rms": 0.06306918213961177,
+      "dc": 0.00020006268257547375,
+      "positive_zero_crossings_left": 310,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.022723138332366943,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "33-sample-rate-44100.wav": {
+      "sample_rate": 44100,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.2471655328798186,
+      "finite": true,
+      "peak": 0.3051406741142273,
+      "rms": 0.060339198020048154,
+      "dc": -3.956961723988916e-05,
+      "positive_zero_crossings_left": 219,
+      "estimated_frequency_hz": 175.5981818181818,
+      "max_adjacent_frame_delta": 0.023583690752275288,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "33-sample-rate-48000.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.1458333333333333,
+      "finite": true,
+      "peak": 0.3116728365421295,
+      "rms": 0.06306918213961177,
+      "dc": 0.00020006268257547375,
+      "positive_zero_crossings_left": 310,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.022723138332366943,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "33-sample-rate-96000.wav": {
+      "sample_rate": 96000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 0.5729166666666666,
+      "finite": true,
+      "peak": 0.31573227047920227,
+      "rms": 0.07810605202742625,
+      "dc": 0.00036340911490911687,
+      "positive_zero_crossings_left": 155,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.011343821883201599,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "34-repeat-a.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.1458333333333333,
+      "finite": true,
+      "peak": 0.3116728365421295,
+      "rms": 0.06306918213961177,
+      "dc": 0.00020006268257547375,
+      "positive_zero_crossings_left": 310,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.022723138332366943,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "34-repeat-b.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.1458333333333333,
+      "finite": true,
+      "peak": 0.3116728365421295,
+      "rms": 0.06306918213961177,
+      "dc": 0.00020006268257547375,
+      "positive_zero_crossings_left": 310,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.022723138332366943,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "35-voice-stealing-pending-zone.wav": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 22000,
+      "duration_seconds": 0.4583333333333333,
+      "finite": true,
+      "peak": 0.29383158683776855,
+      "rms": 0.04583336901553345,
+      "dc": 9.54376720950879e-05,
+      "positive_zero_crossings_left": 167,
+      "estimated_frequency_hz": 364.3636363636364,
+      "max_adjacent_frame_delta": 0.0380668118596077,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    }
+  },
+  "block_size_comparisons": {
+    "32": {
+      "compatible": true,
+      "max_abs_difference": 0.0,
+      "rms_difference": 0.0,
+      "different_sample_count": 0
+    },
+    "64": {
+      "compatible": true,
+      "max_abs_difference": 0.0,
+      "rms_difference": 0.0,
+      "different_sample_count": 0
+    },
+    "257": {
+      "compatible": true,
+      "max_abs_difference": 0.0,
+      "rms_difference": 0.0,
+      "different_sample_count": 0
+    },
+    "1024": {
+      "compatible": true,
+      "max_abs_difference": 0.0,
+      "rms_difference": 0.0,
+      "different_sample_count": 0
+    }
+  },
+  "sample_rate_metrics": {
+    "44100": {
+      "sample_rate": 44100,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.2471655328798186,
+      "finite": true,
+      "peak": 0.3051406741142273,
+      "rms": 0.060339198020048154,
+      "dc": -3.956961723988916e-05,
+      "positive_zero_crossings_left": 219,
+      "estimated_frequency_hz": 175.5981818181818,
+      "max_adjacent_frame_delta": 0.023583690752275288,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "48000": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 1.1458333333333333,
+      "finite": true,
+      "peak": 0.3116728365421295,
+      "rms": 0.06306918213961177,
+      "dc": 0.00020006268257547375,
+      "positive_zero_crossings_left": 310,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.022723138332366943,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    },
+    "96000": {
+      "sample_rate": 96000,
+      "channels": 2,
+      "frames": 55000,
+      "duration_seconds": 0.5729166666666666,
+      "finite": true,
+      "peak": 0.31573227047920227,
+      "rms": 0.07810605202742625,
+      "dc": 0.00036340911490911687,
+      "positive_zero_crossings_left": 155,
+      "estimated_frequency_hz": 270.54545454545456,
+      "max_adjacent_frame_delta": 0.011343821883201599,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        32,
+        64,
+        257,
+        1024
+      ]
+    }
+  },
+  "repeat_comparison": {
+    "compatible": true,
+    "max_abs_difference": 0.0,
+    "rms_difference": 0.0,
+    "different_sample_count": 0,
+    "reference_sha256": "8e2eaacb3e13876fb10e1da4658907a3eef1a275031cd85df1a9ec12af4b49d5",
+    "repeat_sha256": "8e2eaacb3e13876fb10e1da4658907a3eef1a275031cd85df1a9ec12af4b49d5"
+  },
+  "round_robin_selection_order": [
+    "hit_a",
+    "hit_b",
+    "hit_a",
+    "hit_b"
+  ],
+  "round_robin_segment_rms": [
+    0.1176198557386814,
+    0.11731382189112259,
+    0.1176198557386814,
+    0.11731382189112259
+  ],
+  "loop_period_frames": 38400,
+  "loop_segment_rms": [
+    0.12453386804359518,
+    0.12453386749571534,
+    0.12453386804368273
+  ],
+  "slice_region_durations_seconds": [
+    0.24,
+    0.27,
+    0.27
+  ],
+  "slice_segment_rms": [
+    0.082342119006144,
+    0.10503385039722668,
+    0.09134160124908766
+  ],
+  "asset_cache": {
+    "mapped_zone_count": 5,
+    "prepared_asset_count": 4
+  },
+  "automatic_checks": {
+    "all_audio_finite": true,
+    "rendered_peaks_within_float_wav_range": true,
+    "block_sizes_reproducible": true,
+    "repeat_render_reproducible": true,
+    "key_zones_are_non_silent": true,
+    "velocity_layers_differ": true,
+    "round_robin_order_is_definition_ordered": true,
+    "round_robin_variants_are_audibly_distinct": true,
+    "forward_loop_remains_active": true,
+    "slice_regions_are_non_silent": true,
+    "mapped_sample_asset_cache_is_shared": true,
+    "voice_stealing_pending_render_is_non_silent": true,
+    "essential_hybrid_is_non_silent": true
+  }
+}

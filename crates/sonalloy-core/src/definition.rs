@@ -1,8 +1,11 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
+use crate::generator_parameters::{
+    NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVESHAPE,
+};
 use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id, is_parameter_id};
 
 /// The Definition schema accepted by the compiler.
@@ -111,32 +114,131 @@ pub struct LayerTriggerDefinition {
 pub enum GeneratorDefinition {
     /// A DaisySP-backed oscillator.
     Oscillator(OscillatorDefinition),
-    /// A one-shot sample loaded during compilation.
+    /// A deterministic stereo noise generator.
+    Noise(NoiseDefinition),
+    /// A mapped sample instrument loaded during compilation.
     Sample(SampleDefinition),
 }
 
 /// Oscillator generator settings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OscillatorDefinition {
     /// Selected waveform.
     pub waveform: OscillatorWaveform,
     /// Whether every Note On starts at the engine's initial phase.
     pub phase_reset: bool,
+    /// Initial oscillator phase in the inclusive zero-to-one range.
+    pub phase: f32,
+    /// Optional hard-sync configuration.
+    #[serde(default)]
+    pub hard_sync: Option<HardSyncDefinition>,
+    /// Optional generator waveshaping configuration.
+    #[serde(default)]
+    pub waveshaping: Option<WaveshapingDefinition>,
+    /// Optional unison configuration.
+    #[serde(default)]
+    pub unison: Option<UnisonDefinition>,
+}
+
+/// Hard-sync oscillator settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HardSyncDefinition {
+    /// Slave-to-master frequency ratio.
+    pub ratio: f32,
+}
+
+/// Generator waveshaping settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WaveshapingDefinition {
+    /// Normalized waveshaping amount.
+    pub amount: f32,
+}
+
+/// Oscillator unison settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnisonDefinition {
+    /// Number of oscillator components.
+    pub voices: u8,
+    /// Maximum symmetric detune in cents.
+    pub detune_cents: f32,
+    /// Dynamic stereo spread.
+    pub stereo_spread: f32,
+    /// Static phase spread.
+    pub phase_spread: f32,
+}
+
+/// Noise generator settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NoiseDefinition {
+    /// Spectral color of the generated noise.
+    pub color: NoiseColor,
+    /// Deterministic stream seed.
+    pub seed: u64,
+    /// Shared-to-independent stereo mix in the inclusive zero-to-one range.
+    pub stereo_correlation: f32,
 }
 
 /// Sample generator settings.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SampleDefinition {
+    /// Sample interpolation mode.
+    pub interpolation: SampleInterpolation,
+    /// Ordered key, velocity, and playback zones.
+    pub zones: Vec<SampleZoneDefinition>,
+}
+
+/// A single mapped sample region.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SampleZoneDefinition {
+    /// Stable identifier within the Sample Generator.
+    pub id: String,
     /// Referenced audio asset.
     pub asset: AssetReference,
     /// MIDI note represented by the source recording.
     pub root_note: u8,
-    /// Sample playback mode.
-    pub playback_mode: SamplePlaybackMode,
-    /// Sample interpolation mode.
-    pub interpolation: SampleInterpolation,
+    /// Lowest MIDI note accepted by the zone.
+    pub key_min: u8,
+    /// Highest MIDI note accepted by the zone.
+    pub key_max: u8,
+    /// Lowest MIDI velocity accepted by the zone.
+    pub velocity_min: u8,
+    /// Highest MIDI velocity accepted by the zone.
+    pub velocity_max: u8,
+    /// Optional deterministic Round Robin group.
+    pub round_robin_group: Option<String>,
+    /// Region and playback behavior.
+    pub playback: SampleZonePlaybackDefinition,
+}
+
+/// Playback region owned by one Sample Zone.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SampleZonePlaybackDefinition {
+    /// Play a finite region once.
+    OneShot {
+        /// Region start in source seconds.
+        start_seconds: f32,
+        /// Optional region end in source seconds.
+        end_seconds: Option<f32>,
+    },
+    /// Repeat a region forward while the layer envelope is active.
+    ForwardLoop {
+        /// Region start in source seconds.
+        start_seconds: f32,
+        /// Optional region end in source seconds.
+        end_seconds: Option<f32>,
+        /// Loop start in source seconds.
+        loop_start_seconds: f32,
+        /// Loop end in source seconds.
+        loop_end_seconds: f32,
+    },
 }
 
 /// A source file referenced by a Definition.
@@ -150,14 +252,6 @@ pub struct AssetReference {
     pub sha256: Option<String>,
 }
 
-/// Supported sample playback modes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SamplePlaybackMode {
-    /// Play the source once from the beginning.
-    OneShot,
-}
-
 /// Supported sample interpolation modes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -167,13 +261,99 @@ pub enum SampleInterpolation {
 }
 
 /// Oscillator waveforms exposed by Sonalloy, independent of `DaisySP` names.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum OscillatorWaveform {
     /// Sinusoidal oscillator.
     Sine,
     /// Band-limited saw oscillator.
     Saw,
+    /// Band-limited square oscillator with a fixed 50% duty cycle.
+    Square,
+    /// Band-limited triangle oscillator.
+    Triangle,
+    /// Band-limited square oscillator with a dynamic duty cycle.
+    Pulse {
+        /// Initial pulse width in the inclusive 0.05-to-0.95 range.
+        pulse_width: f32,
+    },
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum OscillatorWaveformType {
+    Sine,
+    Saw,
+    Square,
+    Triangle,
+    Pulse,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+enum PulseWidthField {
+    #[default]
+    Absent,
+    Null,
+    Value(f32),
+}
+
+impl<'de> Deserialize<'de> for PulseWidthField {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(match Option::<f32>::deserialize(deserializer)? {
+            Some(value) => Self::Value(value),
+            None => Self::Null,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OscillatorWaveformObject {
+    #[serde(rename = "type")]
+    kind: OscillatorWaveformType,
+    #[serde(default)]
+    pulse_width: PulseWidthField,
+}
+
+impl<'de> Deserialize<'de> for OscillatorWaveform {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error as _;
+
+        let object = OscillatorWaveformObject::deserialize(deserializer)?;
+        match (object.kind, object.pulse_width) {
+            (OscillatorWaveformType::Sine, PulseWidthField::Absent) => Ok(Self::Sine),
+            (OscillatorWaveformType::Saw, PulseWidthField::Absent) => Ok(Self::Saw),
+            (OscillatorWaveformType::Square, PulseWidthField::Absent) => Ok(Self::Square),
+            (OscillatorWaveformType::Triangle, PulseWidthField::Absent) => Ok(Self::Triangle),
+            (OscillatorWaveformType::Pulse, PulseWidthField::Value(pulse_width)) => {
+                Ok(Self::Pulse { pulse_width })
+            }
+            (OscillatorWaveformType::Pulse, PulseWidthField::Absent | PulseWidthField::Null) => {
+                Err(D::Error::missing_field("pulse_width"))
+            }
+            (_, PulseWidthField::Null | PulseWidthField::Value(_)) => Err(D::Error::custom(
+                "pulse_width is only valid for the pulse waveform",
+            )),
+        }
+    }
+}
+
+/// Noise colors exposed by the Definition model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NoiseColor {
+    /// Equal-energy white noise.
+    White,
+    /// Voss-McCartney pink noise.
+    Pink,
+    /// Leaky-integrated brown noise.
+    Brown,
 }
 
 /// ADSR envelope values in seconds and normalized amplitude.
@@ -466,7 +646,12 @@ impl InstrumentDefinition {
                 ProcessorPlacement::Layer,
             );
             match &layer.generator {
-                GeneratorDefinition::Oscillator(_) => {}
+                GeneratorDefinition::Oscillator(oscillator) => {
+                    validate_oscillator(&mut diagnostics, &path, oscillator);
+                }
+                GeneratorDefinition::Noise(noise) => {
+                    validate_noise(&mut diagnostics, &path, noise);
+                }
                 GeneratorDefinition::Sample(sample) => {
                     validate_sample(&mut diagnostics, &path, sample);
                 }
@@ -762,17 +947,184 @@ fn validate_modulation_envelope(
     );
 }
 
+#[allow(clippy::too_many_lines)]
 fn validate_sample(diagnostics: &mut Vec<Diagnostic>, path: &str, sample: &SampleDefinition) {
-    if sample.asset.path.trim().is_empty() {
+    let sample_path = format!("{path}.generator.sample");
+    if sample.zones.is_empty() {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::RequiredFieldMissing,
+                "sample zones must contain at least one zone",
+            )
+            .with_path(format!("{sample_path}.zones")),
+        );
+        return;
+    }
+    if sample.zones.len() > 256 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "sample zones must contain at most 256 zones",
+            )
+            .with_path(format!("{sample_path}.zones")),
+        );
+    }
+
+    let mut ids = HashSet::new();
+    let mut groups = HashMap::<String, (u8, u8, u8, u8)>::new();
+    for (index, zone) in sample.zones.iter().enumerate() {
+        let zone_path = format!("{sample_path}.zones[{index}]");
+        if !is_component_id(&zone.id) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ParameterIdInvalid,
+                    "sample zone id must use component id syntax",
+                )
+                .with_path(format!("{zone_path}.id")),
+            );
+        }
+        if !ids.insert(&zone.id) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::IdDuplicated,
+                    "sample zone id must be unique within the generator",
+                )
+                .with_path(format!("{zone_path}.id")),
+            );
+        }
+        validate_asset_reference(diagnostics, &zone_path, &zone.asset);
+        if zone.root_note > 127 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone root note must be between 0 and 127",
+                )
+                .with_path(format!("{zone_path}.root_note")),
+            );
+        }
+        if zone.key_min > 127 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone key range must be between 0 and 127",
+                )
+                .with_path(format!("{zone_path}.key_min")),
+            );
+        }
+        if zone.key_max > 127 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone key range must be between 0 and 127",
+                )
+                .with_path(format!("{zone_path}.key_max")),
+            );
+        }
+        if zone.key_min > zone.key_max {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone key range must be ordered",
+                )
+                .with_path(format!("{zone_path}.key_min")),
+            );
+        }
+        if zone.velocity_min == 0 || zone.velocity_min > 127 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone velocity range must be between 1 and 127",
+                )
+                .with_path(format!("{zone_path}.velocity_min")),
+            );
+        }
+        if zone.velocity_max > 127 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone velocity range must be between 1 and 127",
+                )
+                .with_path(format!("{zone_path}.velocity_max")),
+            );
+        }
+        if zone.velocity_min > zone.velocity_max {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::LayerRangeInvalid,
+                    "sample zone velocity range must be ordered",
+                )
+                .with_path(format!("{zone_path}.velocity_min")),
+            );
+        }
+        validate_sample_playback_definition(diagnostics, &zone_path, zone.playback);
+        if let Some(group) = &zone.round_robin_group {
+            if !is_component_id(group) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ParameterIdInvalid,
+                        "round robin group must use component id syntax",
+                    )
+                    .with_path(format!("{zone_path}.round_robin_group")),
+                );
+            }
+            let ranges = (
+                zone.key_min,
+                zone.key_max,
+                zone.velocity_min,
+                zone.velocity_max,
+            );
+            if let Some(previous) = groups.insert(group.clone(), ranges)
+                && previous != ranges
+            {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::DefinitionError,
+                        "round robin group members must share key and velocity ranges",
+                    )
+                    .with_path(format!("{zone_path}.round_robin_group")),
+                );
+            }
+        }
+    }
+
+    for (left_index, left) in sample.zones.iter().enumerate() {
+        for (right_index, right) in sample.zones.iter().enumerate().skip(left_index + 1) {
+            let key_overlap = left.key_min <= right.key_max && right.key_min <= left.key_max;
+            let velocity_overlap =
+                left.velocity_min <= right.velocity_max && right.velocity_min <= left.velocity_max;
+            if !key_overlap || !velocity_overlap {
+                continue;
+            }
+            let allowed = left.round_robin_group.is_some()
+                && left.round_robin_group == right.round_robin_group
+                && left.key_min == right.key_min
+                && left.key_max == right.key_max
+                && left.velocity_min == right.velocity_min
+                && left.velocity_max == right.velocity_max;
+            if !allowed {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::DefinitionError,
+                        "overlapping sample zones require one matching round robin group and identical ranges",
+                    )
+                    .with_path(format!("{sample_path}.zones[{right_index}].id")),
+                );
+            }
+        }
+    }
+}
+
+fn validate_asset_reference(diagnostics: &mut Vec<Diagnostic>, path: &str, asset: &AssetReference) {
+    if asset.path.trim().is_empty() {
         diagnostics.push(
             Diagnostic::error(
                 DiagnosticCode::RequiredFieldMissing,
                 "sample asset path must not be empty",
             )
-            .with_path(format!("{path}.generator.sample.asset.path")),
+            .with_path(format!("{path}.asset.path")),
         );
     }
-    if let Some(hash) = &sample.asset.sha256 {
+    if let Some(hash) = &asset.sha256 {
         let valid = hash.len() == 64 && hash.bytes().all(|byte| byte.is_ascii_hexdigit());
         if !valid {
             diagnostics.push(
@@ -780,10 +1132,223 @@ fn validate_sample(diagnostics: &mut Vec<Diagnostic>, path: &str, sample: &Sampl
                     DiagnosticCode::ValueOutOfRange,
                     "sample asset sha256 must be 64 hexadecimal characters",
                 )
-                .with_path(format!("{path}.generator.sample.asset.sha256")),
+                .with_path(format!("{path}.asset.sha256")),
             );
         }
     }
+}
+
+fn validate_sample_playback_definition(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    playback: SampleZonePlaybackDefinition,
+) {
+    let mut validate_seconds = |field: &str, value: f32| {
+        if !value.is_finite() || value < 0.0 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    "sample playback time must be finite and non-negative",
+                )
+                .with_path(format!("{path}.playback.{field}")),
+            );
+        }
+    };
+    match playback {
+        SampleZonePlaybackDefinition::OneShot {
+            start_seconds,
+            end_seconds,
+        } => {
+            validate_seconds("start_seconds", start_seconds);
+            if let Some(end_seconds) = end_seconds {
+                validate_seconds("end_seconds", end_seconds);
+                if start_seconds.is_finite()
+                    && end_seconds.is_finite()
+                    && end_seconds <= start_seconds
+                {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::DefinitionError,
+                            "one-shot end must be greater than start",
+                        )
+                        .with_path(format!("{path}.playback.end_seconds")),
+                    );
+                }
+            }
+        }
+        SampleZonePlaybackDefinition::ForwardLoop {
+            start_seconds,
+            end_seconds,
+            loop_start_seconds,
+            loop_end_seconds,
+        } => {
+            validate_seconds("start_seconds", start_seconds);
+            validate_seconds("loop_start_seconds", loop_start_seconds);
+            validate_seconds("loop_end_seconds", loop_end_seconds);
+            if let Some(end_seconds) = end_seconds {
+                validate_seconds("end_seconds", end_seconds);
+                if start_seconds.is_finite()
+                    && end_seconds.is_finite()
+                    && end_seconds <= start_seconds
+                {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::DefinitionError,
+                            "forward loop end must be greater than start",
+                        )
+                        .with_path(format!("{path}.playback.end_seconds")),
+                    );
+                }
+            }
+            if loop_end_seconds.is_finite()
+                && loop_start_seconds.is_finite()
+                && loop_end_seconds <= loop_start_seconds
+            {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::DefinitionError,
+                        "forward loop end must be greater than loop start",
+                    )
+                    .with_path(format!("{path}.playback.loop_end_seconds")),
+                );
+            }
+            if start_seconds.is_finite()
+                && loop_start_seconds.is_finite()
+                && loop_start_seconds < start_seconds
+            {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::DefinitionError,
+                        "forward loop start must be inside the playback region",
+                    )
+                    .with_path(format!("{path}.playback.loop_start_seconds")),
+                );
+            }
+            if let Some(end_seconds) = end_seconds
+                && loop_end_seconds.is_finite()
+                && end_seconds.is_finite()
+                && loop_end_seconds > end_seconds
+            {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::DefinitionError,
+                        "forward loop end must be inside the playback region",
+                    )
+                    .with_path(format!("{path}.playback.loop_end_seconds")),
+                );
+            }
+        }
+    }
+}
+
+fn validate_oscillator(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    oscillator: &OscillatorDefinition,
+) {
+    validate_range(
+        diagnostics,
+        format!("{path}.generator.oscillator.phase"),
+        oscillator.phase,
+        0.0..=1.0,
+        "oscillator phase must be finite and between 0 and 1",
+    );
+    if let OscillatorWaveform::Pulse { pulse_width } = oscillator.waveform {
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.waveform.pulse_width"),
+            pulse_width,
+            PULSE_WIDTH.min..=PULSE_WIDTH.max,
+            "pulse_width must be finite and between 0.05 and 0.95",
+        );
+    }
+    if let Some(hard_sync) = oscillator.hard_sync {
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.hard_sync.ratio"),
+            hard_sync.ratio,
+            SYNC_RATIO.min..=SYNC_RATIO.max,
+            "hard sync ratio must be finite and between 1 and 16",
+        );
+        if oscillator.waveform == OscillatorWaveform::Sine {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sine waveform cannot use hard sync",
+                )
+                .with_path(format!("{path}.generator.oscillator.hard_sync")),
+            );
+        }
+        if oscillator.phase.is_finite() && oscillator.phase.total_cmp(&0.0).is_ne() {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "hard sync requires zero oscillator phase",
+                )
+                .with_path(format!("{path}.generator.oscillator.phase")),
+            );
+        }
+    }
+    if let Some(waveshaping) = oscillator.waveshaping {
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.waveshaping.amount"),
+            waveshaping.amount,
+            WAVESHAPE.min..=WAVESHAPE.max,
+            "waveshaping amount must be finite and between 0 and 1",
+        );
+    }
+    if let Some(unison) = oscillator.unison {
+        if !(2..=8).contains(&unison.voices) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    "unison voices must be between 2 and 8",
+                )
+                .with_path(format!("{path}.generator.oscillator.unison.voices")),
+            );
+        }
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.unison.detune_cents"),
+            unison.detune_cents,
+            UNISON_DETUNE.min..=UNISON_DETUNE.max,
+            "unison detune_cents must be finite and between 0 and 100",
+        );
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.unison.stereo_spread"),
+            unison.stereo_spread,
+            UNISON_SPREAD.min..=UNISON_SPREAD.max,
+            "unison stereo_spread must be finite and between 0 and 1",
+        );
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.unison.phase_spread"),
+            unison.phase_spread,
+            0.0..=1.0,
+            "unison phase_spread must be finite and between 0 and 1",
+        );
+        if oscillator.hard_sync.is_some() && unison.phase_spread.total_cmp(&0.0).is_ne() {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "hard sync does not support non-zero phase spread",
+                )
+                .with_path(format!("{path}.generator.oscillator.unison.phase_spread")),
+            );
+        }
+    }
+}
+
+fn validate_noise(diagnostics: &mut Vec<Diagnostic>, path: &str, noise: &NoiseDefinition) {
+    validate_range(
+        diagnostics,
+        format!("{path}.generator.noise.stereo_correlation"),
+        noise.stereo_correlation,
+        NOISE_CORRELATION.min..=NOISE_CORRELATION.max,
+        "stereo_correlation must be finite and between 0 and 1",
+    );
 }
 
 fn validate_trigger(
@@ -887,6 +1452,10 @@ pub(crate) mod tests {
                 generator: GeneratorDefinition::Oscillator(OscillatorDefinition {
                     waveform: OscillatorWaveform::Sine,
                     phase_reset: true,
+                    phase: 0.0,
+                    hard_sync: None,
+                    waveshaping: None,
+                    unison: None,
                 }),
                 processors: Vec::new(),
             }],
@@ -894,6 +1463,51 @@ pub(crate) mod tests {
             global_processors: Vec::new(),
             modulation: None,
         }
+    }
+
+    fn sample_zone(
+        id: &str,
+        key_min: u8,
+        key_max: u8,
+        velocity_min: u8,
+        velocity_max: u8,
+        round_robin_group: Option<&str>,
+        playback: SampleZonePlaybackDefinition,
+    ) -> SampleZoneDefinition {
+        SampleZoneDefinition {
+            id: id.to_owned(),
+            asset: AssetReference {
+                path: "test.wav".to_owned(),
+                sha256: None,
+            },
+            root_note: 60,
+            key_min,
+            key_max,
+            velocity_min,
+            velocity_max,
+            round_robin_group: round_robin_group.map(str::to_owned),
+            playback,
+        }
+    }
+
+    fn set_sample_zone_midi_field(zone: &mut SampleZoneDefinition, field: &str, value: u8) {
+        match field {
+            "root_note" => zone.root_note = value,
+            "key_min" => zone.key_min = value,
+            "key_max" => zone.key_max = value,
+            "velocity_min" => zone.velocity_min = value,
+            "velocity_max" => zone.velocity_max = value,
+            _ => panic!("unknown sample zone MIDI field: {field}"),
+        }
+    }
+
+    fn sample_definition(zones: Vec<SampleZoneDefinition>) -> InstrumentDefinition {
+        let mut value = definition();
+        value.layers[0].generator = GeneratorDefinition::Sample(SampleDefinition {
+            interpolation: SampleInterpolation::Cubic,
+            zones,
+        });
+        value
     }
 
     #[test]
@@ -1051,6 +1665,245 @@ pub(crate) mod tests {
         let restored: InstrumentDefinition =
             serde_json::from_str(&json).expect("definition parses");
         assert_eq!(source, restored);
+    }
+
+    #[test]
+    fn oscillator_waveforms_use_tagged_objects() {
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        for waveform in ["sine", "saw", "square", "triangle"] {
+            value["layers"][0]["generator"]["oscillator"]["waveform"] =
+                serde_json::json!({"type": waveform});
+            let parsed: InstrumentDefinition =
+                serde_json::from_value(value.clone()).expect("basic waveform parses");
+            assert!(matches!(
+                parsed.layers[0].generator,
+                GeneratorDefinition::Oscillator(OscillatorDefinition { .. })
+            ));
+        }
+        value["layers"][0]["generator"]["oscillator"]["waveform"] =
+            serde_json::json!({"type": "pulse", "pulse_width": 0.35});
+        let parsed: InstrumentDefinition =
+            serde_json::from_value(value).expect("pulse waveform parses");
+        assert!(matches!(
+            parsed.layers[0].generator,
+            GeneratorDefinition::Oscillator(OscillatorDefinition {
+                waveform: OscillatorWaveform::Pulse { pulse_width },
+                ..
+            }) if (pulse_width - 0.35).abs() < f32::EPSILON
+        ));
+    }
+
+    #[test]
+    fn legacy_string_waveform_is_rejected() {
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["layers"][0]["generator"]["oscillator"]["waveform"] = serde_json::json!("saw");
+        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
+    }
+
+    #[test]
+    fn oscillator_and_noise_ranges_are_validated() {
+        let mut value = definition();
+        value.layers[0].generator = GeneratorDefinition::Oscillator(OscillatorDefinition {
+            waveform: OscillatorWaveform::Pulse { pulse_width: 0.05 },
+            phase_reset: true,
+            phase: 1.0,
+            hard_sync: None,
+            waveshaping: None,
+            unison: None,
+        });
+        assert!(value.validate().is_empty());
+
+        if let GeneratorDefinition::Oscillator(oscillator) = &mut value.layers[0].generator {
+            oscillator.phase = -f32::EPSILON;
+            if let OscillatorWaveform::Pulse { pulse_width } = &mut oscillator.waveform {
+                *pulse_width = 0.95 + f32::EPSILON;
+            }
+        }
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("layers[0].generator.oscillator.phase")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref()
+                == Some("layers[0].generator.oscillator.waveform.pulse_width")
+        }));
+
+        value.layers[0].generator = GeneratorDefinition::Noise(NoiseDefinition {
+            color: NoiseColor::Pink,
+            seed: 42,
+            stereo_correlation: 0.0,
+        });
+        assert!(value.validate().is_empty());
+        if let GeneratorDefinition::Noise(noise) = &mut value.layers[0].generator {
+            noise.stereo_correlation = 1.0;
+        }
+        assert!(value.validate().is_empty());
+        if let GeneratorDefinition::Noise(noise) = &mut value.layers[0].generator {
+            noise.stereo_correlation = 1.0 + f32::EPSILON;
+        }
+        assert!(value.validate().iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("layers[0].generator.noise.stereo_correlation")
+        }));
+    }
+
+    #[test]
+    fn generator_unknown_fields_are_rejected() {
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["layers"][0]["generator"]["oscillator"]["waveform"] =
+            serde_json::json!({"type": "square", "unexpected": true});
+        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
+
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["layers"][0]["generator"]["oscillator"]["waveform"] =
+            serde_json::json!({"type": "square", "pulse_width": null});
+        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
+
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["layers"][0]["generator"] = serde_json::json!({
+            "noise": {
+                "color": "white",
+                "seed": 7,
+                "stereo_correlation": 0.5,
+                "unexpected": true
+            }
+        });
+        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
+    }
+
+    #[test]
+    fn sample_schema_rejects_legacy_direct_fields() {
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["layers"][0]["generator"] = serde_json::json!({
+            "sample": {
+                "asset": {"path": "test.wav"},
+                "root_note": 60,
+                "playback_mode": "one_shot",
+                "interpolation": "cubic"
+            }
+        });
+
+        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
+    }
+
+    #[test]
+    fn sample_zone_mapping_and_round_robin_ranges_are_validated() {
+        let one_shot = SampleZonePlaybackDefinition::OneShot {
+            start_seconds: 0.0,
+            end_seconds: None,
+        };
+        let value = sample_definition(vec![
+            sample_zone("soft", 0, 127, 1, 64, None, one_shot),
+            sample_zone("hard", 0, 127, 65, 127, None, one_shot),
+        ]);
+        assert!(value.validate().is_empty());
+
+        let value = sample_definition(vec![
+            sample_zone("hit_a", 60, 60, 1, 127, Some("hits"), one_shot),
+            sample_zone("hit_b", 60, 60, 1, 127, Some("hits"), one_shot),
+        ]);
+        assert!(value.validate().is_empty());
+
+        let mut value =
+            sample_definition(vec![sample_zone("invalid", 60, 59, 1, 127, None, one_shot)]);
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::LayerRangeInvalid
+                && diagnostic.path.as_deref() == Some("layers[0].generator.sample.zones[0].key_min")
+        }));
+
+        value.layers[0].generator = GeneratorDefinition::Sample(SampleDefinition {
+            interpolation: SampleInterpolation::Cubic,
+            zones: vec![
+                sample_zone("a", 60, 60, 1, 127, None, one_shot),
+                sample_zone("b", 60, 60, 1, 127, None, one_shot),
+            ],
+        });
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref() == Some("layers[0].generator.sample.zones[1].id")
+        }));
+    }
+
+    #[test]
+    fn sample_zone_midi_fields_have_explicit_bounds() {
+        let one_shot = SampleZonePlaybackDefinition::OneShot {
+            start_seconds: 0.0,
+            end_seconds: None,
+        };
+        let fields = [
+            ("root_note", "layers[0].generator.sample.zones[0].root_note"),
+            ("key_min", "layers[0].generator.sample.zones[0].key_min"),
+            ("key_max", "layers[0].generator.sample.zones[0].key_max"),
+            (
+                "velocity_min",
+                "layers[0].generator.sample.zones[0].velocity_min",
+            ),
+            (
+                "velocity_max",
+                "layers[0].generator.sample.zones[0].velocity_max",
+            ),
+        ];
+
+        for (field, path) in fields {
+            let mut value =
+                sample_definition(vec![sample_zone("valid", 0, 127, 1, 127, None, one_shot)]);
+            if let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator {
+                set_sample_zone_midi_field(&mut sample.zones[0], field, 127);
+            }
+            assert!(value.validate().is_empty(), "{field}=127 must be valid");
+
+            for invalid in [128, 255] {
+                let mut value =
+                    sample_definition(vec![sample_zone("invalid", 0, 127, 1, 127, None, one_shot)]);
+                if let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator {
+                    let zone = &mut sample.zones[0];
+                    match field {
+                        "key_min" => zone.key_max = 255,
+                        "velocity_min" => zone.velocity_max = 255,
+                        _ => {}
+                    }
+                    set_sample_zone_midi_field(zone, field, invalid);
+                }
+                let diagnostics = value.validate();
+                assert!(
+                    diagnostics.iter().any(|diagnostic| {
+                        diagnostic.code == DiagnosticCode::LayerRangeInvalid
+                            && diagnostic.path.as_deref() == Some(path)
+                    }),
+                    "{field}={invalid} must report {path}: {diagnostics:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sample_forward_loop_requires_an_ordered_region_inside_the_zone() {
+        let value = sample_definition(vec![sample_zone(
+            "loop",
+            0,
+            127,
+            1,
+            127,
+            None,
+            SampleZonePlaybackDefinition::ForwardLoop {
+                start_seconds: 1.0,
+                end_seconds: Some(2.0),
+                loop_start_seconds: 0.5,
+                loop_end_seconds: 2.5,
+            },
+        )]);
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback.loop_start_seconds")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback.loop_end_seconds")
+        }));
     }
 
     #[test]
