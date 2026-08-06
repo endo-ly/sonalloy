@@ -39,15 +39,10 @@ pub(crate) struct NoteRequest {
     pub(crate) started_at_frame: u64,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PreparedLayerSelection {
     Inactive,
     Active { sample_zone: Option<usize> },
-}
-
-pub(crate) struct PreparedNoteRequest {
-    pub(crate) note: NoteRequest,
-    pub(crate) layer_selection: Box<[PreparedLayerSelection]>,
 }
 
 impl NoteRequest {
@@ -144,15 +139,7 @@ impl LayerRuntime {
         Ok(())
     }
 
-    fn reset_to_idle(&mut self) -> Result<(), ProcessError> {
-        self.processors.reset()?;
-        self.envelope.reset();
-        self.note_start_fade.reset(0.0);
-        self.active = false;
-        Ok(())
-    }
-
-    fn reset_for_note(&mut self) -> Result<(), ProcessError> {
+    fn reset_state(&mut self) -> Result<(), ProcessError> {
         self.processors.reset()?;
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
@@ -184,7 +171,8 @@ pub(crate) struct VoiceRuntime {
     source_definitions: Vec<CompiledVoiceSource>,
     source_used: Vec<bool>,
     targets: VoiceTargetScratch,
-    pending: Option<PreparedNoteRequest>,
+    pending: Option<NoteRequest>,
+    pending_layer_selection: Vec<PreparedLayerSelection>,
     steal_fade_total: usize,
     steal_fade_remaining: usize,
 }
@@ -247,6 +235,7 @@ impl VoiceRuntime {
             source_used,
             targets: VoiceTargetScratch::new(&compiled.layers, &compiled.voice_processors),
             pending: None,
+            pending_layer_selection: vec![PreparedLayerSelection::Inactive; compiled.layers.len()],
             steal_fade_total: 0,
             steal_fade_remaining: 0,
         })
@@ -264,19 +253,29 @@ impl VoiceRuntime {
         self.estimated_level
     }
 
+    #[cfg(test)]
+    pub(super) fn pending_layer_selection_capacity(&self) -> usize {
+        self.pending_layer_selection.capacity()
+    }
+
     pub(crate) fn request_note(
         &mut self,
         compiled: &CompiledInstrument,
-        request: PreparedNoteRequest,
+        request: NoteRequest,
+        layer_selection: &[PreparedLayerSelection],
         fade_frames: usize,
     ) -> Result<(), ProcessError> {
-        if request.layer_selection.len() != self.layers.len() {
+        if layer_selection.len() != self.layers.len()
+            || self.pending_layer_selection.len() != self.layers.len()
+        {
             return Err(invalid_state());
         }
         if self.state == VoiceState::Idle {
-            self.start_note(compiled, &request)?;
+            self.start_note(compiled, request, layer_selection)?;
             return Ok(());
         }
+        self.pending_layer_selection
+            .copy_from_slice(layer_selection);
         self.pending = Some(request);
         self.state = VoiceState::StealFading;
         self.steal_fade_total = fade_frames;
@@ -291,7 +290,7 @@ impl VoiceRuntime {
         if self
             .pending
             .as_ref()
-            .is_some_and(|pending| pending.note.note_id == note_id)
+            .is_some_and(|pending| pending.note_id == note_id)
         {
             self.pending = None;
         }
@@ -437,10 +436,11 @@ impl VoiceRuntime {
     fn start_note(
         &mut self,
         compiled: &CompiledInstrument,
-        request: &PreparedNoteRequest,
+        request: NoteRequest,
+        layer_selection: &[PreparedLayerSelection],
     ) -> Result<(), ProcessError> {
         self.reset_note_state()?;
-        self.activate_note(compiled, request.note, &request.layer_selection)
+        self.activate_note(compiled, request, layer_selection)
     }
 
     fn activate_note(
@@ -479,12 +479,25 @@ impl VoiceRuntime {
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
         if let Some(request) = pending {
-            self.reset_note_state()?;
-            self.activate_note(compiled, request.note, &request.layer_selection)?;
+            self.activate_pending_note(compiled, request)?;
         } else {
             self.reset_to_idle()?;
         }
         Ok(())
+    }
+
+    fn activate_pending_note(
+        &mut self,
+        compiled: &CompiledInstrument,
+        request: NoteRequest,
+    ) -> Result<(), ProcessError> {
+        let pending_layer_selection = std::mem::take(&mut self.pending_layer_selection);
+        let result = (|| {
+            self.reset_note_state()?;
+            self.activate_note(compiled, request, &pending_layer_selection)
+        })();
+        self.pending_layer_selection = pending_layer_selection;
+        result
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -587,7 +600,7 @@ impl VoiceRuntime {
 
     fn reset_to_idle(&mut self) -> Result<(), ProcessError> {
         for layer in &mut self.layers {
-            layer.reset_to_idle()?;
+            layer.reset_state()?;
         }
         self.processors.reset()?;
         self.state = VoiceState::Idle;
@@ -604,7 +617,7 @@ impl VoiceRuntime {
 
     fn reset_note_state(&mut self) -> Result<(), ProcessError> {
         for layer in &mut self.layers {
-            layer.reset_for_note()?;
+            layer.reset_state()?;
         }
         self.processors.reset()?;
         self.reset_source_state();

@@ -12,9 +12,7 @@ use crate::process::{
 use super::modulation::{ParameterSpanValue, SharedParameterSpan, ValueSpan};
 use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
-use super::voice::{
-    NoteRequest, PreparedLayerSelection, PreparedNoteRequest, VoiceRuntime, VoiceState,
-};
+use super::voice::{NoteRequest, PreparedLayerSelection, VoiceRuntime, VoiceState};
 
 const CONTROL_SMOOTHING_SECONDS: f64 = 0.005;
 const STEAL_FADE_SECONDS: f64 = 0.005;
@@ -34,6 +32,7 @@ pub struct InstrumentRuntime {
     compiled: Arc<CompiledInstrument>,
     voices: Vec<VoiceRuntime>,
     scratch: RuntimeScratch,
+    note_layer_selection: Vec<PreparedLayerSelection>,
     parameter_states: Vec<Smoother>,
     pitch_bend: Smoother,
     mod_wheel: Smoother,
@@ -60,6 +59,7 @@ impl InstrumentRuntime {
                 voice_right: Vec::new(),
                 parameter_spans: Vec::new(),
             },
+            note_layer_selection: Vec::new(),
             parameter_states: Vec::new(),
             pitch_bend: Smoother::new(0.0),
             mod_wheel: Smoother::new(0.0),
@@ -163,15 +163,20 @@ impl InstrumentRuntime {
                 velocity,
             } => {
                 let request = NoteRequest::new(note_id, note_number, velocity, absolute_frame);
-                let Some(request) = self.prepare_note_request(request)? else {
+                if !self.prepare_note_request(request)? {
                     return Ok(());
-                };
+                }
                 let voice_index = self.select_voice();
                 let fade_frames = rounded_frame_count(spec.sample_rate * STEAL_FADE_SECONDS);
                 self.voices
                     .get_mut(voice_index)
                     .ok_or_else(invalid_state)?
-                    .request_note(&self.compiled, request, fade_frames)?;
+                    .request_note(
+                        &self.compiled,
+                        request,
+                        &self.note_layer_selection,
+                        fade_frames,
+                    )?;
             }
             ProcessEventKind::NoteOff { note_id } => {
                 for voice in &mut self.voices {
@@ -247,12 +252,12 @@ impl InstrumentRuntime {
             .map_or(0, |(index, _)| index)
     }
 
-    fn prepare_note_request(
-        &mut self,
-        note: NoteRequest,
-    ) -> Result<Option<PreparedNoteRequest>, ProcessError> {
-        let mut layer_selection =
-            vec![PreparedLayerSelection::Inactive; self.compiled.layers.len()];
+    fn prepare_note_request(&mut self, note: NoteRequest) -> Result<bool, ProcessError> {
+        if self.note_layer_selection.len() != self.compiled.layers.len() {
+            return Err(invalid_state());
+        }
+        self.note_layer_selection
+            .fill(PreparedLayerSelection::Inactive);
         let mut can_trigger = false;
         let compiled = Arc::clone(&self.compiled);
         for (layer_index, layer) in compiled.layers.iter().enumerate() {
@@ -261,7 +266,8 @@ impl InstrumentRuntime {
             }
             match &layer.generator {
                 CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => {
-                    *layer_selection
+                    *self
+                        .note_layer_selection
                         .get_mut(layer_index)
                         .ok_or_else(invalid_state)? =
                         PreparedLayerSelection::Active { sample_zone: None };
@@ -274,7 +280,8 @@ impl InstrumentRuntime {
                         note.note_number,
                         note.velocity,
                     )? {
-                        *layer_selection
+                        *self
+                            .note_layer_selection
                             .get_mut(layer_index)
                             .ok_or_else(invalid_state)? = PreparedLayerSelection::Active {
                             sample_zone: Some(zone_index),
@@ -284,10 +291,7 @@ impl InstrumentRuntime {
                 }
             }
         }
-        Ok(can_trigger.then(|| PreparedNoteRequest {
-            note,
-            layer_selection: layer_selection.into_boxed_slice(),
-        }))
+        Ok(can_trigger)
     }
 
     fn select_sample_zone(
@@ -545,6 +549,7 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.scratch.voice_left.clear();
         self.scratch.voice_right.clear();
         self.scratch.parameter_spans.clear();
+        self.note_layer_selection.clear();
         self.parameter_states.clear();
         self.pitch_bend.reset(0.0);
         self.mod_wheel.reset(0.0);
@@ -577,6 +582,8 @@ impl InstrumentProcessor for InstrumentRuntime {
                 end: 0.0,
             },
         );
+        self.note_layer_selection
+            .resize(self.compiled.layers.len(), PreparedLayerSelection::Inactive);
         self.parameter_states = self
             .compiled
             .parameters()
@@ -607,7 +614,7 @@ impl InstrumentProcessor for InstrumentRuntime {
             .compiled
             .global_processors
             .iter()
-            .map(zero_processor_target)
+            .map(|processor| ProcessorTargetSpan::zero_for(&processor.processor))
             .collect();
         self.global_processors = Some(global_processors);
         self.spec = Some(spec);
@@ -786,67 +793,13 @@ impl InstrumentProcessor for InstrumentRuntime {
             end: 0.0,
         });
         for target in &mut self.global_targets {
-            *target = zero_processor_target_from_target(*target);
+            target.clear();
         }
         for counters in &mut self.round_robin_counters {
             counters.fill(0);
         }
         self.absolute_frame = 0;
         Ok(())
-    }
-}
-
-fn zero_processor_target(processor: &CompiledProcessor) -> ProcessorTargetSpan {
-    let zero = ValueSpan {
-        start: 0.0,
-        end: 0.0,
-    };
-    match &processor.processor {
-        CompiledProcessorKind::Filter(_) => ProcessorTargetSpan::Filter {
-            cutoff: zero,
-            resonance: zero,
-        },
-        CompiledProcessorKind::Drive(_) => ProcessorTargetSpan::Drive {
-            amount: zero,
-            mix: zero,
-        },
-        CompiledProcessorKind::Delay(_) => ProcessorTargetSpan::Delay {
-            feedback: zero,
-            mix: zero,
-        },
-        CompiledProcessorKind::Reverb(_) => ProcessorTargetSpan::Reverb {
-            decay: zero,
-            damping: zero,
-            width: zero,
-            mix: zero,
-        },
-    }
-}
-
-fn zero_processor_target_from_target(target: ProcessorTargetSpan) -> ProcessorTargetSpan {
-    let zero = ValueSpan {
-        start: 0.0,
-        end: 0.0,
-    };
-    match target {
-        ProcessorTargetSpan::Filter { .. } => ProcessorTargetSpan::Filter {
-            cutoff: zero,
-            resonance: zero,
-        },
-        ProcessorTargetSpan::Drive { .. } => ProcessorTargetSpan::Drive {
-            amount: zero,
-            mix: zero,
-        },
-        ProcessorTargetSpan::Delay { .. } => ProcessorTargetSpan::Delay {
-            feedback: zero,
-            mix: zero,
-        },
-        ProcessorTargetSpan::Reverb { .. } => ProcessorTargetSpan::Reverb {
-            decay: zero,
-            damping: zero,
-            width: zero,
-            mix: zero,
-        },
     }
 }
 
@@ -973,6 +926,42 @@ mod tests {
         }];
         let _ = process(&mut runtime, 256, 128, &off);
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
+    }
+
+    #[test]
+    fn note_on_reuses_prepared_layer_selection_storage() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let note_layer_capacity = runtime.note_layer_selection.capacity();
+        let pending_layer_capacity = runtime.voices[0].pending_layer_selection_capacity();
+
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &first_note);
+
+        let second_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 64,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 64, &second_note);
+
+        assert_eq!(runtime.note_layer_selection.capacity(), note_layer_capacity);
+        assert_eq!(
+            runtime.voices[0].pending_layer_selection_capacity(),
+            pending_layer_capacity
+        );
     }
 
     #[test]

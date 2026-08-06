@@ -1,9 +1,11 @@
 use crate::compiler::CompiledNoise;
 use crate::definition::NoiseColor;
+use crate::generator_parameters::NOISE_CORRELATION;
 use crate::process::{ProcessError, ProcessorFailureKind};
 
 use super::super::modulation::ValueSpan;
 use super::super::random::{bipolar_f32, splitmix64_finalizer};
+use super::validate_generator_span;
 
 const STREAM_SHARED: u64 = 0x7368_6172_6564_0001;
 const STREAM_LEFT: u64 = 0x6c65_6674_0000_0002;
@@ -95,17 +97,7 @@ impl NoiseRuntime {
 }
 
 fn validate_correlation(correlation: ValueSpan) -> Result<(), ProcessError> {
-    if !correlation.start.is_finite() || !correlation.end.is_finite() {
-        return Err(ProcessError::ProcessorFailure {
-            kind: ProcessorFailureKind::NonFinite,
-        });
-    }
-    if !(0.0..=1.0).contains(&correlation.start) || !(0.0..=1.0).contains(&correlation.end) {
-        return Err(ProcessError::ProcessorFailure {
-            kind: ProcessorFailureKind::InvalidInput,
-        });
-    }
-    Ok(())
+    validate_generator_span(correlation, NOISE_CORRELATION)
 }
 
 struct NoiseStream {

@@ -153,6 +153,67 @@ impl LayerProcessorChain {
     }
 }
 
+impl ProcessorTargetSpan {
+    pub(crate) fn zero_for(processor: &CompiledProcessorKind) -> Self {
+        let zero = ValueSpan {
+            start: 0.0,
+            end: 0.0,
+        };
+        match processor {
+            CompiledProcessorKind::Filter(_) => Self::Filter {
+                cutoff: zero,
+                resonance: zero,
+            },
+            CompiledProcessorKind::Drive(_) => Self::Drive {
+                amount: zero,
+                mix: zero,
+            },
+            CompiledProcessorKind::Delay(_) => Self::Delay {
+                feedback: zero,
+                mix: zero,
+            },
+            CompiledProcessorKind::Reverb(_) => Self::Reverb {
+                decay: zero,
+                damping: zero,
+                width: zero,
+                mix: zero,
+            },
+        }
+    }
+
+    pub(crate) fn clear(&mut self) {
+        let zero = ValueSpan {
+            start: 0.0,
+            end: 0.0,
+        };
+        match self {
+            Self::Filter { cutoff, resonance } => {
+                *cutoff = zero;
+                *resonance = zero;
+            }
+            Self::Drive { amount, mix } => {
+                *amount = zero;
+                *mix = zero;
+            }
+            Self::Delay { feedback, mix } => {
+                *feedback = zero;
+                *mix = zero;
+            }
+            Self::Reverb {
+                decay,
+                damping,
+                width,
+                mix,
+            } => {
+                *decay = zero;
+                *damping = zero;
+                *width = zero;
+                *mix = zero;
+            }
+        }
+    }
+}
+
 pub(crate) struct StereoProcessorChain {
     processors: Vec<StereoProcessorRuntime>,
 }

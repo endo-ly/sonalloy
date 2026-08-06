@@ -2,13 +2,31 @@ mod noise;
 mod oscillator;
 
 use crate::compiler::CompiledGenerator;
-use crate::process::{NoteId, ProcessError, ProcessSpec};
+use crate::generator_parameters::GeneratorParameterSpec;
+use crate::process::{NoteId, ProcessError, ProcessSpec, ProcessorFailureKind};
 
-use super::modulation::LayerGeneratorTargetSpan;
+use super::modulation::{LayerGeneratorTargetSpan, ValueSpan};
 use super::sample::{SampleRuntime, playback_ratio};
 
 use noise::NoiseRuntime;
 use oscillator::OscillatorRuntime;
+
+fn validate_generator_span(
+    span: ValueSpan,
+    spec: GeneratorParameterSpec,
+) -> Result<(), ProcessError> {
+    if !span.start.is_finite() || !span.end.is_finite() {
+        return Err(ProcessError::ProcessorFailure {
+            kind: ProcessorFailureKind::NonFinite,
+        });
+    }
+    if !(spec.min..=spec.max).contains(&span.start) || !(spec.min..=spec.max).contains(&span.end) {
+        return Err(ProcessError::ProcessorFailure {
+            kind: ProcessorFailureKind::InvalidInput,
+        });
+    }
+    Ok(())
+}
 
 pub(super) enum GeneratorRuntime {
     Oscillator(OscillatorRuntime),

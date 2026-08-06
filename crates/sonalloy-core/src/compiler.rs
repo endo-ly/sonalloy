@@ -249,6 +249,21 @@ pub enum CompiledOscillatorBackend {
     },
 }
 
+impl CompiledOscillatorBackend {
+    /// Return the maximum frequency accepted by the selected oscillator backend.
+    #[must_use]
+    pub fn effective_max_frequency(self, sample_rate: f64) -> f32 {
+        let ratio = match self {
+            Self::Basic => 0.45,
+            Self::VariableShapeSync { .. } => 0.24,
+        };
+        #[allow(clippy::cast_possible_truncation)]
+        {
+            (sample_rate * ratio) as f32
+        }
+    }
+}
+
 /// Static unison distribution prepared by the compiler.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledUnison {
@@ -1838,6 +1853,23 @@ mod tests {
         assert!((db_to_linear(-6.0206) - 0.5).abs() < 0.001);
         assert!((cents_to_ratio(1200.0) - 2.0).abs() < 1.0e-6);
         assert!((midi_note_frequency(69, 1.0) - 440.0).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn oscillator_backend_frequency_limits_are_rate_derived() {
+        assert!(
+            (CompiledOscillatorBackend::Basic.effective_max_frequency(48_000.0) - 21_600.0).abs()
+                < f32::EPSILON
+        );
+        assert!(
+            (CompiledOscillatorBackend::VariableShapeSync {
+                sync_ratio: ParameterHandle::new(0),
+            }
+            .effective_max_frequency(48_000.0)
+                - 11_520.0)
+                .abs()
+                < f32::EPSILON
+        );
     }
 
     #[test]

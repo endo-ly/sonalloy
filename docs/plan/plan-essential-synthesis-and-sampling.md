@@ -1956,10 +1956,11 @@ Process中にGroup ID文字列を検索しない。
 
 Voice Stealing Fade中に新しいNoteがPendingとなる場合、Note Event時点で選択したZoneを保持する。
 
-Voice RuntimeへLayer数分のSelection BufferをPrepare時に確保する。
+Instrument RuntimeへLayer数分のNote On Selection Scratchを、各Voice RuntimeへLayer数分のPending Selection BufferをPrepare時に確保する。Note OnではInstrument側Scratchへ選択結果を書き込み、Voice Stealing中のPending NoteだけVoice側Bufferへコピーする。Note RequestはSelection Bufferを所有せず、Process中にHeap Allocationを行わない。
 
 ```text
-pending_zone_selection[layer_index] = Option<zone_index>
+note_layer_selection[layer_index] = Inactive | Active { sample_zone: Option<zone_index> }
+pending_layer_selection[layer_index] = note_layer_selection[layer_index]
 ```
 
 新しいNoteが実際にStartするまで再選択しない。

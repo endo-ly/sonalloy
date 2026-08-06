@@ -1148,23 +1148,6 @@ fn parameter_descriptor_id(compiled: &CompiledInstrument, handle: ParameterHandl
         .clone()
 }
 
-fn effective_max_frequency(
-    compiled: &CompiledInstrument,
-    backend: sonalloy_core::compiler::CompiledOscillatorBackend,
-) -> f32 {
-    #[allow(clippy::cast_possible_truncation)]
-    {
-        if matches!(
-            backend,
-            sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync { .. }
-        ) {
-            (compiled.process_sample_rate * 0.24) as f32
-        } else {
-            (compiled.process_sample_rate * 0.45) as f32
-        }
-    }
-}
-
 fn inspect_processor(
     compiled: &CompiledInstrument,
     processor: &sonalloy_core::compiler::CompiledProcessor,
@@ -1428,10 +1411,9 @@ fn inspect_generator(
                         .unison_spread
                         .map(|handle| parameter_descriptor_id(compiled, handle)),
                     phase_spread: oscillator.unison.phase_spread,
-                    effective_max_frequency_hz: effective_max_frequency(
-                        compiled,
-                        oscillator.backend,
-                    ),
+                    effective_max_frequency_hz: oscillator
+                        .backend
+                        .effective_max_frequency(compiled.process_sample_rate),
                     pulse_width: oscillator
                         .parameters
                         .pulse_width

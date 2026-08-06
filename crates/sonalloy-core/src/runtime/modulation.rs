@@ -1,4 +1,4 @@
-use crate::compiler::{CompiledLayer, CompiledProcessor, CompiledProcessorKind};
+use crate::compiler::{CompiledLayer, CompiledProcessor};
 use crate::parameter::ParameterHandle;
 
 use super::processor::ProcessorTargetSpan;
@@ -174,37 +174,19 @@ impl VoiceTargetScratch {
             ],
             layer_processors: layers
                 .iter()
-                .map(|layer| layer.processors.iter().map(zero_processor_target).collect())
+                .map(|layer| {
+                    layer
+                        .processors
+                        .iter()
+                        .map(|processor| ProcessorTargetSpan::zero_for(&processor.processor))
+                        .collect()
+                })
                 .collect(),
-            voice_processors: voice_processors.iter().map(zero_processor_target).collect(),
+            voice_processors: voice_processors
+                .iter()
+                .map(|processor| ProcessorTargetSpan::zero_for(&processor.processor))
+                .collect(),
         }
-    }
-}
-
-fn zero_processor_target(processor: &CompiledProcessor) -> ProcessorTargetSpan {
-    let zero = ValueSpan {
-        start: 0.0,
-        end: 0.0,
-    };
-    match &processor.processor {
-        CompiledProcessorKind::Filter(_) => ProcessorTargetSpan::Filter {
-            cutoff: zero,
-            resonance: zero,
-        },
-        CompiledProcessorKind::Drive(_) => ProcessorTargetSpan::Drive {
-            amount: zero,
-            mix: zero,
-        },
-        CompiledProcessorKind::Delay(_) => ProcessorTargetSpan::Delay {
-            feedback: zero,
-            mix: zero,
-        },
-        CompiledProcessorKind::Reverb(_) => ProcessorTargetSpan::Reverb {
-            decay: zero,
-            damping: zero,
-            width: zero,
-            mix: zero,
-        },
     }
 }
 

@@ -11,6 +11,7 @@ use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
 
 use super::super::modulation::LayerGeneratorTargetSpan;
 use super::super::modulation::ValueSpan;
+use super::validate_generator_span;
 
 enum OscillatorComponentRuntime {
     Basic(DspOscillator),
@@ -110,10 +111,6 @@ impl OscillatorRuntime {
         else {
             return Err(invalid_state());
         };
-        let hard_sync = matches!(
-            self.backend,
-            CompiledOscillatorBackend::VariableShapeSync { .. }
-        );
         let sync_ratio = match self.backend {
             CompiledOscillatorBackend::Basic => None,
             CompiledOscillatorBackend::VariableShapeSync { .. } => {
@@ -128,10 +125,10 @@ impl OscillatorRuntime {
             start: 0.0,
             end: 0.0,
         });
-        validate_span(detune, UNISON_DETUNE)?;
-        validate_span(spread, UNISON_SPREAD)?;
+        validate_generator_span(detune, UNISON_DETUNE)?;
+        validate_generator_span(spread, UNISON_SPREAD)?;
         if let Some(ratio) = sync_ratio {
-            validate_span(ratio, SYNC_RATIO)?;
+            validate_generator_span(ratio, SYNC_RATIO)?;
         }
         let (base_start, base_end) = base_frequencies(note_number, tuning_start, tuning_end)?;
         let pulse_width = if matches!(self.waveform, OscillatorWaveform::Pulse { .. }) {
@@ -142,7 +139,7 @@ impl OscillatorRuntime {
                 end: 0.5,
             }
         };
-        validate_span(pulse_width, PULSE_WIDTH)?;
+        validate_generator_span(pulse_width, PULSE_WIDTH)?;
 
         if self.unison.position_distribution.len() == 1 {
             let position = self
@@ -157,13 +154,13 @@ impl OscillatorRuntime {
                 position,
                 detune,
                 sample_rate,
-                hard_sync,
+                self.backend,
             )?;
             let slave = sync_ratio
                 .map(|ratio| {
                     Ok((
-                        clamp_hard_sync_frequency(start_master * ratio.start, sample_rate)?,
-                        clamp_hard_sync_frequency(end_master * ratio.end, sample_rate)?,
+                        clamp_frequency(start_master * ratio.start, sample_rate, self.backend)?,
+                        clamp_frequency(end_master * ratio.end, sample_rate, self.backend)?,
                     ))
                 })
                 .transpose()?;
@@ -192,13 +189,13 @@ impl OscillatorRuntime {
                 self.unison.position_distribution[index],
                 detune,
                 sample_rate,
-                hard_sync,
+                self.backend,
             )?;
             let slave = sync_ratio
                 .map(|ratio| {
                     Ok((
-                        clamp_hard_sync_frequency(start_master * ratio.start, sample_rate)?,
-                        clamp_hard_sync_frequency(end_master * ratio.end, sample_rate)?,
+                        clamp_frequency(start_master * ratio.start, sample_rate, self.backend)?,
+                        clamp_frequency(end_master * ratio.end, sample_rate, self.backend)?,
                     ))
                 })
                 .transpose()?;
@@ -345,23 +342,15 @@ fn component_frequency(
     distribution: f32,
     detune: ValueSpan,
     sample_rate: f64,
-    hard_sync: bool,
+    backend: CompiledOscillatorBackend,
 ) -> Result<(f32, f32), ProcessError> {
     let start = base_start * cents_ratio(distribution * detune.start)?;
     let end = base_end * cents_ratio(distribution * detune.end)?;
     if !start.is_finite() || !end.is_finite() || start <= 0.0 || end <= 0.0 {
         return Err(ProcessError::InvalidFrequency);
     }
-    if hard_sync {
-        Ok((
-            clamp_hard_sync_frequency(start, sample_rate)?,
-            clamp_hard_sync_frequency(end, sample_rate)?,
-        ))
-    } else {
-        #[allow(clippy::cast_possible_truncation)]
-        let max_frequency = (sample_rate * 0.45) as f32;
-        Ok((start.min(max_frequency), end.min(max_frequency)))
-    }
+    let max_frequency = backend.effective_max_frequency(sample_rate);
+    Ok((start.min(max_frequency), end.min(max_frequency)))
 }
 
 fn cents_ratio(cents: f32) -> Result<f32, ProcessError> {
@@ -378,12 +367,15 @@ fn cents_ratio(cents: f32) -> Result<f32, ProcessError> {
     }
 }
 
-fn clamp_hard_sync_frequency(frequency: f32, sample_rate: f64) -> Result<f32, ProcessError> {
+fn clamp_frequency(
+    frequency: f32,
+    sample_rate: f64,
+    backend: CompiledOscillatorBackend,
+) -> Result<f32, ProcessError> {
     if !frequency.is_finite() || frequency <= 0.0 {
         return Err(ProcessError::InvalidFrequency);
     }
-    #[allow(clippy::cast_possible_truncation)]
-    let max_frequency = (sample_rate * 0.24) as f32;
+    let max_frequency = backend.effective_max_frequency(sample_rate);
     Ok(frequency.clamp(f32::MIN_POSITIVE, max_frequency))
 }
 
@@ -420,7 +412,7 @@ fn mix_component(
 }
 
 fn apply_waveshaping(amount: ValueSpan, output: &mut [f32]) -> Result<(), ProcessError> {
-    validate_span(amount, WAVESHAPE)?;
+    validate_generator_span(amount, WAVESHAPE)?;
     if same_value(amount.start, 0.0) && same_value(amount.end, 0.0) {
         return Ok(());
     }
@@ -445,19 +437,6 @@ fn apply_waveshaping(amount: ValueSpan, output: &mut [f32]) -> Result<(), Proces
     Ok(())
 }
 
-fn validate_span(
-    span: ValueSpan,
-    spec: crate::generator_parameters::GeneratorParameterSpec,
-) -> Result<(), ProcessError> {
-    if !span.start.is_finite() || !span.end.is_finite() {
-        return Err(non_finite());
-    }
-    if !(spec.min..=spec.max).contains(&span.start) || !(spec.min..=spec.max).contains(&span.end) {
-        return Err(invalid_input());
-    }
-    Ok(())
-}
-
 fn ensure_finite(samples: &[f32]) -> Result<(), ProcessError> {
     if samples.iter().all(|sample| sample.is_finite()) {
         Ok(())
@@ -475,12 +454,6 @@ fn non_finite() -> ProcessError {
 fn invalid_state() -> ProcessError {
     ProcessError::ProcessorFailure {
         kind: ProcessorFailureKind::InvalidState,
-    }
-}
-
-fn invalid_input() -> ProcessError {
-    ProcessError::ProcessorFailure {
-        kind: ProcessorFailureKind::InvalidInput,
     }
 }
 
