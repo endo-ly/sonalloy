@@ -3468,10 +3468,10 @@ scripts/review/generate_digital_synthesis_package.py
 
 ## 20.3 Operator Review Audio
 
-11. PM Stack 4 Bell
-12. FM Stack 4 Bass
-13. AM Two Stacks
-14. Ring Two Stacks
+11. PM Stack 4 Stress
+12. FM Stack 4 Stress
+13. AM Two-Operator Comparison
+14. Ring Two-Operator Comparison
 15. Algorithm Stack 4
 16. Algorithm Two Stacks
 17. Algorithm Shared Modulator
@@ -3479,8 +3479,8 @@ scripts/review/generate_digital_synthesis_package.py
 19. Modulation Amount Sweep
 20. Feedback Sweep
 21. Operator Envelope Bell
-22. Operator Unison 4
-23. Operator Polyphony / Stealing
+22. Operator Unison 4 on a Two-Operator Patch
+23. Operator Polyphony / Stealing on a Two-Operator Patch
 
 ## 20.4 Complex Oscillator Review Audio
 

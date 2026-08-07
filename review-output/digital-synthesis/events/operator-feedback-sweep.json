@@ -10,14 +10,14 @@
     {
       "absolute_frame": 4096,
       "type": "parameter_change",
-      "parameter": "layer.operator.generator.operator.4.feedback",
-      "normalized": 0.3
+      "parameter": "layer.operator.generator.operator.2.feedback",
+      "normalized": 0.25
     },
     {
       "absolute_frame": 8192,
       "type": "parameter_change",
-      "parameter": "layer.operator.generator.operator.4.feedback",
-      "normalized": 0.8
+      "parameter": "layer.operator.generator.operator.2.feedback",
+      "normalized": 0.65
     },
     {
       "absolute_frame": 12000,

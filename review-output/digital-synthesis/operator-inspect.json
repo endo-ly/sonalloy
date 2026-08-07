@@ -65,7 +65,7 @@
             "ratio": 2.0,
             "detune_cents": 0.0,
             "level": null,
-            "modulation_amount": 2.2,
+            "modulation_amount": 1.8,
             "feedback": 0.0,
             "phase": 0.0,
             "envelope": {
@@ -82,10 +82,10 @@
           },
           {
             "index": 3,
-            "ratio": 3.0,
+            "ratio": 1.0,
             "detune_cents": 0.0,
             "level": null,
-            "modulation_amount": 1.8,
+            "modulation_amount": 0.0,
             "feedback": 0.0,
             "phase": 0.0,
             "envelope": {
@@ -102,11 +102,11 @@
           },
           {
             "index": 4,
-            "ratio": 5.0,
+            "ratio": 1.0,
             "detune_cents": 0.0,
             "level": null,
-            "modulation_amount": 2.6,
-            "feedback": 0.28,
+            "modulation_amount": 0.0,
+            "feedback": 0.0,
             "phase": 0.0,
             "envelope": {
               "attack_samples": 0,
@@ -281,7 +281,7 @@
       "unit": "index",
       "min": 0.0,
       "max": 8.0,
-      "default": 2.2,
+      "default": 1.8,
       "scale": "linear",
       "smoothing_seconds": 0.005
     },
@@ -309,7 +309,7 @@
       "unit": "ratio",
       "min": 0.25,
       "max": 32.0,
-      "default": 3.0,
+      "default": 1.0,
       "scale": "log2",
       "smoothing_seconds": 0.005
     },
@@ -337,7 +337,7 @@
       "unit": "index",
       "min": 0.0,
       "max": 8.0,
-      "default": 1.8,
+      "default": 0.0,
       "scale": "linear",
       "smoothing_seconds": 0.005
     },
@@ -365,7 +365,7 @@
       "unit": "ratio",
       "min": 0.25,
       "max": 32.0,
-      "default": 5.0,
+      "default": 1.0,
       "scale": "log2",
       "smoothing_seconds": 0.005
     },
@@ -393,7 +393,7 @@
       "unit": "index",
       "min": 0.0,
       "max": 8.0,
-      "default": 2.6,
+      "default": 0.0,
       "scale": "linear",
       "smoothing_seconds": 0.005
     },
@@ -407,7 +407,7 @@
       "unit": "normalized",
       "min": 0.0,
       "max": 1.0,
-      "default": 0.28,
+      "default": 0.0,
       "scale": "linear",
       "smoothing_seconds": 0.005
     },

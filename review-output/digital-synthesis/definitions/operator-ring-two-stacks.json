@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "metadata": {
-    "name": "Ring Two Stacks",
+    "name": "Ring Two-Operator Comparison",
     "author": "Sonalloy",
     "description": "Four-operator modulation review instrument"
   },
@@ -31,12 +31,12 @@
       "generator": {
         "operator_modulation": {
           "mode": "ring",
-          "algorithm": "two_stacks",
+          "algorithm": "stack_4",
           "operators": [
             {
               "ratio": 1.0,
               "detune_cents": 0.0,
-              "level": 0.62,
+              "level": 0.9,
               "modulation_amount": 0.0,
               "feedback": 0.0,
               "phase": 0.0,
@@ -51,7 +51,7 @@
               "ratio": 2.0,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 0.36,
+              "modulation_amount": 1.0,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
@@ -62,9 +62,9 @@
               }
             },
             {
-              "ratio": 3.0,
+              "ratio": 1.0,
               "detune_cents": 0.0,
-              "level": 0.62,
+              "level": 0.0,
               "modulation_amount": 0.0,
               "feedback": 0.0,
               "phase": 0.0,
@@ -76,10 +76,10 @@
               }
             },
             {
-              "ratio": 5.0,
+              "ratio": 1.0,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 0.396,
+              "modulation_amount": 0.0,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {

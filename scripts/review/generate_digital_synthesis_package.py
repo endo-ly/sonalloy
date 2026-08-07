@@ -140,6 +140,9 @@ def _hybrid_definition() -> dict[str, object]:
     value = json.loads(source_path.read_text(encoding="utf-8"))
     sample_asset = value["layers"][2]["generator"]["sample"]["zones"][0]["asset"]
     sample_asset["path"] = "../assets/metal-hit.wav"
+    value["layers"][1]["generator"] = copy.deepcopy(
+        four_operator_fm_bell_definition()["layers"][0]["generator"]
+    )
     return value
 
 
@@ -189,19 +192,19 @@ def _final_summary() -> str:
         "08-position-lfo.wav": "Wavetable position LFO",
         "09-unison-5-stereo.wav": "Wavetable unison 5 stereo",
         "10-band-boundary-sweep.wav": "Wavetable band boundary",
-        "11-operator-pm-stack4-bell.wav": "PM Stack 4 bell",
-        "12-operator-fm-stack4-bass.wav": "FM Stack 4 bass",
-        "13-operator-am-two-stacks.wav": "AM two stacks",
-        "14-operator-ring-two-stacks.wav": "Ring two stacks",
+        "11-operator-pm-stack4-bell.wav": "PM Stack 4 stress",
+        "12-operator-fm-stack4-bass.wav": "FM Stack 4 stress",
+        "13-operator-am-two-stacks.wav": "AM two-operator comparison",
+        "14-operator-ring-two-stacks.wav": "Ring two-operator comparison",
         "15-operator-algorithm-stack4.wav": "Stack 4 topology",
         "16-operator-algorithm-two-stacks.wav": "Two stacks topology",
         "17-operator-algorithm-shared.wav": "Shared modulator topology",
-        "18-operator-ratio-sweep.wav": "Operator ratio sweep",
-        "19-operator-modulation-amount-sweep.wav": "Operator modulation amount sweep",
-        "20-operator-feedback-sweep.wav": "Operator feedback sweep",
-        "21-operator-envelope-bell.wav": "Operator envelope",
-        "22-operator-unison-4.wav": "Operator unison 4",
-        "23-operator-polyphony-stealing.wav": "Operator polyphony and voice stealing",
+        "18-operator-ratio-sweep.wav": "Operator ratio sweep on a two-operator patch",
+        "19-operator-modulation-amount-sweep.wav": "Operator index sweep on a two-operator patch",
+        "20-operator-feedback-sweep.wav": "Operator feedback sweep on a two-operator patch",
+        "21-operator-envelope-bell.wav": "Operator envelope bell",
+        "22-operator-unison-4.wav": "Operator unison 4 on a two-operator patch",
+        "23-operator-polyphony-stealing.wav": "Operator polyphony and voice stealing on a two-operator patch",
         "24-phase-distortion-025.wav": "Phase distortion 0.25",
         "25-phase-distortion-075.wav": "Phase distortion 0.75",
         "26-phase-distortion-sweep.wav": "Phase distortion sweep",
@@ -747,6 +750,26 @@ def four_operator_fm_bell_definition() -> dict[str, object]:
     )
 
 
+def two_active_operator_definition(
+    name: str,
+    mode: str,
+    *,
+    modulation_amount: float,
+    unison: dict[str, object] | None = None,
+    polyphony: int = 16,
+) -> dict[str, object]:
+    return operator_definition(
+        name,
+        mode,
+        "stack_4",
+        unison=unison,
+        polyphony=polyphony,
+        ratios=(1.0, 2.0, 1.0, 1.0),
+        modulation_amounts=(0.0, modulation_amount, 0.0, 0.0),
+        feedback_values=(0.0, 0.0, 0.0, 0.0),
+    )
+
+
 def note_events(note: int, note_id: int = 1, release_frame: int = 12_000) -> list[dict[str, object]]:
     return [
         {
@@ -994,20 +1017,24 @@ def main() -> None:
     }
     operator_definitions: dict[str, dict[str, object]] = {
         "operator-pm-stack4": operator_definition(
-            "PM Stack 4 Bell", "phase", "stack_4"
+            "PM Stack 4 Stress", "phase", "stack_4"
         ),
         "operator-pm-stack4-algorithm": operator_definition(
             "PM Stack 4 Algorithm", "phase", "stack_4", envelope_decay=(0.08, 0.08, 0.08, 0.08)
         ),
         "operator-fm-stack4": operator_definition(
-            "FM Stack 4 Bass", "frequency", "stack_4"
+            "FM Stack 4 Stress", "frequency", "stack_4"
         ),
         "four-operator-fm-bell": four_operator_fm_bell_definition(),
-        "operator-am-two-stacks": operator_definition(
-            "AM Two Stacks", "amplitude", "two_stacks"
+        "operator-am-two-stacks": two_active_operator_definition(
+            "AM Two-Operator Comparison",
+            "amplitude",
+            modulation_amount=0.85,
         ),
-        "operator-ring-two-stacks": operator_definition(
-            "Ring Two Stacks", "ring", "two_stacks"
+        "operator-ring-two-stacks": two_active_operator_definition(
+            "Ring Two-Operator Comparison",
+            "ring",
+            modulation_amount=1.0,
         ),
         "operator-pm-two-stacks": operator_definition(
             "PM Two Stacks", "phase", "two_stacks"
@@ -1015,26 +1042,36 @@ def main() -> None:
         "operator-pm-shared": operator_definition(
             "PM Shared Modulator", "phase", "shared_modulator"
         ),
-        "operator-pm-ratio-sweep": operator_definition(
-            "PM Ratio Sweep", "phase", "stack_4"
+        "operator-pm-ratio-sweep": two_active_operator_definition(
+            "PM Ratio Sweep", "phase", modulation_amount=1.4
         ),
-        "operator-pm-index-sweep": operator_definition(
-            "PM Index Sweep", "phase", "stack_4"
+        "operator-pm-index-sweep": two_active_operator_definition(
+            "PM Index Sweep", "phase", modulation_amount=1.4
         ),
-        "operator-pm-feedback-sweep": operator_definition(
-            "PM Feedback Sweep", "phase", "stack_4"
+        "operator-pm-feedback-sweep": two_active_operator_definition(
+            "PM Feedback Sweep", "phase", modulation_amount=1.4
         ),
         "operator-pm-envelope": operator_definition(
             "Operator Envelope Bell",
             "phase",
             "stack_4",
             envelope_decay=(0.35, 0.18, 0.06, 0.02),
+            envelope_sustain=(0.18, 0.04, 0.02, 0.0),
+            ratios=(1.0, 2.71, 4.07, 6.83),
+            modulation_amounts=(0.0, 2.2, 1.5, 1.0),
+            feedback_values=(0.0, 0.0, 0.0, 0.0),
         ),
-        "operator-fm-unison": operator_definition(
-            "Operator Unison 4", "frequency", "stack_4", unison=operator_unison
+        "operator-fm-unison": two_active_operator_definition(
+            "Operator Unison 4",
+            "frequency",
+            modulation_amount=1.8,
+            unison=operator_unison,
         ),
-        "operator-pm-stealing": operator_definition(
-            "Operator Polyphony Stealing", "phase", "stack_4", polyphony=2
+        "operator-pm-stealing": two_active_operator_definition(
+            "Operator Polyphony Stealing",
+            "frequency",
+            modulation_amount=1.4,
+            polyphony=2,
         ),
     }
     operator_definition_paths: dict[str, Path] = {}
@@ -1112,7 +1149,7 @@ def main() -> None:
 
     ratio_parameter = "layer.operator.generator.operator.2.ratio"
     index_parameter = "layer.operator.generator.operator.2.modulation_amount"
-    feedback_parameter = "layer.operator.generator.operator.4.feedback"
+    feedback_parameter = "layer.operator.generator.operator.2.feedback"
     ratio_sweep_events = event_dir / "operator-ratio-sweep.json"
     write_events(
         ratio_sweep_events,
@@ -1123,13 +1160,13 @@ def main() -> None:
                     "absolute_frame": 4_096,
                     "type": "parameter_change",
                     "parameter": ratio_parameter,
-                    "normalized": 0.4,
+                    "normalized": 0.03,
                 },
                 {
                     "absolute_frame": 8_192,
                     "type": "parameter_change",
                     "parameter": ratio_parameter,
-                    "normalized": 0.6,
+                    "normalized": 0.09,
                 },
             ],
         ),
@@ -1144,13 +1181,13 @@ def main() -> None:
                     "absolute_frame": 4_096,
                     "type": "parameter_change",
                     "parameter": index_parameter,
-                    "normalized": 0.4,
+                    "normalized": 0.1,
                 },
                 {
                     "absolute_frame": 8_192,
                     "type": "parameter_change",
                     "parameter": index_parameter,
-                    "normalized": 0.8,
+                    "normalized": 0.4,
                 },
             ],
         ),
@@ -1165,13 +1202,13 @@ def main() -> None:
                     "absolute_frame": 4_096,
                     "type": "parameter_change",
                     "parameter": feedback_parameter,
-                    "normalized": 0.3,
+                    "normalized": 0.25,
                 },
                 {
                     "absolute_frame": 8_192,
                     "type": "parameter_change",
                     "parameter": feedback_parameter,
-                    "normalized": 0.8,
+                    "normalized": 0.65,
                 },
             ],
         ),

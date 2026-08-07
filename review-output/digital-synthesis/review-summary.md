@@ -31,19 +31,19 @@ py -3 scripts/review/generate_digital_synthesis_package.py
 | `08-position-lfo.wav` | Wavetable position LFO |
 | `09-unison-5-stereo.wav` | Wavetable unison 5 stereo |
 | `10-band-boundary-sweep.wav` | Wavetable band boundary |
-| `11-operator-pm-stack4-bell.wav` | PM Stack 4 bell |
-| `12-operator-fm-stack4-bass.wav` | FM Stack 4 bass |
-| `13-operator-am-two-stacks.wav` | AM two stacks |
-| `14-operator-ring-two-stacks.wav` | Ring two stacks |
+| `11-operator-pm-stack4-bell.wav` | PM Stack 4 stress |
+| `12-operator-fm-stack4-bass.wav` | FM Stack 4 stress |
+| `13-operator-am-two-stacks.wav` | AM two-operator comparison |
+| `14-operator-ring-two-stacks.wav` | Ring two-operator comparison |
 | `15-operator-algorithm-stack4.wav` | Stack 4 topology |
 | `16-operator-algorithm-two-stacks.wav` | Two stacks topology |
 | `17-operator-algorithm-shared.wav` | Shared modulator topology |
-| `18-operator-ratio-sweep.wav` | Operator ratio sweep |
-| `19-operator-modulation-amount-sweep.wav` | Operator modulation amount sweep |
-| `20-operator-feedback-sweep.wav` | Operator feedback sweep |
-| `21-operator-envelope-bell.wav` | Operator envelope |
-| `22-operator-unison-4.wav` | Operator unison 4 |
-| `23-operator-polyphony-stealing.wav` | Operator polyphony and voice stealing |
+| `18-operator-ratio-sweep.wav` | Operator ratio sweep on a two-operator patch |
+| `19-operator-modulation-amount-sweep.wav` | Operator index sweep on a two-operator patch |
+| `20-operator-feedback-sweep.wav` | Operator feedback sweep on a two-operator patch |
+| `21-operator-envelope-bell.wav` | Operator envelope bell |
+| `22-operator-unison-4.wav` | Operator unison 4 on a two-operator patch |
+| `23-operator-polyphony-stealing.wav` | Operator polyphony and voice stealing on a two-operator patch |
 | `24-phase-distortion-025.wav` | Phase distortion 0.25 |
 | `25-phase-distortion-075.wav` | Phase distortion 0.75 |
 | `26-phase-distortion-sweep.wav` | Phase distortion sweep |

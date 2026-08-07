@@ -30,7 +30,7 @@
       },
       "generator": {
         "operator_modulation": {
-          "mode": "phase",
+          "mode": "frequency",
           "algorithm": "stack_4",
           "operators": [
             {
@@ -51,7 +51,7 @@
               "ratio": 2.0,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 2.2,
+              "modulation_amount": 1.4,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
@@ -62,10 +62,10 @@
               }
             },
             {
-              "ratio": 3.0,
+              "ratio": 1.0,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 1.8,
+              "modulation_amount": 0.0,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
@@ -76,11 +76,11 @@
               }
             },
             {
-              "ratio": 5.0,
+              "ratio": 1.0,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 2.6,
-              "feedback": 0.28,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
                 "attack_seconds": 0.0,

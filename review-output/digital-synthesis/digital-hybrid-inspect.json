@@ -103,8 +103,8 @@
             "phase": 0.0,
             "envelope": {
               "attack_samples": 0,
-              "decay_samples": 8640,
-              "sustain_level": 1.0,
+              "decay_samples": 43200,
+              "sustain_level": 0.18,
               "release_samples": 3840
             },
             "ratio_parameter": "layer.bell.generator.operator.1.ratio",
@@ -115,16 +115,16 @@
           },
           {
             "index": 2,
-            "ratio": 2.0,
+            "ratio": 2.71,
             "detune_cents": 0.0,
             "level": null,
-            "modulation_amount": 2.2,
+            "modulation_amount": 3.8,
             "feedback": 0.0,
             "phase": 0.0,
             "envelope": {
               "attack_samples": 0,
-              "decay_samples": 5760,
-              "sustain_level": 1.0,
+              "decay_samples": 10560,
+              "sustain_level": 0.04,
               "release_samples": 3840
             },
             "ratio_parameter": "layer.bell.generator.operator.2.ratio",
@@ -135,16 +135,16 @@
           },
           {
             "index": 3,
-            "ratio": 3.0,
+            "ratio": 4.07,
             "detune_cents": 0.0,
             "level": null,
-            "modulation_amount": 1.8,
+            "modulation_amount": 2.7,
             "feedback": 0.0,
             "phase": 0.0,
             "envelope": {
               "attack_samples": 0,
-              "decay_samples": 3840,
-              "sustain_level": 1.0,
+              "decay_samples": 5760,
+              "sustain_level": 0.02,
               "release_samples": 3840
             },
             "ratio_parameter": "layer.bell.generator.operator.3.ratio",
@@ -155,16 +155,16 @@
           },
           {
             "index": 4,
-            "ratio": 5.0,
+            "ratio": 6.83,
             "detune_cents": 0.0,
             "level": null,
-            "modulation_amount": 2.6,
-            "feedback": 0.28,
+            "modulation_amount": 2.1,
+            "feedback": 0.18,
             "phase": 0.0,
             "envelope": {
               "attack_samples": 0,
-              "decay_samples": 1920,
-              "sustain_level": 1.0,
+              "decay_samples": 2880,
+              "sustain_level": 0.0,
               "release_samples": 3840
             },
             "ratio_parameter": "layer.bell.generator.operator.4.ratio",
@@ -443,7 +443,7 @@
       "unit": "ratio",
       "min": 0.25,
       "max": 32.0,
-      "default": 2.0,
+      "default": 2.71,
       "scale": "log2",
       "smoothing_seconds": 0.005
     },
@@ -471,7 +471,7 @@
       "unit": "index",
       "min": 0.0,
       "max": 8.0,
-      "default": 2.2,
+      "default": 3.8,
       "scale": "linear",
       "smoothing_seconds": 0.005
     },
@@ -499,7 +499,7 @@
       "unit": "ratio",
       "min": 0.25,
       "max": 32.0,
-      "default": 3.0,
+      "default": 4.07,
       "scale": "log2",
       "smoothing_seconds": 0.005
     },
@@ -527,7 +527,7 @@
       "unit": "index",
       "min": 0.0,
       "max": 8.0,
-      "default": 1.8,
+      "default": 2.7,
       "scale": "linear",
       "smoothing_seconds": 0.005
     },
@@ -555,7 +555,7 @@
       "unit": "ratio",
       "min": 0.25,
       "max": 32.0,
-      "default": 5.0,
+      "default": 6.83,
       "scale": "log2",
       "smoothing_seconds": 0.005
     },
@@ -583,7 +583,7 @@
       "unit": "index",
       "min": 0.0,
       "max": 8.0,
-      "default": 2.6,
+      "default": 2.1,
       "scale": "linear",
       "smoothing_seconds": 0.005
     },
@@ -597,7 +597,7 @@
       "unit": "normalized",
       "min": 0.0,
       "max": 1.0,
-      "default": 0.28,
+      "default": 0.18,
       "scale": "linear",
       "smoothing_seconds": 0.005
     },
