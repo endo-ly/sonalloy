@@ -55,8 +55,10 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Metadata | 名前、作者、説明 |
 | Performance | Polyphony、Voice Stealing方式 |
 | Layer | Trigger（Key / Velocity範囲）、Generator、Gain、Pan、Tuning、Envelope |
-| Oscillator | Waveform、Phase Reset、Phase、Backend、Output Mode、Effective Frequency上限、Pulse Width（Pulseのみ）、Hard Sync、Waveshaping、Unison |
+| Oscillator | Waveform、Phase Reset、Phase、Backend、Output Mode、Effective Frequency上限、Pulse Width（Pulseのみ）、Hard Sync、Waveshaping、Phase Distortion、Wavefold、Oscillator Feedback、DC Blocker、Signal Order、Unison |
 | Noise | Color、Seed、Stereo Correlation Parameter、Output Mode |
+| Wavetable | Asset Path、SHA指定有無、Prepared状態、Source Channel / Frame Count、Frame Length / Count、Band Count / Max Harmonic、Position、Parameter ID、Phase、Unison、Output Mode、Effective Frequency上限 |
+| Operator Modulation | Mode、Algorithm、Evaluation Order、Incoming Mask、Carrier Operator、4 OperatorのRatio / Detune / Level / Modulation Amount / Feedback / Envelope / Parameter ID、Phase Reset、Unison、Output Mode、Effective Frequency上限 |
 | Sample | Zone Count、Enabled / Disabled Count、Prepared Asset共有数、Zone ID、Key / Velocity範囲、Root Note、Round Robin Group、Playback Region / Loop、Asset Metadata、Output Mode |
 | Parameter | Canonical ID、Owner、Unit、Range、Default、Scale、Smoothing |
 | Modulation | Source ID、Source種類、Scope、Target、Amount、Curve |
@@ -70,6 +72,10 @@ sonalloy instrument inspect <definition> --json
 
 `inspect`のParameter IDはCompiled Catalogから取得したCanonical IDです。RouteのSource ID、Target ID、設定値もCompiled Instrumentの内容をそのまま表示します。
 ProcessorはChainごとに`placement`、`chain_index`、`id`、`kind`、Static Field、Parameter Descriptorを表示します。FilterはParameterのDefaultとSample Rateに応じたDSP適用上限をStatic Fieldへ表示します。DelayのTimeとReverbのPre-delayはStatic Fieldです。
+
+Operator ModulationのJSON Inspectでは、Operator番号を1始まりで表示し、固定Topologyを`evaluation_order`、`incoming_masks`、`carrier_operators`として表示します。`level`、`modulation_amount`、`feedback`はTopologyとModeで使用されないOperatorでは`null`になります。OperatorのParameter IDは`layer.<layer_id>.generator.operator.<1-4>.<parameter>`形式です。
+
+Complex OscillatorのJSON Inspectでは、`backend`が`phase_domain`になる条件、`phase_distortion_parameter`、`wavefold_parameter`、`oscillator_feedback_parameter`、`dc_blocker`、`signal_order`、`combination_constraints`を表示します。Wavefoldだけを指定した場合は既存Oscillator Backendを維持します。
 
 ## `render` Command
 
@@ -264,6 +270,20 @@ sonalloy dev render-sine \
 - `ASSET_DOWNMIXED`
 - `ASSET_HASH_MISSING`
 - `ASSET_ABSOLUTE_PATH`
+
+**Wavetable**
+
+- `WAVETABLE_LAYOUT_INVALID`
+- `WAVETABLE_PREPARATION_FAILED`
+- `WAVETABLE_SILENT_FRAME`
+- `WAVETABLE_DC_OFFSET`
+- `GENERATOR_RESOURCE_LIMIT_EXCEEDED`
+
+**Operator Modulation**
+
+- `VALUE_OUT_OF_RANGE`（Operator数、Ratio、Detune、Level、Amount、Phase、Feedback、Unison範囲）
+- `DEFINITION_ERROR`（Carrier Level、非Carrier Level、未接続Amount、AM / Ring Feedback）
+- `GENERATOR_RESOURCE_LIMIT_EXCEEDED`（Unison Voice数）
 
 AssetのMissingやDecode失敗はWarningとして表示され、ほかの有効LayerがあればRenderは継続します。
 

@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Complex Oscillator Reference",
+    "author": null,
+    "description": "Hard sync, waveshaping, and unison oscillator reference"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "unison_body",
+      "enabled": false,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.72,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "hard_sync": null,
+          "waveshaping": {
+            "amount": 0.25
+          },
+          "unison": {
+            "voices": 5,
+            "detune_cents": 18.0,
+            "stereo_spread": 0.8,
+            "phase_spread": 0.2
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "body_tone",
+          "cutoff_hz": 9000.0,
+          "resonance": 0.12
+        }
+      ]
+    },
+    {
+      "id": "hard_sync_lead",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -19.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.55,
+        "release_seconds": 0.25
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "hard_sync": null,
+          "waveshaping": {
+            "amount": 0.12
+          },
+          "unison": null,
+          "phase_distortion": null,
+          "wavefold": null,
+          "feedback": {
+            "amount": 0.8
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "drive",
+          "id": "lead_drive",
+          "amount": 0.2,
+          "mix": 0.25
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": []
+}

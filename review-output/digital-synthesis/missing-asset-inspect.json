@@ -1,0 +1,224 @@
+{
+  "status": "ok",
+  "name": "Missing Asset Fallback",
+  "metadata": {
+    "name": "Missing Asset Fallback",
+    "author": "Sonalloy",
+    "description": "Wavetable Generator review instrument"
+  },
+  "polyphony": 16,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "layer_count": 2,
+  "layers": [
+    {
+      "id": "motion",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "wavetable",
+        "output_mode": "mono",
+        "asset_path": "../assets/missing-wavetable.wav",
+        "asset_sha256_specified": false,
+        "prepared": false,
+        "source_channels": null,
+        "source_frame_count": null,
+        "frame_length": 256,
+        "frame_count": null,
+        "band_count": null,
+        "band_max_harmonics": [],
+        "position": 0.0,
+        "position_parameter": "layer.motion.generator.wavetable_position",
+        "phase_reset": true,
+        "phase": 0.0,
+        "unison_voices": 1,
+        "unison_detune_parameter": null,
+        "unison_spread_parameter": null,
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "disabled",
+      "gain_db": -4.0,
+      "gain_linear": 0.63095737,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 0,
+        "decay_samples": 0,
+        "sustain_level": 1.0,
+        "release_samples": 3840
+      },
+      "processors": []
+    },
+    {
+      "id": "fallback",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "oscillator",
+        "waveform": "sine",
+        "phase_reset": true,
+        "phase": 0.0,
+        "output_mode": "mono",
+        "backend": "basic",
+        "hard_sync": false,
+        "waveshaping": false,
+        "phase_distortion": false,
+        "wavefold": false,
+        "oscillator_feedback": false,
+        "dc_blocker": false,
+        "signal_order": "oscillator -> unison_mix -> waveshaping",
+        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
+        "unison_voices": 1,
+        "phase_spread": 0.0,
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "not_applicable (oscillator-only instrument)",
+      "gain_db": -8.0,
+      "gain_linear": 0.39810717,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 0,
+        "decay_samples": 0,
+        "sustain_level": 1.0,
+        "release_samples": 3840
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "parameters": [
+    {
+      "id": "layer.motion.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -4.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.motion.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.motion.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.motion.generator.wavetable_position",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    },
+    {
+      "id": "layer.fallback.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -8.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.fallback.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.fallback.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    }
+  ],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity"
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking"
+    }
+  ],
+  "routes": [],
+  "diagnostics": [
+    {
+      "code": "ASSET_NOT_FOUND",
+      "severity": "warning",
+      "path": "layers[0].generator.wavetable.asset.path",
+      "message": "asset is unavailable",
+      "detail": "asset not found: 指定されたファイルが見つかりません。 (os error 2)"
+    }
+  ]
+}

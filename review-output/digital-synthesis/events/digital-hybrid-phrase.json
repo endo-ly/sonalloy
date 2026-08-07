@@ -1,0 +1,40 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 1,
+      "note": 48,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 4096,
+      "type": "parameter_change",
+      "parameter": "layer.motion.generator.wavetable_position",
+      "normalized": 0.85
+    },
+    {
+      "absolute_frame": 6144,
+      "type": "note_on",
+      "note_id": 2,
+      "note": 55,
+      "velocity": 96
+    },
+    {
+      "absolute_frame": 9216,
+      "type": "parameter_change",
+      "parameter": "layer.motion.generator.wavetable_position",
+      "normalized": 0.2
+    },
+    {
+      "absolute_frame": 12288,
+      "type": "note_off",
+      "note_id": 1
+    },
+    {
+      "absolute_frame": 14336,
+      "type": "note_off",
+      "note_id": 2
+    }
+  ]
+}

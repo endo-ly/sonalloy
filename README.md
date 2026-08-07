@@ -1,6 +1,6 @@
 # Sonalloy
 
-Sonalloyは、音声素材と音響合成をLayerとして組み合わせ、演奏可能なInstrumentへ変換する音源エンジンです。JSONのDefinitionをCompileし、OscillatorとSampleを同じVoiceで合成して、Stereo WAVをOffline Renderします。
+Sonalloyは、音声素材と音響合成をLayerとして組み合わせ、演奏可能なInstrumentへ変換する音源エンジンです。JSONのDefinitionをCompileし、Basic / Complex Oscillator、Wavetable、4 Operator Modulation、Sampleを同じVoiceで合成して、Stereo WAVをOffline Renderします。Complex OscillatorはPhase Distortion、Wavefold、Oscillator Feedbackを含みます。
 
 ## クイックスタート
 

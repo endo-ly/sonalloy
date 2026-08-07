@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+from common import render_midi  # noqa: E402
 from measure_wav import compare_wav, measure, read_float_wav  # noqa: E402
 
 
@@ -53,26 +54,6 @@ def render_note(definition: Path, output: Path, gate: str = "0.5") -> None:
             "48000",
             "--block-size",
             "257",
-            "--output",
-            str(output),
-            "--json",
-        ]
-    )
-
-
-def render_midi(definition: Path, midi: Path, output: Path, block_size: int = 257) -> None:
-    run_cli(
-        [
-            "render",
-            "midi",
-            str(definition),
-            str(midi),
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            str(block_size),
-            "--tail",
-            "1.0",
             "--output",
             str(output),
             "--json",

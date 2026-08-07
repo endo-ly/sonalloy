@@ -175,6 +175,9 @@ fn pulse_definition(with_modulation: bool) -> InstrumentDefinition {
         phase: 0.0,
         hard_sync: None,
         waveshaping: None,
+        phase_distortion: None,
+        wavefold: None,
+        feedback: None,
         unison: None,
     });
     if with_modulation {
@@ -258,6 +261,9 @@ fn complex_oscillator_definition(
         phase: 0.0,
         hard_sync: hard_sync.then_some(HardSyncDefinition { ratio: 3.0 }),
         waveshaping: waveshaping.then_some(WaveshapingDefinition { amount: 0.45 }),
+        phase_distortion: None,
+        wavefold: None,
+        feedback: None,
         unison: unison_voices.map(|voices| UnisonDefinition {
             voices,
             detune_cents: 18.0,
@@ -1169,7 +1175,9 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
             assert!(sample.zones[0].source.is_some());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
-        | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
+        | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
+        | sonalloy_core::compiler::CompiledGenerator::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -1690,7 +1698,9 @@ fn sample_without_hash_is_enabled_with_a_warning() {
             sample.zones[0].asset.sha256 = None;
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
-        | sonalloy_core::GeneratorDefinition::Noise(_) => {
+        | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Wavetable(_)
+        | sonalloy_core::GeneratorDefinition::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -1715,7 +1725,9 @@ fn sample_without_hash_is_enabled_with_a_warning() {
             assert!(sample.zones[0].source.is_some());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
-        | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
+        | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
+        | sonalloy_core::compiler::CompiledGenerator::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -1733,7 +1745,9 @@ fn absolute_sample_path_is_enabled_with_a_warning() {
             sample.zones[0].asset.path = asset_path.to_string_lossy().into_owned();
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
-        | sonalloy_core::GeneratorDefinition::Noise(_) => {
+        | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Wavetable(_)
+        | sonalloy_core::GeneratorDefinition::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -1762,7 +1776,9 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
             sample.zones[0].asset.sha256 = Some("00".repeat(32));
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
-        | sonalloy_core::GeneratorDefinition::Noise(_) => {
+        | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Wavetable(_)
+        | sonalloy_core::GeneratorDefinition::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -1789,7 +1805,9 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
             assert!(sample.zones[0].source.is_none());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
-        | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
+        | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
+        | sonalloy_core::compiler::CompiledGenerator::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
         }
     }

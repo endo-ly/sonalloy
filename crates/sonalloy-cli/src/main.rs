@@ -286,6 +286,18 @@ enum InspectGenerator {
         waveshaping: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
         waveshape_parameter: Option<String>,
+        phase_distortion: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        phase_distortion_parameter: Option<String>,
+        wavefold: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        wavefold_parameter: Option<String>,
+        oscillator_feedback: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        oscillator_feedback_parameter: Option<String>,
+        dc_blocker: bool,
+        signal_order: &'static str,
+        combination_constraints: &'static str,
         unison_voices: usize,
         #[serde(skip_serializing_if = "Option::is_none")]
         unison_detune_parameter: Option<String>,
@@ -311,6 +323,57 @@ enum InspectGenerator {
         sample_asset_count: usize,
         sample_zones: Vec<InspectSampleZone>,
     },
+    Wavetable {
+        output_mode: &'static str,
+        asset_path: String,
+        asset_sha256_specified: bool,
+        prepared: bool,
+        source_channels: Option<usize>,
+        source_frame_count: Option<usize>,
+        frame_length: usize,
+        frame_count: Option<usize>,
+        band_count: Option<usize>,
+        band_max_harmonics: Vec<usize>,
+        position: f32,
+        position_parameter: String,
+        phase_reset: bool,
+        phase: f32,
+        unison_voices: usize,
+        unison_detune_parameter: Option<String>,
+        unison_spread_parameter: Option<String>,
+        effective_max_frequency_hz: f32,
+    },
+    OperatorModulation {
+        output_mode: &'static str,
+        mode: &'static str,
+        algorithm: &'static str,
+        evaluation_order: Vec<usize>,
+        incoming_masks: Vec<u8>,
+        carrier_operators: Vec<usize>,
+        operators: Vec<InspectOperator>,
+        phase_reset: bool,
+        unison_voices: usize,
+        unison_detune_parameter: Option<String>,
+        unison_spread_parameter: Option<String>,
+        effective_max_frequency_hz: f32,
+    },
+}
+
+#[derive(Debug, Serialize)]
+struct InspectOperator {
+    index: usize,
+    ratio: f32,
+    detune_cents: f32,
+    level: Option<f32>,
+    modulation_amount: Option<f32>,
+    feedback: Option<f32>,
+    phase: f32,
+    envelope: InspectEnvelope,
+    ratio_parameter: String,
+    detune_parameter: String,
+    level_parameter: Option<String>,
+    modulation_amount_parameter: Option<String>,
+    feedback_parameter: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1117,6 +1180,9 @@ fn default_definition() -> InstrumentDefinition {
                 phase: 0.0,
                 hard_sync: None,
                 waveshaping: None,
+                phase_distortion: None,
+                wavefold: None,
+                feedback: None,
                 unison: None,
             }),
             processors: Vec::new(),
@@ -1374,53 +1440,7 @@ fn inspect_generator(
 ) -> (InspectGenerator, &'static str) {
     match generator {
         sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => {
-            let (backend, sync_ratio) = match oscillator.backend {
-                sonalloy_core::compiler::CompiledOscillatorBackend::Basic => ("basic", None),
-                sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync {
-                    sync_ratio,
-                } => ("variable_shape_sync", Some(sync_ratio)),
-            };
-            (
-                InspectGenerator::Oscillator {
-                    waveform: match oscillator.waveform {
-                        OscillatorWaveform::Sine => "sine",
-                        OscillatorWaveform::Saw => "saw",
-                        OscillatorWaveform::Square => "square",
-                        OscillatorWaveform::Triangle => "triangle",
-                        OscillatorWaveform::Pulse { .. } => "pulse",
-                    },
-                    phase_reset: oscillator.phase_reset,
-                    phase: oscillator.phase,
-                    output_mode: output_mode_name(generator.output_mode()),
-                    backend,
-                    hard_sync: sync_ratio.is_some(),
-                    sync_ratio_parameter: sync_ratio
-                        .map(|handle| parameter_descriptor_id(compiled, handle)),
-                    waveshaping: oscillator.parameters.waveshape.is_some(),
-                    waveshape_parameter: oscillator
-                        .parameters
-                        .waveshape
-                        .map(|handle| parameter_descriptor_id(compiled, handle)),
-                    unison_voices: oscillator.unison.position_distribution.len(),
-                    unison_detune_parameter: oscillator
-                        .parameters
-                        .unison_detune
-                        .map(|handle| parameter_descriptor_id(compiled, handle)),
-                    unison_spread_parameter: oscillator
-                        .parameters
-                        .unison_spread
-                        .map(|handle| parameter_descriptor_id(compiled, handle)),
-                    phase_spread: oscillator.unison.phase_spread,
-                    effective_max_frequency_hz: oscillator
-                        .backend
-                        .effective_max_frequency(compiled.process_sample_rate),
-                    pulse_width: oscillator
-                        .parameters
-                        .pulse_width
-                        .map(|handle| parameter_default(compiled, handle)),
-                },
-                "not_applicable (oscillator-only instrument)",
-            )
+            inspect_oscillator_generator(compiled, generator, oscillator)
         }
         sonalloy_core::compiler::CompiledGenerator::Noise(noise) => (
             InspectGenerator::Noise {
@@ -1457,6 +1477,233 @@ fn inspect_generator(
                 },
             )
         }
+        sonalloy_core::compiler::CompiledGenerator::Wavetable(wavetable) => {
+            inspect_wavetable_generator(compiled, generator, wavetable)
+        }
+        sonalloy_core::compiler::CompiledGenerator::OperatorModulation(operator) => {
+            inspect_operator_generator(compiled, generator, operator)
+        }
+    }
+}
+
+fn inspect_oscillator_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    oscillator: &sonalloy_core::compiler::CompiledOscillator,
+) -> (InspectGenerator, &'static str) {
+    let (backend, sync_ratio) = match oscillator.backend {
+        sonalloy_core::compiler::CompiledOscillatorBackend::Basic => ("basic", None),
+        sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync { sync_ratio } => {
+            ("variable_shape_sync", Some(sync_ratio))
+        }
+        sonalloy_core::compiler::CompiledOscillatorBackend::PhaseDomain => ("phase_domain", None),
+    };
+    (
+        InspectGenerator::Oscillator {
+            waveform: match oscillator.waveform {
+                OscillatorWaveform::Sine => "sine",
+                OscillatorWaveform::Saw => "saw",
+                OscillatorWaveform::Square => "square",
+                OscillatorWaveform::Triangle => "triangle",
+                OscillatorWaveform::Pulse { .. } => "pulse",
+            },
+            phase_reset: oscillator.phase_reset,
+            phase: oscillator.phase,
+            output_mode: output_mode_name(generator.output_mode()),
+            backend,
+            hard_sync: sync_ratio.is_some(),
+            sync_ratio_parameter: sync_ratio
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            waveshaping: oscillator.parameters.waveshape.is_some(),
+            waveshape_parameter: oscillator
+                .parameters
+                .waveshape
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            phase_distortion: oscillator.parameters.phase_distortion.is_some(),
+            phase_distortion_parameter: oscillator
+                .parameters
+                .phase_distortion
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            wavefold: oscillator.parameters.wavefold.is_some(),
+            wavefold_parameter: oscillator
+                .parameters
+                .wavefold
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            oscillator_feedback: oscillator.parameters.oscillator_feedback.is_some(),
+            oscillator_feedback_parameter: oscillator
+                .parameters
+                .oscillator_feedback
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            dc_blocker: oscillator.dc_blocker,
+            signal_order: if oscillator.backend
+                == sonalloy_core::compiler::CompiledOscillatorBackend::PhaseDomain
+            {
+                "phase_domain -> unison_mix -> waveshaping -> wavefolder -> dc_blocker"
+            } else if oscillator.parameters.wavefold.is_some() {
+                "oscillator -> unison_mix -> waveshaping -> wavefolder -> dc_blocker"
+            } else {
+                "oscillator -> unison_mix -> waveshaping"
+            },
+            combination_constraints: "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
+            unison_voices: oscillator.unison.position_distribution.len(),
+            unison_detune_parameter: oscillator
+                .parameters
+                .unison_detune
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            unison_spread_parameter: oscillator
+                .parameters
+                .unison_spread
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            phase_spread: oscillator.unison.phase_spread,
+            effective_max_frequency_hz: oscillator
+                .backend
+                .effective_max_frequency(compiled.process_sample_rate),
+            pulse_width: oscillator
+                .parameters
+                .pulse_width
+                .map(|handle| parameter_default(compiled, handle)),
+        },
+        "not_applicable (oscillator-only instrument)",
+    )
+}
+
+fn inspect_wavetable_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    wavetable: &sonalloy_core::compiler::CompiledWavetable,
+) -> (InspectGenerator, &'static str) {
+    let prepared = wavetable.prepared.as_ref();
+    let metadata = prepared.map(|value| &value.source_metadata);
+    (
+        InspectGenerator::Wavetable {
+            output_mode: output_mode_name(generator.output_mode()),
+            asset_path: wavetable.asset_path.clone(),
+            asset_sha256_specified: wavetable.asset_sha256_specified,
+            prepared: prepared.is_some(),
+            source_channels: metadata.map(|value| value.source_channels),
+            source_frame_count: metadata.map(|value| value.source_frames),
+            frame_length: wavetable.frame_length,
+            frame_count: prepared.map(|value| value.frame_count),
+            band_count: prepared.map(|value| value.bands.len()),
+            band_max_harmonics: prepared.map_or_else(Vec::new, |value| {
+                value.bands.iter().map(|band| band.max_harmonic).collect()
+            }),
+            position: parameter_default(compiled, wavetable.parameters.position),
+            position_parameter: parameter_descriptor_id(compiled, wavetable.parameters.position),
+            phase_reset: wavetable.phase_reset,
+            phase: wavetable.phase,
+            unison_voices: wavetable.unison.position_distribution.len(),
+            unison_detune_parameter: wavetable
+                .parameters
+                .unison_detune
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            unison_spread_parameter: wavetable
+                .parameters
+                .unison_spread
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            effective_max_frequency_hz: wavetable.effective_max_frequency,
+        },
+        if prepared.is_some() {
+            "enabled"
+        } else {
+            "disabled"
+        },
+    )
+}
+
+fn inspect_operator_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    operator: &sonalloy_core::compiler::CompiledOperatorModulation,
+) -> (InspectGenerator, &'static str) {
+    let operators = operator
+        .operators
+        .iter()
+        .zip(operator.parameters)
+        .enumerate()
+        .map(|(index, (compiled_operator, parameters))| InspectOperator {
+            index: index + 1,
+            ratio: parameter_default(compiled, parameters.ratio),
+            detune_cents: parameter_default(compiled, parameters.detune),
+            level: parameters
+                .level
+                .map(|handle| parameter_default(compiled, handle)),
+            modulation_amount: parameters
+                .modulation_amount
+                .map(|handle| parameter_default(compiled, handle)),
+            feedback: parameters
+                .feedback
+                .map(|handle| parameter_default(compiled, handle)),
+            phase: compiled_operator.phase,
+            envelope: InspectEnvelope {
+                attack_samples: compiled_operator.envelope.attack_samples,
+                decay_samples: compiled_operator.envelope.decay_samples,
+                sustain_level: compiled_operator.envelope.sustain_level,
+                release_samples: compiled_operator.envelope.release_samples,
+            },
+            ratio_parameter: parameter_descriptor_id(compiled, parameters.ratio),
+            detune_parameter: parameter_descriptor_id(compiled, parameters.detune),
+            level_parameter: parameters
+                .level
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            modulation_amount_parameter: parameters
+                .modulation_amount
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            feedback_parameter: parameters
+                .feedback
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+        })
+        .collect();
+    (
+        InspectGenerator::OperatorModulation {
+            output_mode: output_mode_name(generator.output_mode()),
+            mode: operator_mode_name(operator.mode),
+            algorithm: operator_algorithm_name(operator.algorithm),
+            evaluation_order: operator
+                .topology
+                .evaluation_order
+                .iter()
+                .map(|index| usize::from(*index) + 1)
+                .collect(),
+            incoming_masks: operator.topology.incoming_masks.to_vec(),
+            carrier_operators: (0..4)
+                .filter(|index| operator.topology.carrier_mask & (1_u8 << index) != 0)
+                .map(|index| index + 1)
+                .collect(),
+            operators,
+            phase_reset: operator.phase_reset,
+            unison_voices: operator.unison.position_distribution.len(),
+            unison_detune_parameter: operator
+                .unison_detune
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            unison_spread_parameter: operator
+                .unison_spread
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            effective_max_frequency_hz: operator.effective_max_frequency,
+        },
+        "enabled",
+    )
+}
+
+fn operator_mode_name(mode: sonalloy_core::OperatorModulationMode) -> &'static str {
+    match mode {
+        sonalloy_core::OperatorModulationMode::Phase => "phase",
+        sonalloy_core::OperatorModulationMode::Frequency => "frequency",
+        sonalloy_core::OperatorModulationMode::Amplitude => "amplitude",
+        sonalloy_core::OperatorModulationMode::Ring => "ring",
+    }
+}
+
+fn operator_algorithm_name(algorithm: sonalloy_core::OperatorAlgorithm) -> &'static str {
+    match algorithm {
+        sonalloy_core::OperatorAlgorithm::Stack4 => "stack_4",
+        sonalloy_core::OperatorAlgorithm::Stack3PlusCarrier => "stack_3_plus_carrier",
+        sonalloy_core::OperatorAlgorithm::TwoStacks => "two_stacks",
+        sonalloy_core::OperatorAlgorithm::ForkToCarrier => "fork_to_carrier",
+        sonalloy_core::OperatorAlgorithm::TwoModulatorsPlusCarrier => "two_modulators_plus_carrier",
+        sonalloy_core::OperatorAlgorithm::ThreeModulators => "three_modulators",
+        sonalloy_core::OperatorAlgorithm::SharedModulator => "shared_modulator",
+        sonalloy_core::OperatorAlgorithm::Parallel => "parallel",
     }
 }
 
@@ -1645,42 +1892,64 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     print_warnings(&report.diagnostics);
 }
 
+fn print_oscillator_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::Oscillator {
+        waveform,
+        phase_reset,
+        phase,
+        output_mode,
+        backend,
+        hard_sync,
+        sync_ratio_parameter,
+        waveshaping,
+        waveshape_parameter,
+        phase_distortion,
+        phase_distortion_parameter,
+        wavefold,
+        wavefold_parameter,
+        oscillator_feedback,
+        oscillator_feedback_parameter,
+        dc_blocker,
+        signal_order,
+        combination_constraints,
+        unison_voices,
+        unison_detune_parameter,
+        unison_spread_parameter,
+        phase_spread,
+        effective_max_frequency_hz,
+        pulse_width,
+    } = generator
+    else {
+        return;
+    };
+    println!(
+        "layer {layer_id}: enabled true generator oscillator/{waveform} phase_reset {phase_reset} phase {phase} output_mode {output_mode}"
+    );
+    println!("  backend: {backend} effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
+    println!(
+        "  hard_sync: {hard_sync} waveshaping: {waveshaping} phase_distortion: {phase_distortion} wavefold: {wavefold} oscillator_feedback: {oscillator_feedback}"
+    );
+    println!("  dc_blocker: {dc_blocker} signal_order: {signal_order}");
+    println!("  combination_constraints: {combination_constraints}");
+    if let Some(value) = pulse_width {
+        println!("  pulse_width: {value}");
+    }
+    print_parameter_reference("sync_ratio", sync_ratio_parameter.as_ref());
+    print_parameter_reference("waveshape", waveshape_parameter.as_ref());
+    print_parameter_reference("phase_distortion", phase_distortion_parameter.as_ref());
+    print_parameter_reference("wavefold", wavefold_parameter.as_ref());
+    print_parameter_reference(
+        "oscillator_feedback",
+        oscillator_feedback_parameter.as_ref(),
+    );
+    print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
+    print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
+    println!("  unison_voices: {unison_voices} phase_spread: {phase_spread:.3}");
+}
+
 fn print_generator(layer_id: &str, generator: &InspectGenerator) {
     match generator {
-        InspectGenerator::Oscillator {
-            waveform,
-            phase_reset,
-            phase,
-            output_mode,
-            backend,
-            hard_sync,
-            sync_ratio_parameter,
-            waveshaping,
-            waveshape_parameter,
-            unison_voices,
-            unison_detune_parameter,
-            unison_spread_parameter,
-            phase_spread,
-            effective_max_frequency_hz,
-            pulse_width,
-        } => {
-            println!(
-                "layer {layer_id}: enabled true generator oscillator/{waveform} phase_reset {phase_reset} phase {phase} output_mode {output_mode}"
-            );
-            println!(
-                "  backend: {backend} effective_max_frequency_hz: {effective_max_frequency_hz:.3}"
-            );
-            println!(
-                "  hard_sync: {hard_sync} waveshaping: {waveshaping} unison_voices: {unison_voices} phase_spread: {phase_spread:.3}"
-            );
-            if let Some(value) = pulse_width {
-                println!("  pulse_width: {value}");
-            }
-            print_parameter_reference("sync_ratio", sync_ratio_parameter.as_ref());
-            print_parameter_reference("waveshape", waveshape_parameter.as_ref());
-            print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
-            print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
-        }
+        InspectGenerator::Oscillator { .. } => print_oscillator_generator(layer_id, generator),
         InspectGenerator::Noise {
             output_mode,
             noise_color,
@@ -1732,7 +2001,120 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
                 }
             }
         }
+        InspectGenerator::Wavetable { .. } => print_wavetable_generator(layer_id, generator),
+        InspectGenerator::OperatorModulation { .. } => {
+            print_operator_generator(layer_id, generator);
+        }
     }
+}
+
+fn print_wavetable_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::Wavetable {
+        output_mode,
+        asset_path,
+        asset_sha256_specified,
+        prepared,
+        source_channels,
+        source_frame_count,
+        frame_length,
+        frame_count,
+        band_count,
+        band_max_harmonics,
+        position,
+        position_parameter,
+        phase_reset,
+        phase,
+        unison_voices,
+        unison_detune_parameter,
+        unison_spread_parameter,
+        effective_max_frequency_hz,
+    } = generator
+    else {
+        return;
+    };
+    println!("layer {layer_id}: enabled {prepared} generator wavetable output_mode {output_mode}");
+    println!("  asset: {asset_path} sha256_specified: {asset_sha256_specified}");
+    println!(
+        "  prepared: {prepared} source_channels: {} source_frame_count: {}",
+        source_channels.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        source_frame_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+    );
+    println!(
+        "  frame_length: {frame_length} frame_count: {} band_count: {}",
+        frame_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        band_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+    );
+    println!("  band_max_harmonics: {band_max_harmonics:?}");
+    println!(
+        "  position: {position:.3} parameter: {position_parameter} phase_reset: {phase_reset} phase: {phase:.3}"
+    );
+    println!("  unison_voices: {unison_voices}");
+    print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
+    print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
+    println!("  effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
+}
+
+fn print_operator_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::OperatorModulation {
+        output_mode,
+        mode,
+        algorithm,
+        evaluation_order,
+        incoming_masks,
+        carrier_operators,
+        operators,
+        phase_reset,
+        unison_voices,
+        unison_detune_parameter,
+        unison_spread_parameter,
+        effective_max_frequency_hz,
+    } = generator
+    else {
+        return;
+    };
+    println!(
+        "layer {layer_id}: enabled true generator operator_modulation/{mode} output_mode {output_mode}"
+    );
+    println!(
+        "  algorithm: {algorithm} evaluation_order: {evaluation_order:?} carrier_operators: {carrier_operators:?}"
+    );
+    println!(
+        "  incoming_masks: {incoming_masks:?} phase_reset: {phase_reset} unison_voices: {unison_voices}"
+    );
+    for operator in operators {
+        println!(
+            "  operator {}: ratio {:.3} detune_cents {:.3} level {} modulation_amount {} feedback {} phase {:.3}",
+            operator.index,
+            operator.ratio,
+            operator.detune_cents,
+            optional_value(operator.level),
+            optional_value(operator.modulation_amount),
+            optional_value(operator.feedback),
+            operator.phase,
+        );
+        println!(
+            "    envelope: attack {} decay {} sustain {:.3} release {}",
+            operator.envelope.attack_samples,
+            operator.envelope.decay_samples,
+            operator.envelope.sustain_level,
+            operator.envelope.release_samples,
+        );
+        println!("    parameter ratio: {}", operator.ratio_parameter);
+        println!("    parameter detune: {}", operator.detune_parameter);
+        print_parameter_reference("level", operator.level_parameter.as_ref());
+        print_parameter_reference(
+            "modulation_amount",
+            operator.modulation_amount_parameter.as_ref(),
+        );
+        print_parameter_reference("feedback", operator.feedback_parameter.as_ref());
+    }
+    print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
+    print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
+    println!("  effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
+}
+
+fn optional_value(value: Option<f32>) -> String {
+    value.map_or_else(|| "unused".to_owned(), |value| format!("{value:.3}"))
 }
 
 fn print_parameter_reference(name: &str, parameter: Option<&String>) {

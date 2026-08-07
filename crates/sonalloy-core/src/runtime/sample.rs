@@ -175,10 +175,7 @@ fn cubic_sample(
     let p1 = sample_at(source, base, start_frame, end_frame, loop_frames);
     let p2 = sample_at(source, base + 1, start_frame, end_frame, loop_frames);
     let p3 = sample_at(source, base + 2, start_frame, end_frame, loop_frames);
-    let a = 0.5 * (p2 - p0);
-    let b = p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3;
-    let c = 0.5 * (p3 - p0) + 1.5 * (p1 - p2);
-    ((c.mul_add(fraction, b)).mul_add(fraction, a)).mul_add(fraction, p1)
+    super::interpolation::cubic_interpolate(p0, p1, p2, p3, fraction)
 }
 
 fn sample_at(

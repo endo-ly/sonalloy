@@ -4,11 +4,17 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::definition::{
-    GeneratorDefinition, InstrumentDefinition, OscillatorWaveform, ProcessorDefinition,
+    GeneratorDefinition, InstrumentDefinition, OperatorModulationMode, OscillatorWaveform,
+    ProcessorDefinition,
 };
 use crate::generator_parameters::{
-    GeneratorParameterSpec, NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
-    UNISON_SPREAD, WAVESHAPE,
+    GeneratorParameterSpec, NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX,
+    OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX,
+    OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
+    OPERATOR_PARAMETER_SMOOTHING_SECONDS, OPERATOR_PARAMETER_SUFFIXES,
+    OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_RATIO_MAX,
+    OPERATOR_RATIO_MIN, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SYNC_RATIO,
+    UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 
 /// Dense reference to a parameter in one compiled instrument.
@@ -68,6 +74,8 @@ pub enum ParameterUnit {
     Hertz,
     /// A frequency ratio.
     Ratio,
+    /// A unitless synthesis index.
+    Index,
     /// A unitless value in the inclusive zero-to-one range.
     Normalized,
 }
@@ -274,6 +282,7 @@ impl ParameterCatalog {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn push_generator_descriptors(
     descriptors: &mut Vec<ParameterDescriptor>,
     generator: &GeneratorDefinition,
@@ -295,6 +304,27 @@ fn push_generator_descriptors(
                     owner,
                     WAVESHAPE,
                     waveshaping.amount,
+                );
+            }
+            if let Some(phase_distortion) = oscillator.phase_distortion {
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    PHASE_DISTORTION,
+                    phase_distortion.amount,
+                );
+            }
+            if let Some(wavefold) = oscillator.wavefold {
+                push_generator_descriptor(descriptors, prefix, owner, WAVEFOLD, wavefold.amount);
+            }
+            if let Some(feedback) = oscillator.feedback {
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    OSCILLATOR_FEEDBACK,
+                    feedback.amount,
                 );
             }
             if let Some(unison) = oscillator.unison {
@@ -324,7 +354,163 @@ fn push_generator_descriptors(
             );
         }
         GeneratorDefinition::Sample(_) => {}
+        GeneratorDefinition::Wavetable(wavetable) => {
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                WAVETABLE_POSITION,
+                wavetable.position,
+            );
+            if let Some(unison) = wavetable.unison {
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    UNISON_DETUNE,
+                    unison.detune_cents,
+                );
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    UNISON_SPREAD,
+                    unison.stereo_spread,
+                );
+            }
+        }
+        GeneratorDefinition::OperatorModulation(operator_modulation) => {
+            let topology = operator_modulation.algorithm.topology();
+            for (index, operator) in operator_modulation.operators.iter().take(4).enumerate() {
+                push_operator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    index,
+                    "ratio",
+                    ParameterUnit::Ratio,
+                    ParameterScale::Log2,
+                    OPERATOR_RATIO_MIN,
+                    OPERATOR_RATIO_MAX,
+                    operator.ratio,
+                );
+                push_operator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    index,
+                    "detune",
+                    ParameterUnit::Cents,
+                    ParameterScale::Linear,
+                    OPERATOR_DETUNE_MIN,
+                    OPERATOR_DETUNE_MAX,
+                    operator.detune_cents,
+                );
+                if topology.carrier_mask & (1_u8 << index) != 0 {
+                    push_operator_descriptor(
+                        descriptors,
+                        prefix,
+                        owner,
+                        index,
+                        "level",
+                        ParameterUnit::Normalized,
+                        ParameterScale::Linear,
+                        OPERATOR_LEVEL_MIN,
+                        OPERATOR_LEVEL_MAX,
+                        operator.level,
+                    );
+                }
+                let has_output = topology
+                    .incoming_masks
+                    .iter()
+                    .any(|mask| mask & (1_u8 << index) != 0);
+                if has_output {
+                    let (unit, min, max) = match operator_modulation.mode {
+                        OperatorModulationMode::Phase | OperatorModulationMode::Frequency => (
+                            ParameterUnit::Index,
+                            OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,
+                            OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
+                        ),
+                        OperatorModulationMode::Amplitude | OperatorModulationMode::Ring => (
+                            ParameterUnit::Normalized,
+                            OPERATOR_AM_RING_AMOUNT_MIN,
+                            OPERATOR_AM_RING_AMOUNT_MAX,
+                        ),
+                    };
+                    push_operator_descriptor(
+                        descriptors,
+                        prefix,
+                        owner,
+                        index,
+                        "modulation_amount",
+                        unit,
+                        ParameterScale::Linear,
+                        min,
+                        max,
+                        operator.modulation_amount,
+                    );
+                }
+                if matches!(
+                    operator_modulation.mode,
+                    OperatorModulationMode::Phase | OperatorModulationMode::Frequency
+                ) {
+                    push_operator_descriptor(
+                        descriptors,
+                        prefix,
+                        owner,
+                        index,
+                        "feedback",
+                        ParameterUnit::Normalized,
+                        ParameterScale::Linear,
+                        OPERATOR_FEEDBACK_MIN,
+                        OPERATOR_FEEDBACK_MAX,
+                        operator.feedback,
+                    );
+                }
+            }
+            if let Some(unison) = operator_modulation.unison {
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    UNISON_DETUNE,
+                    unison.detune_cents,
+                );
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    UNISON_SPREAD,
+                    unison.stereo_spread,
+                );
+            }
+        }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_operator_descriptor(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    prefix: &str,
+    owner: ParameterOwner,
+    index: usize,
+    suffix: &str,
+    unit: ParameterUnit,
+    scale: ParameterScale,
+    min: f32,
+    max: f32,
+    default: f32,
+) {
+    descriptors.push(ParameterDescriptor {
+        id: format!("{prefix}.operator.{}.{}", index + 1, suffix),
+        owner,
+        unit,
+        scale,
+        min,
+        max,
+        default,
+        smoothing_seconds: OPERATOR_PARAMETER_SMOOTHING_SECONDS,
+    });
 }
 
 fn push_generator_descriptor(
@@ -527,6 +713,18 @@ pub fn is_parameter_id(value: &str) -> bool {
         ["layer", layer_id, "generator", parameter] => {
             is_component_id(layer_id) && crate::generator_parameters::is_suffix(parameter)
         }
+        [
+            "layer",
+            layer_id,
+            "generator",
+            "operator",
+            operator,
+            parameter,
+        ] => {
+            is_component_id(layer_id)
+                && matches!(*operator, "1" | "2" | "3" | "4")
+                && is_operator_parameter(parameter)
+        }
         ["voice" | "global", "processor", processor_id, parameter] => {
             is_component_id(processor_id) && is_processor_parameter(parameter)
         }
@@ -539,6 +737,10 @@ fn is_processor_parameter(value: &str) -> bool {
         value,
         "cutoff" | "resonance" | "amount" | "mix" | "feedback" | "decay" | "damping" | "width"
     )
+}
+
+fn is_operator_parameter(value: &str) -> bool {
+    OPERATOR_PARAMETER_SUFFIXES.contains(&value)
 }
 
 /// Built-in source identifiers accepted by routes.
@@ -602,6 +804,9 @@ mod tests {
                 phase: 0.0,
                 hard_sync: None,
                 waveshaping: None,
+                phase_distortion: None,
+                wavefold: None,
+                feedback: None,
                 unison: None,
             });
         let mut noise_layer = source.layers[0].clone();
@@ -680,7 +885,12 @@ mod tests {
         assert!(is_parameter_id("layer.body.generator.unison_detune"));
         assert!(is_parameter_id("layer.body.generator.unison_spread"));
         assert!(is_parameter_id("layer.body.generator.noise_correlation"));
+        assert!(is_parameter_id("layer.body.generator.operator.1.ratio"));
+        assert!(is_parameter_id(
+            "layer.body.generator.operator.4.modulation_amount"
+        ));
         assert!(!is_parameter_id("layer.Body.generator.pulse_width"));
+        assert!(!is_parameter_id("layer.body.generator.operator.5.ratio"));
     }
 
     #[test]
@@ -693,6 +903,9 @@ mod tests {
                 phase: 0.0,
                 hard_sync: Some(crate::definition::HardSyncDefinition { ratio: 3.0 }),
                 waveshaping: Some(crate::definition::WaveshapingDefinition { amount: 0.25 }),
+                phase_distortion: None,
+                wavefold: None,
+                feedback: None,
                 unison: Some(crate::definition::UnisonDefinition {
                     voices: 5,
                     detune_cents: 18.0,
@@ -730,6 +943,80 @@ mod tests {
         assert!((detune.max - 100.0).abs() < f32::EPSILON);
         assert!((detune.default - 18.0).abs() < f32::EPSILON);
         assert!((detune.smoothing_seconds - 0.010).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn operator_parameters_follow_topology_and_mode_contract() {
+        let mut source = definition();
+        let operator = crate::definition::OperatorDefinition {
+            ratio: 1.0,
+            detune_cents: 0.0,
+            level: 0.0,
+            modulation_amount: 0.0,
+            feedback: 0.0,
+            phase: 0.0,
+            envelope: crate::definition::AdsrDefinition {
+                attack_seconds: 0.0,
+                decay_seconds: 0.1,
+                sustain_level: 0.5,
+                release_seconds: 0.1,
+            },
+        };
+        let mut operators = vec![operator; 4];
+        operators[0].level = 0.8;
+        operators[1].modulation_amount = 2.0;
+        operators[2].modulation_amount = 1.0;
+        operators[3].modulation_amount = 0.5;
+        source.layers[0].generator = GeneratorDefinition::OperatorModulation(
+            crate::definition::OperatorModulationDefinition {
+                mode: crate::definition::OperatorModulationMode::Phase,
+                algorithm: crate::definition::OperatorAlgorithm::Stack4,
+                operators,
+                phase_reset: true,
+                unison: Some(crate::definition::UnisonDefinition {
+                    voices: 4,
+                    detune_cents: 12.0,
+                    stereo_spread: 0.7,
+                    phase_spread: 0.4,
+                }),
+            },
+        );
+
+        let catalog = ParameterCatalog::from_definition(&source);
+        let operator_one_level = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "layer.body.generator.operator.1.level")
+            .expect("carrier level descriptor");
+        assert_eq!(operator_one_level.unit, ParameterUnit::Normalized);
+        assert!((operator_one_level.default - 0.8).abs() < f32::EPSILON);
+        assert!(
+            catalog
+                .parameters()
+                .iter()
+                .all(|parameter| parameter.id != "layer.body.generator.operator.4.level")
+        );
+
+        let operator_two_amount = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "layer.body.generator.operator.2.modulation_amount")
+            .expect("modulation amount descriptor");
+        assert_eq!(operator_two_amount.unit, ParameterUnit::Index);
+        assert!((operator_two_amount.max - 8.0).abs() < f32::EPSILON);
+        assert!((operator_two_amount.smoothing_seconds - 0.005).abs() < f32::EPSILON);
+        assert!(
+            catalog
+                .parameters()
+                .iter()
+                .any(|parameter| parameter.id == "layer.body.generator.operator.4.feedback")
+        );
+        assert!(
+            catalog
+                .parameters()
+                .iter()
+                .any(|parameter| parameter.id == "layer.body.generator.unison_spread")
+        );
     }
 
     #[test]

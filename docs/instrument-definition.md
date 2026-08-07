@@ -91,7 +91,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 |---|---|
 | `schema_version` | 1のみ |
 | `layers` | 1個以上。複数のLayerは書かれた順に同じVoiceへMixされます。`enabled`が`false`のLayerはCompile対象外 |
-| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、または`sample` |
+| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、または`sample` |
 | `processors` | Layerごとの直列Processor配列。書かれた順にGeneratorとLayer Mixの間で適用 |
 | `voice_processors` | Voice Mix後に適用する直列Processor配列 |
 | `global_processors` | Voice Sum後にInstrument全体へ適用する直列Processor配列 |
@@ -110,7 +110,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 | Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
 | LFO | Rate 0.01〜40Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
-| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|unison_detune\|unison_spread\|noise_correlation)`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
+| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|unison_detune\|unison_spread\|noise_correlation)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
 | 未知のField | JSON Parse Errorとして扱います |
 | 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Layer / Voice / Global Processor状態、Scratch Buffer |
 
@@ -185,6 +185,36 @@ Dynamic Parameterは次のIDで既存のLFO、Envelope、Mod Wheel、Parameter C
 - `layer.<layer_id>.generator.unison_detune`
 - `layer.<layer_id>.generator.unison_spread`
 
+Phase Distortion、Oscillator Feedback、WavefoldはOptional Fieldです。Phase DistortionとOscillator FeedbackはSineだけで使用でき、Hard Syncとは併用できません。Wavefoldは全Waveformで使用できます。
+
+```json
+{
+  "generator": {
+    "oscillator": {
+      "waveform": { "type": "sine" },
+      "phase_reset": true,
+      "phase": 0.0,
+      "hard_sync": null,
+      "waveshaping": { "amount": 0.15 },
+      "phase_distortion": { "amount": 0.65 },
+      "wavefold": { "amount": 0.35 },
+      "feedback": { "amount": 0.3 },
+      "unison": null
+    }
+  }
+}
+```
+
+| Field | Range | Dynamic | Meaning |
+|---|---:|---:|---|
+| `phase_distortion.amount` | 0〜1 | Yes | SineのRead Phaseを連続的に変形する量 |
+| `wavefold.amount` | 0〜1 | Yes | DaisySP WavefolderのDriveとDry/Wetへ変換する量 |
+| `feedback.amount` | 0〜1 | Yes | 直前Sampleの出力をPhaseへ戻す量 |
+
+Canonical Parameter IDは`layer.<layer_id>.generator.phase_distortion`、`layer.<layer_id>.generator.wavefold`、`layer.<layer_id>.generator.oscillator_feedback`です。いずれも5msでSmoothingされます。WavefoldのAmountは内部で`drive = 1 + amount × 7`、`mix = amount`へ変換され、DaisySPのOffsetは0に固定されます。
+
+信号順は`Phase-domain生成 → Unison Mix → Existing Waveshaping → Wavefolder → DC Blocker`です。Wavefoldだけを使用する場合は既存Oscillator Backendを維持し、WavefoldをUnison MixとExisting Waveshapingの後へ適用します。Phase Distortion、Oscillator Feedback、Wavefoldのいずれかが有効な場合はGenerator末尾へDC Blockerを置きます。
+
 ### Noise
 
 ```json
@@ -200,6 +230,146 @@ Dynamic Parameterは次のIDで既存のLFO、Envelope、Mod Wheel、Parameter C
 ```
 
 `color`は`white`、`pink`、`brown`です。`seed`、Layer ID、Note ID、Stream種別から決定的なNoise Streamを生成します。`stereo_correlation`は0〜1で、0は左右独立、1は左右同一のStreamです。このParameterは`layer.<layer_id>.generator.noise_correlation`として10msでSmoothingされます。Noise Generatorは常にStereoです。
+
+### Wavetable
+
+Wavetableは、WAVのMono Sample列またはStereo Sample列を、明示した`frame_length`ごとの連続した周期Frameとして読み込みます。Stereo AssetはCompile時にMonoへ平均Downmixされます。
+
+```json
+{
+  "generator": {
+    "wavetable": {
+      "asset": {
+        "path": "../../testdata/assets/digital-motion.wav",
+        "sha256": "<SHA-256>"
+      },
+      "frame_length": 2048,
+      "position": 0.25,
+      "phase_reset": true,
+      "phase": 0.0,
+      "unison": {
+        "voices": 5,
+        "detune_cents": 14.0,
+        "stereo_spread": 0.75,
+        "phase_spread": 0.5
+      }
+    }
+  }
+}
+```
+
+| Field | Range | Dynamic | Meaning |
+|---|---:|---:|---|
+| `asset` | — | No | MonoまたはStereoのWAV Asset |
+| `frame_length` | 64〜4096、2の冪 | No | 一周期FrameのSample数 |
+| `position` | 0〜1 | Yes | 最初のFrameから最後のFrameまでの位置 |
+| `phase_reset` | Boolean | No | Note Onで初期Phaseへ戻すか |
+| `phase` | 0〜1 | No | Initial Phase |
+| `unison` | 既存Unison範囲 | 一部Yes | Wavetable全体のUnison設定 |
+
+Asset全体のSample数は`frame_length`で割り切れ、Frame数が1〜256である必要があります。FrameはAssetの先頭から順に分割され、Frame間はLinear、Table内はFour-point Cubicで補間されます。Source Sample RateはWavetableの時間軸やPitchへ使わず、Wavetable AssetをResampleしません。
+
+Compile時には各FrameへFFTを適用し、`frame_length / 2`から`1`までのHarmonic上限を持つBand Tableを作成します。DCは保持し、Bandごとの自動Normalizeは行いません。RuntimeはComponent Frequencyに応じてBandを選び、隣接BandをLog2領域でCrossfadeします。WavetableはUnison 1ではMono、2 Voice以上ではStereoです。
+
+Dynamic Parameterは次のCanonical IDを持ちます。
+
+- `layer.<layer_id>.generator.wavetable_position`（0〜1、10ms Smoothing）
+- `layer.<layer_id>.generator.unison_detune`（Unison指定時、0〜100 cents、10ms Smoothing）
+- `layer.<layer_id>.generator.unison_spread`（Unison指定時、0〜1、10ms Smoothing）
+
+Assetの欠落・Hash不一致・Decode失敗ではWavetable Layerだけを発音候補から除外し、ほかの有効LayerはCompileとRenderを継続します。レイアウト不正や全Frame無音はWavetableを準備できない診断になります。
+
+### Operator Modulation
+
+Operator Modulationは4つのSine Operatorを固定Topologyで接続するGeneratorです。Definitionでは利用者向けのOperator番号を1〜4で記述し、Compile後は固定配列へ変換します。接続Algorithmは`stack_4`、`stack_3_plus_carrier`、`two_stacks`、`fork_to_carrier`、`two_modulators_plus_carrier`、`three_modulators`、`shared_modulator`、`parallel`です。任意の接続GraphやOperator間Cycleは指定できません。
+
+```json
+{
+  "generator": {
+    "operator_modulation": {
+      "mode": "phase",
+      "algorithm": "stack_4",
+      "operators": [
+        {
+          "ratio": 1.0,
+          "detune_cents": 0.0,
+          "level": 0.9,
+          "modulation_amount": 0.0,
+          "feedback": 0.0,
+          "phase": 0.0,
+          "envelope": {
+            "attack_seconds": 0.0,
+            "decay_seconds": 0.1,
+            "sustain_level": 1.0,
+            "release_seconds": 0.1
+          }
+        },
+        {
+          "ratio": 2.0,
+          "detune_cents": 0.0,
+          "level": 0.0,
+          "modulation_amount": 2.5,
+          "feedback": 0.0,
+          "phase": 0.0,
+          "envelope": {
+            "attack_seconds": 0.0,
+            "decay_seconds": 0.08,
+            "sustain_level": 1.0,
+            "release_seconds": 0.08
+          }
+        },
+        {
+          "ratio": 3.0,
+          "detune_cents": 0.0,
+          "level": 0.0,
+          "modulation_amount": 1.5,
+          "feedback": 0.0,
+          "phase": 0.0,
+          "envelope": {
+            "attack_seconds": 0.0,
+            "decay_seconds": 0.06,
+            "sustain_level": 1.0,
+            "release_seconds": 0.06
+          }
+        },
+        {
+          "ratio": 5.0,
+          "detune_cents": 0.0,
+          "level": 0.0,
+          "modulation_amount": 2.0,
+          "feedback": 0.25,
+          "phase": 0.0,
+          "envelope": {
+            "attack_seconds": 0.0,
+            "decay_seconds": 0.04,
+            "sustain_level": 1.0,
+            "release_seconds": 0.04
+          }
+        }
+      ],
+      "phase_reset": true,
+      "unison": null
+    }
+  }
+}
+```
+
+`mode`は`phase`、`frequency`、`amplitude`、`ring`のいずれかです。PhaseはModulator出力へAmountの0.5を掛けてCycle単位のRead Phaseへ加え、Frequencyは`base_frequency × (1 + modulation + feedback)`で瞬時周波数を作ります。AmplitudeはIncomingごとの`1 + output × depth`を乗算し、最終値を0〜4へ制限します。RingはCarrierと`Carrier × Modulator`をDepthでCrossfadeします。
+
+各Operatorの`ratio`は0.25〜32、`detune_cents`は-100〜100、`level`と`phase`は0〜1です。`modulation_amount`はPhase / Frequencyで0〜8のIndex、Amplitude / Ringで0〜1のNormalizedです。`feedback`は0〜1で、直前Sampleの自身の出力だけを`tanh`でBoundしてPhaseまたはFrequencyへ加えます。Amplitude / Ringでは0だけを許可します。
+
+Operator EnvelopeはLayer Envelopeとは別に全Operatorへ適用され、Note Onで開始、Note OffでReleaseへ移行します。Carrierの`level`だけが最終出力へ寄与し、Carrier以外の`level`と出力先を持たない`modulation_amount`は0でなければなりません。Unisonは最大4 Voiceで、Envelopeを共有しながらComponentごとにPhaseとFeedback Stateを持ちます。Unison 1はMono、2以上はStereoです。
+
+Dynamic ParameterはTopologyとModeに応じて次を公開します。
+
+- `layer.<layer_id>.generator.operator.<1-4>.ratio`（Ratio、Log2、0.25〜32、5ms）
+- `layer.<layer_id>.generator.operator.<1-4>.detune`（Cents、Linear、-100〜100、5ms）
+- `layer.<layer_id>.generator.operator.<1-4>.level`（Carrierのみ、Normalized、0〜1、5ms）
+- `layer.<layer_id>.generator.operator.<1-4>.modulation_amount`（接続元のみ、Mode依存、5ms）
+- `layer.<layer_id>.generator.operator.<1-4>.feedback`（Phase / Frequencyのみ、0〜1、5ms）
+- `layer.<layer_id>.generator.unison_detune` / `unison_spread`（Unison指定時）
+
+OperatorのEffective Frequency上限はPhase / Frequencyで`Sample Rate × 0.24`、Amplitude / Ringで`Sample Rate × 0.45`です。詳細なTopologyとSignal順序は[`docs/runtime-processing.md`](runtime-processing.md)を参照してください。
 
 Generator ParameterはLayer Gain / Pan / Tuningの後、Layer Processorの前にParameter Catalogへ追加されます。Sample GeneratorにはGenerator Dynamic Parameterはありません。
 
@@ -399,7 +569,7 @@ Definitionで追加できるSourceは`lfo`、`envelope`、`random`です。LFO�
 }
 ```
 
-ParameterのBase値はNormalized EventからDescriptorを通してNative値へ戻されます。GainはdB、Panは-1〜1、Tuningはcent、CutoffはLog2、ResonanceはLinearで評価します。音声処理中に文字列IDやJSONを扱わないため、Parameter IDとRoute解決はCompile前に完了します。
+ParameterのBase値はNormalized EventからDescriptorを通してNative値へ戻されます。GainはdB、Panは-1〜1、Tuningはcent、CutoffとRatioはLog2、IndexとResonanceはLinearで評価します。音声処理中に文字列IDやJSONを扱わないため、Parameter IDとRoute解決はCompile前に完了します。
 
 ## Compile時の変換
 

@@ -37,21 +37,25 @@ Process仕様と実行時の仕組みを提供します。
 | `process` | Process仕様と共通のLifecycle |
 | `definition` | Instrument Definitionの読み込みとValidation |
 | `parameter` | Canonical Parameter ID、Descriptor、Normalize / Denormalize、Catalog |
-| `compiler` | DefinitionからCompiled Instrumentへの変換 |
+| `compiler` | DefinitionからCompiled Instrumentへの変換、Wavetableの帯域制限Tableと固定Operator Topologyの準備 |
 | `asset` | SHA-256照合、WAV読み込み、Mono変換、Sample Rate変換、Prepared Asset共有 |
-| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Processor Chain |
+| `wavetable` | Wavetable AssetのFrame分割、FFT/IFFTによるBand Table生成、Guard Sample付与 |
+| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Wavetable、Operator Modulation、Processor Chain |
 | `render` | Offline Render LoopとEventの供給 |
 | `diagnostics` | 画面表示に依存しないError Code、Severity、Message |
 
-Compileの段階でZoneごとのAsset読み込みを完了し、同じCache Keyを持つDecode済みのMono Sampleを`Arc`で共有します。Process中は、Prepareで確保したScratch Buffer、Native Handle、Compiled Sample Zoneだけを使います。
+Compileの段階でZoneとWavetableのAsset読み込みを完了し、同じCache Keyを持つDecode済みのMono SampleまたはPrepared Wavetableを`Arc`で共有します。WavetableのFFTとTable生成はCompile中だけ行います。Process中は、Prepareで確保したScratch Buffer、Native Handle、Compiled Generatorだけを使います。
+
+Operator Modulationは外部Assetを持たず、4 Operatorの固定TopologyをCompile時に`evaluation_order`、`incoming_masks`、`carrier_mask`へ解決します。Runtimeはこの固定配列とVoiceごとのPhase、Previous Output、Operator Envelopeだけを使い、任意Graphや文字列LookupをProcessへ持ち込みません。
 
 ### `sonalloy-dsp-sys`
 
 Internal C ABIの宣言と、Raw Pointerを隠蔽するSafe Rust Wrapperを提供します。
 
 - DaisySP V1.0.0（コミット`a0494a3adb67f549e18dfd71a35fa656f65b38b6`）をCMakeでBuildし、Static LibraryとしてLinkします
-- Native Wrapperは、DaisySPの`oscillator.cpp`、`variableshapeosc.cpp`、`svf.cpp`をBuild対象に追加します
+- Native Wrapperは、DaisySPの`oscillator.cpp`、`variableshapeosc.cpp`、`svf.cpp`、MIT版`wavefolder.cpp`をBuild対象に追加します
 - DaisySPのClass名やEnumはWrapperの内側に留め、DefinitionやCoreのPublic APIには露出しません。SonalloyのOscillator Waveform、Noise Stream、Output ModeはCoreが所有します
+- Wavefolderは`DspWavefolder`のOpaque Handleへ閉じ込め、CoreへはAmount 0〜1の製品Parameterだけを公開します。DaisySP-LGPLの`Fold`はBuild対象に含めません
 
 ### `sonalloy-cli`
 

@@ -105,11 +105,19 @@ def max_adjacent_frame_delta(
 
 
 def spectrum_reference(
-    left: list[float], sample_rate: int, frames: int
+    left: list[float], sample_rate: int, frames: int, fundamental_frequency: float
 ) -> dict[str, object]:
     fft_size = min(4096, frames)
     if fft_size < 4:
-        return {"fft_size": fft_size, "peaks": []}
+        return {
+            "fft_size": fft_size,
+            "peaks": [],
+            "spectral_centroid_hz": 0.0,
+            "harmonic_reference_frequency_hz": fundamental_frequency,
+            "harmonic_tolerance_hz": 0.0,
+            "harmonic_energy_ratio": 0.0,
+            "non_harmonic_energy_ratio": 0.0,
+        }
     start = min(frames - fft_size, int(sample_rate * 0.2))
     window = [
         left[start + index]
@@ -127,6 +135,29 @@ def spectrum_reference(
             imaginary -= sample * math.sin(angle)
         magnitudes.append((math.hypot(real, imaginary), bin_index))
     peak_magnitude = max((magnitude for magnitude, _ in magnitudes), default=0.0)
+    bin_width = sample_rate / fft_size
+    total_energy = sum(magnitude * magnitude for magnitude, _ in magnitudes)
+    centroid = (
+        sum(
+            bin_index * bin_width * magnitude * magnitude
+            for magnitude, bin_index in magnitudes
+        )
+        / total_energy
+        if total_energy > 0.0
+        else 0.0
+    )
+    harmonic_tolerance = max(bin_width * 1.5, fundamental_frequency * 0.03)
+    harmonic_energy = 0.0
+    if fundamental_frequency > 0.0 and harmonic_tolerance > 0.0:
+        for magnitude, bin_index in magnitudes:
+            frequency = bin_index * bin_width
+            harmonic = round(frequency / fundamental_frequency)
+            if (
+                harmonic >= 1
+                and abs(frequency - harmonic * fundamental_frequency)
+                <= harmonic_tolerance
+            ):
+                harmonic_energy += magnitude * magnitude
     peaks = []
     for magnitude, bin_index in sorted(magnitudes, reverse=True)[:8]:
         peaks.append(
@@ -135,11 +166,29 @@ def spectrum_reference(
                 "relative_amplitude": magnitude / peak_magnitude if peak_magnitude else 0.0,
             }
         )
-    return {"fft_size": fft_size, "window_start_frame": start, "peaks": peaks}
+    return {
+        "fft_size": fft_size,
+        "window_start_frame": start,
+        "peaks": peaks,
+        "spectral_centroid_hz": centroid,
+        "harmonic_reference_frequency_hz": fundamental_frequency,
+        "harmonic_tolerance_hz": harmonic_tolerance,
+        "harmonic_energy_ratio": (
+            harmonic_energy / total_energy if total_energy > 0.0 else 0.0
+        ),
+        "non_harmonic_energy_ratio": (
+            (total_energy - harmonic_energy) / total_energy
+            if total_energy > 0.0
+            else 0.0
+        ),
+    }
 
 
 def measure(
-    path: Path, block_sizes: list[int], include_spectrum: bool = False
+    path: Path,
+    block_sizes: list[int],
+    include_spectrum: bool = False,
+    fundamental_frequency_hz: float | None = None,
 ) -> dict[str, object]:
     sample_rate, channels, samples = read_float_wav(path)
     if len(samples) % channels != 0:
@@ -148,10 +197,23 @@ def measure(
     left = samples[0::channels]
     finite = all(math.isfinite(sample) for sample in samples)
     peak = max((abs(sample) for sample in samples), default=0.0)
-    rms = math.sqrt(sum(sample * sample for sample in samples) / len(samples)) if samples else 0.0
+    rms = (
+        math.sqrt(sum(sample * sample for sample in samples) / len(samples))
+        if samples
+        else 0.0
+    )
     dc = sum(samples) / len(samples) if samples else 0.0
     crossings = positive_zero_crossings(left)
-    estimated_frequency = crossings * sample_rate / frames if frames else 0.0
+    zero_crossing_frequency = crossings * sample_rate / frames if frames else 0.0
+    if fundamental_frequency_hz is not None and (
+        not math.isfinite(fundamental_frequency_hz) or fundamental_frequency_hz <= 0.0
+    ):
+        raise ValueError("fundamental_frequency_hz must be finite and positive")
+    estimated_frequency = (
+        fundamental_frequency_hz
+        if fundamental_frequency_hz is not None
+        else zero_crossing_frequency
+    )
     max_delta, large_count, candidate_frames = max_adjacent_frame_delta(
         samples, channels, frames
     )
@@ -165,18 +227,44 @@ def measure(
         "rms": rms,
         "dc": dc,
         "positive_zero_crossings_left": crossings,
+        "zero_crossing_frequency_hz": zero_crossing_frequency,
         "estimated_frequency_hz": estimated_frequency,
+        "fundamental_frequency_source": (
+            "provided" if fundamental_frequency_hz is not None else "zero_crossing"
+        ),
         "max_adjacent_frame_delta": max_delta,
         "large_discontinuity_threshold": 0.25,
         "large_discontinuity_count": large_count,
         "large_discontinuity_frames": candidate_frames,
         "block_sizes_checked": block_sizes,
         **(
-            {"spectrum_reference": spectrum_reference(left, sample_rate, frames)}
+            {
+                "spectrum_reference": spectrum_reference(
+                    left, sample_rate, frames, estimated_frequency
+                )
+            }
             if include_spectrum
             else {}
         ),
     }
+
+
+def boundary_differences(path: Path, boundaries: list[int]) -> dict[str, float]:
+    """Measure the adjacent-frame jump at each known event boundary."""
+
+    _, channels, samples = read_float_wav(path)
+    frames = len(samples) // channels
+    result: dict[str, float] = {}
+    for boundary in boundaries:
+        if boundary <= 0 or boundary >= frames:
+            raise ValueError(f"boundary is outside WAV frame range: {boundary}")
+        previous_offset = (boundary - 1) * channels
+        current_offset = boundary * channels
+        result[str(boundary)] = max(
+            abs(samples[current_offset + channel] - samples[previous_offset + channel])
+            for channel in range(channels)
+        )
+    return result
 
 
 def compare_wav(reference: Path, candidate: Path) -> dict[str, object]:
@@ -222,8 +310,13 @@ def main() -> None:
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--block-size", action="append", type=int, default=[])
+    parser.add_argument("--fundamental-frequency-hz", type=float)
     args = parser.parse_args()
-    metrics = measure(args.input, args.block_size)
+    metrics = measure(
+        args.input,
+        args.block_size,
+        fundamental_frequency_hz=args.fundamental_frequency_hz,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes((json.dumps(metrics, indent=2) + "\n").encode("utf-8"))
 

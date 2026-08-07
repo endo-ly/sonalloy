@@ -10,6 +10,7 @@ extern "C" {
 typedef struct sonalloy_dsp_oscillator sonalloy_dsp_oscillator;
 typedef struct sonalloy_dsp_variable_oscillator sonalloy_dsp_variable_oscillator;
 typedef struct sonalloy_dsp_filter sonalloy_dsp_filter;
+typedef struct sonalloy_dsp_wavefolder sonalloy_dsp_wavefolder;
 
 enum sonalloy_dsp_result {
     SONALLOY_DSP_OK = 0,
@@ -17,7 +18,8 @@ enum sonalloy_dsp_result {
     SONALLOY_DSP_NULL_HANDLE = 2,
     SONALLOY_DSP_NOT_PREPARED = 3,
     SONALLOY_DSP_UNSUPPORTED_WAVEFORM = 4,
-    SONALLOY_DSP_NATIVE_EXCEPTION = 5
+    SONALLOY_DSP_NATIVE_EXCEPTION = 5,
+    SONALLOY_DSP_NON_FINITE = 6
 };
 
 enum sonalloy_dsp_waveform {
@@ -139,6 +141,30 @@ int32_t sonalloy_dsp_filter_process_ramp_with_resonance(
     float end_cutoff_hz,
     float start_resonance,
     float end_resonance,
+    float* buffer,
+    uint32_t frames
+);
+
+sonalloy_dsp_wavefolder* sonalloy_dsp_wavefolder_create(void);
+void sonalloy_dsp_wavefolder_destroy(sonalloy_dsp_wavefolder* handle);
+int32_t sonalloy_dsp_wavefolder_prepare(
+    sonalloy_dsp_wavefolder* handle,
+    double sample_rate
+);
+int32_t sonalloy_dsp_wavefolder_reset(sonalloy_dsp_wavefolder* handle);
+int32_t sonalloy_dsp_wavefolder_process(
+    sonalloy_dsp_wavefolder* handle,
+    float drive,
+    float mix,
+    float* buffer,
+    uint32_t frames
+);
+int32_t sonalloy_dsp_wavefolder_process_ramp(
+    sonalloy_dsp_wavefolder* handle,
+    float start_drive,
+    float end_drive,
+    float start_mix,
+    float end_mix,
     float* buffer,
     uint32_t frames
 );

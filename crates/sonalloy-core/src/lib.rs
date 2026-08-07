@@ -7,16 +7,24 @@ pub mod parameter;
 pub mod process;
 pub mod render;
 pub mod runtime;
+mod wavetable;
 
-pub use compiler::{CompileContext, CompileResult, CompiledInstrument, compile_instrument};
+pub use compiler::{
+    CompileContext, CompileResult, CompiledInstrument, CompiledOperator,
+    CompiledOperatorModulation, CompiledOperatorParameters, CompiledOperatorTopology,
+    CompiledWavetable, CompiledWavetableParameters, PreparedWavetable, PreparedWavetableBand,
+    PreparedWavetableFrame, WavetableSourceMetadata, compile_instrument,
+};
 pub use definition::{
     AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, DelayProcessorDefinition,
     DriveProcessorDefinition, FilterProcessorDefinition, GeneratorDefinition, HardSyncDefinition,
     InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, NoiseColor,
-    NoiseDefinition, OscillatorDefinition, OscillatorWaveform, PerformanceDefinition,
-    ProcessorDefinition, ReverbProcessorDefinition, SampleDefinition, SampleInterpolation,
-    SampleZoneDefinition, SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition,
-    WaveshapingDefinition,
+    NoiseDefinition, OperatorAlgorithm, OperatorDefinition, OperatorModulationDefinition,
+    OperatorModulationMode, OscillatorDefinition, OscillatorFeedbackDefinition, OscillatorWaveform,
+    PerformanceDefinition, PhaseDistortionDefinition, ProcessorDefinition,
+    ReverbProcessorDefinition, SampleDefinition, SampleInterpolation, SampleZoneDefinition,
+    SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition, WavefoldDefinition,
+    WaveshapingDefinition, WavetableDefinition,
 };
 pub use definition::{
     LfoDefinition, LfoWaveform, ModEnvelopeDefinition, ModulationCurve, ModulationDefinition,

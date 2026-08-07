@@ -1,0 +1,183 @@
+{
+  "status": "ok",
+  "name": "Wavetable Motion Bass",
+  "metadata": {
+    "name": "Wavetable Motion Bass",
+    "author": "Sonalloy",
+    "description": "Wavetable Generator review instrument"
+  },
+  "polyphony": 16,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "layer_count": 1,
+  "layers": [
+    {
+      "id": "motion",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "wavetable",
+        "output_mode": "stereo",
+        "asset_path": "../assets/digital-motion.wav",
+        "asset_sha256_specified": true,
+        "prepared": true,
+        "source_channels": 1,
+        "source_frame_count": 1024,
+        "frame_length": 256,
+        "frame_count": 4,
+        "band_count": 8,
+        "band_max_harmonics": [
+          128,
+          64,
+          32,
+          16,
+          8,
+          4,
+          2,
+          1
+        ],
+        "position": 0.25,
+        "position_parameter": "layer.motion.generator.wavetable_position",
+        "phase_reset": true,
+        "phase": 0.0,
+        "unison_voices": 5,
+        "unison_detune_parameter": "layer.motion.generator.unison_detune",
+        "unison_spread_parameter": "layer.motion.generator.unison_spread",
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "enabled",
+      "gain_db": -4.0,
+      "gain_linear": 0.63095737,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 0,
+        "decay_samples": 0,
+        "sustain_level": 1.0,
+        "release_samples": 3840
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "parameters": [
+    {
+      "id": "layer.motion.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -4.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.motion.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.motion.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.motion.generator.wavetable_position",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.25,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    },
+    {
+      "id": "layer.motion.generator.unison_detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": 0.0,
+      "max": 100.0,
+      "default": 18.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    },
+    {
+      "id": "layer.motion.generator.unison_spread",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.85,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    }
+  ],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity"
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking"
+    },
+    {
+      "id": "motion_lfo",
+      "scope": "voice",
+      "kind": "lfo",
+      "waveform": "sine",
+      "rate_hz": 0.35,
+      "phase": 0.0
+    }
+  ],
+  "routes": [
+    {
+      "source": "motion_lfo",
+      "target": "layer.motion.generator.wavetable_position",
+      "amount": 0.5,
+      "curve": "linear"
+    }
+  ]
+}

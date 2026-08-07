@@ -264,8 +264,14 @@ impl InstrumentRuntime {
             if !layer.trigger.matches(note.note_number, note.velocity) {
                 continue;
             }
+            if !layer.generator.is_available() {
+                continue;
+            }
             match &layer.generator {
-                CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => {
+                CompiledGenerator::Oscillator(_)
+                | CompiledGenerator::Noise(_)
+                | CompiledGenerator::Wavetable(_)
+                | CompiledGenerator::OperatorModulation(_) => {
                     *self
                         .note_layer_selection
                         .get_mut(layer_index)
@@ -601,7 +607,10 @@ impl InstrumentProcessor for InstrumentRuntime {
             .iter()
             .map(|layer| match &layer.generator {
                 CompiledGenerator::Sample(sample) => vec![0; sample.groups.len()],
-                CompiledGenerator::Oscillator(_) | CompiledGenerator::Noise(_) => Vec::new(),
+                CompiledGenerator::Oscillator(_)
+                | CompiledGenerator::Noise(_)
+                | CompiledGenerator::Wavetable(_)
+                | CompiledGenerator::OperatorModulation(_) => Vec::new(),
             })
             .collect();
         let mut voices = Vec::with_capacity(self.compiled.performance.polyphony);
@@ -927,6 +936,40 @@ mod tests {
             .expect("process succeeds");
     }
 
+    fn write_wavetable_fixture() -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "sonalloy-runtime-wavetable-{}.wav",
+            std::process::id()
+        ));
+        let samples = (0..128)
+            .map(|index| {
+                #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+                {
+                    (30_000.0 * (std::f32::consts::TAU * index as f32 / 64.0).sin()) as i16
+                }
+            })
+            .collect::<Vec<_>>();
+        let payload_length = u32::try_from(samples.len() * 2).expect("fixture fits RIFF");
+        let mut bytes = Vec::with_capacity(44 + samples.len() * 2);
+        bytes.extend_from_slice(b"RIFF");
+        bytes.extend_from_slice(&(36 + payload_length).to_le_bytes());
+        bytes.extend_from_slice(b"WAVEfmt ");
+        bytes.extend_from_slice(&16_u32.to_le_bytes());
+        bytes.extend_from_slice(&1_u16.to_le_bytes());
+        bytes.extend_from_slice(&1_u16.to_le_bytes());
+        bytes.extend_from_slice(&48_000_u32.to_le_bytes());
+        bytes.extend_from_slice(&96_000_u32.to_le_bytes());
+        bytes.extend_from_slice(&2_u16.to_le_bytes());
+        bytes.extend_from_slice(&16_u16.to_le_bytes());
+        bytes.extend_from_slice(b"data");
+        bytes.extend_from_slice(&payload_length.to_le_bytes());
+        for sample in samples {
+            bytes.extend_from_slice(&sample.to_le_bytes());
+        }
+        std::fs::write(&path, bytes).expect("fixture WAV writes");
+        path
+    }
+
     #[test]
     fn note_lifecycle_produces_stereo_audio_and_release() {
         let mut runtime = runtime();
@@ -1001,6 +1044,160 @@ mod tests {
             },
         }];
 
+        let _ = process(&mut runtime, 64, 0, &event);
+        runtime.reset().expect("reset");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
+    fn wavetable_render_does_not_allocate_after_prepare() {
+        let path = write_wavetable_fixture();
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].generator = crate::definition::GeneratorDefinition::Wavetable(
+            crate::definition::WavetableDefinition {
+                asset: crate::definition::AssetReference {
+                    path: path.to_string_lossy().into_owned(),
+                    sha256: None,
+                },
+                frame_length: 64,
+                position: 0.0,
+                phase_reset: true,
+                phase: 0.0,
+                unison: None,
+            },
+        );
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &event);
+        runtime.reset().expect("reset");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
+        std::fs::remove_file(path).expect("fixture WAV removes");
+    }
+
+    #[test]
+    fn operator_render_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        let envelope = crate::definition::AdsrDefinition {
+            attack_seconds: 0.0,
+            decay_seconds: 0.1,
+            sustain_level: 1.0,
+            release_seconds: 0.01,
+        };
+        source.layers[0].generator = crate::definition::GeneratorDefinition::OperatorModulation(
+            crate::definition::OperatorModulationDefinition {
+                mode: crate::definition::OperatorModulationMode::Phase,
+                algorithm: crate::definition::OperatorAlgorithm::Stack4,
+                operators: vec![
+                    crate::definition::OperatorDefinition {
+                        ratio: 1.0,
+                        detune_cents: 0.0,
+                        level: 0.9,
+                        modulation_amount: 0.0,
+                        feedback: 0.0,
+                        phase: 0.0,
+                        envelope,
+                    },
+                    crate::definition::OperatorDefinition {
+                        ratio: 2.0,
+                        detune_cents: 0.0,
+                        level: 0.0,
+                        modulation_amount: 2.0,
+                        feedback: 0.0,
+                        phase: 0.0,
+                        envelope,
+                    },
+                    crate::definition::OperatorDefinition {
+                        ratio: 3.0,
+                        detune_cents: 0.0,
+                        level: 0.0,
+                        modulation_amount: 2.0,
+                        feedback: 0.0,
+                        phase: 0.0,
+                        envelope,
+                    },
+                    crate::definition::OperatorDefinition {
+                        ratio: 5.0,
+                        detune_cents: 0.0,
+                        level: 0.0,
+                        modulation_amount: 2.0,
+                        feedback: 0.2,
+                        phase: 0.0,
+                        envelope,
+                    },
+                ],
+                phase_reset: true,
+                unison: None,
+            },
+        );
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &event);
+        runtime.reset().expect("reset");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
+    fn complex_oscillator_render_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].generator = crate::definition::GeneratorDefinition::Oscillator(
+            crate::definition::OscillatorDefinition {
+                waveform: crate::definition::OscillatorWaveform::Sine,
+                phase_reset: true,
+                phase: 0.0,
+                hard_sync: None,
+                waveshaping: None,
+                phase_distortion: Some(crate::definition::PhaseDistortionDefinition {
+                    amount: 0.5,
+                }),
+                wavefold: Some(crate::definition::WavefoldDefinition { amount: 0.35 }),
+                feedback: Some(crate::definition::OscillatorFeedbackDefinition { amount: 0.2 }),
+                unison: None,
+            },
+        );
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
         let _ = process(&mut runtime, 64, 0, &event);
         runtime.reset().expect("reset");
 
@@ -1654,7 +1851,9 @@ mod tests {
                 oscillator.waveform = waveform;
             }
             crate::definition::GeneratorDefinition::Sample(_)
-            | crate::definition::GeneratorDefinition::Noise(_) => {
+            | crate::definition::GeneratorDefinition::Noise(_)
+            | crate::definition::GeneratorDefinition::Wavetable(_)
+            | crate::definition::GeneratorDefinition::OperatorModulation(_) => {
                 panic!("test fixture must use an oscillator");
             }
         }

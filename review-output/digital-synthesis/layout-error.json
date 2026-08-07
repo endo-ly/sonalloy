@@ -1,0 +1,13 @@
+{
+  "status": "error",
+  "exit_code": 1,
+  "diagnostics": [
+    {
+      "code": "WAVETABLE_LAYOUT_INVALID",
+      "severity": "error",
+      "path": "layers[0].generator.wavetable.asset.path",
+      "message": "wavetable asset layout is invalid",
+      "detail": "decoded sample count 255 is not divisible by frame length 256"
+    }
+  ]
+}

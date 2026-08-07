@@ -6,18 +6,23 @@ use crate::asset::{AssetError, PreparedAsset, PreparedSample, prepare_asset, res
 use crate::definition::{
     AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
     GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
-    ModulationSourceDefinition, NoiseColor, OscillatorDefinition, OscillatorWaveform,
-    ProcessorDefinition, ReverbProcessorDefinition, SampleZoneDefinition,
-    SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition,
+    ModulationSourceDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
+    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, ProcessorDefinition,
+    ReverbProcessorDefinition, SampleZoneDefinition, SampleZonePlaybackDefinition,
+    UnisonDefinition, VoiceStealingDefinition, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
-    GeneratorParameterSpec, NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
-    UNISON_SPREAD, WAVESHAPE,
+    BASIC_FREQUENCY_LIMIT_RATIO, GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK,
+    PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
+    UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION, effective_max_frequency,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
 use crate::runtime::InstrumentRuntime;
+use crate::wavetable::{
+    WavetablePreparation, WavetablePreparationError, WavetableWarning, prepare_wavetable_asset,
+};
 
 /// Input required to compile a Definition for one engine configuration.
 #[derive(Debug, Clone, PartialEq)]
@@ -188,6 +193,7 @@ impl CompiledLayerTrigger {
 
 /// Compiled generator variants.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum CompiledGenerator {
     /// Oscillator generator.
     Oscillator(CompiledOscillator),
@@ -195,6 +201,10 @@ pub enum CompiledGenerator {
     Noise(CompiledNoise),
     /// Prepared sample generator.
     Sample(CompiledSample),
+    /// Prepared band-limited wavetable generator.
+    Wavetable(CompiledWavetable),
+    /// Fixed-topology four-operator modulation generator.
+    OperatorModulation(CompiledOperatorModulation),
 }
 
 /// Fixed channel layout produced by a compiled generator.
@@ -220,6 +230,28 @@ impl CompiledGenerator {
             }
             Self::Noise(_) => GeneratorOutputMode::Stereo,
             Self::Sample(_) => GeneratorOutputMode::Mono,
+            Self::Wavetable(value) => {
+                if value.unison.position_distribution.len() == 1 {
+                    GeneratorOutputMode::Mono
+                } else {
+                    GeneratorOutputMode::Stereo
+                }
+            }
+            Self::OperatorModulation(value) => {
+                if value.unison.position_distribution.len() == 1 {
+                    GeneratorOutputMode::Mono
+                } else {
+                    GeneratorOutputMode::Stereo
+                }
+            }
+        }
+    }
+
+    pub(crate) fn is_available(&self) -> bool {
+        match self {
+            Self::Oscillator(_) | Self::Noise(_) | Self::OperatorModulation(_) => true,
+            Self::Sample(value) => value.zones.iter().any(CompiledSampleZone::is_enabled),
+            Self::Wavetable(value) => value.prepared.is_some(),
         }
     }
 }
@@ -231,6 +263,12 @@ pub struct CompiledOscillatorParameters {
     pub pulse_width: Option<ParameterHandle>,
     /// Waveshaping amount handle.
     pub waveshape: Option<ParameterHandle>,
+    /// Phase-distortion amount handle.
+    pub phase_distortion: Option<ParameterHandle>,
+    /// Wavefolder amount handle.
+    pub wavefold: Option<ParameterHandle>,
+    /// Oscillator feedback amount handle.
+    pub oscillator_feedback: Option<ParameterHandle>,
     /// Unison detune handle.
     pub unison_detune: Option<ParameterHandle>,
     /// Unison stereo spread handle.
@@ -247,6 +285,8 @@ pub enum CompiledOscillatorBackend {
         /// Sync ratio handle for the hard-sync oscillator.
         sync_ratio: ParameterHandle,
     },
+    /// Rust phase-domain sine backend for distortion and feedback.
+    PhaseDomain,
 }
 
 impl CompiledOscillatorBackend {
@@ -254,13 +294,12 @@ impl CompiledOscillatorBackend {
     #[must_use]
     pub fn effective_max_frequency(self, sample_rate: f64) -> f32 {
         let ratio = match self {
-            Self::Basic => 0.45,
-            Self::VariableShapeSync { .. } => 0.24,
+            Self::Basic => BASIC_FREQUENCY_LIMIT_RATIO,
+            Self::VariableShapeSync { .. } | Self::PhaseDomain => {
+                PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO
+            }
         };
-        #[allow(clippy::cast_possible_truncation)]
-        {
-            (sample_rate * ratio) as f32
-        }
+        effective_max_frequency(sample_rate, ratio)
     }
 }
 
@@ -290,6 +329,8 @@ pub struct CompiledOscillator {
     pub backend: CompiledOscillatorBackend,
     /// Generator parameter bindings.
     pub parameters: CompiledOscillatorParameters,
+    /// Whether a DC blocker is required after the nonlinear stages.
+    pub dc_blocker: bool,
     /// Static Unison component configuration.
     pub unison: Arc<CompiledUnison>,
 }
@@ -341,6 +382,144 @@ pub struct CompiledSampleZone {
     pub playback: CompiledSamplePlayback,
     /// Path as written in the Definition.
     pub asset_path: String,
+}
+
+/// Source metadata retained by a prepared Wavetable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WavetableSourceMetadata {
+    /// Source sample rate, retained for inspection but not used as pitch data.
+    pub source_sample_rate: u32,
+    /// Source channel count before downmixing.
+    pub source_channels: usize,
+    /// Source bit depth when supplied by the decoder.
+    pub bits_per_sample: Option<u32>,
+    /// Total source frames after mono conversion.
+    pub source_frames: usize,
+}
+
+/// One band-limited frame with interpolation guard samples.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreparedWavetableFrame {
+    /// Interpolation layout containing the previous and following samples.
+    pub guarded_samples: Box<[f32]>,
+}
+
+/// One harmonic-limited Wavetable band.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreparedWavetableBand {
+    /// Highest harmonic retained in this band.
+    pub max_harmonic: usize,
+    /// Frames in Definition asset order.
+    pub frames: Box<[PreparedWavetableFrame]>,
+}
+
+/// Compile-time Wavetable data shared by all voices.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreparedWavetable {
+    /// Samples in one periodic frame.
+    pub frame_length: usize,
+    /// Number of frames in the source asset.
+    pub frame_count: usize,
+    /// Harmonic-limited bands ordered from widest to narrowest.
+    pub bands: Box<[PreparedWavetableBand]>,
+    /// Source metadata retained for inspection.
+    pub source_metadata: WavetableSourceMetadata,
+}
+
+/// Parameter handles owned by a Wavetable generator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledWavetableParameters {
+    /// Frame-position handle.
+    pub position: ParameterHandle,
+    /// Optional dynamic unison detune handle.
+    pub unison_detune: Option<ParameterHandle>,
+    /// Optional dynamic stereo spread handle.
+    pub unison_spread: Option<ParameterHandle>,
+}
+
+/// Compiled Wavetable settings.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledWavetable {
+    /// Prepared asset, absent when the asset is unavailable.
+    pub prepared: Option<Arc<PreparedWavetable>>,
+    /// Samples in one periodic frame as specified by the Definition.
+    pub frame_length: usize,
+    /// Whether Note On restores the phase.
+    pub phase_reset: bool,
+    /// Initial phase.
+    pub phase: f32,
+    /// Process-rate-derived frequency limit used for band selection.
+    pub effective_max_frequency: f32,
+    /// Generator parameter bindings.
+    pub parameters: CompiledWavetableParameters,
+    /// Static Unison component configuration.
+    pub unison: Arc<CompiledUnison>,
+    /// Asset path as written in the Definition.
+    pub asset_path: String,
+    /// Whether the Definition supplied an asset hash.
+    pub asset_sha256_specified: bool,
+}
+
+/// Compiled operator connection topology.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledOperatorTopology {
+    /// Operator evaluation order from modulator to carrier.
+    pub evaluation_order: [u8; 4],
+    /// Bit mask of incoming operator connections for each destination.
+    pub incoming_masks: [u8; 4],
+    /// Bit mask of operators contributing to the final output.
+    pub carrier_mask: u8,
+    /// Normalization applied to the carrier sum.
+    pub carrier_normalization: f32,
+}
+
+/// Parameter handles owned by one compiled operator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledOperatorParameters {
+    /// Frequency ratio handle.
+    pub ratio: ParameterHandle,
+    /// Detune handle.
+    pub detune: ParameterHandle,
+    /// Carrier level handle.
+    pub level: Option<ParameterHandle>,
+    /// Modulation amount handle.
+    pub modulation_amount: Option<ParameterHandle>,
+    /// Self-feedback handle.
+    pub feedback: Option<ParameterHandle>,
+}
+
+/// Compiled static and envelope settings for one operator.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledOperator {
+    /// Sample-rate-specific operator envelope.
+    pub envelope: CompiledAdsr,
+    /// Initial phase.
+    pub phase: f32,
+}
+
+/// Compiled four-operator modulation generator.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledOperatorModulation {
+    /// Audio-rate interaction mode.
+    pub mode: OperatorModulationMode,
+    /// Definition algorithm retained for inspection.
+    pub algorithm: OperatorAlgorithm,
+    /// Resolved fixed topology.
+    pub topology: CompiledOperatorTopology,
+    /// Four compiled operators in user-facing order.
+    pub operators: [CompiledOperator; 4],
+    /// Whether Note On restores operator phases.
+    pub phase_reset: bool,
+    /// Dynamic parameter handles for each operator.
+    pub parameters: [CompiledOperatorParameters; 4],
+    /// Optional dynamic unison detune handle.
+    pub unison_detune: Option<ParameterHandle>,
+    /// Optional dynamic stereo spread handle.
+    pub unison_spread: Option<ParameterHandle>,
+    /// Static Unison component configuration.
+    pub unison: Arc<CompiledUnison>,
+    /// Safe operator frequency limit for this process sample rate.
+    pub effective_max_frequency: f32,
 }
 
 impl CompiledSampleZone {
@@ -641,6 +820,7 @@ pub fn compile_instrument(
 
     let parameter_catalog = ParameterCatalog::from_definition(definition);
     let mut asset_cache = HashMap::new();
+    let mut wavetable_asset_cache = HashMap::new();
 
     let performance = CompiledPerformance {
         polyphony: usize::from(definition.performance.polyphony),
@@ -664,6 +844,7 @@ pub fn compile_instrument(
                 &context.definition_base_dir,
                 context.process_spec.sample_rate,
                 &mut asset_cache,
+                &mut wavetable_asset_cache,
                 &mut diagnostics,
             );
             let envelope_path = format!("layers[{definition_index}].envelope");
@@ -1318,6 +1499,10 @@ fn compile_generator(
     definition_base_dir: &Path,
     sample_rate: f64,
     asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    wavetable_asset_cache: &mut HashMap<
+        WavetableAssetCacheKey,
+        Result<WavetablePreparation, WavetablePreparationError>,
+    >,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CompiledGenerator {
     match generator {
@@ -1327,6 +1512,9 @@ fn compile_generator(
             phase,
             hard_sync,
             waveshaping,
+            phase_distortion,
+            wavefold,
+            feedback,
             unison,
         }) => {
             let pulse_width = matches!(waveform, OscillatorWaveform::Pulse { .. })
@@ -1334,6 +1522,15 @@ fn compile_generator(
             let waveshape = waveshaping
                 .as_ref()
                 .map(|_| generator_parameter_handle(catalog, layer_id, WAVESHAPE));
+            let phase_distortion = phase_distortion
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, PHASE_DISTORTION));
+            let wavefold = wavefold
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, WAVEFOLD));
+            let oscillator_feedback = feedback
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, OSCILLATOR_FEEDBACK));
             let unison_detune = unison
                 .as_ref()
                 .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_DETUNE));
@@ -1345,7 +1542,9 @@ fn compile_generator(
                 waveform: *waveform,
                 phase_reset: *phase_reset,
                 phase: *phase,
-                backend: if hard_sync.is_some() {
+                backend: if phase_distortion.is_some() || oscillator_feedback.is_some() {
+                    CompiledOscillatorBackend::PhaseDomain
+                } else if hard_sync.is_some() {
                     CompiledOscillatorBackend::VariableShapeSync {
                         sync_ratio: generator_parameter_handle(catalog, layer_id, SYNC_RATIO),
                     }
@@ -1355,9 +1554,15 @@ fn compile_generator(
                 parameters: CompiledOscillatorParameters {
                     pulse_width,
                     waveshape,
+                    phase_distortion,
+                    wavefold,
+                    oscillator_feedback,
                     unison_detune,
                     unison_spread,
                 },
+                dc_blocker: phase_distortion.is_some()
+                    || wavefold.is_some()
+                    || oscillator_feedback.is_some(),
                 unison: Arc::new(unison),
             })
         }
@@ -1376,6 +1581,28 @@ fn compile_generator(
             asset_cache,
             diagnostics,
         )),
+        GeneratorDefinition::Wavetable(wavetable) => {
+            CompiledGenerator::Wavetable(compile_wavetable(
+                wavetable,
+                layer_index,
+                layer_id,
+                catalog,
+                definition_base_dir,
+                sample_rate,
+                wavetable_asset_cache,
+                diagnostics,
+            ))
+        }
+        GeneratorDefinition::OperatorModulation(operator_modulation) => {
+            CompiledGenerator::OperatorModulation(compile_operator_modulation(
+                operator_modulation,
+                layer_index,
+                layer_id,
+                catalog,
+                sample_rate,
+                diagnostics,
+            ))
+        }
     }
 }
 
@@ -1397,6 +1624,13 @@ struct AssetCacheKey {
     path: PathBuf,
     sha256: Option<String>,
     sample_rate_bits: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct WavetableAssetCacheKey {
+    path: PathBuf,
+    sha256: Option<String>,
+    frame_length: usize,
 }
 
 fn prepare_cached_asset(
@@ -1421,6 +1655,324 @@ fn prepare_cached_asset(
     let result = prepare_asset(reference, definition_base_dir, sample_rate);
     asset_cache.insert(key, result.clone());
     result
+}
+
+fn prepare_cached_wavetable(
+    reference: &crate::definition::AssetReference,
+    definition_base_dir: &Path,
+    frame_length: usize,
+    asset_cache: &mut HashMap<
+        WavetableAssetCacheKey,
+        Result<WavetablePreparation, WavetablePreparationError>,
+    >,
+) -> Result<WavetablePreparation, WavetablePreparationError> {
+    let resolved = resolved_asset_path(definition_base_dir, &reference.path);
+    let path = std::fs::canonicalize(&resolved).unwrap_or(resolved);
+    let key = WavetableAssetCacheKey {
+        path,
+        sha256: reference
+            .sha256
+            .as_ref()
+            .map(|value| value.to_ascii_lowercase()),
+        frame_length,
+    };
+    if let Some(result) = asset_cache.get(&key) {
+        return result.clone();
+    }
+    let result = prepare_wavetable_asset(reference, definition_base_dir, frame_length);
+    asset_cache.insert(key, result.clone());
+    result
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compile_wavetable(
+    wavetable: &WavetableDefinition,
+    layer_index: usize,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    asset_cache: &mut HashMap<
+        WavetableAssetCacheKey,
+        Result<WavetablePreparation, WavetablePreparationError>,
+    >,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledWavetable {
+    let asset_path = format!("layers[{layer_index}].generator.wavetable.asset.path");
+    if Path::new(&wavetable.asset.path).is_absolute() {
+        diagnostics.push(
+            Diagnostic::warning(
+                DiagnosticCode::AssetAbsolutePath,
+                "absolute asset paths reduce Definition portability",
+            )
+            .with_path(asset_path.clone()),
+        );
+    }
+    let prepared = prepare_compiled_wavetable(
+        &wavetable.asset,
+        definition_base_dir,
+        usize::from(wavetable.frame_length),
+        asset_cache,
+        &asset_path,
+        &format!("layers[{layer_index}].generator.wavetable.asset.sha256"),
+        diagnostics,
+    )
+    .map(|prepared| prepared.prepared);
+    let position = generator_parameter_handle(catalog, layer_id, WAVETABLE_POSITION);
+    let unison_detune = wavetable
+        .unison
+        .as_ref()
+        .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_DETUNE));
+    let unison_spread = wavetable
+        .unison
+        .as_ref()
+        .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_SPREAD));
+    CompiledWavetable {
+        prepared,
+        frame_length: usize::from(wavetable.frame_length),
+        phase_reset: wavetable.phase_reset,
+        phase: wavetable.phase,
+        effective_max_frequency: effective_max_frequency(sample_rate, BASIC_FREQUENCY_LIMIT_RATIO),
+        parameters: CompiledWavetableParameters {
+            position,
+            unison_detune,
+            unison_spread,
+        },
+        unison: Arc::new(compile_unison(wavetable.unison)),
+        asset_path: wavetable.asset.path.clone(),
+        asset_sha256_specified: wavetable.asset.sha256.is_some(),
+    }
+}
+
+fn compile_operator_modulation(
+    operator_modulation: &OperatorModulationDefinition,
+    layer_index: usize,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledOperatorModulation {
+    let topology = operator_modulation.algorithm.topology();
+    let carrier_count = topology.carrier_mask.count_ones().max(1);
+    #[allow(clippy::cast_precision_loss)]
+    let carrier_count = carrier_count as f32;
+    let compiled_topology = CompiledOperatorTopology {
+        evaluation_order: topology.evaluation_order,
+        incoming_masks: topology.incoming_masks,
+        carrier_mask: topology.carrier_mask,
+        carrier_normalization: 1.0 / carrier_count.sqrt(),
+    };
+    let operators = std::array::from_fn(|index| {
+        let operator = operator_modulation
+            .operators
+            .get(index)
+            .expect("operator validation guarantees four operators");
+        CompiledOperator {
+            envelope: compile_adsr(
+                operator.envelope,
+                sample_rate,
+                &format!("layers[{layer_index}].generator.operator_modulation.operators[{index}]"),
+                diagnostics,
+            ),
+            phase: operator.phase,
+        }
+    });
+    let parameters = std::array::from_fn(|index| {
+        let is_carrier = topology.carrier_mask & (1_u8 << index) != 0;
+        let has_output = topology
+            .incoming_masks
+            .iter()
+            .any(|mask| mask & (1_u8 << index) != 0);
+        CompiledOperatorParameters {
+            ratio: operator_parameter_handle(catalog, layer_id, index, "ratio"),
+            detune: operator_parameter_handle(catalog, layer_id, index, "detune"),
+            level: is_carrier.then(|| operator_parameter_handle(catalog, layer_id, index, "level")),
+            modulation_amount: has_output
+                .then(|| operator_parameter_handle(catalog, layer_id, index, "modulation_amount")),
+            feedback: matches!(
+                operator_modulation.mode,
+                OperatorModulationMode::Phase | OperatorModulationMode::Frequency
+            )
+            .then(|| operator_parameter_handle(catalog, layer_id, index, "feedback")),
+        }
+    });
+    let frequency_limit_ratio = match operator_modulation.mode {
+        OperatorModulationMode::Phase | OperatorModulationMode::Frequency => {
+            PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO
+        }
+        OperatorModulationMode::Amplitude | OperatorModulationMode::Ring => {
+            BASIC_FREQUENCY_LIMIT_RATIO
+        }
+    };
+    let effective_max_frequency = effective_max_frequency(sample_rate, frequency_limit_ratio);
+    let unison_detune = operator_modulation
+        .unison
+        .as_ref()
+        .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_DETUNE));
+    let unison_spread = operator_modulation
+        .unison
+        .as_ref()
+        .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_SPREAD));
+    CompiledOperatorModulation {
+        mode: operator_modulation.mode,
+        algorithm: operator_modulation.algorithm,
+        topology: compiled_topology,
+        operators,
+        phase_reset: operator_modulation.phase_reset,
+        parameters,
+        unison_detune,
+        unison_spread,
+        unison: Arc::new(compile_unison(operator_modulation.unison)),
+        effective_max_frequency,
+    }
+}
+
+fn operator_parameter_handle(
+    catalog: &ParameterCatalog,
+    layer_id: &str,
+    index: usize,
+    parameter: &str,
+) -> ParameterHandle {
+    catalog
+        .parameter_handle(&format!(
+            "layer.{layer_id}.generator.operator.{}.{}",
+            index + 1,
+            parameter
+        ))
+        .expect("operator parameter catalog entry exists")
+}
+
+fn prepare_compiled_wavetable(
+    reference: &crate::definition::AssetReference,
+    definition_base_dir: &Path,
+    frame_length: usize,
+    asset_cache: &mut HashMap<
+        WavetableAssetCacheKey,
+        Result<WavetablePreparation, WavetablePreparationError>,
+    >,
+    diagnostic_path: &str,
+    hash_path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<WavetablePreparation> {
+    let result =
+        prepare_cached_wavetable(reference, definition_base_dir, frame_length, asset_cache);
+    match result {
+        Ok(preparation) => {
+            report_wavetable_warnings(
+                reference,
+                &preparation,
+                diagnostic_path,
+                hash_path,
+                diagnostics,
+            );
+            Some(preparation)
+        }
+        Err(error) => {
+            report_wavetable_preparation_error(diagnostic_path, error, diagnostics);
+            None
+        }
+    }
+}
+
+fn report_wavetable_warnings(
+    reference: &crate::definition::AssetReference,
+    preparation: &WavetablePreparation,
+    diagnostic_path: &str,
+    hash_path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for warning in &preparation.warnings {
+        match warning {
+            WavetableWarning::SilentFrame { index, rms } => diagnostics.push(
+                Diagnostic::warning(
+                    DiagnosticCode::WavetableSilentFrame,
+                    format!("wavetable frame {index} is nearly silent"),
+                )
+                .with_path(diagnostic_path)
+                .with_detail(format!("frame index {index}, rms is {rms:.6e}")),
+            ),
+            WavetableWarning::DcOffset { index, mean } => diagnostics.push(
+                Diagnostic::warning(
+                    DiagnosticCode::WavetableDcOffset,
+                    format!("wavetable frame {index} has a DC offset"),
+                )
+                .with_path(diagnostic_path)
+                .with_detail(format!("frame index {index}, mean is {mean:.6e}")),
+            ),
+        }
+    }
+    if reference.sha256.is_none() {
+        diagnostics.push(
+            Diagnostic::warning(
+                DiagnosticCode::AssetHashMissing,
+                "asset sha256 is not specified",
+            )
+            .with_path(hash_path),
+        );
+    }
+    if preparation.prepared.source_metadata.source_channels > 1 {
+        diagnostics.push(
+            Diagnostic::warning(
+                DiagnosticCode::AssetDownmixed,
+                "stereo asset was downmixed to mono",
+            )
+            .with_path(diagnostic_path),
+        );
+    }
+}
+
+fn report_wavetable_preparation_error(
+    asset_path: &str,
+    error: WavetablePreparationError,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let (severity, code, message, detail) = match error {
+        WavetablePreparationError::Asset(error) => {
+            let (code, message) = asset_diagnostic(&error);
+            (
+                DiagnosticSeverity::Warning,
+                code,
+                message.to_owned(),
+                Some(error.to_string()),
+            )
+        }
+        WavetablePreparationError::Silent => (
+            DiagnosticSeverity::Warning,
+            DiagnosticCode::WavetablePreparationFailed,
+            "wavetable asset contains no audible frame".to_owned(),
+            None,
+        ),
+        WavetablePreparationError::Layout(detail) => (
+            DiagnosticSeverity::Error,
+            DiagnosticCode::WavetableLayoutInvalid,
+            "wavetable asset layout is invalid".to_owned(),
+            Some(detail),
+        ),
+        WavetablePreparationError::ResourceLimit(bytes) => (
+            DiagnosticSeverity::Error,
+            DiagnosticCode::GeneratorResourceLimitExceeded,
+            "prepared wavetable exceeds the resource limit".to_owned(),
+            Some(format!("prepared table requires {bytes} bytes")),
+        ),
+        WavetablePreparationError::Preparation(detail) => (
+            DiagnosticSeverity::Error,
+            DiagnosticCode::WavetablePreparationFailed,
+            "wavetable preparation failed".to_owned(),
+            Some(detail),
+        ),
+    };
+    let diagnostic = if severity == DiagnosticSeverity::Warning {
+        Diagnostic::warning(code, message)
+    } else {
+        Diagnostic::error(code, message)
+    }
+    .with_path(asset_path);
+    let diagnostic = if let Some(detail) = detail {
+        diagnostic.with_detail(detail)
+    } else {
+        diagnostic
+    };
+    diagnostics.push(diagnostic);
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1720,18 +2272,18 @@ fn brown_noise_coefficient(sample_rate: f64) -> f32 {
 
 fn asset_diagnostic(error: &AssetError) -> (DiagnosticCode, &'static str) {
     match error {
-        AssetError::NotFound(_) => (DiagnosticCode::AssetNotFound, "sample asset is unavailable"),
+        AssetError::NotFound(_) => (DiagnosticCode::AssetNotFound, "asset is unavailable"),
         AssetError::HashMismatch { .. } => (
             DiagnosticCode::AssetHashMismatch,
-            "sample asset sha256 does not match",
+            "asset sha256 does not match",
         ),
         AssetError::Decode(_) => (
             DiagnosticCode::AssetDecodeFailed,
-            "sample asset could not be decoded",
+            "asset could not be decoded",
         ),
         AssetError::Resample(_) => (
             DiagnosticCode::AssetDecodeFailed,
-            "sample asset could not be prepared",
+            "asset could not be prepared",
         ),
     }
 }
@@ -1896,6 +2448,9 @@ mod tests {
                 phase: 0.25,
                 hard_sync: None,
                 waveshaping: None,
+                phase_distortion: None,
+                wavefold: None,
+                feedback: None,
                 unison: None,
             });
         let pulse = compile_instrument(&pulse_definition, &context())

@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Operator Modulation Reference",
+    "author": "Sonalloy",
+    "description": "A four-operator phase modulation instrument"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.7,
+        "release_seconds": 0.25
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "stack_4",
+          "operators": [
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.9,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1,
+                "sustain_level": 1.0,
+                "release_seconds": 0.1
+              }
+            },
+            {
+              "ratio": 2.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 2.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.08,
+                "sustain_level": 1.0,
+                "release_seconds": 0.08
+              }
+            },
+            {
+              "ratio": 3.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 1.5,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.06,
+                "sustain_level": 1.0,
+                "release_seconds": 0.06
+              }
+            },
+            {
+              "ratio": 5.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 2.5,
+              "feedback": 0.2,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.04,
+                "sustain_level": 1.0,
+                "release_seconds": 0.04
+              }
+            }
+          ],
+          "phase_reset": true,
+          "unison": {
+            "voices": 4,
+            "detune_cents": 14.0,
+            "stereo_spread": 0.8,
+            "phase_spread": 0.4
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": null
+}

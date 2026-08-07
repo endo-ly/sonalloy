@@ -1,5 +1,7 @@
 mod noise;
+mod operator;
 mod oscillator;
+mod wavetable;
 
 use crate::compiler::CompiledGenerator;
 use crate::generator_parameters::GeneratorParameterSpec;
@@ -9,7 +11,9 @@ use super::modulation::{LayerGeneratorTargetSpan, ValueSpan};
 use super::sample::{SampleRuntime, playback_ratio};
 
 use noise::NoiseRuntime;
+use operator::OperatorModulationRuntime;
 use oscillator::OscillatorRuntime;
+use wavetable::WavetableRuntime;
 
 fn validate_generator_span(
     span: ValueSpan,
@@ -28,10 +32,56 @@ fn validate_generator_span(
     Ok(())
 }
 
+pub(super) fn base_frequencies(
+    note_number: u8,
+    tuning_start: f32,
+    tuning_end: f32,
+) -> Result<(f32, f32), ProcessError> {
+    let start = crate::compiler::midi_note_frequency(
+        note_number,
+        crate::compiler::cents_to_ratio(tuning_start),
+    );
+    let end = crate::compiler::midi_note_frequency(
+        note_number,
+        crate::compiler::cents_to_ratio(tuning_end),
+    );
+    if start.is_finite() && end.is_finite() && start > 0.0 && end > 0.0 {
+        Ok((start, end))
+    } else {
+        Err(ProcessError::InvalidFrequency)
+    }
+}
+
+pub(super) fn ensure_finite(samples: &[f32]) -> Result<(), ProcessError> {
+    if samples.iter().all(|sample| sample.is_finite()) {
+        Ok(())
+    } else {
+        Err(non_finite())
+    }
+}
+
+pub(super) fn initial_phase(base: f32, offset: f32) -> f32 {
+    (base + offset).rem_euclid(1.0)
+}
+
+pub(super) fn invalid_state() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: ProcessorFailureKind::InvalidState,
+    }
+}
+
+pub(super) fn non_finite() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: ProcessorFailureKind::NonFinite,
+    }
+}
+
 pub(super) enum GeneratorRuntime {
     Oscillator(OscillatorRuntime),
     Noise(Box<NoiseRuntime>),
     Sample { sample: SampleRuntime },
+    Wavetable(WavetableRuntime),
+    OperatorModulation(Box<OperatorModulationRuntime>),
 }
 
 impl GeneratorRuntime {
@@ -47,6 +97,12 @@ impl GeneratorRuntime {
             CompiledGenerator::Sample(_) => Ok(Self::Sample {
                 sample: SampleRuntime::new(),
             }),
+            CompiledGenerator::Wavetable(value) => {
+                Ok(Self::Wavetable(WavetableRuntime::new(value, spec)?))
+            }
+            CompiledGenerator::OperatorModulation(value) => Ok(Self::OperatorModulation(Box::new(
+                OperatorModulationRuntime::new(value, spec)?,
+            ))),
         }
     }
 
@@ -79,6 +135,17 @@ impl GeneratorRuntime {
                 sample.start(zone);
                 Ok(())
             }
+            Self::Wavetable(wavetable) => wavetable.start(),
+            Self::OperatorModulation(operator) => {
+                operator.start();
+                Ok(())
+            }
+        }
+    }
+
+    pub(crate) fn note_off(&mut self) {
+        if let Self::OperatorModulation(operator) = self {
+            operator.note_off();
         }
     }
 
@@ -165,6 +232,34 @@ impl GeneratorRuntime {
                 }
                 Ok(sample.is_finished())
             }
+            Self::Wavetable(wavetable) => {
+                wavetable.render(
+                    frames,
+                    note_number,
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    targets,
+                    mono,
+                    left,
+                    right,
+                )?;
+                Ok(false)
+            }
+            Self::OperatorModulation(operator) => {
+                operator.render(
+                    frames,
+                    note_number,
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    targets,
+                    mono,
+                    left,
+                    right,
+                )?;
+                Ok(false)
+            }
         }
     }
 
@@ -177,6 +272,14 @@ impl GeneratorRuntime {
             }
             Self::Sample { sample, .. } => {
                 sample.reset();
+                Ok(())
+            }
+            Self::Wavetable(wavetable) => {
+                wavetable.reset();
+                Ok(())
+            }
+            Self::OperatorModulation(operator) => {
+                operator.reset();
                 Ok(())
             }
         }

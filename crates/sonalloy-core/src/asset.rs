@@ -13,6 +13,7 @@ use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::{FormatOptions, TrackType, probe::Hint};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
+use thiserror::Error;
 
 use crate::definition::AssetReference;
 
@@ -50,32 +51,31 @@ pub(crate) struct PreparedAsset {
 }
 
 /// Asset preparation failure classified for diagnostics.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub(crate) enum AssetError {
     /// The file could not be found or opened.
+    #[error("asset not found: {0}")]
     NotFound(String),
     /// The file digest differs from the Definition.
+    #[error("asset hash mismatch: expected {expected}, got {actual}")]
     HashMismatch { expected: String, actual: String },
     /// The file format or decoded signal is unsupported.
+    #[error("asset decode failed: {0}")]
     Decode(String),
     /// Sample-rate conversion failed.
+    #[error("asset resample failed: {0}")]
     Resample(String),
 }
 
-impl std::fmt::Display for AssetError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NotFound(detail) => write!(formatter, "asset not found: {detail}"),
-            Self::HashMismatch { expected, actual } => {
-                write!(
-                    formatter,
-                    "asset hash mismatch: expected {expected}, got {actual}"
-                )
-            }
-            Self::Decode(detail) => write!(formatter, "asset decode failed: {detail}"),
-            Self::Resample(detail) => write!(formatter, "asset resample failed: {detail}"),
-        }
-    }
+/// Immutable mono audio decoded without changing its source sample rate.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct MonoAudioAsset {
+    pub(crate) sample_rate: u32,
+    pub(crate) channels: usize,
+    pub(crate) bits_per_sample: Option<u32>,
+    pub(crate) source_frames: usize,
+    pub(crate) samples: Vec<f32>,
+    pub(crate) downmixed: bool,
 }
 
 pub(crate) fn prepare_asset(
@@ -83,6 +83,41 @@ pub(crate) fn prepare_asset(
     definition_base_dir: &Path,
     target_sample_rate: f64,
 ) -> Result<PreparedAsset, AssetError> {
+    let decoded = load_mono_audio(reference, definition_base_dir)?;
+    let samples = if (f64::from(decoded.sample_rate) - target_sample_rate).abs() < f64::EPSILON {
+        decoded.samples
+    } else {
+        resample(
+            &decoded.samples,
+            f64::from(decoded.sample_rate),
+            target_sample_rate,
+        )?
+    };
+    if samples.is_empty() || !samples.iter().all(|sample| sample.is_finite()) {
+        return Err(AssetError::Resample(
+            "prepared sample contains no finite frames".to_owned(),
+        ));
+    }
+
+    Ok(PreparedAsset {
+        sample: Arc::new(PreparedSample {
+            sample_rate: target_sample_rate,
+            samples: Arc::from(samples),
+            source_metadata: SampleMetadata {
+                source_sample_rate: decoded.sample_rate,
+                source_channels: decoded.channels,
+                bits_per_sample: decoded.bits_per_sample,
+                source_frames: decoded.source_frames,
+            },
+        }),
+        downmixed: decoded.downmixed,
+    })
+}
+
+pub(crate) fn load_mono_audio(
+    reference: &AssetReference,
+    definition_base_dir: &Path,
+) -> Result<MonoAudioAsset, AssetError> {
     let resolved_path = resolve_path(definition_base_dir, &reference.path);
     let bytes =
         std::fs::read(&resolved_path).map_err(|error| AssetError::NotFound(error.to_string()))?;
@@ -108,36 +143,20 @@ pub(crate) fn prepare_asset(
             decoded.channels
         )));
     }
-    let mono = downmix(&decoded.samples, decoded.channels)
+    let samples = downmix(&decoded.samples, decoded.channels)
         .ok_or_else(|| AssetError::Decode("decoded WAV contains no frames".to_owned()))?;
-    if !mono.iter().all(|sample| sample.is_finite()) {
+    if !samples.iter().all(|sample| sample.is_finite()) {
         return Err(AssetError::Decode(
             "decoded WAV contains a non-finite sample".to_owned(),
         ));
     }
 
-    let samples = if (f64::from(decoded.sample_rate) - target_sample_rate).abs() < f64::EPSILON {
-        mono
-    } else {
-        resample(&mono, f64::from(decoded.sample_rate), target_sample_rate)?
-    };
-    if samples.is_empty() || !samples.iter().all(|sample| sample.is_finite()) {
-        return Err(AssetError::Resample(
-            "prepared sample contains no finite frames".to_owned(),
-        ));
-    }
-
-    Ok(PreparedAsset {
-        sample: Arc::new(PreparedSample {
-            sample_rate: target_sample_rate,
-            samples: Arc::from(samples),
-            source_metadata: SampleMetadata {
-                source_sample_rate: decoded.sample_rate,
-                source_channels: decoded.channels,
-                bits_per_sample: decoded.bits_per_sample,
-                source_frames: decoded.samples.len() / decoded.channels,
-            },
-        }),
+    Ok(MonoAudioAsset {
+        sample_rate: decoded.sample_rate,
+        channels: decoded.channels,
+        bits_per_sample: decoded.bits_per_sample,
+        source_frames: samples.len(),
+        samples,
         downmixed,
     })
 }

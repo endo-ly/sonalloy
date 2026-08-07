@@ -1,21 +1,45 @@
 use std::sync::Arc;
 
-use sonalloy_dsp_sys::{DspOscillator, DspOscillatorWaveform, DspVariableOscillator};
+use sonalloy_dsp_sys::{
+    DspOscillator, DspOscillatorWaveform, DspVariableOscillator, DspWavefolder,
+};
 
 use crate::compiler::{CompiledOscillator, CompiledOscillatorBackend, CompiledUnison};
 use crate::definition::OscillatorWaveform;
 use crate::generator_parameters::{
-    PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVESHAPE,
+    OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD,
+    WAVEFOLD, WAVESHAPE,
 };
 use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
 
+use super::super::mix::mix_component;
 use super::super::modulation::LayerGeneratorTargetSpan;
 use super::super::modulation::ValueSpan;
-use super::validate_generator_span;
+use super::{
+    base_frequencies, ensure_finite, initial_phase, invalid_state, non_finite,
+    validate_generator_span,
+};
 
 enum OscillatorComponentRuntime {
     Basic(DspOscillator),
     HardSync(DspVariableOscillator),
+    PhaseDomain(PhaseDomainOscillatorComponent),
+}
+
+struct PhaseDomainOscillatorComponent {
+    phase: f32,
+    previous_output: f32,
+}
+
+enum WavefolderRuntime {
+    Mono(DspWavefolder),
+    Stereo(DspWavefolder, DspWavefolder),
+}
+
+struct DcBlocker {
+    coefficient: f32,
+    previous_input: [f32; 2],
+    previous_output: [f32; 2],
 }
 
 pub(crate) struct OscillatorRuntime {
@@ -25,7 +49,9 @@ pub(crate) struct OscillatorRuntime {
     phase_reset: bool,
     phase: f32,
     unison: Arc<CompiledUnison>,
-    waveshaping: bool,
+    parameters: crate::compiler::CompiledOscillatorParameters,
+    wavefold: Option<WavefolderRuntime>,
+    dc_blocker: Option<DcBlocker>,
 }
 
 impl OscillatorRuntime {
@@ -63,9 +89,44 @@ impl OscillatorRuntime {
                     oscillator.reset().map_err(ProcessError::from_dsp_error)?;
                     OscillatorComponentRuntime::HardSync(oscillator)
                 }
+                CompiledOscillatorBackend::PhaseDomain => {
+                    OscillatorComponentRuntime::PhaseDomain(PhaseDomainOscillatorComponent {
+                        phase: initial_phase(
+                            compiled.phase,
+                            compiled.unison.phase_distribution[index],
+                        ),
+                        previous_output: 0.0,
+                    })
+                }
             };
             components.push(component);
         }
+        let wavefold = if compiled.parameters.wavefold.is_some() {
+            if voices == 1 {
+                let mut wavefolder =
+                    DspWavefolder::new().map_err(ProcessError::from_wavefolder_error)?;
+                wavefolder
+                    .prepare(spec.sample_rate)
+                    .map_err(ProcessError::from_wavefolder_error)?;
+                Some(WavefolderRuntime::Mono(wavefolder))
+            } else {
+                let mut left = DspWavefolder::new().map_err(ProcessError::from_wavefolder_error)?;
+                left.prepare(spec.sample_rate)
+                    .map_err(ProcessError::from_wavefolder_error)?;
+                let mut right =
+                    DspWavefolder::new().map_err(ProcessError::from_wavefolder_error)?;
+                right
+                    .prepare(spec.sample_rate)
+                    .map_err(ProcessError::from_wavefolder_error)?;
+                Some(WavefolderRuntime::Stereo(left, right))
+            }
+        } else {
+            None
+        };
+        let dc_blocker = compiled
+            .dc_blocker
+            .then(|| DcBlocker::new(spec.sample_rate))
+            .transpose()?;
         Ok(Self {
             components,
             backend: compiled.backend,
@@ -73,13 +134,20 @@ impl OscillatorRuntime {
             phase_reset: compiled.phase_reset,
             phase: compiled.phase,
             unison: Arc::clone(&compiled.unison),
-            waveshaping: compiled.parameters.waveshape.is_some(),
+            parameters: compiled.parameters,
+            wavefold,
+            dc_blocker,
         })
     }
 
     pub(super) fn start(&mut self) -> Result<(), ProcessError> {
         if self.phase_reset {
             self.reset()?;
+        } else if self.parameters.phase_distortion.is_some()
+            || self.parameters.oscillator_feedback.is_some()
+            || self.wavefold.is_some()
+        {
+            self.reset_stage_state()?;
         }
         Ok(())
     }
@@ -105,6 +173,9 @@ impl OscillatorRuntime {
             pulse_width,
             sync_ratio,
             waveshape,
+            phase_distortion,
+            wavefold,
+            oscillator_feedback,
             unison_detune,
             unison_spread,
         } = targets
@@ -112,11 +183,35 @@ impl OscillatorRuntime {
             return Err(invalid_state());
         };
         let sync_ratio = match self.backend {
-            CompiledOscillatorBackend::Basic => None,
+            CompiledOscillatorBackend::Basic | CompiledOscillatorBackend::PhaseDomain => None,
             CompiledOscillatorBackend::VariableShapeSync { .. } => {
                 Some(sync_ratio.ok_or_else(invalid_state)?)
             }
         };
+        let phase_distortion = if self.parameters.phase_distortion.is_some() {
+            Some(phase_distortion.ok_or_else(invalid_state)?)
+        } else {
+            None
+        };
+        let oscillator_feedback = if self.parameters.oscillator_feedback.is_some() {
+            Some(oscillator_feedback.ok_or_else(invalid_state)?)
+        } else {
+            None
+        };
+        let wavefold = if self.wavefold.is_some() {
+            Some(wavefold.ok_or_else(invalid_state)?)
+        } else {
+            None
+        };
+        if let Some(amount) = phase_distortion {
+            validate_generator_span(amount, PHASE_DISTORTION)?;
+        }
+        if let Some(amount) = oscillator_feedback {
+            validate_generator_span(amount, OSCILLATOR_FEEDBACK)?;
+        }
+        if let Some(amount) = wavefold {
+            validate_generator_span(amount, WAVEFOLD)?;
+        }
         let detune = unison_detune.unwrap_or(ValueSpan {
             start: 0.0,
             end: 0.0,
@@ -164,7 +259,7 @@ impl OscillatorRuntime {
                     ))
                 })
                 .transpose()?;
-            self.render_component(
+            self.render_component_or_phase_domain(
                 0,
                 frames,
                 start_master,
@@ -172,10 +267,19 @@ impl OscillatorRuntime {
                 slave.map(|value| value.0),
                 slave.map(|value| value.1),
                 pulse_width,
+                phase_distortion,
+                oscillator_feedback,
+                sample_rate,
                 mono,
             )?;
-            if self.waveshaping {
+            if self.parameters.waveshape.is_some() {
                 apply_waveshaping(waveshape.ok_or_else(invalid_state)?, &mut mono[..frames])?;
+            }
+            if let Some(amount) = wavefold {
+                self.apply_wavefold_mono(amount, &mut mono[..frames])?;
+            }
+            if self.dc_blocker.is_some() {
+                self.apply_dc_blocker_mono(&mut mono[..frames])?;
             }
             return ensure_finite(&mono[..frames]);
         }
@@ -199,7 +303,7 @@ impl OscillatorRuntime {
                     ))
                 })
                 .transpose()?;
-            self.render_component(
+            self.render_component_or_phase_domain(
                 index,
                 frames,
                 start_master,
@@ -207,9 +311,12 @@ impl OscillatorRuntime {
                 slave.map(|value| value.0),
                 slave.map(|value| value.1),
                 pulse_width,
+                phase_distortion,
+                oscillator_feedback,
+                sample_rate,
                 mono,
             )?;
-            mix_component(
+            if !mix_component(
                 frames,
                 mono,
                 &mut left[..frames],
@@ -217,15 +324,118 @@ impl OscillatorRuntime {
                 self.unison.position_distribution[index],
                 spread,
                 self.unison.normalization,
-            )?;
+            ) {
+                return Err(invalid_state());
+            }
         }
-        if self.waveshaping {
+        if self.parameters.waveshape.is_some() {
             let amount = waveshape.ok_or_else(invalid_state)?;
             apply_waveshaping(amount, &mut left[..frames])?;
             apply_waveshaping(amount, &mut right[..frames])?;
         }
+        if let Some(amount) = wavefold {
+            self.apply_wavefold_stereo(amount, &mut left[..frames], &mut right[..frames])?;
+        }
+        if self.dc_blocker.is_some() {
+            self.apply_dc_blocker_stereo(&mut left[..frames], &mut right[..frames])?;
+        }
         ensure_finite(&left[..frames])?;
         ensure_finite(&right[..frames])
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn render_component_or_phase_domain(
+        &mut self,
+        index: usize,
+        frames: usize,
+        start_master: f32,
+        end_master: f32,
+        start_slave: Option<f32>,
+        end_slave: Option<f32>,
+        pulse_width: ValueSpan,
+        phase_distortion: Option<ValueSpan>,
+        oscillator_feedback: Option<ValueSpan>,
+        sample_rate: f64,
+        output: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        if matches!(self.backend, CompiledOscillatorBackend::PhaseDomain) {
+            self.render_phase_domain_component(
+                index,
+                frames,
+                start_master,
+                end_master,
+                phase_distortion,
+                oscillator_feedback,
+                sample_rate,
+                output,
+            )
+        } else {
+            self.render_component(
+                index,
+                frames,
+                start_master,
+                end_master,
+                start_slave,
+                end_slave,
+                pulse_width,
+                output,
+            )
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn render_phase_domain_component(
+        &mut self,
+        index: usize,
+        frames: usize,
+        start_frequency: f32,
+        end_frequency: f32,
+        phase_distortion: Option<ValueSpan>,
+        oscillator_feedback: Option<ValueSpan>,
+        sample_rate: f64,
+        output: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        let component = self.components.get_mut(index).ok_or_else(invalid_state)?;
+        let OscillatorComponentRuntime::PhaseDomain(component) = component else {
+            return Err(invalid_state());
+        };
+        if !sample_rate.is_finite() || sample_rate <= 0.0 {
+            return Err(ProcessError::InvalidFrequency);
+        }
+        #[allow(clippy::cast_possible_truncation)]
+        let sample_rate = sample_rate as f32;
+        if !sample_rate.is_finite() || sample_rate <= 0.0 {
+            return Err(ProcessError::InvalidFrequency);
+        }
+        for (index, sample) in output[..frames].iter_mut().enumerate() {
+            #[allow(clippy::cast_precision_loss)]
+            let position = index as f32 / frames as f32;
+            let frequency = start_frequency + (end_frequency - start_frequency) * position;
+            if !frequency.is_finite() || frequency <= 0.0 {
+                return Err(ProcessError::InvalidFrequency);
+            }
+            if !component.previous_output.is_finite() {
+                return Err(non_finite());
+            }
+            let feedback_phase = oscillator_feedback.map_or(0.0, |amount| {
+                (component.previous_output * amount.value_at(index, frames) * 2.5).tanh() * 0.25
+            });
+            if !feedback_phase.is_finite() {
+                return Err(non_finite());
+            }
+            let read_phase = (component.phase + feedback_phase).rem_euclid(1.0);
+            let phase = phase_distortion.map_or(read_phase, |amount| {
+                phase_distortion_phase(read_phase, amount.value_at(index, frames))
+            });
+            let value = (phase * std::f32::consts::TAU).sin();
+            if !value.is_finite() {
+                return Err(non_finite());
+            }
+            *sample = value;
+            component.previous_output = value;
+            component.phase = (component.phase + frequency / sample_rate).rem_euclid(1.0);
+        }
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -294,9 +504,77 @@ impl OscillatorRuntime {
                     )
                 }
             }
+            OscillatorComponentRuntime::PhaseDomain(_) => return Err(invalid_state()),
         };
         result.map_err(ProcessError::from_dsp_error)?;
         ensure_finite(&output[..frames])
+    }
+
+    fn apply_wavefold_mono(
+        &mut self,
+        amount: ValueSpan,
+        output: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        let Some(WavefolderRuntime::Mono(wavefolder)) = self.wavefold.as_mut() else {
+            return Err(invalid_state());
+        };
+        apply_wavefolder_stage(amount, wavefolder, output)
+    }
+
+    fn apply_wavefold_stereo(
+        &mut self,
+        amount: ValueSpan,
+        left: &mut [f32],
+        right: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        let Some(WavefolderRuntime::Stereo(left_wavefolder, right_wavefolder)) =
+            self.wavefold.as_mut()
+        else {
+            return Err(invalid_state());
+        };
+        apply_wavefolder_stage(amount, left_wavefolder, left)?;
+        apply_wavefolder_stage(amount, right_wavefolder, right)
+    }
+
+    fn apply_dc_blocker_mono(&mut self, output: &mut [f32]) -> Result<(), ProcessError> {
+        let Some(dc_blocker) = self.dc_blocker.as_mut() else {
+            return Err(invalid_state());
+        };
+        dc_blocker.process_mono(output)
+    }
+
+    fn apply_dc_blocker_stereo(
+        &mut self,
+        left: &mut [f32],
+        right: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        let Some(dc_blocker) = self.dc_blocker.as_mut() else {
+            return Err(invalid_state());
+        };
+        dc_blocker.process_stereo(left, right)
+    }
+
+    fn reset_stage_state(&mut self) -> Result<(), ProcessError> {
+        for component in &mut self.components {
+            if let OscillatorComponentRuntime::PhaseDomain(component) = component {
+                component.previous_output = 0.0;
+            }
+        }
+        if let Some(wavefolder) = self.wavefold.as_mut() {
+            match wavefolder {
+                WavefolderRuntime::Mono(wavefolder) => wavefolder
+                    .reset()
+                    .map_err(ProcessError::from_wavefolder_error)?,
+                WavefolderRuntime::Stereo(left, right) => {
+                    left.reset().map_err(ProcessError::from_wavefolder_error)?;
+                    right.reset().map_err(ProcessError::from_wavefolder_error)?;
+                }
+            }
+        }
+        if let Some(dc_blocker) = self.dc_blocker.as_mut() {
+            dc_blocker.reset();
+        }
+        Ok(())
     }
 
     pub(super) fn reset(&mut self) -> Result<(), ProcessError> {
@@ -311,29 +589,15 @@ impl OscillatorRuntime {
                 OscillatorComponentRuntime::HardSync(oscillator) => {
                     oscillator.reset().map_err(ProcessError::from_dsp_error)?;
                 }
+                OscillatorComponentRuntime::PhaseDomain(component) => {
+                    component.phase =
+                        initial_phase(self.phase, self.unison.phase_distribution[index]);
+                    component.previous_output = 0.0;
+                }
             }
         }
-        Ok(())
+        self.reset_stage_state()
     }
-}
-
-fn base_frequencies(
-    note_number: u8,
-    tuning_start: f32,
-    tuning_end: f32,
-) -> Result<(f32, f32), ProcessError> {
-    let start = crate::compiler::midi_note_frequency(
-        note_number,
-        crate::compiler::cents_to_ratio(tuning_start),
-    );
-    let end = crate::compiler::midi_note_frequency(
-        note_number,
-        crate::compiler::cents_to_ratio(tuning_end),
-    );
-    if !start.is_finite() || !end.is_finite() || start <= 0.0 || end <= 0.0 {
-        return Err(ProcessError::InvalidFrequency);
-    }
-    Ok((start, end))
 }
 
 fn component_frequency(
@@ -379,38 +643,6 @@ fn clamp_frequency(
     Ok(frequency.clamp(f32::MIN_POSITIVE, max_frequency))
 }
 
-fn mix_component(
-    frames: usize,
-    component: &[f32],
-    left: &mut [f32],
-    right: &mut [f32],
-    pan_distribution: f32,
-    spread: ValueSpan,
-    normalization: f32,
-) -> Result<(), ProcessError> {
-    if !normalization.is_finite() || normalization <= 0.0 {
-        return Err(invalid_state());
-    }
-    let (left_start, right_start) =
-        super::super::mix::constant_power_pan(pan_distribution * spread.start);
-    let (left_end, right_end) =
-        super::super::mix::constant_power_pan(pan_distribution * spread.end);
-    let left_gain = ValueSpan {
-        start: left_start,
-        end: left_end,
-    };
-    let right_gain = ValueSpan {
-        start: right_start,
-        end: right_end,
-    };
-    for index in 0..frames {
-        let sample = component[index];
-        left[index] += sample * left_gain.value_at(index, frames) * normalization;
-        right[index] += sample * right_gain.value_at(index, frames) * normalization;
-    }
-    Ok(())
-}
-
 fn apply_waveshaping(amount: ValueSpan, output: &mut [f32]) -> Result<(), ProcessError> {
     validate_generator_span(amount, WAVESHAPE)?;
     if same_value(amount.start, 0.0) && same_value(amount.end, 0.0) {
@@ -437,28 +669,100 @@ fn apply_waveshaping(amount: ValueSpan, output: &mut [f32]) -> Result<(), Proces
     Ok(())
 }
 
-fn ensure_finite(samples: &[f32]) -> Result<(), ProcessError> {
-    if samples.iter().all(|sample| sample.is_finite()) {
-        Ok(())
+fn phase_distortion_phase(phase: f32, amount: f32) -> f32 {
+    if same_value(amount, 0.0) {
+        return phase;
+    }
+    let breakpoint = 0.5 - amount * 0.45;
+    if phase < breakpoint {
+        0.5 * phase / breakpoint
     } else {
-        Err(non_finite())
+        0.5 + 0.5 * (phase - breakpoint) / (1.0 - breakpoint)
     }
 }
 
-fn non_finite() -> ProcessError {
-    ProcessError::ProcessorFailure {
-        kind: ProcessorFailureKind::NonFinite,
+fn apply_wavefolder_stage(
+    amount: ValueSpan,
+    wavefolder: &mut DspWavefolder,
+    output: &mut [f32],
+) -> Result<(), ProcessError> {
+    let start_drive = 1.0 + amount.start * 7.0;
+    let end_drive = 1.0 + amount.end * 7.0;
+    if same_value(amount.start, 0.0) && same_value(amount.end, 0.0) {
+        return Ok(());
+    }
+    if same_value(start_drive, end_drive) && same_value(amount.start, amount.end) {
+        wavefolder
+            .process(start_drive, amount.start, output)
+            .map_err(ProcessError::from_wavefolder_error)
+    } else {
+        wavefolder
+            .process_ramp(start_drive, end_drive, amount.start, amount.end, output)
+            .map_err(ProcessError::from_wavefolder_error)
     }
 }
 
-fn invalid_state() -> ProcessError {
-    ProcessError::ProcessorFailure {
-        kind: ProcessorFailureKind::InvalidState,
+impl DcBlocker {
+    fn new(sample_rate: f64) -> Result<Self, ProcessError> {
+        if !sample_rate.is_finite() || sample_rate <= 0.0 {
+            return Err(ProcessError::InvalidFrequency);
+        }
+        #[allow(clippy::cast_possible_truncation)]
+        let coefficient = (-std::f64::consts::TAU * 10.0 / sample_rate).exp() as f32;
+        if !coefficient.is_finite() || !(0.0..1.0).contains(&coefficient) {
+            return Err(non_finite());
+        }
+        Ok(Self {
+            coefficient,
+            previous_input: [0.0; 2],
+            previous_output: [0.0; 2],
+        })
     }
-}
 
-fn initial_phase(base: f32, offset: f32) -> f32 {
-    (base + offset).rem_euclid(1.0)
+    fn process_mono(&mut self, output: &mut [f32]) -> Result<(), ProcessError> {
+        for sample in output {
+            let input = *sample;
+            if !input.is_finite() {
+                return Err(non_finite());
+            }
+            let value = input - self.previous_input[0] + self.coefficient * self.previous_output[0];
+            if !value.is_finite() {
+                return Err(non_finite());
+            }
+            self.previous_input[0] = input;
+            self.previous_output[0] = value;
+            *sample = value;
+        }
+        Ok(())
+    }
+
+    fn process_stereo(&mut self, left: &mut [f32], right: &mut [f32]) -> Result<(), ProcessError> {
+        if left.len() != right.len() {
+            return Err(invalid_state());
+        }
+        for (channel, output) in [left, right].into_iter().enumerate() {
+            for sample in output {
+                let input = *sample;
+                if !input.is_finite() {
+                    return Err(non_finite());
+                }
+                let value = input - self.previous_input[channel]
+                    + self.coefficient * self.previous_output[channel];
+                if !value.is_finite() {
+                    return Err(non_finite());
+                }
+                self.previous_input[channel] = input;
+                self.previous_output[channel] = value;
+                *sample = value;
+            }
+        }
+        Ok(())
+    }
+
+    fn reset(&mut self) {
+        self.previous_input = [0.0; 2];
+        self.previous_output = [0.0; 2];
+    }
 }
 
 fn native_waveform(waveform: OscillatorWaveform) -> DspOscillatorWaveform {
@@ -473,4 +777,44 @@ fn native_waveform(waveform: OscillatorWaveform) -> DspOscillatorWaveform {
 
 fn same_value(left: f32, right: f32) -> bool {
     left.total_cmp(&right).is_eq()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn phase_distortion_amount_zero_is_identity() {
+        for phase in [0.0, 0.1, 0.49, 0.5, 0.9, 0.999] {
+            assert_eq!(
+                phase_distortion_phase(phase, 0.0).to_bits(),
+                phase.to_bits()
+            );
+        }
+    }
+
+    #[test]
+    fn phase_distortion_mapping_is_continuous_at_the_breakpoint() {
+        let amount = 0.75;
+        let breakpoint = 0.5 - amount * 0.45;
+        let left = phase_distortion_phase(breakpoint - 1.0e-6, amount);
+        let right = phase_distortion_phase(breakpoint + 1.0e-6, amount);
+        assert!((left - right).abs() < 1.0e-5);
+        assert!((phase_distortion_phase(0.0, amount) - 0.0).abs() < f32::EPSILON);
+        assert!((phase_distortion_phase(0.999_999, amount) - 1.0).abs() < 1.0e-5);
+    }
+
+    #[test]
+    fn dc_blocker_reset_clears_history() {
+        let mut blocker = DcBlocker::new(48_000.0).expect("valid blocker");
+        let mut first = [1.0_f32, 1.0, 1.0];
+        blocker.process_mono(&mut first).expect("first process");
+        assert!(first[1] < 1.0);
+        blocker.reset();
+        let mut after_reset = [1.0_f32];
+        blocker
+            .process_mono(&mut after_reset)
+            .expect("process after reset");
+        assert_eq!(after_reset[0].to_bits(), 1.0_f32.to_bits());
+    }
 }
