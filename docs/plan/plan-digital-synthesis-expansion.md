@@ -2056,7 +2056,13 @@ RuntimeでComponent Frequencyを`f`、Sample Rateを`sr`とする。
 allowed_harmonic = floor((sr * 0.45) / f)
 ```
 
-`allowed_harmonic`以上の内容を持たない二つのBandを選び、Log2領域でCrossfadeする。
+`allowed_harmonic`を超える内容を持たないBandを安全な候補として選ぶ。隣接BandとのCrossfadeは、
+現在の再生周波数で両方のBandがこの条件を満たすOverlap範囲だけで行う。安全なOverlapを
+持たない周波数では、より低いHarmonic上限のBandへ移行してからCrossfadeする。
+
+Crossfadeの判定には`(sr * 0.45) / f`の連続値を使用し、Bandの安全性判定にはそのFloor値を
+使用する。現在Bandの上限を`H`、次のBandの上限を`L`とすると、最初のBand以外は
+`H`から直前Bandの上限まで、最初のBandは`H * (H / L)`までを安全なOverlapとする。
 
 最もFull-band側または最もSine側を超えた場合は端のBandを使用する。
 
@@ -2385,7 +2391,8 @@ Prepared Band数は最大13であるため、次のどちらかを採用する�
 
 実装は読みやすい方を選ぶ。
 
-Band境界では二つのBand間をCrossfadeする。
+Band境界では、両方のBandが現在のAllowed Harmonic以内に収まるOverlap範囲で二つのBand間を
+Crossfadeする。Crossfade中にAllowed Harmonicを超えるBandを混ぜない。
 
 Crossfadeしない離散切替は禁止する。
 
@@ -3515,6 +3522,7 @@ scripts/review/generate_digital_synthesis_package.py
 - RMS
 - DC
 - 推定Fundamental
+- 単音RenderのFundamentalはMIDI Noteから算出し、複数音RenderではZero Crossing値を補助値として保持する
 - Fixed Length Spectrum
 - Spectral Centroid
 - Harmonic / Non-harmonic Energy参考値

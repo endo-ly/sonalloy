@@ -21,6 +21,14 @@ BLOCK_SIZES = (32, 64, 257, 1024)
 EVENT_DURATION_FRAMES = 16_384
 
 
+def midi_note_frequency(note: int) -> float:
+    """Return the equal-tempered frequency represented by one MIDI note."""
+
+    if not 0 <= note <= 127:
+        raise ValueError(f"MIDI note is outside the 0-127 range: {note}")
+    return 440.0 * math.pow(2.0, (note - 69) / 12.0)
+
+
 def cli_command() -> list[str]:
     candidates = (
         ROOT / "target" / "debug" / "sonalloy.exe",

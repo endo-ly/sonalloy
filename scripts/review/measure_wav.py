@@ -105,7 +105,7 @@ def max_adjacent_frame_delta(
 
 
 def spectrum_reference(
-    left: list[float], sample_rate: int, frames: int, estimated_frequency: float
+    left: list[float], sample_rate: int, frames: int, fundamental_frequency: float
 ) -> dict[str, object]:
     fft_size = min(4096, frames)
     if fft_size < 4:
@@ -113,7 +113,7 @@ def spectrum_reference(
             "fft_size": fft_size,
             "peaks": [],
             "spectral_centroid_hz": 0.0,
-            "harmonic_reference_frequency_hz": estimated_frequency,
+            "harmonic_reference_frequency_hz": fundamental_frequency,
             "harmonic_tolerance_hz": 0.0,
             "harmonic_energy_ratio": 0.0,
             "non_harmonic_energy_ratio": 0.0,
@@ -146,15 +146,15 @@ def spectrum_reference(
         if total_energy > 0.0
         else 0.0
     )
-    harmonic_tolerance = max(bin_width * 1.5, estimated_frequency * 0.03)
+    harmonic_tolerance = max(bin_width * 1.5, fundamental_frequency * 0.03)
     harmonic_energy = 0.0
-    if estimated_frequency > 0.0 and harmonic_tolerance > 0.0:
+    if fundamental_frequency > 0.0 and harmonic_tolerance > 0.0:
         for magnitude, bin_index in magnitudes:
             frequency = bin_index * bin_width
-            harmonic = round(frequency / estimated_frequency)
+            harmonic = round(frequency / fundamental_frequency)
             if (
                 harmonic >= 1
-                and abs(frequency - harmonic * estimated_frequency)
+                and abs(frequency - harmonic * fundamental_frequency)
                 <= harmonic_tolerance
             ):
                 harmonic_energy += magnitude * magnitude
@@ -171,7 +171,7 @@ def spectrum_reference(
         "window_start_frame": start,
         "peaks": peaks,
         "spectral_centroid_hz": centroid,
-        "harmonic_reference_frequency_hz": estimated_frequency,
+        "harmonic_reference_frequency_hz": fundamental_frequency,
         "harmonic_tolerance_hz": harmonic_tolerance,
         "harmonic_energy_ratio": (
             harmonic_energy / total_energy if total_energy > 0.0 else 0.0
@@ -185,7 +185,10 @@ def spectrum_reference(
 
 
 def measure(
-    path: Path, block_sizes: list[int], include_spectrum: bool = False
+    path: Path,
+    block_sizes: list[int],
+    include_spectrum: bool = False,
+    fundamental_frequency_hz: float | None = None,
 ) -> dict[str, object]:
     sample_rate, channels, samples = read_float_wav(path)
     if len(samples) % channels != 0:
@@ -201,7 +204,16 @@ def measure(
     )
     dc = sum(samples) / len(samples) if samples else 0.0
     crossings = positive_zero_crossings(left)
-    estimated_frequency = crossings * sample_rate / frames if frames else 0.0
+    zero_crossing_frequency = crossings * sample_rate / frames if frames else 0.0
+    if fundamental_frequency_hz is not None and (
+        not math.isfinite(fundamental_frequency_hz) or fundamental_frequency_hz <= 0.0
+    ):
+        raise ValueError("fundamental_frequency_hz must be finite and positive")
+    estimated_frequency = (
+        fundamental_frequency_hz
+        if fundamental_frequency_hz is not None
+        else zero_crossing_frequency
+    )
     max_delta, large_count, candidate_frames = max_adjacent_frame_delta(
         samples, channels, frames
     )
@@ -215,7 +227,11 @@ def measure(
         "rms": rms,
         "dc": dc,
         "positive_zero_crossings_left": crossings,
+        "zero_crossing_frequency_hz": zero_crossing_frequency,
         "estimated_frequency_hz": estimated_frequency,
+        "fundamental_frequency_source": (
+            "provided" if fundamental_frequency_hz is not None else "zero_crossing"
+        ),
         "max_adjacent_frame_delta": max_delta,
         "large_discontinuity_threshold": 0.25,
         "large_discontinuity_count": large_count,
@@ -294,8 +310,13 @@ def main() -> None:
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--block-size", action="append", type=int, default=[])
+    parser.add_argument("--fundamental-frequency-hz", type=float)
     args = parser.parse_args()
-    metrics = measure(args.input, args.block_size)
+    metrics = measure(
+        args.input,
+        args.block_size,
+        fundamental_frequency_hz=args.fundamental_frequency_hz,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes((json.dumps(metrics, indent=2) + "\n").encode("utf-8"))
 

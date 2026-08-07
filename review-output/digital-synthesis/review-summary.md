@@ -98,6 +98,8 @@ Regression WAVは`audio/technical/regression-*.wav`、`audio/technical/sample-ra
 | Waveshaping + Wavefoldの役割差 | 未確認 |
 | Hard Sync + WavefoldのAliasと実用性 | 未確認 |
 | Unison + WavefoldのBeat・Stereo幅・Level | 未確認 |
+| FM Bellの倍音変化・減衰・音色成立 | 未確認 |
+| Phase Distortion Leadの音色成立 | 未確認 |
 | Digital Hybrid Leadの音色成立 | 未確認 |
 | Digital Hybrid Phraseのレイヤー一体感 | 未確認 |
 

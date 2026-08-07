@@ -15,6 +15,7 @@ from common import (
     ROOT,
     SAMPLE_RATE,
     measure_stereo,
+    midi_note_frequency,
     render_events,
     render_note as render_common_note,
     run_cli,
@@ -392,6 +393,7 @@ def main(review_root: Path) -> None:
         ("35-unison-wavefold.wav", "unison-wavefold", 48),
     ]
     note_audio_paths: list[Path] = []
+    fundamental_frequencies: dict[str, float] = {}
     for audio_name, definition_name, note in note_jobs:
         audio_path = technical_dir / audio_name
         render_common_note(
@@ -402,6 +404,7 @@ def main(review_root: Path) -> None:
             gate_seconds=COMPLEX_GATE_SECONDS,
         )
         note_audio_paths.append(audio_path)
+        fundamental_frequencies[audio_name] = midi_note_frequency(note)
     hard_sync_sweep_audio_path = technical_dir / "15-hard-sync-sweep.wav"
     render_events(
         definition_paths["hard-sync-sweep"],
@@ -450,6 +453,7 @@ def main(review_root: Path) -> None:
             gate_seconds=COMPLEX_GATE_SECONDS,
         )
         regression_paths[str(block_size)] = path
+        fundamental_frequencies[path.name] = midi_note_frequency(60)
     fresh_a = technical_dir / "regression-fresh-a.wav"
     fresh_b = technical_dir / "regression-fresh-b.wav"
     render_common_note(
@@ -459,6 +463,7 @@ def main(review_root: Path) -> None:
         BASE_BLOCK_SIZE,
         gate_seconds=COMPLEX_GATE_SECONDS,
     )
+    fundamental_frequencies[fresh_a.name] = midi_note_frequency(60)
     render_common_note(
         regression_definition,
         60,
@@ -466,6 +471,7 @@ def main(review_root: Path) -> None:
         BASE_BLOCK_SIZE,
         gate_seconds=COMPLEX_GATE_SECONDS,
     )
+    fundamental_frequencies[fresh_b.name] = midi_note_frequency(60)
 
     sample_rate_paths: dict[str, Path] = {}
     for sample_rate in (44_100, SAMPLE_RATE, 96_000):
@@ -479,6 +485,7 @@ def main(review_root: Path) -> None:
             COMPLEX_GATE_SECONDS,
         )
         sample_rate_paths[str(sample_rate)] = path
+        fundamental_frequencies[path.name] = midi_note_frequency(60)
 
     generated_audio_paths = (
         note_audio_paths
@@ -515,6 +522,7 @@ def main(review_root: Path) -> None:
             path,
             list(BLOCK_SIZES),
             include_spectrum=path.name in spectrum_names,
+            fundamental_frequency_hz=fundamental_frequencies.get(path.name),
         )
         values.update(measure_stereo(path))
         technical_metrics[path.name] = values

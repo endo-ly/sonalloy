@@ -267,52 +267,99 @@ fn select_band(
     frequency: f32,
     max_frequency: f32,
 ) -> Result<(usize, usize, f32), ProcessError> {
-    let first = prepared.bands.first().ok_or_else(invalid_state)?;
     let last_index = prepared
         .bands
         .len()
         .checked_sub(1)
         .ok_or_else(invalid_state)?;
-    let last = prepared.bands.get(last_index).ok_or_else(invalid_state)?;
-    let allowed = (f64::from(max_frequency) / f64::from(frequency)).max(1.0);
-    let first_limit = u32::try_from(first.max_harmonic)
-        .map_err(|_| invalid_state())
-        .map(f64::from)?;
-    let last_limit = u32::try_from(last.max_harmonic)
-        .map_err(|_| invalid_state())
-        .map(f64::from)?;
-    if allowed >= first_limit {
-        return Ok((0, 0, 0.0));
-    }
-    if allowed <= last_limit {
-        return Ok((last_index, last_index, 0.0));
-    }
-    for index in 0..last_index {
-        let higher = prepared.bands.get(index).ok_or_else(invalid_state)?;
-        let lower = prepared.bands.get(index + 1).ok_or_else(invalid_state)?;
-        let higher_limit = u32::try_from(higher.max_harmonic)
+    let harmonic_budget = (f64::from(max_frequency) / f64::from(frequency)).max(1.0);
+    let allowed_harmonic = harmonic_budget.floor().max(1.0);
+
+    let mut safe_index = None;
+    for (index, band) in prepared.bands.iter().enumerate() {
+        let limit = u32::try_from(band.max_harmonic)
             .map_err(|_| invalid_state())
             .map(f64::from)?;
-        let lower_limit = u32::try_from(lower.max_harmonic)
-            .map_err(|_| invalid_state())
-            .map(f64::from)?;
-        if allowed <= higher_limit && allowed >= lower_limit {
-            if allowed.total_cmp(&higher_limit).is_eq() {
-                return Ok((index, index, 0.0));
-            }
-            if allowed.total_cmp(&lower_limit).is_eq() {
-                return Ok((index + 1, index + 1, 0.0));
-            }
-            let position = allowed.log2();
-            let higher_position = higher_limit.log2();
-            let lower_position = lower_limit.log2();
-            #[allow(clippy::cast_possible_truncation)]
-            let fraction =
-                ((higher_position - position) / (higher_position - lower_position)) as f32;
-            return Ok((index, index + 1, fraction.clamp(0.0, 1.0)));
+        if limit <= allowed_harmonic {
+            safe_index = Some(index);
+            break;
         }
     }
-    Err(invalid_state())
+    let safe_index = if let Some(index) = safe_index {
+        index
+    } else {
+        let last_limit = u32::try_from(
+            prepared
+                .bands
+                .get(last_index)
+                .ok_or_else(invalid_state)?
+                .max_harmonic,
+        )
+        .map_err(|_| invalid_state())
+        .map(f64::from)?;
+        if last_limit > allowed_harmonic {
+            return Err(invalid_state());
+        }
+        last_index
+    };
+    if safe_index == last_index {
+        return Ok((last_index, last_index, 0.0));
+    }
+
+    let safe_limit = u32::try_from(
+        prepared
+            .bands
+            .get(safe_index)
+            .ok_or_else(invalid_state)?
+            .max_harmonic,
+    )
+    .map_err(|_| invalid_state())
+    .map(f64::from)?;
+    let transition_upper = if safe_index == 0 {
+        let next_limit = u32::try_from(
+            prepared
+                .bands
+                .get(safe_index + 1)
+                .ok_or_else(invalid_state)?
+                .max_harmonic,
+        )
+        .map_err(|_| invalid_state())
+        .map(f64::from)?;
+        if next_limit <= 0.0 {
+            return Err(invalid_state());
+        }
+        safe_limit * (safe_limit / next_limit)
+    } else {
+        u32::try_from(
+            prepared
+                .bands
+                .get(safe_index - 1)
+                .ok_or_else(invalid_state)?
+                .max_harmonic,
+        )
+        .map_err(|_| invalid_state())
+        .map(f64::from)?
+    };
+    if !safe_limit.is_finite()
+        || safe_limit <= 0.0
+        || !transition_upper.is_finite()
+        || transition_upper <= safe_limit
+    {
+        return Err(invalid_state());
+    }
+    if harmonic_budget >= transition_upper {
+        return Ok((safe_index, safe_index, 0.0));
+    }
+    if harmonic_budget <= safe_limit {
+        return Ok((safe_index + 1, safe_index + 1, 0.0));
+    }
+
+    let position = harmonic_budget.log2();
+    let upper_position = transition_upper.log2();
+    let safe_position = safe_limit.log2();
+    #[allow(clippy::cast_possible_truncation)]
+    let fraction = ((upper_position - position) / (upper_position - safe_position)) as f32;
+    Ok((safe_index, safe_index + 1, fraction.clamp(0.0, 1.0)))
 }
 
 fn select_frame(
@@ -413,7 +460,7 @@ mod tests {
     }
 
     #[test]
-    fn band_selection_crossfades_in_log_frequency_space() {
+    fn band_selection_crossfades_only_between_safe_bands() {
         let prepared = PreparedWavetable {
             frame_length: 64,
             frame_count: 1,
@@ -432,8 +479,8 @@ mod tests {
                 source_frames: 64,
             },
         };
-        let geometric_mean = (32.0_f64 * 16.0).sqrt();
         let max_frequency = 48_000.0_f32 * 0.45;
+        let geometric_mean = (64.0_f64 * 32.0).sqrt();
         #[allow(clippy::cast_possible_truncation)]
         let pair = select_band(
             &prepared,
@@ -444,9 +491,21 @@ mod tests {
         assert_eq!(pair.0, 0);
         assert_eq!(pair.1, 1);
         assert!((pair.2 - 0.5).abs() < 1.0e-6);
+        let lower_budget = 24.0_f64;
+        #[allow(clippy::cast_possible_truncation)]
+        let safe_pair = select_band(
+            &prepared,
+            (f64::from(max_frequency) / lower_budget) as f32,
+            max_frequency,
+        )
+        .expect("safe band pair");
+        assert_eq!(safe_pair.0, 1);
+        assert_eq!(safe_pair.1, 2);
+        assert!(prepared.bands[safe_pair.0].max_harmonic <= 24);
+        assert!(prepared.bands[safe_pair.1].max_harmonic <= 24);
         assert_eq!(
             select_band(&prepared, max_frequency / 16.0, max_frequency).expect("band boundary"),
-            (1, 1, 0.0)
+            (2, 2, 0.0)
         );
     }
 }

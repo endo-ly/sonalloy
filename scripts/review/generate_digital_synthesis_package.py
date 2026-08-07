@@ -20,6 +20,7 @@ from common import (
     SAMPLE_RATE,
     cli_command,
     measure_stereo,
+    midi_note_frequency,
     render_events,
     render_midi,
     render_note,
@@ -86,6 +87,46 @@ MUSICAL_AUDIO = [
     "39-digital-hybrid-lead.wav",
     "40-digital-hybrid-phrase.wav",
 ]
+REFERENCE_NOTES = {
+    "01-sine-single-frame.wav": 60,
+    "02-saw-single-frame-low.wav": 36,
+    "03-saw-single-frame-high.wav": 108,
+    "04-position-0.wav": 60,
+    "05-position-05.wav": 60,
+    "06-position-1.wav": 60,
+    "07-position-sweep.wav": 60,
+    "08-position-lfo.wav": 60,
+    "09-unison-5-stereo.wav": 48,
+    "10-band-boundary-sweep.wav": 108,
+    "11-operator-pm-stack4-bell.wav": 60,
+    "12-operator-fm-stack4-bass.wav": 36,
+    "13-operator-am-two-stacks.wav": 60,
+    "14-operator-ring-two-stacks.wav": 60,
+    "15-operator-algorithm-stack4.wav": 72,
+    "16-operator-algorithm-two-stacks.wav": 60,
+    "17-operator-algorithm-shared.wav": 60,
+    "18-operator-ratio-sweep.wav": 60,
+    "19-operator-modulation-amount-sweep.wav": 60,
+    "20-operator-feedback-sweep.wav": 60,
+    "21-operator-envelope-bell.wav": 60,
+    "22-operator-unison-4.wav": 48,
+    "24-phase-distortion-025.wav": 60,
+    "25-phase-distortion-075.wav": 60,
+    "26-phase-distortion-sweep.wav": 60,
+    "27-feedback-03.wav": 60,
+    "28-feedback-08.wav": 60,
+    "29-feedback-sweep.wav": 60,
+    "30-wavefold-025.wav": 48,
+    "31-wavefold-075.wav": 48,
+    "32-wavefold-sweep.wav": 48,
+    "33-waveshaping-wavefold.wav": 48,
+    "34-hard-sync-wavefold.wav": 60,
+    "35-unison-wavefold.wav": 48,
+    "36-wavetable-motion-bass.wav": 36,
+    "37-four-operator-fm-bell.wav": 60,
+    "38-phase-distortion-lead.wav": 60,
+    "39-digital-hybrid-lead.wav": 60,
+}
 
 
 def _move_to_support(path: Path, technical_dir: Path) -> Path:
@@ -100,6 +141,40 @@ def _hybrid_definition() -> dict[str, object]:
     value = json.loads(source_path.read_text(encoding="utf-8"))
     sample_asset = value["layers"][2]["generator"]["sample"]["zones"][0]["asset"]
     sample_asset["path"] = "../assets/metal-hit.wav"
+    return value
+
+
+def _phase_distortion_lead_definition(
+    source: dict[str, object],
+) -> dict[str, object]:
+    value = copy.deepcopy(source)
+    value["metadata"] = {
+        "name": "Phase Distortion Lead",
+        "author": "Sonalloy",
+        "description": "Phase-distorted sine lead with controlled unison",
+    }
+    value.pop("modulation", None)
+    for layer in value["layers"]:
+        layer["enabled"] = layer["id"] == "hard_sync_lead"
+    lead_layer = next(
+        layer for layer in value["layers"] if layer["id"] == "hard_sync_lead"
+    )
+    lead_layer["trigger"]["key_min"] = 36
+    lead_layer["trigger"]["key_max"] = 108
+    lead_layer["gain_db"] = -12.0
+    oscillator = lead_layer["generator"]["oscillator"]
+    oscillator["waveform"] = {"type": "sine"}
+    oscillator["hard_sync"] = None
+    oscillator["waveshaping"] = {"amount": 0.12}
+    oscillator["phase_distortion"] = {"amount": 0.55}
+    oscillator["feedback"] = {"amount": 0.12}
+    oscillator["wavefold"] = None
+    oscillator["unison"] = {
+        "voices": 3,
+        "detune_cents": 7.0,
+        "stereo_spread": 0.3,
+        "phase_spread": 0.05,
+    }
     return value
 
 
@@ -172,6 +247,8 @@ def _final_summary() -> str:
             "Waveshaping + Wavefoldの役割差",
             "Hard Sync + WavefoldのAliasと実用性",
             "Unison + WavefoldのBeat・Stereo幅・Level",
+            "FM Bellの倍音変化・減衰・音色成立",
+            "Phase Distortion Leadの音色成立",
             "Digital Hybrid Leadの音色成立",
             "Digital Hybrid Phraseのレイヤー一体感",
         ]
@@ -265,23 +342,24 @@ def finalize_integrated_package(review_root: Path) -> None:
         support_paths["12-motion-bass.wav"],
         technical_dir / "36-wavetable-motion-bass.wav",
     )
-    shutil.copy2(
-        support_paths["15-operator-fm-stack4-bass.wav"],
-        technical_dir / "37-four-operator-fm-bell.wav",
-    )
     for source_name, target_name in OPERATOR_AUDIO_REMAP.items():
         shutil.copy2(support_paths[source_name], technical_dir / target_name)
     for name in COMPLEX_AUDIO:
         shutil.copy2(staging_technical / name, technical_dir / name)
-    shutil.copy2(
-        staging_technical / "24-phase-distortion-025.wav",
-        technical_dir / "38-phase-distortion-lead.wav",
-    )
 
     for path in staging_definitions.glob("*.json"):
         shutil.copy2(path, definition_dir / path.name)
     for path in staging_events.glob("*.json"):
         shutil.copy2(path, event_dir / path.name)
+    phase_distortion_lead_path = definition_dir / "phase-distortion-lead.json"
+    phase_distortion_source = json.loads(
+        (definition_dir / "phase-distortion-025.json").read_text(encoding="utf-8")
+    )
+    write_definition(
+        phase_distortion_lead_path,
+        _phase_distortion_lead_definition(phase_distortion_source),
+    )
+    run_cli(["instrument", "validate", str(phase_distortion_lead_path), "--json"])
     shutil.copy2(staging_root / "inspect.json", review_root / "complex-inspect.json")
     shutil.copy2(
         staging_root / "phase-inspect.json", review_root / "complex-phase-inspect.json"
@@ -347,6 +425,20 @@ def finalize_integrated_package(review_root: Path) -> None:
         BASE_BLOCK_SIZE,
         gate_seconds=0.45,
     )
+    render_note(
+        definition_dir / "four-operator-fm-bell.json",
+        60,
+        technical_dir / "37-four-operator-fm-bell.wav",
+        BASE_BLOCK_SIZE,
+        gate_seconds=0.35,
+    )
+    render_note(
+        phase_distortion_lead_path,
+        60,
+        technical_dir / "38-phase-distortion-lead.wav",
+        BASE_BLOCK_SIZE,
+        gate_seconds=0.35,
+    )
     render_events(
         hybrid_path,
         hybrid_events,
@@ -370,8 +462,15 @@ def finalize_integrated_package(review_root: Path) -> None:
                 "12-operator-fm-stack4-bass.wav",
                 "24-phase-distortion-025.wav",
                 "30-wavefold-025.wav",
+                "37-four-operator-fm-bell.wav",
+                "38-phase-distortion-lead.wav",
                 "39-digital-hybrid-lead.wav",
             },
+            fundamental_frequency_hz=(
+                midi_note_frequency(REFERENCE_NOTES[name])
+                if name in REFERENCE_NOTES
+                else None
+            ),
         )
         values.update(measure_stereo(path))
         final_technical[name] = values
@@ -407,6 +506,13 @@ def finalize_integrated_package(review_root: Path) -> None:
         "phrase_events": str(hybrid_events.relative_to(review_root)),
         "phrase_midi": str(midi_fixture.relative_to(review_root)),
         "midi_render": midi_metrics,
+    }
+    old_metrics["musical_references"] = {
+        "36-wavetable-motion-bass.wav": "definitions/motion-bass.json",
+        "37-four-operator-fm-bell.wav": "definitions/four-operator-fm-bell.json",
+        "38-phase-distortion-lead.wav": "definitions/phase-distortion-lead.json",
+        "39-digital-hybrid-lead.wav": "definitions/digital-hybrid-reference.json",
+        "40-digital-hybrid-phrase.wav": "definitions/digital-hybrid-reference.json",
     }
     old_metrics["integrated_audio_order"] = final_audio
     write_utf8(review_root / "metrics.json", json.dumps(old_metrics, ensure_ascii=False, indent=2) + "\n")
@@ -535,6 +641,12 @@ def operator_definition(
     unison: dict[str, object] | None = None,
     polyphony: int = 16,
     envelope_decay: tuple[float, float, float, float] = (0.18, 0.12, 0.08, 0.04),
+    envelope_sustain: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0),
+    note_min: int = 0,
+    note_max: int = 127,
+    ratios: tuple[float, float, float, float] = (1.0, 2.0, 3.0, 5.0),
+    modulation_amounts: tuple[float, float, float, float] | None = None,
+    feedback_values: tuple[float, float, float, float] | None = None,
 ) -> dict[str, object]:
     topology_values: dict[str, tuple[list[float], list[float]]] = {
         "stack_4": ([0.9, 0.0, 0.0, 0.0], [0.0, 2.2, 1.8, 2.6]),
@@ -549,12 +661,18 @@ def operator_definition(
     levels, amounts = topology_values[algorithm]
     if mode in ("amplitude", "ring"):
         amounts = [amount * 0.18 for amount in amounts]
+    if modulation_amounts is not None:
+        amounts = list(modulation_amounts)
     feedback = [0.0, 0.0, 0.0, 0.28] if mode in ("phase", "frequency") else [0.0] * 4
+    if feedback_values is not None:
+        feedback = list(feedback_values)
     operators = []
-    for index, (level, amount, decay) in enumerate(zip(levels, amounts, envelope_decay)):
+    for index, (level, amount, decay, sustain) in enumerate(
+        zip(levels, amounts, envelope_decay, envelope_sustain)
+    ):
         operators.append(
             {
-                "ratio": [1.0, 2.0, 3.0, 5.0][index],
+                "ratio": ratios[index],
                 "detune_cents": 0.0,
                 "level": level,
                 "modulation_amount": amount,
@@ -563,7 +681,7 @@ def operator_definition(
                 "envelope": {
                     "attack_seconds": 0.0,
                     "decay_seconds": decay,
-                    "sustain_level": 1.0,
+                    "sustain_level": sustain,
                     "release_seconds": 0.08,
                 },
             }
@@ -584,8 +702,8 @@ def operator_definition(
                 "id": "operator",
                 "enabled": True,
                 "trigger": {
-                    "key_min": 0,
-                    "key_max": 127,
+                    "key_min": note_min,
+                    "key_max": note_max,
                     "velocity_min": 1,
                     "velocity_max": 127,
                 },
@@ -614,6 +732,21 @@ def operator_definition(
         "global_processors": [],
         "modulation": None,
     }
+
+
+def four_operator_fm_bell_definition() -> dict[str, object]:
+    return operator_definition(
+        "Four Operator FM Bell",
+        "frequency",
+        "stack_4",
+        envelope_decay=(0.9, 0.22, 0.12, 0.06),
+        envelope_sustain=(0.18, 0.04, 0.02, 0.0),
+        note_min=36,
+        note_max=108,
+        ratios=(1.0, 2.71, 4.07, 6.83),
+        modulation_amounts=(0.0, 3.8, 2.7, 2.1),
+        feedback_values=(0.0, 0.0, 0.0, 0.18),
+    )
 
 
 def note_events(note: int, note_id: int = 1, release_frame: int = 12_000) -> list[dict[str, object]]:
@@ -884,6 +1017,7 @@ def main() -> None:
         "operator-fm-stack4": operator_definition(
             "FM Stack 4 Bass", "frequency", "stack_4"
         ),
+        "four-operator-fm-bell": four_operator_fm_bell_definition(),
         "operator-am-two-stacks": operator_definition(
             "AM Two Stacks", "amplitude", "two_stacks"
         ),
@@ -1099,24 +1233,28 @@ def main() -> None:
         ("12-motion-bass.wav", "motion-bass", 36),
     ]
     generated_audio: dict[str, Path] = {}
+    generated_fundamental_frequencies: dict[str, float] = {}
     for audio_name, definition_name, note in note_jobs:
         path = technical_dir / audio_name
         render_note(definition_paths[definition_name], note, path, BASE_BLOCK_SIZE, gate_seconds=0.35)
         generated_audio[audio_name] = path
+        generated_fundamental_frequencies[audio_name] = midi_note_frequency(note)
 
     event_jobs = [
-        ("07-position-sweep.wav", "position-sweep", position_sweep_events),
-        ("11-mod-wheel-position.wav", "mod-wheel-position", mod_wheel_events),
-        ("10-band-boundary-sweep.wav", "band-boundary-sweep", band_boundary_events),
+        ("07-position-sweep.wav", "position-sweep", position_sweep_events, 60),
+        ("11-mod-wheel-position.wav", "mod-wheel-position", mod_wheel_events, 60),
+        ("10-band-boundary-sweep.wav", "band-boundary-sweep", band_boundary_events, 108),
     ]
-    for audio_name, definition_name, events in event_jobs:
+    for audio_name, definition_name, events, note in event_jobs:
         path = technical_dir / audio_name
         render_events(definition_paths[definition_name], events, path, BASE_BLOCK_SIZE)
         generated_audio[audio_name] = path
+        generated_fundamental_frequencies[audio_name] = midi_note_frequency(note)
 
     missing_audio = technical_dir / "13-missing-asset-fallback.wav"
     render_note(definition_paths["missing-asset-fallback"], 60, missing_audio, BASE_BLOCK_SIZE)
     generated_audio[missing_audio.name] = missing_audio
+    generated_fundamental_frequencies[missing_audio.name] = midi_note_frequency(60)
 
     operator_note_jobs = [
         ("14-operator-pm-stack4-bell.wav", "operator-pm-stack4", 60),
@@ -1139,6 +1277,7 @@ def main() -> None:
             gate_seconds=0.35,
         )
         generated_audio[audio_name] = path
+        generated_fundamental_frequencies[audio_name] = midi_note_frequency(note)
 
     operator_event_jobs = [
         (
@@ -1180,7 +1319,7 @@ def main() -> None:
             "03-saw-single-frame-high.wav",
             "10-band-boundary-sweep.wav",
             "12-motion-bass.wav",
-        })
+        }, fundamental_frequency_hz=generated_fundamental_frequencies.get(path.name))
         values["steady_state_frequency_hz"] = steady_state_frequency(path)
         values.update(measure_stereo(path))
         technical_metrics[path.name] = values
@@ -1224,7 +1363,12 @@ def main() -> None:
         render_note(definition_paths["position-05"], 60, path, BASE_BLOCK_SIZE, sample_rate)
         sample_rate_paths[str(sample_rate)] = path
     sample_rate_metrics = {
-        sample_rate: measure(path, list(BLOCK_SIZES), include_spectrum=True)
+        sample_rate: measure(
+            path,
+            list(BLOCK_SIZES),
+            include_spectrum=True,
+            fundamental_frequency_hz=midi_note_frequency(60),
+        )
         for sample_rate, path in sample_rate_paths.items()
     }
 
@@ -1267,7 +1411,12 @@ def main() -> None:
         )
         operator_sample_rate_paths[str(sample_rate)] = path
     operator_sample_rate_metrics = {
-        sample_rate: measure(path, list(BLOCK_SIZES), include_spectrum=True)
+        sample_rate: measure(
+            path,
+            list(BLOCK_SIZES),
+            include_spectrum=True,
+            fundamental_frequency_hz=midi_note_frequency(60),
+        )
         for sample_rate, path in operator_sample_rate_paths.items()
     }
 
@@ -1421,7 +1570,11 @@ def main() -> None:
         "position_sweep_boundary_differences": position_sweep_boundary_metrics,
         "band_boundary_differences": band_boundary_metrics,
         "stereo_unison": measure_stereo(generated_audio["09-unison-5-stereo.wav"]),
-        "missing_asset_fallback": measure(generated_audio[missing_audio.name], list(BLOCK_SIZES)),
+        "missing_asset_fallback": measure(
+            generated_audio[missing_audio.name],
+            list(BLOCK_SIZES),
+            fundamental_frequency_hz=midi_note_frequency(60),
+        ),
         "layout_error_diagnostics": sorted(layout_codes),
         "missing_asset_diagnostics": [
             diagnostic["code"] for diagnostic in missing_inspect["diagnostics"]

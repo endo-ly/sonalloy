@@ -111,7 +111,7 @@ flowchart LR
 - 保存先：`review-output/digital-synthesis/`（assets / audio/technical / definitions / events / midi / `inspect.json` / `operator-inspect.json` / `complex-inspect.json` / `complex-phase-inspect.json` / `digital-hybrid-inspect.json` / metrics.json / review-summary.md）
 - 生成：Windowsでは`py -3 scripts/review/generate_digital_synthesis_package.py`、それ以外では`python3 scripts/review/generate_digital_synthesis_package.py`
 - 内容：Wavetable 1〜10、4 Operator Modulation 11〜23、Complex Oscillator 24〜35、Wavetable Motion Bass / FM Bell / Phase Distortion Lead / Digital Hybrid Lead / Digital Hybrid Phrase 36〜40を同じCLI経路から確認する
-- Metrics：全40音源のFinite性、Peak / RMS / DC、推定Fundamental、Spectrum / Spectral Centroid / Harmonic・Non-harmonic Energy参考値、Stereo差分、Adjacent Frame差分、Parameter Sweep境界差分、Sample Rate 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024、Fresh Runtime / Reset、Prepared Wavetable Byte数、Operator / Complexの性能値
+- Metrics：全40音源のFinite性、Peak / RMS / DC、単音RenderではMIDI Noteから算出したFundamental、複数音RenderではZero Crossing補助値、Spectrum / Spectral Centroid / Harmonic・Non-harmonic Energy参考値、Stereo差分、Adjacent Frame差分、Parameter Sweep境界差分、Sample Rate 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024、Fresh Runtime / Reset、Prepared Wavetable Byte数、Operator / Complexの性能値
 - 自動確認：Definition Validate、Inspect JSON、Wavetable Layout / Missing Asset診断、Operator topology / Allocation 0 / Reset、Native Wavefolderの有限値境界、Digital Hybrid 3レイヤーValidate・Events / MIDI Render
 - 人間の確認：Frame / Position、Band切替、高音域Alias、PM / FM / AM / Ring、Algorithm、Envelope、Feedback、Phase Distortion、Wavefold、Unison、Polyphony、Digital Hybridの音色成立
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
