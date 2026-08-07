@@ -26,6 +26,7 @@ pub(crate) const NULL_HANDLE: c_int = 2;
 pub(crate) const NOT_PREPARED: c_int = 3;
 pub(crate) const UNSUPPORTED_WAVEFORM: c_int = 4;
 pub(crate) const NATIVE_EXCEPTION: c_int = 5;
+pub(crate) const NON_FINITE: c_int = 6;
 pub(crate) const WAVEFORM_SINE: c_int = 0;
 pub(crate) const WAVEFORM_SAW: c_int = 1;
 pub(crate) const WAVEFORM_TRIANGLE: c_int = 2;

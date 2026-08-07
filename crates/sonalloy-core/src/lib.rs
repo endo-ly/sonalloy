@@ -14,7 +14,6 @@ pub use compiler::{
     CompiledOperatorModulation, CompiledOperatorParameters, CompiledOperatorTopology,
     CompiledWavetable, CompiledWavetableParameters, PreparedWavetable, PreparedWavetableBand,
     PreparedWavetableFrame, WavetableSourceMetadata, compile_instrument,
-    operator_effective_max_frequency, wavetable_effective_max_frequency,
 };
 pub use definition::{
     AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, DelayProcessorDefinition,

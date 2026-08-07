@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
-use crate::compiler::{CompiledWavetable, PreparedWavetable, wavetable_effective_max_frequency};
+use crate::compiler::{CompiledWavetable, PreparedWavetable};
 use crate::generator_parameters::{UNISON_DETUNE, UNISON_SPREAD, WAVETABLE_POSITION};
-use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
+use crate::process::{ProcessError, ProcessSpec};
 
 use super::super::interpolation::cubic_interpolate;
 use super::super::mix::mix_component;
 use super::super::modulation::{LayerGeneratorTargetSpan, ValueSpan};
-use super::validate_generator_span;
+use super::{
+    base_frequencies, ensure_finite, initial_phase, invalid_state, non_finite,
+    validate_generator_span,
+};
 
 struct WavetableComponentRuntime {
     phase: f32,
@@ -18,6 +21,7 @@ pub(crate) struct WavetableRuntime {
     prepared: Option<Arc<PreparedWavetable>>,
     phase_reset: bool,
     phase: f32,
+    effective_max_frequency: f32,
     unison: Arc<crate::compiler::CompiledUnison>,
 }
 
@@ -27,7 +31,11 @@ impl WavetableRuntime {
         _spec: ProcessSpec,
     ) -> Result<Self, ProcessError> {
         let voices = compiled.unison.position_distribution.len();
-        if voices == 0 || compiled.unison.phase_distribution.len() != voices {
+        if voices == 0
+            || compiled.unison.phase_distribution.len() != voices
+            || !compiled.effective_max_frequency.is_finite()
+            || compiled.effective_max_frequency <= 0.0
+        {
             return Err(invalid_state());
         }
         let components = compiled
@@ -43,6 +51,7 @@ impl WavetableRuntime {
             prepared: compiled.prepared.clone(),
             phase_reset: compiled.phase_reset,
             phase: compiled.phase,
+            effective_max_frequency: compiled.effective_max_frequency,
             unison: Arc::clone(&compiled.unison),
         })
     }
@@ -103,7 +112,7 @@ impl WavetableRuntime {
         validate_generator_span(detune, UNISON_DETUNE)?;
         validate_generator_span(spread, UNISON_SPREAD)?;
         let (base_start, base_end) = base_frequencies(note_number, tuning_start, tuning_end)?;
-        let max_frequency = wavetable_effective_max_frequency(sample_rate);
+        let max_frequency = self.effective_max_frequency;
 
         if self.components.len() == 1 {
             let component = self.components.first_mut().ok_or_else(invalid_state)?;
@@ -203,7 +212,14 @@ fn render_component(
         let current_detune = detune.value_at(index, frames);
         let frequency = component_frequency(base, distribution, current_detune, max_frequency)?;
         let current_position = position.value_at(index, frames);
-        *sample = read_sample(prepared, *phase, frequency, current_position, sample_rate)?;
+        *sample = read_sample(
+            prepared,
+            *phase,
+            frequency,
+            current_position,
+            sample_rate,
+            max_frequency,
+        )?;
         #[allow(clippy::cast_possible_truncation)]
         let increment = (f64::from(frequency) / sample_rate) as f32;
         *phase = (*phase + increment).rem_euclid(1.0);
@@ -217,6 +233,7 @@ fn read_sample(
     frequency: f32,
     position: f32,
     sample_rate: f64,
+    max_frequency: f32,
 ) -> Result<f32, ProcessError> {
     if !phase.is_finite()
         || !frequency.is_finite()
@@ -224,10 +241,12 @@ fn read_sample(
         || !position.is_finite()
         || !sample_rate.is_finite()
         || sample_rate <= 0.0
+        || !max_frequency.is_finite()
+        || max_frequency <= 0.0
     {
         return Err(ProcessError::InvalidFrequency);
     }
-    let (lower_band, upper_band, band_fraction) = select_band(prepared, frequency, sample_rate)?;
+    let (lower_band, upper_band, band_fraction) = select_band(prepared, frequency, max_frequency)?;
     let (left_frame, right_frame, frame_fraction) = select_frame(prepared, position)?;
     let lower_left = interpolate_frame(prepared, lower_band, left_frame, phase)?;
     let lower_right = interpolate_frame(prepared, lower_band, right_frame, phase)?;
@@ -246,7 +265,7 @@ fn read_sample(
 fn select_band(
     prepared: &PreparedWavetable,
     frequency: f32,
-    sample_rate: f64,
+    max_frequency: f32,
 ) -> Result<(usize, usize, f32), ProcessError> {
     let first = prepared.bands.first().ok_or_else(invalid_state)?;
     let last_index = prepared
@@ -255,7 +274,7 @@ fn select_band(
         .checked_sub(1)
         .ok_or_else(invalid_state)?;
     let last = prepared.bands.get(last_index).ok_or_else(invalid_state)?;
-    let allowed = (sample_rate * 0.45 / f64::from(frequency)).max(1.0);
+    let allowed = (f64::from(max_frequency) / f64::from(frequency)).max(1.0);
     let first_limit = u32::try_from(first.max_harmonic)
         .map_err(|_| invalid_state())
         .map(f64::from)?;
@@ -343,25 +362,6 @@ fn interpolate_frame(
     }
 }
 
-fn base_frequencies(
-    note_number: u8,
-    tuning_start: f32,
-    tuning_end: f32,
-) -> Result<(f32, f32), ProcessError> {
-    let start = crate::compiler::midi_note_frequency(
-        note_number,
-        crate::compiler::cents_to_ratio(tuning_start),
-    );
-    let end = crate::compiler::midi_note_frequency(
-        note_number,
-        crate::compiler::cents_to_ratio(tuning_end),
-    );
-    if !start.is_finite() || !end.is_finite() || start <= 0.0 || end <= 0.0 {
-        return Err(ProcessError::InvalidFrequency);
-    }
-    Ok((start, end))
-}
-
 fn component_frequency(
     base: f32,
     distribution: f32,
@@ -383,30 +383,6 @@ fn component_frequency(
         return Err(ProcessError::InvalidFrequency);
     }
     Ok(frequency.clamp(f32::MIN_POSITIVE, max_frequency))
-}
-
-fn initial_phase(base: f32, offset: f32) -> f32 {
-    (base + offset).rem_euclid(1.0)
-}
-
-fn ensure_finite(samples: &[f32]) -> Result<(), ProcessError> {
-    if samples.iter().all(|sample| sample.is_finite()) {
-        Ok(())
-    } else {
-        Err(non_finite())
-    }
-}
-
-fn non_finite() -> ProcessError {
-    ProcessError::ProcessorFailure {
-        kind: ProcessorFailureKind::NonFinite,
-    }
-}
-
-fn invalid_state() -> ProcessError {
-    ProcessError::ProcessorFailure {
-        kind: ProcessorFailureKind::InvalidState,
-    }
 }
 
 #[cfg(test)]
@@ -457,18 +433,19 @@ mod tests {
             },
         };
         let geometric_mean = (32.0_f64 * 16.0).sqrt();
+        let max_frequency = 48_000.0_f32 * 0.45;
         #[allow(clippy::cast_possible_truncation)]
         let pair = select_band(
             &prepared,
-            (48_000.0 * 0.45 / geometric_mean) as f32,
-            48_000.0,
+            (f64::from(max_frequency) / geometric_mean) as f32,
+            max_frequency,
         )
         .expect("band pair");
         assert_eq!(pair.0, 0);
         assert_eq!(pair.1, 1);
         assert!((pair.2 - 0.5).abs() < 1.0e-6);
         assert_eq!(
-            select_band(&prepared, 48_000.0 * 0.45 / 16.0, 48_000.0).expect("band boundary"),
+            select_band(&prepared, max_frequency / 16.0, max_frequency).expect("band boundary"),
             (1, 1, 0.0)
         );
     }

@@ -428,6 +428,11 @@ impl ProcessError {
             }
             sonalloy_dsp_sys::DspWavefolderError::InvalidArgument => DspFailureKind::InvalidInput,
             sonalloy_dsp_sys::DspWavefolderError::NotPrepared => DspFailureKind::InvalidState,
+            sonalloy_dsp_sys::DspWavefolderError::NonFinite => {
+                return Self::ProcessorFailure {
+                    kind: ProcessorFailureKind::NonFinite,
+                };
+            }
             sonalloy_dsp_sys::DspWavefolderError::NullHandle
             | sonalloy_dsp_sys::DspWavefolderError::NativeException
             | sonalloy_dsp_sys::DspWavefolderError::Unknown(_) => DspFailureKind::BackendFailure,

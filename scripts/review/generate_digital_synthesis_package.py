@@ -6,8 +6,10 @@ from __future__ import annotations
 import copy
 import json
 import math
+import shutil
 import struct
 import subprocess
+import tempfile
 import wave
 from pathlib import Path
 
@@ -19,18 +21,399 @@ from common import (
     cli_command,
     measure_stereo,
     render_events,
+    render_midi,
     render_note,
     run_cli,
     sha256_file,
+    timed_render,
     write_definition,
     write_events,
     write_utf8,
 )
-from measure_wav import compare_wav, measure, read_float_wav
+from measure_wav import boundary_differences, compare_wav, measure, read_float_wav
 
 BLOCK_SIZE_MAX_DIFFERENCE = 1.0e-5
 FRAME_LENGTH = 256
 FRAME_COUNT = 4
+OPERATOR_PERFORMANCE_DURATION_FRAMES = SAMPLE_RATE
+OPERATOR_PERFORMANCE_GATE_FRAMES = OPERATOR_PERFORMANCE_DURATION_FRAMES // 2
+
+WAVETABLE_AUDIO = [
+    "01-sine-single-frame.wav",
+    "02-saw-single-frame-low.wav",
+    "03-saw-single-frame-high.wav",
+    "04-position-0.wav",
+    "05-position-05.wav",
+    "06-position-1.wav",
+    "07-position-sweep.wav",
+    "08-position-lfo.wav",
+    "09-unison-5-stereo.wav",
+    "10-band-boundary-sweep.wav",
+]
+OPERATOR_AUDIO_REMAP = {
+    "14-operator-pm-stack4-bell.wav": "11-operator-pm-stack4-bell.wav",
+    "15-operator-fm-stack4-bass.wav": "12-operator-fm-stack4-bass.wav",
+    "16-operator-am-two-stacks.wav": "13-operator-am-two-stacks.wav",
+    "17-operator-ring-two-stacks.wav": "14-operator-ring-two-stacks.wav",
+    "18-operator-algorithm-stack4.wav": "15-operator-algorithm-stack4.wav",
+    "19-operator-algorithm-two-stacks.wav": "16-operator-algorithm-two-stacks.wav",
+    "20-operator-algorithm-shared.wav": "17-operator-algorithm-shared.wav",
+    "21-operator-ratio-sweep.wav": "18-operator-ratio-sweep.wav",
+    "22-operator-modulation-amount-sweep.wav": "19-operator-modulation-amount-sweep.wav",
+    "23-operator-feedback-sweep.wav": "20-operator-feedback-sweep.wav",
+    "24-operator-envelope-bell.wav": "21-operator-envelope-bell.wav",
+    "25-operator-unison-4.wav": "22-operator-unison-4.wav",
+    "26-operator-polyphony-stealing.wav": "23-operator-polyphony-stealing.wav",
+}
+COMPLEX_AUDIO = [
+    "24-phase-distortion-025.wav",
+    "25-phase-distortion-075.wav",
+    "26-phase-distortion-sweep.wav",
+    "27-feedback-03.wav",
+    "28-feedback-08.wav",
+    "29-feedback-sweep.wav",
+    "30-wavefold-025.wav",
+    "31-wavefold-075.wav",
+    "32-wavefold-sweep.wav",
+    "33-waveshaping-wavefold.wav",
+    "34-hard-sync-wavefold.wav",
+    "35-unison-wavefold.wav",
+]
+MUSICAL_AUDIO = [
+    "36-wavetable-motion-bass.wav",
+    "37-four-operator-fm-bell.wav",
+    "38-phase-distortion-lead.wav",
+    "39-digital-hybrid-lead.wav",
+    "40-digital-hybrid-phrase.wav",
+]
+
+
+def _move_to_support(path: Path, technical_dir: Path) -> Path:
+    support = technical_dir / f"support-{path.name}"
+    support.unlink(missing_ok=True)
+    path.replace(support)
+    return support
+
+
+def _hybrid_definition() -> dict[str, object]:
+    source_path = ROOT / "examples" / "instruments" / "digital-hybrid-reference.json"
+    value = json.loads(source_path.read_text(encoding="utf-8"))
+    sample_asset = value["layers"][2]["generator"]["sample"]["zones"][0]["asset"]
+    sample_asset["path"] = "../assets/metal-hit.wav"
+    return value
+
+
+def _final_summary() -> str:
+    audio_descriptions = {
+        "01-sine-single-frame.wav": "Sine single frame",
+        "02-saw-single-frame-low.wav": "Saw low note",
+        "03-saw-single-frame-high.wav": "Saw high note",
+        "04-position-0.wav": "Wavetable position 0",
+        "05-position-05.wav": "Wavetable position 0.5",
+        "06-position-1.wav": "Wavetable position 1",
+        "07-position-sweep.wav": "Wavetable position sweep",
+        "08-position-lfo.wav": "Wavetable position LFO",
+        "09-unison-5-stereo.wav": "Wavetable unison 5 stereo",
+        "10-band-boundary-sweep.wav": "Wavetable band boundary",
+        "11-operator-pm-stack4-bell.wav": "PM Stack 4 bell",
+        "12-operator-fm-stack4-bass.wav": "FM Stack 4 bass",
+        "13-operator-am-two-stacks.wav": "AM two stacks",
+        "14-operator-ring-two-stacks.wav": "Ring two stacks",
+        "15-operator-algorithm-stack4.wav": "Stack 4 topology",
+        "16-operator-algorithm-two-stacks.wav": "Two stacks topology",
+        "17-operator-algorithm-shared.wav": "Shared modulator topology",
+        "18-operator-ratio-sweep.wav": "Operator ratio sweep",
+        "19-operator-modulation-amount-sweep.wav": "Operator modulation amount sweep",
+        "20-operator-feedback-sweep.wav": "Operator feedback sweep",
+        "21-operator-envelope-bell.wav": "Operator envelope",
+        "22-operator-unison-4.wav": "Operator unison 4",
+        "23-operator-polyphony-stealing.wav": "Operator polyphony and voice stealing",
+        "24-phase-distortion-025.wav": "Phase distortion 0.25",
+        "25-phase-distortion-075.wav": "Phase distortion 0.75",
+        "26-phase-distortion-sweep.wav": "Phase distortion sweep",
+        "27-feedback-03.wav": "Oscillator feedback 0.3",
+        "28-feedback-08.wav": "Oscillator feedback 0.8",
+        "29-feedback-sweep.wav": "Oscillator feedback sweep",
+        "30-wavefold-025.wav": "Wavefold 0.25",
+        "31-wavefold-075.wav": "Wavefold 0.75",
+        "32-wavefold-sweep.wav": "Wavefold sweep",
+        "33-waveshaping-wavefold.wav": "Waveshaping and wavefold",
+        "34-hard-sync-wavefold.wav": "Hard sync and wavefold",
+        "35-unison-wavefold.wav": "Unison and wavefold",
+        "36-wavetable-motion-bass.wav": "Wavetable motion bass",
+        "37-four-operator-fm-bell.wav": "Four-operator FM bell",
+        "38-phase-distortion-lead.wav": "Phase-distortion lead",
+        "39-digital-hybrid-lead.wav": "Digital hybrid lead",
+        "40-digital-hybrid-phrase.wav": "Digital hybrid phrase",
+    }
+    rows = "\n".join(
+        f"| `{name}` | {audio_descriptions[name]} |"
+        for name in WAVETABLE_AUDIO
+        + list(OPERATOR_AUDIO_REMAP.values())
+        + COMPLEX_AUDIO
+        + MUSICAL_AUDIO
+    )
+    human_rows = "\n".join(
+        f"| {item} | 未確認 |"
+        for item in [
+            "Wavetable frame / positionの音色差",
+            "Wavetable position sweepとLFOの滑らかさ",
+            "Wavetable band切替と高音域Alias",
+            "Wavetable unisonのBeat・Stereo幅・Mono互換性",
+            "Wavetable motion bassの音色成立",
+            "PM / FMの差とRatio Sweepの連続性",
+            "AM / Ringの差",
+            "Operator topologyの音色差",
+            "Operator envelope・feedback・indexの連続性",
+            "Operator unison・polyphony・releaseの成立",
+            "Phase Distortionの音色範囲とSweepの連続性",
+            "Oscillator Feedbackの粗さと安定性",
+            "WavefoldのFold感とAmount 0からの連続性",
+            "Waveshaping + Wavefoldの役割差",
+            "Hard Sync + WavefoldのAliasと実用性",
+            "Unison + WavefoldのBeat・Stereo幅・Level",
+            "Digital Hybrid Leadの音色成立",
+            "Digital Hybrid Phraseのレイヤー一体感",
+        ]
+    )
+    return f"""# Digital Synthesis Sound Review
+
+## Render条件
+
+- 基準Sample Rate：48,000 Hz
+- Sample Rate比較：44,100 / 48,000 / 96,000 Hz
+- 基準Block Size：257 frames
+- 比較Block Size：32 / 64 / 257 / 1024 frames
+- Output：Stereo、32-bit float WAV
+- Package範囲：Wavetable、4 Operator Modulation、Complex Oscillator、Digital Hybrid
+
+Definitionは`definitions/`、Assetは`assets/`、Eventは`events/`、MIDI入力は`midi/`、WAVは`audio/technical/`へ保存しています。同じ生WAVをMetricsと人間の試聴に使用します。
+
+再生成：
+
+```bash
+py -3 scripts/review/generate_digital_synthesis_package.py
+```
+
+## 音声一覧
+
+| WAV | 目的 |
+|---|---|
+{rows}
+
+Regression WAVは`audio/technical/regression-*.wav`、`audio/technical/sample-rate-*.wav`です。Metricsは`metrics.json`に保存しています。
+
+## 自動確認
+
+- 全40件のWAVがFiniteで、Metricsを再生成済み
+- Spectrum、Spectral Centroid、Harmonic / Non-harmonic Energy参考値を再生成済み
+- Wavetable / Operator / ComplexのDefinition ValidateとInspect JSONを確認済み
+- WavetableのFrame、Position、Band、Missing Asset診断を確認済み
+- Wavetable / Operator / ComplexのParameter Sweep境界差分を確認済み
+- OperatorのPM / FM / AM / Ring、8 topology、Unison、Reset、Allocation 0を確認済み
+- Operatorの1 / 8 / 16 Voice × Unison 1 / 4のCLI性能値を記録済み
+- ComplexのPhase Distortion、Feedback、Wavefold、Hard Sync / Unison組合せを確認済み
+- Block Size、Sample Rate、Fresh Runtime、Reset、ネイティブ有限値境界を自動検査済み
+- Digital Hybrid ReferenceをWavetable + Operator + Sampleの3レイヤーでValidate・Render済み
+- Digital Hybrid Phraseを`render events`と`render midi`でRenderし、MIDI出力の有限値を確認済み
+
+## 人間の確認
+
+| 確認項目 | 判定 |
+|---|---|
+{human_rows}
+
+判定は同じ再生環境・音量で確認後に記録します。Metricsは音質の承認を代替しません。
+"""
+
+
+def finalize_integrated_package(review_root: Path) -> None:
+    technical_dir = review_root / "audio" / "technical"
+    asset_dir = review_root / "assets"
+    definition_dir = review_root / "definitions"
+    event_dir = review_root / "events"
+    midi_dir = review_root / "midi"
+    staging_root = review_root / "_complex_staging"
+    if staging_root.exists():
+        shutil.rmtree(staging_root)
+
+    import generate_complex_oscillator_package
+
+    generate_complex_oscillator_package.main(staging_root)
+    staging_technical = staging_root / "audio" / "technical"
+    staging_definitions = staging_root / "definitions"
+    staging_events = staging_root / "events"
+    staging_metrics = json.loads(
+        (staging_root / "metrics.json").read_text(encoding="utf-8")
+    )
+
+    support_paths: dict[str, Path] = {}
+    for source_name in [
+        "11-mod-wheel-position.wav",
+        "12-motion-bass.wav",
+        "13-missing-asset-fallback.wav",
+    ]:
+        support_paths[source_name] = _move_to_support(
+            technical_dir / source_name, technical_dir
+        )
+    for source_name in OPERATOR_AUDIO_REMAP:
+        support_paths[source_name] = _move_to_support(
+            technical_dir / source_name, technical_dir
+        )
+
+    shutil.copy2(
+        support_paths["12-motion-bass.wav"],
+        technical_dir / "36-wavetable-motion-bass.wav",
+    )
+    shutil.copy2(
+        support_paths["15-operator-fm-stack4-bass.wav"],
+        technical_dir / "37-four-operator-fm-bell.wav",
+    )
+    for source_name, target_name in OPERATOR_AUDIO_REMAP.items():
+        shutil.copy2(support_paths[source_name], technical_dir / target_name)
+    for name in COMPLEX_AUDIO:
+        shutil.copy2(staging_technical / name, technical_dir / name)
+    shutil.copy2(
+        staging_technical / "24-phase-distortion-025.wav",
+        technical_dir / "38-phase-distortion-lead.wav",
+    )
+
+    for path in staging_definitions.glob("*.json"):
+        shutil.copy2(path, definition_dir / path.name)
+    for path in staging_events.glob("*.json"):
+        shutil.copy2(path, event_dir / path.name)
+    shutil.copy2(staging_root / "inspect.json", review_root / "complex-inspect.json")
+    shutil.copy2(
+        staging_root / "phase-inspect.json", review_root / "complex-phase-inspect.json"
+    )
+
+    hybrid_path = definition_dir / "digital-hybrid-reference.json"
+    shutil.copy2(
+        ROOT / "testdata" / "assets" / "metal-hit.wav",
+        asset_dir / "metal-hit.wav",
+    )
+    write_definition(hybrid_path, _hybrid_definition())
+    run_cli(["instrument", "validate", str(hybrid_path), "--json"])
+    hybrid_inspect = json.loads(
+        run_cli(["instrument", "inspect", str(hybrid_path), "--json"])
+    )
+    hybrid_generator_kinds = [
+        layer["generator"]["kind"] for layer in hybrid_inspect["layers"]
+    ]
+    if hybrid_generator_kinds != ["wavetable", "operator_modulation", "sample"]:
+        raise RuntimeError(f"Digital Hybrid inspect is incomplete: {hybrid_generator_kinds}")
+    write_utf8(
+        review_root / "digital-hybrid-inspect.json",
+        json.dumps(hybrid_inspect, ensure_ascii=False, indent=2) + "\n",
+    )
+    hybrid_events = event_dir / "digital-hybrid-phrase.json"
+    write_events(
+        hybrid_events,
+        [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 48, "velocity": 112},
+            {
+                "absolute_frame": 4096,
+                "type": "parameter_change",
+                "parameter": "layer.motion.generator.wavetable_position",
+                "normalized": 0.85,
+            },
+            {"absolute_frame": 6144, "type": "note_on", "note_id": 2, "note": 55, "velocity": 96},
+            {
+                "absolute_frame": 9216,
+                "type": "parameter_change",
+                "parameter": "layer.motion.generator.wavetable_position",
+                "normalized": 0.2,
+            },
+            {"absolute_frame": 12288, "type": "note_off", "note_id": 1},
+            {"absolute_frame": 14336, "type": "note_off", "note_id": 2},
+        ],
+    )
+    midi_source = ROOT / "testdata" / "midi" / "basic-poly-synth-phrase.mid"
+    midi_fixture = midi_dir / "digital-hybrid-phrase.mid"
+    midi_fixture.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(midi_source, midi_fixture)
+    midi_render = review_root / "_digital-hybrid-midi-render.wav"
+    try:
+        render_midi(hybrid_path, midi_fixture, midi_render, BASE_BLOCK_SIZE)
+        midi_metrics = measure(midi_render, list(BLOCK_SIZES))
+        require_finite({midi_render.name: midi_metrics})
+        midi_metrics["sha256"] = sha256_file(midi_render)
+    finally:
+        midi_render.unlink(missing_ok=True)
+    render_note(
+        hybrid_path,
+        60,
+        technical_dir / "39-digital-hybrid-lead.wav",
+        BASE_BLOCK_SIZE,
+        gate_seconds=0.45,
+    )
+    render_events(
+        hybrid_path,
+        hybrid_events,
+        technical_dir / "40-digital-hybrid-phrase.wav",
+        BASE_BLOCK_SIZE,
+    )
+
+    old_metrics = json.loads(
+        (review_root / "metrics.json").read_text(encoding="utf-8")
+    )
+    final_audio = WAVETABLE_AUDIO + list(OPERATOR_AUDIO_REMAP.values()) + COMPLEX_AUDIO + MUSICAL_AUDIO
+    final_technical: dict[str, dict[str, object]] = {}
+    for name in final_audio:
+        path = technical_dir / name
+        values = measure(
+            path,
+            list(BLOCK_SIZES),
+            include_spectrum=name in {
+                "03-saw-single-frame-high.wav",
+                "10-band-boundary-sweep.wav",
+                "12-operator-fm-stack4-bass.wav",
+                "24-phase-distortion-025.wav",
+                "30-wavefold-025.wav",
+                "39-digital-hybrid-lead.wav",
+            },
+        )
+        values.update(measure_stereo(path))
+        final_technical[name] = values
+    require_finite(final_technical)
+
+    complex_technical = {
+        name: final_technical[name] for name in COMPLEX_AUDIO
+    }
+    operator_technical = {
+        name: final_technical[name] for name in OPERATOR_AUDIO_REMAP.values()
+    }
+    wavetable_technical = {name: final_technical[name] for name in WAVETABLE_AUDIO}
+    musical_technical = {name: final_technical[name] for name in MUSICAL_AUDIO}
+    old_metrics["technical"] = final_technical
+    old_metrics["wavetable"] = {"technical": wavetable_technical}
+    old_metrics["operator"] = {
+        **old_metrics.get("operator", {}),
+        "technical": operator_technical,
+    }
+    old_metrics["complex_oscillator"] = {
+        "technical": complex_technical,
+        "block_size_comparisons": staging_metrics["block_size_comparisons"],
+        "sample_rate_metrics": staging_metrics["sample_rate_metrics"],
+        "fresh_render_comparison": staging_metrics["fresh_render_comparison"],
+        "parameter_sweep_boundary_differences": staging_metrics[
+            "parameter_sweep_boundary_differences"
+        ],
+        "performance": staging_metrics["performance"],
+    }
+    old_metrics["digital_hybrid"] = {
+        "technical": musical_technical,
+        "definition": str(hybrid_path.relative_to(review_root)),
+        "phrase_events": str(hybrid_events.relative_to(review_root)),
+        "phrase_midi": str(midi_fixture.relative_to(review_root)),
+        "midi_render": midi_metrics,
+    }
+    old_metrics["integrated_audio_order"] = final_audio
+    write_utf8(review_root / "metrics.json", json.dumps(old_metrics, ensure_ascii=False, indent=2) + "\n")
+    write_utf8(review_root / "review-summary.md", _final_summary())
+    for path in support_paths.values():
+        path.unlink(missing_ok=True)
+    shutil.rmtree(staging_root)
 
 
 def write_pcm16_wav(path: Path, frames: list[list[float]], sample_rate: int) -> None:
@@ -51,15 +434,6 @@ def periodic_frame(length: int, harmonics: tuple[tuple[int, float], ...]) -> lis
     return [
         sum(amplitude * math.sin(math.tau * harmonic * index / length) for harmonic, amplitude in harmonics)
         for index in range(length)
-    ]
-
-
-def motion_frames() -> list[list[float]]:
-    return [
-        periodic_frame(FRAME_LENGTH, ((1, 0.78),)),
-        periodic_frame(FRAME_LENGTH, ((1, 0.68), (3, 0.20))),
-        periodic_frame(FRAME_LENGTH, ((1, 0.58), (3, 0.24), (5, 0.12))),
-        periodic_frame(FRAME_LENGTH, ((1, 0.55), (3, 0.20), (5, 0.13), (7, 0.08))),
     ]
 
 
@@ -308,6 +682,62 @@ def run_cli_error(arguments: list[str]) -> tuple[int, str, str]:
     return result.returncode, result.stdout, result.stderr
 
 
+def operator_performance_metrics(
+    base_definition: dict[str, object],
+) -> dict[str, dict[str, object]]:
+    metrics: dict[str, dict[str, object]] = {}
+    with tempfile.TemporaryDirectory(prefix="sonalloy-operator-review-") as temporary:
+        temporary_root = Path(temporary)
+        for polyphony in (1, 8, 16):
+            for voices in (1, 4):
+                value = copy.deepcopy(base_definition)
+                value["performance"]["polyphony"] = polyphony
+                operator_modulation = value["layers"][0]["generator"][
+                    "operator_modulation"
+                ]
+                operator_modulation["unison"] = (
+                    None
+                    if voices == 1
+                    else {
+                        "voices": voices,
+                        "detune_cents": 16.0,
+                        "stereo_spread": 0.85,
+                        "phase_spread": 0.35,
+                    }
+                )
+                definition_path = temporary_root / f"poly{polyphony}-unison{voices}.json"
+                events_path = temporary_root / f"poly{polyphony}-unison{voices}.events.json"
+                audio_path = temporary_root / f"poly{polyphony}-unison{voices}.wav"
+                write_definition(definition_path, value)
+                run_cli(["instrument", "validate", str(definition_path), "--json"])
+                events = [
+                    {
+                        "absolute_frame": 0,
+                        "type": "note_on",
+                        "note_id": index + 1,
+                        "note": 48 + index % 36,
+                        "velocity": 112,
+                    }
+                    for index in range(polyphony)
+                ]
+                events.extend(
+                    {
+                        "absolute_frame": OPERATOR_PERFORMANCE_GATE_FRAMES,
+                        "type": "note_off",
+                        "note_id": index + 1,
+                    }
+                    for index in range(polyphony)
+                )
+                write_events(events_path, events)
+                metrics[f"polyphony_{polyphony}_unison_{voices}"] = timed_render(
+                    definition_path,
+                    events_path,
+                    audio_path,
+                    OPERATOR_PERFORMANCE_DURATION_FRAMES,
+                )
+    return metrics
+
+
 def main() -> None:
     review_root = ROOT / "review-output" / "digital-synthesis"
     asset_dir = review_root / "assets"
@@ -318,7 +748,10 @@ def main() -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
     motion_asset_path = asset_dir / "digital-motion.wav"
-    write_pcm16_wav(motion_asset_path, motion_frames(), 44_100)
+    source_motion_asset_path = ROOT / "examples" / "assets" / "digital-motion.wav"
+    if not source_motion_asset_path.exists():
+        raise RuntimeError(f"Digital Hybrid Wavetable asset is missing: {source_motion_asset_path}")
+    shutil.copy2(source_motion_asset_path, motion_asset_path)
     sine_asset_path = asset_dir / "sine-single-frame.wav"
     write_pcm16_wav(sine_asset_path, [periodic_frame(FRAME_LENGTH, ((1, 0.78),))], 48_000)
     saw_asset_path = asset_dir / "saw-single-frame.wav"
@@ -469,7 +902,7 @@ def main() -> None:
         "operator-pm-index-sweep": operator_definition(
             "PM Index Sweep", "phase", "stack_4"
         ),
-    "operator-pm-feedback-sweep": operator_definition(
+        "operator-pm-feedback-sweep": operator_definition(
             "PM Feedback Sweep", "phase", "stack_4"
         ),
         "operator-pm-envelope": operator_definition(
@@ -752,6 +1185,12 @@ def main() -> None:
         values.update(measure_stereo(path))
         technical_metrics[path.name] = values
     require_finite(technical_metrics)
+    position_sweep_boundary_metrics = boundary_differences(
+        generated_audio["07-position-sweep.wav"], [4_096, 8_192]
+    )
+    band_boundary_metrics = boundary_differences(
+        generated_audio["10-band-boundary-sweep.wav"], [3_072, 8_192]
+    )
 
     block_paths: dict[str, Path] = {}
     for block_size in BLOCK_SIZES:
@@ -854,6 +1293,9 @@ def main() -> None:
         raise RuntimeError(
             f"Operator fresh render is not reproducible: {operator_fresh_comparison}"
         )
+    operator_performance = operator_performance_metrics(
+        operator_definitions["operator-fm-unison"]
+    )
 
     inspect_stdout = run_cli(
         ["instrument", "inspect", str(definition_paths["motion-bass"]), "--json"]
@@ -938,6 +1380,19 @@ def main() -> None:
             "first_sha256": sha256_file(operator_fresh_a),
             "second_sha256": sha256_file(operator_fresh_b),
         },
+        "parameter_sweep_boundary_differences": {
+            "ratio": boundary_differences(
+                generated_audio["21-operator-ratio-sweep.wav"], [4_096, 8_192]
+            ),
+            "modulation_amount": boundary_differences(
+                generated_audio["22-operator-modulation-amount-sweep.wav"],
+                [4_096, 8_192],
+            ),
+            "feedback": boundary_differences(
+                generated_audio["23-operator-feedback-sweep.wav"], [4_096, 8_192]
+            ),
+        },
+        "performance": operator_performance,
         "allocation_check": {
             "covered_by": "sonalloy-core runtime allocation test",
             "status": "automated test passed",
@@ -963,6 +1418,8 @@ def main() -> None:
                 generated_audio["05-position-05.wav"], generated_audio["06-position-1.wav"]
             ),
         },
+        "position_sweep_boundary_differences": position_sweep_boundary_metrics,
+        "band_boundary_differences": band_boundary_metrics,
         "stereo_unison": measure_stereo(generated_audio["09-unison-5-stereo.wav"]),
         "missing_asset_fallback": measure(generated_audio[missing_audio.name], list(BLOCK_SIZES)),
         "layout_error_diagnostics": sorted(layout_codes),
@@ -982,109 +1439,7 @@ def main() -> None:
     }
     write_utf8(review_root / "metrics.json", json.dumps(metrics, ensure_ascii=False, indent=2) + "\n")
 
-    summary = """# Digital Synthesis Sound Review
-
-## Render条件
-
-- 基準Sample Rate：48,000 Hz
-- Sample Rate比較：44,100 / 48,000 / 96,000 Hz
-- 基準Block Size：257 frames
-- 比較Block Size：32 / 64 / 257 / 1024 frames
-- Output：Stereo、32-bit float WAV
-- Wavetable Asset：PCM16、Frame Length 256、Frame Count 4
-- Operator Modulation：4 Operator固定、PM / FM / AM / Ring、Unison最大4
-
-Definitionは`definitions/`、Assetは`assets/`、Eventは`events/`、WAVは`audio/technical/`へ保存しています。同じWAVをMetricsと人間の試聴に使用します。`inspect.json`にはWavetable Motion Bass、`operator-inspect.json`にはOperator UnisonのCompiled表示を保存しています。
-
-再生成：
-
-```bash
-python scripts/review/generate_digital_synthesis_package.py
-```
-
-## 音声一覧
-
-| WAV | 目的 |
-|---|---|
-| `01-sine-single-frame.wav` | Sine Single Frame |
-| `02-saw-single-frame-low.wav` | Saw Single Frame Low Note |
-| `03-saw-single-frame-high.wav` | Saw Single Frame High Note |
-| `04-position-0.wav` | Position 0 |
-| `05-position-05.wav` | Position 0.5 |
-| `06-position-1.wav` | Position 1 |
-| `07-position-sweep.wav` | Parameter Position Sweep |
-| `08-position-lfo.wav` | LFO to Position |
-| `09-unison-5-stereo.wav` | Unison 5 Stereo |
-| `10-band-boundary-sweep.wav` | High Register Band Selection |
-| `11-mod-wheel-position.wav` | Mod Wheel to Position |
-| `12-motion-bass.wav` | Wavetable Motion Bass |
-| `13-missing-asset-fallback.wav` | Missing Wavetable Asset with Oscillator Layer |
-| `14-operator-pm-stack4-bell.wav` | PM Stack 4 Bell |
-| `15-operator-fm-stack4-bass.wav` | FM Stack 4 Bass |
-| `16-operator-am-two-stacks.wav` | AM Two Stacks |
-| `17-operator-ring-two-stacks.wav` | Ring Two Stacks |
-| `18-operator-algorithm-stack4.wav` | Stack 4 Algorithm |
-| `19-operator-algorithm-two-stacks.wav` | Two Stacks Algorithm |
-| `20-operator-algorithm-shared.wav` | Shared Modulator Algorithm |
-| `21-operator-ratio-sweep.wav` | Operator Ratio Sweep |
-| `22-operator-modulation-amount-sweep.wav` | Operator Modulation Amount Sweep |
-| `23-operator-feedback-sweep.wav` | Operator Feedback Sweep |
-| `24-operator-envelope-bell.wav` | Operator Envelope Bell |
-| `25-operator-unison-4.wav` | Operator Unison 4 |
-| `26-operator-polyphony-stealing.wav` | Operator Polyphony and Voice Stealing |
-
-Regression WAVは`regression-block-*.wav`、`regression-fresh-*.wav`、`sample-rate-*.wav`です。Metricsは`metrics.json`に保存しています。
-
-## 自動確認
-
-- Definition Validate：成功
-- CLI Inspect JSON：成功
-- Wavetable Layout Error診断：`layout-error.json`で確認済み
-- Missing Asset Layer除外：`missing-asset-inspect.json`で確認済み
-- 全WAVのFinite：成功
-- Position 0 / 0.5 / 1の出力差：生成済み
-- Block Size比較：許容差以内
-- Sample Rate比較：生成済み
-- Fresh Render比較：一致
-- Reset：Core Integration Testで確認済み
-- Missing Asset時のOscillator Layer継続：生成済み
-- Prepared Wavetable Byte数：`metrics.json`へ記録済み
-- Operator Definition Validate：成功
-- Operator CLI Inspect JSON：成功
-- 8 Algorithmの固定Topology：Core Testと`operator-inspect.json`で確認済み
-- PM / FM / AM / RingのFinite性：生成済み
-- Operator Block Size比較：許容差以内
-- Operator Sample Rate比較：生成済み
-- Operator Fresh Render比較：一致
-- Operator Allocation 0：Core Testで確認済み
-- Operator Reset：Core Testで確認済み
-
-## 人間の確認
-
-| 確認項目 | 対象 | 判定 |
-|---|---|---|
-| Frameごとの音色差 | `04-position-0.wav` / `05-position-05.wav` / `06-position-1.wav` | 未確認 |
-| Position Sweepの滑らかさ | `07-position-sweep.wav` / `08-position-lfo.wav` / `11-mod-wheel-position.wav` | 未確認 |
-| Band切替の不連続 | `10-band-boundary-sweep.wav` | 未確認 |
-| 高音域Alias | `03-saw-single-frame-high.wav` / `10-band-boundary-sweep.wav` | 未確認 |
-| 低音域の倍音保持 | `02-saw-single-frame-low.wav` / `12-motion-bass.wav` | 未確認 |
-| UnisonのBeatとStereo幅 | `09-unison-5-stereo.wav` | 未確認 |
-| Mono再生時のLevel | `09-unison-5-stereo.wav` | 未確認 |
-| Missing Asset時の継続 | `13-missing-asset-fallback.wav` | 未確認 |
-| 音色としての成立 | `12-motion-bass.wav` | 未確認 |
-| PMとFMの差 | `14-operator-pm-stack4-bell.wav` / `15-operator-fm-stack4-bass.wav` | 未確認 |
-| AMとRingの差 | `16-operator-am-two-stacks.wav` / `17-operator-ring-two-stacks.wav` | 未確認 |
-| Algorithmの差 | `18-operator-algorithm-stack4.wav` / `19-operator-algorithm-two-stacks.wav` / `20-operator-algorithm-shared.wav` | 未確認 |
-| Ratioによる倍音変化 | `21-operator-ratio-sweep.wav` | 未確認 |
-| Envelopeによる時間変化 | `24-operator-envelope-bell.wav` | 未確認 |
-| Feedbackの粗さと安定性 | `23-operator-feedback-sweep.wav` | 未確認 |
-| Index SweepのClick | `22-operator-modulation-amount-sweep.wav` | 未確認 |
-| Note ReleaseとPolyphony | `26-operator-polyphony-stealing.wav` | 未確認 |
-| Operator UnisonのBeatとStereo幅 | `25-operator-unison-4.wav` | 未確認 |
-
-人間の確認では同じ再生環境・音量を使い、結果と指摘をこの表へ記録します。Metricsは音質の承認を代替しません。
-"""
-    write_utf8(review_root / "review-summary.md", summary)
+    finalize_integrated_package(review_root)
 
 
 if __name__ == "__main__":

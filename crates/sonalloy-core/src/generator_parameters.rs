@@ -101,6 +101,34 @@ pub(crate) const NOISE_CORRELATION: GeneratorParameterSpec = GeneratorParameterS
     smoothing_seconds: 0.010,
 };
 
+pub(crate) const OPERATOR_RATIO_MIN: f32 = 0.25;
+pub(crate) const OPERATOR_RATIO_MAX: f32 = 32.0;
+pub(crate) const OPERATOR_DETUNE_MIN: f32 = -100.0;
+pub(crate) const OPERATOR_DETUNE_MAX: f32 = 100.0;
+pub(crate) const OPERATOR_LEVEL_MIN: f32 = 0.0;
+pub(crate) const OPERATOR_LEVEL_MAX: f32 = 1.0;
+pub(crate) const OPERATOR_PHASE_MIN: f32 = 0.0;
+pub(crate) const OPERATOR_PHASE_MAX: f32 = 1.0;
+pub(crate) const OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN: f32 = 0.0;
+pub(crate) const OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX: f32 = 8.0;
+pub(crate) const OPERATOR_AM_RING_AMOUNT_MIN: f32 = 0.0;
+pub(crate) const OPERATOR_AM_RING_AMOUNT_MAX: f32 = 1.0;
+pub(crate) const OPERATOR_FEEDBACK_MIN: f32 = 0.0;
+pub(crate) const OPERATOR_FEEDBACK_MAX: f32 = 1.0;
+pub(crate) const OPERATOR_PARAMETER_SMOOTHING_SECONDS: f32 = 0.005;
+pub(crate) const OPERATOR_PARAMETER_SUFFIXES: [&str; 5] =
+    ["ratio", "detune", "level", "modulation_amount", "feedback"];
+
+pub(crate) const BASIC_FREQUENCY_LIMIT_RATIO: f64 = 0.45;
+pub(crate) const PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO: f64 = 0.24;
+
+pub(crate) fn effective_max_frequency(sample_rate: f64, ratio: f64) -> f32 {
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        (sample_rate * ratio) as f32
+    }
+}
+
 pub(crate) fn is_suffix(value: &str) -> bool {
     [
         PULSE_WIDTH,

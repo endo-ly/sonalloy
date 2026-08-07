@@ -2,13 +2,21 @@ use std::sync::Arc;
 
 use crate::compiler::{CompiledOperatorModulation, CompiledOperatorTopology, CompiledUnison};
 use crate::definition::OperatorModulationMode;
-use crate::generator_parameters::{UNISON_DETUNE, UNISON_SPREAD};
+use crate::generator_parameters::{
+    OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX,
+    OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX,
+    OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,
+    OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN, UNISON_DETUNE, UNISON_SPREAD,
+};
 use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
 
 use super::super::adsr::AdsrRuntime;
 use super::super::mix::{constant_power_pan, mix_component_sample};
 use super::super::modulation::{LayerGeneratorTargetSpan, OperatorTargetSpan, ValueSpan};
-use super::validate_generator_span;
+use super::{
+    base_frequencies, ensure_finite, initial_phase, invalid_state, non_finite,
+    validate_generator_span,
+};
 
 struct OperatorComponentRuntime {
     phases: [f32; 4],
@@ -362,20 +370,25 @@ fn validate_targets(
     mode: OperatorModulationMode,
 ) -> Result<(), ProcessError> {
     for target in targets {
-        validate_span(target.ratio, 0.25, 32.0)?;
-        validate_span(target.detune, -100.0, 100.0)?;
+        validate_span(target.ratio, OPERATOR_RATIO_MIN, OPERATOR_RATIO_MAX)?;
+        validate_span(target.detune, OPERATOR_DETUNE_MIN, OPERATOR_DETUNE_MAX)?;
         if let Some(level) = target.level {
-            validate_span(level, 0.0, 1.0)?;
+            validate_span(level, OPERATOR_LEVEL_MIN, OPERATOR_LEVEL_MAX)?;
         }
         if let Some(amount) = target.modulation_amount {
-            let max = match mode {
-                OperatorModulationMode::Phase | OperatorModulationMode::Frequency => 8.0,
-                OperatorModulationMode::Amplitude | OperatorModulationMode::Ring => 1.0,
+            let (min, max) = match mode {
+                OperatorModulationMode::Phase | OperatorModulationMode::Frequency => (
+                    OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,
+                    OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
+                ),
+                OperatorModulationMode::Amplitude | OperatorModulationMode::Ring => {
+                    (OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_AM_RING_AMOUNT_MAX)
+                }
             };
-            validate_span(amount, 0.0, max)?;
+            validate_span(amount, min, max)?;
         }
         if let Some(feedback) = target.feedback {
-            validate_span(feedback, 0.0, 1.0)?;
+            validate_span(feedback, OPERATOR_FEEDBACK_MIN, OPERATOR_FEEDBACK_MAX)?;
         }
     }
     Ok(())
@@ -392,26 +405,6 @@ fn validate_span(span: ValueSpan, min: f32, max: f32) -> Result<(), ProcessError
         Err(ProcessError::ProcessorFailure {
             kind: ProcessorFailureKind::InvalidInput,
         })
-    }
-}
-
-fn base_frequencies(
-    note_number: u8,
-    tuning_start: f32,
-    tuning_end: f32,
-) -> Result<(f32, f32), ProcessError> {
-    let start = crate::compiler::midi_note_frequency(
-        note_number,
-        crate::compiler::cents_to_ratio(tuning_start),
-    );
-    let end = crate::compiler::midi_note_frequency(
-        note_number,
-        crate::compiler::cents_to_ratio(tuning_end),
-    );
-    if start.is_finite() && end.is_finite() && start > 0.0 && end > 0.0 {
-        Ok((start, end))
-    } else {
-        Err(ProcessError::InvalidFrequency)
     }
 }
 
@@ -475,26 +468,18 @@ fn feedback_offset(previous_output: f32, amount: f32) -> Result<f32, ProcessErro
     }
 }
 
-fn ensure_finite(samples: &[f32]) -> Result<(), ProcessError> {
-    if samples.iter().all(|sample| sample.is_finite()) {
-        Ok(())
-    } else {
-        Err(non_finite())
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-fn initial_phase(base: f32, offset: f32) -> f32 {
-    (base + offset).rem_euclid(1.0)
-}
+    #[test]
+    fn operator_frequency_applies_ratio_and_detune_before_clamping() {
+        let frequency = operator_frequency(440.0, 2.0, 1_200.0, 0.0, 10_000.0)
+            .expect("valid operator frequency");
+        assert!((frequency - 1_760.0).abs() < 1.0e-4);
 
-fn invalid_state() -> ProcessError {
-    ProcessError::ProcessorFailure {
-        kind: ProcessorFailureKind::InvalidState,
-    }
-}
-
-fn non_finite() -> ProcessError {
-    ProcessError::ProcessorFailure {
-        kind: ProcessorFailureKind::NonFinite,
+        let clamped = operator_frequency(440.0, 32.0, 0.0, 0.0, 5_000.0)
+            .expect("valid clamped operator frequency");
+        assert!((clamped - 5_000.0).abs() < 1.0e-4);
     }
 }

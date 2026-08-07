@@ -13,8 +13,9 @@ use crate::definition::{
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
-    GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH,
-    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+    BASIC_FREQUENCY_LIMIT_RATIO, GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK,
+    PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
+    UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION, effective_max_frequency,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
@@ -293,13 +294,12 @@ impl CompiledOscillatorBackend {
     #[must_use]
     pub fn effective_max_frequency(self, sample_rate: f64) -> f32 {
         let ratio = match self {
-            Self::Basic => 0.45,
-            Self::VariableShapeSync { .. } | Self::PhaseDomain => 0.24,
+            Self::Basic => BASIC_FREQUENCY_LIMIT_RATIO,
+            Self::VariableShapeSync { .. } | Self::PhaseDomain => {
+                PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO
+            }
         };
-        #[allow(clippy::cast_possible_truncation)]
-        {
-            (sample_rate * ratio) as f32
-        }
+        effective_max_frequency(sample_rate, ratio)
     }
 }
 
@@ -448,6 +448,8 @@ pub struct CompiledWavetable {
     pub phase_reset: bool,
     /// Initial phase.
     pub phase: f32,
+    /// Process-rate-derived frequency limit used for band selection.
+    pub effective_max_frequency: f32,
     /// Generator parameter bindings.
     pub parameters: CompiledWavetableParameters,
     /// Static Unison component configuration.
@@ -1586,6 +1588,7 @@ fn compile_generator(
                 layer_id,
                 catalog,
                 definition_base_dir,
+                sample_rate,
                 wavetable_asset_cache,
                 diagnostics,
             ))
@@ -1681,12 +1684,14 @@ fn prepare_cached_wavetable(
     result
 }
 
+#[allow(clippy::too_many_arguments)]
 fn compile_wavetable(
     wavetable: &WavetableDefinition,
     layer_index: usize,
     layer_id: &str,
     catalog: &ParameterCatalog,
     definition_base_dir: &Path,
+    sample_rate: f64,
     asset_cache: &mut HashMap<
         WavetableAssetCacheKey,
         Result<WavetablePreparation, WavetablePreparationError>,
@@ -1727,6 +1732,7 @@ fn compile_wavetable(
         frame_length: usize::from(wavetable.frame_length),
         phase_reset: wavetable.phase_reset,
         phase: wavetable.phase,
+        effective_max_frequency: effective_max_frequency(sample_rate, BASIC_FREQUENCY_LIMIT_RATIO),
         parameters: CompiledWavetableParameters {
             position,
             unison_detune,
@@ -1790,14 +1796,15 @@ fn compile_operator_modulation(
             .then(|| operator_parameter_handle(catalog, layer_id, index, "feedback")),
         }
     });
-    let effective_max_frequency = match operator_modulation.mode {
+    let frequency_limit_ratio = match operator_modulation.mode {
         OperatorModulationMode::Phase | OperatorModulationMode::Frequency => {
-            operator_effective_max_frequency(sample_rate)
+            PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO
         }
         OperatorModulationMode::Amplitude | OperatorModulationMode::Ring => {
-            wavetable_effective_max_frequency(sample_rate)
+            BASIC_FREQUENCY_LIMIT_RATIO
         }
     };
+    let effective_max_frequency = effective_max_frequency(sample_rate, frequency_limit_ratio);
     let unison_detune = operator_modulation
         .unison
         .as_ref()
@@ -2379,24 +2386,6 @@ pub fn cents_to_ratio(cents: f32) -> f32 {
 #[must_use]
 pub fn midi_note_frequency(note_number: u8, tuning_ratio: f32) -> f32 {
     440.0 * 2.0_f32.powf((f32::from(note_number) - 69.0) / 12.0) * tuning_ratio
-}
-
-/// Return the process-rate-derived frequency limit for a Wavetable generator.
-#[must_use]
-pub fn wavetable_effective_max_frequency(sample_rate: f64) -> f32 {
-    #[allow(clippy::cast_possible_truncation)]
-    {
-        (sample_rate * 0.45) as f32
-    }
-}
-
-/// Return the process-rate-derived frequency limit for PM and FM operators.
-#[must_use]
-pub fn operator_effective_max_frequency(sample_rate: f64) -> f32 {
-    #[allow(clippy::cast_possible_truncation)]
-    {
-        (sample_rate * 0.24) as f32
-    }
 }
 
 #[cfg(test)]

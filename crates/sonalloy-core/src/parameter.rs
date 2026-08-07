@@ -8,8 +8,13 @@ use crate::definition::{
     ProcessorDefinition,
 };
 use crate::generator_parameters::{
-    GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH,
-    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+    GeneratorParameterSpec, NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX,
+    OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX,
+    OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
+    OPERATOR_PARAMETER_SMOOTHING_SECONDS, OPERATOR_PARAMETER_SUFFIXES,
+    OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_RATIO_MAX,
+    OPERATOR_RATIO_MIN, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SYNC_RATIO,
+    UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 
 /// Dense reference to a parameter in one compiled instrument.
@@ -385,8 +390,8 @@ fn push_generator_descriptors(
                     "ratio",
                     ParameterUnit::Ratio,
                     ParameterScale::Log2,
-                    0.25,
-                    32.0,
+                    OPERATOR_RATIO_MIN,
+                    OPERATOR_RATIO_MAX,
                     operator.ratio,
                 );
                 push_operator_descriptor(
@@ -397,8 +402,8 @@ fn push_generator_descriptors(
                     "detune",
                     ParameterUnit::Cents,
                     ParameterScale::Linear,
-                    -100.0,
-                    100.0,
+                    OPERATOR_DETUNE_MIN,
+                    OPERATOR_DETUNE_MAX,
                     operator.detune_cents,
                 );
                 if topology.carrier_mask & (1_u8 << index) != 0 {
@@ -410,8 +415,8 @@ fn push_generator_descriptors(
                         "level",
                         ParameterUnit::Normalized,
                         ParameterScale::Linear,
-                        0.0,
-                        1.0,
+                        OPERATOR_LEVEL_MIN,
+                        OPERATOR_LEVEL_MAX,
                         operator.level,
                     );
                 }
@@ -421,12 +426,16 @@ fn push_generator_descriptors(
                     .any(|mask| mask & (1_u8 << index) != 0);
                 if has_output {
                     let (unit, min, max) = match operator_modulation.mode {
-                        OperatorModulationMode::Phase | OperatorModulationMode::Frequency => {
-                            (ParameterUnit::Index, 0.0, 8.0)
-                        }
-                        OperatorModulationMode::Amplitude | OperatorModulationMode::Ring => {
-                            (ParameterUnit::Normalized, 0.0, 1.0)
-                        }
+                        OperatorModulationMode::Phase | OperatorModulationMode::Frequency => (
+                            ParameterUnit::Index,
+                            OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,
+                            OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
+                        ),
+                        OperatorModulationMode::Amplitude | OperatorModulationMode::Ring => (
+                            ParameterUnit::Normalized,
+                            OPERATOR_AM_RING_AMOUNT_MIN,
+                            OPERATOR_AM_RING_AMOUNT_MAX,
+                        ),
                     };
                     push_operator_descriptor(
                         descriptors,
@@ -453,8 +462,8 @@ fn push_generator_descriptors(
                         "feedback",
                         ParameterUnit::Normalized,
                         ParameterScale::Linear,
-                        0.0,
-                        1.0,
+                        OPERATOR_FEEDBACK_MIN,
+                        OPERATOR_FEEDBACK_MAX,
                         operator.feedback,
                     );
                 }
@@ -500,7 +509,7 @@ fn push_operator_descriptor(
         min,
         max,
         default,
-        smoothing_seconds: 0.005,
+        smoothing_seconds: OPERATOR_PARAMETER_SMOOTHING_SECONDS,
     });
 }
 
@@ -731,10 +740,7 @@ fn is_processor_parameter(value: &str) -> bool {
 }
 
 fn is_operator_parameter(value: &str) -> bool {
-    matches!(
-        value,
-        "ratio" | "detune" | "level" | "modulation_amount" | "feedback"
-    )
+    OPERATOR_PARAMETER_SUFFIXES.contains(&value)
 }
 
 /// Built-in source identifiers accepted by routes.

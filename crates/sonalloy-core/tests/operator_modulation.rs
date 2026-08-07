@@ -271,6 +271,37 @@ fn modes_have_distinct_finite_audio_and_mode_specific_limits() {
 }
 
 #[test]
+fn zero_modulation_amount_is_an_identity_for_all_modes() {
+    let modes = [
+        OperatorModulationMode::Phase,
+        OperatorModulationMode::Frequency,
+        OperatorModulationMode::Amplitude,
+        OperatorModulationMode::Ring,
+    ];
+    let renders = modes.map(|mode| {
+        let mut definition = operator_definition(mode, OperatorAlgorithm::Stack4, None);
+        if let GeneratorDefinition::OperatorModulation(operator) =
+            &mut definition.layers[0].generator
+        {
+            for value in &mut operator.operators {
+                value.modulation_amount = 0.0;
+                value.feedback = 0.0;
+            }
+        }
+        render(&definition, 257, 1_024, &[note_on()])
+    });
+
+    for audio in &renders {
+        assert_finite_and_audible(audio);
+    }
+    for audio in &renders[1..] {
+        for (actual, expected) in audio.channels[0].iter().zip(&renders[0].channels[0]) {
+            assert_relative_eq!(*actual, *expected, epsilon = 1.0e-6);
+        }
+    }
+}
+
+#[test]
 fn parameter_change_ratio_and_index_are_continuous_across_block_sizes() {
     let definition = operator_definition(
         OperatorModulationMode::Phase,
@@ -480,9 +511,6 @@ fn operator_runtime_reset_restarts_state() {
     runtime
         .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
         .expect("runtime prepares");
-    let mut left = [0.0_f32; 64];
-    let mut right = [0.0_f32; 64];
-    let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
     let events = [ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {
@@ -491,30 +519,47 @@ fn operator_runtime_reset_restarts_state() {
             velocity: 110,
         },
     }];
-    runtime
-        .process(sonalloy_core::ProcessBlock {
-            frames: 64,
-            context: sonalloy_core::ProcessContext {
-                absolute_frame: 0,
-                tempo_bpm: 120.0,
-            },
-            events: &events,
-            output: &mut output,
-        })
-        .expect("first process succeeds");
+    let process_once = |runtime: &mut sonalloy_core::runtime::InstrumentRuntime| {
+        let mut left = [0.0_f32; 64];
+        let mut right = [0.0_f32; 64];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        runtime
+            .process(sonalloy_core::ProcessBlock {
+                frames: 64,
+                context: sonalloy_core::ProcessContext {
+                    absolute_frame: 0,
+                    tempo_bpm: 120.0,
+                },
+                events: &events,
+                output: &mut output,
+            })
+            .expect("process succeeds");
+        (left, right)
+    };
+    let first = process_once(&mut runtime);
     runtime.reset().expect("runtime resets");
-    let mut left = [0.0_f32; 64];
-    let mut right = [0.0_f32; 64];
-    let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
-    runtime
-        .process(sonalloy_core::ProcessBlock {
-            frames: 64,
-            context: sonalloy_core::ProcessContext {
-                absolute_frame: 0,
-                tempo_bpm: 120.0,
-            },
-            events: &events,
-            output: &mut output,
-        })
-        .expect("second process succeeds");
+    let reset = process_once(&mut runtime);
+
+    let mut fresh_runtime = compiled.instantiate();
+    fresh_runtime
+        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .expect("fresh runtime prepares");
+    let fresh = process_once(&mut fresh_runtime);
+
+    for (actual, expected) in reset
+        .0
+        .iter()
+        .zip(first.0)
+        .chain(reset.1.iter().zip(first.1))
+    {
+        assert_relative_eq!(*actual, expected, epsilon = 1.0e-6);
+    }
+    for (actual, expected) in reset
+        .0
+        .iter()
+        .zip(fresh.0)
+        .chain(reset.1.iter().zip(fresh.1))
+    {
+        assert_relative_eq!(*actual, expected, epsilon = 1.0e-6);
+    }
 }

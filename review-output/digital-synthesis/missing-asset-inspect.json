@@ -72,6 +72,12 @@
         "backend": "basic",
         "hard_sync": false,
         "waveshaping": false,
+        "phase_distortion": false,
+        "wavefold": false,
+        "oscillator_feedback": false,
+        "dc_blocker": false,
+        "signal_order": "oscillator -> unison_mix -> waveshaping",
+        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
         "unison_voices": 1,
         "phase_spread": 0.0,
         "effective_max_frequency_hz": 21600.0

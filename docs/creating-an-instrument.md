@@ -241,7 +241,19 @@ Wavetableは、周期波形をFrame単位で連結したWAVを用意して、`fr
 
 Carrier Operatorだけに`level`を設定し、接続元Operatorの`modulation_amount`を設定します。`stack_4`では4→3→2→1の順に信号が進むため、Operator 1がCarrier、Operator 4が最上流です。`phase`はPhase Modulation、`frequency`はFrequency Modulation、`amplitude`はUnipolar AM、`ring`はCarrierとProductのCrossfadeです。AMとRingではFeedbackを0にします。
 
-`instrument inspect --json`でMode、Algorithm、Evaluation Order、Carrier、各OperatorのParameter IDを確認し、RatioやIndexをParameter Changeで動かす場合はEventのTargetに`layer.<layer_id>.generator.operator.<1-4>.<parameter>`を指定します。Offline Renderと試聴の対象は[`docs/testing-and-sound-review.md`](testing-and-sound-review.md)のOperator項目にまとめています。
+`instrument inspect --json`でMode、Algorithm、Evaluation Order、Carrier、各OperatorのParameter IDを確認し、RatioやIndexをParameter Changeで動かす場合はEventのTargetに`layer.<layer_id>.generator.operator.<1-4>.<parameter>`を指定します。Offline Renderと試聴の対象は[`docs/testing-and-sound-review.md`](testing-and-sound-review.md)のDigital Synthesis Packageにまとめています。
+
+### Digital Hybridを作る
+
+異なるGeneratorを同じVoiceへ重ねる場合は、Wavetableを持続音、Operator Modulationを倍音の芯、Sampleを短いアタックとして役割分担させると調整しやすくなります。動作する3レイヤーの基準例は[`examples/instruments/digital-hybrid-reference.json`](../examples/instruments/digital-hybrid-reference.json)です。Wavetable AssetとSample AssetのHashを保持したまま複製し、各LayerのGainとEnvelopeを先に調整します。
+
+```bash
+sonalloy instrument validate examples/instruments/digital-hybrid-reference.json
+sonalloy instrument inspect examples/instruments/digital-hybrid-reference.json --json
+sonalloy render note examples/instruments/digital-hybrid-reference.json --note 60 --output digital-hybrid.wav --json
+```
+
+Layerごとの発音、全体のMix、Phrase中のWavetable Position変更を分けて確認し、最終的な音声確認対象は[`docs/testing-and-sound-review.md`](testing-and-sound-review.md)のDigital Synthesis Packageへ集約します。
 
 ## Step 3. 検証する
 

@@ -105,11 +105,19 @@ def max_adjacent_frame_delta(
 
 
 def spectrum_reference(
-    left: list[float], sample_rate: int, frames: int
+    left: list[float], sample_rate: int, frames: int, estimated_frequency: float
 ) -> dict[str, object]:
     fft_size = min(4096, frames)
     if fft_size < 4:
-        return {"fft_size": fft_size, "peaks": []}
+        return {
+            "fft_size": fft_size,
+            "peaks": [],
+            "spectral_centroid_hz": 0.0,
+            "harmonic_reference_frequency_hz": estimated_frequency,
+            "harmonic_tolerance_hz": 0.0,
+            "harmonic_energy_ratio": 0.0,
+            "non_harmonic_energy_ratio": 0.0,
+        }
     start = min(frames - fft_size, int(sample_rate * 0.2))
     window = [
         left[start + index]
@@ -127,6 +135,29 @@ def spectrum_reference(
             imaginary -= sample * math.sin(angle)
         magnitudes.append((math.hypot(real, imaginary), bin_index))
     peak_magnitude = max((magnitude for magnitude, _ in magnitudes), default=0.0)
+    bin_width = sample_rate / fft_size
+    total_energy = sum(magnitude * magnitude for magnitude, _ in magnitudes)
+    centroid = (
+        sum(
+            bin_index * bin_width * magnitude * magnitude
+            for magnitude, bin_index in magnitudes
+        )
+        / total_energy
+        if total_energy > 0.0
+        else 0.0
+    )
+    harmonic_tolerance = max(bin_width * 1.5, estimated_frequency * 0.03)
+    harmonic_energy = 0.0
+    if estimated_frequency > 0.0 and harmonic_tolerance > 0.0:
+        for magnitude, bin_index in magnitudes:
+            frequency = bin_index * bin_width
+            harmonic = round(frequency / estimated_frequency)
+            if (
+                harmonic >= 1
+                and abs(frequency - harmonic * estimated_frequency)
+                <= harmonic_tolerance
+            ):
+                harmonic_energy += magnitude * magnitude
     peaks = []
     for magnitude, bin_index in sorted(magnitudes, reverse=True)[:8]:
         peaks.append(
@@ -135,7 +166,22 @@ def spectrum_reference(
                 "relative_amplitude": magnitude / peak_magnitude if peak_magnitude else 0.0,
             }
         )
-    return {"fft_size": fft_size, "window_start_frame": start, "peaks": peaks}
+    return {
+        "fft_size": fft_size,
+        "window_start_frame": start,
+        "peaks": peaks,
+        "spectral_centroid_hz": centroid,
+        "harmonic_reference_frequency_hz": estimated_frequency,
+        "harmonic_tolerance_hz": harmonic_tolerance,
+        "harmonic_energy_ratio": (
+            harmonic_energy / total_energy if total_energy > 0.0 else 0.0
+        ),
+        "non_harmonic_energy_ratio": (
+            (total_energy - harmonic_energy) / total_energy
+            if total_energy > 0.0
+            else 0.0
+        ),
+    }
 
 
 def measure(
@@ -148,7 +194,11 @@ def measure(
     left = samples[0::channels]
     finite = all(math.isfinite(sample) for sample in samples)
     peak = max((abs(sample) for sample in samples), default=0.0)
-    rms = math.sqrt(sum(sample * sample for sample in samples) / len(samples)) if samples else 0.0
+    rms = (
+        math.sqrt(sum(sample * sample for sample in samples) / len(samples))
+        if samples
+        else 0.0
+    )
     dc = sum(samples) / len(samples) if samples else 0.0
     crossings = positive_zero_crossings(left)
     estimated_frequency = crossings * sample_rate / frames if frames else 0.0
@@ -172,11 +222,33 @@ def measure(
         "large_discontinuity_frames": candidate_frames,
         "block_sizes_checked": block_sizes,
         **(
-            {"spectrum_reference": spectrum_reference(left, sample_rate, frames)}
+            {
+                "spectrum_reference": spectrum_reference(
+                    left, sample_rate, frames, estimated_frequency
+                )
+            }
             if include_spectrum
             else {}
         ),
     }
+
+
+def boundary_differences(path: Path, boundaries: list[int]) -> dict[str, float]:
+    """Measure the adjacent-frame jump at each known event boundary."""
+
+    _, channels, samples = read_float_wav(path)
+    frames = len(samples) // channels
+    result: dict[str, float] = {}
+    for boundary in boundaries:
+        if boundary <= 0 or boundary >= frames:
+            raise ValueError(f"boundary is outside WAV frame range: {boundary}")
+        previous_offset = (boundary - 1) * channels
+        current_offset = boundary * channels
+        result[str(boundary)] = max(
+            abs(samples[current_offset + channel] - samples[previous_offset + channel])
+            for channel in range(channels)
+        )
+    return result
 
 
 def compare_wav(reference: Path, candidate: Path) -> dict[str, object]:

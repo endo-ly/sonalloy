@@ -32,6 +32,50 @@ fn validate_generator_span(
     Ok(())
 }
 
+pub(super) fn base_frequencies(
+    note_number: u8,
+    tuning_start: f32,
+    tuning_end: f32,
+) -> Result<(f32, f32), ProcessError> {
+    let start = crate::compiler::midi_note_frequency(
+        note_number,
+        crate::compiler::cents_to_ratio(tuning_start),
+    );
+    let end = crate::compiler::midi_note_frequency(
+        note_number,
+        crate::compiler::cents_to_ratio(tuning_end),
+    );
+    if start.is_finite() && end.is_finite() && start > 0.0 && end > 0.0 {
+        Ok((start, end))
+    } else {
+        Err(ProcessError::InvalidFrequency)
+    }
+}
+
+pub(super) fn ensure_finite(samples: &[f32]) -> Result<(), ProcessError> {
+    if samples.iter().all(|sample| sample.is_finite()) {
+        Ok(())
+    } else {
+        Err(non_finite())
+    }
+}
+
+pub(super) fn initial_phase(base: f32, offset: f32) -> f32 {
+    (base + offset).rem_euclid(1.0)
+}
+
+pub(super) fn invalid_state() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: ProcessorFailureKind::InvalidState,
+    }
+}
+
+pub(super) fn non_finite() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: ProcessorFailureKind::NonFinite,
+    }
+}
+
 pub(super) enum GeneratorRuntime {
     Oscillator(OscillatorRuntime),
     Noise(Box<NoiseRuntime>),

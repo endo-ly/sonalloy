@@ -1601,9 +1601,7 @@ fn inspect_wavetable_generator(
                 .parameters
                 .unison_spread
                 .map(|handle| parameter_descriptor_id(compiled, handle)),
-            effective_max_frequency_hz: sonalloy_core::compiler::wavetable_effective_max_frequency(
-                compiled.process_sample_rate,
-            ),
+            effective_max_frequency_hz: wavetable.effective_max_frequency,
         },
         if prepared.is_some() {
             "enabled"

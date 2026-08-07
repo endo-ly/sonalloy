@@ -15,7 +15,10 @@ use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
 use super::super::mix::mix_component;
 use super::super::modulation::LayerGeneratorTargetSpan;
 use super::super::modulation::ValueSpan;
-use super::validate_generator_span;
+use super::{
+    base_frequencies, ensure_finite, initial_phase, invalid_state, non_finite,
+    validate_generator_span,
+};
 
 enum OscillatorComponentRuntime {
     Basic(DspOscillator),
@@ -46,10 +49,8 @@ pub(crate) struct OscillatorRuntime {
     phase_reset: bool,
     phase: f32,
     unison: Arc<CompiledUnison>,
-    waveshaping: Option<()>,
-    phase_distortion: Option<()>,
+    parameters: crate::compiler::CompiledOscillatorParameters,
     wavefold: Option<WavefolderRuntime>,
-    oscillator_feedback: Option<()>,
     dc_blocker: Option<DcBlocker>,
 }
 
@@ -133,10 +134,8 @@ impl OscillatorRuntime {
             phase_reset: compiled.phase_reset,
             phase: compiled.phase,
             unison: Arc::clone(&compiled.unison),
-            waveshaping: compiled.parameters.waveshape.map(|_| ()),
-            phase_distortion: compiled.parameters.phase_distortion.map(|_| ()),
+            parameters: compiled.parameters,
             wavefold,
-            oscillator_feedback: compiled.parameters.oscillator_feedback.map(|_| ()),
             dc_blocker,
         })
     }
@@ -144,8 +143,8 @@ impl OscillatorRuntime {
     pub(super) fn start(&mut self) -> Result<(), ProcessError> {
         if self.phase_reset {
             self.reset()?;
-        } else if self.phase_distortion.is_some()
-            || self.oscillator_feedback.is_some()
+        } else if self.parameters.phase_distortion.is_some()
+            || self.parameters.oscillator_feedback.is_some()
             || self.wavefold.is_some()
         {
             self.reset_stage_state()?;
@@ -189,12 +188,12 @@ impl OscillatorRuntime {
                 Some(sync_ratio.ok_or_else(invalid_state)?)
             }
         };
-        let phase_distortion = if self.phase_distortion.is_some() {
+        let phase_distortion = if self.parameters.phase_distortion.is_some() {
             Some(phase_distortion.ok_or_else(invalid_state)?)
         } else {
             None
         };
-        let oscillator_feedback = if self.oscillator_feedback.is_some() {
+        let oscillator_feedback = if self.parameters.oscillator_feedback.is_some() {
             Some(oscillator_feedback.ok_or_else(invalid_state)?)
         } else {
             None
@@ -273,7 +272,7 @@ impl OscillatorRuntime {
                 sample_rate,
                 mono,
             )?;
-            if self.waveshaping.is_some() {
+            if self.parameters.waveshape.is_some() {
                 apply_waveshaping(waveshape.ok_or_else(invalid_state)?, &mut mono[..frames])?;
             }
             if let Some(amount) = wavefold {
@@ -329,7 +328,7 @@ impl OscillatorRuntime {
                 return Err(invalid_state());
             }
         }
-        if self.waveshaping.is_some() {
+        if self.parameters.waveshape.is_some() {
             let amount = waveshape.ok_or_else(invalid_state)?;
             apply_waveshaping(amount, &mut left[..frames])?;
             apply_waveshaping(amount, &mut right[..frames])?;
@@ -601,25 +600,6 @@ impl OscillatorRuntime {
     }
 }
 
-fn base_frequencies(
-    note_number: u8,
-    tuning_start: f32,
-    tuning_end: f32,
-) -> Result<(f32, f32), ProcessError> {
-    let start = crate::compiler::midi_note_frequency(
-        note_number,
-        crate::compiler::cents_to_ratio(tuning_start),
-    );
-    let end = crate::compiler::midi_note_frequency(
-        note_number,
-        crate::compiler::cents_to_ratio(tuning_end),
-    );
-    if !start.is_finite() || !end.is_finite() || start <= 0.0 || end <= 0.0 {
-        return Err(ProcessError::InvalidFrequency);
-    }
-    Ok((start, end))
-}
-
 fn component_frequency(
     base_start: f32,
     base_end: f32,
@@ -783,30 +763,6 @@ impl DcBlocker {
         self.previous_input = [0.0; 2];
         self.previous_output = [0.0; 2];
     }
-}
-
-fn ensure_finite(samples: &[f32]) -> Result<(), ProcessError> {
-    if samples.iter().all(|sample| sample.is_finite()) {
-        Ok(())
-    } else {
-        Err(non_finite())
-    }
-}
-
-fn non_finite() -> ProcessError {
-    ProcessError::ProcessorFailure {
-        kind: ProcessorFailureKind::NonFinite,
-    }
-}
-
-fn invalid_state() -> ProcessError {
-    ProcessError::ProcessorFailure {
-        kind: ProcessorFailureKind::InvalidState,
-    }
-}
-
-fn initial_phase(base: f32, offset: f32) -> f32 {
-    (base + offset).rem_euclid(1.0)
 }
 
 fn native_waveform(waveform: OscillatorWaveform) -> DspOscillatorWaveform {

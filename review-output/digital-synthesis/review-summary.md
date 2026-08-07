@@ -7,95 +7,98 @@
 - 基準Block Size：257 frames
 - 比較Block Size：32 / 64 / 257 / 1024 frames
 - Output：Stereo、32-bit float WAV
-- Wavetable Asset：PCM16、Frame Length 256、Frame Count 4
-- Operator Modulation：4 Operator固定、PM / FM / AM / Ring、Unison最大4
+- Package範囲：Wavetable、4 Operator Modulation、Complex Oscillator、Digital Hybrid
 
-Definitionは`definitions/`、Assetは`assets/`、Eventは`events/`、WAVは`audio/technical/`へ保存しています。同じWAVをMetricsと人間の試聴に使用します。`inspect.json`にはWavetable Motion Bass、`operator-inspect.json`にはOperator UnisonのCompiled表示を保存しています。
+Definitionは`definitions/`、Assetは`assets/`、Eventは`events/`、MIDI入力は`midi/`、WAVは`audio/technical/`へ保存しています。同じ生WAVをMetricsと人間の試聴に使用します。
 
 再生成：
 
 ```bash
-python scripts/review/generate_digital_synthesis_package.py
+py -3 scripts/review/generate_digital_synthesis_package.py
 ```
 
 ## 音声一覧
 
 | WAV | 目的 |
 |---|---|
-| `01-sine-single-frame.wav` | Sine Single Frame |
-| `02-saw-single-frame-low.wav` | Saw Single Frame Low Note |
-| `03-saw-single-frame-high.wav` | Saw Single Frame High Note |
-| `04-position-0.wav` | Position 0 |
-| `05-position-05.wav` | Position 0.5 |
-| `06-position-1.wav` | Position 1 |
-| `07-position-sweep.wav` | Parameter Position Sweep |
-| `08-position-lfo.wav` | LFO to Position |
-| `09-unison-5-stereo.wav` | Unison 5 Stereo |
-| `10-band-boundary-sweep.wav` | High Register Band Selection |
-| `11-mod-wheel-position.wav` | Mod Wheel to Position |
-| `12-motion-bass.wav` | Wavetable Motion Bass |
-| `13-missing-asset-fallback.wav` | Missing Wavetable Asset with Oscillator Layer |
-| `14-operator-pm-stack4-bell.wav` | PM Stack 4 Bell |
-| `15-operator-fm-stack4-bass.wav` | FM Stack 4 Bass |
-| `16-operator-am-two-stacks.wav` | AM Two Stacks |
-| `17-operator-ring-two-stacks.wav` | Ring Two Stacks |
-| `18-operator-algorithm-stack4.wav` | Stack 4 Algorithm |
-| `19-operator-algorithm-two-stacks.wav` | Two Stacks Algorithm |
-| `20-operator-algorithm-shared.wav` | Shared Modulator Algorithm |
-| `21-operator-ratio-sweep.wav` | Operator Ratio Sweep |
-| `22-operator-modulation-amount-sweep.wav` | Operator Modulation Amount Sweep |
-| `23-operator-feedback-sweep.wav` | Operator Feedback Sweep |
-| `24-operator-envelope-bell.wav` | Operator Envelope Bell |
-| `25-operator-unison-4.wav` | Operator Unison 4 |
-| `26-operator-polyphony-stealing.wav` | Operator Polyphony and Voice Stealing |
+| `01-sine-single-frame.wav` | Sine single frame |
+| `02-saw-single-frame-low.wav` | Saw low note |
+| `03-saw-single-frame-high.wav` | Saw high note |
+| `04-position-0.wav` | Wavetable position 0 |
+| `05-position-05.wav` | Wavetable position 0.5 |
+| `06-position-1.wav` | Wavetable position 1 |
+| `07-position-sweep.wav` | Wavetable position sweep |
+| `08-position-lfo.wav` | Wavetable position LFO |
+| `09-unison-5-stereo.wav` | Wavetable unison 5 stereo |
+| `10-band-boundary-sweep.wav` | Wavetable band boundary |
+| `11-operator-pm-stack4-bell.wav` | PM Stack 4 bell |
+| `12-operator-fm-stack4-bass.wav` | FM Stack 4 bass |
+| `13-operator-am-two-stacks.wav` | AM two stacks |
+| `14-operator-ring-two-stacks.wav` | Ring two stacks |
+| `15-operator-algorithm-stack4.wav` | Stack 4 topology |
+| `16-operator-algorithm-two-stacks.wav` | Two stacks topology |
+| `17-operator-algorithm-shared.wav` | Shared modulator topology |
+| `18-operator-ratio-sweep.wav` | Operator ratio sweep |
+| `19-operator-modulation-amount-sweep.wav` | Operator modulation amount sweep |
+| `20-operator-feedback-sweep.wav` | Operator feedback sweep |
+| `21-operator-envelope-bell.wav` | Operator envelope |
+| `22-operator-unison-4.wav` | Operator unison 4 |
+| `23-operator-polyphony-stealing.wav` | Operator polyphony and voice stealing |
+| `24-phase-distortion-025.wav` | Phase distortion 0.25 |
+| `25-phase-distortion-075.wav` | Phase distortion 0.75 |
+| `26-phase-distortion-sweep.wav` | Phase distortion sweep |
+| `27-feedback-03.wav` | Oscillator feedback 0.3 |
+| `28-feedback-08.wav` | Oscillator feedback 0.8 |
+| `29-feedback-sweep.wav` | Oscillator feedback sweep |
+| `30-wavefold-025.wav` | Wavefold 0.25 |
+| `31-wavefold-075.wav` | Wavefold 0.75 |
+| `32-wavefold-sweep.wav` | Wavefold sweep |
+| `33-waveshaping-wavefold.wav` | Waveshaping and wavefold |
+| `34-hard-sync-wavefold.wav` | Hard sync and wavefold |
+| `35-unison-wavefold.wav` | Unison and wavefold |
+| `36-wavetable-motion-bass.wav` | Wavetable motion bass |
+| `37-four-operator-fm-bell.wav` | Four-operator FM bell |
+| `38-phase-distortion-lead.wav` | Phase-distortion lead |
+| `39-digital-hybrid-lead.wav` | Digital hybrid lead |
+| `40-digital-hybrid-phrase.wav` | Digital hybrid phrase |
 
-Regression WAVは`regression-block-*.wav`、`regression-fresh-*.wav`、`sample-rate-*.wav`です。Metricsは`metrics.json`に保存しています。
+Regression WAVは`audio/technical/regression-*.wav`、`audio/technical/sample-rate-*.wav`です。Metricsは`metrics.json`に保存しています。
 
 ## 自動確認
 
-- Definition Validate：成功
-- CLI Inspect JSON：成功
-- Wavetable Layout Error診断：`layout-error.json`で確認済み
-- Missing Asset Layer除外：`missing-asset-inspect.json`で確認済み
-- 全WAVのFinite：成功
-- Position 0 / 0.5 / 1の出力差：生成済み
-- Block Size比較：許容差以内
-- Sample Rate比較：生成済み
-- Fresh Render比較：一致
-- Reset：Core Integration Testで確認済み
-- Missing Asset時のOscillator Layer継続：生成済み
-- Prepared Wavetable Byte数：`metrics.json`へ記録済み
-- Operator Definition Validate：成功
-- Operator CLI Inspect JSON：成功
-- 8 Algorithmの固定Topology：Core Testと`operator-inspect.json`で確認済み
-- PM / FM / AM / RingのFinite性：生成済み
-- Operator Block Size比較：許容差以内
-- Operator Sample Rate比較：生成済み
-- Operator Fresh Render比較：一致
-- Operator Allocation 0：Core Testで確認済み
-- Operator Reset：Core Testで確認済み
+- 全40件のWAVがFiniteで、Metricsを再生成済み
+- Spectrum、Spectral Centroid、Harmonic / Non-harmonic Energy参考値を再生成済み
+- Wavetable / Operator / ComplexのDefinition ValidateとInspect JSONを確認済み
+- WavetableのFrame、Position、Band、Missing Asset診断を確認済み
+- Wavetable / Operator / ComplexのParameter Sweep境界差分を確認済み
+- OperatorのPM / FM / AM / Ring、8 topology、Unison、Reset、Allocation 0を確認済み
+- Operatorの1 / 8 / 16 Voice × Unison 1 / 4のCLI性能値を記録済み
+- ComplexのPhase Distortion、Feedback、Wavefold、Hard Sync / Unison組合せを確認済み
+- Block Size、Sample Rate、Fresh Runtime、Reset、ネイティブ有限値境界を自動検査済み
+- Digital Hybrid ReferenceをWavetable + Operator + Sampleの3レイヤーでValidate・Render済み
+- Digital Hybrid Phraseを`render events`と`render midi`でRenderし、MIDI出力の有限値を確認済み
 
 ## 人間の確認
 
-| 確認項目 | 対象 | 判定 |
-|---|---|---|
-| Frameごとの音色差 | `04-position-0.wav` / `05-position-05.wav` / `06-position-1.wav` | 未確認 |
-| Position Sweepの滑らかさ | `07-position-sweep.wav` / `08-position-lfo.wav` / `11-mod-wheel-position.wav` | 未確認 |
-| Band切替の不連続 | `10-band-boundary-sweep.wav` | 未確認 |
-| 高音域Alias | `03-saw-single-frame-high.wav` / `10-band-boundary-sweep.wav` | 未確認 |
-| 低音域の倍音保持 | `02-saw-single-frame-low.wav` / `12-motion-bass.wav` | 未確認 |
-| UnisonのBeatとStereo幅 | `09-unison-5-stereo.wav` | 未確認 |
-| Mono再生時のLevel | `09-unison-5-stereo.wav` | 未確認 |
-| Missing Asset時の継続 | `13-missing-asset-fallback.wav` | 未確認 |
-| 音色としての成立 | `12-motion-bass.wav` | 未確認 |
-| PMとFMの差 | `14-operator-pm-stack4-bell.wav` / `15-operator-fm-stack4-bass.wav` | 未確認 |
-| AMとRingの差 | `16-operator-am-two-stacks.wav` / `17-operator-ring-two-stacks.wav` | 未確認 |
-| Algorithmの差 | `18-operator-algorithm-stack4.wav` / `19-operator-algorithm-two-stacks.wav` / `20-operator-algorithm-shared.wav` | 未確認 |
-| Ratioによる倍音変化 | `21-operator-ratio-sweep.wav` | 未確認 |
-| Envelopeによる時間変化 | `24-operator-envelope-bell.wav` | 未確認 |
-| Feedbackの粗さと安定性 | `23-operator-feedback-sweep.wav` | 未確認 |
-| Index SweepのClick | `22-operator-modulation-amount-sweep.wav` | 未確認 |
-| Note ReleaseとPolyphony | `26-operator-polyphony-stealing.wav` | 未確認 |
-| Operator UnisonのBeatとStereo幅 | `25-operator-unison-4.wav` | 未確認 |
+| 確認項目 | 判定 |
+|---|---|
+| Wavetable frame / positionの音色差 | 未確認 |
+| Wavetable position sweepとLFOの滑らかさ | 未確認 |
+| Wavetable band切替と高音域Alias | 未確認 |
+| Wavetable unisonのBeat・Stereo幅・Mono互換性 | 未確認 |
+| Wavetable motion bassの音色成立 | 未確認 |
+| PM / FMの差とRatio Sweepの連続性 | 未確認 |
+| AM / Ringの差 | 未確認 |
+| Operator topologyの音色差 | 未確認 |
+| Operator envelope・feedback・indexの連続性 | 未確認 |
+| Operator unison・polyphony・releaseの成立 | 未確認 |
+| Phase Distortionの音色範囲とSweepの連続性 | 未確認 |
+| Oscillator Feedbackの粗さと安定性 | 未確認 |
+| WavefoldのFold感とAmount 0からの連続性 | 未確認 |
+| Waveshaping + Wavefoldの役割差 | 未確認 |
+| Hard Sync + WavefoldのAliasと実用性 | 未確認 |
+| Unison + WavefoldのBeat・Stereo幅・Level | 未確認 |
+| Digital Hybrid Leadの音色成立 | 未確認 |
+| Digital Hybrid Phraseのレイヤー一体感 | 未確認 |
 
-人間の確認では同じ再生環境・音量を使い、結果と指摘をこの表へ記録します。Metricsは音質の承認を代替しません。
+判定は同じ再生環境・音量で確認後に記録します。Metricsは音質の承認を代替しません。

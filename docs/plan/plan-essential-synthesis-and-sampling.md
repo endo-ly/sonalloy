@@ -2964,11 +2964,10 @@ review-output/essential-synthesis-sampling/
 
 ```text
 scripts/review/generate_basic_generators_package.py
-scripts/review/generate_complex_oscillator_package.py
 scripts/review/generate_essential_synthesis_sampling_package.py
 ```
 
-Complex Oscillator Reviewは`review-output/complex-oscillator/`へ生成する。`audio/technical/`の生出力をMetricsと人間の試聴で共用し、正規化コピーは保存しない。
+Digital Synthesis Reviewは`review-output/digital-synthesis/`へ統合する。`audio/technical/`の生出力をMetricsと人間の試聴で共用し、正規化コピーは保存しない。
 
 ## 20.2 Review音源の正本と試聴
 

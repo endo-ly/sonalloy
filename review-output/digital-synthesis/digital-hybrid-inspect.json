@@ -1,0 +1,669 @@
+{
+  "status": "ok",
+  "name": "Digital Hybrid Reference",
+  "metadata": {
+    "name": "Digital Hybrid Reference",
+    "author": "Sonalloy",
+    "description": "Wavetable, four-operator modulation, and sample layers"
+  },
+  "polyphony": 8,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "layer_count": 3,
+  "layers": [
+    {
+      "id": "motion",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "wavetable",
+        "output_mode": "stereo",
+        "asset_path": "../assets/digital-motion.wav",
+        "asset_sha256_specified": true,
+        "prepared": true,
+        "source_channels": 1,
+        "source_frame_count": 1024,
+        "frame_length": 256,
+        "frame_count": 4,
+        "band_count": 8,
+        "band_max_harmonics": [
+          128,
+          64,
+          32,
+          16,
+          8,
+          4,
+          2,
+          1
+        ],
+        "position": 0.25,
+        "position_parameter": "layer.motion.generator.wavetable_position",
+        "phase_reset": true,
+        "phase": 0.0,
+        "unison_voices": 5,
+        "unison_detune_parameter": "layer.motion.generator.unison_detune",
+        "unison_spread_parameter": "layer.motion.generator.unison_spread",
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "enabled",
+      "gain_db": -8.0,
+      "gain_linear": 0.39810717,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 0,
+        "decay_samples": 0,
+        "sustain_level": 1.0,
+        "release_samples": 3840
+      },
+      "processors": []
+    },
+    {
+      "id": "bell",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "operator_modulation",
+        "output_mode": "mono",
+        "mode": "frequency",
+        "algorithm": "stack_4",
+        "evaluation_order": [
+          4,
+          3,
+          2,
+          1
+        ],
+        "incoming_masks": [
+          2,
+          4,
+          8,
+          0
+        ],
+        "carrier_operators": [
+          1
+        ],
+        "operators": [
+          {
+            "index": 1,
+            "ratio": 1.0,
+            "detune_cents": 0.0,
+            "level": 0.9,
+            "modulation_amount": null,
+            "feedback": 0.0,
+            "phase": 0.0,
+            "envelope": {
+              "attack_samples": 0,
+              "decay_samples": 8640,
+              "sustain_level": 1.0,
+              "release_samples": 3840
+            },
+            "ratio_parameter": "layer.bell.generator.operator.1.ratio",
+            "detune_parameter": "layer.bell.generator.operator.1.detune",
+            "level_parameter": "layer.bell.generator.operator.1.level",
+            "modulation_amount_parameter": null,
+            "feedback_parameter": "layer.bell.generator.operator.1.feedback"
+          },
+          {
+            "index": 2,
+            "ratio": 2.0,
+            "detune_cents": 0.0,
+            "level": null,
+            "modulation_amount": 2.2,
+            "feedback": 0.0,
+            "phase": 0.0,
+            "envelope": {
+              "attack_samples": 0,
+              "decay_samples": 5760,
+              "sustain_level": 1.0,
+              "release_samples": 3840
+            },
+            "ratio_parameter": "layer.bell.generator.operator.2.ratio",
+            "detune_parameter": "layer.bell.generator.operator.2.detune",
+            "level_parameter": null,
+            "modulation_amount_parameter": "layer.bell.generator.operator.2.modulation_amount",
+            "feedback_parameter": "layer.bell.generator.operator.2.feedback"
+          },
+          {
+            "index": 3,
+            "ratio": 3.0,
+            "detune_cents": 0.0,
+            "level": null,
+            "modulation_amount": 1.8,
+            "feedback": 0.0,
+            "phase": 0.0,
+            "envelope": {
+              "attack_samples": 0,
+              "decay_samples": 3840,
+              "sustain_level": 1.0,
+              "release_samples": 3840
+            },
+            "ratio_parameter": "layer.bell.generator.operator.3.ratio",
+            "detune_parameter": "layer.bell.generator.operator.3.detune",
+            "level_parameter": null,
+            "modulation_amount_parameter": "layer.bell.generator.operator.3.modulation_amount",
+            "feedback_parameter": "layer.bell.generator.operator.3.feedback"
+          },
+          {
+            "index": 4,
+            "ratio": 5.0,
+            "detune_cents": 0.0,
+            "level": null,
+            "modulation_amount": 2.6,
+            "feedback": 0.28,
+            "phase": 0.0,
+            "envelope": {
+              "attack_samples": 0,
+              "decay_samples": 1920,
+              "sustain_level": 1.0,
+              "release_samples": 3840
+            },
+            "ratio_parameter": "layer.bell.generator.operator.4.ratio",
+            "detune_parameter": "layer.bell.generator.operator.4.detune",
+            "level_parameter": null,
+            "modulation_amount_parameter": "layer.bell.generator.operator.4.modulation_amount",
+            "feedback_parameter": "layer.bell.generator.operator.4.feedback"
+          }
+        ],
+        "phase_reset": true,
+        "unison_voices": 1,
+        "unison_detune_parameter": null,
+        "unison_spread_parameter": null,
+        "effective_max_frequency_hz": 11520.0
+      },
+      "asset_status": "enabled",
+      "gain_db": -12.0,
+      "gain_linear": 0.25118864,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 0,
+        "decay_samples": 5760,
+        "sustain_level": 0.85,
+        "release_samples": 7200
+      },
+      "processors": []
+    },
+    {
+      "id": "hit",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "sample",
+        "output_mode": "mono",
+        "interpolation": "cubic",
+        "sample_zone_count": 1,
+        "sample_enabled_zone_count": 1,
+        "sample_disabled_zone_count": 0,
+        "sample_asset_count": 1,
+        "sample_zones": [
+          {
+            "id": "metal_hit",
+            "enabled": true,
+            "asset_path": "../assets/metal-hit.wav",
+            "root_note": 60,
+            "key_min": 0,
+            "key_max": 127,
+            "velocity_min": 1,
+            "velocity_max": 127,
+            "round_robin_group": null,
+            "playback_type": "one_shot",
+            "start_frame": 0,
+            "end_frame": 3840,
+            "loop_start_frame": null,
+            "loop_end_frame": null,
+            "source_sample_rate": 44100,
+            "source_channels": 1,
+            "prepared_frames": 21600
+          }
+        ]
+      },
+      "asset_status": "enabled",
+      "gain_db": -14.0,
+      "gain_linear": 0.19952624,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 0,
+        "decay_samples": 3840,
+        "sustain_level": 0.0,
+        "release_samples": 4800
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "parameters": [
+    {
+      "id": "layer.motion.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -8.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.motion.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.motion.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.motion.generator.wavetable_position",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.25,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    },
+    {
+      "id": "layer.motion.generator.unison_detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": 0.0,
+      "max": 100.0,
+      "default": 18.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    },
+    {
+      "id": "layer.motion.generator.unison_spread",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.85,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    },
+    {
+      "id": "layer.bell.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -12.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.1.ratio",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "ratio",
+      "min": 0.25,
+      "max": 32.0,
+      "default": 1.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.1.detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "cents",
+      "min": -100.0,
+      "max": 100.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.1.level",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.9,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.1.feedback",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.2.ratio",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "ratio",
+      "min": 0.25,
+      "max": 32.0,
+      "default": 2.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.2.detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "cents",
+      "min": -100.0,
+      "max": 100.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.2.modulation_amount",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "index",
+      "min": 0.0,
+      "max": 8.0,
+      "default": 2.2,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.2.feedback",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.3.ratio",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "ratio",
+      "min": 0.25,
+      "max": 32.0,
+      "default": 3.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.3.detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "cents",
+      "min": -100.0,
+      "max": 100.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.3.modulation_amount",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "index",
+      "min": 0.0,
+      "max": 8.0,
+      "default": 1.8,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.3.feedback",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.4.ratio",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "ratio",
+      "min": 0.25,
+      "max": 32.0,
+      "default": 5.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.4.detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "cents",
+      "min": -100.0,
+      "max": 100.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.4.modulation_amount",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "index",
+      "min": 0.0,
+      "max": 8.0,
+      "default": 2.6,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.bell.generator.operator.4.feedback",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 1
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.28,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.hit.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 2
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -14.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.hit.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 2
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.hit.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 2
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    }
+  ],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity"
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking"
+    }
+  ],
+  "routes": [],
+  "diagnostics": [
+    {
+      "code": "ASSET_RESAMPLED",
+      "severity": "warning",
+      "path": "layers[2].generator.sample.zones[0].asset.path",
+      "message": "asset was resampled to the process sample rate",
+      "detail": null
+    }
+  ]
+}

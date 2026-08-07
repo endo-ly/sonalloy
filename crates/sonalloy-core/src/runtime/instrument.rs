@@ -1170,6 +1170,45 @@ mod tests {
     }
 
     #[test]
+    fn complex_oscillator_render_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].generator = crate::definition::GeneratorDefinition::Oscillator(
+            crate::definition::OscillatorDefinition {
+                waveform: crate::definition::OscillatorWaveform::Sine,
+                phase_reset: true,
+                phase: 0.0,
+                hard_sync: None,
+                waveshaping: None,
+                phase_distortion: Some(crate::definition::PhaseDistortionDefinition {
+                    amount: 0.5,
+                }),
+                wavefold: Some(crate::definition::WavefoldDefinition { amount: 0.35 }),
+                feedback: Some(crate::definition::OscillatorFeedbackDefinition { amount: 0.2 }),
+                unison: None,
+            },
+        );
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &event);
+        runtime.reset().expect("reset");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
     fn voice_stealing_note_on_does_not_allocate_after_prepare() {
         let mut source = definition();
         source.performance.polyphony = 1;

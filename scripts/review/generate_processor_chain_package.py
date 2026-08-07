@@ -11,6 +11,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from common import render_midi
 from measure_wav import compare_wav, measure, read_float_wav
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -102,31 +103,6 @@ def render_events(
             str(block_size),
             "--tail",
             "0.5",
-            "--output",
-            str(output),
-            "--json",
-        ]
-    )
-
-
-def render_midi(
-    definition: Path,
-    midi: Path,
-    output: Path,
-    block_size: int,
-) -> None:
-    run_cli(
-        [
-            "render",
-            "midi",
-            str(definition),
-            str(midi),
-            "--sample-rate",
-            str(SAMPLE_RATE),
-            "--block-size",
-            str(block_size),
-            "--tail",
-            "1.0",
             "--output",
             str(output),
             "--json",

@@ -1026,7 +1026,12 @@ extern "C" int32_t sonalloy_dsp_wavefolder_process(
         for (uint32_t index = 0; index < frames; ++index) {
             handle->wavefolder.SetGain(drive);
             const float folded = handle->wavefolder.Process(buffer[index]);
-            buffer[index] += (folded - buffer[index]) * mix;
+            const float output = buffer[index] + (folded - buffer[index]) * mix;
+            if (!std::isfinite(folded) || !std::isfinite(output)) {
+                clear_variable_output(buffer, frames);
+                return SONALLOY_DSP_NON_FINITE;
+            }
+            buffer[index] = output;
         }
         return SONALLOY_DSP_OK;
     } catch (...) {
@@ -1076,7 +1081,12 @@ extern "C" int32_t sonalloy_dsp_wavefolder_process_ramp(
             const float mix = start_mix + (end_mix - start_mix) * position;
             handle->wavefolder.SetGain(drive);
             const float folded = handle->wavefolder.Process(buffer[index]);
-            buffer[index] += (folded - buffer[index]) * mix;
+            const float output = buffer[index] + (folded - buffer[index]) * mix;
+            if (!std::isfinite(folded) || !std::isfinite(output)) {
+                clear_variable_output(buffer, frames);
+                return SONALLOY_DSP_NON_FINITE;
+            }
+            buffer[index] = output;
         }
         return SONALLOY_DSP_OK;
     } catch (...) {

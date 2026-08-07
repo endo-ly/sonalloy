@@ -365,19 +365,24 @@ fn phase_distortion_feedback_and_wavefold_change_the_rendered_signal() {
         value.phase_distortion = None;
         value.feedback = Some(OscillatorFeedbackDefinition { amount: 0.0 });
     }
-    let mut wavefold = definition();
-    wavefold.layers[0].generator = GeneratorDefinition::Oscillator(oscillator(
+    let mut wavefold_zero = definition();
+    wavefold_zero.layers[0].generator = GeneratorDefinition::Oscillator(oscillator(
         OscillatorWaveform::Saw,
         None,
-        Some(0.75),
+        Some(0.0),
         None,
         None,
     ));
+    let mut wavefold = wavefold_zero.clone();
+    if let GeneratorDefinition::Oscillator(value) = &mut wavefold.layers[0].generator {
+        value.wavefold = Some(WavefoldDefinition { amount: 0.75 });
+    }
 
     let zero = render(&phase_distortion_zero, 64, 1_024, &[note_on()]);
     let distorted = render(&phase_distortion_high, 64, 1_024, &[note_on()]);
     let feedback_zero_audio = render(&feedback_zero, 64, 1_024, &[note_on()]);
     let feedback_audio = render(&feedback, 64, 1_024, &[note_on()]);
+    let wavefold_zero_audio = render(&wavefold_zero, 64, 1_024, &[note_on()]);
     let folded = render(&wavefold, 64, 1_024, &[note_on()]);
 
     assert!(
@@ -399,7 +404,7 @@ fn phase_distortion_feedback_and_wavefold_change_the_rendered_signal() {
             .all(|(left, right)| (left - right).abs() < 1.0e-6)
     );
     assert!(
-        zero.channels[0]
+        wavefold_zero_audio.channels[0]
             .iter()
             .zip(&folded.channels[0])
             .any(|(left, right)| (left - right).abs() > 1.0e-4)

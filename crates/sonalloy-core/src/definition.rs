@@ -4,8 +4,12 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::generator_parameters::{
-    NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SYNC_RATIO,
-    UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+    NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN,
+    OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN,
+    OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
+    OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_PHASE_MAX, OPERATOR_PHASE_MIN,
+    OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH,
+    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id, is_parameter_id};
 
@@ -1635,14 +1639,35 @@ fn validate_operator_modulation(
     let topology = operator_modulation.algorithm.topology();
     let (amount_range, amount_message) = match operator_modulation.mode {
         OperatorModulationMode::Phase | OperatorModulationMode::Frequency => (
-            0.0..=8.0,
-            "modulation_amount must be finite and between 0 and 8",
+            OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN..=OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
+            range_message(
+                "modulation_amount",
+                OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,
+                OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
+            ),
         ),
         OperatorModulationMode::Amplitude | OperatorModulationMode::Ring => (
-            0.0..=1.0,
-            "modulation_amount must be finite and between 0 and 1",
+            OPERATOR_AM_RING_AMOUNT_MIN..=OPERATOR_AM_RING_AMOUNT_MAX,
+            range_message(
+                "modulation_amount",
+                OPERATOR_AM_RING_AMOUNT_MIN,
+                OPERATOR_AM_RING_AMOUNT_MAX,
+            ),
         ),
     };
+    let ratio_message = range_message("operator ratio", OPERATOR_RATIO_MIN, OPERATOR_RATIO_MAX);
+    let detune_message = range_message(
+        "operator detune_cents",
+        OPERATOR_DETUNE_MIN,
+        OPERATOR_DETUNE_MAX,
+    );
+    let level_message = range_message("operator level", OPERATOR_LEVEL_MIN, OPERATOR_LEVEL_MAX);
+    let feedback_message = range_message(
+        "operator feedback",
+        OPERATOR_FEEDBACK_MIN,
+        OPERATOR_FEEDBACK_MAX,
+    );
+    let phase_message = range_message("operator phase", OPERATOR_PHASE_MIN, OPERATOR_PHASE_MAX);
 
     for (index, operator) in operator_modulation.operators.iter().enumerate() {
         let current_path = format!("{operator_path}.operators[{index}]");
@@ -1650,43 +1675,43 @@ fn validate_operator_modulation(
             diagnostics,
             format!("{current_path}.ratio"),
             operator.ratio,
-            0.25..=32.0,
-            "operator ratio must be finite and between 0.25 and 32",
+            OPERATOR_RATIO_MIN..=OPERATOR_RATIO_MAX,
+            &ratio_message,
         );
         validate_range(
             diagnostics,
             format!("{current_path}.detune_cents"),
             operator.detune_cents,
-            -100.0..=100.0,
-            "operator detune_cents must be finite and between -100 and 100",
+            OPERATOR_DETUNE_MIN..=OPERATOR_DETUNE_MAX,
+            &detune_message,
         );
         validate_range(
             diagnostics,
             format!("{current_path}.level"),
             operator.level,
-            0.0..=1.0,
-            "operator level must be finite and between 0 and 1",
+            OPERATOR_LEVEL_MIN..=OPERATOR_LEVEL_MAX,
+            &level_message,
         );
         validate_range(
             diagnostics,
             format!("{current_path}.modulation_amount"),
             operator.modulation_amount,
             amount_range.clone(),
-            amount_message,
+            &amount_message,
         );
         validate_range(
             diagnostics,
             format!("{current_path}.feedback"),
             operator.feedback,
-            0.0..=1.0,
-            "operator feedback must be finite and between 0 and 1",
+            OPERATOR_FEEDBACK_MIN..=OPERATOR_FEEDBACK_MAX,
+            &feedback_message,
         );
         validate_range(
             diagnostics,
             format!("{current_path}.phase"),
             operator.phase,
-            0.0..=1.0,
-            "operator phase must be finite and between 0 and 1",
+            OPERATOR_PHASE_MIN..=OPERATOR_PHASE_MAX,
+            &phase_message,
         );
         validate_adsr(diagnostics, &current_path, operator.envelope);
 
@@ -1867,6 +1892,10 @@ fn validate_range(
         diagnostics
             .push(Diagnostic::error(DiagnosticCode::ValueOutOfRange, message).with_path(path));
     }
+}
+
+fn range_message(field: &str, min: f32, max: f32) -> String {
+    format!("{field} must be finite and between {min} and {max}")
 }
 
 #[cfg(test)]

@@ -22,6 +22,9 @@ pub enum DspWavefolderError {
     /// The native implementation raised an exception.
     #[error("native exception")]
     NativeException,
+    /// The native implementation produced a non-finite sample.
+    #[error("non-finite output")]
+    NonFinite,
     /// The native result code was not recognized.
     #[error("unknown native error code {0}")]
     Unknown(i32),
@@ -34,6 +37,7 @@ fn result_from_code(code: i32) -> Result<(), DspWavefolderError> {
         ffi::NULL_HANDLE => Err(DspWavefolderError::NullHandle),
         ffi::NOT_PREPARED => Err(DspWavefolderError::NotPrepared),
         ffi::NATIVE_EXCEPTION => Err(DspWavefolderError::NativeException),
+        ffi::NON_FINITE => Err(DspWavefolderError::NonFinite),
         other => Err(DspWavefolderError::Unknown(other)),
     }
 }
@@ -267,6 +271,27 @@ mod tests {
         assert_eq!(
             wavefolder.process_ramp(1.0, 8.0, 0.0, 1.1, &mut output),
             Err(DspWavefolderError::InvalidArgument)
+        );
+        assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+    }
+
+    #[test]
+    fn non_finite_native_output_is_reported_and_cleared() {
+        let mut wavefolder = DspWavefolder::new().expect("wavefolder allocation");
+        wavefolder
+            .prepare(48_000.0)
+            .expect("wavefolder preparation");
+        let mut output = [f32::MAX, -f32::MAX];
+        assert_eq!(
+            wavefolder.process(8.0, 1.0, &mut output),
+            Err(DspWavefolderError::NonFinite)
+        );
+        assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
+
+        output.fill(f32::MAX);
+        assert_eq!(
+            wavefolder.process_ramp(8.0, 8.0, 1.0, 1.0, &mut output),
+            Err(DspWavefolderError::NonFinite)
         );
         assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
     }

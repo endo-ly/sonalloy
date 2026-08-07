@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import ctypes
 import hashlib
 import json
 import math
+import os
 import subprocess
+import threading
+import time
 from pathlib import Path
 
 from measure_wav import read_float_wav
@@ -65,7 +69,7 @@ def render_note(
     definition: Path,
     note: int,
     output: Path,
-    block_size: int,
+    block_size: int = BASE_BLOCK_SIZE,
     sample_rate: int = SAMPLE_RATE,
     gate_seconds: float = 0.15,
     tail_seconds: float = 0.1,
@@ -121,6 +125,157 @@ def render_events(
             "--json",
         ]
     )
+
+
+def render_midi(
+    definition: Path,
+    midi: Path,
+    output: Path,
+    block_size: int = BASE_BLOCK_SIZE,
+    sample_rate: int = SAMPLE_RATE,
+    tail_seconds: float = 1.0,
+) -> None:
+    run_cli(
+        [
+            "render",
+            "midi",
+            str(definition),
+            str(midi),
+            "--sample-rate",
+            str(sample_rate),
+            "--block-size",
+            str(block_size),
+            "--tail",
+            str(tail_seconds),
+            "--output",
+            str(output),
+            "--json",
+        ]
+    )
+
+
+def _process_working_set_bytes(process: subprocess.Popen[str]) -> int | None:
+    if os.name != "nt":
+        return None
+
+    class ProcessMemoryCounters(ctypes.Structure):
+        _fields_ = [
+            ("cb", ctypes.c_ulong),
+            ("page_fault_count", ctypes.c_ulong),
+            ("peak_working_set_size", ctypes.c_size_t),
+            ("working_set_size", ctypes.c_size_t),
+            ("quota_peak_paged_pool_usage", ctypes.c_size_t),
+            ("quota_paged_pool_usage", ctypes.c_size_t),
+            ("quota_peak_non_paged_pool_usage", ctypes.c_size_t),
+            ("quota_non_paged_pool_usage", ctypes.c_size_t),
+            ("pagefile_usage", ctypes.c_size_t),
+            ("peak_pagefile_usage", ctypes.c_size_t),
+        ]
+
+    PROCESS_QUERY_INFORMATION = 0x0400
+    PROCESS_VM_READ = 0x0010
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    psapi = ctypes.WinDLL("psapi", use_last_error=True)
+    open_process = kernel32.OpenProcess
+    open_process.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
+    open_process.restype = ctypes.c_void_p
+    get_memory = psapi.GetProcessMemoryInfo
+    get_memory.argtypes = [
+        ctypes.c_void_p,
+        ctypes.POINTER(ProcessMemoryCounters),
+        ctypes.c_ulong,
+    ]
+    get_memory.restype = ctypes.c_int
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = [ctypes.c_void_p]
+    handle = open_process(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, process.pid)
+    if not handle:
+        return None
+    peak = 0
+    try:
+        while process.poll() is None:
+            counters = ProcessMemoryCounters()
+            counters.cb = ctypes.sizeof(counters)
+            if get_memory(handle, ctypes.byref(counters), counters.cb):
+                peak = max(peak, counters.peak_working_set_size)
+            time.sleep(0.005)
+        counters = ProcessMemoryCounters()
+        counters.cb = ctypes.sizeof(counters)
+        if get_memory(handle, ctypes.byref(counters), counters.cb):
+            peak = max(peak, counters.peak_working_set_size)
+    finally:
+        close_handle(handle)
+    return peak or None
+
+
+def timed_render(
+    definition: Path,
+    events: Path,
+    output: Path,
+    duration_frames: int,
+    block_size: int = BASE_BLOCK_SIZE,
+    sample_rate: int = SAMPLE_RATE,
+) -> dict[str, object]:
+    """Render an event sequence and record wall time and Windows peak working set."""
+
+    command = cli_command() + [
+        "render",
+        "events",
+        str(definition),
+        str(events),
+        "--duration-frames",
+        str(duration_frames),
+        "--tail",
+        "0",
+        "--sample-rate",
+        str(sample_rate),
+        "--block-size",
+        str(block_size),
+        "--output",
+        str(output),
+        "--json",
+    ]
+    started = time.perf_counter()
+    process = subprocess.Popen(
+        command,
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    captured: list[tuple[str, str]] = []
+
+    def collect_output() -> None:
+        stdout, stderr = process.communicate()
+        captured.append((stdout, stderr))
+
+    collector = threading.Thread(target=collect_output)
+    collector.start()
+    peak_working_set = _process_working_set_bytes(process)
+    collector.join()
+    stdout, stderr = captured[0]
+    if process.returncode != 0:
+        details = "\n".join(part for part in (stdout, stderr) if part).strip()
+        raise RuntimeError(
+            f"timed render failed with exit code {process.returncode}: {details}"
+        )
+    _, channels, samples = read_float_wav(output)
+    result: dict[str, object] = {
+        "elapsed_seconds": time.perf_counter() - started,
+        "frames": len(samples) // channels,
+        "channels": channels,
+        "duration_frames": duration_frames,
+        "sample_rate": sample_rate,
+        "block_size": block_size,
+    }
+    result["cli_realtime_factor"] = result["frames"] / (
+        result["elapsed_seconds"] * sample_rate
+    )
+    if peak_working_set is not None:
+        result["peak_working_set_bytes"] = peak_working_set
+    return result
 
 
 def sha256_file(path: Path) -> str:
