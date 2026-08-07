@@ -534,6 +534,9 @@ fn missing_wavetable_asset_leaves_other_layers_available() {
             phase: 0.0,
             hard_sync: None,
             waveshaping: None,
+            phase_distortion: None,
+            wavefold: None,
+            feedback: None,
             unison: None,
         });
     definition.layers.push(fallback);

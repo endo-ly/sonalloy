@@ -54,6 +54,8 @@ sonalloy instrument init <path>
 sonalloy instrument validate examples/instruments/<name>.json
 ```
 
+Complex Oscillatorのphase_distortionとfeedbackはSineだけで使用でき、hard_syncとは併用しません。wavefoldは全Waveformで使用できます。3つのAmountは0〜1で、Parameter IDはlayer.<layer_id>.generator.phase_distortion、layer.<layer_id>.generator.wavefold、layer.<layer_id>.generator.oscillator_feedbackです。
+
 ## Step 3: 検証する
 
 ```bash
@@ -64,6 +66,7 @@ sonalloy instrument inspect <definition> --json    # 実行値を機械可読で
 - `validate`の成功は`valid <path>`。Warningは`print_warnings`で表示されるため必ず確認する
 - `inspect`でPolyphony、Layer Trigger、GeneratorのWaveform / Color / Seed / Wavetable Band / Output Mode、Gain、Pan、Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
 - Operator Modulationでは`inspect --json`のMode、Algorithm、Evaluation Order、Carrier、4 OperatorのParameter ID、Envelope、Unison、Effective Frequency上限を確認する
+- Complex Oscillatorではphase_domain Backend、Signal Order、DC Blocker、WavefolderのParameter IDも確認する
 - Warningが1つでも残る場合は「ほかのLayerでRenderを継続する」設計のため、意図しない無効化がないかを確認する
 
 ## Step 4: Wavetable Layerを追加する（Wavetableを使う場合）

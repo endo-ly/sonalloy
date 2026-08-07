@@ -13,8 +13,8 @@ use crate::definition::{
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
-    GeneratorParameterSpec, NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
-    UNISON_SPREAD, WAVESHAPE, WAVETABLE_POSITION,
+    GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH,
+    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
@@ -262,6 +262,12 @@ pub struct CompiledOscillatorParameters {
     pub pulse_width: Option<ParameterHandle>,
     /// Waveshaping amount handle.
     pub waveshape: Option<ParameterHandle>,
+    /// Phase-distortion amount handle.
+    pub phase_distortion: Option<ParameterHandle>,
+    /// Wavefolder amount handle.
+    pub wavefold: Option<ParameterHandle>,
+    /// Oscillator feedback amount handle.
+    pub oscillator_feedback: Option<ParameterHandle>,
     /// Unison detune handle.
     pub unison_detune: Option<ParameterHandle>,
     /// Unison stereo spread handle.
@@ -278,6 +284,8 @@ pub enum CompiledOscillatorBackend {
         /// Sync ratio handle for the hard-sync oscillator.
         sync_ratio: ParameterHandle,
     },
+    /// Rust phase-domain sine backend for distortion and feedback.
+    PhaseDomain,
 }
 
 impl CompiledOscillatorBackend {
@@ -286,7 +294,7 @@ impl CompiledOscillatorBackend {
     pub fn effective_max_frequency(self, sample_rate: f64) -> f32 {
         let ratio = match self {
             Self::Basic => 0.45,
-            Self::VariableShapeSync { .. } => 0.24,
+            Self::VariableShapeSync { .. } | Self::PhaseDomain => 0.24,
         };
         #[allow(clippy::cast_possible_truncation)]
         {
@@ -321,6 +329,8 @@ pub struct CompiledOscillator {
     pub backend: CompiledOscillatorBackend,
     /// Generator parameter bindings.
     pub parameters: CompiledOscillatorParameters,
+    /// Whether a DC blocker is required after the nonlinear stages.
+    pub dc_blocker: bool,
     /// Static Unison component configuration.
     pub unison: Arc<CompiledUnison>,
 }
@@ -1500,6 +1510,9 @@ fn compile_generator(
             phase,
             hard_sync,
             waveshaping,
+            phase_distortion,
+            wavefold,
+            feedback,
             unison,
         }) => {
             let pulse_width = matches!(waveform, OscillatorWaveform::Pulse { .. })
@@ -1507,6 +1520,15 @@ fn compile_generator(
             let waveshape = waveshaping
                 .as_ref()
                 .map(|_| generator_parameter_handle(catalog, layer_id, WAVESHAPE));
+            let phase_distortion = phase_distortion
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, PHASE_DISTORTION));
+            let wavefold = wavefold
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, WAVEFOLD));
+            let oscillator_feedback = feedback
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, OSCILLATOR_FEEDBACK));
             let unison_detune = unison
                 .as_ref()
                 .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_DETUNE));
@@ -1518,7 +1540,9 @@ fn compile_generator(
                 waveform: *waveform,
                 phase_reset: *phase_reset,
                 phase: *phase,
-                backend: if hard_sync.is_some() {
+                backend: if phase_distortion.is_some() || oscillator_feedback.is_some() {
+                    CompiledOscillatorBackend::PhaseDomain
+                } else if hard_sync.is_some() {
                     CompiledOscillatorBackend::VariableShapeSync {
                         sync_ratio: generator_parameter_handle(catalog, layer_id, SYNC_RATIO),
                     }
@@ -1528,9 +1552,15 @@ fn compile_generator(
                 parameters: CompiledOscillatorParameters {
                     pulse_width,
                     waveshape,
+                    phase_distortion,
+                    wavefold,
+                    oscillator_feedback,
                     unison_detune,
                     unison_spread,
                 },
+                dc_blocker: phase_distortion.is_some()
+                    || wavefold.is_some()
+                    || oscillator_feedback.is_some(),
                 unison: Arc::new(unison),
             })
         }
@@ -2429,6 +2459,9 @@ mod tests {
                 phase: 0.25,
                 hard_sync: None,
                 waveshaping: None,
+                phase_distortion: None,
+                wavefold: None,
+                feedback: None,
                 unison: None,
             });
         let pulse = compile_instrument(&pulse_definition, &context())

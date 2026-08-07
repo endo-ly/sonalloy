@@ -108,11 +108,11 @@ flowchart LR
 
 ### Complex Oscillator
 
-- 保存先：`review-output/complex-oscillator/`（audio/technical / definitions / events / inspect.json / metrics.json / review-summary.md）
+- 保存先：`review-output/complex-oscillator/`（audio/technical / definitions / events / inspect.json / phase-inspect.json / metrics.json / review-summary.md）
 - 生成：`python scripts/review/generate_complex_oscillator_package.py`
-- 内容：Hard Sync Ratio 2 / 6、Ratio Sweep、Waveshaping Amount 0.5 / Sweep、Unison 3 / 5 / 8、Hard Sync + Unison、Essential Synth Referenceを同じDefinitionと固定Eventから確認する
+- 内容：Hard Sync Ratio 2 / 6、Ratio Sweep、Waveshaping Amount 0.5 / Sweep、Unison 3 / 5 / 8、Hard Sync + Unison、Phase Distortion 0.25 / 0.75 / Sweep、Oscillator Feedback 0.3 / 0.8 / Sweep、Wavefold 0.25 / 0.75 / Sweep、Waveshaping + Wavefold、Hard Sync + Wavefold、Unison + Wavefold、Essential Synth Referenceを同じDefinitionと固定Eventから確認する
 - Metrics：Finite性、Peak / RMS / DC、固定長Spectrum、Stereo差分、Stereo Correlation、Sample Rate 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024での出力比較、新規Runtime間の再現性、同時発音Polyphony / Unison別のCLI Render時間とピークWorking Set。性能値はCLI込みの参考値として扱い、Runtime単体のRealtime性能とは分ける
-- 人間の確認：Ratio別の倍音、Ratio SweepのPitch連続性、高音域Hard SyncのAlias、Waveshapingの倍音変化とClick、UnisonのBeat・Stereo幅・Mono互換性、Voice数増加時のLevel、Hard Sync + Unison、Bass / Lead / Pad用途
+- 人間の確認：Ratio別の倍音、Ratio SweepのPitch連続性、高音域Hard SyncのAlias、Waveshapingの倍音変化とClick、Phase Distortionの音色範囲、Feedbackの倍音と安定性、WavefoldのFold感とAmount 0からの連続性、Waveshapingとの役割差、UnisonのBeat・Stereo幅・Mono互換性、Voice数増加時のLevel、Hard Sync + Wavefold、Unison + Wavefold、Bass / Lead / Pad用途
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
 ### Wavetable

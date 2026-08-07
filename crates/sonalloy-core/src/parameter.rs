@@ -8,8 +8,8 @@ use crate::definition::{
     ProcessorDefinition,
 };
 use crate::generator_parameters::{
-    GeneratorParameterSpec, NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
-    UNISON_SPREAD, WAVESHAPE, WAVETABLE_POSITION,
+    GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH,
+    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 
 /// Dense reference to a parameter in one compiled instrument.
@@ -299,6 +299,27 @@ fn push_generator_descriptors(
                     owner,
                     WAVESHAPE,
                     waveshaping.amount,
+                );
+            }
+            if let Some(phase_distortion) = oscillator.phase_distortion {
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    PHASE_DISTORTION,
+                    phase_distortion.amount,
+                );
+            }
+            if let Some(wavefold) = oscillator.wavefold {
+                push_generator_descriptor(descriptors, prefix, owner, WAVEFOLD, wavefold.amount);
+            }
+            if let Some(feedback) = oscillator.feedback {
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    OSCILLATOR_FEEDBACK,
+                    feedback.amount,
                 );
             }
             if let Some(unison) = oscillator.unison {
@@ -777,6 +798,9 @@ mod tests {
                 phase: 0.0,
                 hard_sync: None,
                 waveshaping: None,
+                phase_distortion: None,
+                wavefold: None,
+                feedback: None,
                 unison: None,
             });
         let mut noise_layer = source.layers[0].clone();
@@ -873,6 +897,9 @@ mod tests {
                 phase: 0.0,
                 hard_sync: Some(crate::definition::HardSyncDefinition { ratio: 3.0 }),
                 waveshaping: Some(crate::definition::WaveshapingDefinition { amount: 0.25 }),
+                phase_distortion: None,
+                wavefold: None,
+                feedback: None,
                 unison: Some(crate::definition::UnisonDefinition {
                     voices: 5,
                     detune_cents: 18.0,

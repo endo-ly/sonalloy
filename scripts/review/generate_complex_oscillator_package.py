@@ -65,6 +65,29 @@ def set_waveshaping(value: dict[str, object], layer_id: str, amount: float) -> N
     oscillator(value, layer_id)["waveshaping"] = {"amount": amount}
 
 
+def set_phase_domain(
+    value: dict[str, object],
+    layer_id: str,
+    phase_distortion: float | None,
+    wavefold: float | None,
+    feedback: float | None,
+) -> None:
+    oscillator_value = oscillator(value, layer_id)
+    oscillator_value["waveform"] = {"type": "sine"}
+    oscillator_value["hard_sync"] = None
+    oscillator_value["phase_distortion"] = (
+        None
+        if phase_distortion is None
+        else {"amount": phase_distortion}
+    )
+    oscillator_value["wavefold"] = (
+        None if wavefold is None else {"amount": wavefold}
+    )
+    oscillator_value["feedback"] = (
+        None if feedback is None else {"amount": feedback}
+    )
+
+
 def set_unison(
     value: dict[str, object],
     layer_id: str,
@@ -249,6 +272,59 @@ def main() -> None:
     set_hard_sync(hard_sync_unison, "hard_sync_lead", 3.0)
     set_unison(hard_sync_unison, "hard_sync_lead", 3, 8.0, 0.35, 0.0)
     definitions["hard-sync-unison"] = hard_sync_unison
+    phase_distortion_025 = oscillator_variant(source, "hard_sync_lead")
+    set_phase_domain(phase_distortion_025, "hard_sync_lead", 0.25, None, None)
+    set_unison(phase_distortion_025, "hard_sync_lead", None)
+    definitions["phase-distortion-025"] = phase_distortion_025
+
+    phase_distortion_075 = copy.deepcopy(phase_distortion_025)
+    set_phase_domain(phase_distortion_075, "hard_sync_lead", 0.75, None, None)
+    definitions["phase-distortion-075"] = phase_distortion_075
+
+    phase_distortion_sweep = copy.deepcopy(phase_distortion_025)
+    definitions["phase-distortion-sweep"] = phase_distortion_sweep
+
+    feedback_03 = oscillator_variant(source, "hard_sync_lead")
+    set_phase_domain(feedback_03, "hard_sync_lead", None, None, 0.3)
+    set_unison(feedback_03, "hard_sync_lead", None)
+    definitions["feedback-03"] = feedback_03
+
+    feedback_08 = copy.deepcopy(feedback_03)
+    set_phase_domain(feedback_08, "hard_sync_lead", None, None, 0.8)
+    definitions["feedback-08"] = feedback_08
+
+    feedback_sweep = copy.deepcopy(feedback_03)
+    definitions["feedback-sweep"] = feedback_sweep
+
+    wavefold_025 = oscillator_variant(source, "unison_body")
+    set_waveshaping(wavefold_025, "unison_body", 0.0)
+    set_phase_domain(wavefold_025, "unison_body", None, 0.25, None)
+    definitions["wavefold-025"] = wavefold_025
+
+    wavefold_075 = copy.deepcopy(wavefold_025)
+    set_phase_domain(wavefold_075, "unison_body", None, 0.75, None)
+    definitions["wavefold-075"] = wavefold_075
+
+    wavefold_sweep = copy.deepcopy(wavefold_025)
+    definitions["wavefold-sweep"] = wavefold_sweep
+
+    waveshaping_wavefold = copy.deepcopy(wavefold_025)
+    set_waveshaping(waveshaping_wavefold, "unison_body", 0.45)
+    definitions["waveshaping-wavefold"] = waveshaping_wavefold
+
+    hard_sync_wavefold = copy.deepcopy(ratio_two)
+    set_phase_domain(hard_sync_wavefold, "hard_sync_lead", None, 0.5, None)
+    hard_sync_wavefold["layers"][1]["generator"]["oscillator"]["waveform"] = {
+        "type": "saw"
+    }
+    hard_sync_wavefold["layers"][1]["generator"]["oscillator"]["hard_sync"] = {
+        "ratio": 2.0
+    }
+    definitions["hard-sync-wavefold"] = hard_sync_wavefold
+
+    unison_wavefold = copy.deepcopy(wavefold_025)
+    set_unison(unison_wavefold, "unison_body", 5, 18.0, 0.8, 0.2)
+    definitions["unison-wavefold"] = unison_wavefold
     definitions["full-essential-synth-patch"] = source
 
     definition_paths: dict[str, Path] = {}
@@ -267,6 +343,15 @@ def main() -> None:
         ]
     )
     write_utf8(review_root / "inspect.json", inspect_json)
+    phase_inspect_json = run_cli(
+        [
+            "instrument",
+            "inspect",
+            str(definition_paths["phase-distortion-025"]),
+            "--json",
+        ]
+    )
+    write_utf8(review_root / "phase-inspect.json", phase_inspect_json)
 
     hard_sync_events = event_dir / "hard-sync-sweep.json"
     write_events(
@@ -320,6 +405,84 @@ def main() -> None:
             {"absolute_frame": 14_000, "type": "note_off", "note_id": 2},
         ],
     )
+    phase_distortion_events = event_dir / "phase-distortion-sweep.json"
+    write_events(
+        phase_distortion_events,
+        [
+            {
+                "absolute_frame": 0,
+                "type": "note_on",
+                "note_id": 3,
+                "note": 60,
+                "velocity": 112,
+            },
+            {
+                "absolute_frame": 4096,
+                "type": "parameter_change",
+                "parameter": "layer.hard_sync_lead.generator.phase_distortion",
+                "normalized": 0.8,
+            },
+            {
+                "absolute_frame": 12_000,
+                "type": "parameter_change",
+                "parameter": "layer.hard_sync_lead.generator.phase_distortion",
+                "normalized": 0.1,
+            },
+            {"absolute_frame": 14_000, "type": "note_off", "note_id": 3},
+        ],
+    )
+    feedback_events = event_dir / "feedback-sweep.json"
+    write_events(
+        feedback_events,
+        [
+            {
+                "absolute_frame": 0,
+                "type": "note_on",
+                "note_id": 4,
+                "note": 60,
+                "velocity": 112,
+            },
+            {
+                "absolute_frame": 4096,
+                "type": "parameter_change",
+                "parameter": "layer.hard_sync_lead.generator.oscillator_feedback",
+                "normalized": 0.8,
+            },
+            {
+                "absolute_frame": 12_000,
+                "type": "parameter_change",
+                "parameter": "layer.hard_sync_lead.generator.oscillator_feedback",
+                "normalized": 0.1,
+            },
+            {"absolute_frame": 14_000, "type": "note_off", "note_id": 4},
+        ],
+    )
+    wavefold_events = event_dir / "wavefold-sweep.json"
+    write_events(
+        wavefold_events,
+        [
+            {
+                "absolute_frame": 0,
+                "type": "note_on",
+                "note_id": 5,
+                "note": 48,
+                "velocity": 112,
+            },
+            {
+                "absolute_frame": 4096,
+                "type": "parameter_change",
+                "parameter": "layer.unison_body.generator.wavefold",
+                "normalized": 0.75,
+            },
+            {
+                "absolute_frame": 12_000,
+                "type": "parameter_change",
+                "parameter": "layer.unison_body.generator.wavefold",
+                "normalized": 0.05,
+            },
+            {"absolute_frame": 14_000, "type": "note_off", "note_id": 5},
+        ],
+    )
 
     note_jobs = [
         ("13-hard-sync-ratio-2.wav", "hard-sync-ratio-2", 60),
@@ -330,6 +493,15 @@ def main() -> None:
         ("20-unison-8.wav", "unison-8", 48),
         ("21-hard-sync-unison.wav", "hard-sync-unison", 60),
         ("22-full-essential-synth-patch.wav", "full-essential-synth-patch", 48),
+        ("24-phase-distortion-025.wav", "phase-distortion-025", 60),
+        ("25-phase-distortion-075.wav", "phase-distortion-075", 60),
+        ("27-feedback-03.wav", "feedback-03", 60),
+        ("28-feedback-08.wav", "feedback-08", 60),
+        ("30-wavefold-025.wav", "wavefold-025", 48),
+        ("31-wavefold-075.wav", "wavefold-075", 48),
+        ("33-waveshaping-wavefold.wav", "waveshaping-wavefold", 48),
+        ("34-hard-sync-wavefold.wav", "hard-sync-wavefold", 60),
+        ("35-unison-wavefold.wav", "unison-wavefold", 48),
     ]
     note_audio_paths: list[Path] = []
     for audio_name, definition_name, note in note_jobs:
@@ -354,6 +526,27 @@ def main() -> None:
         definition_paths["waveshaping-sweep"],
         waveshape_events,
         waveshaping_sweep_audio_path,
+        BASE_BLOCK_SIZE,
+    )
+    phase_distortion_sweep_audio_path = technical_dir / "26-phase-distortion-sweep.wav"
+    render_events(
+        definition_paths["phase-distortion-sweep"],
+        phase_distortion_events,
+        phase_distortion_sweep_audio_path,
+        BASE_BLOCK_SIZE,
+    )
+    feedback_sweep_audio_path = technical_dir / "29-feedback-sweep.wav"
+    render_events(
+        definition_paths["feedback-sweep"],
+        feedback_events,
+        feedback_sweep_audio_path,
+        BASE_BLOCK_SIZE,
+    )
+    wavefold_sweep_audio_path = technical_dir / "32-wavefold-sweep.wav"
+    render_events(
+        definition_paths["wavefold-sweep"],
+        wavefold_events,
+        wavefold_sweep_audio_path,
         BASE_BLOCK_SIZE,
     )
 
@@ -402,6 +595,11 @@ def main() -> None:
     generated_audio_paths = (
         note_audio_paths
         + [hard_sync_sweep_audio_path, waveshaping_sweep_audio_path]
+        + [
+            phase_distortion_sweep_audio_path,
+            feedback_sweep_audio_path,
+            wavefold_sweep_audio_path,
+        ]
         + list(regression_paths.values())
         + [fresh_a, fresh_b]
         + list(sample_rate_paths.values())
@@ -414,6 +612,15 @@ def main() -> None:
         "19-unison-5-stereo.wav",
         "21-hard-sync-unison.wav",
         "22-full-essential-synth-patch.wav",
+        "24-phase-distortion-025.wav",
+        "25-phase-distortion-075.wav",
+        "27-feedback-03.wav",
+        "28-feedback-08.wav",
+        "30-wavefold-025.wav",
+        "31-wavefold-075.wav",
+        "33-waveshaping-wavefold.wav",
+        "34-hard-sync-wavefold.wav",
+        "35-unison-wavefold.wav",
     }
     for path in sorted(generated_audio_paths):
         values = measure(
@@ -454,6 +661,8 @@ def main() -> None:
         "basic_saw": "unison_body",
         "hard_sync": "hard_sync_lead",
         "waveshaping": "unison_body",
+        "phase_domain": "hard_sync_lead",
+        "wavefold": "unison_body",
         "processor_chain": "unison_body",
     }
     with tempfile.TemporaryDirectory(prefix="sonalloy-complex-review-") as temporary:
@@ -469,6 +678,20 @@ def main() -> None:
                     oscillator_value["waveshaping"] = (
                         {"amount": 0.45} if mode == "waveshaping" else None
                     )
+                    set_phase_domain(
+                        value,
+                        layer_id,
+                        0.5 if mode == "phase_domain" else None,
+                        0.5 if mode == "wavefold" else None,
+                        0.3 if mode == "phase_domain" else None,
+                    )
+                    if mode == "hard_sync":
+                        oscillator_value["waveform"] = {"type": "saw"}
+                        oscillator_value["hard_sync"] = {"ratio": 3.0}
+                    elif mode != "phase_domain":
+                        oscillator_value["waveform"] = {"type": "saw"}
+                        oscillator_value["phase_distortion"] = None
+                        oscillator_value["feedback"] = None
                     set_unison(
                         value,
                         layer_id,
@@ -550,7 +773,7 @@ def main() -> None:
 
 ## 入力
 
-Definitionはdefinitions/、Eventはevents/、WAVはaudio/technical/へ保存しています。同じWAVをMetricsと人間の試聴に使用します。inspect.jsonにはBackend、Dynamic Parameter、Unison構成、Effective Frequency上限を保存しています。
+Definitionはdefinitions/、Eventはevents/、WAVはaudio/technical/へ保存しています。同じWAVをMetricsと人間の試聴に使用します。inspect.jsonにはBackend、Dynamic Parameter、Unison構成、Effective Frequency上限を保存し、phase-inspect.jsonにはPhase Distortion、Wavefold、Feedbackを有効にしたInspect結果を保存しています。
 
 再生成：
 
@@ -572,6 +795,18 @@ python scripts/review/generate_complex_oscillator_package.py
 | 20-unison-8.wav | Unison 8 |
 | 21-hard-sync-unison.wav | Hard Sync + Unison |
 | 22-full-essential-synth-patch.wav | Full Essential Synth Patch |
+| 24-phase-distortion-025.wav | Phase Distortion Amount 0.25 |
+| 25-phase-distortion-075.wav | Phase Distortion Amount 0.75 |
+| 26-phase-distortion-sweep.wav | Phase Distortion Amount Sweep |
+| 27-feedback-03.wav | Oscillator Feedback Amount 0.3 |
+| 28-feedback-08.wav | Oscillator Feedback Amount 0.8 |
+| 29-feedback-sweep.wav | Oscillator Feedback Amount Sweep |
+| 30-wavefold-025.wav | Wavefold Amount 0.25 |
+| 31-wavefold-075.wav | Wavefold Amount 0.75 |
+| 32-wavefold-sweep.wav | Wavefold Amount Sweep |
+| 33-waveshaping-wavefold.wav | Existing Waveshaping + Wavefold |
+| 34-hard-sync-wavefold.wav | Hard Sync + Wavefold |
+| 35-unison-wavefold.wav | Unison + Wavefold |
 
 ## 機械検査
 
@@ -589,6 +824,15 @@ metrics.jsonは全WAVのFinite性、Peak、RMS、DC、隣接Frame差分、固定
 - [ ] Unison 8で濁りやLevel Explosionがない
 - [ ] Hard Sync + Unisonが音色として使用可能である
 - [ ] Full Essential Synth PatchがBass / Lead / Pad用途で破綻しない
+- [ ] Phase Distortion 0.25と0.75で音色範囲の差が明確である
+- [ ] Phase Distortion SweepにClickやPitch Jumpがない
+- [ ] Feedback 0.3と0.8で倍音の粗さが変化し、発散しない
+- [ ] Feedback SweepがBlock境界で不連続にならない
+- [ ] Wavefold 0.25と0.75でFold感が変化し、Amount 0がIdentityである
+- [ ] Waveshaping + Wavefoldで役割の差を聞き分けられる
+- [ ] Hard Sync + WavefoldがFiniteで、高音域のAliasが許容範囲に収まる
+- [ ] Unison + WavefoldのBeat、Stereo幅、Levelが実用範囲にある
+- [ ] Phase Distortion LeadがBass / Lead / Pad用途で成立する
 
 ### 人間の回答
 

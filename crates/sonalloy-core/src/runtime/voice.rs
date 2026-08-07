@@ -750,35 +750,7 @@ impl VoiceRuntime {
             let pan = self.evaluate_target(compiled, layer.parameters.pan, shared)?;
             let generator = match &layer.generator {
                 CompiledGenerator::Oscillator(value) => {
-                    let sync_ratio = match value.backend {
-                        crate::compiler::CompiledOscillatorBackend::Basic => None,
-                        crate::compiler::CompiledOscillatorBackend::VariableShapeSync {
-                            sync_ratio,
-                        } => Some(self.evaluate_target(compiled, sync_ratio, shared)?),
-                    };
-                    LayerGeneratorTargetSpan::Oscillator {
-                        pulse_width: value
-                            .parameters
-                            .pulse_width
-                            .map(|handle| self.evaluate_target(compiled, handle, shared))
-                            .transpose()?,
-                        sync_ratio,
-                        waveshape: value
-                            .parameters
-                            .waveshape
-                            .map(|handle| self.evaluate_target(compiled, handle, shared))
-                            .transpose()?,
-                        unison_detune: value
-                            .parameters
-                            .unison_detune
-                            .map(|handle| self.evaluate_target(compiled, handle, shared))
-                            .transpose()?,
-                        unison_spread: value
-                            .parameters
-                            .unison_spread
-                            .map(|handle| self.evaluate_target(compiled, handle, shared))
-                            .transpose()?,
-                    }
+                    self.evaluate_oscillator_targets(compiled, value, shared)?
                 }
                 CompiledGenerator::Noise(value) => LayerGeneratorTargetSpan::Noise {
                     correlation: self.evaluate_target(compiled, value.correlation, shared)?,
@@ -832,6 +804,59 @@ impl VoiceRuntime {
                 self.evaluate_processor_target(compiled, processor, shared)?;
         }
         Ok(())
+    }
+
+    fn evaluate_oscillator_targets(
+        &mut self,
+        compiled: &CompiledInstrument,
+        oscillator: &crate::compiler::CompiledOscillator,
+        shared: SharedParameterSpan<'_>,
+    ) -> Result<LayerGeneratorTargetSpan, ProcessError> {
+        let sync_ratio = match oscillator.backend {
+            crate::compiler::CompiledOscillatorBackend::Basic
+            | crate::compiler::CompiledOscillatorBackend::PhaseDomain => None,
+            crate::compiler::CompiledOscillatorBackend::VariableShapeSync { sync_ratio } => {
+                Some(self.evaluate_target(compiled, sync_ratio, shared)?)
+            }
+        };
+        Ok(LayerGeneratorTargetSpan::Oscillator {
+            pulse_width: oscillator
+                .parameters
+                .pulse_width
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+            sync_ratio,
+            waveshape: oscillator
+                .parameters
+                .waveshape
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+            phase_distortion: oscillator
+                .parameters
+                .phase_distortion
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+            wavefold: oscillator
+                .parameters
+                .wavefold
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+            oscillator_feedback: oscillator
+                .parameters
+                .oscillator_feedback
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+            unison_detune: oscillator
+                .parameters
+                .unison_detune
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+            unison_spread: oscillator
+                .parameters
+                .unison_spread
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+        })
     }
 
     fn evaluate_operator_target(

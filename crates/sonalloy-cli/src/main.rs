@@ -286,6 +286,18 @@ enum InspectGenerator {
         waveshaping: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
         waveshape_parameter: Option<String>,
+        phase_distortion: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        phase_distortion_parameter: Option<String>,
+        wavefold: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        wavefold_parameter: Option<String>,
+        oscillator_feedback: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        oscillator_feedback_parameter: Option<String>,
+        dc_blocker: bool,
+        signal_order: &'static str,
+        combination_constraints: &'static str,
         unison_voices: usize,
         #[serde(skip_serializing_if = "Option::is_none")]
         unison_detune_parameter: Option<String>,
@@ -1168,6 +1180,9 @@ fn default_definition() -> InstrumentDefinition {
                 phase: 0.0,
                 hard_sync: None,
                 waveshaping: None,
+                phase_distortion: None,
+                wavefold: None,
+                feedback: None,
                 unison: None,
             }),
             processors: Vec::new(),
@@ -1425,53 +1440,7 @@ fn inspect_generator(
 ) -> (InspectGenerator, &'static str) {
     match generator {
         sonalloy_core::compiler::CompiledGenerator::Oscillator(oscillator) => {
-            let (backend, sync_ratio) = match oscillator.backend {
-                sonalloy_core::compiler::CompiledOscillatorBackend::Basic => ("basic", None),
-                sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync {
-                    sync_ratio,
-                } => ("variable_shape_sync", Some(sync_ratio)),
-            };
-            (
-                InspectGenerator::Oscillator {
-                    waveform: match oscillator.waveform {
-                        OscillatorWaveform::Sine => "sine",
-                        OscillatorWaveform::Saw => "saw",
-                        OscillatorWaveform::Square => "square",
-                        OscillatorWaveform::Triangle => "triangle",
-                        OscillatorWaveform::Pulse { .. } => "pulse",
-                    },
-                    phase_reset: oscillator.phase_reset,
-                    phase: oscillator.phase,
-                    output_mode: output_mode_name(generator.output_mode()),
-                    backend,
-                    hard_sync: sync_ratio.is_some(),
-                    sync_ratio_parameter: sync_ratio
-                        .map(|handle| parameter_descriptor_id(compiled, handle)),
-                    waveshaping: oscillator.parameters.waveshape.is_some(),
-                    waveshape_parameter: oscillator
-                        .parameters
-                        .waveshape
-                        .map(|handle| parameter_descriptor_id(compiled, handle)),
-                    unison_voices: oscillator.unison.position_distribution.len(),
-                    unison_detune_parameter: oscillator
-                        .parameters
-                        .unison_detune
-                        .map(|handle| parameter_descriptor_id(compiled, handle)),
-                    unison_spread_parameter: oscillator
-                        .parameters
-                        .unison_spread
-                        .map(|handle| parameter_descriptor_id(compiled, handle)),
-                    phase_spread: oscillator.unison.phase_spread,
-                    effective_max_frequency_hz: oscillator
-                        .backend
-                        .effective_max_frequency(compiled.process_sample_rate),
-                    pulse_width: oscillator
-                        .parameters
-                        .pulse_width
-                        .map(|handle| parameter_default(compiled, handle)),
-                },
-                "not_applicable (oscillator-only instrument)",
-            )
+            inspect_oscillator_generator(compiled, generator, oscillator)
         }
         sonalloy_core::compiler::CompiledGenerator::Noise(noise) => (
             InspectGenerator::Noise {
@@ -1515,6 +1484,87 @@ fn inspect_generator(
             inspect_operator_generator(compiled, generator, operator)
         }
     }
+}
+
+fn inspect_oscillator_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    oscillator: &sonalloy_core::compiler::CompiledOscillator,
+) -> (InspectGenerator, &'static str) {
+    let (backend, sync_ratio) = match oscillator.backend {
+        sonalloy_core::compiler::CompiledOscillatorBackend::Basic => ("basic", None),
+        sonalloy_core::compiler::CompiledOscillatorBackend::VariableShapeSync { sync_ratio } => {
+            ("variable_shape_sync", Some(sync_ratio))
+        }
+        sonalloy_core::compiler::CompiledOscillatorBackend::PhaseDomain => ("phase_domain", None),
+    };
+    (
+        InspectGenerator::Oscillator {
+            waveform: match oscillator.waveform {
+                OscillatorWaveform::Sine => "sine",
+                OscillatorWaveform::Saw => "saw",
+                OscillatorWaveform::Square => "square",
+                OscillatorWaveform::Triangle => "triangle",
+                OscillatorWaveform::Pulse { .. } => "pulse",
+            },
+            phase_reset: oscillator.phase_reset,
+            phase: oscillator.phase,
+            output_mode: output_mode_name(generator.output_mode()),
+            backend,
+            hard_sync: sync_ratio.is_some(),
+            sync_ratio_parameter: sync_ratio
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            waveshaping: oscillator.parameters.waveshape.is_some(),
+            waveshape_parameter: oscillator
+                .parameters
+                .waveshape
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            phase_distortion: oscillator.parameters.phase_distortion.is_some(),
+            phase_distortion_parameter: oscillator
+                .parameters
+                .phase_distortion
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            wavefold: oscillator.parameters.wavefold.is_some(),
+            wavefold_parameter: oscillator
+                .parameters
+                .wavefold
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            oscillator_feedback: oscillator.parameters.oscillator_feedback.is_some(),
+            oscillator_feedback_parameter: oscillator
+                .parameters
+                .oscillator_feedback
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            dc_blocker: oscillator.dc_blocker,
+            signal_order: if oscillator.backend
+                == sonalloy_core::compiler::CompiledOscillatorBackend::PhaseDomain
+            {
+                "phase_domain -> unison_mix -> waveshaping -> wavefolder -> dc_blocker"
+            } else if oscillator.parameters.wavefold.is_some() {
+                "oscillator -> unison_mix -> waveshaping -> wavefolder -> dc_blocker"
+            } else {
+                "oscillator -> unison_mix -> waveshaping"
+            },
+            combination_constraints: "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
+            unison_voices: oscillator.unison.position_distribution.len(),
+            unison_detune_parameter: oscillator
+                .parameters
+                .unison_detune
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            unison_spread_parameter: oscillator
+                .parameters
+                .unison_spread
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            phase_spread: oscillator.unison.phase_spread,
+            effective_max_frequency_hz: oscillator
+                .backend
+                .effective_max_frequency(compiled.process_sample_rate),
+            pulse_width: oscillator
+                .parameters
+                .pulse_width
+                .map(|handle| parameter_default(compiled, handle)),
+        },
+        "not_applicable (oscillator-only instrument)",
+    )
 }
 
 fn inspect_wavetable_generator(
@@ -1844,42 +1894,64 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     print_warnings(&report.diagnostics);
 }
 
+fn print_oscillator_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::Oscillator {
+        waveform,
+        phase_reset,
+        phase,
+        output_mode,
+        backend,
+        hard_sync,
+        sync_ratio_parameter,
+        waveshaping,
+        waveshape_parameter,
+        phase_distortion,
+        phase_distortion_parameter,
+        wavefold,
+        wavefold_parameter,
+        oscillator_feedback,
+        oscillator_feedback_parameter,
+        dc_blocker,
+        signal_order,
+        combination_constraints,
+        unison_voices,
+        unison_detune_parameter,
+        unison_spread_parameter,
+        phase_spread,
+        effective_max_frequency_hz,
+        pulse_width,
+    } = generator
+    else {
+        return;
+    };
+    println!(
+        "layer {layer_id}: enabled true generator oscillator/{waveform} phase_reset {phase_reset} phase {phase} output_mode {output_mode}"
+    );
+    println!("  backend: {backend} effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
+    println!(
+        "  hard_sync: {hard_sync} waveshaping: {waveshaping} phase_distortion: {phase_distortion} wavefold: {wavefold} oscillator_feedback: {oscillator_feedback}"
+    );
+    println!("  dc_blocker: {dc_blocker} signal_order: {signal_order}");
+    println!("  combination_constraints: {combination_constraints}");
+    if let Some(value) = pulse_width {
+        println!("  pulse_width: {value}");
+    }
+    print_parameter_reference("sync_ratio", sync_ratio_parameter.as_ref());
+    print_parameter_reference("waveshape", waveshape_parameter.as_ref());
+    print_parameter_reference("phase_distortion", phase_distortion_parameter.as_ref());
+    print_parameter_reference("wavefold", wavefold_parameter.as_ref());
+    print_parameter_reference(
+        "oscillator_feedback",
+        oscillator_feedback_parameter.as_ref(),
+    );
+    print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
+    print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
+    println!("  unison_voices: {unison_voices} phase_spread: {phase_spread:.3}");
+}
+
 fn print_generator(layer_id: &str, generator: &InspectGenerator) {
     match generator {
-        InspectGenerator::Oscillator {
-            waveform,
-            phase_reset,
-            phase,
-            output_mode,
-            backend,
-            hard_sync,
-            sync_ratio_parameter,
-            waveshaping,
-            waveshape_parameter,
-            unison_voices,
-            unison_detune_parameter,
-            unison_spread_parameter,
-            phase_spread,
-            effective_max_frequency_hz,
-            pulse_width,
-        } => {
-            println!(
-                "layer {layer_id}: enabled true generator oscillator/{waveform} phase_reset {phase_reset} phase {phase} output_mode {output_mode}"
-            );
-            println!(
-                "  backend: {backend} effective_max_frequency_hz: {effective_max_frequency_hz:.3}"
-            );
-            println!(
-                "  hard_sync: {hard_sync} waveshaping: {waveshaping} unison_voices: {unison_voices} phase_spread: {phase_spread:.3}"
-            );
-            if let Some(value) = pulse_width {
-                println!("  pulse_width: {value}");
-            }
-            print_parameter_reference("sync_ratio", sync_ratio_parameter.as_ref());
-            print_parameter_reference("waveshape", waveshape_parameter.as_ref());
-            print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
-            print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
-        }
+        InspectGenerator::Oscillator { .. } => print_oscillator_generator(layer_id, generator),
         InspectGenerator::Noise {
             output_mode,
             noise_color,

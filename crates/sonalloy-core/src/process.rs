@@ -420,6 +420,20 @@ impl ProcessError {
         };
         Self::DspFailure { kind }
     }
+
+    pub(crate) fn from_wavefolder_error(error: sonalloy_dsp_sys::DspWavefolderError) -> Self {
+        let kind = match error {
+            sonalloy_dsp_sys::DspWavefolderError::AllocationFailed => {
+                DspFailureKind::ResourceUnavailable
+            }
+            sonalloy_dsp_sys::DspWavefolderError::InvalidArgument => DspFailureKind::InvalidInput,
+            sonalloy_dsp_sys::DspWavefolderError::NotPrepared => DspFailureKind::InvalidState,
+            sonalloy_dsp_sys::DspWavefolderError::NullHandle
+            | sonalloy_dsp_sys::DspWavefolderError::NativeException
+            | sonalloy_dsp_sys::DspWavefolderError::Unknown(_) => DspFailureKind::BackendFailure,
+        };
+        Self::DspFailure { kind }
+    }
 }
 
 /// A processor that follows the prepare/process/reset lifecycle.

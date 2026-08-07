@@ -175,6 +175,9 @@ fn pulse_definition(with_modulation: bool) -> InstrumentDefinition {
         phase: 0.0,
         hard_sync: None,
         waveshaping: None,
+        phase_distortion: None,
+        wavefold: None,
+        feedback: None,
         unison: None,
     });
     if with_modulation {
@@ -258,6 +261,9 @@ fn complex_oscillator_definition(
         phase: 0.0,
         hard_sync: hard_sync.then_some(HardSyncDefinition { ratio: 3.0 }),
         waveshaping: waveshaping.then_some(WaveshapingDefinition { amount: 0.45 }),
+        phase_distortion: None,
+        wavefold: None,
+        feedback: None,
         unison: unison_voices.map(|voices| UnisonDefinition {
             voices,
             detune_cents: 18.0,

@@ -21,9 +21,10 @@ pub use definition::{
     DriveProcessorDefinition, FilterProcessorDefinition, GeneratorDefinition, HardSyncDefinition,
     InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, NoiseColor,
     NoiseDefinition, OperatorAlgorithm, OperatorDefinition, OperatorModulationDefinition,
-    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, PerformanceDefinition,
-    ProcessorDefinition, ReverbProcessorDefinition, SampleDefinition, SampleInterpolation,
-    SampleZoneDefinition, SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition,
+    OperatorModulationMode, OscillatorDefinition, OscillatorFeedbackDefinition, OscillatorWaveform,
+    PerformanceDefinition, PhaseDistortionDefinition, ProcessorDefinition,
+    ReverbProcessorDefinition, SampleDefinition, SampleInterpolation, SampleZoneDefinition,
+    SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition, WavefoldDefinition,
     WaveshapingDefinition, WavetableDefinition,
 };
 pub use definition::{

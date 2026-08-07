@@ -1,0 +1,28 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 4,
+      "note": 60,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 4096,
+      "type": "parameter_change",
+      "parameter": "layer.hard_sync_lead.generator.oscillator_feedback",
+      "normalized": 0.8
+    },
+    {
+      "absolute_frame": 12000,
+      "type": "parameter_change",
+      "parameter": "layer.hard_sync_lead.generator.oscillator_feedback",
+      "normalized": 0.1
+    },
+    {
+      "absolute_frame": 14000,
+      "type": "note_off",
+      "note_id": 4
+    }
+  ]
+}

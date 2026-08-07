@@ -123,6 +123,7 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 - **Noise**：White / Pink / Brownを決定的なPRNG Streamから生成します。Shared、Left Independent、Right Independentの3 Streamを持ち、Correlationを`√correlation`と`√(1-correlation)`でMixして常にStereoで出力します
 - **Wavetable**：Compile時にWAVをFrameへ分割し、FFT/IFFTでHarmonic上限の異なるBand Tableを準備します。PositionはFrame間をLinear、Table内をFour-point Cubicで補間し、Component Frequencyに応じたBandをLog2領域でCrossfadeします。Source Sample RateはPitchへ使わず、Unison 1ではMono、2 Voice以上ではStereoで出力します
 - **Operator Modulation**：4 OperatorをCompile済みの固定Topology順にSampleごとに評価します。Phase、Frequency、Amplitude、Ringは同じOperator信号を使いながら別の相互作用として処理し、Carrier Sum後に`1 / sqrt(carrier_count)`で正規化します。Operator Envelopeは各Operator出力へ乗算し、Carrier以外のOperatorは接続先へのModulation Signalだけを供給します。Unison 1はMono、2〜4はComponentごとのPhaseとPrevious Outputを持つStereoです
+- **Complex Oscillator**：Phase DistortionまたはOscillator Feedbackを含むDefinitionはRustのPhase-domain Sine Backendで処理します。Phase Distortionは`breakpoint = 0.5 - amount × 0.45`の連続Mapping、Feedbackは直前Sampleを`tanh(previous × amount × 2.5) × 0.25` cycleへ変換してRead Phaseへ加算します。Wavefoldは既存OscillatorのUnison MixとWaveshapingの後へDaisySP MIT版Wavefolderで適用し、AmountをDrive / Dry-Wetへ固定変換します。非線形機能の後へSample Rate依存のDC Blockerを置きます。Phase DistortionとFeedbackはSineだけで使用でき、Hard Syncとは併用できません
 - **Sample**：後述のSample Zone選択と再生を使います。Compileで無効になったZoneは選択候補から除外されます
 
 ## Wavetable Runtime
@@ -166,7 +167,7 @@ SampleはCompile時にZoneごとのRegionへ変換し、同じAssetのPrepared B
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 
-Oscillatorの信号順序は、Component生成、Unison Mix / Stereo Placement、Generator Waveshaping、Layer Processor Chainです。Unisonの各Componentは同じDefinitionから独立したNative Stateを持ち、`1 / sqrt(voices)`で正規化します。Basic TriangleのPolyBLEPとIntegrator StateはNative Wrapperが所有します。Hard SyncのResetはNative WrapperでVariable Shape Oscillatorを再初期化し、Waveform ShapeとSync設定を復元します。
+Oscillatorの信号順序は、Component生成、Unison Mix / Stereo Placement、Generator Waveshaping、必要なWavefolder、必要なDC Blocker、Layer Processor Chainです。Unisonの各Componentは同じDefinitionから独立したNative Stateを持ち、`1 / sqrt(voices)`で正規化します。Basic TriangleのPolyBLEPとIntegrator StateはNative Wrapperが所有します。Hard SyncのResetはNative WrapperでVariable Shape Oscillatorを再初期化し、Waveform ShapeとSync設定を復元します。Phase-domain ComponentはPhaseとPrevious OutputをComponentごとに保持し、WavefolderはMonoでは1つ、Stereoでは左右独立のHandleを使用します。
 
 ## Sine Runtime（開発用）
 

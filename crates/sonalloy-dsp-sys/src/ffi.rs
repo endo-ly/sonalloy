@@ -15,6 +15,11 @@ pub(crate) struct DspFilter {
     _private: [u8; 0],
 }
 
+#[repr(C)]
+pub(crate) struct DspWavefolder {
+    _private: [u8; 0],
+}
+
 pub(crate) const OK: c_int = 0;
 pub(crate) const INVALID_ARGUMENT: c_int = 1;
 pub(crate) const NULL_HANDLE: c_int = 2;
@@ -135,6 +140,30 @@ unsafe extern "C" {
         end_cutoff_hz: c_float,
         start_resonance: c_float,
         end_resonance: c_float,
+        buffer: *mut c_float,
+        frames: c_uint,
+    ) -> c_int;
+
+    pub(crate) fn sonalloy_dsp_wavefolder_create() -> *mut DspWavefolder;
+    pub(crate) fn sonalloy_dsp_wavefolder_destroy(handle: *mut DspWavefolder);
+    pub(crate) fn sonalloy_dsp_wavefolder_prepare(
+        handle: *mut DspWavefolder,
+        sample_rate: c_double,
+    ) -> c_int;
+    pub(crate) fn sonalloy_dsp_wavefolder_reset(handle: *mut DspWavefolder) -> c_int;
+    pub(crate) fn sonalloy_dsp_wavefolder_process(
+        handle: *mut DspWavefolder,
+        drive: c_float,
+        mix: c_float,
+        buffer: *mut c_float,
+        frames: c_uint,
+    ) -> c_int;
+    pub(crate) fn sonalloy_dsp_wavefolder_process_ramp(
+        handle: *mut DspWavefolder,
+        start_drive: c_float,
+        end_drive: c_float,
+        start_mix: c_float,
+        end_mix: c_float,
         buffer: *mut c_float,
         frames: c_uint,
     ) -> c_int;

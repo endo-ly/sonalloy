@@ -138,6 +138,28 @@ Hard Sync、Waveshaping、UnisonはOscillator Definitionへ追加します。Har
 
 `sync_ratio`、`waveshape`、`unison_detune`、`unison_spread`は既存のLFO、Envelope、Mod Wheel、Parameter Changeから制御できます。値域と信号順序は[`docs/instrument-definition.md`](instrument-definition.md)を参照してください。
 
+### Phase Distortion、Wavefold、Feedbackを使う
+
+SineへPhase DistortionとOne-sample Feedbackを追加すると、Phaseの時間変化と倍音の粗さを作れます。WavefoldはSine以外の既存Waveformにも追加できます。
+
+```json
+"generator": {
+  "oscillator": {
+    "waveform": { "type": "sine" },
+    "phase_reset": true,
+    "phase": 0.0,
+    "hard_sync": null,
+    "waveshaping": { "amount": 0.1 },
+    "phase_distortion": { "amount": 0.55 },
+    "wavefold": { "amount": 0.25 },
+    "feedback": { "amount": 0.3 },
+    "unison": null
+  }
+}
+```
+
+Phase DistortionとFeedbackはSineだけで使用でき、Hard Syncとは併用できません。WavefoldのParameter IDは`layer.<layer_id>.generator.wavefold`、FeedbackのParameter IDは`layer.<layer_id>.generator.oscillator_feedback`です。`instrument inspect --json`で`phase_domain` Backend、Signal Order、DC Blocker、Parameter IDを確認してから、Parameter ChangeやModulationでAmountを動かします。
+
 ### そのほかのパラメータ
 
 | パラメータ | 意味 | 注意 |

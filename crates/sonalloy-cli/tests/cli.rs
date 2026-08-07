@@ -17,6 +17,11 @@ fn complex_oscillator_definition() -> std::path::PathBuf {
         .join("../../examples/instruments/complex-oscillator-reference.json")
 }
 
+fn complex_oscillator_phase_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/complex-oscillator-phase-reference.json")
+}
+
 fn operator_modulation_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/instruments/operator-modulation-reference.json")
@@ -542,6 +547,75 @@ fn complex_oscillator_validate_inspect_and_render() {
     assert!(
         reader
             .samples::<f32>()
+            .map(|sample| sample.expect("valid sample"))
+            .all(f32::is_finite)
+    );
+}
+
+#[test]
+fn phase_domain_oscillator_validate_inspect_and_render() {
+    let definition = complex_oscillator_phase_definition();
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"backend\":\"phase_domain\""))
+        .stdout(predicates::str::contains("\"phase_distortion_parameter\""))
+        .stdout(predicates::str::contains("\"wavefold_parameter\""))
+        .stdout(predicates::str::contains(
+            "\"oscillator_feedback_parameter\"",
+        ))
+        .stdout(predicates::str::contains("\"dc_blocker\":true"))
+        .stdout(predicates::str::contains("\"signal_order\""));
+
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("phase-domain.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "note",
+            definition.to_str().expect("utf-8 definition path"),
+            "--note",
+            "72",
+            "--gate",
+            "0.05",
+            "--tail",
+            "0",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    let reader = hound::WavReader::open(output).expect("phase-domain render output");
+    assert_eq!(reader.spec().channels, 2);
+    assert!(
+        reader
+            .into_samples::<f32>()
             .map(|sample| sample.expect("valid sample"))
             .all(f32::is_finite)
     );

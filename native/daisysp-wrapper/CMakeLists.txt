@@ -19,12 +19,13 @@ FetchContent_Declare(
 )
 FetchContent_Populate(daisysp)
 
-# The wrapper consumes only DaisySP's oscillator. Building the upstream aggregate target
-# would also compile unrelated modules that are outside the wrapper's scope.
+# The wrapper consumes only the DaisySP modules required by Sonalloy. Building the upstream
+# aggregate target would also compile unrelated modules that are outside the wrapper's scope.
 add_library(DaisySP STATIC
     ${daisysp_SOURCE_DIR}/Source/Synthesis/oscillator.cpp
     ${daisysp_SOURCE_DIR}/Source/Synthesis/variableshapeosc.cpp
     ${daisysp_SOURCE_DIR}/Source/Filters/svf.cpp
+    ${daisysp_SOURCE_DIR}/Source/Effects/wavefolder.cpp
 )
 target_compile_features(DaisySP PUBLIC cxx_std_14)
 target_include_directories(DaisySP PUBLIC

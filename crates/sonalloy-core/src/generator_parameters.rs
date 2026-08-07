@@ -38,6 +38,33 @@ pub(crate) const WAVESHAPE: GeneratorParameterSpec = GeneratorParameterSpec {
     smoothing_seconds: 0.005,
 };
 
+pub(crate) const PHASE_DISTORTION: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "phase_distortion",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.005,
+};
+
+pub(crate) const WAVEFOLD: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "wavefold",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.005,
+};
+
+pub(crate) const OSCILLATOR_FEEDBACK: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "oscillator_feedback",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.005,
+};
+
 pub(crate) const WAVETABLE_POSITION: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "wavetable_position",
     unit: ParameterUnit::Normalized,
@@ -79,6 +106,9 @@ pub(crate) fn is_suffix(value: &str) -> bool {
         PULSE_WIDTH,
         SYNC_RATIO,
         WAVESHAPE,
+        PHASE_DISTORTION,
+        WAVEFOLD,
+        OSCILLATOR_FEEDBACK,
         WAVETABLE_POSITION,
         UNISON_DETUNE,
         UNISON_SPREAD,

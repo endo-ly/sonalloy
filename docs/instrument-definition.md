@@ -185,6 +185,36 @@ Dynamic Parameterは次のIDで既存のLFO、Envelope、Mod Wheel、Parameter C
 - `layer.<layer_id>.generator.unison_detune`
 - `layer.<layer_id>.generator.unison_spread`
 
+Phase Distortion、Oscillator Feedback、WavefoldはOptional Fieldです。Phase DistortionとOscillator FeedbackはSineだけで使用でき、Hard Syncとは併用できません。Wavefoldは全Waveformで使用できます。
+
+```json
+{
+  "generator": {
+    "oscillator": {
+      "waveform": { "type": "sine" },
+      "phase_reset": true,
+      "phase": 0.0,
+      "hard_sync": null,
+      "waveshaping": { "amount": 0.15 },
+      "phase_distortion": { "amount": 0.65 },
+      "wavefold": { "amount": 0.35 },
+      "feedback": { "amount": 0.3 },
+      "unison": null
+    }
+  }
+}
+```
+
+| Field | Range | Dynamic | Meaning |
+|---|---:|---:|---|
+| `phase_distortion.amount` | 0〜1 | Yes | SineのRead Phaseを連続的に変形する量 |
+| `wavefold.amount` | 0〜1 | Yes | DaisySP WavefolderのDriveとDry/Wetへ変換する量 |
+| `feedback.amount` | 0〜1 | Yes | 直前Sampleの出力をPhaseへ戻す量 |
+
+Canonical Parameter IDは`layer.<layer_id>.generator.phase_distortion`、`layer.<layer_id>.generator.wavefold`、`layer.<layer_id>.generator.oscillator_feedback`です。いずれも5msでSmoothingされます。WavefoldのAmountは内部で`drive = 1 + amount × 7`、`mix = amount`へ変換され、DaisySPのOffsetは0に固定されます。
+
+信号順は`Phase-domain生成 → Unison Mix → Existing Waveshaping → Wavefolder → DC Blocker`です。Wavefoldだけを使用する場合は既存Oscillator Backendを維持し、WavefoldをUnison MixとExisting Waveshapingの後へ適用します。Phase Distortion、Oscillator Feedback、Wavefoldのいずれかが有効な場合はGenerator末尾へDC Blockerを置きます。
+
 ### Noise
 
 ```json

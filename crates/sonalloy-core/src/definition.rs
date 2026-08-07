@@ -4,8 +4,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::generator_parameters::{
-    NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVESHAPE,
-    WAVETABLE_POSITION,
+    NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SYNC_RATIO,
+    UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id, is_parameter_id};
 
@@ -141,6 +141,15 @@ pub struct OscillatorDefinition {
     /// Optional generator waveshaping configuration.
     #[serde(default)]
     pub waveshaping: Option<WaveshapingDefinition>,
+    /// Optional sine phase-distortion configuration.
+    #[serde(default)]
+    pub phase_distortion: Option<PhaseDistortionDefinition>,
+    /// Optional post-waveshaping Wavefolder configuration.
+    #[serde(default)]
+    pub wavefold: Option<WavefoldDefinition>,
+    /// Optional one-sample phase feedback configuration.
+    #[serde(default)]
+    pub feedback: Option<OscillatorFeedbackDefinition>,
     /// Optional unison configuration.
     #[serde(default)]
     pub unison: Option<UnisonDefinition>,
@@ -159,6 +168,30 @@ pub struct HardSyncDefinition {
 #[serde(deny_unknown_fields)]
 pub struct WaveshapingDefinition {
     /// Normalized waveshaping amount.
+    pub amount: f32,
+}
+
+/// Sine phase-distortion settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PhaseDistortionDefinition {
+    /// Normalized phase breakpoint displacement.
+    pub amount: f32,
+}
+
+/// `DaisySP` Wavefolder settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WavefoldDefinition {
+    /// Normalized Wavefolder amount.
+    pub amount: f32,
+}
+
+/// One-sample oscillator feedback settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OscillatorFeedbackDefinition {
+    /// Normalized previous-output feedback amount.
     pub amount: f32,
 }
 
@@ -1457,6 +1490,7 @@ fn validate_oscillator(
             "waveshaping amount must be finite and between 0 and 1",
         );
     }
+    validate_oscillator_extensions(diagnostics, path, oscillator);
     if let Some(unison) = oscillator.unison {
         validate_unison(
             diagnostics,
@@ -1470,6 +1504,76 @@ fn validate_oscillator(
                     "hard sync does not support non-zero phase spread",
                 )
                 .with_path(format!("{path}.generator.oscillator.unison.phase_spread")),
+            );
+        }
+    }
+}
+
+fn validate_oscillator_extensions(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    oscillator: &OscillatorDefinition,
+) {
+    if let Some(phase_distortion) = oscillator.phase_distortion {
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.phase_distortion.amount"),
+            phase_distortion.amount,
+            PHASE_DISTORTION.min..=PHASE_DISTORTION.max,
+            "phase distortion amount must be finite and between 0 and 1",
+        );
+        if oscillator.waveform != OscillatorWaveform::Sine {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "phase distortion requires a sine waveform",
+                )
+                .with_path(format!("{path}.generator.oscillator.phase_distortion")),
+            );
+        }
+        if oscillator.hard_sync.is_some() {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "phase distortion cannot be combined with hard sync",
+                )
+                .with_path(format!("{path}.generator.oscillator.phase_distortion")),
+            );
+        }
+    }
+    if let Some(wavefold) = oscillator.wavefold {
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.wavefold.amount"),
+            wavefold.amount,
+            WAVEFOLD.min..=WAVEFOLD.max,
+            "wavefold amount must be finite and between 0 and 1",
+        );
+    }
+    if let Some(feedback) = oscillator.feedback {
+        validate_range(
+            diagnostics,
+            format!("{path}.generator.oscillator.feedback.amount"),
+            feedback.amount,
+            OSCILLATOR_FEEDBACK.min..=OSCILLATOR_FEEDBACK.max,
+            "oscillator feedback amount must be finite and between 0 and 1",
+        );
+        if oscillator.waveform != OscillatorWaveform::Sine {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "oscillator feedback requires a sine waveform",
+                )
+                .with_path(format!("{path}.generator.oscillator.feedback")),
+            );
+        }
+        if oscillator.hard_sync.is_some() {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "oscillator feedback cannot be combined with hard sync",
+                )
+                .with_path(format!("{path}.generator.oscillator.feedback")),
             );
         }
     }
@@ -1805,6 +1909,9 @@ pub(crate) mod tests {
                     phase: 0.0,
                     hard_sync: None,
                     waveshaping: None,
+                    phase_distortion: None,
+                    wavefold: None,
+                    feedback: None,
                     unison: None,
                 }),
                 processors: Vec::new(),
@@ -2059,6 +2166,9 @@ pub(crate) mod tests {
             phase: 1.0,
             hard_sync: None,
             waveshaping: None,
+            phase_distortion: None,
+            wavefold: None,
+            feedback: None,
             unison: None,
         });
         assert!(value.validate().is_empty());

@@ -3,6 +3,7 @@
 #include "Synthesis/oscillator.h"
 #include "Synthesis/variableshapeosc.h"
 #include "Filters/svf.h"
+#include "Effects/wavefolder.h"
 
 #include <cmath>
 #include <cstdint>
@@ -40,6 +41,14 @@ struct sonalloy_dsp_filter {
     bool prepared = false;
 };
 
+struct sonalloy_dsp_wavefolder {
+    daisysp::Wavefolder wavefolder;
+    bool prepared = false;
+#ifdef SONALLOY_DSP_TEST_HOOKS
+    bool throw_on_process = false;
+#endif
+};
+
 namespace {
 
 constexpr const char* kBackendVersion =
@@ -75,6 +84,23 @@ bool valid_cutoff(float cutoff_hz, float sample_rate) {
 
 bool valid_resonance(float resonance) {
     return std::isfinite(resonance) && resonance >= 0.0f && resonance <= 1.0f;
+}
+
+bool valid_wavefolder_drive(float drive) {
+    return std::isfinite(drive) && drive >= 1.0f && drive <= 8.0f;
+}
+
+bool valid_wavefolder_mix(float mix) {
+    return std::isfinite(mix) && mix >= 0.0f && mix <= 1.0f;
+}
+
+bool valid_wavefolder_input(const float* buffer, uint32_t frames) {
+    for (uint32_t index = 0; index < frames; ++index) {
+        if (!std::isfinite(buffer[index])) {
+            return false;
+        }
+    }
+    return true;
 }
 
 }  // namespace
@@ -198,7 +224,6 @@ extern "C" int32_t sonalloy_dsp_oscillator_prepare(
         return SONALLOY_DSP_NULL_HANDLE;
     }
     handle->prepared = false;
-    handle->sample_rate = 0.0f;
 #ifdef SONALLOY_DSP_TEST_HOOKS
     handle->throw_on_process = false;
 #endif
@@ -550,7 +575,6 @@ extern "C" int32_t sonalloy_dsp_variable_oscillator_prepare(
         return SONALLOY_DSP_NULL_HANDLE;
     }
     handle->prepared = false;
-    handle->sample_rate = 0.0f;
 #ifdef SONALLOY_DSP_TEST_HOOKS
     handle->throw_on_process = false;
 #endif
@@ -915,6 +939,152 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp_with_resonance(
     }
 }
 
+extern "C" sonalloy_dsp_wavefolder* sonalloy_dsp_wavefolder_create(void) {
+    try {
+        return new sonalloy_dsp_wavefolder();
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+extern "C" void sonalloy_dsp_wavefolder_destroy(sonalloy_dsp_wavefolder* handle) {
+    try {
+        delete handle;
+    } catch (...) {
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_wavefolder_prepare(
+    sonalloy_dsp_wavefolder* handle,
+    double sample_rate
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    handle->prepared = false;
+#ifdef SONALLOY_DSP_TEST_HOOKS
+    handle->throw_on_process = false;
+#endif
+    if (!valid_sample_rate(sample_rate)) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    try {
+        handle->wavefolder.Init();
+        handle->prepared = true;
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        handle->prepared = false;
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_wavefolder_reset(sonalloy_dsp_wavefolder* handle) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (!handle->prepared) {
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    try {
+        handle->wavefolder.Init();
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_wavefolder_process(
+    sonalloy_dsp_wavefolder* handle,
+    float drive,
+    float mix,
+    float* buffer,
+    uint32_t frames
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (frames > 0u && buffer == nullptr) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    if (!handle->prepared) {
+        clear_variable_output(buffer, frames);
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    if (!valid_wavefolder_drive(drive) || !valid_wavefolder_mix(mix) ||
+        !valid_wavefolder_input(buffer, frames)) {
+        clear_variable_output(buffer, frames);
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+
+    try {
+#ifdef SONALLOY_DSP_TEST_HOOKS
+        if (handle->throw_on_process) {
+            handle->throw_on_process = false;
+            throw std::runtime_error("native wavefolder process test exception");
+        }
+#endif
+        for (uint32_t index = 0; index < frames; ++index) {
+            handle->wavefolder.SetGain(drive);
+            const float folded = handle->wavefolder.Process(buffer[index]);
+            buffer[index] += (folded - buffer[index]) * mix;
+        }
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        clear_variable_output(buffer, frames);
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_wavefolder_process_ramp(
+    sonalloy_dsp_wavefolder* handle,
+    float start_drive,
+    float end_drive,
+    float start_mix,
+    float end_mix,
+    float* buffer,
+    uint32_t frames
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (frames > 0u && buffer == nullptr) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    if (!handle->prepared) {
+        clear_variable_output(buffer, frames);
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    if (!valid_wavefolder_drive(start_drive) || !valid_wavefolder_drive(end_drive) ||
+        !valid_wavefolder_mix(start_mix) || !valid_wavefolder_mix(end_mix) ||
+        !valid_wavefolder_input(buffer, frames)) {
+        clear_variable_output(buffer, frames);
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+
+    try {
+#ifdef SONALLOY_DSP_TEST_HOOKS
+        if (handle->throw_on_process) {
+            handle->throw_on_process = false;
+            throw std::runtime_error("native wavefolder ramp test exception");
+        }
+#endif
+        for (uint32_t index = 0; index < frames; ++index) {
+            const float position = frames <= 1u
+                ? 0.0f
+                : static_cast<float>(index) / static_cast<float>(frames);
+            const float drive = start_drive + (end_drive - start_drive) * position;
+            const float mix = start_mix + (end_mix - start_mix) * position;
+            handle->wavefolder.SetGain(drive);
+            const float folded = handle->wavefolder.Process(buffer[index]);
+            buffer[index] += (folded - buffer[index]) * mix;
+        }
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        clear_variable_output(buffer, frames);
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
 #ifdef SONALLOY_DSP_TEST_HOOKS
 extern "C" void sonalloy_dsp_test_arm_process_exception(
     sonalloy_dsp_oscillator* handle
@@ -926,6 +1096,14 @@ extern "C" void sonalloy_dsp_test_arm_process_exception(
 
 extern "C" void sonalloy_dsp_test_arm_variable_process_exception(
     sonalloy_dsp_variable_oscillator* handle
+) {
+    if (handle != nullptr) {
+        handle->throw_on_process = true;
+    }
+}
+
+extern "C" void sonalloy_dsp_test_arm_wavefolder_process_exception(
+    sonalloy_dsp_wavefolder* handle
 ) {
     if (handle != nullptr) {
         handle->throw_on_process = true;

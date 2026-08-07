@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Complex Oscillator Phase Reference",
+    "author": null,
+    "description": "Phase distortion, wavefold, and oscillator feedback reference"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "phase_lead",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.08,
+        "sustain_level": 0.75,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "hard_sync": null,
+          "waveshaping": {
+            "amount": 0.15
+          },
+          "phase_distortion": {
+            "amount": 0.55
+          },
+          "wavefold": {
+            "amount": 0.25
+          },
+          "feedback": {
+            "amount": 0.3
+          },
+          "unison": {
+            "voices": 3,
+            "detune_cents": 9.0,
+            "stereo_spread": 0.65,
+            "phase_spread": 0.2
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": null
+}

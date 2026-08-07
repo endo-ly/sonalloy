@@ -141,6 +141,9 @@ pub(crate) enum LayerGeneratorTargetSpan {
         pulse_width: Option<ValueSpan>,
         sync_ratio: Option<ValueSpan>,
         waveshape: Option<ValueSpan>,
+        phase_distortion: Option<ValueSpan>,
+        wavefold: Option<ValueSpan>,
+        oscillator_feedback: Option<ValueSpan>,
         unison_detune: Option<ValueSpan>,
         unison_spread: Option<ValueSpan>,
     },
@@ -179,10 +182,15 @@ impl CompiledGenerator {
             Self::Oscillator(value) => LayerGeneratorTargetSpan::Oscillator {
                 pulse_width: value.parameters.pulse_width.map(|_| zero),
                 sync_ratio: match value.backend {
-                    CompiledOscillatorBackend::Basic => None,
+                    CompiledOscillatorBackend::Basic | CompiledOscillatorBackend::PhaseDomain => {
+                        None
+                    }
                     CompiledOscillatorBackend::VariableShapeSync { .. } => Some(zero),
                 },
                 waveshape: value.parameters.waveshape.map(|_| zero),
+                phase_distortion: value.parameters.phase_distortion.map(|_| zero),
+                wavefold: value.parameters.wavefold.map(|_| zero),
+                oscillator_feedback: value.parameters.oscillator_feedback.map(|_| zero),
                 unison_detune: value.parameters.unison_detune.map(|_| zero),
                 unison_spread: value.parameters.unison_spread.map(|_| zero),
             },

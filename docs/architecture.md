@@ -53,8 +53,9 @@ Operator Modulationは外部Assetを持たず、4 Operatorの固定TopologyをCo
 Internal C ABIの宣言と、Raw Pointerを隠蔽するSafe Rust Wrapperを提供します。
 
 - DaisySP V1.0.0（コミット`a0494a3adb67f549e18dfd71a35fa656f65b38b6`）をCMakeでBuildし、Static LibraryとしてLinkします
-- Native Wrapperは、DaisySPの`oscillator.cpp`、`variableshapeosc.cpp`、`svf.cpp`をBuild対象に追加します
+- Native Wrapperは、DaisySPの`oscillator.cpp`、`variableshapeosc.cpp`、`svf.cpp`、MIT版`wavefolder.cpp`をBuild対象に追加します
 - DaisySPのClass名やEnumはWrapperの内側に留め、DefinitionやCoreのPublic APIには露出しません。SonalloyのOscillator Waveform、Noise Stream、Output ModeはCoreが所有します
+- Wavefolderは`DspWavefolder`のOpaque Handleへ閉じ込め、CoreへはAmount 0〜1の製品Parameterだけを公開します。DaisySP-LGPLの`Fold`はBuild対象に含めません
 
 ### `sonalloy-cli`
 
