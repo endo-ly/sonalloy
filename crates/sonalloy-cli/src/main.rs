@@ -331,6 +331,37 @@ enum InspectGenerator {
         unison_spread_parameter: Option<String>,
         effective_max_frequency_hz: f32,
     },
+    OperatorModulation {
+        output_mode: &'static str,
+        mode: &'static str,
+        algorithm: &'static str,
+        evaluation_order: Vec<usize>,
+        incoming_masks: Vec<u8>,
+        carrier_operators: Vec<usize>,
+        operators: Vec<InspectOperator>,
+        phase_reset: bool,
+        unison_voices: usize,
+        unison_detune_parameter: Option<String>,
+        unison_spread_parameter: Option<String>,
+        effective_max_frequency_hz: f32,
+    },
+}
+
+#[derive(Debug, Serialize)]
+struct InspectOperator {
+    index: usize,
+    ratio: f32,
+    detune_cents: f32,
+    level: Option<f32>,
+    modulation_amount: Option<f32>,
+    feedback: Option<f32>,
+    phase: f32,
+    envelope: InspectEnvelope,
+    ratio_parameter: String,
+    detune_parameter: String,
+    level_parameter: Option<String>,
+    modulation_amount_parameter: Option<String>,
+    feedback_parameter: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1480,6 +1511,9 @@ fn inspect_generator(
         sonalloy_core::compiler::CompiledGenerator::Wavetable(wavetable) => {
             inspect_wavetable_generator(compiled, generator, wavetable)
         }
+        sonalloy_core::compiler::CompiledGenerator::OperatorModulation(operator) => {
+            inspect_operator_generator(compiled, generator, operator)
+        }
     }
 }
 
@@ -1527,6 +1561,102 @@ fn inspect_wavetable_generator(
             "disabled"
         },
     )
+}
+
+fn inspect_operator_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    operator: &sonalloy_core::compiler::CompiledOperatorModulation,
+) -> (InspectGenerator, &'static str) {
+    let operators = operator
+        .operators
+        .iter()
+        .zip(operator.parameters)
+        .enumerate()
+        .map(|(index, (compiled_operator, parameters))| InspectOperator {
+            index: index + 1,
+            ratio: parameter_default(compiled, parameters.ratio),
+            detune_cents: parameter_default(compiled, parameters.detune),
+            level: parameters
+                .level
+                .map(|handle| parameter_default(compiled, handle)),
+            modulation_amount: parameters
+                .modulation_amount
+                .map(|handle| parameter_default(compiled, handle)),
+            feedback: parameters
+                .feedback
+                .map(|handle| parameter_default(compiled, handle)),
+            phase: compiled_operator.phase,
+            envelope: InspectEnvelope {
+                attack_samples: compiled_operator.envelope.attack_samples,
+                decay_samples: compiled_operator.envelope.decay_samples,
+                sustain_level: compiled_operator.envelope.sustain_level,
+                release_samples: compiled_operator.envelope.release_samples,
+            },
+            ratio_parameter: parameter_descriptor_id(compiled, parameters.ratio),
+            detune_parameter: parameter_descriptor_id(compiled, parameters.detune),
+            level_parameter: parameters
+                .level
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            modulation_amount_parameter: parameters
+                .modulation_amount
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            feedback_parameter: parameters
+                .feedback
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+        })
+        .collect();
+    (
+        InspectGenerator::OperatorModulation {
+            output_mode: output_mode_name(generator.output_mode()),
+            mode: operator_mode_name(operator.mode),
+            algorithm: operator_algorithm_name(operator.algorithm),
+            evaluation_order: operator
+                .topology
+                .evaluation_order
+                .iter()
+                .map(|index| usize::from(*index) + 1)
+                .collect(),
+            incoming_masks: operator.topology.incoming_masks.to_vec(),
+            carrier_operators: (0..4)
+                .filter(|index| operator.topology.carrier_mask & (1_u8 << index) != 0)
+                .map(|index| index + 1)
+                .collect(),
+            operators,
+            phase_reset: operator.phase_reset,
+            unison_voices: operator.unison.position_distribution.len(),
+            unison_detune_parameter: operator
+                .unison_detune
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            unison_spread_parameter: operator
+                .unison_spread
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            effective_max_frequency_hz: operator.effective_max_frequency,
+        },
+        "enabled",
+    )
+}
+
+fn operator_mode_name(mode: sonalloy_core::OperatorModulationMode) -> &'static str {
+    match mode {
+        sonalloy_core::OperatorModulationMode::Phase => "phase",
+        sonalloy_core::OperatorModulationMode::Frequency => "frequency",
+        sonalloy_core::OperatorModulationMode::Amplitude => "amplitude",
+        sonalloy_core::OperatorModulationMode::Ring => "ring",
+    }
+}
+
+fn operator_algorithm_name(algorithm: sonalloy_core::OperatorAlgorithm) -> &'static str {
+    match algorithm {
+        sonalloy_core::OperatorAlgorithm::Stack4 => "stack_4",
+        sonalloy_core::OperatorAlgorithm::Stack3PlusCarrier => "stack_3_plus_carrier",
+        sonalloy_core::OperatorAlgorithm::TwoStacks => "two_stacks",
+        sonalloy_core::OperatorAlgorithm::ForkToCarrier => "fork_to_carrier",
+        sonalloy_core::OperatorAlgorithm::TwoModulatorsPlusCarrier => "two_modulators_plus_carrier",
+        sonalloy_core::OperatorAlgorithm::ThreeModulators => "three_modulators",
+        sonalloy_core::OperatorAlgorithm::SharedModulator => "shared_modulator",
+        sonalloy_core::OperatorAlgorithm::Parallel => "parallel",
+    }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1802,6 +1932,9 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
             }
         }
         InspectGenerator::Wavetable { .. } => print_wavetable_generator(layer_id, generator),
+        InspectGenerator::OperatorModulation { .. } => {
+            print_operator_generator(layer_id, generator);
+        }
     }
 }
 
@@ -1849,6 +1982,69 @@ fn print_wavetable_generator(layer_id: &str, generator: &InspectGenerator) {
     print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
     print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
     println!("  effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
+}
+
+fn print_operator_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::OperatorModulation {
+        output_mode,
+        mode,
+        algorithm,
+        evaluation_order,
+        incoming_masks,
+        carrier_operators,
+        operators,
+        phase_reset,
+        unison_voices,
+        unison_detune_parameter,
+        unison_spread_parameter,
+        effective_max_frequency_hz,
+    } = generator
+    else {
+        return;
+    };
+    println!(
+        "layer {layer_id}: enabled true generator operator_modulation/{mode} output_mode {output_mode}"
+    );
+    println!(
+        "  algorithm: {algorithm} evaluation_order: {evaluation_order:?} carrier_operators: {carrier_operators:?}"
+    );
+    println!(
+        "  incoming_masks: {incoming_masks:?} phase_reset: {phase_reset} unison_voices: {unison_voices}"
+    );
+    for operator in operators {
+        println!(
+            "  operator {}: ratio {:.3} detune_cents {:.3} level {} modulation_amount {} feedback {} phase {:.3}",
+            operator.index,
+            operator.ratio,
+            operator.detune_cents,
+            optional_value(operator.level),
+            optional_value(operator.modulation_amount),
+            optional_value(operator.feedback),
+            operator.phase,
+        );
+        println!(
+            "    envelope: attack {} decay {} sustain {:.3} release {}",
+            operator.envelope.attack_samples,
+            operator.envelope.decay_samples,
+            operator.envelope.sustain_level,
+            operator.envelope.release_samples,
+        );
+        println!("    parameter ratio: {}", operator.ratio_parameter);
+        println!("    parameter detune: {}", operator.detune_parameter);
+        print_parameter_reference("level", operator.level_parameter.as_ref());
+        print_parameter_reference(
+            "modulation_amount",
+            operator.modulation_amount_parameter.as_ref(),
+        );
+        print_parameter_reference("feedback", operator.feedback_parameter.as_ref());
+    }
+    print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
+    print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
+    println!("  effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
+}
+
+fn optional_value(value: Option<f32>) -> String {
+    value.map_or_else(|| "unused".to_owned(), |value| format!("{value:.3}"))
 }
 
 fn print_parameter_reference(name: &str, parameter: Option<&String>) {

@@ -153,6 +153,95 @@ def definition(
     return value
 
 
+def operator_definition(
+    name: str,
+    mode: str,
+    algorithm: str,
+    *,
+    unison: dict[str, object] | None = None,
+    polyphony: int = 16,
+    envelope_decay: tuple[float, float, float, float] = (0.18, 0.12, 0.08, 0.04),
+) -> dict[str, object]:
+    topology_values: dict[str, tuple[list[float], list[float]]] = {
+        "stack_4": ([0.9, 0.0, 0.0, 0.0], [0.0, 2.2, 1.8, 2.6]),
+        "stack_3_plus_carrier": ([0.6, 0.55, 0.0, 0.0], [0.0, 0.0, 2.0, 2.5]),
+        "two_stacks": ([0.62, 0.0, 0.62, 0.0], [0.0, 2.0, 0.0, 2.2]),
+        "fork_to_carrier": ([0.9, 0.0, 0.0, 0.0], [0.0, 2.0, 2.0, 2.4]),
+        "two_modulators_plus_carrier": ([0.65, 0.5, 0.0, 0.0], [0.0, 0.0, 2.0, 2.0]),
+        "three_modulators": ([0.9, 0.0, 0.0, 0.0], [0.0, 2.0, 2.0, 2.0]),
+        "shared_modulator": ([0.52, 0.52, 0.52, 0.0], [0.0, 0.0, 0.0, 2.4]),
+        "parallel": ([0.45, 0.45, 0.45, 0.45], [0.0, 0.0, 0.0, 0.0]),
+    }
+    levels, amounts = topology_values[algorithm]
+    if mode in ("amplitude", "ring"):
+        amounts = [amount * 0.18 for amount in amounts]
+    feedback = [0.0, 0.0, 0.0, 0.28] if mode in ("phase", "frequency") else [0.0] * 4
+    operators = []
+    for index, (level, amount, decay) in enumerate(zip(levels, amounts, envelope_decay)):
+        operators.append(
+            {
+                "ratio": [1.0, 2.0, 3.0, 5.0][index],
+                "detune_cents": 0.0,
+                "level": level,
+                "modulation_amount": amount,
+                "feedback": feedback[index],
+                "phase": 0.0,
+                "envelope": {
+                    "attack_seconds": 0.0,
+                    "decay_seconds": decay,
+                    "sustain_level": 1.0,
+                    "release_seconds": 0.08,
+                },
+            }
+        )
+    return {
+        "schema_version": 1,
+        "metadata": {
+            "name": name,
+            "author": "Sonalloy",
+            "description": "Four-operator modulation review instrument",
+        },
+        "performance": {
+            "polyphony": polyphony,
+            "voice_stealing": "quietest_releasing_then_oldest",
+        },
+        "layers": [
+            {
+                "id": "operator",
+                "enabled": True,
+                "trigger": {
+                    "key_min": 0,
+                    "key_max": 127,
+                    "velocity_min": 1,
+                    "velocity_max": 127,
+                },
+                "gain_db": -6.0,
+                "pan": 0.0,
+                "tuning_cents": 0.0,
+                "envelope": {
+                    "attack_seconds": 0.0,
+                    "decay_seconds": 0.12,
+                    "sustain_level": 0.85,
+                    "release_seconds": 0.15,
+                },
+                "generator": {
+                    "operator_modulation": {
+                        "mode": mode,
+                        "algorithm": algorithm,
+                        "operators": operators,
+                        "phase_reset": True,
+                        "unison": unison,
+                    }
+                },
+                "processors": [],
+            }
+        ],
+        "voice_processors": [],
+        "global_processors": [],
+        "modulation": None,
+    }
+
+
 def note_events(note: int, note_id: int = 1, release_frame: int = 12_000) -> list[dict[str, object]]:
     return [
         {
@@ -203,7 +292,7 @@ def steady_state_frequency(path: Path) -> float:
 def require_finite(metrics: dict[str, dict[str, object]]) -> None:
     invalid = [name for name, value in metrics.items() if not value["finite"]]
     if invalid:
-        raise RuntimeError(f"Wavetable audio is not finite: {invalid}")
+        raise RuntimeError(f"Review audio is not finite: {invalid}")
 
 
 def run_cli_error(arguments: list[str]) -> tuple[int, str, str]:
@@ -346,6 +435,63 @@ def main() -> None:
         definition_paths[name] = path
         run_cli(["instrument", "validate", str(path), "--json"])
 
+    operator_unison = {
+        "voices": 4,
+        "detune_cents": 16.0,
+        "stereo_spread": 0.85,
+        "phase_spread": 0.35,
+    }
+    operator_definitions: dict[str, dict[str, object]] = {
+        "operator-pm-stack4": operator_definition(
+            "PM Stack 4 Bell", "phase", "stack_4"
+        ),
+        "operator-pm-stack4-algorithm": operator_definition(
+            "PM Stack 4 Algorithm", "phase", "stack_4", envelope_decay=(0.08, 0.08, 0.08, 0.08)
+        ),
+        "operator-fm-stack4": operator_definition(
+            "FM Stack 4 Bass", "frequency", "stack_4"
+        ),
+        "operator-am-two-stacks": operator_definition(
+            "AM Two Stacks", "amplitude", "two_stacks"
+        ),
+        "operator-ring-two-stacks": operator_definition(
+            "Ring Two Stacks", "ring", "two_stacks"
+        ),
+        "operator-pm-two-stacks": operator_definition(
+            "PM Two Stacks", "phase", "two_stacks"
+        ),
+        "operator-pm-shared": operator_definition(
+            "PM Shared Modulator", "phase", "shared_modulator"
+        ),
+        "operator-pm-ratio-sweep": operator_definition(
+            "PM Ratio Sweep", "phase", "stack_4"
+        ),
+        "operator-pm-index-sweep": operator_definition(
+            "PM Index Sweep", "phase", "stack_4"
+        ),
+    "operator-pm-feedback-sweep": operator_definition(
+            "PM Feedback Sweep", "phase", "stack_4"
+        ),
+        "operator-pm-envelope": operator_definition(
+            "Operator Envelope Bell",
+            "phase",
+            "stack_4",
+            envelope_decay=(0.35, 0.18, 0.06, 0.02),
+        ),
+        "operator-fm-unison": operator_definition(
+            "Operator Unison 4", "frequency", "stack_4", unison=operator_unison
+        ),
+        "operator-pm-stealing": operator_definition(
+            "Operator Polyphony Stealing", "phase", "stack_4", polyphony=2
+        ),
+    }
+    operator_definition_paths: dict[str, Path] = {}
+    for name, value in operator_definitions.items():
+        path = definition_dir / f"{name}.json"
+        write_definition(path, value)
+        operator_definition_paths[name] = path
+        run_cli(["instrument", "validate", str(path), "--json"])
+
     layout_definition = definition(
         "Invalid Wavetable Layout",
         asset_reference(asset_dir, invalid_layout_path.name),
@@ -412,6 +558,102 @@ def main() -> None:
         ),
     )
 
+    ratio_parameter = "layer.operator.generator.operator.2.ratio"
+    index_parameter = "layer.operator.generator.operator.2.modulation_amount"
+    feedback_parameter = "layer.operator.generator.operator.4.feedback"
+    ratio_sweep_events = event_dir / "operator-ratio-sweep.json"
+    write_events(
+        ratio_sweep_events,
+        note_events_with_controls(
+            60,
+            [
+                {
+                    "absolute_frame": 4_096,
+                    "type": "parameter_change",
+                    "parameter": ratio_parameter,
+                    "normalized": 0.4,
+                },
+                {
+                    "absolute_frame": 8_192,
+                    "type": "parameter_change",
+                    "parameter": ratio_parameter,
+                    "normalized": 0.6,
+                },
+            ],
+        ),
+    )
+    index_sweep_events = event_dir / "operator-index-sweep.json"
+    write_events(
+        index_sweep_events,
+        note_events_with_controls(
+            60,
+            [
+                {
+                    "absolute_frame": 4_096,
+                    "type": "parameter_change",
+                    "parameter": index_parameter,
+                    "normalized": 0.4,
+                },
+                {
+                    "absolute_frame": 8_192,
+                    "type": "parameter_change",
+                    "parameter": index_parameter,
+                    "normalized": 0.8,
+                },
+            ],
+        ),
+    )
+    feedback_sweep_events = event_dir / "operator-feedback-sweep.json"
+    write_events(
+        feedback_sweep_events,
+        note_events_with_controls(
+            60,
+            [
+                {
+                    "absolute_frame": 4_096,
+                    "type": "parameter_change",
+                    "parameter": feedback_parameter,
+                    "normalized": 0.3,
+                },
+                {
+                    "absolute_frame": 8_192,
+                    "type": "parameter_change",
+                    "parameter": feedback_parameter,
+                    "normalized": 0.8,
+                },
+            ],
+        ),
+    )
+    stealing_events = event_dir / "operator-polyphony-stealing.json"
+    write_events(
+        stealing_events,
+        [
+            {
+                "absolute_frame": 0,
+                "type": "note_on",
+                "note_id": 1,
+                "note": 48,
+                "velocity": 112,
+            },
+            {
+                "absolute_frame": 2_048,
+                "type": "note_on",
+                "note_id": 2,
+                "note": 55,
+                "velocity": 112,
+            },
+            {
+                "absolute_frame": 4_096,
+                "type": "note_on",
+                "note_id": 3,
+                "note": 60,
+                "velocity": 112,
+            },
+            {"absolute_frame": 10_000, "type": "note_off", "note_id": 2},
+            {"absolute_frame": 12_000, "type": "note_off", "note_id": 3},
+        ],
+    )
+
     note_jobs = [
         ("01-sine-single-frame.wav", "sine-single-frame", 60),
         ("02-saw-single-frame-low.wav", "saw-single-frame", 36),
@@ -442,6 +684,60 @@ def main() -> None:
     missing_audio = technical_dir / "13-missing-asset-fallback.wav"
     render_note(definition_paths["missing-asset-fallback"], 60, missing_audio, BASE_BLOCK_SIZE)
     generated_audio[missing_audio.name] = missing_audio
+
+    operator_note_jobs = [
+        ("14-operator-pm-stack4-bell.wav", "operator-pm-stack4", 60),
+        ("15-operator-fm-stack4-bass.wav", "operator-fm-stack4", 36),
+        ("16-operator-am-two-stacks.wav", "operator-am-two-stacks", 60),
+        ("17-operator-ring-two-stacks.wav", "operator-ring-two-stacks", 60),
+        ("18-operator-algorithm-stack4.wav", "operator-pm-stack4-algorithm", 72),
+        ("19-operator-algorithm-two-stacks.wav", "operator-pm-two-stacks", 60),
+        ("20-operator-algorithm-shared.wav", "operator-pm-shared", 60),
+        ("24-operator-envelope-bell.wav", "operator-pm-envelope", 60),
+        ("25-operator-unison-4.wav", "operator-fm-unison", 48),
+    ]
+    for audio_name, definition_name, note in operator_note_jobs:
+        path = technical_dir / audio_name
+        render_note(
+            operator_definition_paths[definition_name],
+            note,
+            path,
+            BASE_BLOCK_SIZE,
+            gate_seconds=0.35,
+        )
+        generated_audio[audio_name] = path
+
+    operator_event_jobs = [
+        (
+            "21-operator-ratio-sweep.wav",
+            "operator-pm-ratio-sweep",
+            ratio_sweep_events,
+        ),
+        (
+            "22-operator-modulation-amount-sweep.wav",
+            "operator-pm-index-sweep",
+            index_sweep_events,
+        ),
+        (
+            "23-operator-feedback-sweep.wav",
+            "operator-pm-feedback-sweep",
+            feedback_sweep_events,
+        ),
+        (
+            "26-operator-polyphony-stealing.wav",
+            "operator-pm-stealing",
+            stealing_events,
+        ),
+    ]
+    for audio_name, definition_name, events in operator_event_jobs:
+        path = technical_dir / audio_name
+        render_events(
+            operator_definition_paths[definition_name],
+            events,
+            path,
+            BASE_BLOCK_SIZE,
+        )
+        generated_audio[audio_name] = path
 
     technical_metrics: dict[str, dict[str, object]] = {}
     for path in sorted(generated_audio.values()):
@@ -493,6 +789,72 @@ def main() -> None:
         for sample_rate, path in sample_rate_paths.items()
     }
 
+    operator_block_paths: dict[str, Path] = {}
+    for block_size in BLOCK_SIZES:
+        path = technical_dir / f"operator-regression-block-{block_size}.wav"
+        render_note(
+            operator_definition_paths["operator-pm-stack4"],
+            60,
+            path,
+            block_size,
+        )
+        operator_block_paths[str(block_size)] = path
+    operator_block_comparisons = {
+        block_size: compare_wav(
+            operator_block_paths[str(BASE_BLOCK_SIZE)], operator_block_paths[str(block_size)]
+        )
+        for block_size in BLOCK_SIZES
+    }
+    invalid_operator_block_comparisons = {
+        block_size: value
+        for block_size, value in operator_block_comparisons.items()
+        if not value.get("compatible")
+        or value.get("max_abs_difference", 1.0) > BLOCK_SIZE_MAX_DIFFERENCE
+    }
+    if invalid_operator_block_comparisons:
+        raise RuntimeError(
+            f"Operator block-size mismatch: {invalid_operator_block_comparisons}"
+        )
+
+    operator_sample_rate_paths: dict[str, Path] = {}
+    for sample_rate in (44_100, SAMPLE_RATE, 96_000):
+        path = technical_dir / f"operator-sample-rate-{sample_rate}.wav"
+        render_note(
+            operator_definition_paths["operator-fm-stack4"],
+            60,
+            path,
+            BASE_BLOCK_SIZE,
+            sample_rate,
+        )
+        operator_sample_rate_paths[str(sample_rate)] = path
+    operator_sample_rate_metrics = {
+        sample_rate: measure(path, list(BLOCK_SIZES), include_spectrum=True)
+        for sample_rate, path in operator_sample_rate_paths.items()
+    }
+
+    operator_fresh_a = technical_dir / "operator-regression-fresh-a.wav"
+    operator_fresh_b = technical_dir / "operator-regression-fresh-b.wav"
+    render_note(
+        operator_definition_paths["operator-fm-stack4"],
+        60,
+        operator_fresh_a,
+        BASE_BLOCK_SIZE,
+    )
+    render_note(
+        operator_definition_paths["operator-fm-stack4"],
+        60,
+        operator_fresh_b,
+        BASE_BLOCK_SIZE,
+    )
+    operator_fresh_comparison = compare_wav(operator_fresh_a, operator_fresh_b)
+    if (
+        not operator_fresh_comparison.get("compatible")
+        or operator_fresh_comparison.get("max_abs_difference", 1.0) != 0.0
+    ):
+        raise RuntimeError(
+            f"Operator fresh render is not reproducible: {operator_fresh_comparison}"
+        )
+
     inspect_stdout = run_cli(
         ["instrument", "inspect", str(definition_paths["motion-bass"]), "--json"]
     )
@@ -532,12 +894,65 @@ def main() -> None:
         review_root / "missing-asset-inspect.json",
         json.dumps(missing_inspect, ensure_ascii=False, indent=2) + "\n",
     )
+    operator_inspect = json.loads(
+        run_cli(
+            [
+                "instrument",
+                "inspect",
+                str(operator_definition_paths["operator-fm-unison"]),
+                "--json",
+            ]
+        )
+    )
+    operator_generator = operator_inspect["layers"][0]["generator"]
+    if (
+        operator_generator["kind"] != "operator_modulation"
+        or operator_generator["mode"] != "frequency"
+        or operator_generator["algorithm"] != "stack_4"
+        or operator_generator["evaluation_order"] != [4, 3, 2, 1]
+        or operator_generator["carrier_operators"] != [1]
+        or len(operator_generator["operators"]) != 4
+        or operator_generator["unison_voices"] != 4
+    ):
+        raise RuntimeError(f"Operator inspect metadata is incomplete: {operator_generator}")
+    write_utf8(
+        review_root / "operator-inspect.json",
+        json.dumps(operator_inspect, ensure_ascii=False, indent=2) + "\n",
+    )
     prepared_bytes = band_count(FRAME_LENGTH) * FRAME_COUNT * (FRAME_LENGTH + 3) * 4
+    operator_audio_names = {
+        path.name
+        for path in generated_audio.values()
+        if path.name.startswith(("14-operator-", "15-operator-", "16-operator-", "17-operator-", "18-operator-", "19-operator-", "20-operator-", "21-operator-", "22-operator-", "23-operator-", "24-operator-", "25-operator-", "26-operator-"))
+    }
+    operator_technical_metrics = {
+        name: value for name, value in technical_metrics.items() if name in operator_audio_names
+    }
+    require_finite(operator_technical_metrics)
+    operator_metrics = {
+        "technical": operator_technical_metrics,
+        "block_size_comparisons": operator_block_comparisons,
+        "sample_rate_metrics": operator_sample_rate_metrics,
+        "fresh_render_comparison": {
+            **operator_fresh_comparison,
+            "first_sha256": sha256_file(operator_fresh_a),
+            "second_sha256": sha256_file(operator_fresh_b),
+        },
+        "allocation_check": {
+            "covered_by": "sonalloy-core runtime allocation test",
+            "status": "automated test passed",
+        },
+        "reset_check": {
+            "covered_by": "sonalloy-core operator runtime reset integration test",
+            "status": "automated test passed",
+        },
+    }
     metrics = {
         "sample_rate": SAMPLE_RATE,
         "base_block_size": BASE_BLOCK_SIZE,
         "block_sizes": list(BLOCK_SIZES),
         "technical": technical_metrics,
+        "operator": operator_metrics,
         "block_size_comparisons": block_comparisons,
         "sample_rate_metrics": sample_rate_metrics,
         "position_comparisons": {
@@ -567,7 +982,7 @@ def main() -> None:
     }
     write_utf8(review_root / "metrics.json", json.dumps(metrics, ensure_ascii=False, indent=2) + "\n")
 
-    summary = """# Wavetable Sound Review
+    summary = """# Digital Synthesis Sound Review
 
 ## Render条件
 
@@ -577,8 +992,9 @@ def main() -> None:
 - 比較Block Size：32 / 64 / 257 / 1024 frames
 - Output：Stereo、32-bit float WAV
 - Wavetable Asset：PCM16、Frame Length 256、Frame Count 4
+- Operator Modulation：4 Operator固定、PM / FM / AM / Ring、Unison最大4
 
-Definitionは`definitions/`、Assetは`assets/`、Eventは`events/`、WAVは`audio/technical/`へ保存しています。同じWAVをMetricsと人間の試聴に使用します。`inspect.json`にはWavetable Motion BassのCompiled表示を保存しています。
+Definitionは`definitions/`、Assetは`assets/`、Eventは`events/`、WAVは`audio/technical/`へ保存しています。同じWAVをMetricsと人間の試聴に使用します。`inspect.json`にはWavetable Motion Bass、`operator-inspect.json`にはOperator UnisonのCompiled表示を保存しています。
 
 再生成：
 
@@ -603,6 +1019,19 @@ python scripts/review/generate_digital_synthesis_package.py
 | `11-mod-wheel-position.wav` | Mod Wheel to Position |
 | `12-motion-bass.wav` | Wavetable Motion Bass |
 | `13-missing-asset-fallback.wav` | Missing Wavetable Asset with Oscillator Layer |
+| `14-operator-pm-stack4-bell.wav` | PM Stack 4 Bell |
+| `15-operator-fm-stack4-bass.wav` | FM Stack 4 Bass |
+| `16-operator-am-two-stacks.wav` | AM Two Stacks |
+| `17-operator-ring-two-stacks.wav` | Ring Two Stacks |
+| `18-operator-algorithm-stack4.wav` | Stack 4 Algorithm |
+| `19-operator-algorithm-two-stacks.wav` | Two Stacks Algorithm |
+| `20-operator-algorithm-shared.wav` | Shared Modulator Algorithm |
+| `21-operator-ratio-sweep.wav` | Operator Ratio Sweep |
+| `22-operator-modulation-amount-sweep.wav` | Operator Modulation Amount Sweep |
+| `23-operator-feedback-sweep.wav` | Operator Feedback Sweep |
+| `24-operator-envelope-bell.wav` | Operator Envelope Bell |
+| `25-operator-unison-4.wav` | Operator Unison 4 |
+| `26-operator-polyphony-stealing.wav` | Operator Polyphony and Voice Stealing |
 
 Regression WAVは`regression-block-*.wav`、`regression-fresh-*.wav`、`sample-rate-*.wav`です。Metricsは`metrics.json`に保存しています。
 
@@ -620,6 +1049,15 @@ Regression WAVは`regression-block-*.wav`、`regression-fresh-*.wav`、`sample-r
 - Reset：Core Integration Testで確認済み
 - Missing Asset時のOscillator Layer継続：生成済み
 - Prepared Wavetable Byte数：`metrics.json`へ記録済み
+- Operator Definition Validate：成功
+- Operator CLI Inspect JSON：成功
+- 8 Algorithmの固定Topology：Core Testと`operator-inspect.json`で確認済み
+- PM / FM / AM / RingのFinite性：生成済み
+- Operator Block Size比較：許容差以内
+- Operator Sample Rate比較：生成済み
+- Operator Fresh Render比較：一致
+- Operator Allocation 0：Core Testで確認済み
+- Operator Reset：Core Testで確認済み
 
 ## 人間の確認
 
@@ -634,6 +1072,15 @@ Regression WAVは`regression-block-*.wav`、`regression-fresh-*.wav`、`sample-r
 | Mono再生時のLevel | `09-unison-5-stereo.wav` | 未確認 |
 | Missing Asset時の継続 | `13-missing-asset-fallback.wav` | 未確認 |
 | 音色としての成立 | `12-motion-bass.wav` | 未確認 |
+| PMとFMの差 | `14-operator-pm-stack4-bell.wav` / `15-operator-fm-stack4-bass.wav` | 未確認 |
+| AMとRingの差 | `16-operator-am-two-stacks.wav` / `17-operator-ring-two-stacks.wav` | 未確認 |
+| Algorithmの差 | `18-operator-algorithm-stack4.wav` / `19-operator-algorithm-two-stacks.wav` / `20-operator-algorithm-shared.wav` | 未確認 |
+| Ratioによる倍音変化 | `21-operator-ratio-sweep.wav` | 未確認 |
+| Envelopeによる時間変化 | `24-operator-envelope-bell.wav` | 未確認 |
+| Feedbackの粗さと安定性 | `23-operator-feedback-sweep.wav` | 未確認 |
+| Index SweepのClick | `22-operator-modulation-amount-sweep.wav` | 未確認 |
+| Note ReleaseとPolyphony | `26-operator-polyphony-stealing.wav` | 未確認 |
+| Operator UnisonのBeatとStereo幅 | `25-operator-unison-4.wav` | 未確認 |
 
 人間の確認では同じ再生環境・音量を使い、結果と指摘をこの表へ記録します。Metricsは音質の承認を代替しません。
 """

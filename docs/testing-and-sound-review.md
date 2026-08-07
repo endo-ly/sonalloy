@@ -117,11 +117,20 @@ flowchart LR
 
 ### Wavetable
 
-- 保存先：`review-output/digital-synthesis/`（assets / audio/technical / definitions / events / inspect.json / missing-asset-inspect.json / layout-error.json / metrics.json / review-summary.md）
+- 保存先：`review-output/digital-synthesis/`（assets / audio/technical / definitions / events / inspect.json / operator-inspect.json / missing-asset-inspect.json / layout-error.json / metrics.json / review-summary.md）
 - 生成：`python scripts/review/generate_digital_synthesis_package.py`
 - 内容：単一Frame、Position 0 / 0.5 / 1、Position Sweep、Position LFO、Unison 5 Stereo、Band Boundary Sweep、Missing Assetと既存Oscillator Layerの継続を同じ入力条件で確認する
 - Metrics：Finite性、Peak / RMS / DC、推定Fundamental、Spectrum、Stereo差分、Adjacent Frame最大差分、Band Boundary差分、Block Size 32 / 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、Fresh Runtime / Reset差分、Prepared Wavetable Byte数
 - 人間の確認：Frameごとの音色差、Position Sweepの滑らかさ、Band切替の不連続、高音域Alias、低音域の倍音、UnisonのBeatとStereo幅、Mono再生時のLevel、Bass用途での成立
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
+### Operator Modulation
+
+- 保存先：`review-output/digital-synthesis/`（Operator Definition / Event / WAV / `operator-inspect.json` / `metrics.json`）
+- 生成：`python scripts/review/generate_digital_synthesis_package.py`
+- 内容：PM Stack 4 Bell、FM Stack 4 Bass、AM Two Stacks、Ring Two Stacks、Stack 4 / Two Stacks / Shared Modulator、Ratio Sweep、Modulation Amount Sweep、Feedback Sweep、Operator Envelope、Unison 4、Polyphony / Voice Stealingを同じCLI経路から確認する
+- Metrics：全WAVのFinite性、Peak / RMS / DC、Spectrum、Adjacent Frame最大差分、Stereo差分、Block Size 32 / 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、Fresh Runtime差分、Allocation 0とResetの自動Test結果
+- 人間の確認：PMとFMの差、AMとRingの差、Algorithmの差、Ratioによる倍音変化、Envelopeによる時間変化、Feedbackの粗さと安定性、Index SweepのClick、Note Release、Polyphony、UnisonのBeatとStereo幅
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
 ### Essential Synthesis and Sampling

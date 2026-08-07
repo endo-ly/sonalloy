@@ -114,7 +114,7 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 - Routeは同じTargetについて書かれた順にSource値へAmountを掛けて加算します。Linear ParameterはNative範囲、Log2 ParameterはLog2範囲で加算し、最後にClampします
 - Shared Parameter Spanは最大32Frame単位で全Voiceへ同じ値を渡します。Voice SourceはVoiceごとにSpanを計算します
 - `velocity`、`key_tracking`、LFO、Modulation Envelope、RandomはVoiceに属します。Pitch Bend、Mod Wheel、Aftertouchは共有External Controlです
-- Note OffはAmplitude ADSRとModulation Envelopeへ伝えます。LFOとRandomはVoice終了まで保持し、Voice終了時に初期値へ戻します
+- Note OffはLayer ADSR、Operator Envelope、Modulation Envelopeへ伝えます。LFOとRandomはVoice終了まで保持し、Voice終了時に初期値へ戻します
 - Instrument ResetではBase ParameterとExternal ControlもDefinition Defaultへ戻します
 
 **Generatorの種類**
@@ -122,6 +122,7 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 - **Oscillator**：Note番号とTuningから周波数を決め、Sine / Saw / Square / Triangle / Pulseを生成します。`phase_reset`が有効ならNoteごとにCompiled Initial Phaseへ戻し、TriangleのIntegrator Stateも初期化します。Pulse Widthは5msでSmoothingし、既存Modulationから制御できます。Hard SyncはVariable Shape BackendでMaster / Slaveを生成し、RatioをLog2で5ms Smoothingします。UnisonはPrepare時に固定したComponent数でDetune、Phase、Stereo Placementを行い、2 Voice以上をStereoで出力します。WaveshapingはUnison Mix直後にAmountをLinearで5ms Smoothingして適用します
 - **Noise**：White / Pink / Brownを決定的なPRNG Streamから生成します。Shared、Left Independent、Right Independentの3 Streamを持ち、Correlationを`√correlation`と`√(1-correlation)`でMixして常にStereoで出力します
 - **Wavetable**：Compile時にWAVをFrameへ分割し、FFT/IFFTでHarmonic上限の異なるBand Tableを準備します。PositionはFrame間をLinear、Table内をFour-point Cubicで補間し、Component Frequencyに応じたBandをLog2領域でCrossfadeします。Source Sample RateはPitchへ使わず、Unison 1ではMono、2 Voice以上ではStereoで出力します
+- **Operator Modulation**：4 OperatorをCompile済みの固定Topology順にSampleごとに評価します。Phase、Frequency、Amplitude、Ringは同じOperator信号を使いながら別の相互作用として処理し、Carrier Sum後に`1 / sqrt(carrier_count)`で正規化します。Operator Envelopeは各Operator出力へ乗算し、Carrier以外のOperatorは接続先へのModulation Signalだけを供給します。Unison 1はMono、2〜4はComponentごとのPhaseとPrevious Outputを持つStereoです
 - **Sample**：後述のSample Zone選択と再生を使います。Compileで無効になったZoneは選択候補から除外されます
 
 ## Wavetable Runtime
@@ -134,6 +135,18 @@ Prepared WavetableはCompile時に`Arc`でCompiled Instrumentへ保持し、全V
 - Band Tableは`N/2, N/4, ..., 1`のHarmonic上限を持ち、隣接Bandの切替をLog2領域でCrossfadeします。DCはCompile時のSource値を保持します
 - Note Onでは`phase_reset`が有効な場合だけInitial Phaseへ戻し、Instrument Resetでは常にInitial Phaseへ戻します
 - Process中はAsset Decode、FFT、File I/O、メモリ確保を行いません
+
+## Operator Modulation Runtime
+
+Operatorの`evaluation_order`、`incoming_masks`、`carrier_mask`はCompile時に確定し、RuntimeはAlgorithm名を参照しません。各Sampleでは、依存するModulatorのCurrent Outputと対象Operator自身のPrevious Outputだけを読みます。Operator間の任意Cycleはなく、Self Feedbackだけが一Sample遅延を持ちます。
+
+- Operator Frequencyは`note_frequency × ratio × cents_to_ratio(layer_tuning + detune + unison_detune)`で作り、Phase / Frequencyは`sample_rate × 0.24`、Amplitude / Ringは`sample_rate × 0.45`以下へ制限します
+- Phaseは`Σ(modulator_output × modulation_amount × 0.5)`をRead Phaseへ加えます。Frequencyは`base_frequency × (1 + Σ(modulator_output × modulation_amount) + feedback_offset)`を瞬時周波数とし、正負を許可したまま絶対値を上限へClampします
+- AmplitudeはIncomingごとに`1 + modulator_output × depth`を乗算し、0〜4へClampします。Ringは`carrier + (carrier × modulator_output - carrier) × depth`をIncoming順に適用します
+- Feedbackは直前Sampleの自身の出力を`tanh(previous × amount × 2.5) × 0.25`へ変換し、PhaseまたはFrequencyへ加えます。Finite確認とReset時の0初期化を行い、Feedback SignalをCarrier Sumへ直接加算しません
+- Note Onで4つのOperator Envelopeを開始し、Note Offで4つをReleaseへ移行します。Voice Stealingで新しいNoteを開始するとEnvelopeとPrevious Outputを新しいNoteの状態へ戻します
+- Operator UnisonはEnvelopeを全Componentで共有し、ComponentごとにPhaseとPrevious Outputを分離します。Carrier Sum後の各ComponentをStereo Spreadへ通し、Component数の平方根で正規化します
+- Process中の配列拡張やHeap Allocationは行いません。OperatorのComponent配列とEnvelopeはPrepare時に確保します
 
 ## Sampleの再生
 
@@ -149,7 +162,7 @@ SampleはCompile時にZoneごとのRegionへ変換し、同じAssetのPrepared B
 ## 準備とリセット
 
 - **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handleを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、Oscillatorの位相とTriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Round Robin Counter、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- **Reset**：全Voice、OscillatorとOperatorの位相、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Round Robin Counter、ADSR、Operator Envelope、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 

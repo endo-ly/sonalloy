@@ -10,15 +10,18 @@ pub mod runtime;
 mod wavetable;
 
 pub use compiler::{
-    CompileContext, CompileResult, CompiledInstrument, CompiledWavetable,
-    CompiledWavetableParameters, PreparedWavetable, PreparedWavetableBand, PreparedWavetableFrame,
-    WavetableSourceMetadata, compile_instrument, wavetable_effective_max_frequency,
+    CompileContext, CompileResult, CompiledInstrument, CompiledOperator,
+    CompiledOperatorModulation, CompiledOperatorParameters, CompiledOperatorTopology,
+    CompiledWavetable, CompiledWavetableParameters, PreparedWavetable, PreparedWavetableBand,
+    PreparedWavetableFrame, WavetableSourceMetadata, compile_instrument,
+    operator_effective_max_frequency, wavetable_effective_max_frequency,
 };
 pub use definition::{
     AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, DelayProcessorDefinition,
     DriveProcessorDefinition, FilterProcessorDefinition, GeneratorDefinition, HardSyncDefinition,
     InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, NoiseColor,
-    NoiseDefinition, OscillatorDefinition, OscillatorWaveform, PerformanceDefinition,
+    NoiseDefinition, OperatorAlgorithm, OperatorDefinition, OperatorModulationDefinition,
+    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, PerformanceDefinition,
     ProcessorDefinition, ReverbProcessorDefinition, SampleDefinition, SampleInterpolation,
     SampleZoneDefinition, SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition,
     WaveshapingDefinition, WavetableDefinition,

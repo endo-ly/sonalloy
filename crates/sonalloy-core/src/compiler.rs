@@ -6,9 +6,10 @@ use crate::asset::{AssetError, PreparedAsset, PreparedSample, prepare_asset, res
 use crate::definition::{
     AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
     GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
-    ModulationSourceDefinition, NoiseColor, OscillatorDefinition, OscillatorWaveform,
-    ProcessorDefinition, ReverbProcessorDefinition, SampleZoneDefinition,
-    SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition, WavetableDefinition,
+    ModulationSourceDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
+    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, ProcessorDefinition,
+    ReverbProcessorDefinition, SampleZoneDefinition, SampleZonePlaybackDefinition,
+    UnisonDefinition, VoiceStealingDefinition, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
@@ -191,6 +192,7 @@ impl CompiledLayerTrigger {
 
 /// Compiled generator variants.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum CompiledGenerator {
     /// Oscillator generator.
     Oscillator(CompiledOscillator),
@@ -200,6 +202,8 @@ pub enum CompiledGenerator {
     Sample(CompiledSample),
     /// Prepared band-limited wavetable generator.
     Wavetable(CompiledWavetable),
+    /// Fixed-topology four-operator modulation generator.
+    OperatorModulation(CompiledOperatorModulation),
 }
 
 /// Fixed channel layout produced by a compiled generator.
@@ -232,12 +236,19 @@ impl CompiledGenerator {
                     GeneratorOutputMode::Stereo
                 }
             }
+            Self::OperatorModulation(value) => {
+                if value.unison.position_distribution.len() == 1 {
+                    GeneratorOutputMode::Mono
+                } else {
+                    GeneratorOutputMode::Stereo
+                }
+            }
         }
     }
 
     pub(crate) fn is_available(&self) -> bool {
         match self {
-            Self::Oscillator(_) | Self::Noise(_) => true,
+            Self::Oscillator(_) | Self::Noise(_) | Self::OperatorModulation(_) => true,
             Self::Sample(value) => value.zones.iter().any(CompiledSampleZone::is_enabled),
             Self::Wavetable(value) => value.prepared.is_some(),
         }
@@ -435,6 +446,68 @@ pub struct CompiledWavetable {
     pub asset_path: String,
     /// Whether the Definition supplied an asset hash.
     pub asset_sha256_specified: bool,
+}
+
+/// Compiled operator connection topology.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledOperatorTopology {
+    /// Operator evaluation order from modulator to carrier.
+    pub evaluation_order: [u8; 4],
+    /// Bit mask of incoming operator connections for each destination.
+    pub incoming_masks: [u8; 4],
+    /// Bit mask of operators contributing to the final output.
+    pub carrier_mask: u8,
+    /// Normalization applied to the carrier sum.
+    pub carrier_normalization: f32,
+}
+
+/// Parameter handles owned by one compiled operator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledOperatorParameters {
+    /// Frequency ratio handle.
+    pub ratio: ParameterHandle,
+    /// Detune handle.
+    pub detune: ParameterHandle,
+    /// Carrier level handle.
+    pub level: Option<ParameterHandle>,
+    /// Modulation amount handle.
+    pub modulation_amount: Option<ParameterHandle>,
+    /// Self-feedback handle.
+    pub feedback: Option<ParameterHandle>,
+}
+
+/// Compiled static and envelope settings for one operator.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledOperator {
+    /// Sample-rate-specific operator envelope.
+    pub envelope: CompiledAdsr,
+    /// Initial phase.
+    pub phase: f32,
+}
+
+/// Compiled four-operator modulation generator.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledOperatorModulation {
+    /// Audio-rate interaction mode.
+    pub mode: OperatorModulationMode,
+    /// Definition algorithm retained for inspection.
+    pub algorithm: OperatorAlgorithm,
+    /// Resolved fixed topology.
+    pub topology: CompiledOperatorTopology,
+    /// Four compiled operators in user-facing order.
+    pub operators: [CompiledOperator; 4],
+    /// Whether Note On restores operator phases.
+    pub phase_reset: bool,
+    /// Dynamic parameter handles for each operator.
+    pub parameters: [CompiledOperatorParameters; 4],
+    /// Optional dynamic unison detune handle.
+    pub unison_detune: Option<ParameterHandle>,
+    /// Optional dynamic stereo spread handle.
+    pub unison_spread: Option<ParameterHandle>,
+    /// Static Unison component configuration.
+    pub unison: Arc<CompiledUnison>,
+    /// Safe operator frequency limit for this process sample rate.
+    pub effective_max_frequency: f32,
 }
 
 impl CompiledSampleZone {
@@ -1487,6 +1560,16 @@ fn compile_generator(
                 diagnostics,
             ))
         }
+        GeneratorDefinition::OperatorModulation(operator_modulation) => {
+            CompiledGenerator::OperatorModulation(compile_operator_modulation(
+                operator_modulation,
+                layer_index,
+                layer_id,
+                catalog,
+                sample_rate,
+                diagnostics,
+            ))
+        }
     }
 }
 
@@ -1623,6 +1706,103 @@ fn compile_wavetable(
         asset_path: wavetable.asset.path.clone(),
         asset_sha256_specified: wavetable.asset.sha256.is_some(),
     }
+}
+
+fn compile_operator_modulation(
+    operator_modulation: &OperatorModulationDefinition,
+    layer_index: usize,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledOperatorModulation {
+    let topology = operator_modulation.algorithm.topology();
+    let carrier_count = topology.carrier_mask.count_ones().max(1);
+    #[allow(clippy::cast_precision_loss)]
+    let carrier_count = carrier_count as f32;
+    let compiled_topology = CompiledOperatorTopology {
+        evaluation_order: topology.evaluation_order,
+        incoming_masks: topology.incoming_masks,
+        carrier_mask: topology.carrier_mask,
+        carrier_normalization: 1.0 / carrier_count.sqrt(),
+    };
+    let operators = std::array::from_fn(|index| {
+        let operator = operator_modulation
+            .operators
+            .get(index)
+            .expect("operator validation guarantees four operators");
+        CompiledOperator {
+            envelope: compile_adsr(
+                operator.envelope,
+                sample_rate,
+                &format!("layers[{layer_index}].generator.operator_modulation.operators[{index}]"),
+                diagnostics,
+            ),
+            phase: operator.phase,
+        }
+    });
+    let parameters = std::array::from_fn(|index| {
+        let is_carrier = topology.carrier_mask & (1_u8 << index) != 0;
+        let has_output = topology
+            .incoming_masks
+            .iter()
+            .any(|mask| mask & (1_u8 << index) != 0);
+        CompiledOperatorParameters {
+            ratio: operator_parameter_handle(catalog, layer_id, index, "ratio"),
+            detune: operator_parameter_handle(catalog, layer_id, index, "detune"),
+            level: is_carrier.then(|| operator_parameter_handle(catalog, layer_id, index, "level")),
+            modulation_amount: has_output
+                .then(|| operator_parameter_handle(catalog, layer_id, index, "modulation_amount")),
+            feedback: matches!(
+                operator_modulation.mode,
+                OperatorModulationMode::Phase | OperatorModulationMode::Frequency
+            )
+            .then(|| operator_parameter_handle(catalog, layer_id, index, "feedback")),
+        }
+    });
+    let effective_max_frequency = match operator_modulation.mode {
+        OperatorModulationMode::Phase | OperatorModulationMode::Frequency => {
+            operator_effective_max_frequency(sample_rate)
+        }
+        OperatorModulationMode::Amplitude | OperatorModulationMode::Ring => {
+            wavetable_effective_max_frequency(sample_rate)
+        }
+    };
+    let unison_detune = operator_modulation
+        .unison
+        .as_ref()
+        .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_DETUNE));
+    let unison_spread = operator_modulation
+        .unison
+        .as_ref()
+        .map(|_| generator_parameter_handle(catalog, layer_id, UNISON_SPREAD));
+    CompiledOperatorModulation {
+        mode: operator_modulation.mode,
+        algorithm: operator_modulation.algorithm,
+        topology: compiled_topology,
+        operators,
+        phase_reset: operator_modulation.phase_reset,
+        parameters,
+        unison_detune,
+        unison_spread,
+        unison: Arc::new(compile_unison(operator_modulation.unison)),
+        effective_max_frequency,
+    }
+}
+
+fn operator_parameter_handle(
+    catalog: &ParameterCatalog,
+    layer_id: &str,
+    index: usize,
+    parameter: &str,
+) -> ParameterHandle {
+    catalog
+        .parameter_handle(&format!(
+            "layer.{layer_id}.generator.operator.{}.{}",
+            index + 1,
+            parameter
+        ))
+        .expect("operator parameter catalog entry exists")
 }
 
 fn prepare_compiled_wavetable(
@@ -2177,6 +2357,15 @@ pub fn wavetable_effective_max_frequency(sample_rate: f64) -> f32 {
     #[allow(clippy::cast_possible_truncation)]
     {
         (sample_rate * 0.45) as f32
+    }
+}
+
+/// Return the process-rate-derived frequency limit for PM and FM operators.
+#[must_use]
+pub fn operator_effective_max_frequency(sample_rate: f64) -> f32 {
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        (sample_rate * 0.24) as f32
     }
 }
 

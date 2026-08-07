@@ -270,7 +270,8 @@ impl InstrumentRuntime {
             match &layer.generator {
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
-                | CompiledGenerator::Wavetable(_) => {
+                | CompiledGenerator::Wavetable(_)
+                | CompiledGenerator::OperatorModulation(_) => {
                     *self
                         .note_layer_selection
                         .get_mut(layer_index)
@@ -608,7 +609,8 @@ impl InstrumentProcessor for InstrumentRuntime {
                 CompiledGenerator::Sample(sample) => vec![0; sample.groups.len()],
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
-                | CompiledGenerator::Wavetable(_) => Vec::new(),
+                | CompiledGenerator::Wavetable(_)
+                | CompiledGenerator::OperatorModulation(_) => Vec::new(),
             })
             .collect();
         let mut voices = Vec::with_capacity(self.compiled.performance.polyphony);
@@ -1089,6 +1091,82 @@ mod tests {
 
         assert_eq!(allocations, 0);
         std::fs::remove_file(path).expect("fixture WAV removes");
+    }
+
+    #[test]
+    fn operator_render_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        let envelope = crate::definition::AdsrDefinition {
+            attack_seconds: 0.0,
+            decay_seconds: 0.1,
+            sustain_level: 1.0,
+            release_seconds: 0.01,
+        };
+        source.layers[0].generator = crate::definition::GeneratorDefinition::OperatorModulation(
+            crate::definition::OperatorModulationDefinition {
+                mode: crate::definition::OperatorModulationMode::Phase,
+                algorithm: crate::definition::OperatorAlgorithm::Stack4,
+                operators: vec![
+                    crate::definition::OperatorDefinition {
+                        ratio: 1.0,
+                        detune_cents: 0.0,
+                        level: 0.9,
+                        modulation_amount: 0.0,
+                        feedback: 0.0,
+                        phase: 0.0,
+                        envelope,
+                    },
+                    crate::definition::OperatorDefinition {
+                        ratio: 2.0,
+                        detune_cents: 0.0,
+                        level: 0.0,
+                        modulation_amount: 2.0,
+                        feedback: 0.0,
+                        phase: 0.0,
+                        envelope,
+                    },
+                    crate::definition::OperatorDefinition {
+                        ratio: 3.0,
+                        detune_cents: 0.0,
+                        level: 0.0,
+                        modulation_amount: 2.0,
+                        feedback: 0.0,
+                        phase: 0.0,
+                        envelope,
+                    },
+                    crate::definition::OperatorDefinition {
+                        ratio: 5.0,
+                        detune_cents: 0.0,
+                        level: 0.0,
+                        modulation_amount: 2.0,
+                        feedback: 0.2,
+                        phase: 0.0,
+                        envelope,
+                    },
+                ],
+                phase_reset: true,
+                unison: None,
+            },
+        );
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &event);
+        runtime.reset().expect("reset");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
     }
 
     #[test]
@@ -1735,7 +1813,8 @@ mod tests {
             }
             crate::definition::GeneratorDefinition::Sample(_)
             | crate::definition::GeneratorDefinition::Noise(_)
-            | crate::definition::GeneratorDefinition::Wavetable(_) => {
+            | crate::definition::GeneratorDefinition::Wavetable(_)
+            | crate::definition::GeneratorDefinition::OperatorModulation(_) => {
                 panic!("test fixture must use an oscillator");
             }
         }

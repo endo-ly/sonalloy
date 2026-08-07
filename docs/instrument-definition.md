@@ -110,7 +110,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 | Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
 | LFO | Rate 0.01〜40Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
-| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|unison_detune\|unison_spread\|noise_correlation)`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
+| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|unison_detune\|unison_spread\|noise_correlation)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
 | 未知のField | JSON Parse Errorとして扱います |
 | 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Layer / Voice / Global Processor状態、Scratch Buffer |
 
@@ -248,6 +248,98 @@ Dynamic Parameterは次のCanonical IDを持ちます。
 - `layer.<layer_id>.generator.unison_spread`（Unison指定時、0〜1、10ms Smoothing）
 
 Assetの欠落・Hash不一致・Decode失敗ではWavetable Layerだけを発音候補から除外し、ほかの有効LayerはCompileとRenderを継続します。レイアウト不正や全Frame無音はWavetableを準備できない診断になります。
+
+### Operator Modulation
+
+Operator Modulationは4つのSine Operatorを固定Topologyで接続するGeneratorです。Definitionでは利用者向けのOperator番号を1〜4で記述し、Compile後は固定配列へ変換します。接続Algorithmは`stack_4`、`stack_3_plus_carrier`、`two_stacks`、`fork_to_carrier`、`two_modulators_plus_carrier`、`three_modulators`、`shared_modulator`、`parallel`です。任意の接続GraphやOperator間Cycleは指定できません。
+
+```json
+{
+  "generator": {
+    "operator_modulation": {
+      "mode": "phase",
+      "algorithm": "stack_4",
+      "operators": [
+        {
+          "ratio": 1.0,
+          "detune_cents": 0.0,
+          "level": 0.9,
+          "modulation_amount": 0.0,
+          "feedback": 0.0,
+          "phase": 0.0,
+          "envelope": {
+            "attack_seconds": 0.0,
+            "decay_seconds": 0.1,
+            "sustain_level": 1.0,
+            "release_seconds": 0.1
+          }
+        },
+        {
+          "ratio": 2.0,
+          "detune_cents": 0.0,
+          "level": 0.0,
+          "modulation_amount": 2.5,
+          "feedback": 0.0,
+          "phase": 0.0,
+          "envelope": {
+            "attack_seconds": 0.0,
+            "decay_seconds": 0.08,
+            "sustain_level": 1.0,
+            "release_seconds": 0.08
+          }
+        },
+        {
+          "ratio": 3.0,
+          "detune_cents": 0.0,
+          "level": 0.0,
+          "modulation_amount": 1.5,
+          "feedback": 0.0,
+          "phase": 0.0,
+          "envelope": {
+            "attack_seconds": 0.0,
+            "decay_seconds": 0.06,
+            "sustain_level": 1.0,
+            "release_seconds": 0.06
+          }
+        },
+        {
+          "ratio": 5.0,
+          "detune_cents": 0.0,
+          "level": 0.0,
+          "modulation_amount": 2.0,
+          "feedback": 0.25,
+          "phase": 0.0,
+          "envelope": {
+            "attack_seconds": 0.0,
+            "decay_seconds": 0.04,
+            "sustain_level": 1.0,
+            "release_seconds": 0.04
+          }
+        }
+      ],
+      "phase_reset": true,
+      "unison": null
+    }
+  }
+}
+```
+
+`mode`は`phase`、`frequency`、`amplitude`、`ring`のいずれかです。PhaseはModulator出力へAmountの0.5を掛けてCycle単位のRead Phaseへ加え、Frequencyは`base_frequency × (1 + modulation + feedback)`で瞬時周波数を作ります。AmplitudeはIncomingごとの`1 + output × depth`を乗算し、最終値を0〜4へ制限します。RingはCarrierと`Carrier × Modulator`をDepthでCrossfadeします。
+
+各Operatorの`ratio`は0.25〜32、`detune_cents`は-100〜100、`level`と`phase`は0〜1です。`modulation_amount`はPhase / Frequencyで0〜8のIndex、Amplitude / Ringで0〜1のNormalizedです。`feedback`は0〜1で、直前Sampleの自身の出力だけを`tanh`でBoundしてPhaseまたはFrequencyへ加えます。Amplitude / Ringでは0だけを許可します。
+
+Operator EnvelopeはLayer Envelopeとは別に全Operatorへ適用され、Note Onで開始、Note OffでReleaseへ移行します。Carrierの`level`だけが最終出力へ寄与し、Carrier以外の`level`と出力先を持たない`modulation_amount`は0でなければなりません。Unisonは最大4 Voiceで、Envelopeを共有しながらComponentごとにPhaseとFeedback Stateを持ちます。Unison 1はMono、2以上はStereoです。
+
+Dynamic ParameterはTopologyとModeに応じて次を公開します。
+
+- `layer.<layer_id>.generator.operator.<1-4>.ratio`（Ratio、Log2、0.25〜32、5ms）
+- `layer.<layer_id>.generator.operator.<1-4>.detune`（Cents、Linear、-100〜100、5ms）
+- `layer.<layer_id>.generator.operator.<1-4>.level`（Carrierのみ、Normalized、0〜1、5ms）
+- `layer.<layer_id>.generator.operator.<1-4>.modulation_amount`（接続元のみ、Mode依存、5ms）
+- `layer.<layer_id>.generator.operator.<1-4>.feedback`（Phase / Frequencyのみ、0〜1、5ms）
+- `layer.<layer_id>.generator.unison_detune` / `unison_spread`（Unison指定時）
+
+OperatorのEffective Frequency上限はPhase / Frequencyで`Sample Rate × 0.24`、Amplitude / Ringで`Sample Rate × 0.45`です。詳細なTopologyとSignal順序は[`docs/runtime-processing.md`](runtime-processing.md)を参照してください。
 
 Generator ParameterはLayer Gain / Pan / Tuningの後、Layer Processorの前にParameter Catalogへ追加されます。Sample GeneratorにはGenerator Dynamic Parameterはありません。
 
@@ -447,7 +539,7 @@ Definitionで追加できるSourceは`lfo`、`envelope`、`random`です。LFO�
 }
 ```
 
-ParameterのBase値はNormalized EventからDescriptorを通してNative値へ戻されます。GainはdB、Panは-1〜1、Tuningはcent、CutoffはLog2、ResonanceはLinearで評価します。音声処理中に文字列IDやJSONを扱わないため、Parameter IDとRoute解決はCompile前に完了します。
+ParameterのBase値はNormalized EventからDescriptorを通してNative値へ戻されます。GainはdB、Panは-1〜1、Tuningはcent、CutoffとRatioはLog2、IndexとResonanceはLinearで評価します。音声処理中に文字列IDやJSONを扱わないため、Parameter IDとRoute解決はCompile前に完了します。
 
 ## Compile時の変換
 

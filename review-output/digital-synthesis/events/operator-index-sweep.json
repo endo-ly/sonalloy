@@ -1,0 +1,28 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 1,
+      "note": 60,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 4096,
+      "type": "parameter_change",
+      "parameter": "layer.operator.generator.operator.2.modulation_amount",
+      "normalized": 0.4
+    },
+    {
+      "absolute_frame": 8192,
+      "type": "parameter_change",
+      "parameter": "layer.operator.generator.operator.2.modulation_amount",
+      "normalized": 0.8
+    },
+    {
+      "absolute_frame": 12000,
+      "type": "note_off",
+      "note_id": 1
+    }
+  ]
+}

@@ -130,6 +130,11 @@ impl LayerRuntime {
         )
     }
 
+    fn note_off(&mut self) {
+        self.generator.note_off();
+        self.envelope.note_off();
+    }
+
     fn reset(&mut self) -> Result<(), ProcessError> {
         self.generator.reset()?;
         self.processors.reset()?;
@@ -300,7 +305,7 @@ impl VoiceRuntime {
         if matches!(self.state, VoiceState::Active) {
             for layer in &mut self.layers {
                 if layer.active {
-                    layer.envelope.note_off();
+                    layer.note_off();
                 }
             }
             for state in &mut self.source_states {
@@ -792,6 +797,24 @@ impl VoiceRuntime {
                         .map(|handle| self.evaluate_target(compiled, handle, shared))
                         .transpose()?,
                 },
+                CompiledGenerator::OperatorModulation(value) => {
+                    LayerGeneratorTargetSpan::OperatorModulation {
+                        operators: [
+                            self.evaluate_operator_target(compiled, value, 0, shared)?,
+                            self.evaluate_operator_target(compiled, value, 1, shared)?,
+                            self.evaluate_operator_target(compiled, value, 2, shared)?,
+                            self.evaluate_operator_target(compiled, value, 3, shared)?,
+                        ],
+                        unison_detune: value
+                            .unison_detune
+                            .map(|handle| self.evaluate_target(compiled, handle, shared))
+                            .transpose()?,
+                        unison_spread: value
+                            .unison_spread
+                            .map(|handle| self.evaluate_target(compiled, handle, shared))
+                            .transpose()?,
+                    }
+                }
             };
             self.targets.layers[index] = LayerTargetSpan {
                 gain: self.evaluate_target(compiled, layer.parameters.gain, shared)?,
@@ -809,6 +832,36 @@ impl VoiceRuntime {
                 self.evaluate_processor_target(compiled, processor, shared)?;
         }
         Ok(())
+    }
+
+    fn evaluate_operator_target(
+        &self,
+        compiled: &CompiledInstrument,
+        operator_modulation: &crate::compiler::CompiledOperatorModulation,
+        index: usize,
+        shared: SharedParameterSpan<'_>,
+    ) -> Result<super::modulation::OperatorTargetSpan, ProcessError> {
+        let parameters = operator_modulation
+            .parameters
+            .get(index)
+            .copied()
+            .ok_or_else(invalid_state)?;
+        Ok(super::modulation::OperatorTargetSpan {
+            ratio: self.evaluate_target(compiled, parameters.ratio, shared)?,
+            detune: self.evaluate_target(compiled, parameters.detune, shared)?,
+            level: parameters
+                .level
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+            modulation_amount: parameters
+                .modulation_amount
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+            feedback: parameters
+                .feedback
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+        })
     }
 
     fn evaluate_processor_target(

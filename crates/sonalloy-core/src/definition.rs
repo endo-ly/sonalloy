@@ -121,6 +121,8 @@ pub enum GeneratorDefinition {
     Sample(SampleDefinition),
     /// A band-limited wavetable prepared from a mono or stereo asset.
     Wavetable(WavetableDefinition),
+    /// A fixed-topology four-operator modulation generator.
+    OperatorModulation(OperatorModulationDefinition),
 }
 
 /// Oscillator generator settings.
@@ -213,6 +215,135 @@ pub struct WavetableDefinition {
     /// Optional wavetable unison configuration.
     #[serde(default)]
     pub unison: Option<UnisonDefinition>,
+}
+
+/// Four-operator audio-rate modulation settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OperatorModulationDefinition {
+    /// Audio-rate interaction mode applied to every operator connection.
+    pub mode: OperatorModulationMode,
+    /// Fixed algorithm describing the operator topology.
+    pub algorithm: OperatorAlgorithm,
+    /// Exactly four operators in user-facing order from one to four.
+    pub operators: Vec<OperatorDefinition>,
+    /// Whether Note On restores the operator phases.
+    pub phase_reset: bool,
+    /// Optional operator-engine unison configuration.
+    #[serde(default)]
+    pub unison: Option<UnisonDefinition>,
+}
+
+/// Audio-rate interaction mode used by an operator modulation generator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorModulationMode {
+    /// Add a modulator signal to the carrier read phase.
+    Phase,
+    /// Add a modulator signal to the carrier instantaneous frequency ratio.
+    Frequency,
+    /// Apply a unipolar modulator multiplier to the carrier amplitude.
+    Amplitude,
+    /// Crossfade the carrier with its bipolar modulator product.
+    Ring,
+}
+
+/// Fixed operator connection algorithms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorAlgorithm {
+    /// Operator 4 modulates 3, then 2, then carrier 1.
+    #[serde(rename = "stack_4")]
+    Stack4,
+    /// Stack 4-3-2 with carriers 1 and 2.
+    #[serde(rename = "stack_3_plus_carrier")]
+    Stack3PlusCarrier,
+    /// Independent stacks 2-1 and 4-3.
+    TwoStacks,
+    /// Operator 4 branches to 2 and 3, which both modulate carrier 1.
+    ForkToCarrier,
+    /// Operators 3 and 4 modulate carrier 1 while carrier 2 is parallel.
+    TwoModulatorsPlusCarrier,
+    /// Operators 2, 3, and 4 all modulate carrier 1.
+    ThreeModulators,
+    /// Operator 4 independently modulates carriers 1, 2, and 3.
+    SharedModulator,
+    /// Four independent carriers are summed.
+    Parallel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OperatorTopology {
+    pub(crate) evaluation_order: [u8; 4],
+    pub(crate) incoming_masks: [u8; 4],
+    pub(crate) carrier_mask: u8,
+}
+
+impl OperatorAlgorithm {
+    pub(crate) const fn topology(self) -> OperatorTopology {
+        match self {
+            Self::Stack4 => OperatorTopology {
+                evaluation_order: [3, 2, 1, 0],
+                incoming_masks: [0b0010, 0b0100, 0b1000, 0],
+                carrier_mask: 0b0001,
+            },
+            Self::Stack3PlusCarrier => OperatorTopology {
+                evaluation_order: [3, 2, 1, 0],
+                incoming_masks: [0, 0b0100, 0b1000, 0],
+                carrier_mask: 0b0011,
+            },
+            Self::TwoStacks => OperatorTopology {
+                evaluation_order: [1, 3, 0, 2],
+                incoming_masks: [0b0010, 0, 0b1000, 0],
+                carrier_mask: 0b0101,
+            },
+            Self::ForkToCarrier => OperatorTopology {
+                evaluation_order: [3, 1, 2, 0],
+                incoming_masks: [0b0110, 0b1000, 0b1000, 0],
+                carrier_mask: 0b0001,
+            },
+            Self::TwoModulatorsPlusCarrier => OperatorTopology {
+                evaluation_order: [2, 3, 0, 1],
+                incoming_masks: [0b1100, 0, 0, 0],
+                carrier_mask: 0b0011,
+            },
+            Self::ThreeModulators => OperatorTopology {
+                evaluation_order: [1, 2, 3, 0],
+                incoming_masks: [0b1110, 0, 0, 0],
+                carrier_mask: 0b0001,
+            },
+            Self::SharedModulator => OperatorTopology {
+                evaluation_order: [3, 0, 1, 2],
+                incoming_masks: [0b1000, 0b1000, 0b1000, 0],
+                carrier_mask: 0b0111,
+            },
+            Self::Parallel => OperatorTopology {
+                evaluation_order: [0, 1, 2, 3],
+                incoming_masks: [0, 0, 0, 0],
+                carrier_mask: 0b1111,
+            },
+        }
+    }
+}
+
+/// One sine operator in a modulation generator.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OperatorDefinition {
+    /// Frequency multiplier relative to the played note.
+    pub ratio: f32,
+    /// Frequency offset after the ratio, in cents.
+    pub detune_cents: f32,
+    /// Carrier output level.
+    pub level: f32,
+    /// Mode-dependent modulation depth.
+    pub modulation_amount: f32,
+    /// One-sample self-feedback amount.
+    pub feedback: f32,
+    /// Initial operator phase in the inclusive zero-to-one range.
+    pub phase: f32,
+    /// Operator-local amplitude envelope.
+    pub envelope: AdsrDefinition,
 }
 
 /// A single mapped sample region.
@@ -679,6 +810,9 @@ impl InstrumentDefinition {
                 }
                 GeneratorDefinition::Wavetable(wavetable) => {
                     validate_wavetable(&mut diagnostics, &path, wavetable);
+                }
+                GeneratorDefinition::OperatorModulation(operator_modulation) => {
+                    validate_operator_modulation(&mut diagnostics, &path, operator_modulation);
                 }
             }
         }
@@ -1377,6 +1511,153 @@ fn validate_wavetable(
     }
 }
 
+#[allow(clippy::too_many_lines)]
+fn validate_operator_modulation(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    operator_modulation: &OperatorModulationDefinition,
+) {
+    let operator_path = format!("{path}.generator.operator_modulation");
+    if operator_modulation.operators.len() != 4 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "operator_modulation operators must contain exactly four operators",
+            )
+            .with_path(format!("{operator_path}.operators")),
+        );
+    }
+
+    let topology = operator_modulation.algorithm.topology();
+    let (amount_range, amount_message) = match operator_modulation.mode {
+        OperatorModulationMode::Phase | OperatorModulationMode::Frequency => (
+            0.0..=8.0,
+            "modulation_amount must be finite and between 0 and 8",
+        ),
+        OperatorModulationMode::Amplitude | OperatorModulationMode::Ring => (
+            0.0..=1.0,
+            "modulation_amount must be finite and between 0 and 1",
+        ),
+    };
+
+    for (index, operator) in operator_modulation.operators.iter().enumerate() {
+        let current_path = format!("{operator_path}.operators[{index}]");
+        validate_range(
+            diagnostics,
+            format!("{current_path}.ratio"),
+            operator.ratio,
+            0.25..=32.0,
+            "operator ratio must be finite and between 0.25 and 32",
+        );
+        validate_range(
+            diagnostics,
+            format!("{current_path}.detune_cents"),
+            operator.detune_cents,
+            -100.0..=100.0,
+            "operator detune_cents must be finite and between -100 and 100",
+        );
+        validate_range(
+            diagnostics,
+            format!("{current_path}.level"),
+            operator.level,
+            0.0..=1.0,
+            "operator level must be finite and between 0 and 1",
+        );
+        validate_range(
+            diagnostics,
+            format!("{current_path}.modulation_amount"),
+            operator.modulation_amount,
+            amount_range.clone(),
+            amount_message,
+        );
+        validate_range(
+            diagnostics,
+            format!("{current_path}.feedback"),
+            operator.feedback,
+            0.0..=1.0,
+            "operator feedback must be finite and between 0 and 1",
+        );
+        validate_range(
+            diagnostics,
+            format!("{current_path}.phase"),
+            operator.phase,
+            0.0..=1.0,
+            "operator phase must be finite and between 0 and 1",
+        );
+        validate_adsr(diagnostics, &current_path, operator.envelope);
+
+        if matches!(
+            operator_modulation.mode,
+            OperatorModulationMode::Amplitude | OperatorModulationMode::Ring
+        ) && operator.feedback != 0.0
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "amplitude and ring modulation do not support operator feedback",
+                )
+                .with_path(format!("{current_path}.feedback")),
+            );
+        }
+    }
+
+    if operator_modulation.operators.len() == 4 {
+        let carrier_indices = (0..4).filter(|index| topology.carrier_mask & (1_u8 << index) != 0);
+        if carrier_indices
+            .clone()
+            .all(|index| operator_modulation.operators[index].level == 0.0)
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "at least one carrier operator must have a non-zero level",
+                )
+                .with_path(format!("{operator_path}.operators")),
+            );
+        }
+        for (index, operator) in operator_modulation.operators.iter().enumerate() {
+            let is_carrier = topology.carrier_mask & (1_u8 << index) != 0;
+            if !is_carrier && operator.level != 0.0 {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::DefinitionError,
+                        "non-carrier operator level must be zero",
+                    )
+                    .with_path(format!("{operator_path}.operators[{index}].level")),
+                );
+            }
+            let has_output = topology
+                .incoming_masks
+                .iter()
+                .any(|mask| mask & (1_u8 << index) != 0);
+            if !has_output && operator.modulation_amount != 0.0 {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::DefinitionError,
+                        "operator without an output connection must have zero modulation_amount",
+                    )
+                    .with_path(format!(
+                        "{operator_path}.operators[{index}].modulation_amount"
+                    )),
+                );
+            }
+        }
+    }
+
+    if let Some(unison) = operator_modulation.unison {
+        validate_unison(diagnostics, &format!("{operator_path}.unison"), unison);
+        if unison.voices > 4 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::GeneratorResourceLimitExceeded,
+                    "operator modulation unison voices must not exceed 4",
+                )
+                .with_path(format!("{operator_path}.unison.voices")),
+            );
+        }
+    }
+}
+
 fn validate_unison(diagnostics: &mut Vec<Diagnostic>, path: &str, unison: UnisonDefinition) {
     if !(2..=8).contains(&unison.voices) {
         diagnostics.push(
@@ -2055,5 +2336,210 @@ pub(crate) mod tests {
             diagnostic.code == DiagnosticCode::RouteTargetInvalid
                 && diagnostic.path.as_deref() == Some("modulation.routes[1].target")
         }));
+    }
+
+    fn operator_definition(
+        mode: OperatorModulationMode,
+        algorithm: OperatorAlgorithm,
+    ) -> OperatorModulationDefinition {
+        let envelope = AdsrDefinition {
+            attack_seconds: 0.001,
+            decay_seconds: 0.2,
+            sustain_level: 0.4,
+            release_seconds: 0.1,
+        };
+        OperatorModulationDefinition {
+            mode,
+            algorithm,
+            operators: vec![
+                OperatorDefinition {
+                    ratio: 1.0,
+                    detune_cents: 0.0,
+                    level: 0.9,
+                    modulation_amount: 0.0,
+                    feedback: 0.0,
+                    phase: 0.0,
+                    envelope,
+                },
+                OperatorDefinition {
+                    ratio: 2.0,
+                    detune_cents: 0.0,
+                    level: 0.0,
+                    modulation_amount: 2.0,
+                    feedback: 0.0,
+                    phase: 0.0,
+                    envelope,
+                },
+                OperatorDefinition {
+                    ratio: 3.0,
+                    detune_cents: 0.0,
+                    level: 0.0,
+                    modulation_amount: 1.0,
+                    feedback: 0.0,
+                    phase: 0.0,
+                    envelope,
+                },
+                OperatorDefinition {
+                    ratio: 5.0,
+                    detune_cents: 0.0,
+                    level: 0.0,
+                    modulation_amount: 0.5,
+                    feedback: 0.2,
+                    phase: 0.0,
+                    envelope,
+                },
+            ],
+            phase_reset: true,
+            unison: None,
+        }
+    }
+
+    #[test]
+    fn operator_algorithms_compile_to_expected_topologies() {
+        let expected = [
+            (
+                OperatorAlgorithm::Stack4,
+                [3, 2, 1, 0],
+                [0b0010, 0b0100, 0b1000, 0],
+                0b0001,
+            ),
+            (
+                OperatorAlgorithm::Stack3PlusCarrier,
+                [3, 2, 1, 0],
+                [0, 0b0100, 0b1000, 0],
+                0b0011,
+            ),
+            (
+                OperatorAlgorithm::TwoStacks,
+                [1, 3, 0, 2],
+                [0b0010, 0, 0b1000, 0],
+                0b0101,
+            ),
+            (
+                OperatorAlgorithm::ForkToCarrier,
+                [3, 1, 2, 0],
+                [0b0110, 0b1000, 0b1000, 0],
+                0b0001,
+            ),
+            (
+                OperatorAlgorithm::TwoModulatorsPlusCarrier,
+                [2, 3, 0, 1],
+                [0b1100, 0, 0, 0],
+                0b0011,
+            ),
+            (
+                OperatorAlgorithm::ThreeModulators,
+                [1, 2, 3, 0],
+                [0b1110, 0, 0, 0],
+                0b0001,
+            ),
+            (
+                OperatorAlgorithm::SharedModulator,
+                [3, 0, 1, 2],
+                [0b1000, 0b1000, 0b1000, 0],
+                0b0111,
+            ),
+            (
+                OperatorAlgorithm::Parallel,
+                [0, 1, 2, 3],
+                [0, 0, 0, 0],
+                0b1111,
+            ),
+        ];
+        for (algorithm, evaluation_order, incoming_masks, carrier_mask) in expected {
+            let topology = algorithm.topology();
+            assert_eq!(topology.evaluation_order, evaluation_order);
+            assert_eq!(topology.incoming_masks, incoming_masks);
+            assert_eq!(topology.carrier_mask, carrier_mask);
+        }
+    }
+
+    #[test]
+    fn operator_algorithms_use_stable_definition_names() {
+        let names = [
+            (OperatorAlgorithm::Stack4, "\"stack_4\""),
+            (
+                OperatorAlgorithm::Stack3PlusCarrier,
+                "\"stack_3_plus_carrier\"",
+            ),
+            (OperatorAlgorithm::TwoStacks, "\"two_stacks\""),
+            (OperatorAlgorithm::ForkToCarrier, "\"fork_to_carrier\""),
+            (
+                OperatorAlgorithm::TwoModulatorsPlusCarrier,
+                "\"two_modulators_plus_carrier\"",
+            ),
+            (OperatorAlgorithm::ThreeModulators, "\"three_modulators\""),
+            (OperatorAlgorithm::SharedModulator, "\"shared_modulator\""),
+            (OperatorAlgorithm::Parallel, "\"parallel\""),
+        ];
+        for (algorithm, expected) in names {
+            assert_eq!(
+                serde_json::to_string(&algorithm).expect("algorithm serializes"),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn operator_definition_validates_four_operator_contract() {
+        let mut value = definition();
+        value.layers[0].generator = GeneratorDefinition::OperatorModulation(operator_definition(
+            OperatorModulationMode::Phase,
+            OperatorAlgorithm::Stack4,
+        ));
+        assert!(value.validate().is_empty());
+
+        {
+            let GeneratorDefinition::OperatorModulation(operator_modulation) =
+                &mut value.layers[0].generator
+            else {
+                panic!("operator fixture must use the operator generator");
+            };
+            operator_modulation.operators[0].ratio = 0.1;
+            operator_modulation.operators[1].feedback = 0.1;
+            operator_modulation.operators[1].level = 0.1;
+            operator_modulation.operators[0].modulation_amount = 0.6;
+        }
+        let diagnostics = value.validate();
+        for path in [
+            "layers[0].generator.operator_modulation.operators[0].ratio",
+            "layers[0].generator.operator_modulation.operators[1].level",
+            "layers[0].generator.operator_modulation.operators[0].modulation_amount",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.path.as_deref() == Some(path)),
+                "missing diagnostic for {path}: {diagnostics:?}"
+            );
+        }
+
+        if let GeneratorDefinition::OperatorModulation(operator_modulation) =
+            &mut value.layers[0].generator
+        {
+            operator_modulation.operators.truncate(3);
+        }
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("layers[0].generator.operator_modulation.operators")
+        }));
+    }
+
+    #[test]
+    fn amplitude_and_ring_reject_feedback() {
+        for mode in [
+            OperatorModulationMode::Amplitude,
+            OperatorModulationMode::Ring,
+        ] {
+            let mut value = definition();
+            let mut operator = operator_definition(mode, OperatorAlgorithm::Stack4);
+            operator.operators[3].feedback = 0.1;
+            value.layers[0].generator = GeneratorDefinition::OperatorModulation(operator);
+            let diagnostics = value.validate();
+            assert!(diagnostics.iter().any(|diagnostic| {
+                diagnostic.path.as_deref()
+                    == Some("layers[0].generator.operator_modulation.operators[3].feedback")
+            }));
+        }
     }
 }

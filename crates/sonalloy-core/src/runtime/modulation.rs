@@ -153,6 +153,20 @@ pub(crate) enum LayerGeneratorTargetSpan {
         unison_detune: Option<ValueSpan>,
         unison_spread: Option<ValueSpan>,
     },
+    OperatorModulation {
+        operators: [OperatorTargetSpan; 4],
+        unison_detune: Option<ValueSpan>,
+        unison_spread: Option<ValueSpan>,
+    },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct OperatorTargetSpan {
+    pub(crate) ratio: ValueSpan,
+    pub(crate) detune: ValueSpan,
+    pub(crate) level: Option<ValueSpan>,
+    pub(crate) modulation_amount: Option<ValueSpan>,
+    pub(crate) feedback: Option<ValueSpan>,
 }
 
 impl CompiledGenerator {
@@ -178,6 +192,20 @@ impl CompiledGenerator {
                 position: zero,
                 unison_detune: value.parameters.unison_detune.map(|_| zero),
                 unison_spread: value.parameters.unison_spread.map(|_| zero),
+            },
+            Self::OperatorModulation(value) => LayerGeneratorTargetSpan::OperatorModulation {
+                operators: std::array::from_fn(|index| {
+                    let parameters = value.parameters[index];
+                    OperatorTargetSpan {
+                        ratio: zero,
+                        detune: zero,
+                        level: parameters.level.map(|_| zero),
+                        modulation_amount: parameters.modulation_amount.map(|_| zero),
+                        feedback: parameters.feedback.map(|_| zero),
+                    }
+                }),
+                unison_detune: value.unison_detune.map(|_| zero),
+                unison_spread: value.unison_spread.map(|_| zero),
             },
         }
     }

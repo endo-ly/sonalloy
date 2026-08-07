@@ -196,6 +196,31 @@ Wavetableは、周期波形をFrame単位で連結したWAVを用意して、`fr
 
 `instrument validate`でFrame Layout、Asset Hash、Frame Warningを確認し、`instrument inspect --json`でPrepared状態、Band、Position Parameter ID、Effective Frequency上限を確認します。Assetが欠落した場合はそのLayerだけが発音候補から外れるため、ほかのLayerの確認を続けられます。
 
+### Operator Modulationを使う
+
+4つのSine OperatorでBell、Bass、AM、Ringの音色を作れます。最初は既存の[`examples/instruments/operator-modulation-reference.json`](../examples/instruments/operator-modulation-reference.json)を複製し、`algorithm`、Ratio、Envelope、Modulation Amountを調整します。
+
+```json
+"generator": {
+  "operator_modulation": {
+    "mode": "frequency",
+    "algorithm": "stack_4",
+    "operators": [
+      { "ratio": 1.0, "detune_cents": 0.0, "level": 0.9, "modulation_amount": 0.0, "feedback": 0.0, "phase": 0.0, "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.2, "sustain_level": 1.0, "release_seconds": 0.1 } },
+      { "ratio": 2.0, "detune_cents": 0.0, "level": 0.0, "modulation_amount": 2.5, "feedback": 0.0, "phase": 0.0, "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.1, "sustain_level": 1.0, "release_seconds": 0.1 } },
+      { "ratio": 3.0, "detune_cents": 0.0, "level": 0.0, "modulation_amount": 1.5, "feedback": 0.0, "phase": 0.0, "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.08, "sustain_level": 1.0, "release_seconds": 0.08 } },
+      { "ratio": 5.0, "detune_cents": 0.0, "level": 0.0, "modulation_amount": 2.0, "feedback": 0.25, "phase": 0.0, "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.05, "sustain_level": 1.0, "release_seconds": 0.05 } }
+    ],
+    "phase_reset": true,
+    "unison": null
+  }
+}
+```
+
+Carrier Operatorだけに`level`を設定し、接続元Operatorの`modulation_amount`を設定します。`stack_4`では4→3→2→1の順に信号が進むため、Operator 1がCarrier、Operator 4が最上流です。`phase`はPhase Modulation、`frequency`はFrequency Modulation、`amplitude`はUnipolar AM、`ring`はCarrierとProductのCrossfadeです。AMとRingではFeedbackを0にします。
+
+`instrument inspect --json`でMode、Algorithm、Evaluation Order、Carrier、各OperatorのParameter IDを確認し、RatioやIndexをParameter Changeで動かす場合はEventのTargetに`layer.<layer_id>.generator.operator.<1-4>.<parameter>`を指定します。Offline Renderと試聴の対象は[`docs/testing-and-sound-review.md`](testing-and-sound-review.md)のOperator項目にまとめています。
+
 ## Step 3. 検証する
 
 編集したら、必ず検証します。

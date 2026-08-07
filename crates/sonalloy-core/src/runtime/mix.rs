@@ -47,12 +47,45 @@ pub(crate) fn mix_component(
         start: right_start,
         end: right_end,
     };
-    for index in 0..frames {
-        let sample = component[index];
-        left[index] += sample * left_gain.value_at(index, frames) * normalization;
-        right[index] += sample * right_gain.value_at(index, frames) * normalization;
+    for (index, sample) in component.iter().take(frames).copied().enumerate() {
+        if !mix_component_sample(
+            index,
+            frames,
+            sample,
+            left,
+            right,
+            left_gain,
+            right_gain,
+            normalization,
+        ) {
+            return false;
+        }
     }
     true
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn mix_component_sample(
+    index: usize,
+    frames: usize,
+    sample: f32,
+    left: &mut [f32],
+    right: &mut [f32],
+    left_gain: ValueSpan,
+    right_gain: ValueSpan,
+    normalization: f32,
+) -> bool {
+    if !sample.is_finite()
+        || !normalization.is_finite()
+        || normalization <= 0.0
+        || left.len() <= index
+        || right.len() <= index
+    {
+        return false;
+    }
+    left[index] += sample * left_gain.value_at(index, frames) * normalization;
+    right[index] += sample * right_gain.value_at(index, frames) * normalization;
+    left[index].is_finite() && right[index].is_finite()
 }
 
 #[cfg(test)]

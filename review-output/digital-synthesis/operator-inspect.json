@@ -1,0 +1,456 @@
+{
+  "status": "ok",
+  "name": "Operator Unison 4",
+  "metadata": {
+    "name": "Operator Unison 4",
+    "author": "Sonalloy",
+    "description": "Four-operator modulation review instrument"
+  },
+  "polyphony": 16,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "layer_count": 1,
+  "layers": [
+    {
+      "id": "operator",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "operator_modulation",
+        "output_mode": "stereo",
+        "mode": "frequency",
+        "algorithm": "stack_4",
+        "evaluation_order": [
+          4,
+          3,
+          2,
+          1
+        ],
+        "incoming_masks": [
+          2,
+          4,
+          8,
+          0
+        ],
+        "carrier_operators": [
+          1
+        ],
+        "operators": [
+          {
+            "index": 1,
+            "ratio": 1.0,
+            "detune_cents": 0.0,
+            "level": 0.9,
+            "modulation_amount": null,
+            "feedback": 0.0,
+            "phase": 0.0,
+            "envelope": {
+              "attack_samples": 0,
+              "decay_samples": 8640,
+              "sustain_level": 1.0,
+              "release_samples": 3840
+            },
+            "ratio_parameter": "layer.operator.generator.operator.1.ratio",
+            "detune_parameter": "layer.operator.generator.operator.1.detune",
+            "level_parameter": "layer.operator.generator.operator.1.level",
+            "modulation_amount_parameter": null,
+            "feedback_parameter": "layer.operator.generator.operator.1.feedback"
+          },
+          {
+            "index": 2,
+            "ratio": 2.0,
+            "detune_cents": 0.0,
+            "level": null,
+            "modulation_amount": 2.2,
+            "feedback": 0.0,
+            "phase": 0.0,
+            "envelope": {
+              "attack_samples": 0,
+              "decay_samples": 5760,
+              "sustain_level": 1.0,
+              "release_samples": 3840
+            },
+            "ratio_parameter": "layer.operator.generator.operator.2.ratio",
+            "detune_parameter": "layer.operator.generator.operator.2.detune",
+            "level_parameter": null,
+            "modulation_amount_parameter": "layer.operator.generator.operator.2.modulation_amount",
+            "feedback_parameter": "layer.operator.generator.operator.2.feedback"
+          },
+          {
+            "index": 3,
+            "ratio": 3.0,
+            "detune_cents": 0.0,
+            "level": null,
+            "modulation_amount": 1.8,
+            "feedback": 0.0,
+            "phase": 0.0,
+            "envelope": {
+              "attack_samples": 0,
+              "decay_samples": 3840,
+              "sustain_level": 1.0,
+              "release_samples": 3840
+            },
+            "ratio_parameter": "layer.operator.generator.operator.3.ratio",
+            "detune_parameter": "layer.operator.generator.operator.3.detune",
+            "level_parameter": null,
+            "modulation_amount_parameter": "layer.operator.generator.operator.3.modulation_amount",
+            "feedback_parameter": "layer.operator.generator.operator.3.feedback"
+          },
+          {
+            "index": 4,
+            "ratio": 5.0,
+            "detune_cents": 0.0,
+            "level": null,
+            "modulation_amount": 2.6,
+            "feedback": 0.28,
+            "phase": 0.0,
+            "envelope": {
+              "attack_samples": 0,
+              "decay_samples": 1920,
+              "sustain_level": 1.0,
+              "release_samples": 3840
+            },
+            "ratio_parameter": "layer.operator.generator.operator.4.ratio",
+            "detune_parameter": "layer.operator.generator.operator.4.detune",
+            "level_parameter": null,
+            "modulation_amount_parameter": "layer.operator.generator.operator.4.modulation_amount",
+            "feedback_parameter": "layer.operator.generator.operator.4.feedback"
+          }
+        ],
+        "phase_reset": true,
+        "unison_voices": 4,
+        "unison_detune_parameter": "layer.operator.generator.unison_detune",
+        "unison_spread_parameter": "layer.operator.generator.unison_spread",
+        "effective_max_frequency_hz": 11520.0
+      },
+      "asset_status": "enabled",
+      "gain_db": -6.0,
+      "gain_linear": 0.5011872,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 0,
+        "decay_samples": 5760,
+        "sustain_level": 0.85,
+        "release_samples": 7200
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "parameters": [
+    {
+      "id": "layer.operator.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -6.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.1.ratio",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "ratio",
+      "min": 0.25,
+      "max": 32.0,
+      "default": 1.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.1.detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -100.0,
+      "max": 100.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.1.level",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.9,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.1.feedback",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.2.ratio",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "ratio",
+      "min": 0.25,
+      "max": 32.0,
+      "default": 2.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.2.detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -100.0,
+      "max": 100.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.2.modulation_amount",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "index",
+      "min": 0.0,
+      "max": 8.0,
+      "default": 2.2,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.2.feedback",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.3.ratio",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "ratio",
+      "min": 0.25,
+      "max": 32.0,
+      "default": 3.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.3.detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -100.0,
+      "max": 100.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.3.modulation_amount",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "index",
+      "min": 0.0,
+      "max": 8.0,
+      "default": 1.8,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.3.feedback",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.4.ratio",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "ratio",
+      "min": 0.25,
+      "max": 32.0,
+      "default": 5.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.4.detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -100.0,
+      "max": 100.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.4.modulation_amount",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "index",
+      "min": 0.0,
+      "max": 8.0,
+      "default": 2.6,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.operator.4.feedback",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.28,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.operator.generator.unison_detune",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": 0.0,
+      "max": 100.0,
+      "default": 16.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    },
+    {
+      "id": "layer.operator.generator.unison_spread",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.85,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    }
+  ],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity"
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking"
+    }
+  ],
+  "routes": []
+}

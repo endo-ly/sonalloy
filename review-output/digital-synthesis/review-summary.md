@@ -1,4 +1,4 @@
-# Wavetable Sound Review
+# Digital Synthesis Sound Review
 
 ## Render条件
 
@@ -8,8 +8,9 @@
 - 比較Block Size：32 / 64 / 257 / 1024 frames
 - Output：Stereo、32-bit float WAV
 - Wavetable Asset：PCM16、Frame Length 256、Frame Count 4
+- Operator Modulation：4 Operator固定、PM / FM / AM / Ring、Unison最大4
 
-Definitionは`definitions/`、Assetは`assets/`、Eventは`events/`、WAVは`audio/technical/`へ保存しています。同じWAVをMetricsと人間の試聴に使用します。`inspect.json`にはWavetable Motion BassのCompiled表示を保存しています。
+Definitionは`definitions/`、Assetは`assets/`、Eventは`events/`、WAVは`audio/technical/`へ保存しています。同じWAVをMetricsと人間の試聴に使用します。`inspect.json`にはWavetable Motion Bass、`operator-inspect.json`にはOperator UnisonのCompiled表示を保存しています。
 
 再生成：
 
@@ -34,6 +35,19 @@ python scripts/review/generate_digital_synthesis_package.py
 | `11-mod-wheel-position.wav` | Mod Wheel to Position |
 | `12-motion-bass.wav` | Wavetable Motion Bass |
 | `13-missing-asset-fallback.wav` | Missing Wavetable Asset with Oscillator Layer |
+| `14-operator-pm-stack4-bell.wav` | PM Stack 4 Bell |
+| `15-operator-fm-stack4-bass.wav` | FM Stack 4 Bass |
+| `16-operator-am-two-stacks.wav` | AM Two Stacks |
+| `17-operator-ring-two-stacks.wav` | Ring Two Stacks |
+| `18-operator-algorithm-stack4.wav` | Stack 4 Algorithm |
+| `19-operator-algorithm-two-stacks.wav` | Two Stacks Algorithm |
+| `20-operator-algorithm-shared.wav` | Shared Modulator Algorithm |
+| `21-operator-ratio-sweep.wav` | Operator Ratio Sweep |
+| `22-operator-modulation-amount-sweep.wav` | Operator Modulation Amount Sweep |
+| `23-operator-feedback-sweep.wav` | Operator Feedback Sweep |
+| `24-operator-envelope-bell.wav` | Operator Envelope Bell |
+| `25-operator-unison-4.wav` | Operator Unison 4 |
+| `26-operator-polyphony-stealing.wav` | Operator Polyphony and Voice Stealing |
 
 Regression WAVは`regression-block-*.wav`、`regression-fresh-*.wav`、`sample-rate-*.wav`です。Metricsは`metrics.json`に保存しています。
 
@@ -51,6 +65,15 @@ Regression WAVは`regression-block-*.wav`、`regression-fresh-*.wav`、`sample-r
 - Reset：Core Integration Testで確認済み
 - Missing Asset時のOscillator Layer継続：生成済み
 - Prepared Wavetable Byte数：`metrics.json`へ記録済み
+- Operator Definition Validate：成功
+- Operator CLI Inspect JSON：成功
+- 8 Algorithmの固定Topology：Core Testと`operator-inspect.json`で確認済み
+- PM / FM / AM / RingのFinite性：生成済み
+- Operator Block Size比較：許容差以内
+- Operator Sample Rate比較：生成済み
+- Operator Fresh Render比較：一致
+- Operator Allocation 0：Core Testで確認済み
+- Operator Reset：Core Testで確認済み
 
 ## 人間の確認
 
@@ -65,5 +88,14 @@ Regression WAVは`regression-block-*.wav`、`regression-fresh-*.wav`、`sample-r
 | Mono再生時のLevel | `09-unison-5-stereo.wav` | 未確認 |
 | Missing Asset時の継続 | `13-missing-asset-fallback.wav` | 未確認 |
 | 音色としての成立 | `12-motion-bass.wav` | 未確認 |
+| PMとFMの差 | `14-operator-pm-stack4-bell.wav` / `15-operator-fm-stack4-bass.wav` | 未確認 |
+| AMとRingの差 | `16-operator-am-two-stacks.wav` / `17-operator-ring-two-stacks.wav` | 未確認 |
+| Algorithmの差 | `18-operator-algorithm-stack4.wav` / `19-operator-algorithm-two-stacks.wav` / `20-operator-algorithm-shared.wav` | 未確認 |
+| Ratioによる倍音変化 | `21-operator-ratio-sweep.wav` | 未確認 |
+| Envelopeによる時間変化 | `24-operator-envelope-bell.wav` | 未確認 |
+| Feedbackの粗さと安定性 | `23-operator-feedback-sweep.wav` | 未確認 |
+| Index SweepのClick | `22-operator-modulation-amount-sweep.wav` | 未確認 |
+| Note ReleaseとPolyphony | `26-operator-polyphony-stealing.wav` | 未確認 |
+| Operator UnisonのBeatとStereo幅 | `25-operator-unison-4.wav` | 未確認 |
 
 人間の確認では同じ再生環境・音量を使い、結果と指摘をこの表へ記録します。Metricsは音質の承認を代替しません。
