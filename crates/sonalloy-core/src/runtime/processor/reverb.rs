@@ -682,7 +682,9 @@ mod tests {
     #[test]
     fn read_modulated_keeps_index_in_bounds_when_position_is_below_zero() {
         let mut line = DelayLine::with_extra_capacity(1491, 0.0);
-        let value = line.read_modulated(5.0e-5).expect("interpolated read near zero");
+        let value = line
+            .read_modulated(5.0e-5)
+            .expect("interpolated read near zero");
         assert!(value.is_finite());
         assert!(line.read_position < line.buffer.len());
     }

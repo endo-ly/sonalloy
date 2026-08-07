@@ -121,7 +121,19 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 
 - **Oscillator**：Note番号とTuningから周波数を決め、Sine / Saw / Square / Triangle / Pulseを生成します。`phase_reset`が有効ならNoteごとにCompiled Initial Phaseへ戻し、TriangleのIntegrator Stateも初期化します。Pulse Widthは5msでSmoothingし、既存Modulationから制御できます。Hard SyncはVariable Shape BackendでMaster / Slaveを生成し、RatioをLog2で5ms Smoothingします。UnisonはPrepare時に固定したComponent数でDetune、Phase、Stereo Placementを行い、2 Voice以上をStereoで出力します。WaveshapingはUnison Mix直後にAmountをLinearで5ms Smoothingして適用します
 - **Noise**：White / Pink / Brownを決定的なPRNG Streamから生成します。Shared、Left Independent、Right Independentの3 Streamを持ち、Correlationを`√correlation`と`√(1-correlation)`でMixして常にStereoで出力します
+- **Wavetable**：Compile時にWAVをFrameへ分割し、FFT/IFFTでHarmonic上限の異なるBand Tableを準備します。PositionはFrame間をLinear、Table内をFour-point Cubicで補間し、Component Frequencyに応じたBandをLog2領域でCrossfadeします。Source Sample RateはPitchへ使わず、Unison 1ではMono、2 Voice以上ではStereoで出力します
 - **Sample**：後述のSample Zone選択と再生を使います。Compileで無効になったZoneは選択候補から除外されます
+
+## Wavetable Runtime
+
+Prepared WavetableはCompile時に`Arc`でCompiled Instrumentへ保持し、全Voiceで共有します。Voiceごとに保持するのはUnison ComponentごとのPhaseだけです。Assetが準備できなかったLayerはNote OnのSelectionから除外され、Runtimeへ到達した場合はInvalid State Errorになります。
+
+- Frame Positionは`position × (frame_count - 1)`で求め、隣接FrameをLinear Interpolationします。PositionはParameter Spanの各Sample値を使います
+- Table PositionはPhaseから求め、`[last, sample0 ... sampleN-1, sample0, sample1]`のGuard付きTableをFour-point Cubicで読み出します
+- ComponentごとにBase Frequency、Unison Detune、Layer Tuningを適用し、`sample_rate × 0.45`へClampします。Band選択もComponent Frequencyごとに行います
+- Band Tableは`N/2, N/4, ..., 1`のHarmonic上限を持ち、隣接Bandの切替をLog2領域でCrossfadeします。DCはCompile時のSource値を保持します
+- Note Onでは`phase_reset`が有効な場合だけInitial Phaseへ戻し、Instrument Resetでは常にInitial Phaseへ戻します
+- Process中はAsset Decode、FFT、File I/O、メモリ確保を行いません
 
 ## Sampleの再生
 

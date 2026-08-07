@@ -1,5 +1,6 @@
 mod noise;
 mod oscillator;
+mod wavetable;
 
 use crate::compiler::CompiledGenerator;
 use crate::generator_parameters::GeneratorParameterSpec;
@@ -10,6 +11,7 @@ use super::sample::{SampleRuntime, playback_ratio};
 
 use noise::NoiseRuntime;
 use oscillator::OscillatorRuntime;
+use wavetable::WavetableRuntime;
 
 fn validate_generator_span(
     span: ValueSpan,
@@ -32,6 +34,7 @@ pub(super) enum GeneratorRuntime {
     Oscillator(OscillatorRuntime),
     Noise(Box<NoiseRuntime>),
     Sample { sample: SampleRuntime },
+    Wavetable(WavetableRuntime),
 }
 
 impl GeneratorRuntime {
@@ -47,6 +50,9 @@ impl GeneratorRuntime {
             CompiledGenerator::Sample(_) => Ok(Self::Sample {
                 sample: SampleRuntime::new(),
             }),
+            CompiledGenerator::Wavetable(value) => {
+                Ok(Self::Wavetable(WavetableRuntime::new(value, spec)?))
+            }
         }
     }
 
@@ -79,6 +85,7 @@ impl GeneratorRuntime {
                 sample.start(zone);
                 Ok(())
             }
+            Self::Wavetable(wavetable) => wavetable.start(),
         }
     }
 
@@ -165,6 +172,20 @@ impl GeneratorRuntime {
                 }
                 Ok(sample.is_finished())
             }
+            Self::Wavetable(wavetable) => {
+                wavetable.render(
+                    frames,
+                    note_number,
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    targets,
+                    mono,
+                    left,
+                    right,
+                )?;
+                Ok(false)
+            }
         }
     }
 
@@ -177,6 +198,10 @@ impl GeneratorRuntime {
             }
             Self::Sample { sample, .. } => {
                 sample.reset();
+                Ok(())
+            }
+            Self::Wavetable(wavetable) => {
+                wavetable.reset();
                 Ok(())
             }
         }

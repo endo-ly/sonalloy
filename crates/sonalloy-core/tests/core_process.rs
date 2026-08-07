@@ -1169,7 +1169,8 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
             assert!(sample.zones[0].source.is_some());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
-        | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
+        | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Wavetable(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -1690,7 +1691,8 @@ fn sample_without_hash_is_enabled_with_a_warning() {
             sample.zones[0].asset.sha256 = None;
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
-        | sonalloy_core::GeneratorDefinition::Noise(_) => {
+        | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Wavetable(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -1715,7 +1717,8 @@ fn sample_without_hash_is_enabled_with_a_warning() {
             assert!(sample.zones[0].source.is_some());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
-        | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
+        | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Wavetable(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -1733,7 +1736,8 @@ fn absolute_sample_path_is_enabled_with_a_warning() {
             sample.zones[0].asset.path = asset_path.to_string_lossy().into_owned();
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
-        | sonalloy_core::GeneratorDefinition::Noise(_) => {
+        | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Wavetable(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -1762,7 +1766,8 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
             sample.zones[0].asset.sha256 = Some("00".repeat(32));
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
-        | sonalloy_core::GeneratorDefinition::Noise(_) => {
+        | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Wavetable(_) => {
             panic!("attack layer must be a sample")
         }
     }
@@ -1789,7 +1794,8 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
             assert!(sample.zones[0].source.is_none());
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
-        | sonalloy_core::compiler::CompiledGenerator::Noise(_) => {
+        | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Wavetable(_) => {
             panic!("attack layer must be a sample")
         }
     }

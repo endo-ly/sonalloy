@@ -38,6 +38,15 @@ pub(crate) const WAVESHAPE: GeneratorParameterSpec = GeneratorParameterSpec {
     smoothing_seconds: 0.005,
 };
 
+pub(crate) const WAVETABLE_POSITION: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "wavetable_position",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
 pub(crate) const UNISON_DETUNE: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "unison_detune",
     unit: ParameterUnit::Cents,
@@ -70,6 +79,7 @@ pub(crate) fn is_suffix(value: &str) -> bool {
         PULSE_WIDTH,
         SYNC_RATIO,
         WAVESHAPE,
+        WAVETABLE_POSITION,
         UNISON_DETUNE,
         UNISON_SPREAD,
         NOISE_CORRELATION,

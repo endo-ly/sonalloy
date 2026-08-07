@@ -779,6 +779,19 @@ impl VoiceRuntime {
                     correlation: self.evaluate_target(compiled, value.correlation, shared)?,
                 },
                 CompiledGenerator::Sample(_) => LayerGeneratorTargetSpan::Sample,
+                CompiledGenerator::Wavetable(value) => LayerGeneratorTargetSpan::Wavetable {
+                    position: self.evaluate_target(compiled, value.parameters.position, shared)?,
+                    unison_detune: value
+                        .parameters
+                        .unison_detune
+                        .map(|handle| self.evaluate_target(compiled, handle, shared))
+                        .transpose()?,
+                    unison_spread: value
+                        .parameters
+                        .unison_spread
+                        .map(|handle| self.evaluate_target(compiled, handle, shared))
+                        .transpose()?,
+                },
             };
             self.targets.layers[index] = LayerTargetSpan {
                 gain: self.evaluate_target(compiled, layer.parameters.gain, shared)?,

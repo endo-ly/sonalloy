@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Sine Single Frame",
+    "author": "Sonalloy",
+    "description": "Wavetable Generator review instrument"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "motion",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -4.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../assets/sine-single-frame.wav",
+            "sha256": "636c027c70330caed678081be3c56ab45f8a2e8183f77c554d88818b9bdd2e94"
+          },
+          "frame_length": 256,
+          "position": 0.0,
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": []
+}

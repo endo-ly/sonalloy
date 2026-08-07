@@ -57,6 +57,7 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Layer | Trigger（Key / Velocity範囲）、Generator、Gain、Pan、Tuning、Envelope |
 | Oscillator | Waveform、Phase Reset、Phase、Backend、Output Mode、Effective Frequency上限、Pulse Width（Pulseのみ）、Hard Sync、Waveshaping、Unison |
 | Noise | Color、Seed、Stereo Correlation Parameter、Output Mode |
+| Wavetable | Asset Path、SHA指定有無、Prepared状態、Source Channel / Frame Count、Frame Length / Count、Band Count / Max Harmonic、Position、Parameter ID、Phase、Unison、Output Mode、Effective Frequency上限 |
 | Sample | Zone Count、Enabled / Disabled Count、Prepared Asset共有数、Zone ID、Key / Velocity範囲、Root Note、Round Robin Group、Playback Region / Loop、Asset Metadata、Output Mode |
 | Parameter | Canonical ID、Owner、Unit、Range、Default、Scale、Smoothing |
 | Modulation | Source ID、Source種類、Scope、Target、Amount、Curve |
@@ -264,6 +265,14 @@ sonalloy dev render-sine \
 - `ASSET_DOWNMIXED`
 - `ASSET_HASH_MISSING`
 - `ASSET_ABSOLUTE_PATH`
+
+**Wavetable**
+
+- `WAVETABLE_LAYOUT_INVALID`
+- `WAVETABLE_PREPARATION_FAILED`
+- `WAVETABLE_SILENT_FRAME`
+- `WAVETABLE_DC_OFFSET`
+- `GENERATOR_RESOURCE_LIMIT_EXCEEDED`
 
 AssetのMissingやDecode失敗はWarningとして表示され、ほかの有効LayerがあればRenderは継続します。
 

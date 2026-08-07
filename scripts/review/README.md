@@ -15,6 +15,7 @@
 | `generate_complex_oscillator_package.py` | Complex OscillatorのDefinition、Event、WAV、Metrics、性能計測をReview Packageへまとめる |
 | `common.py` | Review Package生成で共有するCLI実行、入力出力、Render、WAV測定補助を定義する |
 | `generate_essential_synthesis_sampling_package.py` | Sample Zone、Velocity Layer、Round Robin、Loop、Slice、HybridのDefinition、Event、Synthetic Asset、WAV、MetricsをReview Packageへまとめる |
+| `generate_digital_synthesis_package.py` | Wavetable Asset、Definition、Event、WAV、Inspect、MetricsをReview Packageへまとめる |
 | `manifest.py` | Basic Poly Synthの固定Render条件と共通Render処理を定義する |
 | `measure_wav.py` | WAVのMetadata、Finite性、Peak、RMS、DC、周波数、境界差分を測定する |
 
@@ -30,8 +31,9 @@ python scripts/review/generate_processor_chain_package.py
 python scripts/review/generate_basic_generators_package.py
 python scripts/review/generate_complex_oscillator_package.py
 python scripts/review/generate_essential_synthesis_sampling_package.py
+python scripts/review/generate_digital_synthesis_package.py
 ```
 
-生成先は`review-output/basic-poly-synth/`、`review-output/metallic-hybrid/`、`review-output/dynamic-parameters/`、`review-output/processor-chain/`、`review-output/basic-generators/`、`review-output/complex-oscillator/`、`review-output/essential-synthesis-sampling/`です。Package内のDefinitionは同梱された入力を参照するため、コピー後の内容だけでも再確認できます。
+生成先は`review-output/basic-poly-synth/`、`review-output/metallic-hybrid/`、`review-output/dynamic-parameters/`、`review-output/processor-chain/`、`review-output/basic-generators/`、`review-output/complex-oscillator/`、`review-output/essential-synthesis-sampling/`、`review-output/digital-synthesis/`です。Package内のDefinitionは同梱された入力を参照するため、コピー後の内容だけでも再確認できます。
 
 Metallic Hybridの生成時は、`instrument inspect --json`のSample Layer状態、許容されたAsset Warning、DefinitionとSource AssetのSHA-256一致、Sample-only出力の非無音性、Hybrid MixとOscillator-onlyの差分も自動検査します。検査に失敗した場合はMetricsやReview資料を更新せず終了します。

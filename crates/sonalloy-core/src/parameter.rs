@@ -8,7 +8,7 @@ use crate::definition::{
 };
 use crate::generator_parameters::{
     GeneratorParameterSpec, NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
-    UNISON_SPREAD, WAVESHAPE,
+    UNISON_SPREAD, WAVESHAPE, WAVETABLE_POSITION,
 };
 
 /// Dense reference to a parameter in one compiled instrument.
@@ -324,6 +324,31 @@ fn push_generator_descriptors(
             );
         }
         GeneratorDefinition::Sample(_) => {}
+        GeneratorDefinition::Wavetable(wavetable) => {
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                WAVETABLE_POSITION,
+                wavetable.position,
+            );
+            if let Some(unison) = wavetable.unison {
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    UNISON_DETUNE,
+                    unison.detune_cents,
+                );
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    UNISON_SPREAD,
+                    unison.stereo_spread,
+                );
+            }
+        }
     }
 }
 

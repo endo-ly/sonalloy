@@ -1,6 +1,6 @@
 # 音源（Instrument）の作り方
 
-このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要なら自作WAVをSampleとして組み込むところまで進みます。
+このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要なら自作WAVをWavetableまたはSampleとして組み込むところまで進みます。
 
 > **本書の範囲**：音源作成の操作手順（人間向けガイド）です。仕様の詳細は本書に書かず、各仕様文書へ委ねます。
 >
@@ -14,7 +14,7 @@
 ## 全体の流れ
 
 ```text
-ひな形の生成 → 音色の編集 → 検証 → （Sample追加） → 試聴 → 仕上げ
+ひな形の生成 → 音色の編集 → 検証 → （Wavetable / Sample追加） → 試聴 → 仕上げ
    Step 1       Step 2     Step 3       Step 4       Step 5   Step 6
 ```
 
@@ -23,7 +23,7 @@
 | 1 | ひな形の生成（新規の場合のみ） | `instrument init` |
 | 2 | 音色の編集（Layer、ADSR、Processorなど） | エディタでJSONを編集 |
 | 3 | 検証 | `instrument validate` / `instrument inspect` |
-| 4 | 自作WAVをSampleとして組み込み | SHA-256計算 → JSON編集 |
+| 4 | 自作WAVをWavetableまたはSampleとして組み込み | SHA-256計算 → JSON編集 |
 | 5 | 試聴 | `render note` / `render midi` |
 | 6 | 仕上げ（名前・説明・関連docsへの反映） | — |
 
@@ -163,6 +163,38 @@ Hard Sync、Waveshaping、UnisonはOscillator Definitionへ追加します。Har
   ]
 }
 ```
+
+### Wavetableを使う
+
+Wavetableは、周期波形をFrame単位で連結したWAVを用意して、`frame_length`を明示します。AssetのSample RateはPitchへ使われないため、同じ周期Frame列を異なるCompile Sample Rateで利用できます。
+
+```json
+"generator": {
+  "wavetable": {
+    "asset": {
+      "path": "../../testdata/assets/digital-motion.wav",
+      "sha256": "<計算した値>"
+    },
+    "frame_length": 2048,
+    "position": 0.0,
+    "phase_reset": true,
+    "phase": 0.0
+  }
+}
+```
+
+`frame_length`は64〜4096の2の冪で、WAV全体のSample数が割り切れる値を選びます。Position 0、0.5、1はそれぞれ最初、中間、最後のFrame側の音色になります。`position`は`layer.<layer_id>.generator.wavetable_position`としてLFO、Mod Wheel、Parameter Changeから制御できます。
+
+```json
+{
+  "source": "motion_lfo",
+  "target": "layer.main.generator.wavetable_position",
+  "amount": 1.0,
+  "curve": "linear"
+}
+```
+
+`instrument validate`でFrame Layout、Asset Hash、Frame Warningを確認し、`instrument inspect --json`でPrepared状態、Band、Position Parameter ID、Effective Frequency上限を確認します。Assetが欠落した場合はそのLayerだけが発音候補から外れるため、ほかのLayerの確認を続けられます。
 
 ## Step 3. 検証する
 

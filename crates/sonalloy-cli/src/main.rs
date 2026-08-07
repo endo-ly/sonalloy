@@ -311,6 +311,26 @@ enum InspectGenerator {
         sample_asset_count: usize,
         sample_zones: Vec<InspectSampleZone>,
     },
+    Wavetable {
+        output_mode: &'static str,
+        asset_path: String,
+        asset_sha256_specified: bool,
+        prepared: bool,
+        source_channels: Option<usize>,
+        source_frame_count: Option<usize>,
+        frame_length: usize,
+        frame_count: Option<usize>,
+        band_count: Option<usize>,
+        band_max_harmonics: Vec<usize>,
+        position: f32,
+        position_parameter: String,
+        phase_reset: bool,
+        phase: f32,
+        unison_voices: usize,
+        unison_detune_parameter: Option<String>,
+        unison_spread_parameter: Option<String>,
+        effective_max_frequency_hz: f32,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -1457,7 +1477,56 @@ fn inspect_generator(
                 },
             )
         }
+        sonalloy_core::compiler::CompiledGenerator::Wavetable(wavetable) => {
+            inspect_wavetable_generator(compiled, generator, wavetable)
+        }
     }
+}
+
+fn inspect_wavetable_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    wavetable: &sonalloy_core::compiler::CompiledWavetable,
+) -> (InspectGenerator, &'static str) {
+    let prepared = wavetable.prepared.as_ref();
+    let metadata = prepared.map(|value| &value.source_metadata);
+    (
+        InspectGenerator::Wavetable {
+            output_mode: output_mode_name(generator.output_mode()),
+            asset_path: wavetable.asset_path.clone(),
+            asset_sha256_specified: wavetable.asset_sha256_specified,
+            prepared: prepared.is_some(),
+            source_channels: metadata.map(|value| value.source_channels),
+            source_frame_count: metadata.map(|value| value.source_frames),
+            frame_length: wavetable.frame_length,
+            frame_count: prepared.map(|value| value.frame_count),
+            band_count: prepared.map(|value| value.bands.len()),
+            band_max_harmonics: prepared.map_or_else(Vec::new, |value| {
+                value.bands.iter().map(|band| band.max_harmonic).collect()
+            }),
+            position: parameter_default(compiled, wavetable.parameters.position),
+            position_parameter: parameter_descriptor_id(compiled, wavetable.parameters.position),
+            phase_reset: wavetable.phase_reset,
+            phase: wavetable.phase,
+            unison_voices: wavetable.unison.position_distribution.len(),
+            unison_detune_parameter: wavetable
+                .parameters
+                .unison_detune
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            unison_spread_parameter: wavetable
+                .parameters
+                .unison_spread
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            effective_max_frequency_hz: sonalloy_core::compiler::wavetable_effective_max_frequency(
+                compiled.process_sample_rate,
+            ),
+        },
+        if prepared.is_some() {
+            "enabled"
+        } else {
+            "disabled"
+        },
+    )
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1732,7 +1801,54 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
                 }
             }
         }
+        InspectGenerator::Wavetable { .. } => print_wavetable_generator(layer_id, generator),
     }
+}
+
+fn print_wavetable_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::Wavetable {
+        output_mode,
+        asset_path,
+        asset_sha256_specified,
+        prepared,
+        source_channels,
+        source_frame_count,
+        frame_length,
+        frame_count,
+        band_count,
+        band_max_harmonics,
+        position,
+        position_parameter,
+        phase_reset,
+        phase,
+        unison_voices,
+        unison_detune_parameter,
+        unison_spread_parameter,
+        effective_max_frequency_hz,
+    } = generator
+    else {
+        return;
+    };
+    println!("layer {layer_id}: enabled {prepared} generator wavetable output_mode {output_mode}");
+    println!("  asset: {asset_path} sha256_specified: {asset_sha256_specified}");
+    println!(
+        "  prepared: {prepared} source_channels: {} source_frame_count: {}",
+        source_channels.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        source_frame_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+    );
+    println!(
+        "  frame_length: {frame_length} frame_count: {} band_count: {}",
+        frame_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        band_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+    );
+    println!("  band_max_harmonics: {band_max_harmonics:?}");
+    println!(
+        "  position: {position:.3} parameter: {position_parameter} phase_reset: {phase_reset} phase: {phase:.3}"
+    );
+    println!("  unison_voices: {unison_voices}");
+    print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
+    print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
+    println!("  effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
 }
 
 fn print_parameter_reference(name: &str, parameter: Option<&String>) {

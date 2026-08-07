@@ -98,6 +98,21 @@ pub enum DiagnosticCode {
     /// A source asset was resampled for the process configuration.
     #[serde(rename = "ASSET_RESAMPLED")]
     AssetResampled,
+    /// A Wavetable asset cannot be split into valid frames.
+    #[serde(rename = "WAVETABLE_LAYOUT_INVALID")]
+    WavetableLayoutInvalid,
+    /// A Wavetable could not be prepared as finite band tables.
+    #[serde(rename = "WAVETABLE_PREPARATION_FAILED")]
+    WavetablePreparationFailed,
+    /// A Wavetable frame contains no meaningful signal.
+    #[serde(rename = "WAVETABLE_SILENT_FRAME")]
+    WavetableSilentFrame,
+    /// A Wavetable frame has a significant DC offset.
+    #[serde(rename = "WAVETABLE_DC_OFFSET")]
+    WavetableDcOffset,
+    /// A Wavetable exceeds the compiled resource limit.
+    #[serde(rename = "GENERATOR_RESOURCE_LIMIT_EXCEEDED")]
+    GeneratorResourceLimitExceeded,
     /// Process contract violation.
     #[serde(rename = "PROCESS_ERROR")]
     ProcessError,

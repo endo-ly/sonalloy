@@ -5,6 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::generator_parameters::{
     NOISE_CORRELATION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVESHAPE,
+    WAVETABLE_POSITION,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id, is_parameter_id};
 
@@ -118,6 +119,8 @@ pub enum GeneratorDefinition {
     Noise(NoiseDefinition),
     /// A mapped sample instrument loaded during compilation.
     Sample(SampleDefinition),
+    /// A band-limited wavetable prepared from a mono or stereo asset.
+    Wavetable(WavetableDefinition),
 }
 
 /// Oscillator generator settings.
@@ -191,6 +194,25 @@ pub struct SampleDefinition {
     pub interpolation: SampleInterpolation,
     /// Ordered key, velocity, and playback zones.
     pub zones: Vec<SampleZoneDefinition>,
+}
+
+/// Wavetable generator settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WavetableDefinition {
+    /// Referenced WAV containing one or more consecutive frames.
+    pub asset: AssetReference,
+    /// Number of samples in one periodic frame.
+    pub frame_length: u16,
+    /// Initial position between the first and last frame.
+    pub position: f32,
+    /// Whether Note On restores the initial phase.
+    pub phase_reset: bool,
+    /// Initial phase in the inclusive zero-to-one range.
+    pub phase: f32,
+    /// Optional wavetable unison configuration.
+    #[serde(default)]
+    pub unison: Option<UnisonDefinition>,
 }
 
 /// A single mapped sample region.
@@ -654,6 +676,9 @@ impl InstrumentDefinition {
                 }
                 GeneratorDefinition::Sample(sample) => {
                     validate_sample(&mut diagnostics, &path, sample);
+                }
+                GeneratorDefinition::Wavetable(wavetable) => {
+                    validate_wavetable(&mut diagnostics, &path, wavetable);
                 }
             }
         }
@@ -1119,7 +1144,7 @@ fn validate_asset_reference(diagnostics: &mut Vec<Diagnostic>, path: &str, asset
         diagnostics.push(
             Diagnostic::error(
                 DiagnosticCode::RequiredFieldMissing,
-                "sample asset path must not be empty",
+                "asset path must not be empty",
             )
             .with_path(format!("{path}.asset.path")),
         );
@@ -1130,7 +1155,7 @@ fn validate_asset_reference(diagnostics: &mut Vec<Diagnostic>, path: &str, asset
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::ValueOutOfRange,
-                    "sample asset sha256 must be 64 hexadecimal characters",
+                    "asset sha256 must be 64 hexadecimal characters",
                 )
                 .with_path(format!("{path}.asset.sha256")),
             );
@@ -1299,35 +1324,10 @@ fn validate_oscillator(
         );
     }
     if let Some(unison) = oscillator.unison {
-        if !(2..=8).contains(&unison.voices) {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "unison voices must be between 2 and 8",
-                )
-                .with_path(format!("{path}.generator.oscillator.unison.voices")),
-            );
-        }
-        validate_range(
+        validate_unison(
             diagnostics,
-            format!("{path}.generator.oscillator.unison.detune_cents"),
-            unison.detune_cents,
-            UNISON_DETUNE.min..=UNISON_DETUNE.max,
-            "unison detune_cents must be finite and between 0 and 100",
-        );
-        validate_range(
-            diagnostics,
-            format!("{path}.generator.oscillator.unison.stereo_spread"),
-            unison.stereo_spread,
-            UNISON_SPREAD.min..=UNISON_SPREAD.max,
-            "unison stereo_spread must be finite and between 0 and 1",
-        );
-        validate_range(
-            diagnostics,
-            format!("{path}.generator.oscillator.unison.phase_spread"),
-            unison.phase_spread,
-            0.0..=1.0,
-            "unison phase_spread must be finite and between 0 and 1",
+            &format!("{path}.generator.oscillator.unison"),
+            unison,
         );
         if oscillator.hard_sync.is_some() && unison.phase_spread.total_cmp(&0.0).is_ne() {
             diagnostics.push(
@@ -1339,6 +1339,75 @@ fn validate_oscillator(
             );
         }
     }
+}
+
+fn validate_wavetable(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    wavetable: &WavetableDefinition,
+) {
+    let wavetable_path = format!("{path}.generator.wavetable");
+    let frame_length = usize::from(wavetable.frame_length);
+    if !(64..=4096).contains(&frame_length) || !frame_length.is_power_of_two() {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "wavetable frame_length must be a power of two between 64 and 4096",
+            )
+            .with_path(format!("{wavetable_path}.frame_length")),
+        );
+    }
+    validate_range(
+        diagnostics,
+        format!("{wavetable_path}.position"),
+        wavetable.position,
+        WAVETABLE_POSITION.min..=WAVETABLE_POSITION.max,
+        "wavetable position must be finite and between 0 and 1",
+    );
+    validate_range(
+        diagnostics,
+        format!("{wavetable_path}.phase"),
+        wavetable.phase,
+        0.0..=1.0,
+        "wavetable phase must be finite and between 0 and 1",
+    );
+    validate_asset_reference(diagnostics, &wavetable_path, &wavetable.asset);
+    if let Some(unison) = wavetable.unison {
+        validate_unison(diagnostics, &format!("{wavetable_path}.unison"), unison);
+    }
+}
+
+fn validate_unison(diagnostics: &mut Vec<Diagnostic>, path: &str, unison: UnisonDefinition) {
+    if !(2..=8).contains(&unison.voices) {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "unison voices must be between 2 and 8",
+            )
+            .with_path(format!("{path}.voices")),
+        );
+    }
+    validate_range(
+        diagnostics,
+        format!("{path}.detune_cents"),
+        unison.detune_cents,
+        UNISON_DETUNE.min..=UNISON_DETUNE.max,
+        "unison detune_cents must be finite and between 0 and 100",
+    );
+    validate_range(
+        diagnostics,
+        format!("{path}.stereo_spread"),
+        unison.stereo_spread,
+        UNISON_SPREAD.min..=UNISON_SPREAD.max,
+        "unison stereo_spread must be finite and between 0 and 1",
+    );
+    validate_range(
+        diagnostics,
+        format!("{path}.phase_spread"),
+        unison.phase_spread,
+        0.0..=1.0,
+        "unison phase_spread must be finite and between 0 and 1",
+    );
 }
 
 fn validate_noise(diagnostics: &mut Vec<Diagnostic>, path: &str, noise: &NoiseDefinition) {
@@ -1744,6 +1813,57 @@ pub(crate) mod tests {
         assert!(value.validate().iter().any(|diagnostic| {
             diagnostic.path.as_deref() == Some("layers[0].generator.noise.stereo_correlation")
         }));
+    }
+
+    #[test]
+    fn wavetable_definition_ranges_are_validated() {
+        let mut value = definition();
+        value.layers[0].generator = GeneratorDefinition::Wavetable(WavetableDefinition {
+            asset: AssetReference {
+                path: "table.wav".to_owned(),
+                sha256: None,
+            },
+            frame_length: 64,
+            position: 0.0,
+            phase_reset: true,
+            phase: 0.0,
+            unison: None,
+        });
+        for frame_length in [64, 2_048, 4_096] {
+            if let GeneratorDefinition::Wavetable(wavetable) = &mut value.layers[0].generator {
+                wavetable.frame_length = frame_length;
+            }
+            assert!(
+                value.validate().is_empty(),
+                "frame_length {frame_length} is valid"
+            );
+        }
+
+        if let GeneratorDefinition::Wavetable(wavetable) = &mut value.layers[0].generator {
+            wavetable.frame_length = 65;
+            wavetable.position = -f32::EPSILON;
+            wavetable.phase = 1.0 + f32::EPSILON;
+            wavetable.unison = Some(UnisonDefinition {
+                voices: 9,
+                detune_cents: 0.0,
+                stereo_spread: 0.0,
+                phase_spread: 0.0,
+            });
+        }
+        let diagnostics = value.validate();
+        for path in [
+            "layers[0].generator.wavetable.frame_length",
+            "layers[0].generator.wavetable.position",
+            "layers[0].generator.wavetable.phase",
+            "layers[0].generator.wavetable.unison.voices",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.path.as_deref() == Some(path)),
+                "missing diagnostic for {path}: {diagnostics:?}"
+            );
+        }
     }
 
     #[test]

@@ -9,6 +9,7 @@ use crate::generator_parameters::{
 };
 use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
 
+use super::super::mix::mix_component;
 use super::super::modulation::LayerGeneratorTargetSpan;
 use super::super::modulation::ValueSpan;
 use super::validate_generator_span;
@@ -209,7 +210,7 @@ impl OscillatorRuntime {
                 pulse_width,
                 mono,
             )?;
-            mix_component(
+            if !mix_component(
                 frames,
                 mono,
                 &mut left[..frames],
@@ -217,7 +218,9 @@ impl OscillatorRuntime {
                 self.unison.position_distribution[index],
                 spread,
                 self.unison.normalization,
-            )?;
+            ) {
+                return Err(invalid_state());
+            }
         }
         if self.waveshaping {
             let amount = waveshape.ok_or_else(invalid_state)?;
@@ -377,38 +380,6 @@ fn clamp_frequency(
     }
     let max_frequency = backend.effective_max_frequency(sample_rate);
     Ok(frequency.clamp(f32::MIN_POSITIVE, max_frequency))
-}
-
-fn mix_component(
-    frames: usize,
-    component: &[f32],
-    left: &mut [f32],
-    right: &mut [f32],
-    pan_distribution: f32,
-    spread: ValueSpan,
-    normalization: f32,
-) -> Result<(), ProcessError> {
-    if !normalization.is_finite() || normalization <= 0.0 {
-        return Err(invalid_state());
-    }
-    let (left_start, right_start) =
-        super::super::mix::constant_power_pan(pan_distribution * spread.start);
-    let (left_end, right_end) =
-        super::super::mix::constant_power_pan(pan_distribution * spread.end);
-    let left_gain = ValueSpan {
-        start: left_start,
-        end: left_end,
-    };
-    let right_gain = ValueSpan {
-        start: right_start,
-        end: right_end,
-    };
-    for index in 0..frames {
-        let sample = component[index];
-        left[index] += sample * left_gain.value_at(index, frames) * normalization;
-        right[index] += sample * right_gain.value_at(index, frames) * normalization;
-    }
-    Ok(())
 }
 
 fn apply_waveshaping(amount: ValueSpan, output: &mut [f32]) -> Result<(), ProcessError> {

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Invalid Wavetable Layout",
+    "author": "Sonalloy",
+    "description": "Wavetable Generator review instrument"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "motion",
+      "enabled": true,
+      "trigger": {
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -4.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../assets/invalid-layout.wav",
+            "sha256": "5d7dad12a6d7277bb2ecaffea869ab9ccab8916ca1da2e8e14d9d2341334b7ab"
+          },
+          "frame_length": 256,
+          "position": 0.0,
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": []
+}

@@ -1,0 +1,26 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 1,
+      "note": 108,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 3072,
+      "type": "pitch_bend",
+      "value": 1.0
+    },
+    {
+      "absolute_frame": 8192,
+      "type": "pitch_bend",
+      "value": -1.0
+    },
+    {
+      "absolute_frame": 14000,
+      "type": "note_off",
+      "note_id": 1
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+use crate::compiler::{CompiledGenerator, CompiledOscillatorBackend};
 use crate::compiler::{CompiledLayer, CompiledProcessor};
 use crate::parameter::ParameterHandle;
 
@@ -147,6 +148,39 @@ pub(crate) enum LayerGeneratorTargetSpan {
         correlation: ValueSpan,
     },
     Sample,
+    Wavetable {
+        position: ValueSpan,
+        unison_detune: Option<ValueSpan>,
+        unison_spread: Option<ValueSpan>,
+    },
+}
+
+impl CompiledGenerator {
+    pub(crate) fn zero_target_span(&self) -> LayerGeneratorTargetSpan {
+        let zero = ValueSpan {
+            start: 0.0,
+            end: 0.0,
+        };
+        match self {
+            Self::Oscillator(value) => LayerGeneratorTargetSpan::Oscillator {
+                pulse_width: value.parameters.pulse_width.map(|_| zero),
+                sync_ratio: match value.backend {
+                    CompiledOscillatorBackend::Basic => None,
+                    CompiledOscillatorBackend::VariableShapeSync { .. } => Some(zero),
+                },
+                waveshape: value.parameters.waveshape.map(|_| zero),
+                unison_detune: value.parameters.unison_detune.map(|_| zero),
+                unison_spread: value.parameters.unison_spread.map(|_| zero),
+            },
+            Self::Noise(_) => LayerGeneratorTargetSpan::Noise { correlation: zero },
+            Self::Sample(_) => LayerGeneratorTargetSpan::Sample,
+            Self::Wavetable(value) => LayerGeneratorTargetSpan::Wavetable {
+                position: zero,
+                unison_detune: value.parameters.unison_detune.map(|_| zero),
+                unison_spread: value.parameters.unison_spread.map(|_| zero),
+            },
+        }
+    }
 }
 
 /// Reusable target scratch owned by one voice.
@@ -163,15 +197,15 @@ impl VoiceTargetScratch {
             end: 0.0,
         };
         Self {
-            layers: vec![
-                LayerTargetSpan {
+            layers: layers
+                .iter()
+                .map(|layer| LayerTargetSpan {
                     gain: zero,
                     pan: zero,
                     tuning: zero,
-                    generator: LayerGeneratorTargetSpan::Sample,
-                };
-                layers.len()
-            ],
+                    generator: layer.generator.zero_target_span(),
+                })
+                .collect(),
             layer_processors: layers
                 .iter()
                 .map(|layer| {

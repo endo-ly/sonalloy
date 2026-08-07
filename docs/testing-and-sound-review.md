@@ -115,6 +115,15 @@ flowchart LR
 - 人間の確認：Ratio別の倍音、Ratio SweepのPitch連続性、高音域Hard SyncのAlias、Waveshapingの倍音変化とClick、UnisonのBeat・Stereo幅・Mono互換性、Voice数増加時のLevel、Hard Sync + Unison、Bass / Lead / Pad用途
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
+### Wavetable
+
+- 保存先：`review-output/digital-synthesis/`（assets / audio/technical / definitions / events / inspect.json / missing-asset-inspect.json / layout-error.json / metrics.json / review-summary.md）
+- 生成：`python scripts/review/generate_digital_synthesis_package.py`
+- 内容：単一Frame、Position 0 / 0.5 / 1、Position Sweep、Position LFO、Unison 5 Stereo、Band Boundary Sweep、Missing Assetと既存Oscillator Layerの継続を同じ入力条件で確認する
+- Metrics：Finite性、Peak / RMS / DC、推定Fundamental、Spectrum、Stereo差分、Adjacent Frame最大差分、Band Boundary差分、Block Size 32 / 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、Fresh Runtime / Reset差分、Prepared Wavetable Byte数
+- 人間の確認：Frameごとの音色差、Position Sweepの滑らかさ、Band切替の不連続、高音域Alias、低音域の倍音、UnisonのBeatとStereo幅、Mono再生時のLevel、Bass用途での成立
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
 ### Essential Synthesis and Sampling
 
 - 保存先：`review-output/essential-synthesis-sampling/`（audio/technical / definitions / events / midi / assets / inspect.json / metrics.json / review-summary.md）
