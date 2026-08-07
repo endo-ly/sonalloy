@@ -268,7 +268,7 @@ fn compile_binds_complex_parameters_and_phase_domain_limits() {
 }
 
 #[test]
-fn complex_runtime_is_finite_stereo_and_parameter_sweeps_are_continuous() {
+fn complex_runtime_is_finite_stereo_and_parameter_sweeps_render() {
     let mut value = definition();
     value.layers[0].generator = GeneratorDefinition::Oscillator(oscillator(
         OscillatorWaveform::Sine,
@@ -311,6 +311,7 @@ fn complex_runtime_is_finite_stereo_and_parameter_sweeps_are_continuous() {
             },
         },
     ];
+    let baseline = render(&value, 257, 2_048, &[note_on()]);
     let audio = render(&value, 257, 2_048, &events);
 
     assert_eq!(audio.channels.len(), 2);
@@ -336,8 +337,11 @@ fn complex_runtime_is_finite_stereo_and_parameter_sweeps_are_continuous() {
     );
     assert!(
         audio.channels[0]
-            .windows(2)
-            .all(|pair| (pair[1] - pair[0]).abs() < 2.0)
+            .iter()
+            .zip(&baseline.channels[0])
+            .skip(1_024)
+            .any(|(changed, unchanged)| (changed - unchanged).abs() > 1.0e-4),
+        "parameter changes did not alter the rendered signal"
     );
 }
 

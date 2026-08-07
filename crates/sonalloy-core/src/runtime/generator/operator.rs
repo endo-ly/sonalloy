@@ -267,24 +267,19 @@ fn render_sample(
             max_frequency,
         )?;
         let incoming = topology.incoming_masks[index];
-        let mut modulation = 0.0_f32;
-        for operator_index in topology.evaluation_order {
-            let modulator = usize::from(operator_index);
-            if incoming & (1_u8 << modulator) != 0 {
-                let amount = targets[modulator]
-                    .modulation_amount
-                    .map_or(0.0, |value| value.value_at(frame, frames));
-                modulation += current_outputs[modulator] * amount;
-            }
-        }
-        if !modulation.is_finite() {
-            return Err(non_finite());
-        }
         let feedback = target
             .feedback
             .map_or(0.0, |value| value.value_at(frame, frames));
         let signal = match mode {
             OperatorModulationMode::Phase => {
+                let modulation = incoming_modulation(
+                    frame,
+                    frames,
+                    topology.evaluation_order,
+                    incoming,
+                    targets,
+                    &current_outputs,
+                )?;
                 let phase_offset = modulation * 0.5;
                 let feedback_offset = feedback_offset(component.previous_outputs[index], feedback)?;
                 let read_phase = component.phases[index] + phase_offset + feedback_offset;
@@ -293,6 +288,14 @@ fn render_sample(
                 signal
             }
             OperatorModulationMode::Frequency => {
+                let modulation = incoming_modulation(
+                    frame,
+                    frames,
+                    topology.evaluation_order,
+                    incoming,
+                    targets,
+                    &current_outputs,
+                )?;
                 let feedback_offset = feedback_offset(component.previous_outputs[index], feedback)?;
                 let instantaneous = frequency * (1.0 + modulation + feedback_offset);
                 let instantaneous = clamp_frequency(instantaneous, max_frequency)?;
@@ -360,6 +363,32 @@ fn render_sample(
     let output = carrier_sum * topology.carrier_normalization;
     if output.is_finite() {
         Ok(output)
+    } else {
+        Err(non_finite())
+    }
+}
+
+#[inline]
+fn incoming_modulation(
+    frame: usize,
+    frames: usize,
+    evaluation_order: [u8; 4],
+    incoming: u8,
+    targets: &[OperatorTargetSpan; 4],
+    current_outputs: &[f32; 4],
+) -> Result<f32, ProcessError> {
+    let mut modulation = 0.0_f32;
+    for operator_index in evaluation_order {
+        let modulator = usize::from(operator_index);
+        if incoming & (1_u8 << modulator) != 0 {
+            let amount = targets[modulator]
+                .modulation_amount
+                .map_or(0.0, |value| value.value_at(frame, frames));
+            modulation += current_outputs[modulator] * amount;
+        }
+    }
+    if modulation.is_finite() {
+        Ok(modulation)
     } else {
         Err(non_finite())
     }

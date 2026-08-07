@@ -3523,9 +3523,9 @@ scripts/review/generate_digital_synthesis_package.py
 - DC
 - 推定Fundamental
 - 単音RenderのFundamentalはMIDI Noteから算出し、複数音RenderではZero Crossing値を補助値として保持する
-- Fixed Length Spectrum
-- Spectral Centroid
-- Harmonic / Non-harmonic Energy参考値
+- 基準周波数が成立する単音RenderのFixed Length Spectrum
+- 基準周波数が成立する単音RenderのSpectral Centroid
+- 基準周波数が成立する単音RenderのHarmonic / Non-harmonic Energy参考値
 - Stereo Difference
 - Stereo Correlation
 - Adjacent Frame最大差分

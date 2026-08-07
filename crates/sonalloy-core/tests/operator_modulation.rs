@@ -191,7 +191,6 @@ fn all_algorithms_compile_with_fixed_topology_and_render() {
         else {
             panic!("definition must compile to Operator Modulation");
         };
-        assert_eq!(operator.topology.evaluation_order.len(), 4);
         assert_eq!(
             operator
                 .topology

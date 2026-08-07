@@ -67,7 +67,7 @@ Regression WAVは`audio/technical/regression-*.wav`、`audio/technical/sample-ra
 ## 自動確認
 
 - 全40件のWAVがFiniteで、Metricsを再生成済み
-- Spectrum、Spectral Centroid、Harmonic / Non-harmonic Energy参考値を再生成済み
+- 基準周波数が成立する単音RenderのSpectrum、Spectral Centroid、Harmonic / Non-harmonic Energy参考値をMetricsに記録
 - Wavetable / Operator / ComplexのDefinition ValidateとInspect JSONを確認済み
 - WavetableのFrame、Position、Band、Missing Asset診断を確認済み
 - Wavetable / Operator / ComplexのParameter Sweep境界差分を確認済み

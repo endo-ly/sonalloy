@@ -31,7 +31,7 @@ from common import (
     write_events,
     write_utf8,
 )
-from measure_wav import boundary_differences, compare_wav, measure, read_float_wav
+from measure_wav import boundary_differences, compare_wav, measure
 
 BLOCK_SIZE_MAX_DIFFERENCE = 1.0e-5
 FRAME_LENGTH = 256
@@ -97,7 +97,6 @@ REFERENCE_NOTES = {
     "07-position-sweep.wav": 60,
     "08-position-lfo.wav": 60,
     "09-unison-5-stereo.wav": 48,
-    "10-band-boundary-sweep.wav": 108,
     "11-operator-pm-stack4-bell.wav": 60,
     "12-operator-fm-stack4-bass.wav": 36,
     "13-operator-am-two-stacks.wav": 60,
@@ -283,7 +282,7 @@ Regression WAVは`audio/technical/regression-*.wav`、`audio/technical/sample-ra
 ## 自動確認
 
 - 全40件のWAVがFiniteで、Metricsを再生成済み
-- Spectrum、Spectral Centroid、Harmonic / Non-harmonic Energy参考値を再生成済み
+- 基準周波数が成立する単音RenderのSpectrum、Spectral Centroid、Harmonic / Non-harmonic Energy参考値をMetricsに記録
 - Wavetable / Operator / ComplexのDefinition ValidateとInspect JSONを確認済み
 - WavetableのFrame、Position、Band、Missing Asset診断を確認済み
 - Wavetable / Operator / ComplexのParameter Sweep境界差分を確認済み
@@ -458,7 +457,6 @@ def finalize_integrated_package(review_root: Path) -> None:
             list(BLOCK_SIZES),
             include_spectrum=name in {
                 "03-saw-single-frame-high.wav",
-                "10-band-boundary-sweep.wav",
                 "12-operator-fm-stack4-bass.wav",
                 "24-phase-distortion-025.wav",
                 "30-wavefold-025.wav",
@@ -781,19 +779,6 @@ def band_count(frame_length: int) -> int:
         count += 1
         limit //= 2
     return count
-
-
-def steady_state_frequency(path: Path) -> float:
-    sample_rate, channels, samples = read_float_wav(path)
-    left = samples[0::channels]
-    start = min(1_000, len(left))
-    end = min(start + 12_000, len(left))
-    segment = left[start:end]
-    crossings = sum(
-        previous <= 0.0 and current > 0.0
-        for previous, current in zip(segment, segment[1:])
-    )
-    return crossings * sample_rate / len(segment) if segment else 0.0
 
 
 def require_finite(metrics: dict[str, dict[str, object]]) -> None:
@@ -1243,13 +1228,21 @@ def main() -> None:
     event_jobs = [
         ("07-position-sweep.wav", "position-sweep", position_sweep_events, 60),
         ("11-mod-wheel-position.wav", "mod-wheel-position", mod_wheel_events, 60),
-        ("10-band-boundary-sweep.wav", "band-boundary-sweep", band_boundary_events, 108),
     ]
     for audio_name, definition_name, events, note in event_jobs:
         path = technical_dir / audio_name
         render_events(definition_paths[definition_name], events, path, BASE_BLOCK_SIZE)
         generated_audio[audio_name] = path
         generated_fundamental_frequencies[audio_name] = midi_note_frequency(note)
+
+    band_boundary_path = technical_dir / "10-band-boundary-sweep.wav"
+    render_events(
+        definition_paths["band-boundary-sweep"],
+        band_boundary_events,
+        band_boundary_path,
+        BASE_BLOCK_SIZE,
+    )
+    generated_audio[band_boundary_path.name] = band_boundary_path
 
     missing_audio = technical_dir / "13-missing-asset-fallback.wav"
     render_note(definition_paths["missing-asset-fallback"], 60, missing_audio, BASE_BLOCK_SIZE)
@@ -1317,10 +1310,8 @@ def main() -> None:
             "01-sine-single-frame.wav",
             "02-saw-single-frame-low.wav",
             "03-saw-single-frame-high.wav",
-            "10-band-boundary-sweep.wav",
             "12-motion-bass.wav",
         }, fundamental_frequency_hz=generated_fundamental_frequencies.get(path.name))
-        values["steady_state_frequency_hz"] = steady_state_frequency(path)
         values.update(measure_stereo(path))
         technical_metrics[path.name] = values
     require_finite(technical_metrics)
