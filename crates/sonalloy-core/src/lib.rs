@@ -13,9 +13,10 @@ pub use asset::{PreparedAudio, PreparedAudioChannels, SampleMetadata};
 pub use compiler::{
     CompileContext, CompileResult, CompiledInstrument, CompiledOperator,
     CompiledOperatorModulation, CompiledOperatorParameters, CompiledOperatorTopology,
-    CompiledSampleDirection, CompiledSampleLoop, CompiledSamplePlayback, CompiledWavetable,
-    CompiledWavetableParameters, PreparedWavetable, PreparedWavetableBand, PreparedWavetableFrame,
-    WavetableSourceMetadata, compile_instrument,
+    CompiledSampleDirection, CompiledSampleLoop, CompiledSamplePlayback, CompiledSampleTime,
+    CompiledStretchLatency, CompiledWavetable, CompiledWavetableParameters, GeneratorOutputMode,
+    PreparedWavetable, PreparedWavetableBand, PreparedWavetableFrame, WavetableSourceMetadata,
+    compile_instrument,
 };
 pub use definition::{
     AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, DelayProcessorDefinition,
@@ -26,8 +27,8 @@ pub use definition::{
     OscillatorFeedbackDefinition, OscillatorWaveform, PerformanceDefinition,
     PhaseDistortionDefinition, ProcessorDefinition, ReverbProcessorDefinition, SampleDefinition,
     SampleInterpolation, SampleLoopDefinition, SamplePlaybackDirection, SampleRegionDefinition,
-    SampleZoneDefinition, SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition,
-    WavefoldDefinition, WaveshapingDefinition, WavetableDefinition,
+    SampleTimeDefinition, SampleZoneDefinition, SampleZonePlaybackDefinition, UnisonDefinition,
+    VoiceStealingDefinition, WavefoldDefinition, WaveshapingDefinition, WavetableDefinition,
 };
 pub use definition::{
     LfoDefinition, LfoWaveform, ModEnvelopeDefinition, ModulationCurve, ModulationDefinition,
@@ -45,7 +46,9 @@ pub use process::{
     ProcessEvent, ProcessEventKind, ProcessSpec, ProcessorFailureKind, ScheduledEvent,
 };
 pub use render::{
-    RenderError, RenderRequest, RenderedAudio, render_instrument, render_sine, seconds_to_frames,
+    DEFAULT_TEMPO_BPM, RenderError, RenderRequest, RenderedAudio, TempoChange, TempoMap,
+    render_instrument, render_instrument_with_tempo, render_instrument_with_tempo_map, render_sine,
+    seconds_to_frames,
 };
 pub use runtime::{InstrumentRuntime, SineRuntime, VoiceState};
 

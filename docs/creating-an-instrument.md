@@ -331,7 +331,8 @@ sha256sum testdata/assets/my-sample.wav
           "playback": {
             "region": { "start_seconds": 0.0, "end_seconds": null },
             "direction": "forward",
-            "loop": null
+            "loop": null,
+            "time": { "mode": "resample" }
           }
         }
       ]
@@ -348,12 +349,14 @@ sha256sum testdata/assets/my-sample.wav
 | `zones[].key_min` / `key_max` | Zoneが受け付けるMIDI Note範囲（0〜127、min <= max） |
 | `zones[].velocity_min` / `velocity_max` | Zoneが受け付けるVelocity範囲（1〜127、min <= max） |
 | `zones[].round_robin_group` | 同一条件のZoneをDefinition順に選択するGroup。不要なら`null` |
-| `zones[].playback` | Region、`forward` / `reverse`、Loop / Constant-power Crossfade |
+| `zones[].playback` | Region、`forward` / `reverse`、Loop / Constant-power Crossfade、Time Mode |
 | `interpolation` | `cubic`（4点補間） |
 
 SampleのPath違いやハッシュ不一致の場合は**そのZoneだけが無効化され**、ほかのZoneやLayerでRenderは継続します。SHA-256を省略した場合はWarningだけが付きます。
 
 `direction: "reverse"`はPrepared Audioの複製を作らず、Cursorを逆方向へ進めます。LoopはRegion内に置き、`crossfade_seconds`を0より大きくするとLoop終端と開始をConstant-powerでBlendします。Release Sampleを作る場合はLayerの`trigger.event`を`note_off`にし、Note OnでArmedにしてからNote Offで発音します。
+
+`playback.time`は必須です。通常のSampleは`{"mode": "resample"}`、Pitchを維持してDurationを2倍にする場合は`{"mode": "fixed_stretch", "ratio": 2.0}`、Source BPM 120のLoopをProcess Tempoへ追従させる場合は`{"mode": "tempo_sync", "source_bpm": 120.0}`を指定します。Fixed StretchとTempo SyncのRatioは0.5〜2.0で、Reverseとは併用できません。
 
 ## Step 5. 音を出す
 
@@ -362,6 +365,7 @@ SampleのPath違いやハッシュ不一致の場合は**そのZoneだけが無�
 ```bash
 sonalloy render note my-instrument.json \
   --note 60 --velocity 100 --gate 0.5 --tail 0.5 \
+  --tempo 120 \
   --sample-rate 48000 --block-size 257 --output out/my-instrument/note.wav
 ```
 
@@ -380,11 +384,12 @@ sonalloy render midi my-instrument.json \
 | `--velocity` | 打鍵の強さ | `100` |
 | `--gate` | Note OnからNote Offまでの時間（秒） | `0.5` |
 | `--tail` | 最後のNote Off後の追加時間（秒） | note: `0.5` / midi: `1.0` |
+| `--tempo` | Process Tempo（BPM）。Tempo Sync Sampleへ適用 | `120` |
 | `--sample-rate` | Sample Rate（Hz） | `48000` |
 | `--block-size` | Process最大Block Size（Frame） | `257` |
 | `--output` | Stereo WAV出力先（必須） | — |
 
-出力は**32-bit float・2 Channel**のStereo WAVです。親Directoryは事前に作成してください。既存のMIDIがなければ、`scripts/review/generate_midi_fixtures.py`で固定のテスト用MIDIを生成できます。
+出力は**32-bit float・2 Channel**のStereo WAVです。Time Stretchを含む場合はReported LatencyがInspectと成功JSONへ表示され、CLIが前置きLatencyを除去してMusical TimelineのFrame 0からWAVを生成します。親Directoryは事前に作成してください。既存のMIDIがなければ、`scripts/review/generate_midi_fixtures.py`で固定のテスト用MIDIを生成できます。
 
 ## Step 6. 仕上げる
 

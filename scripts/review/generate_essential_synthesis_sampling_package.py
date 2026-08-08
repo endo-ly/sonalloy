@@ -189,6 +189,7 @@ def zone(
             "region": {"start_seconds": 0.0, "end_seconds": None},
             "direction": "forward",
             "loop": None,
+            "time": {"mode": "resample"},
         },
     }
 
@@ -278,6 +279,7 @@ def render_events(
     duration_frames: int,
     block_size: int = BASE_BLOCK_SIZE,
     sample_rate: int = SAMPLE_RATE,
+    tempo_bpm: float = 120.0,
 ) -> None:
     run_cli(
         [
@@ -293,6 +295,8 @@ def render_events(
             str(block_size),
             "--tail",
             "0",
+            "--tempo",
+            str(tempo_bpm),
             "--output",
             str(output),
             "--json",
@@ -327,6 +331,15 @@ def segment_rms(path: Path, start_frame: int, frame_count: int) -> float:
     return math.sqrt(sum(value * value for value in values) / len(values)) if values else 0.0
 
 
+def segment_frequency(path: Path, start_frame: int, frame_count: int) -> float:
+    sample_rate, channels, samples = frames(path)
+    begin = start_frame * channels
+    end = min(len(samples), (start_frame + frame_count) * channels)
+    values = samples[begin:end:channels]
+    crossings = sum(a <= 0.0 < b for a, b in zip(values, values[1:]))
+    return crossings * sample_rate / len(values) if values else 0.0
+
+
 def assert_audio_is_finite(audio_metrics: dict[str, dict[str, object]]) -> None:
     invalid = [name for name, values in audio_metrics.items() if not values["finite"]]
     if invalid:
@@ -343,6 +356,7 @@ def render_job(
     event_name: str,
     block_size: int = BASE_BLOCK_SIZE,
     sample_rate: int = SAMPLE_RATE,
+    tempo_bpm: float = 120.0,
 ) -> Path:
     output = audio_dir / f"{name}.wav"
     render_events(
@@ -352,6 +366,7 @@ def render_job(
         duration_frames,
         block_size,
         sample_rate,
+        tempo_bpm,
     )
     return output
 
@@ -414,6 +429,7 @@ def main() -> None:
                     "end_seconds": 1.2,
                     "crossfade_seconds": 0.05,
                 },
+                "time": {"mode": "resample"},
             },
         )
     ]
@@ -429,6 +445,7 @@ def main() -> None:
                 "region": {"start_seconds": 0.04, "end_seconds": 1.10},
                 "direction": "reverse",
                 "loop": None,
+                "time": {"mode": "resample"},
             },
         )
     ]
@@ -448,10 +465,67 @@ def main() -> None:
                     "end_seconds": 1.2,
                     "crossfade_seconds": 0.05,
                 },
+                "time": {"mode": "resample"},
             },
         )
     ]
     stereo_zones = [zone(asset_dir, "stereo", "stereo-pad.wav", 60, 0, 127)]
+    fixed_stretch_zones = [
+        zone(
+            asset_dir,
+            "fixed_stretch",
+            "loop-sustain.wav",
+            60,
+            0,
+            127,
+            playback={
+                "region": {"start_seconds": 0.0, "end_seconds": 1.8},
+                "direction": "forward",
+                "loop": {
+                    "start_seconds": 0.4,
+                    "end_seconds": 1.2,
+                    "crossfade_seconds": 0.05,
+                },
+                "time": {"mode": "fixed_stretch", "ratio": 2.0},
+            },
+        )
+    ]
+    tempo_sync_loop_zones = [
+        zone(
+            asset_dir,
+            "tempo_sync_loop",
+            "stereo-pad.wav",
+            60,
+            0,
+            127,
+            playback={
+                "region": {"start_seconds": 0.0, "end_seconds": 1.2},
+                "direction": "forward",
+                "loop": {
+                    "start_seconds": 0.2,
+                    "end_seconds": 1.0,
+                    "crossfade_seconds": 0.04,
+                },
+                "time": {"mode": "tempo_sync", "source_bpm": 120.0},
+            },
+        )
+    ]
+    tempo_sync_one_shot_zones = [
+        zone(
+            asset_dir,
+            "tempo_sync_one_shot",
+            "stereo-pad.wav",
+            60,
+            0,
+            127,
+            playback={
+                "region": {"start_seconds": 0.0, "end_seconds": 1.2},
+                "direction": "forward",
+                "loop": None,
+                "time": {"mode": "tempo_sync", "source_bpm": 120.0},
+            },
+        )
+    ]
     release_zones = [zone(asset_dir, "release", "rr-a.wav", 60, 0, 127)]
     slice_zones = [
         zone(
@@ -465,6 +539,7 @@ def main() -> None:
                 "region": {"start_seconds": 0.04, "end_seconds": 0.28},
                 "direction": "forward",
                 "loop": None,
+                "time": {"mode": "resample"},
             },
         ),
         zone(
@@ -478,6 +553,7 @@ def main() -> None:
                 "region": {"start_seconds": 0.43, "end_seconds": 0.70},
                 "direction": "forward",
                 "loop": None,
+                "time": {"mode": "resample"},
             },
         ),
         zone(
@@ -491,6 +567,7 @@ def main() -> None:
                 "region": {"start_seconds": 0.83, "end_seconds": 1.10},
                 "direction": "forward",
                 "loop": None,
+                "time": {"mode": "resample"},
             },
         ),
     ]
@@ -512,6 +589,15 @@ def main() -> None:
         "forward-loop-hold.json": sample_instrument("Forward Loop Hold", loop_zones),
         "forward-loop-release.json": sample_instrument("Forward Loop Release", loop_zones),
         "stereo-one-shot.json": sample_instrument("Stereo One Shot", stereo_zones),
+        "fixed-stretch-loop.json": sample_instrument(
+            "Fixed Stretch Loop", fixed_stretch_zones
+        ),
+        "tempo-sync-stereo-loop.json": sample_instrument(
+            "Tempo Sync Stereo Loop", tempo_sync_loop_zones
+        ),
+        "tempo-sync-one-shot.json": sample_instrument(
+            "Tempo Sync One Shot", tempo_sync_one_shot_zones
+        ),
         "reverse-one-shot.json": sample_instrument("Reverse One Shot", reverse_zones),
         "reverse-loop.json": sample_instrument("Reverse Loop", reverse_loop_zones),
         "release-trigger.json": sample_instrument(
@@ -561,6 +647,17 @@ def main() -> None:
             {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
             {"absolute_frame": 38_400, "type": "note_off", "note_id": 1},
         ],
+        "fixed-stretch-loop": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 76_800, "type": "note_off", "note_id": 1},
+        ],
+        "tempo-sync-stereo-loop": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 96_000, "type": "note_off", "note_id": 1},
+        ],
+        "tempo-sync-one-shot": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+        ],
         "reverse-one-shot": [
             {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
             {"absolute_frame": 50_000, "type": "note_off", "note_id": 1},
@@ -604,6 +701,35 @@ def main() -> None:
         ("26-forward-loop-hold", 80_000, "forward-loop-hold", "forward-loop-hold"),
         ("27-forward-loop-release", 70_000, "forward-loop-release", "forward-loop-release"),
         ("28-stereo-one-shot", 50_000, "stereo-one-shot", "stereo-one-shot"),
+        ("40-fixed-stretch-loop", 100_000, "fixed-stretch-loop", "fixed-stretch-loop", 120.0),
+        (
+            "41-tempo-sync-stereo-loop-120",
+            120_000,
+            "tempo-sync-stereo-loop",
+            "tempo-sync-stereo-loop",
+            120.0,
+        ),
+        (
+            "42-tempo-sync-stereo-loop-60",
+            120_000,
+            "tempo-sync-stereo-loop",
+            "tempo-sync-stereo-loop",
+            60.0,
+        ),
+        (
+            "43-tempo-sync-one-shot-120",
+            150_000,
+            "tempo-sync-one-shot",
+            "tempo-sync-one-shot",
+            120.0,
+        ),
+        (
+            "44-tempo-sync-one-shot-60",
+            150_000,
+            "tempo-sync-one-shot",
+            "tempo-sync-one-shot",
+            60.0,
+        ),
         ("29-reverse-one-shot", 55_000, "reverse-one-shot", "reverse-one-shot"),
         ("30-reverse-loop", 80_000, "reverse-loop", "reverse-loop"),
         ("31-release-trigger", 50_000, "release-trigger", "release-trigger"),
@@ -613,7 +739,8 @@ def main() -> None:
         ("35-essential-hybrid-instrument", 70_000, "essential-hybrid-instrument", "essential-hybrid-instrument"),
     ]
     audio_paths: dict[str, Path] = {}
-    for audio_name, duration, definition_name, event_name in render_jobs:
+    for job in render_jobs:
+        audio_name, duration, definition_name, event_name, *tempo = job
         audio_paths[f"{audio_name}.wav"] = render_job(
             definitions,
             events,
@@ -622,6 +749,7 @@ def main() -> None:
             duration,
             definition_name,
             event_name,
+            tempo_bpm=tempo[0] if tempo else 120.0,
         )
 
     regression_definition = definitions["full-mapped-sample-instrument"]
@@ -694,6 +822,24 @@ def main() -> None:
         raise RuntimeError(f"mapped sample inspect does not show the expected cache: {generator}")
     write_json(review_root / "inspect.json", mapped_report)
 
+    fixed_report = inspect_definition(definitions["fixed-stretch-loop"])
+    fixed_zone = layer_report(fixed_report, "sample")["generator"]["sample_zones"][0]
+    tempo_loop_report = inspect_definition(definitions["tempo-sync-stereo-loop"])
+    tempo_loop_generator = layer_report(tempo_loop_report, "sample")["generator"]
+    tempo_one_shot_report = inspect_definition(definitions["tempo-sync-one-shot"])
+    tempo_one_shot_zone = layer_report(tempo_one_shot_report, "sample")["generator"][
+        "sample_zones"
+    ][0]
+    if (
+        fixed_zone.get("time_mode") != "fixed_stretch"
+        or fixed_zone.get("duration_ratio") != 2.0
+        or fixed_report.get("reported_latency_frames", 0) <= 0
+        or tempo_loop_generator.get("output_mode") != "stereo"
+        or tempo_loop_generator["sample_zones"][0].get("time_mode") != "tempo_sync"
+        or tempo_one_shot_zone.get("time_mode") != "tempo_sync"
+    ):
+        raise RuntimeError("time-stretch inspect output does not show the expected modes")
+
     audio_metrics = {
         path.name: measure(path, list(BLOCK_SIZES), include_spectrum=False)
         for path in sorted(audio_paths.values())
@@ -755,6 +901,25 @@ def main() -> None:
     ]
     loop_audio = audio_paths["26-forward-loop-hold.wav"]
     loop_rms = [segment_rms(loop_audio, start, 2_048) for start in (24_000, 48_000, 72_000)]
+    fixed_stretch_audio = audio_paths["40-fixed-stretch-loop.wav"]
+    tempo_loop_120_audio = audio_paths["41-tempo-sync-stereo-loop-120.wav"]
+    tempo_loop_60_audio = audio_paths["42-tempo-sync-stereo-loop-60.wav"]
+    tempo_one_shot_120_audio = audio_paths["43-tempo-sync-one-shot-120.wav"]
+    tempo_one_shot_60_audio = audio_paths["44-tempo-sync-one-shot-60.wav"]
+    tempo_loop_rms = {
+        "120": segment_rms(tempo_loop_120_audio, 48_000, 2_048),
+        "60": segment_rms(tempo_loop_60_audio, 48_000, 2_048),
+    }
+    tempo_loop_frequency = {
+        "120": segment_frequency(tempo_loop_120_audio, 20_000, 10_000),
+        "60": segment_frequency(tempo_loop_60_audio, 20_000, 10_000),
+    }
+    tempo_one_shot_rms = {
+        "120_early": segment_rms(tempo_one_shot_120_audio, 24_000, 2_048),
+        "120_late": segment_rms(tempo_one_shot_120_audio, 90_000, 2_048),
+        "60_early": segment_rms(tempo_one_shot_60_audio, 24_000, 2_048),
+        "60_late": segment_rms(tempo_one_shot_60_audio, 90_000, 2_048),
+    }
     voice_stealing_audio = audio_paths["39-voice-stealing-pending-zone.wav"]
     automatic_checks = {
         "all_audio_finite": all(values["finite"] for values in audio_metrics.values()),
@@ -783,6 +948,18 @@ def main() -> None:
         "mapped_sample_asset_cache_is_shared": generator["sample_asset_count"] == 4,
         "voice_stealing_pending_render_is_non_silent": audio_metrics[voice_stealing_audio.name]["rms"] > 1.0e-5,
         "essential_hybrid_is_non_silent": audio_metrics["35-essential-hybrid-instrument.wav"]["rms"] > 1.0e-5,
+        "fixed_stretch_loop_is_non_silent": audio_metrics[fixed_stretch_audio.name]["rms"] > 1.0e-5,
+        "tempo_sync_stereo_loop_is_non_silent": all(value > 1.0e-5 for value in tempo_loop_rms.values()),
+        "tempo_sync_keeps_pitch": (
+            all(value > 100.0 for value in tempo_loop_frequency.values())
+            and abs(tempo_loop_frequency["120"] - tempo_loop_frequency["60"]) <= 12.0
+        ),
+        "tempo_sync_one_shot_changes_duration": (
+            tempo_one_shot_rms["120_early"] > 1.0e-5
+            and tempo_one_shot_rms["60_early"] > 1.0e-5
+            and tempo_one_shot_rms["120_late"] < 1.0e-6
+            and tempo_one_shot_rms["60_late"] > 1.0e-5
+        ),
     }
     if not all(automatic_checks.values()):
         raise RuntimeError(f"sample review automatic checks failed: {automatic_checks}")
@@ -810,6 +987,10 @@ def main() -> None:
         "reverse_segment_rms": reverse_rms,
         "loop_period_frames": round((1.2 - 0.4) * SAMPLE_RATE),
         "loop_segment_rms": loop_rms,
+        "fixed_stretch_latency_frames": fixed_report["reported_latency_frames"],
+        "tempo_sync_stereo_loop_segment_rms": tempo_loop_rms,
+        "tempo_sync_stereo_loop_segment_frequency_hz": tempo_loop_frequency,
+        "tempo_sync_one_shot_segment_rms": tempo_one_shot_rms,
         "reverse_loop_segment_rms": reverse_loop_rms,
         "release_pre_note_off_rms": release_pre_note_off_rms,
         "release_post_note_off_rms": release_post_note_off_rms,
@@ -857,8 +1038,12 @@ def main() -> None:
 - Asset Cache共有：{"pass" if automatic_checks["mapped_sample_asset_cache_is_shared"] else "fail"}
 - Voice Stealing Pending：{"pass" if automatic_checks["voice_stealing_pending_render_is_non_silent"] else "fail"}
 - Essential Hybrid：{"pass" if automatic_checks["essential_hybrid_is_non_silent"] else "fail"}
+- Fixed Stretch Loop：{"pass" if automatic_checks["fixed_stretch_loop_is_non_silent"] else "fail"}
+- Tempo Sync Stereo Loop：{"pass" if automatic_checks["tempo_sync_stereo_loop_is_non_silent"] else "fail"}
+- Tempo SyncのPitch保持：{"pass" if automatic_checks["tempo_sync_keeps_pitch"] else "fail"}
+- Tempo Sync One-shotのDuration差：{"pass" if automatic_checks["tempo_sync_one_shot_changes_duration"] else "fail"}
 
-`metrics.json`にはFinite性、Peak、RMS、DC、推定周波数、隣接Frame差分、左右Channel差分、Sample Rate別値、Block Size比較、再RenderSHA、Round Robin選択順、Reverse Transient順、Loop周期、Release Trigger前後、Slice Region長、Asset Cacheの共有数を保存しています。
+`metrics.json`にはFinite性、Peak、RMS、DC、推定周波数、隣接Frame差分、左右Channel差分、Sample Rate別値、Block Size比較、再RenderSHA、Round Robin選択順、Reverse Transient順、Loop周期、Release Trigger前後、Slice Region長、Asset Cacheの共有数、StretchのMeasured Latency、Tempo SyncのBPM別継続時間とPitch保持を保存しています。
 
 ## 音声一覧
 
@@ -881,6 +1066,11 @@ def main() -> None:
 | `37-sample-rate-*.wav` | Sample Rate比較 |
 | `38-repeat-*.wav` | 別Runtimeの同一入力再Render再現性 |
 | `39-voice-stealing-pending-zone.wav` | Pending NoteのZone選択保持 |
+| `40-fixed-stretch-loop.wav` | Fixed StretchのPitch分離とLoop継続 |
+| `41-tempo-sync-stereo-loop-120.wav` | Stereo Tempo Sync Loop（120 BPM、Pitch基準） |
+| `42-tempo-sync-stereo-loop-60.wav` | Stereo Tempo Sync Loop（60 BPM、Pitch比較） |
+| `43-tempo-sync-one-shot-120.wav` | Tempo Sync One-shot（120 BPM） |
+| `44-tempo-sync-one-shot-60.wav` | Tempo Sync One-shot（60 BPM） |
 
 ## 人間の確認欄
 
@@ -900,6 +1090,9 @@ def main() -> None:
 | Missing Asset時も別Zone・別Layerが継続する |  |  |
 | Voice Stealing後の音源が破綻しない |  |  |
 | Essential Hybridが音色として成立する |  |  |
+| Fixed StretchでPitchとDurationが独立する |  |  |
+| Stereo Tempo Sync Loopの左右像、周期、BPM変更時のPitchが自然 |  |  |
+| Tempo変更でOne-shotのDurationが変わりPitchが維持される |  |  |
 
 ## 再生成
 

@@ -430,6 +430,8 @@ pub struct SampleZonePlaybackDefinition {
     /// Optional loop inside the region.
     #[serde(rename = "loop")]
     pub r#loop: Option<SampleLoopDefinition>,
+    /// Time behavior applied after the region and direction are resolved.
+    pub time: SampleTimeDefinition,
 }
 
 /// Region boundaries expressed in source seconds.
@@ -462,6 +464,24 @@ pub struct SampleLoopDefinition {
     pub end_seconds: f32,
     /// Constant-power crossfade duration in seconds.
     pub crossfade_seconds: f32,
+}
+
+/// Time behavior for a Sample Zone.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SampleTimeDefinition {
+    /// Couple pitch and duration through ordinary resampling.
+    Resample,
+    /// Keep pitch independent from duration using a fixed duration ratio.
+    FixedStretch {
+        /// Output duration divided by source duration, in the inclusive 0.5..=2.0 range.
+        ratio: f32,
+    },
+    /// Derive the duration ratio from the source and process tempos.
+    TempoSync {
+        /// Tempo embedded in the source asset, in beats per minute.
+        source_bpm: f32,
+    },
 }
 
 /// A source file referenced by a Definition.
@@ -1372,6 +1392,7 @@ fn validate_sample_playback_definition(
     path: &str,
     playback: SampleZonePlaybackDefinition,
 ) {
+    validate_sample_time_definition(diagnostics, path, playback);
     validate_sample_seconds(
         diagnostics,
         path,
@@ -1463,6 +1484,56 @@ fn validate_sample_playback_definition(
                 .with_path(format!("{path}.playback.loop.crossfade_seconds")),
             );
         }
+    }
+}
+
+fn validate_sample_time_definition(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    playback: SampleZonePlaybackDefinition,
+) {
+    match playback.time {
+        SampleTimeDefinition::Resample => {}
+        SampleTimeDefinition::FixedStretch { ratio } => {
+            if !ratio.is_finite() || !(0.5..=2.0).contains(&ratio) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::InvalidStretchRatio,
+                        "sample fixed stretch ratio must be finite and between 0.5 and 2.0",
+                    )
+                    .with_path(format!("{path}.playback.time.ratio")),
+                );
+            }
+            reject_reverse_stretch(diagnostics, path, playback.direction);
+        }
+        SampleTimeDefinition::TempoSync { source_bpm } => {
+            if !source_bpm.is_finite() || source_bpm <= 0.0 {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::InvalidSourceTempo,
+                        "sample source_bpm must be finite and greater than zero",
+                    )
+                    .with_path(format!("{path}.playback.time.source_bpm")),
+                );
+            }
+            reject_reverse_stretch(diagnostics, path, playback.direction);
+        }
+    }
+}
+
+fn reject_reverse_stretch(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    direction: SamplePlaybackDirection,
+) {
+    if direction == SamplePlaybackDirection::Reverse {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::UnsupportedPlaybackCombination,
+                "reverse sample playback cannot use time stretch",
+            )
+            .with_path(format!("{path}.playback")),
+        );
     }
 }
 
@@ -2204,7 +2275,8 @@ pub(crate) mod tests {
                 "start_seconds": 0.5,
                 "end_seconds": 1.5,
                 "crossfade_seconds": 0.1
-            }
+            },
+            "time": {"mode": "resample"}
         }))
         .expect("sample playback parses");
         assert!((playback.region.start_seconds - 0.25).abs() < f32::EPSILON);
@@ -2218,6 +2290,7 @@ pub(crate) mod tests {
                 crossfade_seconds: 0.1,
             })
         );
+        assert_eq!(playback.time, SampleTimeDefinition::Resample);
 
         let trigger: LayerTriggerDefinition = serde_json::from_value(serde_json::json!({
             "event": "note_off",
@@ -2411,6 +2484,7 @@ pub(crate) mod tests {
             },
             direction: SamplePlaybackDirection::Forward,
             r#loop: None,
+            time: SampleTimeDefinition::Resample,
         };
         let value = sample_definition(vec![
             sample_zone("soft", 0, 127, 1, 64, None, one_shot),
@@ -2447,6 +2521,75 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn sample_time_modes_validate_ratio_tempo_and_direction_constraints() {
+        let fixed_playback = SampleZonePlaybackDefinition {
+            region: SampleRegionDefinition {
+                start_seconds: 0.0,
+                end_seconds: None,
+            },
+            direction: SamplePlaybackDirection::Forward,
+            r#loop: None,
+            time: SampleTimeDefinition::FixedStretch { ratio: 2.5 },
+        };
+        let diagnostics = sample_definition(vec![sample_zone(
+            "fixed",
+            0,
+            127,
+            1,
+            127,
+            None,
+            fixed_playback,
+        )])
+        .validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::InvalidStretchRatio
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback.time.ratio")
+        }));
+
+        let tempo_playback = SampleZonePlaybackDefinition {
+            time: SampleTimeDefinition::TempoSync { source_bpm: 0.0 },
+            ..fixed_playback
+        };
+        let diagnostics = sample_definition(vec![sample_zone(
+            "tempo",
+            0,
+            127,
+            1,
+            127,
+            None,
+            tempo_playback,
+        )])
+        .validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::InvalidSourceTempo
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback.time.source_bpm")
+        }));
+
+        let reverse_playback = SampleZonePlaybackDefinition {
+            direction: SamplePlaybackDirection::Reverse,
+            time: SampleTimeDefinition::FixedStretch { ratio: 1.0 },
+            ..fixed_playback
+        };
+        let diagnostics = sample_definition(vec![sample_zone(
+            "reverse",
+            0,
+            127,
+            1,
+            127,
+            None,
+            reverse_playback,
+        )])
+        .validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::UnsupportedPlaybackCombination
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback")
+        }));
+    }
+
+    #[test]
     fn sample_zone_midi_fields_have_explicit_bounds() {
         let one_shot = SampleZonePlaybackDefinition {
             region: SampleRegionDefinition {
@@ -2455,6 +2598,7 @@ pub(crate) mod tests {
             },
             direction: SamplePlaybackDirection::Forward,
             r#loop: None,
+            time: SampleTimeDefinition::Resample,
         };
         let fields = [
             ("root_note", "layers[0].generator.sample.zones[0].root_note"),
@@ -2522,6 +2666,7 @@ pub(crate) mod tests {
                     end_seconds: 2.5,
                     crossfade_seconds: 0.0,
                 }),
+                time: SampleTimeDefinition::Resample,
             },
         )]);
         let diagnostics = value.validate();
@@ -2557,6 +2702,7 @@ pub(crate) mod tests {
                     end_seconds: 1.5,
                     crossfade_seconds: 0.51,
                 }),
+                time: SampleTimeDefinition::Resample,
             },
         )]);
         let diagnostics = value.validate();

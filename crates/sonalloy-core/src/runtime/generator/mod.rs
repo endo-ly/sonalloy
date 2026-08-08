@@ -94,8 +94,8 @@ impl GeneratorRuntime {
                 Ok(Self::Oscillator(OscillatorRuntime::new(value, spec)?))
             }
             CompiledGenerator::Noise(value) => Ok(Self::Noise(Box::new(NoiseRuntime::new(value)))),
-            CompiledGenerator::Sample(_) => Ok(Self::Sample {
-                sample: SampleRuntime::new(),
+            CompiledGenerator::Sample(compiled) => Ok(Self::Sample {
+                sample: SampleRuntime::prepared(compiled, spec)?,
             }),
             CompiledGenerator::Wavetable(value) => {
                 Ok(Self::Wavetable(WavetableRuntime::new(value, spec)?))
@@ -132,8 +132,7 @@ impl GeneratorRuntime {
                         .map(|_| index)
                 });
                 let zone = selected_index.and_then(|index| compiled.zones.get(index));
-                sample.start(zone);
-                Ok(())
+                sample.start(zone)
             }
             Self::Wavetable(wavetable) => wavetable.start(),
             Self::OperatorModulation(operator) => {
@@ -149,6 +148,16 @@ impl GeneratorRuntime {
         }
     }
 
+    pub(crate) fn intrinsic_latency_frames(&self) -> usize {
+        match self {
+            Self::Sample { sample } => sample.intrinsic_latency_frames(),
+            Self::Oscillator(_)
+            | Self::Noise(_)
+            | Self::Wavetable(_)
+            | Self::OperatorModulation(_) => 0,
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn render(
         &mut self,
@@ -157,6 +166,7 @@ impl GeneratorRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
+        tempo_bpm: f64,
         targets: LayerGeneratorTargetSpan,
         mono: &mut [f32],
         left: &mut [f32],
@@ -198,6 +208,7 @@ impl GeneratorRuntime {
                 tuning_start,
                 tuning_end,
                 targets,
+                tempo_bpm,
                 mono,
                 left,
                 right,
@@ -241,6 +252,7 @@ impl GeneratorRuntime {
         tuning_start: f32,
         tuning_end: f32,
         targets: LayerGeneratorTargetSpan,
+        tempo_bpm: f64,
         mono: &mut [f32],
         left: &mut [f32],
         right: &mut [f32],
@@ -249,6 +261,17 @@ impl GeneratorRuntime {
             return Err(ProcessError::ProcessorFailure {
                 kind: crate::process::ProcessorFailureKind::InvalidState,
             });
+        }
+        if sample.uses_stretch() {
+            return sample.render_stretched(
+                frames,
+                note_number,
+                tuning_start,
+                tempo_bpm,
+                mono,
+                left,
+                right,
+            );
         }
         let start_ratio = playback_ratio(
             note_number,
@@ -307,10 +330,7 @@ impl GeneratorRuntime {
                 noise.reset();
                 Ok(())
             }
-            Self::Sample { sample, .. } => {
-                sample.reset();
-                Ok(())
-            }
+            Self::Sample { sample, .. } => sample.reset(),
             Self::Wavetable(wavetable) => {
                 wavetable.reset();
                 Ok(())

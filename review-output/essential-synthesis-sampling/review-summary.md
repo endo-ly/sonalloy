@@ -32,8 +32,12 @@
 - Asset Cache共有：pass
 - Voice Stealing Pending：pass
 - Essential Hybrid：pass
+- Fixed Stretch Loop：pass
+- Tempo Sync Stereo Loop：pass
+- Tempo SyncのPitch保持：pass
+- Tempo Sync One-shotのDuration差：pass
 
-`metrics.json`にはFinite性、Peak、RMS、DC、推定周波数、隣接Frame差分、左右Channel差分、Sample Rate別値、Block Size比較、再RenderSHA、Round Robin選択順、Reverse Transient順、Loop周期、Release Trigger前後、Slice Region長、Asset Cacheの共有数を保存しています。
+`metrics.json`にはFinite性、Peak、RMS、DC、推定周波数、隣接Frame差分、左右Channel差分、Sample Rate別値、Block Size比較、再RenderSHA、Round Robin選択順、Reverse Transient順、Loop周期、Release Trigger前後、Slice Region長、Asset Cacheの共有数、StretchのMeasured Latency、Tempo SyncのBPM別継続時間とPitch保持を保存しています。
 
 ## 音声一覧
 
@@ -56,6 +60,11 @@
 | `37-sample-rate-*.wav` | Sample Rate比較 |
 | `38-repeat-*.wav` | 別Runtimeの同一入力再Render再現性 |
 | `39-voice-stealing-pending-zone.wav` | Pending NoteのZone選択保持 |
+| `40-fixed-stretch-loop.wav` | Fixed StretchのPitch分離とLoop継続 |
+| `41-tempo-sync-stereo-loop-120.wav` | Stereo Tempo Sync Loop（120 BPM、Pitch基準） |
+| `42-tempo-sync-stereo-loop-60.wav` | Stereo Tempo Sync Loop（60 BPM、Pitch比較） |
+| `43-tempo-sync-one-shot-120.wav` | Tempo Sync One-shot（120 BPM） |
+| `44-tempo-sync-one-shot-60.wav` | Tempo Sync One-shot（60 BPM） |
 
 ## 人間の確認欄
 
@@ -75,6 +84,9 @@
 | Missing Asset時も別Zone・別Layerが継続する |  |  |
 | Voice Stealing後の音源が破綻しない |  |  |
 | Essential Hybridが音色として成立する |  |  |
+| Fixed StretchでPitchとDurationが独立する |  |  |
+| Stereo Tempo Sync Loopの左右像、周期、BPM変更時のPitchが自然 |  |  |
+| Tempo変更でOne-shotのDurationが変わりPitchが維持される |  |  |
 
 ## 再生成
 

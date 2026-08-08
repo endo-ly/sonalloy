@@ -11,8 +11,8 @@ use crate::definition::{
     GeneratorDefinition, InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform,
     ModulationCurve, ModulationSourceDefinition, NoiseColor, OperatorAlgorithm,
     OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition, OscillatorWaveform,
-    ProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection, SampleZoneDefinition,
-    UnisonDefinition, VoiceStealingDefinition, WavetableDefinition,
+    ProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition,
+    SampleZoneDefinition, UnisonDefinition, VoiceStealingDefinition, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
@@ -50,6 +50,8 @@ pub struct CompileResult {
 pub struct CompiledInstrument {
     /// Sample rate used to compile sample and time-dependent values.
     pub process_sample_rate: f64,
+    /// Maximum intrinsic latency reported by the compiled layers.
+    pub reported_latency_frames: usize,
     /// Metadata copied from the Definition.
     pub metadata: CompiledMetadata,
     /// Compiled performance settings.
@@ -170,6 +172,8 @@ pub struct CompiledLayer {
     pub envelope: CompiledAdsr,
     /// Compiled generator.
     pub generator: CompiledGenerator,
+    /// Latency introduced by the layer's generator.
+    pub intrinsic_latency_frames: usize,
     /// Processors applied after the generator.
     pub processors: Box<[CompiledProcessor]>,
 }
@@ -249,6 +253,20 @@ impl CompiledGenerator {
                     GeneratorOutputMode::Stereo
                 }
             }
+        }
+    }
+
+    /// Return the intrinsic latency introduced by this generator.
+    #[must_use]
+    pub fn intrinsic_latency_frames(&self) -> usize {
+        match self {
+            Self::Sample(value) => value
+                .stretch_latency
+                .map_or(0, |latency| latency.output_frames),
+            Self::Oscillator(_)
+            | Self::Noise(_)
+            | Self::Wavetable(_)
+            | Self::OperatorModulation(_) => 0,
         }
     }
 
@@ -362,6 +380,8 @@ pub struct CompiledSample {
     pub zones: Box<[CompiledSampleZone]>,
     /// Round Robin groups in stable Definition order.
     pub groups: Box<[CompiledRoundRobinGroup]>,
+    /// Latency measured from the prepared stretch backend.
+    pub stretch_latency: Option<CompiledStretchLatency>,
 }
 
 impl CompiledSample {
@@ -573,7 +593,7 @@ pub struct CompiledSampleLoop {
 }
 
 /// Sample playback configuration in prepared frame coordinates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CompiledSamplePlayback {
     /// Playback direction.
     pub direction: CompiledSampleDirection,
@@ -583,6 +603,42 @@ pub struct CompiledSamplePlayback {
     pub end_frame: usize,
     /// Optional loop inside the region.
     pub loop_region: Option<CompiledSampleLoop>,
+    /// Time behavior in prepared frame coordinates.
+    pub time: CompiledSampleTime,
+}
+
+/// Time behavior resolved for Sample Runtime.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CompiledSampleTime {
+    /// Couple pitch and duration through ordinary resampling.
+    Resample,
+    /// Keep pitch independent from duration with a fixed output ratio.
+    FixedStretch {
+        /// Output duration divided by source duration.
+        duration_ratio: f64,
+    },
+    /// Derive the output ratio from the process tempo.
+    TempoSync {
+        /// Source tempo in beats per minute.
+        source_bpm: f64,
+    },
+}
+
+impl CompiledSampleTime {
+    /// Return whether this mode uses the native stretch backend.
+    #[must_use]
+    pub const fn uses_stretch(self) -> bool {
+        !matches!(self, Self::Resample)
+    }
+}
+
+/// Latency reported by one prepared stretch backend.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledStretchLatency {
+    /// Input-side latency in frames.
+    pub input_frames: usize,
+    /// Output-side latency in frames.
+    pub output_frames: usize,
 }
 
 /// Compiled Round Robin group.
@@ -875,6 +931,7 @@ pub fn compile_instrument(
                 &parameter_catalog,
                 &context.definition_base_dir,
                 context.process_spec.sample_rate,
+                context.process_spec.max_block_size,
                 &mut asset_cache,
                 &mut wavetable_asset_cache,
                 &mut diagnostics,
@@ -906,12 +963,14 @@ pub fn compile_instrument(
                 context.process_spec.sample_rate,
                 &mut diagnostics,
             );
+            let intrinsic_latency_frames = generator.intrinsic_latency_frames();
             CompiledLayer {
                 id: layer.id.clone(),
                 trigger: compile_trigger(layer.trigger),
                 parameters,
                 envelope,
                 generator,
+                intrinsic_latency_frames,
                 processors,
             }
         })
@@ -952,6 +1011,11 @@ pub fn compile_instrument(
 
     let compiled = CompiledInstrument {
         process_sample_rate: context.process_spec.sample_rate,
+        reported_latency_frames: layers
+            .iter()
+            .map(|layer| layer.intrinsic_latency_frames)
+            .max()
+            .unwrap_or(0),
         metadata: CompiledMetadata {
             name: definition.metadata.name.clone(),
             author: definition.metadata.author.clone(),
@@ -1530,6 +1594,7 @@ fn compile_generator(
     catalog: &ParameterCatalog,
     definition_base_dir: &Path,
     sample_rate: f64,
+    max_block_size: usize,
     asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
     wavetable_asset_cache: &mut HashMap<
         WavetableAssetCacheKey,
@@ -1610,6 +1675,7 @@ fn compile_generator(
             layer_index,
             definition_base_dir,
             sample_rate,
+            max_block_size,
             asset_cache,
             diagnostics,
         )),
@@ -2013,6 +2079,7 @@ fn compile_sample(
     layer_index: usize,
     definition_base_dir: &Path,
     sample_rate: f64,
+    max_block_size: usize,
     asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CompiledSample {
@@ -2036,6 +2103,7 @@ fn compile_sample(
                 start_frame: 0,
                 end_frame: 0,
                 loop_region: None,
+                time: CompiledSampleTime::Resample,
             },
             asset_path: zone.asset.path.clone(),
         };
@@ -2134,10 +2202,101 @@ fn compile_sample(
         .collect::<Vec<_>>()
         .into_boxed_slice();
 
+    let stretch_latency = if sample
+        .zones
+        .iter()
+        .any(|zone| zone.playback.time != SampleTimeDefinition::Resample)
+    {
+        compile_stretch_latency(
+            sample_rate,
+            max_block_size,
+            &format!("layers[{layer_index}].generator.sample"),
+            diagnostics,
+        )
+    } else {
+        None
+    };
+
     CompiledSample {
         zones: zones.into_boxed_slice(),
         groups,
+        stretch_latency,
     }
+}
+
+fn compile_stretch_latency(
+    sample_rate: f64,
+    max_block_size: usize,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<CompiledStretchLatency> {
+    let Some(max_input_frames) = max_block_size.checked_mul(2) else {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::StretchBackendFailure,
+                "stretch input capacity overflows the process frame counter",
+            )
+            .with_path(path),
+        );
+        return None;
+    };
+    let mut backend = match sonalloy_dsp_sys::DspStretch::new() {
+        Ok(backend) => backend,
+        Err(error) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::StretchBackendFailure,
+                    "stretch backend allocation failed",
+                )
+                .with_path(path)
+                .with_detail(error.to_string()),
+            );
+            return None;
+        }
+    };
+    if let Err(error) = backend.prepare(2, sample_rate, max_input_frames, max_block_size) {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::StretchBackendFailure,
+                "stretch backend preparation failed",
+            )
+            .with_path(path)
+            .with_detail(error.to_string()),
+        );
+        return None;
+    }
+    let input_frames = match backend.input_latency() {
+        Ok(value) => value,
+        Err(error) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::StretchBackendFailure,
+                    "stretch input latency is unavailable",
+                )
+                .with_path(path)
+                .with_detail(error.to_string()),
+            );
+            return None;
+        }
+    };
+    let output_frames = match backend.output_latency() {
+        Ok(value) => value,
+        Err(error) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::StretchBackendFailure,
+                    "stretch output latency is unavailable",
+                )
+                .with_path(path)
+                .with_detail(error.to_string()),
+            );
+            return None;
+        }
+    };
+    Some(CompiledStretchLatency {
+        input_frames,
+        output_frames,
+    })
 }
 
 fn compile_sample_playback(
@@ -2233,6 +2392,15 @@ fn compile_sample_playback(
         start_frame,
         end_frame,
         loop_region,
+        time: match zone.playback.time {
+            SampleTimeDefinition::Resample => CompiledSampleTime::Resample,
+            SampleTimeDefinition::FixedStretch { ratio } => CompiledSampleTime::FixedStretch {
+                duration_ratio: f64::from(ratio),
+            },
+            SampleTimeDefinition::TempoSync { source_bpm } => CompiledSampleTime::TempoSync {
+                source_bpm: f64::from(source_bpm),
+            },
+        },
     })
 }
 

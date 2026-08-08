@@ -7,13 +7,13 @@ use std::sync::Arc;
 use clap::{Args, Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use sonalloy_core::{
-    AdsrDefinition, CompileContext, CompiledInstrument, Diagnostic, DiagnosticCode,
-    InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition,
-    ModulationCurve, OscillatorDefinition, OscillatorWaveform, ParameterHandle, ParameterOwner,
-    ParameterScale, ParameterUnit, PerformanceDefinition, ProcessEventKind, ProcessSpec,
-    ProcessorDefinition, RenderError, RenderRequest, ScheduledEvent, VoiceStealingDefinition,
-    backend_info, compile_instrument, from_render_error, render_instrument, render_sine,
-    seconds_to_frames,
+    AdsrDefinition, CompileContext, CompiledInstrument, DEFAULT_TEMPO_BPM, Diagnostic,
+    DiagnosticCode, InstrumentDefinition, InstrumentMetadata, LayerDefinition,
+    LayerTriggerDefinition, ModulationCurve, OscillatorDefinition, OscillatorWaveform,
+    ParameterHandle, ParameterOwner, ParameterScale, ParameterUnit, PerformanceDefinition,
+    ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderError, RenderRequest, ScheduledEvent,
+    VoiceStealingDefinition, backend_info, compile_instrument, from_render_error,
+    render_instrument_with_tempo, render_instrument_with_tempo_map, render_sine, seconds_to_frames,
 };
 
 use crate::midi::read_midi;
@@ -108,6 +108,9 @@ struct RenderNoteArgs {
     /// Additional render tail in seconds.
     #[arg(long, default_value_t = 0.5)]
     tail: f64,
+    /// Processing tempo in beats per minute.
+    #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
+    tempo: f64,
     /// Sample rate in Hz.
     #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
     sample_rate: u32,
@@ -157,6 +160,9 @@ struct RenderEventsArgs {
     /// Additional render tail in seconds.
     #[arg(long, default_value_t = 1.0)]
     tail: f64,
+    /// Processing tempo in beats per minute.
+    #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
+    tempo: f64,
     /// Sample rate in Hz.
     #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
     sample_rate: u32,
@@ -202,6 +208,7 @@ struct SuccessReport {
     sample_rate: u32,
     channels: usize,
     frames: usize,
+    reported_latency_frames: usize,
     output: String,
     backend: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -229,6 +236,7 @@ struct InspectReport {
     metadata: InspectMetadata,
     polyphony: usize,
     voice_stealing: &'static str,
+    reported_latency_frames: usize,
     layer_count: usize,
     layers: Vec<InspectLayer>,
     voice_processors: Vec<InspectProcessor>,
@@ -395,6 +403,9 @@ struct InspectSampleZone {
     loop_start_frame: Option<usize>,
     loop_end_frame: Option<usize>,
     crossfade_frames: Option<usize>,
+    time_mode: &'static str,
+    duration_ratio: Option<f64>,
+    source_bpm: Option<f64>,
     source_sample_rate: Option<u32>,
     source_channels: Option<usize>,
     prepared_frames: Option<usize>,
@@ -730,10 +741,16 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
         duration_frames,
         tail_frames,
     };
-    let audio = match render_instrument(Arc::clone(&compiled), request, &events) {
-        Ok(audio) => audio,
-        Err(error) => return finish_failure(args.json, render_failure(&error)),
+    let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
     };
+    let mut audio =
+        match render_instrument_with_tempo(Arc::clone(&compiled), request, &events, args.tempo) {
+            Ok(audio) => audio,
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        };
+    correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
     if let Err(error) = write_wav(&args.output, &audio) {
         return finish_failure(
             args.json,
@@ -750,6 +767,7 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
             sample_rate: audio.sample_rate,
             channels: audio.channels.len(),
             frames: audio.frames(),
+            reported_latency_frames: compiled.reported_latency_frames,
             output: args.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics: std::mem::take(&mut diagnostics),
@@ -782,10 +800,16 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
         duration_frames: args.duration_frames,
         tail_frames,
     };
-    let audio = match render_instrument(Arc::clone(&compiled), request, &events) {
-        Ok(audio) => audio,
-        Err(error) => return finish_failure(args.json, render_failure(&error)),
+    let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
     };
+    let mut audio =
+        match render_instrument_with_tempo(Arc::clone(&compiled), request, &events, args.tempo) {
+            Ok(audio) => audio,
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        };
+    correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
     if let Err(error) = write_wav(&args.output, &audio) {
         return finish_failure(
             args.json,
@@ -802,6 +826,7 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
             sample_rate: audio.sample_rate,
             channels: audio.channels.len(),
             frames: audio.frames(),
+            reported_latency_frames: compiled.reported_latency_frames,
             output: args.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics,
@@ -1012,10 +1037,20 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
         duration_frames: midi.duration_frames,
         tail_frames,
     };
-    let audio = match render_instrument(Arc::clone(&compiled), request, &midi.events) {
+    let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    let mut audio = match render_instrument_with_tempo_map(
+        Arc::clone(&compiled),
+        request,
+        &midi.events,
+        &midi.tempo_map,
+    ) {
         Ok(audio) => audio,
         Err(error) => return finish_failure(args.json, render_failure(&error)),
     };
+    correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
     if let Err(error) = write_wav(&args.output, &audio) {
         return finish_failure(
             args.json,
@@ -1032,6 +1067,7 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
             sample_rate: audio.sample_rate,
             channels: audio.channels.len(),
             frames: audio.frames(),
+            reported_latency_frames: compiled.reported_latency_frames,
             output: args.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics,
@@ -1077,10 +1113,48 @@ fn render_sine_command(args: &RenderSineArgs) -> Result<SuccessReport, CliFailur
         sample_rate: audio.sample_rate,
         channels: audio.channels.len(),
         frames: audio.frames(),
+        reported_latency_frames: 0,
         output: args.output.to_string_lossy().into_owned(),
         backend: backend_info().version,
         diagnostics: Vec::new(),
     })
+}
+
+fn extend_request_for_latency(
+    request: RenderRequest,
+    latency_frames: usize,
+) -> Result<RenderRequest, CliFailure> {
+    let latency_frames = u64::try_from(latency_frames).map_err(|_| CliFailure {
+        code: 2,
+        diagnostics: vec![Diagnostic::error(
+            DiagnosticCode::ValueOutOfRange,
+            "reported latency does not fit the render frame counter",
+        )],
+    })?;
+    let duration_frames = request
+        .duration_frames
+        .checked_add(latency_frames)
+        .ok_or_else(|| CliFailure {
+            code: 2,
+            diagnostics: vec![Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "render duration including reported latency overflows the frame counter",
+            )],
+        })?;
+    Ok(RenderRequest {
+        duration_frames,
+        ..request
+    })
+}
+
+fn correct_rendered_audio(audio: &mut sonalloy_core::RenderedAudio, latency_frames: usize) {
+    for channel in &mut audio.channels {
+        if latency_frames >= channel.len() {
+            channel.clear();
+        } else {
+            channel.drain(..latency_frames);
+        }
+    }
 }
 
 fn load_and_compile(
@@ -1394,6 +1468,15 @@ fn inspect_sample_zones(
                 sonalloy_core::compiler::CompiledSampleDirection::Forward => "forward",
                 sonalloy_core::compiler::CompiledSampleDirection::Reverse => "reverse",
             };
+            let (time_mode, duration_ratio, source_bpm) = match zone.playback.time {
+                sonalloy_core::compiler::CompiledSampleTime::Resample => ("resample", None, None),
+                sonalloy_core::compiler::CompiledSampleTime::FixedStretch { duration_ratio } => {
+                    ("fixed_stretch", Some(duration_ratio), None)
+                }
+                sonalloy_core::compiler::CompiledSampleTime::TempoSync { source_bpm } => {
+                    ("tempo_sync", None, Some(source_bpm))
+                }
+            };
             InspectSampleZone {
                 id: zone.id.clone(),
                 enabled: zone.is_enabled(),
@@ -1417,6 +1500,9 @@ fn inspect_sample_zones(
                     .playback
                     .loop_region
                     .map(|value| value.crossfade_frames),
+                time_mode,
+                duration_ratio,
+                source_bpm,
                 source_sample_rate: metadata.map(|value| value.source_sample_rate),
                 source_channels: metadata.map(|value| value.source_channels),
                 prepared_frames: zone.source.as_ref().map(|source| source.frames),
@@ -1797,6 +1883,7 @@ fn make_inspect_report(
                 "quietest_releasing_then_oldest"
             }
         },
+        reported_latency_frames: compiled.reported_latency_frames,
         layer_count: layers.len(),
         layers,
         voice_processors: compiled
@@ -1845,6 +1932,10 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     );
     println!("polyphony: {}", report.polyphony);
     println!("voice stealing: quietest_releasing_then_oldest");
+    println!(
+        "reported latency: {} frames",
+        report.reported_latency_frames
+    );
     for layer in &report.layers {
         print_generator(&layer.id, &layer.generator);
         println!(
@@ -1983,7 +2074,7 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
             println!("  sample prepared assets: {sample_asset_count}");
             for zone in sample_zones {
                 println!(
-                    "  zone {}: enabled {} key {}..{} velocity {}..{} root_note {} playback {} direction {} frames {}..{}",
+                    "  zone {}: enabled {} key {}..{} velocity {}..{} root_note {} playback {} direction {} time {} frames {}..{}",
                     zone.id,
                     zone.enabled,
                     zone.key_min,
@@ -1993,9 +2084,16 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
                     zone.root_note,
                     zone.playback_type,
                     zone.direction,
+                    zone.time_mode,
                     zone.start_frame,
                     zone.end_frame,
                 );
+                if let Some(ratio) = zone.duration_ratio {
+                    println!("    duration ratio: {ratio:.6}");
+                }
+                if let Some(source_bpm) = zone.source_bpm {
+                    println!("    source tempo: {source_bpm:.3} bpm");
+                }
                 if let (Some(loop_start), Some(loop_end)) =
                     (zone.loop_start_frame, zone.loop_end_frame)
                 {

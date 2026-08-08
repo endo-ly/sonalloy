@@ -48,6 +48,7 @@ sonalloy instrument init <path>
 - WavetableのSource Sample RateはPitchへ使われず、Compile時にResampleされない。SHA-256を指定し、`instrument inspect --json`でPrepared状態とBandを確認する
 - Operator Modulationは4 Operator固定で、`algorithm`は`stack_4`、`stack_3_plus_carrier`、`two_stacks`、`fork_to_carrier`、`two_modulators_plus_carrier`、`three_modulators`、`shared_modulator`、`parallel`から選ぶ。Carrierだけに`level`を設定し、接続元だけに`modulation_amount`を設定する
 - Operator Modulationの`mode`は`phase`、`frequency`、`amplitude`、`ring`。Phase / FrequencyのAmountは0〜8、Amplitude / Ringは0〜1で、AM / RingのFeedbackは0だけを許可する。Unisonは最大4 Voice
+- Sample Zoneは`asset`、MIDI範囲、`playback.region`、`direction`、`loop`、`time`を持つ。`time`は`{"mode":"resample"}`、`{"mode":"fixed_stretch","ratio":1.5}`、`{"mode":"tempo_sync","source_bpm":120.0}`のいずれかを指定する
 - 全Fieldの意味・単位・Rangeは`docs/instrument-definition.md`が正本
 
 ```bash
@@ -150,10 +151,25 @@ sha256sum <path>
 {
   "generator": {
     "sample": {
-      "asset": { "path": "<definitionからの相対Path>", "sha256": "<計算値>" },
-      "root_note": 60,
-      "playback_mode": "one_shot",
-      "interpolation": "cubic"
+      "interpolation": "cubic",
+      "zones": [
+        {
+          "id": "main",
+          "asset": { "path": "<definitionからの相対Path>", "sha256": "<計算値>" },
+          "root_note": 60,
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127,
+          "round_robin_group": null,
+          "playback": {
+            "region": { "start_seconds": 0.0, "end_seconds": null },
+            "direction": "forward",
+            "loop": null,
+            "time": { "mode": "resample" }
+          }
+        }
+      ]
     }
   }
 }
@@ -167,7 +183,7 @@ sha256sum <path>
 
 ```bash
 sonalloy render note <definition> \
-  --note 60 --velocity 100 --gate 0.5 --tail 0.5 \
+  --note 60 --velocity 100 --gate 0.5 --tail 0.5 --tempo 120 \
   --sample-rate 48000 --block-size 257 --output out/<name>/note.wav
 ```
 
@@ -179,7 +195,7 @@ sonalloy render midi <definition> <midi-file> \
   --output out/<name>/phrase.wav
 ```
 
-出力は32-bit float、2 Channel、指定Sample RateのStereo WAVです。試聴WAVは音源ごとに`out/<name>/`へ分けて出力し、親Directoryは事前に作成してください。生成後は`scripts/review/measure_wav.py`でFinite性・Peak / RMS / DCを確認できます。
+`render note`と`render events`の`--tempo`はTempo Syncの処理Tempoを指定します。`render midi`はMIDI内のTempo Meta EventからTempo Mapを作成します。出力は32-bit float、2 Channel、指定Sample RateのStereo WAVです。試聴WAVは音源ごとに`out/<name>/`へ分けて出力し、親Directoryは事前に作成してください。生成後は`scripts/review/measure_wav.py`でFinite性・Peak / RMS / DCを確認できます。
 
 ## 失敗時の対処
 
@@ -191,7 +207,7 @@ sonalloy render midi <definition> <midi-file> \
 | `3` | Core Process / Render Error | `--json`の`DSP_ERROR`等を確認する。それでも解決しない場合は`docs/runtime-processing.md`のError規則を確認する |
 | `4` | WAV出力 Error | 出力先Directoryの存在と書き込み権限を確認する |
 
-主な診断Code：`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`FILTER_CUTOFF_CLAMPED`、`ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`。Wavetableでは`WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`WAVETABLE_SILENT_FRAME`、`WAVETABLE_DC_OFFSET`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED`も確認します。
+主な診断Code：`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`FILTER_CUTOFF_CLAMPED`、`ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`UNSUPPORTED_PLAYBACK_COMBINATION`、`INVALID_STRETCH_RATIO`、`INVALID_SOURCE_TEMPO`、`STRETCH_BACKEND_FAILURE`。Wavetableでは`WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`WAVETABLE_SILENT_FRAME`、`WAVETABLE_DC_OFFSET`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED`も確認します。
 
 ## 参照
 

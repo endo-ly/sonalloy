@@ -11,6 +11,9 @@ use crate::runtime::{InstrumentRuntime, SineRuntime};
 
 const U64_LIMIT_AS_F64: f64 = 18_446_744_073_709_551_616.0;
 
+/// The default tempo used by renders without an explicit tempo.
+pub const DEFAULT_TEMPO_BPM: f64 = 120.0;
+
 /// An offline render request expressed in exact frame counts.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RenderRequest {
@@ -51,6 +54,84 @@ impl RenderRequest {
     }
 }
 
+/// A tempo change at an absolute render frame.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TempoChange {
+    /// Absolute frame at which this tempo becomes active.
+    pub absolute_frame: u64,
+    /// Tempo in beats per minute.
+    pub tempo_bpm: f64,
+}
+
+/// An ordered tempo map used by the offline renderer.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TempoMap {
+    changes: Vec<TempoChange>,
+}
+
+impl TempoMap {
+    /// Create a tempo map whose first change is active at frame zero.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the map is empty, does not start at frame zero, is not strictly
+    /// ordered, or contains a non-positive or non-finite tempo.
+    pub fn new(changes: Vec<TempoChange>) -> Result<Self, RenderError> {
+        let Some(first) = changes.first() else {
+            return Err(RenderError::TempoMapEmpty);
+        };
+        if first.absolute_frame != 0 {
+            return Err(RenderError::TempoMapMustStartAtZero);
+        }
+        if changes
+            .iter()
+            .any(|change| !change.tempo_bpm.is_finite() || change.tempo_bpm <= 0.0)
+        {
+            return Err(RenderError::InvalidTempo);
+        }
+        if changes
+            .windows(2)
+            .any(|window| window[0].absolute_frame >= window[1].absolute_frame)
+        {
+            return Err(RenderError::TempoMapNotSorted);
+        }
+        Ok(Self { changes })
+    }
+
+    /// Create a constant tempo map.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the tempo is non-positive or non-finite.
+    pub fn constant(tempo_bpm: f64) -> Result<Self, RenderError> {
+        Self::new(vec![TempoChange {
+            absolute_frame: 0,
+            tempo_bpm,
+        }])
+    }
+
+    /// Return the tempo changes in absolute-frame order.
+    #[must_use]
+    pub fn changes(&self) -> &[TempoChange] {
+        &self.changes
+    }
+
+    fn tempo_at(&self, absolute_frame: u64) -> f64 {
+        let index = self
+            .changes
+            .partition_point(|change| change.absolute_frame <= absolute_frame)
+            .saturating_sub(1);
+        self.changes[index].tempo_bpm
+    }
+
+    fn next_change_after(&self, absolute_frame: u64) -> Option<u64> {
+        self.changes
+            .iter()
+            .find(|change| change.absolute_frame > absolute_frame)
+            .map(|change| change.absolute_frame)
+    }
+}
+
 /// Audio produced by the Core renderer, without any file-format dependency.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RenderedAudio {
@@ -79,6 +160,18 @@ pub enum RenderError {
     /// The output frame count cannot fit in memory or a process counter.
     #[error("render frame count overflow")]
     FrameCountOverflow,
+    /// The render tempo is unsupported.
+    #[error("tempo must be finite and greater than zero")]
+    InvalidTempo,
+    /// No tempo change was supplied.
+    #[error("tempo map must contain at least one change")]
+    TempoMapEmpty,
+    /// The first tempo change must define the initial tempo.
+    #[error("tempo map must start at frame zero")]
+    TempoMapMustStartAtZero,
+    /// Tempo changes must be strictly ordered by absolute frame.
+    #[error("tempo map changes must be strictly ordered")]
+    TempoMapNotSorted,
     /// The oscillator frequency is invalid.
     #[error("frequency must be finite and non-negative")]
     InvalidFrequency,
@@ -147,21 +240,54 @@ pub fn render_instrument(
     request: RenderRequest,
     events: &[ScheduledEvent],
 ) -> Result<RenderedAudio, RenderError> {
+    render_instrument_with_tempo(compiled, request, events, DEFAULT_TEMPO_BPM)
+}
+
+/// Render a compiled instrument at one constant tempo.
+///
+/// # Errors
+///
+/// Returns an error when the tempo, request, event timeline, or instrument runtime is invalid.
+pub fn render_instrument_with_tempo(
+    compiled: Arc<CompiledInstrument>,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+    tempo_bpm: f64,
+) -> Result<RenderedAudio, RenderError> {
     let mut runtime = InstrumentRuntime::new(compiled);
-    render_processor_with_events(&mut runtime, request, events)
+    let tempo_map = TempoMap::constant(tempo_bpm)?;
+    render_processor_with_tempo_map(&mut runtime, request, events, &tempo_map)
+}
+
+/// Render a compiled instrument with an absolute-frame tempo map.
+///
+/// # Errors
+///
+/// Returns an error when the request, tempo map, event timeline, or instrument runtime is
+/// invalid.
+pub fn render_instrument_with_tempo_map(
+    compiled: Arc<CompiledInstrument>,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+    tempo_map: &TempoMap,
+) -> Result<RenderedAudio, RenderError> {
+    let mut runtime = InstrumentRuntime::new(compiled);
+    render_processor_with_tempo_map(&mut runtime, request, events, tempo_map)
 }
 
 fn render_processor<P: InstrumentProcessor>(
     processor: &mut P,
     request: RenderRequest,
 ) -> Result<RenderedAudio, RenderError> {
-    render_processor_with_events(processor, request, &[])
+    let tempo_map = TempoMap::constant(DEFAULT_TEMPO_BPM)?;
+    render_processor_with_tempo_map(processor, request, &[], &tempo_map)
 }
 
-fn render_processor_with_events<P: InstrumentProcessor>(
+fn render_processor_with_tempo_map<P: InstrumentProcessor>(
     processor: &mut P,
     request: RenderRequest,
     events: &[ScheduledEvent],
+    tempo_map: &TempoMap,
 ) -> Result<RenderedAudio, RenderError> {
     let total_frames = request.total_frames()?;
     let spec = request.process_spec()?;
@@ -192,10 +318,20 @@ fn render_processor_with_events<P: InstrumentProcessor>(
     let mut event_index = 0_usize;
     let mut block_events = Vec::with_capacity(events.len());
     while offset < total_frames_usize {
-        let frames = (total_frames_usize - offset).min(request.block_size);
+        let next_tempo_frame = tempo_map
+            .next_change_after(u64::try_from(offset).map_err(|_| RenderError::FrameCountOverflow)?)
+            .and_then(|frame| usize::try_from(frame).ok())
+            .unwrap_or(total_frames_usize);
+        let frames = (total_frames_usize - offset)
+            .min(request.block_size)
+            .min(next_tempo_frame.saturating_sub(offset));
+        if frames == 0 {
+            return Err(RenderError::FrameCountOverflow);
+        }
         let end = offset + frames;
         block_events.clear();
-        while event_index < events.len() && events[event_index].absolute_frame < end as u64 {
+        let end_frame = u64::try_from(end).map_err(|_| RenderError::FrameCountOverflow)?;
+        while event_index < events.len() && events[event_index].absolute_frame < end_frame {
             let scheduled = events[event_index];
             if scheduled.absolute_frame < offset as u64 {
                 return Err(RenderError::ScheduledEventsNotSorted);
@@ -217,7 +353,9 @@ fn render_processor_with_events<P: InstrumentProcessor>(
                 frames,
                 context: ProcessContext {
                     absolute_frame: offset as u64,
-                    tempo_bpm: 120.0,
+                    tempo_bpm: tempo_map.tempo_at(
+                        u64::try_from(offset).map_err(|_| RenderError::FrameCountOverflow)?,
+                    ),
                 },
                 events: &block_events,
                 output: &mut output,
@@ -238,6 +376,10 @@ mod tests {
         calls: usize,
     }
 
+    struct TempoRecordingProcessor {
+        blocks: Vec<(u64, usize, f64)>,
+    }
+
     impl InstrumentProcessor for FailingProcessor {
         fn prepare(&mut self, _spec: ProcessSpec) -> Result<(), ProcessError> {
             Ok(())
@@ -250,6 +392,25 @@ mod tests {
             } else {
                 Ok(())
             }
+        }
+
+        fn reset(&mut self) -> Result<(), ProcessError> {
+            Ok(())
+        }
+    }
+
+    impl InstrumentProcessor for TempoRecordingProcessor {
+        fn prepare(&mut self, _spec: ProcessSpec) -> Result<(), ProcessError> {
+            Ok(())
+        }
+
+        fn process(&mut self, block: ProcessBlock<'_>) -> Result<(), ProcessError> {
+            self.blocks.push((
+                block.context.absolute_frame,
+                block.frames,
+                block.context.tempo_bpm,
+            ));
+            Ok(())
         }
 
         fn reset(&mut self) -> Result<(), ProcessError> {
@@ -303,6 +464,37 @@ mod tests {
     }
 
     #[test]
+    fn tempo_boundaries_split_process_contexts() {
+        let tempo_map = TempoMap::new(vec![
+            TempoChange {
+                absolute_frame: 0,
+                tempo_bpm: 120.0,
+            },
+            TempoChange {
+                absolute_frame: 32,
+                tempo_bpm: 90.0,
+            },
+            TempoChange {
+                absolute_frame: 80,
+                tempo_bpm: 60.0,
+            },
+        ])
+        .expect("tempo map");
+        let mut processor = TempoRecordingProcessor { blocks: Vec::new() };
+
+        render_processor_with_tempo_map(&mut processor, request(96, 0, 64), &[], &tempo_map)
+            .expect("tempo-aware render");
+
+        assert_eq!(processor.blocks.len(), 3);
+        assert_eq!((processor.blocks[0].0, processor.blocks[0].1), (0, 32));
+        assert_eq!((processor.blocks[1].0, processor.blocks[1].1), (32, 48));
+        assert_eq!((processor.blocks[2].0, processor.blocks[2].1), (80, 16));
+        assert!((processor.blocks[0].2 - 120.0).abs() < f64::EPSILON);
+        assert!((processor.blocks[1].2 - 90.0).abs() < f64::EPSILON);
+        assert!((processor.blocks[2].2 - 60.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
     fn duration_conversion_uses_round_to_nearest() {
         assert_eq!(seconds_to_frames(1.0, 48_000.0), Ok(48_000));
         assert_eq!(seconds_to_frames(0.5 / 48_000.0, 48_000.0), Ok(1));
@@ -318,5 +510,52 @@ mod tests {
         let diagnostic = from_render_error(&error);
         assert_eq!(diagnostic.code, DiagnosticCode::RenderError);
         assert_eq!(diagnostic.severity, DiagnosticSeverity::Error);
+    }
+
+    #[test]
+    fn tempo_map_requires_valid_ordered_changes() {
+        assert_eq!(TempoMap::new(Vec::new()), Err(RenderError::TempoMapEmpty));
+        assert_eq!(
+            TempoMap::new(vec![TempoChange {
+                absolute_frame: 1,
+                tempo_bpm: 120.0,
+            }]),
+            Err(RenderError::TempoMapMustStartAtZero)
+        );
+        assert_eq!(
+            TempoMap::new(vec![
+                TempoChange {
+                    absolute_frame: 0,
+                    tempo_bpm: 120.0,
+                },
+                TempoChange {
+                    absolute_frame: 0,
+                    tempo_bpm: 90.0,
+                },
+            ]),
+            Err(RenderError::TempoMapNotSorted)
+        );
+        assert_eq!(TempoMap::constant(f64::NAN), Err(RenderError::InvalidTempo));
+    }
+
+    #[test]
+    fn tempo_map_exposes_the_tempo_at_each_boundary() {
+        let map = TempoMap::new(vec![
+            TempoChange {
+                absolute_frame: 0,
+                tempo_bpm: 120.0,
+            },
+            TempoChange {
+                absolute_frame: 32,
+                tempo_bpm: 90.0,
+            },
+        ])
+        .expect("tempo map");
+        assert_eq!(map.changes().len(), 2);
+        assert!((map.tempo_at(0) - 120.0).abs() < f64::EPSILON);
+        assert!((map.tempo_at(31) - 120.0).abs() < f64::EPSILON);
+        assert!((map.tempo_at(32) - 90.0).abs() < f64::EPSILON);
+        assert_eq!(map.next_change_after(0), Some(32));
+        assert_eq!(map.next_change_after(32), None);
     }
 }

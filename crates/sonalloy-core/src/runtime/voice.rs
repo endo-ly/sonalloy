@@ -72,10 +72,78 @@ struct LayerRuntime {
     armed_sample_zone: Option<usize>,
     note_start_fade: Smoother,
     note_start_fade_frames: usize,
+    instrument_latency_frames: usize,
+    delay: LayerDelayCompensation,
+}
+
+struct LayerDelayCompensation {
+    delay_frames: usize,
+    left: Vec<f32>,
+    right: Vec<f32>,
+    position: usize,
+    pending_frames: usize,
+}
+
+impl LayerDelayCompensation {
+    fn new(delay_frames: usize) -> Self {
+        Self {
+            delay_frames,
+            left: vec![0.0; delay_frames],
+            right: vec![0.0; delay_frames],
+            position: 0,
+            pending_frames: 0,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.left.fill(0.0);
+        self.right.fill(0.0);
+        self.position = 0;
+        self.pending_frames = 0;
+    }
+
+    fn has_pending(&self) -> bool {
+        self.pending_frames > 0
+    }
+
+    fn process(&mut self, left: f32, right: f32) -> (f32, f32) {
+        if self.delay_frames == 0 {
+            return (left, right);
+        }
+        let output = (self.left[self.position], self.right[self.position]);
+        self.left[self.position] = left;
+        self.right[self.position] = right;
+        self.position = (self.position + 1) % self.delay_frames;
+        self.pending_frames = self.pending_frames.saturating_add(1).min(self.delay_frames);
+        output
+    }
+
+    fn process_silence(&mut self) -> (f32, f32) {
+        if self.delay_frames == 0 || self.pending_frames == 0 {
+            return (0.0, 0.0);
+        }
+        let output = (self.left[self.position], self.right[self.position]);
+        self.left[self.position] = 0.0;
+        self.right[self.position] = 0.0;
+        self.position = (self.position + 1) % self.delay_frames;
+        self.pending_frames -= 1;
+        output
+    }
+
+    fn set_delay_frames(&mut self, delay_frames: usize) {
+        debug_assert!(delay_frames <= self.left.len());
+        self.delay_frames = delay_frames;
+        self.position = 0;
+        self.pending_frames = 0;
+    }
 }
 
 impl LayerRuntime {
-    fn new(compiled: &CompiledLayer, spec: ProcessSpec) -> Result<Self, ProcessError> {
+    fn new(
+        compiled: &CompiledLayer,
+        spec: ProcessSpec,
+        instrument_latency_frames: usize,
+    ) -> Result<Self, ProcessError> {
         let generator = GeneratorRuntime::new(&compiled.generator, spec)?;
         let note_start_fade_frames =
             rounded_frame_count(spec.sample_rate * GAIN_SMOOTHING_SECONDS).max(1);
@@ -90,6 +158,8 @@ impl LayerRuntime {
             armed_sample_zone: None,
             note_start_fade: Smoother::new(0.0),
             note_start_fade_frames,
+            instrument_latency_frames,
+            delay: LayerDelayCompensation::new(instrument_latency_frames),
         })
     }
 
@@ -101,6 +171,11 @@ impl LayerRuntime {
     ) -> Result<(), ProcessError> {
         self.generator
             .start(note.note_id, sample_zone, &compiled.generator)?;
+        self.delay.reset();
+        self.delay.set_delay_frames(
+            self.instrument_latency_frames
+                .saturating_sub(self.generator.intrinsic_latency_frames()),
+        );
         self.armed = false;
         self.armed_sample_zone = None;
         self.envelope.note_on();
@@ -134,6 +209,7 @@ impl LayerRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
+        tempo_bpm: f64,
         targets: LayerGeneratorTargetSpan,
         mono: &mut [f32],
         left: &mut [f32],
@@ -145,6 +221,7 @@ impl LayerRuntime {
             tuning_start,
             tuning_end,
             sample_rate,
+            tempo_bpm,
             targets,
             mono,
             left,
@@ -160,6 +237,7 @@ impl LayerRuntime {
     fn reset(&mut self) -> Result<(), ProcessError> {
         self.generator.reset()?;
         self.processors.reset()?;
+        self.delay.reset();
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
         self.active = false;
@@ -170,6 +248,7 @@ impl LayerRuntime {
 
     fn reset_state(&mut self) -> Result<(), ProcessError> {
         self.processors.reset()?;
+        self.delay.reset();
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
         self.active = false;
@@ -216,7 +295,7 @@ impl VoiceRuntime {
         let layers = compiled
             .layers
             .iter()
-            .map(|layer| LayerRuntime::new(layer, spec))
+            .map(|layer| LayerRuntime::new(layer, spec, compiled.reported_latency_frames))
             .collect::<Result<Vec<_>, _>>()?;
         let processors = StereoProcessorChain::new(&compiled.voice_processors, spec)?;
         let source_definitions = compiled
@@ -362,6 +441,7 @@ impl VoiceRuntime {
         &mut self,
         frames: usize,
         sample_rate: f64,
+        tempo_bpm: f64,
         compiled: &CompiledInstrument,
         shared: SharedParameterSpan<'_>,
         layer_mono: &mut [f32],
@@ -425,6 +505,7 @@ impl VoiceRuntime {
             self.render_active_segment(
                 chunk,
                 sample_rate,
+                tempo_bpm,
                 &mut layer_mono[offset..offset + chunk],
                 &mut layer_left[offset..offset + chunk],
                 &mut layer_right[offset..offset + chunk],
@@ -476,7 +557,9 @@ impl VoiceRuntime {
     }
 
     fn has_active_layer(&self) -> bool {
-        self.layers.iter().any(|layer| layer.active || layer.armed)
+        self.layers
+            .iter()
+            .any(|layer| layer.active || layer.armed || layer.delay.has_pending())
     }
 
     fn start_note(
@@ -551,10 +634,12 @@ impl VoiceRuntime {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_lines)]
     fn render_active_segment(
         &mut self,
         frames: usize,
         sample_rate: f64,
+        tempo_bpm: f64,
         layer_mono: &mut [f32],
         layer_left: &mut [f32],
         layer_right: &mut [f32],
@@ -565,34 +650,42 @@ impl VoiceRuntime {
         voice_right[..frames].fill(0.0);
         let targets = &self.targets;
         for (index, layer) in self.layers.iter_mut().enumerate() {
-            if !layer.active {
+            if !layer.active && !layer.delay.has_pending() {
                 continue;
             }
+            let was_active = layer.active;
             let target = targets.layers[index];
             layer_mono[..frames].fill(0.0);
             layer_left[..frames].fill(0.0);
             layer_right[..frames].fill(0.0);
-            let generator_finished = layer.render_source(
-                frames,
-                self.note_number,
-                target.tuning.start,
-                target.tuning.end,
-                sample_rate,
-                target.generator,
-                layer_mono,
-                layer_left,
-                layer_right,
-            )?;
-            match layer.output_mode {
-                GeneratorOutputMode::Mono => layer
-                    .processors
-                    .process_mono(&targets.layer_processors[index], &mut layer_mono[..frames])?,
-                GeneratorOutputMode::Stereo => layer.processors.process_stereo(
-                    &targets.layer_processors[index],
-                    &mut layer_left[..frames],
-                    &mut layer_right[..frames],
-                )?,
-            }
+            let generator_finished = if was_active {
+                let finished = layer.render_source(
+                    frames,
+                    self.note_number,
+                    target.tuning.start,
+                    target.tuning.end,
+                    sample_rate,
+                    tempo_bpm,
+                    target.generator,
+                    layer_mono,
+                    layer_left,
+                    layer_right,
+                )?;
+                match layer.output_mode {
+                    GeneratorOutputMode::Mono => layer.processors.process_mono(
+                        &targets.layer_processors[index],
+                        &mut layer_mono[..frames],
+                    )?,
+                    GeneratorOutputMode::Stereo => layer.processors.process_stereo(
+                        &targets.layer_processors[index],
+                        &mut layer_left[..frames],
+                        &mut layer_right[..frames],
+                    )?,
+                }
+                finished
+            } else {
+                true
+            };
             let gain = ValueSpan {
                 start: db_to_linear(target.gain.start),
                 end: db_to_linear(target.gain.end),
@@ -619,24 +712,35 @@ impl VoiceRuntime {
                 end: stereo_right_end,
             };
             for frame in 0..frames {
-                let envelope = layer.envelope.next_sample();
-                let fade = layer.note_start_fade.next();
-                let amplitude = envelope * fade * gain.value_at(frame, frames);
-                match layer.output_mode {
-                    GeneratorOutputMode::Mono => {
-                        let mono = layer_mono[frame] * amplitude;
-                        voice_left[frame] += mono * mono_left.value_at(frame, frames);
-                        voice_right[frame] += mono * mono_right.value_at(frame, frames);
+                let (input_left, input_right) = if was_active {
+                    let envelope = layer.envelope.next_sample();
+                    let fade = layer.note_start_fade.next();
+                    let amplitude = envelope * fade * gain.value_at(frame, frames);
+                    match layer.output_mode {
+                        GeneratorOutputMode::Mono => {
+                            let mono = layer_mono[frame] * amplitude;
+                            (
+                                mono * mono_left.value_at(frame, frames),
+                                mono * mono_right.value_at(frame, frames),
+                            )
+                        }
+                        GeneratorOutputMode::Stereo => (
+                            layer_left[frame] * amplitude * stereo_left.value_at(frame, frames),
+                            layer_right[frame] * amplitude * stereo_right.value_at(frame, frames),
+                        ),
                     }
-                    GeneratorOutputMode::Stereo => {
-                        voice_left[frame] +=
-                            layer_left[frame] * amplitude * stereo_left.value_at(frame, frames);
-                        voice_right[frame] +=
-                            layer_right[frame] * amplitude * stereo_right.value_at(frame, frames);
-                    }
-                }
+                } else {
+                    (0.0, 0.0)
+                };
+                let (output_left, output_right) = if was_active {
+                    layer.delay.process(input_left, input_right)
+                } else {
+                    layer.delay.process_silence()
+                };
+                voice_left[frame] += output_left;
+                voice_right[frame] += output_right;
             }
-            if layer.envelope.is_idle() || generator_finished {
+            if was_active && (layer.envelope.is_idle() || generator_finished) {
                 layer.active = false;
             }
         }
@@ -1177,5 +1281,28 @@ mod tests {
                 .abs()
                 > f32::EPSILON
         );
+    }
+
+    #[test]
+    fn layer_delay_compensation_preserves_the_declared_frame_delay() {
+        let mut delay = LayerDelayCompensation::new(2);
+        assert_eq!(delay.process(1.0, -1.0), (0.0, 0.0));
+        assert_eq!(delay.process(2.0, -2.0), (0.0, 0.0));
+        assert_eq!(delay.process(3.0, -3.0), (1.0, -1.0));
+        assert_eq!(delay.process_silence(), (2.0, -2.0));
+        assert_eq!(delay.process_silence(), (3.0, -3.0));
+        assert!(!delay.has_pending());
+    }
+
+    #[test]
+    fn layer_delay_compensation_can_change_for_the_selected_generator() {
+        let mut delay = LayerDelayCompensation::new(2);
+        delay.set_delay_frames(1);
+        assert_eq!(delay.process(1.0, -1.0), (0.0, 0.0));
+        assert_eq!(delay.process_silence(), (1.0, -1.0));
+
+        delay.set_delay_frames(0);
+        assert_eq!(delay.process(2.0, -2.0), (2.0, -2.0));
+        assert!(!delay.has_pending());
     }
 }

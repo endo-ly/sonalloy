@@ -55,6 +55,9 @@
                   "start_seconds": 0.4,
                   "end_seconds": 1.2,
                   "crossfade_seconds": 0.05
+                },
+                "time": {
+                  "mode": "resample"
                 }
               }
             }

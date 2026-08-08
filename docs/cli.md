@@ -53,13 +53,13 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | 表示項目 | 内容 |
 |---|---|
 | Metadata | 名前、作者、説明 |
-| Performance | Polyphony、Voice Stealing方式 |
+| Performance | Polyphony、Voice Stealing方式、Reported Latency（Frame） |
 | Layer | Trigger Event（`note_on` / `note_off`）、Key / Velocity範囲、Generator、Gain、Pan、Tuning、Envelope |
 | Oscillator | Waveform、Phase Reset、Phase、Backend、Output Mode、Effective Frequency上限、Pulse Width（Pulseのみ）、Hard Sync、Waveshaping、Phase Distortion、Wavefold、Oscillator Feedback、DC Blocker、Signal Order、Unison |
 | Noise | Color、Seed、Stereo Correlation Parameter、Output Mode |
 | Wavetable | Asset Path、SHA指定有無、Prepared状態、Source Channel / Frame Count、Frame Length / Count、Band Count / Max Harmonic、Position、Parameter ID、Phase、Unison、Output Mode、Effective Frequency上限 |
 | Operator Modulation | Mode、Algorithm、Evaluation Order、Incoming Mask、Carrier Operator、4 OperatorのRatio / Detune / Level / Modulation Amount / Feedback / Envelope / Parameter ID、Phase Reset、Unison、Output Mode、Effective Frequency上限 |
-| Sample | Zone Count、Enabled / Disabled Count、Prepared Asset共有数、Zone ID、Key / Velocity範囲、Root Note、Round Robin Group、Playback Region、Direction、Loop / Crossfade Frame、Asset Metadata、Output Mode |
+| Sample | Zone Count、Enabled / Disabled Count、Prepared Asset共有数、Zone ID、Key / Velocity範囲、Root Note、Round Robin Group、Playback Region、Direction、Loop / Crossfade Frame、Time Mode、Duration Ratio / Source BPM、Asset Metadata、Output Mode |
 | Parameter | Canonical ID、Owner、Unit、Range、Default、Scale、Smoothing |
 | Modulation | Source ID、Source種類、Scope、Target、Amount、Curve |
 | Processor | Layer、Voice、Globalの配置、Chain順、ID、Static Field、Dynamic Parameter |
@@ -70,7 +70,7 @@ sonalloy instrument inspect <definition>
 sonalloy instrument inspect <definition> --json
 ```
 
-`inspect`のParameter IDはCompiled Catalogから取得したCanonical IDです。RouteのSource ID、Target ID、設定値もCompiled Instrumentの内容をそのまま表示します。Sample Zoneは`direction`、Region Frame、Loop Frame、`crossfade_frames`、Source Channel数、Prepared Frame数を表示します。Layer Triggerは`event`を表示し、`note_off` LayerがRelease Triggerとして構成されていることを確認できます。
+`inspect`のParameter IDはCompiled Catalogから取得したCanonical IDです。RouteのSource ID、Target ID、設定値もCompiled Instrumentの内容をそのまま表示します。Sample Zoneは`direction`、Region Frame、Loop Frame、`crossfade_frames`、Time Mode、Duration Ratio / Source BPM、Source Channel数、Prepared Frame数を表示します。Instrument全体の`reported_latency_frames`も表示します。Layer Triggerは`event`を表示し、`note_off` LayerがRelease Triggerとして構成されていることを確認できます。
 ProcessorはChainごとに`placement`、`chain_index`、`id`、`kind`、Static Field、Parameter Descriptorを表示します。FilterはParameterのDefaultとSample Rateに応じたDSP適用上限をStatic Fieldへ表示します。DelayのTimeとReverbのPre-delayはStatic Fieldです。
 
 Operator ModulationのJSON Inspectでは、Operator番号を1始まりで表示し、固定Topologyを`evaluation_order`、`incoming_masks`、`carrier_operators`として表示します。`level`、`modulation_amount`、`feedback`はTopologyとModeで使用されないOperatorでは`null`になります。OperatorのParameter IDは`layer.<layer_id>.generator.operator.<1-4>.<parameter>`形式です。
@@ -86,6 +86,7 @@ Coreへ1つのNote On / Note Offを渡してRenderします。単音の確認用
 ```bash
 sonalloy render note examples/instruments/basic-poly-synth.json \
   --note 60 --velocity 100 --gate 0.5 --tail 0.5 \
+  --tempo 120 \
   --sample-rate 48000 --block-size 257 --output out/note.wav
 ```
 
@@ -95,6 +96,7 @@ sonalloy render note examples/instruments/basic-poly-synth.json \
 | `--velocity <1-127>` | No | `100` | MIDI Velocity |
 | `--gate <seconds>` | No | `0.5` | Note OnからNote Offまでの時間。有限かつ0以上 |
 | `--tail <seconds>` | No | `0.5` | Note Off後の追加Frame。有限かつ0以上 |
+| `--tempo <bpm>` | No | `120` | Process Tempo。有限かつ0より大きい値。Tempo Sync SampleのDuration比に使う |
 | `--sample-rate <Hz>` | No | `48000` | 正の整数。WAV HeaderとDSPへ同じ値を渡す |
 | `--block-size <frames>` | No | `257` | Process最大Block Size |
 | `--output <path>` | Yes | — | Stereo WAV出力先 |
@@ -150,6 +152,7 @@ Event Fileの例です。
 |---|---:|---:|---|
 | `--duration-frames <frames>` | Yes | — | Main Render長。EventのAbsolute Frameはこの値未満 |
 | `--tail <seconds>` | No | `1.0` | Main Render後の追加Frame |
+| `--tempo <bpm>` | No | `120` | Process Tempo。Tempo Sync SampleのDuration比に使う |
 | `--sample-rate <Hz>` | No | `48000` | 正の整数 |
 | `--block-size <frames>` | No | `257` | Process最大Block Size |
 | `--output <path>` | Yes | — | Stereo WAV出力先 |
@@ -157,9 +160,10 @@ Event Fileの例です。
 
 ### `render midi`
 
-Standard MIDI FileをAbsolute Frameの`ScheduledEvent`へ変換してRenderします。
+Standard MIDI FileをAbsolute Frameの`ScheduledEvent`とTempo Mapへ変換してRenderします。
 
 - Tick、Tempo、Channel、NoteはCLI側でAbsolute Frameへ変換する
+- MIDI Tempo EventはTempo Mapとして保持し、Tempo変更FrameでCoreのProcess Blockを分割する
 - Note OnのVelocity 0はNote Offとして扱う
 - Note IDはChannel・Note Number・発音Serialから生成する
 - CC1はMod Wheel、Pitch Bendは-1〜1、Channel Aftertouchは0〜1へ変換する
@@ -209,7 +213,7 @@ sonalloy dev render-sine \
 | `--output <path>` | Yes | — | Stereo WAV出力先 |
 | `--json` | No | Off | ResultまたはDiagnosticをJSONで出力 |
 
-出力は32-bit float、2 Channel、指定Sample RateのWAVです。親Directoryは事前に作成してください。
+出力は32-bit float、2 Channel、指定Sample RateのWAVです。Time Stretchを含む場合、CLIはReported Latency分を内部Renderへ追加し、前置き分を除去してMusical TimelineのFrame 0からWAVを生成します。成功JSONには`reported_latency_frames`を含みます。親Directoryは事前に作成してください。
 
 ## Exit Code
 

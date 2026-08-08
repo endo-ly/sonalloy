@@ -472,7 +472,8 @@ Sampleを使うLayerの最小構成です。
               "end_seconds": null
             },
             "direction": "forward",
-            "loop": null
+            "loop": null,
+            "time": { "mode": "resample" }
           }
         }
       ]
@@ -514,20 +515,28 @@ Sampleを使うLayerの最小構成です。
 - `direction`は`forward`または`reverse`です。ReverseはPrepared Audioを複製せずCursor方向だけを反転します
 - `loop: null`はOne-shotです。Loopを指定する場合はRegion内の`start_seconds`、`end_seconds`、`crossfade_seconds`を記述します
 - `crossfade_seconds: 0`は通常Loop、0より大きい場合はConstant-power Crossfade Loopです。CrossfadeはLoop長の半分以下でなければなりません
+- `time`は`resample`、`fixed_stretch`、`tempo_sync`のいずれかです。省略できません
+- `resample`はPitch変更に合わせてDurationも変えます。`fixed_stretch`は`ratio`（0.5〜2.0）でDurationだけを変え、`tempo_sync`は`source_bpm`（0より大きい値）とProcess TempoからDuration比を決めます
+- `fixed_stretch`と`tempo_sync`はReverseと併用できません。RatioはCompile時にも検証され、範囲外の値をClampしません
 - RegionとLoopはCompile時にEngine Sample RateのFrameへ変換され、RegionとLoopには最低2 Frameが必要です
 - Explicit Sliceは同じAssetと異なるOne-shot Regionを持つ複数Zoneで表現します
 
 ```json
 "playback": {
   "region": { "start_seconds": 0.0, "end_seconds": null },
-  "direction": "reverse",
-  "loop": {
-    "start_seconds": 0.25,
-    "end_seconds": 0.75,
-    "crossfade_seconds": 0.02
-  }
+  "direction": "forward",
+  "loop": null,
+  "time": { "mode": "fixed_stretch", "ratio": 1.5 }
 }
 ```
+
+Tempoに追従するZoneは次の形式です。
+
+```json
+"time": { "mode": "tempo_sync", "source_bpm": 120.0 }
+```
+
+`source_bpm / process_tempo_bpm`が0.5〜2.0の範囲外になる場合はProcess Errorになります。Tempo SyncはTempo Mapの境界でProcess Blockを分割して適用します。
 
 Sampleの再生の動き（Cursor、再生速度、補間、終端の扱い）は、`docs/runtime-processing.md`の「Sampleの再生」を参照してください。
 

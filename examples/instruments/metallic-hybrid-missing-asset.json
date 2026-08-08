@@ -46,9 +46,15 @@
               "velocity_max": 127,
               "round_robin_group": null,
               "playback": {
-                "region": { "start_seconds": 0.0, "end_seconds": null },
+                "region": {
+                  "start_seconds": 0.0,
+                  "end_seconds": null
+                },
                 "direction": "forward",
-                "loop": null
+                "loop": null,
+                "time": {
+                  "mode": "resample"
+                }
               }
             }
           ]

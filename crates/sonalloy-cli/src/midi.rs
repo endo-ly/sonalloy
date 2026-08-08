@@ -2,7 +2,10 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 use midly::{MidiMessage, Smf, Timing, TrackEventKind};
-use sonalloy_core::{Diagnostic, DiagnosticCode, ProcessEventKind, ScheduledEvent};
+use sonalloy_core::{
+    DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, ProcessEventKind, ScheduledEvent, TempoChange,
+    TempoMap,
+};
 
 /// MIDI events and duration prepared for the Core renderer.
 pub(crate) struct MidiRender {
@@ -10,6 +13,8 @@ pub(crate) struct MidiRender {
     pub events: Vec<ScheduledEvent>,
     /// Minimum main duration that includes the final event.
     pub duration_frames: u64,
+    /// Tempo changes in the same absolute-frame timeline as `events`.
+    pub tempo_map: TempoMap,
     /// Non-fatal MIDI conditions encountered during conversion.
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -246,6 +251,10 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
     let mut serials: HashMap<(u8, u8), u32> = HashMap::new();
     let mut zero_length_note_ids = HashSet::new();
     let mut converted = Vec::new();
+    let mut tempo_map_changes = vec![TempoChange {
+        absolute_frame: 0,
+        tempo_bpm: DEFAULT_TEMPO_BPM,
+    }];
     for raw in raw_events {
         advance_tempo(
             raw.tick,
@@ -259,7 +268,22 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
         );
         let frame = round_frame(cursor_frames)?;
         match raw.kind {
-            RawKind::Tempo { .. } => {}
+            RawKind::Tempo {
+                microseconds_per_beat,
+            } => {
+                let tempo_bpm = 60_000_000.0 / f64::from(microseconds_per_beat);
+                if let Some(change) = tempo_map_changes
+                    .last_mut()
+                    .filter(|change| change.absolute_frame == frame)
+                {
+                    change.tempo_bpm = tempo_bpm;
+                } else {
+                    tempo_map_changes.push(TempoChange {
+                        absolute_frame: frame,
+                        tempo_bpm,
+                    });
+                }
+            }
             RawKind::NoteOn {
                 channel,
                 note,
@@ -391,6 +415,13 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             "notes from multiple MIDI channels were merged into one instrument",
         ));
     }
+    let tempo_map = TempoMap::new(tempo_map_changes).map_err(|error| {
+        vec![
+            Diagnostic::error(DiagnosticCode::MidiError, "MIDI tempo map is invalid")
+                .with_path(path.to_string_lossy())
+                .with_detail(error.to_string()),
+        ]
+    })?;
     for kind in ControlKind::ALL {
         if control_warning_needed(kind, &converted) {
             diagnostics.push(Diagnostic::warning(
@@ -411,6 +442,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             })
             .collect(),
         duration_frames,
+        tempo_map,
         diagnostics,
     })
 }
@@ -616,6 +648,15 @@ mod tests {
         }
     }
 
+    fn tempo_with_delta(microseconds_per_beat: u32, delta: u32) -> TrackEvent<'static> {
+        TrackEvent {
+            delta: delta.into(),
+            kind: TrackEventKind::Meta(MetaMessage::Tempo(midly::num::u24::new(
+                microseconds_per_beat,
+            ))),
+        }
+    }
+
     #[test]
     fn pitch_bend_conversion_uses_the_asymmetric_midi_center() {
         assert!((pitch_bend_value(-8192) + 1.0).abs() < f32::EPSILON);
@@ -641,6 +682,27 @@ mod tests {
         assert_eq!(events[1].priority(), 2);
         assert_eq!(events[2].priority(), 4);
         assert_eq!(events[3].priority(), 5);
+    }
+
+    #[test]
+    fn tempo_events_become_absolute_frame_tempo_changes() {
+        let (_directory, path) = midi_file(vec![
+            tempo_with_delta(500_000, 0),
+            note_on(0),
+            tempo_with_delta(1_000_000, 480),
+            note_off_with_delta(0, 480),
+            end_of_track(),
+        ]);
+
+        let render = read_midi(&path, 48_000.0).expect("MIDI with tempo changes is valid");
+
+        assert_eq!(render.tempo_map.changes().len(), 2);
+        assert_eq!(render.tempo_map.changes()[0].absolute_frame, 0);
+        assert!((render.tempo_map.changes()[0].tempo_bpm - 120.0).abs() < f64::EPSILON);
+        assert_eq!(render.tempo_map.changes()[1].absolute_frame, 24_000);
+        assert!((render.tempo_map.changes()[1].tempo_bpm - 60.0).abs() < f64::EPSILON);
+        assert_eq!(render.events[0].absolute_frame, 0);
+        assert_eq!(render.events[1].absolute_frame, 72_000);
     }
 
     #[test]

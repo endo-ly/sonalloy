@@ -171,9 +171,15 @@
               "velocity_min": 1,
               "velocity_max": 127,
               "playback": {
-                "region": { "start_seconds": 0.0, "end_seconds": 0.08 },
+                "region": {
+                  "start_seconds": 0.0,
+                  "end_seconds": 0.08
+                },
                 "direction": "forward",
-                "loop": null
+                "loop": null,
+                "time": {
+                  "mode": "resample"
+                }
               }
             }
           ]

@@ -110,6 +110,7 @@ impl InstrumentRuntime {
         start: usize,
         end: usize,
         sample_rate: f64,
+        tempo_bpm: f64,
         shared: SharedParameterSpan<'_>,
     ) -> Result<(), ProcessError> {
         if start >= end {
@@ -135,6 +136,7 @@ impl InstrumentRuntime {
             voice.render_span(
                 frames,
                 sample_rate,
+                tempo_bpm,
                 compiled,
                 shared,
                 &mut layer_mono[..frames],
@@ -725,6 +727,7 @@ impl InstrumentProcessor for InstrumentRuntime {
                 cursor,
                 end,
                 spec.sample_rate,
+                block.context.tempo_bpm,
                 shared,
             ) {
                 clear_output(&mut *block.output, block.frames);
@@ -861,12 +864,15 @@ fn invalid_state() -> ProcessError {
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
     use crate::compiler::{CompileContext, compile_instrument};
     use crate::definition::tests::definition;
     use crate::parameter::ParameterHandle;
     use crate::process::ProcessEvent;
+
+    static FIXTURE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     fn compiled(polyphony: u16) -> Arc<CompiledInstrument> {
         let mut definition = definition();
@@ -948,10 +954,12 @@ mod tests {
             .expect("process succeeds");
     }
 
-    fn write_wavetable_fixture() -> std::path::PathBuf {
+    fn write_pcm_fixture() -> std::path::PathBuf {
+        let fixture_id = FIXTURE_COUNTER.fetch_add(1, Ordering::Relaxed);
         let path = std::env::temp_dir().join(format!(
-            "sonalloy-runtime-wavetable-{}.wav",
-            std::process::id()
+            "sonalloy-runtime-pcm-{}-{}.wav",
+            std::process::id(),
+            fixture_id
         ));
         let samples = (0..128)
             .map(|index| {
@@ -980,6 +988,40 @@ mod tests {
         }
         std::fs::write(&path, bytes).expect("fixture WAV writes");
         path
+    }
+
+    fn sample_stretch_definition(
+        path: &std::path::Path,
+    ) -> crate::definition::InstrumentDefinition {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].generator =
+            crate::definition::GeneratorDefinition::Sample(crate::definition::SampleDefinition {
+                interpolation: crate::definition::SampleInterpolation::Cubic,
+                zones: vec![crate::definition::SampleZoneDefinition {
+                    id: "stretch".to_owned(),
+                    asset: crate::definition::AssetReference {
+                        path: path.to_string_lossy().into_owned(),
+                        sha256: None,
+                    },
+                    root_note: 60,
+                    key_min: 0,
+                    key_max: 127,
+                    velocity_min: 1,
+                    velocity_max: 127,
+                    round_robin_group: None,
+                    playback: crate::definition::SampleZonePlaybackDefinition {
+                        region: crate::definition::SampleRegionDefinition {
+                            start_seconds: 0.0,
+                            end_seconds: None,
+                        },
+                        direction: crate::definition::SamplePlaybackDirection::Forward,
+                        r#loop: None,
+                        time: crate::definition::SampleTimeDefinition::FixedStretch { ratio: 1.0 },
+                    },
+                }],
+            });
+        source
     }
 
     #[test]
@@ -1068,7 +1110,7 @@ mod tests {
 
     #[test]
     fn wavetable_render_does_not_allocate_after_prepare() {
-        let path = write_wavetable_fixture();
+        let path = write_pcm_fixture();
         let mut source = definition();
         source.performance.polyphony = 1;
         source.layers[0].generator = crate::definition::GeneratorDefinition::Wavetable(
@@ -1084,6 +1126,31 @@ mod tests {
                 unison: None,
             },
         );
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &event);
+        runtime.reset().expect("reset");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
+        std::fs::remove_file(path).expect("fixture WAV removes");
+    }
+
+    #[test]
+    fn stretch_render_does_not_allocate_after_prepare() {
+        let path = write_pcm_fixture();
+        let source = sample_stretch_definition(&path);
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
         let event = [ProcessEvent {
@@ -1502,6 +1569,7 @@ mod tests {
                 },
                 direction: crate::definition::SamplePlaybackDirection::Forward,
                 r#loop: None,
+                time: crate::definition::SampleTimeDefinition::Resample,
             },
         };
         let mut source = definition();

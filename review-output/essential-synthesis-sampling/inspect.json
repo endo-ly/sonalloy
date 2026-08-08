@@ -8,6 +8,7 @@
   },
   "polyphony": 8,
   "voice_stealing": "quietest_releasing_then_oldest",
+  "reported_latency_frames": 0,
   "layer_count": 1,
   "layers": [
     {
@@ -46,6 +47,9 @@
             "loop_start_frame": null,
             "loop_end_frame": null,
             "crossfade_frames": null,
+            "time_mode": "resample",
+            "duration_ratio": null,
+            "source_bpm": null,
             "source_sample_rate": 44100,
             "source_channels": 1,
             "prepared_frames": 67200
@@ -67,6 +71,9 @@
             "loop_start_frame": null,
             "loop_end_frame": null,
             "crossfade_frames": null,
+            "time_mode": "resample",
+            "duration_ratio": null,
+            "source_bpm": null,
             "source_sample_rate": 44100,
             "source_channels": 1,
             "prepared_frames": 67200
@@ -88,6 +95,9 @@
             "loop_start_frame": null,
             "loop_end_frame": null,
             "crossfade_frames": null,
+            "time_mode": "resample",
+            "duration_ratio": null,
+            "source_bpm": null,
             "source_sample_rate": 44100,
             "source_channels": 1,
             "prepared_frames": 67200
@@ -109,6 +119,9 @@
             "loop_start_frame": null,
             "loop_end_frame": null,
             "crossfade_frames": null,
+            "time_mode": "resample",
+            "duration_ratio": null,
+            "source_bpm": null,
             "source_sample_rate": 44100,
             "source_channels": 1,
             "prepared_frames": 34560
@@ -130,6 +143,9 @@
             "loop_start_frame": null,
             "loop_end_frame": null,
             "crossfade_frames": null,
+            "time_mode": "resample",
+            "duration_ratio": null,
+            "source_bpm": null,
             "source_sample_rate": 44100,
             "source_channels": 1,
             "prepared_frames": 34560

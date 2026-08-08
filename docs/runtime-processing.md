@@ -154,7 +154,7 @@ Operatorの`evaluation_order`、`incoming_masks`、`carrier_mask`はCompile時�
 
 ## Sampleの再生
 
-SampleはCompile時にZoneごとのRegion、Direction、Loopへ変換し、同じAssetのPrepared Audioを全Voiceで共有します。Prepared AudioはMonoまたはStereoのPlanar Channelを保持します。Voiceごとに選択Zone、再生位置（Cursor）、Loop状態だけを持ち、Reverse用の複製Bufferは作りません。
+SampleはCompile時にZoneごとのRegion、Direction、Loop、Time Modeへ変換し、同じAssetのPrepared Audioを全Voiceで共有します。Prepared AudioはMonoまたはStereoのPlanar Channelを保持します。Voiceごとに選択Zone、再生位置（Cursor）、Loop状態、必要なStretch Backend状態だけを持ち、Reverse用の複製Bufferは作りません。
 
 - Layer Trigger判定後、NoteとVelocityに一致するZoneを選択します。同じ条件のRound Robin GroupはInstrument単位のCounterをDefinition順に進めます。Voice StealingでNote開始が遅れても、Note Event時点のZone選択を保持します
 - Regionは`[start, end)`で、Compile時にPrepared Frameへ変換します。Endを省略するとAsset終端になります
@@ -163,11 +163,16 @@ SampleはCompile時にZoneごとのRegion、Direction、Loopへ変換し、同�
 - Region外を補間へ参照しません。LoopなしではRegion末尾（Reverseでは先頭）の5msをゼロへFadeし、音が急に切れないようにします
 - LoopはRegion内に置き、ForwardではLoop EndからLoop Startへ、ReverseではLoop StartからLoop End側へ戻ります。Fractional Overshootは`rem_euclid`で保持し、Loop境界の補間はLoop Region内だけを参照します
 - `crossfade_seconds`が0より大きいLoopは、境界付近でLoop終端側と開始側をConstant-powerでBlendします。Crossfade Frame数はCompile時に確定し、Loop長の半分を超える設定は拒否します
+- `resample`は`2^((note - root) / 12) × Tuning Ratio`をCursorの進行速度へ使います。`fixed_stretch`と`tempo_sync`はCursorの進行速度へPitchを混ぜず、Stretch BackendへPitchとInput / Output Frame比を別々に渡します
+- `fixed_stretch`のOutput / Input比はDefinitionの`ratio`、`tempo_sync`の比は`source_bpm / ProcessContext.tempo_bpm`です。Tempoは1回のProcess呼び出し中は一定で、Tempo境界はRendererがBlock境界として扱います
+- Time StretchはStereoの2 Channel BackendをPrepare時に構成し、Pitchを変えずにDurationだけを変えます。ReverseとTime Stretchの組み合わせはDefinitionで拒否します
 - Note OffではPlayback Cursorを止めず、ActiveなLayerのADSR Releaseを進めます。`note_off` LayerはArmed状態からAttackを開始し、EnvelopeとSampleが終わるまでVoiceを保持します
+
+Time Stretch Backendが報告するInput LatencyとOutput LatencyはCompiled Sampleへ保持されます。Instrumentは利用中Layerの最大Output LatencyをReported Latencyとし、同じVoice内の各Layerへ`instrument latency - layer intrinsic latency`の遅延をPrepare時に確保します。これにより、Stretch Sampleと非Stretch LayerのTransient位置を揃えます。
 
 ## 準備とリセット
 
-- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handleを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
+- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time Stretch Scratch、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
 - **Reset**：全Voice、OscillatorとOperatorの位相、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Round Robin Counter、ADSR、Operator Envelope、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
@@ -205,5 +210,6 @@ flowchart LR
 ```
 
 - 長さは「秒 × Sample Rate」を最も近い整数に丸め、TailのFrame数を足します
+- `ProcessContext.tempo_bpm`は正の有限値で、Tempo Mapを使う場合はTempo変更Frameを跨がないBlockへ分割します。MIDI以外のRenderでは中央定義のDefault Tempoまたは指定Tempoを使います
 - 最後のBlockは残りのFrame数だけを処理するので、余分なSampleはできません
 - Coreは`RenderedAudio`（左右のSample列）を返し、WAVへの変換はCLI側の仕事です

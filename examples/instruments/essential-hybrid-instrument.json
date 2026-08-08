@@ -171,9 +171,15 @@
               "velocity_max": 70,
               "round_robin_group": "soft_hits",
               "playback": {
-                "region": { "start_seconds": 0.0, "end_seconds": 0.08 },
+                "region": {
+                  "start_seconds": 0.0,
+                  "end_seconds": 0.08
+                },
                 "direction": "forward",
-                "loop": null
+                "loop": null,
+                "time": {
+                  "mode": "resample"
+                }
               }
             },
             {
@@ -189,9 +195,15 @@
               "velocity_max": 70,
               "round_robin_group": "soft_hits",
               "playback": {
-                "region": { "start_seconds": 0.08, "end_seconds": 0.16 },
+                "region": {
+                  "start_seconds": 0.08,
+                  "end_seconds": 0.16
+                },
                 "direction": "forward",
-                "loop": null
+                "loop": null,
+                "time": {
+                  "mode": "resample"
+                }
               }
             },
             {
@@ -207,9 +219,15 @@
               "velocity_max": 127,
               "round_robin_group": "hard_hits",
               "playback": {
-                "region": { "start_seconds": 0.0, "end_seconds": 0.08 },
+                "region": {
+                  "start_seconds": 0.0,
+                  "end_seconds": 0.08
+                },
                 "direction": "forward",
-                "loop": null
+                "loop": null,
+                "time": {
+                  "mode": "resample"
+                }
               }
             },
             {
@@ -225,9 +243,15 @@
               "velocity_max": 127,
               "round_robin_group": "hard_hits",
               "playback": {
-                "region": { "start_seconds": 0.08, "end_seconds": 0.16 },
+                "region": {
+                  "start_seconds": 0.08,
+                  "end_seconds": 0.16
+                },
                 "direction": "forward",
-                "loop": null
+                "loop": null,
+                "time": {
+                  "mode": "resample"
+                }
               }
             }
           ]

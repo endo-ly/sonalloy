@@ -14,6 +14,7 @@
       "id": "unison_body",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,
@@ -55,6 +56,7 @@
       "id": "hard_sync_lead",
       "enabled": false,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,

@@ -1053,6 +1053,7 @@ fn sample_zone(
             },
             direction: sonalloy_core::SamplePlaybackDirection::Forward,
             r#loop: None,
+            time: sonalloy_core::SampleTimeDefinition::Resample,
         },
     }
 }

@@ -61,7 +61,7 @@ impl ProcessSpec {
 pub struct ProcessContext {
     /// Absolute frame at which the block begins.
     pub absolute_frame: u64,
-    /// Transport tempo. The runtime carries the value but does not use it.
+    /// Transport tempo in beats per minute. It is constant for one process call.
     pub tempo_bpm: f64,
 }
 
@@ -233,6 +233,9 @@ impl ProcessBlock<'_> {
     /// Returns an error when the frame count, channel count, output lengths, or event offsets
     /// violate the process contract.
     pub fn validate_for(&self, spec: ProcessSpec) -> Result<(), ProcessError> {
+        if !self.context.tempo_bpm.is_finite() || self.context.tempo_bpm <= 0.0 {
+            return Err(ProcessError::InvalidTempo);
+        }
         if self.frames > spec.max_block_size {
             return Err(ProcessError::FrameCountExceedsMaximum {
                 frames: self.frames,
@@ -350,6 +353,15 @@ pub enum ProcessError {
     /// An event value is non-finite or outside its normalized range.
     #[error("event value is invalid")]
     InvalidEventValue,
+    /// The process context tempo is non-finite or not positive.
+    #[error("tempo must be finite and greater than zero")]
+    InvalidTempo,
+    /// A tempo-derived stretch ratio is outside the supported range.
+    #[error("stretch ratio {ratio} is outside the supported range 0.5..=2.0")]
+    StretchRatioOutOfRange {
+        /// Invalid duration ratio.
+        ratio: f64,
+    },
     /// A parameter handle is not part of the compiled catalog.
     #[error("parameter handle {handle} is outside the compiled catalog")]
     ParameterHandleOutOfRange {
@@ -436,6 +448,25 @@ impl ProcessError {
             sonalloy_dsp_sys::DspWavefolderError::NullHandle
             | sonalloy_dsp_sys::DspWavefolderError::NativeException
             | sonalloy_dsp_sys::DspWavefolderError::Unknown(_) => DspFailureKind::BackendFailure,
+        };
+        Self::DspFailure { kind }
+    }
+
+    pub(crate) fn from_stretch_error(error: sonalloy_dsp_sys::DspStretchError) -> Self {
+        let kind = match error {
+            sonalloy_dsp_sys::DspStretchError::AllocationFailed => {
+                DspFailureKind::ResourceUnavailable
+            }
+            sonalloy_dsp_sys::DspStretchError::InvalidArgument => DspFailureKind::InvalidInput,
+            sonalloy_dsp_sys::DspStretchError::NotPrepared => DspFailureKind::InvalidState,
+            sonalloy_dsp_sys::DspStretchError::NonFinite => {
+                return Self::ProcessorFailure {
+                    kind: ProcessorFailureKind::NonFinite,
+                };
+            }
+            sonalloy_dsp_sys::DspStretchError::NullHandle
+            | sonalloy_dsp_sys::DspStretchError::NativeException
+            | sonalloy_dsp_sys::DspStretchError::Unknown(_) => DspFailureKind::BackendFailure,
         };
         Self::DspFailure { kind }
     }
@@ -535,6 +566,28 @@ mod tests {
             output: &mut max_output,
         };
         assert!(max_block.validate_for(spec).is_ok());
+    }
+
+    #[test]
+    fn process_block_rejects_invalid_tempo() {
+        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+
+        for tempo_bpm in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            let mut left = [0.0_f32; 1];
+            let mut right = [0.0_f32; 1];
+            let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+            let block = ProcessBlock {
+                frames: 1,
+                context: ProcessContext {
+                    absolute_frame: 0,
+                    tempo_bpm,
+                },
+                events: &[],
+                output: &mut output,
+            };
+
+            assert_eq!(block.validate_for(spec), Err(ProcessError::InvalidTempo));
+        }
     }
 
     #[test]

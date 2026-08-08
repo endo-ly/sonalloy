@@ -21,6 +21,7 @@ flowchart TD
     Core --> Sys[sonalloy-dsp-sys]
     Sys --> ABI[Internal C ABI]
     ABI --> DSP[DaisySP]
+    ABI --> Stretch[Signalsmith Stretch / Linear]
 ```
 
 - `sonalloy-core` は、CLIやclap、hound、midly、C++ヘッダー、Audio Device APIを知りません
@@ -40,11 +41,11 @@ Process仕様と実行時の仕組みを提供します。
 | `compiler` | DefinitionからCompiled Instrumentへの変換、Wavetableの帯域制限Tableと固定Operator Topologyの準備 |
 | `asset` | SHA-256照合、WAV読み込み、Planar Mono / Stereo化、Sample Rate変換、Prepared Audio共有 |
 | `wavetable` | Wavetable AssetのFrame分割、FFT/IFFTによるBand Table生成、Guard Sample付与 |
-| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Wavetable、Operator Modulation、Processor Chain |
-| `render` | Offline Render LoopとEventの供給 |
+| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Time Stretch、Wavetable、Operator Modulation、Processor Chain |
+| `render` | Offline Render Loop、Event、Tempo Mapの供給 |
 | `diagnostics` | 画面表示に依存しないError Code、Severity、Message |
 
-Compileの段階でZoneとWavetableのAsset読み込みを完了し、同じCache Keyを持つDecode済みのMono / Stereo Prepared AudioまたはPrepared Wavetableを`Arc`で共有します。SampleはStereo Channelを保持し、Wavetableだけが既存のMono Preparation契約で処理します。WavetableのFFTとTable生成はCompile中だけ行います。Process中は、Prepareで確保したScratch Buffer、Native Handle、Compiled Generatorだけを使います。
+Compileの段階でZoneとWavetableのAsset読み込みを完了し、同じCache Keyを持つDecode済みのMono / Stereo Prepared AudioまたはPrepared Wavetableを`Arc`で共有します。SampleはStereo Channelを保持し、Wavetableだけが既存のMono Preparation契約で処理します。WavetableのFFTとTable生成、Time StretchのLatency測定はCompile中に行います。Process中は、Prepareで確保したScratch Buffer、Native Handle、Compiled Generator、Layer遅延補償Bufferだけを使います。
 
 Operator Modulationは外部Assetを持たず、4 Operatorの固定TopologyをCompile時に`evaluation_order`、`incoming_masks`、`carrier_mask`へ解決します。Runtimeはこの固定配列とVoiceごとのPhase、Previous Output、Operator Envelopeだけを使い、任意Graphや文字列LookupをProcessへ持ち込みません。
 
@@ -54,6 +55,7 @@ Internal C ABIの宣言と、Raw Pointerを隠蔽するSafe Rust Wrapperを提�
 
 - DaisySP V1.0.0（コミット`a0494a3adb67f549e18dfd71a35fa656f65b38b6`）をCMakeでBuildし、Static LibraryとしてLinkします
 - Native Wrapperは、DaisySPの`oscillator.cpp`、`variableshapeosc.cpp`、`svf.cpp`、MIT版`wavefolder.cpp`をBuild対象に追加します
+- Time Stretch Wrapperは同梱したSignalsmith Stretch 1.3.2（`57b93f4e9206a089a45387eaa39bdc9f310d3308`）とSignalsmith Linear 0.3.1（`5668673560146a9cfe38c25315071e3fd68c8317`）をC++17でBuildします。Build時のNetwork Downloadは行いません
 - DaisySPのClass名やEnumはWrapperの内側に留め、DefinitionやCoreのPublic APIには露出しません。SonalloyのOscillator Waveform、Noise Stream、Output ModeはCoreが所有します
 - Wavefolderは`DspWavefolder`のOpaque Handleへ閉じ込め、CoreへはAmount 0〜1の製品Parameterだけを公開します。DaisySP-LGPLの`Fold`はBuild対象に含めません
 
@@ -69,6 +71,7 @@ C ABIは、`sonalloy-dsp-sys`からNative Wrapperを呼ぶための内部境界�
 typedef struct sonalloy_dsp_oscillator sonalloy_dsp_oscillator;
 typedef struct sonalloy_dsp_variable_oscillator sonalloy_dsp_variable_oscillator;
 typedef struct sonalloy_dsp_filter sonalloy_dsp_filter;
+typedef struct sonalloy_stretch sonalloy_stretch;
 
 sonalloy_dsp_oscillator* sonalloy_dsp_oscillator_create(void);
 int32_t sonalloy_dsp_oscillator_prepare(...);
@@ -92,15 +95,23 @@ int32_t sonalloy_dsp_filter_process(...);
 int32_t sonalloy_dsp_filter_process_ramp(...);
 int32_t sonalloy_dsp_filter_process_ramp_with_resonance(...);
 void sonalloy_dsp_filter_destroy(...);
+sonalloy_stretch* sonalloy_stretch_create(void);
+int32_t sonalloy_stretch_prepare(...);
+int32_t sonalloy_stretch_reset(...);
+int32_t sonalloy_stretch_set_pitch(...);
+int32_t sonalloy_stretch_process(...);
+int32_t sonalloy_stretch_input_latency(...);
+int32_t sonalloy_stretch_output_latency(...);
+void sonalloy_stretch_destroy(...);
 ```
 
-Native関数はNull Handle、引数、Buffer、例外を検査して整数のResult Codeへ変換します。Process中にNative側で新規にメモリを確保することはありません。
+Native関数はNull Handle、引数、Buffer、NaN / Infinity、例外を検査して整数のResult Codeへ変換します。`prepare`でChannel数、Sample Rate、最大Input / Output Frame数を確定し、Process中にNative側のCapacityを増やしません。Rust側はC++ ObjectをOpaque Handleとして所有し、Output LatencyをCompiled Layerへ渡します。
 
 ## Lifecycle
 
 詳しい流れは`docs/runtime-processing.md`の「Lifecycle」を参照してください。ここでは所有関係だけを説明します。
 
 - **Compile**：Definitionを、Parameter Catalog、Source Table、Target別Route Tableを確定した変更不能な`CompiledInstrument`へ変換し、Parameter IDをDense Handleへ解決します（`sonalloy-core`が所有します）
-- **Prepare / Process / Reset**：`InstrumentRuntime`の状態を進めます。Scratch BufferとNative HandleはPrepareで確保し、Process中には拡張しません
+- **Prepare / Process / Reset**：`InstrumentRuntime`の状態を進めます。Scratch Buffer、Time Stretch Backend、Layer遅延補償Buffer、Native HandleはPrepareで確保し、Process中には拡張しません
 
 `CompiledInstrument`はDefinitionのMetadata、Performance、Enabled Layer、Layer/Voice/Global Processor Chain、Parameter Catalog、Source、Route、Asset Warningを保持します。Runtimeが持つBase Smoother、External Control、Voice Source、Generator Cursor、Layer/Voice/Global Processor StateはCompiled値から作る可変状態で、DefinitionやCompiled Instrumentへ書き戻しません。
