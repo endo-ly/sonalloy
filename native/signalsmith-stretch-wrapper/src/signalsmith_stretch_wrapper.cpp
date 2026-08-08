@@ -37,6 +37,11 @@ bool valid_frame_limit(uint32_t frames) {
     return frames > 0 && frames <= static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
 }
 
+bool valid_playback_rate(double playback_rate) {
+    return std::isfinite(playback_rate) && playback_rate > 0.0 &&
+           playback_rate <= static_cast<double>(std::numeric_limits<float>::max());
+}
+
 template <typename Callback>
 int32_t invoke(const Callback& callback) {
     try {
@@ -120,6 +125,42 @@ extern "C" int32_t sonalloy_stretch_set_pitch(sonalloy_stretch* handle, double s
     return invoke([&] { handle->processor.setTransposeSemitones(static_cast<float>(semitones)); });
 }
 
+extern "C" int32_t sonalloy_stretch_seek(
+    sonalloy_stretch* handle,
+    const float* const* input_buffers,
+    uint32_t input_frames,
+    double playback_rate
+) {
+    if (handle == nullptr) {
+        return SONALLOY_STRETCH_NULL_HANDLE;
+    }
+    if (!handle->prepared) {
+        return SONALLOY_STRETCH_NOT_PREPARED;
+    }
+    if (input_buffers == nullptr || input_frames > handle->max_input_frames ||
+        !valid_playback_rate(playback_rate)) {
+        return SONALLOY_STRETCH_INVALID_ARGUMENT;
+    }
+    for (int32_t channel = 0; channel < handle->channels; ++channel) {
+        if (input_frames > 0 && input_buffers[channel] == nullptr) {
+            return SONALLOY_STRETCH_INVALID_ARGUMENT;
+        }
+        for (uint32_t frame = 0; frame < input_frames; ++frame) {
+            if (!std::isfinite(input_buffers[channel][frame])) {
+                return SONALLOY_STRETCH_NON_FINITE;
+            }
+        }
+    }
+    const auto status = invoke([&] {
+        handle->processor.seek(
+            input_buffers,
+            static_cast<int>(input_frames),
+            static_cast<float>(playback_rate)
+        );
+    });
+    return status;
+}
+
 extern "C" int32_t sonalloy_stretch_process(
     sonalloy_stretch* handle,
     const float* const* input_buffers,
@@ -178,6 +219,55 @@ extern "C" int32_t sonalloy_stretch_process(
     return SONALLOY_STRETCH_OK;
 }
 
+extern "C" int32_t sonalloy_stretch_flush(
+    sonalloy_stretch* handle,
+    float* const* output_buffers,
+    uint32_t output_frames
+) {
+    if (handle == nullptr) {
+        return SONALLOY_STRETCH_NULL_HANDLE;
+    }
+    if (!handle->prepared) {
+        return SONALLOY_STRETCH_NOT_PREPARED;
+    }
+    if (output_buffers == nullptr || output_frames > handle->max_output_frames) {
+        return SONALLOY_STRETCH_INVALID_ARGUMENT;
+    }
+    for (int32_t channel = 0; channel < handle->channels; ++channel) {
+        if (output_frames > 0 && output_buffers[channel] == nullptr) {
+            return SONALLOY_STRETCH_INVALID_ARGUMENT;
+        }
+    }
+    const auto status = invoke([&] {
+        handle->processor.flush(output_buffers, static_cast<int>(output_frames));
+    });
+    if (status != SONALLOY_STRETCH_OK) {
+        for (int32_t channel = 0; channel < handle->channels; ++channel) {
+            if (output_buffers[channel] != nullptr) {
+                for (uint32_t frame = 0; frame < output_frames; ++frame) {
+                    output_buffers[channel][frame] = 0.0f;
+                }
+            }
+        }
+        return status;
+    }
+    for (int32_t channel = 0; channel < handle->channels; ++channel) {
+        for (uint32_t frame = 0; frame < output_frames; ++frame) {
+            if (!std::isfinite(output_buffers[channel][frame])) {
+                for (int32_t clear_channel = 0; clear_channel < handle->channels; ++clear_channel) {
+                    if (output_buffers[clear_channel] != nullptr) {
+                        for (uint32_t clear_frame = 0; clear_frame < output_frames; ++clear_frame) {
+                            output_buffers[clear_channel][clear_frame] = 0.0f;
+                        }
+                    }
+                }
+                return SONALLOY_STRETCH_NON_FINITE;
+            }
+        }
+    }
+    return SONALLOY_STRETCH_OK;
+}
+
 extern "C" int32_t sonalloy_stretch_input_latency(const sonalloy_stretch* handle) {
     if (handle == nullptr) {
         return -1;
@@ -196,6 +286,16 @@ extern "C" int32_t sonalloy_stretch_output_latency(const sonalloy_stretch* handl
         return -1;
     }
     return handle->processor.outputLatency();
+}
+
+extern "C" int32_t sonalloy_stretch_interval_samples(const sonalloy_stretch* handle) {
+    if (handle == nullptr) {
+        return -1;
+    }
+    if (!handle->prepared) {
+        return -1;
+    }
+    return handle->processor.intervalSamples();
 }
 
 #ifdef SONALLOY_DSP_TEST_HOOKS

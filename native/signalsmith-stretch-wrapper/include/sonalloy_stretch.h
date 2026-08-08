@@ -31,6 +31,12 @@ int32_t sonalloy_stretch_prepare(
 );
 int32_t sonalloy_stretch_reset(sonalloy_stretch* handle);
 int32_t sonalloy_stretch_set_pitch(sonalloy_stretch* handle, double semitones);
+int32_t sonalloy_stretch_seek(
+    sonalloy_stretch* handle,
+    const float* const* input_buffers,
+    uint32_t input_frames,
+    double playback_rate
+);
 int32_t sonalloy_stretch_process(
     sonalloy_stretch* handle,
     const float* const* input_buffers,
@@ -38,8 +44,14 @@ int32_t sonalloy_stretch_process(
     float* const* output_buffers,
     uint32_t output_frames
 );
+int32_t sonalloy_stretch_flush(
+    sonalloy_stretch* handle,
+    float* const* output_buffers,
+    uint32_t output_frames
+);
 int32_t sonalloy_stretch_input_latency(const sonalloy_stretch* handle);
 int32_t sonalloy_stretch_output_latency(const sonalloy_stretch* handle);
+int32_t sonalloy_stretch_interval_samples(const sonalloy_stretch* handle);
 
 #ifdef SONALLOY_DSP_TEST_HOOKS
 void sonalloy_dsp_test_arm_stretch_process_exception(sonalloy_stretch* handle);

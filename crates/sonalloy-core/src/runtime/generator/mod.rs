@@ -321,6 +321,7 @@ impl GeneratorRuntime {
                 frames,
                 note_number,
                 tuning_start,
+                tuning_end,
                 tempo_bpm,
                 mono,
                 left,

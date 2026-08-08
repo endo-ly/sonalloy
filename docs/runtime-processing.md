@@ -166,10 +166,10 @@ SampleはCompile時にZoneごとのRegion、Direction、Loop、Time Modeへ変�
 - `crossfade_seconds`が0より大きいLoopは、境界付近でLoop終端側と開始側をConstant-powerでBlendします。Crossfade Frame数はCompile時に確定し、Loop長の半分を超える設定は拒否します
 - `resample`は`2^((note - root) / 12) × Tuning Ratio`をCursorの進行速度へ使います。`fixed_stretch`と`tempo_sync`はCursorの進行速度へPitchを混ぜず、Stretch BackendへPitchとInput / Output Frame比を別々に渡します
 - `fixed_stretch`のOutput / Input比はDefinitionの`ratio`、`tempo_sync`の比は`source_bpm / ProcessContext.tempo_bpm`です。Tempoは1回のProcess呼び出し中は一定で、Tempo境界はRendererがBlock境界として扱います
-- Time StretchはStereoの2 Channel BackendをPrepare時に構成し、Pitchを変えずにDurationだけを変えます。ReverseとTime Stretchの組み合わせはDefinitionで拒否します
+- Time StretchはStereoの2 Channel BackendをPrepare時に構成し、Pitchを変えずにDurationだけを変えます。Layer Tuningは`start → end`をBackendの分析Interval境界へ適用し、HostのBlock Sizeによって更新位置を変えません。ReverseとTime Stretchの組み合わせはDefinitionで拒否します
 - Note OffではPlayback Cursorを止めず、ActiveなLayerのADSR Releaseを進めます。`note_off` LayerはArmed状態からAttackを開始し、EnvelopeとSampleが終わるまでVoiceを保持します
 
-Time Stretch Backendが報告するInput LatencyとOutput LatencyはCompiled Sampleへ保持されます。Instrumentは利用中Layerの最大Output LatencyをReported Latencyとし、同じVoice内の各Layerへ`instrument latency - layer intrinsic latency`の遅延をPrepare時に確保します。これにより、Stretch Sampleと非Stretch LayerのTransient位置を揃えます。
+Time Stretch Backendが報告するInput LatencyとOutput LatencyはCompiled Sampleへ保持されます。Note開始時はInput Latency分を`seek`で先行投入し、Instrumentから見える前置きはOutput Latencyだけにします。One-shotはSource終端後にInput Latency分の無音を処理してから`flush`し、内部に残る出力を回収します。Instrumentは利用中Layerの最大Output LatencyをReported Latencyとし、同じVoice内の各Layerへ`instrument latency - layer intrinsic latency`の遅延をPrepare時に確保します。これにより、Stretch Sampleと非Stretch LayerのTransient位置を揃えます。
 
 ## Granular Runtime
 
@@ -198,7 +198,7 @@ Wave Sequenceが最後のOne-shot Stepを終え、Sequence Loopが無効な場�
 
 ## 準備とリセット
 
-- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time Stretch Scratch、Granular Grain Pool、Wave SequenceのPlayback Slot、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
+- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time StretchのInput / Output Latencyを含むScratch、Granular Grain Pool、Wave SequenceのPlayback Slot、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
 - **Reset**：全Voice、OscillatorとOperatorの位相、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Granular Grain Pool / Grain Serial / Scheduler、Wave SequenceのCurrent / Next SlotとStep Cursor、Round Robin Counter、ADSR、Operator Envelope、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です

@@ -1152,7 +1152,7 @@ mod tests {
     }
 
     #[test]
-    fn stretch_render_does_not_allocate_after_prepare() {
+    fn stretch_render_does_not_allocate_in_rust_after_prepare() {
         let path = write_pcm_fixture();
         let source = sample_stretch_definition(&path);
         let mut runtime = runtime_with(&source);

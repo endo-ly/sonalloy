@@ -99,13 +99,16 @@ sonalloy_stretch* sonalloy_stretch_create(void);
 int32_t sonalloy_stretch_prepare(...);
 int32_t sonalloy_stretch_reset(...);
 int32_t sonalloy_stretch_set_pitch(...);
+int32_t sonalloy_stretch_seek(...);
 int32_t sonalloy_stretch_process(...);
+int32_t sonalloy_stretch_flush(...);
 int32_t sonalloy_stretch_input_latency(...);
 int32_t sonalloy_stretch_output_latency(...);
+int32_t sonalloy_stretch_interval_samples(...);
 void sonalloy_stretch_destroy(...);
 ```
 
-Native関数はNull Handle、引数、Buffer、NaN / Infinity、例外を検査して整数のResult Codeへ変換します。`prepare`でChannel数、Sample Rate、最大Input / Output Frame数を確定し、Process中にNative側のCapacityを増やしません。Rust側はC++ ObjectをOpaque Handleとして所有し、Output LatencyをCompiled Layerへ渡します。
+Native関数はNull Handle、引数、Buffer、NaN / Infinity、例外を検査して整数のResult Codeへ変換します。`prepare`でChannel数、Sample Rate、最大Input / Output Frame数を確定し、Process中にNative側のCapacityを増やしません。Stretchの`seek`は開始位置のInput Latencyを先行投入し、`flush`は終端に残るOutputを排出します。Rust側はC++ ObjectをOpaque Handleとして所有し、Output LatencyをCompiled Layerへ渡します。
 
 ## Lifecycle
 

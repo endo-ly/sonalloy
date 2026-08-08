@@ -15,6 +15,14 @@ use super::smoothing::rounded_frame_count;
 
 const END_FADE_SECONDS: f64 = 0.005;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StretchLifecycle {
+    Idle,
+    Processing,
+    Flushing,
+    Finished,
+}
+
 /// Sample playback state owned by a voice layer.
 pub(crate) struct SampleRuntime {
     source: Option<Arc<PreparedAudio>>,
@@ -29,9 +37,16 @@ pub(crate) struct SampleRuntime {
     stretch_input_left: Vec<f32>,
     stretch_input_right: Vec<f32>,
     stretch_input_fraction: f64,
-    stretch_output_frames: u64,
+    stretch_input_latency_frames: usize,
     stretch_latency_frames: usize,
-    stretch_source_exhausted: bool,
+    stretch_interval_frames: usize,
+    stretch_interval_phase: Option<usize>,
+    stretch_source_remaining: usize,
+    stretch_end_input_remaining: usize,
+    stretch_lifecycle: StretchLifecycle,
+    stretch_flush_left: Vec<f32>,
+    stretch_flush_right: Vec<f32>,
+    stretch_flush_position: usize,
     end_fade_frames: usize,
     finished: bool,
 }
@@ -51,9 +66,16 @@ impl SampleRuntime {
             stretch_input_left: Vec::new(),
             stretch_input_right: Vec::new(),
             stretch_input_fraction: 0.0,
-            stretch_output_frames: 0,
+            stretch_input_latency_frames: 0,
             stretch_latency_frames: 0,
-            stretch_source_exhausted: false,
+            stretch_interval_frames: 1,
+            stretch_interval_phase: None,
+            stretch_source_remaining: 0,
+            stretch_end_input_remaining: 0,
+            stretch_lifecycle: StretchLifecycle::Idle,
+            stretch_flush_left: Vec::new(),
+            stretch_flush_right: Vec::new(),
+            stretch_flush_position: 0,
             end_fade_frames: 1,
             finished: false,
         }
@@ -63,30 +85,38 @@ impl SampleRuntime {
         compiled: &CompiledSample,
         spec: crate::process::ProcessSpec,
     ) -> Result<Self, ProcessError> {
-        let stretch_latency_frames = compiled
-            .stretch_latency
-            .map_or(0, |latency| latency.output_frames);
-        let max_input_frames = if compiled.stretch_latency.is_some() {
-            spec.max_block_size
-                .checked_mul(2)
-                .ok_or(ProcessError::InvalidMaxBlockSize)?
-        } else {
-            0
+        let Some(latency) = compiled.stretch_latency else {
+            return Ok(Self::new());
         };
+        let max_block_input_frames = spec
+            .max_block_size
+            .checked_mul(2)
+            .ok_or(ProcessError::InvalidMaxBlockSize)?;
+        let max_input_frames = max_block_input_frames.max(latency.input_frames);
+        let max_output_frames = spec.max_block_size.max(latency.output_frames);
         let stretcher = if max_input_frames > 0 {
             let mut backend = DspStretch::new().map_err(ProcessError::from_stretch_error)?;
             backend
-                .prepare(2, spec.sample_rate, max_input_frames, spec.max_block_size)
+                .prepare(2, spec.sample_rate, max_input_frames, max_output_frames)
                 .map_err(ProcessError::from_stretch_error)?;
-            Some(backend)
+            Some((backend, max_input_frames))
         } else {
             None
         };
         let mut runtime = Self::new();
-        runtime.stretcher = stretcher;
-        runtime.stretch_input_left = vec![0.0; max_input_frames];
-        runtime.stretch_input_right = vec![0.0; max_input_frames];
-        runtime.stretch_latency_frames = stretch_latency_frames;
+        if let Some((backend, max_input_frames)) = stretcher {
+            runtime.stretch_interval_frames = backend
+                .interval_samples()
+                .map_err(ProcessError::from_stretch_error)?
+                .max(1);
+            runtime.stretcher = Some(backend);
+            runtime.stretch_input_left = vec![0.0; max_input_frames];
+            runtime.stretch_input_right = vec![0.0; max_input_frames];
+            runtime.stretch_flush_left = vec![0.0; latency.output_frames];
+            runtime.stretch_flush_right = vec![0.0; latency.output_frames];
+            runtime.stretch_input_latency_frames = latency.input_frames;
+            runtime.stretch_latency_frames = latency.output_frames;
+        }
         Ok(runtime)
     }
 
@@ -110,8 +140,11 @@ impl SampleRuntime {
         self.loop_region = zone.playback.loop_region;
         self.time = zone.playback.time;
         self.stretch_input_fraction = 0.0;
-        self.stretch_output_frames = 0;
-        self.stretch_source_exhausted = false;
+        self.stretch_interval_phase = None;
+        self.stretch_source_remaining = self.end_frame.saturating_sub(self.start_frame);
+        self.stretch_end_input_remaining = 0;
+        self.stretch_lifecycle = StretchLifecycle::Idle;
+        self.stretch_flush_position = 0;
         if let Some(stretcher) = self.stretcher.as_mut() {
             stretcher
                 .reset()
@@ -141,8 +174,11 @@ impl SampleRuntime {
         self.loop_region = None;
         self.time = CompiledSampleTime::Resample;
         self.stretch_input_fraction = 0.0;
-        self.stretch_output_frames = 0;
-        self.stretch_source_exhausted = false;
+        self.stretch_interval_phase = None;
+        self.stretch_source_remaining = 0;
+        self.stretch_end_input_remaining = 0;
+        self.stretch_lifecycle = StretchLifecycle::Idle;
+        self.stretch_flush_position = 0;
         self.end_fade_frames = 1;
         self.finished = false;
         Ok(())
@@ -161,6 +197,7 @@ impl SampleRuntime {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_lines)]
     #[allow(
         clippy::cast_possible_truncation,
         clippy::cast_precision_loss,
@@ -171,6 +208,7 @@ impl SampleRuntime {
         frames: usize,
         note_number: u8,
         tuning_start: f32,
+        tuning_end: f32,
         tempo_bpm: f64,
         mono: &mut [f32],
         left: &mut [f32],
@@ -199,52 +237,114 @@ impl SampleRuntime {
                 ratio: duration_ratio,
             });
         }
-        let semitones =
-            f64::from(note_number) - f64::from(self.root_note) + f64::from(tuning_start) / 100.0;
-        self.stretcher
-            .as_mut()
-            .ok_or(ProcessError::ProcessorFailure {
-                kind: crate::process::ProcessorFailureKind::InvalidState,
-            })?
-            .set_pitch_semitones(semitones)
-            .map_err(ProcessError::from_stretch_error)?;
-        let desired_input = frames as f64 / duration_ratio + self.stretch_input_fraction;
-        let input_frames = desired_input.floor() as usize;
-        self.stretch_input_fraction = desired_input - input_frames as f64;
-        if input_frames > self.stretch_input_left.len() {
+        if !tuning_start.is_finite() || !tuning_end.is_finite() {
             return Err(ProcessError::ProcessorFailure {
-                kind: crate::process::ProcessorFailureKind::InvalidState,
+                kind: crate::process::ProcessorFailureKind::NonFinite,
             });
         }
-        for frame in 0..input_frames {
-            if self.stretch_source_exhausted {
-                self.stretch_input_left[frame] = 0.0;
-                self.stretch_input_right[frame] = 0.0;
+        if frames == 0 {
+            return Ok(self.finished);
+        }
+        if self.stretch_lifecycle == StretchLifecycle::Idle {
+            self.start_stretch(source.as_ref(), duration_ratio)?;
+        }
+
+        let mut output_offset = 0;
+        while output_offset < frames && !self.finished {
+            if self.loop_region.is_none()
+                && self.stretch_source_remaining == 0
+                && self.stretch_end_input_remaining == 0
+            {
+                self.flush_stretch()?;
+                let available = self
+                    .stretch_flush_left
+                    .len()
+                    .saturating_sub(self.stretch_flush_position);
+                if available == 0 {
+                    self.finished = true;
+                    break;
+                }
+                let copy_frames = available.min(frames - output_offset);
+                let flush_end = self.stretch_flush_position + copy_frames;
+                left[output_offset..output_offset + copy_frames].copy_from_slice(
+                    &self.stretch_flush_left[self.stretch_flush_position..flush_end],
+                );
+                right[output_offset..output_offset + copy_frames].copy_from_slice(
+                    &self.stretch_flush_right[self.stretch_flush_position..flush_end],
+                );
+                self.stretch_flush_position = flush_end;
+                output_offset += copy_frames;
+                if self.stretch_flush_position == self.stretch_flush_left.len() {
+                    self.finished = true;
+                    self.stretch_lifecycle = StretchLifecycle::Finished;
+                }
                 continue;
             }
-            let current = read_frame(
-                source.as_ref(),
-                self.position,
-                self.start_frame,
-                self.end_frame,
-                self.loop_region,
-            );
-            let current = self.crossfaded_frame(source.as_ref(), current);
-            self.stretch_input_left[frame] = current.0;
-            self.stretch_input_right[frame] = current.1;
-            self.advance_stretch_input();
+
+            let available_input = if self.loop_region.is_some() {
+                usize::MAX
+            } else {
+                self.stretch_source_remaining
+                    .saturating_add(self.stretch_end_input_remaining)
+            };
+            if available_input == 0 {
+                continue;
+            }
+            let mut process_frames = frames - output_offset;
+            if self.loop_region.is_none() {
+                process_frames = process_frames.min(max_output_for_input(
+                    available_input,
+                    duration_ratio,
+                    self.stretch_input_fraction,
+                ));
+            }
+            if process_frames == 0 {
+                let input_frames = available_input.min(self.stretch_input_left.len());
+                self.fill_stretch_input(source.as_ref(), input_frames)?;
+                self.process_stretch_input_only(input_frames)?;
+                continue;
+            }
+
+            process_frames = process_frames.min(self.next_interval_boundary());
+            if self.stretch_interval_phase.is_none() || self.stretch_interval_phase == Some(0) {
+                let tuning = interpolate_tuning(tuning_start, tuning_end, output_offset, frames);
+                let semitones =
+                    f64::from(note_number) - f64::from(self.root_note) + f64::from(tuning) / 100.0;
+                self.stretcher
+                    .as_mut()
+                    .ok_or(ProcessError::ProcessorFailure {
+                        kind: crate::process::ProcessorFailureKind::InvalidState,
+                    })?
+                    .set_pitch_semitones(semitones)
+                    .map_err(ProcessError::from_stretch_error)?;
+            }
+
+            let desired_input =
+                process_frames as f64 / duration_ratio + self.stretch_input_fraction;
+            let input_frames = desired_input.floor() as usize;
+            self.stretch_input_fraction = desired_input - input_frames as f64;
+            self.fill_stretch_input(source.as_ref(), input_frames)?;
+            let input_left = &self.stretch_input_left[..input_frames];
+            let input_right = &self.stretch_input_right[..input_frames];
+            let input: [&[f32]; 2] = [input_left, input_right];
+            let output_end = output_offset + process_frames;
+            let mut output: [&mut [f32]; 2] = [
+                &mut left[output_offset..output_end],
+                &mut right[output_offset..output_end],
+            ];
+            self.stretcher
+                .as_mut()
+                .ok_or(ProcessError::ProcessorFailure {
+                    kind: crate::process::ProcessorFailureKind::InvalidState,
+                })?
+                .process(&input, &mut output)
+                .map_err(ProcessError::from_stretch_error)?;
+            self.advance_interval_phase(process_frames);
+            output_offset = output_end;
         }
-        let input_left = &self.stretch_input_left[..input_frames];
-        let input_right = &self.stretch_input_right[..input_frames];
-        let input: [&[f32]; 2] = [input_left, input_right];
-        let mut output: [&mut [f32]; 2] = [&mut left[..frames], &mut right[..frames]];
-        self.stretcher
-            .as_mut()
-            .ok_or(ProcessError::ProcessorFailure {
-                kind: crate::process::ProcessorFailureKind::InvalidState,
-            })?
-            .process(&input, &mut output)
-            .map_err(ProcessError::from_stretch_error)?;
+
+        left[output_offset..frames].fill(0.0);
+        right[output_offset..frames].fill(0.0);
         for ((mono, left), right) in mono[..frames]
             .iter_mut()
             .zip(&left[..frames])
@@ -252,17 +352,150 @@ impl SampleRuntime {
         {
             *mono = (*left + *right) * 0.5;
         }
-        self.stretch_output_frames = self.stretch_output_frames.saturating_add(frames as u64);
-        let source_frames = self.end_frame.saturating_sub(self.start_frame) as f64;
-        let target_frames =
-            (source_frames * duration_ratio).ceil() as u64 + self.stretch_latency_frames as u64;
-        if self.loop_region.is_none()
-            && self.stretch_source_exhausted
-            && self.stretch_output_frames >= target_frames
-        {
-            self.finished = true;
-        }
         Ok(self.finished)
+    }
+
+    fn start_stretch(
+        &mut self,
+        source: &PreparedAudio,
+        duration_ratio: f64,
+    ) -> Result<(), ProcessError> {
+        let input_latency = self.stretch_input_latency_frames;
+        if input_latency > self.stretch_input_left.len() {
+            return Err(ProcessError::ProcessorFailure {
+                kind: crate::process::ProcessorFailureKind::InvalidState,
+            });
+        }
+        for frame in 0..input_latency {
+            if self.loop_region.is_none() && self.stretch_source_remaining == 0 {
+                self.stretch_input_left[frame] = 0.0;
+                self.stretch_input_right[frame] = 0.0;
+                continue;
+            }
+            let current = read_frame(
+                source,
+                self.position,
+                self.start_frame,
+                self.end_frame,
+                self.loop_region,
+            );
+            let current = self.crossfaded_frame(source, current);
+            self.stretch_input_left[frame] = current.0;
+            self.stretch_input_right[frame] = current.1;
+            self.advance_stretch_input();
+        }
+        let input_left = &self.stretch_input_left[..input_latency];
+        let input_right = &self.stretch_input_right[..input_latency];
+        let input: [&[f32]; 2] = [input_left, input_right];
+        self.stretcher
+            .as_mut()
+            .ok_or(ProcessError::ProcessorFailure {
+                kind: crate::process::ProcessorFailureKind::InvalidState,
+            })?
+            .seek(&input, 1.0 / duration_ratio)
+            .map_err(ProcessError::from_stretch_error)?;
+        self.stretch_input_fraction = 0.0;
+        self.stretch_end_input_remaining =
+            input_latency.min(self.end_frame.saturating_sub(self.start_frame));
+        self.stretch_interval_phase = None;
+        self.stretch_lifecycle = StretchLifecycle::Processing;
+        Ok(())
+    }
+
+    fn fill_stretch_input(
+        &mut self,
+        source: &PreparedAudio,
+        input_frames: usize,
+    ) -> Result<(), ProcessError> {
+        if input_frames > self.stretch_input_left.len() {
+            return Err(ProcessError::ProcessorFailure {
+                kind: crate::process::ProcessorFailureKind::InvalidState,
+            });
+        }
+        for frame in 0..input_frames {
+            if self.loop_region.is_none() && self.stretch_source_remaining == 0 {
+                if self.stretch_end_input_remaining == 0 {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: crate::process::ProcessorFailureKind::InvalidState,
+                    });
+                }
+                self.stretch_input_left[frame] = 0.0;
+                self.stretch_input_right[frame] = 0.0;
+                self.stretch_end_input_remaining -= 1;
+                continue;
+            }
+            let current = read_frame(
+                source,
+                self.position,
+                self.start_frame,
+                self.end_frame,
+                self.loop_region,
+            );
+            let current = self.crossfaded_frame(source, current);
+            self.stretch_input_left[frame] = current.0;
+            self.stretch_input_right[frame] = current.1;
+            self.advance_stretch_input();
+        }
+        Ok(())
+    }
+
+    fn process_stretch_input_only(&mut self, input_frames: usize) -> Result<(), ProcessError> {
+        let input_left = &self.stretch_input_left[..input_frames];
+        let input_right = &self.stretch_input_right[..input_frames];
+        let input: [&[f32]; 2] = [input_left, input_right];
+        let mut output_left: [&mut [f32]; 2] = [&mut [], &mut []];
+        self.stretcher
+            .as_mut()
+            .ok_or(ProcessError::ProcessorFailure {
+                kind: crate::process::ProcessorFailureKind::InvalidState,
+            })?
+            .process(&input, &mut output_left)
+            .map_err(ProcessError::from_stretch_error)?;
+        self.stretch_input_fraction = 0.0;
+        Ok(())
+    }
+
+    fn flush_stretch(&mut self) -> Result<(), ProcessError> {
+        if matches!(
+            self.stretch_lifecycle,
+            StretchLifecycle::Flushing | StretchLifecycle::Finished
+        ) {
+            return Ok(());
+        }
+        if self.stretch_flush_left.len() != self.stretch_flush_right.len() {
+            return Err(ProcessError::ProcessorFailure {
+                kind: crate::process::ProcessorFailureKind::InvalidState,
+            });
+        }
+        let mut output: [&mut [f32]; 2] =
+            [&mut self.stretch_flush_left, &mut self.stretch_flush_right];
+        self.stretcher
+            .as_mut()
+            .ok_or(ProcessError::ProcessorFailure {
+                kind: crate::process::ProcessorFailureKind::InvalidState,
+            })?
+            .flush(&mut output)
+            .map_err(ProcessError::from_stretch_error)?;
+        self.stretch_lifecycle = if self.stretch_flush_left.is_empty() {
+            StretchLifecycle::Finished
+        } else {
+            StretchLifecycle::Flushing
+        };
+        Ok(())
+    }
+
+    fn next_interval_boundary(&self) -> usize {
+        match self.stretch_interval_phase {
+            None | Some(0) => self.stretch_interval_frames,
+            Some(phase) => self.stretch_interval_frames - phase,
+        }
+    }
+
+    fn advance_interval_phase(&mut self, frames: usize) {
+        self.stretch_interval_phase = Some(match self.stretch_interval_phase {
+            None => frames % self.stretch_interval_frames,
+            Some(phase) => (phase + frames) % self.stretch_interval_frames,
+        });
     }
 
     #[allow(clippy::cast_precision_loss)]
@@ -278,10 +511,8 @@ impl SampleRuntime {
             };
             return;
         }
+        self.stretch_source_remaining = self.stretch_source_remaining.saturating_sub(1);
         self.position = next_position;
-        if self.position >= self.end_frame as f64 {
-            self.stretch_source_exhausted = true;
-        }
     }
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
@@ -451,6 +682,42 @@ pub(crate) fn playback_ratio(note_number: u8, root_note: u8, tuning_ratio: f32) 
     2.0_f64.powf(semitones / 12.0) * f64::from(tuning_ratio)
 }
 
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+fn interpolate_tuning(start: f32, end: f32, frame: usize, frames: usize) -> f32 {
+    if frames == 0 {
+        return start;
+    }
+    let position = (frame as f32 / frames as f32).clamp(0.0, 1.0);
+    start + (end - start) * position
+}
+
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+fn max_output_for_input(input_frames: usize, duration_ratio: f64, input_fraction: f64) -> usize {
+    if input_frames == 0 {
+        return 0;
+    }
+    let limit = (input_frames as f64 + 1.0 - input_fraction) * duration_ratio;
+    let mut output_frames = limit.ceil() as usize;
+    output_frames = output_frames.saturating_sub(1);
+    while output_frames > 0
+        && ((output_frames as f64 / duration_ratio + input_fraction).floor() as usize)
+            > input_frames
+    {
+        output_frames -= 1;
+    }
+    while (output_frames.saturating_add(1) as f64 / duration_ratio + input_fraction).floor()
+        as usize
+        <= input_frames
+    {
+        output_frames = output_frames.saturating_add(1);
+    }
+    output_frames
+}
+
 fn read_frame(
     source: &PreparedAudio,
     position: f64,
@@ -584,7 +851,12 @@ mod tests {
     }
 
     fn stretched_sample(time: CompiledSampleTime) -> CompiledSample {
-        let source = sample(&vec![1.0; 1_024]);
+        let values = vec![1.0; 1_024];
+        stretched_sample_from_values(&values, time)
+    }
+
+    fn stretched_sample_from_values(values: &[f32], time: CompiledSampleTime) -> CompiledSample {
+        let source = sample(values);
         let mut backend = DspStretch::new().expect("stretch allocation");
         backend
             .prepare(2, 48_000.0, 128, 64)
@@ -607,6 +879,48 @@ mod tests {
                 output_frames: output_latency,
             }),
         }
+    }
+
+    fn render_stretch_blocks(
+        compiled: &CompiledSample,
+        block_size: usize,
+        render_frames: usize,
+        tuning_end: f32,
+        tempo_bpm: f64,
+    ) -> Vec<f32> {
+        let spec =
+            crate::process::ProcessSpec::new(48_000.0, 1_024, 2).expect("valid process spec");
+        let mut runtime = SampleRuntime::prepared(compiled, spec).expect("stretch runtime");
+        runtime
+            .start(compiled.zones.first())
+            .expect("sample starts");
+        let mut rendered = Vec::with_capacity(render_frames);
+        let mut offset = 0;
+        while offset < render_frames && !runtime.is_finished() {
+            let frames = block_size.min(render_frames - offset);
+            let mut mono = vec![0.0; frames];
+            let mut left = vec![0.0; frames];
+            let mut right = vec![0.0; frames];
+            #[allow(clippy::cast_precision_loss)]
+            let tuning_start = tuning_end * offset as f32 / render_frames as f32;
+            #[allow(clippy::cast_precision_loss)]
+            let tuning_block_end = tuning_end * (offset + frames) as f32 / render_frames as f32;
+            runtime
+                .render_stretched(
+                    frames,
+                    60,
+                    tuning_start,
+                    tuning_block_end,
+                    tempo_bpm,
+                    &mut mono,
+                    &mut left,
+                    &mut right,
+                )
+                .expect("stretch renders");
+            rendered.extend(left);
+            offset += frames;
+        }
+        rendered
     }
 
     fn zone(source: PreparedAudio, playback: CompiledSamplePlayback) -> CompiledSampleZone {
@@ -886,7 +1200,7 @@ mod tests {
             let mut left = [0.0; 64];
             let mut right = [0.0; 64];
             let finished = runtime
-                .render_stretched(64, 60, 0.0, 120.0, &mut mono, &mut left, &mut right)
+                .render_stretched(64, 60, 0.0, 0.0, 120.0, &mut mono, &mut left, &mut right)
                 .expect("stretch renders");
             rendered.extend(left);
             if finished {
@@ -924,7 +1238,9 @@ mod tests {
                 let mut left = [0.0; 64];
                 let mut right = [0.0; 64];
                 let finished = runtime
-                    .render_stretched(64, 60, 0.0, tempo_bpm, &mut mono, &mut left, &mut right)
+                    .render_stretched(
+                        64, 60, 0.0, 0.0, tempo_bpm, &mut mono, &mut left, &mut right,
+                    )
                     .expect("stretch renders");
                 rendered.extend(left);
                 if finished {
@@ -939,5 +1255,107 @@ mod tests {
         let at_120 = render_length(120.0);
         let at_60 = render_length(60.0);
         assert!(at_60 > at_120);
+    }
+
+    #[test]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    fn fixed_stretch_seek_and_flush_preserve_the_complete_one_shot_duration() {
+        let source_frames = 8_192;
+        for duration_ratio in [0.5, 1.0, 2.0] {
+            let compiled = stretched_sample_from_values(
+                {
+                    let mut values = vec![0.0; source_frames];
+                    values[0] = 1.0;
+                    *values.last_mut().expect("source has a last frame") = 1.0;
+                    values
+                }
+                .as_slice(),
+                CompiledSampleTime::FixedStretch { duration_ratio },
+            );
+            let rendered = render_stretch_blocks(&compiled, 1, 32_000, 0.0, 120.0);
+            let latency = compiled
+                .stretch_latency
+                .expect("stretch latency is compiled")
+                .output_frames;
+            #[allow(clippy::cast_precision_loss)]
+            let expected = (source_frames as f64 * duration_ratio).ceil() as usize + latency;
+            let first = rendered
+                .iter()
+                .position(|sample| sample.abs() > 0.01)
+                .unwrap_or(rendered.len());
+            assert_eq!(rendered.len(), expected, "duration ratio {duration_ratio}");
+            assert_eq!(first, latency, "duration ratio {duration_ratio}");
+            assert!(rendered.iter().all(|sample| sample.is_finite()));
+            assert!(
+                rendered[expected.saturating_sub(latency)..]
+                    .iter()
+                    .any(|sample| sample.abs() > 0.001)
+            );
+        }
+    }
+
+    #[test]
+    fn stretch_tuning_automation_is_independent_of_host_block_size() {
+        let source: Vec<f32> = (0..96_000)
+            .map(|frame| {
+                #[allow(clippy::cast_precision_loss)]
+                let phase = frame as f32 * 2.0 * std::f32::consts::PI * 220.0 / 48_000.0;
+                phase.sin()
+            })
+            .collect();
+        let compiled = stretched_sample_from_values(
+            &source,
+            CompiledSampleTime::FixedStretch {
+                duration_ratio: 1.0,
+            },
+        );
+        let reference = render_stretch_blocks(&compiled, 32, 24_000, 1_200.0, 120.0);
+        for block_size in [257, 1_024] {
+            let candidate = render_stretch_blocks(&compiled, block_size, 24_000, 1_200.0, 120.0);
+            assert_eq!(reference.len(), candidate.len());
+            for (index, (expected, actual)) in reference.iter().zip(&candidate).enumerate() {
+                assert!(
+                    (expected - actual).abs() < 1.0e-5,
+                    "block size {block_size}, frame {index}, expected {expected}, actual {actual}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    fn tempo_sync_seek_and_flush_keep_onset_and_tail_aligned() {
+        let source_frames = 8_192;
+        let mut values = vec![0.0; source_frames];
+        values[0] = 1.0;
+        *values.last_mut().expect("source has a last frame") = 1.0;
+        let compiled = stretched_sample_from_values(
+            &values,
+            CompiledSampleTime::TempoSync { source_bpm: 120.0 },
+        );
+        let latency = compiled
+            .stretch_latency
+            .expect("stretch latency is compiled")
+            .output_frames;
+        for (tempo_bpm, duration_ratio) in [(120.0, 1.0), (60.0, 2.0)] {
+            let rendered = render_stretch_blocks(&compiled, 257, 32_000, 0.0, tempo_bpm);
+            #[allow(clippy::cast_precision_loss)]
+            let expected = (source_frames as f64 * duration_ratio).ceil() as usize + latency;
+            let first = rendered
+                .iter()
+                .position(|sample| sample.abs() > 0.01)
+                .unwrap_or(rendered.len());
+            assert!(
+                rendered.len() >= expected && rendered.len() < expected + 257,
+                "tempo {tempo_bpm}, rendered {}, expected {expected}",
+                rendered.len()
+            );
+            assert_eq!(first, latency, "tempo {tempo_bpm}");
+            assert!(
+                rendered[expected.saturating_sub(latency)..]
+                    .iter()
+                    .any(|sample| sample.abs() > 0.001)
+            );
+        }
     }
 }

@@ -49,6 +49,7 @@ pub struct DspStretch {
     channels: usize,
     max_input_frames: usize,
     max_output_frames: usize,
+    interval_frames: usize,
     prepared: bool,
 }
 
@@ -66,6 +67,7 @@ impl DspStretch {
             channels: 0,
             max_input_frames: 0,
             max_output_frames: 0,
+            interval_frames: 0,
             prepared: false,
         })
     }
@@ -104,6 +106,9 @@ impl DspStretch {
             usize::try_from(max_input_frames).map_err(|_| DspStretchError::InvalidArgument)?;
         self.max_output_frames =
             usize::try_from(max_output_frames).map_err(|_| DspStretchError::InvalidArgument)?;
+        self.interval_frames = latency_from_raw(unsafe {
+            ffi::sonalloy_stretch_interval_samples(self.handle.as_ptr())
+        })?;
         self.prepared = true;
         Ok(())
     }
@@ -132,6 +137,51 @@ impl DspStretch {
             return Err(DspStretchError::NotPrepared);
         }
         let code = unsafe { ffi::sonalloy_stretch_set_pitch(self.handle.as_ptr(), semitones) };
+        result_from_code(code)
+    }
+
+    /// Move the processing position to the supplied input without producing output.
+    ///
+    /// The input should contain the backend's input latency worth of samples when starting a
+    /// fixed-length sound. The playback rate is input frames per output frame.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the input shape, playback rate, or native seek operation is invalid.
+    pub fn seek(&mut self, input: &[&[f32]], playback_rate: f64) -> Result<(), DspStretchError> {
+        if !self.prepared {
+            return Err(DspStretchError::NotPrepared);
+        }
+        if input.len() != self.channels || !playback_rate.is_finite() || playback_rate <= 0.0 {
+            return Err(DspStretchError::InvalidArgument);
+        }
+        let input_frames = input.first().map_or(0, |channel| channel.len());
+        if input.iter().any(|channel| channel.len() != input_frames)
+            || input_frames > self.max_input_frames
+        {
+            return Err(DspStretchError::InvalidArgument);
+        }
+        if input
+            .iter()
+            .flat_map(|channel| channel.iter())
+            .any(|sample| !sample.is_finite())
+        {
+            return Err(DspStretchError::NonFinite);
+        }
+        let mut input_pointers = [std::ptr::null(); 2];
+        for index in 0..self.channels {
+            input_pointers[index] = input[index].as_ptr();
+        }
+        let input_frames =
+            u32::try_from(input_frames).map_err(|_| DspStretchError::InvalidArgument)?;
+        let code = unsafe {
+            ffi::sonalloy_stretch_seek(
+                self.handle.as_ptr(),
+                input_pointers.as_ptr(),
+                input_frames,
+                playback_rate,
+            )
+        };
         result_from_code(code)
     }
 
@@ -202,6 +252,52 @@ impl DspStretch {
         result
     }
 
+    /// Flush the remaining output after all input has reached the processing end.
+    ///
+    /// The native backend is reset by this operation; a subsequent lifecycle should begin with
+    /// seek or reset.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the output shape exceeds prepared capacity or native flushing fails.
+    pub fn flush(&mut self, output: &mut [&mut [f32]]) -> Result<(), DspStretchError> {
+        if !self.prepared {
+            clear_output(output);
+            return Err(DspStretchError::NotPrepared);
+        }
+        if output.len() != self.channels {
+            clear_output(output);
+            return Err(DspStretchError::InvalidArgument);
+        }
+        let output_frames = output.first().map_or(0, |channel| channel.len());
+        if output.iter().any(|channel| channel.len() != output_frames)
+            || output_frames > self.max_output_frames
+        {
+            clear_output(output);
+            return Err(DspStretchError::InvalidArgument);
+        }
+        let mut output_pointers = [std::ptr::null_mut(); 2];
+        for index in 0..self.channels {
+            output_pointers[index] = output[index].as_mut_ptr();
+        }
+        let output_frames = u32::try_from(output_frames).map_err(|_| {
+            clear_output(output);
+            DspStretchError::InvalidArgument
+        })?;
+        let code = unsafe {
+            ffi::sonalloy_stretch_flush(
+                self.handle.as_ptr(),
+                output_pointers.as_mut_ptr(),
+                output_frames,
+            )
+        };
+        let result = result_from_code(code);
+        if result.is_err() {
+            clear_output(output);
+        }
+        result
+    }
+
     /// Return the backend's input-side latency in frames.
     ///
     /// # Errors
@@ -224,6 +320,18 @@ impl DspStretch {
             return Err(DspStretchError::NotPrepared);
         }
         latency_from_raw(unsafe { ffi::sonalloy_stretch_output_latency(self.handle.as_ptr()) })
+    }
+
+    /// Return the backend's spectral analysis interval in frames.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the backend is not prepared or reports an invalid interval.
+    pub fn interval_samples(&self) -> Result<usize, DspStretchError> {
+        if !self.prepared {
+            return Err(DspStretchError::NotPrepared);
+        }
+        Ok(self.interval_frames)
     }
 }
 
@@ -272,6 +380,44 @@ mod tests {
             .expect("stretch preparation");
         assert!(stretch.input_latency().expect("input latency") > 0);
         assert!(stretch.output_latency().expect("output latency") > 0);
+        assert!(stretch.interval_samples().expect("interval") > 0);
+    }
+
+    #[test]
+    fn seek_and_flush_complete_a_prepared_lifecycle() {
+        let mut stretch = DspStretch::new().expect("stretch allocation");
+        stretch
+            .prepare(2, 48_000.0, 8_192, 8_192)
+            .expect("stretch preparation");
+        let input_latency = stretch.input_latency().expect("input latency");
+        let output_latency = stretch.output_latency().expect("output latency");
+        let mut seek_left = vec![0.0; input_latency];
+        let mut seek_right = vec![0.0; input_latency];
+        seek_left[0] = 1.0;
+        seek_right[0] = -1.0;
+        let input: [&[f32]; 2] = [&seek_left, &seek_right];
+        stretch.seek(&input, 1.0).expect("stretch seek");
+        stretch
+            .set_pitch_semitones(0.0)
+            .expect("pitch configuration");
+
+        let empty_left: [f32; 0] = [];
+        let empty_right: [f32; 0] = [];
+        let input: [&[f32]; 2] = [&empty_left, &empty_right];
+        let mut process_left = vec![0.0; 128];
+        let mut process_right = vec![0.0; 128];
+        let mut process_output: [&mut [f32]; 2] = [&mut process_left, &mut process_right];
+        stretch
+            .process(&input, &mut process_output)
+            .expect("stretch process after seek");
+        assert!(process_left.iter().all(|sample| sample.is_finite()));
+
+        let mut flush_left = vec![0.0; output_latency];
+        let mut flush_right = vec![0.0; output_latency];
+        let mut flush_output: [&mut [f32]; 2] = [&mut flush_left, &mut flush_right];
+        stretch.flush(&mut flush_output).expect("stretch flush");
+        assert!(flush_left.iter().all(|sample| sample.is_finite()));
+        assert!(flush_right.iter().all(|sample| sample.is_finite()));
     }
 
     #[test]

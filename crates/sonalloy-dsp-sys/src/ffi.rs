@@ -193,6 +193,12 @@ unsafe extern "C" {
     pub(crate) fn sonalloy_stretch_reset(handle: *mut DspStretch) -> c_int;
     pub(crate) fn sonalloy_stretch_set_pitch(handle: *mut DspStretch, semitones: c_double)
     -> c_int;
+    pub(crate) fn sonalloy_stretch_seek(
+        handle: *mut DspStretch,
+        input_buffers: *const *const c_float,
+        input_frames: c_uint,
+        playback_rate: c_double,
+    ) -> c_int;
     pub(crate) fn sonalloy_stretch_process(
         handle: *mut DspStretch,
         input_buffers: *const *const c_float,
@@ -200,7 +206,13 @@ unsafe extern "C" {
         output_buffers: *mut *mut c_float,
         output_frames: c_uint,
     ) -> c_int;
+    pub(crate) fn sonalloy_stretch_flush(
+        handle: *mut DspStretch,
+        output_buffers: *mut *mut c_float,
+        output_frames: c_uint,
+    ) -> c_int;
     pub(crate) fn sonalloy_stretch_input_latency(handle: *const DspStretch) -> c_int;
     pub(crate) fn sonalloy_stretch_output_latency(handle: *const DspStretch) -> c_int;
+    pub(crate) fn sonalloy_stretch_interval_samples(handle: *const DspStretch) -> c_int;
 
 }
