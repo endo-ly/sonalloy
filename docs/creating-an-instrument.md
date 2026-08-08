@@ -1,6 +1,6 @@
 # 音源（Instrument）の作り方
 
-このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要なら自作WAVをWavetableまたはSampleとして組み込むところまで進みます。
+このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要なら自作WAVをWavetable、Sample、またはGranularとして組み込むところまで進みます。
 
 > **本書の範囲**：音源作成の操作手順（人間向けガイド）です。仕様の詳細は本書に書かず、各仕様文書へ委ねます。
 >
@@ -14,8 +14,8 @@
 ## 全体の流れ
 
 ```text
-ひな形の生成 → 音色の編集 → 検証 → （Wavetable / Sample追加） → 試聴 → 仕上げ
-   Step 1       Step 2     Step 3       Step 4       Step 5   Step 6
+ひな形の生成 → 音色の編集 → 検証 → Sample / Wavetable追加 → Granular追加 → 試聴 → 仕上げ
+   Step 1       Step 2     Step 3       Step 4             Step 5      Step 6   Step 7
 ```
 
 | Step | 内容 | 使うコマンド |
@@ -23,9 +23,10 @@
 | 1 | ひな形の生成（新規の場合のみ） | `instrument init` |
 | 2 | 音色の編集（Layer、ADSR、Processorなど） | エディタでJSONを編集 |
 | 3 | 検証 | `instrument validate` / `instrument inspect` |
-| 4 | 自作WAVをWavetableまたはSampleとして組み込み | SHA-256計算 → JSON編集 |
-| 5 | 試聴 | `render note` / `render midi` |
-| 6 | 仕上げ（名前・説明・関連docsへの反映） | — |
+| 4 | 自作WAVをSampleまたはWavetableとして組み込み | SHA-256計算 → JSON編集 |
+| 5 | 自作WAVをGranularとして組み込み | SHA-256計算 → JSON編集 |
+| 6 | 試聴 | `render note` / `render midi` |
+| 7 | 仕上げ（名前・説明・関連docsへの反映） | — |
 
 ## Step 1. ひな形を生成する
 
@@ -358,7 +359,58 @@ SampleのPath違いやハッシュ不一致の場合は**そのZoneだけが無�
 
 `playback.time`は必須です。通常のSampleは`{"mode": "resample"}`、Pitchを維持してDurationを2倍にする場合は`{"mode": "fixed_stretch", "ratio": 2.0}`、Source BPM 120のLoopをProcess Tempoへ追従させる場合は`{"mode": "tempo_sync", "source_bpm": 120.0}`を指定します。Fixed StretchとTempo SyncのRatioは0.5〜2.0で、Reverseとは併用できません。
 
-## Step 5. 音を出す
+## Step 5. Granularとして使う
+
+録音、Vocal、Field RecordingなどをGrainへ分割して再構成する場合は、Sampleと同じAssetを`granular` Generatorへ指定します。`region`はPrepared Audio内のSource範囲で、`position`はそのRegion内の0〜1です。
+
+```json
+{
+  "id": "texture",
+  "enabled": true,
+  "trigger": {
+    "event": "note_on",
+    "key_min": 0, "key_max": 127,
+    "velocity_min": 1, "velocity_max": 127
+  },
+  "gain_db": -12.0,
+  "pan": 0.0,
+  "tuning_cents": 0.0,
+  "envelope": {
+    "attack_seconds": 0.02,
+    "decay_seconds": 0.1,
+    "sustain_level": 1.0,
+    "release_seconds": 0.4
+  },
+  "generator": {
+    "granular": {
+      "asset": { "path": "../../testdata/assets/my-sample.wav", "sha256": "<計算した値>" },
+      "root_note": 60,
+      "region": { "start_seconds": 0.0, "end_seconds": null },
+      "position": 0.5,
+      "grain_size": 0.08,
+      "density": 24.0,
+      "pitch": 0.0,
+      "randomness": 0.35,
+      "pan_spread": 0.75,
+      "seed": 8128
+    }
+  },
+  "processors": []
+}
+```
+
+| Parameter | Range / Unit | 使い方 |
+|---|---:|---|
+| `position` | 0〜1 | Region内の読出位置。0はStart、1はGrain長を考慮したEnd側。LFOやMod WheelでScrub、固定値でFreeze |
+| `grain_size` | 0.005〜0.5秒 | Hann Windowを適用するGrain長 |
+| `density` | 1〜100 grains/sec | 1秒あたりのGrain数 |
+| `pitch` | -2400〜2400 cents | NoteのPitchとLayer Tuningへ加算 |
+| `randomness` | 0〜1 | Positionの決定的な分散幅 |
+| `pan_spread` | 0〜1 | GrainごとのStereo配置幅 |
+
+`instrument inspect --json`でPrepared状態、Region Frame、6つのParameter ID、Source Channel、Seed、Grain Pool Limitを確認します。GranularはMono AssetでもStereo Generatorとして動作します。Note OffではGrainを破棄せずLayer EnvelopeがReleaseへ進み、Voice StealingまたはReset時だけPoolを初期化します。
+
+## Step 6. 音を出す
 
 **単音の確認**（音色の素性を確かめます）：
 
@@ -391,7 +443,7 @@ sonalloy render midi my-instrument.json \
 
 出力は**32-bit float・2 Channel**のStereo WAVです。Time Stretchを含む場合はReported LatencyがInspectと成功JSONへ表示され、CLIが前置きLatencyを除去してMusical TimelineのFrame 0からWAVを生成します。親Directoryは事前に作成してください。既存のMIDIがなければ、`scripts/review/generate_midi_fixtures.py`で固定のテスト用MIDIを生成できます。
 
-## Step 6. 仕上げる
+## Step 7. 仕上げる
 
 - `metadata.name`と`metadata.description`を実際の音色に合わせます。
 - 音源作成の一連の流れをAgentに実行させる場合は、`.agents/skills/create-instrument/`の手順が利用できます。

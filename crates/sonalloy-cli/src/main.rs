@@ -332,6 +332,31 @@ enum InspectGenerator {
         sample_asset_count: usize,
         sample_zones: Vec<InspectSampleZone>,
     },
+    Granular {
+        output_mode: &'static str,
+        asset_path: String,
+        asset_sha256_specified: bool,
+        prepared: bool,
+        source_channels: Option<usize>,
+        prepared_frames: Option<usize>,
+        region_start_frame: usize,
+        region_end_frame: usize,
+        root_note: u8,
+        position: f32,
+        position_parameter: String,
+        grain_size: f32,
+        grain_size_parameter: String,
+        density: f32,
+        density_parameter: String,
+        pitch: f32,
+        pitch_parameter: String,
+        randomness: f32,
+        randomness_parameter: String,
+        pan_spread: f32,
+        pan_spread_parameter: String,
+        seed: u64,
+        grain_pool_limit: usize,
+    },
     Wavetable {
         output_mode: &'static str,
         asset_path: String,
@@ -1562,6 +1587,9 @@ fn inspect_generator(
                 },
             )
         }
+        sonalloy_core::compiler::CompiledGenerator::Granular(granular) => {
+            inspect_granular_generator(compiled, generator, granular)
+        }
         sonalloy_core::compiler::CompiledGenerator::Wavetable(wavetable) => {
             inspect_wavetable_generator(compiled, generator, wavetable)
         }
@@ -1569,6 +1597,49 @@ fn inspect_generator(
             inspect_operator_generator(compiled, generator, operator)
         }
     }
+}
+
+fn inspect_granular_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    granular: &sonalloy_core::compiler::CompiledGranular,
+) -> (InspectGenerator, &'static str) {
+    let metadata = granular
+        .source
+        .as_ref()
+        .map(|source| &source.source_metadata);
+    (
+        InspectGenerator::Granular {
+            output_mode: output_mode_name(generator.output_mode()),
+            asset_path: granular.asset_path.clone(),
+            asset_sha256_specified: granular.asset_sha256_specified,
+            prepared: granular.source.is_some(),
+            source_channels: metadata.map(|value| value.source_channels),
+            prepared_frames: granular.source.as_ref().map(|source| source.frames),
+            region_start_frame: granular.start_frame,
+            region_end_frame: granular.end_frame,
+            root_note: granular.root_note,
+            position: parameter_default(compiled, granular.parameters.position),
+            position_parameter: parameter_descriptor_id(compiled, granular.parameters.position),
+            grain_size: parameter_default(compiled, granular.parameters.grain_size),
+            grain_size_parameter: parameter_descriptor_id(compiled, granular.parameters.grain_size),
+            density: parameter_default(compiled, granular.parameters.density),
+            density_parameter: parameter_descriptor_id(compiled, granular.parameters.density),
+            pitch: parameter_default(compiled, granular.parameters.pitch),
+            pitch_parameter: parameter_descriptor_id(compiled, granular.parameters.pitch),
+            randomness: parameter_default(compiled, granular.parameters.randomness),
+            randomness_parameter: parameter_descriptor_id(compiled, granular.parameters.randomness),
+            pan_spread: parameter_default(compiled, granular.parameters.pan_spread),
+            pan_spread_parameter: parameter_descriptor_id(compiled, granular.parameters.pan_spread),
+            seed: granular.seed,
+            grain_pool_limit: granular.grain_pool_limit,
+        },
+        if granular.source.is_some() {
+            "enabled"
+        } else {
+            "disabled"
+        },
+    )
 }
 
 fn inspect_oscillator_generator(
@@ -2114,11 +2185,58 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
                 );
             }
         }
+        InspectGenerator::Granular { .. } => print_granular_generator(layer_id, generator),
         InspectGenerator::Wavetable { .. } => print_wavetable_generator(layer_id, generator),
         InspectGenerator::OperatorModulation { .. } => {
             print_operator_generator(layer_id, generator);
         }
     }
+}
+
+fn print_granular_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::Granular {
+        output_mode,
+        asset_path,
+        asset_sha256_specified,
+        prepared,
+        source_channels,
+        prepared_frames,
+        region_start_frame,
+        region_end_frame,
+        root_note,
+        position,
+        position_parameter,
+        grain_size,
+        grain_size_parameter,
+        density,
+        density_parameter,
+        pitch,
+        pitch_parameter,
+        randomness,
+        randomness_parameter,
+        pan_spread,
+        pan_spread_parameter,
+        seed,
+        grain_pool_limit,
+    } = generator
+    else {
+        return;
+    };
+    println!("layer {layer_id}: enabled {prepared} generator granular output_mode {output_mode}");
+    println!(
+        "  asset: {asset_path} sha256_specified: {asset_sha256_specified} source_channels: {} prepared_frames: {}",
+        source_channels.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        prepared_frames.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+    );
+    println!(
+        "  region: {region_start_frame}..{region_end_frame} root_note: {root_note} seed: {seed} grain_pool_limit: {grain_pool_limit}"
+    );
+    println!(
+        "  position: {position:.3} ({position_parameter}) grain_size: {grain_size:.6} s ({grain_size_parameter}) density: {density:.3} /s ({density_parameter})"
+    );
+    println!(
+        "  pitch: {pitch:.3} cents ({pitch_parameter}) randomness: {randomness:.3} ({randomness_parameter}) pan_spread: {pan_spread:.3} ({pan_spread_parameter})"
+    );
 }
 
 fn print_wavetable_generator(layer_id: &str, generator: &InspectGenerator) {

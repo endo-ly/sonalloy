@@ -273,6 +273,7 @@ impl InstrumentRuntime {
             match &layer.generator {
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
+                | CompiledGenerator::Granular(_)
                 | CompiledGenerator::Wavetable(_)
                 | CompiledGenerator::OperatorModulation(_) => {
                     *self
@@ -623,6 +624,7 @@ impl InstrumentProcessor for InstrumentRuntime {
                 CompiledGenerator::Sample(sample) => vec![0; sample.groups.len()],
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
+                | CompiledGenerator::Granular(_)
                 | CompiledGenerator::Wavetable(_)
                 | CompiledGenerator::OperatorModulation(_) => Vec::new(),
             })
@@ -1935,6 +1937,7 @@ mod tests {
                 oscillator.waveform = waveform;
             }
             crate::definition::GeneratorDefinition::Sample(_)
+            | crate::definition::GeneratorDefinition::Granular(_)
             | crate::definition::GeneratorDefinition::Noise(_)
             | crate::definition::GeneratorDefinition::Wavetable(_)
             | crate::definition::GeneratorDefinition::OperatorModulation(_) => {

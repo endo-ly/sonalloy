@@ -155,6 +155,12 @@ pub enum DiagnosticCode {
     /// A time-stretch backend could not be prepared or processed.
     #[serde(rename = "STRETCH_BACKEND_FAILURE")]
     StretchBackendFailure,
+    /// A granular region cannot be represented inside the prepared asset.
+    #[serde(rename = "INVALID_GRAIN_REGION")]
+    InvalidGrainRegion,
+    /// A granular parameter is outside its supported range.
+    #[serde(rename = "INVALID_GRAIN_PARAMETER")]
+    InvalidGrainParameter,
 }
 
 /// A structured, frontend-neutral diagnostic.

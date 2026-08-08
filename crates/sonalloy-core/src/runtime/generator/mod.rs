@@ -1,3 +1,4 @@
+mod granular;
 mod noise;
 mod operator;
 mod oscillator;
@@ -10,6 +11,7 @@ use crate::process::{NoteId, ProcessError, ProcessSpec, ProcessorFailureKind};
 use super::modulation::{LayerGeneratorTargetSpan, ValueSpan};
 use super::sample::{SampleRuntime, playback_ratio};
 
+use granular::GranularRuntime;
 use noise::NoiseRuntime;
 use operator::OperatorModulationRuntime;
 use oscillator::OscillatorRuntime;
@@ -80,6 +82,7 @@ pub(super) enum GeneratorRuntime {
     Oscillator(OscillatorRuntime),
     Noise(Box<NoiseRuntime>),
     Sample { sample: SampleRuntime },
+    Granular(Box<GranularRuntime>),
     Wavetable(WavetableRuntime),
     OperatorModulation(Box<OperatorModulationRuntime>),
 }
@@ -97,6 +100,9 @@ impl GeneratorRuntime {
             CompiledGenerator::Sample(compiled) => Ok(Self::Sample {
                 sample: SampleRuntime::prepared(compiled, spec)?,
             }),
+            CompiledGenerator::Granular(compiled) => {
+                Ok(Self::Granular(Box::new(GranularRuntime::new(compiled)?)))
+            }
             CompiledGenerator::Wavetable(value) => {
                 Ok(Self::Wavetable(WavetableRuntime::new(value, spec)?))
             }
@@ -134,6 +140,7 @@ impl GeneratorRuntime {
                 let zone = selected_index.and_then(|index| compiled.zones.get(index));
                 sample.start(zone)
             }
+            Self::Granular(granular) => granular.start(note_id),
             Self::Wavetable(wavetable) => wavetable.start(),
             Self::OperatorModulation(operator) => {
                 operator.start();
@@ -153,6 +160,7 @@ impl GeneratorRuntime {
             Self::Sample { sample } => sample.intrinsic_latency_frames(),
             Self::Oscillator(_)
             | Self::Noise(_)
+            | Self::Granular(_)
             | Self::Wavetable(_)
             | Self::OperatorModulation(_) => 0,
         }
@@ -213,6 +221,25 @@ impl GeneratorRuntime {
                 left,
                 right,
             ),
+            Self::Granular(granular) => {
+                let LayerGeneratorTargetSpan::Granular { .. } = targets else {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: crate::process::ProcessorFailureKind::InvalidState,
+                    });
+                };
+                granular.render(
+                    frames,
+                    note_number,
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    targets,
+                    mono,
+                    left,
+                    right,
+                )?;
+                Ok(false)
+            }
             Self::Wavetable(wavetable) => {
                 wavetable.render(
                     frames,
@@ -331,6 +358,10 @@ impl GeneratorRuntime {
                 Ok(())
             }
             Self::Sample { sample, .. } => sample.reset(),
+            Self::Granular(granular) => {
+                granular.reset();
+                Ok(())
+            }
             Self::Wavetable(wavetable) => {
                 wavetable.reset();
                 Ok(())

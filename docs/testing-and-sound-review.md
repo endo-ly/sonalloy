@@ -127,4 +127,14 @@ flowchart LR
 - 人間の確認：Key / Velocity境界、Pitch Mapping、Round Robin順、Stereo Image、Reverseの方向感、Loopの周期とClick、Crossfadeの連続性、Release Triggerの発音タイミング、Release中の挙動、Slice範囲、Fixed StretchのPitch保持、Tempo SyncのBPM変化とPitch保持、Stretch Layerと非Stretch LayerのAlignment、Missing Asset時の継続、Pending Note、Hybrid音色としての成立
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
+### Granular Generator
+
+- 保存先：`review-output/granular-generator/`（audio/technical / definitions / events / assets / inspect.json / metrics.json / review-summary.md）
+- 生成：`python scripts/review/generate_granular_package.py`
+- 内容：Granular Pad、Vocal Freeze、Percussion Cloud、Position Scrub、Stereo Source、Polyphonyを同じCLI経路から確認する
+- Metrics：Finite性、Peak / RMS / DC、Stereo差分、Position / Grain Size / Density / Pitch / Randomness / Pan Spreadの出力差分、Seed再現性、Block Size 32 / 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、固定Pool上限
+- 自動確認：Definition Validate、Inspect JSON、6つのParameter Descriptor、Prepared Region、64 Slot Pool、Block Size再現、Sample Rate再生、Seed再現、Scrub / Freezeの非無音性、Stereo Sourceの左右保持、Mono AssetのStereo出力、Polyphonyの有限性。Hann Windowの境界値とProcess中Allocation 0はCore Testで確認する
+- 人間の確認：Grain開始・終了のClick、Densityによる密度感、Grain Sizeの質感、Pitchの変化、Randomnessの空間的な広がり、Pan SpreadのStereo幅、Scrubの追従、Freezeの持続性、Vocal Textureの明瞭さ、Percussion CloudのTransient、Polyphony時の音量と実用性
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
 試聴の際は同じ再生環境・音量で比較し、確認結果を`review-summary.md`へ記録します。

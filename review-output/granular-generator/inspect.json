@@ -1,0 +1,208 @@
+{
+  "status": "ok",
+  "name": "Granular Pad",
+  "metadata": {
+    "name": "Granular Pad",
+    "author": "Sonalloy",
+    "description": "A deterministic granular texture source"
+  },
+  "polyphony": 8,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "reported_latency_frames": 0,
+  "layer_count": 1,
+  "layers": [
+    {
+      "id": "texture",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "granular",
+        "output_mode": "stereo",
+        "asset_path": "../assets/stereo-texture.wav",
+        "asset_sha256_specified": true,
+        "prepared": true,
+        "source_channels": 2,
+        "prepared_frames": 96000,
+        "region_start_frame": 4800,
+        "region_end_frame": 86400,
+        "root_note": 60,
+        "position": 0.45,
+        "position_parameter": "layer.texture.generator.granular_position",
+        "grain_size": 0.08,
+        "grain_size_parameter": "layer.texture.generator.grain_size",
+        "density": 24.0,
+        "density_parameter": "layer.texture.generator.grain_density",
+        "pitch": 0.0,
+        "pitch_parameter": "layer.texture.generator.grain_pitch",
+        "randomness": 0.3,
+        "randomness_parameter": "layer.texture.generator.grain_randomness",
+        "pan_spread": 0.8,
+        "pan_spread_parameter": "layer.texture.generator.grain_pan_spread",
+        "seed": 8128,
+        "grain_pool_limit": 64
+      },
+      "asset_status": "enabled",
+      "gain_db": -3.0,
+      "gain_linear": 0.70794576,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 480,
+        "decay_samples": 1920,
+        "sustain_level": 1.0,
+        "release_samples": 8640
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "parameters": [
+    {
+      "id": "layer.texture.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -3.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.texture.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.texture.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.texture.generator.granular_position",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.45,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.texture.generator.grain_size",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "seconds",
+      "min": 0.005,
+      "max": 0.5,
+      "default": 0.08,
+      "scale": "log2",
+      "smoothing_seconds": 0.01
+    },
+    {
+      "id": "layer.texture.generator.grain_density",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "per_second",
+      "min": 1.0,
+      "max": 100.0,
+      "default": 24.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.01
+    },
+    {
+      "id": "layer.texture.generator.grain_pitch",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -2400.0,
+      "max": 2400.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.texture.generator.grain_randomness",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.3,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    },
+    {
+      "id": "layer.texture.generator.grain_pan_spread",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.8,
+      "scale": "linear",
+      "smoothing_seconds": 0.01
+    }
+  ],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity"
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking"
+    }
+  ],
+  "routes": []
+}

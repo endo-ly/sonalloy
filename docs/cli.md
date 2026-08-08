@@ -58,6 +58,7 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Oscillator | Waveform、Phase Reset、Phase、Backend、Output Mode、Effective Frequency上限、Pulse Width（Pulseのみ）、Hard Sync、Waveshaping、Phase Distortion、Wavefold、Oscillator Feedback、DC Blocker、Signal Order、Unison |
 | Noise | Color、Seed、Stereo Correlation Parameter、Output Mode |
 | Wavetable | Asset Path、SHA指定有無、Prepared状態、Source Channel / Frame Count、Frame Length / Count、Band Count / Max Harmonic、Position、Parameter ID、Phase、Unison、Output Mode、Effective Frequency上限 |
+| Granular | Asset Path、SHA指定有無、Prepared状態、Source Channel / Prepared Frame、Region、Root Note、Position、Grain Size、Density、Pitch、Randomness、Pan Spread、各Parameter ID、Seed、Grain Pool Limit、Output Mode |
 | Operator Modulation | Mode、Algorithm、Evaluation Order、Incoming Mask、Carrier Operator、4 OperatorのRatio / Detune / Level / Modulation Amount / Feedback / Envelope / Parameter ID、Phase Reset、Unison、Output Mode、Effective Frequency上限 |
 | Sample | Zone Count、Enabled / Disabled Count、Prepared Asset共有数、Zone ID、Key / Velocity範囲、Root Note、Round Robin Group、Playback Region、Direction、Loop / Crossfade Frame、Time Mode、Duration Ratio / Source BPM、Asset Metadata、Output Mode |
 | Parameter | Canonical ID、Owner、Unit、Range、Default、Scale、Smoothing |

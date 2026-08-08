@@ -92,7 +92,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 |---|---|
 | `schema_version` | 1のみ |
 | `layers` | 1個以上。複数のLayerは書かれた順に同じVoiceへMixされます。`enabled`が`false`のLayerはCompile対象外 |
-| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、または`sample` |
+| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、`sample`、または`granular` |
 | `processors` | Layerごとの直列Processor配列。書かれた順にGeneratorとLayer Mixの間で適用 |
 | `voice_processors` | Voice Mix後に適用する直列Processor配列 |
 | `global_processors` | Voice Sum後にInstrument全体へ適用する直列Processor配列 |
@@ -111,7 +111,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 | Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
 | LFO | Rate 0.01〜40Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
-| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|unison_detune\|unison_spread\|noise_correlation)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
+| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|unison_detune\|unison_spread\|noise_correlation\|granular_position\|grain_size\|grain_density\|grain_pitch\|grain_randomness\|grain_pan_spread)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
 | 未知のField | JSON Parse Errorとして扱います |
 | 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Layer / Voice / Global Processor状態、Scratch Buffer |
 
@@ -280,6 +280,61 @@ Dynamic Parameterは次のCanonical IDを持ちます。
 
 Assetの欠落・Hash不一致・Decode失敗ではWavetable Layerだけを発音候補から除外し、ほかの有効LayerはCompileとRenderを継続します。レイアウト不正や全Frame無音はWavetableを準備できない診断になります。
 
+### Granular
+
+Granularは一つのPrepared AudioをCompile時にRegionへ変換し、Noteごとに固定Poolから複数のGrainを生成するGeneratorです。Sample GeneratorのPlayback Modeではなく、独立したGeneratorとしてLayerへ配置します。Mono AssetもGrainごとにConstant-powerでStereo配置するため、出力はStereoです。
+
+```json
+{
+  "generator": {
+    "granular": {
+      "asset": {
+        "path": "../../testdata/assets/metal-hit.wav",
+        "sha256": "<SHA-256>"
+      },
+      "root_note": 60,
+      "region": {
+        "start_seconds": 0.05,
+        "end_seconds": 0.9
+      },
+      "position": 0.5,
+      "grain_size": 0.08,
+      "density": 24.0,
+      "pitch": 0.0,
+      "randomness": 0.35,
+      "pan_spread": 0.75,
+      "seed": 8128
+    }
+  }
+}
+```
+
+| Field | Range / Unit | Dynamic | Meaning |
+|---|---:|---:|---|
+| `asset` | — | No | MonoまたはStereoのWAV Asset。Sampleと同じPrepared Audioを共有 |
+| `root_note` | 0〜127 | No | Sourceの基準MIDI Note |
+| `region.start_seconds` / `end_seconds` | 0以上の秒 | No | Grain Positionが参照するPrepared Region。End省略時はAsset終端 |
+| `position` | 0〜1 | Yes | Region内の基本Source Position。0はRegion Start、1はGrain長を考慮したRegion End側 |
+| `grain_size` | 0.005〜0.5秒 | Yes | Hann Windowを適用するGrain長 |
+| `density` | 1〜100 grains/sec | Yes | Grain Schedulerの生成密度 |
+| `pitch` | -2400〜2400 cents | Yes | Note / Layer Tuningへ加算するGrain Pitch |
+| `randomness` | 0〜1 | Yes | Deterministic RandomでRegion内へ分散する量 |
+| `pan_spread` | 0〜1 | Yes | GrainごとのStereo配置幅 |
+| `seed` | uint64 | No | Grain Position / Panの決定的Seed |
+
+WindowはHann固定で、Window種別をDefinitionへ公開しません。GrainはCompile時に確保した64 Slotの固定Poolを再利用し、最大Densityと最大Grain SizeでもPoolを超えない範囲で動作します。PositionがRegion外へ回り込むRandom結果は循環し、実際のGrain長とPitchを考慮してRegion外をReadしません。
+
+Canonical Parameter IDは次の形式です。
+
+- `layer.<layer_id>.generator.granular_position`（Normalized、0〜1、5ms）
+- `layer.<layer_id>.generator.grain_size`（Seconds、0.005〜0.5、Log2、10ms）
+- `layer.<layer_id>.generator.grain_density`（Per Second、1〜100、Log2、10ms）
+- `layer.<layer_id>.generator.grain_pitch`（Cents、-2400〜2400、5ms）
+- `layer.<layer_id>.generator.grain_randomness`（Normalized、0〜1、10ms）
+- `layer.<layer_id>.generator.grain_pan_spread`（Normalized、0〜1、10ms）
+
+Assetの欠落・Hash不一致・Decode失敗ではGranular Layerを発音候補から除外し、ほかの有効LayerはCompileとRenderを継続します。RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Parameter範囲違反は`INVALID_GRAIN_PARAMETER`を返します。
+
 ### Operator Modulation
 
 Operator Modulationは4つのSine Operatorを固定Topologyで接続するGeneratorです。Definitionでは利用者向けのOperator番号を1〜4で記述し、Compile後は固定配列へ変換します。接続Algorithmは`stack_4`、`stack_3_plus_carrier`、`two_stacks`、`fork_to_carrier`、`two_modulators_plus_carrier`、`three_modulators`、`shared_modulator`、`parallel`です。任意の接続GraphやOperator間Cycleは指定できません。
@@ -372,7 +427,7 @@ Dynamic ParameterはTopologyとModeに応じて次を公開します。
 
 OperatorのEffective Frequency上限はPhase / Frequencyで`Sample Rate × 0.24`、Amplitude / Ringで`Sample Rate × 0.45`です。詳細なTopologyとSignal順序は[`docs/runtime-processing.md`](runtime-processing.md)を参照してください。
 
-Generator ParameterはLayer Gain / Pan / Tuningの後、Layer Processorの前にParameter Catalogへ追加されます。Sample GeneratorにはGenerator Dynamic Parameterはありません。
+Generator ParameterはLayer Gain / Pan / Tuningの後、Layer Processorの前にParameter Catalogへ追加されます。Sample GeneratorのZone構造はStaticで、Granular Generatorの6 ParameterはDynamicです。
 
 ## Processor Chain
 
@@ -616,6 +671,7 @@ Compileで一度だけ計算します。
 | dB → Gain | `gain_db`を線形のGainへ |
 | cent → 音程比 | `tuning_cents`を再生速度の比へ |
 | ADSRの秒 → Frame数 | Sample Rateに依存するFrame数へ |
+| Granular Regionの秒 → Frame数 | Prepared Audio内の固定Regionへ |
 | Filter Cutoff | Sample Rateの上限へ制限 |
 | Parameter Catalog | LayerとProcessorの連続Parameterへ安定ID、範囲、Scale、Smoothingを割り当て |
 | Modulation | SourceをDense Tableへ、RouteをTarget別の範囲へ変換 |

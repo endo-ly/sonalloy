@@ -8,17 +8,20 @@ use crate::asset::{
 };
 use crate::definition::{
     AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
-    GeneratorDefinition, InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform,
-    ModulationCurve, ModulationSourceDefinition, NoiseColor, OperatorAlgorithm,
-    OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition, OscillatorWaveform,
-    ProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition,
-    SampleZoneDefinition, UnisonDefinition, VoiceStealingDefinition, WavetableDefinition,
+    GeneratorDefinition, GranularDefinition, InstrumentDefinition, LayerTriggerEvent,
+    LfoDefinition, LfoWaveform, ModulationCurve, ModulationSourceDefinition, NoiseColor,
+    OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition,
+    OscillatorWaveform, ProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection,
+    SampleTimeDefinition, SampleZoneDefinition, UnisonDefinition, VoiceStealingDefinition,
+    WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
-    BASIC_FREQUENCY_LIMIT_RATIO, GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK,
-    PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
-    UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION, effective_max_frequency,
+    BASIC_FREQUENCY_LIMIT_RATIO, GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS,
+    GRAIN_SIZE, GRANULAR_GRAIN_POOL_LIMIT, GRANULAR_POSITION, GeneratorParameterSpec,
+    NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO,
+    PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+    effective_max_frequency,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
@@ -210,6 +213,8 @@ pub enum CompiledGenerator {
     Noise(CompiledNoise),
     /// Prepared sample generator.
     Sample(CompiledSample),
+    /// Prepared granular generator.
+    Granular(CompiledGranular),
     /// Prepared band-limited wavetable generator.
     Wavetable(CompiledWavetable),
     /// Fixed-topology four-operator modulation generator.
@@ -237,7 +242,7 @@ impl CompiledGenerator {
                     GeneratorOutputMode::Stereo
                 }
             }
-            Self::Noise(_) => GeneratorOutputMode::Stereo,
+            Self::Noise(_) | Self::Granular(_) => GeneratorOutputMode::Stereo,
             Self::Sample(value) => value.output_mode(),
             Self::Wavetable(value) => {
                 if value.unison.position_distribution.len() == 1 {
@@ -265,6 +270,7 @@ impl CompiledGenerator {
                 .map_or(0, |latency| latency.output_frames),
             Self::Oscillator(_)
             | Self::Noise(_)
+            | Self::Granular(_)
             | Self::Wavetable(_)
             | Self::OperatorModulation(_) => 0,
         }
@@ -273,6 +279,7 @@ impl CompiledGenerator {
     pub(crate) fn is_available(&self) -> bool {
         match self {
             Self::Oscillator(_) | Self::Noise(_) | Self::OperatorModulation(_) => true,
+            Self::Granular(value) => value.source.is_some(),
             Self::Sample(value) => value.zones.iter().any(CompiledSampleZone::is_enabled),
             Self::Wavetable(value) => value.prepared.is_some(),
         }
@@ -399,6 +406,48 @@ impl CompiledSample {
             GeneratorOutputMode::Mono
         }
     }
+}
+
+/// Dynamic parameter handles owned by a compiled Granular Generator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledGranularParameters {
+    /// Grain source position handle.
+    pub position: ParameterHandle,
+    /// Grain duration in seconds handle.
+    pub grain_size: ParameterHandle,
+    /// Grain density per second handle.
+    pub density: ParameterHandle,
+    /// Grain pitch offset in cents handle.
+    pub pitch: ParameterHandle,
+    /// Source position randomization handle.
+    pub randomness: ParameterHandle,
+    /// Per-grain stereo spread handle.
+    pub pan_spread: ParameterHandle,
+}
+
+/// Compiled granular generator and its shared prepared source.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledGranular {
+    /// Prepared source shared by all voices.
+    pub source: Option<Arc<PreparedAudio>>,
+    /// Asset path as written in the Definition.
+    pub asset_path: String,
+    /// Whether the Definition supplied an asset hash.
+    pub asset_sha256_specified: bool,
+    /// MIDI note represented by the source recording.
+    pub root_note: u8,
+    /// Inclusive region start in prepared frames.
+    pub start_frame: usize,
+    /// Exclusive region end in prepared frames.
+    pub end_frame: usize,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledGranularParameters,
+    /// Explicit deterministic grain seed.
+    pub seed: u64,
+    /// Stable hash of the owning layer identifier.
+    pub layer_hash: u64,
+    /// Maximum active grains per voice.
+    pub grain_pool_limit: usize,
 }
 
 /// Compiled Sample Zone and its prepared Asset.
@@ -1679,6 +1728,16 @@ fn compile_generator(
             asset_cache,
             diagnostics,
         )),
+        GeneratorDefinition::Granular(granular) => CompiledGenerator::Granular(compile_granular(
+            granular,
+            layer_index,
+            layer_id,
+            catalog,
+            definition_base_dir,
+            sample_rate,
+            asset_cache,
+            diagnostics,
+        )),
         GeneratorDefinition::Wavetable(wavetable) => {
             CompiledGenerator::Wavetable(compile_wavetable(
                 wavetable,
@@ -2074,6 +2133,127 @@ fn report_wavetable_preparation_error(
 }
 
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments)]
+fn compile_granular(
+    granular: &GranularDefinition,
+    layer_index: usize,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledGranular {
+    let granular_path = format!("layers[{layer_index}].generator.granular");
+    let mut source = None;
+    let mut start_frame = 0;
+    let mut end_frame = 0;
+    if Path::new(&granular.asset.path).is_absolute() {
+        diagnostics.push(
+            Diagnostic::warning(
+                DiagnosticCode::AssetAbsolutePath,
+                "absolute asset paths reduce Definition portability",
+            )
+            .with_path(format!("{granular_path}.asset.path")),
+        );
+    }
+    match prepare_cached_asset(
+        &granular.asset,
+        definition_base_dir,
+        sample_rate,
+        asset_cache,
+    ) {
+        Ok(prepared) => {
+            if granular.asset.sha256.is_none() {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::AssetHashMissing,
+                        "asset sha256 is not specified",
+                    )
+                    .with_path(format!("{granular_path}.asset.sha256")),
+                );
+            }
+            if (f64::from(prepared.audio.source_metadata.source_sample_rate) - sample_rate).abs()
+                > f64::EPSILON
+            {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::AssetResampled,
+                        "asset was resampled to the process sample rate",
+                    )
+                    .with_path(format!("{granular_path}.asset.path")),
+                );
+            }
+            let region_start = granular_time_to_frame(
+                granular.region.start_seconds,
+                sample_rate,
+                &granular_path,
+                "region.start_seconds",
+                diagnostics,
+            );
+            let region_end =
+                granular
+                    .region
+                    .end_seconds
+                    .map_or(Some(prepared.audio.frames), |seconds| {
+                        granular_time_to_frame(
+                            seconds,
+                            sample_rate,
+                            &granular_path,
+                            "region.end_seconds",
+                            diagnostics,
+                        )
+                    });
+            if let (Some(region_start), Some(region_end)) = (region_start, region_end) {
+                if region_start < region_end
+                    && region_end <= prepared.audio.frames
+                    && region_end - region_start >= 2
+                {
+                    source = Some(Arc::clone(&prepared.audio));
+                    start_frame = region_start;
+                    end_frame = region_end;
+                } else {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::InvalidGrainRegion,
+                            "granular region must contain at least two prepared frames",
+                        )
+                        .with_path(format!("{granular_path}.region")),
+                    );
+                }
+            }
+        }
+        Err(error) => {
+            let (code, message) = asset_diagnostic(&error);
+            diagnostics.push(
+                Diagnostic::warning(code, message)
+                    .with_path(format!("{granular_path}.asset.path"))
+                    .with_detail(error.to_string()),
+            );
+        }
+    }
+    CompiledGranular {
+        source,
+        asset_path: granular.asset.path.clone(),
+        asset_sha256_specified: granular.asset.sha256.is_some(),
+        root_note: granular.root_note,
+        start_frame,
+        end_frame,
+        parameters: CompiledGranularParameters {
+            position: generator_parameter_handle(catalog, layer_id, GRANULAR_POSITION),
+            grain_size: generator_parameter_handle(catalog, layer_id, GRAIN_SIZE),
+            density: generator_parameter_handle(catalog, layer_id, GRAIN_DENSITY),
+            pitch: generator_parameter_handle(catalog, layer_id, GRAIN_PITCH),
+            randomness: generator_parameter_handle(catalog, layer_id, GRAIN_RANDOMNESS),
+            pan_spread: generator_parameter_handle(catalog, layer_id, GRAIN_PAN_SPREAD),
+        },
+        seed: granular.seed,
+        layer_hash: source_id_hash(layer_id),
+        grain_pool_limit: GRANULAR_GRAIN_POOL_LIMIT,
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 fn compile_sample(
     sample: &crate::definition::SampleDefinition,
     layer_index: usize,
@@ -2419,6 +2599,30 @@ fn sample_time_to_frame(
             Diagnostic::error(
                 DiagnosticCode::CompileError,
                 "sample playback time does not fit in the process frame counter",
+            )
+            .with_path(format!("{path}.{field}")),
+        );
+        return None;
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    Some(frames as usize)
+}
+
+fn granular_time_to_frame(
+    seconds: f32,
+    sample_rate: f64,
+    path: &str,
+    field: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<usize> {
+    let frames = (f64::from(seconds) * sample_rate).round();
+    #[allow(clippy::cast_precision_loss)]
+    let max_usize = usize::MAX as f64;
+    if !frames.is_finite() || frames < 0.0 || frames > max_usize {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidGrainRegion,
+                "granular region time does not fit in the process frame counter",
             )
             .with_path(format!("{path}.{field}")),
         );

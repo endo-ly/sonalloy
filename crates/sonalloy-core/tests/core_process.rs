@@ -1181,6 +1181,7 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Granular(_)
         | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
         | sonalloy_core::compiler::CompiledGenerator::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
@@ -1789,6 +1790,7 @@ fn sample_without_hash_is_enabled_with_a_warning() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Granular(_)
         | sonalloy_core::GeneratorDefinition::Wavetable(_)
         | sonalloy_core::GeneratorDefinition::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
@@ -1816,6 +1818,7 @@ fn sample_without_hash_is_enabled_with_a_warning() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Granular(_)
         | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
         | sonalloy_core::compiler::CompiledGenerator::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
@@ -1836,6 +1839,7 @@ fn absolute_sample_path_is_enabled_with_a_warning() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Granular(_)
         | sonalloy_core::GeneratorDefinition::Wavetable(_)
         | sonalloy_core::GeneratorDefinition::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
@@ -1867,6 +1871,7 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Granular(_)
         | sonalloy_core::GeneratorDefinition::Wavetable(_)
         | sonalloy_core::GeneratorDefinition::OperatorModulation(_) => {
             panic!("attack layer must be a sample")
@@ -1896,6 +1901,7 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Granular(_)
         | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
         | sonalloy_core::compiler::CompiledGenerator::OperatorModulation(_) => {
             panic!("attack layer must be a sample")

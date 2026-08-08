@@ -4,6 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::generator_parameters::{
+    GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION,
     NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN,
     OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN,
     OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
@@ -135,6 +136,8 @@ pub enum GeneratorDefinition {
     Noise(NoiseDefinition),
     /// A mapped sample instrument loaded during compilation.
     Sample(SampleDefinition),
+    /// A deterministic grain-based reconstruction of a prepared audio asset.
+    Granular(GranularDefinition),
     /// A band-limited wavetable prepared from a mono or stereo asset.
     Wavetable(WavetableDefinition),
     /// A fixed-topology four-operator modulation generator.
@@ -245,6 +248,32 @@ pub struct SampleDefinition {
     pub interpolation: SampleInterpolation,
     /// Ordered key, velocity, and playback zones.
     pub zones: Vec<SampleZoneDefinition>,
+}
+
+/// Granular generator settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GranularDefinition {
+    /// Referenced mono or stereo audio asset.
+    pub asset: AssetReference,
+    /// MIDI note represented by the source recording.
+    pub root_note: u8,
+    /// Region from which grains are selected, expressed in source seconds.
+    pub region: SampleRegionDefinition,
+    /// Initial normalized position inside the region.
+    pub position: f32,
+    /// Grain duration in seconds.
+    pub grain_size: f32,
+    /// Grain density in grains per second.
+    pub density: f32,
+    /// Grain pitch offset in cents.
+    pub pitch: f32,
+    /// Normalized source-position randomization amount.
+    pub randomness: f32,
+    /// Normalized per-grain stereo spread.
+    pub pan_spread: f32,
+    /// Explicit deterministic grain seed.
+    pub seed: u64,
 }
 
 /// Wavetable generator settings.
@@ -898,6 +927,9 @@ impl InstrumentDefinition {
                 GeneratorDefinition::Sample(sample) => {
                     validate_sample(&mut diagnostics, &path, sample);
                 }
+                GeneratorDefinition::Granular(granular) => {
+                    validate_granular(&mut diagnostics, &path, granular);
+                }
                 GeneratorDefinition::Wavetable(wavetable) => {
                     validate_wavetable(&mut diagnostics, &path, wavetable);
                 }
@@ -1384,6 +1416,117 @@ fn validate_asset_reference(diagnostics: &mut Vec<Diagnostic>, path: &str, asset
                 .with_path(format!("{path}.asset.sha256")),
             );
         }
+    }
+}
+
+fn validate_granular(diagnostics: &mut Vec<Diagnostic>, path: &str, granular: &GranularDefinition) {
+    let granular_path = format!("{path}.generator.granular");
+    validate_asset_reference(diagnostics, &granular_path, &granular.asset);
+    validate_range(
+        diagnostics,
+        format!("{granular_path}.root_note"),
+        f32::from(granular.root_note),
+        0.0..=127.0,
+        "granular root_note must be between 0 and 127",
+    );
+    validate_granular_seconds(
+        diagnostics,
+        &granular_path,
+        "region.start_seconds",
+        granular.region.start_seconds,
+    );
+    if let Some(end_seconds) = granular.region.end_seconds {
+        validate_granular_seconds(
+            diagnostics,
+            &granular_path,
+            "region.end_seconds",
+            end_seconds,
+        );
+        if granular.region.start_seconds.is_finite()
+            && end_seconds.is_finite()
+            && end_seconds <= granular.region.start_seconds
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::InvalidGrainRegion,
+                    "granular region end must be greater than start",
+                )
+                .with_path(format!("{granular_path}.region.end_seconds")),
+            );
+        }
+    }
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.position"),
+        granular.position,
+        GRANULAR_POSITION.min..=GRANULAR_POSITION.max,
+        "granular position must be finite and between 0 and 1",
+    );
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.grain_size"),
+        granular.grain_size,
+        GRAIN_SIZE.min..=GRAIN_SIZE.max,
+        "granular grain_size must be finite and between 0.005 and 0.5 seconds",
+    );
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.density"),
+        granular.density,
+        GRAIN_DENSITY.min..=GRAIN_DENSITY.max,
+        "granular density must be finite and between 1 and 100 grains per second",
+    );
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.pitch"),
+        granular.pitch,
+        GRAIN_PITCH.min..=GRAIN_PITCH.max,
+        "granular pitch must be finite and between -2400 and 2400 cents",
+    );
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.randomness"),
+        granular.randomness,
+        GRAIN_RANDOMNESS.min..=GRAIN_RANDOMNESS.max,
+        "granular randomness must be finite and between 0 and 1",
+    );
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.pan_spread"),
+        granular.pan_spread,
+        GRAIN_PAN_SPREAD.min..=GRAIN_PAN_SPREAD.max,
+        "granular pan_spread must be finite and between 0 and 1",
+    );
+}
+
+fn validate_granular_seconds(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    field: &str,
+    value: f32,
+) {
+    if !value.is_finite() || value < 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidGrainRegion,
+                "granular region time must be finite and non-negative",
+            )
+            .with_path(format!("{path}.{field}")),
+        );
+    }
+}
+
+fn validate_granular_range(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: String,
+    value: f32,
+    range: std::ops::RangeInclusive<f32>,
+    message: &str,
+) {
+    if !value.is_finite() || !range.contains(&value) {
+        diagnostics.push(
+            Diagnostic::error(DiagnosticCode::InvalidGrainParameter, message).with_path(path),
+        );
     }
 }
 

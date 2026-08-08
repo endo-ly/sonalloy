@@ -170,10 +170,23 @@ SampleはCompile時にZoneごとのRegion、Direction、Loop、Time Modeへ変�
 
 Time Stretch Backendが報告するInput LatencyとOutput LatencyはCompiled Sampleへ保持されます。Instrumentは利用中Layerの最大Output LatencyをReported Latencyとし、同じVoice内の各Layerへ`instrument latency - layer intrinsic latency`の遅延をPrepare時に確保します。これにより、Stretch Sampleと非Stretch LayerのTransient位置を揃えます。
 
+## Granular Runtime
+
+GranularはSample Generatorと同じPrepared Audioを使いますが、Voiceごとに独立した固定64 SlotのGrain PoolとSchedulerを持ちます。GrainはNote Onで初期化され、Voice StealingやResetで次のNoteへ持ち越しません。
+
+- SchedulerはProcess Blockの先頭を基準にせず、Grains per SecondをSample Rateで割ったFractional PhaseをAbsolute Sample Timelineへ累積します。ProcessのBlock Sizeが変わってもSpawn Frameは変わりません
+- Grain開始時にPosition、Grain Size、Pitch、Pan、Random OffsetをSnapshotし、発音中のGrainへ後からParameter値を適用しません
+- WindowはHann固定です。Source PositionはRegion内へ変換し、Pitchで必要となるRead SpanとGrain長を考慮してRegion終端を越えないようにします。Randomnessによる端越えはNormalized Region上で循環します
+- RandomはDefinition Seed、Layer Stable ID、Note ID、Grain Serial、用途別Streamから直接算出します。Global RNGやVoice処理順を使用しないため、同じ入力とBlock Sizeに依存しない結果になります
+- Mono AssetはGrainごとのConstant-power PanでStereoへ配置します。Stereo Assetは左右を同じPosition、Pitch、WindowでReadし、Pan SpreadをStereo Balanceとして適用します。左右を独立したRandom Positionへ分けません
+- Position、Grain Size、Density、Pitch、Randomness、Pan SpreadはParameter Spanの値を使います。ScrubはPositionをLFO等から動かし、FreezeはPositionを固定したままSchedulerを動かして実現します
+
+Granular Generatorは無期限にGrainを生成するため、Note Off後はLayer EnvelopeのReleaseで音量を下げます。Assetが準備できないLayerはNote On Selectionから除外されます。Process中はGrain Pool拡張、Assetアクセス、Heap Allocationを行いません。
+
 ## 準備とリセット
 
-- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time Stretch Scratch、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、OscillatorとOperatorの位相、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Round Robin Counter、ADSR、Operator Envelope、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time Stretch Scratch、Granular Grain Pool、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
+- **Reset**：全Voice、OscillatorとOperatorの位相、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Granular Grain Pool / Grain Serial / Scheduler、Round Robin Counter、ADSR、Operator Envelope、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 

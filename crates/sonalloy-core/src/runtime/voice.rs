@@ -904,6 +904,26 @@ impl VoiceRuntime {
                     correlation: self.evaluate_target(compiled, value.correlation, shared)?,
                 },
                 CompiledGenerator::Sample(_) => LayerGeneratorTargetSpan::Sample,
+                CompiledGenerator::Granular(value) => LayerGeneratorTargetSpan::Granular {
+                    position: self.evaluate_target(compiled, value.parameters.position, shared)?,
+                    grain_size: self.evaluate_target(
+                        compiled,
+                        value.parameters.grain_size,
+                        shared,
+                    )?,
+                    density: self.evaluate_target(compiled, value.parameters.density, shared)?,
+                    pitch: self.evaluate_target(compiled, value.parameters.pitch, shared)?,
+                    randomness: self.evaluate_target(
+                        compiled,
+                        value.parameters.randomness,
+                        shared,
+                    )?,
+                    pan_spread: self.evaluate_target(
+                        compiled,
+                        value.parameters.pan_spread,
+                        shared,
+                    )?,
+                },
                 CompiledGenerator::Wavetable(value) => LayerGeneratorTargetSpan::Wavetable {
                     position: self.evaluate_target(compiled, value.parameters.position, shared)?,
                     unison_detune: value
