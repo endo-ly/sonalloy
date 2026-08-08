@@ -11,7 +11,7 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 
 | | 内容 |
 |---|---|
-| 対象 | 新規Instrumentの作成、既存Definitionの編集、Sample / Wavetable / Operator Modulation / Granular Layerの追加、音源の試聴・修正 |
+| 対象 | 新規Instrumentの作成、既存Definitionの編集、Sample / Wavetable / Operator Modulation / Granular / Wave Sequence Layerの追加、音源の試聴・修正 |
 | 対象外 | 仕様の説明（`docs/instrument-definition.md`）、CLIの全コマンド解説（`docs/cli.md`）、実行時挙動（`docs/runtime-processing.md`） |
 | 成果物 | Definition JSONと、`render`で生成した試聴用WAV（`out/<name>/`配下） |
 
@@ -25,8 +25,9 @@ Step 4  Wavetable Layerを追加する（Wavetableを使う場合）
 Step 5  Operator Modulation Layerを追加する（Operator Modulationを使う場合）
 Step 6  Sample Layerを追加する（Sampleを使う場合）
 Step 7  Granular Layerを追加する（Granularを使う場合）
-Step 8  render note / render midi で試聴する
-Step 9  仕上げる（関連docsへの反映、差分確認）
+Step 8  Wave Sequence Layerを追加する（Wave Sequenceを使う場合）
+Step 9  render note / render midi で試聴する
+Step 10 仕上げる（関連docsへの反映、差分確認）
 ```
 
 ## Step 1: ひな形を生成する
@@ -44,7 +45,7 @@ sonalloy instrument init <path>
 - `schema_version`は`1`のみ。未知FieldはJSON Parse Errorになる
 - `polyphony`は1〜64。`gain_db`は-60〜12、`pan`は-1〜1、`tuning_cents`は-1200〜1200
 - ADSRは0〜30秒、Sustainは0〜1。Keyは0〜127、Velocityは1〜127
-- Generatorは`oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、`operator_modulation`、`sample`、または`granular`
+- Generatorは`oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、`operator_modulation`、`sample`、`granular`、または`wave_sequence`
 - Oscillatorの`waveform`は`{"type": "..."}`形式。Pulseは`pulse_width`、全Oscillatorは`phase_reset`と`phase`を持つ
 - Wavetableは`asset`、`frame_length`（64〜4096の2の冪）、`position`（0〜1）、`phase_reset`、`phase`を持つ。Asset全体のSample数がFrame Lengthで割り切れることを確認する
 - WavetableのSource Sample RateはPitchへ使われず、Compile時にResampleされない。SHA-256を指定し、`instrument inspect --json`でPrepared状態とBandを確認する
@@ -67,7 +68,7 @@ sonalloy instrument inspect <definition> --json    # 実行値を機械可読で
 ```
 
 - `validate`の成功は`valid <path>`。Warningは`print_warnings`で表示されるため必ず確認する
-- `inspect`でPolyphony、Layer Trigger、GeneratorのWaveform / Color / Seed / Wavetable Band / Output Mode、Gain、Pan、Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
+- `inspect`でPolyphony、Layer Trigger、GeneratorのWaveform / Color / Seed / Wavetable Band / Granular Region / Wave Sequence Steps / Output Mode、Gain、Pan、Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
 - Operator Modulationでは`inspect --json`のMode、Algorithm、Evaluation Order、Carrier、4 OperatorのParameter ID、Envelope、Unison、Effective Frequency上限を確認する
 - Complex Oscillatorではphase_domain Backend、Signal Order、DC Blocker、WavefolderのParameter IDも確認する
 - Warningが1つでも残る場合は「ほかのLayerでRenderを継続する」設計のため、意図しない無効化がないかを確認する
@@ -207,7 +208,39 @@ sha256sum <path>
 
 `granular_position`、`grain_size`、`grain_density`、`grain_pitch`、`grain_randomness`、`grain_pan_spread`をModulation Targetへ指定できます。固定PositionでGrainを生成し続けるとFreeze、PositionをLFO等で動かすとScrubになります。
 
-## Step 8: 試聴する
+## Step 8: Wave Sequence Layerを追加する（Wave Sequenceを使う場合）
+
+1. `generator.wave_sequence`へ1〜128個のStepをDefinition順で指定する。`direction`はStepの選択順、各Stepの`playback_direction`はAssetのRead方向です
+2. `duration`は`{"mode":"seconds","value":...}`または`{"mode":"beats","value":...}`を指定する。`playback`が`one_shot`の場合、Assetが先に終わってもStepの残り時間は無音になります。`loop`の場合はRegionをStep終端まで繰り返します
+3. `crossfade`を0〜0.5で指定し、隣接StepのConstant-power Overlapを設定する。Missing AssetはStepから削除されず、Durationを保持した無音として後続Stepへ進みます
+4. SHA-256を指定し、`instrument validate`と`instrument inspect --json`でStep配列、Region Frame、Duration、Direction、Playback、Availability、Pitch、Gainを確認する
+
+```json
+{
+  "generator": {
+    "wave_sequence": {
+      "root_note": 60,
+      "direction": "forward",
+      "loop": true,
+      "crossfade": 0.25,
+      "steps": [
+        {
+          "id": "attack",
+          "asset": { "path": "<asset path>", "sha256": "<SHA-256>" },
+          "region": { "start_seconds": 0.0, "end_seconds": 0.08 },
+          "duration": { "mode": "seconds", "value": 0.18 },
+          "playback": "loop",
+          "playback_direction": "forward",
+          "gain_db": -3.0,
+          "pitch_cents": 0.0
+        }
+      ]
+    }
+  }
+}
+```
+
+## Step 9: 試聴する
 
 単音の確認：
 
@@ -227,7 +260,7 @@ sonalloy render midi <definition> <midi-file> \
 
 `render note`と`render events`の`--tempo`はTempo Syncの処理Tempoを指定します。`render midi`はMIDI内のTempo Meta EventからTempo Mapを作成します。出力は32-bit float、2 Channel、指定Sample RateのStereo WAVです。試聴WAVは音源ごとに`out/<name>/`へ分けて出力し、親Directoryは事前に作成してください。生成後は`scripts/review/measure_wav.py`でFinite性・Peak / RMS / DCを確認できます。
 
-## Step 9: 仕上げる
+## Step 10: 仕上げる
 
 - `metadata.name`と`metadata.description`を実際の音色に合わせる
 - `validate`と`inspect --json`のWarning、Output Mode、Parameter IDを確認する

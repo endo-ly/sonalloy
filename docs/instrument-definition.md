@@ -335,6 +335,85 @@ Canonical Parameter IDは次の形式です。
 
 Assetの欠落・Hash不一致・Decode失敗ではGranular Layerを発音候補から除外し、ほかの有効LayerはCompileとRenderを継続します。RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Parameter範囲違反は`INVALID_GRAIN_PARAMETER`を返します。
 
+### Wave Sequence
+
+Wave Sequenceは複数のAudio Assetを一つのGeneratorで時間順に再生します。StepはCompile後もDefinition順の不変配列として保持され、Assetを共有します。
+
+```json
+{
+  "generator": {
+    "wave_sequence": {
+      "root_note": 60,
+      "direction": "ping_pong",
+      "loop": true,
+      "crossfade": 0.25,
+      "steps": [
+        {
+          "id": "attack",
+          "asset": {
+            "path": "../../testdata/assets/metal-hit.wav",
+            "sha256": "<SHA-256>"
+          },
+          "region": {
+            "start_seconds": 0.0,
+            "end_seconds": 0.08
+          },
+          "duration": {
+            "mode": "seconds",
+            "value": 0.18
+          },
+          "playback": "loop",
+          "playback_direction": "forward",
+          "gain_db": -3.0,
+          "pitch_cents": 0.0
+        },
+        {
+          "id": "body",
+          "asset": {
+            "path": "../../testdata/assets/metal-hit.wav",
+            "sha256": "<SHA-256>"
+          },
+          "region": {
+            "start_seconds": 0.08,
+            "end_seconds": 0.16
+          },
+          "duration": {
+            "mode": "beats",
+            "value": 0.5
+          },
+          "playback": "one_shot",
+          "playback_direction": "reverse",
+          "gain_db": -6.0,
+          "pitch_cents": 300.0
+        }
+      ]
+    }
+  }
+}
+```
+
+| Field | Range / Unit | Dynamic | Meaning |
+|---|---:|---:|---|
+| `root_note` | 0〜127 | No | Step Assetの基準MIDI Note |
+| `direction` | `forward` / `reverse` / `ping_pong` | No | Stepを選択する順序 |
+| `loop` | Boolean | No | 終端後にSequenceを繰り返すか |
+| `crossfade` | 0〜0.5 | No | 隣接Stepを重ねる割合。Constant-powerで混合 |
+| `steps` | 1〜128個 | No | 時間順のStep配列 |
+| `steps[].id` | Component ID | No | Sequence内で一意なStep ID |
+| `steps[].asset` | — | No | MonoまたはStereoのWAV Asset |
+| `steps[].region` | 0以上の秒 | No | Assetから読む`[start, end)` Region |
+| `steps[].duration` | `seconds`または`beats`、正の値 | No | Stepを保持する時間 |
+| `steps[].playback` | `one_shot` / `loop` | No | Step内でAssetを一度だけ読むか繰り返すか |
+| `steps[].playback_direction` | `forward` / `reverse` | No | Step AssetのRead方向 |
+| `steps[].gain_db` | -60〜12 dB | No | Step固有のGain |
+| `steps[].pitch_cents` | -2400〜2400 cents | No | Root Noteへ加算するStep Pitch |
+
+`direction`はStepを選ぶ順序、`playback_direction`は選択されたAssetを読む方向です。`ping_pong`は終端Stepを重複再生せず、`A B C D C B A`の順で進みます。`one_shot`のSourceがDurationより先に終わった場合はStep終端まで無音を保持し、`loop`はRegionを繰り返します。
+
+`duration.mode`が`seconds`の場合はTempoに依存せず、`beats`の場合はProcess Tempoの変更後から進行速度を変えます。途中のTempo変更でStepを先頭へ戻しません。Missing Assetや不正RegionのStepはCompile配列から削除せず、指定Durationを持つ無音Stepとして残します。全Stepが利用できない場合はLayerだけを発音候補から除外します。
+
+Wave Sequence固有のDynamic Parameterは定義しません。Step構造、Duration、Direction、Crossfade、Pitch、GainはCompile時に確定します。
+
 ### Operator Modulation
 
 Operator Modulationは4つのSine Operatorを固定Topologyで接続するGeneratorです。Definitionでは利用者向けのOperator番号を1〜4で記述し、Compile後は固定配列へ変換します。接続Algorithmは`stack_4`、`stack_3_plus_carrier`、`two_stacks`、`fork_to_carrier`、`two_modulators_plus_carrier`、`three_modulators`、`shared_modulator`、`parallel`です。任意の接続GraphやOperator間Cycleは指定できません。

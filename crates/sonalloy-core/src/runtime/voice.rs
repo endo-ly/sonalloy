@@ -924,6 +924,7 @@ impl VoiceRuntime {
                         shared,
                     )?,
                 },
+                CompiledGenerator::WaveSequence(_) => LayerGeneratorTargetSpan::WaveSequence,
                 CompiledGenerator::Wavetable(value) => LayerGeneratorTargetSpan::Wavetable {
                     position: self.evaluate_target(compiled, value.parameters.position, shared)?,
                     unison_detune: value

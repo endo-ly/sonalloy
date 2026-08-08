@@ -1,6 +1,6 @@
 # 音源（Instrument）の作り方
 
-このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要なら自作WAVをWavetable、Sample、またはGranularとして組み込むところまで進みます。
+このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要なら自作WAVをWavetable、Sample、Granular、またはWave Sequenceとして組み込むところまで進みます。
 
 > **本書の範囲**：音源作成の操作手順（人間向けガイド）です。仕様の詳細は本書に書かず、各仕様文書へ委ねます。
 >
@@ -14,8 +14,8 @@
 ## 全体の流れ
 
 ```text
-ひな形の生成 → 音色の編集 → 検証 → Sample / Wavetable追加 → Granular追加 → 試聴 → 仕上げ
-   Step 1       Step 2     Step 3       Step 4             Step 5      Step 6   Step 7
+ひな形の生成 → 音色の編集 → 検証 → Sample / Wavetable追加 → Granular追加 → Wave Sequence追加 → 試聴 → 仕上げ
+   Step 1       Step 2     Step 3       Step 4                    Step 5       Step 6             Step 7   Step 8
 ```
 
 | Step | 内容 | 使うコマンド |
@@ -25,8 +25,9 @@
 | 3 | 検証 | `instrument validate` / `instrument inspect` |
 | 4 | 自作WAVをSampleまたはWavetableとして組み込み | SHA-256計算 → JSON編集 |
 | 5 | 自作WAVをGranularとして組み込み | SHA-256計算 → JSON編集 |
-| 6 | 試聴 | `render note` / `render midi` |
-| 7 | 仕上げ（名前・説明・関連docsへの反映） | — |
+| 6 | 複数AssetをWave Sequenceとして組み込み | SHA-256計算 → JSON編集 |
+| 7 | 試聴 | `render note` / `render midi` |
+| 8 | 仕上げ（名前・説明・関連docsへの反映） | — |
 
 ## Step 1. ひな形を生成する
 
@@ -410,7 +411,60 @@ SampleのPath違いやハッシュ不一致の場合は**そのZoneだけが無�
 
 `instrument inspect --json`でPrepared状態、Region Frame、6つのParameter ID、Source Channel、Seed、Grain Pool Limitを確認します。GranularはMono AssetでもStereo Generatorとして動作します。Note OffではGrainを破棄せずLayer EnvelopeがReleaseへ進み、Voice StealingまたはReset時だけPoolを初期化します。
 
-## Step 6. 音を出す
+## Step 6. Wave Sequenceとして使う
+
+複数のAudio Assetを時間順に切り替える場合は、`wave_sequence` GeneratorへStepを記述します。Sequenceの`direction`はStepの選択順、Stepの`playback_direction`はAssetのRead方向です。Stepは`seconds`または`beats`でDurationを指定し、`playback`を`one_shot`または`loop`から選びます。
+
+```json
+"generator": {
+  "wave_sequence": {
+    "root_note": 60,
+    "direction": "forward",
+    "loop": true,
+    "crossfade": 0.25,
+    "steps": [
+      {
+        "id": "attack",
+        "asset": {
+          "path": "../../testdata/assets/metal-hit.wav",
+          "sha256": "<SHA-256>"
+        },
+        "region": { "start_seconds": 0.0, "end_seconds": 0.08 },
+        "duration": { "mode": "seconds", "value": 0.18 },
+        "playback": "loop",
+        "playback_direction": "forward",
+        "gain_db": -3.0,
+        "pitch_cents": 0.0
+      },
+      {
+        "id": "body",
+        "asset": {
+          "path": "../../testdata/assets/metal-hit.wav",
+          "sha256": "<SHA-256>"
+        },
+        "region": { "start_seconds": 0.08, "end_seconds": 0.16 },
+        "duration": { "mode": "beats", "value": 0.5 },
+        "playback": "one_shot",
+        "playback_direction": "reverse",
+        "gain_db": -6.0,
+        "pitch_cents": 300.0
+      }
+    ]
+  }
+}
+```
+
+Step数は1〜128、`crossfade`は0〜0.5です。`ping_pong`は終端を重複させずに往復し、Missing AssetのStepもDurationを保持した無音として後続StepのTimingを変えません。`instrument inspect --json`でStep Count、Direction、Loop、Crossfade、Region Frame、Duration、Playback、Availability、Pitch、Gainを確認します。動作する4 Stepの例は[`examples/instruments/wave-sequence-reference.json`](../examples/instruments/wave-sequence-reference.json)です。
+
+```bash
+sonalloy instrument validate examples/instruments/wave-sequence-reference.json
+sonalloy instrument inspect examples/instruments/wave-sequence-reference.json --json
+sonalloy render note examples/instruments/wave-sequence-reference.json \
+  --note 60 --tempo 120 --gate 1.5 --tail 0.2 \
+  --sample-rate 48000 --block-size 257 --output out/wave-sequence.wav
+```
+
+## Step 7. 音を出す
 
 **単音の確認**（音色の素性を確かめます）：
 
@@ -443,7 +497,7 @@ sonalloy render midi my-instrument.json \
 
 出力は**32-bit float・2 Channel**のStereo WAVです。Time Stretchを含む場合はReported LatencyがInspectと成功JSONへ表示され、CLIが前置きLatencyを除去してMusical TimelineのFrame 0からWAVを生成します。親Directoryは事前に作成してください。既存のMIDIがなければ、`scripts/review/generate_midi_fixtures.py`で固定のテスト用MIDIを生成できます。
 
-## Step 7. 仕上げる
+## Step 8. 仕上げる
 
 - `metadata.name`と`metadata.description`を実際の音色に合わせます。
 - 音源作成の一連の流れをAgentに実行させる場合は、`.agents/skills/create-instrument/`の手順が利用できます。

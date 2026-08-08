@@ -358,7 +358,7 @@ fn push_generator_descriptors(
                 noise.stereo_correlation,
             );
         }
-        GeneratorDefinition::Sample(_) => {}
+        GeneratorDefinition::Sample(_) | GeneratorDefinition::WaveSequence(_) => {}
         GeneratorDefinition::Granular(granular) => {
             push_generator_descriptor(
                 descriptors,

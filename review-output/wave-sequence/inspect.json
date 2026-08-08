@@ -1,0 +1,196 @@
+{
+  "status": "ok",
+  "name": "Wave Sequence Reference",
+  "metadata": {
+    "name": "Wave Sequence Reference",
+    "author": "Sonalloy",
+    "description": "A deterministic time-ordered material sequence"
+  },
+  "polyphony": 8,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "reported_latency_frames": 0,
+  "layer_count": 1,
+  "layers": [
+    {
+      "id": "sequence",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "wave_sequence",
+        "output_mode": "stereo",
+        "step_count": 4,
+        "enabled_step_count": 4,
+        "direction": "forward",
+        "loop_sequence": true,
+        "crossfade": 0.25,
+        "steps": [
+          {
+            "id": "attack",
+            "enabled": true,
+            "asset_path": "../assets/metal-hit.wav",
+            "start_frame": 0,
+            "end_frame": 3840,
+            "duration_type": "seconds",
+            "duration": 0.18000000715255737,
+            "playback": "loop",
+            "playback_direction": "forward",
+            "gain_db": 0.0,
+            "gain_linear": 1.0,
+            "pitch_cents": 0.0,
+            "source_channels": 1,
+            "prepared_frames": 21600
+          },
+          {
+            "id": "body",
+            "enabled": true,
+            "asset_path": "../assets/metal-hit.wav",
+            "start_frame": 3840,
+            "end_frame": 7680,
+            "duration_type": "beats",
+            "duration": 0.5,
+            "playback": "one_shot",
+            "playback_direction": "forward",
+            "gain_db": -3.0,
+            "gain_linear": 0.70794576,
+            "pitch_cents": 1200.0,
+            "source_channels": 1,
+            "prepared_frames": 21600
+          },
+          {
+            "id": "reverse",
+            "enabled": true,
+            "asset_path": "../assets/stereo-texture.wav",
+            "start_frame": 7680,
+            "end_frame": 11520,
+            "duration_type": "seconds",
+            "duration": 0.18000000715255737,
+            "playback": "loop",
+            "playback_direction": "reverse",
+            "gain_db": -6.0,
+            "gain_linear": 0.5011872,
+            "pitch_cents": -700.0,
+            "source_channels": 2,
+            "prepared_frames": 96000
+          },
+          {
+            "id": "tail",
+            "enabled": true,
+            "asset_path": "../assets/metal-hit.wav",
+            "start_frame": 11520,
+            "end_frame": 15360,
+            "duration_type": "seconds",
+            "duration": 0.2199999988079071,
+            "playback": "loop",
+            "playback_direction": "forward",
+            "gain_db": -9.0,
+            "gain_linear": 0.3548134,
+            "pitch_cents": 500.0,
+            "source_channels": 1,
+            "prepared_frames": 21600
+          }
+        ]
+      },
+      "asset_status": "enabled",
+      "gain_db": -6.0,
+      "gain_linear": 0.5011872,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 0,
+        "decay_samples": 2400,
+        "sustain_level": 1.0,
+        "release_samples": 8640
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "parameters": [
+    {
+      "id": "layer.sequence.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -6.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.sequence.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    },
+    {
+      "id": "layer.sequence.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005
+    }
+  ],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity"
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking"
+    }
+  ],
+  "routes": [],
+  "diagnostics": [
+    {
+      "code": "ASSET_RESAMPLED",
+      "severity": "warning",
+      "path": "layers[0].generator.wave_sequence.steps[0].asset.path",
+      "message": "asset was resampled to the process sample rate",
+      "detail": null
+    },
+    {
+      "code": "ASSET_RESAMPLED",
+      "severity": "warning",
+      "path": "layers[0].generator.wave_sequence.steps[1].asset.path",
+      "message": "asset was resampled to the process sample rate",
+      "detail": null
+    },
+    {
+      "code": "ASSET_RESAMPLED",
+      "severity": "warning",
+      "path": "layers[0].generator.wave_sequence.steps[3].asset.path",
+      "message": "asset was resampled to the process sample rate",
+      "detail": null
+    }
+  ]
+}

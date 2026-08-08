@@ -357,6 +357,15 @@ enum InspectGenerator {
         seed: u64,
         grain_pool_limit: usize,
     },
+    WaveSequence {
+        output_mode: &'static str,
+        step_count: usize,
+        enabled_step_count: usize,
+        direction: &'static str,
+        loop_sequence: bool,
+        crossfade: f32,
+        steps: Vec<InspectWaveSequenceStep>,
+    },
     Wavetable {
         output_mode: &'static str,
         asset_path: String,
@@ -432,6 +441,24 @@ struct InspectSampleZone {
     duration_ratio: Option<f64>,
     source_bpm: Option<f64>,
     source_sample_rate: Option<u32>,
+    source_channels: Option<usize>,
+    prepared_frames: Option<usize>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectWaveSequenceStep {
+    id: String,
+    enabled: bool,
+    asset_path: String,
+    start_frame: usize,
+    end_frame: usize,
+    duration_type: &'static str,
+    duration: f64,
+    playback: &'static str,
+    playback_direction: &'static str,
+    gain_db: f32,
+    gain_linear: f32,
+    pitch_cents: f32,
     source_channels: Option<usize>,
     prepared_frames: Option<usize>,
 }
@@ -1590,6 +1617,9 @@ fn inspect_generator(
         sonalloy_core::compiler::CompiledGenerator::Granular(granular) => {
             inspect_granular_generator(compiled, generator, granular)
         }
+        sonalloy_core::compiler::CompiledGenerator::WaveSequence(sequence) => {
+            inspect_wave_sequence_generator(generator, sequence)
+        }
         sonalloy_core::compiler::CompiledGenerator::Wavetable(wavetable) => {
             inspect_wavetable_generator(compiled, generator, wavetable)
         }
@@ -1635,6 +1665,72 @@ fn inspect_granular_generator(
             grain_pool_limit: granular.grain_pool_limit,
         },
         if granular.source.is_some() {
+            "enabled"
+        } else {
+            "disabled"
+        },
+    )
+}
+
+fn inspect_wave_sequence_generator(
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    sequence: &sonalloy_core::compiler::CompiledWaveSequence,
+) -> (InspectGenerator, &'static str) {
+    let steps = sequence
+        .steps
+        .iter()
+        .map(|step| {
+            let metadata = step.source.as_ref().map(|source| &source.source_metadata);
+            let (duration_type, duration) = match step.duration {
+                sonalloy_core::compiler::CompiledWaveSequenceDuration::Seconds(value) => {
+                    ("seconds", value)
+                }
+                sonalloy_core::compiler::CompiledWaveSequenceDuration::Beats(value) => {
+                    ("beats", value)
+                }
+            };
+            InspectWaveSequenceStep {
+                id: step.id.clone(),
+                enabled: step.is_enabled(),
+                asset_path: step.asset_path.clone(),
+                start_frame: step.start_frame,
+                end_frame: step.end_frame,
+                duration_type,
+                duration,
+                playback: match step.playback {
+                    sonalloy_core::compiler::CompiledWaveSequenceStepPlayback::OneShot => {
+                        "one_shot"
+                    }
+                    sonalloy_core::compiler::CompiledWaveSequenceStepPlayback::Loop => "loop",
+                },
+                playback_direction: match step.playback_direction {
+                    sonalloy_core::compiler::CompiledSampleDirection::Forward => "forward",
+                    sonalloy_core::compiler::CompiledSampleDirection::Reverse => "reverse",
+                },
+                gain_db: 20.0 * step.gain.log10(),
+                gain_linear: step.gain,
+                pitch_cents: step.pitch_cents,
+                source_channels: metadata.map(|value| value.source_channels),
+                prepared_frames: step.source.as_ref().map(|source| source.frames),
+            }
+        })
+        .collect::<Vec<_>>();
+    let enabled_step_count = steps.iter().filter(|step| step.enabled).count();
+    (
+        InspectGenerator::WaveSequence {
+            output_mode: output_mode_name(generator.output_mode()),
+            step_count: steps.len(),
+            enabled_step_count,
+            direction: match sequence.direction {
+                sonalloy_core::WaveSequenceDirection::Forward => "forward",
+                sonalloy_core::WaveSequenceDirection::Reverse => "reverse",
+                sonalloy_core::WaveSequenceDirection::PingPong => "ping_pong",
+            },
+            loop_sequence: sequence.loop_sequence,
+            crossfade: sequence.crossfade,
+            steps,
+        },
+        if enabled_step_count > 0 {
             "enabled"
         } else {
             "disabled"
@@ -2186,6 +2282,7 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
             }
         }
         InspectGenerator::Granular { .. } => print_granular_generator(layer_id, generator),
+        InspectGenerator::WaveSequence { .. } => print_wave_sequence_generator(layer_id, generator),
         InspectGenerator::Wavetable { .. } => print_wavetable_generator(layer_id, generator),
         InspectGenerator::OperatorModulation { .. } => {
             print_operator_generator(layer_id, generator);
@@ -2237,6 +2334,51 @@ fn print_granular_generator(layer_id: &str, generator: &InspectGenerator) {
     println!(
         "  pitch: {pitch:.3} cents ({pitch_parameter}) randomness: {randomness:.3} ({randomness_parameter}) pan_spread: {pan_spread:.3} ({pan_spread_parameter})"
     );
+}
+
+fn print_wave_sequence_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::WaveSequence {
+        output_mode,
+        step_count,
+        enabled_step_count,
+        direction,
+        loop_sequence,
+        crossfade,
+        steps,
+    } = generator
+    else {
+        return;
+    };
+    println!(
+        "layer {layer_id}: enabled {} generator wave_sequence output_mode {output_mode}",
+        *enabled_step_count > 0
+    );
+    println!(
+        "  steps: {enabled_step_count}/{step_count} enabled direction: {direction} loop: {loop_sequence} crossfade: {crossfade:.3}"
+    );
+    for step in steps {
+        println!(
+            "  step {}: enabled {} asset {} frames {}..{} duration {} {:.6} playback {} direction {} gain_db {:.3} pitch_cents {:.3}",
+            step.id,
+            step.enabled,
+            step.asset_path,
+            step.start_frame,
+            step.end_frame,
+            step.duration_type,
+            step.duration,
+            step.playback,
+            step.playback_direction,
+            step.gain_db,
+            step.pitch_cents,
+        );
+        println!(
+            "    source: {} channels, {} prepared frames",
+            step.source_channels
+                .map_or_else(|| "none".to_owned(), |value| value.to_string()),
+            step.prepared_frames
+                .map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        );
+    }
 }
 
 fn print_wavetable_generator(layer_id: &str, generator: &InspectGenerator) {

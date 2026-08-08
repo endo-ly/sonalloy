@@ -159,6 +159,7 @@ pub(crate) enum LayerGeneratorTargetSpan {
         randomness: ValueSpan,
         pan_spread: ValueSpan,
     },
+    WaveSequence,
     Wavetable {
         position: ValueSpan,
         unison_detune: Option<ValueSpan>,
@@ -212,6 +213,7 @@ impl CompiledGenerator {
                 randomness: zero,
                 pan_spread: zero,
             },
+            Self::WaveSequence(_) => LayerGeneratorTargetSpan::WaveSequence,
             Self::Wavetable(value) => LayerGeneratorTargetSpan::Wavetable {
                 position: zero,
                 unison_detune: value.parameters.unison_detune.map(|_| zero),

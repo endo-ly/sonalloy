@@ -1,0 +1,797 @@
+{
+  "01-wave-sequence.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.4798022210597992,
+    "rms": 0.05519409366033359,
+    "dc": 0.0002574113903421413,
+    "positive_zero_crossings_left": 1989,
+    "zero_crossing_frequency_hz": 994.5,
+    "estimated_frequency_hz": 994.5,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.2442227005958557,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "02-reverse.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.4798022210597992,
+    "rms": 0.04675656030295223,
+    "dc": 0.00018091941186926047,
+    "positive_zero_crossings_left": 1716,
+    "zero_crossing_frequency_hz": 858.0,
+    "estimated_frequency_hz": 858.0,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.2442227005958557,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "03-ping-pong.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.4798022210597992,
+    "rms": 0.04790279612393146,
+    "dc": 0.00017003294600617742,
+    "positive_zero_crossings_left": 1480,
+    "zero_crossing_frequency_hz": 740.0,
+    "estimated_frequency_hz": 740.0,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.2442227005958557,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "04-single-step.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.3392713963985443,
+    "rms": 0.07820941493033044,
+    "dc": 0.0007299872171343227,
+    "positive_zero_crossings_left": 6065,
+    "zero_crossing_frequency_hz": 3032.5,
+    "estimated_frequency_hz": 3032.5,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.17269152402877808,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "05-missing-step.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.4798022210597992,
+    "rms": 0.05512294780069216,
+    "dc": 0.0002589590551398906,
+    "positive_zero_crossings_left": 2040,
+    "zero_crossing_frequency_hz": 1020.0,
+    "estimated_frequency_hz": 1020.0,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.2442227005958557,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "06-pitch-variant.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.49179893732070923,
+    "rms": 0.05597721728085948,
+    "dc": 0.0002682389658172097,
+    "positive_zero_crossings_left": 2753,
+    "zero_crossing_frequency_hz": 1376.5,
+    "estimated_frequency_hz": 1376.5,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.35875166207551956,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 177,
+    "large_discontinuity_frames": [
+      184,
+      234,
+      235,
+      256,
+      272,
+      285,
+      306,
+      322,
+      373,
+      410,
+      423,
+      511,
+      2622,
+      2630,
+      2643,
+      2646
+    ],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "07-gain-variant.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.0901547521352768,
+    "rms": 0.01598120374559535,
+    "dc": 3.174182219368211e-05,
+    "positive_zero_crossings_left": 1961,
+    "zero_crossing_frequency_hz": 980.5,
+    "estimated_frequency_hz": 980.5,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.09308069944381714,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "08-block-1024.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.4798022210597992,
+    "rms": 0.05519409366033359,
+    "dc": 0.0002574113903421413,
+    "positive_zero_crossings_left": 1989,
+    "zero_crossing_frequency_hz": 994.5,
+    "estimated_frequency_hz": 994.5,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.2442227005958557,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "08-block-257.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.4798022210597992,
+    "rms": 0.05519409366033359,
+    "dc": 0.0002574113903421413,
+    "positive_zero_crossings_left": 1989,
+    "zero_crossing_frequency_hz": 994.5,
+    "estimated_frequency_hz": 994.5,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.2442227005958557,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "08-block-64.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.4798022210597992,
+    "rms": 0.05519409366033359,
+    "dc": 0.0002574113903421413,
+    "positive_zero_crossings_left": 1989,
+    "zero_crossing_frequency_hz": 994.5,
+    "estimated_frequency_hz": 994.5,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.2442227005958557,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "09-sample-rate-44100.wav": {
+    "sample_rate": 44100,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.17687074829932,
+    "finite": true,
+    "peak": 0.47611865401268005,
+    "rms": 0.05275203834302678,
+    "dc": 0.0002094345671943474,
+    "positive_zero_crossings_left": 1884,
+    "zero_crossing_frequency_hz": 865.4625,
+    "estimated_frequency_hz": 865.4625,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.26599569246172905,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 3,
+    "large_discontinuity_frames": [
+      3597,
+      32264,
+      60931
+    ],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "09-sample-rate-48000.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.4798022210597992,
+    "rms": 0.05519409366033359,
+    "dc": 0.0002574113903421413,
+    "positive_zero_crossings_left": 1989,
+    "zero_crossing_frequency_hz": 994.5,
+    "estimated_frequency_hz": 994.5,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.2442227005958557,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "09-sample-rate-96000.wav": {
+    "sample_rate": 96000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 1.0,
+    "finite": true,
+    "peak": 0.48993998765945435,
+    "rms": 0.06182706025834954,
+    "dc": 0.0003666734842262496,
+    "positive_zero_crossings_left": 1311,
+    "zero_crossing_frequency_hz": 1311.0,
+    "estimated_frequency_hz": 1311.0,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.1248692749068141,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "10-tempo-change.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 441601,
+    "duration_seconds": 9.200020833333333,
+    "finite": true,
+    "peak": 0.5576515793800354,
+    "rms": 0.0541440900031281,
+    "dc": 0.0004032516359675879,
+    "positive_zero_crossings_left": 6376,
+    "zero_crossing_frequency_hz": 693.041908872489,
+    "estimated_frequency_hz": 693.041908872489,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.15519597008824348,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "11-wave-sequence-hybrid.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.3821917474269867,
+    "rms": 0.07646271545885035,
+    "dc": 0.0007133590462269742,
+    "positive_zero_crossings_left": 1931,
+    "zero_crossing_frequency_hz": 965.5,
+    "estimated_frequency_hz": 965.5,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.08835870213806629,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "12-wave-sequence-hybrid-midi.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 441601,
+    "duration_seconds": 9.200020833333333,
+    "finite": true,
+    "peak": 0.6068044900894165,
+    "rms": 0.1084382173529515,
+    "dc": 0.0011817353525199327,
+    "positive_zero_crossings_left": 9016,
+    "zero_crossing_frequency_hz": 979.9977808021268,
+    "estimated_frequency_hz": 979.9977808021268,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.09377641975879669,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "13-repeat.wav": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 96000,
+    "duration_seconds": 2.0,
+    "finite": true,
+    "peak": 0.4798022210597992,
+    "rms": 0.05519409366033359,
+    "dc": 0.0002574113903421413,
+    "positive_zero_crossings_left": 1989,
+    "zero_crossing_frequency_hz": 994.5,
+    "estimated_frequency_hz": 994.5,
+    "fundamental_frequency_source": "zero_crossing",
+    "max_adjacent_frame_delta": 0.2442227005958557,
+    "large_discontinuity_threshold": 0.25,
+    "large_discontinuity_count": 0,
+    "large_discontinuity_frames": [],
+    "block_sizes_checked": [
+      64,
+      257,
+      1024
+    ]
+  },
+  "block_comparisons": {
+    "64": {
+      "compatible": true,
+      "max_abs_difference": 0.0,
+      "rms_difference": 0.0,
+      "different_sample_count": 0
+    },
+    "257": {
+      "compatible": true,
+      "max_abs_difference": 0.0,
+      "rms_difference": 0.0,
+      "different_sample_count": 0
+    },
+    "1024": {
+      "compatible": true,
+      "max_abs_difference": 0.0,
+      "rms_difference": 0.0,
+      "different_sample_count": 0
+    }
+  },
+  "sample_rate_metrics": {
+    "44100": {
+      "sample_rate": 44100,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.17687074829932,
+      "finite": true,
+      "peak": 0.47611865401268005,
+      "rms": 0.05275203834302678,
+      "dc": 0.0002094345671943474,
+      "positive_zero_crossings_left": 1884,
+      "zero_crossing_frequency_hz": 865.4625,
+      "estimated_frequency_hz": 865.4625,
+      "fundamental_frequency_source": "zero_crossing",
+      "max_adjacent_frame_delta": 0.26599569246172905,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 3,
+      "large_discontinuity_frames": [
+        3597,
+        32264,
+        60931
+      ],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    },
+    "48000": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "peak": 0.4798022210597992,
+      "rms": 0.05519409366033359,
+      "dc": 0.0002574113903421413,
+      "positive_zero_crossings_left": 1989,
+      "zero_crossing_frequency_hz": 994.5,
+      "estimated_frequency_hz": 994.5,
+      "fundamental_frequency_source": "zero_crossing",
+      "max_adjacent_frame_delta": 0.2442227005958557,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    },
+    "96000": {
+      "sample_rate": 96000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 1.0,
+      "finite": true,
+      "peak": 0.48993998765945435,
+      "rms": 0.06182706025834954,
+      "dc": 0.0003666734842262496,
+      "positive_zero_crossings_left": 1311,
+      "zero_crossing_frequency_hz": 1311.0,
+      "estimated_frequency_hz": 1311.0,
+      "fundamental_frequency_source": "zero_crossing",
+      "max_adjacent_frame_delta": 0.1248692749068141,
+      "large_discontinuity_threshold": 0.25,
+      "large_discontinuity_count": 0,
+      "large_discontinuity_frames": [],
+      "block_sizes_checked": [
+        64,
+        257,
+        1024
+      ]
+    }
+  },
+  "pitch_comparison": {
+    "compatible": true,
+    "max_abs_difference": 0.7446961104869843,
+    "rms_difference": 0.07620943052833275,
+    "different_sample_count": 51808
+  },
+  "gain_comparison": {
+    "compatible": true,
+    "max_abs_difference": 0.419398695230484,
+    "rms_difference": 0.04654846577196494,
+    "different_sample_count": 51798
+  },
+  "reset_comparison": {
+    "compatible": true,
+    "max_abs_difference": 0.0,
+    "rms_difference": 0.0,
+    "different_sample_count": 0
+  },
+  "hybrid_stereo_difference_rms": 0.09323124241805344,
+  "automatic_checks": {
+    "all_audio_finite": true,
+    "peaks_within_float_wav_range": true,
+    "reference_has_four_steps": true,
+    "reference_direction_loop_crossfade": true,
+    "reference_steps_enabled": true,
+    "missing_step_preserves_sequence_length": true,
+    "all_missing_layer_disabled": true,
+    "block_sizes_reproducible": true,
+    "sample_rates_rendered": true,
+    "pitch_changes_output": true,
+    "gain_changes_output": true,
+    "reset_reproduces_output": true,
+    "tempo_change_rendered": true,
+    "hybrid_contains_material_generators": true,
+    "hybrid_has_voice_filter_and_drive": true,
+    "hybrid_has_global_delay_and_reverb": true,
+    "hybrid_has_release_layer": true,
+    "hybrid_is_stereo": true,
+    "hybrid_is_non_silent": true,
+    "hybrid_midi_is_non_silent": true,
+    "validation_reports_succeeded": true
+  },
+  "failed_checks": [],
+  "validation_reports": {
+    "wave-sequence-reference.json": {
+      "status": "ok",
+      "command": "instrument validate",
+      "diagnostics": [
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[1].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[3].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        }
+      ]
+    },
+    "reverse-reference.json": {
+      "status": "ok",
+      "command": "instrument validate",
+      "diagnostics": [
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[1].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[3].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        }
+      ]
+    },
+    "ping-pong-reference.json": {
+      "status": "ok",
+      "command": "instrument validate",
+      "diagnostics": [
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[1].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[3].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        }
+      ]
+    },
+    "single-step-reference.json": {
+      "status": "ok",
+      "command": "instrument validate",
+      "diagnostics": [
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        }
+      ]
+    },
+    "missing-step-reference.json": {
+      "status": "ok",
+      "command": "instrument validate",
+      "diagnostics": [
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_NOT_FOUND",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[1].asset.path",
+          "message": "asset is unavailable",
+          "detail": "asset not found: No such file or directory (os error 2)"
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[3].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        }
+      ]
+    },
+    "pitch-variant.json": {
+      "status": "ok",
+      "command": "instrument validate",
+      "diagnostics": [
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[1].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[3].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        }
+      ]
+    },
+    "gain-variant.json": {
+      "status": "ok",
+      "command": "instrument validate",
+      "diagnostics": [
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[1].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[3].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        }
+      ]
+    },
+    "tempo-change-reference.json": {
+      "status": "ok",
+      "command": "instrument validate",
+      "diagnostics": [
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[1].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[0].generator.wave_sequence.steps[3].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        }
+      ]
+    },
+    "wave-sequence-hybrid-reference.json": {
+      "status": "ok",
+      "command": "instrument validate",
+      "diagnostics": [
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[2].generator.wave_sequence.steps[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[2].generator.wave_sequence.steps[1].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[2].generator.wave_sequence.steps[3].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[3].generator.sample.zones[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        },
+        {
+          "code": "ASSET_RESAMPLED",
+          "severity": "warning",
+          "path": "layers[4].generator.sample.zones[0].asset.path",
+          "message": "asset was resampled to the process sample rate",
+          "detail": null
+        }
+      ]
+    }
+  }
+}

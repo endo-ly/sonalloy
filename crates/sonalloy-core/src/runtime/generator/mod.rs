@@ -2,6 +2,7 @@ mod granular;
 mod noise;
 mod operator;
 mod oscillator;
+mod wave_sequence;
 mod wavetable;
 
 use crate::compiler::CompiledGenerator;
@@ -15,6 +16,7 @@ use granular::GranularRuntime;
 use noise::NoiseRuntime;
 use operator::OperatorModulationRuntime;
 use oscillator::OscillatorRuntime;
+use wave_sequence::WaveSequenceRuntime;
 use wavetable::WavetableRuntime;
 
 fn validate_generator_span(
@@ -83,6 +85,7 @@ pub(super) enum GeneratorRuntime {
     Noise(Box<NoiseRuntime>),
     Sample { sample: SampleRuntime },
     Granular(Box<GranularRuntime>),
+    WaveSequence(WaveSequenceRuntime),
     Wavetable(WavetableRuntime),
     OperatorModulation(Box<OperatorModulationRuntime>),
 }
@@ -102,6 +105,9 @@ impl GeneratorRuntime {
             }),
             CompiledGenerator::Granular(compiled) => {
                 Ok(Self::Granular(Box::new(GranularRuntime::new(compiled)?)))
+            }
+            CompiledGenerator::WaveSequence(compiled) => {
+                Ok(Self::WaveSequence(WaveSequenceRuntime::new(compiled)?))
             }
             CompiledGenerator::Wavetable(value) => {
                 Ok(Self::Wavetable(WavetableRuntime::new(value, spec)?))
@@ -141,6 +147,7 @@ impl GeneratorRuntime {
                 sample.start(zone)
             }
             Self::Granular(granular) => granular.start(note_id),
+            Self::WaveSequence(sequence) => sequence.start(note_id),
             Self::Wavetable(wavetable) => wavetable.start(),
             Self::OperatorModulation(operator) => {
                 operator.start();
@@ -161,12 +168,14 @@ impl GeneratorRuntime {
             Self::Oscillator(_)
             | Self::Noise(_)
             | Self::Granular(_)
+            | Self::WaveSequence(_)
             | Self::Wavetable(_)
             | Self::OperatorModulation(_) => 0,
         }
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn render(
         &mut self,
         frames: usize,
@@ -239,6 +248,24 @@ impl GeneratorRuntime {
                     right,
                 )?;
                 Ok(false)
+            }
+            Self::WaveSequence(sequence) => {
+                let LayerGeneratorTargetSpan::WaveSequence = targets else {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: crate::process::ProcessorFailureKind::InvalidState,
+                    });
+                };
+                sequence.render(
+                    frames,
+                    note_number,
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    tempo_bpm,
+                    mono,
+                    left,
+                    right,
+                )
             }
             Self::Wavetable(wavetable) => {
                 wavetable.render(
@@ -360,6 +387,10 @@ impl GeneratorRuntime {
             Self::Sample { sample, .. } => sample.reset(),
             Self::Granular(granular) => {
                 granular.reset();
+                Ok(())
+            }
+            Self::WaveSequence(sequence) => {
+                sequence.reset();
                 Ok(())
             }
             Self::Wavetable(wavetable) => {

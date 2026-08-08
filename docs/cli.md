@@ -59,6 +59,7 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Noise | Color、Seed、Stereo Correlation Parameter、Output Mode |
 | Wavetable | Asset Path、SHA指定有無、Prepared状態、Source Channel / Frame Count、Frame Length / Count、Band Count / Max Harmonic、Position、Parameter ID、Phase、Unison、Output Mode、Effective Frequency上限 |
 | Granular | Asset Path、SHA指定有無、Prepared状態、Source Channel / Prepared Frame、Region、Root Note、Position、Grain Size、Density、Pitch、Randomness、Pan Spread、各Parameter ID、Seed、Grain Pool Limit、Output Mode |
+| Wave Sequence | Output Mode、Step Count、Enabled Step Count、Direction、Loop、Crossfade、各StepのID / Asset / Region / Duration Type / Duration / Playback / Playback Direction / Gain / Pitch / Availability、Source Channel / Prepared Frame |
 | Operator Modulation | Mode、Algorithm、Evaluation Order、Incoming Mask、Carrier Operator、4 OperatorのRatio / Detune / Level / Modulation Amount / Feedback / Envelope / Parameter ID、Phase Reset、Unison、Output Mode、Effective Frequency上限 |
 | Sample | Zone Count、Enabled / Disabled Count、Prepared Asset共有数、Zone ID、Key / Velocity範囲、Root Note、Round Robin Group、Playback Region、Direction、Loop / Crossfade Frame、Time Mode、Duration Ratio / Source BPM、Asset Metadata、Output Mode |
 | Parameter | Canonical ID、Owner、Unit、Range、Default、Scale、Smoothing |
@@ -71,7 +72,7 @@ sonalloy instrument inspect <definition>
 sonalloy instrument inspect <definition> --json
 ```
 
-`inspect`のParameter IDはCompiled Catalogから取得したCanonical IDです。RouteのSource ID、Target ID、設定値もCompiled Instrumentの内容をそのまま表示します。Sample Zoneは`direction`、Region Frame、Loop Frame、`crossfade_frames`、Time Mode、Duration Ratio / Source BPM、Source Channel数、Prepared Frame数を表示します。Instrument全体の`reported_latency_frames`も表示します。Layer Triggerは`event`を表示し、`note_off` LayerがRelease Triggerとして構成されていることを確認できます。
+`inspect`のParameter IDはCompiled Catalogから取得したCanonical IDです。RouteのSource ID、Target ID、設定値もCompiled Instrumentの内容をそのまま表示します。Sample Zoneは`direction`、Region Frame、Loop Frame、`crossfade_frames`、Time Mode、Duration Ratio / Source BPM、Source Channel数、Prepared Frame数を表示します。Wave SequenceはMissing Stepを含む全StepをDefinition順で表示し、`enabled`、Region Frame、Duration、Step Playback、Asset Playback Direction、Gain、Pitch、Source Metadataを確認できます。Instrument全体の`reported_latency_frames`も表示します。Layer Triggerは`event`を表示し、`note_off` LayerがRelease Triggerとして構成されていることを確認できます。
 ProcessorはChainごとに`placement`、`chain_index`、`id`、`kind`、Static Field、Parameter Descriptorを表示します。FilterはParameterのDefaultとSample Rateに応じたDSP適用上限をStatic Fieldへ表示します。DelayのTimeとReverbのPre-delayはStatic Fieldです。
 
 Operator ModulationのJSON Inspectでは、Operator番号を1始まりで表示し、固定Topologyを`evaluation_order`、`incoming_masks`、`carrier_operators`として表示します。`level`、`modulation_amount`、`feedback`はTopologyとModeで使用されないOperatorでは`null`になります。OperatorのParameter IDは`layer.<layer_id>.generator.operator.<1-4>.<parameter>`形式です。
@@ -283,6 +284,11 @@ sonalloy dev render-sine \
 - `WAVETABLE_SILENT_FRAME`
 - `WAVETABLE_DC_OFFSET`
 - `GENERATOR_RESOURCE_LIMIT_EXCEEDED`
+
+**Wave Sequence**
+
+- `INVALID_SEQUENCE`
+- `INVALID_STEP_DURATION`
 
 **Operator Modulation**
 

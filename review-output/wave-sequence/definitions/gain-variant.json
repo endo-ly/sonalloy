@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Wave Sequence Gain Variant",
+    "author": "Sonalloy",
+    "description": "A deterministic time-ordered material sequence"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "sequence",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -6.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.05,
+        "sustain_level": 1.0,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "wave_sequence": {
+          "root_note": 60,
+          "direction": "forward",
+          "loop": true,
+          "crossfade": 0.25,
+          "steps": [
+            {
+              "id": "attack",
+              "asset": {
+                "path": "../assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "region": {
+                "start_seconds": 0.0,
+                "end_seconds": 0.08
+              },
+              "duration": {
+                "mode": "seconds",
+                "value": 0.18
+              },
+              "playback": "loop",
+              "playback_direction": "forward",
+              "gain_db": -18.0,
+              "pitch_cents": 0.0
+            },
+            {
+              "id": "body",
+              "asset": {
+                "path": "../assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "region": {
+                "start_seconds": 0.08,
+                "end_seconds": 0.16
+              },
+              "duration": {
+                "mode": "beats",
+                "value": 0.5
+              },
+              "playback": "one_shot",
+              "playback_direction": "forward",
+              "gain_db": -3.0,
+              "pitch_cents": 1200.0
+            },
+            {
+              "id": "reverse",
+              "asset": {
+                "path": "../assets/stereo-texture.wav",
+                "sha256": "e1368ad392431dcab7cd2842ee062ed5f01ac4ea6a360cef8d55b6f74a4f4926"
+              },
+              "region": {
+                "start_seconds": 0.16,
+                "end_seconds": 0.24
+              },
+              "duration": {
+                "mode": "seconds",
+                "value": 0.18
+              },
+              "playback": "loop",
+              "playback_direction": "reverse",
+              "gain_db": -6.0,
+              "pitch_cents": -700.0
+            },
+            {
+              "id": "tail",
+              "asset": {
+                "path": "../assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "region": {
+                "start_seconds": 0.24,
+                "end_seconds": 0.32
+              },
+              "duration": {
+                "mode": "seconds",
+                "value": 0.22
+              },
+              "playback": "loop",
+              "playback_direction": "forward",
+              "gain_db": -9.0,
+              "pitch_cents": 500.0
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": []
+}

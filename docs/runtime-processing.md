@@ -128,6 +128,7 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 - **Operator Modulation**：4 OperatorをCompile済みの固定Topology順にSampleごとに評価します。Phase、Frequency、Amplitude、Ringは同じOperator信号を使いながら別の相互作用として処理し、Carrier Sum後に`1 / sqrt(carrier_count)`で正規化します。Operator Envelopeは各Operator出力へ乗算し、Carrier以外のOperatorは接続先へのModulation Signalだけを供給します。Unison 1はMono、2〜4はComponentごとのPhaseとPrevious Outputを持つStereoです
 - **Complex Oscillator**：Phase DistortionまたはOscillator Feedbackを含むDefinitionはRustのPhase-domain Sine Backendで処理します。Phase Distortionは`breakpoint = 0.5 - amount × 0.45`の連続Mapping、Feedbackは直前Sampleを`tanh(previous × amount × 2.5) × 0.25` cycleへ変換してRead Phaseへ加算します。Wavefoldは既存OscillatorのUnison MixとWaveshapingの後へDaisySP MIT版Wavefolderで適用し、AmountをDrive / Dry-Wetへ固定変換します。非線形機能の後へSample Rate依存のDC Blockerを置きます。Phase DistortionとFeedbackはSineだけで使用でき、Hard Syncとは併用できません
 - **Sample**：後述のSample Zone選択と再生を使います。Compileで無効になったZoneは選択候補から除外されます
+- **Wave Sequence**：Compile時にStepのAsset、Region、Duration、方向、Pitch、Gainを準備し、VoiceごとにCurrent / Nextの最大2 Playback Slotを持ちます。MonoだけのSequenceはMono、Stereo Stepを一つでも含むSequenceはStereoとしてLayerへ渡します
 
 ## Wavetable Runtime
 
@@ -183,10 +184,22 @@ GranularはSample Generatorと同じPrepared Audioを使いますが、Voiceご�
 
 Granular Generatorは無期限にGrainを生成するため、Note Off後はLayer EnvelopeのReleaseで音量を下げます。Assetが準備できないLayerはNote On Selectionから除外されます。Process中はGrain Pool拡張、Assetアクセス、Heap Allocationを行いません。
 
+## Wave Sequence Runtime
+
+Wave SequenceはCompiled Stepを共有し、Voiceごとに選択中のStepと次のStepだけをRuntime Stateとして保持します。StepのAssetがMissingでもStep自体は削除せず、指定されたDurationの無音として進行します。そのため一部Assetの欠落で後続Stepの時間位置は変わりません。
+
+- Sequence DirectionはStepを選択する順序です。Forwardは先頭から末尾、Reverseは末尾から先頭、Ping Pongは終端を重複させずに往復します。Sequence Loopが有効な場合だけ終端から開始位置へ戻ります
+- Step PlaybackはOne-shotとLoopを持ちます。One-shotのSource CursorがRegion終端へ到達した後もStepのDurationまで無音を出力し、LoopはRegion内を循環します。Playback DirectionはSequence Directionとは独立してRegionのRead方向を決めます
+- Seconds StepはSample Rateで進行し、Beats Stepは`tempo / 60 / sample_rate`を一Sampleごとに積算します。Tempo Mapの境界ではRendererがProcessを分割するため、変更後のStep進行速度だけが変わります
+- Crossfadeは隣接StepのDurationの短い方を基準に最大50%までOverlapし、Current / NextをConstant-powerで混合します。CrossfadeがなくてもStep境界でCurrentを次Stepへ置き換えます
+- Step PitchはNote、Layer Tuning、Root Noteへ加算し、Step GainはLinearへ変換してSourceへ乗算します。Stereo Assetは左右のCursorを共有し、Mono Assetは左右同じ値を出力します
+
+Wave Sequenceが最後のOne-shot Stepを終え、Sequence Loopが無効な場合はGeneratorを終了します。Note Off後のLayer Envelopeや他Layerの状態は通常のVoice Lifecycleに従い、Sequenceの完了だけでほかのLayerを終了させません。
+
 ## 準備とリセット
 
-- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time Stretch Scratch、Granular Grain Pool、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、OscillatorとOperatorの位相、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Granular Grain Pool / Grain Serial / Scheduler、Round Robin Counter、ADSR、Operator Envelope、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time Stretch Scratch、Granular Grain Pool、Wave SequenceのPlayback Slot、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
+- **Reset**：全Voice、OscillatorとOperatorの位相、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Granular Grain Pool / Grain Serial / Scheduler、Wave SequenceのCurrent / Next SlotとStep Cursor、Round Robin Counter、ADSR、Operator Envelope、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 

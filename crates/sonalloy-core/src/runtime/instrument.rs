@@ -274,6 +274,7 @@ impl InstrumentRuntime {
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
                 | CompiledGenerator::Granular(_)
+                | CompiledGenerator::WaveSequence(_)
                 | CompiledGenerator::Wavetable(_)
                 | CompiledGenerator::OperatorModulation(_) => {
                     *self
@@ -625,6 +626,7 @@ impl InstrumentProcessor for InstrumentRuntime {
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
                 | CompiledGenerator::Granular(_)
+                | CompiledGenerator::WaveSequence(_)
                 | CompiledGenerator::Wavetable(_)
                 | CompiledGenerator::OperatorModulation(_) => Vec::new(),
             })
@@ -1938,6 +1940,7 @@ mod tests {
             }
             crate::definition::GeneratorDefinition::Sample(_)
             | crate::definition::GeneratorDefinition::Granular(_)
+            | crate::definition::GeneratorDefinition::WaveSequence(_)
             | crate::definition::GeneratorDefinition::Noise(_)
             | crate::definition::GeneratorDefinition::Wavetable(_)
             | crate::definition::GeneratorDefinition::OperatorModulation(_) => {

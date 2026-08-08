@@ -137,4 +137,14 @@ flowchart LR
 - 人間の確認：Grain開始・終了のClick、Densityによる密度感、Grain Sizeの質感、Pitchの変化、Randomnessの空間的な広がり、Pan SpreadのStereo幅、Scrubの追従、Freezeの持続性、Vocal Textureの明瞭さ、Percussion CloudのTransient、Polyphony時の音量と実用性
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
+### Wave Sequence
+
+- 保存先：`review-output/wave-sequence/`（audio/technical / definitions / events / assets / `inspect.json` / `hybrid-inspect.json` / metrics.json / review-summary.md）
+- 生成：`python scripts/review/generate_wave_sequence_package.py`
+- 内容：Single Step、Forward、Reverse、Ping Pong、Sequence Loop、One-shot Step、Loop Step、Seconds / Beats Duration、Tempo Change、Crossfade、Step Pitch / Gain、Missing Step、All Missing、Stereo / Mono混在、Reset、Wave Sequence Hybridを同じCLI経路から確認する
+- Metrics：Finite性、Peak / RMS / DC、Step境界、Crossfade境界、Block Size 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、Tempo Change後のStep位置、Pitch / Gain差分、Missing StepのTiming保持、All Missing Layerの無効化、Stereo分離、Reset再現性
+- 自動確認：Definition Validate、Wave Sequence Inspect、4 Step以上のStep Count、Direction / Loop / Crossfade、Duration Type、Playback Direction、Step Availability、Block Size比較、Sample Rate生成、Tempo Map、HybridのWavetable / Granular / Wave Sequence / Sample / Release Layer、Voice Filter / Drive、Global Delay / Reverb
+- 人間の確認：Forward / Reverse / Ping Pongの順序、端Stepの重複有無、One-shot終端の無音、Loopの境界、Constant-power Crossfade、Step Pitch / Gain、Missing Stepの無音区間、Mono / Stereoの定位、Tempo Change、Reset後の同一性、Voice / Global Processorを含むHybrid音色としての成立
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
 試聴の際は同じ再生環境・音量で比較し、確認結果を`review-summary.md`へ記録します。

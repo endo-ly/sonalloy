@@ -138,6 +138,8 @@ pub enum GeneratorDefinition {
     Sample(SampleDefinition),
     /// A deterministic grain-based reconstruction of a prepared audio asset.
     Granular(GranularDefinition),
+    /// A time-ordered sequence of prepared audio assets.
+    WaveSequence(WaveSequenceDefinition),
     /// A band-limited wavetable prepared from a mono or stereo asset.
     Wavetable(WavetableDefinition),
     /// A fixed-topology four-operator modulation generator.
@@ -274,6 +276,83 @@ pub struct GranularDefinition {
     pub pan_spread: f32,
     /// Explicit deterministic grain seed.
     pub seed: u64,
+}
+
+/// A sequence of audio steps played by one Generator.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WaveSequenceDefinition {
+    /// MIDI note represented by the sequence assets.
+    pub root_note: u8,
+    /// Order in which steps are selected.
+    pub direction: WaveSequenceDirection,
+    /// Whether the sequence returns to its first step after reaching an end.
+    #[serde(rename = "loop")]
+    pub loop_sequence: bool,
+    /// Constant-power overlap ratio between adjacent steps.
+    pub crossfade: f32,
+    /// Ordered sequence steps.
+    pub steps: Vec<WaveSequenceStepDefinition>,
+}
+
+/// Sequence order used to select steps.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WaveSequenceDirection {
+    /// Select steps from the first to the last.
+    Forward,
+    /// Select steps from the last to the first.
+    Reverse,
+    /// Traverse from the first to the last and back without repeating endpoints.
+    PingPong,
+}
+
+/// One time-bounded Wave Sequence step.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WaveSequenceStepDefinition {
+    /// Stable identifier within the sequence.
+    pub id: String,
+    /// Referenced mono or stereo audio asset.
+    pub asset: AssetReference,
+    /// Region selected from the prepared asset.
+    pub region: SampleRegionDefinition,
+    /// Duration of the step in seconds or beats.
+    pub duration: WaveSequenceDurationDefinition,
+    /// Playback mode for the asset inside the step.
+    pub playback: WaveSequenceStepPlayback,
+    /// Cursor direction through the step region.
+    pub playback_direction: SamplePlaybackDirection,
+    /// Step gain in decibels.
+    pub gain_db: f32,
+    /// Step pitch offset in cents.
+    pub pitch_cents: f32,
+}
+
+/// Duration unit used by a Wave Sequence step.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+pub enum WaveSequenceDurationDefinition {
+    /// A tempo-independent duration in seconds.
+    Seconds {
+        /// Duration in seconds.
+        value: f32,
+    },
+    /// A duration that follows the current process tempo.
+    Beats {
+        /// Duration in quarter-note beats.
+        value: f32,
+    },
+}
+
+/// Asset playback mode inside one sequence step.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WaveSequenceStepPlayback {
+    /// Read the region once and output silence after it ends.
+    OneShot,
+    /// Repeat the region until the step duration ends.
+    Loop,
 }
 
 /// Wavetable generator settings.
@@ -930,6 +1009,9 @@ impl InstrumentDefinition {
                 GeneratorDefinition::Granular(granular) => {
                     validate_granular(&mut diagnostics, &path, granular);
                 }
+                GeneratorDefinition::WaveSequence(sequence) => {
+                    validate_wave_sequence(&mut diagnostics, &path, sequence);
+                }
                 GeneratorDefinition::Wavetable(wavetable) => {
                     validate_wavetable(&mut diagnostics, &path, wavetable);
                 }
@@ -1526,6 +1608,136 @@ fn validate_granular_range(
     if !value.is_finite() || !range.contains(&value) {
         diagnostics.push(
             Diagnostic::error(DiagnosticCode::InvalidGrainParameter, message).with_path(path),
+        );
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn validate_wave_sequence(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    sequence: &WaveSequenceDefinition,
+) {
+    let sequence_path = format!("{path}.generator.wave_sequence");
+    if !(1..=128).contains(&sequence.steps.len()) {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidSequence,
+                "wave sequence steps must contain between 1 and 128 steps",
+            )
+            .with_path(format!("{sequence_path}.steps")),
+        );
+    }
+    validate_range(
+        diagnostics,
+        format!("{sequence_path}.root_note"),
+        f32::from(sequence.root_note),
+        0.0..=127.0,
+        "wave sequence root_note must be between 0 and 127",
+    );
+    validate_range(
+        diagnostics,
+        format!("{sequence_path}.crossfade"),
+        sequence.crossfade,
+        0.0..=0.5,
+        "wave sequence crossfade must be finite and between 0 and 0.5",
+    );
+    let mut ids = HashSet::new();
+    for (index, step) in sequence.steps.iter().enumerate() {
+        let step_path = format!("{sequence_path}.steps[{index}]");
+        if !is_component_id(&step.id) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ParameterIdInvalid,
+                    "wave sequence step id must use component id syntax",
+                )
+                .with_path(format!("{step_path}.id")),
+            );
+        }
+        if !ids.insert(&step.id) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::IdDuplicated,
+                    "wave sequence step id must be unique",
+                )
+                .with_path(format!("{step_path}.id")),
+            );
+        }
+        validate_asset_reference(diagnostics, &step_path, &step.asset);
+        validate_sequence_region(diagnostics, &step_path, step.region);
+        validate_sequence_duration(diagnostics, &step_path, step.duration);
+        validate_range(
+            diagnostics,
+            format!("{step_path}.gain_db"),
+            step.gain_db,
+            -60.0..=12.0,
+            "wave sequence step gain_db must be finite and between -60 and 12 dB",
+        );
+        validate_range(
+            diagnostics,
+            format!("{step_path}.pitch_cents"),
+            step.pitch_cents,
+            -2400.0..=2400.0,
+            "wave sequence step pitch_cents must be finite and between -2400 and 2400",
+        );
+    }
+}
+
+fn validate_sequence_region(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    region: SampleRegionDefinition,
+) {
+    if !region.start_seconds.is_finite() || region.start_seconds < 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidSequence,
+                "wave sequence region start must be finite and non-negative",
+            )
+            .with_path(format!("{path}.region.start_seconds")),
+        );
+    }
+    if let Some(end_seconds) = region.end_seconds {
+        if !end_seconds.is_finite() || end_seconds < 0.0 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::InvalidSequence,
+                    "wave sequence region end must be finite and non-negative",
+                )
+                .with_path(format!("{path}.region.end_seconds")),
+            );
+        }
+        if region.start_seconds.is_finite()
+            && end_seconds.is_finite()
+            && end_seconds <= region.start_seconds
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::InvalidSequence,
+                    "wave sequence region end must be greater than start",
+                )
+                .with_path(format!("{path}.region.end_seconds")),
+            );
+        }
+    }
+}
+
+fn validate_sequence_duration(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    duration: WaveSequenceDurationDefinition,
+) {
+    let (value, unit) = match duration {
+        WaveSequenceDurationDefinition::Seconds { value } => (value, "seconds"),
+        WaveSequenceDurationDefinition::Beats { value } => (value, "beats"),
+    };
+    if !value.is_finite() || value <= 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidStepDuration,
+                format!("wave sequence {unit} duration must be finite and greater than zero"),
+            )
+            .with_path(format!("{path}.duration.value")),
         );
     }
 }

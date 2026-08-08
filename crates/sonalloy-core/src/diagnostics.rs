@@ -161,6 +161,12 @@ pub enum DiagnosticCode {
     /// A granular parameter is outside its supported range.
     #[serde(rename = "INVALID_GRAIN_PARAMETER")]
     InvalidGrainParameter,
+    /// A Wave Sequence structure or step is invalid.
+    #[serde(rename = "INVALID_SEQUENCE")]
+    InvalidSequence,
+    /// A Wave Sequence step duration is invalid.
+    #[serde(rename = "INVALID_STEP_DURATION")]
+    InvalidStepDuration,
 }
 
 /// A structured, frontend-neutral diagnostic.

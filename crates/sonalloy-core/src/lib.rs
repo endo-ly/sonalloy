@@ -14,9 +14,10 @@ pub use compiler::{
     CompileContext, CompileResult, CompiledGranular, CompiledGranularParameters,
     CompiledInstrument, CompiledOperator, CompiledOperatorModulation, CompiledOperatorParameters,
     CompiledOperatorTopology, CompiledSampleDirection, CompiledSampleLoop, CompiledSamplePlayback,
-    CompiledSampleTime, CompiledStretchLatency, CompiledWavetable, CompiledWavetableParameters,
-    GeneratorOutputMode, PreparedWavetable, PreparedWavetableBand, PreparedWavetableFrame,
-    WavetableSourceMetadata, compile_instrument,
+    CompiledSampleTime, CompiledStretchLatency, CompiledWaveSequence, CompiledWaveSequenceDuration,
+    CompiledWaveSequenceStep, CompiledWaveSequenceStepPlayback, CompiledWavetable,
+    CompiledWavetableParameters, GeneratorOutputMode, PreparedWavetable, PreparedWavetableBand,
+    PreparedWavetableFrame, WavetableSourceMetadata, compile_instrument,
 };
 pub use definition::{
     AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, DelayProcessorDefinition,
@@ -28,7 +29,9 @@ pub use definition::{
     PhaseDistortionDefinition, ProcessorDefinition, ReverbProcessorDefinition, SampleDefinition,
     SampleInterpolation, SampleLoopDefinition, SamplePlaybackDirection, SampleRegionDefinition,
     SampleTimeDefinition, SampleZoneDefinition, SampleZonePlaybackDefinition, UnisonDefinition,
-    VoiceStealingDefinition, WavefoldDefinition, WaveshapingDefinition, WavetableDefinition,
+    VoiceStealingDefinition, WaveSequenceDefinition, WaveSequenceDirection,
+    WaveSequenceDurationDefinition, WaveSequenceStepDefinition, WaveSequenceStepPlayback,
+    WavefoldDefinition, WaveshapingDefinition, WavetableDefinition,
 };
 pub use definition::{
     LfoDefinition, LfoWaveform, ModEnvelopeDefinition, ModulationCurve, ModulationDefinition,
