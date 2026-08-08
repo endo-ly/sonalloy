@@ -14,6 +14,7 @@
       "id": "sample",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,
@@ -45,9 +46,9 @@
               "velocity_max": 70,
               "round_robin_group": null,
               "playback": {
-                "type": "one_shot",
-                "start_seconds": 0.0,
-                "end_seconds": 0.08
+                "region": { "start_seconds": 0.0, "end_seconds": 0.08 },
+                "direction": "forward",
+                "loop": null
               }
             },
             {
@@ -63,9 +64,9 @@
               "velocity_max": 127,
               "round_robin_group": null,
               "playback": {
-                "type": "one_shot",
-                "start_seconds": 0.08,
-                "end_seconds": 0.16
+                "region": { "start_seconds": 0.08, "end_seconds": 0.16 },
+                "direction": "forward",
+                "loop": null
               }
             },
             {
@@ -81,9 +82,9 @@
               "velocity_max": 127,
               "round_robin_group": null,
               "playback": {
-                "type": "one_shot",
-                "start_seconds": 0.0,
-                "end_seconds": 0.16
+                "region": { "start_seconds": 0.0, "end_seconds": 0.16 },
+                "direction": "forward",
+                "loop": null
               }
             },
             {
@@ -99,9 +100,9 @@
               "velocity_max": 127,
               "round_robin_group": "high_hits",
               "playback": {
-                "type": "one_shot",
-                "start_seconds": 0.0,
-                "end_seconds": 0.08
+                "region": { "start_seconds": 0.0, "end_seconds": 0.08 },
+                "direction": "forward",
+                "loop": null
               }
             },
             {
@@ -117,9 +118,9 @@
               "velocity_max": 127,
               "round_robin_group": "high_hits",
               "playback": {
-                "type": "one_shot",
-                "start_seconds": 0.08,
-                "end_seconds": 0.16
+                "region": { "start_seconds": 0.08, "end_seconds": 0.16 },
+                "direction": "forward",
+                "loop": null
               }
             }
           ]

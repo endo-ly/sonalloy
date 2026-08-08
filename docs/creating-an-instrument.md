@@ -54,7 +54,7 @@ Layer 2（Sample）    → Layer Processor → ADSR → Layer Gain → Pan ─�
 
 - Layerごとに**独立したADSR**と**Gain / Pan / Tuning**を持ちます。
 - Layer同士は**同じVoice内でMix**されるため、Sampleのアタック＋Oscillatorの余韻のように、別々の音が一つの音色として聞こえます。
-- 発音条件は`trigger`で制御します（`key_min / key_max`で鍵盤の範囲、`velocity_min / velocity_max`で打鍵の強さの範囲）。
+- 発音条件は`trigger`で制御します（`event`で`note_on` / `note_off`、`key_min / key_max`で鍵盤の範囲、`velocity_min / velocity_max`で打鍵の強さの範囲）。`note_off` LayerはNote OnでArmedになり、対応するNote Offで発音します。
 
 ### ADSRで音の輪郭を作る
 
@@ -278,11 +278,11 @@ Event SequenceではNote Eventと同じ絶対Frame位置にParameter Change、Pi
 
 ## Step 4. 自作WAVをSampleとして使う
 
-録音や生成したWAVを、Sample Layerの音源として組み込めます。
+録音や生成したWAVを、Sample Layerの音源として組み込めます。Sample LayerではMonoとStereoのChannel構成を保持したまま再生します。
 
 **1. WAVを準備する**
 
-PCM 16/24 bitまたはFloat 32のWAVです。Mono推奨ですが、StereoでもCompile時に自動でMonoへ平均Downmixされます。`testdata/assets/`へ置くのが慣例です。
+PCM 16/24 bitまたはFloat 32のWAVです。MonoとStereoのどちらも使用でき、Stereoは左右のChannelを保持して再生します。`testdata/assets/`へ置くのが慣例です。
 
 **2. SHA-256を計算する**
 
@@ -303,6 +303,7 @@ sha256sum testdata/assets/my-sample.wav
   "id": "attack",
   "enabled": true,
   "trigger": {
+    "event": "note_on",
     "key_min": 0, "key_max": 127,
     "velocity_min": 1, "velocity_max": 127
   },
@@ -327,7 +328,11 @@ sha256sum testdata/assets/my-sample.wav
           "velocity_min": 1,
           "velocity_max": 127,
           "round_robin_group": null,
-          "playback": { "type": "one_shot", "start_seconds": 0.0, "end_seconds": null }
+          "playback": {
+            "region": { "start_seconds": 0.0, "end_seconds": null },
+            "direction": "forward",
+            "loop": null
+          }
         }
       ]
     }
@@ -343,10 +348,12 @@ sha256sum testdata/assets/my-sample.wav
 | `zones[].key_min` / `key_max` | Zoneが受け付けるMIDI Note範囲（0〜127、min <= max） |
 | `zones[].velocity_min` / `velocity_max` | Zoneが受け付けるVelocity範囲（1〜127、min <= max） |
 | `zones[].round_robin_group` | 同一条件のZoneをDefinition順に選択するGroup。不要なら`null` |
-| `zones[].playback` | `one_shot`または`forward_loop`とRegion / Loop位置 |
+| `zones[].playback` | Region、`forward` / `reverse`、Loop / Constant-power Crossfade |
 | `interpolation` | `cubic`（4点補間） |
 
 SampleのPath違いやハッシュ不一致の場合は**そのZoneだけが無効化され**、ほかのZoneやLayerでRenderは継続します。SHA-256を省略した場合はWarningだけが付きます。
+
+`direction: "reverse"`はPrepared Audioの複製を作らず、Cursorを逆方向へ進めます。LoopはRegion内に置き、`crossfade_seconds`を0より大きくするとLoop終端と開始をConstant-powerでBlendします。Release Sampleを作る場合はLayerの`trigger.event`を`note_off`にし、Note OnでArmedにしてからNote Offで発音します。
 
 ## Step 5. 音を出す
 

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Release Trigger",
+    "author": "Sonalloy",
+    "description": "Deterministic sample mapping review fixture"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "sample",
+      "enabled": true,
+      "trigger": {
+        "event": "note_off",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -3.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "release",
+              "asset": {
+                "path": "../assets/rr-a.wav",
+                "sha256": "b48683025d155c9376610f2e43b12a468c29a28691ac137ce238e5007c415436"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "region": {
+                  "start_seconds": 0.0,
+                  "end_seconds": null
+                },
+                "direction": "forward",
+                "loop": null
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": []
+  }
+}

@@ -38,13 +38,13 @@ Process仕様と実行時の仕組みを提供します。
 | `definition` | Instrument Definitionの読み込みとValidation |
 | `parameter` | Canonical Parameter ID、Descriptor、Normalize / Denormalize、Catalog |
 | `compiler` | DefinitionからCompiled Instrumentへの変換、Wavetableの帯域制限Tableと固定Operator Topologyの準備 |
-| `asset` | SHA-256照合、WAV読み込み、Mono変換、Sample Rate変換、Prepared Asset共有 |
+| `asset` | SHA-256照合、WAV読み込み、Planar Mono / Stereo化、Sample Rate変換、Prepared Audio共有 |
 | `wavetable` | Wavetable AssetのFrame分割、FFT/IFFTによるBand Table生成、Guard Sample付与 |
 | `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Wavetable、Operator Modulation、Processor Chain |
 | `render` | Offline Render LoopとEventの供給 |
 | `diagnostics` | 画面表示に依存しないError Code、Severity、Message |
 
-Compileの段階でZoneとWavetableのAsset読み込みを完了し、同じCache Keyを持つDecode済みのMono SampleまたはPrepared Wavetableを`Arc`で共有します。WavetableのFFTとTable生成はCompile中だけ行います。Process中は、Prepareで確保したScratch Buffer、Native Handle、Compiled Generatorだけを使います。
+Compileの段階でZoneとWavetableのAsset読み込みを完了し、同じCache Keyを持つDecode済みのMono / Stereo Prepared AudioまたはPrepared Wavetableを`Arc`で共有します。SampleはStereo Channelを保持し、Wavetableだけが既存のMono Preparation契約で処理します。WavetableのFFTとTable生成はCompile中だけ行います。Process中は、Prepareで確保したScratch Buffer、Native Handle、Compiled Generatorだけを使います。
 
 Operator Modulationは外部Assetを持たず、4 Operatorの固定TopologyをCompile時に`evaluation_order`、`incoming_masks`、`carrier_mask`へ解決します。Runtimeはこの固定配列とVoiceごとのPhase、Previous Output、Operator Envelopeだけを使い、任意Graphや文字列LookupをProcessへ持ち込みません。
 

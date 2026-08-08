@@ -99,10 +99,12 @@ pub struct LayerDefinition {
     pub processors: Vec<ProcessorDefinition>,
 }
 
-/// Conditions evaluated once when a Note On is received.
+/// Conditions evaluated once when the layer's trigger event is received.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LayerTriggerDefinition {
+    /// Event at which this layer starts its generator.
+    pub event: LayerTriggerEvent,
     /// Lowest MIDI note accepted by the layer.
     pub key_min: u8,
     /// Highest MIDI note accepted by the layer.
@@ -111,6 +113,16 @@ pub struct LayerTriggerDefinition {
     pub velocity_min: u8,
     /// Highest MIDI velocity accepted by the layer.
     pub velocity_max: u8,
+}
+
+/// Layer trigger event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LayerTriggerEvent {
+    /// Start the layer when the note begins.
+    NoteOn,
+    /// Arm the layer on Note On and start it when the note ends.
+    NoteOff,
 }
 
 /// Generator variants in the Definition model.
@@ -409,26 +421,47 @@ pub struct SampleZoneDefinition {
 
 /// Playback region owned by one Sample Zone.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
-pub enum SampleZonePlaybackDefinition {
-    /// Play a finite region once.
-    OneShot {
-        /// Region start in source seconds.
-        start_seconds: f32,
-        /// Optional region end in source seconds.
-        end_seconds: Option<f32>,
-    },
-    /// Repeat a region forward while the layer envelope is active.
-    ForwardLoop {
-        /// Region start in source seconds.
-        start_seconds: f32,
-        /// Optional region end in source seconds.
-        end_seconds: Option<f32>,
-        /// Loop start in source seconds.
-        loop_start_seconds: f32,
-        /// Loop end in source seconds.
-        loop_end_seconds: f32,
-    },
+#[serde(deny_unknown_fields)]
+pub struct SampleZonePlaybackDefinition {
+    /// Region selected from the prepared asset.
+    pub region: SampleRegionDefinition,
+    /// Cursor direction through the region.
+    pub direction: SamplePlaybackDirection,
+    /// Optional loop inside the region.
+    #[serde(rename = "loop")]
+    pub r#loop: Option<SampleLoopDefinition>,
+}
+
+/// Region boundaries expressed in source seconds.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SampleRegionDefinition {
+    /// Inclusive region start in source seconds.
+    pub start_seconds: f32,
+    /// Optional exclusive region end in source seconds.
+    pub end_seconds: Option<f32>,
+}
+
+/// Sample cursor direction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SamplePlaybackDirection {
+    /// Read from region start toward region end.
+    Forward,
+    /// Read from region end toward region start.
+    Reverse,
+}
+
+/// Loop boundaries and crossfade expressed in source seconds.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SampleLoopDefinition {
+    /// Inclusive loop start in source seconds.
+    pub start_seconds: f32,
+    /// Exclusive loop end in source seconds.
+    pub end_seconds: f32,
+    /// Constant-power crossfade duration in seconds.
+    pub crossfade_seconds: f32,
 }
 
 /// A source file referenced by a Definition.
@@ -1339,101 +1372,109 @@ fn validate_sample_playback_definition(
     path: &str,
     playback: SampleZonePlaybackDefinition,
 ) {
-    let mut validate_seconds = |field: &str, value: f32| {
-        if !value.is_finite() || value < 0.0 {
+    validate_sample_seconds(
+        diagnostics,
+        path,
+        "region.start_seconds",
+        playback.region.start_seconds,
+    );
+    if let Some(end_seconds) = playback.region.end_seconds {
+        validate_sample_seconds(diagnostics, path, "region.end_seconds", end_seconds);
+        if playback.region.start_seconds.is_finite()
+            && end_seconds.is_finite()
+            && end_seconds <= playback.region.start_seconds
+        {
             diagnostics.push(
                 Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "sample playback time must be finite and non-negative",
+                    DiagnosticCode::DefinitionError,
+                    "sample region end must be greater than start",
                 )
-                .with_path(format!("{path}.playback.{field}")),
+                .with_path(format!("{path}.playback.region.end_seconds")),
             );
         }
-    };
-    match playback {
-        SampleZonePlaybackDefinition::OneShot {
-            start_seconds,
-            end_seconds,
-        } => {
-            validate_seconds("start_seconds", start_seconds);
-            if let Some(end_seconds) = end_seconds {
-                validate_seconds("end_seconds", end_seconds);
-                if start_seconds.is_finite()
-                    && end_seconds.is_finite()
-                    && end_seconds <= start_seconds
-                {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::DefinitionError,
-                            "one-shot end must be greater than start",
-                        )
-                        .with_path(format!("{path}.playback.end_seconds")),
-                    );
-                }
-            }
+    }
+    if let Some(loop_definition) = playback.r#loop {
+        validate_sample_seconds(
+            diagnostics,
+            path,
+            "loop.start_seconds",
+            loop_definition.start_seconds,
+        );
+        validate_sample_seconds(
+            diagnostics,
+            path,
+            "loop.end_seconds",
+            loop_definition.end_seconds,
+        );
+        validate_sample_seconds(
+            diagnostics,
+            path,
+            "loop.crossfade_seconds",
+            loop_definition.crossfade_seconds,
+        );
+        if loop_definition.start_seconds.is_finite()
+            && playback.region.start_seconds.is_finite()
+            && loop_definition.start_seconds < playback.region.start_seconds
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sample loop start must be inside the playback region",
+                )
+                .with_path(format!("{path}.playback.loop.start_seconds")),
+            );
         }
-        SampleZonePlaybackDefinition::ForwardLoop {
-            start_seconds,
-            end_seconds,
-            loop_start_seconds,
-            loop_end_seconds,
-        } => {
-            validate_seconds("start_seconds", start_seconds);
-            validate_seconds("loop_start_seconds", loop_start_seconds);
-            validate_seconds("loop_end_seconds", loop_end_seconds);
-            if let Some(end_seconds) = end_seconds {
-                validate_seconds("end_seconds", end_seconds);
-                if start_seconds.is_finite()
-                    && end_seconds.is_finite()
-                    && end_seconds <= start_seconds
-                {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::DefinitionError,
-                            "forward loop end must be greater than start",
-                        )
-                        .with_path(format!("{path}.playback.end_seconds")),
-                    );
-                }
-            }
-            if loop_end_seconds.is_finite()
-                && loop_start_seconds.is_finite()
-                && loop_end_seconds <= loop_start_seconds
-            {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::DefinitionError,
-                        "forward loop end must be greater than loop start",
-                    )
-                    .with_path(format!("{path}.playback.loop_end_seconds")),
-                );
-            }
-            if start_seconds.is_finite()
-                && loop_start_seconds.is_finite()
-                && loop_start_seconds < start_seconds
-            {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::DefinitionError,
-                        "forward loop start must be inside the playback region",
-                    )
-                    .with_path(format!("{path}.playback.loop_start_seconds")),
-                );
-            }
-            if let Some(end_seconds) = end_seconds
-                && loop_end_seconds.is_finite()
-                && end_seconds.is_finite()
-                && loop_end_seconds > end_seconds
-            {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::DefinitionError,
-                        "forward loop end must be inside the playback region",
-                    )
-                    .with_path(format!("{path}.playback.loop_end_seconds")),
-                );
-            }
+        if loop_definition.end_seconds.is_finite()
+            && loop_definition.start_seconds.is_finite()
+            && loop_definition.end_seconds <= loop_definition.start_seconds
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sample loop end must be greater than loop start",
+                )
+                .with_path(format!("{path}.playback.loop.end_seconds")),
+            );
         }
+        if let Some(end_seconds) = playback.region.end_seconds
+            && loop_definition.end_seconds.is_finite()
+            && end_seconds.is_finite()
+            && loop_definition.end_seconds > end_seconds
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sample loop end must be inside the playback region",
+                )
+                .with_path(format!("{path}.playback.loop.end_seconds")),
+            );
+        }
+        if loop_definition.crossfade_seconds.is_finite()
+            && loop_definition.start_seconds.is_finite()
+            && loop_definition.end_seconds.is_finite()
+            && loop_definition.crossfade_seconds
+                > (loop_definition.end_seconds - loop_definition.start_seconds) * 0.5
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sample loop crossfade must not exceed half the loop length",
+                )
+                .with_path(format!("{path}.playback.loop.crossfade_seconds")),
+            );
+        }
+    }
+}
+
+fn validate_sample_seconds(diagnostics: &mut Vec<Diagnostic>, path: &str, field: &str, value: f32) {
+    if !value.is_finite() || value < 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "sample playback time must be finite and non-negative",
+            )
+            .with_path(format!("{path}.playback.{field}")),
+        );
     }
 }
 
@@ -1918,6 +1959,7 @@ pub(crate) mod tests {
                 id: "body".to_owned(),
                 enabled: true,
                 trigger: LayerTriggerDefinition {
+                    event: LayerTriggerEvent::NoteOn,
                     key_min: 0,
                     key_max: 127,
                     velocity_min: 1,
@@ -2154,6 +2196,41 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn sample_playback_and_trigger_event_serde_preserve_the_new_shape() {
+        let playback: SampleZonePlaybackDefinition = serde_json::from_value(serde_json::json!({
+            "region": {"start_seconds": 0.25, "end_seconds": null},
+            "direction": "reverse",
+            "loop": {
+                "start_seconds": 0.5,
+                "end_seconds": 1.5,
+                "crossfade_seconds": 0.1
+            }
+        }))
+        .expect("sample playback parses");
+        assert!((playback.region.start_seconds - 0.25).abs() < f32::EPSILON);
+        assert_eq!(playback.region.end_seconds, None);
+        assert_eq!(playback.direction, SamplePlaybackDirection::Reverse);
+        assert_eq!(
+            playback.r#loop,
+            Some(SampleLoopDefinition {
+                start_seconds: 0.5,
+                end_seconds: 1.5,
+                crossfade_seconds: 0.1,
+            })
+        );
+
+        let trigger: LayerTriggerDefinition = serde_json::from_value(serde_json::json!({
+            "event": "note_off",
+            "key_min": 0,
+            "key_max": 127,
+            "velocity_min": 1,
+            "velocity_max": 127
+        }))
+        .expect("trigger event parses");
+        assert_eq!(trigger.event, LayerTriggerEvent::NoteOff);
+    }
+
+    #[test]
     fn oscillator_waveforms_use_tagged_objects() {
         let mut value = serde_json::to_value(definition()).expect("definition serializes");
         for waveform in ["sine", "saw", "square", "triangle"] {
@@ -2327,9 +2404,13 @@ pub(crate) mod tests {
 
     #[test]
     fn sample_zone_mapping_and_round_robin_ranges_are_validated() {
-        let one_shot = SampleZonePlaybackDefinition::OneShot {
-            start_seconds: 0.0,
-            end_seconds: None,
+        let one_shot = SampleZonePlaybackDefinition {
+            region: SampleRegionDefinition {
+                start_seconds: 0.0,
+                end_seconds: None,
+            },
+            direction: SamplePlaybackDirection::Forward,
+            r#loop: None,
         };
         let value = sample_definition(vec![
             sample_zone("soft", 0, 127, 1, 64, None, one_shot),
@@ -2367,9 +2448,13 @@ pub(crate) mod tests {
 
     #[test]
     fn sample_zone_midi_fields_have_explicit_bounds() {
-        let one_shot = SampleZonePlaybackDefinition::OneShot {
-            start_seconds: 0.0,
-            end_seconds: None,
+        let one_shot = SampleZonePlaybackDefinition {
+            region: SampleRegionDefinition {
+                start_seconds: 0.0,
+                end_seconds: None,
+            },
+            direction: SamplePlaybackDirection::Forward,
+            r#loop: None,
         };
         let fields = [
             ("root_note", "layers[0].generator.sample.zones[0].root_note"),
@@ -2426,23 +2511,59 @@ pub(crate) mod tests {
             1,
             127,
             None,
-            SampleZonePlaybackDefinition::ForwardLoop {
-                start_seconds: 1.0,
-                end_seconds: Some(2.0),
-                loop_start_seconds: 0.5,
-                loop_end_seconds: 2.5,
+            SampleZonePlaybackDefinition {
+                region: SampleRegionDefinition {
+                    start_seconds: 1.0,
+                    end_seconds: Some(2.0),
+                },
+                direction: SamplePlaybackDirection::Forward,
+                r#loop: Some(SampleLoopDefinition {
+                    start_seconds: 0.5,
+                    end_seconds: 2.5,
+                    crossfade_seconds: 0.0,
+                }),
             },
         )]);
         let diagnostics = value.validate();
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.code == DiagnosticCode::DefinitionError
                 && diagnostic.path.as_deref()
-                    == Some("layers[0].generator.sample.zones[0].playback.loop_start_seconds")
+                    == Some("layers[0].generator.sample.zones[0].playback.loop.start_seconds")
         }));
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.code == DiagnosticCode::DefinitionError
                 && diagnostic.path.as_deref()
-                    == Some("layers[0].generator.sample.zones[0].playback.loop_end_seconds")
+                    == Some("layers[0].generator.sample.zones[0].playback.loop.end_seconds")
+        }));
+    }
+
+    #[test]
+    fn sample_loop_rejects_a_crossfade_longer_than_half_the_loop() {
+        let value = sample_definition(vec![sample_zone(
+            "crossfade",
+            0,
+            127,
+            1,
+            127,
+            None,
+            SampleZonePlaybackDefinition {
+                region: SampleRegionDefinition {
+                    start_seconds: 0.0,
+                    end_seconds: Some(2.0),
+                },
+                direction: SamplePlaybackDirection::Forward,
+                r#loop: Some(SampleLoopDefinition {
+                    start_seconds: 0.5,
+                    end_seconds: 1.5,
+                    crossfade_seconds: 0.51,
+                }),
+            },
+        )]);
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback.loop.crossfade_seconds")
         }));
     }
 

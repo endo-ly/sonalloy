@@ -4,6 +4,7 @@ use crate::compiler::{
     CompiledGenerator, CompiledInstrument, CompiledProcessor, CompiledProcessorKind,
     CompiledSampleZone,
 };
+use crate::definition::LayerTriggerEvent;
 use crate::parameter::ParameterScale;
 use crate::process::{
     InstrumentProcessor, ProcessBlock, ProcessError, ProcessEventKind, ProcessSpec, clear_output,
@@ -180,7 +181,7 @@ impl InstrumentRuntime {
             }
             ProcessEventKind::NoteOff { note_id } => {
                 for voice in &mut self.voices {
-                    voice.release_note(note_id);
+                    voice.release_note(&self.compiled, note_id)?;
                 }
             }
             ProcessEventKind::ParameterChange {
@@ -275,8 +276,14 @@ impl InstrumentRuntime {
                     *self
                         .note_layer_selection
                         .get_mut(layer_index)
-                        .ok_or_else(invalid_state)? =
-                        PreparedLayerSelection::Active { sample_zone: None };
+                        .ok_or_else(invalid_state)? = match layer.trigger.event {
+                        LayerTriggerEvent::NoteOn => {
+                            PreparedLayerSelection::Active { sample_zone: None }
+                        }
+                        LayerTriggerEvent::NoteOff => {
+                            PreparedLayerSelection::Armed { sample_zone: None }
+                        }
+                    };
                     can_trigger = true;
                 }
                 CompiledGenerator::Sample(sample) => {
@@ -289,8 +296,13 @@ impl InstrumentRuntime {
                         *self
                             .note_layer_selection
                             .get_mut(layer_index)
-                            .ok_or_else(invalid_state)? = PreparedLayerSelection::Active {
-                            sample_zone: Some(zone_index),
+                            .ok_or_else(invalid_state)? = match layer.trigger.event {
+                            LayerTriggerEvent::NoteOn => PreparedLayerSelection::Active {
+                                sample_zone: Some(zone_index),
+                            },
+                            LayerTriggerEvent::NoteOff => PreparedLayerSelection::Armed {
+                                sample_zone: Some(zone_index),
+                            },
                         };
                         can_trigger = true;
                     }
@@ -1483,9 +1495,13 @@ mod tests {
             velocity_min: 1,
             velocity_max: 127,
             round_robin_group: Some("hits".to_owned()),
-            playback: crate::definition::SampleZonePlaybackDefinition::OneShot {
-                start_seconds,
-                end_seconds: Some(end_seconds),
+            playback: crate::definition::SampleZonePlaybackDefinition {
+                region: crate::definition::SampleRegionDefinition {
+                    start_seconds,
+                    end_seconds: Some(end_seconds),
+                },
+                direction: crate::definition::SamplePlaybackDirection::Forward,
+                r#loop: None,
             },
         };
         let mut source = definition();

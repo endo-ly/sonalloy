@@ -7,7 +7,7 @@ use sonalloy_core::{
     GeneratorDefinition, HardSyncDefinition, InstrumentDefinition, InstrumentProcessor,
     LfoDefinition, LfoWaveform, ModulationCurve, ModulationDefinition, ModulationRouteDefinition,
     ModulationSourceDefinition, NoiseColor, NoiseDefinition, OscillatorDefinition,
-    OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEventKind, ProcessSpec,
+    OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec,
     ProcessorDefinition, RandomDefinition, RenderRequest, SampleZoneDefinition,
     SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime, UnisonDefinition,
     WaveshapingDefinition, compile_instrument, render_instrument,
@@ -1046,9 +1046,13 @@ fn sample_zone(
         velocity_min,
         velocity_max,
         round_robin_group: round_robin_group.map(str::to_owned),
-        playback: SampleZonePlaybackDefinition::OneShot {
-            start_seconds,
-            end_seconds: Some(end_seconds),
+        playback: SampleZonePlaybackDefinition {
+            region: sonalloy_core::SampleRegionDefinition {
+                start_seconds,
+                end_seconds: Some(end_seconds),
+            },
+            direction: sonalloy_core::SamplePlaybackDirection::Forward,
+            r#loop: None,
         },
     }
 }
@@ -1181,6 +1185,91 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
             panic!("attack layer must be a sample")
         }
     }
+}
+
+#[test]
+fn release_sample_layer_remains_armed_until_note_off() {
+    let mut definition = sample_only_definition(vec![sample_zone(
+        "release",
+        "../../testdata/assets/metal-hit.wav",
+        0,
+        127,
+        1,
+        127,
+        None,
+        0.0,
+        0.08,
+    )]);
+    definition.layers[0].trigger.event = sonalloy_core::LayerTriggerEvent::NoteOff;
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let instrument = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 512, 2).expect("valid spec"),
+        },
+    )
+    .instrument
+    .expect("release sample compiles");
+    let mut runtime = instrument.instantiate();
+    runtime
+        .prepare(ProcessSpec::new(48_000.0, 512, 2).expect("valid spec"))
+        .expect("release sample prepares");
+
+    let note_on = [ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 9,
+            note_number: 60,
+            velocity: 100,
+        },
+    }];
+    let mut armed_left = vec![0.0; 128];
+    let mut armed_right = vec![0.0; 128];
+    let mut armed_output: [&mut [f32]; 2] = [&mut armed_left, &mut armed_right];
+    runtime
+        .process(ProcessBlock {
+            frames: 128,
+            context: ProcessContext {
+                absolute_frame: 0,
+                tempo_bpm: 120.0,
+            },
+            events: &note_on,
+            output: &mut armed_output,
+        })
+        .expect("note on arms the release layer");
+    assert_eq!(
+        runtime.voice_state(0),
+        Some(sonalloy_core::VoiceState::Active)
+    );
+    assert!(armed_left.iter().all(|sample| sample.abs() < 1.0e-12));
+    assert!(armed_right.iter().all(|sample| sample.abs() < 1.0e-12));
+
+    let note_off = [ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOff { note_id: 9 },
+    }];
+    let mut release_left = vec![0.0; 512];
+    let mut release_right = vec![0.0; 512];
+    let mut release_output: [&mut [f32]; 2] = [&mut release_left, &mut release_right];
+    runtime
+        .process(ProcessBlock {
+            frames: 512,
+            context: ProcessContext {
+                absolute_frame: 128,
+                tempo_bpm: 120.0,
+            },
+            events: &note_off,
+            output: &mut release_output,
+        })
+        .expect("note off starts the release layer");
+    assert_eq!(
+        runtime.voice_state(0),
+        Some(sonalloy_core::VoiceState::Releasing)
+    );
+    assert!(release_left.iter().all(|sample| sample.is_finite()));
+    assert!(release_right.iter().all(|sample| sample.is_finite()));
+    assert!(release_left.iter().any(|sample| sample.abs() > 1.0e-6));
 }
 
 #[test]

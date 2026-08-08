@@ -2,13 +2,16 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::asset::{AssetError, PreparedAsset, PreparedSample, prepare_asset, resolved_asset_path};
+use crate::asset::{
+    AssetError, PreparedAsset, PreparedAudio, PreparedAudioChannels, prepare_asset,
+    resolved_asset_path,
+};
 use crate::definition::{
     AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
-    GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
-    ModulationSourceDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
-    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, ProcessorDefinition,
-    ReverbProcessorDefinition, SampleZoneDefinition, SampleZonePlaybackDefinition,
+    GeneratorDefinition, InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform,
+    ModulationCurve, ModulationSourceDefinition, NoiseColor, OperatorAlgorithm,
+    OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition, OscillatorWaveform,
+    ProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection, SampleZoneDefinition,
     UnisonDefinition, VoiceStealingDefinition, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
@@ -174,6 +177,8 @@ pub struct CompiledLayer {
 /// Compiled trigger conditions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompiledLayerTrigger {
+    /// Event at which the layer starts.
+    pub event: LayerTriggerEvent,
     /// Lowest accepted MIDI note.
     pub key_min: u8,
     /// Highest accepted MIDI note.
@@ -229,7 +234,7 @@ impl CompiledGenerator {
                 }
             }
             Self::Noise(_) => GeneratorOutputMode::Stereo,
-            Self::Sample(_) => GeneratorOutputMode::Mono,
+            Self::Sample(value) => value.output_mode(),
             Self::Wavetable(value) => {
                 if value.unison.position_distribution.len() == 1 {
                     GeneratorOutputMode::Mono
@@ -359,13 +364,30 @@ pub struct CompiledSample {
     pub groups: Box<[CompiledRoundRobinGroup]>,
 }
 
+impl CompiledSample {
+    /// Return the fixed output layout required by the prepared zones.
+    #[must_use]
+    pub fn output_mode(&self) -> GeneratorOutputMode {
+        if self
+            .zones
+            .iter()
+            .filter_map(|zone| zone.source.as_deref())
+            .any(|source| matches!(source.channels, PreparedAudioChannels::Stereo { .. }))
+        {
+            GeneratorOutputMode::Stereo
+        } else {
+            GeneratorOutputMode::Mono
+        }
+    }
+}
+
 /// Compiled Sample Zone and its prepared Asset.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledSampleZone {
     /// Stable Definition identifier.
     pub id: String,
-    /// Prepared mono source, absent when the asset could not be loaded.
-    pub source: Option<Arc<PreparedSample>>,
+    /// Prepared mono or stereo source, absent when the asset could not be loaded.
+    pub source: Option<Arc<PreparedAudio>>,
     /// MIDI note represented by the source recording.
     pub root_note: u8,
     /// Lowest accepted MIDI note.
@@ -393,7 +415,7 @@ pub struct WavetableSourceMetadata {
     pub source_channels: usize,
     /// Source bit depth when supplied by the decoder.
     pub bits_per_sample: Option<u32>,
-    /// Total source frames after mono conversion.
+    /// Number of frames in the source asset.
     pub source_frames: usize,
 }
 
@@ -530,27 +552,37 @@ impl CompiledSampleZone {
     }
 }
 
-/// Sample playback region in prepared frame coordinates.
+/// Playback direction resolved for the Sample Runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CompiledSamplePlayback {
-    /// Play a finite region once.
-    OneShot {
-        /// Inclusive start frame.
-        start_frame: usize,
-        /// Exclusive end frame.
-        end_frame: usize,
-    },
-    /// Repeat a forward loop inside the region.
-    ForwardLoop {
-        /// Inclusive region start frame.
-        start_frame: usize,
-        /// Exclusive region end frame.
-        end_frame: usize,
-        /// Inclusive loop start frame.
-        loop_start_frame: usize,
-        /// Exclusive loop end frame.
-        loop_end_frame: usize,
-    },
+pub enum CompiledSampleDirection {
+    /// Advance the cursor toward the region end.
+    Forward,
+    /// Advance the cursor toward the region start.
+    Reverse,
+}
+
+/// Loop region in prepared frame coordinates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledSampleLoop {
+    /// Inclusive loop start frame.
+    pub start_frame: usize,
+    /// Exclusive loop end frame.
+    pub end_frame: usize,
+    /// Constant-power crossfade length in frames.
+    pub crossfade_frames: usize,
+}
+
+/// Sample playback configuration in prepared frame coordinates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledSamplePlayback {
+    /// Playback direction.
+    pub direction: CompiledSampleDirection,
+    /// Inclusive region start frame.
+    pub start_frame: usize,
+    /// Exclusive region end frame.
+    pub end_frame: usize,
+    /// Optional loop inside the region.
+    pub loop_region: Option<CompiledSampleLoop>,
 }
 
 /// Compiled Round Robin group.
@@ -1996,9 +2028,14 @@ fn compile_sample(
             velocity_min: zone.velocity_min,
             velocity_max: zone.velocity_max,
             group: None,
-            playback: CompiledSamplePlayback::OneShot {
+            playback: CompiledSamplePlayback {
+                direction: match zone.playback.direction {
+                    SamplePlaybackDirection::Forward => CompiledSampleDirection::Forward,
+                    SamplePlaybackDirection::Reverse => CompiledSampleDirection::Reverse,
+                },
                 start_frame: 0,
                 end_frame: 0,
+                loop_region: None,
             },
             asset_path: zone.asset.path.clone(),
         };
@@ -2022,16 +2059,7 @@ fn compile_sample(
                         .with_path(format!("{zone_path}.asset.sha256")),
                     );
                 }
-                if prepared.downmixed {
-                    diagnostics.push(
-                        Diagnostic::warning(
-                            DiagnosticCode::AssetDownmixed,
-                            "stereo asset was downmixed to mono",
-                        )
-                        .with_path(format!("{zone_path}.asset.path")),
-                    );
-                }
-                if (f64::from(prepared.sample.source_metadata.source_sample_rate) - sample_rate)
+                if (f64::from(prepared.audio.source_metadata.source_sample_rate) - sample_rate)
                     .abs()
                     > f64::EPSILON
                 {
@@ -2045,13 +2073,13 @@ fn compile_sample(
                 }
                 if let Some(playback) = compile_sample_playback(
                     zone,
-                    prepared.sample.samples.len(),
+                    prepared.audio.frames,
                     sample_rate,
                     &format!("{zone_path}.playback"),
                     diagnostics,
                 ) {
                     compiled.playback = playback;
-                    compiled.source = Some(Arc::clone(&prepared.sample));
+                    compiled.source = Some(Arc::clone(&prepared.audio));
                 }
             }
             Err(error) => {
@@ -2119,22 +2147,8 @@ fn compile_sample_playback(
     path: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<CompiledSamplePlayback> {
-    let (start_seconds, end_seconds, loop_seconds) = match zone.playback {
-        SampleZonePlaybackDefinition::OneShot {
-            start_seconds,
-            end_seconds,
-        } => (start_seconds, end_seconds, None),
-        SampleZonePlaybackDefinition::ForwardLoop {
-            start_seconds,
-            end_seconds,
-            loop_start_seconds,
-            loop_end_seconds,
-        } => (
-            start_seconds,
-            end_seconds,
-            Some((loop_start_seconds, loop_end_seconds)),
-        ),
-    };
+    let start_seconds = zone.playback.region.start_seconds;
+    let end_seconds = zone.playback.region.end_seconds;
     let start_frame = sample_time_to_frame(
         start_seconds,
         sample_rate,
@@ -2165,45 +2179,60 @@ fn compile_sample_playback(
         );
         return None;
     }
-    let Some((loop_start_seconds, loop_end_seconds)) = loop_seconds else {
-        return Some(CompiledSamplePlayback::OneShot {
-            start_frame,
-            end_frame,
-        });
+    let loop_region = if let Some(loop_definition) = zone.playback.r#loop {
+        let loop_start_frame = sample_time_to_frame(
+            loop_definition.start_seconds,
+            sample_rate,
+            path,
+            "loop.start_seconds",
+            diagnostics,
+        )?;
+        let loop_end_frame = sample_time_to_frame(
+            loop_definition.end_seconds,
+            sample_rate,
+            path,
+            "loop.end_seconds",
+            diagnostics,
+        )?;
+        let crossfade_frames = sample_time_to_frame(
+            loop_definition.crossfade_seconds,
+            sample_rate,
+            path,
+            "loop.crossfade_seconds",
+            diagnostics,
+        )?;
+        let loop_length = loop_end_frame.saturating_sub(loop_start_frame);
+        if loop_start_frame < start_frame
+            || loop_end_frame > end_frame
+            || loop_end_frame <= loop_start_frame
+            || loop_length < 2
+            || crossfade_frames > loop_length / 2
+        {
+            diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::CompileError,
+                        "sample loop must contain at least two frames inside the sample region and its crossfade must not exceed half the loop",
+                    )
+                    .with_path(path),
+                );
+            return None;
+        }
+        Some(CompiledSampleLoop {
+            start_frame: loop_start_frame,
+            end_frame: loop_end_frame,
+            crossfade_frames,
+        })
+    } else {
+        None
     };
-    let loop_start_frame = sample_time_to_frame(
-        loop_start_seconds,
-        sample_rate,
-        path,
-        "loop_start_seconds",
-        diagnostics,
-    )?;
-    let loop_end_frame = sample_time_to_frame(
-        loop_end_seconds,
-        sample_rate,
-        path,
-        "loop_end_seconds",
-        diagnostics,
-    )?;
-    if loop_start_frame < start_frame
-        || loop_end_frame > end_frame
-        || loop_end_frame <= loop_start_frame
-        || loop_end_frame - loop_start_frame < 2
-    {
-        diagnostics.push(
-            Diagnostic::error(
-                DiagnosticCode::CompileError,
-                "forward loop must contain at least two frames inside the sample region",
-            )
-            .with_path(path),
-        );
-        return None;
-    }
-    Some(CompiledSamplePlayback::ForwardLoop {
+    Some(CompiledSamplePlayback {
+        direction: match zone.playback.direction {
+            SamplePlaybackDirection::Forward => CompiledSampleDirection::Forward,
+            SamplePlaybackDirection::Reverse => CompiledSampleDirection::Reverse,
+        },
         start_frame,
         end_frame,
-        loop_start_frame,
-        loop_end_frame,
+        loop_region,
     })
 }
 
@@ -2296,6 +2325,7 @@ fn has_errors(diagnostics: &[Diagnostic]) -> bool {
 
 fn compile_trigger(trigger: crate::definition::LayerTriggerDefinition) -> CompiledLayerTrigger {
     CompiledLayerTrigger {
+        event: trigger.event,
         key_min: trigger.key_min,
         key_max: trigger.key_max,
         velocity_min: trigger.velocity_min,

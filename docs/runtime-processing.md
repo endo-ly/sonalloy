@@ -60,19 +60,22 @@ stateDiagram-v2
 
 **Note On**
 
-1. どのLayerもTrigger条件（Key / Velocity）に合わないNoteは無視します
+1. どのLayerもTrigger条件（Event / Key / Velocity）に合わないNoteは無視します
 2. Voiceを1つ選びます。Idle → 最も音量の小さいReleasing → 最古のActive の順です
-3. 選んだVoiceがIdleなら即座にNoteを開始します。空きがない場合は、5msのFadeで古い音を消してから新しいNoteを開始します（Voice Stealing）
+3. `note_on` Layerを開始し、`note_off` LayerをArmedにします。Armed LayerはAudioを生成せず、Note IDを保持します
+4. 選んだVoiceがIdleなら即座にNoteを開始します。空きがない場合は、5msのFadeで古い音を消してから新しいNoteを開始します（Voice Stealing）
 
 **Note Off**
 
-- Note IDでVoiceを探し、今のADSRの値からReleaseを始めます
+- Note IDでVoiceを探し、Activeな`note_on` Layerを現在のADSR値からReleaseへ移行します
+- Armedな`note_off` Layerは独立したEnvelopeのAttackから開始します。Armed Layerがある間は、Note On Layerが先に終了してもVoiceを保持します
 - Voice Stealingの待機中だったNoteは、ここでキャンセルできます
 
 **Voice Stealing**
 
 - 古い音は5msで音量をゼロへFadeします。Fade中にNote Offが来たら、待機中の新しいNoteをキャンセルします
-- Fadeが終わると待機していたNoteを開始し、すべてのLayerが終わったらIdleへ戻ります
+- Fadeが終わると待機していたNoteを開始し、Armed Stateを破棄します。演奏上のNote Offではないため、Steal中のArmed Layerは発音しません
+- Active LayerとArmed Layerがすべて終わったらIdleへ戻ります
 
 ## Voiceの中身
 
@@ -151,14 +154,16 @@ Operatorの`evaluation_order`、`incoming_masks`、`carrier_mask`はCompile時�
 
 ## Sampleの再生
 
-SampleはCompile時にZoneごとのRegionへ変換し、同じAssetのPrepared Bufferを全Voiceで共有します。Voiceごとに選択Zone、再生位置（Cursor）、Loop状態だけを持ちます。
+SampleはCompile時にZoneごとのRegion、Direction、Loopへ変換し、同じAssetのPrepared Audioを全Voiceで共有します。Prepared AudioはMonoまたはStereoのPlanar Channelを保持します。Voiceごとに選択Zone、再生位置（Cursor）、Loop状態だけを持ち、Reverse用の複製Bufferは作りません。
 
 - Layer Trigger判定後、NoteとVelocityに一致するZoneを選択します。同じ条件のRound Robin GroupはInstrument単位のCounterをDefinition順に進めます。Voice StealingでNote開始が遅れても、Note Event時点のZone選択を保持します
-- Note Onで選択ZoneのRegion StartへCursorを設定し、再生速度は`2^((note - root) / 12) × Tuning Ratio`です。Tuning RatioはParameter SpanのStart / EndからLog Domainで補間します
-- Cursorは再生速度で進み、4点Cubic補間で読み出します
-- Region外を補間へ参照しません。one_shotではRegion末尾の5msをゼロへFadeし、音が急に切れないようにします
-- forward_loopではLoop End到達時のFractional Overshootを保持してLoop Startへ戻ります。Loop境界の補間はLoop Region内だけを参照します
-- Note Offではforward_loopのCursorを止めず、ADSRのReleaseだけが進みます。Envelope終了でそのLayerの音は終わります
+- Regionは`[start, end)`で、Compile時にPrepared Frameへ変換します。Endを省略するとAsset終端になります
+- `forward`はRegion StartからEndへ、`reverse`はRegion End側のFrameからStartへCursorを進めます。再生速度は`2^((note - root) / 12) × Tuning Ratio`です。Tuning RatioはParameter SpanのStart / EndからLog Domainで補間します
+- Cursorは再生速度で進み、左右を同じCursorで4点Cubic補間します。Monoは左右へ同じ値を渡し、Stereoは左右のChannelを保持します
+- Region外を補間へ参照しません。LoopなしではRegion末尾（Reverseでは先頭）の5msをゼロへFadeし、音が急に切れないようにします
+- LoopはRegion内に置き、ForwardではLoop EndからLoop Startへ、ReverseではLoop StartからLoop End側へ戻ります。Fractional Overshootは`rem_euclid`で保持し、Loop境界の補間はLoop Region内だけを参照します
+- `crossfade_seconds`が0より大きいLoopは、境界付近でLoop終端側と開始側をConstant-powerでBlendします。Crossfade Frame数はCompile時に確定し、Loop長の半分を超える設定は拒否します
+- Note OffではPlayback Cursorを止めず、ActiveなLayerのADSR Releaseを進めます。`note_off` LayerはArmed状態からAttackを開始し、EnvelopeとSampleが終わるまでVoiceを保持します
 
 ## 準備とリセット
 

@@ -14,6 +14,7 @@
       "id": "sample",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,
@@ -45,11 +46,16 @@
               "velocity_max": 127,
               "round_robin_group": null,
               "playback": {
-                "type": "forward_loop",
-                "start_seconds": 0.0,
-                "end_seconds": 2.0,
-                "loop_start_seconds": 0.4,
-                "loop_end_seconds": 1.2
+                "region": {
+                  "start_seconds": 0.0,
+                  "end_seconds": 2.0
+                },
+                "direction": "forward",
+                "loop": {
+                  "start_seconds": 0.4,
+                  "end_seconds": 1.2,
+                  "crossfade_seconds": 0.05
+                }
               }
             }
           ]

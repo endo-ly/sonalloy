@@ -594,6 +594,7 @@ def definition(
             "id": "motion",
             "enabled": True,
             "trigger": {
+                "event": "note_on",
                 "key_min": note_min,
                 "key_max": note_max,
                 "velocity_min": 1,
@@ -703,6 +704,7 @@ def operator_definition(
                 "id": "operator",
                 "enabled": True,
                 "trigger": {
+                    "event": "note_on",
                     "key_min": note_min,
                     "key_max": note_max,
                     "velocity_min": 1,
@@ -973,6 +975,7 @@ def main() -> None:
         "id": "fallback",
         "enabled": True,
         "trigger": {
+            "event": "note_on",
             "key_min": 0,
             "key_max": 127,
             "velocity_min": 1,

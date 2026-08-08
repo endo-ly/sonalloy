@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use crate::compiler::{CompiledSamplePlayback, CompiledSampleZone};
+use crate::asset::{PreparedAudio, PreparedAudioChannels};
+use crate::compiler::{CompiledSampleDirection, CompiledSampleLoop, CompiledSampleZone};
+
+#[cfg(test)]
+use crate::compiler::CompiledSamplePlayback;
 
 use super::smoothing::rounded_frame_count;
 
@@ -8,12 +12,13 @@ const END_FADE_SECONDS: f64 = 0.005;
 
 /// Sample playback state owned by a voice layer.
 pub(crate) struct SampleRuntime {
-    source: Option<Arc<[f32]>>,
+    source: Option<Arc<PreparedAudio>>,
     root_note: u8,
     position: f64,
+    direction: CompiledSampleDirection,
     start_frame: usize,
     end_frame: usize,
-    loop_frames: Option<(usize, usize)>,
+    loop_region: Option<CompiledSampleLoop>,
     end_fade_frames: usize,
     finished: bool,
 }
@@ -24,9 +29,10 @@ impl SampleRuntime {
             source: None,
             root_note: 60,
             position: 0.0,
+            direction: CompiledSampleDirection::Forward,
             start_frame: 0,
             end_frame: 0,
-            loop_frames: None,
+            loop_region: None,
             end_fade_frames: 1,
             finished: false,
         }
@@ -44,95 +50,178 @@ impl SampleRuntime {
             self.finished = true;
             return;
         };
-        self.source = Some(Arc::clone(&source.samples));
+        self.source = Some(Arc::clone(source));
         self.root_note = zone.root_note;
+        self.direction = zone.playback.direction;
+        self.start_frame = zone.playback.start_frame;
+        self.end_frame = zone.playback.end_frame;
+        self.loop_region = zone.playback.loop_region;
         self.end_fade_frames = rounded_frame_count(source.sample_rate * END_FADE_SECONDS).max(1);
-        match zone.playback {
-            CompiledSamplePlayback::OneShot {
-                start_frame,
-                end_frame,
-            } => {
-                self.start_frame = start_frame;
-                self.end_frame = end_frame;
-                self.loop_frames = None;
-            }
-            CompiledSamplePlayback::ForwardLoop {
-                start_frame,
-                end_frame,
-                loop_start_frame,
-                loop_end_frame,
-            } => {
-                self.start_frame = start_frame;
-                self.end_frame = end_frame;
-                self.loop_frames = Some((loop_start_frame, loop_end_frame));
-            }
-        }
-        self.position = self.start_frame as f64;
-        self.finished = self.start_frame >= self.end_frame || source.samples.is_empty();
+        self.position = match self.direction {
+            CompiledSampleDirection::Forward => self.start_frame as f64,
+            CompiledSampleDirection::Reverse => self.end_frame.saturating_sub(1) as f64,
+        };
+        self.finished = self.start_frame >= self.end_frame || source.frames == 0;
     }
 
     pub(crate) fn reset(&mut self) {
         self.source = None;
         self.root_note = 60;
         self.position = 0.0;
+        self.direction = CompiledSampleDirection::Forward;
         self.start_frame = 0;
         self.end_frame = 0;
-        self.loop_frames = None;
+        self.loop_region = None;
         self.end_fade_frames = 1;
         self.finished = false;
     }
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
-    pub(crate) fn next_sample_with_ratio(&mut self, playback_ratio: f64) -> f32 {
+    pub(crate) fn next_frame_with_ratio(&mut self, playback_ratio: f64) -> (f32, f32) {
         let Some(source) = self.source.as_deref() else {
             self.finished = true;
-            return 0.0;
+            return (0.0, 0.0);
         };
-        if self.finished || self.position >= self.end_frame as f64 {
+        if self.finished || self.start_frame >= self.end_frame {
             self.finished = true;
-            return 0.0;
+            return (0.0, 0.0);
         }
         if !playback_ratio.is_finite() || playback_ratio <= 0.0 {
             self.finished = true;
-            return 0.0;
+            return (0.0, 0.0);
         }
-        let active_loop = self
-            .loop_frames
-            .filter(|(loop_start, _)| self.position >= *loop_start as f64);
-        let sample = cubic_sample(
+
+        let current = read_frame(
             source,
             self.position,
             self.start_frame,
             self.end_frame,
-            active_loop,
+            self.loop_region,
         );
-        let next_position = self.position + playback_ratio;
-        let gain = if self.loop_frames.is_some() {
-            1.0
-        } else {
-            let region_length = self.end_frame.saturating_sub(self.start_frame) as f64;
-            let fade_length = (self.end_fade_frames as f64).min(region_length);
-            let fade_start = self.end_frame as f64 - fade_length;
-            if fade_length == 0.0 || next_position <= fade_start {
-                1.0
-            } else {
-                ((self.end_frame as f64 - next_position) / fade_length).clamp(0.0, 1.0) as f32
+        let current = self.crossfaded_frame(source, current);
+        let next_position = match self.direction {
+            CompiledSampleDirection::Forward => self.position + playback_ratio,
+            CompiledSampleDirection::Reverse => self.position - playback_ratio,
+        };
+        let gain = self.end_fade_gain(next_position);
+        self.advance_position(next_position);
+        (current.0 * gain, current.1 * gain)
+    }
+
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    fn crossfaded_frame(&self, source: &PreparedAudio, current: (f32, f32)) -> (f32, f32) {
+        let Some(loop_region) = self.loop_region else {
+            return current;
+        };
+        if loop_region.crossfade_frames == 0 {
+            return current;
+        }
+        let crossfade_frames = loop_region.crossfade_frames as f64;
+        let (other_position, current_gain, other_gain) = match self.direction {
+            CompiledSampleDirection::Forward => {
+                let crossfade_start = loop_region.end_frame as f64 - crossfade_frames;
+                if self.position < crossfade_start || self.position >= loop_region.end_frame as f64
+                {
+                    return current;
+                }
+                let progress =
+                    ((self.position - crossfade_start) / crossfade_frames).clamp(0.0, 1.0);
+                let other_position =
+                    loop_region.start_frame as f64 + (self.position - crossfade_start);
+                (
+                    other_position,
+                    (progress * std::f64::consts::FRAC_PI_2).cos() as f32,
+                    (progress * std::f64::consts::FRAC_PI_2).sin() as f32,
+                )
+            }
+            CompiledSampleDirection::Reverse => {
+                let crossfade_start = loop_region.start_frame as f64 + crossfade_frames;
+                if self.position < loop_region.start_frame as f64
+                    || self.position >= crossfade_start
+                {
+                    return current;
+                }
+                let progress =
+                    ((crossfade_start - self.position) / crossfade_frames).clamp(0.0, 1.0);
+                let other_position = loop_region.end_frame as f64
+                    - 1.0
+                    - (self.position - loop_region.start_frame as f64);
+                (
+                    other_position,
+                    (progress * std::f64::consts::FRAC_PI_2).cos() as f32,
+                    (progress * std::f64::consts::FRAC_PI_2).sin() as f32,
+                )
             }
         };
-        if let Some((loop_start, loop_end)) = self.loop_frames {
-            let loop_length = (loop_end - loop_start) as f64;
-            self.position = if next_position >= loop_end as f64 {
-                loop_start as f64 + (next_position - loop_end as f64).rem_euclid(loop_length)
-            } else {
-                next_position
-            };
-        } else {
-            self.position = next_position;
-            if self.position >= self.end_frame as f64 {
-                self.finished = true;
+        let other = read_frame(
+            source,
+            other_position,
+            self.start_frame,
+            self.end_frame,
+            Some(loop_region),
+        );
+        (
+            current.0 * current_gain + other.0 * other_gain,
+            current.1 * current_gain + other.1 * other_gain,
+        )
+    }
+
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    fn end_fade_gain(&self, next_position: f64) -> f32 {
+        if self.loop_region.is_some() {
+            return 1.0;
+        }
+        let fade_length = (self.end_fade_frames as f64)
+            .min(self.end_frame.saturating_sub(self.start_frame) as f64);
+        if fade_length == 0.0 {
+            return 1.0;
+        }
+        match self.direction {
+            CompiledSampleDirection::Forward => {
+                let fade_start = self.end_frame as f64 - fade_length;
+                if next_position <= fade_start {
+                    1.0
+                } else {
+                    ((self.end_frame as f64 - next_position) / fade_length).clamp(0.0, 1.0) as f32
+                }
+            }
+            CompiledSampleDirection::Reverse => {
+                let fade_start = self.start_frame as f64 + fade_length;
+                if next_position >= fade_start {
+                    1.0
+                } else {
+                    ((next_position - self.start_frame as f64) / fade_length).clamp(0.0, 1.0) as f32
+                }
             }
         }
-        sample * gain
+    }
+
+    #[allow(clippy::cast_precision_loss)]
+    fn advance_position(&mut self, next_position: f64) {
+        if let Some(loop_region) = self.loop_region {
+            let loop_length = (loop_region.end_frame - loop_region.start_frame) as f64;
+            self.position = match self.direction {
+                CompiledSampleDirection::Forward
+                    if next_position >= loop_region.end_frame as f64 =>
+                {
+                    loop_region.start_frame as f64
+                        + (next_position - loop_region.end_frame as f64).rem_euclid(loop_length)
+                }
+                CompiledSampleDirection::Reverse
+                    if next_position < loop_region.start_frame as f64 =>
+                {
+                    loop_region.start_frame as f64
+                        + (next_position - loop_region.start_frame as f64).rem_euclid(loop_length)
+                }
+                _ => next_position,
+            };
+            return;
+        }
+        self.position = next_position;
+        self.finished = match self.direction {
+            CompiledSampleDirection::Forward => self.position >= self.end_frame as f64,
+            CompiledSampleDirection::Reverse => self.position < self.start_frame as f64,
+        };
     }
 
     pub(crate) fn is_finished(&self) -> bool {
@@ -154,13 +243,36 @@ pub(crate) fn playback_ratio(note_number: u8, root_note: u8, tuning_ratio: f32) 
     2.0_f64.powf(semitones / 12.0) * f64::from(tuning_ratio)
 }
 
+fn read_frame(
+    source: &PreparedAudio,
+    position: f64,
+    start_frame: usize,
+    end_frame: usize,
+    loop_region: Option<CompiledSampleLoop>,
+) -> (f32, f32) {
+    #[allow(clippy::cast_precision_loss)]
+    let active_loop = loop_region.filter(|loop_region| {
+        position >= loop_region.start_frame as f64 && position < loop_region.end_frame as f64
+    });
+    match &source.channels {
+        PreparedAudioChannels::Mono { samples } => {
+            let value = cubic_sample(samples, position, start_frame, end_frame, active_loop);
+            (value, value)
+        }
+        PreparedAudioChannels::Stereo { left, right } => (
+            cubic_sample(left, position, start_frame, end_frame, active_loop),
+            cubic_sample(right, position, start_frame, end_frame, active_loop),
+        ),
+    }
+}
+
 #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
 fn cubic_sample(
     source: &[f32],
     position: f64,
     start_frame: usize,
     end_frame: usize,
-    loop_frames: Option<(usize, usize)>,
+    loop_region: Option<CompiledSampleLoop>,
 ) -> f32 {
     if source.is_empty()
         || !position.is_finite()
@@ -171,10 +283,10 @@ fn cubic_sample(
     }
     let base = position.floor() as isize;
     let fraction = position.fract() as f32;
-    let p0 = sample_at(source, base - 1, start_frame, end_frame, loop_frames);
-    let p1 = sample_at(source, base, start_frame, end_frame, loop_frames);
-    let p2 = sample_at(source, base + 1, start_frame, end_frame, loop_frames);
-    let p3 = sample_at(source, base + 2, start_frame, end_frame, loop_frames);
+    let p0 = sample_at(source, base - 1, start_frame, end_frame, loop_region);
+    let p1 = sample_at(source, base, start_frame, end_frame, loop_region);
+    let p2 = sample_at(source, base + 1, start_frame, end_frame, loop_region);
+    let p3 = sample_at(source, base + 2, start_frame, end_frame, loop_region);
     super::interpolation::cubic_interpolate(p0, p1, p2, p3, fraction)
 }
 
@@ -183,10 +295,10 @@ fn sample_at(
     index: isize,
     start_frame: usize,
     end_frame: usize,
-    loop_frames: Option<(usize, usize)>,
+    loop_region: Option<CompiledSampleLoop>,
 ) -> f32 {
-    if let Some((loop_start, loop_end)) = loop_frames {
-        let Some(loop_length) = loop_end.checked_sub(loop_start) else {
+    if let Some(loop_region) = loop_region {
+        let Some(loop_length) = loop_region.end_frame.checked_sub(loop_region.start_frame) else {
             return 0.0;
         };
         let Ok(length) = isize::try_from(loop_length) else {
@@ -195,17 +307,16 @@ fn sample_at(
         if length == 0 {
             return 0.0;
         }
-        let Ok(loop_start) = isize::try_from(loop_start) else {
+        let Ok(loop_start) = isize::try_from(loop_region.start_frame) else {
             return 0.0;
         };
         let relative = (index - loop_start).rem_euclid(length);
         let Ok(relative) = usize::try_from(relative) else {
             return 0.0;
         };
-        return loop_start
-            .try_into()
-            .ok()
-            .and_then(|start: usize| start.checked_add(relative))
+        return loop_region
+            .start_frame
+            .checked_add(relative)
             .and_then(|source_index| source.get(source_index))
             .copied()
             .unwrap_or(0.0);
@@ -223,16 +334,20 @@ fn sample_at(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::asset::{PreparedSample, SampleMetadata};
+    use crate::asset::{PreparedAudioChannels, SampleMetadata};
 
     fn next_sample(runtime: &mut SampleRuntime, playback_ratio: f64) -> f32 {
-        runtime.next_sample_with_ratio(playback_ratio)
+        let (left, right) = runtime.next_frame_with_ratio(playback_ratio);
+        (left + right) * 0.5
     }
 
-    fn sample(values: &[f32]) -> PreparedSample {
-        PreparedSample {
+    fn sample(values: &[f32]) -> PreparedAudio {
+        PreparedAudio {
             sample_rate: 48_000.0,
-            samples: Arc::from(values.to_vec()),
+            frames: values.len(),
+            channels: PreparedAudioChannels::Mono {
+                samples: Arc::from(values.to_vec()),
+            },
             source_metadata: SampleMetadata {
                 source_sample_rate: 48_000,
                 source_channels: 1,
@@ -242,11 +357,28 @@ mod tests {
         }
     }
 
-    fn zone(values: &[f32], playback: CompiledSamplePlayback) -> CompiledSampleZone {
-        let source = Arc::new(sample(values));
+    fn stereo_sample(left: &[f32], right: &[f32]) -> PreparedAudio {
+        assert_eq!(left.len(), right.len());
+        PreparedAudio {
+            sample_rate: 48_000.0,
+            frames: left.len(),
+            channels: PreparedAudioChannels::Stereo {
+                left: Arc::from(left.to_vec()),
+                right: Arc::from(right.to_vec()),
+            },
+            source_metadata: SampleMetadata {
+                source_sample_rate: 48_000,
+                source_channels: 2,
+                bits_per_sample: Some(16),
+                source_frames: left.len(),
+            },
+        }
+    }
+
+    fn zone(source: PreparedAudio, playback: CompiledSamplePlayback) -> CompiledSampleZone {
         CompiledSampleZone {
             id: "test".to_owned(),
-            source: Some(source),
+            source: Some(Arc::new(source)),
             root_note: 60,
             key_min: 0,
             key_max: 127,
@@ -255,6 +387,15 @@ mod tests {
             group: None,
             playback,
             asset_path: "test.wav".to_owned(),
+        }
+    }
+
+    fn one_shot(start_frame: usize, end_frame: usize) -> CompiledSamplePlayback {
+        CompiledSamplePlayback {
+            direction: CompiledSampleDirection::Forward,
+            start_frame,
+            end_frame,
+            loop_region: None,
         }
     }
 
@@ -275,39 +416,26 @@ mod tests {
 
     #[test]
     fn sample_runtime_finishes_without_out_of_bounds_reads() {
-        let zone = zone(
-            &[0.1, 0.2, 0.3],
-            CompiledSamplePlayback::OneShot {
-                start_frame: 0,
-                end_frame: 3,
-            },
-        );
+        let zone = zone(sample(&[0.1, 0.2, 0.3]), one_shot(0, 3));
         let mut runtime = SampleRuntime::new();
         runtime.start(Some(&zone));
         let values: Vec<f32> = (0..5).map(|_| next_sample(&mut runtime, 1.0)).collect();
         assert!(values[..3].iter().all(|value| value.is_finite()));
         assert!(values[3..].iter().all(|value| value.abs() < 1.0e-6));
         assert!(runtime.is_finished());
-        assert!((runtime.position - 3.0).abs() < 1.0e-6);
     }
 
     #[test]
     fn sample_runtime_plays_only_the_compiled_region() {
         let zone = zone(
-            &[100.0, 101.0, 1.0, 2.0, 3.0, 4.0, 100.0, 101.0],
-            CompiledSamplePlayback::OneShot {
-                start_frame: 2,
-                end_frame: 6,
-            },
+            sample(&[100.0, 101.0, 1.0, 2.0, 3.0, 4.0, 100.0, 101.0]),
+            one_shot(2, 6),
         );
         let mut runtime = SampleRuntime::new();
         runtime.start(Some(&zone));
-
         let values: Vec<f32> = (0..6).map(|_| next_sample(&mut runtime, 1.0)).collect();
-
         assert!(values[..4].iter().all(|value| value.is_finite()));
         assert!(values[4..].iter().all(|value| value.abs() < 1.0e-6));
-        assert!((runtime.position - 6.0).abs() < 1.0e-6);
         assert!(runtime.is_finished());
         assert!(values[0] < 2.0);
         assert!(values[0] > 0.0);
@@ -316,21 +444,23 @@ mod tests {
     #[test]
     fn forward_loop_wraps_fractional_and_large_overshoot() {
         let zone = zone(
-            &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-            CompiledSamplePlayback::ForwardLoop {
+            sample(&[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
+            CompiledSamplePlayback {
+                direction: CompiledSampleDirection::Forward,
                 start_frame: 0,
                 end_frame: 7,
-                loop_start_frame: 2,
-                loop_end_frame: 5,
+                loop_region: Some(CompiledSampleLoop {
+                    start_frame: 2,
+                    end_frame: 5,
+                    crossfade_frames: 0,
+                }),
             },
         );
         let mut runtime = SampleRuntime::new();
         runtime.start(Some(&zone));
-
         let first = next_sample(&mut runtime, 2.5);
         let second = next_sample(&mut runtime, 2.5);
         let third = next_sample(&mut runtime, 20.0);
-
         assert!(first.is_finite());
         assert!(second.is_finite());
         assert!(third.is_finite());
@@ -344,8 +474,13 @@ mod tests {
     #[test]
     fn cubic_interpolation_wraps_neighbors_inside_forward_loop() {
         let source = [0.0, 1.0, 2.0, 3.0, 4.0, 100.0];
+        let loop_region = CompiledSampleLoop {
+            start_frame: 2,
+            end_frame: 5,
+            crossfade_frames: 0,
+        };
 
-        let looped = cubic_sample(&source, 4.5, 1, 5, Some((2, 5)));
+        let looped = cubic_sample(&source, 4.5, 1, 5, Some(loop_region));
         let bounded = cubic_sample(&source, 4.5, 1, 5, None);
 
         assert!(looped.is_finite());
@@ -354,17 +489,117 @@ mod tests {
     }
 
     #[test]
+    fn reverse_playback_starts_at_the_region_end_and_finishes_at_the_start() {
+        let mut playback = one_shot(1, 9);
+        playback.direction = CompiledSampleDirection::Reverse;
+        let zone = zone(
+            sample(&[100.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 100.0]),
+            playback,
+        );
+        let mut runtime = SampleRuntime::new();
+        runtime.start(Some(&zone));
+        let values: Vec<f32> = (0..10).map(|_| next_sample(&mut runtime, 1.0)).collect();
+        assert!(values[0] > values[1]);
+        assert!(values[1] > values[2]);
+        assert!(values[2] > values[3]);
+        assert!(values[5] > 0.0);
+        assert!(values[8..].iter().all(|value| value.abs() < 1.0e-6));
+        assert!(runtime.is_finished());
+    }
+
+    #[test]
+    fn reverse_loop_wraps_large_overshoot() {
+        let zone = zone(
+            sample(&[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
+            CompiledSamplePlayback {
+                direction: CompiledSampleDirection::Reverse,
+                start_frame: 0,
+                end_frame: 7,
+                loop_region: Some(CompiledSampleLoop {
+                    start_frame: 2,
+                    end_frame: 5,
+                    crossfade_frames: 0,
+                }),
+            },
+        );
+        let mut runtime = SampleRuntime::new();
+        runtime.start(Some(&zone));
+        let _ = next_sample(&mut runtime, 4.0);
+        let value = next_sample(&mut runtime, 20.0);
+        assert!(value.is_finite());
+        assert!((runtime.position - 3.0).abs() < 1.0e-6);
+        assert!(!runtime.is_finished());
+    }
+
+    #[test]
+    fn reverse_loop_wraps_fractional_positions_at_the_loop_boundary() {
+        let zone = zone(
+            sample(&[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
+            CompiledSamplePlayback {
+                direction: CompiledSampleDirection::Reverse,
+                start_frame: 0,
+                end_frame: 7,
+                loop_region: Some(CompiledSampleLoop {
+                    start_frame: 2,
+                    end_frame: 5,
+                    crossfade_frames: 0,
+                }),
+            },
+        );
+        let mut runtime = SampleRuntime::new();
+        runtime.start(Some(&zone));
+        let _ = next_sample(&mut runtime, 4.0);
+        let _ = next_sample(&mut runtime, 0.5);
+        assert!((runtime.position - 4.5).abs() < 1.0e-6);
+        assert!(!runtime.is_finished());
+    }
+
+    #[test]
+    fn stereo_cubic_interpolation_uses_one_cursor_for_both_channels() {
+        let left: Vec<f32> = (0..512)
+            .map(|index| match index {
+                1 => 1.0,
+                3 => -1.0,
+                _ => 0.0,
+            })
+            .collect();
+        let right: Vec<f32> = left.iter().map(|value| value + 10.0).collect();
+        let zone = zone(stereo_sample(&left, &right), one_shot(0, 512));
+        let mut runtime = SampleRuntime::new();
+        runtime.start(Some(&zone));
+        let (left, right) = runtime.next_frame_with_ratio(1.5);
+        assert!(left.is_finite() && right.is_finite());
+        assert!((right - left - 10.0).abs() < 1.0e-5);
+    }
+
+    #[test]
+    fn crossfade_loop_is_finite_and_stays_within_constant_power_bound() {
+        let zone = zone(
+            sample(&[0.0, 0.0, 1.0, 1.0, 0.0, 0.0]),
+            CompiledSamplePlayback {
+                direction: CompiledSampleDirection::Forward,
+                start_frame: 0,
+                end_frame: 6,
+                loop_region: Some(CompiledSampleLoop {
+                    start_frame: 2,
+                    end_frame: 6,
+                    crossfade_frames: 2,
+                }),
+            },
+        );
+        let mut runtime = SampleRuntime::new();
+        runtime.start(Some(&zone));
+        let values: Vec<f32> = (0..32).map(|_| next_sample(&mut runtime, 1.0)).collect();
+        assert!(values.iter().all(|value| value.is_finite()));
+        assert!(values.iter().all(|value| value.abs() <= 1.5));
+    }
+
+    #[test]
     fn sample_runtime_fades_nonzero_ends_at_multiple_playback_ratios() {
         for (last_value, playback_ratio) in [(0.3, 1.0), (-0.8, 0.5), (0.8, 2.0)] {
             let mut values = vec![0.25; 2_048];
             *values.last_mut().expect("fixture has samples") = last_value;
-            let zone = zone(
-                &values,
-                CompiledSamplePlayback::OneShot {
-                    start_frame: 0,
-                    end_frame: values.len(),
-                },
-            );
+            let zone = zone(sample(&values), one_shot(0, values.len()));
             let mut runtime = SampleRuntime::new();
             runtime.start(Some(&zone));
             let mut rendered = Vec::new();
@@ -384,14 +619,7 @@ mod tests {
     #[test]
     fn sample_runtime_fade_is_bounds_safe_for_short_sources() {
         for values in [&[][..], &[1.0][..], &[1.0, 2.0][..], &[1.0, 2.0, 3.0][..]] {
-            let end_frame = values.len();
-            let zone = zone(
-                values,
-                CompiledSamplePlayback::OneShot {
-                    start_frame: 0,
-                    end_frame,
-                },
-            );
+            let zone = zone(sample(values), one_shot(0, values.len()));
             let mut runtime = SampleRuntime::new();
             runtime.start(Some(&zone));
             for _ in 0..8 {

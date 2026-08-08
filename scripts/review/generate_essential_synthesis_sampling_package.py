@@ -129,6 +129,35 @@ def write_synthetic_wav(
         output.writeframes(struct.pack(f"<{len(samples)}h", *samples))
 
 
+def write_synthetic_stereo_wav(path: Path, duration_seconds: float) -> None:
+    frames = int(round(duration_seconds * SOURCE_SAMPLE_RATE))
+    samples: list[int] = []
+    for frame in range(frames):
+        time = frame / SOURCE_SAMPLE_RATE
+        envelope = math.exp(-time * 3.0)
+        left = (
+            0.42 * math.sin(2.0 * math.pi * 220.0 * time)
+            + 0.08 * math.sin(2.0 * math.pi * 330.0 * time)
+        ) * envelope
+        right = (
+            0.28 * math.sin(2.0 * math.pi * 220.0 * time)
+            + 0.16 * math.sin(2.0 * math.pi * 440.0 * time)
+        ) * envelope
+        samples.extend(
+            (
+                max(-32767, min(32767, round(left * 32767))),
+                max(-32767, min(32767, round(right * 32767))),
+            )
+        )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as output:
+        output.setnchannels(2)
+        output.setsampwidth(2)
+        output.setframerate(SOURCE_SAMPLE_RATE)
+        output.writeframes(struct.pack(f"<{len(samples)}h", *samples))
+
+
 def asset_reference(asset_dir: Path, asset_name: str) -> dict[str, str]:
     asset = asset_dir / asset_name
     return {"path": f"../assets/{asset_name}", "sha256": sha256_file(asset)}
@@ -156,7 +185,11 @@ def zone(
         "velocity_max": velocity_max,
         "round_robin_group": group,
         "playback": playback
-        or {"type": "one_shot", "start_seconds": 0.0, "end_seconds": None},
+        or {
+            "region": {"start_seconds": 0.0, "end_seconds": None},
+            "direction": "forward",
+            "loop": None,
+        },
     }
 
 
@@ -166,6 +199,7 @@ def sample_instrument(
     polyphony: int = 8,
     gain_db: float = -3.0,
     release_seconds: float = 0.08,
+    trigger_event: str = "note_on",
 ) -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -183,6 +217,7 @@ def sample_instrument(
                 "id": "sample",
                 "enabled": True,
                 "trigger": {
+                    "event": trigger_event,
                     "key_min": 0,
                     "key_max": 127,
                     "velocity_min": 1,
@@ -347,6 +382,7 @@ def main() -> None:
     }
     for asset_name, (duration, signal, frequency) in assets.items():
         write_synthetic_wav(asset_dir / asset_name, duration, signal, frequency)
+    write_synthetic_stereo_wav(asset_dir / "stereo-pad.wav", 1.4)
 
     definitions: dict[str, Path] = {}
     key_zones = [
@@ -371,14 +407,52 @@ def main() -> None:
             0,
             127,
             playback={
-                "type": "forward_loop",
-                "start_seconds": 0.0,
-                "end_seconds": 2.0,
-                "loop_start_seconds": 0.4,
-                "loop_end_seconds": 1.2,
+                "region": {"start_seconds": 0.0, "end_seconds": 2.0},
+                "direction": "forward",
+                "loop": {
+                    "start_seconds": 0.4,
+                    "end_seconds": 1.2,
+                    "crossfade_seconds": 0.05,
+                },
             },
         )
     ]
+    reverse_zones = [
+        zone(
+            asset_dir,
+            "reverse",
+            "slice-transients.wav",
+            60,
+            0,
+            127,
+            playback={
+                "region": {"start_seconds": 0.04, "end_seconds": 1.10},
+                "direction": "reverse",
+                "loop": None,
+            },
+        )
+    ]
+    reverse_loop_zones = [
+        zone(
+            asset_dir,
+            "reverse_loop",
+            "loop-sustain.wav",
+            60,
+            0,
+            127,
+            playback={
+                "region": {"start_seconds": 0.0, "end_seconds": 2.0},
+                "direction": "reverse",
+                "loop": {
+                    "start_seconds": 0.4,
+                    "end_seconds": 1.2,
+                    "crossfade_seconds": 0.05,
+                },
+            },
+        )
+    ]
+    stereo_zones = [zone(asset_dir, "stereo", "stereo-pad.wav", 60, 0, 127)]
+    release_zones = [zone(asset_dir, "release", "rr-a.wav", 60, 0, 127)]
     slice_zones = [
         zone(
             asset_dir,
@@ -387,7 +461,11 @@ def main() -> None:
             36,
             36,
             36,
-            playback={"type": "one_shot", "start_seconds": 0.04, "end_seconds": 0.28},
+            playback={
+                "region": {"start_seconds": 0.04, "end_seconds": 0.28},
+                "direction": "forward",
+                "loop": None,
+            },
         ),
         zone(
             asset_dir,
@@ -396,7 +474,11 @@ def main() -> None:
             38,
             38,
             38,
-            playback={"type": "one_shot", "start_seconds": 0.43, "end_seconds": 0.70},
+            playback={
+                "region": {"start_seconds": 0.43, "end_seconds": 0.70},
+                "direction": "forward",
+                "loop": None,
+            },
         ),
         zone(
             asset_dir,
@@ -405,7 +487,11 @@ def main() -> None:
             40,
             40,
             40,
-            playback={"type": "one_shot", "start_seconds": 0.83, "end_seconds": 1.10},
+            playback={
+                "region": {"start_seconds": 0.83, "end_seconds": 1.10},
+                "direction": "forward",
+                "loop": None,
+            },
         ),
     ]
     mapped_zones = [
@@ -425,6 +511,12 @@ def main() -> None:
         ),
         "forward-loop-hold.json": sample_instrument("Forward Loop Hold", loop_zones),
         "forward-loop-release.json": sample_instrument("Forward Loop Release", loop_zones),
+        "stereo-one-shot.json": sample_instrument("Stereo One Shot", stereo_zones),
+        "reverse-one-shot.json": sample_instrument("Reverse One Shot", reverse_zones),
+        "reverse-loop.json": sample_instrument("Reverse Loop", reverse_loop_zones),
+        "release-trigger.json": sample_instrument(
+            "Release Trigger", release_zones, trigger_event="note_off"
+        ),
         "explicit-slice-sequence.json": sample_instrument(
             "Explicit Slice Sequence", slice_zones
         ),
@@ -465,6 +557,22 @@ def main() -> None:
             {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
             {"absolute_frame": 38_400, "type": "note_off", "note_id": 1},
         ],
+        "stereo-one-shot": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 38_400, "type": "note_off", "note_id": 1},
+        ],
+        "reverse-one-shot": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 50_000, "type": "note_off", "note_id": 1},
+        ],
+        "reverse-loop": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 76_800, "type": "note_off", "note_id": 1},
+        ],
+        "release-trigger": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 19_200, "type": "note_off", "note_id": 1},
+        ],
         "explicit-slice-sequence": event_sequence([36, 38, 40], [110, 110, 110], 12_000, 8_000),
         "multi-sample-melody": event_sequence(
             [36, 48, 60, 72, 84], [96, 96, 104, 104, 112], 9_600, 6_000
@@ -495,10 +603,14 @@ def main() -> None:
         ("25-round-robin-repeated-hit", 56_000, "round-robin-repeated-hit", "round-robin-repeated-hit"),
         ("26-forward-loop-hold", 80_000, "forward-loop-hold", "forward-loop-hold"),
         ("27-forward-loop-release", 70_000, "forward-loop-release", "forward-loop-release"),
-        ("28-explicit-slice-sequence", 42_000, "explicit-slice-sequence", "explicit-slice-sequence"),
-        ("29-multi-sample-melody", 55_000, "multi-sample-melody", "multi-sample-melody"),
-        ("30-full-mapped-sample-instrument", 55_000, "full-mapped-sample-instrument", "full-mapped-sample-instrument"),
-        ("31-essential-hybrid-instrument", 70_000, "essential-hybrid-instrument", "essential-hybrid-instrument"),
+        ("28-stereo-one-shot", 50_000, "stereo-one-shot", "stereo-one-shot"),
+        ("29-reverse-one-shot", 55_000, "reverse-one-shot", "reverse-one-shot"),
+        ("30-reverse-loop", 80_000, "reverse-loop", "reverse-loop"),
+        ("31-release-trigger", 50_000, "release-trigger", "release-trigger"),
+        ("32-explicit-slice-sequence", 42_000, "explicit-slice-sequence", "explicit-slice-sequence"),
+        ("33-multi-sample-melody", 55_000, "multi-sample-melody", "multi-sample-melody"),
+        ("34-full-mapped-sample-instrument", 55_000, "full-mapped-sample-instrument", "full-mapped-sample-instrument"),
+        ("35-essential-hybrid-instrument", 70_000, "essential-hybrid-instrument", "essential-hybrid-instrument"),
     ]
     audio_paths: dict[str, Path] = {}
     for audio_name, duration, definition_name, event_name in render_jobs:
@@ -516,14 +628,14 @@ def main() -> None:
     regression_events = events["full-mapped-sample-instrument"]
     regression_paths: dict[str, Path] = {}
     for block_size in BLOCK_SIZES:
-        path = audio_dir / f"32-regression-block-{block_size}.wav"
+        path = audio_dir / f"36-regression-block-{block_size}.wav"
         render_events(regression_definition, regression_events, path, 55_000, block_size)
         regression_paths[str(block_size)] = path
         audio_paths[path.name] = path
 
     sample_rate_paths: dict[str, Path] = {}
     for sample_rate in (44_100, SAMPLE_RATE, 96_000):
-        path = audio_dir / f"33-sample-rate-{sample_rate}.wav"
+        path = audio_dir / f"37-sample-rate-{sample_rate}.wav"
         render_events(
             regression_definition,
             regression_events,
@@ -535,8 +647,8 @@ def main() -> None:
         sample_rate_paths[str(sample_rate)] = path
         audio_paths[path.name] = path
 
-    repeat_a = audio_dir / "34-repeat-a.wav"
-    repeat_b = audio_dir / "34-repeat-b.wav"
+    repeat_a = audio_dir / "38-repeat-a.wav"
+    repeat_b = audio_dir / "38-repeat-b.wav"
     render_events(regression_definition, regression_events, repeat_a, 55_000)
     render_events(regression_definition, regression_events, repeat_b, 55_000)
     audio_paths[repeat_a.name] = repeat_a
@@ -557,7 +669,7 @@ def main() -> None:
         ],
     )
     events["voice-stealing-pending-zone"] = stealing_events_path
-    stealing_audio = audio_dir / "35-voice-stealing-pending-zone.wav"
+    stealing_audio = audio_dir / "39-voice-stealing-pending-zone.wav"
     render_events(
         stealing_definition,
         stealing_events_path,
@@ -616,13 +728,34 @@ def main() -> None:
     key_rms = [segment_rms(key_audio, index * 12_000, 2_048) for index in range(3)]
     velocity_audio = audio_paths["24-velocity-layer-soft-hard.wav"]
     velocity_rms = [segment_rms(velocity_audio, index * 12_000, 2_048) for index in range(2)]
-    slice_audio = audio_paths["28-explicit-slice-sequence.wav"]
+    stereo_audio = audio_paths["28-stereo-one-shot.wav"]
+    stereo_sample_rate, stereo_channels, stereo_samples = frames(stereo_audio)
+    if stereo_sample_rate != SAMPLE_RATE or stereo_channels != 2:
+        raise RuntimeError(
+            f"stereo sample review output has unexpected format: {stereo_sample_rate} Hz, {stereo_channels} channels"
+        )
+    stereo_pairs = list(zip(stereo_samples[0::2], stereo_samples[1::2]))
+    stereo_difference = math.sqrt(
+        sum((left - right) ** 2 for left, right in stereo_pairs) / len(stereo_pairs)
+    )
+    reverse_audio = audio_paths["29-reverse-one-shot.wav"]
+    reverse_rms = [
+        segment_rms(reverse_audio, start, 1_024) for start in (7_200, 26_400, 45_600)
+    ]
+    reverse_loop_audio = audio_paths["30-reverse-loop.wav"]
+    reverse_loop_rms = [
+        segment_rms(reverse_loop_audio, start, 2_048) for start in (24_000, 48_000, 72_000)
+    ]
+    release_audio = audio_paths["31-release-trigger.wav"]
+    release_pre_note_off_rms = segment_rms(release_audio, 4_000, 8_000)
+    release_post_note_off_rms = segment_rms(release_audio, 20_000, 2_048)
+    slice_audio = audio_paths["32-explicit-slice-sequence.wav"]
     slice_rms = [
         segment_rms(slice_audio, index * 12_000 + 5_000, 2_048) for index in range(3)
     ]
     loop_audio = audio_paths["26-forward-loop-hold.wav"]
     loop_rms = [segment_rms(loop_audio, start, 2_048) for start in (24_000, 48_000, 72_000)]
-    voice_stealing_audio = audio_paths["35-voice-stealing-pending-zone.wav"]
+    voice_stealing_audio = audio_paths["39-voice-stealing-pending-zone.wav"]
     automatic_checks = {
         "all_audio_finite": all(values["finite"] for values in audio_metrics.values()),
         "rendered_peaks_within_float_wav_range": all(
@@ -638,11 +771,18 @@ def main() -> None:
         "velocity_layers_differ": velocity_rms[1] > velocity_rms[0] * 1.2,
         "round_robin_order_is_definition_ordered": True,
         "round_robin_variants_are_audibly_distinct": abs(rr_rms[0] - rr_rms[1]) > 1.0e-4,
+        "stereo_one_shot_has_independent_channels": stereo_difference > 1.0e-4,
+        "reverse_one_shot_has_reversed_transient_order": (
+            reverse_rms[0] < reverse_rms[1] < reverse_rms[2]
+        ),
         "forward_loop_remains_active": all(value > 1.0e-3 for value in loop_rms),
+        "reverse_loop_remains_active": all(value > 1.0e-3 for value in reverse_loop_rms),
+        "release_trigger_stays_silent_until_note_off": release_pre_note_off_rms < 1.0e-8,
+        "release_trigger_renders_after_note_off": release_post_note_off_rms > 1.0e-5,
         "slice_regions_are_non_silent": all(value > 1.0e-3 for value in slice_rms),
         "mapped_sample_asset_cache_is_shared": generator["sample_asset_count"] == 4,
         "voice_stealing_pending_render_is_non_silent": audio_metrics[voice_stealing_audio.name]["rms"] > 1.0e-5,
-        "essential_hybrid_is_non_silent": audio_metrics["31-essential-hybrid-instrument.wav"]["rms"] > 1.0e-5,
+        "essential_hybrid_is_non_silent": audio_metrics["35-essential-hybrid-instrument.wav"]["rms"] > 1.0e-5,
     }
     if not all(automatic_checks.values()):
         raise RuntimeError(f"sample review automatic checks failed: {automatic_checks}")
@@ -664,8 +804,15 @@ def main() -> None:
         },
         "round_robin_selection_order": rr_order,
         "round_robin_segment_rms": rr_rms,
+        "stereo_sample_rate": stereo_sample_rate,
+        "stereo_channels": stereo_channels,
+        "stereo_channel_difference_rms": stereo_difference,
+        "reverse_segment_rms": reverse_rms,
         "loop_period_frames": round((1.2 - 0.4) * SAMPLE_RATE),
         "loop_segment_rms": loop_rms,
+        "reverse_loop_segment_rms": reverse_loop_rms,
+        "release_pre_note_off_rms": release_pre_note_off_rms,
+        "release_post_note_off_rms": release_post_note_off_rms,
         "slice_region_durations_seconds": [0.24, 0.27, 0.27],
         "slice_segment_rms": slice_rms,
         "asset_cache": {
@@ -686,7 +833,7 @@ def main() -> None:
 - 基準Block Size：257 frames
 - 比較Block Size：32 / 64 / 257 / 1024 frames
 - Output：Stereo、32-bit float WAV
-- Asset：Review Scriptが生成したMono PCM16 Synthetic WAV
+- Asset：Review Scriptが生成したMono / Stereo PCM16 Synthetic WAV
 
 `audio/technical/`の生出力をMetricsと人間の試聴で共用します。試聴専用の正規化コピーは保存していません。
 
@@ -700,13 +847,18 @@ def main() -> None:
 - Velocity Layer差：{"pass" if automatic_checks["velocity_layers_differ"] else "fail"}
 - Round Robin順序：{"pass" if automatic_checks["round_robin_order_is_definition_ordered"] else "fail"}
 - Round Robin音源差：{"pass" if automatic_checks["round_robin_variants_are_audibly_distinct"] else "fail"}
-- Forward Loop継続：{"pass" if automatic_checks["forward_loop_remains_active"] else "fail"}
+- Stereo Channel分離：{"pass" if automatic_checks["stereo_one_shot_has_independent_channels"] else "fail"}
+- Reverse One-shotのTransient順：{"pass" if automatic_checks["reverse_one_shot_has_reversed_transient_order"] else "fail"}
+- Forward Crossfade Loop継続：{"pass" if automatic_checks["forward_loop_remains_active"] else "fail"}
+- Reverse Loop継続：{"pass" if automatic_checks["reverse_loop_remains_active"] else "fail"}
+- Release TriggerのNote Off前無音：{"pass" if automatic_checks["release_trigger_stays_silent_until_note_off"] else "fail"}
+- Release TriggerのNote Off後発音：{"pass" if automatic_checks["release_trigger_renders_after_note_off"] else "fail"}
 - Explicit Slice範囲：{"pass" if automatic_checks["slice_regions_are_non_silent"] else "fail"}
 - Asset Cache共有：{"pass" if automatic_checks["mapped_sample_asset_cache_is_shared"] else "fail"}
 - Voice Stealing Pending：{"pass" if automatic_checks["voice_stealing_pending_render_is_non_silent"] else "fail"}
 - Essential Hybrid：{"pass" if automatic_checks["essential_hybrid_is_non_silent"] else "fail"}
 
-`metrics.json`にはFinite性、Peak、RMS、DC、推定周波数、隣接Frame差分、Sample Rate別値、Block Size比較、再RenderSHA、Round Robin選択順、Loop周期、Slice Region長、Asset Cacheの共有数を保存しています。
+`metrics.json`にはFinite性、Peak、RMS、DC、推定周波数、隣接Frame差分、左右Channel差分、Sample Rate別値、Block Size比較、再RenderSHA、Round Robin選択順、Reverse Transient順、Loop周期、Release Trigger前後、Slice Region長、Asset Cacheの共有数を保存しています。
 
 ## 音声一覧
 
@@ -715,16 +867,20 @@ def main() -> None:
 | `23-key-zone-scale.wav` | Low / Mid / High Key Zoneの境界とPitch Mapping |
 | `24-velocity-layer-soft-hard.wav` | Soft / Hard Velocity Layerの差 |
 | `25-round-robin-repeated-hit.wav` | `hit_a → hit_b → hit_a → hit_b`の決定的選択 |
-| `26-forward-loop-hold.wav` | Note保持中のForward Loop周期と境界 |
-| `27-forward-loop-release.wav` | Note Off後のLoop継続とRelease |
-| `28-explicit-slice-sequence.wav` | 同一Assetの3つのOne-shot Region |
-| `29-multi-sample-melody.wav` | 複数Key ZoneによるMelody |
-| `30-full-mapped-sample-instrument.wav` | Key / Velocity / Round Robinを組み合わせたReference |
-| `31-essential-hybrid-instrument.wav` | Sample、Oscillator、Processor ChainのHybrid |
-| `32-regression-block-*.wav` | Block Size比較 |
-| `33-sample-rate-*.wav` | Sample Rate比較 |
-| `34-repeat-*.wav` | 別Runtimeの同一入力再Render再現性 |
-| `35-voice-stealing-pending-zone.wav` | Pending NoteのZone選択保持 |
+| `26-forward-loop-hold.wav` | Note保持中のForward Crossfade Loop周期と境界 |
+| `27-forward-loop-release.wav` | Note Off後のCrossfade Loop継続とRelease |
+| `28-stereo-one-shot.wav` | Stereo Channel分離と同一CursorのOne-shot |
+| `29-reverse-one-shot.wav` | Reverse Regionと終端Fade |
+| `30-reverse-loop.wav` | Reverse Crossfade Loop周期と境界 |
+| `31-release-trigger.wav` | Note On時のArmed状態とNote Off後の発音 |
+| `32-explicit-slice-sequence.wav` | 同一Assetの3つのOne-shot Region |
+| `33-multi-sample-melody.wav` | 複数Key ZoneによるMelody |
+| `34-full-mapped-sample-instrument.wav` | Key / Velocity / Round Robinを組み合わせたReference |
+| `35-essential-hybrid-instrument.wav` | Sample、Oscillator、Processor ChainのHybrid |
+| `36-regression-block-*.wav` | Block Size比較 |
+| `37-sample-rate-*.wav` | Sample Rate比較 |
+| `38-repeat-*.wav` | 別Runtimeの同一入力再Render再現性 |
+| `39-voice-stealing-pending-zone.wav` | Pending NoteのZone選択保持 |
 
 ## 人間の確認欄
 
@@ -734,8 +890,12 @@ def main() -> None:
 | Velocity Layerの音量・音色差が明確 |  |  |
 | Round Robin順が聞き取れ、順番が崩れない |  |  |
 | Pitch Mappingが自然 |  |  |
-| Forward LoopにClickがなく周期が安定 |  |  |
-| Release中のLoopが自然 |  |  |
+| Stereo Imageが左右に分離し、PitchとCursorが揃っている |  |  |
+| ReverseのTransient順と終端が自然 |  |  |
+| Forward Crossfade LoopにClickがなく周期が安定 |  |  |
+| Reverse LoopにClickがなく周期が安定 |  |  |
+| Release TriggerがNote Offで始まり、Note On中は無音 |  |  |
+| Release中のCrossfade Loopが自然 |  |  |
 | Sliceが指定Region外を再生しない |  |  |
 | Missing Asset時も別Zone・別Layerが継続する |  |  |
 | Voice Stealing後の音源が破綻しない |  |  |

@@ -191,47 +191,17 @@ impl GeneratorRuntime {
                 noise.render(frames, correlation, left, right)?;
                 Ok(false)
             }
-            Self::Sample { sample } => {
-                if !matches!(targets, LayerGeneratorTargetSpan::Sample) {
-                    return Err(ProcessError::ProcessorFailure {
-                        kind: crate::process::ProcessorFailureKind::InvalidState,
-                    });
-                }
-                let start_ratio = playback_ratio(
-                    note_number,
-                    sample.root_note(),
-                    crate::compiler::cents_to_ratio(tuning_start),
-                );
-                let end_ratio = playback_ratio(
-                    note_number,
-                    sample.root_note(),
-                    crate::compiler::cents_to_ratio(tuning_end),
-                );
-                if !start_ratio.is_finite()
-                    || !end_ratio.is_finite()
-                    || start_ratio <= 0.0
-                    || end_ratio <= 0.0
-                {
-                    return Err(ProcessError::InvalidFrequency);
-                }
-                if frames == 0 {
-                    return Ok(sample.is_finished());
-                }
-                if start_ratio.total_cmp(&end_ratio).is_eq() {
-                    for value in &mut mono[..frames] {
-                        *value = sample.next_sample_with_ratio(start_ratio);
-                    }
-                } else {
-                    #[allow(clippy::cast_precision_loss)]
-                    let ratio_step = (end_ratio / start_ratio).powf(1.0 / frames as f64);
-                    let mut ratio = start_ratio;
-                    for value in &mut mono[..frames] {
-                        *value = sample.next_sample_with_ratio(ratio);
-                        ratio *= ratio_step;
-                    }
-                }
-                Ok(sample.is_finished())
-            }
+            Self::Sample { sample } => Self::render_sample(
+                sample,
+                frames,
+                note_number,
+                tuning_start,
+                tuning_end,
+                targets,
+                mono,
+                left,
+                right,
+            ),
             Self::Wavetable(wavetable) => {
                 wavetable.render(
                     frames,
@@ -261,6 +231,73 @@ impl GeneratorRuntime {
                 Ok(false)
             }
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn render_sample(
+        sample: &mut SampleRuntime,
+        frames: usize,
+        note_number: u8,
+        tuning_start: f32,
+        tuning_end: f32,
+        targets: LayerGeneratorTargetSpan,
+        mono: &mut [f32],
+        left: &mut [f32],
+        right: &mut [f32],
+    ) -> Result<bool, ProcessError> {
+        if !matches!(targets, LayerGeneratorTargetSpan::Sample) {
+            return Err(ProcessError::ProcessorFailure {
+                kind: crate::process::ProcessorFailureKind::InvalidState,
+            });
+        }
+        let start_ratio = playback_ratio(
+            note_number,
+            sample.root_note(),
+            crate::compiler::cents_to_ratio(tuning_start),
+        );
+        let end_ratio = playback_ratio(
+            note_number,
+            sample.root_note(),
+            crate::compiler::cents_to_ratio(tuning_end),
+        );
+        if !start_ratio.is_finite()
+            || !end_ratio.is_finite()
+            || start_ratio <= 0.0
+            || end_ratio <= 0.0
+        {
+            return Err(ProcessError::InvalidFrequency);
+        }
+        if frames == 0 {
+            return Ok(sample.is_finished());
+        }
+        if start_ratio.total_cmp(&end_ratio).is_eq() {
+            for ((mono, left), right) in mono[..frames]
+                .iter_mut()
+                .zip(&mut left[..frames])
+                .zip(&mut right[..frames])
+            {
+                let (sample_left, sample_right) = sample.next_frame_with_ratio(start_ratio);
+                *mono = (sample_left + sample_right) * 0.5;
+                *left = sample_left;
+                *right = sample_right;
+            }
+        } else {
+            #[allow(clippy::cast_precision_loss)]
+            let ratio_step = (end_ratio / start_ratio).powf(1.0 / frames as f64);
+            let mut ratio = start_ratio;
+            for ((mono, left), right) in mono[..frames]
+                .iter_mut()
+                .zip(&mut left[..frames])
+                .zip(&mut right[..frames])
+            {
+                let (sample_left, sample_right) = sample.next_frame_with_ratio(ratio);
+                *mono = (sample_left + sample_right) * 0.5;
+                *left = sample_left;
+                *right = sample_right;
+                ratio *= ratio_step;
+            }
+        }
+        Ok(sample.is_finished())
     }
 
     pub(crate) fn reset(&mut self) -> Result<(), ProcessError> {

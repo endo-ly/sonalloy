@@ -120,9 +120,9 @@ flowchart LR
 
 - 保存先：`review-output/essential-synthesis-sampling/`（audio/technical / definitions / events / midi / assets / inspect.json / metrics.json / review-summary.md）
 - 生成：`python scripts/review/generate_essential_synthesis_sampling_package.py`
-- 内容：Key Zone、Velocity Layer、Round Robin、Forward Loop、Explicit Slice、Mapped Sample Instrument、Essential Hybrid Instrument、Block Size、Sample Rate、再Render、Voice Stealingを同じDefinitionと固定Eventから確認する
-- Metrics：Finite性、Peak / RMS / DC、隣接Frame差分、Sample Rate別値、Block Size比較、再RenderSHA、Round Robin選択順、Loop周期、Slice Region長、Asset Cacheの共有数
-- 人間の確認：Key / Velocity境界、Pitch Mapping、Round Robin順、Loopの周期とClick、Release中の挙動、Slice範囲、Missing Asset時の継続、Pending Note、Hybrid音色としての成立
+- 内容：Key Zone、Velocity Layer、Round Robin、Stereo Sample、Forward / Reverse Playback、通常Loop、Constant-power Crossfade Loop、Explicit Slice、Release Trigger、Mapped Sample Instrument、Essential Hybrid Instrument、Block Size、Sample Rate、再Render、Voice Stealingを同じDefinitionと固定Eventから確認する
+- Metrics：Finite性、Peak / RMS / DC、左右Channelの分離、隣接Frame差分、Sample Rate別値、Block Size比較、再RenderSHA、Round Robin選択順、Forward / ReverseのRegion境界、Loop周期、Crossfade境界、Slice Region長、Release LayerのArmed期間、Asset Cacheの共有数
+- 人間の確認：Key / Velocity境界、Pitch Mapping、Round Robin順、Stereo Image、Reverseの方向感、Loopの周期とClick、Crossfadeの連続性、Release Triggerの発音タイミング、Release中の挙動、Slice範囲、Missing Asset時の継続、Pending Note、Hybrid音色としての成立
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
 試聴の際は同じ再生環境・音量で比較し、確認結果を`review-summary.md`へ記録します。

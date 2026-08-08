@@ -42,6 +42,7 @@ pub(crate) struct NoteRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PreparedLayerSelection {
     Inactive,
+    Armed { sample_zone: Option<usize> },
     Active { sample_zone: Option<usize> },
 }
 
@@ -67,6 +68,8 @@ struct LayerRuntime {
     output_mode: GeneratorOutputMode,
     processors: LayerProcessorChain,
     active: bool,
+    armed: bool,
+    armed_sample_zone: Option<usize>,
     note_start_fade: Smoother,
     note_start_fade_frames: usize,
 }
@@ -83,6 +86,8 @@ impl LayerRuntime {
             generator,
             processors,
             active: false,
+            armed: false,
+            armed_sample_zone: None,
             note_start_fade: Smoother::new(0.0),
             note_start_fade_frames,
         })
@@ -96,12 +101,29 @@ impl LayerRuntime {
     ) -> Result<(), ProcessError> {
         self.generator
             .start(note.note_id, sample_zone, &compiled.generator)?;
+        self.armed = false;
+        self.armed_sample_zone = None;
         self.envelope.note_on();
         self.note_start_fade.reset(0.0);
         self.note_start_fade
             .set_target(1.0, self.note_start_fade_frames);
         self.active = true;
         Ok(())
+    }
+
+    fn arm(&mut self, sample_zone: Option<usize>) {
+        self.active = false;
+        self.armed = true;
+        self.armed_sample_zone = sample_zone;
+    }
+
+    fn start_armed(
+        &mut self,
+        note: NoteRequest,
+        compiled: &CompiledLayer,
+    ) -> Result<(), ProcessError> {
+        let sample_zone = self.armed_sample_zone.take();
+        self.start(note, sample_zone, compiled)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -141,6 +163,8 @@ impl LayerRuntime {
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
         self.active = false;
+        self.armed = false;
+        self.armed_sample_zone = None;
         Ok(())
     }
 
@@ -149,6 +173,8 @@ impl LayerRuntime {
         self.envelope.reset();
         self.note_start_fade.reset(0.0);
         self.active = false;
+        self.armed = false;
+        self.armed_sample_zone = None;
         Ok(())
     }
 }
@@ -291,7 +317,11 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    pub(crate) fn release_note(&mut self, note_id: NoteId) {
+    pub(crate) fn release_note(
+        &mut self,
+        compiled: &CompiledInstrument,
+        note_id: NoteId,
+    ) -> Result<(), ProcessError> {
         if self
             .pending
             .as_ref()
@@ -300,12 +330,21 @@ impl VoiceRuntime {
             self.pending = None;
         }
         if self.note_id != Some(note_id) {
-            return;
+            return Ok(());
         }
         if matches!(self.state, VoiceState::Active) {
-            for layer in &mut self.layers {
+            let note = NoteRequest::new(
+                note_id,
+                self.note_number,
+                self.velocity,
+                self.started_at_frame,
+            );
+            for (index, layer) in self.layers.iter_mut().enumerate() {
                 if layer.active {
                     layer.note_off();
+                } else if layer.armed {
+                    let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
+                    layer.start_armed(note, compiled_layer)?;
                 }
             }
             for state in &mut self.source_states {
@@ -315,6 +354,7 @@ impl VoiceRuntime {
             }
             self.state = VoiceState::Releasing;
         }
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -436,7 +476,7 @@ impl VoiceRuntime {
     }
 
     fn has_active_layer(&self) -> bool {
-        self.layers.iter().any(|layer| layer.active)
+        self.layers.iter().any(|layer| layer.active || layer.armed)
     }
 
     fn start_note(
@@ -463,9 +503,13 @@ impl VoiceRuntime {
         self.velocity = note.velocity;
         self.started_at_frame = note.started_at_frame;
         for (index, (layer, selection)) in self.layers.iter_mut().zip(layer_selection).enumerate() {
-            if let PreparedLayerSelection::Active { sample_zone } = selection {
-                let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
-                layer.start(note, *sample_zone, compiled_layer)?;
+            let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
+            match selection {
+                PreparedLayerSelection::Armed { sample_zone } => layer.arm(*sample_zone),
+                PreparedLayerSelection::Active { sample_zone } => {
+                    layer.start(note, *sample_zone, compiled_layer)?;
+                }
+                PreparedLayerSelection::Inactive => {}
             }
         }
         self.initialize_source_state(note);

@@ -14,7 +14,7 @@
 | `generate_basic_generators_package.py` | Basic GeneratorのDefinition、Event、WAV、MetricsをReview Packageへまとめる |
 | `generate_complex_oscillator_package.py` | Digital Synthesis Packageの生成中に取り込むComplex OscillatorのDefinition、Event、WAV、Metrics、性能計測を生成する内部Script |
 | `common.py` | Review Package生成で共有するCLI実行、入力出力、Render、WAV測定補助を定義する |
-| `generate_essential_synthesis_sampling_package.py` | Sample Zone、Velocity Layer、Round Robin、Loop、Slice、HybridのDefinition、Event、Synthetic Asset、WAV、MetricsをReview Packageへまとめる |
+| `generate_essential_synthesis_sampling_package.py` | Sample Zone、Velocity Layer、Round Robin、Forward / Reverse Playback、Loop / Crossfade、Release Trigger、Slice、HybridのDefinition、Event、Synthetic Asset、WAV、MetricsをReview Packageへまとめる |
 | `generate_digital_synthesis_package.py` | Wavetable、4 Operator Modulation、Complex Oscillator、Digital HybridのAsset、Definition、Event、WAV、Inspect、Metricsを一つのReview Packageへまとめる |
 | `manifest.py` | Basic Poly Synthの固定Render条件と共通Render処理を定義する |
 | `measure_wav.py` | WAVのMetadata、Finite性、Peak、RMS、DC、周波数、境界差分を測定する |

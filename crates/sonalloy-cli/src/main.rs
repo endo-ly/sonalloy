@@ -265,6 +265,7 @@ struct InspectLayer {
 
 #[derive(Debug, Serialize)]
 struct InspectTrigger {
+    event: &'static str,
     key_min: u8,
     key_max: u8,
     velocity_min: u8,
@@ -388,10 +389,12 @@ struct InspectSampleZone {
     velocity_max: u8,
     round_robin_group: Option<String>,
     playback_type: &'static str,
+    direction: &'static str,
     start_frame: usize,
     end_frame: usize,
     loop_start_frame: Option<usize>,
     loop_end_frame: Option<usize>,
+    crossfade_frames: Option<usize>,
     source_sample_rate: Option<u32>,
     source_channels: Option<usize>,
     prepared_frames: Option<usize>,
@@ -1160,6 +1163,7 @@ fn default_definition() -> InstrumentDefinition {
             id: "body".to_owned(),
             enabled: true,
             trigger: LayerTriggerDefinition {
+                event: sonalloy_core::LayerTriggerEvent::NoteOn,
                 key_min: 0,
                 key_max: 127,
                 velocity_min: 1,
@@ -1367,7 +1371,7 @@ fn inspect_external_source(id: &'static str) -> InspectSource {
 fn inspect_sample_zones(
     sample: &sonalloy_core::compiler::CompiledSample,
 ) -> (Vec<InspectSampleZone>, usize) {
-    let mut unique_sources: Vec<Arc<[f32]>> = Vec::new();
+    let mut unique_sources: Vec<Arc<sonalloy_core::PreparedAudio>> = Vec::new();
     let zones = sample
         .zones
         .iter()
@@ -1375,31 +1379,21 @@ fn inspect_sample_zones(
             let metadata = zone.source.as_ref().map(|source| {
                 if !unique_sources
                     .iter()
-                    .any(|candidate| Arc::ptr_eq(candidate, &source.samples))
+                    .any(|candidate| Arc::ptr_eq(candidate, source))
                 {
-                    unique_sources.push(Arc::clone(&source.samples));
+                    unique_sources.push(Arc::clone(source));
                 }
                 &source.source_metadata
             });
-            let (playback_type, start_frame, end_frame, loop_start_frame, loop_end_frame) =
-                match zone.playback {
-                    sonalloy_core::compiler::CompiledSamplePlayback::OneShot {
-                        start_frame,
-                        end_frame,
-                    } => ("one_shot", start_frame, end_frame, None, None),
-                    sonalloy_core::compiler::CompiledSamplePlayback::ForwardLoop {
-                        start_frame,
-                        end_frame,
-                        loop_start_frame,
-                        loop_end_frame,
-                    } => (
-                        "forward_loop",
-                        start_frame,
-                        end_frame,
-                        Some(loop_start_frame),
-                        Some(loop_end_frame),
-                    ),
-                };
+            let playback_type = if zone.playback.loop_region.is_some() {
+                "loop"
+            } else {
+                "one_shot"
+            };
+            let direction = match zone.playback.direction {
+                sonalloy_core::compiler::CompiledSampleDirection::Forward => "forward",
+                sonalloy_core::compiler::CompiledSampleDirection::Reverse => "reverse",
+            };
             InspectSampleZone {
                 id: zone.id.clone(),
                 enabled: zone.is_enabled(),
@@ -1414,13 +1408,18 @@ fn inspect_sample_zones(
                     .and_then(|index| sample.groups.get(index))
                     .map(|group| group.id.clone()),
                 playback_type,
-                start_frame,
-                end_frame,
-                loop_start_frame,
-                loop_end_frame,
+                direction,
+                start_frame: zone.playback.start_frame,
+                end_frame: zone.playback.end_frame,
+                loop_start_frame: zone.playback.loop_region.map(|value| value.start_frame),
+                loop_end_frame: zone.playback.loop_region.map(|value| value.end_frame),
+                crossfade_frames: zone
+                    .playback
+                    .loop_region
+                    .map(|value| value.crossfade_frames),
                 source_sample_rate: metadata.map(|value| value.source_sample_rate),
                 source_channels: metadata.map(|value| value.source_channels),
-                prepared_frames: zone.source.as_ref().map(|source| source.samples.len()),
+                prepared_frames: zone.source.as_ref().map(|source| source.frames),
             }
         })
         .collect();
@@ -1724,6 +1723,10 @@ fn make_inspect_report(
                 id: layer.id.clone(),
                 enabled: true,
                 trigger: InspectTrigger {
+                    event: match layer.trigger.event {
+                        sonalloy_core::LayerTriggerEvent::NoteOn => "note_on",
+                        sonalloy_core::LayerTriggerEvent::NoteOff => "note_off",
+                    },
                     key_min: layer.trigger.key_min,
                     key_max: layer.trigger.key_max,
                     velocity_min: layer.trigger.velocity_min,
@@ -1845,7 +1848,8 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     for layer in &report.layers {
         print_generator(&layer.id, &layer.generator);
         println!(
-            "  trigger: key {}..{} velocity {}..{}",
+            "  trigger: {} key {}..{} velocity {}..{}",
+            layer.trigger.event,
             layer.trigger.key_min,
             layer.trigger.key_max,
             layer.trigger.velocity_min,
@@ -1979,7 +1983,7 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
             println!("  sample prepared assets: {sample_asset_count}");
             for zone in sample_zones {
                 println!(
-                    "  zone {}: enabled {} key {}..{} velocity {}..{} root_note {} playback {} frames {}..{}",
+                    "  zone {}: enabled {} key {}..{} velocity {}..{} root_note {} playback {} direction {} frames {}..{}",
                     zone.id,
                     zone.enabled,
                     zone.key_min,
@@ -1988,6 +1992,7 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
                     zone.velocity_max,
                     zone.root_note,
                     zone.playback_type,
+                    zone.direction,
                     zone.start_frame,
                     zone.end_frame,
                 );
@@ -1995,10 +2000,20 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
                     (zone.loop_start_frame, zone.loop_end_frame)
                 {
                     println!("    loop: {loop_start}..{loop_end}");
+                    if let Some(crossfade) = zone.crossfade_frames {
+                        println!("    loop crossfade: {crossfade} frames");
+                    }
                 }
                 if let Some(group) = &zone.round_robin_group {
                     println!("    round_robin_group: {group}");
                 }
+                println!(
+                    "    source: {} channels, {} prepared frames",
+                    zone.source_channels
+                        .map_or_else(|| "none".to_owned(), |value| value.to_string()),
+                    zone.prepared_frames
+                        .map_or_else(|| "none".to_owned(), |value| value.to_string()),
+                );
             }
         }
         InspectGenerator::Wavetable { .. } => print_wavetable_generator(layer_id, generator),
@@ -2283,6 +2298,50 @@ mod tests {
     #[test]
     fn default_definition_is_valid() {
         assert!(default_definition().validate().is_empty());
+    }
+
+    #[test]
+    fn inspect_reports_sample_playback_and_trigger_event() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/instruments/mapped-sample-instrument.json");
+        let mut definition: InstrumentDefinition =
+            serde_json::from_str(&std::fs::read_to_string(path).expect("sample Definition exists"))
+                .expect("sample Definition parses");
+        definition.layers[0].trigger.event = sonalloy_core::LayerTriggerEvent::NoteOff;
+        let sonalloy_core::GeneratorDefinition::Sample(sample) =
+            &mut definition.layers[0].generator
+        else {
+            panic!("reference Definition must contain a sample generator");
+        };
+        sample.zones[0].playback.direction = sonalloy_core::SamplePlaybackDirection::Reverse;
+        sample.zones[0].playback.r#loop = Some(sonalloy_core::SampleLoopDefinition {
+            start_seconds: 0.02,
+            end_seconds: 0.06,
+            crossfade_seconds: 0.01,
+        });
+
+        let result = compile_instrument(
+            &definition,
+            &CompileContext {
+                definition_base_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../examples/instruments"),
+                process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+            },
+        );
+        let sonalloy_core::CompileResult {
+            instrument,
+            diagnostics,
+        } = result;
+        let compiled = instrument.expect("sample Definition compiles");
+        let report = make_inspect_report(&compiled, diagnostics);
+        assert_eq!(report.layers[0].trigger.event, "note_off");
+        let InspectGenerator::Sample { sample_zones, .. } = &report.layers[0].generator else {
+            panic!("reference Definition must inspect as a sample generator");
+        };
+        assert_eq!(sample_zones[0].direction, "reverse");
+        assert_eq!(sample_zones[0].crossfade_frames, Some(480));
+        assert!(sample_zones[0].source_channels.is_some());
+        assert!(sample_zones[0].prepared_frames.is_some());
     }
 
     #[test]

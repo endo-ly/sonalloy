@@ -30,6 +30,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
       "id": "body",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,
@@ -434,6 +435,7 @@ Sampleを使うLayerの最小構成です。
   "id": "attack",
   "enabled": true,
   "trigger": {
+    "event": "note_on",
     "key_min": 0,
     "key_max": 127,
     "velocity_min": 1,
@@ -465,9 +467,12 @@ Sampleを使うLayerの最小構成です。
           "velocity_max": 127,
           "round_robin_group": null,
           "playback": {
-            "type": "one_shot",
-            "start_seconds": 0.0,
-            "end_seconds": null
+            "region": {
+              "start_seconds": 0.0,
+              "end_seconds": null
+            },
+            "direction": "forward",
+            "loop": null
           }
         }
       ]
@@ -480,10 +485,11 @@ Sampleを使うLayerの最小構成です。
 
 - Asset PathはDefinitionがあるフォルダを基準に解決します
 - SHA-256を照合してから、SymphoniaでWAVを読み込みます
-- StereoのWAVは左右の平均を取ってMonoへ変換します
+- Sample GeneratorのStereo WAVは左右を保持したPlanar Prepared Audioへ変換します。Mono WAVはMonoのまま保持します
 - 再生時のSample Rateと違う場合は、RubatoでSample Rateを変換します
-- 元のSample Rate、Channel数、Bit Depth、Frame数はCompiled Sampleに保持します
-- 同一Assetを参照するZoneはCompile時にPrepared Sampleを共有します
+- ResampleはChannelごとに同じ設定で行い、左右のFrame数を一致させます
+- 元のSample Rate、Channel数、Bit Depth、Frame数はPrepared AudioのSource Metadataに保持します
+- 同一Assetを参照するZoneはCompile時にPrepared Audioを共有します
 - Assetの欠落・Hash不一致・Decode失敗はそのZoneだけを無効化し、ほかのZoneとLayerのCompileを継続します
 
 **Sample Zone**
@@ -495,14 +501,35 @@ Sampleを使うLayerの最小構成です。
 - Velocity Layerは重ならないVelocity範囲で記述します。範囲のGapでは発音しません
 - 同じRound Robin Groupの選択はDefinition順で、Instrument単位のCounterによりA/B/A/Bと進みます
 
+**Layer Trigger Event**
+
+- `event`は`note_on`または`note_off`です。通常のLayerは`note_on`を指定します
+- `note_on` LayerはNote Onで発音を開始します
+- `note_off` LayerはNote OnでArmedになり、Audioを生成せずにNote IDを保持します。対応するNote Offで独立したEnvelopeのAttackから発音を開始します
+- Voice Stealingは演奏上のNote Offではないため、Armed Layerを発音しません
+
 **Playback Region**
 
-- `one_shot`は`start_seconds`から`end_seconds`（`null`はAsset終端）までを一度だけ再生します
-- `forward_loop`はRegion内の`loop_start_seconds`から`loop_end_seconds`へ到達するとLoop Startへ戻ります
-- RegionとLoopはCompile時にEngine Sample RateのFrameへ変換され、最低2 Frameが必要です
+- `region`は`start_seconds`と`end_seconds`を持ち、`[start, end)`として扱います。`end_seconds: null`はAsset終端です
+- `direction`は`forward`または`reverse`です。ReverseはPrepared Audioを複製せずCursor方向だけを反転します
+- `loop: null`はOne-shotです。Loopを指定する場合はRegion内の`start_seconds`、`end_seconds`、`crossfade_seconds`を記述します
+- `crossfade_seconds: 0`は通常Loop、0より大きい場合はConstant-power Crossfade Loopです。CrossfadeはLoop長の半分以下でなければなりません
+- RegionとLoopはCompile時にEngine Sample RateのFrameへ変換され、RegionとLoopには最低2 Frameが必要です
 - Explicit Sliceは同じAssetと異なるOne-shot Regionを持つ複数Zoneで表現します
 
-Sampleの再生の動き（Cursor、再生速度、補間、終端の扱い）は、`docs/runtime-processing.md`の「Sample Runtime」を参照してください。
+```json
+"playback": {
+  "region": { "start_seconds": 0.0, "end_seconds": null },
+  "direction": "reverse",
+  "loop": {
+    "start_seconds": 0.25,
+    "end_seconds": 0.75,
+    "crossfade_seconds": 0.02
+  }
+}
+```
+
+Sampleの再生の動き（Cursor、再生速度、補間、終端の扱い）は、`docs/runtime-processing.md`の「Sampleの再生」を参照してください。
 
 ## Modulation
 
