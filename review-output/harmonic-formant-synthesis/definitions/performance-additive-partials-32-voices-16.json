@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Additive Generator Reference",
+    "author": null,
+    "description": "Harmonic and inharmonic partial synthesis with spectrum morphing"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -24.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.05,
+        "sustain_level": 1.0,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": -3.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "performance_1",
+              "ratio": 1.0,
+              "amplitude_a": 0.42,
+              "amplitude_b": 0.399,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_2",
+              "ratio": 2.0,
+              "amplitude_a": 0.2969848480983499,
+              "amplitude_b": 0.2969848480983499,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_3",
+              "ratio": 3.0,
+              "amplitude_a": 0.24248711305964282,
+              "amplitude_b": 0.21823840175367853,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_4",
+              "ratio": 4.0,
+              "amplitude_a": 0.21,
+              "amplitude_b": 0.1995,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_5",
+              "ratio": 5.0,
+              "amplitude_a": 0.1878297101099823,
+              "amplitude_b": 0.1878297101099823,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_6",
+              "ratio": 6.0,
+              "amplitude_a": 0.17146428199482247,
+              "amplitude_b": 0.15431785379534022,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_7",
+              "ratio": 7.0,
+              "amplitude_a": 0.1587450786638754,
+              "amplitude_b": 0.15080782473068166,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_8",
+              "ratio": 8.0,
+              "amplitude_a": 0.14849242404917495,
+              "amplitude_b": 0.14849242404917495,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_9",
+              "ratio": 9.0,
+              "amplitude_a": 0.13999999999999999,
+              "amplitude_b": 0.126,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_10",
+              "ratio": 10.0,
+              "amplitude_a": 0.13281566172707193,
+              "amplitude_b": 0.12617487864071836,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_11",
+              "ratio": 11.0,
+              "amplitude_a": 0.12663476472266072,
+              "amplitude_b": 0.12663476472266072,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_12",
+              "ratio": 12.0,
+              "amplitude_a": 0.12124355652982141,
+              "amplitude_b": 0.10911920087683927,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_13",
+              "ratio": 13.0,
+              "amplitude_a": 0.11648704120729812,
+              "amplitude_b": 0.11066268914693322,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_14",
+              "ratio": 14.0,
+              "amplitude_a": 0.11224972160321824,
+              "amplitude_b": 0.11224972160321824,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_15",
+              "ratio": 15.0,
+              "amplitude_a": 0.10844353369380766,
+              "amplitude_b": 0.0975991803244269,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_16",
+              "ratio": 16.0,
+              "amplitude_a": 0.105,
+              "amplitude_b": 0.09975,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_17",
+              "ratio": 17.0,
+              "amplitude_a": 0.10186496251525984,
+              "amplitude_b": 0.10186496251525984,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_18",
+              "ratio": 18.0,
+              "amplitude_a": 0.09899494936611666,
+              "amplitude_b": 0.089095454429505,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_19",
+              "ratio": 19.0,
+              "amplitude_a": 0.09635460822563593,
+              "amplitude_b": 0.09153687781435414,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_20",
+              "ratio": 20.0,
+              "amplitude_a": 0.09391485505499116,
+              "amplitude_b": 0.09391485505499116,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_21",
+              "ratio": 21.0,
+              "amplitude_a": 0.0916515138991168,
+              "amplitude_b": 0.08248636250920512,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_22",
+              "ratio": 22.0,
+              "amplitude_a": 0.08954430086935637,
+              "amplitude_b": 0.08506708582588855,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_23",
+              "ratio": 23.0,
+              "amplitude_a": 0.0875760539039714,
+              "amplitude_b": 0.0875760539039714,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_24",
+              "ratio": 24.0,
+              "amplitude_a": 0.08573214099741124,
+              "amplitude_b": 0.07715892689767011,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_25",
+              "ratio": 25.0,
+              "amplitude_a": 0.08399999999999999,
+              "amplitude_b": 0.0798,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_26",
+              "ratio": 26.0,
+              "amplitude_a": 0.08236877675803729,
+              "amplitude_b": 0.08236877675803729,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_27",
+              "ratio": 27.0,
+              "amplitude_a": 0.0808290376865476,
+              "amplitude_b": 0.07274613391789285,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_28",
+              "ratio": 28.0,
+              "amplitude_a": 0.0793725393319377,
+              "amplitude_b": 0.07540391236534083,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_29",
+              "ratio": 29.0,
+              "amplitude_a": 0.07799204203436179,
+              "amplitude_b": 0.07799204203436179,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_30",
+              "ratio": 30.0,
+              "amplitude_a": 0.07668115805072326,
+              "amplitude_b": 0.06901304224565094,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_31",
+              "ratio": 31.0,
+              "amplitude_a": 0.07543422685124546,
+              "amplitude_b": 0.07166251550868319,
+              "phase": 0.0
+            },
+            {
+              "id": "performance_32",
+              "ratio": 32.0,
+              "amplitude_a": 0.07424621202458748,
+              "amplitude_b": 0.07424621202458748,
+              "phase": 0.0
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": null
+}

@@ -29,17 +29,50 @@ def midi_note_frequency(note: int) -> float:
     return 440.0 * math.pow(2.0, (note - 69) / 12.0)
 
 
-def cli_command() -> list[str]:
-    candidates = (
-        ROOT / "target" / "debug" / "sonalloy.exe",
-        ROOT / "target" / "debug" / "sonalloy",
-        ROOT / "target" / "release" / "sonalloy.exe",
-        ROOT / "target" / "release" / "sonalloy",
-    )
+def cli_command(release: bool = False) -> list[str]:
+    if release:
+        candidates = (
+            ROOT / "target" / "release" / "sonalloy.exe",
+            ROOT / "target" / "release" / "sonalloy",
+        )
+    else:
+        candidates = (
+            ROOT / "target" / "debug" / "sonalloy.exe",
+            ROOT / "target" / "debug" / "sonalloy",
+            ROOT / "target" / "release" / "sonalloy.exe",
+            ROOT / "target" / "release" / "sonalloy",
+        )
     for candidate in candidates:
         if candidate.exists():
             return [str(candidate)]
-    return ["cargo", "run", "--quiet", "-p", "sonalloy-cli", "--"]
+    command = ["cargo", "run", "--quiet"]
+    if release:
+        command.append("--release")
+    command.extend(("-p", "sonalloy-cli", "--"))
+    return command
+
+
+def build_cli(release: bool = False) -> None:
+    """Build the CLI binary used by a review measurement."""
+
+    command = ["cargo", "build"]
+    if release:
+        command.append("--release")
+    command.extend(("-p", "sonalloy-cli"))
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.returncode != 0:
+        details = "\n".join(
+            part for part in (result.stdout, result.stderr) if part
+        ).strip()
+        raise RuntimeError(f"CLI build failed with exit code {result.returncode}: {details}")
 
 
 def run_cli(arguments: list[str]) -> str:
@@ -223,10 +256,11 @@ def timed_render(
     duration_frames: int,
     block_size: int = BASE_BLOCK_SIZE,
     sample_rate: int = SAMPLE_RATE,
+    release: bool = False,
 ) -> dict[str, object]:
     """Render an event sequence and record wall time and Windows peak working set."""
 
-    command = cli_command() + [
+    command = cli_command(release=release) + [
         "render",
         "events",
         str(definition),
@@ -277,7 +311,12 @@ def timed_render(
         "duration_frames": duration_frames,
         "sample_rate": sample_rate,
         "block_size": block_size,
+        "build": "release" if release else "default",
     }
+    result["audio_duration_seconds"] = result["frames"] / sample_rate
+    result["realtime_ratio"] = (
+        result["elapsed_seconds"] / result["audio_duration_seconds"]
+    )
     result["cli_realtime_factor"] = result["frames"] / (
         result["elapsed_seconds"] * sample_rate
     )

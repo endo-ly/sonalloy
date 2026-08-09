@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-"""Generate the deterministic Additive Generator sound review package."""
+"""Generate the Additive section of the harmonic and formant review package."""
 
 from __future__ import annotations
 
@@ -29,7 +28,7 @@ BLOCK_SIZE_MAX_DIFFERENCE = 1.0e-5
 SINE_TABLE_LENGTH = 4096
 
 
-def partial(
+def make_partial(
     identifier: str,
     ratio: float,
     amplitude_a: float,
@@ -49,11 +48,7 @@ def partial(
     return value
 
 
-def layer(value: dict[str, object]) -> dict[str, object]:
-    return value["layers"][0]
-
-
-def additive(
+def make_additive_definition(
     source: dict[str, object],
     partials: list[dict[str, object]],
     morph: float = 0.0,
@@ -61,7 +56,7 @@ def additive(
     inharmonicity: float = 0.0,
 ) -> dict[str, object]:
     value = copy.deepcopy(source)
-    target_layer = layer(value)
+    target_layer = value["layers"][0]
     target_layer["gain_db"] = -6.0
     target_layer["pan"] = 0.0
     target_layer["envelope"] = {
@@ -134,7 +129,9 @@ def sine_table_metrics() -> dict[str, float | int]:
     }
 
 
-def high_frequency_energy(path: Path, cutoff_ratio: float = 0.2) -> dict[str, float | int]:
+def high_frequency_energy(
+    path: Path, cutoff_ratio: float = 0.2
+) -> dict[str, float | int]:
     sample_rate, channels, samples = read_float_wav(path)
     frames = len(samples) // channels
     fft_size = min(4096, frames)
@@ -158,7 +155,10 @@ def high_frequency_energy(path: Path, cutoff_ratio: float = 0.2) -> dict[str, fl
     bin_width = sample_rate / fft_size
     for bin_index in range(1, fft_size // 2 + 1):
         angle_step = 2.0 * math.pi * bin_index / fft_size
-        real = sum(sample * math.cos(angle_step * index) for index, sample in enumerate(window))
+        real = sum(
+            sample * math.cos(angle_step * index)
+            for index, sample in enumerate(window)
+        )
         imaginary = sum(
             -sample * math.sin(angle_step * index)
             for index, sample in enumerate(window)
@@ -172,14 +172,15 @@ def high_frequency_energy(path: Path, cutoff_ratio: float = 0.2) -> dict[str, fl
         "cutoff_ratio": cutoff_ratio,
         "cutoff_hz": sample_rate * cutoff_ratio,
         "fft_size": fft_size,
-        "high_frequency_energy_ratio": high_energy / total_energy if total_energy else 0.0,
+        "high_frequency_energy_ratio": high_energy / total_energy
+        if total_energy
+        else 0.0,
     }
 
 
-def main() -> None:
+def generate_additive_section(review_root: Path) -> dict[str, object]:
     source_path = ROOT / "examples" / "instruments" / "additive-generator-reference.json"
     source = json.loads(source_path.read_text(encoding="utf-8"))
-    review_root = ROOT / "review-output" / "additive-generator"
     definition_dir = review_root / "definitions"
     event_dir = review_root / "events"
     technical_dir = review_root / "audio" / "technical"
@@ -187,48 +188,52 @@ def main() -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
     harmonic_partials = [
-        partial("fundamental", 1.0, 1.0, 0.7),
-        partial("second", 2.0, 0.45, 0.8),
-        partial("third", 3.0, 0.3, 0.65),
-        partial("fifth", 5.0, 0.22, 0.45),
-        partial("seventh", 7.0, 0.12, 0.3),
-        partial("ninth", 9.0, 0.08, 0.22),
-        partial("twelfth", 12.0, 0.04, 0.16),
+        make_partial("fundamental", 1.0, 1.0, 0.7),
+        make_partial("second", 2.0, 0.45, 0.8),
+        make_partial("third", 3.0, 0.3, 0.65),
+        make_partial("fifth", 5.0, 0.22, 0.45),
+        make_partial("seventh", 7.0, 0.12, 0.3),
+        make_partial("ninth", 9.0, 0.08, 0.22),
+        make_partial("twelfth", 12.0, 0.04, 0.16),
     ]
     definitions = {
-        "fundamental": additive(
-            source, [partial("fundamental", 1.0, 1.0, 1.0)]
+        "fundamental": make_additive_definition(
+            source, [make_partial("fundamental", 1.0, 1.0, 1.0)]
         ),
-        "harmonic-organ": additive(source, harmonic_partials, tilt=-3.0),
-        "inharmonic-bell": additive(
+        "harmonic-organ": make_additive_definition(
+            source, harmonic_partials, tilt=-3.0
+        ),
+        "inharmonic-bell": make_additive_definition(
             source,
             harmonic_partials
-            + [partial("metal", 2.73, 0.15, 0.5, 0.25)],
+            + [make_partial("metal", 2.73, 0.15, 0.5, 0.25)],
             tilt=-6.0,
             inharmonicity=1.0,
         ),
-        "spectrum-a": additive(source, harmonic_partials, tilt=-12.0),
-        "spectrum-b": additive(
+        "spectrum-a": make_additive_definition(source, harmonic_partials, tilt=-12.0),
+        "spectrum-b": make_additive_definition(
             source,
             [
-                partial("fundamental", 1.0, 0.7, 0.7),
-                partial("second", 2.0, 0.8, 0.8),
-                partial("third", 3.0, 0.65, 0.65),
-                partial("fifth", 5.0, 0.45, 0.45),
-                partial("seventh", 7.0, 0.3, 0.3),
-                partial("ninth", 9.0, 0.22, 0.22),
-                partial("twelfth", 12.0, 0.16, 0.16),
+                make_partial("fundamental", 1.0, 0.7, 0.7),
+                make_partial("second", 2.0, 0.8, 0.8),
+                make_partial("third", 3.0, 0.65, 0.65),
+                make_partial("fifth", 5.0, 0.45, 0.45),
+                make_partial("seventh", 7.0, 0.3, 0.3),
+                make_partial("ninth", 9.0, 0.22, 0.22),
+                make_partial("twelfth", 12.0, 0.16, 0.16),
             ],
             tilt=6.0,
         ),
-        "morph-sweep": additive(source, harmonic_partials, tilt=-12.0),
-        "tilt-sweep": additive(source, harmonic_partials, tilt=-24.0),
-        "inharmonicity-sweep": additive(source, harmonic_partials),
-        "partial-envelope-bell": additive(
+        "morph-sweep": make_additive_definition(
+            source, harmonic_partials, tilt=-12.0
+        ),
+        "tilt-sweep": make_additive_definition(source, harmonic_partials, tilt=-24.0),
+        "inharmonicity-sweep": make_additive_definition(source, harmonic_partials),
+        "partial-envelope-bell": make_additive_definition(
             source,
             [
-                partial("fundamental", 1.0, 0.9, 0.9),
-                partial(
+                make_partial("fundamental", 1.0, 0.9, 0.9),
+                make_partial(
                     "transient",
                     3.0,
                     0.8,
@@ -240,7 +245,7 @@ def main() -> None:
                         "release_seconds": 0.05,
                     },
                 ),
-                partial(
+                make_partial(
                     "metal",
                     5.37,
                     0.4,
@@ -256,13 +261,17 @@ def main() -> None:
             ],
             tilt=-3.0,
         ),
-        "high-note-alias": additive(
+        "high-note-alias": make_additive_definition(
             source,
             harmonic_partials
-            + [partial("upper_16", 16.0, 0.2, 0.2), partial("upper_32", 32.0, 0.12, 0.12)],
-            tilt=0.0,
+            + [
+                make_partial("upper_16", 16.0, 0.2, 0.2),
+                make_partial("upper_32", 32.0, 0.12, 0.12),
+            ],
         ),
-        "additive-polyphony": additive(source, harmonic_partials, tilt=-3.0),
+        "additive-polyphony": make_additive_definition(
+            source, harmonic_partials, tilt=-3.0
+        ),
     }
 
     definition_paths: dict[str, Path] = {}
@@ -275,7 +284,7 @@ def main() -> None:
     inspect = run_cli(
         ["instrument", "inspect", str(definition_paths["harmonic-organ"]), "--json"]
     )
-    write_utf8(review_root / "inspect.json", inspect)
+    write_utf8(review_root / "additive-inspect.json", inspect)
 
     event_values = {
         "morph-sweep": [
@@ -375,7 +384,11 @@ def main() -> None:
         for index in range(16)
     ]
     polyphony_events.extend(
-        {"absolute_frame": 12_000 + index * 64, "type": "note_off", "note_id": index + 1}
+        {
+            "absolute_frame": 12_000 + index * 64,
+            "type": "note_off",
+            "note_id": index + 1,
+        }
         for index in range(16)
     )
     polyphony_path = event_dir / "additive-polyphony.json"
@@ -391,7 +404,7 @@ def main() -> None:
 
     regression_paths: dict[str, Path] = {}
     for block_size in BLOCK_SIZES:
-        path = technical_dir / f"regression-block-{block_size}.wav"
+        path = technical_dir / f"additive-block-{block_size}.wav"
         render_note(
             definition_paths["harmonic-organ"],
             60,
@@ -405,7 +418,7 @@ def main() -> None:
 
     sample_rate_paths: dict[str, Path] = {}
     for sample_rate in (44_100, SAMPLE_RATE, 96_000):
-        path = technical_dir / f"sample-rate-{sample_rate}.wav"
+        path = technical_dir / f"additive-sample-rate-{sample_rate}.wav"
         render_note(
             definition_paths["harmonic-organ"],
             60,
@@ -418,10 +431,24 @@ def main() -> None:
         sample_rate_paths[str(sample_rate)] = path
         generated_paths.append(path)
 
-    fresh_a = technical_dir / "fresh-a.wav"
-    fresh_b = technical_dir / "fresh-b.wav"
-    render_note(definition_paths["harmonic-organ"], 60, fresh_a, BASE_BLOCK_SIZE, gate_seconds=0.25, tail_seconds=0.1)
-    render_note(definition_paths["harmonic-organ"], 60, fresh_b, BASE_BLOCK_SIZE, gate_seconds=0.25, tail_seconds=0.1)
+    fresh_a = technical_dir / "additive-fresh-a.wav"
+    fresh_b = technical_dir / "additive-fresh-b.wav"
+    render_note(
+        definition_paths["harmonic-organ"],
+        60,
+        fresh_a,
+        BASE_BLOCK_SIZE,
+        gate_seconds=0.25,
+        tail_seconds=0.1,
+    )
+    render_note(
+        definition_paths["harmonic-organ"],
+        60,
+        fresh_b,
+        BASE_BLOCK_SIZE,
+        gate_seconds=0.25,
+        tail_seconds=0.1,
+    )
     generated_paths.extend((fresh_a, fresh_b))
 
     metrics: dict[str, object] = {
@@ -429,14 +456,14 @@ def main() -> None:
         "base_block_size": BASE_BLOCK_SIZE,
         "block_sizes": list(BLOCK_SIZES),
         "sine_table": sine_table_metrics(),
-        "audio": {},
     }
     audio_metrics: dict[str, object] = {}
     for path in sorted(generated_paths):
         values = measure(
             path,
             list(BLOCK_SIZES),
-            include_spectrum=path.name in {
+            include_spectrum=path.name
+            in {
                 "01-additive-fundamental.wav",
                 "02-harmonic-organ.wav",
                 "03-inharmonic-bell.wav",
@@ -467,19 +494,22 @@ def main() -> None:
     }
     if invalid_block_comparisons:
         raise RuntimeError(f"additive block-size mismatch: {invalid_block_comparisons}")
+
     fresh_comparison = compare_wav(fresh_a, fresh_b)
     if (
         not fresh_comparison.get("compatible")
         or fresh_comparison.get("max_abs_difference", 1.0) != 0.0
     ):
         raise RuntimeError(f"additive fresh render is not reproducible: {fresh_comparison}")
+
     metrics["block_size_comparisons"] = block_comparisons
     metrics["parameter_comparisons"] = {
         "spectrum_a_to_b": compare_wav(
             technical_dir / "04-spectrum-a.wav", technical_dir / "05-spectrum-b.wav"
         ),
         "harmonic_to_inharmonic": compare_wav(
-            technical_dir / "02-harmonic-organ.wav", technical_dir / "03-inharmonic-bell.wav"
+            technical_dir / "02-harmonic-organ.wav",
+            technical_dir / "03-inharmonic-bell.wav",
         ),
     }
     metrics["high_frequency_energy"] = {
@@ -497,58 +527,4 @@ def main() -> None:
         "first_sha256": sha256_file(fresh_a),
         "second_sha256": sha256_file(fresh_b),
     }
-    write_utf8(review_root / "metrics.json", json.dumps(metrics, ensure_ascii=False, indent=2) + "\n")
-
-    summary = """# Additive Generator Sound Review
-
-## Render条件
-
-- 基準Sample Rate：48,000 Hz
-- Sample Rate比較：44,100 / 48,000 / 96,000 Hz
-- 基準Block Size：257 frames
-- 比較Block Size：32 / 64 / 257 / 1024 frames
-- Output：Stereo、32-bit float WAV
-
-## 入力
-
-Definitionは`definitions/`、Eventは`events/`、WAVは`audio/technical/`へ保存しています。`inspect.json`にはPartial構造とParameter Descriptorを保存しています。
-
-再生成：
-
-```bash
-python scripts/review/generate_additive_package.py
-```
-
-## 音声一覧
-
-| WAV | 目的 |
-|---|---|
-| `01-additive-fundamental.wav` | Single Fundamental |
-| `02-harmonic-organ.wav` | Harmonic Organ |
-| `03-inharmonic-bell.wav` | Fractional Ratio and Inharmonicity |
-| `04-spectrum-a.wav` / `05-spectrum-b.wav` | Spectrum A / B |
-| `06-spectrum-morph-sweep.wav` | Spectrum Morph |
-| `07-spectrum-tilt-sweep.wav` | Spectrum Tilt |
-| `08-inharmonicity-sweep.wav` | Global Inharmonicity |
-| `09-partial-envelope-bell.wav` | Partial Envelope |
-| `10-high-note-alias-check.wav` | High-note Alias Fade |
-| `11-additive-polyphony.wav` | 16-note Polyphony |
-
-## 機械検査
-
-`metrics.json`はSine TableのLength / Guard / Lookup最大絶対誤差、Finite性、Peak、RMS、DC、隣接Frame差分、単音Spectrum、Spectrum A / B差分、Inharmonicity差分、高周波Energy、Sample Rate別値、Block Size比較、Fresh Render再現性を記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。
-
-## 人間の確認
-
-- Harmonic Organで基音と整数倍Partialが明確に聞こえ、BzzzやClickがない
-- Inharmonic BellでInteger Harmonicとの差と金属的な質感が聞き取れる
-- Spectrum Morphが連続し、中間値で音量が急落・急増しない
-- Partial Envelope終了時に残りPartialのGainが段差変化しない
-- High-note Aliasで高域Partialが主音として折り返さず、自然に薄くなる
-- Polyphonyで音量、Pitch、Reset、Voice Stealingが安定している
-"""
-    write_utf8(review_root / "review-summary.md", summary)
-
-
-if __name__ == "__main__":
-    main()
+    return metrics
