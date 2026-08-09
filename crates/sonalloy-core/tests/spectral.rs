@@ -75,6 +75,31 @@ fn source_samples(frame_count: usize) -> Vec<i16> {
         .collect()
 }
 
+fn tone_samples(frame_count: usize, frequency_hz: f32) -> Vec<i16> {
+    (0..frame_count)
+        .map(|index| {
+            #[allow(clippy::cast_precision_loss)]
+            let time = index as f32 / 48_000.0;
+            #[allow(clippy::cast_possible_truncation)]
+            {
+                (f32::sin(std::f32::consts::TAU * frequency_hz * time) * 24_000.0) as i16
+            }
+        })
+        .collect()
+}
+
+fn frequency_energy(samples: &[f32], sample_rate: f64, frequency_hz: f64) -> f64 {
+    let mut real = 0.0_f64;
+    let mut imaginary = 0.0_f64;
+    for (index, sample) in samples.iter().enumerate() {
+        #[allow(clippy::cast_precision_loss)]
+        let phase = std::f64::consts::TAU * frequency_hz * index as f64 / sample_rate;
+        real += f64::from(*sample) * phase.cos();
+        imaginary -= f64::from(*sample) * phase.sin();
+    }
+    real.mul_add(real, imaginary * imaginary)
+}
+
 fn definition(asset_path: String, fft_size: u16) -> InstrumentDefinition {
     let reference = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/instruments/basic-poly-synth.json");
@@ -131,6 +156,16 @@ fn render(
     block_size: usize,
     source_frames: usize,
 ) -> sonalloy_core::RenderedAudio {
+    render_note(definition, base_dir, block_size, source_frames, 60)
+}
+
+fn render_note(
+    definition: &InstrumentDefinition,
+    base_dir: &Path,
+    block_size: usize,
+    source_frames: usize,
+    note_number: u8,
+) -> sonalloy_core::RenderedAudio {
     let fft_size = match &definition.layers[0].generator {
         GeneratorDefinition::Spectral(spectral) => usize::from(spectral.fft_size),
         _ => panic!("fixture must use Spectral"),
@@ -149,7 +184,7 @@ fn render(
             absolute_frame: 0,
             kind: ProcessEventKind::NoteOn {
                 note_id: 1,
-                note_number: 60,
+                note_number,
                 velocity: 110,
             },
         }],
@@ -487,4 +522,157 @@ fn spectral_preserves_stereo_source_channels() {
     }
     let snr_db = 10.0 * (signal_power / error_power.max(1.0e-20)).log10();
     assert!(snr_db >= 60.0, "stereo identity SNR is {snr_db:.2} dB");
+}
+
+#[test]
+fn spectral_position_and_freeze_hold_the_selected_source_frame() {
+    let directory = fixture_directory();
+    let path = directory.path().join("position.wav");
+    let samples = (0..32_768)
+        .map(|index| {
+            let frequency = if index < 16_384 { 440.0 } else { 880.0 };
+            #[allow(clippy::cast_precision_loss)]
+            let time = index as f32 / 48_000.0;
+            #[allow(clippy::cast_possible_truncation)]
+            {
+                (f32::sin(std::f32::consts::TAU * frequency * time) * 24_000.0) as i16
+            }
+        })
+        .collect::<Vec<_>>();
+    write_pcm16_wav(&path, &samples);
+    let mut definition = definition(
+        path.file_name().unwrap().to_string_lossy().into_owned(),
+        1024,
+    );
+    let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator else {
+        panic!("fixture must use Spectral");
+    };
+    spectral.position = 0.75;
+    spectral.freeze = 1.0;
+    let audio = render(&definition, directory.path(), 257, samples.len());
+    let window_start = 768 + 4_096;
+    let window = &audio.channels[0][window_start..window_start + 8_192];
+    let high_energy = frequency_energy(window, 48_000.0, 880.0);
+    let low_energy = frequency_energy(window, 48_000.0, 440.0);
+    assert!(
+        high_energy > low_energy * 4.0,
+        "position did not select the later segment: high={high_energy}, low={low_energy}"
+    );
+    assert!(high_energy > 1.0, "freeze output is silent");
+}
+
+#[test]
+fn spectral_pitch_and_shift_remap_frequency_without_resampling_duration() {
+    let directory = fixture_directory();
+    let path = directory.path().join("tone.wav");
+    let samples = tone_samples(32_768, 440.0);
+    write_pcm16_wav(&path, &samples);
+
+    let mut pitch_definition = definition(
+        path.file_name().unwrap().to_string_lossy().into_owned(),
+        1024,
+    );
+    let pitch_audio = render_note(&pitch_definition, directory.path(), 257, samples.len(), 72);
+    let window_start = 768 + 4_096;
+    let pitch_window = &pitch_audio.channels[0][window_start..window_start + 8_192];
+    let octave_energy = frequency_energy(pitch_window, 48_000.0, 880.0);
+    let source_energy = frequency_energy(pitch_window, 48_000.0, 440.0);
+    assert!(
+        octave_energy > source_energy * 4.0,
+        "MIDI pitch was not remapped"
+    );
+
+    let GeneratorDefinition::Spectral(spectral) = &mut pitch_definition.layers[0].generator else {
+        panic!("fixture must use Spectral");
+    };
+    spectral.shift_hz = 300.0;
+    let shifted_audio = render(&pitch_definition, directory.path(), 257, samples.len());
+    let shifted_window = &shifted_audio.channels[0][window_start..window_start + 8_192];
+    let shifted_energy = frequency_energy(shifted_window, 48_000.0, 740.0);
+    let unshifted_energy = frequency_energy(shifted_window, 48_000.0, 440.0);
+    assert!(
+        shifted_energy > unshifted_energy * 4.0,
+        "frequency shift was not applied"
+    );
+
+    pitch_definition.layers[0].tuning_cents = 1_200.0;
+    let tuned_audio = render(&pitch_definition, directory.path(), 257, samples.len());
+    let tuned_window = &tuned_audio.channels[0][window_start..window_start + 8_192];
+    let tuned_energy = frequency_energy(tuned_window, 48_000.0, 1_180.0);
+    assert!(
+        tuned_energy > 1.0,
+        "layer tuning did not reach the shifted target"
+    );
+}
+
+#[test]
+fn spectral_transform_output_is_independent_of_host_block_size() {
+    let directory = fixture_directory();
+    let path = directory.path().join("block-size-tone.wav");
+    let samples = tone_samples(16_384, 440.0);
+    write_pcm16_wav(&path, &samples);
+    let mut definition = definition(
+        path.file_name().unwrap().to_string_lossy().into_owned(),
+        2048,
+    );
+    let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator else {
+        panic!("fixture must use Spectral");
+    };
+    spectral.shift_hz = 300.0;
+    let renders = [32_usize, 64, 257, 1024]
+        .into_iter()
+        .map(|block_size| render(&definition, directory.path(), block_size, samples.len()))
+        .collect::<Vec<_>>();
+    for render in renders.iter().skip(1) {
+        let maximum_difference = renders[0]
+            .channels
+            .iter()
+            .flatten()
+            .zip(render.channels.iter().flatten())
+            .map(|(left, right)| (left - right).abs())
+            .fold(0.0_f32, f32::max);
+        assert!(
+            maximum_difference <= 1.0e-6,
+            "maximum transformed difference is {maximum_difference}"
+        );
+    }
+}
+
+#[test]
+fn spectral_one_shot_drains_ola_and_finishes_after_source_end() {
+    let directory = fixture_directory();
+    let path = directory.path().join("short-tone.wav");
+    let samples = tone_samples(4_096, 440.0);
+    write_pcm16_wav(&path, &samples);
+    let definition = definition(
+        path.file_name().unwrap().to_string_lossy().into_owned(),
+        1024,
+    );
+    let latency = 768;
+    let duration_frames = samples.len() + latency * 2 + 2_048;
+    let audio = render_instrument(
+        compile(&definition, directory.path(), 257),
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: u64::try_from(duration_frames).expect("duration fits"),
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 110,
+            },
+        }],
+    )
+    .expect("Spectral render succeeds");
+    let tail_start = latency + samples.len() + 1_024;
+    let tail_peak = audio.channels[0][tail_start..]
+        .iter()
+        .copied()
+        .map(f32::abs)
+        .fold(0.0_f32, f32::max);
+    assert!(tail_peak < 1.0e-4, "OLA tail did not finish: {tail_peak}");
 }

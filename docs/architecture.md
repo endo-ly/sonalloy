@@ -54,7 +54,7 @@ Additiveは外部Native依存を持たないCore Rustの専用Generatorです。
 
 FormantはAdditiveと同じPartial Bankを使うCore Rustの専用Generatorです。Compile時に1〜8個のProfile、各5本のBand、4つのDynamic Parameter Handle、4096点Sine Tableを確定し、VoiceごとにProfile補間、Gaussian Spectrum、Spectral Control Tick、Phaseを保持します。FormantのDefinitionはCLIのGenerator Variantとして公開しますが、Partial Bankは内部Primitiveに留めます。
 
-Spectral ResynthesisはCore Rustの専用Generatorです。Compile時に`asset_a`をPrepared Audioへ変換し、FFT SizeごとのPrepared Magnitude、Absolute Phase、Instantaneous Frequency、Normalized Synthesis Window、共有Inverse PlanをCompiled Instrumentへ確定します。Optionalな`asset_b`はDefinitionとInspectへ保持し、Primary SourceのIdentity Resynthesisは`asset_a`だけを使います。SpectralのFFT処理はNative DSPへ依存しません。
+Spectral ResynthesisはCore Rustの専用Generatorです。Compile時に`asset_a`をPrepared Audioへ変換し、FFT SizeごとのPrepared Magnitude、Absolute Phase、Instantaneous Frequency、Normalized Synthesis Window、共有Inverse PlanをCompiled Instrumentへ確定します。RuntimeはVoiceごとのPhase Accumulator、Hop Scheduler、OLA Bufferを使い、Position、Freeze、Root Note Pitch、Layer Tuning、Frequency Shiftを処理します。Optionalな`asset_b`はDefinitionとInspectへ保持し、Primary Sourceは`asset_a`を使います。SpectralのFFT処理はNative DSPへ依存しません。
 
 Harmonic / Formant Hybridは既存のLayer、Voice、Global Processor ChainとModulation Tableをそのまま組み合わせます。Formant、Additive、Sample、NoiseのLayer Mix、MIDI Event、Processor Stateは新しいNative責務を追加せず、既存のCompile / Prepare / Process / Reset境界で所有します。
 

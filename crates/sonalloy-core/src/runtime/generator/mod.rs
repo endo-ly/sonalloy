@@ -338,7 +338,17 @@ impl GeneratorRuntime {
                 )?;
                 Ok(false)
             }
-            Self::Spectral(spectral) => spectral.render(frames, targets, mono, left, right),
+            Self::Spectral(spectral) => spectral.render(
+                frames,
+                note_number,
+                tuning_start,
+                tuning_end,
+                sample_rate,
+                targets,
+                mono,
+                left,
+                right,
+            ),
             Self::OperatorModulation(operator) => {
                 operator.render(
                     frames,

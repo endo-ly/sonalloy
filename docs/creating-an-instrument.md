@@ -340,7 +340,7 @@ Wavetableは、周期波形をFrame単位で連結したWAVを用意して、`fr
 }
 ```
 
-`fft_size`は1024、2048、4096から選びます。Hop SizeはFFT Sizeの4分の1、Reported Latencyは`fft_size - hop_size`です。`asset_b`を指定した場合だけMorph ParameterがCatalogへ追加されます。Identity Resynthesisを確認するときは、`position`、`freeze`、`blur_seconds`、`shift_hz`、`morph`を0にして、元WAVとRender結果をLatency後で比較します。
+`fft_size`は1024、2048、4096から選びます。Hop SizeはFFT Sizeの4分の1、Reported Latencyは`fft_size - hop_size`です。`position`はSourceの開始位置へNatural Scanを加え、`freeze`はScan速度を下げて1でFrameを固定します。MIDI NoteとLayer TuningはRoot NoteからのPitch比として適用され、Source Durationは変わりません。`shift_hz`は各Spectral成分をHz単位で移動します。`asset_b`を指定した場合だけMorph ParameterがCatalogへ追加されます。Identity Resynthesisを確認するときは、`position`、`freeze`、`blur_seconds`、`shift_hz`、`morph`を0にして、元WAVとRender結果をLatency後で比較します。
 
 ```bash
 sonalloy instrument validate my-instrument.json --json

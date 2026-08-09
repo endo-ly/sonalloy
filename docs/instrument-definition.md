@@ -457,6 +457,8 @@ Spectralは、WAV Assetを短時間Fourier変換したSpectrum Frameから再構
 
 Hop Sizeは常に`fft_size / 4`です。Compile時にPeriodic Hann Window、Magnitude、Absolute Phase、Instantaneous Frequencyを準備し、4倍Overlap-add用のSynthesis Windowを正規化します。前後のZero Paddingを含むため、Reported Latencyは`fft_size - hop_size` Frameです。FFT SizeごとのPrepared Spectral DataはAsset単位で共有され、64 MiBを超える場合は準備できません。
 
+RuntimeはSynthesis HopごとにPositionからFractional Frameを求め、MagnitudeとInstantaneous Frequencyを補間します。FreezeはSource Scanだけを止め、PhaseはInstantaneous Frequencyから継続します。MIDI NoteとLayer TuningはRoot Noteに対する周波数比、`shift_hz`は加算周波数としてDestination Binへ反映し、Fractional Binの範囲外Energyは破棄します。Pitch変更はSource Scan速度を変えず、`phase_reset`がfalseのVoice再利用ではPhase Accumulatorを保持します。
+
 Dynamic Parameterは次のCanonical IDを持ちます。`spectral_blur`だけ20ms、それ以外は10msでSmoothingされます。`spectral_morph`は`asset_b`を指定した場合だけ登録されます。
 
 - `layer.<layer_id>.generator.spectral_position`（Normalized、0〜1）
