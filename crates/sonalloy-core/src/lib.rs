@@ -7,6 +7,7 @@ pub mod parameter;
 pub mod process;
 pub mod render;
 pub mod runtime;
+mod spectral;
 mod wavetable;
 
 pub use asset::{PreparedAudio, PreparedAudioChannels, SampleMetadata};
@@ -16,10 +17,11 @@ pub use compiler::{
     CompiledFormantProfile, CompiledGranular, CompiledGranularParameters, CompiledInstrument,
     CompiledOperator, CompiledOperatorModulation, CompiledOperatorParameters,
     CompiledOperatorTopology, CompiledSampleDirection, CompiledSampleLoop, CompiledSamplePlayback,
-    CompiledSampleTime, CompiledStretchLatency, CompiledWaveSequence, CompiledWaveSequenceDuration,
-    CompiledWaveSequenceStep, CompiledWaveSequenceStepPlayback, CompiledWavetable,
-    CompiledWavetableParameters, GeneratorOutputMode, PreparedWavetable, PreparedWavetableBand,
-    PreparedWavetableFrame, WavetableSourceMetadata, compile_instrument,
+    CompiledSampleTime, CompiledSpectral, CompiledSpectralParameters, CompiledStretchLatency,
+    CompiledWaveSequence, CompiledWaveSequenceDuration, CompiledWaveSequenceStep,
+    CompiledWaveSequenceStepPlayback, CompiledWavetable, CompiledWavetableParameters,
+    GeneratorOutputMode, PreparedWavetable, PreparedWavetableBand, PreparedWavetableFrame,
+    WavetableSourceMetadata, compile_instrument,
 };
 pub use definition::{
     AdditiveDefinition, AdditivePartialDefinition, AdsrDefinition, AssetReference,
@@ -32,7 +34,7 @@ pub use definition::{
     PerformanceDefinition, PhaseDistortionDefinition, ProcessorDefinition,
     ReverbProcessorDefinition, SampleDefinition, SampleInterpolation, SampleLoopDefinition,
     SamplePlaybackDirection, SampleRegionDefinition, SampleTimeDefinition, SampleZoneDefinition,
-    SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition,
+    SampleZonePlaybackDefinition, SpectralDefinition, UnisonDefinition, VoiceStealingDefinition,
     WaveSequenceDefinition, WaveSequenceDirection, WaveSequenceDurationDefinition,
     WaveSequenceStepDefinition, WaveSequenceStepPlayback, WavefoldDefinition,
     WaveshapingDefinition, WavetableDefinition,
@@ -58,6 +60,7 @@ pub use render::{
     seconds_to_frames,
 };
 pub use runtime::{InstrumentRuntime, SineRuntime, VoiceState};
+pub use spectral::PreparedSpectralAsset;
 
 /// Backend metadata exposed without backend-specific types.
 #[derive(Debug, Clone, PartialEq, Eq)]

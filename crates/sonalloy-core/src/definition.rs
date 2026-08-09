@@ -11,7 +11,8 @@ use crate::generator_parameters::{
     OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX,
     OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,
     OPERATOR_PHASE_MAX, OPERATOR_PHASE_MIN, OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN,
-    OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD,
+    OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE,
+    SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD,
     WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id, is_parameter_id};
@@ -148,6 +149,8 @@ pub enum GeneratorDefinition {
     WaveSequence(WaveSequenceDefinition),
     /// A band-limited wavetable prepared from a mono or stereo asset.
     Wavetable(WavetableDefinition),
+    /// A spectral asset reconstructed through fixed STFT frames.
+    Spectral(SpectralDefinition),
     /// A fixed-topology four-operator modulation generator.
     OperatorModulation(OperatorModulationDefinition),
 }
@@ -455,6 +458,33 @@ pub struct WavetableDefinition {
     /// Optional wavetable unison configuration.
     #[serde(default)]
     pub unison: Option<UnisonDefinition>,
+}
+
+/// Spectral analysis and resynthesis settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpectralDefinition {
+    /// Primary audio asset and timing source for the generator.
+    pub asset_a: AssetReference,
+    /// Optional second asset reserved for spectral morphing.
+    #[serde(default)]
+    pub asset_b: Option<AssetReference>,
+    /// MIDI note represented by the primary source asset.
+    pub root_note: u8,
+    /// Allowed FFT size used for STFT analysis and resynthesis.
+    pub fft_size: u16,
+    /// Initial normalized source position.
+    pub position: f32,
+    /// Initial source scan freeze amount.
+    pub freeze: f32,
+    /// Initial temporal magnitude blur in seconds.
+    pub blur_seconds: f32,
+    /// Initial frequency translation in hertz.
+    pub shift_hz: f32,
+    /// Initial morph amount between the two source assets.
+    pub morph: f32,
+    /// Whether Note On restores the prepared source phase.
+    pub phase_reset: bool,
 }
 
 /// Four-operator audio-rate modulation settings.
@@ -1104,6 +1134,9 @@ impl InstrumentDefinition {
                 GeneratorDefinition::Wavetable(wavetable) => {
                     validate_wavetable(&mut diagnostics, &path, wavetable);
                 }
+                GeneratorDefinition::Spectral(spectral) => {
+                    validate_spectral(&mut diagnostics, &path, spectral);
+                }
                 GeneratorDefinition::OperatorModulation(operator_modulation) => {
                     validate_operator_modulation(&mut diagnostics, &path, operator_modulation);
                 }
@@ -1567,13 +1600,21 @@ fn validate_sample(diagnostics: &mut Vec<Diagnostic>, path: &str, sample: &Sampl
 }
 
 fn validate_asset_reference(diagnostics: &mut Vec<Diagnostic>, path: &str, asset: &AssetReference) {
+    validate_asset_reference_at(diagnostics, &format!("{path}.asset"), asset);
+}
+
+fn validate_asset_reference_at(
+    diagnostics: &mut Vec<Diagnostic>,
+    asset_path: &str,
+    asset: &AssetReference,
+) {
     if asset.path.trim().is_empty() {
         diagnostics.push(
             Diagnostic::error(
                 DiagnosticCode::RequiredFieldMissing,
                 "asset path must not be empty",
             )
-            .with_path(format!("{path}.asset.path")),
+            .with_path(format!("{asset_path}.path")),
         );
     }
     if let Some(hash) = &asset.sha256 {
@@ -1584,7 +1625,7 @@ fn validate_asset_reference(diagnostics: &mut Vec<Diagnostic>, path: &str, asset
                     DiagnosticCode::ValueOutOfRange,
                     "asset sha256 must be 64 hexadecimal characters",
                 )
-                .with_path(format!("{path}.asset.sha256")),
+                .with_path(format!("{asset_path}.sha256")),
             );
         }
     }
@@ -2172,6 +2213,78 @@ fn validate_wavetable(
     validate_asset_reference(diagnostics, &wavetable_path, &wavetable.asset);
     if let Some(unison) = wavetable.unison {
         validate_unison(diagnostics, &format!("{wavetable_path}.unison"), unison);
+    }
+}
+
+fn validate_spectral(diagnostics: &mut Vec<Diagnostic>, path: &str, spectral: &SpectralDefinition) {
+    let spectral_path = format!("{path}.generator.spectral");
+    validate_asset_reference_at(
+        diagnostics,
+        &format!("{spectral_path}.asset_a"),
+        &spectral.asset_a,
+    );
+    if let Some(asset_b) = &spectral.asset_b {
+        validate_asset_reference_at(diagnostics, &format!("{spectral_path}.asset_b"), asset_b);
+    }
+    validate_range(
+        diagnostics,
+        format!("{spectral_path}.root_note"),
+        f32::from(spectral.root_note),
+        0.0..=127.0,
+        "spectral root_note must be between 0 and 127",
+    );
+    validate_range(
+        diagnostics,
+        format!("{spectral_path}.position"),
+        spectral.position,
+        SPECTRAL_POSITION.min..=SPECTRAL_POSITION.max,
+        "spectral position must be finite and between 0 and 1",
+    );
+    validate_range(
+        diagnostics,
+        format!("{spectral_path}.freeze"),
+        spectral.freeze,
+        SPECTRAL_FREEZE.min..=SPECTRAL_FREEZE.max,
+        "spectral freeze must be finite and between 0 and 1",
+    );
+    validate_range(
+        diagnostics,
+        format!("{spectral_path}.blur_seconds"),
+        spectral.blur_seconds,
+        SPECTRAL_BLUR.min..=SPECTRAL_BLUR.max,
+        "spectral blur_seconds must be finite and between 0 and 1 second",
+    );
+    validate_range(
+        diagnostics,
+        format!("{spectral_path}.shift_hz"),
+        spectral.shift_hz,
+        SPECTRAL_SHIFT.min..=SPECTRAL_SHIFT.max,
+        "spectral shift_hz must be finite and between -12000 and 12000 Hz",
+    );
+    validate_range(
+        diagnostics,
+        format!("{spectral_path}.morph"),
+        spectral.morph,
+        SPECTRAL_MORPH.min..=SPECTRAL_MORPH.max,
+        "spectral morph must be finite and between 0 and 1",
+    );
+    if spectral.asset_b.is_none() && spectral.morph != 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::DefinitionError,
+                "spectral morph requires asset_b",
+            )
+            .with_path(format!("{spectral_path}.morph")),
+        );
+    }
+    if !matches!(spectral.fft_size, 1024 | 2048 | 4096) {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "spectral fft_size must be 1024, 2048, or 4096",
+            )
+            .with_path(format!("{spectral_path}.fft_size")),
+        );
     }
 }
 

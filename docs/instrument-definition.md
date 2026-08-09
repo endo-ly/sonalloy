@@ -92,7 +92,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 |---|---|
 | `schema_version` | 1のみ |
 | `layers` | 1個以上。複数のLayerは書かれた順に同じVoiceへMixされます。`enabled`が`false`のLayerはCompile対象外 |
-| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`additive`、`formant`、`wavetable`、`sample`、`granular`、`wave_sequence`、または`operator_modulation` |
+| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`additive`、`formant`、`wavetable`、`spectral`、`sample`、`granular`、`wave_sequence`、または`operator_modulation` |
 | `processors` | Layerごとの直列Processor配列。書かれた順にGeneratorとLayer Mixの間で適用 |
 | `voice_processors` | Voice Mix後に適用する直列Processor配列 |
 | `global_processors` | Voice Sum後にInstrument全体へ適用する直列Processor配列 |
@@ -111,7 +111,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 | Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
 | LFO | Rate 0.01〜40Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
-| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|unison_detune\|unison_spread\|noise_correlation\|granular_position\|grain_size\|grain_density\|grain_pitch\|grain_randomness\|grain_pan_spread\|additive_morph\|additive_spectrum_tilt\|additive_inharmonicity\|formant_vowel_position\|formant_shift\|formant_throat\|formant_spectral_tilt)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
+| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|spectral_position\|spectral_freeze\|spectral_blur\|spectral_shift\|spectral_morph\|unison_detune\|unison_spread\|noise_correlation\|granular_position\|grain_size\|grain_density\|grain_pitch\|grain_randomness\|grain_pan_spread\|additive_morph\|additive_spectrum_tilt\|additive_inharmonicity\|formant_vowel_position\|formant_shift\|formant_throat\|formant_spectral_tilt)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
 | 未知のField | JSON Parse Errorとして扱います |
 | 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Layer / Voice / Global Processor状態、Scratch Buffer |
 
@@ -415,6 +415,57 @@ Dynamic Parameterは次のCanonical IDを持ちます。
 - `layer.<layer_id>.generator.unison_spread`（Unison指定時、0〜1、10ms Smoothing）
 
 Assetの欠落・Hash不一致・Decode失敗ではWavetable Layerだけを発音候補から除外し、ほかの有効LayerはCompileとRenderを継続します。レイアウト不正や全Frame無音はWavetableを準備できない診断になります。
+
+### Spectral / Resynthesis
+
+Spectralは、WAV Assetを短時間Fourier変換したSpectrum Frameから再構成するGeneratorです。`asset_a`を必須の一次Sourceとし、SourceのSample RateをProcess Sample Rateへ合わせてから解析します。`asset_a`のMono / Stereo Channelはそのまま保持されます。
+
+```json
+{
+  "generator": {
+    "spectral": {
+      "asset_a": {
+        "path": "../../testdata/assets/metal-hit.wav",
+        "sha256": "<SHA-256>"
+      },
+      "asset_b": null,
+      "root_note": 60,
+      "fft_size": 2048,
+      "position": 0.0,
+      "freeze": 0.0,
+      "blur_seconds": 0.0,
+      "shift_hz": 0.0,
+      "morph": 0.0,
+      "phase_reset": true
+    }
+  }
+}
+```
+
+| Field | Range | Dynamic | Meaning |
+|---|---:|---:|---|
+| `asset_a` | — | No | 解析と時間軸の基準になるMonoまたはStereo WAV Asset |
+| `asset_b` | — / `null` | No | Optionalな二つ目のAsset。指定時だけMorph ParameterをCatalogへ追加 |
+| `root_note` | 0〜127 | No | Sourceが表すMIDI Note |
+| `fft_size` | 1024 / 2048 / 4096 | No | STFTとIFFTのサイズ |
+| `position` | 0〜1 | Yes | Source Positionの初期値 |
+| `freeze` | 0〜1 | Yes | Frame Freezeの初期値 |
+| `blur_seconds` | 0〜1秒 | Yes | Magnitude Blurの初期値 |
+| `shift_hz` | -12000〜12000 Hz | Yes | Frequency Shiftの初期値 |
+| `morph` | 0〜1 | Yes | Asset A/B Morphの初期値。`asset_b`なしで0以外はValidation Error |
+| `phase_reset` | Boolean | No | Note OnでSource Phaseを初期状態へ戻すか |
+
+Hop Sizeは常に`fft_size / 4`です。Compile時にPeriodic Hann Window、Magnitude、Absolute Phase、Instantaneous Frequencyを準備し、4倍Overlap-add用のSynthesis Windowを正規化します。前後のZero Paddingを含むため、Reported Latencyは`fft_size - hop_size` Frameです。FFT SizeごとのPrepared Spectral DataはAsset単位で共有され、64 MiBを超える場合は準備できません。
+
+Dynamic Parameterは次のCanonical IDを持ちます。`spectral_blur`だけ20ms、それ以外は10msでSmoothingされます。`spectral_morph`は`asset_b`を指定した場合だけ登録されます。
+
+- `layer.<layer_id>.generator.spectral_position`（Normalized、0〜1）
+- `layer.<layer_id>.generator.spectral_freeze`（Normalized、0〜1）
+- `layer.<layer_id>.generator.spectral_blur`（Seconds、0〜1）
+- `layer.<layer_id>.generator.spectral_shift`（Hertz、-12000〜12000）
+- `layer.<layer_id>.generator.spectral_morph`（Normalized、0〜1、`asset_b`指定時）
+
+Primary Sourceの欠落・Hash不一致・Decode失敗ではSpectral Layerを発音候補から除外し、ほかの有効LayerのCompileとRenderを継続します。`instrument inspect`ではSource / Prepared Sample Rate、Source Metadata、Prepared Frame数、FFT / Hop / Bin数、Prepared Bytes、Latency、Parameter IDを確認できます。
 
 ### Granular
 

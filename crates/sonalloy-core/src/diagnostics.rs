@@ -110,7 +110,10 @@ pub enum DiagnosticCode {
     /// A Wavetable frame has a significant DC offset.
     #[serde(rename = "WAVETABLE_DC_OFFSET")]
     WavetableDcOffset,
-    /// A Wavetable exceeds the compiled resource limit.
+    /// A spectral asset could not be prepared from its decoded audio.
+    #[serde(rename = "SPECTRAL_PREPARATION_FAILED")]
+    SpectralPreparationFailed,
+    /// A generator exceeds the compiled resource limit.
     #[serde(rename = "GENERATOR_RESOURCE_LIMIT_EXCEEDED")]
     GeneratorResourceLimitExceeded,
     /// Process contract violation.

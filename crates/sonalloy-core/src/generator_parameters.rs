@@ -140,6 +140,51 @@ pub(crate) const WAVETABLE_POSITION: GeneratorParameterSpec = GeneratorParameter
     smoothing_seconds: 0.010,
 };
 
+pub(crate) const SPECTRAL_POSITION: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "spectral_position",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const SPECTRAL_FREEZE: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "spectral_freeze",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const SPECTRAL_BLUR: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "spectral_blur",
+    unit: ParameterUnit::Seconds,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.020,
+};
+
+pub(crate) const SPECTRAL_SHIFT: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "spectral_shift",
+    unit: ParameterUnit::Hertz,
+    scale: ParameterScale::Linear,
+    min: -12_000.0,
+    max: 12_000.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const SPECTRAL_MORPH: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "spectral_morph",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
 pub(crate) const UNISON_DETUNE: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "unison_detune",
     unit: ParameterUnit::Cents,
@@ -274,6 +319,11 @@ pub(crate) fn is_suffix(value: &str) -> bool {
         FORMANT_SHIFT,
         FORMANT_THROAT,
         FORMANT_SPECTRAL_TILT,
+        SPECTRAL_POSITION,
+        SPECTRAL_FREEZE,
+        SPECTRAL_BLUR,
+        SPECTRAL_SHIFT,
+        SPECTRAL_MORPH,
     ]
     .into_iter()
     .any(|spec| spec.suffix == value)

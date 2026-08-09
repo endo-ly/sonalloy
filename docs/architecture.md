@@ -38,20 +38,23 @@ Process仕様と実行時の仕組みを提供します。
 | `process` | Process仕様と共通のLifecycle |
 | `definition` | Instrument Definitionの読み込みとValidation |
 | `parameter` | Canonical Parameter ID、Descriptor、Normalize / Denormalize、Catalog |
-| `compiler` | DefinitionからCompiled Instrumentへの変換、Prepared Audio共有、Wavetableの帯域制限Tableと固定Operator Topology、Granular Region、Wave Sequence Step、Additive Partial、Formant ProfileとSine Tableの準備 |
+| `compiler` | DefinitionからCompiled Instrumentへの変換、Prepared Audio共有、Wavetableの帯域制限Tableと固定Operator Topology、Granular Region、Wave Sequence Step、Additive Partial、Formant ProfileとSine Table、Spectral AssetとInverse Planの準備 |
 | `asset` | SHA-256照合、WAV読み込み、Planar Mono / Stereo化、Sample Rate変換、Prepared Audio共有 |
+| `spectral` | Periodic HannによるSTFT、Magnitude / Phase / Instantaneous Frequencyの準備、Synthesis Window正規化、Real FFT Plan共有 |
 | `wavetable` | Wavetable AssetのFrame分割、FFT/IFFTによるBand Table生成、Guard Sample付与 |
 | `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Time Stretch、Granular、Wave Sequence、Wavetable、Private Partial Bank、Additive、Formant、Operator Modulation、Processor Chain |
 | `render` | Offline Render Loop、Event、Tempo Mapの供給 |
 | `diagnostics` | 画面表示に依存しないError Code、Severity、Message |
 
-Compileの段階でZone、Granular、Wave Sequence、WavetableのAsset読み込みを完了し、同じCache Keyを持つDecode済みのMono / Stereo Prepared AudioまたはPrepared Wavetableを`Arc`で共有します。Sample、Granular、Wave SequenceはStereo Channelを保持し、Wavetableだけが既存のMono Preparation契約で処理します。WavetableのFFTとTable生成、Time StretchのLatency測定、GranularのRegion Frame変換、Wave SequenceのStep Region Frame変換はCompile中に行います。Process中は、Prepareで確保したScratch Buffer、Native Handle、Compiled Generator、Layer遅延補償Buffer、固定Grain Pool、Wave Sequenceの最大2 Playback Slotだけを使います。
+Compileの段階でZone、Granular、Wave Sequence、Wavetable、SpectralのAsset読み込みを完了し、同じCache Keyを持つDecode済みのMono / Stereo Prepared Audio、Prepared Wavetable、またはPrepared Spectral Assetを`Arc`で共有します。Sample、Granular、Wave Sequence、SpectralはStereo Channelを保持し、Wavetableだけが既存のMono Preparation契約で処理します。WavetableのFFTとTable生成、SpectralのSTFTとInverse Plan、Time StretchのLatency測定、GranularのRegion Frame変換、Wave SequenceのStep Region Frame変換はCompile中に行います。Process中は、Prepareで確保したScratch Buffer、Native Handle、Compiled Generator、Layer遅延補償Buffer、固定Grain Pool、Wave Sequenceの最大2 Playback Slot、SpectralのInverse FFT / OLA Bufferだけを使います。
 
 Operator Modulationは外部Assetを持たず、4 Operatorの固定TopologyをCompile時に`evaluation_order`、`incoming_masks`、`carrier_mask`へ解決します。Runtimeはこの固定配列とVoiceごとのPhase、Previous Output、Operator Envelopeだけを使い、任意Graphや文字列LookupをProcessへ持ち込みません。
 
 Additiveは外部Native依存を持たないCore Rustの専用Generatorです。Compile時にDefinitionのPartial Slot、Dynamic Parameter Handle、4096点Sine Tableを確定し、VoiceごとのPhaseとSpectral RampだけをRuntimeへ生成します。Partial BankはDefinitionやCLIのGenerator Variantとして公開しない非公開実装Primitiveです。
 
 FormantはAdditiveと同じPartial Bankを使うCore Rustの専用Generatorです。Compile時に1〜8個のProfile、各5本のBand、4つのDynamic Parameter Handle、4096点Sine Tableを確定し、VoiceごとにProfile補間、Gaussian Spectrum、Spectral Control Tick、Phaseを保持します。FormantのDefinitionはCLIのGenerator Variantとして公開しますが、Partial Bankは内部Primitiveに留めます。
+
+Spectral ResynthesisはCore Rustの専用Generatorです。Compile時に`asset_a`をPrepared Audioへ変換し、FFT SizeごとのPrepared Magnitude、Absolute Phase、Instantaneous Frequency、Normalized Synthesis Window、共有Inverse PlanをCompiled Instrumentへ確定します。Optionalな`asset_b`はDefinitionとInspectへ保持し、Primary SourceのIdentity Resynthesisは`asset_a`だけを使います。SpectralのFFT処理はNative DSPへ依存しません。
 
 Harmonic / Formant Hybridは既存のLayer、Voice、Global Processor ChainとModulation Tableをそのまま組み合わせます。Formant、Additive、Sample、NoiseのLayer Mix、MIDI Event、Processor Stateは新しいNative責務を追加せず、既存のCompile / Prepare / Process / Reset境界で所有します。
 

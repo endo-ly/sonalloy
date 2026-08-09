@@ -127,6 +127,7 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 - **Additive**：Compile済みの固定Partial SlotをPrivate Partial Bankへ渡し、Note Frequency × Partial RatioのSineを加算します。MorphはAmplitude A / Bだけを補間し、Spectrum TiltはRatioの`log2`、Inharmonicityは固定されたStiff-string式からControl TickごとにGain / Ratioへ変換します。高域PartialはFrequency Clampではなく0.40〜0.45 Sample Rate比のFadeで抑え、Energy NormalizationはDefinition上の全Partial Gainを基準にします。出力はMonoです
 - **Formant**：整数倍のHarmonic PartialをPrivate Partial Bankへ渡し、Profileから補間した5本のFormant BandをGaussian-likeなSpectral Envelopeとして適用します。Frequency / BandwidthはGeometric、GainはdB LinearでProfile Morphし、Formant ShiftはCenterとBandwidthだけへ適用します。ThroatはBandwidth全体を0.5〜2倍し、Spectral Tiltと0.40〜0.45 Sample Rate比のAlias Fadeを乗算します。出力はMonoです
 - **Wavetable**：Compile時にWAVをFrameへ分割し、FFT/IFFTでHarmonic上限の異なるBand Tableを準備します。PositionはFrame間をLinear、Table内をFour-point Cubicで補間し、Component Frequencyに応じたBandをLog2領域でCrossfadeします。Source Sample RateはPitchへ使わず、Unison 1ではMono、2 Voice以上ではStereoで出力します
+- **Spectral / Resynthesis**：Compile時にPrimary AudioをSTFTへ変換し、Magnitude、Absolute Phase、Instantaneous FrequencyをPrepared Assetへ保持します。Identity ResynthesisはPrepared FrameをReal IFFT、正規化したSynthesis Window、4倍Overlap-addで再構成し、Primary AudioのMono / Stereo Channelを保持します
 - **Operator Modulation**：4 OperatorをCompile済みの固定Topology順にSampleごとに評価します。Phase、Frequency、Amplitude、Ringは同じOperator信号を使いながら別の相互作用として処理し、Carrier Sum後に`1 / sqrt(carrier_count)`で正規化します。Operator Envelopeは各Operator出力へ乗算し、Carrier以外のOperatorは接続先へのModulation Signalだけを供給します。Unison 1はMono、2〜4はComponentごとのPhaseとPrevious Outputを持つStereoです
 - **Complex Oscillator**：Phase DistortionまたはOscillator Feedbackを含むDefinitionはRustのPhase-domain Sine Backendで処理します。Phase Distortionは`breakpoint = 0.5 - amount × 0.45`の連続Mapping、Feedbackは直前Sampleを`tanh(previous × amount × 2.5) × 0.25` cycleへ変換してRead Phaseへ加算します。Wavefoldは既存OscillatorのUnison MixとWaveshapingの後へDaisySP MIT版Wavefolderで適用し、AmountをDrive / Dry-Wetへ固定変換します。非線形機能の後へSample Rate依存のDC Blockerを置きます。Phase DistortionとFeedbackはSineだけで使用でき、Hard Syncとは併用できません
 - **Sample**：後述のSample Zone選択と再生を使います。Compileで無効になったZoneは選択候補から除外されます
@@ -142,6 +143,18 @@ Prepared WavetableはCompile時に`Arc`でCompiled Instrumentへ保持し、全V
 - Band Tableは`N/2, N/4, ..., 1`のHarmonic上限を持ち、隣接Bandの切替をLog2領域でCrossfadeします。DCはCompile時のSource値を保持します
 - Note Onでは`phase_reset`が有効な場合だけInitial Phaseへ戻し、Instrument Resetでは常にInitial Phaseへ戻します
 - Process中はAsset Decode、FFT、File I/O、メモリ確保を行いません
+
+## Spectral Runtime
+
+SpectralのPrimary SourceはCompile時にDecode、Sample Rate変換、STFT解析まで完了し、`Arc`でCompiled Instrumentから全Voiceへ共有されます。FFT処理はCore Rustの`realfft`を使い、Native DSP境界へ渡しません。Optionalな`asset_b`はDefinitionとInspectへ保持され、Primary SourceのIdentity Resynthesisは`asset_a`のPrepared Frameを使います。
+
+- Analysis WindowはPeriodic Hann、Hop SizeはFFT Sizeの4分の1です。Analysis Windowを適用したSpectrumからMagnitude、Absolute Phase、Hop間のPhase AdvanceからInstantaneous Frequencyを準備します
+- Sourceの前後へZero Paddingを置き、最初の再構成FrameからSourceの時間位置までを`fft_size - hop_size` FrameのReported Latencyとして扱います
+- RuntimeはPrepared Magnitude / PhaseをComplex Spectrumへ戻し、共有Inverse FFT PlanでIFFTします。IFFT出力は`1 / fft_size`で正規化し、Normalized Synthesis Windowを掛けて固定長のOLA Bufferへ加算します
+- Mono Sourceは左右へ同じ値を出し、Stereo Sourceは左右の再構成結果を保持します。GeneratorのOutput ModeもPrepared SourceのChannel数から決定します
+- Note Onでは`phase_reset`が有効ならSource Cursorを先頭へ戻し、無効ならVoice再利用時のCursorを維持します。Instrument Resetでは常に初期状態へ戻します
+- Runtime PrepareでInverse FFT Input、Output、Scratch、OLA Bufferを確保します。Process中はAsset Decode、File I/O、FFT Plan生成、Heap拡張を行いません
+- `spectral_position`、`spectral_freeze`、`spectral_blur`、`spectral_shift`、`spectral_morph`はParameter Spanの範囲を検証してGeneratorへ渡します。Identity ResynthesisではPrimary Frameの再構成を行い、音程やFrame選択の変更を加えません
 
 ## Additive Runtime
 

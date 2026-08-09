@@ -1,5 +1,6 @@
 use assert_cmd::Command;
 use midly::{Format, Header, MidiMessage, PitchBend, Smf, Timing, TrackEvent, TrackEventKind};
+use serde_json::json;
 use tempfile::tempdir;
 
 fn reference_definition() -> std::path::PathBuf {
@@ -10,6 +11,53 @@ fn reference_definition() -> std::path::PathBuf {
 fn basic_generators_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/instruments/basic-generators-reference.json")
+}
+
+fn write_spectral_definition(directory: &std::path::Path) -> std::path::PathBuf {
+    let definition = directory.join("spectral.json");
+    let asset = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/assets/metal-hit.wav");
+    let mut value: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(reference_definition()).expect("reference definition reads"),
+    )
+    .expect("reference definition parses");
+    value["metadata"]["name"] = json!("Spectral Inspect");
+    value["metadata"]["description"] = json!("Spectral inspection fixture");
+    value["performance"]["polyphony"] = json!(1);
+    value["layers"][0]["gain_db"] = json!(0.0);
+    value["layers"][0]["envelope"] = json!({
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.01
+    });
+    value["layers"][0]["generator"] = json!({
+        "spectral": {
+            "asset_a": {
+                "path": asset.to_str().expect("asset path is utf-8"),
+                "sha256": null
+            },
+            "asset_b": null,
+            "root_note": 60,
+            "fft_size": 1024,
+            "position": 0.0,
+            "freeze": 0.0,
+            "blur_seconds": 0.0,
+            "shift_hz": 0.0,
+            "morph": 0.0,
+            "phase_reset": true
+        }
+    });
+    value["layers"][0]["processors"] = json!([]);
+    value["voice_processors"] = json!([]);
+    value["global_processors"] = json!([]);
+    value["modulation"] = serde_json::Value::Null;
+    std::fs::write(
+        &definition,
+        serde_json::to_vec_pretty(&value).expect("spectral definition serializes"),
+    )
+    .expect("spectral definition writes");
+    definition
 }
 
 fn complex_oscillator_definition() -> std::path::PathBuf {
@@ -426,6 +474,72 @@ fn basic_generators_validate_and_inspect_all_generator_modes() {
         .stdout(predicates::str::contains(
             "layer.pink.generator.noise_correlation",
         ));
+}
+
+#[test]
+fn spectral_validate_and_inspect_reports_prepared_asset() {
+    let directory = tempdir().expect("temporary directory");
+    let definition = write_spectral_definition(directory.path());
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"kind\":\"spectral\""))
+        .stdout(predicates::str::contains("\"asset_a_prepared\":true"))
+        .stdout(predicates::str::contains("\"prepared_sample_rate\":48000"))
+        .stdout(predicates::str::contains("\"fft_size\":1024"))
+        .stdout(predicates::str::contains("\"hop_size\":256"))
+        .stdout(predicates::str::contains("\"latency_frames\":768"))
+        .stdout(predicates::str::contains("spectral_position"))
+        .stdout(predicates::str::contains("spectral_frame_count"));
+
+    let output = directory.path().join("spectral.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "note",
+            definition.to_str().expect("utf-8 definition path"),
+            "--note",
+            "60",
+            "--gate",
+            "0.1",
+            "--tail",
+            "0.1",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+        ])
+        .assert()
+        .success();
+    let mut reader = hound::WavReader::open(output).expect("spectral WAV");
+    let samples = reader
+        .samples::<f32>()
+        .map(|sample| sample.expect("finite spectral sample"))
+        .collect::<Vec<_>>();
+    assert!(samples.iter().all(|sample| sample.is_finite()));
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
 }
 
 #[test]

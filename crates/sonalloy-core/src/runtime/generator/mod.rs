@@ -5,6 +5,7 @@ mod noise;
 mod operator;
 mod oscillator;
 pub(crate) mod partial_bank;
+mod spectral;
 mod wave_sequence;
 mod wavetable;
 
@@ -21,6 +22,7 @@ use granular::GranularRuntime;
 use noise::NoiseRuntime;
 use operator::OperatorModulationRuntime;
 use oscillator::OscillatorRuntime;
+use spectral::SpectralRuntime;
 use wave_sequence::WaveSequenceRuntime;
 use wavetable::WavetableRuntime;
 
@@ -94,6 +96,7 @@ pub(super) enum GeneratorRuntime {
     Granular(Box<GranularRuntime>),
     WaveSequence(WaveSequenceRuntime),
     Wavetable(WavetableRuntime),
+    Spectral(Box<SpectralRuntime>),
     OperatorModulation(Box<OperatorModulationRuntime>),
 }
 
@@ -124,6 +127,9 @@ impl GeneratorRuntime {
             }
             CompiledGenerator::Wavetable(value) => {
                 Ok(Self::Wavetable(WavetableRuntime::new(value, spec)?))
+            }
+            CompiledGenerator::Spectral(value) => {
+                Ok(Self::Spectral(Box::new(SpectralRuntime::new(value, spec)?)))
             }
             CompiledGenerator::OperatorModulation(value) => Ok(Self::OperatorModulation(Box::new(
                 OperatorModulationRuntime::new(value, spec)?,
@@ -170,6 +176,7 @@ impl GeneratorRuntime {
             Self::Granular(granular) => granular.start(note_id),
             Self::WaveSequence(sequence) => sequence.start(note_id),
             Self::Wavetable(wavetable) => wavetable.start(),
+            Self::Spectral(spectral) => spectral.start(),
             Self::OperatorModulation(operator) => {
                 operator.start();
                 Ok(())
@@ -188,6 +195,7 @@ impl GeneratorRuntime {
     pub(crate) fn intrinsic_latency_frames(&self) -> usize {
         match self {
             Self::Sample { sample } => sample.intrinsic_latency_frames(),
+            Self::Spectral(spectral) => spectral.intrinsic_latency_frames(),
             Self::Oscillator(_)
             | Self::Noise(_)
             | Self::Additive(_)
@@ -330,6 +338,7 @@ impl GeneratorRuntime {
                 )?;
                 Ok(false)
             }
+            Self::Spectral(spectral) => spectral.render(frames, targets, mono, left, right),
             Self::OperatorModulation(operator) => {
                 operator.render(
                     frames,
@@ -453,6 +462,10 @@ impl GeneratorRuntime {
             }
             Self::Wavetable(wavetable) => {
                 wavetable.reset();
+                Ok(())
+            }
+            Self::Spectral(spectral) => {
+                spectral.reset();
                 Ok(())
             }
             Self::OperatorModulation(operator) => {

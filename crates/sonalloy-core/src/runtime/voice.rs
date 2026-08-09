@@ -941,19 +941,12 @@ impl VoiceRuntime {
                     )?,
                 },
                 CompiledGenerator::WaveSequence(_) => LayerGeneratorTargetSpan::WaveSequence,
-                CompiledGenerator::Wavetable(value) => LayerGeneratorTargetSpan::Wavetable {
-                    position: self.evaluate_target(compiled, value.parameters.position, shared)?,
-                    unison_detune: value
-                        .parameters
-                        .unison_detune
-                        .map(|handle| self.evaluate_target(compiled, handle, shared))
-                        .transpose()?,
-                    unison_spread: value
-                        .parameters
-                        .unison_spread
-                        .map(|handle| self.evaluate_target(compiled, handle, shared))
-                        .transpose()?,
-                },
+                CompiledGenerator::Wavetable(value) => {
+                    self.evaluate_wavetable_targets(compiled, value, shared)?
+                }
+                CompiledGenerator::Spectral(value) => {
+                    self.evaluate_spectral_targets(compiled, value, shared)?
+                }
                 CompiledGenerator::OperatorModulation(value) => {
                     LayerGeneratorTargetSpan::OperatorModulation {
                         operators: [
@@ -989,6 +982,46 @@ impl VoiceRuntime {
                 self.evaluate_processor_target(compiled, processor, shared)?;
         }
         Ok(())
+    }
+
+    fn evaluate_spectral_targets(
+        &self,
+        compiled: &CompiledInstrument,
+        value: &crate::compiler::CompiledSpectral,
+        shared: SharedParameterSpan<'_>,
+    ) -> Result<LayerGeneratorTargetSpan, ProcessError> {
+        Ok(LayerGeneratorTargetSpan::Spectral {
+            position: self.evaluate_target(compiled, value.parameters.position, shared)?,
+            freeze: self.evaluate_target(compiled, value.parameters.freeze, shared)?,
+            blur: self.evaluate_target(compiled, value.parameters.blur, shared)?,
+            shift: self.evaluate_target(compiled, value.parameters.shift, shared)?,
+            morph: value
+                .parameters
+                .morph
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+        })
+    }
+
+    fn evaluate_wavetable_targets(
+        &self,
+        compiled: &CompiledInstrument,
+        value: &crate::compiler::CompiledWavetable,
+        shared: SharedParameterSpan<'_>,
+    ) -> Result<LayerGeneratorTargetSpan, ProcessError> {
+        Ok(LayerGeneratorTargetSpan::Wavetable {
+            position: self.evaluate_target(compiled, value.parameters.position, shared)?,
+            unison_detune: value
+                .parameters
+                .unison_detune
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+            unison_spread: value
+                .parameters
+                .unison_spread
+                .map(|handle| self.evaluate_target(compiled, handle, shared))
+                .transpose()?,
+        })
     }
 
     fn evaluate_oscillator_targets(

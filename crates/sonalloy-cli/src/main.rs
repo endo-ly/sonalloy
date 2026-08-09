@@ -408,6 +408,36 @@ enum InspectGenerator {
         unison_spread_parameter: Option<String>,
         effective_max_frequency_hz: f32,
     },
+    Spectral {
+        output_mode: &'static str,
+        asset_a_path: String,
+        asset_a_sha256_specified: bool,
+        asset_a_prepared: bool,
+        asset_b_path: Option<String>,
+        asset_b_sha256_specified: bool,
+        source_sample_rate: Option<u32>,
+        prepared_sample_rate: Option<f64>,
+        source_channels: Option<usize>,
+        source_frame_count: Option<usize>,
+        spectral_frame_count: Option<usize>,
+        prepared_bytes: Option<usize>,
+        fft_size: usize,
+        hop_size: usize,
+        bin_count: usize,
+        latency_frames: usize,
+        root_note: u8,
+        position: f32,
+        position_parameter: String,
+        freeze: f32,
+        freeze_parameter: String,
+        blur_seconds: f32,
+        blur_parameter: String,
+        shift_hz: f32,
+        shift_parameter: String,
+        morph: Option<f32>,
+        morph_parameter: Option<String>,
+        phase_reset: bool,
+    },
     OperatorModulation {
         output_mode: &'static str,
         mode: &'static str,
@@ -1674,6 +1704,9 @@ fn inspect_generator(
         sonalloy_core::compiler::CompiledGenerator::Wavetable(wavetable) => {
             inspect_wavetable_generator(compiled, generator, wavetable)
         }
+        sonalloy_core::compiler::CompiledGenerator::Spectral(spectral) => {
+            inspect_spectral_generator(compiled, generator, spectral)
+        }
         sonalloy_core::compiler::CompiledGenerator::OperatorModulation(operator) => {
             inspect_operator_generator(compiled, generator, operator)
         }
@@ -1983,6 +2016,58 @@ fn inspect_wavetable_generator(
             effective_max_frequency_hz: wavetable.effective_max_frequency,
         },
         if prepared.is_some() {
+            "enabled"
+        } else {
+            "disabled"
+        },
+    )
+}
+
+fn inspect_spectral_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    spectral: &sonalloy_core::compiler::CompiledSpectral,
+) -> (InspectGenerator, &'static str) {
+    let source = spectral.source.as_ref();
+    let metadata = source.map(|value| &value.source_metadata);
+    (
+        InspectGenerator::Spectral {
+            output_mode: output_mode_name(generator.output_mode()),
+            asset_a_path: spectral.asset_a_path.clone(),
+            asset_a_sha256_specified: spectral.asset_a_sha256_specified,
+            asset_a_prepared: source.is_some(),
+            asset_b_path: spectral.asset_b_path.clone(),
+            asset_b_sha256_specified: spectral.asset_b_sha256_specified,
+            source_sample_rate: metadata.map(|value| value.source_sample_rate),
+            prepared_sample_rate: source.map(|value| value.sample_rate),
+            source_channels: metadata.map(|value| value.source_channels),
+            source_frame_count: metadata.map(|value| value.source_frames),
+            spectral_frame_count: source.map(|value| value.spectral_frame_count),
+            prepared_bytes: source.map(|value| value.prepared_bytes),
+            fft_size: spectral.fft_size,
+            hop_size: spectral.hop_size,
+            bin_count: source.map_or(spectral.fft_size / 2 + 1, |value| value.bin_count),
+            latency_frames: spectral.latency_frames,
+            root_note: spectral.root_note,
+            position: parameter_default(compiled, spectral.parameters.position),
+            position_parameter: parameter_descriptor_id(compiled, spectral.parameters.position),
+            freeze: parameter_default(compiled, spectral.parameters.freeze),
+            freeze_parameter: parameter_descriptor_id(compiled, spectral.parameters.freeze),
+            blur_seconds: parameter_default(compiled, spectral.parameters.blur),
+            blur_parameter: parameter_descriptor_id(compiled, spectral.parameters.blur),
+            shift_hz: parameter_default(compiled, spectral.parameters.shift),
+            shift_parameter: parameter_descriptor_id(compiled, spectral.parameters.shift),
+            morph: spectral
+                .parameters
+                .morph
+                .map(|handle| parameter_default(compiled, handle)),
+            morph_parameter: spectral
+                .parameters
+                .morph
+                .map(|handle| parameter_descriptor_id(compiled, handle)),
+            phase_reset: spectral.phase_reset,
+        },
+        if source.is_some() {
             "enabled"
         } else {
             "disabled"
@@ -2413,6 +2498,7 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
         InspectGenerator::Granular { .. } => print_granular_generator(layer_id, generator),
         InspectGenerator::WaveSequence { .. } => print_wave_sequence_generator(layer_id, generator),
         InspectGenerator::Wavetable { .. } => print_wavetable_generator(layer_id, generator),
+        InspectGenerator::Spectral { .. } => print_spectral_generator(layer_id, generator),
         InspectGenerator::OperatorModulation { .. } => {
             print_operator_generator(layer_id, generator);
         }
@@ -2626,6 +2712,78 @@ fn print_wavetable_generator(layer_id: &str, generator: &InspectGenerator) {
     print_parameter_reference("unison_detune", unison_detune_parameter.as_ref());
     print_parameter_reference("unison_spread", unison_spread_parameter.as_ref());
     println!("  effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
+}
+
+fn print_spectral_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::Spectral {
+        output_mode,
+        asset_a_path,
+        asset_a_sha256_specified,
+        asset_a_prepared,
+        asset_b_path,
+        asset_b_sha256_specified,
+        source_sample_rate,
+        prepared_sample_rate,
+        source_channels,
+        source_frame_count,
+        spectral_frame_count,
+        prepared_bytes,
+        fft_size,
+        hop_size,
+        bin_count,
+        latency_frames,
+        root_note,
+        position,
+        position_parameter,
+        freeze,
+        freeze_parameter,
+        blur_seconds,
+        blur_parameter,
+        shift_hz,
+        shift_parameter,
+        morph,
+        morph_parameter,
+        phase_reset,
+    } = generator
+    else {
+        return;
+    };
+    println!(
+        "layer {layer_id}: enabled {asset_a_prepared} generator spectral output_mode {output_mode}"
+    );
+    println!(
+        "  asset_a: {asset_a_path} sha256_specified: {asset_a_sha256_specified} prepared: {asset_a_prepared}"
+    );
+    println!(
+        "  asset_b: {} sha256_specified: {asset_b_sha256_specified}",
+        asset_b_path.as_deref().unwrap_or("none")
+    );
+    println!(
+        "  source: sample_rate {} prepared_sample_rate {} channels {} frames {}",
+        source_sample_rate.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        prepared_sample_rate.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        source_channels.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        source_frame_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+    );
+    println!(
+        "  spectral_frames: {} prepared_bytes: {}",
+        spectral_frame_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        prepared_bytes.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+    );
+    println!(
+        "  fft_size: {fft_size} hop_size: {hop_size} bin_count: {bin_count} latency_frames: {latency_frames}"
+    );
+    println!("  root_note: {root_note} phase_reset: {phase_reset}");
+    println!("  position: {position:.3} parameter: {position_parameter}");
+    println!("  freeze: {freeze:.3} parameter: {freeze_parameter}");
+    println!("  blur_seconds: {blur_seconds:.3} parameter: {blur_parameter}");
+    println!("  shift_hz: {shift_hz:.3} parameter: {shift_parameter}");
+    if let Some(morph) = morph {
+        println!(
+            "  morph: {morph:.3} parameter: {}",
+            morph_parameter.as_deref().unwrap_or("none")
+        );
+    }
 }
 
 fn print_operator_generator(layer_id: &str, generator: &InspectGenerator) {

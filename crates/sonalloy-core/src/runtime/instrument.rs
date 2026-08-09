@@ -278,6 +278,7 @@ impl InstrumentRuntime {
                 | CompiledGenerator::Granular(_)
                 | CompiledGenerator::WaveSequence(_)
                 | CompiledGenerator::Wavetable(_)
+                | CompiledGenerator::Spectral(_)
                 | CompiledGenerator::OperatorModulation(_) => {
                     *self
                         .note_layer_selection
@@ -632,6 +633,7 @@ impl InstrumentProcessor for InstrumentRuntime {
                 | CompiledGenerator::Granular(_)
                 | CompiledGenerator::WaveSequence(_)
                 | CompiledGenerator::Wavetable(_)
+                | CompiledGenerator::Spectral(_)
                 | CompiledGenerator::OperatorModulation(_) => Vec::new(),
             })
             .collect();
@@ -2104,6 +2106,7 @@ mod tests {
             | crate::definition::GeneratorDefinition::Additive(_)
             | crate::definition::GeneratorDefinition::Formant(_)
             | crate::definition::GeneratorDefinition::Wavetable(_)
+            | crate::definition::GeneratorDefinition::Spectral(_)
             | crate::definition::GeneratorDefinition::OperatorModulation(_) => {
                 panic!("test fixture must use an oscillator");
             }

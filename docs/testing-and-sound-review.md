@@ -129,6 +129,13 @@ flowchart LR
 - 人間の確認：Frame / Position、Band切替、高音域Alias、PM / FM / AM / Ring、Algorithm、Envelope、Feedback、Phase Distortion、Wavefold、Unison、Polyphony、Digital Hybridの音色成立
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
+### Spectral Resynthesis
+
+- Metrics：Periodic Hannの端点、4倍Overlap-addのWindow正規化、非Bin中心周波数のInstantaneous Frequency、FFT Roundtrip、Identity ResynthesisのSNR、Reported Latency、Block Size 32 / 64 / 257 / 1024、Mono / Stereo Channelの保持、Prepared Bytesを検査する
+- 自動確認：DefinitionのField Rangeと`asset_b`によるMorph Parameterの登録、1024 / 2048 / 4096 FFT、Missing Asset診断、Source Metadata、Spectral Frame数、FFT / Hop / Bin数、Parameter Descriptor、Latency、Render結果のFinite性を確認する
+- 人間の確認：元WAVとの音色・Transient・Noise Floorの一致、Latency後の時間位置、Mono / Stereoの定位、FFT Size変更による品質とCPU負荷を確認する
+- Process中はAsset Decode、File I/O、FFT Plan生成、Heap拡張を行わない。Sound Review用のWAVは`review-output/`へ保存し、Repositoryへ生成物を追加しない
+
 ### Essential Synthesis and Sampling
 
 - 保存先：`review-output/essential-synthesis-sampling/`（audio/technical / definitions / events / midi / assets / inspect.json / metrics.json / review-summary.md）

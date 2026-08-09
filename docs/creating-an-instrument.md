@@ -1,6 +1,6 @@
 # 音源（Instrument）の作り方
 
-このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要ならAdditiveのPartial設計、FormantのVowel Profile設計、自作WAVのWavetable、Sample、Granular、Wave Sequenceへの組み込みまで進みます。
+このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要ならAdditiveのPartial設計、FormantのVowel Profile設計、自作WAVのWavetable、Spectral、Sample、Granular、Wave Sequenceへの組み込みまで進みます。
 
 > **本書の範囲**：音源作成の操作手順（人間向けガイド）です。仕様の詳細は本書に書かず、各仕様文書へ委ねます。
 >
@@ -14,7 +14,7 @@
 ## 全体の流れ
 
 ```text
-ひな形の生成 → 音色の編集 → 検証 → Additive / Formant / Sample / Wavetable追加 → Granular追加 → Wave Sequence追加 → 試聴 → 仕上げ
+ひな形の生成 → 音色の編集 → 検証 → Additive / Formant / Sample / Wavetable / Spectral追加 → Granular追加 → Wave Sequence追加 → 試聴 → 仕上げ
    Step 1       Step 2     Step 3       Step 4                    Step 5       Step 6             Step 7   Step 8
 ```
 
@@ -24,7 +24,7 @@
 | 2 | 音色の編集（Layer、ADSR、Processorなど） | エディタでJSONを編集 |
 | 3 | 検証 | `instrument validate` / `instrument inspect` |
 | 4 | AdditiveまたはFormantを追加 | JSON編集 |
-| 5 | 自作WAVをSampleまたはWavetableとして組み込み | SHA-256計算 → JSON編集 |
+| 5 | 自作WAVをSample、Wavetable、またはSpectralとして組み込み | SHA-256計算 → JSON編集 |
 | 6 | 自作WAVをGranularとして組み込み | SHA-256計算 → JSON編集 |
 | 7 | 複数AssetをWave Sequenceとして組み込み | SHA-256計算 → JSON編集 |
 | 8 | 試聴 | `render note` / `render midi` |
@@ -315,6 +315,42 @@ Wavetableは、周期波形をFrame単位で連結したWAVを用意して、`fr
 ```
 
 `instrument validate`でFrame Layout、Asset Hash、Frame Warningを確認し、`instrument inspect --json`でPrepared状態、Band、Position Parameter ID、Effective Frequency上限を確認します。Assetが欠落した場合はそのLayerだけが発音候補から外れるため、ほかのLayerの確認を続けられます。
+
+### Spectral / Resynthesisを使う
+
+録音や生成したWAVをSpectrum経由で元に近く再構成する場合は、`spectral` Generatorへ`asset_a`を指定します。`asset_a`のMono / Stereo Channel、Source Metadata、時間軸を保ったままCompile時にSTFTを準備します。
+
+```json
+"generator": {
+  "spectral": {
+    "asset_a": {
+      "path": "../../testdata/assets/metal-hit.wav",
+      "sha256": "<計算した値>"
+    },
+    "asset_b": null,
+    "root_note": 60,
+    "fft_size": 2048,
+    "position": 0.0,
+    "freeze": 0.0,
+    "blur_seconds": 0.0,
+    "shift_hz": 0.0,
+    "morph": 0.0,
+    "phase_reset": true
+  }
+}
+```
+
+`fft_size`は1024、2048、4096から選びます。Hop SizeはFFT Sizeの4分の1、Reported Latencyは`fft_size - hop_size`です。`asset_b`を指定した場合だけMorph ParameterがCatalogへ追加されます。Identity Resynthesisを確認するときは、`position`、`freeze`、`blur_seconds`、`shift_hz`、`morph`を0にして、元WAVとRender結果をLatency後で比較します。
+
+```bash
+sonalloy instrument validate my-instrument.json --json
+sonalloy instrument inspect my-instrument.json --json
+sonalloy render note my-instrument.json \
+  --note 60 --gate 0.5 --tail 0.5 --sample-rate 48000 \
+  --block-size 257 --output out/my-instrument/spectral.wav
+```
+
+`inspect --json`ではPrepared状態、Source Channel、Spectral Frame数、Prepared Bytes、FFT / Hop / Bin数、Latency、4つの基本Parameter IDを確認します。`asset_b`を指定した場合はMorph Parameter IDも表示されます。Asset Aが見つからない、Hashが一致しない、Decodeできない場合はSpectral Layerだけが無効になります。
 
 ### Operator Modulationを使う
 
