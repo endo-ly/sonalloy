@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use approx::assert_relative_eq;
 use sonalloy_core::{
@@ -10,14 +9,8 @@ use sonalloy_core::{
     RenderRequest, SampleRegionDefinition, ScheduledEvent, compile_instrument, render_instrument,
 };
 
-static NEXT_FIXTURE: AtomicUsize = AtomicUsize::new(0);
-
-fn fixture_path() -> PathBuf {
-    let index = NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
-        "sonalloy-granular-{}-{index}.wav",
-        std::process::id()
-    ))
+fn fixture_directory() -> tempfile::TempDir {
+    tempfile::tempdir().expect("fixture directory creates")
 }
 
 fn write_stereo_fixture(path: &Path) {
@@ -152,9 +145,10 @@ fn process_runtime(
 
 #[test]
 fn granular_definition_exposes_all_dynamic_parameters_with_native_units() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_stereo_fixture(&path);
-    let base_dir = path.parent().expect("fixture has a parent");
+    let base_dir = directory.path();
     let definition = definition(path.file_name().unwrap().to_string_lossy().into_owned());
     let compiled = compile(&definition, base_dir, 257);
 
@@ -194,9 +188,10 @@ fn granular_definition_exposes_all_dynamic_parameters_with_native_units() {
 
 #[test]
 fn granular_render_is_stereo_finite_and_block_size_independent() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_stereo_fixture(&path);
-    let base_dir = path.parent().expect("fixture has a parent");
+    let base_dir = directory.path();
     let definition = definition(path.file_name().unwrap().to_string_lossy().into_owned());
     let reference = render(&definition, base_dir, 257);
     let candidate = render(&definition, base_dir, 64);
@@ -228,7 +223,7 @@ fn granular_render_is_stereo_finite_and_block_size_independent() {
 }
 
 #[test]
-fn granular_invalid_parameter_is_rejected_before_asset_loading() {
+fn granular_definition_rejects_invalid_grain_size() {
     let definition = definition("missing.wav".to_owned());
     let mut invalid = definition.clone();
     let GeneratorDefinition::Granular(granular) = &mut invalid.layers[0].generator else {
@@ -244,9 +239,10 @@ fn granular_invalid_parameter_is_rejected_before_asset_loading() {
 
 #[test]
 fn granular_region_outside_prepared_asset_is_rejected_at_compile() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_stereo_fixture(&path);
-    let base_dir = path.parent().expect("fixture has a parent");
+    let base_dir = directory.path();
     let mut definition = definition(path.file_name().unwrap().to_string_lossy().into_owned());
     let GeneratorDefinition::Granular(granular) = &mut definition.layers[0].generator else {
         panic!("fixture must be granular");
@@ -274,8 +270,8 @@ fn granular_missing_asset_does_not_disable_other_layers() {
         &std::fs::read_to_string(definition_path).expect("reference Definition exists"),
     )
     .expect("reference Definition parses");
-    let path = fixture_path();
-    let base_dir = path.parent().expect("fixture has a parent");
+    let directory = fixture_directory();
+    let base_dir = directory.path();
     let mut definition = definition("missing.wav".to_owned());
     let mut oscillator = reference.layers[0].clone();
     oscillator.id = "body_oscillator".to_owned();
@@ -303,9 +299,10 @@ fn granular_missing_asset_does_not_disable_other_layers() {
 
 #[test]
 fn granular_reset_restarts_the_same_render() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_stereo_fixture(&path);
-    let base_dir = path.parent().expect("fixture has a parent");
+    let base_dir = directory.path();
     let definition = definition(path.file_name().unwrap().to_string_lossy().into_owned());
     let compiled = compile(&definition, base_dir, 257);
     let mut runtime = compiled.instantiate();
@@ -333,9 +330,10 @@ fn granular_reset_restarts_the_same_render() {
 
 #[test]
 fn granular_voice_stealing_restarts_grain_state() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_stereo_fixture(&path);
-    let base_dir = path.parent().expect("fixture has a parent");
+    let base_dir = directory.path();
     let mut definition = definition(path.file_name().unwrap().to_string_lossy().into_owned());
     definition.performance.polyphony = 1;
     let compiled = compile(&definition, base_dir, 257);

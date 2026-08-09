@@ -13,7 +13,6 @@
 struct sonalloy_stretch {
     signalsmith::stretch::SignalsmithStretch<float> processor{0};
     int32_t channels = 0;
-    double sample_rate = 0.0;
     uint32_t max_input_frames = 0;
     uint32_t max_output_frames = 0;
     bool prepared = false;
@@ -23,10 +22,6 @@ struct sonalloy_stretch {
 };
 
 namespace {
-
-constexpr int32_t kVersionMajor = 1;
-constexpr int32_t kVersionMinor = 3;
-constexpr int32_t kVersionPatch = 2;
 
 bool valid_sample_rate(double sample_rate) {
     return std::isfinite(sample_rate) && sample_rate > 0.0 &&
@@ -91,7 +86,6 @@ extern "C" int32_t sonalloy_stretch_prepare(
     const auto status = invoke([&] {
         handle->processor.presetDefault(channels, static_cast<float>(sample_rate), true);
         handle->channels = channels;
-        handle->sample_rate = sample_rate;
         handle->max_input_frames = max_input_frames;
         handle->max_output_frames = max_output_frames;
         handle->prepared = true;

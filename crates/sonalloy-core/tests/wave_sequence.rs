@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use approx::assert_relative_eq;
 use sonalloy_core::{
@@ -11,20 +10,23 @@ use sonalloy_core::{
     WaveSequenceDurationDefinition, WaveSequenceStepDefinition, WaveSequenceStepPlayback,
     compile_instrument, render_instrument, render_instrument_with_tempo_map,
 };
+use tempfile::TempDir;
 
-static NEXT_FIXTURE: AtomicUsize = AtomicUsize::new(0);
-
-fn fixture_directory() -> PathBuf {
-    let index = NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed);
-    let path = std::env::temp_dir().join(format!(
-        "sonalloy-wave-sequence-{}-{index}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(&path).expect("fixture directory creates");
-    path
+fn fixture_directory() -> TempDir {
+    tempfile::tempdir().expect("fixture directory creates")
 }
 
 fn write_wav(path: &Path, stereo: bool, frames: usize, values: impl Fn(usize) -> (f32, f32)) {
+    write_wav_at_sample_rate(path, 48_000, stereo, frames, values);
+}
+
+fn write_wav_at_sample_rate(
+    path: &Path,
+    sample_rate: u32,
+    stereo: bool,
+    frames: usize,
+    values: impl Fn(usize) -> (f32, f32),
+) {
     let channels = if stereo { 2_u16 } else { 1_u16 };
     let payload_len = u32::try_from(frames * usize::from(channels) * 2).expect("WAV payload fits");
     let mut bytes = Vec::with_capacity(44 + payload_len as usize);
@@ -34,8 +36,8 @@ fn write_wav(path: &Path, stereo: bool, frames: usize, values: impl Fn(usize) ->
     bytes.extend_from_slice(&16_u32.to_le_bytes());
     bytes.extend_from_slice(&1_u16.to_le_bytes());
     bytes.extend_from_slice(&channels.to_le_bytes());
-    bytes.extend_from_slice(&48_000_u32.to_le_bytes());
-    bytes.extend_from_slice(&(48_000_u32 * u32::from(channels) * 2).to_le_bytes());
+    bytes.extend_from_slice(&sample_rate.to_le_bytes());
+    bytes.extend_from_slice(&(sample_rate * u32::from(channels) * 2).to_le_bytes());
     bytes.extend_from_slice(&(channels * 2).to_le_bytes());
     bytes.extend_from_slice(&16_u16.to_le_bytes());
     bytes.extend_from_slice(b"data");
@@ -176,13 +178,15 @@ fn render_at_sample_rate(
 #[test]
 fn wave_sequence_compiles_steps_and_preserves_missing_step_timing() {
     let directory = fixture_directory();
-    let valid = directory.join("valid.wav");
-    write_wav(&valid, false, 4_800, |_| (0.3, 0.3));
+    let first = directory.path().join("first.wav");
+    let third = directory.path().join("third.wav");
+    write_wav(&first, false, 4_800, |_| (0.2, 0.2));
+    write_wav(&third, false, 4_800, |_| (0.6, 0.6));
     let definition = base_definition(
         vec![
             step(
-                "valid",
-                valid.file_name().unwrap().to_string_lossy().into_owned(),
+                "first",
+                first.file_name().unwrap().to_string_lossy().into_owned(),
                 WaveSequenceDurationDefinition::Seconds { value: 0.01 },
                 WaveSequenceStepPlayback::Loop,
                 SamplePlaybackDirection::Forward,
@@ -192,38 +196,58 @@ fn wave_sequence_compiles_steps_and_preserves_missing_step_timing() {
             step(
                 "missing",
                 "missing.wav".to_owned(),
-                WaveSequenceDurationDefinition::Beats { value: 1.0 },
+                WaveSequenceDurationDefinition::Seconds { value: 0.02 },
                 WaveSequenceStepPlayback::OneShot,
-                SamplePlaybackDirection::Reverse,
-                -6.0,
-                1200.0,
+                SamplePlaybackDirection::Forward,
+                0.0,
+                0.0,
+            ),
+            step(
+                "third",
+                third.file_name().unwrap().to_string_lossy().into_owned(),
+                WaveSequenceDurationDefinition::Seconds { value: 0.01 },
+                WaveSequenceStepPlayback::Loop,
+                SamplePlaybackDirection::Forward,
+                0.0,
+                0.0,
             ),
         ],
         WaveSequenceDirection::Forward,
         false,
-        0.25,
+        0.0,
     );
-    let compiled = compile(&definition, &directory, 257);
+    let compiled = compile(&definition, directory.path(), 257);
     let sonalloy_core::compiler::CompiledGenerator::WaveSequence(sequence) =
         &compiled.layers[0].generator
     else {
         panic!("definition must compile to Wave Sequence");
     };
-    assert_eq!(sequence.steps.len(), 2);
+    assert_eq!(sequence.steps.len(), 3);
     assert!(sequence.steps[0].source.is_some());
     assert!(sequence.steps[1].source.is_none());
+    assert!(sequence.steps[2].source.is_some());
     assert_eq!(
         compiled.layers[0].generator.output_mode(),
         sonalloy_core::GeneratorOutputMode::Mono
     );
+
+    let audio = render(&definition, directory.path(), 257, 2_000);
+    assert_relative_eq!(audio.channels[0][240], 0.13, epsilon = 0.02);
+    assert!(
+        audio.channels[0][488..1_432]
+            .iter()
+            .all(|sample| sample.abs() < 2.0e-5)
+    );
+    assert_relative_eq!(audio.channels[0][479], 0.13, epsilon = 0.02);
+    assert_relative_eq!(audio.channels[0][1_448], 0.39, epsilon = 0.02);
 }
 
 #[test]
 fn wave_sequence_direction_and_ping_pong_are_audible_and_finite() {
     let directory = fixture_directory();
-    let first = directory.join("first.wav");
-    let second = directory.join("second.wav");
-    let third = directory.join("third.wav");
+    let first = directory.path().join("first.wav");
+    let second = directory.path().join("second.wav");
+    let third = directory.path().join("third.wav");
     write_wav(&first, false, 4_800, |_| (0.2, 0.2));
     write_wav(&second, false, 4_800, |_| (0.4, 0.4));
     write_wav(&third, false, 4_800, |_| (0.6, 0.6));
@@ -256,7 +280,7 @@ fn wave_sequence_direction_and_ping_pong_are_audible_and_finite() {
     };
     let ping_pong = render(
         &make(WaveSequenceDirection::PingPong),
-        &directory,
+        directory.path(),
         257,
         2_000,
     );
@@ -281,7 +305,7 @@ fn wave_sequence_direction_and_ping_pong_are_audible_and_finite() {
 #[test]
 fn wave_sequence_one_shot_keeps_silence_until_step_end() {
     let directory = fixture_directory();
-    let short = directory.join("short.wav");
+    let short = directory.path().join("short.wav");
     write_wav(&short, false, 96, |_| (0.4, 0.4));
     let mut one_shot = step(
         "one_shot",
@@ -294,7 +318,7 @@ fn wave_sequence_one_shot_keeps_silence_until_step_end() {
     );
     one_shot.region.end_seconds = Some(0.002);
     let definition = base_definition(vec![one_shot], WaveSequenceDirection::Forward, false, 0.0);
-    let audio = render(&definition, &directory, 257, 600);
+    let audio = render(&definition, directory.path(), 257, 600);
     assert!(audio.channels[0][50].abs() > 0.01);
     assert!(
         audio.channels[0][200..480]
@@ -306,8 +330,8 @@ fn wave_sequence_one_shot_keeps_silence_until_step_end() {
 #[test]
 fn wave_sequence_crossfade_mixes_stereo_and_is_block_size_independent() {
     let directory = fixture_directory();
-    let mono = directory.join("mono.wav");
-    let stereo = directory.join("stereo.wav");
+    let mono = directory.path().join("mono.wav");
+    let stereo = directory.path().join("stereo.wav");
     write_wav(&mono, false, 4_800, |_| (0.25, 0.25));
     write_wav(&stereo, true, 4_800, |_| (0.5, -0.5));
     let definition = base_definition(
@@ -335,9 +359,9 @@ fn wave_sequence_crossfade_mixes_stereo_and_is_block_size_independent() {
         true,
         0.5,
     );
-    let reference = render(&definition, &directory, 64, 2_048);
-    let candidate_257 = render(&definition, &directory, 257, 2_048);
-    let candidate = render(&definition, &directory, 1_024, 2_048);
+    let reference = render(&definition, directory.path(), 64, 2_048);
+    let candidate_257 = render(&definition, directory.path(), 257, 2_048);
+    let candidate = render(&definition, directory.path(), 1_024, 2_048);
     assert_eq!(reference.channels[0].len(), 2_048);
     assert!(
         reference
@@ -375,24 +399,55 @@ fn wave_sequence_crossfade_mixes_stereo_and_is_block_size_independent() {
 #[test]
 fn wave_sequence_preserves_time_units_across_sample_rates() {
     let directory = fixture_directory();
-    let asset = directory.join("sample-rate.wav");
-    write_wav(&asset, false, 4_800, |_| (0.3, 0.3));
+    let first = directory.path().join("first.wav");
+    let second = directory.path().join("second.wav");
     let definition = base_definition(
-        vec![step(
-            "loop",
-            asset.file_name().unwrap().to_string_lossy().into_owned(),
-            WaveSequenceDurationDefinition::Seconds { value: 0.01 },
-            WaveSequenceStepPlayback::Loop,
-            SamplePlaybackDirection::Forward,
-            0.0,
-            0.0,
-        )],
+        vec![
+            step(
+                "first",
+                first.file_name().unwrap().to_string_lossy().into_owned(),
+                WaveSequenceDurationDefinition::Seconds { value: 0.01 },
+                WaveSequenceStepPlayback::Loop,
+                SamplePlaybackDirection::Forward,
+                0.0,
+                0.0,
+            ),
+            step(
+                "second",
+                second.file_name().unwrap().to_string_lossy().into_owned(),
+                WaveSequenceDurationDefinition::Seconds { value: 0.01 },
+                WaveSequenceStepPlayback::Loop,
+                SamplePlaybackDirection::Forward,
+                0.0,
+                0.0,
+            ),
+        ],
         WaveSequenceDirection::Forward,
-        true,
+        false,
         0.0,
     );
-    for sample_rate in [44_100.0, 48_000.0, 96_000.0] {
-        let audio = render_at_sample_rate(&definition, &directory, 257, 2_048, sample_rate);
+    for (sample_rate, source_sample_rate) in [
+        (44_100.0_f64, 44_100_u32),
+        (48_000.0, 48_000),
+        (96_000.0, 96_000),
+    ] {
+        let fixture_frames =
+            usize::try_from(source_sample_rate / 10).expect("fixture frame count fits usize");
+        write_wav_at_sample_rate(&first, source_sample_rate, false, fixture_frames, |_| {
+            (0.2, 0.2)
+        });
+        write_wav_at_sample_rate(&second, source_sample_rate, false, fixture_frames, |_| {
+            (0.6, 0.6)
+        });
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let first_step_frames = (sample_rate * 0.01).round() as usize;
+        let audio = render_at_sample_rate(
+            &definition,
+            directory.path(),
+            257,
+            u64::try_from(first_step_frames + 257).expect("render frame count fits u64"),
+            sample_rate,
+        );
         assert_eq!(audio.channels.len(), 2);
         assert!(
             audio
@@ -401,12 +456,15 @@ fn wave_sequence_preserves_time_units_across_sample_rates() {
                 .flatten()
                 .all(|sample| sample.is_finite())
         );
-        assert!(
-            audio
-                .channels
-                .iter()
-                .flatten()
-                .any(|sample| sample.abs() > 1.0e-3)
+        assert_relative_eq!(
+            audio.channels[0][first_step_frames - 1],
+            0.13,
+            epsilon = 0.02
+        );
+        assert_relative_eq!(
+            audio.channels[0][first_step_frames + 8],
+            0.39,
+            epsilon = 0.02
         );
     }
 }
@@ -446,8 +504,8 @@ fn wave_sequence_validation_rejects_empty_sequence_and_invalid_duration() {
 #[test]
 fn wave_sequence_beats_follow_tempo_changes_without_restarting_the_step() {
     let directory = fixture_directory();
-    let first = directory.join("first.wav");
-    let second = directory.join("second.wav");
+    let first = directory.path().join("first.wav");
+    let second = directory.path().join("second.wav");
     write_wav(&first, false, 4_800, |_| (0.2, 0.2));
     write_wav(&second, false, 4_800, |_| (0.6, 0.6));
     let definition = base_definition(
@@ -475,7 +533,7 @@ fn wave_sequence_beats_follow_tempo_changes_without_restarting_the_step() {
         false,
         0.0,
     );
-    let compiled = compile(&definition, &directory, 257);
+    let compiled = compile(&definition, directory.path(), 257);
     let tempo_map = TempoMap::new(vec![
         TempoChange {
             absolute_frame: 0,
@@ -513,7 +571,7 @@ fn wave_sequence_beats_follow_tempo_changes_without_restarting_the_step() {
 #[test]
 fn wave_sequence_reset_restarts_the_same_runtime_state() {
     let directory = fixture_directory();
-    let asset = directory.join("loop.wav");
+    let asset = directory.path().join("loop.wav");
     write_wav(&asset, false, 4_800, |frame| {
         #[allow(clippy::cast_precision_loss)]
         let phase = frame as f32 / 4_800.0;
@@ -533,7 +591,7 @@ fn wave_sequence_reset_restarts_the_same_runtime_state() {
         true,
         0.0,
     );
-    let compiled = compile(&definition, &directory, 257);
+    let compiled = compile(&definition, directory.path(), 257);
     let mut runtime = compiled.instantiate();
     runtime
         .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
@@ -577,8 +635,8 @@ fn wave_sequence_reset_restarts_the_same_runtime_state() {
 #[test]
 fn wave_sequence_reverse_starts_at_the_last_step() {
     let directory = fixture_directory();
-    let first = directory.join("first.wav");
-    let second = directory.join("second.wav");
+    let first = directory.path().join("first.wav");
+    let second = directory.path().join("second.wav");
     write_wav(&first, false, 4_800, |_| (0.2, 0.2));
     write_wav(&second, false, 4_800, |_| (0.6, 0.6));
     let definition = base_definition(
@@ -606,13 +664,14 @@ fn wave_sequence_reverse_starts_at_the_last_step() {
         false,
         0.0,
     );
-    let audio = render(&definition, &directory, 257, 600);
+    let audio = render(&definition, directory.path(), 257, 600);
     assert_relative_eq!(audio.channels[0][300], 0.39, epsilon = 0.02);
     assert_relative_eq!(audio.channels[0][550], 0.13, epsilon = 0.02);
 }
 
 #[test]
 fn wave_sequence_all_missing_is_unavailable_but_compile_is_recoverable() {
+    let directory = fixture_directory();
     let definition = base_definition(
         vec![step(
             "missing",
@@ -630,7 +689,7 @@ fn wave_sequence_all_missing_is_unavailable_but_compile_is_recoverable() {
     let result = compile_instrument(
         &definition,
         &CompileContext {
-            definition_base_dir: PathBuf::from("/tmp/sonalloy-wave-sequence-missing"),
+            definition_base_dir: directory.path().to_path_buf(),
             process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
         },
     );
