@@ -169,6 +169,16 @@ Formant Runtimeは固定Partial数、Profile配列、Partial Bank StateをVoice�
 
 Formantの生成順は、`Profile補間 → Gaussian Spectral Envelope → Spectral Tilt / Alias Fade → Partial Bank加算 → Layer Envelope → Layer Processor`です。Process中はProfile、Sine Table、Partial Slotのいずれも拡張しません。
 
+## Hybrid Runtime
+
+異なるGeneratorはDefinitionのLayer順に同じVoiceへ加算されます。Harmonic / Formant Hybridでは、FormantのVocal-like Spectrum、AdditiveのHarmonic Body、SampleのTransient、NoiseのAirをそれぞれのLayer Envelopeで整えた後、Layer Processor、Voice Processor、Global Processorの順に通します。
+
+- FormantのVowel Position、Shift、Throat、Spectral TiltはVoice SourceとExternal Controlから通常のTarget評価を受け、ほかのLayerやProcessorと同じParameter Spanへ統合されます
+- LayerのGeneratorはMono / Stereoを問わずVoice Mixへ揃え、既存SampleのPrepared AudioとNoise StreamはCompile / Prepareで確定した状態を使います
+- Voice Filter / Driveは全LayerのSumへ適用し、Global Delay / Reverbは全VoiceのSumへ適用します。Global ProcessorのDelay / Reverb StateはInstrument Runtimeが所有し、Resetで初期化します
+- Voice Stealingでは全Layer、Layer / Voice Processor、Voice Sourceを同じVoice Stateとして再初期化します。MIDI RenderはNote、Velocity、Control Eventを同じProcess境界へ変換します
+- HybridのProcessor Chain、Modulation、MIDI、Block Size、Sample Rate、Fresh Runtimeの統合確認は`review-output/harmonic-formant-synthesis/`へ保存します
+
 ## Operator Modulation Runtime
 
 Operatorの`evaluation_order`、`incoming_masks`、`carrier_mask`はCompile時に確定し、RuntimeはAlgorithm名を参照しません。各Sampleでは、依存するModulatorのCurrent Outputと対象Operator自身のPrevious Outputだけを読みます。Operator間の任意Cycleはなく、Self Feedbackだけが一Sample遅延を持ちます。

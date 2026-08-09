@@ -199,6 +199,21 @@ Formantは基音の整数倍Partialへ、母音の共鳴を表す5本のBandを�
 
 `instrument inspect --json`でProfile Count、5本のBand、4つのParameter Descriptor、Output Modeを確認します。実際の5 Profile構成は[`formant-generator-reference.json`](../examples/instruments/formant-generator-reference.json)にあり、Additiveと重ねる例は[`harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)にあります。
 
+### Harmonic / Formant Hybridを作る
+
+FormantへAdditiveを重ねるとVocal-likeな共鳴へ基音と倍音の芯を加えられます。SampleをAttack、NoiseをAirとして追加し、Layer Filter / Drive、Voice Filter / Drive、Global Delay / Reverbを順に配置すると、Transient、持続成分、空気感、空間を一つのInstrumentで管理できます。動作する4 Layer構成は[`harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)です。
+
+HybridではFormantの4 ParameterへLFOやModulation Envelopeを接続し、Mod WheelやAftertouchでFormant ShiftとGlobal Effect Mixを操作できます。最初に各LayerのGainとEnvelopeを単独で確認し、その後に`instrument inspect --json`でProcessor ChainとRouteを確認します。
+
+```bash
+sonalloy instrument validate examples/instruments/harmonic-formant-hybrid-reference.json
+sonalloy instrument inspect examples/instruments/harmonic-formant-hybrid-reference.json --json
+sonalloy render midi examples/instruments/harmonic-formant-hybrid-reference.json \
+  testdata/midi/basic-poly-synth-phrase.mid \
+  --sample-rate 48000 --block-size 257 --tail 0.5 \
+  --output out/harmonic-formant-hybrid/midi.wav
+```
+
 Hard Sync、Waveshaping、UnisonはOscillator Definitionへ追加します。Hard SyncはSineでは使用できず、開始`phase`とHard Sync併用時の`phase_spread`は0にします。
 
 ```json

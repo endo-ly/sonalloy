@@ -1,0 +1,32 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 5,
+      "note": 60,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 4096,
+      "type": "parameter_change",
+      "parameter": "layer.voice.generator.formant_shift",
+      "normalized": 0.75
+    },
+    {
+      "absolute_frame": 8192,
+      "type": "mod_wheel",
+      "value": 0.8
+    },
+    {
+      "absolute_frame": 10240,
+      "type": "aftertouch",
+      "value": 0.7
+    },
+    {
+      "absolute_frame": 12001,
+      "type": "note_off",
+      "note_id": 5
+    }
+  ]
+}

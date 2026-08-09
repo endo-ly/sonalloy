@@ -150,6 +150,27 @@ def event_sequence(parameter: str, normalized: float, note_id: int) -> list[dict
     ]
 
 
+def hybrid_event_sequence() -> list[dict[str, object]]:
+    return [
+        {
+            "absolute_frame": 0,
+            "type": "note_on",
+            "note_id": 5,
+            "note": 60,
+            "velocity": 112,
+        },
+        {
+            "absolute_frame": 4_096,
+            "type": "parameter_change",
+            "parameter": "layer.voice.generator.formant_shift",
+            "normalized": 0.75,
+        },
+        {"absolute_frame": 8_192, "type": "mod_wheel", "value": 0.8},
+        {"absolute_frame": 10_240, "type": "aftertouch", "value": 0.7},
+        {"absolute_frame": 12_001, "type": "note_off", "note_id": 5},
+    ]
+
+
 def high_frequency_energy(path: Path, cutoff_ratio: float = 0.2) -> dict[str, float | int]:
     sample_rate, channels, samples = read_float_wav(path)
     frames = len(samples) // channels
@@ -270,6 +291,53 @@ def main() -> None:
     )
     run_cli(["instrument", "validate", str(hybrid_path), "--json"])
 
+    hybrid_inspect = run_cli(
+        ["instrument", "inspect", str(hybrid_path), "--json"]
+    )
+    hybrid_inspect_data = json.loads(hybrid_inspect)
+    hybrid_generators = {
+        layer_value["generator"]["kind"]
+        for layer_value in hybrid_inspect_data["layers"]
+    }
+    if hybrid_generators != {"formant", "additive", "sample", "noise"}:
+        raise RuntimeError(f"hybrid generator contract failed: {hybrid_generators}")
+    if (
+        len(hybrid_inspect_data["layers"]) != 4
+        or {value["id"] for value in hybrid_inspect_data["voice_processors"]}
+        != {"voice_tone", "voice_glue"}
+        or {value["id"] for value in hybrid_inspect_data["global_processors"]}
+        != {"echo", "space"}
+    ):
+        raise RuntimeError("hybrid processor contract failed")
+    hybrid_parameter_ids = {
+        parameter["id"] for parameter in hybrid_inspect_data["parameters"]
+    }
+    expected_hybrid_parameter_ids = {
+        "layer.voice.generator.formant_vowel_position",
+        "layer.voice.generator.formant_shift",
+        "layer.voice.generator.formant_throat",
+        "layer.voice.generator.formant_spectral_tilt",
+        "voice.processor.voice_tone.cutoff",
+        "voice.processor.voice_glue.mix",
+        "global.processor.echo.mix",
+        "global.processor.space.mix",
+    }
+    if not expected_hybrid_parameter_ids.issubset(hybrid_parameter_ids):
+        raise RuntimeError("hybrid parameter contract failed")
+    hybrid_route_targets = {route["target"] for route in hybrid_inspect_data["routes"]}
+    expected_hybrid_route_targets = {
+        "layer.voice.generator.formant_vowel_position",
+        "layer.voice.generator.formant_shift",
+        "layer.voice.generator.formant_throat",
+        "layer.voice.generator.formant_spectral_tilt",
+        "voice.processor.voice_tone.cutoff",
+        "global.processor.space.mix",
+        "global.processor.echo.mix",
+    }
+    if not expected_hybrid_route_targets.issubset(hybrid_route_targets):
+        raise RuntimeError("hybrid modulation contract failed")
+    write_utf8(review_root / "hybrid-inspect.json", hybrid_inspect)
+
     inspect = run_cli(
         ["instrument", "inspect", str(definition_paths["vowel-a"]), "--json"]
     )
@@ -308,6 +376,8 @@ def main() -> None:
         path = event_dir / f"{name}.json"
         write_events(path, events)
         event_paths[name] = path
+    hybrid_event_path = event_dir / "hybrid-controls.json"
+    write_events(hybrid_event_path, hybrid_event_sequence())
 
     midi_source = ROOT / "testdata" / "midi" / "basic-poly-synth-phrase.mid"
     midi_path = midi_dir / midi_source.name
@@ -379,6 +449,50 @@ def main() -> None:
         tail_seconds=0.1,
     )
     append_path(generated_paths, hybrid_midi_path)
+    hybrid_controls_path = technical_dir / "26-harmonic-formant-hybrid-controls.wav"
+    render_event_file(
+        hybrid_path,
+        hybrid_event_path,
+        hybrid_controls_path,
+        duration_frames=16_801,
+    )
+    append_path(generated_paths, hybrid_controls_path)
+
+    existing_review_definitions = [
+        "basic-poly-synth.json",
+        "moving-hybrid-pad.json",
+        "processed-hybrid.json",
+        "essential-hybrid-instrument.json",
+        "granular-generator-reference.json",
+        "wave-sequence-hybrid-reference.json",
+        "digital-hybrid-reference.json",
+    ]
+    for name in existing_review_definitions:
+        run_cli(
+            [
+                "instrument",
+                "validate",
+                str(ROOT / "examples" / "instruments" / name),
+                "--json",
+            ]
+        )
+    existing_render_jobs = [
+        ("27-existing-processor-chain.wav", "processed-hybrid.json"),
+        ("28-existing-digital-hybrid.wav", "digital-hybrid-reference.json"),
+    ]
+    existing_render_paths: dict[str, Path] = {}
+    for audio_name, definition_name in existing_render_jobs:
+        path = technical_dir / audio_name
+        render_note(
+            ROOT / "examples" / "instruments" / definition_name,
+            60,
+            path,
+            BASE_BLOCK_SIZE,
+            gate_seconds=0.25,
+            tail_seconds=0.5,
+        )
+        existing_render_paths[definition_name] = path
+        append_path(generated_paths, path)
 
     regression_paths: dict[str, Path] = {}
     for block_size in BLOCK_SIZES:
@@ -430,6 +544,48 @@ def main() -> None:
     append_path(generated_paths, fresh_a)
     append_path(generated_paths, fresh_b)
 
+    hybrid_block_paths: dict[str, Path] = {}
+    for block_size in BLOCK_SIZES:
+        path = technical_dir / f"hybrid-block-{block_size}.wav"
+        render_note(
+            hybrid_path,
+            60,
+            path,
+            block_size,
+            gate_seconds=0.25,
+            tail_seconds=0.5,
+        )
+        hybrid_block_paths[str(block_size)] = path
+        append_path(generated_paths, path)
+
+    hybrid_sample_rate_paths: dict[str, Path] = {}
+    for sample_rate in (44_100, SAMPLE_RATE, 96_000):
+        path = technical_dir / f"hybrid-sample-rate-{sample_rate}.wav"
+        render_note(
+            hybrid_path,
+            60,
+            path,
+            BASE_BLOCK_SIZE,
+            sample_rate,
+            gate_seconds=0.25,
+            tail_seconds=0.5,
+        )
+        hybrid_sample_rate_paths[str(sample_rate)] = path
+        append_path(generated_paths, path)
+
+    hybrid_fresh_a = technical_dir / "hybrid-fresh-a.wav"
+    hybrid_fresh_b = technical_dir / "hybrid-fresh-b.wav"
+    for path in (hybrid_fresh_a, hybrid_fresh_b):
+        render_note(
+            hybrid_path,
+            60,
+            path,
+            BASE_BLOCK_SIZE,
+            gate_seconds=0.25,
+            tail_seconds=0.5,
+        )
+        append_path(generated_paths, path)
+
     spectrum_names = {
         "12-vowel-a.wav",
         "13-vowel-i.wav",
@@ -477,12 +633,38 @@ def main() -> None:
     if invalid_block_comparisons:
         raise RuntimeError(f"formant block-size mismatch: {invalid_block_comparisons}")
 
+    hybrid_block_comparisons = {
+        block_size: compare_wav(
+            hybrid_block_paths["257"], hybrid_block_paths[str(block_size)]
+        )
+        for block_size in BLOCK_SIZES
+    }
+    invalid_hybrid_block_comparisons = {
+        block_size: comparison
+        for block_size, comparison in hybrid_block_comparisons.items()
+        if not comparison.get("compatible")
+        or comparison.get("max_abs_difference", 1.0) > BLOCK_SIZE_MAX_DIFFERENCE
+    }
+    if invalid_hybrid_block_comparisons:
+        raise RuntimeError(
+            f"hybrid block-size mismatch: {invalid_hybrid_block_comparisons}"
+        )
+
     fresh_comparison = compare_wav(fresh_a, fresh_b)
     if (
         not fresh_comparison.get("compatible")
         or fresh_comparison.get("max_abs_difference", 1.0) != 0.0
     ):
         raise RuntimeError(f"formant fresh render is not reproducible: {fresh_comparison}")
+
+    hybrid_fresh_comparison = compare_wav(hybrid_fresh_a, hybrid_fresh_b)
+    if (
+        not hybrid_fresh_comparison.get("compatible")
+        or hybrid_fresh_comparison.get("max_abs_difference", 1.0) != 0.0
+    ):
+        raise RuntimeError(
+            f"hybrid fresh render is not reproducible: {hybrid_fresh_comparison}"
+        )
 
     parameter_comparisons = {
         "vowel_a_to_i": compare_wav(
@@ -547,6 +729,23 @@ def main() -> None:
             "first_sha256": sha256_file(fresh_a),
             "second_sha256": sha256_file(fresh_b),
         },
+        "hybrid_block_size_comparisons": hybrid_block_comparisons,
+        "hybrid_sample_rate_metrics": {
+            sample_rate: audio_metrics[path.name]
+            for sample_rate, path in hybrid_sample_rate_paths.items()
+        },
+        "hybrid_fresh_render_comparison": {
+            **hybrid_fresh_comparison,
+            "first_sha256": sha256_file(hybrid_fresh_a),
+            "second_sha256": sha256_file(hybrid_fresh_b),
+        },
+        "hybrid_control_comparison": compare_wav(
+            hybrid_note_path, hybrid_controls_path
+        ),
+        "existing_review_regression": {
+            "validated_definitions": existing_review_definitions,
+            "rendered_definitions": list(existing_render_paths),
+        },
         "high_frequency_energy": high_frequency_metrics,
     }
     write_utf8(
@@ -566,7 +765,7 @@ def main() -> None:
 
 ## 入力
 
-Definitionは`definitions/`、Eventは`events/`、MIDIは`midi/`、Assetは`assets/`、WAVは`audio/technical/`へ保存しています。`inspect.json`にはFormant ProfileとParameter Descriptorを保存しています。
+Definitionは`definitions/`、Eventは`events/`、MIDIは`midi/`、Assetは`assets/`、WAVは`audio/technical/`へ保存しています。`inspect.json`にはFormant ProfileとParameter Descriptor、`hybrid-inspect.json`には4 LayerとProcessor / Modulation統合を保存しています。
 
 再生成：
 
@@ -592,10 +791,13 @@ python scripts/review/generate_harmonic_formant_package.py
 | `23-formant-noise-texture.wav` | Formant and Noise Texture |
 | `24-harmonic-formant-hybrid.wav` | Formant and Additive Hybrid |
 | `25-harmonic-formant-hybrid-midi.wav` | Hybrid MIDI Phrase |
+| `26-harmonic-formant-hybrid-controls.wav` | Hybrid Parameter and External Control |
+| `27-existing-processor-chain.wav` | Existing Processor Chain Regression |
+| `28-existing-digital-hybrid.wav` | Existing Digital Hybrid Regression |
 
 ## 機械検査
 
-`metrics.json`はProfile Count、Partial Count、4つのFormant Parameter、Parameter ID、Finite性、Peak、RMS、DC、Stereo、Profile差分、Parameter差分、High-frequency Energy、Sample Rate別値、Block Size比較、Fresh Runtime再現性を記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。
+`metrics.json`はProfile Count、Partial Count、4つのFormant Parameter、Parameter ID、Hybrid Layer / Processor / Route、Finite性、Peak、RMS、DC、Stereo、Profile差分、Parameter差分、Hybrid Control差分、High-frequency Energy、Sample Rate別値、Block Size比較、Hybrid Block Size比較、Fresh Runtime再現性、既存Reference回帰を記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。
 
 ## 人間の確認
 
@@ -607,6 +809,8 @@ python scripts/review/generate_harmonic_formant_package.py
 - [ ] High-noteで高次Aliasが主音として支配的にならない
 - [ ] Vowel Position LFOの動きが連続している
 - [ ] Noise TextureがFormantの共鳴を隠さず、Hybridの一体感がある
+- [ ] Layer Filter / DriveとVoice Filter / Driveの作用範囲が分かれ、Delay / ReverbのTailが自然である
+- [ ] MIDI PhraseとParameter / External Control Eventが音色の動きへ連続して反映される
 - [ ] Polyphony、Voice Stealing、Reset後の発音が安定している
 """
     write_utf8(review_root / "review-summary.md", summary)

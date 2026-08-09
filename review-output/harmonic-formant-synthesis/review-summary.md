@@ -10,7 +10,7 @@
 
 ## 入力
 
-Definitionは`definitions/`、Eventは`events/`、MIDIは`midi/`、Assetは`assets/`、WAVは`audio/technical/`へ保存しています。`inspect.json`にはFormant ProfileとParameter Descriptorを保存しています。
+Definitionは`definitions/`、Eventは`events/`、MIDIは`midi/`、Assetは`assets/`、WAVは`audio/technical/`へ保存しています。`inspect.json`にはFormant ProfileとParameter Descriptor、`hybrid-inspect.json`には4 LayerとProcessor / Modulation統合を保存しています。
 
 再生成：
 
@@ -36,10 +36,13 @@ python scripts/review/generate_harmonic_formant_package.py
 | `23-formant-noise-texture.wav` | Formant and Noise Texture |
 | `24-harmonic-formant-hybrid.wav` | Formant and Additive Hybrid |
 | `25-harmonic-formant-hybrid-midi.wav` | Hybrid MIDI Phrase |
+| `26-harmonic-formant-hybrid-controls.wav` | Hybrid Parameter and External Control |
+| `27-existing-processor-chain.wav` | Existing Processor Chain Regression |
+| `28-existing-digital-hybrid.wav` | Existing Digital Hybrid Regression |
 
 ## 機械検査
 
-`metrics.json`はProfile Count、Partial Count、4つのFormant Parameter、Parameter ID、Finite性、Peak、RMS、DC、Stereo、Profile差分、Parameter差分、High-frequency Energy、Sample Rate別値、Block Size比較、Fresh Runtime再現性を記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。
+`metrics.json`はProfile Count、Partial Count、4つのFormant Parameter、Parameter ID、Hybrid Layer / Processor / Route、Finite性、Peak、RMS、DC、Stereo、Profile差分、Parameter差分、Hybrid Control差分、High-frequency Energy、Sample Rate別値、Block Size比較、Hybrid Block Size比較、Fresh Runtime再現性、既存Reference回帰を記録します。WAVは正規化せず、Metricsと試聴で同じ生出力を使用します。
 
 ## 人間の確認
 
@@ -51,4 +54,6 @@ python scripts/review/generate_harmonic_formant_package.py
 - [ ] High-noteで高次Aliasが主音として支配的にならない
 - [ ] Vowel Position LFOの動きが連続している
 - [ ] Noise TextureがFormantの共鳴を隠さず、Hybridの一体感がある
+- [ ] Layer Filter / DriveとVoice Filter / Driveの作用範囲が分かれ、Delay / ReverbのTailが自然である
+- [ ] MIDI PhraseとParameter / External Control Eventが音色の動きへ連続して反映される
 - [ ] Polyphony、Voice Stealing、Reset後の発音が安定している

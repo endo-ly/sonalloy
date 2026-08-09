@@ -85,6 +85,8 @@ AdditiveのJSON Inspectでは、固定Partial数と最大値、初期Morph / Spe
 
 FormantのJSON Inspectでは、固定Partial数と最大値、Phase Reset、Profile数、初期Vowel Position / Formant Shift / Throat / Spectral Tilt、Profile順のID、5本のFormant Bandを表示します。Dynamic ParameterのCanonical IDは、`layer.<layer_id>.generator.formant_vowel_position`、`layer.<layer_id>.generator.formant_shift`、`layer.<layer_id>.generator.formant_throat`、`layer.<layer_id>.generator.formant_spectral_tilt`です。
 
+Harmonic / Formant HybridのJSON Inspectでは、各LayerのGeneratorとProcessor、Voice / Global Processor Chain、Modulation Source / Routeを同じReportで表示します。[`harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)を使うと、Formant、Additive、Sample、Noise、Filter、Drive、Delay、Reverb、MIDI制御Targetを一つの構造として確認できます。
+
 ## `render` Command
 
 ### `render note`

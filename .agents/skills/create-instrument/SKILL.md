@@ -28,8 +28,9 @@ Step 7  Granular Layerを追加する（Granularを使う場合）
 Step 8  Wave Sequence Layerを追加する（Wave Sequenceを使う場合）
 Step 9  Additive Layerを追加する（Additiveを使う場合）
 Step 10 Formant Layerを追加する（Formantを使う場合）
-Step 11 render note / render midi で試聴する
-Step 12 仕上げる（関連docsへの反映、差分確認）
+Step 11 Harmonic / Formant Hybridを構成する（複数LayerとProcessorを組み合わせる場合）
+Step 12 render note / render events / render midi で試聴する
+Step 13 仕上げる（関連docsへの反映、差分確認）
 ```
 
 ## Step 1: ひな形を生成する
@@ -303,7 +304,19 @@ sha256sum <path>
 
 `formant_vowel_position`、`formant_shift`、`formant_throat`、`formant_spectral_tilt`をModulation TargetまたはParameter Changeから制御できます。Formant固有Envelopeはなく、Layer EnvelopeがPartial Sumへ適用されます。
 
-## Step 11: 試聴する
+## Step 11: Harmonic / Formant Hybridを構成する
+
+1. [`examples/instruments/harmonic-formant-hybrid-reference.json`](../../../examples/instruments/harmonic-formant-hybrid-reference.json)を基に、Formant、Additive、Sample、NoiseのLayerを役割ごとに配置する
+2. Sample AssetのPathとSHA-256を確認し、Layer / Voice / Global Processorの配置、順序、Parameter IDを`instrument inspect --json`で確認する
+3. LFO、Modulation Envelope、Velocity、Mod Wheel、AftertouchをFormant ParameterまたはProcessorへ接続する場合は、Route TargetがDefinitionのLayer IDとProcessor IDに一致することを確認する
+4. `render events`でParameter ChangeとControl Eventを含むPhraseを生成し、`render midi`でNote、Velocity、MIDI Controlを含む出力を生成する
+
+```bash
+sonalloy instrument validate examples/instruments/harmonic-formant-hybrid-reference.json
+sonalloy instrument inspect examples/instruments/harmonic-formant-hybrid-reference.json --json
+```
+
+## Step 12: 試聴する
 
 単音の確認：
 
@@ -323,7 +336,7 @@ sonalloy render midi <definition> <midi-file> \
 
 `render note`と`render events`の`--tempo`はTempo Syncの処理Tempoを指定します。`render midi`はMIDI内のTempo Meta EventからTempo Mapを作成します。出力は32-bit float、2 Channel、指定Sample RateのStereo WAVです。試聴WAVは音源ごとに`out/<name>/`へ分けて出力し、親Directoryは事前に作成してください。生成後は`scripts/review/measure_wav.py`でFinite性・Peak / RMS / DCを確認できます。
 
-## Step 12: 仕上げる
+## Step 13: 仕上げる
 
 - `metadata.name`と`metadata.description`を実際の音色に合わせる
 - `validate`と`inspect --json`のWarning、Output Mode、Parameter IDを確認する

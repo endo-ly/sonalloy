@@ -128,6 +128,15 @@ flowchart LR
 - 人間の確認：各Vowelの共鳴位置、Vowel Morphの連続性、Formant Shiftで基音が変わらないこと、Throatによる広がり、Tiltによる明るさ、High-note Alias Fade、Vowel Position LFO、Noise Textureとの分離と一体感、PolyphonyとVoice Stealingの安定性
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
+### Harmonic / Formant Hybrid
+
+- 保存先：`review-output/harmonic-formant-synthesis/`（audio/technical / definitions / events / midi / assets / `inspect.json` / `hybrid-inspect.json` / metrics.json / review-summary.md）
+- 内容：Formant、Additive、Sample、NoiseのLayer Mix、Layer / Voice / Global Processor、LFO / Envelope / Velocity / Mod Wheel / Aftertouch、Events / MIDI Renderを同じDefinitionから確認する
+- Metrics：全WAVのFinite性、Peak / RMS / DC、Stereo、Hybrid Control差分、HybridのBlock Size 32 / 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、Fresh Runtime再現性、既存Reference DefinitionのValidateと代表Render
+- 自動確認：4 Generator Layer、Processor Chain、Route Target、MIDI出力、既存のBasic / Sample / Processor / Essential / Granular / Wave Sequence / Digital Referenceの回帰
+- 人間の確認：FormantとAdditiveの一体感、Sample Attackの自然さ、Noiseの分離、Layer / Voice / Global Processorの作用範囲、LFO / Control Eventの連続性、Delay / Reverb Tail、MIDI Phrase、PolyphonyとVoice Stealing
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
 ### Digital Synthesis
 
 - 保存先：`review-output/digital-synthesis/`（assets / audio/technical / definitions / events / midi / `inspect.json` / `operator-inspect.json` / `complex-inspect.json` / `complex-phase-inspect.json` / `digital-hybrid-inspect.json` / metrics.json / review-summary.md）

@@ -37,6 +37,11 @@ fn formant_generator_definition() -> std::path::PathBuf {
         .join("../../examples/instruments/formant-generator-reference.json")
 }
 
+fn harmonic_formant_hybrid_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/harmonic-formant-hybrid-reference.json")
+}
+
 fn reference_midi() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../testdata/midi/basic-poly-synth-phrase.mid")
@@ -1157,6 +1162,71 @@ fn hybrid_midi_render_writes_stereo_audio() {
             "midi",
             hybrid_definition().to_str().expect("utf-8 definition path"),
             hybrid_midi().to_str().expect("utf-8 MIDI path"),
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--tail",
+            "0.5",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+        ])
+        .assert()
+        .success();
+    let mut reader = hound::WavReader::open(output).expect("hybrid WAV");
+    assert_eq!(reader.spec().channels, 2);
+    let samples: Vec<f32> = reader
+        .samples()
+        .map(|sample| sample.expect("finite sample"))
+        .collect();
+    assert!(samples.iter().all(|sample| sample.is_finite()));
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
+fn harmonic_formant_hybrid_inspects_all_layers_and_renders_midi() {
+    let definition = harmonic_formant_hybrid_definition();
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success();
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"layer_count\":4"))
+        .stdout(predicates::str::contains("\"kind\":\"formant\""))
+        .stdout(predicates::str::contains("\"kind\":\"additive\""))
+        .stdout(predicates::str::contains("\"kind\":\"sample\""))
+        .stdout(predicates::str::contains("\"kind\":\"noise\""))
+        .stdout(predicates::str::contains("formant_vowel_position"))
+        .stdout(predicates::str::contains("voice_tone"))
+        .stdout(predicates::str::contains("voice_glue"))
+        .stdout(predicates::str::contains("echo"))
+        .stdout(predicates::str::contains("space"));
+
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("harmonic-formant-hybrid.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            definition.to_str().expect("utf-8 definition path"),
+            reference_midi().to_str().expect("utf-8 MIDI path"),
             "--sample-rate",
             "48000",
             "--block-size",

@@ -362,6 +362,12 @@ Dynamic Parameterは次のCanonical IDで制御できます。
 
 Profileが0件または9件以上、Partial数が0または65以上、Band数が5以外、ID重複、周波数非昇順、各Range違反はValidation Errorです。基準となるDefinitionは[`examples/instruments/formant-generator-reference.json`](../examples/instruments/formant-generator-reference.json)です。AdditiveとFormantを重ねる基準例は[`examples/instruments/harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)です。
 
+### Harmonic / Formant Hybrid
+
+Formant、Additive、Sample、NoiseはLayerへ同時に記述できます。Layerの記述順にGenerator出力を加算し、各LayerのEnvelopeとProcessor、Voice Processor、Global Processorを順番に適用します。Formantの4 ParameterはHybridでも同じCanonical IDを使うため、LFO、Modulation Envelope、Velocity、Mod Wheel、Aftertouch、Parameter Changeから制御できます。
+
+動作する構成例は[`harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)です。このDefinitionは、FormantとAdditiveを持続成分、SampleをAttack、NoiseをAirとして配置し、Layer Filter / Drive、Voice Filter / Drive、Global Delay / Reverbを組み合わせています。Processor ChainとRouteは`instrument inspect --json`で配置、順序、Parameter ID、Source、Targetを確認できます。
+
 ### Wavetable
 
 Wavetableは、WAVのMono Sample列またはStereo Sample列を、明示した`frame_length`ごとの連続した周期Frameとして読み込みます。Stereo AssetはCompile時にMonoへ平均Downmixされます。

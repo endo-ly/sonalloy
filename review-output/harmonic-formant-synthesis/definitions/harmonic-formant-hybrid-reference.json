@@ -191,7 +191,14 @@
           ]
         }
       },
-      "processors": []
+      "processors": [
+        {
+          "type": "filter",
+          "id": "vowel_tone",
+          "cutoff_hz": 9000.0,
+          "resonance": 0.1
+        }
+      ]
     },
     {
       "id": "harmonic_body",
@@ -250,7 +257,14 @@
           ]
         }
       },
-      "processors": []
+      "processors": [
+        {
+          "type": "drive",
+          "id": "harmonic_drive",
+          "amount": 0.08,
+          "mix": 0.2
+        }
+      ]
     },
     {
       "id": "attack",
@@ -302,7 +316,20 @@
           ]
         }
       },
-      "processors": []
+      "processors": [
+        {
+          "type": "filter",
+          "id": "attack_tone",
+          "cutoff_hz": 11000.0,
+          "resonance": 0.06
+        },
+        {
+          "type": "drive",
+          "id": "attack_drive",
+          "amount": 0.12,
+          "mix": 0.25
+        }
+      ]
     },
     {
       "id": "air",
@@ -336,14 +363,60 @@
   "voice_processors": [
     {
       "type": "filter",
-      "id": "tone",
-      "cutoff_hz": 9000.0,
-      "resonance": 0.12
+      "id": "voice_tone",
+      "cutoff_hz": 7600.0,
+      "resonance": 0.14
+    },
+    {
+      "type": "drive",
+      "id": "voice_glue",
+      "amount": 0.08,
+      "mix": 0.2
     }
   ],
-  "global_processors": [],
+  "global_processors": [
+    {
+      "type": "delay",
+      "id": "echo",
+      "time_seconds": 0.24,
+      "feedback": 0.28,
+      "mix": 0.16
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.01,
+      "decay": 0.6,
+      "damping": 0.35,
+      "width": 0.85,
+      "mix": 0.18
+    }
+  ],
   "modulation": {
-    "sources": [],
+    "sources": [
+      {
+        "type": "lfo",
+        "id": "vowel_motion",
+        "waveform": "sine",
+        "rate_hz": 0.18,
+        "phase": 0.0
+      },
+      {
+        "type": "lfo",
+        "id": "brightness_motion",
+        "waveform": "triangle",
+        "rate_hz": 0.13,
+        "phase": 0.25
+      },
+      {
+        "type": "envelope",
+        "id": "formant_breath",
+        "attack_seconds": 0.02,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.4,
+        "release_seconds": 0.2
+      }
+    ],
     "routes": [
       {
         "source": "velocity",
@@ -361,6 +434,48 @@
         "source": "velocity",
         "target": "layer.attack.gain",
         "amount": 0.04,
+        "curve": "linear"
+      },
+      {
+        "source": "vowel_motion",
+        "target": "layer.voice.generator.formant_vowel_position",
+        "amount": 0.75,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "brightness_motion",
+        "target": "layer.voice.generator.formant_spectral_tilt",
+        "amount": 0.18,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "formant_breath",
+        "target": "layer.voice.generator.formant_throat",
+        "amount": 0.3,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.voice.generator.formant_shift",
+        "amount": 0.35,
+        "curve": "linear"
+      },
+      {
+        "source": "vowel_motion",
+        "target": "voice.processor.voice_tone.cutoff",
+        "amount": 0.08,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.space.mix",
+        "amount": 0.25,
+        "curve": "linear"
+      },
+      {
+        "source": "aftertouch",
+        "target": "global.processor.echo.mix",
+        "amount": 0.12,
         "curve": "linear"
       }
     ]
