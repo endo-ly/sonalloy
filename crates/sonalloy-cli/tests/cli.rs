@@ -27,6 +27,21 @@ fn operator_modulation_definition() -> std::path::PathBuf {
         .join("../../examples/instruments/operator-modulation-reference.json")
 }
 
+fn additive_generator_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/additive-generator-reference.json")
+}
+
+fn formant_generator_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/formant-generator-reference.json")
+}
+
+fn harmonic_formant_hybrid_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/harmonic-formant-hybrid-reference.json")
+}
+
 fn reference_midi() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../testdata/midi/basic-poly-synth-phrase.mid")
@@ -475,6 +490,144 @@ fn operator_modulation_validate_inspect_and_render() {
         .success()
         .stdout(predicates::str::contains("\"status\":\"ok\""));
     let reader = hound::WavReader::open(output).expect("operator render output");
+    assert_eq!(reader.spec().channels, 2);
+    assert!(
+        reader
+            .into_samples::<f32>()
+            .map(|sample| sample.expect("valid sample"))
+            .all(f32::is_finite)
+    );
+}
+
+#[test]
+fn additive_generator_validate_inspect_and_render() {
+    let definition = additive_generator_definition();
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"kind\":\"additive\""))
+        .stdout(predicates::str::contains("\"partial_count\":8"))
+        .stdout(predicates::str::contains("\"max_partial_count\":64"))
+        .stdout(predicates::str::contains("\"id\":\"fundamental\""))
+        .stdout(predicates::str::contains("\"has_envelope\":true"))
+        .stdout(predicates::str::contains(
+            "layer.body.generator.additive_spectrum_tilt",
+        ));
+
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("additive.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "note",
+            definition.to_str().expect("utf-8 definition path"),
+            "--note",
+            "60",
+            "--gate",
+            "0.05",
+            "--tail",
+            "0",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    let reader = hound::WavReader::open(output).expect("additive render output");
+    assert_eq!(reader.spec().channels, 2);
+    assert!(
+        reader
+            .into_samples::<f32>()
+            .map(|sample| sample.expect("valid sample"))
+            .all(f32::is_finite)
+    );
+}
+
+#[test]
+fn formant_generator_validate_inspect_and_render() {
+    let definition = formant_generator_definition();
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"kind\":\"formant\""))
+        .stdout(predicates::str::contains("\"partial_count\":48"))
+        .stdout(predicates::str::contains("\"profile_count\":5"))
+        .stdout(predicates::str::contains("\"id\":\"a\""))
+        .stdout(predicates::str::contains("\"frequency_hz\":800.0"))
+        .stdout(predicates::str::contains(
+            "layer.voice.generator.formant_vowel_position",
+        ));
+
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("formant.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "note",
+            definition.to_str().expect("utf-8 definition path"),
+            "--note",
+            "60",
+            "--gate",
+            "0.05",
+            "--tail",
+            "0",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    let reader = hound::WavReader::open(output).expect("formant render output");
     assert_eq!(reader.spec().channels, 2);
     assert!(
         reader
@@ -1009,6 +1162,71 @@ fn hybrid_midi_render_writes_stereo_audio() {
             "midi",
             hybrid_definition().to_str().expect("utf-8 definition path"),
             hybrid_midi().to_str().expect("utf-8 MIDI path"),
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--tail",
+            "0.5",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+        ])
+        .assert()
+        .success();
+    let mut reader = hound::WavReader::open(output).expect("hybrid WAV");
+    assert_eq!(reader.spec().channels, 2);
+    let samples: Vec<f32> = reader
+        .samples()
+        .map(|sample| sample.expect("finite sample"))
+        .collect();
+    assert!(samples.iter().all(|sample| sample.is_finite()));
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
+fn harmonic_formant_hybrid_inspects_all_layers_and_renders_midi() {
+    let definition = harmonic_formant_hybrid_definition();
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "validate",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success();
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            definition.to_str().expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"layer_count\":4"))
+        .stdout(predicates::str::contains("\"kind\":\"formant\""))
+        .stdout(predicates::str::contains("\"kind\":\"additive\""))
+        .stdout(predicates::str::contains("\"kind\":\"sample\""))
+        .stdout(predicates::str::contains("\"kind\":\"noise\""))
+        .stdout(predicates::str::contains("formant_vowel_position"))
+        .stdout(predicates::str::contains("voice_tone"))
+        .stdout(predicates::str::contains("voice_glue"))
+        .stdout(predicates::str::contains("echo"))
+        .stdout(predicates::str::contains("space"));
+
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("harmonic-formant-hybrid.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            definition.to_str().expect("utf-8 definition path"),
+            reference_midi().to_str().expect("utf-8 MIDI path"),
             "--sample-rate",
             "48000",
             "--block-size",

@@ -1,6 +1,6 @@
 # 音源（Instrument）の作り方
 
-このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要なら自作WAVをWavetable、Sample、Granular、またはWave Sequenceとして組み込むところまで進みます。
+このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要ならAdditiveのPartial設計、FormantのVowel Profile設計、自作WAVのWavetable、Sample、Granular、Wave Sequenceへの組み込みまで進みます。
 
 > **本書の範囲**：音源作成の操作手順（人間向けガイド）です。仕様の詳細は本書に書かず、各仕様文書へ委ねます。
 >
@@ -14,7 +14,7 @@
 ## 全体の流れ
 
 ```text
-ひな形の生成 → 音色の編集 → 検証 → Sample / Wavetable追加 → Granular追加 → Wave Sequence追加 → 試聴 → 仕上げ
+ひな形の生成 → 音色の編集 → 検証 → Additive / Formant / Sample / Wavetable追加 → Granular追加 → Wave Sequence追加 → 試聴 → 仕上げ
    Step 1       Step 2     Step 3       Step 4                    Step 5       Step 6             Step 7   Step 8
 ```
 
@@ -23,15 +23,16 @@
 | 1 | ひな形の生成（新規の場合のみ） | `instrument init` |
 | 2 | 音色の編集（Layer、ADSR、Processorなど） | エディタでJSONを編集 |
 | 3 | 検証 | `instrument validate` / `instrument inspect` |
-| 4 | 自作WAVをSampleまたはWavetableとして組み込み | SHA-256計算 → JSON編集 |
-| 5 | 自作WAVをGranularとして組み込み | SHA-256計算 → JSON編集 |
-| 6 | 複数AssetをWave Sequenceとして組み込み | SHA-256計算 → JSON編集 |
-| 7 | 試聴 | `render note` / `render midi` |
-| 8 | 仕上げ（名前・説明・関連docsへの反映） | — |
+| 4 | AdditiveまたはFormantを追加 | JSON編集 |
+| 5 | 自作WAVをSampleまたはWavetableとして組み込み | SHA-256計算 → JSON編集 |
+| 6 | 自作WAVをGranularとして組み込み | SHA-256計算 → JSON編集 |
+| 7 | 複数AssetをWave Sequenceとして組み込み | SHA-256計算 → JSON編集 |
+| 8 | 試聴 | `render note` / `render midi` |
+| 9 | 仕上げ（名前・説明・関連docsへの反映） | — |
 
 ## Step 1. ひな形を生成する
 
-次のコマンドで、Saw Oscillatorの最小Definitionが生成されます。
+次のコマンドで、Saw Oscillatorの最小Definitionが生成されます。倍音を直接設計する場合は、生成後に`generator`をAdditiveまたはFormantへ置き換えるか、[`examples/instruments/additive-generator-reference.json`](../examples/instruments/additive-generator-reference.json)または[`examples/instruments/formant-generator-reference.json`](../examples/instruments/formant-generator-reference.json)を複製します。
 
 ```bash
 sonalloy instrument init my-instrument.json
@@ -116,6 +117,101 @@ Pulse Widthは既存LFOなどのModulation Targetへ接続できます。
   "amount": 0.35,
   "curve": "linear"
 }
+```
+
+### Additiveで倍音を設計する
+
+Additiveは、Note Frequencyに対する1〜64個のPartialを直接記述するGeneratorです。まずは基音を1つ置き、整数Ratioを追加してHarmonic Toneを作ります。`2.73`のようなFractional Ratioを混ぜるとInharmonic BellやMetallic Textureになります。
+
+```json
+"generator": {
+  "additive": {
+    "phase_reset": true,
+    "morph": 0.0,
+    "spectrum_tilt_db_per_octave": -3.0,
+    "inharmonicity": 0.0,
+    "partials": [
+      { "id": "fundamental", "ratio": 1.0, "amplitude_a": 1.0, "amplitude_b": 0.7, "phase": 0.0 },
+      { "id": "second", "ratio": 2.0, "amplitude_a": 0.45, "amplitude_b": 0.8, "phase": 0.0 },
+      { "id": "metal", "ratio": 2.73, "amplitude_a": 0.15, "amplitude_b": 0.5, "phase": 0.25 }
+    ]
+  }
+}
+```
+
+`amplitude_a`と`amplitude_b`は`morph = 0`と`morph = 1`のSpectrumです。Morph中にRatioやPhaseは変わらないため、Partialの増減による不連続を避けられます。`spectrum_tilt_db_per_octave`は高次Partialの明るさ、`inharmonicity`は高次RatioのStretchを制御します。各Partialには既存ADSRの`envelope`を任意で指定できます。Layer EnvelopeはPartial Sumの後に適用されます。
+
+次のParameterをLFO、Modulation Envelope、Mod Wheel、Aftertouch、またはEventから制御できます。
+
+- `layer.<layer_id>.generator.additive_morph`
+- `layer.<layer_id>.generator.additive_spectrum_tilt`
+- `layer.<layer_id>.generator.additive_inharmonicity`
+
+`instrument inspect --json`でPartial Count、Ratio、Amplitude、Phase、Envelopeの有無と3つのParameter Descriptorを確認します。完全無音のSpectrum、空のPartial配列、重複ID、65個以上のPartialはValidation Errorです。実際の8 Partial構成は[`additive-generator-reference.json`](../examples/instruments/additive-generator-reference.json)にあります。
+
+### FormantでVowel Spectrumを設計する
+
+Formantは基音の整数倍Partialへ、母音の共鳴を表す5本のBandを適用するGeneratorです。`profiles`へ1〜8個のVowel ProfileをDefinition順に記述し、各Profileは`formants`へ周波数の昇順に5本のBandを持ちます。Vowel Positionは隣接Profileを補間し、Frequency / BandwidthはGeometric、GainはdB Linearで変化します。
+
+```json
+"generator": {
+  "formant": {
+    "phase_reset": true,
+    "partial_count": 48,
+    "vowel_position": 0.0,
+    "formant_shift_cents": 0.0,
+    "throat": 0.5,
+    "spectral_tilt_db_per_octave": -6.0,
+    "profiles": [
+      {
+        "id": "a",
+        "formants": [
+          { "frequency_hz": 800.0, "bandwidth_hz": 80.0, "gain_db": 6.0 },
+          { "frequency_hz": 1150.0, "bandwidth_hz": 90.0, "gain_db": 3.0 },
+          { "frequency_hz": 2900.0, "bandwidth_hz": 120.0, "gain_db": -3.0 },
+          { "frequency_hz": 3900.0, "bandwidth_hz": 150.0, "gain_db": -12.0 },
+          { "frequency_hz": 4950.0, "bandwidth_hz": 200.0, "gain_db": -18.0 }
+        ]
+      },
+      {
+        "id": "i",
+        "formants": [
+          { "frequency_hz": 300.0, "bandwidth_hz": 60.0, "gain_db": 3.0 },
+          { "frequency_hz": 2500.0, "bandwidth_hz": 100.0, "gain_db": 6.0 },
+          { "frequency_hz": 3200.0, "bandwidth_hz": 120.0, "gain_db": -6.0 },
+          { "frequency_hz": 4300.0, "bandwidth_hz": 150.0, "gain_db": -12.0 },
+          { "frequency_hz": 5500.0, "bandwidth_hz": 200.0, "gain_db": -18.0 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`partial_count`は1〜64、Profileは1〜8個、Bandの周波数は100〜12000 Hz、Bandwidthは20〜5000 Hz、Gainは-60〜12 dBです。`formant_shift_cents`はFormantの中心周波数とBandwidthを移動し、基音のPitchは変えません。`throat`はBandwidthを0.5〜2倍、`spectral_tilt_db_per_octave`はPartialの高域傾斜を制御します。Formant固有のEnvelopeは持たず、Layer EnvelopeをPartial Sumへ適用します。
+
+次の4つをModulation TargetまたはParameter Changeから制御できます。
+
+- `layer.<layer_id>.generator.formant_vowel_position`（0〜1）
+- `layer.<layer_id>.generator.formant_shift`（-2400〜2400 cents）
+- `layer.<layer_id>.generator.formant_throat`（0〜1）
+- `layer.<layer_id>.generator.formant_spectral_tilt`（-24〜12 dB/octave）
+
+`instrument inspect --json`でProfile Count、5本のBand、4つのParameter Descriptor、Output Modeを確認します。実際の5 Profile構成は[`formant-generator-reference.json`](../examples/instruments/formant-generator-reference.json)にあり、Additiveと重ねる例は[`harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)にあります。
+
+### Harmonic / Formant Hybridを作る
+
+FormantへAdditiveを重ねるとVocal-likeな共鳴へ基音と倍音の芯を加えられます。SampleをAttack、NoiseをAirとして追加し、Layer Filter / Drive、Voice Filter / Drive、Global Delay / Reverbを順に配置すると、Transient、持続成分、空気感、空間を一つのInstrumentで管理できます。動作する4 Layer構成は[`harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)です。
+
+HybridではFormantの4 ParameterへLFOやModulation Envelopeを接続し、Mod WheelやAftertouchでFormant ShiftとGlobal Effect Mixを操作できます。最初に各LayerのGainとEnvelopeを単独で確認し、その後に`instrument inspect --json`でProcessor ChainとRouteを確認します。
+
+```bash
+sonalloy instrument validate examples/instruments/harmonic-formant-hybrid-reference.json
+sonalloy instrument inspect examples/instruments/harmonic-formant-hybrid-reference.json --json
+sonalloy render midi examples/instruments/harmonic-formant-hybrid-reference.json \
+  testdata/midi/basic-poly-synth-phrase.mid \
+  --sample-rate 48000 --block-size 257 --tail 0.5 \
+  --output out/harmonic-formant-hybrid/midi.wav
 ```
 
 Hard Sync、Waveshaping、UnisonはOscillator Definitionへ追加します。Hard SyncはSineでは使用できず、開始`phase`とHard Sync併用時の`phase_spread`は0にします。

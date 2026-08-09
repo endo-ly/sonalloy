@@ -1,6 +1,6 @@
 # Sonalloy
 
-Sonalloyは、音声素材と音響合成をLayerとして組み合わせ、演奏可能なInstrumentへ変換する音源エンジンです。JSONのDefinitionをCompileし、Basic / Complex Oscillator、Wavetable、4 Operator Modulation、Stereo Sample、Granular Generator、Wave Sequenceを同じVoiceで合成して、Stereo WAVをOffline Renderします。SampleはRegion、Reverse、Loop、Constant-power Crossfade Loop、Release Trigger、Fixed Stretch、Tempo Syncを備え、GranularはPosition、Grain Size、Density、Pitch、Randomness、Pan Spreadを備え、Wave Sequenceは複数Step、Seconds / Beats Duration、Direction、Crossfade、Step Pitch / Gainを備えます。Complex OscillatorはPhase Distortion、Wavefold、Oscillator Feedbackを含みます。
+Sonalloyは、音声素材と音響合成をLayerとして組み合わせ、演奏可能なInstrumentへ変換する音源エンジンです。JSONのDefinitionをCompileし、Basic / Complex Oscillator、Additive、Formant、Wavetable、4 Operator Modulation、Stereo Sample、Granular Generator、Wave Sequenceを同じVoiceで合成して、Stereo WAVをOffline Renderします。Additiveは最大64 Partial、Spectrum Morph、Spectrum Tilt、Inharmonicity、Partial Envelopeを備え、Formantは最大64 Harmonic Partial、5バンドProfile、Vowel Position、Formant Shift、Throat、Spectral Tiltを備えます。SampleはRegion、Reverse、Loop、Constant-power Crossfade Loop、Release Trigger、Fixed Stretch、Tempo Syncを備え、GranularはPosition、Grain Size、Density、Pitch、Randomness、Pan Spreadを備え、Wave Sequenceは複数Step、Seconds / Beats Duration、Direction、Crossfade、Step Pitch / Gainを備えます。Complex OscillatorはPhase Distortion、Wavefold、Oscillator Feedbackを含み、Formant / Additive / Sample / NoiseのHybrid Layer、Filter / Drive / Delay / Reverb、MIDI Modulationを同じRuntimeで扱えます。
 
 ## クイックスタート
 

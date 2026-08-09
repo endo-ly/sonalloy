@@ -12,6 +12,70 @@ pub(crate) struct GeneratorParameterSpec {
 }
 
 pub(crate) const GRANULAR_GRAIN_POOL_LIMIT: usize = 64;
+pub(crate) const MAX_PARTIALS: usize = 64;
+
+pub(crate) const ADDITIVE_MORPH: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "additive_morph",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const ADDITIVE_SPECTRUM_TILT: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "additive_spectrum_tilt",
+    unit: ParameterUnit::DecibelsPerOctave,
+    scale: ParameterScale::Linear,
+    min: -24.0,
+    max: 12.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const ADDITIVE_INHARMONICITY: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "additive_inharmonicity",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const FORMANT_VOWEL_POSITION: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "formant_vowel_position",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const FORMANT_SHIFT: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "formant_shift",
+    unit: ParameterUnit::Cents,
+    scale: ParameterScale::Linear,
+    min: -2400.0,
+    max: 2400.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const FORMANT_THROAT: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "formant_throat",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const FORMANT_SPECTRAL_TILT: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "formant_spectral_tilt",
+    unit: ParameterUnit::DecibelsPerOctave,
+    scale: ParameterScale::Linear,
+    min: -24.0,
+    max: 12.0,
+    smoothing_seconds: 0.010,
+};
 
 pub(crate) const PULSE_WIDTH: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "pulse_width",
@@ -203,6 +267,13 @@ pub(crate) fn is_suffix(value: &str) -> bool {
         UNISON_DETUNE,
         UNISON_SPREAD,
         NOISE_CORRELATION,
+        ADDITIVE_MORPH,
+        ADDITIVE_SPECTRUM_TILT,
+        ADDITIVE_INHARMONICITY,
+        FORMANT_VOWEL_POSITION,
+        FORMANT_SHIFT,
+        FORMANT_THROAT,
+        FORMANT_SPECTRAL_TILT,
     ]
     .into_iter()
     .any(|spec| spec.suffix == value)

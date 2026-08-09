@@ -108,6 +108,17 @@ flowchart LR
 - 人間の確認：波形間の音色差、高音域のAlias、Pulse Widthの差、PWMのClick、Noise色の差と周期性、Brownの低域偏り、Stereo Correlationの幅、新規Runtime間のNoise冒頭一致
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
+### Harmonic / Formant Synthesis
+
+- 保存先：`review-output/harmonic-formant-synthesis/`（audio/technical / audio/performance / definitions / events / midi / assets / `additive-inspect.json` / `inspect.json` / `hybrid-inspect.json` / metrics.json / review-summary.md）
+- 生成：`python scripts/review/generate_harmonic_formant_package.py`
+- 内容：AdditiveのSingle Fundamental、Harmonic Organ、Fractional Ratio、Spectrum A / B、Morph、Tilt、Inharmonicity、Partial Envelope、High-note Alias Fade、16-note Polyphony、Formantの5 Vowel Profile、Vowel Position、Formant Shift、Throat、Spectral Tilt、Vowel Position LFO、High-note Alias Fade、Formant + Noise Texture、HybridのLayer Mix、Processor、Modulation、Events、MIDI Renderを一つのPackageへ保存する
+- Performance：Release BuildでAdditiveの1 / 16 / 32 / 64 Partial × 1 / 4 / 8 / 16 Voice、Formantの32 / 64 Partial × 1 / 5 / 8 Profile、64 Partial × 5 Profile × 16 Voiceを2秒Renderし、Audio Duration、Elapsed Time、`elapsed / audio_duration`、Work Units、Finite性、Peak、RMS、相対Realtime比を`metrics.json`へ記録する。絶対的な合格閾値は設けず、Partial / Voice / Profileに対する増加傾向を確認する
+- Metrics：Sine TableのLength / Guard / Lookup最大絶対誤差、Finite性、Peak / RMS / DC、単音Spectrum、Profile差分、Parameter差分、Hybrid Control差分、Sample Rate 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024、Fresh Runtime再現性、High-note高域Energy、既存Reference DefinitionのValidateと代表Render
+- 自動確認：1〜64 Partial、1〜8 Profile、各5 Band、Parameter Descriptor、Partial EnvelopeのLifecycle、Profile Morph、Formant Shiftで基音Pitchを維持すること、Throat / Tilt、4 Generator Layer、Processor Chain、Route Target、MIDI出力、既存のBasic / Sample / Processor / Essential / Granular / Wave Sequence / Digital Referenceの回帰、性能計測の全CaseのFinite性と非無音性
+- 人間の確認：基音と整数倍Partialの明瞭さ、Inharmonic Bellの金属感、Additive Morph / Tilt / Inharmonicity / Partial Envelope、高音域AliasのFade、各Vowelの共鳴位置、Vowel Morphの連続性、Formant Shiftで基音が変わらないこと、Throat、Spectral Tilt、Vowel Position LFO、Noise Texture、Sample Attack、Layer / Voice / Global Processor、Delay / Reverb Tail、MIDI Phrase、Polyphony、Voice Stealing、Reset後の発音
+- `audio/technical/`と`audio/performance/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
 ### Digital Synthesis
 
 - 保存先：`review-output/digital-synthesis/`（assets / audio/technical / definitions / events / midi / `inspect.json` / `operator-inspect.json` / `complex-inspect.json` / `complex-phase-inspect.json` / `digital-hybrid-inspect.json` / metrics.json / review-summary.md）

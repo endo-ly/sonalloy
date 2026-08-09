@@ -5,12 +5,12 @@ use approx::assert_relative_eq;
 use sonalloy_core::{
     AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, DriveProcessorDefinition,
     GeneratorDefinition, HardSyncDefinition, InstrumentDefinition, InstrumentProcessor,
-    LfoDefinition, LfoWaveform, ModulationCurve, ModulationDefinition, ModulationRouteDefinition,
-    ModulationSourceDefinition, NoiseColor, NoiseDefinition, OscillatorDefinition,
-    OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec,
-    ProcessorDefinition, RandomDefinition, RenderRequest, SampleZoneDefinition,
-    SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime, UnisonDefinition,
-    WaveshapingDefinition, compile_instrument, render_instrument,
+    InstrumentRuntime, LfoDefinition, LfoWaveform, ModulationCurve, ModulationDefinition,
+    ModulationRouteDefinition, ModulationSourceDefinition, NoiseColor, NoiseDefinition,
+    OscillatorDefinition, OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEvent,
+    ProcessEventKind, ProcessSpec, ProcessorDefinition, RandomDefinition, RenderRequest,
+    SampleZoneDefinition, SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime,
+    UnisonDefinition, WaveshapingDefinition, compile_instrument, render_instrument,
 };
 
 fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
@@ -740,6 +740,237 @@ fn moving_hybrid_routes_cover_the_reference_signal_paths() {
     );
 }
 
+fn harmonic_formant_hybrid_reference() -> (InstrumentDefinition, PathBuf) {
+    let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/harmonic-formant-hybrid-reference.json");
+    let definition: InstrumentDefinition = serde_json::from_str(
+        &std::fs::read_to_string(&definition_path).expect("harmonic formant hybrid exists"),
+    )
+    .expect("harmonic formant hybrid parses");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    (definition, base_dir)
+}
+
+fn assert_harmonic_formant_hybrid_structure(definition: &InstrumentDefinition) {
+    assert_eq!(definition.layers.len(), 4);
+    assert!(matches!(
+        &definition.layers[0].generator,
+        sonalloy_core::GeneratorDefinition::Formant(_)
+    ));
+    assert!(matches!(
+        &definition.layers[1].generator,
+        sonalloy_core::GeneratorDefinition::Additive(_)
+    ));
+    assert!(matches!(
+        &definition.layers[2].generator,
+        sonalloy_core::GeneratorDefinition::Sample(_)
+    ));
+    assert!(matches!(
+        &definition.layers[3].generator,
+        sonalloy_core::GeneratorDefinition::Noise(_)
+    ));
+    assert_eq!(definition.voice_processors.len(), 2);
+    assert_eq!(definition.global_processors.len(), 2);
+    let routes = &definition
+        .modulation
+        .as_ref()
+        .expect("hybrid modulation")
+        .routes;
+    for expected in [
+        (
+            "vowel_motion",
+            "layer.voice.generator.formant_vowel_position",
+        ),
+        (
+            "brightness_motion",
+            "layer.voice.generator.formant_spectral_tilt",
+        ),
+        ("formant_breath", "layer.voice.generator.formant_throat"),
+        ("mod_wheel", "layer.voice.generator.formant_shift"),
+        ("vowel_motion", "voice.processor.voice_tone.cutoff"),
+        ("mod_wheel", "global.processor.space.mix"),
+        ("aftertouch", "global.processor.echo.mix"),
+    ] {
+        assert!(
+            routes
+                .iter()
+                .any(|route| (route.source.as_str(), route.target.as_str()) == expected),
+            "missing route {} -> {}",
+            expected.0,
+            expected.1
+        );
+    }
+}
+
+fn render_harmonic_formant_hybrid(
+    definition: &InstrumentDefinition,
+    base_dir: &std::path::Path,
+    block_size: usize,
+) -> sonalloy_core::RenderedAudio {
+    let result = compile_instrument(
+        definition,
+        &CompileContext {
+            definition_base_dir: base_dir.to_path_buf(),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid spec"),
+        },
+    );
+    let instrument = result.instrument.expect("hybrid compiles");
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.severity != sonalloy_core::DiagnosticSeverity::Error)
+    );
+    assert_eq!(instrument.layers.len(), 4);
+    assert_eq!(instrument.voice_processors.len(), 2);
+    assert_eq!(instrument.global_processors.len(), 2);
+    for parameter in [
+        "layer.voice.generator.formant_vowel_position",
+        "layer.voice.generator.formant_shift",
+        "layer.voice.generator.formant_throat",
+        "layer.voice.generator.formant_spectral_tilt",
+        "voice.processor.voice_tone.cutoff",
+        "global.processor.space.mix",
+    ] {
+        assert!(
+            instrument.parameter_handle(parameter).is_some(),
+            "missing compiled parameter {parameter}"
+        );
+    }
+    let formant_shift = instrument
+        .parameter_handle("layer.voice.generator.formant_shift")
+        .expect("formant shift handle");
+    render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size,
+            duration_frames: 10_240,
+            tail_frames: 2_048,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 112,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 2_048,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: formant_shift,
+                    normalized: 0.75,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 4_096,
+                kind: ProcessEventKind::ModWheel { value: 0.8 },
+            },
+            ScheduledEvent {
+                absolute_frame: 6_144,
+                kind: ProcessEventKind::Aftertouch { value: 0.7 },
+            },
+            ScheduledEvent {
+                absolute_frame: 8_192,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ],
+    )
+    .expect("hybrid render succeeds")
+}
+
+fn process_harmonic_formant_hybrid(
+    runtime: &mut InstrumentRuntime,
+    events: &[ProcessEvent],
+) -> Vec<Vec<f32>> {
+    let mut left = vec![0.0_f32; 256];
+    let mut right = vec![0.0_f32; 256];
+    let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+    runtime
+        .process(ProcessBlock {
+            frames: 256,
+            context: ProcessContext {
+                absolute_frame: 0,
+                tempo_bpm: 120.0,
+            },
+            events,
+            output: &mut output,
+        })
+        .expect("hybrid process succeeds");
+    vec![left, right]
+}
+
+#[test]
+fn harmonic_formant_hybrid_integrates_generators_processors_and_modulation() {
+    let (definition, base_dir) = harmonic_formant_hybrid_reference();
+    assert_harmonic_formant_hybrid_structure(&definition);
+
+    let reference = render_harmonic_formant_hybrid(&definition, &base_dir, 32);
+    assert!(
+        reference
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert!(
+        reference
+            .channels
+            .iter()
+            .flatten()
+            .any(|sample| sample.abs() > 0.01)
+    );
+    for block_size in [64, 257, 1_024] {
+        let candidate = render_harmonic_formant_hybrid(&definition, &base_dir, block_size);
+        for (expected, actual) in reference.channels[0].iter().zip(&candidate.channels[0]) {
+            assert_relative_eq!(*expected, *actual, epsilon = 1.0e-5);
+        }
+        for (expected, actual) in reference.channels[1].iter().zip(&candidate.channels[1]) {
+            assert_relative_eq!(*expected, *actual, epsilon = 1.0e-5);
+        }
+    }
+    let fresh = render_harmonic_formant_hybrid(&definition, &base_dir, 257);
+    assert_eq!(
+        fresh.channels,
+        render_harmonic_formant_hybrid(&definition, &base_dir, 257).channels
+    );
+
+    let compiled = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir,
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+        },
+    )
+    .instrument
+    .expect("hybrid compiles for reset");
+    let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid spec");
+    let event = [ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 3,
+            note_number: 60,
+            velocity: 112,
+        },
+    }];
+    let mut runtime = compiled.instantiate();
+    runtime.prepare(spec).expect("hybrid runtime prepares");
+    let first = process_harmonic_formant_hybrid(&mut runtime, &event);
+    runtime.reset().expect("hybrid runtime resets");
+    let reset = process_harmonic_formant_hybrid(&mut runtime, &event);
+    assert_eq!(first, reset);
+    let mut fresh_runtime = compiled.instantiate();
+    fresh_runtime
+        .prepare(spec)
+        .expect("fresh hybrid runtime prepares");
+    assert_eq!(
+        reset,
+        process_harmonic_formant_hybrid(&mut fresh_runtime, &event)
+    );
+}
+
 #[test]
 fn expressive_reference_renders_at_supported_sample_rates() {
     let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1181,6 +1412,8 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Additive(_)
+        | sonalloy_core::compiler::CompiledGenerator::Formant(_)
         | sonalloy_core::compiler::CompiledGenerator::Granular(_)
         | sonalloy_core::compiler::CompiledGenerator::WaveSequence(_)
         | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
@@ -1791,6 +2024,8 @@ fn sample_without_hash_is_enabled_with_a_warning() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Additive(_)
+        | sonalloy_core::GeneratorDefinition::Formant(_)
         | sonalloy_core::GeneratorDefinition::Granular(_)
         | sonalloy_core::GeneratorDefinition::WaveSequence(_)
         | sonalloy_core::GeneratorDefinition::Wavetable(_)
@@ -1820,6 +2055,8 @@ fn sample_without_hash_is_enabled_with_a_warning() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Additive(_)
+        | sonalloy_core::compiler::CompiledGenerator::Formant(_)
         | sonalloy_core::compiler::CompiledGenerator::Granular(_)
         | sonalloy_core::compiler::CompiledGenerator::WaveSequence(_)
         | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
@@ -1842,6 +2079,8 @@ fn absolute_sample_path_is_enabled_with_a_warning() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Additive(_)
+        | sonalloy_core::GeneratorDefinition::Formant(_)
         | sonalloy_core::GeneratorDefinition::Granular(_)
         | sonalloy_core::GeneratorDefinition::WaveSequence(_)
         | sonalloy_core::GeneratorDefinition::Wavetable(_)
@@ -1875,6 +2114,8 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Additive(_)
+        | sonalloy_core::GeneratorDefinition::Formant(_)
         | sonalloy_core::GeneratorDefinition::Granular(_)
         | sonalloy_core::GeneratorDefinition::WaveSequence(_)
         | sonalloy_core::GeneratorDefinition::Wavetable(_)
@@ -1906,6 +2147,8 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Additive(_)
+        | sonalloy_core::compiler::CompiledGenerator::Formant(_)
         | sonalloy_core::compiler::CompiledGenerator::Granular(_)
         | sonalloy_core::compiler::CompiledGenerator::WaveSequence(_)
         | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)

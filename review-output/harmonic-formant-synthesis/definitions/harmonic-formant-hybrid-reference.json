@@ -1,0 +1,483 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Harmonic Formant Hybrid Reference",
+    "author": null,
+    "description": "Formant vowel spectrum layered with a harmonic additive body"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "voice",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.75,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "formant": {
+          "phase_reset": true,
+          "partial_count": 48,
+          "vowel_position": 0.0,
+          "formant_shift_cents": 0.0,
+          "throat": 0.5,
+          "spectral_tilt_db_per_octave": -6.0,
+          "profiles": [
+            {
+              "id": "a",
+              "formants": [
+                {
+                  "frequency_hz": 800.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 1150.0,
+                  "bandwidth_hz": 90.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2900.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3900.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
+              ]
+            },
+            {
+              "id": "e",
+              "formants": [
+                {
+                  "frequency_hz": 530.0,
+                  "bandwidth_hz": 70.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 1840.0,
+                  "bandwidth_hz": 100.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2480.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3650.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
+              ]
+            },
+            {
+              "id": "i",
+              "formants": [
+                {
+                  "frequency_hz": 270.0,
+                  "bandwidth_hz": 60.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 2290.0,
+                  "bandwidth_hz": 100.0,
+                  "gain_db": -6.0
+                },
+                {
+                  "frequency_hz": 3010.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3900.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
+              ]
+            },
+            {
+              "id": "o",
+              "formants": [
+                {
+                  "frequency_hz": 570.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 840.0,
+                  "bandwidth_hz": 90.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2410.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3400.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
+              ]
+            },
+            {
+              "id": "u",
+              "formants": [
+                {
+                  "frequency_hz": 300.0,
+                  "bandwidth_hz": 60.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 870.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2240.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3400.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "vowel_tone",
+          "cutoff_hz": 9000.0,
+          "resonance": 0.1
+        }
+      ]
+    },
+    {
+      "id": "harmonic_body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.75,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": -6.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "fundamental",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.0
+            },
+            {
+              "id": "second",
+              "ratio": 2.0,
+              "amplitude_a": 0.4,
+              "amplitude_b": 0.4,
+              "phase": 0.0
+            },
+            {
+              "id": "third",
+              "ratio": 3.0,
+              "amplitude_a": 0.25,
+              "amplitude_b": 0.25,
+              "phase": 0.0
+            },
+            {
+              "id": "fifth",
+              "ratio": 5.0,
+              "amplitude_a": 0.15,
+              "amplitude_b": 0.15,
+              "phase": 0.0
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "drive",
+          "id": "harmonic_drive",
+          "amount": 0.08,
+          "mix": 0.2
+        }
+      ]
+    },
+    {
+      "id": "attack",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.08,
+        "sustain_level": 0.05,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "main",
+              "asset": {
+                "path": "../assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "region": {
+                  "start_seconds": 0.0,
+                  "end_seconds": null
+                },
+                "direction": "forward",
+                "loop": null,
+                "time": {
+                  "mode": "resample"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "attack_tone",
+          "cutoff_hz": 11000.0,
+          "resonance": 0.06
+        },
+        {
+          "type": "drive",
+          "id": "attack_drive",
+          "amount": 0.12,
+          "mix": 0.25
+        }
+      ]
+    },
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -30.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.08,
+        "sustain_level": 0.7,
+        "release_seconds": 0.1
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 7124,
+          "stereo_correlation": 0.35
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "voice_tone",
+      "cutoff_hz": 7600.0,
+      "resonance": 0.14
+    },
+    {
+      "type": "drive",
+      "id": "voice_glue",
+      "amount": 0.08,
+      "mix": 0.2
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "delay",
+      "id": "echo",
+      "time_seconds": 0.24,
+      "feedback": 0.28,
+      "mix": 0.16
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.01,
+      "decay": 0.6,
+      "damping": 0.35,
+      "width": 0.85,
+      "mix": 0.18
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "type": "lfo",
+        "id": "vowel_motion",
+        "waveform": "sine",
+        "rate_hz": 0.18,
+        "phase": 0.0
+      },
+      {
+        "type": "lfo",
+        "id": "brightness_motion",
+        "waveform": "triangle",
+        "rate_hz": 0.13,
+        "phase": 0.25
+      },
+      {
+        "type": "envelope",
+        "id": "formant_breath",
+        "attack_seconds": 0.02,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.4,
+        "release_seconds": 0.2
+      }
+    ],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.voice.gain",
+        "amount": 0.04,
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.harmonic_body.gain",
+        "amount": 0.04,
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.attack.gain",
+        "amount": 0.04,
+        "curve": "linear"
+      },
+      {
+        "source": "vowel_motion",
+        "target": "layer.voice.generator.formant_vowel_position",
+        "amount": 0.75,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "brightness_motion",
+        "target": "layer.voice.generator.formant_spectral_tilt",
+        "amount": 0.18,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "formant_breath",
+        "target": "layer.voice.generator.formant_throat",
+        "amount": 0.3,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.voice.generator.formant_shift",
+        "amount": 0.35,
+        "curve": "linear"
+      },
+      {
+        "source": "vowel_motion",
+        "target": "voice.processor.voice_tone.cutoff",
+        "amount": 0.08,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.space.mix",
+        "amount": 0.25,
+        "curve": "linear"
+      },
+      {
+        "source": "aftertouch",
+        "target": "global.processor.echo.mix",
+        "amount": 0.12,
+        "curve": "linear"
+      }
+    ]
+  }
+}

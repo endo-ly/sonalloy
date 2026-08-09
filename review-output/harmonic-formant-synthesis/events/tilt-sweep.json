@@ -1,0 +1,22 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 2,
+      "note": 60,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 4096,
+      "type": "parameter_change",
+      "parameter": "layer.body.generator.additive_spectrum_tilt",
+      "normalized": 1.0
+    },
+    {
+      "absolute_frame": 12000,
+      "type": "note_off",
+      "note_id": 2
+    }
+  ]
+}

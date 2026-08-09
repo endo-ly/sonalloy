@@ -1,6 +1,6 @@
 ---
 name: create-instrument
-description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add a Sample, Wavetable, Operator Modulation, or Granular layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi. Not for CLI reference questions (docs/cli.md) or architecture questions (docs/architecture.md).
+description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add an Additive, Formant, Sample, Wavetable, Operator Modulation, or Granular layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi. Not for CLI reference questions (docs/cli.md) or architecture questions (docs/architecture.md).
 ---
 
 # Create Instrument
@@ -11,7 +11,7 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 
 | | 内容 |
 |---|---|
-| 対象 | 新規Instrumentの作成、既存Definitionの編集、Sample / Wavetable / Operator Modulation / Granular / Wave Sequence Layerの追加、音源の試聴・修正 |
+| 対象 | 新規Instrumentの作成、既存Definitionの編集、Additive / Formant / Sample / Wavetable / Operator Modulation / Granular / Wave Sequence Layerの追加、音源の試聴・修正 |
 | 対象外 | 仕様の説明（`docs/instrument-definition.md`）、CLIの全コマンド解説（`docs/cli.md`）、実行時挙動（`docs/runtime-processing.md`） |
 | 成果物 | Definition JSONと、`render`で生成した試聴用WAV（`out/<name>/`配下） |
 
@@ -26,8 +26,11 @@ Step 5  Operator Modulation Layerを追加する（Operator Modulationを使う�
 Step 6  Sample Layerを追加する（Sampleを使う場合）
 Step 7  Granular Layerを追加する（Granularを使う場合）
 Step 8  Wave Sequence Layerを追加する（Wave Sequenceを使う場合）
-Step 9  render note / render midi で試聴する
-Step 10 仕上げる（関連docsへの反映、差分確認）
+Step 9  Additive Layerを追加する（Additiveを使う場合）
+Step 10 Formant Layerを追加する（Formantを使う場合）
+Step 11 Harmonic / Formant Hybridを構成する（複数LayerとProcessorを組み合わせる場合）
+Step 12 render note / render events / render midi で試聴する
+Step 13 仕上げる（関連docsへの反映、差分確認）
 ```
 
 ## Step 1: ひな形を生成する
@@ -45,7 +48,7 @@ sonalloy instrument init <path>
 - `schema_version`は`1`のみ。未知FieldはJSON Parse Errorになる
 - `polyphony`は1〜64。`gain_db`は-60〜12、`pan`は-1〜1、`tuning_cents`は-1200〜1200
 - ADSRは0〜30秒、Sustainは0〜1。Keyは0〜127、Velocityは1〜127
-- Generatorは`oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、`operator_modulation`、`sample`、`granular`、または`wave_sequence`
+- Generatorは`oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、`operator_modulation`、`sample`、`granular`、`wave_sequence`、`additive`、または`formant`
 - Oscillatorの`waveform`は`{"type": "..."}`形式。Pulseは`pulse_width`、全Oscillatorは`phase_reset`と`phase`を持つ
 - Wavetableは`asset`、`frame_length`（64〜4096の2の冪）、`position`（0〜1）、`phase_reset`、`phase`を持つ。Asset全体のSample数がFrame Lengthで割り切れることを確認する
 - WavetableのSource Sample RateはPitchへ使われず、Compile時にResampleされない。SHA-256を指定し、`instrument inspect --json`でPrepared状態とBandを確認する
@@ -240,7 +243,80 @@ sha256sum <path>
 }
 ```
 
-## Step 9: 試聴する
+## Step 9: Additive Layerを追加する（Additiveを使う場合）
+
+1. `examples/instruments/additive-generator-reference.json`を基に`generator.additive`を追加する
+2. `partials`へ1〜64個の非負振幅を持つPartialを指定する。`id`は空でない一意の値、`ratio`は基音に対する周波数比、`phase`は初期位相です。Partialごとに任意のADSR Envelopeを指定できます
+3. `morph`はA/Bの振幅スペクトルを補間し、`spectrum_tilt_db_per_octave`は倍音番号に対する傾き、`inharmonicity`は周波数比を非整数側へ曲げます。Modulation Targetには`additive_morph`、`additive_spectrum_tilt`、`additive_inharmonicity`を指定できます
+4. `instrument validate`でPartial数、ID、比率、振幅、位相、Envelope、全消音を検証し、`instrument inspect --json`でPartial数、制御値、Parameter ID、Envelopeの有無を確認する
+
+```json
+{
+  "generator": {
+    "additive": {
+      "phase_reset": true,
+      "morph": 0.0,
+      "spectrum_tilt_db_per_octave": -3.0,
+      "inharmonicity": 0.15,
+      "partials": [
+        { "id": "fundamental", "ratio": 1.0, "amplitude_a": 1.0, "amplitude_b": 0.9, "phase": 0.0 },
+        { "id": "second", "ratio": 2.0, "amplitude_a": 0.4, "amplitude_b": 0.7, "phase": 0.0,
+          "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.2, "sustain_level": 0.55, "release_seconds": 0.12 } }
+      ]
+    }
+  }
+}
+```
+
+## Step 10: Formant Layerを追加する（Formantを使う場合）
+
+1. [`examples/instruments/formant-generator-reference.json`](../../../examples/instruments/formant-generator-reference.json)を基に`generator.formant`を追加する
+2. `profiles`へ1〜8個のProfileを記述し、各Profileの`formants`へ周波数昇順の5本のBandを指定する。Frequencyは100〜12000 Hz、Bandwidthは20〜5000 Hz、Gainは-60〜12 dBに収める
+3. `partial_count`は1〜64、`vowel_position`と`throat`は0〜1、`formant_shift_cents`は-2400〜2400、`spectral_tilt_db_per_octave`は-24〜12を指定する。Vowel Positionは隣接Profileを補間し、Formant ShiftはBandだけを移動する
+4. `instrument validate`でProfile / Band / Dynamic ParameterのRangeを検証し、`instrument inspect --json`でProfile Count、Band、4つのParameter ID、Output Modeを確認する
+
+```json
+{
+  "generator": {
+    "formant": {
+      "phase_reset": true,
+      "partial_count": 48,
+      "vowel_position": 0.0,
+      "formant_shift_cents": 0.0,
+      "throat": 0.5,
+      "spectral_tilt_db_per_octave": -6.0,
+      "profiles": [
+        {
+          "id": "a",
+          "formants": [
+            { "frequency_hz": 800.0, "bandwidth_hz": 80.0, "gain_db": 6.0 },
+            { "frequency_hz": 1150.0, "bandwidth_hz": 90.0, "gain_db": 3.0 },
+            { "frequency_hz": 2900.0, "bandwidth_hz": 120.0, "gain_db": -3.0 },
+            { "frequency_hz": 3900.0, "bandwidth_hz": 150.0, "gain_db": -12.0 },
+            { "frequency_hz": 4950.0, "bandwidth_hz": 200.0, "gain_db": -18.0 }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+`formant_vowel_position`、`formant_shift`、`formant_throat`、`formant_spectral_tilt`をModulation TargetまたはParameter Changeから制御できます。Formant固有Envelopeはなく、Layer EnvelopeがPartial Sumへ適用されます。
+
+## Step 11: Harmonic / Formant Hybridを構成する
+
+1. [`examples/instruments/harmonic-formant-hybrid-reference.json`](../../../examples/instruments/harmonic-formant-hybrid-reference.json)を基に、Formant、Additive、Sample、NoiseのLayerを役割ごとに配置する
+2. Sample AssetのPathとSHA-256を確認し、Layer / Voice / Global Processorの配置、順序、Parameter IDを`instrument inspect --json`で確認する
+3. LFO、Modulation Envelope、Velocity、Mod Wheel、AftertouchをFormant ParameterまたはProcessorへ接続する場合は、Route TargetがDefinitionのLayer IDとProcessor IDに一致することを確認する
+4. `render events`でParameter ChangeとControl Eventを含むPhraseを生成し、`render midi`でNote、Velocity、MIDI Controlを含む出力を生成する
+
+```bash
+sonalloy instrument validate examples/instruments/harmonic-formant-hybrid-reference.json
+sonalloy instrument inspect examples/instruments/harmonic-formant-hybrid-reference.json --json
+```
+
+## Step 12: 試聴する
 
 単音の確認：
 
@@ -260,7 +336,7 @@ sonalloy render midi <definition> <midi-file> \
 
 `render note`と`render events`の`--tempo`はTempo Syncの処理Tempoを指定します。`render midi`はMIDI内のTempo Meta EventからTempo Mapを作成します。出力は32-bit float、2 Channel、指定Sample RateのStereo WAVです。試聴WAVは音源ごとに`out/<name>/`へ分けて出力し、親Directoryは事前に作成してください。生成後は`scripts/review/measure_wav.py`でFinite性・Peak / RMS / DCを確認できます。
 
-## Step 10: 仕上げる
+## Step 13: 仕上げる
 
 - `metadata.name`と`metadata.description`を実際の音色に合わせる
 - `validate`と`inspect --json`のWarning、Output Mode、Parameter IDを確認する
