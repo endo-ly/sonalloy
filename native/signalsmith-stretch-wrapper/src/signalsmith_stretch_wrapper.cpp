@@ -1,7 +1,5 @@
 #include "sonalloy_stretch.h"
 
-#include <cstring>
-
 #include "signalsmith-stretch.h"
 
 #include <cmath>
