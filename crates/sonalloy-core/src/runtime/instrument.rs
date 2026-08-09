@@ -274,6 +274,7 @@ impl InstrumentRuntime {
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
                 | CompiledGenerator::Additive(_)
+                | CompiledGenerator::Formant(_)
                 | CompiledGenerator::Granular(_)
                 | CompiledGenerator::WaveSequence(_)
                 | CompiledGenerator::Wavetable(_)
@@ -627,6 +628,7 @@ impl InstrumentProcessor for InstrumentRuntime {
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
                 | CompiledGenerator::Additive(_)
+                | CompiledGenerator::Formant(_)
                 | CompiledGenerator::Granular(_)
                 | CompiledGenerator::WaveSequence(_)
                 | CompiledGenerator::Wavetable(_)
@@ -1341,6 +1343,114 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
+    fn formant_sixteen_voice_render_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 16;
+        source.layers[0].generator =
+            crate::definition::GeneratorDefinition::Formant(crate::definition::FormantDefinition {
+                phase_reset: true,
+                partial_count: 64,
+                vowel_position: 0.0,
+                formant_shift_cents: 0.0,
+                throat: 0.5,
+                spectral_tilt_db_per_octave: -6.0,
+                profiles: vec![
+                    crate::definition::FormantProfileDefinition {
+                        id: "a".to_owned(),
+                        formants: vec![
+                            crate::definition::FormantBandDefinition {
+                                frequency_hz: 800.0,
+                                bandwidth_hz: 80.0,
+                                gain_db: 0.0,
+                            },
+                            crate::definition::FormantBandDefinition {
+                                frequency_hz: 1_200.0,
+                                bandwidth_hz: 100.0,
+                                gain_db: -5.0,
+                            },
+                            crate::definition::FormantBandDefinition {
+                                frequency_hz: 2_500.0,
+                                bandwidth_hz: 120.0,
+                                gain_db: -10.0,
+                            },
+                            crate::definition::FormantBandDefinition {
+                                frequency_hz: 3_500.0,
+                                bandwidth_hz: 140.0,
+                                gain_db: -15.0,
+                            },
+                            crate::definition::FormantBandDefinition {
+                                frequency_hz: 5_000.0,
+                                bandwidth_hz: 160.0,
+                                gain_db: -20.0,
+                            },
+                        ],
+                    },
+                    crate::definition::FormantProfileDefinition {
+                        id: "i".to_owned(),
+                        formants: vec![
+                            crate::definition::FormantBandDefinition {
+                                frequency_hz: 300.0,
+                                bandwidth_hz: 60.0,
+                                gain_db: 0.0,
+                            },
+                            crate::definition::FormantBandDefinition {
+                                frequency_hz: 2_200.0,
+                                bandwidth_hz: 100.0,
+                                gain_db: -5.0,
+                            },
+                            crate::definition::FormantBandDefinition {
+                                frequency_hz: 3_000.0,
+                                bandwidth_hz: 120.0,
+                                gain_db: -10.0,
+                            },
+                            crate::definition::FormantBandDefinition {
+                                frequency_hz: 4_000.0,
+                                bandwidth_hz: 140.0,
+                                gain_db: -15.0,
+                            },
+                            crate::definition::FormantBandDefinition {
+                                frequency_hz: 5_000.0,
+                                bandwidth_hz: 160.0,
+                                gain_db: -20.0,
+                            },
+                        ],
+                    },
+                ],
+            });
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let first_events: Vec<ProcessEvent> = (0usize..16)
+            .map(|index| ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: u64::try_from(index).expect("voice index fits in note id") + 1,
+                    note_number: 48
+                        + u8::try_from(index).expect("voice index fits in MIDI note number"),
+                    velocity: 100,
+                },
+            })
+            .collect();
+        let steal_event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 17,
+                note_number: 72,
+                velocity: 100,
+            },
+        }];
+        process_with_stack_output(&mut runtime, 0, &first_events);
+        runtime.reset().expect("reset");
+        process_with_stack_output(&mut runtime, 0, &first_events);
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 64, &steal_event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
     fn voice_stealing_note_on_does_not_allocate_after_prepare() {
         let mut source = definition();
         source.performance.polyphony = 1;
@@ -1992,6 +2102,7 @@ mod tests {
             | crate::definition::GeneratorDefinition::WaveSequence(_)
             | crate::definition::GeneratorDefinition::Noise(_)
             | crate::definition::GeneratorDefinition::Additive(_)
+            | crate::definition::GeneratorDefinition::Formant(_)
             | crate::definition::GeneratorDefinition::Wavetable(_)
             | crate::definition::GeneratorDefinition::OperatorModulation(_) => {
                 panic!("test fixture must use an oscillator");

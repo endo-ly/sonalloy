@@ -4,6 +4,8 @@ use crate::generator_parameters::MAX_PARTIALS;
 use crate::process::{ProcessError, ProcessorFailureKind};
 
 pub(crate) const SINE_TABLE_LENGTH: usize = 4096;
+const ALIAS_FADE_START_RATIO: f64 = 0.40;
+const ALIAS_FADE_END_RATIO: f64 = 0.45;
 
 pub(crate) fn build_sine_table() -> Arc<[f32]> {
     let mut table = Vec::with_capacity(SINE_TABLE_LENGTH + 1);
@@ -13,6 +15,21 @@ pub(crate) fn build_sine_table() -> Arc<[f32]> {
         table.push((std::f32::consts::TAU * phase).sin());
     }
     Arc::from(table.into_boxed_slice())
+}
+
+pub(super) fn alias_fade(frequency: f64, sample_rate: f64) -> f32 {
+    let normalized = frequency / sample_rate;
+    if normalized <= ALIAS_FADE_START_RATIO {
+        1.0
+    } else if normalized >= ALIAS_FADE_END_RATIO {
+        0.0
+    } else {
+        #[allow(clippy::cast_possible_truncation)]
+        {
+            ((ALIAS_FADE_END_RATIO - normalized) / (ALIAS_FADE_END_RATIO - ALIAS_FADE_START_RATIO))
+                as f32
+        }
+    }
 }
 
 pub(super) struct PartialBankRuntime {

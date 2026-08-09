@@ -118,6 +118,16 @@ flowchart LR
 - 人間の確認：基音と整数倍Partialの明瞭さ、Inharmonic Bellの金属感、Morphの連続性、Tiltによる明るさ、InharmonicityのStretch、Partial終了時の音量段差、高音域AliasのFade、PolyphonyとVoice Stealingの安定性
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
+### Formant Generator
+
+- 保存先：`review-output/harmonic-formant-synthesis/`（audio/technical / definitions / events / midi / assets / `inspect.json` / metrics.json / review-summary.md）
+- 生成：`python scripts/review/generate_harmonic_formant_package.py`
+- 内容：5 Vowel Profile、Vowel Position、Formant Shift、Throat、Spectral Tilt、Vowel Position LFO、High-note Alias Fade、Formant + Noise Textureを同じDefinitionと固定Eventから確認する
+- Metrics：Finite性、Peak / RMS / DC、Profile間のSpectrum差分、Vowel Position / Formant Shift / Throat / Spectral Tiltの出力差分、Sample Rate 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024、Fresh Runtime / Reset、High-note高域Energy、16 Voice × 64 PartialのProcess中Allocation 0
+- 自動確認：Definition Validate、Inspect JSON、1〜8 Profile、各5 Band、4つのParameter Descriptor、Profile Morph、Formant Shiftで基音Pitchを維持すること、Throat / Tilt、Block Size再現、Sample Rate再生、Voice Stealing、Reset再現
+- 人間の確認：各Vowelの共鳴位置、Vowel Morphの連続性、Formant Shiftで基音が変わらないこと、Throatによる広がり、Tiltによる明るさ、High-note Alias Fade、Vowel Position LFO、Noise Textureとの分離と一体感、PolyphonyとVoice Stealingの安定性
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
 ### Digital Synthesis
 
 - 保存先：`review-output/digital-synthesis/`（assets / audio/technical / definitions / events / midi / `inspect.json` / `operator-inspect.json` / `complex-inspect.json` / `complex-phase-inspect.json` / `digital-hybrid-inspect.json` / metrics.json / review-summary.md）

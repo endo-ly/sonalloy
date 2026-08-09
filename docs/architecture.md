@@ -38,10 +38,10 @@ Process仕様と実行時の仕組みを提供します。
 | `process` | Process仕様と共通のLifecycle |
 | `definition` | Instrument Definitionの読み込みとValidation |
 | `parameter` | Canonical Parameter ID、Descriptor、Normalize / Denormalize、Catalog |
-| `compiler` | DefinitionからCompiled Instrumentへの変換、Prepared Audio共有、Wavetableの帯域制限Tableと固定Operator Topology、Granular Region、Wave Sequence Step、Additive PartialとSine Tableの準備 |
+| `compiler` | DefinitionからCompiled Instrumentへの変換、Prepared Audio共有、Wavetableの帯域制限Tableと固定Operator Topology、Granular Region、Wave Sequence Step、Additive Partial、Formant ProfileとSine Tableの準備 |
 | `asset` | SHA-256照合、WAV読み込み、Planar Mono / Stereo化、Sample Rate変換、Prepared Audio共有 |
 | `wavetable` | Wavetable AssetのFrame分割、FFT/IFFTによるBand Table生成、Guard Sample付与 |
-| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Time Stretch、Granular、Wave Sequence、Wavetable、Private Partial Bank、Additive、Operator Modulation、Processor Chain |
+| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Time Stretch、Granular、Wave Sequence、Wavetable、Private Partial Bank、Additive、Formant、Operator Modulation、Processor Chain |
 | `render` | Offline Render Loop、Event、Tempo Mapの供給 |
 | `diagnostics` | 画面表示に依存しないError Code、Severity、Message |
 
@@ -50,6 +50,8 @@ Compileの段階でZone、Granular、Wave Sequence、WavetableのAsset読み込�
 Operator Modulationは外部Assetを持たず、4 Operatorの固定TopologyをCompile時に`evaluation_order`、`incoming_masks`、`carrier_mask`へ解決します。Runtimeはこの固定配列とVoiceごとのPhase、Previous Output、Operator Envelopeだけを使い、任意Graphや文字列LookupをProcessへ持ち込みません。
 
 Additiveは外部Native依存を持たないCore Rustの専用Generatorです。Compile時にDefinitionのPartial Slot、Dynamic Parameter Handle、4096点Sine Tableを確定し、VoiceごとのPhaseとSpectral RampだけをRuntimeへ生成します。Partial BankはDefinitionやCLIのGenerator Variantとして公開しない非公開実装Primitiveです。
+
+FormantはAdditiveと同じPartial Bankを使うCore Rustの専用Generatorです。Compile時に1〜8個のProfile、各5本のBand、4つのDynamic Parameter Handle、4096点Sine Tableを確定し、VoiceごとにProfile補間、Gaussian Spectrum、Spectral Control Tick、Phaseを保持します。FormantのDefinitionはCLIのGenerator Variantとして公開しますが、Partial Bankは内部Primitiveに留めます。
 
 ### `sonalloy-dsp-sys`
 
@@ -117,6 +119,6 @@ Native関数はNull Handle、引数、Buffer、NaN / Infinity、例外を検査�
 詳しい流れは`docs/runtime-processing.md`の「Lifecycle」を参照してください。ここでは所有関係だけを説明します。
 
 - **Compile**：Definitionを、Parameter Catalog、Source Table、Target別Route Tableを確定した変更不能な`CompiledInstrument`へ変換し、Parameter IDをDense Handleへ解決します（`sonalloy-core`が所有します）
-- **Prepare / Process / Reset**：`InstrumentRuntime`の状態を進めます。Scratch Buffer、Time Stretch Backend、Granularの64 Slot固定Grain Pool、Wave SequenceのCurrent / Next Playback Slot、Additive Partial Bank、Layer遅延補償Buffer、Native HandleはPrepareで確保し、Process中には拡張しません
+- **Prepare / Process / Reset**：`InstrumentRuntime`の状態を進めます。Scratch Buffer、Time Stretch Backend、Granularの64 Slot固定Grain Pool、Wave SequenceのCurrent / Next Playback Slot、Additive / Formant Partial Bank、Layer遅延補償Buffer、Native HandleはPrepareで確保し、Process中には拡張しません
 
 `CompiledInstrument`はDefinitionのMetadata、Performance、Enabled Layer、Layer/Voice/Global Processor Chain、Parameter Catalog、Source、Route、Asset Warningを保持します。Runtimeが持つBase Smoother、External Control、Voice Source、Generator Cursor、Layer/Voice/Global Processor StateはCompiled値から作る可変状態で、DefinitionやCompiled Instrumentへ書き戻しません。

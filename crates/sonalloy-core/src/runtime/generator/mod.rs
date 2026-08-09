@@ -1,4 +1,5 @@
 mod additive;
+mod formant;
 mod granular;
 mod noise;
 mod operator;
@@ -15,6 +16,7 @@ use super::modulation::{LayerGeneratorTargetSpan, ValueSpan};
 use super::sample::{SampleRuntime, playback_ratio};
 
 use additive::AdditiveRuntime;
+use formant::FormantRuntime;
 use granular::GranularRuntime;
 use noise::NoiseRuntime;
 use operator::OperatorModulationRuntime;
@@ -87,6 +89,7 @@ pub(super) enum GeneratorRuntime {
     Oscillator(OscillatorRuntime),
     Noise(Box<NoiseRuntime>),
     Additive(Box<AdditiveRuntime>),
+    Formant(Box<FormantRuntime>),
     Sample { sample: SampleRuntime },
     Granular(Box<GranularRuntime>),
     WaveSequence(WaveSequenceRuntime),
@@ -106,6 +109,9 @@ impl GeneratorRuntime {
             CompiledGenerator::Noise(value) => Ok(Self::Noise(Box::new(NoiseRuntime::new(value)))),
             CompiledGenerator::Additive(value) => {
                 Ok(Self::Additive(Box::new(AdditiveRuntime::new(value, spec)?)))
+            }
+            CompiledGenerator::Formant(value) => {
+                Ok(Self::Formant(Box::new(FormantRuntime::new(value, spec)?)))
             }
             CompiledGenerator::Sample(compiled) => Ok(Self::Sample {
                 sample: SampleRuntime::prepared(compiled, spec)?,
@@ -139,6 +145,10 @@ impl GeneratorRuntime {
             }
             Self::Additive(additive) => {
                 additive.start();
+                Ok(())
+            }
+            Self::Formant(formant) => {
+                formant.start();
                 Ok(())
             }
             Self::Sample { sample } => {
@@ -181,6 +191,7 @@ impl GeneratorRuntime {
             Self::Oscillator(_)
             | Self::Noise(_)
             | Self::Additive(_)
+            | Self::Formant(_)
             | Self::Granular(_)
             | Self::WaveSequence(_)
             | Self::Wavetable(_)
@@ -234,6 +245,18 @@ impl GeneratorRuntime {
             }
             Self::Additive(additive) => {
                 additive.render(
+                    frames,
+                    note_number,
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    targets,
+                    mono,
+                )?;
+                Ok(false)
+            }
+            Self::Formant(formant) => {
+                formant.render(
                     frames,
                     note_number,
                     tuning_start,
@@ -413,6 +436,10 @@ impl GeneratorRuntime {
             }
             Self::Additive(additive) => {
                 additive.reset();
+                Ok(())
+            }
+            Self::Formant(formant) => {
+                formant.reset();
                 Ok(())
             }
             Self::Sample { sample, .. } => sample.reset(),

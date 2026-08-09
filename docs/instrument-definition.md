@@ -92,7 +92,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 |---|---|
 | `schema_version` | 1のみ |
 | `layers` | 1個以上。複数のLayerは書かれた順に同じVoiceへMixされます。`enabled`が`false`のLayerはCompile対象外 |
-| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`additive`、`wavetable`、`sample`、`granular`、`wave_sequence`、または`operator_modulation` |
+| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`additive`、`formant`、`wavetable`、`sample`、`granular`、`wave_sequence`、または`operator_modulation` |
 | `processors` | Layerごとの直列Processor配列。書かれた順にGeneratorとLayer Mixの間で適用 |
 | `voice_processors` | Voice Mix後に適用する直列Processor配列 |
 | `global_processors` | Voice Sum後にInstrument全体へ適用する直列Processor配列 |
@@ -111,7 +111,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 | Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
 | LFO | Rate 0.01〜40Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
-| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|unison_detune\|unison_spread\|noise_correlation\|granular_position\|grain_size\|grain_density\|grain_pitch\|grain_randomness\|grain_pan_spread\|additive_morph\|additive_spectrum_tilt\|additive_inharmonicity)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
+| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|unison_detune\|unison_spread\|noise_correlation\|granular_position\|grain_size\|grain_density\|grain_pitch\|grain_randomness\|grain_pan_spread\|additive_morph\|additive_spectrum_tilt\|additive_inharmonicity\|formant_vowel_position\|formant_shift\|formant_throat\|formant_spectral_tilt)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
 | 未知のField | JSON Parse Errorとして扱います |
 | 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Layer / Voice / Global Processor状態、Scratch Buffer |
 
@@ -302,6 +302,65 @@ Dynamic Parameterは次のCanonical IDで制御できます。
 - `layer.<layer_id>.generator.additive_inharmonicity`（Normalized、0〜1、Linear、10ms）
 
 基準となるDefinitionは[`examples/instruments/additive-generator-reference.json`](../examples/instruments/additive-generator-reference.json)です。
+
+### Formant
+
+Formantは、Note Frequencyの整数倍Harmonic Partialへ5本のGaussian-likeなFormant Bandを適用します。External Audioを必要とせず、Profileの組み合わせでVowel-likeなSpectrumを作ります。出力はMonoです。
+
+```json
+{
+  "generator": {
+    "formant": {
+      "phase_reset": true,
+      "partial_count": 48,
+      "vowel_position": 0.0,
+      "formant_shift_cents": 0.0,
+      "throat": 0.5,
+      "spectral_tilt_db_per_octave": -6.0,
+      "profiles": [
+        {
+          "id": "a",
+          "formants": [
+            { "frequency_hz": 800.0, "bandwidth_hz": 80.0, "gain_db": 0.0 },
+            { "frequency_hz": 1150.0, "bandwidth_hz": 90.0, "gain_db": -5.0 },
+            { "frequency_hz": 2900.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
+            { "frequency_hz": 3900.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
+            { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+| Field | Range / Unit | Dynamic | Meaning |
+|---|---:|---:|---|
+| `phase_reset` | Boolean | No | Note OnでHarmonic PartialのPhaseを初期値へ戻すか |
+| `partial_count` | 1〜64 | No | 生成するHarmonic Partial数 |
+| `vowel_position` | 0〜1、Normalized | Yes | Profile配列の先頭から末尾までの位置 |
+| `formant_shift_cents` | -2400〜2400 cents | Yes | Formant中心とBandwidthへ同じRatioで適用する周波数移動 |
+| `throat` | 0〜1、Normalized | Yes | Bandwidth倍率。0で0.5倍、0.5で1倍、1で2倍 |
+| `spectral_tilt_db_per_octave` | -24〜12 dB / octave | Yes | Harmonic Ratioに対するSpectral Tilt |
+| `profiles` | 1〜8件 | No | Morphに使うDefinition順のProfile |
+| `profiles[].id` | 空でない一意な文字列 | No | InspectとDiagnosticでProfileを識別する名前 |
+| `profiles[].formants` | 5件固定 | No | 周波数昇順のFormant Band |
+| `frequency_hz` | 100〜12000 Hz | No | Gaussian Peakの中心周波数 |
+| `bandwidth_hz` | 20〜5000 Hz | No | GaussianのFWHM |
+| `gain_db` | -60〜12 dB | No | Formant Bandの相対強度 |
+
+Profile間のFrequencyとBandwidthはGeometric Interpolation、GainはdB Linear Interpolationです。`formant_shift_cents`はCenterとBandwidthへ同じ`2^(cents / 1200)`を掛け、NoteのFundamental Frequencyは変更しません。`throat`のBandwidth倍率は`2^(2 × (throat - 0.5))`です。各PartialのGainは5 Bandの`db_to_linear(gain_db) × exp(-0.5 × ((frequency - center) / (bandwidth / 2.35482))²)`を加算し、Spectral TiltとAlias Fadeを乗算します。最後に固定Partial全体のEnergyを基準としてTarget GainをNormalizeします。
+
+高域PartialはFrequency Clampを行わず、Sample Rateの0.40〜0.45倍でLinear Fadeします。PhaseはGainが0の間も進み続けます。Gaussian計算は約1msのSpectral Control Tickで行い、Tick間はPartial Bankの固定Rampを使います。
+
+Dynamic Parameterは次のCanonical IDで制御できます。
+
+- `layer.<layer_id>.generator.formant_vowel_position`（Normalized、0〜1、Linear、10ms）
+- `layer.<layer_id>.generator.formant_shift`（Cents、-2400〜2400、Linear、10ms）
+- `layer.<layer_id>.generator.formant_throat`（Normalized、0〜1、Linear、10ms）
+- `layer.<layer_id>.generator.formant_spectral_tilt`（Decibels Per Octave、-24〜12、Linear、10ms）
+
+Profileが0件または9件以上、Partial数が0または65以上、Band数が5以外、ID重複、周波数非昇順、各Range違反はValidation Errorです。基準となるDefinitionは[`examples/instruments/formant-generator-reference.json`](../examples/instruments/formant-generator-reference.json)です。AdditiveとFormantを重ねる基準例は[`examples/instruments/harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)です。
 
 ### Wavetable
 
@@ -577,7 +636,7 @@ Dynamic ParameterはTopologyとModeに応じて次を公開します。
 
 OperatorのEffective Frequency上限はPhase / Frequencyで`Sample Rate × 0.24`、Amplitude / Ringで`Sample Rate × 0.45`です。詳細なTopologyとSignal順序は[`docs/runtime-processing.md`](runtime-processing.md)を参照してください。
 
-Generator ParameterはLayer Gain / Pan / Tuningの後、Layer Processorの前にParameter Catalogへ追加されます。Sample、Wave Sequenceの構造はStaticで、Additiveの3 ParameterとGranularの6 ParameterはDynamicです。
+Generator ParameterはLayer Gain / Pan / Tuningの後、Layer Processorの前にParameter Catalogへ追加されます。Sample、Wave Sequenceの構造はStaticで、Additiveの3 Parameter、Formantの4 Parameter、Granularの6 ParameterはDynamicです。
 
 ## Processor Chain
 

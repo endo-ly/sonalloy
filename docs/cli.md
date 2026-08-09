@@ -58,6 +58,7 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Oscillator | Waveform、Phase Reset、Phase、Backend、Output Mode、Effective Frequency上限、Pulse Width（Pulseのみ）、Hard Sync、Waveshaping、Phase Distortion、Wavefold、Oscillator Feedback、DC Blocker、Signal Order、Unison |
 | Noise | Color、Seed、Stereo Correlation Parameter、Output Mode |
 | Additive | Output Mode、Partial Count / 最大Partial Count、Phase Reset、Morph、Spectrum Tilt、Inharmonicity、各PartialのID / Ratio / Amplitude A / B / Phase / Envelope有無 |
+| Formant | Output Mode、Partial Count / 最大Partial Count、Phase Reset、Profile Count、Vowel Position、Formant Shift、Throat、Spectral Tilt、各ProfileのIDと5本のFrequency / Bandwidth / Gain |
 | Wavetable | Asset Path、SHA指定有無、Prepared状態、Source Channel / Frame Count、Frame Length / Count、Band Count / Max Harmonic、Position、Parameter ID、Phase、Unison、Output Mode、Effective Frequency上限 |
 | Granular | Asset Path、SHA指定有無、Prepared状態、Source Channel / Prepared Frame、Region、Root Note、Position、Grain Size、Density、Pitch、Randomness、Pan Spread、各Parameter ID、Seed、Grain Pool Limit、Output Mode |
 | Wave Sequence | Output Mode、Step Count、Enabled Step Count、Direction、Loop、Crossfade、各StepのID / Asset / Region / Duration Type / Duration / Playback / Playback Direction / Gain / Pitch / Availability、Source Channel / Prepared Frame |
@@ -81,6 +82,8 @@ Operator ModulationのJSON Inspectでは、Operator番号を1始まりで表示�
 Complex OscillatorのJSON Inspectでは、`backend`が`phase_domain`になる条件、`phase_distortion_parameter`、`wavefold_parameter`、`oscillator_feedback_parameter`、`dc_blocker`、`signal_order`、`combination_constraints`を表示します。Wavefoldだけを指定した場合は既存Oscillator Backendを維持します。
 
 AdditiveのJSON Inspectでは、固定Partial数と最大値、初期Morph / Spectrum Tilt / Inharmonicity、Definition順のPartial ID、Ratio、Amplitude A / B、Initial Phase、Optional Envelopeの有無を表示します。Dynamic ParameterのCanonical IDは、`layer.<layer_id>.generator.additive_morph`、`layer.<layer_id>.generator.additive_spectrum_tilt`、`layer.<layer_id>.generator.additive_inharmonicity`です。
+
+FormantのJSON Inspectでは、固定Partial数と最大値、Phase Reset、Profile数、初期Vowel Position / Formant Shift / Throat / Spectral Tilt、Profile順のID、5本のFormant Bandを表示します。Dynamic ParameterのCanonical IDは、`layer.<layer_id>.generator.formant_vowel_position`、`layer.<layer_id>.generator.formant_shift`、`layer.<layer_id>.generator.formant_throat`、`layer.<layer_id>.generator.formant_spectral_tilt`です。
 
 ## `render` Command
 

@@ -8,22 +8,22 @@ use crate::asset::{
 };
 use crate::definition::{
     AdditiveDefinition, AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition,
-    FilterProcessorDefinition, GeneratorDefinition, GranularDefinition, InstrumentDefinition,
-    LayerTriggerEvent, LfoDefinition, LfoWaveform, ModulationCurve, ModulationSourceDefinition,
-    NoiseColor, OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode,
-    OscillatorDefinition, OscillatorWaveform, ProcessorDefinition, ReverbProcessorDefinition,
-    SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition, UnisonDefinition,
-    VoiceStealingDefinition, WaveSequenceDefinition, WaveSequenceDirection,
+    FilterProcessorDefinition, FormantDefinition, GeneratorDefinition, GranularDefinition,
+    InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform, ModulationCurve,
+    ModulationSourceDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
+    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, ProcessorDefinition,
+    ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition,
+    UnisonDefinition, VoiceStealingDefinition, WaveSequenceDefinition, WaveSequenceDirection,
     WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
     ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, BASIC_FREQUENCY_LIMIT_RATIO,
-    GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE,
-    GRANULAR_GRAIN_POOL_LIMIT, GRANULAR_POSITION, GeneratorParameterSpec, NOISE_CORRELATION,
-    OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO, PULSE_WIDTH,
-    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
-    effective_max_frequency,
+    FORMANT_SHIFT, FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY,
+    GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_GRAIN_POOL_LIMIT,
+    GRANULAR_POSITION, GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK,
+    PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
+    UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION, effective_max_frequency,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
@@ -216,6 +216,8 @@ pub enum CompiledGenerator {
     Noise(CompiledNoise),
     /// Directly specified sine partial generator.
     Additive(CompiledAdditive),
+    /// Harmonic generator shaped by interpolated formant profiles.
+    Formant(CompiledFormant),
     /// Prepared sample generator.
     Sample(CompiledSample),
     /// Prepared granular generator.
@@ -250,7 +252,7 @@ impl CompiledGenerator {
                 }
             }
             Self::Noise(_) | Self::Granular(_) => GeneratorOutputMode::Stereo,
-            Self::Additive(_) => GeneratorOutputMode::Mono,
+            Self::Additive(_) | Self::Formant(_) => GeneratorOutputMode::Mono,
             Self::WaveSequence(value) => value.output_mode(),
             Self::Sample(value) => value.output_mode(),
             Self::Wavetable(value) => {
@@ -280,6 +282,7 @@ impl CompiledGenerator {
             Self::Oscillator(_)
             | Self::Noise(_)
             | Self::Additive(_)
+            | Self::Formant(_)
             | Self::Granular(_)
             | Self::WaveSequence(_)
             | Self::Wavetable(_)
@@ -292,6 +295,7 @@ impl CompiledGenerator {
             Self::Oscillator(_)
             | Self::Noise(_)
             | Self::Additive(_)
+            | Self::Formant(_)
             | Self::OperatorModulation(_) => true,
             Self::Granular(value) => value.source.is_some(),
             Self::WaveSequence(value) => value.steps.iter().any(|step| step.source.is_some()),
@@ -432,6 +436,54 @@ pub struct CompiledAdditive {
     pub phase_reset: bool,
     /// Dynamic parameter bindings.
     pub parameters: CompiledAdditiveParameters,
+    /// Shared lookup table used by all voices of this generator.
+    pub sine_table: Arc<[f32]>,
+}
+
+/// Parameter handles owned by a Formant Generator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledFormantParameters {
+    /// Vowel profile position handle.
+    pub vowel_position: ParameterHandle,
+    /// Formant center and bandwidth shift handle.
+    pub formant_shift: ParameterHandle,
+    /// Formant bandwidth multiplier handle.
+    pub throat: ParameterHandle,
+    /// Spectral amplitude slope handle.
+    pub spectral_tilt: ParameterHandle,
+}
+
+/// Compiled static settings for one formant band.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledFormantBand {
+    /// Center frequency in hertz.
+    pub frequency_hz: f32,
+    /// Full width at half maximum in hertz.
+    pub bandwidth_hz: f32,
+    /// Relative gain in decibels.
+    pub gain_db: f32,
+}
+
+/// Compiled formant profile with five corresponding bands.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledFormantProfile {
+    /// Stable Definition identifier.
+    pub id: String,
+    /// Five bands in ascending frequency order.
+    pub formants: [CompiledFormantBand; 5],
+}
+
+/// Compiled Formant Generator.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledFormant {
+    /// Number of harmonic partials generated by the runtime.
+    pub partial_count: usize,
+    /// Whether Note On restores all partial phases.
+    pub phase_reset: bool,
+    /// Profiles in Definition order.
+    pub profiles: Box<[CompiledFormantProfile]>,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledFormantParameters,
     /// Shared lookup table used by all voices of this generator.
     pub sine_table: Arc<[f32]>,
 }
@@ -1865,6 +1917,9 @@ fn compile_generator(
             sample_rate,
             diagnostics,
         )),
+        GeneratorDefinition::Formant(formant) => {
+            CompiledGenerator::Formant(compile_formant(formant, layer_id, catalog))
+        }
         GeneratorDefinition::Sample(sample) => CompiledGenerator::Sample(compile_sample(
             sample,
             layer_index,
@@ -1968,6 +2023,44 @@ fn compile_additive(
             morph: generator_parameter_handle(catalog, layer_id, ADDITIVE_MORPH),
             spectrum_tilt: generator_parameter_handle(catalog, layer_id, ADDITIVE_SPECTRUM_TILT),
             inharmonicity: generator_parameter_handle(catalog, layer_id, ADDITIVE_INHARMONICITY),
+        },
+        sine_table: build_sine_table(),
+    }
+}
+
+fn compile_formant(
+    formant: &FormantDefinition,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
+) -> CompiledFormant {
+    let profiles = formant
+        .profiles
+        .iter()
+        .map(|profile| CompiledFormantProfile {
+            id: profile.id.clone(),
+            formants: std::array::from_fn(|index| {
+                let band = profile
+                    .formants
+                    .get(index)
+                    .expect("validated formant profile contains five bands");
+                CompiledFormantBand {
+                    frequency_hz: band.frequency_hz,
+                    bandwidth_hz: band.bandwidth_hz,
+                    gain_db: band.gain_db,
+                }
+            }),
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+    CompiledFormant {
+        partial_count: usize::from(formant.partial_count),
+        phase_reset: formant.phase_reset,
+        profiles,
+        parameters: CompiledFormantParameters {
+            vowel_position: generator_parameter_handle(catalog, layer_id, FORMANT_VOWEL_POSITION),
+            formant_shift: generator_parameter_handle(catalog, layer_id, FORMANT_SHIFT),
+            throat: generator_parameter_handle(catalog, layer_id, FORMANT_THROAT),
+            spectral_tilt: generator_parameter_handle(catalog, layer_id, FORMANT_SPECTRAL_TILT),
         },
         sine_table: build_sine_table(),
     }

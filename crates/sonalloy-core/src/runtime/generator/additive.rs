@@ -6,12 +6,10 @@ use crate::process::{ProcessError, ProcessSpec};
 
 use super::super::adsr::AdsrRuntime;
 use super::super::modulation::{LayerGeneratorTargetSpan, ValueSpan};
-use super::partial_bank::PartialBankRuntime;
+use super::partial_bank::{PartialBankRuntime, alias_fade};
 use super::{base_frequencies, ensure_finite, invalid_state, validate_generator_span};
 
 const INHARMONICITY_MAX: f32 = 0.0005;
-const ALIAS_FADE_START_RATIO: f64 = 0.40;
-const ALIAS_FADE_END_RATIO: f64 = 0.45;
 
 pub(crate) struct AdditiveRuntime {
     bank: PartialBankRuntime,
@@ -201,21 +199,6 @@ fn effective_ratio(ratio: f32, b: f32) -> Result<f32, ProcessError> {
         Ok(ratio)
     } else {
         Err(ProcessError::InvalidFrequency)
-    }
-}
-
-fn alias_fade(frequency: f64, sample_rate: f64) -> f32 {
-    let normalized = frequency / sample_rate;
-    if normalized <= ALIAS_FADE_START_RATIO {
-        1.0
-    } else if normalized >= ALIAS_FADE_END_RATIO {
-        0.0
-    } else {
-        #[allow(clippy::cast_possible_truncation)]
-        {
-            ((ALIAS_FADE_END_RATIO - normalized) / (ALIAS_FADE_END_RATIO - ALIAS_FADE_START_RATIO))
-                as f32
-        }
     }
 }
 

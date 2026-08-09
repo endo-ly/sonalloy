@@ -916,6 +916,9 @@ impl VoiceRuntime {
                         shared,
                     )?,
                 },
+                CompiledGenerator::Formant(value) => {
+                    self.evaluate_formant_targets(compiled, value, shared)?
+                }
                 CompiledGenerator::Sample(_) => LayerGeneratorTargetSpan::Sample,
                 CompiledGenerator::Granular(value) => LayerGeneratorTargetSpan::Granular {
                     position: self.evaluate_target(compiled, value.parameters.position, shared)?,
@@ -1038,6 +1041,32 @@ impl VoiceRuntime {
                 .unison_spread
                 .map(|handle| self.evaluate_target(compiled, handle, shared))
                 .transpose()?,
+        })
+    }
+
+    fn evaluate_formant_targets(
+        &mut self,
+        compiled: &CompiledInstrument,
+        formant: &crate::compiler::CompiledFormant,
+        shared: SharedParameterSpan<'_>,
+    ) -> Result<LayerGeneratorTargetSpan, ProcessError> {
+        Ok(LayerGeneratorTargetSpan::Formant {
+            vowel_position: self.evaluate_target(
+                compiled,
+                formant.parameters.vowel_position,
+                shared,
+            )?,
+            formant_shift: self.evaluate_target(
+                compiled,
+                formant.parameters.formant_shift,
+                shared,
+            )?,
+            throat: self.evaluate_target(compiled, formant.parameters.throat, shared)?,
+            spectral_tilt: self.evaluate_target(
+                compiled,
+                formant.parameters.spectral_tilt,
+                shared,
+            )?,
         })
     }
 

@@ -333,6 +333,18 @@ enum InspectGenerator {
         inharmonicity: f32,
         partials: Vec<InspectAdditivePartial>,
     },
+    Formant {
+        output_mode: &'static str,
+        partial_count: usize,
+        max_partial_count: usize,
+        phase_reset: bool,
+        profile_count: usize,
+        vowel_position: f32,
+        formant_shift_cents: f32,
+        throat: f32,
+        spectral_tilt_db_per_octave: f32,
+        profiles: Vec<InspectFormantProfile>,
+    },
     Sample {
         output_mode: &'static str,
         interpolation: &'static str,
@@ -420,6 +432,19 @@ struct InspectAdditivePartial {
     amplitude_b: f32,
     phase: f32,
     has_envelope: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectFormantProfile {
+    id: String,
+    formants: Vec<InspectFormantBand>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectFormantBand {
+    frequency_hz: f32,
+    bandwidth_hz: f32,
+    gain_db: f32,
 }
 
 #[derive(Debug, Serialize)]
@@ -1615,6 +1640,9 @@ fn inspect_generator(
         sonalloy_core::compiler::CompiledGenerator::Additive(additive) => {
             inspect_additive_generator(compiled, generator, additive)
         }
+        sonalloy_core::compiler::CompiledGenerator::Formant(formant) => {
+            inspect_formant_generator(compiled, generator, formant)
+        }
         sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
             let (sample_zones, sample_asset_count) = inspect_sample_zones(sample);
             let sample_zone_count = sample.zones.len();
@@ -1682,6 +1710,47 @@ fn inspect_additive_generator(
             ),
             inharmonicity: parameter_default(compiled, additive.parameters.inharmonicity),
             partials,
+        },
+        "enabled",
+    )
+}
+
+fn inspect_formant_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    formant: &sonalloy_core::compiler::CompiledFormant,
+) -> (InspectGenerator, &'static str) {
+    let profiles = formant
+        .profiles
+        .iter()
+        .map(|profile| InspectFormantProfile {
+            id: profile.id.clone(),
+            formants: profile
+                .formants
+                .iter()
+                .map(|band| InspectFormantBand {
+                    frequency_hz: band.frequency_hz,
+                    bandwidth_hz: band.bandwidth_hz,
+                    gain_db: band.gain_db,
+                })
+                .collect(),
+        })
+        .collect();
+    (
+        InspectGenerator::Formant {
+            output_mode: output_mode_name(generator.output_mode()),
+            partial_count: formant.partial_count,
+            max_partial_count: 64,
+            phase_reset: formant.phase_reset,
+            profile_count: formant.profiles.len(),
+            vowel_position: parameter_default(compiled, formant.parameters.vowel_position),
+            formant_shift_cents: parameter_default(compiled, formant.parameters.formant_shift),
+            throat: parameter_default(compiled, formant.parameters.throat),
+            spectral_tilt_db_per_octave: parameter_default(
+                compiled,
+                formant.parameters.spectral_tilt,
+            ),
+            profiles,
         },
         "enabled",
     )
@@ -2283,6 +2352,7 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
             println!("  noise correlation parameter: {noise_correlation_parameter}");
         }
         InspectGenerator::Additive { .. } => print_additive_generator(layer_id, generator),
+        InspectGenerator::Formant { .. } => print_formant_generator(layer_id, generator),
         InspectGenerator::Sample {
             output_mode,
             interpolation,
@@ -2380,6 +2450,44 @@ fn print_additive_generator(layer_id: &str, generator: &InspectGenerator) {
             partial.phase,
             partial.has_envelope,
         );
+    }
+}
+
+fn print_formant_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::Formant {
+        output_mode,
+        partial_count,
+        max_partial_count,
+        phase_reset,
+        profile_count,
+        vowel_position,
+        formant_shift_cents,
+        throat,
+        spectral_tilt_db_per_octave,
+        profiles,
+    } = generator
+    else {
+        return;
+    };
+    println!("layer {layer_id}: enabled true generator formant output_mode {output_mode}");
+    println!(
+        "  partials: {partial_count}/{max_partial_count} phase_reset: {phase_reset} profiles: {profile_count}"
+    );
+    println!(
+        "  vowel_position: {vowel_position:.6} formant_shift_cents: {formant_shift_cents:.6} throat: {throat:.6}"
+    );
+    println!("  spectral_tilt_db_per_octave: {spectral_tilt_db_per_octave:.6}");
+    for profile in profiles {
+        println!("  profile {}:", profile.id);
+        for (index, band) in profile.formants.iter().enumerate() {
+            println!(
+                "    formant {}: frequency_hz {:.3} bandwidth_hz {:.3} gain_db {:.3}",
+                index + 1,
+                band.frequency_hz,
+                band.bandwidth_hz,
+                band.gain_db,
+            );
+        }
     }
 }
 
