@@ -1,6 +1,6 @@
 # Sonalloy
 
-Sonalloyは、音声素材と音響合成をLayerとして組み合わせ、演奏可能なInstrumentへ変換する音源エンジンです。JSONのDefinitionをCompileし、Basic / Complex Oscillator、Wavetable、4 Operator Modulation、Sampleを同じVoiceで合成して、Stereo WAVをOffline Renderします。Complex OscillatorはPhase Distortion、Wavefold、Oscillator Feedbackを含みます。
+Sonalloyは、音声素材と音響合成をLayerとして組み合わせ、演奏可能なInstrumentへ変換する音源エンジンです。JSONのDefinitionをCompileし、Basic / Complex Oscillator、Wavetable、4 Operator Modulation、Stereo Sample、Granular Generator、Wave Sequenceを同じVoiceで合成して、Stereo WAVをOffline Renderします。SampleはRegion、Reverse、Loop、Constant-power Crossfade Loop、Release Trigger、Fixed Stretch、Tempo Syncを備え、GranularはPosition、Grain Size、Density、Pitch、Randomness、Pan Spreadを備え、Wave Sequenceは複数Step、Seconds / Beats Duration、Direction、Crossfade、Step Pitch / Gainを備えます。Complex OscillatorはPhase Distortion、Wavefold、Oscillator Feedbackを含みます。
 
 ## クイックスタート
 
@@ -32,7 +32,7 @@ cargo run -p sonalloy-cli -- render events \
 - Windows: Visual Studio C++ Build Tools
 - Linux: `g++`または`clang++`、`git`
 
-初回のNative BuildではCMakeがDaisySP V1.0.0の固定Commitを取得するため、Network接続が必要です。
+初回のNative BuildではCMakeがDaisySP V1.0.0の固定Commitを取得するため、Network接続が必要です。Signalsmith StretchとSignalsmith Linearは固定RevisionをRepositoryへ同梱しているため、これらのBuildにはNetwork接続を必要としません。
 
 ## BuildとTest
 

@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Tempo Sync Stereo Loop",
+    "author": "Sonalloy",
+    "description": "Deterministic sample mapping review fixture"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "sample",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -3.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "tempo_sync_loop",
+              "asset": {
+                "path": "../assets/stereo-pad.wav",
+                "sha256": "7f143c72fd8095037c9ce18f267c032856b376678064e1caf4adb290bb4a31e1"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "region": {
+                  "start_seconds": 0.0,
+                  "end_seconds": 1.2
+                },
+                "direction": "forward",
+                "loop": {
+                  "start_seconds": 0.2,
+                  "end_seconds": 1.0,
+                  "crossfade_seconds": 0.04
+                },
+                "time": {
+                  "mode": "tempo_sync",
+                  "source_bpm": 120.0
+                }
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": []
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Granular Position Variant",
+    "author": "Sonalloy",
+    "description": "A deterministic granular texture source"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "texture",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -3.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0.04,
+        "sustain_level": 1.0,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "granular": {
+          "asset": {
+            "path": "../assets/stereo-texture.wav",
+            "sha256": "e1368ad392431dcab7cd2842ee062ed5f01ac4ea6a360cef8d55b6f74a4f4926"
+          },
+          "root_note": 60,
+          "region": {
+            "start_seconds": 0.1,
+            "end_seconds": 1.8
+          },
+          "position": 0.12,
+          "grain_size": 0.08,
+          "density": 24.0,
+          "pitch": 0.0,
+          "randomness": 0.3,
+          "pan_spread": 0.8,
+          "seed": 8128
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": []
+}

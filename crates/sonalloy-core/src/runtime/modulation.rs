@@ -151,6 +151,15 @@ pub(crate) enum LayerGeneratorTargetSpan {
         correlation: ValueSpan,
     },
     Sample,
+    Granular {
+        position: ValueSpan,
+        grain_size: ValueSpan,
+        density: ValueSpan,
+        pitch: ValueSpan,
+        randomness: ValueSpan,
+        pan_spread: ValueSpan,
+    },
+    WaveSequence,
     Wavetable {
         position: ValueSpan,
         unison_detune: Option<ValueSpan>,
@@ -196,6 +205,15 @@ impl CompiledGenerator {
             },
             Self::Noise(_) => LayerGeneratorTargetSpan::Noise { correlation: zero },
             Self::Sample(_) => LayerGeneratorTargetSpan::Sample,
+            Self::Granular(_) => LayerGeneratorTargetSpan::Granular {
+                position: zero,
+                grain_size: zero,
+                density: zero,
+                pitch: zero,
+                randomness: zero,
+                pan_spread: zero,
+            },
+            Self::WaveSequence(_) => LayerGeneratorTargetSpan::WaveSequence,
             Self::Wavetable(value) => LayerGeneratorTargetSpan::Wavetable {
                 position: zero,
                 unison_detune: value.parameters.unison_detune.map(|_| zero),

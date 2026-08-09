@@ -4,6 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::generator_parameters::{
+    GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION,
     NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN,
     OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN,
     OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
@@ -99,10 +100,12 @@ pub struct LayerDefinition {
     pub processors: Vec<ProcessorDefinition>,
 }
 
-/// Conditions evaluated once when a Note On is received.
+/// Conditions evaluated once when the layer's trigger event is received.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LayerTriggerDefinition {
+    /// Event at which this layer starts its generator.
+    pub event: LayerTriggerEvent,
     /// Lowest MIDI note accepted by the layer.
     pub key_min: u8,
     /// Highest MIDI note accepted by the layer.
@@ -111,6 +114,16 @@ pub struct LayerTriggerDefinition {
     pub velocity_min: u8,
     /// Highest MIDI velocity accepted by the layer.
     pub velocity_max: u8,
+}
+
+/// Layer trigger event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LayerTriggerEvent {
+    /// Start the layer when the note begins.
+    NoteOn,
+    /// Arm the layer on Note On and start it when the note ends.
+    NoteOff,
 }
 
 /// Generator variants in the Definition model.
@@ -123,6 +136,10 @@ pub enum GeneratorDefinition {
     Noise(NoiseDefinition),
     /// A mapped sample instrument loaded during compilation.
     Sample(SampleDefinition),
+    /// A deterministic grain-based reconstruction of a prepared audio asset.
+    Granular(GranularDefinition),
+    /// A time-ordered sequence of prepared audio assets.
+    WaveSequence(WaveSequenceDefinition),
     /// A band-limited wavetable prepared from a mono or stereo asset.
     Wavetable(WavetableDefinition),
     /// A fixed-topology four-operator modulation generator.
@@ -233,6 +250,109 @@ pub struct SampleDefinition {
     pub interpolation: SampleInterpolation,
     /// Ordered key, velocity, and playback zones.
     pub zones: Vec<SampleZoneDefinition>,
+}
+
+/// Granular generator settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GranularDefinition {
+    /// Referenced mono or stereo audio asset.
+    pub asset: AssetReference,
+    /// MIDI note represented by the source recording.
+    pub root_note: u8,
+    /// Region from which grains are selected, expressed in source seconds.
+    pub region: SampleRegionDefinition,
+    /// Initial normalized position inside the region.
+    pub position: f32,
+    /// Grain duration in seconds.
+    pub grain_size: f32,
+    /// Grain density in grains per second.
+    pub density: f32,
+    /// Grain pitch offset in cents.
+    pub pitch: f32,
+    /// Normalized source-position randomization amount.
+    pub randomness: f32,
+    /// Normalized per-grain stereo spread.
+    pub pan_spread: f32,
+    /// Explicit deterministic grain seed.
+    pub seed: u64,
+}
+
+/// A sequence of audio steps played by one Generator.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WaveSequenceDefinition {
+    /// MIDI note represented by the sequence assets.
+    pub root_note: u8,
+    /// Order in which steps are selected.
+    pub direction: WaveSequenceDirection,
+    /// Whether the sequence returns to its first step after reaching an end.
+    #[serde(rename = "loop")]
+    pub loop_sequence: bool,
+    /// Constant-power overlap ratio between adjacent steps.
+    pub crossfade: f32,
+    /// Ordered sequence steps.
+    pub steps: Vec<WaveSequenceStepDefinition>,
+}
+
+/// Sequence order used to select steps.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WaveSequenceDirection {
+    /// Select steps from the first to the last.
+    Forward,
+    /// Select steps from the last to the first.
+    Reverse,
+    /// Traverse from the first to the last and back without repeating endpoints.
+    PingPong,
+}
+
+/// One time-bounded Wave Sequence step.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WaveSequenceStepDefinition {
+    /// Stable identifier within the sequence.
+    pub id: String,
+    /// Referenced mono or stereo audio asset.
+    pub asset: AssetReference,
+    /// Region selected from the prepared asset.
+    pub region: SampleRegionDefinition,
+    /// Duration of the step in seconds or beats.
+    pub duration: WaveSequenceDurationDefinition,
+    /// Playback mode for the asset inside the step.
+    pub playback: WaveSequenceStepPlayback,
+    /// Cursor direction through the step region.
+    pub playback_direction: SamplePlaybackDirection,
+    /// Step gain in decibels.
+    pub gain_db: f32,
+    /// Step pitch offset in cents.
+    pub pitch_cents: f32,
+}
+
+/// Duration unit used by a Wave Sequence step.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+pub enum WaveSequenceDurationDefinition {
+    /// A tempo-independent duration in seconds.
+    Seconds {
+        /// Duration in seconds.
+        value: f32,
+    },
+    /// A duration that follows the current process tempo.
+    Beats {
+        /// Duration in quarter-note beats.
+        value: f32,
+    },
+}
+
+/// Asset playback mode inside one sequence step.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WaveSequenceStepPlayback {
+    /// Read the region once and output silence after it ends.
+    OneShot,
+    /// Repeat the region until the step duration ends.
+    Loop,
 }
 
 /// Wavetable generator settings.
@@ -409,25 +529,66 @@ pub struct SampleZoneDefinition {
 
 /// Playback region owned by one Sample Zone.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
-pub enum SampleZonePlaybackDefinition {
-    /// Play a finite region once.
-    OneShot {
-        /// Region start in source seconds.
-        start_seconds: f32,
-        /// Optional region end in source seconds.
-        end_seconds: Option<f32>,
+#[serde(deny_unknown_fields)]
+pub struct SampleZonePlaybackDefinition {
+    /// Region selected from the prepared asset.
+    pub region: SampleRegionDefinition,
+    /// Cursor direction through the region.
+    pub direction: SamplePlaybackDirection,
+    /// Optional loop inside the region.
+    #[serde(rename = "loop")]
+    pub r#loop: Option<SampleLoopDefinition>,
+    /// Time behavior applied after the region and direction are resolved.
+    pub time: SampleTimeDefinition,
+}
+
+/// Region boundaries expressed in source seconds.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SampleRegionDefinition {
+    /// Inclusive region start in source seconds.
+    pub start_seconds: f32,
+    /// Optional exclusive region end in source seconds.
+    pub end_seconds: Option<f32>,
+}
+
+/// Sample cursor direction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SamplePlaybackDirection {
+    /// Read from region start toward region end.
+    Forward,
+    /// Read from region end toward region start.
+    Reverse,
+}
+
+/// Loop boundaries and crossfade expressed in source seconds.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SampleLoopDefinition {
+    /// Inclusive loop start in source seconds.
+    pub start_seconds: f32,
+    /// Exclusive loop end in source seconds.
+    pub end_seconds: f32,
+    /// Constant-power crossfade duration in seconds.
+    pub crossfade_seconds: f32,
+}
+
+/// Time behavior for a Sample Zone.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SampleTimeDefinition {
+    /// Couple pitch and duration through ordinary resampling.
+    Resample,
+    /// Keep pitch independent from duration using a fixed duration ratio.
+    FixedStretch {
+        /// Output duration divided by source duration, in the inclusive 0.5..=2.0 range.
+        ratio: f32,
     },
-    /// Repeat a region forward while the layer envelope is active.
-    ForwardLoop {
-        /// Region start in source seconds.
-        start_seconds: f32,
-        /// Optional region end in source seconds.
-        end_seconds: Option<f32>,
-        /// Loop start in source seconds.
-        loop_start_seconds: f32,
-        /// Loop end in source seconds.
-        loop_end_seconds: f32,
+    /// Derive the duration ratio from the source and process tempos.
+    TempoSync {
+        /// Tempo embedded in the source asset, in beats per minute.
+        source_bpm: f32,
     },
 }
 
@@ -844,6 +1005,12 @@ impl InstrumentDefinition {
                 }
                 GeneratorDefinition::Sample(sample) => {
                     validate_sample(&mut diagnostics, &path, sample);
+                }
+                GeneratorDefinition::Granular(granular) => {
+                    validate_granular(&mut diagnostics, &path, granular);
+                }
+                GeneratorDefinition::WaveSequence(sequence) => {
+                    validate_wave_sequence(&mut diagnostics, &path, sequence);
                 }
                 GeneratorDefinition::Wavetable(wavetable) => {
                     validate_wavetable(&mut diagnostics, &path, wavetable);
@@ -1334,106 +1501,406 @@ fn validate_asset_reference(diagnostics: &mut Vec<Diagnostic>, path: &str, asset
     }
 }
 
+fn validate_granular(diagnostics: &mut Vec<Diagnostic>, path: &str, granular: &GranularDefinition) {
+    let granular_path = format!("{path}.generator.granular");
+    validate_asset_reference(diagnostics, &granular_path, &granular.asset);
+    validate_range(
+        diagnostics,
+        format!("{granular_path}.root_note"),
+        f32::from(granular.root_note),
+        0.0..=127.0,
+        "granular root_note must be between 0 and 127",
+    );
+    validate_granular_seconds(
+        diagnostics,
+        &granular_path,
+        "region.start_seconds",
+        granular.region.start_seconds,
+    );
+    if let Some(end_seconds) = granular.region.end_seconds {
+        validate_granular_seconds(
+            diagnostics,
+            &granular_path,
+            "region.end_seconds",
+            end_seconds,
+        );
+        if granular.region.start_seconds.is_finite()
+            && end_seconds.is_finite()
+            && end_seconds <= granular.region.start_seconds
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::InvalidGrainRegion,
+                    "granular region end must be greater than start",
+                )
+                .with_path(format!("{granular_path}.region.end_seconds")),
+            );
+        }
+    }
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.position"),
+        granular.position,
+        GRANULAR_POSITION.min..=GRANULAR_POSITION.max,
+        "granular position must be finite and between 0 and 1",
+    );
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.grain_size"),
+        granular.grain_size,
+        GRAIN_SIZE.min..=GRAIN_SIZE.max,
+        "granular grain_size must be finite and between 0.005 and 0.5 seconds",
+    );
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.density"),
+        granular.density,
+        GRAIN_DENSITY.min..=GRAIN_DENSITY.max,
+        "granular density must be finite and between 1 and 100 grains per second",
+    );
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.pitch"),
+        granular.pitch,
+        GRAIN_PITCH.min..=GRAIN_PITCH.max,
+        "granular pitch must be finite and between -2400 and 2400 cents",
+    );
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.randomness"),
+        granular.randomness,
+        GRAIN_RANDOMNESS.min..=GRAIN_RANDOMNESS.max,
+        "granular randomness must be finite and between 0 and 1",
+    );
+    validate_granular_range(
+        diagnostics,
+        format!("{granular_path}.pan_spread"),
+        granular.pan_spread,
+        GRAIN_PAN_SPREAD.min..=GRAIN_PAN_SPREAD.max,
+        "granular pan_spread must be finite and between 0 and 1",
+    );
+}
+
+fn validate_granular_seconds(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    field: &str,
+    value: f32,
+) {
+    if !value.is_finite() || value < 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidGrainRegion,
+                "granular region time must be finite and non-negative",
+            )
+            .with_path(format!("{path}.{field}")),
+        );
+    }
+}
+
+fn validate_granular_range(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: String,
+    value: f32,
+    range: std::ops::RangeInclusive<f32>,
+    message: &str,
+) {
+    if !value.is_finite() || !range.contains(&value) {
+        diagnostics.push(
+            Diagnostic::error(DiagnosticCode::InvalidGrainParameter, message).with_path(path),
+        );
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn validate_wave_sequence(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    sequence: &WaveSequenceDefinition,
+) {
+    let sequence_path = format!("{path}.generator.wave_sequence");
+    if !(1..=128).contains(&sequence.steps.len()) {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidSequence,
+                "wave sequence steps must contain between 1 and 128 steps",
+            )
+            .with_path(format!("{sequence_path}.steps")),
+        );
+    }
+    validate_range(
+        diagnostics,
+        format!("{sequence_path}.root_note"),
+        f32::from(sequence.root_note),
+        0.0..=127.0,
+        "wave sequence root_note must be between 0 and 127",
+    );
+    validate_range(
+        diagnostics,
+        format!("{sequence_path}.crossfade"),
+        sequence.crossfade,
+        0.0..=0.5,
+        "wave sequence crossfade must be finite and between 0 and 0.5",
+    );
+    let mut ids = HashSet::new();
+    for (index, step) in sequence.steps.iter().enumerate() {
+        let step_path = format!("{sequence_path}.steps[{index}]");
+        if !is_component_id(&step.id) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ParameterIdInvalid,
+                    "wave sequence step id must use component id syntax",
+                )
+                .with_path(format!("{step_path}.id")),
+            );
+        }
+        if !ids.insert(&step.id) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::IdDuplicated,
+                    "wave sequence step id must be unique",
+                )
+                .with_path(format!("{step_path}.id")),
+            );
+        }
+        validate_asset_reference(diagnostics, &step_path, &step.asset);
+        validate_sequence_region(diagnostics, &step_path, step.region);
+        validate_sequence_duration(diagnostics, &step_path, step.duration);
+        validate_range(
+            diagnostics,
+            format!("{step_path}.gain_db"),
+            step.gain_db,
+            -60.0..=12.0,
+            "wave sequence step gain_db must be finite and between -60 and 12 dB",
+        );
+        validate_range(
+            diagnostics,
+            format!("{step_path}.pitch_cents"),
+            step.pitch_cents,
+            -2400.0..=2400.0,
+            "wave sequence step pitch_cents must be finite and between -2400 and 2400",
+        );
+    }
+}
+
+fn validate_sequence_region(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    region: SampleRegionDefinition,
+) {
+    if !region.start_seconds.is_finite() || region.start_seconds < 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidSequence,
+                "wave sequence region start must be finite and non-negative",
+            )
+            .with_path(format!("{path}.region.start_seconds")),
+        );
+    }
+    if let Some(end_seconds) = region.end_seconds {
+        if !end_seconds.is_finite() || end_seconds < 0.0 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::InvalidSequence,
+                    "wave sequence region end must be finite and non-negative",
+                )
+                .with_path(format!("{path}.region.end_seconds")),
+            );
+        }
+        if region.start_seconds.is_finite()
+            && end_seconds.is_finite()
+            && end_seconds <= region.start_seconds
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::InvalidSequence,
+                    "wave sequence region end must be greater than start",
+                )
+                .with_path(format!("{path}.region.end_seconds")),
+            );
+        }
+    }
+}
+
+fn validate_sequence_duration(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    duration: WaveSequenceDurationDefinition,
+) {
+    let (value, unit) = match duration {
+        WaveSequenceDurationDefinition::Seconds { value } => (value, "seconds"),
+        WaveSequenceDurationDefinition::Beats { value } => (value, "beats"),
+    };
+    if !value.is_finite() || value <= 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidStepDuration,
+                format!("wave sequence {unit} duration must be finite and greater than zero"),
+            )
+            .with_path(format!("{path}.duration.value")),
+        );
+    }
+}
+
 fn validate_sample_playback_definition(
     diagnostics: &mut Vec<Diagnostic>,
     path: &str,
     playback: SampleZonePlaybackDefinition,
 ) {
-    let mut validate_seconds = |field: &str, value: f32| {
-        if !value.is_finite() || value < 0.0 {
+    validate_sample_time_definition(diagnostics, path, playback);
+    validate_sample_seconds(
+        diagnostics,
+        path,
+        "region.start_seconds",
+        playback.region.start_seconds,
+    );
+    if let Some(end_seconds) = playback.region.end_seconds {
+        validate_sample_seconds(diagnostics, path, "region.end_seconds", end_seconds);
+        if playback.region.start_seconds.is_finite()
+            && end_seconds.is_finite()
+            && end_seconds <= playback.region.start_seconds
+        {
             diagnostics.push(
                 Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "sample playback time must be finite and non-negative",
+                    DiagnosticCode::DefinitionError,
+                    "sample region end must be greater than start",
                 )
-                .with_path(format!("{path}.playback.{field}")),
+                .with_path(format!("{path}.playback.region.end_seconds")),
             );
         }
-    };
-    match playback {
-        SampleZonePlaybackDefinition::OneShot {
-            start_seconds,
-            end_seconds,
-        } => {
-            validate_seconds("start_seconds", start_seconds);
-            if let Some(end_seconds) = end_seconds {
-                validate_seconds("end_seconds", end_seconds);
-                if start_seconds.is_finite()
-                    && end_seconds.is_finite()
-                    && end_seconds <= start_seconds
-                {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::DefinitionError,
-                            "one-shot end must be greater than start",
-                        )
-                        .with_path(format!("{path}.playback.end_seconds")),
-                    );
-                }
-            }
+    }
+    if let Some(loop_definition) = playback.r#loop {
+        validate_sample_seconds(
+            diagnostics,
+            path,
+            "loop.start_seconds",
+            loop_definition.start_seconds,
+        );
+        validate_sample_seconds(
+            diagnostics,
+            path,
+            "loop.end_seconds",
+            loop_definition.end_seconds,
+        );
+        validate_sample_seconds(
+            diagnostics,
+            path,
+            "loop.crossfade_seconds",
+            loop_definition.crossfade_seconds,
+        );
+        if loop_definition.start_seconds.is_finite()
+            && playback.region.start_seconds.is_finite()
+            && loop_definition.start_seconds < playback.region.start_seconds
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sample loop start must be inside the playback region",
+                )
+                .with_path(format!("{path}.playback.loop.start_seconds")),
+            );
         }
-        SampleZonePlaybackDefinition::ForwardLoop {
-            start_seconds,
-            end_seconds,
-            loop_start_seconds,
-            loop_end_seconds,
-        } => {
-            validate_seconds("start_seconds", start_seconds);
-            validate_seconds("loop_start_seconds", loop_start_seconds);
-            validate_seconds("loop_end_seconds", loop_end_seconds);
-            if let Some(end_seconds) = end_seconds {
-                validate_seconds("end_seconds", end_seconds);
-                if start_seconds.is_finite()
-                    && end_seconds.is_finite()
-                    && end_seconds <= start_seconds
-                {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::DefinitionError,
-                            "forward loop end must be greater than start",
-                        )
-                        .with_path(format!("{path}.playback.end_seconds")),
-                    );
-                }
-            }
-            if loop_end_seconds.is_finite()
-                && loop_start_seconds.is_finite()
-                && loop_end_seconds <= loop_start_seconds
-            {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::DefinitionError,
-                        "forward loop end must be greater than loop start",
-                    )
-                    .with_path(format!("{path}.playback.loop_end_seconds")),
-                );
-            }
-            if start_seconds.is_finite()
-                && loop_start_seconds.is_finite()
-                && loop_start_seconds < start_seconds
-            {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::DefinitionError,
-                        "forward loop start must be inside the playback region",
-                    )
-                    .with_path(format!("{path}.playback.loop_start_seconds")),
-                );
-            }
-            if let Some(end_seconds) = end_seconds
-                && loop_end_seconds.is_finite()
-                && end_seconds.is_finite()
-                && loop_end_seconds > end_seconds
-            {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::DefinitionError,
-                        "forward loop end must be inside the playback region",
-                    )
-                    .with_path(format!("{path}.playback.loop_end_seconds")),
-                );
-            }
+        if loop_definition.end_seconds.is_finite()
+            && loop_definition.start_seconds.is_finite()
+            && loop_definition.end_seconds <= loop_definition.start_seconds
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sample loop end must be greater than loop start",
+                )
+                .with_path(format!("{path}.playback.loop.end_seconds")),
+            );
         }
+        if let Some(end_seconds) = playback.region.end_seconds
+            && loop_definition.end_seconds.is_finite()
+            && end_seconds.is_finite()
+            && loop_definition.end_seconds > end_seconds
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sample loop end must be inside the playback region",
+                )
+                .with_path(format!("{path}.playback.loop.end_seconds")),
+            );
+        }
+        if loop_definition.crossfade_seconds.is_finite()
+            && loop_definition.start_seconds.is_finite()
+            && loop_definition.end_seconds.is_finite()
+            && loop_definition.crossfade_seconds
+                > (loop_definition.end_seconds - loop_definition.start_seconds) * 0.5
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "sample loop crossfade must not exceed half the loop length",
+                )
+                .with_path(format!("{path}.playback.loop.crossfade_seconds")),
+            );
+        }
+    }
+}
+
+fn validate_sample_time_definition(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    playback: SampleZonePlaybackDefinition,
+) {
+    match playback.time {
+        SampleTimeDefinition::Resample => {}
+        SampleTimeDefinition::FixedStretch { ratio } => {
+            if !ratio.is_finite() || !(0.5..=2.0).contains(&ratio) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::InvalidStretchRatio,
+                        "sample fixed stretch ratio must be finite and between 0.5 and 2.0",
+                    )
+                    .with_path(format!("{path}.playback.time.ratio")),
+                );
+            }
+            reject_reverse_stretch(diagnostics, path, playback.direction);
+        }
+        SampleTimeDefinition::TempoSync { source_bpm } => {
+            if !source_bpm.is_finite() || source_bpm <= 0.0 {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::InvalidSourceTempo,
+                        "sample source_bpm must be finite and greater than zero",
+                    )
+                    .with_path(format!("{path}.playback.time.source_bpm")),
+                );
+            }
+            reject_reverse_stretch(diagnostics, path, playback.direction);
+        }
+    }
+}
+
+fn reject_reverse_stretch(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    direction: SamplePlaybackDirection,
+) {
+    if direction == SamplePlaybackDirection::Reverse {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::UnsupportedPlaybackCombination,
+                "reverse sample playback cannot use time stretch",
+            )
+            .with_path(format!("{path}.playback")),
+        );
+    }
+}
+
+fn validate_sample_seconds(diagnostics: &mut Vec<Diagnostic>, path: &str, field: &str, value: f32) {
+    if !value.is_finite() || value < 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "sample playback time must be finite and non-negative",
+            )
+            .with_path(format!("{path}.playback.{field}")),
+        );
     }
 }
 
@@ -1918,6 +2385,7 @@ pub(crate) mod tests {
                 id: "body".to_owned(),
                 enabled: true,
                 trigger: LayerTriggerDefinition {
+                    event: LayerTriggerEvent::NoteOn,
                     key_min: 0,
                     key_max: 127,
                     velocity_min: 1,
@@ -2154,6 +2622,43 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn sample_playback_and_trigger_event_serde_preserve_the_new_shape() {
+        let playback: SampleZonePlaybackDefinition = serde_json::from_value(serde_json::json!({
+            "region": {"start_seconds": 0.25, "end_seconds": null},
+            "direction": "reverse",
+            "loop": {
+                "start_seconds": 0.5,
+                "end_seconds": 1.5,
+                "crossfade_seconds": 0.1
+            },
+            "time": {"mode": "resample"}
+        }))
+        .expect("sample playback parses");
+        assert!((playback.region.start_seconds - 0.25).abs() < f32::EPSILON);
+        assert_eq!(playback.region.end_seconds, None);
+        assert_eq!(playback.direction, SamplePlaybackDirection::Reverse);
+        assert_eq!(
+            playback.r#loop,
+            Some(SampleLoopDefinition {
+                start_seconds: 0.5,
+                end_seconds: 1.5,
+                crossfade_seconds: 0.1,
+            })
+        );
+        assert_eq!(playback.time, SampleTimeDefinition::Resample);
+
+        let trigger: LayerTriggerDefinition = serde_json::from_value(serde_json::json!({
+            "event": "note_off",
+            "key_min": 0,
+            "key_max": 127,
+            "velocity_min": 1,
+            "velocity_max": 127
+        }))
+        .expect("trigger event parses");
+        assert_eq!(trigger.event, LayerTriggerEvent::NoteOff);
+    }
+
+    #[test]
     fn oscillator_waveforms_use_tagged_objects() {
         let mut value = serde_json::to_value(definition()).expect("definition serializes");
         for waveform in ["sine", "saw", "square", "triangle"] {
@@ -2327,9 +2832,14 @@ pub(crate) mod tests {
 
     #[test]
     fn sample_zone_mapping_and_round_robin_ranges_are_validated() {
-        let one_shot = SampleZonePlaybackDefinition::OneShot {
-            start_seconds: 0.0,
-            end_seconds: None,
+        let one_shot = SampleZonePlaybackDefinition {
+            region: SampleRegionDefinition {
+                start_seconds: 0.0,
+                end_seconds: None,
+            },
+            direction: SamplePlaybackDirection::Forward,
+            r#loop: None,
+            time: SampleTimeDefinition::Resample,
         };
         let value = sample_definition(vec![
             sample_zone("soft", 0, 127, 1, 64, None, one_shot),
@@ -2366,10 +2876,84 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn sample_time_modes_validate_ratio_tempo_and_direction_constraints() {
+        let fixed_playback = SampleZonePlaybackDefinition {
+            region: SampleRegionDefinition {
+                start_seconds: 0.0,
+                end_seconds: None,
+            },
+            direction: SamplePlaybackDirection::Forward,
+            r#loop: None,
+            time: SampleTimeDefinition::FixedStretch { ratio: 2.5 },
+        };
+        let diagnostics = sample_definition(vec![sample_zone(
+            "fixed",
+            0,
+            127,
+            1,
+            127,
+            None,
+            fixed_playback,
+        )])
+        .validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::InvalidStretchRatio
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback.time.ratio")
+        }));
+
+        let tempo_playback = SampleZonePlaybackDefinition {
+            time: SampleTimeDefinition::TempoSync { source_bpm: 0.0 },
+            ..fixed_playback
+        };
+        let diagnostics = sample_definition(vec![sample_zone(
+            "tempo",
+            0,
+            127,
+            1,
+            127,
+            None,
+            tempo_playback,
+        )])
+        .validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::InvalidSourceTempo
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback.time.source_bpm")
+        }));
+
+        let reverse_playback = SampleZonePlaybackDefinition {
+            direction: SamplePlaybackDirection::Reverse,
+            time: SampleTimeDefinition::FixedStretch { ratio: 1.0 },
+            ..fixed_playback
+        };
+        let diagnostics = sample_definition(vec![sample_zone(
+            "reverse",
+            0,
+            127,
+            1,
+            127,
+            None,
+            reverse_playback,
+        )])
+        .validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::UnsupportedPlaybackCombination
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback")
+        }));
+    }
+
+    #[test]
     fn sample_zone_midi_fields_have_explicit_bounds() {
-        let one_shot = SampleZonePlaybackDefinition::OneShot {
-            start_seconds: 0.0,
-            end_seconds: None,
+        let one_shot = SampleZonePlaybackDefinition {
+            region: SampleRegionDefinition {
+                start_seconds: 0.0,
+                end_seconds: None,
+            },
+            direction: SamplePlaybackDirection::Forward,
+            r#loop: None,
+            time: SampleTimeDefinition::Resample,
         };
         let fields = [
             ("root_note", "layers[0].generator.sample.zones[0].root_note"),
@@ -2426,23 +3010,61 @@ pub(crate) mod tests {
             1,
             127,
             None,
-            SampleZonePlaybackDefinition::ForwardLoop {
-                start_seconds: 1.0,
-                end_seconds: Some(2.0),
-                loop_start_seconds: 0.5,
-                loop_end_seconds: 2.5,
+            SampleZonePlaybackDefinition {
+                region: SampleRegionDefinition {
+                    start_seconds: 1.0,
+                    end_seconds: Some(2.0),
+                },
+                direction: SamplePlaybackDirection::Forward,
+                r#loop: Some(SampleLoopDefinition {
+                    start_seconds: 0.5,
+                    end_seconds: 2.5,
+                    crossfade_seconds: 0.0,
+                }),
+                time: SampleTimeDefinition::Resample,
             },
         )]);
         let diagnostics = value.validate();
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.code == DiagnosticCode::DefinitionError
                 && diagnostic.path.as_deref()
-                    == Some("layers[0].generator.sample.zones[0].playback.loop_start_seconds")
+                    == Some("layers[0].generator.sample.zones[0].playback.loop.start_seconds")
         }));
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.code == DiagnosticCode::DefinitionError
                 && diagnostic.path.as_deref()
-                    == Some("layers[0].generator.sample.zones[0].playback.loop_end_seconds")
+                    == Some("layers[0].generator.sample.zones[0].playback.loop.end_seconds")
+        }));
+    }
+
+    #[test]
+    fn sample_loop_rejects_a_crossfade_longer_than_half_the_loop() {
+        let value = sample_definition(vec![sample_zone(
+            "crossfade",
+            0,
+            127,
+            1,
+            127,
+            None,
+            SampleZonePlaybackDefinition {
+                region: SampleRegionDefinition {
+                    start_seconds: 0.0,
+                    end_seconds: Some(2.0),
+                },
+                direction: SamplePlaybackDirection::Forward,
+                r#loop: Some(SampleLoopDefinition {
+                    start_seconds: 0.5,
+                    end_seconds: 1.5,
+                    crossfade_seconds: 0.51,
+                }),
+                time: SampleTimeDefinition::Resample,
+            },
+        )]);
+        let diagnostics = value.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref()
+                    == Some("layers[0].generator.sample.zones[0].playback.loop.crossfade_seconds")
         }));
     }
 

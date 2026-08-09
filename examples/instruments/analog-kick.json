@@ -14,6 +14,7 @@
       "id": "body",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 36,
         "key_max": 36,
         "velocity_min": 1,
@@ -50,6 +51,7 @@
       "id": "click",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 36,
         "key_max": 36,
         "velocity_min": 1,

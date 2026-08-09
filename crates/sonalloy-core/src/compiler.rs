@@ -2,20 +2,27 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::asset::{AssetError, PreparedAsset, PreparedSample, prepare_asset, resolved_asset_path};
+use crate::asset::{
+    AssetError, PreparedAsset, PreparedAudio, PreparedAudioChannels, prepare_asset,
+    resolved_asset_path,
+};
 use crate::definition::{
     AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
-    GeneratorDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
-    ModulationSourceDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
-    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, ProcessorDefinition,
-    ReverbProcessorDefinition, SampleZoneDefinition, SampleZonePlaybackDefinition,
-    UnisonDefinition, VoiceStealingDefinition, WavetableDefinition,
+    GeneratorDefinition, GranularDefinition, InstrumentDefinition, LayerTriggerEvent,
+    LfoDefinition, LfoWaveform, ModulationCurve, ModulationSourceDefinition, NoiseColor,
+    OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition,
+    OscillatorWaveform, ProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection,
+    SampleTimeDefinition, SampleZoneDefinition, UnisonDefinition, VoiceStealingDefinition,
+    WaveSequenceDefinition, WaveSequenceDirection, WaveSequenceDurationDefinition,
+    WaveSequenceStepPlayback, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
-    BASIC_FREQUENCY_LIMIT_RATIO, GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK,
-    PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
-    UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION, effective_max_frequency,
+    BASIC_FREQUENCY_LIMIT_RATIO, GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS,
+    GRAIN_SIZE, GRANULAR_GRAIN_POOL_LIMIT, GRANULAR_POSITION, GeneratorParameterSpec,
+    NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO,
+    PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+    effective_max_frequency,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
@@ -47,6 +54,8 @@ pub struct CompileResult {
 pub struct CompiledInstrument {
     /// Sample rate used to compile sample and time-dependent values.
     pub process_sample_rate: f64,
+    /// Maximum intrinsic latency reported by the compiled layers.
+    pub reported_latency_frames: usize,
     /// Metadata copied from the Definition.
     pub metadata: CompiledMetadata,
     /// Compiled performance settings.
@@ -167,6 +176,8 @@ pub struct CompiledLayer {
     pub envelope: CompiledAdsr,
     /// Compiled generator.
     pub generator: CompiledGenerator,
+    /// Latency introduced by the layer's generator.
+    pub intrinsic_latency_frames: usize,
     /// Processors applied after the generator.
     pub processors: Box<[CompiledProcessor]>,
 }
@@ -174,6 +185,8 @@ pub struct CompiledLayer {
 /// Compiled trigger conditions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompiledLayerTrigger {
+    /// Event at which the layer starts.
+    pub event: LayerTriggerEvent,
     /// Lowest accepted MIDI note.
     pub key_min: u8,
     /// Highest accepted MIDI note.
@@ -201,6 +214,10 @@ pub enum CompiledGenerator {
     Noise(CompiledNoise),
     /// Prepared sample generator.
     Sample(CompiledSample),
+    /// Prepared granular generator.
+    Granular(CompiledGranular),
+    /// Prepared Wave Sequence generator.
+    WaveSequence(CompiledWaveSequence),
     /// Prepared band-limited wavetable generator.
     Wavetable(CompiledWavetable),
     /// Fixed-topology four-operator modulation generator.
@@ -228,8 +245,9 @@ impl CompiledGenerator {
                     GeneratorOutputMode::Stereo
                 }
             }
-            Self::Noise(_) => GeneratorOutputMode::Stereo,
-            Self::Sample(_) => GeneratorOutputMode::Mono,
+            Self::Noise(_) | Self::Granular(_) => GeneratorOutputMode::Stereo,
+            Self::WaveSequence(value) => value.output_mode(),
+            Self::Sample(value) => value.output_mode(),
             Self::Wavetable(value) => {
                 if value.unison.position_distribution.len() == 1 {
                     GeneratorOutputMode::Mono
@@ -247,9 +265,27 @@ impl CompiledGenerator {
         }
     }
 
+    /// Return the intrinsic latency introduced by this generator.
+    #[must_use]
+    pub fn intrinsic_latency_frames(&self) -> usize {
+        match self {
+            Self::Sample(value) => value
+                .stretch_latency
+                .map_or(0, |latency| latency.output_frames),
+            Self::Oscillator(_)
+            | Self::Noise(_)
+            | Self::Granular(_)
+            | Self::WaveSequence(_)
+            | Self::Wavetable(_)
+            | Self::OperatorModulation(_) => 0,
+        }
+    }
+
     pub(crate) fn is_available(&self) -> bool {
         match self {
             Self::Oscillator(_) | Self::Noise(_) | Self::OperatorModulation(_) => true,
+            Self::Granular(value) => value.source.is_some(),
+            Self::WaveSequence(value) => value.steps.iter().any(|step| step.source.is_some()),
             Self::Sample(value) => value.zones.iter().any(CompiledSampleZone::is_enabled),
             Self::Wavetable(value) => value.prepared.is_some(),
         }
@@ -357,6 +393,149 @@ pub struct CompiledSample {
     pub zones: Box<[CompiledSampleZone]>,
     /// Round Robin groups in stable Definition order.
     pub groups: Box<[CompiledRoundRobinGroup]>,
+    /// Latency measured from the prepared stretch backend.
+    pub stretch_latency: Option<CompiledStretchLatency>,
+}
+
+impl CompiledSample {
+    /// Return the fixed output layout required by the prepared zones.
+    #[must_use]
+    pub fn output_mode(&self) -> GeneratorOutputMode {
+        if self
+            .zones
+            .iter()
+            .filter_map(|zone| zone.source.as_deref())
+            .any(|source| matches!(source.channels, PreparedAudioChannels::Stereo { .. }))
+        {
+            GeneratorOutputMode::Stereo
+        } else {
+            GeneratorOutputMode::Mono
+        }
+    }
+}
+
+/// Dynamic parameter handles owned by a compiled Granular Generator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledGranularParameters {
+    /// Grain source position handle.
+    pub position: ParameterHandle,
+    /// Grain duration in seconds handle.
+    pub grain_size: ParameterHandle,
+    /// Grain density per second handle.
+    pub density: ParameterHandle,
+    /// Grain pitch offset in cents handle.
+    pub pitch: ParameterHandle,
+    /// Source position randomization handle.
+    pub randomness: ParameterHandle,
+    /// Per-grain stereo spread handle.
+    pub pan_spread: ParameterHandle,
+}
+
+/// Compiled granular generator and its shared prepared source.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledGranular {
+    /// Prepared source shared by all voices.
+    pub source: Option<Arc<PreparedAudio>>,
+    /// Asset path as written in the Definition.
+    pub asset_path: String,
+    /// Whether the Definition supplied an asset hash.
+    pub asset_sha256_specified: bool,
+    /// MIDI note represented by the source recording.
+    pub root_note: u8,
+    /// Inclusive region start in prepared frames.
+    pub start_frame: usize,
+    /// Exclusive region end in prepared frames.
+    pub end_frame: usize,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledGranularParameters,
+    /// Explicit deterministic grain seed.
+    pub seed: u64,
+    /// Stable hash of the owning layer identifier.
+    pub layer_hash: u64,
+    /// Maximum active grains per voice.
+    pub grain_pool_limit: usize,
+}
+
+/// Duration unit resolved for one Wave Sequence step.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CompiledWaveSequenceDuration {
+    /// Tempo-independent duration in seconds.
+    Seconds(f64),
+    /// Tempo-dependent duration in quarter-note beats.
+    Beats(f64),
+}
+
+/// Asset playback mode resolved for one Wave Sequence step.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledWaveSequenceStepPlayback {
+    /// Read the region once and then output silence.
+    OneShot,
+    /// Repeat the region until the step ends.
+    Loop,
+}
+
+/// One prepared Wave Sequence step.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledWaveSequenceStep {
+    /// Stable Definition identifier.
+    pub id: String,
+    /// Prepared source, absent when the asset or region is unavailable.
+    pub source: Option<Arc<PreparedAudio>>,
+    /// Asset path as written in the Definition.
+    pub asset_path: String,
+    /// Inclusive region start in prepared frames.
+    pub start_frame: usize,
+    /// Exclusive region end in prepared frames.
+    pub end_frame: usize,
+    /// Step duration and its unit.
+    pub duration: CompiledWaveSequenceDuration,
+    /// Playback mode inside the step.
+    pub playback: CompiledWaveSequenceStepPlayback,
+    /// Playback direction inside the step region.
+    pub playback_direction: CompiledSampleDirection,
+    /// Linear step gain.
+    pub gain: f32,
+    /// Step pitch offset in cents.
+    pub pitch_cents: f32,
+}
+
+impl CompiledWaveSequenceStep {
+    /// Return whether this step can read an audio source.
+    #[must_use]
+    pub fn is_enabled(&self) -> bool {
+        self.source.is_some()
+    }
+}
+
+/// Compiled Wave Sequence configuration and immutable step data.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledWaveSequence {
+    /// MIDI note represented by the sequence assets.
+    pub root_note: u8,
+    /// Order in which steps are selected.
+    pub direction: WaveSequenceDirection,
+    /// Whether the sequence repeats after reaching an end.
+    pub loop_sequence: bool,
+    /// Constant-power overlap ratio between adjacent steps.
+    pub crossfade: f32,
+    /// Steps in Definition order, including unavailable silence steps.
+    pub steps: Arc<[CompiledWaveSequenceStep]>,
+}
+
+impl CompiledWaveSequence {
+    /// Return the fixed output layout required by available steps.
+    #[must_use]
+    pub fn output_mode(&self) -> GeneratorOutputMode {
+        if self.steps.iter().any(|step| {
+            step.source.as_deref().is_some_and(|source| {
+                matches!(source.channels, PreparedAudioChannels::Stereo { .. })
+            })
+        }) {
+            GeneratorOutputMode::Stereo
+        } else {
+            GeneratorOutputMode::Mono
+        }
+    }
 }
 
 /// Compiled Sample Zone and its prepared Asset.
@@ -364,8 +543,8 @@ pub struct CompiledSample {
 pub struct CompiledSampleZone {
     /// Stable Definition identifier.
     pub id: String,
-    /// Prepared mono source, absent when the asset could not be loaded.
-    pub source: Option<Arc<PreparedSample>>,
+    /// Prepared mono or stereo source, absent when the asset could not be loaded.
+    pub source: Option<Arc<PreparedAudio>>,
     /// MIDI note represented by the source recording.
     pub root_note: u8,
     /// Lowest accepted MIDI note.
@@ -393,7 +572,7 @@ pub struct WavetableSourceMetadata {
     pub source_channels: usize,
     /// Source bit depth when supplied by the decoder.
     pub bits_per_sample: Option<u32>,
-    /// Total source frames after mono conversion.
+    /// Number of frames in the source asset.
     pub source_frames: usize,
 }
 
@@ -530,27 +709,73 @@ impl CompiledSampleZone {
     }
 }
 
-/// Sample playback region in prepared frame coordinates.
+/// Playback direction resolved for the Sample Runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CompiledSamplePlayback {
-    /// Play a finite region once.
-    OneShot {
-        /// Inclusive start frame.
-        start_frame: usize,
-        /// Exclusive end frame.
-        end_frame: usize,
+pub enum CompiledSampleDirection {
+    /// Advance the cursor toward the region end.
+    Forward,
+    /// Advance the cursor toward the region start.
+    Reverse,
+}
+
+/// Loop region in prepared frame coordinates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledSampleLoop {
+    /// Inclusive loop start frame.
+    pub start_frame: usize,
+    /// Exclusive loop end frame.
+    pub end_frame: usize,
+    /// Constant-power crossfade length in frames.
+    pub crossfade_frames: usize,
+}
+
+/// Sample playback configuration in prepared frame coordinates.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledSamplePlayback {
+    /// Playback direction.
+    pub direction: CompiledSampleDirection,
+    /// Inclusive region start frame.
+    pub start_frame: usize,
+    /// Exclusive region end frame.
+    pub end_frame: usize,
+    /// Optional loop inside the region.
+    pub loop_region: Option<CompiledSampleLoop>,
+    /// Time behavior in prepared frame coordinates.
+    pub time: CompiledSampleTime,
+}
+
+/// Time behavior resolved for Sample Runtime.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CompiledSampleTime {
+    /// Couple pitch and duration through ordinary resampling.
+    Resample,
+    /// Keep pitch independent from duration with a fixed output ratio.
+    FixedStretch {
+        /// Output duration divided by source duration.
+        duration_ratio: f64,
     },
-    /// Repeat a forward loop inside the region.
-    ForwardLoop {
-        /// Inclusive region start frame.
-        start_frame: usize,
-        /// Exclusive region end frame.
-        end_frame: usize,
-        /// Inclusive loop start frame.
-        loop_start_frame: usize,
-        /// Exclusive loop end frame.
-        loop_end_frame: usize,
+    /// Derive the output ratio from the process tempo.
+    TempoSync {
+        /// Source tempo in beats per minute.
+        source_bpm: f64,
     },
+}
+
+impl CompiledSampleTime {
+    /// Return whether this mode uses the native stretch backend.
+    #[must_use]
+    pub const fn uses_stretch(self) -> bool {
+        !matches!(self, Self::Resample)
+    }
+}
+
+/// Latency reported by one prepared stretch backend.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledStretchLatency {
+    /// Input-side latency in frames.
+    pub input_frames: usize,
+    /// Output-side latency in frames.
+    pub output_frames: usize,
 }
 
 /// Compiled Round Robin group.
@@ -843,6 +1068,7 @@ pub fn compile_instrument(
                 &parameter_catalog,
                 &context.definition_base_dir,
                 context.process_spec.sample_rate,
+                context.process_spec.max_block_size,
                 &mut asset_cache,
                 &mut wavetable_asset_cache,
                 &mut diagnostics,
@@ -874,12 +1100,14 @@ pub fn compile_instrument(
                 context.process_spec.sample_rate,
                 &mut diagnostics,
             );
+            let intrinsic_latency_frames = generator.intrinsic_latency_frames();
             CompiledLayer {
                 id: layer.id.clone(),
                 trigger: compile_trigger(layer.trigger),
                 parameters,
                 envelope,
                 generator,
+                intrinsic_latency_frames,
                 processors,
             }
         })
@@ -920,6 +1148,11 @@ pub fn compile_instrument(
 
     let compiled = CompiledInstrument {
         process_sample_rate: context.process_spec.sample_rate,
+        reported_latency_frames: layers
+            .iter()
+            .map(|layer| layer.intrinsic_latency_frames)
+            .max()
+            .unwrap_or(0),
         metadata: CompiledMetadata {
             name: definition.metadata.name.clone(),
             author: definition.metadata.author.clone(),
@@ -1498,6 +1731,7 @@ fn compile_generator(
     catalog: &ParameterCatalog,
     definition_base_dir: &Path,
     sample_rate: f64,
+    max_block_size: usize,
     asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
     wavetable_asset_cache: &mut HashMap<
         WavetableAssetCacheKey,
@@ -1578,9 +1812,30 @@ fn compile_generator(
             layer_index,
             definition_base_dir,
             sample_rate,
+            max_block_size,
             asset_cache,
             diagnostics,
         )),
+        GeneratorDefinition::Granular(granular) => CompiledGenerator::Granular(compile_granular(
+            granular,
+            layer_index,
+            layer_id,
+            catalog,
+            definition_base_dir,
+            sample_rate,
+            asset_cache,
+            diagnostics,
+        )),
+        GeneratorDefinition::WaveSequence(sequence) => {
+            CompiledGenerator::WaveSequence(compile_wave_sequence(
+                sequence,
+                layer_index,
+                definition_base_dir,
+                sample_rate,
+                asset_cache,
+                diagnostics,
+            ))
+        }
         GeneratorDefinition::Wavetable(wavetable) => {
             CompiledGenerator::Wavetable(compile_wavetable(
                 wavetable,
@@ -1976,11 +2231,296 @@ fn report_wavetable_preparation_error(
 }
 
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments)]
+fn compile_granular(
+    granular: &GranularDefinition,
+    layer_index: usize,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledGranular {
+    let granular_path = format!("layers[{layer_index}].generator.granular");
+    let mut source = None;
+    let mut start_frame = 0;
+    let mut end_frame = 0;
+    if Path::new(&granular.asset.path).is_absolute() {
+        diagnostics.push(
+            Diagnostic::warning(
+                DiagnosticCode::AssetAbsolutePath,
+                "absolute asset paths reduce Definition portability",
+            )
+            .with_path(format!("{granular_path}.asset.path")),
+        );
+    }
+    match prepare_cached_asset(
+        &granular.asset,
+        definition_base_dir,
+        sample_rate,
+        asset_cache,
+    ) {
+        Ok(prepared) => {
+            if granular.asset.sha256.is_none() {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::AssetHashMissing,
+                        "asset sha256 is not specified",
+                    )
+                    .with_path(format!("{granular_path}.asset.sha256")),
+                );
+            }
+            if (f64::from(prepared.audio.source_metadata.source_sample_rate) - sample_rate).abs()
+                > f64::EPSILON
+            {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::AssetResampled,
+                        "asset was resampled to the process sample rate",
+                    )
+                    .with_path(format!("{granular_path}.asset.path")),
+                );
+            }
+            let region_start = granular_time_to_frame(
+                granular.region.start_seconds,
+                sample_rate,
+                &granular_path,
+                "region.start_seconds",
+                diagnostics,
+            );
+            let region_end =
+                granular
+                    .region
+                    .end_seconds
+                    .map_or(Some(prepared.audio.frames), |seconds| {
+                        granular_time_to_frame(
+                            seconds,
+                            sample_rate,
+                            &granular_path,
+                            "region.end_seconds",
+                            diagnostics,
+                        )
+                    });
+            if let (Some(region_start), Some(region_end)) = (region_start, region_end) {
+                if region_start < region_end
+                    && region_end <= prepared.audio.frames
+                    && region_end - region_start >= 2
+                {
+                    source = Some(Arc::clone(&prepared.audio));
+                    start_frame = region_start;
+                    end_frame = region_end;
+                } else {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::InvalidGrainRegion,
+                            "granular region must contain at least two prepared frames",
+                        )
+                        .with_path(format!("{granular_path}.region")),
+                    );
+                }
+            }
+        }
+        Err(error) => {
+            let (code, message) = asset_diagnostic(&error);
+            diagnostics.push(
+                Diagnostic::warning(code, message)
+                    .with_path(format!("{granular_path}.asset.path"))
+                    .with_detail(error.to_string()),
+            );
+        }
+    }
+    CompiledGranular {
+        source,
+        asset_path: granular.asset.path.clone(),
+        asset_sha256_specified: granular.asset.sha256.is_some(),
+        root_note: granular.root_note,
+        start_frame,
+        end_frame,
+        parameters: CompiledGranularParameters {
+            position: generator_parameter_handle(catalog, layer_id, GRANULAR_POSITION),
+            grain_size: generator_parameter_handle(catalog, layer_id, GRAIN_SIZE),
+            density: generator_parameter_handle(catalog, layer_id, GRAIN_DENSITY),
+            pitch: generator_parameter_handle(catalog, layer_id, GRAIN_PITCH),
+            randomness: generator_parameter_handle(catalog, layer_id, GRAIN_RANDOMNESS),
+            pan_spread: generator_parameter_handle(catalog, layer_id, GRAIN_PAN_SPREAD),
+        },
+        seed: granular.seed,
+        layer_hash: source_id_hash(layer_id),
+        grain_pool_limit: GRANULAR_GRAIN_POOL_LIMIT,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)]
+fn compile_wave_sequence(
+    sequence: &WaveSequenceDefinition,
+    layer_index: usize,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledWaveSequence {
+    let sequence_path = format!("layers[{layer_index}].generator.wave_sequence");
+    let steps = sequence
+        .steps
+        .iter()
+        .enumerate()
+        .map(|(step_index, step)| {
+            let step_path = format!("{sequence_path}.steps[{step_index}]");
+            let mut compiled = CompiledWaveSequenceStep {
+                id: step.id.clone(),
+                source: None,
+                asset_path: step.asset.path.clone(),
+                start_frame: 0,
+                end_frame: 0,
+                duration: compile_wave_sequence_duration(step.duration),
+                playback: match step.playback {
+                    WaveSequenceStepPlayback::OneShot => {
+                        CompiledWaveSequenceStepPlayback::OneShot
+                    }
+                    WaveSequenceStepPlayback::Loop => CompiledWaveSequenceStepPlayback::Loop,
+                },
+                playback_direction: match step.playback_direction {
+                    SamplePlaybackDirection::Forward => CompiledSampleDirection::Forward,
+                    SamplePlaybackDirection::Reverse => CompiledSampleDirection::Reverse,
+                },
+                gain: db_to_linear(step.gain_db),
+                pitch_cents: step.pitch_cents,
+            };
+            if Path::new(&step.asset.path).is_absolute() {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::AssetAbsolutePath,
+                        "absolute asset paths reduce Definition portability",
+                    )
+                    .with_path(format!("{step_path}.asset.path")),
+                );
+            }
+            match prepare_cached_asset(&step.asset, definition_base_dir, sample_rate, asset_cache) {
+                Ok(prepared) => {
+                    if step.asset.sha256.is_none() {
+                        diagnostics.push(
+                            Diagnostic::warning(
+                                DiagnosticCode::AssetHashMissing,
+                                "asset sha256 is not specified",
+                            )
+                            .with_path(format!("{step_path}.asset.sha256")),
+                        );
+                    }
+                    if (f64::from(prepared.audio.source_metadata.source_sample_rate)
+                        - sample_rate)
+                        .abs()
+                        > f64::EPSILON
+                    {
+                        diagnostics.push(
+                            Diagnostic::warning(
+                                DiagnosticCode::AssetResampled,
+                                "asset was resampled to the process sample rate",
+                            )
+                            .with_path(format!("{step_path}.asset.path")),
+                        );
+                    }
+                    let start_frame = sequence_time_to_frame(
+                        step.region.start_seconds,
+                        sample_rate,
+                        &format!("{step_path}.region.start_seconds"),
+                        diagnostics,
+                    );
+                    let end_frame = step.region.end_seconds.map_or(
+                        Some(prepared.audio.frames),
+                        |seconds| {
+                            sequence_time_to_frame(
+                                seconds,
+                                sample_rate,
+                                &format!("{step_path}.region.end_seconds"),
+                                diagnostics,
+                            )
+                        },
+                    );
+                    if let (Some(start_frame), Some(end_frame)) = (start_frame, end_frame) {
+                        if start_frame < end_frame
+                            && end_frame <= prepared.audio.frames
+                            && end_frame - start_frame >= 2
+                        {
+                            compiled.start_frame = start_frame;
+                            compiled.end_frame = end_frame;
+                            compiled.source = Some(Arc::clone(&prepared.audio));
+                        } else {
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::InvalidSequence,
+                                    "wave sequence region must contain at least two prepared frames inside the asset",
+                                )
+                                .with_path(format!("{step_path}.region")),
+                            );
+                        }
+                    }
+                }
+                Err(error) => {
+                    let (code, message) = asset_diagnostic(&error);
+                    diagnostics.push(
+                        Diagnostic::warning(code, message)
+                            .with_path(format!("{step_path}.asset.path"))
+                            .with_detail(error.to_string()),
+                    );
+                }
+            }
+            compiled
+        })
+        .collect::<Vec<_>>();
+    CompiledWaveSequence {
+        root_note: sequence.root_note,
+        direction: sequence.direction,
+        loop_sequence: sequence.loop_sequence,
+        crossfade: sequence.crossfade,
+        steps: Arc::from(steps.into_boxed_slice()),
+    }
+}
+
+fn compile_wave_sequence_duration(
+    duration: WaveSequenceDurationDefinition,
+) -> CompiledWaveSequenceDuration {
+    match duration {
+        WaveSequenceDurationDefinition::Seconds { value } => {
+            CompiledWaveSequenceDuration::Seconds(f64::from(value))
+        }
+        WaveSequenceDurationDefinition::Beats { value } => {
+            CompiledWaveSequenceDuration::Beats(f64::from(value))
+        }
+    }
+}
+
+fn sequence_time_to_frame(
+    seconds: f32,
+    sample_rate: f64,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<usize> {
+    let frames = (f64::from(seconds) * sample_rate).round();
+    #[allow(clippy::cast_precision_loss)]
+    let max_usize = usize::MAX as f64;
+    if !frames.is_finite() || frames < 0.0 || frames > max_usize {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidSequence,
+                "wave sequence region time does not fit in the process frame counter",
+            )
+            .with_path(path),
+        );
+        return None;
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    Some(frames as usize)
+}
+
+#[allow(clippy::too_many_lines)]
 fn compile_sample(
     sample: &crate::definition::SampleDefinition,
     layer_index: usize,
     definition_base_dir: &Path,
     sample_rate: f64,
+    max_block_size: usize,
     asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CompiledSample {
@@ -1996,9 +2536,15 @@ fn compile_sample(
             velocity_min: zone.velocity_min,
             velocity_max: zone.velocity_max,
             group: None,
-            playback: CompiledSamplePlayback::OneShot {
+            playback: CompiledSamplePlayback {
+                direction: match zone.playback.direction {
+                    SamplePlaybackDirection::Forward => CompiledSampleDirection::Forward,
+                    SamplePlaybackDirection::Reverse => CompiledSampleDirection::Reverse,
+                },
                 start_frame: 0,
                 end_frame: 0,
+                loop_region: None,
+                time: CompiledSampleTime::Resample,
             },
             asset_path: zone.asset.path.clone(),
         };
@@ -2022,16 +2568,7 @@ fn compile_sample(
                         .with_path(format!("{zone_path}.asset.sha256")),
                     );
                 }
-                if prepared.downmixed {
-                    diagnostics.push(
-                        Diagnostic::warning(
-                            DiagnosticCode::AssetDownmixed,
-                            "stereo asset was downmixed to mono",
-                        )
-                        .with_path(format!("{zone_path}.asset.path")),
-                    );
-                }
-                if (f64::from(prepared.sample.source_metadata.source_sample_rate) - sample_rate)
+                if (f64::from(prepared.audio.source_metadata.source_sample_rate) - sample_rate)
                     .abs()
                     > f64::EPSILON
                 {
@@ -2045,13 +2582,13 @@ fn compile_sample(
                 }
                 if let Some(playback) = compile_sample_playback(
                     zone,
-                    prepared.sample.samples.len(),
+                    prepared.audio.frames,
                     sample_rate,
                     &format!("{zone_path}.playback"),
                     diagnostics,
                 ) {
                     compiled.playback = playback;
-                    compiled.source = Some(Arc::clone(&prepared.sample));
+                    compiled.source = Some(Arc::clone(&prepared.audio));
                 }
             }
             Err(error) => {
@@ -2106,10 +2643,101 @@ fn compile_sample(
         .collect::<Vec<_>>()
         .into_boxed_slice();
 
+    let stretch_latency = if sample
+        .zones
+        .iter()
+        .any(|zone| zone.playback.time != SampleTimeDefinition::Resample)
+    {
+        compile_stretch_latency(
+            sample_rate,
+            max_block_size,
+            &format!("layers[{layer_index}].generator.sample"),
+            diagnostics,
+        )
+    } else {
+        None
+    };
+
     CompiledSample {
         zones: zones.into_boxed_slice(),
         groups,
+        stretch_latency,
     }
+}
+
+fn compile_stretch_latency(
+    sample_rate: f64,
+    max_block_size: usize,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<CompiledStretchLatency> {
+    let Some(max_input_frames) = max_block_size.checked_mul(2) else {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::StretchBackendFailure,
+                "stretch input capacity overflows the process frame counter",
+            )
+            .with_path(path),
+        );
+        return None;
+    };
+    let mut backend = match sonalloy_dsp_sys::DspStretch::new() {
+        Ok(backend) => backend,
+        Err(error) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::StretchBackendFailure,
+                    "stretch backend allocation failed",
+                )
+                .with_path(path)
+                .with_detail(error.to_string()),
+            );
+            return None;
+        }
+    };
+    if let Err(error) = backend.prepare(2, sample_rate, max_input_frames, max_block_size) {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::StretchBackendFailure,
+                "stretch backend preparation failed",
+            )
+            .with_path(path)
+            .with_detail(error.to_string()),
+        );
+        return None;
+    }
+    let input_frames = match backend.input_latency() {
+        Ok(value) => value,
+        Err(error) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::StretchBackendFailure,
+                    "stretch input latency is unavailable",
+                )
+                .with_path(path)
+                .with_detail(error.to_string()),
+            );
+            return None;
+        }
+    };
+    let output_frames = match backend.output_latency() {
+        Ok(value) => value,
+        Err(error) => {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::StretchBackendFailure,
+                    "stretch output latency is unavailable",
+                )
+                .with_path(path)
+                .with_detail(error.to_string()),
+            );
+            return None;
+        }
+    };
+    Some(CompiledStretchLatency {
+        input_frames,
+        output_frames,
+    })
 }
 
 fn compile_sample_playback(
@@ -2119,22 +2747,8 @@ fn compile_sample_playback(
     path: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<CompiledSamplePlayback> {
-    let (start_seconds, end_seconds, loop_seconds) = match zone.playback {
-        SampleZonePlaybackDefinition::OneShot {
-            start_seconds,
-            end_seconds,
-        } => (start_seconds, end_seconds, None),
-        SampleZonePlaybackDefinition::ForwardLoop {
-            start_seconds,
-            end_seconds,
-            loop_start_seconds,
-            loop_end_seconds,
-        } => (
-            start_seconds,
-            end_seconds,
-            Some((loop_start_seconds, loop_end_seconds)),
-        ),
-    };
+    let start_seconds = zone.playback.region.start_seconds;
+    let end_seconds = zone.playback.region.end_seconds;
     let start_frame = sample_time_to_frame(
         start_seconds,
         sample_rate,
@@ -2165,45 +2779,69 @@ fn compile_sample_playback(
         );
         return None;
     }
-    let Some((loop_start_seconds, loop_end_seconds)) = loop_seconds else {
-        return Some(CompiledSamplePlayback::OneShot {
-            start_frame,
-            end_frame,
-        });
+    let loop_region = if let Some(loop_definition) = zone.playback.r#loop {
+        let loop_start_frame = sample_time_to_frame(
+            loop_definition.start_seconds,
+            sample_rate,
+            path,
+            "loop.start_seconds",
+            diagnostics,
+        )?;
+        let loop_end_frame = sample_time_to_frame(
+            loop_definition.end_seconds,
+            sample_rate,
+            path,
+            "loop.end_seconds",
+            diagnostics,
+        )?;
+        let crossfade_frames = sample_time_to_frame(
+            loop_definition.crossfade_seconds,
+            sample_rate,
+            path,
+            "loop.crossfade_seconds",
+            diagnostics,
+        )?;
+        let loop_length = loop_end_frame.saturating_sub(loop_start_frame);
+        if loop_start_frame < start_frame
+            || loop_end_frame > end_frame
+            || loop_end_frame <= loop_start_frame
+            || loop_length < 2
+            || crossfade_frames > loop_length / 2
+        {
+            diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::CompileError,
+                        "sample loop must contain at least two frames inside the sample region and its crossfade must not exceed half the loop",
+                    )
+                    .with_path(path),
+                );
+            return None;
+        }
+        Some(CompiledSampleLoop {
+            start_frame: loop_start_frame,
+            end_frame: loop_end_frame,
+            crossfade_frames,
+        })
+    } else {
+        None
     };
-    let loop_start_frame = sample_time_to_frame(
-        loop_start_seconds,
-        sample_rate,
-        path,
-        "loop_start_seconds",
-        diagnostics,
-    )?;
-    let loop_end_frame = sample_time_to_frame(
-        loop_end_seconds,
-        sample_rate,
-        path,
-        "loop_end_seconds",
-        diagnostics,
-    )?;
-    if loop_start_frame < start_frame
-        || loop_end_frame > end_frame
-        || loop_end_frame <= loop_start_frame
-        || loop_end_frame - loop_start_frame < 2
-    {
-        diagnostics.push(
-            Diagnostic::error(
-                DiagnosticCode::CompileError,
-                "forward loop must contain at least two frames inside the sample region",
-            )
-            .with_path(path),
-        );
-        return None;
-    }
-    Some(CompiledSamplePlayback::ForwardLoop {
+    Some(CompiledSamplePlayback {
+        direction: match zone.playback.direction {
+            SamplePlaybackDirection::Forward => CompiledSampleDirection::Forward,
+            SamplePlaybackDirection::Reverse => CompiledSampleDirection::Reverse,
+        },
         start_frame,
         end_frame,
-        loop_start_frame,
-        loop_end_frame,
+        loop_region,
+        time: match zone.playback.time {
+            SampleTimeDefinition::Resample => CompiledSampleTime::Resample,
+            SampleTimeDefinition::FixedStretch { ratio } => CompiledSampleTime::FixedStretch {
+                duration_ratio: f64::from(ratio),
+            },
+            SampleTimeDefinition::TempoSync { source_bpm } => CompiledSampleTime::TempoSync {
+                source_bpm: f64::from(source_bpm),
+            },
+        },
     })
 }
 
@@ -2222,6 +2860,30 @@ fn sample_time_to_frame(
             Diagnostic::error(
                 DiagnosticCode::CompileError,
                 "sample playback time does not fit in the process frame counter",
+            )
+            .with_path(format!("{path}.{field}")),
+        );
+        return None;
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    Some(frames as usize)
+}
+
+fn granular_time_to_frame(
+    seconds: f32,
+    sample_rate: f64,
+    path: &str,
+    field: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<usize> {
+    let frames = (f64::from(seconds) * sample_rate).round();
+    #[allow(clippy::cast_precision_loss)]
+    let max_usize = usize::MAX as f64;
+    if !frames.is_finite() || frames < 0.0 || frames > max_usize {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::InvalidGrainRegion,
+                "granular region time does not fit in the process frame counter",
             )
             .with_path(format!("{path}.{field}")),
         );
@@ -2296,6 +2958,7 @@ fn has_errors(diagnostics: &[Diagnostic]) -> bool {
 
 fn compile_trigger(trigger: crate::definition::LayerTriggerDefinition) -> CompiledLayerTrigger {
     CompiledLayerTrigger {
+        event: trigger.event,
         key_min: trigger.key_min,
         key_max: trigger.key_max,
         velocity_min: trigger.velocity_min,

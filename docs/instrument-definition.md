@@ -30,6 +30,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
       "id": "body",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,
@@ -91,7 +92,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 |---|---|
 | `schema_version` | 1のみ |
 | `layers` | 1個以上。複数のLayerは書かれた順に同じVoiceへMixされます。`enabled`が`false`のLayerはCompile対象外 |
-| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、または`sample` |
+| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、`sample`、または`granular` |
 | `processors` | Layerごとの直列Processor配列。書かれた順にGeneratorとLayer Mixの間で適用 |
 | `voice_processors` | Voice Mix後に適用する直列Processor配列 |
 | `global_processors` | Voice Sum後にInstrument全体へ適用する直列Processor配列 |
@@ -110,7 +111,7 @@ Instrument Definitionは、手で編集して保存・管理するJSONファイ�
 | Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
 | LFO | Rate 0.01〜40Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
-| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|unison_detune\|unison_spread\|noise_correlation)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
+| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|unison_detune\|unison_spread\|noise_correlation\|granular_position\|grain_size\|grain_density\|grain_pitch\|grain_randomness\|grain_pan_spread)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
 | 未知のField | JSON Parse Errorとして扱います |
 | 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Layer / Voice / Global Processor状態、Scratch Buffer |
 
@@ -279,6 +280,140 @@ Dynamic Parameterは次のCanonical IDを持ちます。
 
 Assetの欠落・Hash不一致・Decode失敗ではWavetable Layerだけを発音候補から除外し、ほかの有効LayerはCompileとRenderを継続します。レイアウト不正や全Frame無音はWavetableを準備できない診断になります。
 
+### Granular
+
+Granularは一つのPrepared AudioをCompile時にRegionへ変換し、Noteごとに固定Poolから複数のGrainを生成するGeneratorです。Sample GeneratorのPlayback Modeではなく、独立したGeneratorとしてLayerへ配置します。Mono AssetもGrainごとにConstant-powerでStereo配置するため、出力はStereoです。
+
+```json
+{
+  "generator": {
+    "granular": {
+      "asset": {
+        "path": "../../testdata/assets/metal-hit.wav",
+        "sha256": "<SHA-256>"
+      },
+      "root_note": 60,
+      "region": {
+        "start_seconds": 0.05,
+        "end_seconds": 0.9
+      },
+      "position": 0.5,
+      "grain_size": 0.08,
+      "density": 24.0,
+      "pitch": 0.0,
+      "randomness": 0.35,
+      "pan_spread": 0.75,
+      "seed": 8128
+    }
+  }
+}
+```
+
+| Field | Range / Unit | Dynamic | Meaning |
+|---|---:|---:|---|
+| `asset` | — | No | MonoまたはStereoのWAV Asset。Sampleと同じPrepared Audioを共有 |
+| `root_note` | 0〜127 | No | Sourceの基準MIDI Note |
+| `region.start_seconds` / `end_seconds` | 0以上の秒 | No | Grain Positionが参照するPrepared Region。End省略時はAsset終端 |
+| `position` | 0〜1 | Yes | Region内の基本Source Position。0はRegion Start、1はGrain長を考慮したRegion End側 |
+| `grain_size` | 0.005〜0.5秒 | Yes | Hann Windowを適用するGrain長 |
+| `density` | 1〜100 grains/sec | Yes | Grain Schedulerの生成密度 |
+| `pitch` | -2400〜2400 cents | Yes | Note / Layer Tuningへ加算するGrain Pitch |
+| `randomness` | 0〜1 | Yes | Deterministic RandomでRegion内へ分散する量 |
+| `pan_spread` | 0〜1 | Yes | GrainごとのStereo配置幅 |
+| `seed` | uint64 | No | Grain Position / Panの決定的Seed |
+
+WindowはHann固定で、Window種別をDefinitionへ公開しません。GrainはCompile時に確保した64 Slotの固定Poolを再利用し、最大Densityと最大Grain SizeでもPoolを超えない範囲で動作します。PositionがRegion外へ回り込むRandom結果は循環し、実際のGrain長とPitchを考慮してRegion外をReadしません。
+
+Canonical Parameter IDは次の形式です。
+
+- `layer.<layer_id>.generator.granular_position`（Normalized、0〜1、5ms）
+- `layer.<layer_id>.generator.grain_size`（Seconds、0.005〜0.5、Log2、10ms）
+- `layer.<layer_id>.generator.grain_density`（Per Second、1〜100、Log2、10ms）
+- `layer.<layer_id>.generator.grain_pitch`（Cents、-2400〜2400、5ms）
+- `layer.<layer_id>.generator.grain_randomness`（Normalized、0〜1、10ms）
+- `layer.<layer_id>.generator.grain_pan_spread`（Normalized、0〜1、10ms）
+
+Assetの欠落・Hash不一致・Decode失敗ではGranular Layerを発音候補から除外し、ほかの有効LayerはCompileとRenderを継続します。RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Parameter範囲違反は`INVALID_GRAIN_PARAMETER`を返します。
+
+### Wave Sequence
+
+Wave Sequenceは複数のAudio Assetを一つのGeneratorで時間順に再生します。StepはCompile後もDefinition順の不変配列として保持され、Assetを共有します。
+
+```json
+{
+  "generator": {
+    "wave_sequence": {
+      "root_note": 60,
+      "direction": "ping_pong",
+      "loop": true,
+      "crossfade": 0.25,
+      "steps": [
+        {
+          "id": "attack",
+          "asset": {
+            "path": "../../testdata/assets/metal-hit.wav",
+            "sha256": "<SHA-256>"
+          },
+          "region": {
+            "start_seconds": 0.0,
+            "end_seconds": 0.08
+          },
+          "duration": {
+            "mode": "seconds",
+            "value": 0.18
+          },
+          "playback": "loop",
+          "playback_direction": "forward",
+          "gain_db": -3.0,
+          "pitch_cents": 0.0
+        },
+        {
+          "id": "body",
+          "asset": {
+            "path": "../../testdata/assets/metal-hit.wav",
+            "sha256": "<SHA-256>"
+          },
+          "region": {
+            "start_seconds": 0.08,
+            "end_seconds": 0.16
+          },
+          "duration": {
+            "mode": "beats",
+            "value": 0.5
+          },
+          "playback": "one_shot",
+          "playback_direction": "reverse",
+          "gain_db": -6.0,
+          "pitch_cents": 300.0
+        }
+      ]
+    }
+  }
+}
+```
+
+| Field | Range / Unit | Dynamic | Meaning |
+|---|---:|---:|---|
+| `root_note` | 0〜127 | No | Step Assetの基準MIDI Note |
+| `direction` | `forward` / `reverse` / `ping_pong` | No | Stepを選択する順序 |
+| `loop` | Boolean | No | 終端後にSequenceを繰り返すか |
+| `crossfade` | 0〜0.5 | No | 隣接Stepを重ねる割合。Constant-powerで混合 |
+| `steps` | 1〜128個 | No | 時間順のStep配列 |
+| `steps[].id` | Component ID | No | Sequence内で一意なStep ID |
+| `steps[].asset` | — | No | MonoまたはStereoのWAV Asset |
+| `steps[].region` | 0以上の秒 | No | Assetから読む`[start, end)` Region |
+| `steps[].duration` | `seconds`または`beats`、正の値 | No | Stepを保持する時間 |
+| `steps[].playback` | `one_shot` / `loop` | No | Step内でAssetを一度だけ読むか繰り返すか |
+| `steps[].playback_direction` | `forward` / `reverse` | No | Step AssetのRead方向 |
+| `steps[].gain_db` | -60〜12 dB | No | Step固有のGain |
+| `steps[].pitch_cents` | -2400〜2400 cents | No | Root Noteへ加算するStep Pitch |
+
+`direction`はStepを選ぶ順序、`playback_direction`は選択されたAssetを読む方向です。`ping_pong`は終端Stepを重複再生せず、`A B C D C B A`の順で進みます。`one_shot`のSourceがDurationより先に終わった場合はStep終端まで無音を保持し、`loop`はRegionを繰り返します。
+
+`duration.mode`が`seconds`の場合はTempoに依存せず、`beats`の場合はProcess Tempoの変更後から進行速度を変えます。途中のTempo変更でStepを先頭へ戻しません。Missing Assetや不正RegionのStepはCompile配列から削除せず、指定Durationを持つ無音Stepとして残します。全Stepが利用できない場合はLayerだけを発音候補から除外します。
+
+Wave Sequence固有のDynamic Parameterは定義しません。Step構造、Duration、Direction、Crossfade、Pitch、GainはCompile時に確定します。
+
 ### Operator Modulation
 
 Operator Modulationは4つのSine Operatorを固定Topologyで接続するGeneratorです。Definitionでは利用者向けのOperator番号を1〜4で記述し、Compile後は固定配列へ変換します。接続Algorithmは`stack_4`、`stack_3_plus_carrier`、`two_stacks`、`fork_to_carrier`、`two_modulators_plus_carrier`、`three_modulators`、`shared_modulator`、`parallel`です。任意の接続GraphやOperator間Cycleは指定できません。
@@ -371,7 +506,7 @@ Dynamic ParameterはTopologyとModeに応じて次を公開します。
 
 OperatorのEffective Frequency上限はPhase / Frequencyで`Sample Rate × 0.24`、Amplitude / Ringで`Sample Rate × 0.45`です。詳細なTopologyとSignal順序は[`docs/runtime-processing.md`](runtime-processing.md)を参照してください。
 
-Generator ParameterはLayer Gain / Pan / Tuningの後、Layer Processorの前にParameter Catalogへ追加されます。Sample GeneratorにはGenerator Dynamic Parameterはありません。
+Generator ParameterはLayer Gain / Pan / Tuningの後、Layer Processorの前にParameter Catalogへ追加されます。Sample GeneratorのZone構造はStaticで、Granular Generatorの6 ParameterはDynamicです。
 
 ## Processor Chain
 
@@ -434,6 +569,7 @@ Sampleを使うLayerの最小構成です。
   "id": "attack",
   "enabled": true,
   "trigger": {
+    "event": "note_on",
     "key_min": 0,
     "key_max": 127,
     "velocity_min": 1,
@@ -465,9 +601,13 @@ Sampleを使うLayerの最小構成です。
           "velocity_max": 127,
           "round_robin_group": null,
           "playback": {
-            "type": "one_shot",
-            "start_seconds": 0.0,
-            "end_seconds": null
+            "region": {
+              "start_seconds": 0.0,
+              "end_seconds": null
+            },
+            "direction": "forward",
+            "loop": null,
+            "time": { "mode": "resample" }
           }
         }
       ]
@@ -480,10 +620,11 @@ Sampleを使うLayerの最小構成です。
 
 - Asset PathはDefinitionがあるフォルダを基準に解決します
 - SHA-256を照合してから、SymphoniaでWAVを読み込みます
-- StereoのWAVは左右の平均を取ってMonoへ変換します
+- Sample GeneratorのStereo WAVは左右を保持したPlanar Prepared Audioへ変換します。Mono WAVはMonoのまま保持します
 - 再生時のSample Rateと違う場合は、RubatoでSample Rateを変換します
-- 元のSample Rate、Channel数、Bit Depth、Frame数はCompiled Sampleに保持します
-- 同一Assetを参照するZoneはCompile時にPrepared Sampleを共有します
+- ResampleはChannelごとに同じ設定で行い、左右のFrame数を一致させます
+- 元のSample Rate、Channel数、Bit Depth、Frame数はPrepared AudioのSource Metadataに保持します
+- 同一Assetを参照するZoneはCompile時にPrepared Audioを共有します
 - Assetの欠落・Hash不一致・Decode失敗はそのZoneだけを無効化し、ほかのZoneとLayerのCompileを継続します
 
 **Sample Zone**
@@ -495,14 +636,43 @@ Sampleを使うLayerの最小構成です。
 - Velocity Layerは重ならないVelocity範囲で記述します。範囲のGapでは発音しません
 - 同じRound Robin Groupの選択はDefinition順で、Instrument単位のCounterによりA/B/A/Bと進みます
 
+**Layer Trigger Event**
+
+- `event`は`note_on`または`note_off`です。通常のLayerは`note_on`を指定します
+- `note_on` LayerはNote Onで発音を開始します
+- `note_off` LayerはNote OnでArmedになり、Audioを生成せずにNote IDを保持します。対応するNote Offで独立したEnvelopeのAttackから発音を開始します
+- Voice Stealingは演奏上のNote Offではないため、Armed Layerを発音しません
+
 **Playback Region**
 
-- `one_shot`は`start_seconds`から`end_seconds`（`null`はAsset終端）までを一度だけ再生します
-- `forward_loop`はRegion内の`loop_start_seconds`から`loop_end_seconds`へ到達するとLoop Startへ戻ります
-- RegionとLoopはCompile時にEngine Sample RateのFrameへ変換され、最低2 Frameが必要です
+- `region`は`start_seconds`と`end_seconds`を持ち、`[start, end)`として扱います。`end_seconds: null`はAsset終端です
+- `direction`は`forward`または`reverse`です。ReverseはPrepared Audioを複製せずCursor方向だけを反転します
+- `loop: null`はOne-shotです。Loopを指定する場合はRegion内の`start_seconds`、`end_seconds`、`crossfade_seconds`を記述します
+- `crossfade_seconds: 0`は通常Loop、0より大きい場合はConstant-power Crossfade Loopです。CrossfadeはLoop長の半分以下でなければなりません
+- `time`は`resample`、`fixed_stretch`、`tempo_sync`のいずれかです。省略できません
+- `resample`はPitch変更に合わせてDurationも変えます。`fixed_stretch`は`ratio`（0.5〜2.0）でDurationだけを変え、`tempo_sync`は`source_bpm`（0より大きい値）とProcess TempoからDuration比を決めます
+- `fixed_stretch`と`tempo_sync`はReverseと併用できません。RatioはCompile時にも検証され、範囲外の値をClampしません
+- RegionとLoopはCompile時にEngine Sample RateのFrameへ変換され、RegionとLoopには最低2 Frameが必要です
 - Explicit Sliceは同じAssetと異なるOne-shot Regionを持つ複数Zoneで表現します
 
-Sampleの再生の動き（Cursor、再生速度、補間、終端の扱い）は、`docs/runtime-processing.md`の「Sample Runtime」を参照してください。
+```json
+"playback": {
+  "region": { "start_seconds": 0.0, "end_seconds": null },
+  "direction": "forward",
+  "loop": null,
+  "time": { "mode": "fixed_stretch", "ratio": 1.5 }
+}
+```
+
+Tempoに追従するZoneは次の形式です。
+
+```json
+"time": { "mode": "tempo_sync", "source_bpm": 120.0 }
+```
+
+`source_bpm / process_tempo_bpm`が0.5〜2.0の範囲外になる場合はProcess Errorになります。Tempo SyncはTempo Mapの境界でProcess Blockを分割して適用します。
+
+Sampleの再生の動き（Cursor、再生速度、補間、終端の扱い）は、`docs/runtime-processing.md`の「Sampleの再生」を参照してください。
 
 ## Modulation
 
@@ -580,6 +750,7 @@ Compileで一度だけ計算します。
 | dB → Gain | `gain_db`を線形のGainへ |
 | cent → 音程比 | `tuning_cents`を再生速度の比へ |
 | ADSRの秒 → Frame数 | Sample Rateに依存するFrame数へ |
+| Granular Regionの秒 → Frame数 | Prepared Audio内の固定Regionへ |
 | Filter Cutoff | Sample Rateの上限へ制限 |
 | Parameter Catalog | LayerとProcessorの連続Parameterへ安定ID、範囲、Scale、Smoothingを割り当て |
 | Modulation | SourceをDense Tableへ、RouteをTarget別の範囲へ変換 |

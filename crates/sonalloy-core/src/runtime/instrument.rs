@@ -4,6 +4,7 @@ use crate::compiler::{
     CompiledGenerator, CompiledInstrument, CompiledProcessor, CompiledProcessorKind,
     CompiledSampleZone,
 };
+use crate::definition::LayerTriggerEvent;
 use crate::parameter::ParameterScale;
 use crate::process::{
     InstrumentProcessor, ProcessBlock, ProcessError, ProcessEventKind, ProcessSpec, clear_output,
@@ -109,6 +110,7 @@ impl InstrumentRuntime {
         start: usize,
         end: usize,
         sample_rate: f64,
+        tempo_bpm: f64,
         shared: SharedParameterSpan<'_>,
     ) -> Result<(), ProcessError> {
         if start >= end {
@@ -134,6 +136,7 @@ impl InstrumentRuntime {
             voice.render_span(
                 frames,
                 sample_rate,
+                tempo_bpm,
                 compiled,
                 shared,
                 &mut layer_mono[..frames],
@@ -180,7 +183,7 @@ impl InstrumentRuntime {
             }
             ProcessEventKind::NoteOff { note_id } => {
                 for voice in &mut self.voices {
-                    voice.release_note(note_id);
+                    voice.release_note(&self.compiled, note_id)?;
                 }
             }
             ProcessEventKind::ParameterChange {
@@ -270,13 +273,21 @@ impl InstrumentRuntime {
             match &layer.generator {
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
+                | CompiledGenerator::Granular(_)
+                | CompiledGenerator::WaveSequence(_)
                 | CompiledGenerator::Wavetable(_)
                 | CompiledGenerator::OperatorModulation(_) => {
                     *self
                         .note_layer_selection
                         .get_mut(layer_index)
-                        .ok_or_else(invalid_state)? =
-                        PreparedLayerSelection::Active { sample_zone: None };
+                        .ok_or_else(invalid_state)? = match layer.trigger.event {
+                        LayerTriggerEvent::NoteOn => {
+                            PreparedLayerSelection::Active { sample_zone: None }
+                        }
+                        LayerTriggerEvent::NoteOff => {
+                            PreparedLayerSelection::Armed { sample_zone: None }
+                        }
+                    };
                     can_trigger = true;
                 }
                 CompiledGenerator::Sample(sample) => {
@@ -289,8 +300,13 @@ impl InstrumentRuntime {
                         *self
                             .note_layer_selection
                             .get_mut(layer_index)
-                            .ok_or_else(invalid_state)? = PreparedLayerSelection::Active {
-                            sample_zone: Some(zone_index),
+                            .ok_or_else(invalid_state)? = match layer.trigger.event {
+                            LayerTriggerEvent::NoteOn => PreparedLayerSelection::Active {
+                                sample_zone: Some(zone_index),
+                            },
+                            LayerTriggerEvent::NoteOff => PreparedLayerSelection::Armed {
+                                sample_zone: Some(zone_index),
+                            },
                         };
                         can_trigger = true;
                     }
@@ -609,6 +625,8 @@ impl InstrumentProcessor for InstrumentRuntime {
                 CompiledGenerator::Sample(sample) => vec![0; sample.groups.len()],
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
+                | CompiledGenerator::Granular(_)
+                | CompiledGenerator::WaveSequence(_)
                 | CompiledGenerator::Wavetable(_)
                 | CompiledGenerator::OperatorModulation(_) => Vec::new(),
             })
@@ -713,6 +731,7 @@ impl InstrumentProcessor for InstrumentRuntime {
                 cursor,
                 end,
                 spec.sample_rate,
+                block.context.tempo_bpm,
                 shared,
             ) {
                 clear_output(&mut *block.output, block.frames);
@@ -936,11 +955,9 @@ mod tests {
             .expect("process succeeds");
     }
 
-    fn write_wavetable_fixture() -> std::path::PathBuf {
-        let path = std::env::temp_dir().join(format!(
-            "sonalloy-runtime-wavetable-{}.wav",
-            std::process::id()
-        ));
+    fn write_pcm_fixture() -> (tempfile::TempDir, std::path::PathBuf) {
+        let directory = tempfile::tempdir().expect("fixture directory creates");
+        let path = directory.path().join("fixture.wav");
         let samples = (0..128)
             .map(|index| {
                 #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
@@ -967,7 +984,41 @@ mod tests {
             bytes.extend_from_slice(&sample.to_le_bytes());
         }
         std::fs::write(&path, bytes).expect("fixture WAV writes");
-        path
+        (directory, path)
+    }
+
+    fn sample_stretch_definition(
+        path: &std::path::Path,
+    ) -> crate::definition::InstrumentDefinition {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].generator =
+            crate::definition::GeneratorDefinition::Sample(crate::definition::SampleDefinition {
+                interpolation: crate::definition::SampleInterpolation::Cubic,
+                zones: vec![crate::definition::SampleZoneDefinition {
+                    id: "stretch".to_owned(),
+                    asset: crate::definition::AssetReference {
+                        path: path.to_string_lossy().into_owned(),
+                        sha256: None,
+                    },
+                    root_note: 60,
+                    key_min: 0,
+                    key_max: 127,
+                    velocity_min: 1,
+                    velocity_max: 127,
+                    round_robin_group: None,
+                    playback: crate::definition::SampleZonePlaybackDefinition {
+                        region: crate::definition::SampleRegionDefinition {
+                            start_seconds: 0.0,
+                            end_seconds: None,
+                        },
+                        direction: crate::definition::SamplePlaybackDirection::Forward,
+                        r#loop: None,
+                        time: crate::definition::SampleTimeDefinition::FixedStretch { ratio: 1.0 },
+                    },
+                }],
+            });
+        source
     }
 
     #[test]
@@ -1056,7 +1107,7 @@ mod tests {
 
     #[test]
     fn wavetable_render_does_not_allocate_after_prepare() {
-        let path = write_wavetable_fixture();
+        let (_directory, path) = write_pcm_fixture();
         let mut source = definition();
         source.performance.polyphony = 1;
         source.layers[0].generator = crate::definition::GeneratorDefinition::Wavetable(
@@ -1090,7 +1141,30 @@ mod tests {
         });
 
         assert_eq!(allocations, 0);
-        std::fs::remove_file(path).expect("fixture WAV removes");
+    }
+
+    #[test]
+    fn stretch_render_does_not_allocate_in_rust_after_prepare() {
+        let (_directory, path) = write_pcm_fixture();
+        let source = sample_stretch_definition(&path);
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &event);
+        runtime.reset().expect("reset");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
     }
 
     #[test]
@@ -1483,9 +1557,14 @@ mod tests {
             velocity_min: 1,
             velocity_max: 127,
             round_robin_group: Some("hits".to_owned()),
-            playback: crate::definition::SampleZonePlaybackDefinition::OneShot {
-                start_seconds,
-                end_seconds: Some(end_seconds),
+            playback: crate::definition::SampleZonePlaybackDefinition {
+                region: crate::definition::SampleRegionDefinition {
+                    start_seconds,
+                    end_seconds: Some(end_seconds),
+                },
+                direction: crate::definition::SamplePlaybackDirection::Forward,
+                r#loop: None,
+                time: crate::definition::SampleTimeDefinition::Resample,
             },
         };
         let mut source = definition();
@@ -1851,6 +1930,8 @@ mod tests {
                 oscillator.waveform = waveform;
             }
             crate::definition::GeneratorDefinition::Sample(_)
+            | crate::definition::GeneratorDefinition::Granular(_)
+            | crate::definition::GeneratorDefinition::WaveSequence(_)
             | crate::definition::GeneratorDefinition::Noise(_)
             | crate::definition::GeneratorDefinition::Wavetable(_)
             | crate::definition::GeneratorDefinition::OperatorModulation(_) => {

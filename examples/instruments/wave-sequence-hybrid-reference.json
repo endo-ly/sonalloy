@@ -1,0 +1,368 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Wave Sequence Hybrid Reference",
+    "author": "Sonalloy",
+    "description": "Wavetable, granular texture, sequenced material, and release sample layers"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "motion",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.02,
+        "decay_seconds": 0.4,
+        "sustain_level": 0.75,
+        "release_seconds": 0.4
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../assets/digital-motion.wav",
+            "sha256": "b099e4597b8f2b44f621d07e74b06bb151585b2c6a6a3c8d306aa2553ebb1527"
+          },
+          "frame_length": 256,
+          "position": 0.35,
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 12.0,
+            "stereo_spread": 0.65,
+            "phase_spread": 0.15
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "texture",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.05,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.65,
+        "release_seconds": 0.5
+      },
+      "generator": {
+        "granular": {
+          "asset": {
+            "path": "../../review-output/granular-generator/assets/stereo-texture.wav",
+            "sha256": "e1368ad392431dcab7cd2842ee062ed5f01ac4ea6a360cef8d55b6f74a4f4926"
+          },
+          "root_note": 60,
+          "region": {
+            "start_seconds": 0.1,
+            "end_seconds": 1.8
+          },
+          "position": 0.5,
+          "grain_size": 0.08,
+          "density": 24.0,
+          "pitch": 0.0,
+          "randomness": 0.35,
+          "pan_spread": 0.75,
+          "seed": 8128
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "sequence",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.1,
+        "sustain_level": 0.8,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "wave_sequence": {
+          "root_note": 60,
+          "direction": "ping_pong",
+          "loop": true,
+          "crossfade": 0.2,
+          "steps": [
+            {
+              "id": "a",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "region": {
+                "start_seconds": 0.0,
+                "end_seconds": 0.08
+              },
+              "duration": {
+                "mode": "seconds",
+                "value": 0.18
+              },
+              "playback": "loop",
+              "playback_direction": "forward",
+              "gain_db": 0.0,
+              "pitch_cents": 0.0
+            },
+            {
+              "id": "b",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "region": {
+                "start_seconds": 0.08,
+                "end_seconds": 0.16
+              },
+              "duration": {
+                "mode": "beats",
+                "value": 0.5
+              },
+              "playback": "one_shot",
+              "playback_direction": "reverse",
+              "gain_db": -4.0,
+              "pitch_cents": 300.0
+            },
+            {
+              "id": "c",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "region": {
+                "start_seconds": 0.16,
+                "end_seconds": 0.24
+              },
+              "duration": {
+                "mode": "seconds",
+                "value": 0.18
+              },
+              "playback": "loop",
+              "playback_direction": "forward",
+              "gain_db": -5.0,
+              "pitch_cents": -300.0
+            },
+            {
+              "id": "d",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "region": {
+                "start_seconds": 0.24,
+                "end_seconds": 0.32
+              },
+              "duration": {
+                "mode": "seconds",
+                "value": 0.18
+              },
+              "playback": "loop",
+              "playback_direction": "reverse",
+              "gain_db": -6.0,
+              "pitch_cents": 600.0
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "attack",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.05,
+        "sustain_level": 0.0,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "reverse_attack",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "region": {
+                  "start_seconds": 0.0,
+                  "end_seconds": 0.08
+                },
+                "direction": "reverse",
+                "loop": null,
+                "time": {
+                  "mode": "resample"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "release",
+      "enabled": true,
+      "trigger": {
+        "event": "note_off",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -21.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.0,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "release_tail",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "region": {
+                  "start_seconds": 0.08,
+                  "end_seconds": 0.18
+                },
+                "direction": "forward",
+                "loop": null,
+                "time": {
+                  "mode": "resample"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "cutoff_hz": 4800.0,
+      "resonance": 0.16
+    },
+    {
+      "type": "drive",
+      "id": "glue",
+      "amount": 0.12,
+      "mix": 0.3
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "delay",
+      "id": "echo",
+      "time_seconds": 0.24,
+      "feedback": 0.34,
+      "mix": 0.18
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.012,
+      "decay": 0.7,
+      "damping": 0.32,
+      "width": 0.9,
+      "mix": 0.24
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "type": "lfo",
+        "id": "texture_motion",
+        "waveform": "sine",
+        "rate_hz": 0.18,
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "texture_motion",
+        "target": "layer.texture.generator.granular_position",
+        "amount": 0.35,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.texture.generator.grain_density",
+        "amount": 0.35,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "amount": 0.2,
+        "curve": "linear"
+      }
+    ]
+  }
+}

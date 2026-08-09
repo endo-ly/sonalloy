@@ -14,6 +14,7 @@
       "id": "phase_lead",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,

@@ -11,6 +11,8 @@ pub(crate) struct GeneratorParameterSpec {
     pub(crate) smoothing_seconds: f32,
 }
 
+pub(crate) const GRANULAR_GRAIN_POOL_LIMIT: usize = 64;
+
 pub(crate) const PULSE_WIDTH: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "pulse_width",
     unit: ParameterUnit::Normalized,
@@ -101,6 +103,60 @@ pub(crate) const NOISE_CORRELATION: GeneratorParameterSpec = GeneratorParameterS
     smoothing_seconds: 0.010,
 };
 
+pub(crate) const GRANULAR_POSITION: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "granular_position",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.005,
+};
+
+pub(crate) const GRAIN_SIZE: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "grain_size",
+    unit: ParameterUnit::Seconds,
+    scale: ParameterScale::Log2,
+    min: 0.005,
+    max: 0.5,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const GRAIN_DENSITY: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "grain_density",
+    unit: ParameterUnit::PerSecond,
+    scale: ParameterScale::Log2,
+    min: 1.0,
+    max: 100.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const GRAIN_PITCH: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "grain_pitch",
+    unit: ParameterUnit::Cents,
+    scale: ParameterScale::Linear,
+    min: -2400.0,
+    max: 2400.0,
+    smoothing_seconds: 0.005,
+};
+
+pub(crate) const GRAIN_RANDOMNESS: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "grain_randomness",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const GRAIN_PAN_SPREAD: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "grain_pan_spread",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
 pub(crate) const OPERATOR_RATIO_MIN: f32 = 0.25;
 pub(crate) const OPERATOR_RATIO_MAX: f32 = 32.0;
 pub(crate) const OPERATOR_DETUNE_MIN: f32 = -100.0;
@@ -137,6 +193,12 @@ pub(crate) fn is_suffix(value: &str) -> bool {
         PHASE_DISTORTION,
         WAVEFOLD,
         OSCILLATOR_FEEDBACK,
+        GRANULAR_POSITION,
+        GRAIN_SIZE,
+        GRAIN_DENSITY,
+        GRAIN_PITCH,
+        GRAIN_RANDOMNESS,
+        GRAIN_PAN_SPREAD,
         WAVETABLE_POSITION,
         UNISON_DETUNE,
         UNISON_SPREAD,

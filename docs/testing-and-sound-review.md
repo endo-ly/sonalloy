@@ -32,6 +32,8 @@
 - Native Error時は出力Bufferを無音化し、Error・Buffer長・所有権・Destroy・Resetを検証する
 - Guard付きTestでProcess領域外が変更されていないことを確認する
 - Native境界を含むTestはLinux CIでASan / UBSan / Leak検出の対象にする
+- Signalsmith Stretch境界ではMono / Stereo、Pitch、入力・出力Latency、無効なHandle・Buffer、Native故障時の無音化を検証する
+- Stretchを使用するRuntimeではPrepare後のProcessが追加Allocationを発生させず、Reset後に同じ出力を生成することを検証する
 
 ## Dynamic Parameterの検証
 
@@ -120,9 +122,29 @@ flowchart LR
 
 - 保存先：`review-output/essential-synthesis-sampling/`（audio/technical / definitions / events / midi / assets / inspect.json / metrics.json / review-summary.md）
 - 生成：`python scripts/review/generate_essential_synthesis_sampling_package.py`
-- 内容：Key Zone、Velocity Layer、Round Robin、Forward Loop、Explicit Slice、Mapped Sample Instrument、Essential Hybrid Instrument、Block Size、Sample Rate、再Render、Voice Stealingを同じDefinitionと固定Eventから確認する
-- Metrics：Finite性、Peak / RMS / DC、隣接Frame差分、Sample Rate別値、Block Size比較、再RenderSHA、Round Robin選択順、Loop周期、Slice Region長、Asset Cacheの共有数
-- 人間の確認：Key / Velocity境界、Pitch Mapping、Round Robin順、Loopの周期とClick、Release中の挙動、Slice範囲、Missing Asset時の継続、Pending Note、Hybrid音色としての成立
+- 内容：Key Zone、Velocity Layer、Round Robin、Stereo Sample、Forward / Reverse Playback、通常Loop、Constant-power Crossfade Loop、Explicit Slice、Release Trigger、Mapped Sample Instrument、Essential Hybrid Instrument、Fixed Stretch、Tempo Sync、Block Size、Sample Rate、再Render、Voice Stealingを同じDefinitionと固定Eventから確認する
+- Metrics：Finite性、Peak / RMS / DC、左右Channelの分離、隣接Frame差分、Sample Rate別値、Block Size比較、再RenderSHA、Round Robin選択順、Forward / ReverseのRegion境界、Loop周期、Crossfade境界、Slice Region長、Release LayerのArmed期間、Asset Cacheの共有数、StretchのMeasured Latency、Tempo SyncのBPM別継続時間とPitch一致、Stretch Layerと非Stretch Layerの発音位置一致
+- 人間の確認：Key / Velocity境界、Pitch Mapping、Round Robin順、Stereo Image、Reverseの方向感、Loopの周期とClick、Crossfadeの連続性、Release Triggerの発音タイミング、Release中の挙動、Slice範囲、Fixed StretchのPitch保持、Tempo SyncのBPM変化とPitch保持、Stretch Layerと非Stretch LayerのAlignment、Missing Asset時の継続、Pending Note、Hybrid音色としての成立
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
+### Granular Generator
+
+- 保存先：`review-output/granular-generator/`（audio/technical / definitions / events / assets / inspect.json / metrics.json / review-summary.md）
+- 生成：`python scripts/review/generate_granular_package.py`
+- 内容：Granular Pad、Vocal Freeze、Percussion Cloud、Position Scrub、Stereo Source、Polyphonyを同じCLI経路から確認する
+- Metrics：Finite性、Peak / RMS / DC、Stereo差分、Position / Grain Size / Density / Pitch / Randomness / Pan Spreadの出力差分、Seed再現性、Block Size 32 / 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、固定Pool上限
+- 自動確認：Definition Validate、Inspect JSON、6つのParameter Descriptor、Prepared Region、64 Slot Pool、Block Size再現、Sample Rate再生、Seed再現、Scrub / Freezeの非無音性、Stereo Sourceの左右保持、Mono AssetのStereo出力、Polyphonyの有限性。Hann Windowの境界値とProcess中Allocation 0はCore Testで確認する
+- 人間の確認：Grain開始・終了のClick、Densityによる密度感、Grain Sizeの質感、Pitchの変化、Randomnessの空間的な広がり、Pan SpreadのStereo幅、Scrubの追従、Freezeの持続性、Vocal Textureの明瞭さ、Percussion CloudのTransient、Polyphony時の音量と実用性
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
+### Wave Sequence
+
+- 保存先：`review-output/wave-sequence/`（audio/technical / definitions / events / assets / `inspect.json` / `hybrid-inspect.json` / metrics.json / review-summary.md）
+- 生成：`python scripts/review/generate_wave_sequence_package.py`
+- 内容：Single Step、Forward、Reverse、Ping Pong、Sequence Loop、One-shot Step、Loop Step、Seconds / Beats Duration、Tempo Change、Crossfade、Step Pitch / Gain、Missing Step、All Missing、Stereo / Mono混在、Reset、Wave Sequence Hybridを同じCLI経路から確認する
+- Metrics：Finite性、Peak / RMS / DC、Step境界、Crossfade境界、Block Size 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、Tempo Change後のStep位置、Pitch / Gain差分、Missing StepのTiming保持、All Missing Layerの無効化、Stereo分離、Reset再現性
+- 自動確認：Definition Validate、Wave Sequence Inspect、4 Step以上のStep Count、Direction / Loop / Crossfade、Duration Type、Playback Direction、Step Availability、Block Size比較、Sample Rate生成、Tempo Map、HybridのWavetable / Granular / Wave Sequence / Sample / Release Layer、Voice Filter / Drive、Global Delay / Reverb
+- 人間の確認：Forward / Reverse / Ping Pongの順序、端Stepの重複有無、One-shot終端の無音、Loopの境界、Constant-power Crossfade、Step Pitch / Gain、Missing Stepの無音区間、Mono / Stereoの定位、Tempo Change、Reset後の同一性、Voice / Global Processorを含むHybrid音色としての成立
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
 試聴の際は同じ再生環境・音量で比較し、確認結果を`review-summary.md`へ記録します。

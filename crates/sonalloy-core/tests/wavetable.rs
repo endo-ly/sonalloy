@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use approx::assert_relative_eq;
 use sonalloy_core::{
@@ -9,15 +8,10 @@ use sonalloy_core::{
     ProcessSpec, RenderRequest, ScheduledEvent, UnisonDefinition, WavetableDefinition,
     compile_instrument, render_instrument,
 };
+use tempfile::TempDir;
 
-static NEXT_FIXTURE: AtomicUsize = AtomicUsize::new(0);
-
-fn fixture_path() -> PathBuf {
-    let index = NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
-        "sonalloy-wavetable-{}-{index}.wav",
-        std::process::id()
-    ))
+fn fixture_directory() -> TempDir {
+    tempfile::tempdir().expect("fixture directory creates")
 }
 
 fn write_pcm16_wav(path: &PathBuf, samples: &[i16]) {
@@ -154,17 +148,15 @@ fn render(
 
 #[test]
 fn wavetable_compiles_band_tables_and_renders_at_the_correct_pitch() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_pcm16_wav(&path, &table_samples());
-    let base_dir = path
-        .parent()
-        .expect("temporary path has a parent")
-        .to_path_buf();
+    let base_dir = directory.path();
     let definition = definition(path.file_name().unwrap().to_str().unwrap().to_owned(), None);
     let result = compile_instrument(
         &definition,
         &CompileContext {
-            definition_base_dir: base_dir.clone(),
+            definition_base_dir: base_dir.to_path_buf(),
             process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
         },
     );
@@ -204,7 +196,7 @@ fn wavetable_compiles_band_tables_and_renders_at_the_correct_pitch() {
     assert_relative_eq!(position_descriptor.min, 0.0);
     assert_relative_eq!(position_descriptor.max, 1.0);
     assert_relative_eq!(position_descriptor.smoothing_seconds, 0.010);
-    let audio = render(&definition, &base_dir, 257);
+    let audio = render(&definition, base_dir, 257);
     assert!(
         audio
             .channels
@@ -246,7 +238,6 @@ fn wavetable_compiles_band_tables_and_renders_at_the_correct_pitch() {
     let segment_frames = u16::try_from(segment.len()).expect("segment length fits");
     let estimated_frequency = f32::from(crossing_count) * 48_000.0 / f32::from(segment_frames);
     assert!((estimated_frequency - 261.6256).abs() < 2.0);
-    std::fs::remove_file(path).expect("fixture WAV removes");
 }
 
 fn harmonic_amplitude(guarded_samples: &[f32], frame_length: usize, harmonic: usize) -> f32 {
@@ -271,20 +262,18 @@ fn harmonic_amplitude(guarded_samples: &[f32], frame_length: usize, harmonic: us
 
 #[test]
 fn wavetable_position_and_unison_change_the_compiled_output_mode_and_signal() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_pcm16_wav(&path, &table_samples());
-    let base_dir = path
-        .parent()
-        .expect("temporary path has a parent")
-        .to_path_buf();
+    let base_dir = directory.path();
     let file_name = path.file_name().unwrap().to_str().unwrap().to_owned();
     let first = definition(file_name.clone(), None);
     let mut last = definition(file_name.clone(), None);
     if let GeneratorDefinition::Wavetable(wavetable) = &mut last.layers[0].generator {
         wavetable.position = 1.0;
     }
-    let first_audio = render(&first, &base_dir, 32);
-    let last_audio = render(&last, &base_dir, 32);
+    let first_audio = render(&first, base_dir, 32);
+    let last_audio = render(&last, base_dir, 32);
     assert!(
         first_audio.channels[0]
             .iter()
@@ -301,7 +290,7 @@ fn wavetable_position_and_unison_change_the_compiled_output_mode_and_signal() {
             phase_spread: 0.5,
         }),
     );
-    let compiled = compile(&stereo, &base_dir, 257);
+    let compiled = compile(&stereo, base_dir, 257);
     assert_eq!(
         compiled.layers[0].generator.output_mode(),
         sonalloy_core::compiler::GeneratorOutputMode::Stereo
@@ -351,28 +340,25 @@ fn wavetable_position_and_unison_change_the_compiled_output_mode_and_signal() {
             phase_spread: 0.25,
         }),
     );
-    let eight_audio = render(&eight, &base_dir, 257);
+    let eight_audio = render(&eight, base_dir, 257);
     assert!(
         eight_audio.channels[0]
             .iter()
             .any(|sample| sample.abs() > 0.01)
     );
-    std::fs::remove_file(path).expect("fixture WAV removes");
 }
 
 #[test]
 fn wavetable_frame_warnings_keep_audible_assets_available() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_pcm16_wav(&path, &warning_samples());
-    let base_dir = path
-        .parent()
-        .expect("temporary path has a parent")
-        .to_path_buf();
+    let base_dir = directory.path();
     let definition = definition(path.file_name().unwrap().to_str().unwrap().to_owned(), None);
     let result = compile_instrument(
         &definition,
         &CompileContext {
-            definition_base_dir: base_dir,
+            definition_base_dir: base_dir.to_path_buf(),
             process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
         },
     );
@@ -389,23 +375,20 @@ fn wavetable_frame_warnings_keep_audible_assets_available() {
             .iter()
             .any(|diagnostic| diagnostic.code == DiagnosticCode::WavetableDcOffset)
     );
-    std::fs::remove_file(path).expect("fixture WAV removes");
 }
 
 #[test]
 fn wavetable_preparation_is_shared_for_identical_asset_references() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_pcm16_wav(&path, &table_samples());
-    let base_dir = path
-        .parent()
-        .expect("temporary path has a parent")
-        .to_path_buf();
+    let base_dir = directory.path();
     let file_name = path.file_name().unwrap().to_str().unwrap().to_owned();
     let mut definition = definition(file_name, None);
     let mut second = definition.layers[0].clone();
     second.id = "second".to_owned();
     definition.layers.push(second);
-    let compiled = compile(&definition, &base_dir, 257);
+    let compiled = compile(&definition, base_dir, 257);
     let sonalloy_core::compiler::CompiledGenerator::Wavetable(first) =
         &compiled.layers[0].generator
     else {
@@ -420,22 +403,19 @@ fn wavetable_preparation_is_shared_for_identical_asset_references() {
         first.prepared.as_ref().expect("first prepares"),
         second.prepared.as_ref().expect("second prepares")
     ));
-    std::fs::remove_file(path).expect("fixture WAV removes");
 }
 
 #[test]
 fn wavetable_layout_errors_are_compile_errors() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_pcm16_wav(&path, &[0_i16; 63]);
-    let base_dir = path
-        .parent()
-        .expect("temporary path has a parent")
-        .to_path_buf();
+    let base_dir = directory.path();
     let definition = definition(path.file_name().unwrap().to_str().unwrap().to_owned(), None);
     let result = compile_instrument(
         &definition,
         &CompileContext {
-            definition_base_dir: base_dir,
+            definition_base_dir: base_dir.to_path_buf(),
             process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
         },
     );
@@ -446,24 +426,21 @@ fn wavetable_layout_errors_are_compile_errors() {
             .iter()
             .any(|diagnostic| diagnostic.code == DiagnosticCode::WavetableLayoutInvalid)
     );
-    std::fs::remove_file(path).expect("fixture WAV removes");
 }
 
 #[test]
 fn wavetable_output_is_stable_across_block_sizes_and_reset() {
-    let path = fixture_path();
+    let directory = fixture_directory();
+    let path = directory.path().join("fixture.wav");
     write_pcm16_wav(&path, &table_samples());
-    let base_dir = path
-        .parent()
-        .expect("temporary path has a parent")
-        .to_path_buf();
+    let base_dir = directory.path();
     let definition = definition(path.file_name().unwrap().to_str().unwrap().to_owned(), None);
-    let first = render(&definition, &base_dir, 32);
-    let second = render(&definition, &base_dir, 257);
+    let first = render(&definition, base_dir, 32);
+    let second = render(&definition, base_dir, 257);
     for (left, right) in first.channels[0].iter().zip(&second.channels[0]) {
         assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
     }
-    let compiled = compile(&definition, &base_dir, 257);
+    let compiled = compile(&definition, base_dir, 257);
     let mut runtime = compiled.instantiate();
     let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec");
     runtime.prepare(spec).expect("runtime prepares");
@@ -513,17 +490,13 @@ fn wavetable_output_is_stable_across_block_sizes_and_reset() {
     for (left, right) in first_left.iter().zip(&reset_left) {
         assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
     }
-    std::fs::remove_file(path).expect("fixture WAV removes");
 }
 
 #[test]
 fn missing_wavetable_asset_leaves_other_layers_available() {
-    let missing = format!(
-        "missing-wavetable-{}-{}.wav",
-        std::process::id(),
-        NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed)
-    );
-    let base_dir = std::env::temp_dir();
+    let directory = fixture_directory();
+    let base_dir = directory.path();
+    let missing = "missing.wav".to_owned();
     let mut definition = definition(missing, None);
     let mut fallback = definition.layers[0].clone();
     fallback.id = "fallback".to_owned();
@@ -543,7 +516,7 @@ fn missing_wavetable_asset_leaves_other_layers_available() {
     let result = compile_instrument(
         &definition,
         &CompileContext {
-            definition_base_dir: base_dir,
+            definition_base_dir: base_dir.to_path_buf(),
             process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
         },
     );

@@ -1,6 +1,6 @@
 # 音源（Instrument）の作り方
 
-このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要なら自作WAVをWavetableまたはSampleとして組み込むところまで進みます。
+このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要なら自作WAVをWavetable、Sample、Granular、またはWave Sequenceとして組み込むところまで進みます。
 
 > **本書の範囲**：音源作成の操作手順（人間向けガイド）です。仕様の詳細は本書に書かず、各仕様文書へ委ねます。
 >
@@ -14,8 +14,8 @@
 ## 全体の流れ
 
 ```text
-ひな形の生成 → 音色の編集 → 検証 → （Wavetable / Sample追加） → 試聴 → 仕上げ
-   Step 1       Step 2     Step 3       Step 4       Step 5   Step 6
+ひな形の生成 → 音色の編集 → 検証 → Sample / Wavetable追加 → Granular追加 → Wave Sequence追加 → 試聴 → 仕上げ
+   Step 1       Step 2     Step 3       Step 4                    Step 5       Step 6             Step 7   Step 8
 ```
 
 | Step | 内容 | 使うコマンド |
@@ -23,9 +23,11 @@
 | 1 | ひな形の生成（新規の場合のみ） | `instrument init` |
 | 2 | 音色の編集（Layer、ADSR、Processorなど） | エディタでJSONを編集 |
 | 3 | 検証 | `instrument validate` / `instrument inspect` |
-| 4 | 自作WAVをWavetableまたはSampleとして組み込み | SHA-256計算 → JSON編集 |
-| 5 | 試聴 | `render note` / `render midi` |
-| 6 | 仕上げ（名前・説明・関連docsへの反映） | — |
+| 4 | 自作WAVをSampleまたはWavetableとして組み込み | SHA-256計算 → JSON編集 |
+| 5 | 自作WAVをGranularとして組み込み | SHA-256計算 → JSON編集 |
+| 6 | 複数AssetをWave Sequenceとして組み込み | SHA-256計算 → JSON編集 |
+| 7 | 試聴 | `render note` / `render midi` |
+| 8 | 仕上げ（名前・説明・関連docsへの反映） | — |
 
 ## Step 1. ひな形を生成する
 
@@ -54,7 +56,7 @@ Layer 2（Sample）    → Layer Processor → ADSR → Layer Gain → Pan ─�
 
 - Layerごとに**独立したADSR**と**Gain / Pan / Tuning**を持ちます。
 - Layer同士は**同じVoice内でMix**されるため、Sampleのアタック＋Oscillatorの余韻のように、別々の音が一つの音色として聞こえます。
-- 発音条件は`trigger`で制御します（`key_min / key_max`で鍵盤の範囲、`velocity_min / velocity_max`で打鍵の強さの範囲）。
+- 発音条件は`trigger`で制御します（`event`で`note_on` / `note_off`、`key_min / key_max`で鍵盤の範囲、`velocity_min / velocity_max`で打鍵の強さの範囲）。`note_off` LayerはNote OnでArmedになり、対応するNote Offで発音します。
 
 ### ADSRで音の輪郭を作る
 
@@ -278,11 +280,11 @@ Event SequenceではNote Eventと同じ絶対Frame位置にParameter Change、Pi
 
 ## Step 4. 自作WAVをSampleとして使う
 
-録音や生成したWAVを、Sample Layerの音源として組み込めます。
+録音や生成したWAVを、Sample Layerの音源として組み込めます。Sample LayerではMonoとStereoのChannel構成を保持したまま再生します。
 
 **1. WAVを準備する**
 
-PCM 16/24 bitまたはFloat 32のWAVです。Mono推奨ですが、StereoでもCompile時に自動でMonoへ平均Downmixされます。`testdata/assets/`へ置くのが慣例です。
+PCM 16/24 bitまたはFloat 32のWAVです。MonoとStereoのどちらも使用でき、Stereoは左右のChannelを保持して再生します。`testdata/assets/`へ置くのが慣例です。
 
 **2. SHA-256を計算する**
 
@@ -303,6 +305,7 @@ sha256sum testdata/assets/my-sample.wav
   "id": "attack",
   "enabled": true,
   "trigger": {
+    "event": "note_on",
     "key_min": 0, "key_max": 127,
     "velocity_min": 1, "velocity_max": 127
   },
@@ -327,7 +330,12 @@ sha256sum testdata/assets/my-sample.wav
           "velocity_min": 1,
           "velocity_max": 127,
           "round_robin_group": null,
-          "playback": { "type": "one_shot", "start_seconds": 0.0, "end_seconds": null }
+          "playback": {
+            "region": { "start_seconds": 0.0, "end_seconds": null },
+            "direction": "forward",
+            "loop": null,
+            "time": { "mode": "resample" }
+          }
         }
       ]
     }
@@ -343,18 +351,127 @@ sha256sum testdata/assets/my-sample.wav
 | `zones[].key_min` / `key_max` | Zoneが受け付けるMIDI Note範囲（0〜127、min <= max） |
 | `zones[].velocity_min` / `velocity_max` | Zoneが受け付けるVelocity範囲（1〜127、min <= max） |
 | `zones[].round_robin_group` | 同一条件のZoneをDefinition順に選択するGroup。不要なら`null` |
-| `zones[].playback` | `one_shot`または`forward_loop`とRegion / Loop位置 |
+| `zones[].playback` | Region、`forward` / `reverse`、Loop / Constant-power Crossfade、Time Mode |
 | `interpolation` | `cubic`（4点補間） |
 
 SampleのPath違いやハッシュ不一致の場合は**そのZoneだけが無効化され**、ほかのZoneやLayerでRenderは継続します。SHA-256を省略した場合はWarningだけが付きます。
 
-## Step 5. 音を出す
+`direction: "reverse"`はPrepared Audioの複製を作らず、Cursorを逆方向へ進めます。LoopはRegion内に置き、`crossfade_seconds`を0より大きくするとLoop終端と開始をConstant-powerでBlendします。Release Sampleを作る場合はLayerの`trigger.event`を`note_off`にし、Note OnでArmedにしてからNote Offで発音します。
+
+`playback.time`は必須です。通常のSampleは`{"mode": "resample"}`、Pitchを維持してDurationを2倍にする場合は`{"mode": "fixed_stretch", "ratio": 2.0}`、Source BPM 120のLoopをProcess Tempoへ追従させる場合は`{"mode": "tempo_sync", "source_bpm": 120.0}`を指定します。Fixed StretchとTempo SyncのRatioは0.5〜2.0で、Reverseとは併用できません。
+
+## Step 5. Granularとして使う
+
+録音、Vocal、Field RecordingなどをGrainへ分割して再構成する場合は、Sampleと同じAssetを`granular` Generatorへ指定します。`region`はPrepared Audio内のSource範囲で、`position`はそのRegion内の0〜1です。
+
+```json
+{
+  "id": "texture",
+  "enabled": true,
+  "trigger": {
+    "event": "note_on",
+    "key_min": 0, "key_max": 127,
+    "velocity_min": 1, "velocity_max": 127
+  },
+  "gain_db": -12.0,
+  "pan": 0.0,
+  "tuning_cents": 0.0,
+  "envelope": {
+    "attack_seconds": 0.02,
+    "decay_seconds": 0.1,
+    "sustain_level": 1.0,
+    "release_seconds": 0.4
+  },
+  "generator": {
+    "granular": {
+      "asset": { "path": "../../testdata/assets/my-sample.wav", "sha256": "<計算した値>" },
+      "root_note": 60,
+      "region": { "start_seconds": 0.0, "end_seconds": null },
+      "position": 0.5,
+      "grain_size": 0.08,
+      "density": 24.0,
+      "pitch": 0.0,
+      "randomness": 0.35,
+      "pan_spread": 0.75,
+      "seed": 8128
+    }
+  },
+  "processors": []
+}
+```
+
+| Parameter | Range / Unit | 使い方 |
+|---|---:|---|
+| `position` | 0〜1 | Region内の読出位置。0はStart、1はGrain長を考慮したEnd側。LFOやMod WheelでScrub、固定値でFreeze |
+| `grain_size` | 0.005〜0.5秒 | Hann Windowを適用するGrain長 |
+| `density` | 1〜100 grains/sec | 1秒あたりのGrain数 |
+| `pitch` | -2400〜2400 cents | NoteのPitchとLayer Tuningへ加算 |
+| `randomness` | 0〜1 | Positionの決定的な分散幅 |
+| `pan_spread` | 0〜1 | GrainごとのStereo配置幅 |
+
+`instrument inspect --json`でPrepared状態、Region Frame、6つのParameter ID、Source Channel、Seed、Grain Pool Limitを確認します。GranularはMono AssetでもStereo Generatorとして動作します。Note OffではGrainを破棄せずLayer EnvelopeがReleaseへ進み、Voice StealingまたはReset時だけPoolを初期化します。
+
+## Step 6. Wave Sequenceとして使う
+
+複数のAudio Assetを時間順に切り替える場合は、`wave_sequence` GeneratorへStepを記述します。Sequenceの`direction`はStepの選択順、Stepの`playback_direction`はAssetのRead方向です。Stepは`seconds`または`beats`でDurationを指定し、`playback`を`one_shot`または`loop`から選びます。
+
+```json
+"generator": {
+  "wave_sequence": {
+    "root_note": 60,
+    "direction": "forward",
+    "loop": true,
+    "crossfade": 0.25,
+    "steps": [
+      {
+        "id": "attack",
+        "asset": {
+          "path": "../../testdata/assets/metal-hit.wav",
+          "sha256": "<SHA-256>"
+        },
+        "region": { "start_seconds": 0.0, "end_seconds": 0.08 },
+        "duration": { "mode": "seconds", "value": 0.18 },
+        "playback": "loop",
+        "playback_direction": "forward",
+        "gain_db": -3.0,
+        "pitch_cents": 0.0
+      },
+      {
+        "id": "body",
+        "asset": {
+          "path": "../../testdata/assets/metal-hit.wav",
+          "sha256": "<SHA-256>"
+        },
+        "region": { "start_seconds": 0.08, "end_seconds": 0.16 },
+        "duration": { "mode": "beats", "value": 0.5 },
+        "playback": "one_shot",
+        "playback_direction": "reverse",
+        "gain_db": -6.0,
+        "pitch_cents": 300.0
+      }
+    ]
+  }
+}
+```
+
+Step数は1〜128、`crossfade`は0〜0.5です。`ping_pong`は終端を重複させずに往復し、Missing AssetのStepもDurationを保持した無音として後続StepのTimingを変えません。`instrument inspect --json`でStep Count、Direction、Loop、Crossfade、Region Frame、Duration、Playback、Availability、Pitch、Gainを確認します。動作する4 Stepの例は[`examples/instruments/wave-sequence-reference.json`](../examples/instruments/wave-sequence-reference.json)です。
+
+```bash
+sonalloy instrument validate examples/instruments/wave-sequence-reference.json
+sonalloy instrument inspect examples/instruments/wave-sequence-reference.json --json
+sonalloy render note examples/instruments/wave-sequence-reference.json \
+  --note 60 --tempo 120 --gate 1.5 --tail 0.2 \
+  --sample-rate 48000 --block-size 257 --output out/wave-sequence.wav
+```
+
+## Step 7. 音を出す
 
 **単音の確認**（音色の素性を確かめます）：
 
 ```bash
 sonalloy render note my-instrument.json \
   --note 60 --velocity 100 --gate 0.5 --tail 0.5 \
+  --tempo 120 \
   --sample-rate 48000 --block-size 257 --output out/my-instrument/note.wav
 ```
 
@@ -373,13 +490,14 @@ sonalloy render midi my-instrument.json \
 | `--velocity` | 打鍵の強さ | `100` |
 | `--gate` | Note OnからNote Offまでの時間（秒） | `0.5` |
 | `--tail` | 最後のNote Off後の追加時間（秒） | note: `0.5` / midi: `1.0` |
+| `--tempo` | Process Tempo（BPM）。Tempo Sync Sampleへ適用 | `120` |
 | `--sample-rate` | Sample Rate（Hz） | `48000` |
 | `--block-size` | Process最大Block Size（Frame） | `257` |
 | `--output` | Stereo WAV出力先（必須） | — |
 
-出力は**32-bit float・2 Channel**のStereo WAVです。親Directoryは事前に作成してください。既存のMIDIがなければ、`scripts/review/generate_midi_fixtures.py`で固定のテスト用MIDIを生成できます。
+出力は**32-bit float・2 Channel**のStereo WAVです。Time Stretchを含む場合はReported LatencyがInspectと成功JSONへ表示され、CLIが前置きLatencyを除去してMusical TimelineのFrame 0からWAVを生成します。親Directoryは事前に作成してください。既存のMIDIがなければ、`scripts/review/generate_midi_fixtures.py`で固定のテスト用MIDIを生成できます。
 
-## Step 6. 仕上げる
+## Step 8. 仕上げる
 
 - `metadata.name`と`metadata.description`を実際の音色に合わせます。
 - 音源作成の一連の流れをAgentに実行させる場合は、`.agents/skills/create-instrument/`の手順が利用できます。

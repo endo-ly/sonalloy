@@ -60,19 +60,22 @@ stateDiagram-v2
 
 **Note On**
 
-1. どのLayerもTrigger条件（Key / Velocity）に合わないNoteは無視します
+1. どのLayerもTrigger条件（Event / Key / Velocity）に合わないNoteは無視します
 2. Voiceを1つ選びます。Idle → 最も音量の小さいReleasing → 最古のActive の順です
-3. 選んだVoiceがIdleなら即座にNoteを開始します。空きがない場合は、5msのFadeで古い音を消してから新しいNoteを開始します（Voice Stealing）
+3. `note_on` Layerを開始し、`note_off` LayerをArmedにします。Armed LayerはAudioを生成せず、Note IDを保持します
+4. 選んだVoiceがIdleなら即座にNoteを開始します。空きがない場合は、5msのFadeで古い音を消してから新しいNoteを開始します（Voice Stealing）
 
 **Note Off**
 
-- Note IDでVoiceを探し、今のADSRの値からReleaseを始めます
+- Note IDでVoiceを探し、Activeな`note_on` Layerを現在のADSR値からReleaseへ移行します
+- Armedな`note_off` Layerは独立したEnvelopeのAttackから開始します。Armed Layerがある間は、Note On Layerが先に終了してもVoiceを保持します
 - Voice Stealingの待機中だったNoteは、ここでキャンセルできます
 
 **Voice Stealing**
 
 - 古い音は5msで音量をゼロへFadeします。Fade中にNote Offが来たら、待機中の新しいNoteをキャンセルします
-- Fadeが終わると待機していたNoteを開始し、すべてのLayerが終わったらIdleへ戻ります
+- Fadeが終わると待機していたNoteを開始し、Armed Stateを破棄します。演奏上のNote Offではないため、Steal中のArmed Layerは発音しません
+- Active LayerとArmed Layerがすべて終わったらIdleへ戻ります
 
 ## Voiceの中身
 
@@ -125,6 +128,7 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 - **Operator Modulation**：4 OperatorをCompile済みの固定Topology順にSampleごとに評価します。Phase、Frequency、Amplitude、Ringは同じOperator信号を使いながら別の相互作用として処理し、Carrier Sum後に`1 / sqrt(carrier_count)`で正規化します。Operator Envelopeは各Operator出力へ乗算し、Carrier以外のOperatorは接続先へのModulation Signalだけを供給します。Unison 1はMono、2〜4はComponentごとのPhaseとPrevious Outputを持つStereoです
 - **Complex Oscillator**：Phase DistortionまたはOscillator Feedbackを含むDefinitionはRustのPhase-domain Sine Backendで処理します。Phase Distortionは`breakpoint = 0.5 - amount × 0.45`の連続Mapping、Feedbackは直前Sampleを`tanh(previous × amount × 2.5) × 0.25` cycleへ変換してRead Phaseへ加算します。Wavefoldは既存OscillatorのUnison MixとWaveshapingの後へDaisySP MIT版Wavefolderで適用し、AmountをDrive / Dry-Wetへ固定変換します。非線形機能の後へSample Rate依存のDC Blockerを置きます。Phase DistortionとFeedbackはSineだけで使用でき、Hard Syncとは併用できません
 - **Sample**：後述のSample Zone選択と再生を使います。Compileで無効になったZoneは選択候補から除外されます
+- **Wave Sequence**：Compile時にStepのAsset、Region、Duration、方向、Pitch、Gainを準備し、VoiceごとにCurrent / Nextの最大2 Playback Slotを持ちます。MonoだけのSequenceはMono、Stereo Stepを一つでも含むSequenceはStereoとしてLayerへ渡します
 
 ## Wavetable Runtime
 
@@ -151,19 +155,51 @@ Operatorの`evaluation_order`、`incoming_masks`、`carrier_mask`はCompile時�
 
 ## Sampleの再生
 
-SampleはCompile時にZoneごとのRegionへ変換し、同じAssetのPrepared Bufferを全Voiceで共有します。Voiceごとに選択Zone、再生位置（Cursor）、Loop状態だけを持ちます。
+SampleはCompile時にZoneごとのRegion、Direction、Loop、Time Modeへ変換し、同じAssetのPrepared Audioを全Voiceで共有します。Prepared AudioはMonoまたはStereoのPlanar Channelを保持します。Voiceごとに選択Zone、再生位置（Cursor）、Loop状態、必要なStretch Backend状態だけを持ち、Reverse用の複製Bufferは作りません。
 
 - Layer Trigger判定後、NoteとVelocityに一致するZoneを選択します。同じ条件のRound Robin GroupはInstrument単位のCounterをDefinition順に進めます。Voice StealingでNote開始が遅れても、Note Event時点のZone選択を保持します
-- Note Onで選択ZoneのRegion StartへCursorを設定し、再生速度は`2^((note - root) / 12) × Tuning Ratio`です。Tuning RatioはParameter SpanのStart / EndからLog Domainで補間します
-- Cursorは再生速度で進み、4点Cubic補間で読み出します
-- Region外を補間へ参照しません。one_shotではRegion末尾の5msをゼロへFadeし、音が急に切れないようにします
-- forward_loopではLoop End到達時のFractional Overshootを保持してLoop Startへ戻ります。Loop境界の補間はLoop Region内だけを参照します
-- Note Offではforward_loopのCursorを止めず、ADSRのReleaseだけが進みます。Envelope終了でそのLayerの音は終わります
+- Regionは`[start, end)`で、Compile時にPrepared Frameへ変換します。Endを省略するとAsset終端になります
+- `forward`はRegion StartからEndへ、`reverse`はRegion End側のFrameからStartへCursorを進めます。再生速度は`2^((note - root) / 12) × Tuning Ratio`です。Tuning RatioはParameter SpanのStart / EndからLog Domainで補間します
+- Cursorは再生速度で進み、左右を同じCursorで4点Cubic補間します。Monoは左右へ同じ値を渡し、Stereoは左右のChannelを保持します
+- Region外を補間へ参照しません。LoopなしではRegion末尾（Reverseでは先頭）の5msをゼロへFadeし、音が急に切れないようにします
+- LoopはRegion内に置き、ForwardではLoop EndからLoop Startへ、ReverseではLoop StartからLoop End側へ戻ります。Fractional Overshootは`rem_euclid`で保持し、Loop境界の補間はLoop Region内だけを参照します
+- `crossfade_seconds`が0より大きいLoopは、境界付近でLoop終端側と開始側をConstant-powerでBlendします。Crossfade Frame数はCompile時に確定し、Loop長の半分を超える設定は拒否します
+- `resample`は`2^((note - root) / 12) × Tuning Ratio`をCursorの進行速度へ使います。`fixed_stretch`と`tempo_sync`はCursorの進行速度へPitchを混ぜず、Stretch BackendへPitchとInput / Output Frame比を別々に渡します
+- `fixed_stretch`のOutput / Input比はDefinitionの`ratio`、`tempo_sync`の比は`source_bpm / ProcessContext.tempo_bpm`です。Tempoは1回のProcess呼び出し中は一定で、Tempo境界はRendererがBlock境界として扱います
+- Time StretchはStereoの2 Channel BackendをPrepare時に構成し、Pitchを変えずにDurationだけを変えます。Layer Tuningは`start → end`をBackendの分析Interval境界へ適用し、HostのBlock Sizeによって更新位置を変えません。ReverseとTime Stretchの組み合わせはDefinitionで拒否します
+- Note OffではPlayback Cursorを止めず、ActiveなLayerのADSR Releaseを進めます。`note_off` LayerはArmed状態からAttackを開始し、EnvelopeとSampleが終わるまでVoiceを保持します
+
+Time Stretch Backendが報告するInput LatencyとOutput LatencyはCompiled Sampleへ保持されます。Note開始時はInput Latency分を`seek`で先行投入し、Instrumentから見える前置きはOutput Latencyだけにします。One-shotはSource終端後にInput Latency分の無音を処理してから`flush`し、内部に残る出力を回収します。Instrumentは利用中Layerの最大Output LatencyをReported Latencyとし、同じVoice内の各Layerへ`instrument latency - layer intrinsic latency`の遅延をPrepare時に確保します。これにより、Stretch Sampleと非Stretch LayerのTransient位置を揃えます。
+
+## Granular Runtime
+
+GranularはSample Generatorと同じPrepared Audioを使いますが、Voiceごとに独立した固定64 SlotのGrain PoolとSchedulerを持ちます。GrainはNote Onで初期化され、Voice StealingやResetで次のNoteへ持ち越しません。
+
+- SchedulerはProcess Blockの先頭を基準にせず、Grains per SecondをSample Rateで割ったFractional PhaseをAbsolute Sample Timelineへ累積します。ProcessのBlock Sizeが変わってもSpawn Frameは変わりません
+- Grain開始時にPosition、Grain Size、Pitch、Pan、Random OffsetをSnapshotし、発音中のGrainへ後からParameter値を適用しません
+- WindowはHann固定です。Active GrainのWindow Power合計を基準に連続的に正規化し、Grainの生成・終了で発音中のGrainのゲインを段階変化させません。Source PositionはRegion内へ変換し、Pitchで必要となるRead SpanとGrain長を考慮してRegion終端を越えないようにします。Randomnessによる端越えはNormalized Region上で循環します
+- RandomはDefinition Seed、Layer Stable ID、Note ID、Grain Serial、用途別Streamから直接算出します。Global RNGやVoice処理順を使用しないため、同じ入力とBlock Sizeに依存しない結果になります
+- Mono AssetはGrainごとのConstant-power PanでStereoへ配置します。Stereo Assetは左右を同じPosition、Pitch、WindowでReadし、Pan SpreadをStereo Balanceとして適用します。左右を独立したRandom Positionへ分けません
+- Position、Grain Size、Density、Pitch、Randomness、Pan SpreadはParameter Spanの値を使います。ScrubはPositionをLFO等から動かし、FreezeはPositionを固定したままSchedulerを動かして実現します
+
+Granular Generatorは無期限にGrainを生成するため、Note Off後はLayer EnvelopeのReleaseで音量を下げます。Assetが準備できないLayerはNote On Selectionから除外されます。Process中はGrain Pool拡張、Assetアクセス、Heap Allocationを行いません。
+
+## Wave Sequence Runtime
+
+Wave SequenceはCompiled Stepを共有し、Voiceごとに選択中のStepと次のStepだけをRuntime Stateとして保持します。StepのAssetがMissingでもStep自体は削除せず、指定されたDurationの無音として進行します。そのため一部Assetの欠落で後続Stepの時間位置は変わりません。
+
+- Sequence DirectionはStepを選択する順序です。Forwardは先頭から末尾、Reverseは末尾から先頭、Ping Pongは終端を重複させずに往復します。Sequence Loopが有効な場合だけ終端から開始位置へ戻ります
+- Step PlaybackはOne-shotとLoopを持ちます。One-shotのSource CursorがRegion終端へ到達した後もStepのDurationまで無音を出力し、LoopはRegion内を循環します。Playback DirectionはSequence Directionとは独立してRegionのRead方向を決めます
+- Seconds StepはSample Rateで進行し、Beats Stepは`tempo / 60 / sample_rate`を一Sampleごとに積算します。Tempo Mapの境界ではRendererがProcessを分割するため、変更後のStep進行速度だけが変わります
+- Crossfadeは隣接StepのDurationの短い方を基準に最大50%までOverlapし、Current / NextをConstant-powerで混合します。CrossfadeがなくてもStep境界でCurrentを次Stepへ置き換えます
+- Step PitchはNote、Layer Tuning、Root Noteへ加算し、Step GainはLinearへ変換してSourceへ乗算します。Stereo Assetは左右のCursorを共有し、Mono Assetは左右同じ値を出力します
+
+Wave Sequenceが最後のOne-shot Stepを終え、Sequence Loopが無効な場合はGeneratorを終了します。Note Off後のLayer Envelopeや他Layerの状態は通常のVoice Lifecycleに従い、Sequenceの完了だけでほかのLayerを終了させません。
 
 ## 準備とリセット
 
-- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handleを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、OscillatorとOperatorの位相、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Round Robin Counter、ADSR、Operator Envelope、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time StretchのInput / Output Latencyを含むScratch、Granular Grain Pool、Wave SequenceのPlayback Slot、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
+- **Reset**：全Voice、OscillatorとOperatorの位相、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Granular Grain Pool / Grain Serial / Scheduler、Wave SequenceのCurrent / Next SlotとStep Cursor、Round Robin Counter、ADSR、Operator Envelope、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 
@@ -200,5 +236,6 @@ flowchart LR
 ```
 
 - 長さは「秒 × Sample Rate」を最も近い整数に丸め、TailのFrame数を足します
+- `ProcessContext.tempo_bpm`は正の有限値で、Tempo Mapを使う場合はTempo変更Frameを跨がないBlockへ分割します。MIDI以外のRenderでは中央定義のDefault Tempoまたは指定Tempoを使います
 - 最後のBlockは残りのFrame数だけを処理するので、余分なSampleはできません
 - Coreは`RenderedAudio`（左右のSample列）を返し、WAVへの変換はCLI側の仕事です

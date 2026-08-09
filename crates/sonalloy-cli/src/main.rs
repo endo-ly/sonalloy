@@ -7,13 +7,13 @@ use std::sync::Arc;
 use clap::{Args, Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use sonalloy_core::{
-    AdsrDefinition, CompileContext, CompiledInstrument, Diagnostic, DiagnosticCode,
-    InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition,
-    ModulationCurve, OscillatorDefinition, OscillatorWaveform, ParameterHandle, ParameterOwner,
-    ParameterScale, ParameterUnit, PerformanceDefinition, ProcessEventKind, ProcessSpec,
-    ProcessorDefinition, RenderError, RenderRequest, ScheduledEvent, VoiceStealingDefinition,
-    backend_info, compile_instrument, from_render_error, render_instrument, render_sine,
-    seconds_to_frames,
+    AdsrDefinition, CompileContext, CompiledInstrument, DEFAULT_TEMPO_BPM, Diagnostic,
+    DiagnosticCode, InstrumentDefinition, InstrumentMetadata, LayerDefinition,
+    LayerTriggerDefinition, ModulationCurve, OscillatorDefinition, OscillatorWaveform,
+    ParameterHandle, ParameterOwner, ParameterScale, ParameterUnit, PerformanceDefinition,
+    ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderError, RenderRequest, ScheduledEvent,
+    VoiceStealingDefinition, backend_info, compile_instrument, from_render_error,
+    render_instrument_with_tempo, render_instrument_with_tempo_map, render_sine, seconds_to_frames,
 };
 
 use crate::midi::read_midi;
@@ -108,6 +108,9 @@ struct RenderNoteArgs {
     /// Additional render tail in seconds.
     #[arg(long, default_value_t = 0.5)]
     tail: f64,
+    /// Processing tempo in beats per minute.
+    #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
+    tempo: f64,
     /// Sample rate in Hz.
     #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
     sample_rate: u32,
@@ -157,6 +160,9 @@ struct RenderEventsArgs {
     /// Additional render tail in seconds.
     #[arg(long, default_value_t = 1.0)]
     tail: f64,
+    /// Processing tempo in beats per minute.
+    #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
+    tempo: f64,
     /// Sample rate in Hz.
     #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
     sample_rate: u32,
@@ -202,6 +208,7 @@ struct SuccessReport {
     sample_rate: u32,
     channels: usize,
     frames: usize,
+    reported_latency_frames: usize,
     output: String,
     backend: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -229,6 +236,7 @@ struct InspectReport {
     metadata: InspectMetadata,
     polyphony: usize,
     voice_stealing: &'static str,
+    reported_latency_frames: usize,
     layer_count: usize,
     layers: Vec<InspectLayer>,
     voice_processors: Vec<InspectProcessor>,
@@ -265,6 +273,7 @@ struct InspectLayer {
 
 #[derive(Debug, Serialize)]
 struct InspectTrigger {
+    event: &'static str,
     key_min: u8,
     key_max: u8,
     velocity_min: u8,
@@ -322,6 +331,40 @@ enum InspectGenerator {
         sample_disabled_zone_count: usize,
         sample_asset_count: usize,
         sample_zones: Vec<InspectSampleZone>,
+    },
+    Granular {
+        output_mode: &'static str,
+        asset_path: String,
+        asset_sha256_specified: bool,
+        prepared: bool,
+        source_channels: Option<usize>,
+        prepared_frames: Option<usize>,
+        region_start_frame: usize,
+        region_end_frame: usize,
+        root_note: u8,
+        position: f32,
+        position_parameter: String,
+        grain_size: f32,
+        grain_size_parameter: String,
+        density: f32,
+        density_parameter: String,
+        pitch: f32,
+        pitch_parameter: String,
+        randomness: f32,
+        randomness_parameter: String,
+        pan_spread: f32,
+        pan_spread_parameter: String,
+        seed: u64,
+        grain_pool_limit: usize,
+    },
+    WaveSequence {
+        output_mode: &'static str,
+        step_count: usize,
+        enabled_step_count: usize,
+        direction: &'static str,
+        loop_sequence: bool,
+        crossfade: f32,
+        steps: Vec<InspectWaveSequenceStep>,
     },
     Wavetable {
         output_mode: &'static str,
@@ -388,11 +431,34 @@ struct InspectSampleZone {
     velocity_max: u8,
     round_robin_group: Option<String>,
     playback_type: &'static str,
+    direction: &'static str,
     start_frame: usize,
     end_frame: usize,
     loop_start_frame: Option<usize>,
     loop_end_frame: Option<usize>,
+    crossfade_frames: Option<usize>,
+    time_mode: &'static str,
+    duration_ratio: Option<f64>,
+    source_bpm: Option<f64>,
     source_sample_rate: Option<u32>,
+    source_channels: Option<usize>,
+    prepared_frames: Option<usize>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectWaveSequenceStep {
+    id: String,
+    enabled: bool,
+    asset_path: String,
+    start_frame: usize,
+    end_frame: usize,
+    duration_type: &'static str,
+    duration: f64,
+    playback: &'static str,
+    playback_direction: &'static str,
+    gain_db: f32,
+    gain_linear: f32,
+    pitch_cents: f32,
     source_channels: Option<usize>,
     prepared_frames: Option<usize>,
 }
@@ -727,10 +793,16 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
         duration_frames,
         tail_frames,
     };
-    let audio = match render_instrument(Arc::clone(&compiled), request, &events) {
-        Ok(audio) => audio,
-        Err(error) => return finish_failure(args.json, render_failure(&error)),
+    let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
     };
+    let mut audio =
+        match render_instrument_with_tempo(Arc::clone(&compiled), request, &events, args.tempo) {
+            Ok(audio) => audio,
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        };
+    correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
     if let Err(error) = write_wav(&args.output, &audio) {
         return finish_failure(
             args.json,
@@ -747,6 +819,7 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
             sample_rate: audio.sample_rate,
             channels: audio.channels.len(),
             frames: audio.frames(),
+            reported_latency_frames: compiled.reported_latency_frames,
             output: args.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics: std::mem::take(&mut diagnostics),
@@ -779,10 +852,16 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
         duration_frames: args.duration_frames,
         tail_frames,
     };
-    let audio = match render_instrument(Arc::clone(&compiled), request, &events) {
-        Ok(audio) => audio,
-        Err(error) => return finish_failure(args.json, render_failure(&error)),
+    let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
     };
+    let mut audio =
+        match render_instrument_with_tempo(Arc::clone(&compiled), request, &events, args.tempo) {
+            Ok(audio) => audio,
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        };
+    correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
     if let Err(error) = write_wav(&args.output, &audio) {
         return finish_failure(
             args.json,
@@ -799,6 +878,7 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
             sample_rate: audio.sample_rate,
             channels: audio.channels.len(),
             frames: audio.frames(),
+            reported_latency_frames: compiled.reported_latency_frames,
             output: args.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics,
@@ -1009,10 +1089,20 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
         duration_frames: midi.duration_frames,
         tail_frames,
     };
-    let audio = match render_instrument(Arc::clone(&compiled), request, &midi.events) {
+    let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    let mut audio = match render_instrument_with_tempo_map(
+        Arc::clone(&compiled),
+        request,
+        &midi.events,
+        &midi.tempo_map,
+    ) {
         Ok(audio) => audio,
         Err(error) => return finish_failure(args.json, render_failure(&error)),
     };
+    correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
     if let Err(error) = write_wav(&args.output, &audio) {
         return finish_failure(
             args.json,
@@ -1029,6 +1119,7 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
             sample_rate: audio.sample_rate,
             channels: audio.channels.len(),
             frames: audio.frames(),
+            reported_latency_frames: compiled.reported_latency_frames,
             output: args.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics,
@@ -1074,10 +1165,48 @@ fn render_sine_command(args: &RenderSineArgs) -> Result<SuccessReport, CliFailur
         sample_rate: audio.sample_rate,
         channels: audio.channels.len(),
         frames: audio.frames(),
+        reported_latency_frames: 0,
         output: args.output.to_string_lossy().into_owned(),
         backend: backend_info().version,
         diagnostics: Vec::new(),
     })
+}
+
+fn extend_request_for_latency(
+    request: RenderRequest,
+    latency_frames: usize,
+) -> Result<RenderRequest, CliFailure> {
+    let latency_frames = u64::try_from(latency_frames).map_err(|_| CliFailure {
+        code: 2,
+        diagnostics: vec![Diagnostic::error(
+            DiagnosticCode::ValueOutOfRange,
+            "reported latency does not fit the render frame counter",
+        )],
+    })?;
+    let duration_frames = request
+        .duration_frames
+        .checked_add(latency_frames)
+        .ok_or_else(|| CliFailure {
+            code: 2,
+            diagnostics: vec![Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "render duration including reported latency overflows the frame counter",
+            )],
+        })?;
+    Ok(RenderRequest {
+        duration_frames,
+        ..request
+    })
+}
+
+fn correct_rendered_audio(audio: &mut sonalloy_core::RenderedAudio, latency_frames: usize) {
+    for channel in &mut audio.channels {
+        if latency_frames >= channel.len() {
+            channel.clear();
+        } else {
+            channel.drain(..latency_frames);
+        }
+    }
 }
 
 fn load_and_compile(
@@ -1160,6 +1289,7 @@ fn default_definition() -> InstrumentDefinition {
             id: "body".to_owned(),
             enabled: true,
             trigger: LayerTriggerDefinition {
+                event: sonalloy_core::LayerTriggerEvent::NoteOn,
                 key_min: 0,
                 key_max: 127,
                 velocity_min: 1,
@@ -1367,7 +1497,7 @@ fn inspect_external_source(id: &'static str) -> InspectSource {
 fn inspect_sample_zones(
     sample: &sonalloy_core::compiler::CompiledSample,
 ) -> (Vec<InspectSampleZone>, usize) {
-    let mut unique_sources: Vec<Arc<[f32]>> = Vec::new();
+    let mut unique_sources: Vec<Arc<sonalloy_core::PreparedAudio>> = Vec::new();
     let zones = sample
         .zones
         .iter()
@@ -1375,31 +1505,30 @@ fn inspect_sample_zones(
             let metadata = zone.source.as_ref().map(|source| {
                 if !unique_sources
                     .iter()
-                    .any(|candidate| Arc::ptr_eq(candidate, &source.samples))
+                    .any(|candidate| Arc::ptr_eq(candidate, source))
                 {
-                    unique_sources.push(Arc::clone(&source.samples));
+                    unique_sources.push(Arc::clone(source));
                 }
                 &source.source_metadata
             });
-            let (playback_type, start_frame, end_frame, loop_start_frame, loop_end_frame) =
-                match zone.playback {
-                    sonalloy_core::compiler::CompiledSamplePlayback::OneShot {
-                        start_frame,
-                        end_frame,
-                    } => ("one_shot", start_frame, end_frame, None, None),
-                    sonalloy_core::compiler::CompiledSamplePlayback::ForwardLoop {
-                        start_frame,
-                        end_frame,
-                        loop_start_frame,
-                        loop_end_frame,
-                    } => (
-                        "forward_loop",
-                        start_frame,
-                        end_frame,
-                        Some(loop_start_frame),
-                        Some(loop_end_frame),
-                    ),
-                };
+            let playback_type = if zone.playback.loop_region.is_some() {
+                "loop"
+            } else {
+                "one_shot"
+            };
+            let direction = match zone.playback.direction {
+                sonalloy_core::compiler::CompiledSampleDirection::Forward => "forward",
+                sonalloy_core::compiler::CompiledSampleDirection::Reverse => "reverse",
+            };
+            let (time_mode, duration_ratio, source_bpm) = match zone.playback.time {
+                sonalloy_core::compiler::CompiledSampleTime::Resample => ("resample", None, None),
+                sonalloy_core::compiler::CompiledSampleTime::FixedStretch { duration_ratio } => {
+                    ("fixed_stretch", Some(duration_ratio), None)
+                }
+                sonalloy_core::compiler::CompiledSampleTime::TempoSync { source_bpm } => {
+                    ("tempo_sync", None, Some(source_bpm))
+                }
+            };
             InspectSampleZone {
                 id: zone.id.clone(),
                 enabled: zone.is_enabled(),
@@ -1414,13 +1543,21 @@ fn inspect_sample_zones(
                     .and_then(|index| sample.groups.get(index))
                     .map(|group| group.id.clone()),
                 playback_type,
-                start_frame,
-                end_frame,
-                loop_start_frame,
-                loop_end_frame,
+                direction,
+                start_frame: zone.playback.start_frame,
+                end_frame: zone.playback.end_frame,
+                loop_start_frame: zone.playback.loop_region.map(|value| value.start_frame),
+                loop_end_frame: zone.playback.loop_region.map(|value| value.end_frame),
+                crossfade_frames: zone
+                    .playback
+                    .loop_region
+                    .map(|value| value.crossfade_frames),
+                time_mode,
+                duration_ratio,
+                source_bpm,
                 source_sample_rate: metadata.map(|value| value.source_sample_rate),
                 source_channels: metadata.map(|value| value.source_channels),
-                prepared_frames: zone.source.as_ref().map(|source| source.samples.len()),
+                prepared_frames: zone.source.as_ref().map(|source| source.frames),
             }
         })
         .collect();
@@ -1477,6 +1614,12 @@ fn inspect_generator(
                 },
             )
         }
+        sonalloy_core::compiler::CompiledGenerator::Granular(granular) => {
+            inspect_granular_generator(compiled, generator, granular)
+        }
+        sonalloy_core::compiler::CompiledGenerator::WaveSequence(sequence) => {
+            inspect_wave_sequence_generator(generator, sequence)
+        }
         sonalloy_core::compiler::CompiledGenerator::Wavetable(wavetable) => {
             inspect_wavetable_generator(compiled, generator, wavetable)
         }
@@ -1484,6 +1627,115 @@ fn inspect_generator(
             inspect_operator_generator(compiled, generator, operator)
         }
     }
+}
+
+fn inspect_granular_generator(
+    compiled: &CompiledInstrument,
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    granular: &sonalloy_core::compiler::CompiledGranular,
+) -> (InspectGenerator, &'static str) {
+    let metadata = granular
+        .source
+        .as_ref()
+        .map(|source| &source.source_metadata);
+    (
+        InspectGenerator::Granular {
+            output_mode: output_mode_name(generator.output_mode()),
+            asset_path: granular.asset_path.clone(),
+            asset_sha256_specified: granular.asset_sha256_specified,
+            prepared: granular.source.is_some(),
+            source_channels: metadata.map(|value| value.source_channels),
+            prepared_frames: granular.source.as_ref().map(|source| source.frames),
+            region_start_frame: granular.start_frame,
+            region_end_frame: granular.end_frame,
+            root_note: granular.root_note,
+            position: parameter_default(compiled, granular.parameters.position),
+            position_parameter: parameter_descriptor_id(compiled, granular.parameters.position),
+            grain_size: parameter_default(compiled, granular.parameters.grain_size),
+            grain_size_parameter: parameter_descriptor_id(compiled, granular.parameters.grain_size),
+            density: parameter_default(compiled, granular.parameters.density),
+            density_parameter: parameter_descriptor_id(compiled, granular.parameters.density),
+            pitch: parameter_default(compiled, granular.parameters.pitch),
+            pitch_parameter: parameter_descriptor_id(compiled, granular.parameters.pitch),
+            randomness: parameter_default(compiled, granular.parameters.randomness),
+            randomness_parameter: parameter_descriptor_id(compiled, granular.parameters.randomness),
+            pan_spread: parameter_default(compiled, granular.parameters.pan_spread),
+            pan_spread_parameter: parameter_descriptor_id(compiled, granular.parameters.pan_spread),
+            seed: granular.seed,
+            grain_pool_limit: granular.grain_pool_limit,
+        },
+        if granular.source.is_some() {
+            "enabled"
+        } else {
+            "disabled"
+        },
+    )
+}
+
+fn inspect_wave_sequence_generator(
+    generator: &sonalloy_core::compiler::CompiledGenerator,
+    sequence: &sonalloy_core::compiler::CompiledWaveSequence,
+) -> (InspectGenerator, &'static str) {
+    let steps = sequence
+        .steps
+        .iter()
+        .map(|step| {
+            let metadata = step.source.as_ref().map(|source| &source.source_metadata);
+            let (duration_type, duration) = match step.duration {
+                sonalloy_core::compiler::CompiledWaveSequenceDuration::Seconds(value) => {
+                    ("seconds", value)
+                }
+                sonalloy_core::compiler::CompiledWaveSequenceDuration::Beats(value) => {
+                    ("beats", value)
+                }
+            };
+            InspectWaveSequenceStep {
+                id: step.id.clone(),
+                enabled: step.is_enabled(),
+                asset_path: step.asset_path.clone(),
+                start_frame: step.start_frame,
+                end_frame: step.end_frame,
+                duration_type,
+                duration,
+                playback: match step.playback {
+                    sonalloy_core::compiler::CompiledWaveSequenceStepPlayback::OneShot => {
+                        "one_shot"
+                    }
+                    sonalloy_core::compiler::CompiledWaveSequenceStepPlayback::Loop => "loop",
+                },
+                playback_direction: match step.playback_direction {
+                    sonalloy_core::compiler::CompiledSampleDirection::Forward => "forward",
+                    sonalloy_core::compiler::CompiledSampleDirection::Reverse => "reverse",
+                },
+                gain_db: 20.0 * step.gain.log10(),
+                gain_linear: step.gain,
+                pitch_cents: step.pitch_cents,
+                source_channels: metadata.map(|value| value.source_channels),
+                prepared_frames: step.source.as_ref().map(|source| source.frames),
+            }
+        })
+        .collect::<Vec<_>>();
+    let enabled_step_count = steps.iter().filter(|step| step.enabled).count();
+    (
+        InspectGenerator::WaveSequence {
+            output_mode: output_mode_name(generator.output_mode()),
+            step_count: steps.len(),
+            enabled_step_count,
+            direction: match sequence.direction {
+                sonalloy_core::WaveSequenceDirection::Forward => "forward",
+                sonalloy_core::WaveSequenceDirection::Reverse => "reverse",
+                sonalloy_core::WaveSequenceDirection::PingPong => "ping_pong",
+            },
+            loop_sequence: sequence.loop_sequence,
+            crossfade: sequence.crossfade,
+            steps,
+        },
+        if enabled_step_count > 0 {
+            "enabled"
+        } else {
+            "disabled"
+        },
+    )
 }
 
 fn inspect_oscillator_generator(
@@ -1724,6 +1976,10 @@ fn make_inspect_report(
                 id: layer.id.clone(),
                 enabled: true,
                 trigger: InspectTrigger {
+                    event: match layer.trigger.event {
+                        sonalloy_core::LayerTriggerEvent::NoteOn => "note_on",
+                        sonalloy_core::LayerTriggerEvent::NoteOff => "note_off",
+                    },
                     key_min: layer.trigger.key_min,
                     key_max: layer.trigger.key_max,
                     velocity_min: layer.trigger.velocity_min,
@@ -1794,6 +2050,7 @@ fn make_inspect_report(
                 "quietest_releasing_then_oldest"
             }
         },
+        reported_latency_frames: compiled.reported_latency_frames,
         layer_count: layers.len(),
         layers,
         voice_processors: compiled
@@ -1842,10 +2099,15 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     );
     println!("polyphony: {}", report.polyphony);
     println!("voice stealing: quietest_releasing_then_oldest");
+    println!(
+        "reported latency: {} frames",
+        report.reported_latency_frames
+    );
     for layer in &report.layers {
         print_generator(&layer.id, &layer.generator);
         println!(
-            "  trigger: key {}..{} velocity {}..{}",
+            "  trigger: {} key {}..{} velocity {}..{}",
+            layer.trigger.event,
             layer.trigger.key_min,
             layer.trigger.key_max,
             layer.trigger.velocity_min,
@@ -1979,7 +2241,7 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
             println!("  sample prepared assets: {sample_asset_count}");
             for zone in sample_zones {
                 println!(
-                    "  zone {}: enabled {} key {}..{} velocity {}..{} root_note {} playback {} frames {}..{}",
+                    "  zone {}: enabled {} key {}..{} velocity {}..{} root_note {} playback {} direction {} time {} frames {}..{}",
                     zone.id,
                     zone.enabled,
                     zone.key_min,
@@ -1988,23 +2250,134 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
                     zone.velocity_max,
                     zone.root_note,
                     zone.playback_type,
+                    zone.direction,
+                    zone.time_mode,
                     zone.start_frame,
                     zone.end_frame,
                 );
+                if let Some(ratio) = zone.duration_ratio {
+                    println!("    duration ratio: {ratio:.6}");
+                }
+                if let Some(source_bpm) = zone.source_bpm {
+                    println!("    source tempo: {source_bpm:.3} bpm");
+                }
                 if let (Some(loop_start), Some(loop_end)) =
                     (zone.loop_start_frame, zone.loop_end_frame)
                 {
                     println!("    loop: {loop_start}..{loop_end}");
+                    if let Some(crossfade) = zone.crossfade_frames {
+                        println!("    loop crossfade: {crossfade} frames");
+                    }
                 }
                 if let Some(group) = &zone.round_robin_group {
                     println!("    round_robin_group: {group}");
                 }
+                println!(
+                    "    source: {} channels, {} prepared frames",
+                    zone.source_channels
+                        .map_or_else(|| "none".to_owned(), |value| value.to_string()),
+                    zone.prepared_frames
+                        .map_or_else(|| "none".to_owned(), |value| value.to_string()),
+                );
             }
         }
+        InspectGenerator::Granular { .. } => print_granular_generator(layer_id, generator),
+        InspectGenerator::WaveSequence { .. } => print_wave_sequence_generator(layer_id, generator),
         InspectGenerator::Wavetable { .. } => print_wavetable_generator(layer_id, generator),
         InspectGenerator::OperatorModulation { .. } => {
             print_operator_generator(layer_id, generator);
         }
+    }
+}
+
+fn print_granular_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::Granular {
+        output_mode,
+        asset_path,
+        asset_sha256_specified,
+        prepared,
+        source_channels,
+        prepared_frames,
+        region_start_frame,
+        region_end_frame,
+        root_note,
+        position,
+        position_parameter,
+        grain_size,
+        grain_size_parameter,
+        density,
+        density_parameter,
+        pitch,
+        pitch_parameter,
+        randomness,
+        randomness_parameter,
+        pan_spread,
+        pan_spread_parameter,
+        seed,
+        grain_pool_limit,
+    } = generator
+    else {
+        return;
+    };
+    println!("layer {layer_id}: enabled {prepared} generator granular output_mode {output_mode}");
+    println!(
+        "  asset: {asset_path} sha256_specified: {asset_sha256_specified} source_channels: {} prepared_frames: {}",
+        source_channels.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        prepared_frames.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+    );
+    println!(
+        "  region: {region_start_frame}..{region_end_frame} root_note: {root_note} seed: {seed} grain_pool_limit: {grain_pool_limit}"
+    );
+    println!(
+        "  position: {position:.3} ({position_parameter}) grain_size: {grain_size:.6} s ({grain_size_parameter}) density: {density:.3} /s ({density_parameter})"
+    );
+    println!(
+        "  pitch: {pitch:.3} cents ({pitch_parameter}) randomness: {randomness:.3} ({randomness_parameter}) pan_spread: {pan_spread:.3} ({pan_spread_parameter})"
+    );
+}
+
+fn print_wave_sequence_generator(layer_id: &str, generator: &InspectGenerator) {
+    let InspectGenerator::WaveSequence {
+        output_mode,
+        step_count,
+        enabled_step_count,
+        direction,
+        loop_sequence,
+        crossfade,
+        steps,
+    } = generator
+    else {
+        return;
+    };
+    println!(
+        "layer {layer_id}: enabled {} generator wave_sequence output_mode {output_mode}",
+        *enabled_step_count > 0
+    );
+    println!(
+        "  steps: {enabled_step_count}/{step_count} enabled direction: {direction} loop: {loop_sequence} crossfade: {crossfade:.3}"
+    );
+    for step in steps {
+        println!(
+            "  step {}: enabled {} asset {} frames {}..{} duration {} {:.6} playback {} direction {} gain_db {:.3} pitch_cents {:.3}",
+            step.id,
+            step.enabled,
+            step.asset_path,
+            step.start_frame,
+            step.end_frame,
+            step.duration_type,
+            step.duration,
+            step.playback,
+            step.playback_direction,
+            step.gain_db,
+            step.pitch_cents,
+        );
+        println!(
+            "    source: {} channels, {} prepared frames",
+            step.source_channels
+                .map_or_else(|| "none".to_owned(), |value| value.to_string()),
+            step.prepared_frames
+                .map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        );
     }
 }
 
@@ -2283,6 +2656,50 @@ mod tests {
     #[test]
     fn default_definition_is_valid() {
         assert!(default_definition().validate().is_empty());
+    }
+
+    #[test]
+    fn inspect_reports_sample_playback_and_trigger_event() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/instruments/mapped-sample-instrument.json");
+        let mut definition: InstrumentDefinition =
+            serde_json::from_str(&std::fs::read_to_string(path).expect("sample Definition exists"))
+                .expect("sample Definition parses");
+        definition.layers[0].trigger.event = sonalloy_core::LayerTriggerEvent::NoteOff;
+        let sonalloy_core::GeneratorDefinition::Sample(sample) =
+            &mut definition.layers[0].generator
+        else {
+            panic!("reference Definition must contain a sample generator");
+        };
+        sample.zones[0].playback.direction = sonalloy_core::SamplePlaybackDirection::Reverse;
+        sample.zones[0].playback.r#loop = Some(sonalloy_core::SampleLoopDefinition {
+            start_seconds: 0.02,
+            end_seconds: 0.06,
+            crossfade_seconds: 0.01,
+        });
+
+        let result = compile_instrument(
+            &definition,
+            &CompileContext {
+                definition_base_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../examples/instruments"),
+                process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+            },
+        );
+        let sonalloy_core::CompileResult {
+            instrument,
+            diagnostics,
+        } = result;
+        let compiled = instrument.expect("sample Definition compiles");
+        let report = make_inspect_report(&compiled, diagnostics);
+        assert_eq!(report.layers[0].trigger.event, "note_off");
+        let InspectGenerator::Sample { sample_zones, .. } = &report.layers[0].generator else {
+            panic!("reference Definition must inspect as a sample generator");
+        };
+        assert_eq!(sample_zones[0].direction, "reverse");
+        assert_eq!(sample_zones[0].crossfade_frames, Some(480));
+        assert!(sample_zones[0].source_channels.is_some());
+        assert!(sample_zones[0].prepared_frames.is_some());
     }
 
     #[test]

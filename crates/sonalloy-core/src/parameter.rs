@@ -8,6 +8,7 @@ use crate::definition::{
     ProcessorDefinition,
 };
 use crate::generator_parameters::{
+    GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION,
     GeneratorParameterSpec, NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX,
     OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX,
     OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
@@ -74,6 +75,10 @@ pub enum ParameterUnit {
     Hertz,
     /// A frequency ratio.
     Ratio,
+    /// A duration in seconds.
+    Seconds,
+    /// A rate expressed per second.
+    PerSecond,
     /// A unitless synthesis index.
     Index,
     /// A unitless value in the inclusive zero-to-one range.
@@ -353,7 +358,33 @@ fn push_generator_descriptors(
                 noise.stereo_correlation,
             );
         }
-        GeneratorDefinition::Sample(_) => {}
+        GeneratorDefinition::Sample(_) | GeneratorDefinition::WaveSequence(_) => {}
+        GeneratorDefinition::Granular(granular) => {
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                GRANULAR_POSITION,
+                granular.position,
+            );
+            push_generator_descriptor(descriptors, prefix, owner, GRAIN_SIZE, granular.grain_size);
+            push_generator_descriptor(descriptors, prefix, owner, GRAIN_DENSITY, granular.density);
+            push_generator_descriptor(descriptors, prefix, owner, GRAIN_PITCH, granular.pitch);
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                GRAIN_RANDOMNESS,
+                granular.randomness,
+            );
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                GRAIN_PAN_SPREAD,
+                granular.pan_spread,
+            );
+        }
         GeneratorDefinition::Wavetable(wavetable) => {
             push_generator_descriptor(
                 descriptors,

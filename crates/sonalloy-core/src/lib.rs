@@ -9,22 +9,29 @@ pub mod render;
 pub mod runtime;
 mod wavetable;
 
+pub use asset::{PreparedAudio, PreparedAudioChannels, SampleMetadata};
 pub use compiler::{
-    CompileContext, CompileResult, CompiledInstrument, CompiledOperator,
-    CompiledOperatorModulation, CompiledOperatorParameters, CompiledOperatorTopology,
-    CompiledWavetable, CompiledWavetableParameters, PreparedWavetable, PreparedWavetableBand,
+    CompileContext, CompileResult, CompiledGranular, CompiledGranularParameters,
+    CompiledInstrument, CompiledOperator, CompiledOperatorModulation, CompiledOperatorParameters,
+    CompiledOperatorTopology, CompiledSampleDirection, CompiledSampleLoop, CompiledSamplePlayback,
+    CompiledSampleTime, CompiledStretchLatency, CompiledWaveSequence, CompiledWaveSequenceDuration,
+    CompiledWaveSequenceStep, CompiledWaveSequenceStepPlayback, CompiledWavetable,
+    CompiledWavetableParameters, GeneratorOutputMode, PreparedWavetable, PreparedWavetableBand,
     PreparedWavetableFrame, WavetableSourceMetadata, compile_instrument,
 };
 pub use definition::{
     AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, DelayProcessorDefinition,
-    DriveProcessorDefinition, FilterProcessorDefinition, GeneratorDefinition, HardSyncDefinition,
-    InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, NoiseColor,
-    NoiseDefinition, OperatorAlgorithm, OperatorDefinition, OperatorModulationDefinition,
-    OperatorModulationMode, OscillatorDefinition, OscillatorFeedbackDefinition, OscillatorWaveform,
-    PerformanceDefinition, PhaseDistortionDefinition, ProcessorDefinition,
-    ReverbProcessorDefinition, SampleDefinition, SampleInterpolation, SampleZoneDefinition,
-    SampleZonePlaybackDefinition, UnisonDefinition, VoiceStealingDefinition, WavefoldDefinition,
-    WaveshapingDefinition, WavetableDefinition,
+    DriveProcessorDefinition, FilterProcessorDefinition, GeneratorDefinition, GranularDefinition,
+    HardSyncDefinition, InstrumentDefinition, InstrumentMetadata, LayerDefinition,
+    LayerTriggerDefinition, LayerTriggerEvent, NoiseColor, NoiseDefinition, OperatorAlgorithm,
+    OperatorDefinition, OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition,
+    OscillatorFeedbackDefinition, OscillatorWaveform, PerformanceDefinition,
+    PhaseDistortionDefinition, ProcessorDefinition, ReverbProcessorDefinition, SampleDefinition,
+    SampleInterpolation, SampleLoopDefinition, SamplePlaybackDirection, SampleRegionDefinition,
+    SampleTimeDefinition, SampleZoneDefinition, SampleZonePlaybackDefinition, UnisonDefinition,
+    VoiceStealingDefinition, WaveSequenceDefinition, WaveSequenceDirection,
+    WaveSequenceDurationDefinition, WaveSequenceStepDefinition, WaveSequenceStepPlayback,
+    WavefoldDefinition, WaveshapingDefinition, WavetableDefinition,
 };
 pub use definition::{
     LfoDefinition, LfoWaveform, ModEnvelopeDefinition, ModulationCurve, ModulationDefinition,
@@ -42,7 +49,9 @@ pub use process::{
     ProcessEvent, ProcessEventKind, ProcessSpec, ProcessorFailureKind, ScheduledEvent,
 };
 pub use render::{
-    RenderError, RenderRequest, RenderedAudio, render_instrument, render_sine, seconds_to_frames,
+    DEFAULT_TEMPO_BPM, RenderError, RenderRequest, RenderedAudio, TempoChange, TempoMap,
+    render_instrument, render_instrument_with_tempo, render_instrument_with_tempo_map, render_sine,
+    seconds_to_frames,
 };
 pub use runtime::{InstrumentRuntime, SineRuntime, VoiceState};
 

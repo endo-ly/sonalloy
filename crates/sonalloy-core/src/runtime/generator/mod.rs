@@ -1,6 +1,8 @@
+mod granular;
 mod noise;
 mod operator;
 mod oscillator;
+mod wave_sequence;
 mod wavetable;
 
 use crate::compiler::CompiledGenerator;
@@ -10,9 +12,11 @@ use crate::process::{NoteId, ProcessError, ProcessSpec, ProcessorFailureKind};
 use super::modulation::{LayerGeneratorTargetSpan, ValueSpan};
 use super::sample::{SampleRuntime, playback_ratio};
 
+use granular::GranularRuntime;
 use noise::NoiseRuntime;
 use operator::OperatorModulationRuntime;
 use oscillator::OscillatorRuntime;
+use wave_sequence::WaveSequenceRuntime;
 use wavetable::WavetableRuntime;
 
 fn validate_generator_span(
@@ -80,6 +84,8 @@ pub(super) enum GeneratorRuntime {
     Oscillator(OscillatorRuntime),
     Noise(Box<NoiseRuntime>),
     Sample { sample: SampleRuntime },
+    Granular(Box<GranularRuntime>),
+    WaveSequence(WaveSequenceRuntime),
     Wavetable(WavetableRuntime),
     OperatorModulation(Box<OperatorModulationRuntime>),
 }
@@ -94,9 +100,15 @@ impl GeneratorRuntime {
                 Ok(Self::Oscillator(OscillatorRuntime::new(value, spec)?))
             }
             CompiledGenerator::Noise(value) => Ok(Self::Noise(Box::new(NoiseRuntime::new(value)))),
-            CompiledGenerator::Sample(_) => Ok(Self::Sample {
-                sample: SampleRuntime::new(),
+            CompiledGenerator::Sample(compiled) => Ok(Self::Sample {
+                sample: SampleRuntime::prepared(compiled, spec)?,
             }),
+            CompiledGenerator::Granular(compiled) => {
+                Ok(Self::Granular(Box::new(GranularRuntime::new(compiled)?)))
+            }
+            CompiledGenerator::WaveSequence(compiled) => {
+                Ok(Self::WaveSequence(WaveSequenceRuntime::new(compiled)?))
+            }
             CompiledGenerator::Wavetable(value) => {
                 Ok(Self::Wavetable(WavetableRuntime::new(value, spec)?))
             }
@@ -132,9 +144,10 @@ impl GeneratorRuntime {
                         .map(|_| index)
                 });
                 let zone = selected_index.and_then(|index| compiled.zones.get(index));
-                sample.start(zone);
-                Ok(())
+                sample.start(zone)
             }
+            Self::Granular(granular) => granular.start(note_id),
+            Self::WaveSequence(sequence) => sequence.start(note_id),
             Self::Wavetable(wavetable) => wavetable.start(),
             Self::OperatorModulation(operator) => {
                 operator.start();
@@ -149,7 +162,20 @@ impl GeneratorRuntime {
         }
     }
 
+    pub(crate) fn intrinsic_latency_frames(&self) -> usize {
+        match self {
+            Self::Sample { sample } => sample.intrinsic_latency_frames(),
+            Self::Oscillator(_)
+            | Self::Noise(_)
+            | Self::Granular(_)
+            | Self::WaveSequence(_)
+            | Self::Wavetable(_)
+            | Self::OperatorModulation(_) => 0,
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn render(
         &mut self,
         frames: usize,
@@ -157,6 +183,7 @@ impl GeneratorRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
+        tempo_bpm: f64,
         targets: LayerGeneratorTargetSpan,
         mono: &mut [f32],
         left: &mut [f32],
@@ -191,46 +218,54 @@ impl GeneratorRuntime {
                 noise.render(frames, correlation, left, right)?;
                 Ok(false)
             }
-            Self::Sample { sample } => {
-                if !matches!(targets, LayerGeneratorTargetSpan::Sample) {
+            Self::Sample { sample } => Self::render_sample(
+                sample,
+                frames,
+                note_number,
+                tuning_start,
+                tuning_end,
+                targets,
+                tempo_bpm,
+                mono,
+                left,
+                right,
+            ),
+            Self::Granular(granular) => {
+                let LayerGeneratorTargetSpan::Granular { .. } = targets else {
                     return Err(ProcessError::ProcessorFailure {
                         kind: crate::process::ProcessorFailureKind::InvalidState,
                     });
-                }
-                let start_ratio = playback_ratio(
+                };
+                granular.render(
+                    frames,
                     note_number,
-                    sample.root_note(),
-                    crate::compiler::cents_to_ratio(tuning_start),
-                );
-                let end_ratio = playback_ratio(
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    targets,
+                    mono,
+                    left,
+                    right,
+                )?;
+                Ok(false)
+            }
+            Self::WaveSequence(sequence) => {
+                let LayerGeneratorTargetSpan::WaveSequence = targets else {
+                    return Err(ProcessError::ProcessorFailure {
+                        kind: crate::process::ProcessorFailureKind::InvalidState,
+                    });
+                };
+                sequence.render(
+                    frames,
                     note_number,
-                    sample.root_note(),
-                    crate::compiler::cents_to_ratio(tuning_end),
-                );
-                if !start_ratio.is_finite()
-                    || !end_ratio.is_finite()
-                    || start_ratio <= 0.0
-                    || end_ratio <= 0.0
-                {
-                    return Err(ProcessError::InvalidFrequency);
-                }
-                if frames == 0 {
-                    return Ok(sample.is_finished());
-                }
-                if start_ratio.total_cmp(&end_ratio).is_eq() {
-                    for value in &mut mono[..frames] {
-                        *value = sample.next_sample_with_ratio(start_ratio);
-                    }
-                } else {
-                    #[allow(clippy::cast_precision_loss)]
-                    let ratio_step = (end_ratio / start_ratio).powf(1.0 / frames as f64);
-                    let mut ratio = start_ratio;
-                    for value in &mut mono[..frames] {
-                        *value = sample.next_sample_with_ratio(ratio);
-                        ratio *= ratio_step;
-                    }
-                }
-                Ok(sample.is_finished())
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    tempo_bpm,
+                    mono,
+                    left,
+                    right,
+                )
             }
             Self::Wavetable(wavetable) => {
                 wavetable.render(
@@ -263,6 +298,86 @@ impl GeneratorRuntime {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    fn render_sample(
+        sample: &mut SampleRuntime,
+        frames: usize,
+        note_number: u8,
+        tuning_start: f32,
+        tuning_end: f32,
+        targets: LayerGeneratorTargetSpan,
+        tempo_bpm: f64,
+        mono: &mut [f32],
+        left: &mut [f32],
+        right: &mut [f32],
+    ) -> Result<bool, ProcessError> {
+        if !matches!(targets, LayerGeneratorTargetSpan::Sample) {
+            return Err(ProcessError::ProcessorFailure {
+                kind: crate::process::ProcessorFailureKind::InvalidState,
+            });
+        }
+        if sample.uses_stretch() {
+            return sample.render_stretched(
+                frames,
+                note_number,
+                tuning_start,
+                tuning_end,
+                tempo_bpm,
+                mono,
+                left,
+                right,
+            );
+        }
+        let start_ratio = playback_ratio(
+            note_number,
+            sample.root_note(),
+            crate::compiler::cents_to_ratio(tuning_start),
+        );
+        let end_ratio = playback_ratio(
+            note_number,
+            sample.root_note(),
+            crate::compiler::cents_to_ratio(tuning_end),
+        );
+        if !start_ratio.is_finite()
+            || !end_ratio.is_finite()
+            || start_ratio <= 0.0
+            || end_ratio <= 0.0
+        {
+            return Err(ProcessError::InvalidFrequency);
+        }
+        if frames == 0 {
+            return Ok(sample.is_finished());
+        }
+        if start_ratio.total_cmp(&end_ratio).is_eq() {
+            for ((mono, left), right) in mono[..frames]
+                .iter_mut()
+                .zip(&mut left[..frames])
+                .zip(&mut right[..frames])
+            {
+                let (sample_left, sample_right) = sample.next_frame_with_ratio(start_ratio);
+                *mono = (sample_left + sample_right) * 0.5;
+                *left = sample_left;
+                *right = sample_right;
+            }
+        } else {
+            #[allow(clippy::cast_precision_loss)]
+            let ratio_step = (end_ratio / start_ratio).powf(1.0 / frames as f64);
+            let mut ratio = start_ratio;
+            for ((mono, left), right) in mono[..frames]
+                .iter_mut()
+                .zip(&mut left[..frames])
+                .zip(&mut right[..frames])
+            {
+                let (sample_left, sample_right) = sample.next_frame_with_ratio(ratio);
+                *mono = (sample_left + sample_right) * 0.5;
+                *left = sample_left;
+                *right = sample_right;
+                ratio *= ratio_step;
+            }
+        }
+        Ok(sample.is_finished())
+    }
+
     pub(crate) fn reset(&mut self) -> Result<(), ProcessError> {
         match self {
             Self::Oscillator(oscillator) => oscillator.reset(),
@@ -270,8 +385,13 @@ impl GeneratorRuntime {
                 noise.reset();
                 Ok(())
             }
-            Self::Sample { sample, .. } => {
-                sample.reset();
+            Self::Sample { sample, .. } => sample.reset(),
+            Self::Granular(granular) => {
+                granular.reset();
+                Ok(())
+            }
+            Self::WaveSequence(sequence) => {
+                sequence.reset();
                 Ok(())
             }
             Self::Wavetable(wavetable) => {

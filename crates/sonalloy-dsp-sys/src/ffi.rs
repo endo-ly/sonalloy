@@ -20,6 +20,11 @@ pub(crate) struct DspWavefolder {
     _private: [u8; 0],
 }
 
+#[repr(C)]
+pub(crate) struct DspStretch {
+    _private: [u8; 0],
+}
+
 pub(crate) const OK: c_int = 0;
 pub(crate) const INVALID_ARGUMENT: c_int = 1;
 pub(crate) const NULL_HANDLE: c_int = 2;
@@ -37,6 +42,12 @@ pub(crate) const CAPABILITY_SAW: c_uint = 1 << 1;
 pub(crate) const CAPABILITY_TRIANGLE: c_uint = 1 << 2;
 pub(crate) const CAPABILITY_SQUARE: c_uint = 1 << 3;
 pub(crate) const CAPABILITY_PULSE: c_uint = 1 << 4;
+pub(crate) const STRETCH_OK: c_int = 0;
+pub(crate) const STRETCH_INVALID_ARGUMENT: c_int = 1;
+pub(crate) const STRETCH_NULL_HANDLE: c_int = 2;
+pub(crate) const STRETCH_NOT_PREPARED: c_int = 3;
+pub(crate) const STRETCH_NATIVE_EXCEPTION: c_int = 5;
+pub(crate) const STRETCH_NON_FINITE: c_int = 6;
 
 unsafe extern "C" {
     pub(crate) fn sonalloy_dsp_backend_version() -> *const c_char;
@@ -168,5 +179,40 @@ unsafe extern "C" {
         buffer: *mut c_float,
         frames: c_uint,
     ) -> c_int;
+
+    pub(crate) fn sonalloy_stretch_backend_version() -> *const c_char;
+    pub(crate) fn sonalloy_stretch_create() -> *mut DspStretch;
+    pub(crate) fn sonalloy_stretch_destroy(handle: *mut DspStretch);
+    pub(crate) fn sonalloy_stretch_prepare(
+        handle: *mut DspStretch,
+        channels: c_int,
+        sample_rate: c_double,
+        max_input_frames: c_uint,
+        max_output_frames: c_uint,
+    ) -> c_int;
+    pub(crate) fn sonalloy_stretch_reset(handle: *mut DspStretch) -> c_int;
+    pub(crate) fn sonalloy_stretch_set_pitch(handle: *mut DspStretch, semitones: c_double)
+    -> c_int;
+    pub(crate) fn sonalloy_stretch_seek(
+        handle: *mut DspStretch,
+        input_buffers: *const *const c_float,
+        input_frames: c_uint,
+        playback_rate: c_double,
+    ) -> c_int;
+    pub(crate) fn sonalloy_stretch_process(
+        handle: *mut DspStretch,
+        input_buffers: *const *const c_float,
+        input_frames: c_uint,
+        output_buffers: *mut *mut c_float,
+        output_frames: c_uint,
+    ) -> c_int;
+    pub(crate) fn sonalloy_stretch_flush(
+        handle: *mut DspStretch,
+        output_buffers: *mut *mut c_float,
+        output_frames: c_uint,
+    ) -> c_int;
+    pub(crate) fn sonalloy_stretch_input_latency(handle: *const DspStretch) -> c_int;
+    pub(crate) fn sonalloy_stretch_output_latency(handle: *const DspStretch) -> c_int;
+    pub(crate) fn sonalloy_stretch_interval_samples(handle: *const DspStretch) -> c_int;
 
 }

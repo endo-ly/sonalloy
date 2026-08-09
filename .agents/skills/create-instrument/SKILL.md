@@ -1,6 +1,6 @@
 ---
 name: create-instrument
-description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add a sample or Wavetable layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi. Not for CLI reference questions (docs/cli.md) or architecture questions (docs/architecture.md).
+description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add a Sample, Wavetable, Operator Modulation, or Granular layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi. Not for CLI reference questions (docs/cli.md) or architecture questions (docs/architecture.md).
 ---
 
 # Create Instrument
@@ -11,7 +11,7 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 
 | | 内容 |
 |---|---|
-| 対象 | 新規Instrumentの作成、既存Definitionの編集、Sample / Wavetable / Operator Modulation Layerの追加、音源の試聴・修正 |
+| 対象 | 新規Instrumentの作成、既存Definitionの編集、Sample / Wavetable / Operator Modulation / Granular / Wave Sequence Layerの追加、音源の試聴・修正 |
 | 対象外 | 仕様の説明（`docs/instrument-definition.md`）、CLIの全コマンド解説（`docs/cli.md`）、実行時挙動（`docs/runtime-processing.md`） |
 | 成果物 | Definition JSONと、`render`で生成した試聴用WAV（`out/<name>/`配下） |
 
@@ -21,10 +21,13 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 Step 1  ひな形を生成する（新規時）／編集対象のJSONを特定する（既存時）
 Step 2  Definitionを編集する
 Step 3  instrument validate で検証する
-Step 4  Wavetable / Operator Modulation Layerを追加する（使用する場合）
-Step 5  Sample Layerを追加する（Sampleを使う場合）
-Step 6  render note / render midi で試聴する
-Step 7  仕上げる（関連docsへの反映、差分確認）
+Step 4  Wavetable Layerを追加する（Wavetableを使う場合）
+Step 5  Operator Modulation Layerを追加する（Operator Modulationを使う場合）
+Step 6  Sample Layerを追加する（Sampleを使う場合）
+Step 7  Granular Layerを追加する（Granularを使う場合）
+Step 8  Wave Sequence Layerを追加する（Wave Sequenceを使う場合）
+Step 9  render note / render midi で試聴する
+Step 10 仕上げる（関連docsへの反映、差分確認）
 ```
 
 ## Step 1: ひな形を生成する
@@ -42,12 +45,13 @@ sonalloy instrument init <path>
 - `schema_version`は`1`のみ。未知FieldはJSON Parse Errorになる
 - `polyphony`は1〜64。`gain_db`は-60〜12、`pan`は-1〜1、`tuning_cents`は-1200〜1200
 - ADSRは0〜30秒、Sustainは0〜1。Keyは0〜127、Velocityは1〜127
-- Generatorは`oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、`operator_modulation`、または`sample`
+- Generatorは`oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、`operator_modulation`、`sample`、`granular`、または`wave_sequence`
 - Oscillatorの`waveform`は`{"type": "..."}`形式。Pulseは`pulse_width`、全Oscillatorは`phase_reset`と`phase`を持つ
 - Wavetableは`asset`、`frame_length`（64〜4096の2の冪）、`position`（0〜1）、`phase_reset`、`phase`を持つ。Asset全体のSample数がFrame Lengthで割り切れることを確認する
 - WavetableのSource Sample RateはPitchへ使われず、Compile時にResampleされない。SHA-256を指定し、`instrument inspect --json`でPrepared状態とBandを確認する
 - Operator Modulationは4 Operator固定で、`algorithm`は`stack_4`、`stack_3_plus_carrier`、`two_stacks`、`fork_to_carrier`、`two_modulators_plus_carrier`、`three_modulators`、`shared_modulator`、`parallel`から選ぶ。Carrierだけに`level`を設定し、接続元だけに`modulation_amount`を設定する
 - Operator Modulationの`mode`は`phase`、`frequency`、`amplitude`、`ring`。Phase / FrequencyのAmountは0〜8、Amplitude / Ringは0〜1で、AM / RingのFeedbackは0だけを許可する。Unisonは最大4 Voice
+- Sample Zoneは`asset`、MIDI範囲、`playback.region`、`direction`、`loop`、`time`を持つ。`time`は`{"mode":"resample"}`、`{"mode":"fixed_stretch","ratio":1.5}`、`{"mode":"tempo_sync","source_bpm":120.0}`のいずれかを指定する
 - 全Fieldの意味・単位・Rangeは`docs/instrument-definition.md`が正本
 
 ```bash
@@ -64,14 +68,14 @@ sonalloy instrument inspect <definition> --json    # 実行値を機械可読で
 ```
 
 - `validate`の成功は`valid <path>`。Warningは`print_warnings`で表示されるため必ず確認する
-- `inspect`でPolyphony、Layer Trigger、GeneratorのWaveform / Color / Seed / Wavetable Band / Output Mode、Gain、Pan、Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
+- `inspect`でPolyphony、Layer Trigger、GeneratorのWaveform / Color / Seed / Wavetable Band / Granular Region / Wave Sequence Steps / Output Mode、Gain、Pan、Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
 - Operator Modulationでは`inspect --json`のMode、Algorithm、Evaluation Order、Carrier、4 OperatorのParameter ID、Envelope、Unison、Effective Frequency上限を確認する
 - Complex Oscillatorではphase_domain Backend、Signal Order、DC Blocker、WavefolderのParameter IDも確認する
 - Warningが1つでも残る場合は「ほかのLayerでRenderを継続する」設計のため、意図しない無効化がないかを確認する
 
 ## Step 4: Wavetable Layerを追加する（Wavetableを使う場合）
 
-1. 周期波形をFrame順に連結したPCM16、PCM24、またはFloat32のWAVを用意する。MonoまたはStereoを使用できるが、StereoはCompile時にMonoへDownmixされる
+1. 周期波形をFrame順に連結したPCM16、PCM24、またはFloat32のWAVを用意する。MonoまたはStereoを使用できるが、WavetableはCompile時にMonoへDownmixされる
 2. 一周期のSample数を`frame_length`へ記録する。64〜4096の2の冪で、WAV全体のSample数が割り切れる値を選ぶ。Source Sample RateはPitchへ使われない
 3. SHA-256を計算する
 
@@ -131,7 +135,7 @@ sha256sum <path>
 
 ## Step 6: Sample Layerを追加する（Sampleを使う場合）
 
-1. 自作WAVを`testdata/assets/`などへ置く（PCM 16/24 bitまたはFloat 32。Mono推奨。StereoはCompile時にMonoへDownmixされる）
+1. 自作WAVを`testdata/assets/`などへ置く（PCM 16/24 bitまたはFloat 32。MonoまたはStereoを使用できます）
 2. SHA-256を計算する
 
 ```powershell
@@ -150,10 +154,25 @@ sha256sum <path>
 {
   "generator": {
     "sample": {
-      "asset": { "path": "<definitionからの相対Path>", "sha256": "<計算値>" },
-      "root_note": 60,
-      "playback_mode": "one_shot",
-      "interpolation": "cubic"
+      "interpolation": "cubic",
+      "zones": [
+        {
+          "id": "main",
+          "asset": { "path": "<definitionからの相対Path>", "sha256": "<計算値>" },
+          "root_note": 60,
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127,
+          "round_robin_group": null,
+          "playback": {
+            "region": { "start_seconds": 0.0, "end_seconds": null },
+            "direction": "forward",
+            "loop": null,
+            "time": { "mode": "resample" }
+          }
+        }
+      ]
     }
   }
 }
@@ -161,13 +180,73 @@ sha256sum <path>
 
 4. `validate`でHash一致とWarningを確認する。SHA-256省略時はWarning、欠落・不一致・Decode失敗時はそのLayerだけが無効化されてRenderが継続する
 
-## Step 7: 試聴する
+## Step 7: Granular Layerを追加する（Granularを使う場合）
+
+1. `generator.granular`へ、Sampleと同じAsset、基準Note、Region、Grain Parameter、Seedを指定する。RegionはPrepared Audio内の秒範囲です
+2. `grain_size`は0.005〜0.5秒、`density`は1〜100 grains/sec、`pitch`は-2400〜2400 cents、`position`、`randomness`、`pan_spread`は0〜1で指定する
+3. SHA-256を計算し、`instrument validate`でRegionとParameterの診断を確認する。`INVALID_GRAIN_REGION`または`INVALID_GRAIN_PARAMETER`があれば修正する
+4. `instrument inspect --json`でPrepared状態、Source Channel、Region Frame、6つのParameter ID、Seed、Grain Pool Limitを確認する。GranularはMono AssetでもStereo Generatorとして出力する
+
+```json
+{
+  "generator": {
+    "granular": {
+      "asset": { "path": "<definitionからの相対Path>", "sha256": "<計算値>" },
+      "root_note": 60,
+      "region": { "start_seconds": 0.0, "end_seconds": null },
+      "position": 0.5,
+      "grain_size": 0.08,
+      "density": 24.0,
+      "pitch": 0.0,
+      "randomness": 0.35,
+      "pan_spread": 0.75,
+      "seed": 8128
+    }
+  }
+}
+```
+
+`granular_position`、`grain_size`、`grain_density`、`grain_pitch`、`grain_randomness`、`grain_pan_spread`をModulation Targetへ指定できます。固定PositionでGrainを生成し続けるとFreeze、PositionをLFO等で動かすとScrubになります。
+
+## Step 8: Wave Sequence Layerを追加する（Wave Sequenceを使う場合）
+
+1. `generator.wave_sequence`へ1〜128個のStepをDefinition順で指定する。`direction`はStepの選択順、各Stepの`playback_direction`はAssetのRead方向です
+2. `duration`は`{"mode":"seconds","value":...}`または`{"mode":"beats","value":...}`を指定する。`playback`が`one_shot`の場合、Assetが先に終わってもStepの残り時間は無音になります。`loop`の場合はRegionをStep終端まで繰り返します
+3. `crossfade`を0〜0.5で指定し、隣接StepのConstant-power Overlapを設定する。Missing AssetはStepから削除されず、Durationを保持した無音として後続Stepへ進みます
+4. SHA-256を指定し、`instrument validate`と`instrument inspect --json`でStep配列、Region Frame、Duration、Direction、Playback、Availability、Pitch、Gainを確認する
+
+```json
+{
+  "generator": {
+    "wave_sequence": {
+      "root_note": 60,
+      "direction": "forward",
+      "loop": true,
+      "crossfade": 0.25,
+      "steps": [
+        {
+          "id": "attack",
+          "asset": { "path": "<asset path>", "sha256": "<SHA-256>" },
+          "region": { "start_seconds": 0.0, "end_seconds": 0.08 },
+          "duration": { "mode": "seconds", "value": 0.18 },
+          "playback": "loop",
+          "playback_direction": "forward",
+          "gain_db": -3.0,
+          "pitch_cents": 0.0
+        }
+      ]
+    }
+  }
+}
+```
+
+## Step 9: 試聴する
 
 単音の確認：
 
 ```bash
 sonalloy render note <definition> \
-  --note 60 --velocity 100 --gate 0.5 --tail 0.5 \
+  --note 60 --velocity 100 --gate 0.5 --tail 0.5 --tempo 120 \
   --sample-rate 48000 --block-size 257 --output out/<name>/note.wav
 ```
 
@@ -179,7 +258,13 @@ sonalloy render midi <definition> <midi-file> \
   --output out/<name>/phrase.wav
 ```
 
-出力は32-bit float、2 Channel、指定Sample RateのStereo WAVです。試聴WAVは音源ごとに`out/<name>/`へ分けて出力し、親Directoryは事前に作成してください。生成後は`scripts/review/measure_wav.py`でFinite性・Peak / RMS / DCを確認できます。
+`render note`と`render events`の`--tempo`はTempo Syncの処理Tempoを指定します。`render midi`はMIDI内のTempo Meta EventからTempo Mapを作成します。出力は32-bit float、2 Channel、指定Sample RateのStereo WAVです。試聴WAVは音源ごとに`out/<name>/`へ分けて出力し、親Directoryは事前に作成してください。生成後は`scripts/review/measure_wav.py`でFinite性・Peak / RMS / DCを確認できます。
+
+## Step 10: 仕上げる
+
+- `metadata.name`と`metadata.description`を実際の音色に合わせる
+- `validate`と`inspect --json`のWarning、Output Mode、Parameter IDを確認する
+- 生成したWAVを同じ音量条件で試聴し、関連するReview結果を記録する
 
 ## 失敗時の対処
 
@@ -191,7 +276,7 @@ sonalloy render midi <definition> <midi-file> \
 | `3` | Core Process / Render Error | `--json`の`DSP_ERROR`等を確認する。それでも解決しない場合は`docs/runtime-processing.md`のError規則を確認する |
 | `4` | WAV出力 Error | 出力先Directoryの存在と書き込み権限を確認する |
 
-主な診断Code：`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`FILTER_CUTOFF_CLAMPED`、`ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`。Wavetableでは`WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`WAVETABLE_SILENT_FRAME`、`WAVETABLE_DC_OFFSET`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED`も確認します。
+主な診断Code：`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`FILTER_CUTOFF_CLAMPED`、`ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`UNSUPPORTED_PLAYBACK_COMBINATION`、`INVALID_STRETCH_RATIO`、`INVALID_SOURCE_TEMPO`、`STRETCH_BACKEND_FAILURE`、`INVALID_GRAIN_REGION`、`INVALID_GRAIN_PARAMETER`。Wavetableでは`WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`WAVETABLE_SILENT_FRAME`、`WAVETABLE_DC_OFFSET`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED`も確認します。
 
 ## 参照
 

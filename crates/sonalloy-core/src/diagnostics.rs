@@ -143,6 +143,30 @@ pub enum DiagnosticCode {
     /// MIDI input or conversion failure.
     #[serde(rename = "MIDI_ERROR")]
     MidiError,
+    /// A Sample playback combination is not supported.
+    #[serde(rename = "UNSUPPORTED_PLAYBACK_COMBINATION")]
+    UnsupportedPlaybackCombination,
+    /// A fixed Sample stretch ratio is outside the supported range.
+    #[serde(rename = "INVALID_STRETCH_RATIO")]
+    InvalidStretchRatio,
+    /// A Sample source tempo is invalid.
+    #[serde(rename = "INVALID_SOURCE_TEMPO")]
+    InvalidSourceTempo,
+    /// A time-stretch backend could not be prepared or processed.
+    #[serde(rename = "STRETCH_BACKEND_FAILURE")]
+    StretchBackendFailure,
+    /// A granular region cannot be represented inside the prepared asset.
+    #[serde(rename = "INVALID_GRAIN_REGION")]
+    InvalidGrainRegion,
+    /// A granular parameter is outside its supported range.
+    #[serde(rename = "INVALID_GRAIN_PARAMETER")]
+    InvalidGrainParameter,
+    /// A Wave Sequence structure or step is invalid.
+    #[serde(rename = "INVALID_SEQUENCE")]
+    InvalidSequence,
+    /// A Wave Sequence step duration is invalid.
+    #[serde(rename = "INVALID_STEP_DURATION")]
+    InvalidStepDuration,
 }
 
 /// A structured, frontend-neutral diagnostic.
@@ -204,6 +228,7 @@ pub fn from_process_error(error: &ProcessError) -> Diagnostic {
     let code = match error {
         ProcessError::DspFailure { .. } => DiagnosticCode::DspError,
         ProcessError::EventOrderInvalid => DiagnosticCode::EventOrderInvalid,
+        ProcessError::StretchRatioOutOfRange { .. } => DiagnosticCode::InvalidStretchRatio,
         _ => DiagnosticCode::ProcessError,
     };
     Diagnostic::error(code, error.to_string())
@@ -215,6 +240,9 @@ pub fn from_render_error(error: &RenderError) -> Diagnostic {
     let code = match error {
         RenderError::Process(ProcessError::DspFailure { .. }) => DiagnosticCode::DspError,
         RenderError::Process(ProcessError::EventOrderInvalid) => DiagnosticCode::EventOrderInvalid,
+        RenderError::Process(ProcessError::StretchRatioOutOfRange { .. }) => {
+            DiagnosticCode::InvalidStretchRatio
+        }
         RenderError::Process(_) => DiagnosticCode::ProcessError,
         _ => DiagnosticCode::RenderError,
     };
@@ -232,5 +260,16 @@ mod tests {
 
         let render = from_render_error(&RenderError::Process(ProcessError::EventOrderInvalid));
         assert_eq!(render.code, DiagnosticCode::EventOrderInvalid);
+    }
+
+    #[test]
+    fn runtime_stretch_range_errors_use_the_stretch_code() {
+        let process = from_process_error(&ProcessError::StretchRatioOutOfRange { ratio: 2.5 });
+        assert_eq!(process.code, DiagnosticCode::InvalidStretchRatio);
+
+        let render = from_render_error(&RenderError::Process(
+            ProcessError::StretchRatioOutOfRange { ratio: 2.5 },
+        ));
+        assert_eq!(render.code, DiagnosticCode::InvalidStretchRatio);
     }
 }

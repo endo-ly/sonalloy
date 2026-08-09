@@ -14,6 +14,22 @@ Sonalloyは次の外部ソフトウェアを直接利用します。各License�
 
 SonalloyではDaisySPのSourceを変更せず、Sonalloy固有のOpaque HandleとResult CodeをWrapper側へ実装しています。
 
+### Signalsmith Stretch 1.3.2
+
+- Project: Signalsmith Stretch
+- Fixed Commit: `57b93f4e9206a089a45387eaa39bdc9f310d3308`
+- Repository: <https://github.com/Signalsmith-Audio/signalsmith-stretch>
+- License: MIT License
+- Usage: SampleのPitch分離、Fixed Stretch、Tempo Sync
+
+### Signalsmith Linear 0.3.1
+
+- Project: Signalsmith Linear
+- Fixed Commit: `5668673560146a9cfe38c25315071e3fd68c8317`
+- Repository: <https://github.com/Signalsmith-Audio/linear>
+- License: MIT License
+- Usage: Signalsmith Stretchが使用するSTFT / FFT基盤
+
 ## Rust direct dependencies
 
 | Crate | Version | 用途 | License |

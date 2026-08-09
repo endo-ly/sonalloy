@@ -22,7 +22,7 @@ use crate::definition::AssetReference;
 pub struct SampleMetadata {
     /// Source sample rate before resampling.
     pub source_sample_rate: u32,
-    /// Number of source channels before downmixing.
+    /// Number of source channels before preparation.
     pub source_channels: usize,
     /// Source bit depth when supplied by the decoder.
     pub bits_per_sample: Option<u32>,
@@ -30,24 +30,52 @@ pub struct SampleMetadata {
     pub source_frames: usize,
 }
 
-/// Immutable mono audio prepared for one engine sample rate.
+/// Planar channels prepared for one engine sample rate.
 #[derive(Debug, Clone, PartialEq)]
-pub struct PreparedSample {
-    /// Sample rate of the samples field.
+pub enum PreparedAudioChannels {
+    /// One channel of prepared audio.
+    Mono {
+        /// Prepared mono samples shared by all voices.
+        samples: Arc<[f32]>,
+    },
+    /// Two independent channels of prepared audio.
+    Stereo {
+        /// Prepared left samples shared by all voices.
+        left: Arc<[f32]>,
+        /// Prepared right samples shared by all voices.
+        right: Arc<[f32]>,
+    },
+}
+
+/// Immutable audio prepared for one engine sample rate.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreparedAudio {
+    /// Sample rate of the prepared channels.
     pub sample_rate: f64,
-    /// Mono sample data shared by all voices.
-    pub samples: Arc<[f32]>,
+    /// Number of prepared frames in every channel.
+    pub frames: usize,
     /// Metadata from the source asset.
     pub source_metadata: SampleMetadata,
+    /// Mono or stereo planar samples shared by all voices.
+    pub channels: PreparedAudioChannels,
+}
+
+impl PreparedAudio {
+    /// Return the number of prepared channels.
+    #[must_use]
+    pub fn channel_count(&self) -> usize {
+        match &self.channels {
+            PreparedAudioChannels::Mono { .. } => 1,
+            PreparedAudioChannels::Stereo { .. } => 2,
+        }
+    }
 }
 
 /// Result of resolving and preparing one asset.
 #[derive(Debug, Clone)]
 pub(crate) struct PreparedAsset {
-    /// Prepared sample data.
-    pub sample: Arc<PreparedSample>,
-    /// Whether stereo source data was downmixed.
-    pub downmixed: bool,
+    /// Prepared audio data.
+    pub audio: Arc<PreparedAudio>,
 }
 
 /// Asset preparation failure classified for diagnostics.
@@ -75,7 +103,6 @@ pub(crate) struct MonoAudioAsset {
     pub(crate) bits_per_sample: Option<u32>,
     pub(crate) source_frames: usize,
     pub(crate) samples: Vec<f32>,
-    pub(crate) downmixed: bool,
 }
 
 pub(crate) fn prepare_asset(
@@ -83,41 +110,50 @@ pub(crate) fn prepare_asset(
     definition_base_dir: &Path,
     target_sample_rate: f64,
 ) -> Result<PreparedAsset, AssetError> {
-    let decoded = load_mono_audio(reference, definition_base_dir)?;
-    let samples = if (f64::from(decoded.sample_rate) - target_sample_rate).abs() < f64::EPSILON {
-        decoded.samples
-    } else {
-        resample(
-            &decoded.samples,
-            f64::from(decoded.sample_rate),
-            target_sample_rate,
-        )?
+    let decoded = load_audio(reference, definition_base_dir)?;
+    let source_metadata = SampleMetadata {
+        source_sample_rate: decoded.sample_rate,
+        source_channels: decoded.channels,
+        bits_per_sample: decoded.bits_per_sample,
+        source_frames: decoded.source_frames,
     };
-    if samples.is_empty() || !samples.iter().all(|sample| sample.is_finite()) {
+    let channels = prepare_channels(
+        &decoded.samples,
+        decoded.channels,
+        f64::from(decoded.sample_rate),
+        target_sample_rate,
+    )?;
+    let frames = match &channels {
+        PreparedAudioChannels::Mono { samples } => samples.len(),
+        PreparedAudioChannels::Stereo { left, right } => {
+            if left.len() != right.len() {
+                return Err(AssetError::Resample(
+                    "stereo channels have different prepared frame counts".to_owned(),
+                ));
+            }
+            left.len()
+        }
+    };
+    if frames == 0 {
         return Err(AssetError::Resample(
-            "prepared sample contains no finite frames".to_owned(),
+            "prepared audio contains no frames".to_owned(),
         ));
     }
 
     Ok(PreparedAsset {
-        sample: Arc::new(PreparedSample {
+        audio: Arc::new(PreparedAudio {
             sample_rate: target_sample_rate,
-            samples: Arc::from(samples),
-            source_metadata: SampleMetadata {
-                source_sample_rate: decoded.sample_rate,
-                source_channels: decoded.channels,
-                bits_per_sample: decoded.bits_per_sample,
-                source_frames: decoded.source_frames,
-            },
+            frames,
+            source_metadata,
+            channels,
         }),
-        downmixed: decoded.downmixed,
     })
 }
 
-pub(crate) fn load_mono_audio(
+pub(crate) fn load_audio(
     reference: &AssetReference,
     definition_base_dir: &Path,
-) -> Result<MonoAudioAsset, AssetError> {
+) -> Result<DecodedAudioAsset, AssetError> {
     let resolved_path = resolve_path(definition_base_dir, &reference.path);
     let bytes =
         std::fs::read(&resolved_path).map_err(|error| AssetError::NotFound(error.to_string()))?;
@@ -136,29 +172,109 @@ pub(crate) fn load_mono_audio(
     }
 
     let decoded = decode_wav(&resolved_path)?;
-    let downmixed = decoded.channels > 1;
     if decoded.channels > 2 {
         return Err(AssetError::Decode(format!(
             "only mono and stereo WAV assets are supported, got {} channels",
             decoded.channels
         )));
     }
-    let samples = downmix(&decoded.samples, decoded.channels)
+    let source_frames = decoded
+        .samples
+        .len()
+        .checked_div(decoded.channels)
+        .filter(|frames| *frames > 0)
         .ok_or_else(|| AssetError::Decode("decoded WAV contains no frames".to_owned()))?;
-    if !samples.iter().all(|sample| sample.is_finite()) {
+    if decoded.samples.len() != source_frames * decoded.channels {
+        return Err(AssetError::Decode(
+            "decoded WAV has an incomplete final frame".to_owned(),
+        ));
+    }
+    if !decoded.samples.iter().all(|sample| sample.is_finite()) {
         return Err(AssetError::Decode(
             "decoded WAV contains a non-finite sample".to_owned(),
         ));
     }
 
+    Ok(DecodedAudioAsset {
+        sample_rate: decoded.sample_rate,
+        channels: decoded.channels,
+        bits_per_sample: decoded.bits_per_sample,
+        source_frames,
+        samples: decoded.samples,
+    })
+}
+
+pub(crate) fn load_mono_audio(
+    reference: &AssetReference,
+    definition_base_dir: &Path,
+) -> Result<MonoAudioAsset, AssetError> {
+    let decoded = load_audio(reference, definition_base_dir)?;
+    let samples = downmix(&decoded.samples, decoded.channels)
+        .ok_or_else(|| AssetError::Decode("decoded WAV contains no frames".to_owned()))?;
+
     Ok(MonoAudioAsset {
         sample_rate: decoded.sample_rate,
         channels: decoded.channels,
         bits_per_sample: decoded.bits_per_sample,
-        source_frames: samples.len(),
+        source_frames: decoded.source_frames,
         samples,
-        downmixed,
     })
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct DecodedAudioAsset {
+    pub(crate) sample_rate: u32,
+    pub(crate) channels: usize,
+    pub(crate) bits_per_sample: Option<u32>,
+    pub(crate) source_frames: usize,
+    pub(crate) samples: Vec<f32>,
+}
+
+fn prepare_channels(
+    interleaved: &[f32],
+    channels: usize,
+    source_sample_rate: f64,
+    target_sample_rate: f64,
+) -> Result<PreparedAudioChannels, AssetError> {
+    let mut planar = (0..channels)
+        .map(|channel| {
+            interleaved
+                .iter()
+                .skip(channel)
+                .step_by(channels)
+                .copied()
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    for channel in &mut planar {
+        if (source_sample_rate - target_sample_rate).abs() >= f64::EPSILON {
+            *channel = resample(channel, source_sample_rate, target_sample_rate)?;
+        }
+        if channel.is_empty() || !channel.iter().all(|sample| sample.is_finite()) {
+            return Err(AssetError::Resample(
+                "prepared audio contains a non-finite or empty channel".to_owned(),
+            ));
+        }
+    }
+    match planar.as_mut_slice() {
+        [mono] => Ok(PreparedAudioChannels::Mono {
+            samples: Arc::from(std::mem::take(mono)),
+        }),
+        [left, right] => {
+            if left.len() != right.len() {
+                return Err(AssetError::Resample(
+                    "stereo channels have different prepared frame counts".to_owned(),
+                ));
+            }
+            Ok(PreparedAudioChannels::Stereo {
+                left: Arc::from(std::mem::take(left)),
+                right: Arc::from(std::mem::take(right)),
+            })
+        }
+        _ => Err(AssetError::Decode(
+            "only mono and stereo WAV assets are supported".to_owned(),
+        )),
+    }
 }
 
 pub(crate) fn resolved_asset_path(base_dir: &Path, reference: &str) -> PathBuf {
@@ -440,8 +556,8 @@ mod tests {
         std::fs::write(path, bytes).expect("test WAV writes");
     }
 
-    fn temporary_path(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("sonalloy-asset-{name}-{}.wav", std::process::id()))
+    fn fixture_directory() -> tempfile::TempDir {
+        tempfile::tempdir().expect("fixture directory creates")
     }
 
     #[test]
@@ -465,8 +581,9 @@ mod tests {
     }
 
     #[test]
-    fn prepare_asset_decodes_pcm_and_downmixes_stereo() {
-        let path = temporary_path("stereo");
+    fn prepare_asset_decodes_pcm_and_preserves_stereo() {
+        let directory = fixture_directory();
+        let path = directory.path().join("stereo.wav");
         write_pcm16_wav(&path, 2, 44_100, &[32_767, -32_767, 16_384, 8_192]);
         let result = prepare_asset(
             &AssetReference {
@@ -477,22 +594,44 @@ mod tests {
             48_000.0,
         )
         .expect("stereo PCM asset prepares");
-        assert!(result.downmixed);
-        assert_eq!(result.sample.source_metadata.source_channels, 2);
-        assert_eq!(result.sample.source_metadata.bits_per_sample, Some(16));
-        assert!(
-            result
-                .sample
-                .samples
-                .iter()
-                .all(|sample| sample.is_finite())
-        );
-        std::fs::remove_file(path).expect("test WAV removes");
+        assert_eq!(result.audio.source_metadata.source_channels, 2);
+        assert_eq!(result.audio.source_metadata.bits_per_sample, Some(16));
+        assert_eq!(result.audio.frames, 2);
+        assert!(matches!(
+            &result.audio.channels,
+            PreparedAudioChannels::Stereo { .. }
+        ));
+        if let PreparedAudioChannels::Stereo { left, right } = &result.audio.channels {
+            assert!(
+                left.iter()
+                    .chain(right.iter())
+                    .all(|sample| sample.is_finite())
+            );
+            assert!((left[0] - right[0]).abs() > 0.5);
+        }
+    }
+
+    #[test]
+    fn prepare_asset_rejects_more_than_two_channels() {
+        let directory = fixture_directory();
+        let path = directory.path().join("three-channel.wav");
+        write_pcm16_wav(&path, 3, 48_000, &[0, 1, 2, 3, 4, 5]);
+        let error = prepare_asset(
+            &AssetReference {
+                path: path.to_string_lossy().into_owned(),
+                sha256: None,
+            },
+            Path::new("."),
+            48_000.0,
+        )
+        .expect_err("three-channel asset must fail");
+        assert!(matches!(error, AssetError::Decode(_)));
     }
 
     #[test]
     fn prepare_asset_decodes_pcm24_and_float32() {
-        let pcm24_path = temporary_path("pcm24");
+        let directory = fixture_directory();
+        let pcm24_path = directory.path().join("pcm24.wav");
         write_pcm24_wav(&pcm24_path, 1, 48_000, &[0x0012_3456, -0x0012_3456, 0]);
         let pcm24 = prepare_asset(
             &AssetReference {
@@ -503,12 +642,17 @@ mod tests {
             48_000.0,
         )
         .expect("24-bit PCM asset prepares");
-        assert_eq!(pcm24.sample.source_metadata.bits_per_sample, Some(24));
-        assert_eq!(pcm24.sample.source_metadata.source_frames, 3);
-        assert!(pcm24.sample.samples.iter().all(|sample| sample.is_finite()));
-        std::fs::remove_file(pcm24_path).expect("test WAV removes");
+        assert_eq!(pcm24.audio.source_metadata.bits_per_sample, Some(24));
+        assert_eq!(pcm24.audio.source_metadata.source_frames, 3);
+        assert!(matches!(
+            &pcm24.audio.channels,
+            PreparedAudioChannels::Mono { .. }
+        ));
+        if let PreparedAudioChannels::Mono { samples } = &pcm24.audio.channels {
+            assert!(samples.iter().all(|sample| sample.is_finite()));
+        }
 
-        let float32_path = temporary_path("float32");
+        let float32_path = directory.path().join("float32.wav");
         write_float32_wav(&float32_path, 1, 48_000, &[0.25, -0.5, 0.75]);
         let float32 = prepare_asset(
             &AssetReference {
@@ -519,20 +663,16 @@ mod tests {
             48_000.0,
         )
         .expect("32-bit float asset prepares");
-        assert_eq!(float32.sample.source_metadata.source_frames, 3);
-        assert!(
-            float32
-                .sample
-                .samples
-                .iter()
-                .all(|sample| sample.is_finite())
-        );
-        std::fs::remove_file(float32_path).expect("test WAV removes");
+        assert_eq!(float32.audio.source_metadata.source_frames, 3);
+        if let PreparedAudioChannels::Mono { samples } = &float32.audio.channels {
+            assert!(samples.iter().all(|sample| sample.is_finite()));
+        }
     }
 
     #[test]
     fn prepare_asset_resamples_96khz_to_the_engine_rate() {
-        let path = temporary_path("96khz");
+        let directory = fixture_directory();
+        let path = directory.path().join("96khz.wav");
         let samples = (0..960)
             .map(|index| if index % 2 == 0 { 16_384 } else { -16_384 })
             .collect::<Vec<_>>();
@@ -546,21 +686,17 @@ mod tests {
             48_000.0,
         )
         .expect("96 kHz asset prepares");
-        assert_eq!(result.sample.source_metadata.source_sample_rate, 96_000);
-        assert_eq!(result.sample.samples.len(), 480);
-        assert!(
-            result
-                .sample
-                .samples
-                .iter()
-                .all(|sample| sample.is_finite())
-        );
-        std::fs::remove_file(path).expect("test WAV removes");
+        assert_eq!(result.audio.source_metadata.source_sample_rate, 96_000);
+        assert_eq!(result.audio.frames, 480);
+        if let PreparedAudioChannels::Mono { samples } = &result.audio.channels {
+            assert!(samples.iter().all(|sample| sample.is_finite()));
+        }
     }
 
     #[test]
     fn prepare_asset_rejects_non_finite_float_samples() {
-        let path = temporary_path("nan");
+        let directory = fixture_directory();
+        let path = directory.path().join("nan.wav");
         write_float32_wav(&path, 1, 48_000, &[0.0, f32::NAN, 0.0]);
         let error = prepare_asset(
             &AssetReference {
@@ -572,12 +708,12 @@ mod tests {
         )
         .expect_err("non-finite sample must fail");
         assert!(matches!(error, AssetError::Decode(_)));
-        std::fs::remove_file(path).expect("test WAV removes");
     }
 
     #[test]
     fn prepare_asset_rejects_a_hash_mismatch() {
-        let path = temporary_path("hash");
+        let directory = fixture_directory();
+        let path = directory.path().join("hash.wav");
         write_pcm16_wav(&path, 1, 48_000, &[0, 1, -1, 0]);
         let error = prepare_asset(
             &AssetReference {
@@ -589,6 +725,5 @@ mod tests {
         )
         .expect_err("wrong hash must fail");
         assert!(matches!(error, AssetError::HashMismatch { .. }));
-        std::fs::remove_file(path).expect("test WAV removes");
     }
 }
