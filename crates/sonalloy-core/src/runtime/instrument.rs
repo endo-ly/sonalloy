@@ -868,15 +868,12 @@ fn invalid_state() -> ProcessError {
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
-    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
     use crate::compiler::{CompileContext, compile_instrument};
     use crate::definition::tests::definition;
     use crate::parameter::ParameterHandle;
     use crate::process::ProcessEvent;
-
-    static FIXTURE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     fn compiled(polyphony: u16) -> Arc<CompiledInstrument> {
         let mut definition = definition();
@@ -958,13 +955,9 @@ mod tests {
             .expect("process succeeds");
     }
 
-    fn write_pcm_fixture() -> std::path::PathBuf {
-        let fixture_id = FIXTURE_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "sonalloy-runtime-pcm-{}-{}.wav",
-            std::process::id(),
-            fixture_id
-        ));
+    fn write_pcm_fixture() -> (tempfile::TempDir, std::path::PathBuf) {
+        let directory = tempfile::tempdir().expect("fixture directory creates");
+        let path = directory.path().join("fixture.wav");
         let samples = (0..128)
             .map(|index| {
                 #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
@@ -991,7 +984,7 @@ mod tests {
             bytes.extend_from_slice(&sample.to_le_bytes());
         }
         std::fs::write(&path, bytes).expect("fixture WAV writes");
-        path
+        (directory, path)
     }
 
     fn sample_stretch_definition(
@@ -1114,7 +1107,7 @@ mod tests {
 
     #[test]
     fn wavetable_render_does_not_allocate_after_prepare() {
-        let path = write_pcm_fixture();
+        let (_directory, path) = write_pcm_fixture();
         let mut source = definition();
         source.performance.polyphony = 1;
         source.layers[0].generator = crate::definition::GeneratorDefinition::Wavetable(
@@ -1148,12 +1141,11 @@ mod tests {
         });
 
         assert_eq!(allocations, 0);
-        std::fs::remove_file(path).expect("fixture WAV removes");
     }
 
     #[test]
     fn stretch_render_does_not_allocate_in_rust_after_prepare() {
-        let path = write_pcm_fixture();
+        let (_directory, path) = write_pcm_fixture();
         let source = sample_stretch_definition(&path);
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
@@ -1173,7 +1165,6 @@ mod tests {
         });
 
         assert_eq!(allocations, 0);
-        std::fs::remove_file(path).expect("fixture WAV removes");
     }
 
     #[test]

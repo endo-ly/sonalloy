@@ -556,8 +556,8 @@ mod tests {
         std::fs::write(path, bytes).expect("test WAV writes");
     }
 
-    fn temporary_path(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("sonalloy-asset-{name}-{}.wav", std::process::id()))
+    fn fixture_directory() -> tempfile::TempDir {
+        tempfile::tempdir().expect("fixture directory creates")
     }
 
     #[test]
@@ -582,7 +582,8 @@ mod tests {
 
     #[test]
     fn prepare_asset_decodes_pcm_and_preserves_stereo() {
-        let path = temporary_path("stereo");
+        let directory = fixture_directory();
+        let path = directory.path().join("stereo.wav");
         write_pcm16_wav(&path, 2, 44_100, &[32_767, -32_767, 16_384, 8_192]);
         let result = prepare_asset(
             &AssetReference {
@@ -608,12 +609,12 @@ mod tests {
             );
             assert!((left[0] - right[0]).abs() > 0.5);
         }
-        std::fs::remove_file(path).expect("test WAV removes");
     }
 
     #[test]
     fn prepare_asset_rejects_more_than_two_channels() {
-        let path = temporary_path("three-channel");
+        let directory = fixture_directory();
+        let path = directory.path().join("three-channel.wav");
         write_pcm16_wav(&path, 3, 48_000, &[0, 1, 2, 3, 4, 5]);
         let error = prepare_asset(
             &AssetReference {
@@ -625,12 +626,12 @@ mod tests {
         )
         .expect_err("three-channel asset must fail");
         assert!(matches!(error, AssetError::Decode(_)));
-        std::fs::remove_file(path).expect("test WAV removes");
     }
 
     #[test]
     fn prepare_asset_decodes_pcm24_and_float32() {
-        let pcm24_path = temporary_path("pcm24");
+        let directory = fixture_directory();
+        let pcm24_path = directory.path().join("pcm24.wav");
         write_pcm24_wav(&pcm24_path, 1, 48_000, &[0x0012_3456, -0x0012_3456, 0]);
         let pcm24 = prepare_asset(
             &AssetReference {
@@ -650,9 +651,8 @@ mod tests {
         if let PreparedAudioChannels::Mono { samples } = &pcm24.audio.channels {
             assert!(samples.iter().all(|sample| sample.is_finite()));
         }
-        std::fs::remove_file(pcm24_path).expect("test WAV removes");
 
-        let float32_path = temporary_path("float32");
+        let float32_path = directory.path().join("float32.wav");
         write_float32_wav(&float32_path, 1, 48_000, &[0.25, -0.5, 0.75]);
         let float32 = prepare_asset(
             &AssetReference {
@@ -667,12 +667,12 @@ mod tests {
         if let PreparedAudioChannels::Mono { samples } = &float32.audio.channels {
             assert!(samples.iter().all(|sample| sample.is_finite()));
         }
-        std::fs::remove_file(float32_path).expect("test WAV removes");
     }
 
     #[test]
     fn prepare_asset_resamples_96khz_to_the_engine_rate() {
-        let path = temporary_path("96khz");
+        let directory = fixture_directory();
+        let path = directory.path().join("96khz.wav");
         let samples = (0..960)
             .map(|index| if index % 2 == 0 { 16_384 } else { -16_384 })
             .collect::<Vec<_>>();
@@ -691,12 +691,12 @@ mod tests {
         if let PreparedAudioChannels::Mono { samples } = &result.audio.channels {
             assert!(samples.iter().all(|sample| sample.is_finite()));
         }
-        std::fs::remove_file(path).expect("test WAV removes");
     }
 
     #[test]
     fn prepare_asset_rejects_non_finite_float_samples() {
-        let path = temporary_path("nan");
+        let directory = fixture_directory();
+        let path = directory.path().join("nan.wav");
         write_float32_wav(&path, 1, 48_000, &[0.0, f32::NAN, 0.0]);
         let error = prepare_asset(
             &AssetReference {
@@ -708,12 +708,12 @@ mod tests {
         )
         .expect_err("non-finite sample must fail");
         assert!(matches!(error, AssetError::Decode(_)));
-        std::fs::remove_file(path).expect("test WAV removes");
     }
 
     #[test]
     fn prepare_asset_rejects_a_hash_mismatch() {
-        let path = temporary_path("hash");
+        let directory = fixture_directory();
+        let path = directory.path().join("hash.wav");
         write_pcm16_wav(&path, 1, 48_000, &[0, 1, -1, 0]);
         let error = prepare_asset(
             &AssetReference {
@@ -725,6 +725,5 @@ mod tests {
         )
         .expect_err("wrong hash must fail");
         assert!(matches!(error, AssetError::HashMismatch { .. }));
-        std::fs::remove_file(path).expect("test WAV removes");
     }
 }
