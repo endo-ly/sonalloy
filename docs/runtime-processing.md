@@ -177,7 +177,7 @@ GranularはSample Generatorと同じPrepared Audioを使いますが、Voiceご�
 
 - SchedulerはProcess Blockの先頭を基準にせず、Grains per SecondをSample Rateで割ったFractional PhaseをAbsolute Sample Timelineへ累積します。ProcessのBlock Sizeが変わってもSpawn Frameは変わりません
 - Grain開始時にPosition、Grain Size、Pitch、Pan、Random OffsetをSnapshotし、発音中のGrainへ後からParameter値を適用しません
-- WindowはHann固定です。Source PositionはRegion内へ変換し、Pitchで必要となるRead SpanとGrain長を考慮してRegion終端を越えないようにします。Randomnessによる端越えはNormalized Region上で循環します
+- WindowはHann固定です。Active GrainのWindow Power合計を基準に連続的に正規化し、Grainの生成・終了で発音中のGrainのゲインを段階変化させません。Source PositionはRegion内へ変換し、Pitchで必要となるRead SpanとGrain長を考慮してRegion終端を越えないようにします。Randomnessによる端越えはNormalized Region上で循環します
 - RandomはDefinition Seed、Layer Stable ID、Note ID、Grain Serial、用途別Streamから直接算出します。Global RNGやVoice処理順を使用しないため、同じ入力とBlock Sizeに依存しない結果になります
 - Mono AssetはGrainごとのConstant-power PanでStereoへ配置します。Stereo Assetは左右を同じPosition、Pitch、WindowでReadし、Pan SpreadをStereo Balanceとして適用します。左右を独立したRandom Positionへ分けません
 - Position、Grain Size、Density、Pitch、Randomness、Pan SpreadはParameter Spanの値を使います。ScrubはPositionをLFO等から動かし、FreezeはPositionを固定したままSchedulerを動かして実現します

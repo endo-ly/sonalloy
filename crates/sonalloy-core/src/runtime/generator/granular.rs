@@ -160,16 +160,7 @@ impl GranularRuntime {
                 )?;
                 self.scheduler_phase -= self.scheduler_phase.floor();
             }
-            let active_count = self.active_count();
-            let normalization = if active_count == 0 {
-                0.0
-            } else {
-                #[allow(clippy::cast_precision_loss)]
-                {
-                    1.0 / (active_count as f32).sqrt()
-                }
-            };
-            let (frame_left, frame_right) = self.render_frame(normalization)?;
+            let (frame_left, frame_right) = self.render_frame()?;
             left[frame] = frame_left;
             right[frame] = frame_right;
             mono[frame] = (frame_left + frame_right) * 0.5;
@@ -283,8 +274,9 @@ impl GranularRuntime {
         Ok(())
     }
 
-    fn render_frame(&mut self, normalization: f32) -> Result<(f32, f32), ProcessError> {
+    fn render_frame(&mut self) -> Result<(f32, f32), ProcessError> {
         let source = self.source.as_ref().ok_or_else(invalid_state)?;
+        let normalization = self.window_power_normalization();
         let mut left = 0.0;
         let mut right = 0.0;
         for grain in self.grains.iter_mut().take(self.grain_pool_limit) {
@@ -323,12 +315,22 @@ impl GranularRuntime {
         }
     }
 
-    fn active_count(&self) -> usize {
-        self.grains
+    fn window_power_normalization(&self) -> f32 {
+        let window_power = self
+            .grains
             .iter()
             .take(self.grain_pool_limit)
             .filter(|grain| grain.active)
-            .count()
+            .map(|grain| {
+                let window = hann_window(grain.age_frames, grain.length_frames);
+                window * window
+            })
+            .sum::<f32>();
+        if window_power <= 0.0 {
+            0.0
+        } else {
+            1.0 / window_power.max(1.0).sqrt()
+        }
     }
 
     pub(super) fn reset(&mut self) {
@@ -453,20 +455,23 @@ mod tests {
     }
 
     fn compiled() -> CompiledGranular {
+        compiled_with_source(source(
+            &(0..1024)
+                .map(|value| f32::from(u16::try_from(value).expect("fixture value fits")) / 1024.0)
+                .collect::<Vec<_>>(),
+        ))
+    }
+
+    fn compiled_with_source(source: Arc<PreparedAudio>) -> CompiledGranular {
         let position = crate::parameter::ParameterHandle::new(0);
+        let end_frame = source.frames;
         CompiledGranular {
-            source: Some(source(
-                &(0..1024)
-                    .map(|value| {
-                        f32::from(u16::try_from(value).expect("fixture value fits")) / 1024.0
-                    })
-                    .collect::<Vec<_>>(),
-            )),
+            source: Some(source),
             asset_path: "test.wav".to_owned(),
             asset_sha256_specified: false,
             root_note: 60,
             start_frame: 0,
-            end_frame: 1024,
+            end_frame,
             parameters: crate::compiler::CompiledGranularParameters {
                 position,
                 grain_size: position,
@@ -479,6 +484,10 @@ mod tests {
             layer_hash: 2,
             grain_pool_limit: GRANULAR_GRAIN_POOL_LIMIT,
         }
+    }
+
+    fn constant_compiled() -> CompiledGranular {
+        compiled_with_source(source(&vec![0.5; 48_000]))
     }
 
     #[test]
@@ -567,6 +576,52 @@ mod tests {
             .expect("granular render");
         assert!(left.iter().chain(&right).all(|sample| sample.is_finite()));
         assert!(left.iter().any(|sample| sample.abs() > 0.0));
+    }
+
+    #[test]
+    fn grain_window_normalization_does_not_jump_at_grain_boundaries() {
+        let definition = constant_compiled();
+        let mut runtime = GranularRuntime::new(&definition).expect("runtime prepares");
+        runtime.start(9).expect("runtime starts");
+        let zero = ValueSpan {
+            start: 0.0,
+            end: 0.0,
+        };
+        let targets = LayerGeneratorTargetSpan::Granular {
+            position: ValueSpan {
+                start: 0.5,
+                end: 0.5,
+            },
+            grain_size: ValueSpan {
+                start: 0.08,
+                end: 0.08,
+            },
+            density: ValueSpan {
+                start: 24.0,
+                end: 24.0,
+            },
+            pitch: zero,
+            randomness: zero,
+            pan_spread: zero,
+        };
+        let frames = 12_000;
+        let mut mono = vec![0.0; frames];
+        let mut left = vec![0.0; frames];
+        let mut right = vec![0.0; frames];
+        runtime
+            .render(
+                frames, 60, 0.0, 0.0, 48_000.0, targets, &mut mono, &mut left, &mut right,
+            )
+            .expect("granular render");
+
+        let max_delta = left
+            .windows(2)
+            .map(|samples| (samples[1] - samples[0]).abs())
+            .fold(0.0_f32, f32::max);
+        assert!(
+            max_delta < 0.01,
+            "grain boundary discontinuity is too large: {max_delta}"
+        );
     }
 
     #[test]
