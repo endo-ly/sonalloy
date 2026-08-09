@@ -124,6 +124,7 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 
 - **Oscillator**：Note番号とTuningから周波数を決め、Sine / Saw / Square / Triangle / Pulseを生成します。`phase_reset`が有効ならNoteごとにCompiled Initial Phaseへ戻し、TriangleのIntegrator Stateも初期化します。Pulse Widthは5msでSmoothingし、既存Modulationから制御できます。Hard SyncはVariable Shape BackendでMaster / Slaveを生成し、RatioをLog2で5ms Smoothingします。UnisonはPrepare時に固定したComponent数でDetune、Phase、Stereo Placementを行い、2 Voice以上をStereoで出力します。WaveshapingはUnison Mix直後にAmountをLinearで5ms Smoothingして適用します
 - **Noise**：White / Pink / Brownを決定的なPRNG Streamから生成します。Shared、Left Independent、Right Independentの3 Streamを持ち、Correlationを`√correlation`と`√(1-correlation)`でMixして常にStereoで出力します
+- **Additive**：Compile済みの固定Partial SlotをPrivate Partial Bankへ渡し、Note Frequency × Partial RatioのSineを加算します。MorphはAmplitude A / Bだけを補間し、Spectrum TiltはRatioの`log2`、Inharmonicityは固定されたStiff-string式からControl TickごとにGain / Ratioへ変換します。高域PartialはFrequency Clampではなく0.40〜0.45 Sample Rate比のFadeで抑え、Energy NormalizationはDefinition上の全Partial Gainを基準にします。出力はMonoです
 - **Wavetable**：Compile時にWAVをFrameへ分割し、FFT/IFFTでHarmonic上限の異なるBand Tableを準備します。PositionはFrame間をLinear、Table内をFour-point Cubicで補間し、Component Frequencyに応じたBandをLog2領域でCrossfadeします。Source Sample RateはPitchへ使わず、Unison 1ではMono、2 Voice以上ではStereoで出力します
 - **Operator Modulation**：4 OperatorをCompile済みの固定Topology順にSampleごとに評価します。Phase、Frequency、Amplitude、Ringは同じOperator信号を使いながら別の相互作用として処理し、Carrier Sum後に`1 / sqrt(carrier_count)`で正規化します。Operator Envelopeは各Operator出力へ乗算し、Carrier以外のOperatorは接続先へのModulation Signalだけを供給します。Unison 1はMono、2〜4はComponentごとのPhaseとPrevious Outputを持つStereoです
 - **Complex Oscillator**：Phase DistortionまたはOscillator Feedbackを含むDefinitionはRustのPhase-domain Sine Backendで処理します。Phase Distortionは`breakpoint = 0.5 - amount × 0.45`の連続Mapping、Feedbackは直前Sampleを`tanh(previous × amount × 2.5) × 0.25` cycleへ変換してRead Phaseへ加算します。Wavefoldは既存OscillatorのUnison MixとWaveshapingの後へDaisySP MIT版Wavefolderで適用し、AmountをDrive / Dry-Wetへ固定変換します。非線形機能の後へSample Rate依存のDC Blockerを置きます。Phase DistortionとFeedbackはSineだけで使用でき、Hard Syncとは併用できません
@@ -140,6 +141,19 @@ Prepared WavetableはCompile時に`Arc`でCompiled Instrumentへ保持し、全V
 - Band Tableは`N/2, N/4, ..., 1`のHarmonic上限を持ち、隣接Bandの切替をLog2領域でCrossfadeします。DCはCompile時のSource値を保持します
 - Note Onでは`phase_reset`が有効な場合だけInitial Phaseへ戻し、Instrument Resetでは常にInitial Phaseへ戻します
 - Process中はAsset Decode、FFT、File I/O、メモリ確保を行いません
+
+## Additive Runtime
+
+多数Sineの合成処理を、`runtime/generator/partial_bank.rs`の非公開Partial Bankへ閉じ込めます。AdditiveのDefinitionはCompile時に1〜64 Slotの固定配列へ変換され、4096点の一周期Sine TableとGuard SampleをCompiled Instrumentへ保持します。Sine LookupはPhaseを`[0, 1)`へWrapし、Table端をLinear Interpolationします。
+
+- Partial BankのPhase、Gain、Ratio Factor、Ramp StateはVoiceごとに保持します。Process中にPartial数を変更せず、Vec拡張、Sine Table生成、`sin()`直接評価を行いません
+- Morph、Spectrum Tilt、Inharmonicityは約1msのSpectral Control Tickで評価します。Tick間はGainとRatio FactorをSample Rateから算出したInterval長でRampするため、Host Block SizeはTick位置を変えません
+- Spectrum Tiltは`db_to_linear(tilt × log2(ratio))`でGainへ変換します。Inharmonicityは`B = amount × 0.0005`とし、Ratio 1.0を固定したまま`ratio × sqrt((1 + B × ratio²) / (1 + B))`を使います
+- Alias FadeはEffective Frequency / Sample Rateが0.40以下なら1、0.45以上なら0、その間はLinearです。周波数をNyquistへClampしないため、Partialの個別の消え方を維持します
+- 全PartialのSpectral Gainから`1 / max(1, sqrt(Σ gain²))`を求め、Partial EnvelopeのActive数に応じて他PartialのGainを変更しません
+- Partial EnvelopeはPartial Sumの前に適用し、Note Onで開始、Note OffでRelease、Voice StealingとResetで初期状態へ戻します。Layer EnvelopeはPartial Sumの後に従来どおり適用します
+
+Additiveの生成順は、`Partial Gain / Ratio計算 → Partial Bank加算 → Layer Envelope → Layer Processor`です。Sine TableのLookup誤差はCore Testで全Phaseを比較し、最大絶対誤差を`1e-5`以下に制限します。
 
 ## Operator Modulation Runtime
 
@@ -199,7 +213,7 @@ Wave Sequenceが最後のOne-shot Stepを終え、Sequence Loopが無効な場�
 ## 準備とリセット
 
 - **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time StretchのInput / Output Latencyを含むScratch、Granular Grain Pool、Wave SequenceのPlayback Slot、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、OscillatorとOperatorの位相、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Granular Grain Pool / Grain Serial / Scheduler、Wave SequenceのCurrent / Next SlotとStep Cursor、Round Robin Counter、ADSR、Operator Envelope、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- **Reset**：全Voice、OscillatorとOperatorとAdditive Partial Bankの位相、AdditiveのGain / Ratio RampとSpectral Control Tick、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Granular Grain Pool / Grain Serial / Scheduler、Wave SequenceのCurrent / Next SlotとStep Cursor、Partial / Operator Envelope、Round Robin Counter、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 

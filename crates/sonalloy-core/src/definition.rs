@@ -4,7 +4,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::generator_parameters::{
-    GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION,
+    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, GRAIN_DENSITY,
+    GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION, MAX_PARTIALS,
     NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN,
     OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN,
     OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
@@ -134,6 +135,8 @@ pub enum GeneratorDefinition {
     Oscillator(OscillatorDefinition),
     /// A deterministic stereo noise generator.
     Noise(NoiseDefinition),
+    /// A directly specified bank of sine partials.
+    Additive(AdditiveDefinition),
     /// A mapped sample instrument loaded during compilation.
     Sample(SampleDefinition),
     /// A deterministic grain-based reconstruction of a prepared audio asset.
@@ -240,6 +243,41 @@ pub struct NoiseDefinition {
     pub seed: u64,
     /// Shared-to-independent stereo mix in the inclusive zero-to-one range.
     pub stereo_correlation: f32,
+}
+
+/// Additive generator settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdditiveDefinition {
+    /// Whether every Note On starts each partial at its initial phase.
+    pub phase_reset: bool,
+    /// Amplitude interpolation between Spectrum A and Spectrum B.
+    pub morph: f32,
+    /// Spectral amplitude slope in decibels per octave.
+    pub spectrum_tilt_db_per_octave: f32,
+    /// Progressive ratio stretch applied to higher partials.
+    pub inharmonicity: f32,
+    /// Ordered partial definitions.
+    pub partials: Vec<AdditivePartialDefinition>,
+}
+
+/// One additive sine partial.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdditivePartialDefinition {
+    /// Stable identifier used by inspection and diagnostics.
+    pub id: String,
+    /// Frequency ratio relative to the played note.
+    pub ratio: f32,
+    /// Spectrum A amplitude.
+    pub amplitude_a: f32,
+    /// Spectrum B amplitude.
+    pub amplitude_b: f32,
+    /// Initial phase in cycles.
+    pub phase: f32,
+    /// Optional partial-local amplitude envelope.
+    #[serde(default)]
+    pub envelope: Option<AdsrDefinition>,
 }
 
 /// Sample generator settings.
@@ -1002,6 +1040,9 @@ impl InstrumentDefinition {
                 }
                 GeneratorDefinition::Noise(noise) => {
                     validate_noise(&mut diagnostics, &path, noise);
+                }
+                GeneratorDefinition::Additive(additive) => {
+                    validate_additive(&mut diagnostics, &path, additive);
                 }
                 GeneratorDefinition::Sample(sample) => {
                     validate_sample(&mut diagnostics, &path, sample);
@@ -2295,6 +2336,109 @@ fn validate_noise(diagnostics: &mut Vec<Diagnostic>, path: &str, noise: &NoiseDe
         NOISE_CORRELATION.min..=NOISE_CORRELATION.max,
         "stereo_correlation must be finite and between 0 and 1",
     );
+}
+
+fn validate_additive(diagnostics: &mut Vec<Diagnostic>, path: &str, additive: &AdditiveDefinition) {
+    let additive_path = format!("{path}.generator.additive");
+    if !(1..=MAX_PARTIALS).contains(&additive.partials.len()) {
+        diagnostics.push(
+            Diagnostic::error(
+                if additive.partials.is_empty() {
+                    DiagnosticCode::RequiredFieldMissing
+                } else {
+                    DiagnosticCode::GeneratorResourceLimitExceeded
+                },
+                format!("additive partials must contain between 1 and {MAX_PARTIALS} entries"),
+            )
+            .with_path(format!("{additive_path}.partials")),
+        );
+    }
+    validate_range(
+        diagnostics,
+        format!("{additive_path}.morph"),
+        additive.morph,
+        ADDITIVE_MORPH.min..=ADDITIVE_MORPH.max,
+        "additive morph must be finite and between 0 and 1",
+    );
+    validate_range(
+        diagnostics,
+        format!("{additive_path}.spectrum_tilt_db_per_octave"),
+        additive.spectrum_tilt_db_per_octave,
+        ADDITIVE_SPECTRUM_TILT.min..=ADDITIVE_SPECTRUM_TILT.max,
+        "additive spectrum tilt must be finite and between -24 and 12 dB per octave",
+    );
+    validate_range(
+        diagnostics,
+        format!("{additive_path}.inharmonicity"),
+        additive.inharmonicity,
+        ADDITIVE_INHARMONICITY.min..=ADDITIVE_INHARMONICITY.max,
+        "additive inharmonicity must be finite and between 0 and 1",
+    );
+
+    let mut ids = HashSet::new();
+    let mut has_signal = false;
+    for (index, partial) in additive.partials.iter().enumerate() {
+        let partial_path = format!("{additive_path}.partials[{index}]");
+        if partial.id.trim().is_empty() {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::RequiredFieldMissing,
+                    "additive partial id must not be empty",
+                )
+                .with_path(format!("{partial_path}.id")),
+            );
+        }
+        if !ids.insert(partial.id.clone()) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::IdDuplicated,
+                    "additive partial id must be unique",
+                )
+                .with_path(format!("{partial_path}.id")),
+            );
+        }
+        validate_range(
+            diagnostics,
+            format!("{partial_path}.ratio"),
+            partial.ratio,
+            0.125..=64.0,
+            "additive partial ratio must be finite and between 0.125 and 64",
+        );
+        validate_range(
+            diagnostics,
+            format!("{partial_path}.amplitude_a"),
+            partial.amplitude_a,
+            0.0..=1.0,
+            "additive partial amplitude_a must be finite and between 0 and 1",
+        );
+        validate_range(
+            diagnostics,
+            format!("{partial_path}.amplitude_b"),
+            partial.amplitude_b,
+            0.0..=1.0,
+            "additive partial amplitude_b must be finite and between 0 and 1",
+        );
+        validate_range(
+            diagnostics,
+            format!("{partial_path}.phase"),
+            partial.phase,
+            0.0..=1.0,
+            "additive partial phase must be finite and between 0 and 1",
+        );
+        has_signal |= partial.amplitude_a > 0.0 || partial.amplitude_b > 0.0;
+        if let Some(envelope) = partial.envelope {
+            validate_adsr(diagnostics, &partial_path, envelope);
+        }
+    }
+    if !additive.partials.is_empty() && !has_signal {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::DefinitionError,
+                "additive spectra must contain at least one non-zero amplitude",
+            )
+            .with_path(format!("{additive_path}.partials")),
+        );
+    }
 }
 
 fn validate_trigger(

@@ -14,6 +14,7 @@
 | `generate_basic_generators_package.py` | Basic GeneratorのDefinition、Event、WAV、MetricsをReview Packageへまとめる |
 | `generate_granular_package.py` | Granular GeneratorのDefinition、Event、Asset、WAV、Inspect、MetricsをReview Packageへまとめる |
 | `generate_wave_sequence_package.py` | Wave SequenceのDefinition、Event、Asset、WAV、Inspect、Metrics、HybridをReview Packageへまとめる |
+| `generate_additive_package.py` | Additive GeneratorのPartial、Spectrum A / B、Morph、Tilt、Inharmonicity、Partial Envelope、PolyphonyのDefinition、Event、WAV、Inspect、MetricsをReview Packageへまとめる |
 | `generate_complex_oscillator_package.py` | Digital Synthesis Packageの生成中に取り込むComplex OscillatorのDefinition、Event、WAV、Metrics、性能計測を生成する内部Script |
 | `common.py` | Review Package生成で共有するCLI実行、入力出力、Render、WAV測定補助を定義する |
 | `generate_essential_synthesis_sampling_package.py` | Sample Zone、Velocity Layer、Round Robin、Forward / Reverse Playback、Loop / Crossfade、Release Trigger、Slice、HybridのDefinition、Event、Synthetic Asset、WAV、MetricsをReview Packageへまとめる |
@@ -33,6 +34,7 @@ python scripts/review/generate_processor_chain_package.py
 python scripts/review/generate_basic_generators_package.py
 python scripts/review/generate_granular_package.py
 python scripts/review/generate_wave_sequence_package.py
+python scripts/review/generate_additive_package.py
 python scripts/review/generate_essential_synthesis_sampling_package.py
 py -3 scripts/review/generate_digital_synthesis_package.py
 ```

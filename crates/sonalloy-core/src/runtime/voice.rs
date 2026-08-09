@@ -903,6 +903,19 @@ impl VoiceRuntime {
                 CompiledGenerator::Noise(value) => LayerGeneratorTargetSpan::Noise {
                     correlation: self.evaluate_target(compiled, value.correlation, shared)?,
                 },
+                CompiledGenerator::Additive(value) => LayerGeneratorTargetSpan::Additive {
+                    morph: self.evaluate_target(compiled, value.parameters.morph, shared)?,
+                    spectrum_tilt: self.evaluate_target(
+                        compiled,
+                        value.parameters.spectrum_tilt,
+                        shared,
+                    )?,
+                    inharmonicity: self.evaluate_target(
+                        compiled,
+                        value.parameters.inharmonicity,
+                        shared,
+                    )?,
+                },
                 CompiledGenerator::Sample(_) => LayerGeneratorTargetSpan::Sample,
                 CompiledGenerator::Granular(value) => LayerGeneratorTargetSpan::Granular {
                     position: self.evaluate_target(compiled, value.parameters.position, shared)?,

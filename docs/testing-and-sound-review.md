@@ -108,6 +108,16 @@ flowchart LR
 - 人間の確認：波形間の音色差、高音域のAlias、Pulse Widthの差、PWMのClick、Noise色の差と周期性、Brownの低域偏り、Stereo Correlationの幅、新規Runtime間のNoise冒頭一致
 - `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
 
+### Additive Generator
+
+- 保存先：`review-output/additive-generator/`（audio/technical / definitions / events / `inspect.json` / metrics.json / review-summary.md）
+- 生成：`python scripts/review/generate_additive_package.py`
+- 内容：Single Fundamental、Harmonic Organ、Fractional Ratio、Spectrum A / B、Morph、Tilt、Inharmonicity、Partial Envelope、High-note Alias Fade、16-note Polyphonyを同じDefinitionと固定Eventから確認する
+- Metrics：Sine TableのLength / Guard / Lookup最大絶対誤差、Finite性、Peak / RMS / DC、単音Spectrum、Fundamental、Sample Rate 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024、Fresh Render再現性、隣接Frame差分、Stereo差分
+- 自動確認：1〜64 Partial、Parameter Descriptor、Validation境界、Partial EnvelopeのLifecycle、Reset、Voice Stealing、16 Voice × 64 PartialのProcess中Allocation 0
+- 人間の確認：基音と整数倍Partialの明瞭さ、Inharmonic Bellの金属感、Morphの連続性、Tiltによる明るさ、InharmonicityのStretch、Partial終了時の音量段差、高音域AliasのFade、PolyphonyとVoice Stealingの安定性
+- `audio/technical/`の生出力をMetricsと人間の試聴で共用し、試聴専用の正規化コピーはReview Packageへ保存しない。聴感比較時の音量は再生側で調整する
+
 ### Digital Synthesis
 
 - 保存先：`review-output/digital-synthesis/`（assets / audio/technical / definitions / events / midi / `inspect.json` / `operator-inspect.json` / `complex-inspect.json` / `complex-phase-inspect.json` / `digital-hybrid-inspect.json` / metrics.json / review-summary.md）

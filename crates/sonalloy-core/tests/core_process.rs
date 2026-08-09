@@ -1181,6 +1181,7 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Additive(_)
         | sonalloy_core::compiler::CompiledGenerator::Granular(_)
         | sonalloy_core::compiler::CompiledGenerator::WaveSequence(_)
         | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
@@ -1791,6 +1792,7 @@ fn sample_without_hash_is_enabled_with_a_warning() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Additive(_)
         | sonalloy_core::GeneratorDefinition::Granular(_)
         | sonalloy_core::GeneratorDefinition::WaveSequence(_)
         | sonalloy_core::GeneratorDefinition::Wavetable(_)
@@ -1820,6 +1822,7 @@ fn sample_without_hash_is_enabled_with_a_warning() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Additive(_)
         | sonalloy_core::compiler::CompiledGenerator::Granular(_)
         | sonalloy_core::compiler::CompiledGenerator::WaveSequence(_)
         | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
@@ -1842,6 +1845,7 @@ fn absolute_sample_path_is_enabled_with_a_warning() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Additive(_)
         | sonalloy_core::GeneratorDefinition::Granular(_)
         | sonalloy_core::GeneratorDefinition::WaveSequence(_)
         | sonalloy_core::GeneratorDefinition::Wavetable(_)
@@ -1875,6 +1879,7 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::Additive(_)
         | sonalloy_core::GeneratorDefinition::Granular(_)
         | sonalloy_core::GeneratorDefinition::WaveSequence(_)
         | sonalloy_core::GeneratorDefinition::Wavetable(_)
@@ -1906,6 +1911,7 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::Additive(_)
         | sonalloy_core::compiler::CompiledGenerator::Granular(_)
         | sonalloy_core::compiler::CompiledGenerator::WaveSequence(_)
         | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)

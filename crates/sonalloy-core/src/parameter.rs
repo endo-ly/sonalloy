@@ -8,7 +8,8 @@ use crate::definition::{
     ProcessorDefinition,
 };
 use crate::generator_parameters::{
-    GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION,
+    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, GRAIN_DENSITY,
+    GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION,
     GeneratorParameterSpec, NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX,
     OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX,
     OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
@@ -81,6 +82,8 @@ pub enum ParameterUnit {
     PerSecond,
     /// A unitless synthesis index.
     Index,
+    /// Spectral tilt in decibels per octave.
+    DecibelsPerOctave,
     /// A unitless value in the inclusive zero-to-one range.
     Normalized,
 }
@@ -356,6 +359,23 @@ fn push_generator_descriptors(
                 owner,
                 NOISE_CORRELATION,
                 noise.stereo_correlation,
+            );
+        }
+        GeneratorDefinition::Additive(additive) => {
+            push_generator_descriptor(descriptors, prefix, owner, ADDITIVE_MORPH, additive.morph);
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                ADDITIVE_SPECTRUM_TILT,
+                additive.spectrum_tilt_db_per_octave,
+            );
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                ADDITIVE_INHARMONICITY,
+                additive.inharmonicity,
             );
         }
         GeneratorDefinition::Sample(_) | GeneratorDefinition::WaveSequence(_) => {}

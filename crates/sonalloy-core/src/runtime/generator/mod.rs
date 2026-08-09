@@ -1,7 +1,9 @@
+mod additive;
 mod granular;
 mod noise;
 mod operator;
 mod oscillator;
+pub(crate) mod partial_bank;
 mod wave_sequence;
 mod wavetable;
 
@@ -12,6 +14,7 @@ use crate::process::{NoteId, ProcessError, ProcessSpec, ProcessorFailureKind};
 use super::modulation::{LayerGeneratorTargetSpan, ValueSpan};
 use super::sample::{SampleRuntime, playback_ratio};
 
+use additive::AdditiveRuntime;
 use granular::GranularRuntime;
 use noise::NoiseRuntime;
 use operator::OperatorModulationRuntime;
@@ -83,6 +86,7 @@ pub(super) fn non_finite() -> ProcessError {
 pub(super) enum GeneratorRuntime {
     Oscillator(OscillatorRuntime),
     Noise(Box<NoiseRuntime>),
+    Additive(Box<AdditiveRuntime>),
     Sample { sample: SampleRuntime },
     Granular(Box<GranularRuntime>),
     WaveSequence(WaveSequenceRuntime),
@@ -100,6 +104,9 @@ impl GeneratorRuntime {
                 Ok(Self::Oscillator(OscillatorRuntime::new(value, spec)?))
             }
             CompiledGenerator::Noise(value) => Ok(Self::Noise(Box::new(NoiseRuntime::new(value)))),
+            CompiledGenerator::Additive(value) => {
+                Ok(Self::Additive(Box::new(AdditiveRuntime::new(value, spec)?)))
+            }
             CompiledGenerator::Sample(compiled) => Ok(Self::Sample {
                 sample: SampleRuntime::prepared(compiled, spec)?,
             }),
@@ -130,6 +137,10 @@ impl GeneratorRuntime {
                 noise.start(note_id);
                 Ok(())
             }
+            Self::Additive(additive) => {
+                additive.start();
+                Ok(())
+            }
             Self::Sample { sample } => {
                 let CompiledGenerator::Sample(compiled) = compiled else {
                     return Err(ProcessError::ProcessorFailure {
@@ -157,8 +168,10 @@ impl GeneratorRuntime {
     }
 
     pub(crate) fn note_off(&mut self) {
-        if let Self::OperatorModulation(operator) = self {
-            operator.note_off();
+        match self {
+            Self::Additive(additive) => additive.note_off(),
+            Self::OperatorModulation(operator) => operator.note_off(),
+            _ => {}
         }
     }
 
@@ -167,6 +180,7 @@ impl GeneratorRuntime {
             Self::Sample { sample } => sample.intrinsic_latency_frames(),
             Self::Oscillator(_)
             | Self::Noise(_)
+            | Self::Additive(_)
             | Self::Granular(_)
             | Self::WaveSequence(_)
             | Self::Wavetable(_)
@@ -216,6 +230,18 @@ impl GeneratorRuntime {
                     });
                 };
                 noise.render(frames, correlation, left, right)?;
+                Ok(false)
+            }
+            Self::Additive(additive) => {
+                additive.render(
+                    frames,
+                    note_number,
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    targets,
+                    mono,
+                )?;
                 Ok(false)
             }
             Self::Sample { sample } => Self::render_sample(
@@ -383,6 +409,10 @@ impl GeneratorRuntime {
             Self::Oscillator(oscillator) => oscillator.reset(),
             Self::Noise(noise) => {
                 noise.reset();
+                Ok(())
+            }
+            Self::Additive(additive) => {
+                additive.reset();
                 Ok(())
             }
             Self::Sample { sample, .. } => sample.reset(),

@@ -1,6 +1,6 @@
 # 音源（Instrument）の作り方
 
-このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要なら自作WAVをWavetable、Sample、Granular、またはWave Sequenceとして組み込むところまで進みます。
+このガイドは、Sonalloyで自分の音源を作ってWAVを出すまでの道筋を説明します。ひな形の生成から始め、パラメータの意味を理解しながら、試聴して、必要ならAdditiveのPartial設計や自作WAVのWavetable、Sample、Granular、Wave Sequenceへの組み込みまで進みます。
 
 > **本書の範囲**：音源作成の操作手順（人間向けガイド）です。仕様の詳細は本書に書かず、各仕様文書へ委ねます。
 >
@@ -14,7 +14,7 @@
 ## 全体の流れ
 
 ```text
-ひな形の生成 → 音色の編集 → 検証 → Sample / Wavetable追加 → Granular追加 → Wave Sequence追加 → 試聴 → 仕上げ
+ひな形の生成 → 音色の編集 → 検証 → Additive / Sample / Wavetable追加 → Granular追加 → Wave Sequence追加 → 試聴 → 仕上げ
    Step 1       Step 2     Step 3       Step 4                    Step 5       Step 6             Step 7   Step 8
 ```
 
@@ -31,7 +31,7 @@
 
 ## Step 1. ひな形を生成する
 
-次のコマンドで、Saw Oscillatorの最小Definitionが生成されます。
+次のコマンドで、Saw Oscillatorの最小Definitionが生成されます。倍音を直接設計する場合は、生成後に`generator`をAdditiveへ置き換えるか、[`examples/instruments/additive-generator-reference.json`](../examples/instruments/additive-generator-reference.json)を複製します。
 
 ```bash
 sonalloy instrument init my-instrument.json
@@ -117,6 +117,36 @@ Pulse Widthは既存LFOなどのModulation Targetへ接続できます。
   "curve": "linear"
 }
 ```
+
+### Additiveで倍音を設計する
+
+Additiveは、Note Frequencyに対する1〜64個のPartialを直接記述するGeneratorです。まずは基音を1つ置き、整数Ratioを追加してHarmonic Toneを作ります。`2.73`のようなFractional Ratioを混ぜるとInharmonic BellやMetallic Textureになります。
+
+```json
+"generator": {
+  "additive": {
+    "phase_reset": true,
+    "morph": 0.0,
+    "spectrum_tilt_db_per_octave": -3.0,
+    "inharmonicity": 0.0,
+    "partials": [
+      { "id": "fundamental", "ratio": 1.0, "amplitude_a": 1.0, "amplitude_b": 0.7, "phase": 0.0 },
+      { "id": "second", "ratio": 2.0, "amplitude_a": 0.45, "amplitude_b": 0.8, "phase": 0.0 },
+      { "id": "metal", "ratio": 2.73, "amplitude_a": 0.15, "amplitude_b": 0.5, "phase": 0.25 }
+    ]
+  }
+}
+```
+
+`amplitude_a`と`amplitude_b`は`morph = 0`と`morph = 1`のSpectrumです。Morph中にRatioやPhaseは変わらないため、Partialの増減による不連続を避けられます。`spectrum_tilt_db_per_octave`は高次Partialの明るさ、`inharmonicity`は高次RatioのStretchを制御します。各Partialには既存ADSRの`envelope`を任意で指定できます。Layer EnvelopeはPartial Sumの後に適用されます。
+
+次のParameterをLFO、Modulation Envelope、Mod Wheel、Aftertouch、またはEventから制御できます。
+
+- `layer.<layer_id>.generator.additive_morph`
+- `layer.<layer_id>.generator.additive_spectrum_tilt`
+- `layer.<layer_id>.generator.additive_inharmonicity`
+
+`instrument inspect --json`でPartial Count、Ratio、Amplitude、Phase、Envelopeの有無と3つのParameter Descriptorを確認します。完全無音のSpectrum、空のPartial配列、重複ID、65個以上のPartialはValidation Errorです。実際の8 Partial構成は[`additive-generator-reference.json`](../examples/instruments/additive-generator-reference.json)にあります。
 
 Hard Sync、Waveshaping、UnisonはOscillator Definitionへ追加します。Hard SyncはSineでは使用できず、開始`phase`とHard Sync併用時の`phase_spread`は0にします。
 

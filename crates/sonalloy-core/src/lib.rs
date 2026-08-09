@@ -11,8 +11,9 @@ mod wavetable;
 
 pub use asset::{PreparedAudio, PreparedAudioChannels, SampleMetadata};
 pub use compiler::{
-    CompileContext, CompileResult, CompiledGranular, CompiledGranularParameters,
-    CompiledInstrument, CompiledOperator, CompiledOperatorModulation, CompiledOperatorParameters,
+    CompileContext, CompileResult, CompiledAdditive, CompiledAdditiveParameters,
+    CompiledAdditivePartial, CompiledGranular, CompiledGranularParameters, CompiledInstrument,
+    CompiledOperator, CompiledOperatorModulation, CompiledOperatorParameters,
     CompiledOperatorTopology, CompiledSampleDirection, CompiledSampleLoop, CompiledSamplePlayback,
     CompiledSampleTime, CompiledStretchLatency, CompiledWaveSequence, CompiledWaveSequenceDuration,
     CompiledWaveSequenceStep, CompiledWaveSequenceStepPlayback, CompiledWavetable,
@@ -20,11 +21,12 @@ pub use compiler::{
     PreparedWavetableFrame, WavetableSourceMetadata, compile_instrument,
 };
 pub use definition::{
-    AdsrDefinition, AssetReference, CURRENT_SCHEMA_VERSION, DelayProcessorDefinition,
-    DriveProcessorDefinition, FilterProcessorDefinition, GeneratorDefinition, GranularDefinition,
-    HardSyncDefinition, InstrumentDefinition, InstrumentMetadata, LayerDefinition,
-    LayerTriggerDefinition, LayerTriggerEvent, NoiseColor, NoiseDefinition, OperatorAlgorithm,
-    OperatorDefinition, OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition,
+    AdditiveDefinition, AdditivePartialDefinition, AdsrDefinition, AssetReference,
+    CURRENT_SCHEMA_VERSION, DelayProcessorDefinition, DriveProcessorDefinition,
+    FilterProcessorDefinition, GeneratorDefinition, GranularDefinition, HardSyncDefinition,
+    InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition,
+    LayerTriggerEvent, NoiseColor, NoiseDefinition, OperatorAlgorithm, OperatorDefinition,
+    OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition,
     OscillatorFeedbackDefinition, OscillatorWaveform, PerformanceDefinition,
     PhaseDistortionDefinition, ProcessorDefinition, ReverbProcessorDefinition, SampleDefinition,
     SampleInterpolation, SampleLoopDefinition, SamplePlaybackDirection, SampleRegionDefinition,

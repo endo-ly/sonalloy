@@ -273,6 +273,7 @@ impl InstrumentRuntime {
             match &layer.generator {
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
+                | CompiledGenerator::Additive(_)
                 | CompiledGenerator::Granular(_)
                 | CompiledGenerator::WaveSequence(_)
                 | CompiledGenerator::Wavetable(_)
@@ -625,6 +626,7 @@ impl InstrumentProcessor for InstrumentRuntime {
                 CompiledGenerator::Sample(sample) => vec![0; sample.groups.len()],
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
+                | CompiledGenerator::Additive(_)
                 | CompiledGenerator::Granular(_)
                 | CompiledGenerator::WaveSequence(_)
                 | CompiledGenerator::Wavetable(_)
@@ -1283,6 +1285,62 @@ mod tests {
     }
 
     #[test]
+    fn additive_sixteen_voice_render_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 16;
+        source.layers[0].generator = crate::definition::GeneratorDefinition::Additive(
+            crate::definition::AdditiveDefinition {
+                phase_reset: true,
+                morph: 0.0,
+                spectrum_tilt_db_per_octave: -3.0,
+                inharmonicity: 0.25,
+                partials: (0usize..64)
+                    .map(|index| crate::definition::AdditivePartialDefinition {
+                        id: format!("partial_{index}"),
+                        ratio: f32::from(u16::try_from(index).expect("partial index fits")) + 1.0,
+                        amplitude_a: 1.0
+                            / (f32::from(u16::try_from(index).expect("partial index fits")) + 1.0),
+                        amplitude_b: 0.75
+                            / (f32::from(u16::try_from(index).expect("partial index fits")) + 1.0),
+                        phase: 0.0,
+                        envelope: None,
+                    })
+                    .collect(),
+            },
+        );
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let first_events: Vec<ProcessEvent> = (0usize..16)
+            .map(|index| ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: u64::try_from(index).expect("voice index fits in note id") + 1,
+                    note_number: 48
+                        + u8::try_from(index).expect("voice index fits in MIDI note number"),
+                    velocity: 100,
+                },
+            })
+            .collect();
+        let steal_event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 17,
+                note_number: 72,
+                velocity: 100,
+            },
+        }];
+        process_with_stack_output(&mut runtime, 0, &first_events);
+        runtime.reset().expect("reset");
+        process_with_stack_output(&mut runtime, 0, &first_events);
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 64, &steal_event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
     fn voice_stealing_note_on_does_not_allocate_after_prepare() {
         let mut source = definition();
         source.performance.polyphony = 1;
@@ -1933,6 +1991,7 @@ mod tests {
             | crate::definition::GeneratorDefinition::Granular(_)
             | crate::definition::GeneratorDefinition::WaveSequence(_)
             | crate::definition::GeneratorDefinition::Noise(_)
+            | crate::definition::GeneratorDefinition::Additive(_)
             | crate::definition::GeneratorDefinition::Wavetable(_)
             | crate::definition::GeneratorDefinition::OperatorModulation(_) => {
                 panic!("test fixture must use an oscillator");

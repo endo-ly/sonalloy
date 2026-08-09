@@ -150,6 +150,11 @@ pub(crate) enum LayerGeneratorTargetSpan {
     Noise {
         correlation: ValueSpan,
     },
+    Additive {
+        morph: ValueSpan,
+        spectrum_tilt: ValueSpan,
+        inharmonicity: ValueSpan,
+    },
     Sample,
     Granular {
         position: ValueSpan,
@@ -204,6 +209,11 @@ impl CompiledGenerator {
                 unison_spread: value.parameters.unison_spread.map(|_| zero),
             },
             Self::Noise(_) => LayerGeneratorTargetSpan::Noise { correlation: zero },
+            Self::Additive(_) => LayerGeneratorTargetSpan::Additive {
+                morph: zero,
+                spectrum_tilt: zero,
+                inharmonicity: zero,
+            },
             Self::Sample(_) => LayerGeneratorTargetSpan::Sample,
             Self::Granular(_) => LayerGeneratorTargetSpan::Granular {
                 position: zero,

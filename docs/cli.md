@@ -57,6 +57,7 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Layer | Trigger Event（`note_on` / `note_off`）、Key / Velocity範囲、Generator、Gain、Pan、Tuning、Envelope |
 | Oscillator | Waveform、Phase Reset、Phase、Backend、Output Mode、Effective Frequency上限、Pulse Width（Pulseのみ）、Hard Sync、Waveshaping、Phase Distortion、Wavefold、Oscillator Feedback、DC Blocker、Signal Order、Unison |
 | Noise | Color、Seed、Stereo Correlation Parameter、Output Mode |
+| Additive | Output Mode、Partial Count / 最大Partial Count、Phase Reset、Morph、Spectrum Tilt、Inharmonicity、各PartialのID / Ratio / Amplitude A / B / Phase / Envelope有無 |
 | Wavetable | Asset Path、SHA指定有無、Prepared状態、Source Channel / Frame Count、Frame Length / Count、Band Count / Max Harmonic、Position、Parameter ID、Phase、Unison、Output Mode、Effective Frequency上限 |
 | Granular | Asset Path、SHA指定有無、Prepared状態、Source Channel / Prepared Frame、Region、Root Note、Position、Grain Size、Density、Pitch、Randomness、Pan Spread、各Parameter ID、Seed、Grain Pool Limit、Output Mode |
 | Wave Sequence | Output Mode、Step Count、Enabled Step Count、Direction、Loop、Crossfade、各StepのID / Asset / Region / Duration Type / Duration / Playback / Playback Direction / Gain / Pitch / Availability、Source Channel / Prepared Frame |
@@ -78,6 +79,8 @@ ProcessorはChainごとに`placement`、`chain_index`、`id`、`kind`、Static F
 Operator ModulationのJSON Inspectでは、Operator番号を1始まりで表示し、固定Topologyを`evaluation_order`、`incoming_masks`、`carrier_operators`として表示します。`level`、`modulation_amount`、`feedback`はTopologyとModeで使用されないOperatorでは`null`になります。OperatorのParameter IDは`layer.<layer_id>.generator.operator.<1-4>.<parameter>`形式です。
 
 Complex OscillatorのJSON Inspectでは、`backend`が`phase_domain`になる条件、`phase_distortion_parameter`、`wavefold_parameter`、`oscillator_feedback_parameter`、`dc_blocker`、`signal_order`、`combination_constraints`を表示します。Wavefoldだけを指定した場合は既存Oscillator Backendを維持します。
+
+AdditiveのJSON Inspectでは、固定Partial数と最大値、初期Morph / Spectrum Tilt / Inharmonicity、Definition順のPartial ID、Ratio、Amplitude A / B、Initial Phase、Optional Envelopeの有無を表示します。Dynamic ParameterのCanonical IDは、`layer.<layer_id>.generator.additive_morph`、`layer.<layer_id>.generator.additive_spectrum_tilt`、`layer.<layer_id>.generator.additive_inharmonicity`です。
 
 ## `render` Command
 

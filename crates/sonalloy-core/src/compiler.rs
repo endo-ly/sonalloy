@@ -7,26 +7,28 @@ use crate::asset::{
     resolved_asset_path,
 };
 use crate::definition::{
-    AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition, FilterProcessorDefinition,
-    GeneratorDefinition, GranularDefinition, InstrumentDefinition, LayerTriggerEvent,
-    LfoDefinition, LfoWaveform, ModulationCurve, ModulationSourceDefinition, NoiseColor,
-    OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition,
-    OscillatorWaveform, ProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection,
-    SampleTimeDefinition, SampleZoneDefinition, UnisonDefinition, VoiceStealingDefinition,
-    WaveSequenceDefinition, WaveSequenceDirection, WaveSequenceDurationDefinition,
-    WaveSequenceStepPlayback, WavetableDefinition,
+    AdditiveDefinition, AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition,
+    FilterProcessorDefinition, GeneratorDefinition, GranularDefinition, InstrumentDefinition,
+    LayerTriggerEvent, LfoDefinition, LfoWaveform, ModulationCurve, ModulationSourceDefinition,
+    NoiseColor, OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode,
+    OscillatorDefinition, OscillatorWaveform, ProcessorDefinition, ReverbProcessorDefinition,
+    SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition, UnisonDefinition,
+    VoiceStealingDefinition, WaveSequenceDefinition, WaveSequenceDirection,
+    WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
-    BASIC_FREQUENCY_LIMIT_RATIO, GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS,
-    GRAIN_SIZE, GRANULAR_GRAIN_POOL_LIMIT, GRANULAR_POSITION, GeneratorParameterSpec,
-    NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO,
-    PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, BASIC_FREQUENCY_LIMIT_RATIO,
+    GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE,
+    GRANULAR_GRAIN_POOL_LIMIT, GRANULAR_POSITION, GeneratorParameterSpec, NOISE_CORRELATION,
+    OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO, PULSE_WIDTH,
+    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
     effective_max_frequency,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
 use crate::runtime::InstrumentRuntime;
+use crate::runtime::generator::partial_bank::build_sine_table;
 use crate::wavetable::{
     WavetablePreparation, WavetablePreparationError, WavetableWarning, prepare_wavetable_asset,
 };
@@ -212,6 +214,8 @@ pub enum CompiledGenerator {
     Oscillator(CompiledOscillator),
     /// Noise generator.
     Noise(CompiledNoise),
+    /// Directly specified sine partial generator.
+    Additive(CompiledAdditive),
     /// Prepared sample generator.
     Sample(CompiledSample),
     /// Prepared granular generator.
@@ -246,6 +250,7 @@ impl CompiledGenerator {
                 }
             }
             Self::Noise(_) | Self::Granular(_) => GeneratorOutputMode::Stereo,
+            Self::Additive(_) => GeneratorOutputMode::Mono,
             Self::WaveSequence(value) => value.output_mode(),
             Self::Sample(value) => value.output_mode(),
             Self::Wavetable(value) => {
@@ -274,6 +279,7 @@ impl CompiledGenerator {
                 .map_or(0, |latency| latency.output_frames),
             Self::Oscillator(_)
             | Self::Noise(_)
+            | Self::Additive(_)
             | Self::Granular(_)
             | Self::WaveSequence(_)
             | Self::Wavetable(_)
@@ -283,7 +289,10 @@ impl CompiledGenerator {
 
     pub(crate) fn is_available(&self) -> bool {
         match self {
-            Self::Oscillator(_) | Self::Noise(_) | Self::OperatorModulation(_) => true,
+            Self::Oscillator(_)
+            | Self::Noise(_)
+            | Self::Additive(_)
+            | Self::OperatorModulation(_) => true,
             Self::Granular(value) => value.source.is_some(),
             Self::WaveSequence(value) => value.steps.iter().any(|step| step.source.is_some()),
             Self::Sample(value) => value.zones.iter().any(CompiledSampleZone::is_enabled),
@@ -384,6 +393,47 @@ pub struct CompiledNoise {
     pub layer_hash: u64,
     /// Sample-rate-specific Brown noise coefficient.
     pub brown_coefficient: f32,
+}
+
+/// Parameter handles owned by an Additive Generator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledAdditiveParameters {
+    /// Spectrum A/B morph handle.
+    pub morph: ParameterHandle,
+    /// Spectrum tilt handle.
+    pub spectrum_tilt: ParameterHandle,
+    /// Global inharmonicity handle.
+    pub inharmonicity: ParameterHandle,
+}
+
+/// Compiled static and envelope settings for one Additive partial.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledAdditivePartial {
+    /// Stable Definition identifier.
+    pub id: String,
+    /// Frequency ratio relative to the played note.
+    pub ratio: f32,
+    /// Spectrum A amplitude.
+    pub amplitude_a: f32,
+    /// Spectrum B amplitude.
+    pub amplitude_b: f32,
+    /// Initial phase in cycles.
+    pub phase: f32,
+    /// Optional sample-rate-specific partial envelope.
+    pub envelope: Option<CompiledAdsr>,
+}
+
+/// Compiled Additive Generator.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledAdditive {
+    /// Partials in Definition order.
+    pub partials: Box<[CompiledAdditivePartial]>,
+    /// Whether Note On restores all partial phases.
+    pub phase_reset: bool,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledAdditiveParameters,
+    /// Shared lookup table used by all voices of this generator.
+    pub sine_table: Arc<[f32]>,
 }
 
 /// Compiled sample configuration and prepared zones.
@@ -1807,6 +1857,14 @@ fn compile_generator(
             layer_hash: source_id_hash(layer_id),
             brown_coefficient: brown_noise_coefficient(sample_rate),
         }),
+        GeneratorDefinition::Additive(additive) => CompiledGenerator::Additive(compile_additive(
+            additive,
+            layer_index,
+            layer_id,
+            catalog,
+            sample_rate,
+            diagnostics,
+        )),
         GeneratorDefinition::Sample(sample) => CompiledGenerator::Sample(compile_sample(
             sample,
             layer_index,
@@ -1872,6 +1930,47 @@ fn generator_parameter_handle(
             spec.suffix,
         ))
         .expect("generator parameter catalog entry exists")
+}
+
+fn compile_additive(
+    additive: &AdditiveDefinition,
+    layer_index: usize,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledAdditive {
+    let partials = additive
+        .partials
+        .iter()
+        .enumerate()
+        .map(|(index, partial)| CompiledAdditivePartial {
+            id: partial.id.clone(),
+            ratio: partial.ratio,
+            amplitude_a: partial.amplitude_a,
+            amplitude_b: partial.amplitude_b,
+            phase: partial.phase,
+            envelope: partial.envelope.map(|envelope| {
+                compile_adsr(
+                    envelope,
+                    sample_rate,
+                    &format!("layers[{layer_index}].generator.additive.partials[{index}]"),
+                    diagnostics,
+                )
+            }),
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+    CompiledAdditive {
+        partials,
+        phase_reset: additive.phase_reset,
+        parameters: CompiledAdditiveParameters {
+            morph: generator_parameter_handle(catalog, layer_id, ADDITIVE_MORPH),
+            spectrum_tilt: generator_parameter_handle(catalog, layer_id, ADDITIVE_SPECTRUM_TILT),
+            inharmonicity: generator_parameter_handle(catalog, layer_id, ADDITIVE_INHARMONICITY),
+        },
+        sine_table: build_sine_table(),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
