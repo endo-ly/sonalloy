@@ -58,6 +58,15 @@ Spectral ResynthesisはCore Rustの専用Generatorです。Compile時に`asset_a
 
 Harmonic / Formant Hybridは既存のLayer、Voice、Global Processor ChainとModulation Tableをそのまま組み合わせます。Formant、Additive、Sample、NoiseのLayer Mix、MIDI Event、Processor Stateは新しいNative責務を追加せず、既存のCompile / Prepare / Process / Reset境界で所有します。
 
+Spectralの参照Definitionは[`spectral-generator-reference.json`](../examples/instruments/spectral-generator-reference.json)と[`spectral-hybrid-reference.json`](../examples/instruments/spectral-hybrid-reference.json)です。前者はStereo A/B Asset、Position、Freeze、Blur、Shift、Morph、Root Note、Phase Resetを一つのLayerで確認し、後者はSpectral、Additive、Sample、Noiseを既存のLayer / Voice / Global Processor ChainとModulation Routeへ接続します。Spectral LayerのReported LatencyはCompiled Instrumentの最大Layer Latencyとして扱い、ほかのGenerator LayerにはPrepare時に同じ時間位置になる遅延補償を確保します。
+
+```mermaid
+flowchart LR
+    Audio[Audio Asset] --> Prepared[Prepared Audio]
+    Prepared --> Spectral[Prepared Spectral Asset]
+    Spectral --> Runtime[Spectral Runtime]
+```
+
 ### `sonalloy-dsp-sys`
 
 Internal C ABIの宣言と、Raw Pointerを隠蔽するSafe Rust Wrapperを提供します。
@@ -125,5 +134,6 @@ Native関数はNull Handle、引数、Buffer、NaN / Infinity、例外を検査�
 
 - **Compile**：Definitionを、Parameter Catalog、Source Table、Target別Route Tableを確定した変更不能な`CompiledInstrument`へ変換し、Parameter IDをDense Handleへ解決します（`sonalloy-core`が所有します）
 - **Prepare / Process / Reset**：`InstrumentRuntime`の状態を進めます。Scratch Buffer、Time Stretch Backend、Granularの64 Slot固定Grain Pool、Wave SequenceのCurrent / Next Playback Slot、Additive / Formant Partial Bank、Layer遅延補償Buffer、Native HandleはPrepareで確保し、Process中には拡張しません
+- Polyphony数分のVoiceはPrepare時に生成し、Voice StealingではLayer、Generator、Processor、Modulation Sourceを同じVoice Stateとして切り替えます。ResetはFresh Runtimeと同じ初期状態を復元します
 
 `CompiledInstrument`はDefinitionのMetadata、Performance、Enabled Layer、Layer/Voice/Global Processor Chain、Parameter Catalog、Source、Route、Asset Warningを保持します。Runtimeが持つBase Smoother、External Control、Voice Source、Generator Cursor、Layer/Voice/Global Processor StateはCompiled値から作る可変状態で、DefinitionやCompiled Instrumentへ書き戻しません。

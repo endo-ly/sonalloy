@@ -4,8 +4,9 @@ use std::sync::Arc;
 use approx::assert_relative_eq;
 use sonalloy_core::{
     AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, GeneratorDefinition,
-    GeneratorOutputMode, InstrumentDefinition, ParameterUnit, ProcessEventKind, ProcessSpec,
-    RenderRequest, ScheduledEvent, SpectralDefinition, compile_instrument, render_instrument,
+    GeneratorOutputMode, InstrumentDefinition, InstrumentProcessor, ParameterUnit, ProcessBlock,
+    ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec, RenderRequest, ScheduledEvent,
+    SpectralDefinition, compile_instrument, render_instrument,
 };
 use tempfile::TempDir;
 
@@ -990,4 +991,335 @@ fn spectral_resynthesis_remains_finite_at_supported_sample_rates() {
         assert!(window.iter().all(|sample| sample.is_finite()));
         assert!(frequency_energy(window, sample_rate, 440.0) > 1.0);
     }
+}
+
+fn example_definition(name: &str) -> (InstrumentDefinition, PathBuf) {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments")
+        .join(name);
+    let definition =
+        serde_json::from_str(&std::fs::read_to_string(&path).expect("example Definition exists"))
+            .expect("example Definition parses");
+    (definition, path)
+}
+
+fn assert_hybrid_structure(
+    compiled: &sonalloy_core::compiler::CompiledInstrument,
+    definition: &InstrumentDefinition,
+) {
+    assert_eq!(compiled.layers.len(), 4);
+    assert!(matches!(
+        &compiled.layers[0].generator,
+        sonalloy_core::compiler::CompiledGenerator::Spectral(_)
+    ));
+    assert!(matches!(
+        &compiled.layers[1].generator,
+        sonalloy_core::compiler::CompiledGenerator::Additive(_)
+    ));
+    assert!(matches!(
+        &compiled.layers[2].generator,
+        sonalloy_core::compiler::CompiledGenerator::Sample(_)
+    ));
+    assert!(matches!(
+        &compiled.layers[3].generator,
+        sonalloy_core::compiler::CompiledGenerator::Noise(_)
+    ));
+    assert_eq!(compiled.layers[0].processors.len(), 1);
+    assert_eq!(compiled.layers[1].processors.len(), 1);
+    assert_eq!(compiled.layers[2].processors.len(), 1);
+    assert_eq!(compiled.voice_processors.len(), 2);
+    assert_eq!(compiled.global_processors.len(), 2);
+
+    let routes = definition
+        .modulation
+        .as_ref()
+        .expect("hybrid modulation exists")
+        .routes
+        .iter()
+        .map(|route| route.target.as_str())
+        .collect::<Vec<_>>();
+    for target in [
+        "layer.spectral.generator.spectral_position",
+        "layer.spectral.generator.spectral_blur",
+        "layer.spectral.generator.spectral_shift",
+        "layer.spectral.generator.spectral_morph",
+        "layer.spectral.processor.spectral_tone.cutoff",
+        "voice.processor.voice_tone.cutoff",
+        "global.processor.echo.mix",
+        "global.processor.space.mix",
+    ] {
+        assert!(
+            routes.contains(&target),
+            "missing modulation route {target}"
+        );
+        assert!(
+            compiled.parameter_handle(target).is_some(),
+            "missing parameter {target}"
+        );
+    }
+}
+
+fn assert_stereo_finite_and_non_silent(audio: &sonalloy_core::RenderedAudio) {
+    assert_eq!(audio.channels.len(), 2);
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .any(|sample| sample.abs() > 1.0e-4)
+    );
+    let stereo_difference = audio.channels[0]
+        .iter()
+        .zip(&audio.channels[1])
+        .map(|(left, right)| (left - right).abs())
+        .fold(0.0_f32, f32::max);
+    assert!(stereo_difference > 1.0e-4);
+}
+
+fn render_hybrid_controls(
+    compiled: Arc<sonalloy_core::compiler::CompiledInstrument>,
+) -> sonalloy_core::RenderedAudio {
+    let morph = compiled
+        .parameter_handle("layer.spectral.generator.spectral_morph")
+        .expect("morph parameter");
+    render_instrument(
+        compiled,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 16_384,
+            tail_frames: 0,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 112,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 4_096,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: morph,
+                    normalized: 0.85,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 6_144,
+                kind: ProcessEventKind::ModWheel { value: 0.7 },
+            },
+        ],
+    )
+    .expect("hybrid render succeeds")
+}
+
+fn hybrid_polyphony_events() -> Vec<ScheduledEvent> {
+    (0..16)
+        .map(|index| ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: index + 1,
+                note_number: 48 + u8::try_from(index).expect("voice note fits MIDI"),
+                velocity: 96 + u8::try_from(index % 24).expect("velocity fits MIDI"),
+            },
+        })
+        .collect()
+}
+
+fn voice_stealing_events() -> [ScheduledEvent; 3] {
+    [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 48,
+                velocity: 112,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 64,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 60,
+                velocity: 112,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 8_192,
+            kind: ProcessEventKind::NoteOff { note_id: 2 },
+        },
+    ]
+}
+
+fn render_runtime_note(
+    runtime: &mut sonalloy_core::InstrumentRuntime,
+    event: ProcessEvent,
+) -> Vec<Vec<f32>> {
+    let mut left = vec![0.0_f32; 4_096];
+    let mut right = vec![0.0_f32; 4_096];
+    let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+    runtime
+        .process(ProcessBlock {
+            frames: 4_096,
+            context: ProcessContext {
+                absolute_frame: 0,
+                tempo_bpm: 120.0,
+            },
+            events: std::slice::from_ref(&event),
+            output: &mut output,
+        })
+        .expect("runtime block renders");
+    vec![left, right]
+}
+
+#[test]
+fn spectral_reference_definition_exposes_stereo_ab_and_transform_controls() {
+    let (definition, path) = example_definition("spectral-generator-reference.json");
+    assert!(definition.validate().is_empty());
+    let compiled = compile(
+        &definition,
+        path.parent().expect("instrument directory"),
+        257,
+    );
+    assert_eq!(compiled.performance.polyphony, 16);
+    assert_eq!(compiled.layers.len(), 1);
+    assert_eq!(
+        compiled.layers[0].generator.output_mode(),
+        GeneratorOutputMode::Stereo
+    );
+    let sonalloy_core::compiler::CompiledGenerator::Spectral(spectral) =
+        &compiled.layers[0].generator
+    else {
+        panic!("reference layer must compile to Spectral");
+    };
+    assert_eq!(spectral.fft_size, 2048);
+    assert_eq!(spectral.hop_size, 512);
+    assert_eq!(
+        spectral.source.as_ref().expect("asset A prepares").channels,
+        2
+    );
+    assert_eq!(
+        spectral
+            .source_b
+            .as_ref()
+            .expect("asset B prepares")
+            .channels,
+        2
+    );
+    assert!(spectral.parameters.morph.is_some());
+    for parameter in [
+        "layer.spectral.generator.spectral_position",
+        "layer.spectral.generator.spectral_freeze",
+        "layer.spectral.generator.spectral_blur",
+        "layer.spectral.generator.spectral_shift",
+        "layer.spectral.generator.spectral_morph",
+    ] {
+        assert!(
+            compiled.parameter_handle(parameter).is_some(),
+            "missing {parameter}"
+        );
+    }
+}
+
+#[test]
+fn spectral_hybrid_uses_existing_layers_processors_modulation_and_midi_ready_parameters() {
+    let (definition, path) = example_definition("spectral-hybrid-reference.json");
+    assert!(definition.validate().is_empty());
+    let base_dir = path.parent().expect("instrument directory");
+    let compiled = compile(&definition, base_dir, 257);
+    assert_hybrid_structure(&compiled, &definition);
+    let audio = render_hybrid_controls(compiled);
+    assert_stereo_finite_and_non_silent(&audio);
+}
+
+#[test]
+fn spectral_hybrid_supports_sixteen_voices_voice_stealing_and_reset_determinism() {
+    let (definition, path) = example_definition("spectral-hybrid-reference.json");
+    let base_dir = path.parent().expect("instrument directory");
+    let compiled = compile(&definition, base_dir, 257);
+    let audio = render_instrument(
+        compiled.clone(),
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 16_384,
+            tail_frames: 0,
+        },
+        &hybrid_polyphony_events(),
+    )
+    .expect("sixteen-voice render succeeds");
+    assert_stereo_finite_and_non_silent(&audio);
+
+    let mut stealing_definition = definition.clone();
+    stealing_definition.performance.polyphony = 1;
+    let stealing_compiled = compile(&stealing_definition, base_dir, 257);
+    let stolen_audio = render_instrument(
+        stealing_compiled,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 16_384,
+            tail_frames: 0,
+        },
+        &voice_stealing_events(),
+    )
+    .expect("voice stealing render succeeds");
+    assert_stereo_finite_and_non_silent(&stolen_audio);
+
+    let mut runtime = compiled.instantiate();
+    let spec = ProcessSpec::new(48_000.0, 4_096, 2).expect("valid process spec");
+    runtime.prepare(spec).expect("runtime prepares");
+    let event = ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 1,
+            note_number: 60,
+            velocity: 112,
+        },
+    };
+    let first = render_runtime_note(&mut runtime, event);
+    runtime.reset().expect("runtime resets");
+    let second = render_runtime_note(&mut runtime, event);
+    assert_eq!(first, second);
+}
+
+#[test]
+fn spectral_layer_latency_aligns_an_existing_generator_layer() {
+    let directory = fixture_directory();
+    let path = directory.path().join("silence.wav");
+    write_pcm16_wav(&path, &vec![0; 8_192]);
+    let mut definition = definition("silence.wav".to_owned(), 2048);
+    let reference = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/basic-poly-synth.json");
+    let basic: InstrumentDefinition = serde_json::from_str(
+        &std::fs::read_to_string(reference).expect("oscillator reference exists"),
+    )
+    .expect("oscillator reference parses");
+    let mut oscillator = basic.layers[0].clone();
+    oscillator.id = "carrier".to_owned();
+    oscillator.gain_db = 0.0;
+    oscillator.envelope = AdsrDefinition {
+        attack_seconds: 0.0,
+        decay_seconds: 0.0,
+        sustain_level: 1.0,
+        release_seconds: 0.01,
+    };
+    definition.layers.push(oscillator);
+    let compiled = compile(&definition, directory.path(), 257);
+    assert_eq!(compiled.reported_latency_frames, 1_536);
+    let audio = render(&definition, directory.path(), 257, 8_192);
+    let first_signal = audio.channels[0]
+        .iter()
+        .position(|sample| sample.abs() > 1.0e-5)
+        .expect("carrier produces output");
+    assert!(first_signal >= 1_536);
 }

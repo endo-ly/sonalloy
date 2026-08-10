@@ -1453,6 +1453,65 @@ mod tests {
     }
 
     #[test]
+    fn spectral_sixteen_voice_stereo_morph_render_does_not_allocate_after_prepare() {
+        let definition_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/instruments/spectral-generator-reference.json");
+        let mut source: crate::definition::InstrumentDefinition = serde_json::from_str(
+            &std::fs::read_to_string(definition_path).expect("spectral reference reads"),
+        )
+        .expect("spectral reference parses");
+        let asset_directory =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/assets");
+        let crate::definition::GeneratorDefinition::Spectral(spectral) =
+            &mut source.layers[0].generator
+        else {
+            panic!("spectral reference uses a Spectral generator");
+        };
+        spectral.asset_a.path = asset_directory
+            .join("spectral-reference-a.wav")
+            .to_string_lossy()
+            .into_owned();
+        spectral.asset_b = Some(crate::definition::AssetReference {
+            path: asset_directory
+                .join("spectral-reference-b.wav")
+                .to_string_lossy()
+                .into_owned(),
+            sha256: None,
+        });
+        source.performance.polyphony = 16;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let first_events: Vec<ProcessEvent> = (0usize..16)
+            .map(|index| ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: u64::try_from(index).expect("voice index fits in note id") + 1,
+                    note_number: 48
+                        + u8::try_from(index).expect("voice index fits in MIDI note number"),
+                    velocity: 100,
+                },
+            })
+            .collect();
+        let steal_event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 17,
+                note_number: 72,
+                velocity: 100,
+            },
+        }];
+        process_with_stack_output(&mut runtime, 0, &first_events);
+        runtime.reset().expect("reset");
+        process_with_stack_output(&mut runtime, 0, &first_events);
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 64, &steal_event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
     fn voice_stealing_note_on_does_not_allocate_after_prepare() {
         let mut source = definition();
         source.performance.polyphony = 1;

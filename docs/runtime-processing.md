@@ -195,7 +195,10 @@ Formantの生成順は、`Profile補間 → Gaussian Spectral Envelope → Spect
 - LayerのGeneratorはMono / Stereoを問わずVoice Mixへ揃え、既存SampleのPrepared AudioとNoise StreamはCompile / Prepareで確定した状態を使います
 - Voice Filter / Driveは全LayerのSumへ適用し、Global Delay / Reverbは全VoiceのSumへ適用します。Global ProcessorのDelay / Reverb StateはInstrument Runtimeが所有し、Resetで初期化します
 - Voice Stealingでは全Layer、Layer / Voice Processor、Voice Sourceを同じVoice Stateとして再初期化します。MIDI RenderはNote、Velocity、Control Eventを同じProcess境界へ変換します
+- Spectral Layerも同じMix経路へ入り、Stereo A/Bの再構成結果をLayer Processor、Voice Processor、Global Processorへ順番に渡します。SpectralのReported Latencyが最大Layer Latencyになる場合、ほかのGenerator Layerへ`instrument latency - layer intrinsic latency`の遅延をPrepare時に設定します
+- Spectral HybridのPosition、Freeze、Blur、Shift、Morphは既存Parameter SpanとModulation Routeを使い、MIDIのParameter ChangeおよびExternal Controlと同じSmoothing境界で評価します
 - Additive、Formant、HybridのProcessor Chain、Modulation、MIDI、Block Size、Sample Rate、Fresh Runtime、Release Performanceの統合確認は`review-output/harmonic-formant-synthesis/`へ保存します
+- Spectral、Spectral Hybrid、既存Generator回帰、16 Voice、Voice Stealing、Fresh Runtime、Block Size、Sample Rate、MIDI、Release Performanceの確認は`review-output/spectral-resynthesis/`へ保存します。Performance専用音声は一時Directoryへ出力します
 
 ## Operator Modulation Runtime
 

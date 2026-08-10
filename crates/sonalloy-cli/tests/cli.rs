@@ -90,6 +90,16 @@ fn harmonic_formant_hybrid_definition() -> std::path::PathBuf {
         .join("../../examples/instruments/harmonic-formant-hybrid-reference.json")
 }
 
+fn spectral_reference_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/spectral-generator-reference.json")
+}
+
+fn spectral_hybrid_reference_definition() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/instruments/spectral-hybrid-reference.json")
+}
+
 fn reference_midi() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../testdata/midi/basic-poly-synth-phrase.mid")
@@ -538,6 +548,103 @@ fn spectral_validate_and_inspect_reports_prepared_asset() {
     let samples = reader
         .samples::<f32>()
         .map(|sample| sample.expect("finite spectral sample"))
+        .collect::<Vec<_>>();
+    assert!(samples.iter().all(|sample| sample.is_finite()));
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
+fn spectral_reference_and_hybrid_support_inspect_and_midi_render() {
+    for definition in [
+        spectral_reference_definition(),
+        spectral_hybrid_reference_definition(),
+    ] {
+        Command::cargo_bin("sonalloy")
+            .expect("binary")
+            .args([
+                "instrument",
+                "validate",
+                definition.to_str().expect("utf-8 definition path"),
+                "--json",
+            ])
+            .assert()
+            .success()
+            .stdout(predicates::str::contains("\"status\":\"ok\""));
+    }
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            spectral_reference_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"kind\":\"spectral\""))
+        .stdout(predicates::str::contains("\"output_mode\":\"stereo\""))
+        .stdout(predicates::str::contains("\"asset_a_prepared\":true"))
+        .stdout(predicates::str::contains("\"asset_b_prepared\":true"))
+        .stdout(predicates::str::contains("\"fft_size\":2048"))
+        .stdout(predicates::str::contains("\"hop_size\":512"))
+        .stdout(predicates::str::contains("spectral_morph"));
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "instrument",
+            "inspect",
+            spectral_hybrid_reference_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"layer_count\":4"))
+        .stdout(predicates::str::contains("\"kind\":\"additive\""))
+        .stdout(predicates::str::contains("\"kind\":\"sample\""))
+        .stdout(predicates::str::contains("\"kind\":\"noise\""))
+        .stdout(predicates::str::contains(
+            "layer.spectral.generator.spectral_position",
+        ))
+        .stdout(predicates::str::contains("global.processor.space.mix"));
+
+    let directory = tempdir().expect("temporary output directory");
+    let output = directory.path().join("spectral-hybrid-midi.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            spectral_hybrid_reference_definition()
+                .to_str()
+                .expect("utf-8 definition path"),
+            reference_midi().to_str().expect("utf-8 MIDI path"),
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--tail",
+            "0.1",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""))
+        .stdout(predicates::str::contains(
+            "\"reported_latency_frames\":1536",
+        ));
+    let mut reader = hound::WavReader::open(output).expect("spectral hybrid MIDI WAV");
+    assert_eq!(reader.spec().channels, 2);
+    let samples = reader
+        .samples::<f32>()
+        .map(|sample| sample.expect("finite spectral hybrid sample"))
         .collect::<Vec<_>>();
     assert!(samples.iter().all(|sample| sample.is_finite()));
     assert!(samples.iter().any(|sample| sample.abs() > 0.01));

@@ -1,0 +1,298 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Spectral Hybrid Reference",
+    "author": "Sonalloy",
+    "description": "Spectral body with additive, sample attack, noise, processors, and modulation"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "spectral",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.75,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "spectral": {
+          "asset_a": {
+            "path": "../assets/spectral-reference-a.wav",
+            "sha256": "07a99e2d212ad1623e7959b812367b53571274131ce6f8a99c3d7ad5699fa6bd"
+          },
+          "asset_b": {
+            "path": "../assets/spectral-reference-b.wav",
+            "sha256": "21f05fd36f60977919edea73ac09231177f836a755c12aa9d563ec01a92b6863"
+          },
+          "root_note": 60,
+          "fft_size": 2048,
+          "position": 0.25,
+          "freeze": 0.0,
+          "blur_seconds": 0.0,
+          "shift_hz": 0.0,
+          "morph": 0.25,
+          "phase_reset": true
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "spectral_tone",
+          "cutoff_hz": 10000.0,
+          "resonance": 0.12
+        }
+      ]
+    },
+    {
+      "id": "harmonic_body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.75,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": -4.0,
+          "inharmonicity": 0.05,
+          "partials": [
+            { "id": "fundamental", "ratio": 1.0, "amplitude_a": 1.0, "amplitude_b": 0.9, "phase": 0.0 },
+            { "id": "second", "ratio": 2.0, "amplitude_a": 0.42, "amplitude_b": 0.5, "phase": 0.0 },
+            { "id": "third", "ratio": 3.0, "amplitude_a": 0.24, "amplitude_b": 0.32, "phase": 0.0 },
+            { "id": "fifth", "ratio": 5.0, "amplitude_a": 0.15, "amplitude_b": 0.22, "phase": 0.0 }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "drive",
+          "id": "body_drive",
+          "amount": 0.08,
+          "mix": 0.2
+        }
+      ]
+    },
+    {
+      "id": "attack",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.08,
+        "sustain_level": 0.05,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "sample": {
+          "interpolation": "cubic",
+          "zones": [
+            {
+              "id": "metal_hit",
+              "asset": {
+                "path": "../../testdata/assets/metal-hit.wav",
+                "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
+              },
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback": {
+                "region": {
+                  "start_seconds": 0.0,
+                  "end_seconds": 0.08
+                },
+                "direction": "forward",
+                "loop": null,
+                "time": {
+                  "mode": "resample"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "attack_tone",
+          "cutoff_hz": 12000.0,
+          "resonance": 0.08
+        }
+      ]
+    },
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -30.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.08,
+        "sustain_level": 0.7,
+        "release_seconds": 0.1
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 7124,
+          "stereo_correlation": 0.35
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "voice_tone",
+      "cutoff_hz": 7600.0,
+      "resonance": 0.14
+    },
+    {
+      "type": "drive",
+      "id": "voice_glue",
+      "amount": 0.08,
+      "mix": 0.2
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "delay",
+      "id": "echo",
+      "time_seconds": 0.18,
+      "feedback": 0.24,
+      "mix": 0.12
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.01,
+      "decay": 0.55,
+      "damping": 0.35,
+      "width": 0.85,
+      "mix": 0.16
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "type": "lfo",
+        "id": "spectral_motion",
+        "waveform": "sine",
+        "rate_hz": 0.21,
+        "phase": 0.0
+      },
+      {
+        "type": "envelope",
+        "id": "spectral_breath",
+        "attack_seconds": 0.02,
+        "decay_seconds": 0.45,
+        "sustain_level": 0.35,
+        "release_seconds": 0.2
+      }
+    ],
+    "routes": [
+      {
+        "source": "spectral_motion",
+        "target": "layer.spectral.generator.spectral_position",
+        "amount": 0.35,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "spectral_breath",
+        "target": "layer.spectral.generator.spectral_blur",
+        "amount": 0.25,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.spectral.generator.spectral_shift",
+        "amount": 0.2,
+        "curve": "linear"
+      },
+      {
+        "source": "spectral_motion",
+        "target": "layer.spectral.generator.spectral_morph",
+        "amount": 0.55,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.attack.gain",
+        "amount": 0.04,
+        "curve": "linear"
+      },
+      {
+        "source": "spectral_motion",
+        "target": "layer.spectral.processor.spectral_tone.cutoff",
+        "amount": 0.1,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "spectral_motion",
+        "target": "voice.processor.voice_tone.cutoff",
+        "amount": 0.08,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.echo.mix",
+        "amount": 0.2,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.space.mix",
+        "amount": 0.2,
+        "curve": "linear"
+      }
+    ]
+  }
+}

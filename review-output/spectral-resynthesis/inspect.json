@@ -1,0 +1,2028 @@
+{
+  "spectral": {
+    "status": "ok",
+    "name": "Spectral Generator Reference",
+    "metadata": {
+      "name": "Spectral Generator Reference",
+      "author": "Sonalloy",
+      "description": "Stereo spectral resynthesis with position, freeze, blur, shift, and morph control"
+    },
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest",
+    "reported_latency_frames": 1536,
+    "layer_count": 1,
+    "layers": [
+      {
+        "id": "spectral",
+        "enabled": true,
+        "trigger": {
+          "event": "note_on",
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127
+        },
+        "generator": {
+          "kind": "spectral",
+          "output_mode": "stereo",
+          "asset_a_path": "../assets/spectral-reference-a.wav",
+          "asset_a_sha256_specified": true,
+          "asset_a_prepared": true,
+          "asset_b_path": "../assets/spectral-reference-b.wav",
+          "asset_b_sha256_specified": true,
+          "asset_b_prepared": true,
+          "asset_b_source_sample_rate": 48000,
+          "asset_b_prepared_sample_rate": 48000.0,
+          "asset_b_source_channels": 2,
+          "asset_b_source_frame_count": 76800,
+          "asset_b_spectral_frame_count": 153,
+          "asset_b_prepared_bytes": 3763800,
+          "source_sample_rate": 44100,
+          "prepared_sample_rate": 48000.0,
+          "source_channels": 2,
+          "source_frame_count": 70560,
+          "spectral_frame_count": 153,
+          "prepared_bytes": 3763800,
+          "fft_size": 2048,
+          "hop_size": 512,
+          "bin_count": 1025,
+          "latency_frames": 1536,
+          "root_note": 60,
+          "position": 0.2,
+          "position_parameter": "layer.spectral.generator.spectral_position",
+          "freeze": 0.1,
+          "freeze_parameter": "layer.spectral.generator.spectral_freeze",
+          "blur_seconds": 0.08,
+          "blur_parameter": "layer.spectral.generator.spectral_blur",
+          "shift_hz": 110.0,
+          "shift_parameter": "layer.spectral.generator.spectral_shift",
+          "morph": 0.35,
+          "morph_parameter": "layer.spectral.generator.spectral_morph",
+          "phase_reset": true
+        },
+        "asset_status": "enabled",
+        "gain_db": -9.0,
+        "gain_linear": 0.3548134,
+        "pan": 0.0,
+        "tuning_cents": 0.0,
+        "tuning_ratio": 1.0,
+        "envelope": {
+          "attack_samples": 240,
+          "decay_samples": 7200,
+          "sustain_level": 0.8,
+          "release_samples": 14400
+        },
+        "processors": [
+          {
+            "placement": "layer",
+            "chain_index": 0,
+            "id": "spectral_tone",
+            "kind": "filter",
+            "static_fields": [
+              {
+                "id": "effective_max_cutoff_hz",
+                "value": 20000.0
+              }
+            ],
+            "parameters": [
+              {
+                "id": "layer.spectral.processor.spectral_tone.cutoff",
+                "unit": "hertz",
+                "min": 20.0,
+                "max": 20000.0,
+                "default": 9000.0,
+                "scale": "log2",
+                "smoothing_seconds": 0.01
+              },
+              {
+                "id": "layer.spectral.processor.spectral_tone.resonance",
+                "unit": "normalized",
+                "min": 0.0,
+                "max": 1.0,
+                "default": 0.15,
+                "scale": "linear",
+                "smoothing_seconds": 0.01
+              }
+            ]
+          },
+          {
+            "placement": "layer",
+            "chain_index": 1,
+            "id": "spectral_drive",
+            "kind": "drive",
+            "static_fields": [],
+            "parameters": [
+              {
+                "id": "layer.spectral.processor.spectral_drive.amount",
+                "unit": "normalized",
+                "min": 0.0,
+                "max": 1.0,
+                "default": 0.1,
+                "scale": "linear",
+                "smoothing_seconds": 0.005
+              },
+              {
+                "id": "layer.spectral.processor.spectral_drive.mix",
+                "unit": "normalized",
+                "min": 0.0,
+                "max": 1.0,
+                "default": 0.2,
+                "scale": "linear",
+                "smoothing_seconds": 0.005
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "voice_processors": [],
+    "global_processors": [],
+    "parameters": [
+      {
+        "id": "layer.spectral.gain",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "decibels",
+        "min": -60.0,
+        "max": 12.0,
+        "default": -9.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.pan",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "pan",
+        "min": -1.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.tuning",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "cents",
+        "min": -1200.0,
+        "max": 1200.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.generator.spectral_position",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.2,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_freeze",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.1,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_blur",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "seconds",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.08,
+        "scale": "linear",
+        "smoothing_seconds": 0.02
+      },
+      {
+        "id": "layer.spectral.generator.spectral_shift",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "hertz",
+        "min": -12000.0,
+        "max": 12000.0,
+        "default": 110.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_morph",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.35,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.processor.spectral_tone.cutoff",
+        "owner": {
+          "layer_processor": {
+            "definition_index": 0,
+            "processor_index": 0
+          }
+        },
+        "unit": "hertz",
+        "min": 20.0,
+        "max": 20000.0,
+        "default": 9000.0,
+        "scale": "log2",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.processor.spectral_tone.resonance",
+        "owner": {
+          "layer_processor": {
+            "definition_index": 0,
+            "processor_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.15,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.processor.spectral_drive.amount",
+        "owner": {
+          "layer_processor": {
+            "definition_index": 0,
+            "processor_index": 1
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.1,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.processor.spectral_drive.mix",
+        "owner": {
+          "layer_processor": {
+            "definition_index": 0,
+            "processor_index": 1
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.2,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      }
+    ],
+    "sources": [
+      {
+        "id": "velocity",
+        "scope": "voice",
+        "kind": "velocity"
+      },
+      {
+        "id": "key_tracking",
+        "scope": "voice",
+        "kind": "key_tracking"
+      }
+    ],
+    "routes": [],
+    "diagnostics": [
+      {
+        "code": "ASSET_RESAMPLED",
+        "severity": "warning",
+        "path": "layers[0].generator.spectral.asset_a.path",
+        "message": "asset was resampled to the process sample rate",
+        "detail": null
+      }
+    ]
+  },
+  "hybrid": {
+    "status": "ok",
+    "name": "Spectral Hybrid Reference",
+    "metadata": {
+      "name": "Spectral Hybrid Reference",
+      "author": "Sonalloy",
+      "description": "Spectral body with additive, sample attack, noise, processors, and modulation"
+    },
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest",
+    "reported_latency_frames": 1536,
+    "layer_count": 4,
+    "layers": [
+      {
+        "id": "spectral",
+        "enabled": true,
+        "trigger": {
+          "event": "note_on",
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127
+        },
+        "generator": {
+          "kind": "spectral",
+          "output_mode": "stereo",
+          "asset_a_path": "../assets/spectral-reference-a.wav",
+          "asset_a_sha256_specified": true,
+          "asset_a_prepared": true,
+          "asset_b_path": "../assets/spectral-reference-b.wav",
+          "asset_b_sha256_specified": true,
+          "asset_b_prepared": true,
+          "asset_b_source_sample_rate": 48000,
+          "asset_b_prepared_sample_rate": 48000.0,
+          "asset_b_source_channels": 2,
+          "asset_b_source_frame_count": 76800,
+          "asset_b_spectral_frame_count": 153,
+          "asset_b_prepared_bytes": 3763800,
+          "source_sample_rate": 44100,
+          "prepared_sample_rate": 48000.0,
+          "source_channels": 2,
+          "source_frame_count": 70560,
+          "spectral_frame_count": 153,
+          "prepared_bytes": 3763800,
+          "fft_size": 2048,
+          "hop_size": 512,
+          "bin_count": 1025,
+          "latency_frames": 1536,
+          "root_note": 60,
+          "position": 0.25,
+          "position_parameter": "layer.spectral.generator.spectral_position",
+          "freeze": 0.0,
+          "freeze_parameter": "layer.spectral.generator.spectral_freeze",
+          "blur_seconds": 0.0,
+          "blur_parameter": "layer.spectral.generator.spectral_blur",
+          "shift_hz": 0.0,
+          "shift_parameter": "layer.spectral.generator.spectral_shift",
+          "morph": 0.25,
+          "morph_parameter": "layer.spectral.generator.spectral_morph",
+          "phase_reset": true
+        },
+        "asset_status": "enabled",
+        "gain_db": -10.0,
+        "gain_linear": 0.31622776,
+        "pan": 0.0,
+        "tuning_cents": 0.0,
+        "tuning_ratio": 1.0,
+        "envelope": {
+          "attack_samples": 240,
+          "decay_samples": 9600,
+          "sustain_level": 0.75,
+          "release_samples": 14400
+        },
+        "processors": [
+          {
+            "placement": "layer",
+            "chain_index": 0,
+            "id": "spectral_tone",
+            "kind": "filter",
+            "static_fields": [
+              {
+                "id": "effective_max_cutoff_hz",
+                "value": 20000.0
+              }
+            ],
+            "parameters": [
+              {
+                "id": "layer.spectral.processor.spectral_tone.cutoff",
+                "unit": "hertz",
+                "min": 20.0,
+                "max": 20000.0,
+                "default": 10000.0,
+                "scale": "log2",
+                "smoothing_seconds": 0.01
+              },
+              {
+                "id": "layer.spectral.processor.spectral_tone.resonance",
+                "unit": "normalized",
+                "min": 0.0,
+                "max": 1.0,
+                "default": 0.12,
+                "scale": "linear",
+                "smoothing_seconds": 0.01
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "harmonic_body",
+        "enabled": true,
+        "trigger": {
+          "event": "note_on",
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127
+        },
+        "generator": {
+          "kind": "additive",
+          "output_mode": "mono",
+          "partial_count": 4,
+          "max_partial_count": 64,
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": -4.0,
+          "inharmonicity": 0.05,
+          "partials": [
+            {
+              "id": "fundamental",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 0.9,
+              "phase": 0.0,
+              "has_envelope": false
+            },
+            {
+              "id": "second",
+              "ratio": 2.0,
+              "amplitude_a": 0.42,
+              "amplitude_b": 0.5,
+              "phase": 0.0,
+              "has_envelope": false
+            },
+            {
+              "id": "third",
+              "ratio": 3.0,
+              "amplitude_a": 0.24,
+              "amplitude_b": 0.32,
+              "phase": 0.0,
+              "has_envelope": false
+            },
+            {
+              "id": "fifth",
+              "ratio": 5.0,
+              "amplitude_a": 0.15,
+              "amplitude_b": 0.22,
+              "phase": 0.0,
+              "has_envelope": false
+            }
+          ]
+        },
+        "asset_status": "enabled",
+        "gain_db": -18.0,
+        "gain_linear": 0.12589255,
+        "pan": 0.0,
+        "tuning_cents": 0.0,
+        "tuning_ratio": 1.0,
+        "envelope": {
+          "attack_samples": 240,
+          "decay_samples": 9600,
+          "sustain_level": 0.75,
+          "release_samples": 14400
+        },
+        "processors": [
+          {
+            "placement": "layer",
+            "chain_index": 0,
+            "id": "body_drive",
+            "kind": "drive",
+            "static_fields": [],
+            "parameters": [
+              {
+                "id": "layer.harmonic_body.processor.body_drive.amount",
+                "unit": "normalized",
+                "min": 0.0,
+                "max": 1.0,
+                "default": 0.08,
+                "scale": "linear",
+                "smoothing_seconds": 0.005
+              },
+              {
+                "id": "layer.harmonic_body.processor.body_drive.mix",
+                "unit": "normalized",
+                "min": 0.0,
+                "max": 1.0,
+                "default": 0.2,
+                "scale": "linear",
+                "smoothing_seconds": 0.005
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "attack",
+        "enabled": true,
+        "trigger": {
+          "event": "note_on",
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127
+        },
+        "generator": {
+          "kind": "sample",
+          "output_mode": "mono",
+          "interpolation": "cubic",
+          "sample_zone_count": 1,
+          "sample_enabled_zone_count": 1,
+          "sample_disabled_zone_count": 0,
+          "sample_asset_count": 1,
+          "sample_zones": [
+            {
+              "id": "metal_hit",
+              "enabled": true,
+              "asset_path": "../assets/metal-hit.wav",
+              "root_note": 60,
+              "key_min": 0,
+              "key_max": 127,
+              "velocity_min": 1,
+              "velocity_max": 127,
+              "round_robin_group": null,
+              "playback_type": "one_shot",
+              "direction": "forward",
+              "start_frame": 0,
+              "end_frame": 3840,
+              "loop_start_frame": null,
+              "loop_end_frame": null,
+              "crossfade_frames": null,
+              "time_mode": "resample",
+              "duration_ratio": null,
+              "source_bpm": null,
+              "source_sample_rate": 44100,
+              "source_channels": 1,
+              "prepared_frames": 21600
+            }
+          ]
+        },
+        "asset_status": "enabled",
+        "gain_db": -15.0,
+        "gain_linear": 0.17782794,
+        "pan": 0.0,
+        "tuning_cents": 0.0,
+        "tuning_ratio": 1.0,
+        "envelope": {
+          "attack_samples": 0,
+          "decay_samples": 3840,
+          "sustain_level": 0.05,
+          "release_samples": 5760
+        },
+        "processors": [
+          {
+            "placement": "layer",
+            "chain_index": 0,
+            "id": "attack_tone",
+            "kind": "filter",
+            "static_fields": [
+              {
+                "id": "effective_max_cutoff_hz",
+                "value": 20000.0
+              }
+            ],
+            "parameters": [
+              {
+                "id": "layer.attack.processor.attack_tone.cutoff",
+                "unit": "hertz",
+                "min": 20.0,
+                "max": 20000.0,
+                "default": 12000.0,
+                "scale": "log2",
+                "smoothing_seconds": 0.01
+              },
+              {
+                "id": "layer.attack.processor.attack_tone.resonance",
+                "unit": "normalized",
+                "min": 0.0,
+                "max": 1.0,
+                "default": 0.08,
+                "scale": "linear",
+                "smoothing_seconds": 0.01
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "air",
+        "enabled": true,
+        "trigger": {
+          "event": "note_on",
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127
+        },
+        "generator": {
+          "kind": "noise",
+          "output_mode": "stereo",
+          "noise_color": "white",
+          "noise_seed": 7124,
+          "noise_correlation_parameter": "layer.air.generator.noise_correlation"
+        },
+        "asset_status": "not_applicable (noise)",
+        "gain_db": -30.0,
+        "gain_linear": 0.031622775,
+        "pan": 0.0,
+        "tuning_cents": 0.0,
+        "tuning_ratio": 1.0,
+        "envelope": {
+          "attack_samples": 0,
+          "decay_samples": 3840,
+          "sustain_level": 0.7,
+          "release_samples": 4800
+        },
+        "processors": []
+      }
+    ],
+    "voice_processors": [
+      {
+        "placement": "voice",
+        "chain_index": 0,
+        "id": "voice_tone",
+        "kind": "filter",
+        "static_fields": [
+          {
+            "id": "effective_max_cutoff_hz",
+            "value": 20000.0
+          }
+        ],
+        "parameters": [
+          {
+            "id": "voice.processor.voice_tone.cutoff",
+            "unit": "hertz",
+            "min": 20.0,
+            "max": 20000.0,
+            "default": 7600.0,
+            "scale": "log2",
+            "smoothing_seconds": 0.01
+          },
+          {
+            "id": "voice.processor.voice_tone.resonance",
+            "unit": "normalized",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.14,
+            "scale": "linear",
+            "smoothing_seconds": 0.01
+          }
+        ]
+      },
+      {
+        "placement": "voice",
+        "chain_index": 1,
+        "id": "voice_glue",
+        "kind": "drive",
+        "static_fields": [],
+        "parameters": [
+          {
+            "id": "voice.processor.voice_glue.amount",
+            "unit": "normalized",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.08,
+            "scale": "linear",
+            "smoothing_seconds": 0.005
+          },
+          {
+            "id": "voice.processor.voice_glue.mix",
+            "unit": "normalized",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.2,
+            "scale": "linear",
+            "smoothing_seconds": 0.005
+          }
+        ]
+      }
+    ],
+    "global_processors": [
+      {
+        "placement": "global",
+        "chain_index": 0,
+        "id": "echo",
+        "kind": "delay",
+        "static_fields": [
+          {
+            "id": "time_frames",
+            "value": 8640.0
+          }
+        ],
+        "parameters": [
+          {
+            "id": "global.processor.echo.feedback",
+            "unit": "normalized",
+            "min": 0.0,
+            "max": 0.95,
+            "default": 0.24,
+            "scale": "linear",
+            "smoothing_seconds": 0.01
+          },
+          {
+            "id": "global.processor.echo.mix",
+            "unit": "normalized",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.12,
+            "scale": "linear",
+            "smoothing_seconds": 0.01
+          }
+        ]
+      },
+      {
+        "placement": "global",
+        "chain_index": 1,
+        "id": "space",
+        "kind": "reverb",
+        "static_fields": [
+          {
+            "id": "pre_delay_frames",
+            "value": 480.0
+          }
+        ],
+        "parameters": [
+          {
+            "id": "global.processor.space.decay",
+            "unit": "normalized",
+            "min": 0.0,
+            "max": 0.98,
+            "default": 0.55,
+            "scale": "linear",
+            "smoothing_seconds": 0.02
+          },
+          {
+            "id": "global.processor.space.damping",
+            "unit": "normalized",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.35,
+            "scale": "linear",
+            "smoothing_seconds": 0.02
+          },
+          {
+            "id": "global.processor.space.width",
+            "unit": "normalized",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.85,
+            "scale": "linear",
+            "smoothing_seconds": 0.02
+          },
+          {
+            "id": "global.processor.space.mix",
+            "unit": "normalized",
+            "min": 0.0,
+            "max": 1.0,
+            "default": 0.16,
+            "scale": "linear",
+            "smoothing_seconds": 0.02
+          }
+        ]
+      }
+    ],
+    "parameters": [
+      {
+        "id": "layer.spectral.gain",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "decibels",
+        "min": -60.0,
+        "max": 12.0,
+        "default": -10.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.pan",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "pan",
+        "min": -1.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.tuning",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "cents",
+        "min": -1200.0,
+        "max": 1200.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.generator.spectral_position",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.25,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_freeze",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_blur",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "seconds",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.02
+      },
+      {
+        "id": "layer.spectral.generator.spectral_shift",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "hertz",
+        "min": -12000.0,
+        "max": 12000.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_morph",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.25,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.processor.spectral_tone.cutoff",
+        "owner": {
+          "layer_processor": {
+            "definition_index": 0,
+            "processor_index": 0
+          }
+        },
+        "unit": "hertz",
+        "min": 20.0,
+        "max": 20000.0,
+        "default": 10000.0,
+        "scale": "log2",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.processor.spectral_tone.resonance",
+        "owner": {
+          "layer_processor": {
+            "definition_index": 0,
+            "processor_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.12,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.harmonic_body.gain",
+        "owner": {
+          "layer": {
+            "definition_index": 1
+          }
+        },
+        "unit": "decibels",
+        "min": -60.0,
+        "max": 12.0,
+        "default": -18.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.harmonic_body.pan",
+        "owner": {
+          "layer": {
+            "definition_index": 1
+          }
+        },
+        "unit": "pan",
+        "min": -1.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.harmonic_body.tuning",
+        "owner": {
+          "layer": {
+            "definition_index": 1
+          }
+        },
+        "unit": "cents",
+        "min": -1200.0,
+        "max": 1200.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.harmonic_body.generator.additive_morph",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 1
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.harmonic_body.generator.additive_spectrum_tilt",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 1
+          }
+        },
+        "unit": "decibels_per_octave",
+        "min": -24.0,
+        "max": 12.0,
+        "default": -4.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.harmonic_body.generator.additive_inharmonicity",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 1
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.05,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.harmonic_body.processor.body_drive.amount",
+        "owner": {
+          "layer_processor": {
+            "definition_index": 1,
+            "processor_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.08,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.harmonic_body.processor.body_drive.mix",
+        "owner": {
+          "layer_processor": {
+            "definition_index": 1,
+            "processor_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.2,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.attack.gain",
+        "owner": {
+          "layer": {
+            "definition_index": 2
+          }
+        },
+        "unit": "decibels",
+        "min": -60.0,
+        "max": 12.0,
+        "default": -15.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.attack.pan",
+        "owner": {
+          "layer": {
+            "definition_index": 2
+          }
+        },
+        "unit": "pan",
+        "min": -1.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.attack.tuning",
+        "owner": {
+          "layer": {
+            "definition_index": 2
+          }
+        },
+        "unit": "cents",
+        "min": -1200.0,
+        "max": 1200.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.attack.processor.attack_tone.cutoff",
+        "owner": {
+          "layer_processor": {
+            "definition_index": 2,
+            "processor_index": 0
+          }
+        },
+        "unit": "hertz",
+        "min": 20.0,
+        "max": 20000.0,
+        "default": 12000.0,
+        "scale": "log2",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.attack.processor.attack_tone.resonance",
+        "owner": {
+          "layer_processor": {
+            "definition_index": 2,
+            "processor_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.08,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.air.gain",
+        "owner": {
+          "layer": {
+            "definition_index": 3
+          }
+        },
+        "unit": "decibels",
+        "min": -60.0,
+        "max": 12.0,
+        "default": -30.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.air.pan",
+        "owner": {
+          "layer": {
+            "definition_index": 3
+          }
+        },
+        "unit": "pan",
+        "min": -1.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.air.tuning",
+        "owner": {
+          "layer": {
+            "definition_index": 3
+          }
+        },
+        "unit": "cents",
+        "min": -1200.0,
+        "max": 1200.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.air.generator.noise_correlation",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 3
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.35,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "voice.processor.voice_tone.cutoff",
+        "owner": {
+          "voice_processor": {
+            "processor_index": 0
+          }
+        },
+        "unit": "hertz",
+        "min": 20.0,
+        "max": 20000.0,
+        "default": 7600.0,
+        "scale": "log2",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "voice.processor.voice_tone.resonance",
+        "owner": {
+          "voice_processor": {
+            "processor_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.14,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "voice.processor.voice_glue.amount",
+        "owner": {
+          "voice_processor": {
+            "processor_index": 1
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.08,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "voice.processor.voice_glue.mix",
+        "owner": {
+          "voice_processor": {
+            "processor_index": 1
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.2,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "global.processor.echo.feedback",
+        "owner": {
+          "global_processor": {
+            "processor_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 0.95,
+        "default": 0.24,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "global.processor.echo.mix",
+        "owner": {
+          "global_processor": {
+            "processor_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.12,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "global.processor.space.decay",
+        "owner": {
+          "global_processor": {
+            "processor_index": 1
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 0.98,
+        "default": 0.55,
+        "scale": "linear",
+        "smoothing_seconds": 0.02
+      },
+      {
+        "id": "global.processor.space.damping",
+        "owner": {
+          "global_processor": {
+            "processor_index": 1
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.35,
+        "scale": "linear",
+        "smoothing_seconds": 0.02
+      },
+      {
+        "id": "global.processor.space.width",
+        "owner": {
+          "global_processor": {
+            "processor_index": 1
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.85,
+        "scale": "linear",
+        "smoothing_seconds": 0.02
+      },
+      {
+        "id": "global.processor.space.mix",
+        "owner": {
+          "global_processor": {
+            "processor_index": 1
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.16,
+        "scale": "linear",
+        "smoothing_seconds": 0.02
+      }
+    ],
+    "sources": [
+      {
+        "id": "velocity",
+        "scope": "voice",
+        "kind": "velocity"
+      },
+      {
+        "id": "key_tracking",
+        "scope": "voice",
+        "kind": "key_tracking"
+      },
+      {
+        "id": "spectral_motion",
+        "scope": "voice",
+        "kind": "lfo",
+        "waveform": "sine",
+        "rate_hz": 0.21,
+        "phase": 0.0
+      },
+      {
+        "id": "spectral_breath",
+        "scope": "voice",
+        "kind": "envelope",
+        "attack_samples": 960,
+        "decay_samples": 21600,
+        "sustain_level": 0.35,
+        "release_samples": 9600
+      },
+      {
+        "id": "mod_wheel",
+        "scope": "instrument",
+        "kind": "external_control"
+      }
+    ],
+    "routes": [
+      {
+        "source": "spectral_motion",
+        "target": "layer.spectral.generator.spectral_position",
+        "amount": 0.35,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "spectral_breath",
+        "target": "layer.spectral.generator.spectral_blur",
+        "amount": 0.25,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.spectral.generator.spectral_shift",
+        "amount": 0.2,
+        "curve": "linear"
+      },
+      {
+        "source": "spectral_motion",
+        "target": "layer.spectral.generator.spectral_morph",
+        "amount": 0.55,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "spectral_motion",
+        "target": "layer.spectral.processor.spectral_tone.cutoff",
+        "amount": 0.1,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.attack.gain",
+        "amount": 0.04,
+        "curve": "linear"
+      },
+      {
+        "source": "spectral_motion",
+        "target": "voice.processor.voice_tone.cutoff",
+        "amount": 0.08,
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.echo.mix",
+        "amount": 0.2,
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.space.mix",
+        "amount": 0.2,
+        "curve": "linear"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "ASSET_RESAMPLED",
+        "severity": "warning",
+        "path": "layers[0].generator.spectral.asset_a.path",
+        "message": "asset was resampled to the process sample rate",
+        "detail": null
+      },
+      {
+        "code": "ASSET_RESAMPLED",
+        "severity": "warning",
+        "path": "layers[2].generator.sample.zones[0].asset.path",
+        "message": "asset was resampled to the process sample rate",
+        "detail": null
+      }
+    ]
+  },
+  "identity": {
+    "status": "ok",
+    "name": "Spectral Generator Reference",
+    "metadata": {
+      "name": "Spectral Generator Reference",
+      "author": "Sonalloy",
+      "description": "Stereo spectral resynthesis with position, freeze, blur, shift, and morph control"
+    },
+    "polyphony": 1,
+    "voice_stealing": "quietest_releasing_then_oldest",
+    "reported_latency_frames": 1536,
+    "layer_count": 1,
+    "layers": [
+      {
+        "id": "spectral",
+        "enabled": true,
+        "trigger": {
+          "event": "note_on",
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127
+        },
+        "generator": {
+          "kind": "spectral",
+          "output_mode": "stereo",
+          "asset_a_path": "../assets/spectral-reference-b.wav",
+          "asset_a_sha256_specified": true,
+          "asset_a_prepared": true,
+          "asset_b_path": null,
+          "asset_b_sha256_specified": false,
+          "asset_b_prepared": false,
+          "asset_b_source_sample_rate": null,
+          "asset_b_prepared_sample_rate": null,
+          "asset_b_source_channels": null,
+          "asset_b_source_frame_count": null,
+          "asset_b_spectral_frame_count": null,
+          "asset_b_prepared_bytes": null,
+          "source_sample_rate": 48000,
+          "prepared_sample_rate": 48000.0,
+          "source_channels": 2,
+          "source_frame_count": 76800,
+          "spectral_frame_count": 153,
+          "prepared_bytes": 3763800,
+          "fft_size": 2048,
+          "hop_size": 512,
+          "bin_count": 1025,
+          "latency_frames": 1536,
+          "root_note": 60,
+          "position": 0.0,
+          "position_parameter": "layer.spectral.generator.spectral_position",
+          "freeze": 0.0,
+          "freeze_parameter": "layer.spectral.generator.spectral_freeze",
+          "blur_seconds": 0.0,
+          "blur_parameter": "layer.spectral.generator.spectral_blur",
+          "shift_hz": 0.0,
+          "shift_parameter": "layer.spectral.generator.spectral_shift",
+          "morph": null,
+          "morph_parameter": null,
+          "phase_reset": true
+        },
+        "asset_status": "enabled",
+        "gain_db": 0.0,
+        "gain_linear": 1.0,
+        "pan": 0.0,
+        "tuning_cents": 0.0,
+        "tuning_ratio": 1.0,
+        "envelope": {
+          "attack_samples": 0,
+          "decay_samples": 0,
+          "sustain_level": 1.0,
+          "release_samples": 0
+        },
+        "processors": []
+      }
+    ],
+    "voice_processors": [],
+    "global_processors": [],
+    "parameters": [
+      {
+        "id": "layer.spectral.gain",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "decibels",
+        "min": -60.0,
+        "max": 12.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.pan",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "pan",
+        "min": -1.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.tuning",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "cents",
+        "min": -1200.0,
+        "max": 1200.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.generator.spectral_position",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_freeze",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_blur",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "seconds",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.02
+      },
+      {
+        "id": "layer.spectral.generator.spectral_shift",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "hertz",
+        "min": -12000.0,
+        "max": 12000.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      }
+    ],
+    "sources": [
+      {
+        "id": "velocity",
+        "scope": "voice",
+        "kind": "velocity"
+      },
+      {
+        "id": "key_tracking",
+        "scope": "voice",
+        "kind": "key_tracking"
+      }
+    ],
+    "routes": []
+  },
+  "latency": {
+    "status": "ok",
+    "name": "Spectral Generator Reference",
+    "metadata": {
+      "name": "Spectral Generator Reference",
+      "author": "Sonalloy",
+      "description": "Stereo spectral resynthesis with position, freeze, blur, shift, and morph control"
+    },
+    "polyphony": 1,
+    "voice_stealing": "quietest_releasing_then_oldest",
+    "reported_latency_frames": 1536,
+    "layer_count": 1,
+    "layers": [
+      {
+        "id": "spectral",
+        "enabled": true,
+        "trigger": {
+          "event": "note_on",
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127
+        },
+        "generator": {
+          "kind": "spectral",
+          "output_mode": "stereo",
+          "asset_a_path": "../assets/spectral-reference-impulse.wav",
+          "asset_a_sha256_specified": true,
+          "asset_a_prepared": true,
+          "asset_b_path": null,
+          "asset_b_sha256_specified": false,
+          "asset_b_prepared": false,
+          "asset_b_source_sample_rate": null,
+          "asset_b_prepared_sample_rate": null,
+          "asset_b_source_channels": null,
+          "asset_b_source_frame_count": null,
+          "asset_b_spectral_frame_count": null,
+          "asset_b_prepared_bytes": null,
+          "source_sample_rate": 48000,
+          "prepared_sample_rate": 48000.0,
+          "source_channels": 2,
+          "source_frame_count": 8192,
+          "spectral_frame_count": 19,
+          "prepared_bytes": 467400,
+          "fft_size": 2048,
+          "hop_size": 512,
+          "bin_count": 1025,
+          "latency_frames": 1536,
+          "root_note": 60,
+          "position": 0.0,
+          "position_parameter": "layer.spectral.generator.spectral_position",
+          "freeze": 0.0,
+          "freeze_parameter": "layer.spectral.generator.spectral_freeze",
+          "blur_seconds": 0.0,
+          "blur_parameter": "layer.spectral.generator.spectral_blur",
+          "shift_hz": 0.0,
+          "shift_parameter": "layer.spectral.generator.spectral_shift",
+          "morph": null,
+          "morph_parameter": null,
+          "phase_reset": true
+        },
+        "asset_status": "enabled",
+        "gain_db": 0.0,
+        "gain_linear": 1.0,
+        "pan": 0.0,
+        "tuning_cents": 0.0,
+        "tuning_ratio": 1.0,
+        "envelope": {
+          "attack_samples": 0,
+          "decay_samples": 0,
+          "sustain_level": 1.0,
+          "release_samples": 0
+        },
+        "processors": []
+      }
+    ],
+    "voice_processors": [],
+    "global_processors": [],
+    "parameters": [
+      {
+        "id": "layer.spectral.gain",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "decibels",
+        "min": -60.0,
+        "max": 12.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.pan",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "pan",
+        "min": -1.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.tuning",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "cents",
+        "min": -1200.0,
+        "max": 1200.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.generator.spectral_position",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_freeze",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_blur",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "seconds",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.02
+      },
+      {
+        "id": "layer.spectral.generator.spectral_shift",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "hertz",
+        "min": -12000.0,
+        "max": 12000.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      }
+    ],
+    "sources": [
+      {
+        "id": "velocity",
+        "scope": "voice",
+        "kind": "velocity"
+      },
+      {
+        "id": "key_tracking",
+        "scope": "voice",
+        "kind": "key_tracking"
+      }
+    ],
+    "routes": []
+  },
+  "stealing": {
+    "status": "ok",
+    "name": "Spectral Generator Reference",
+    "metadata": {
+      "name": "Spectral Generator Reference",
+      "author": "Sonalloy",
+      "description": "Stereo spectral resynthesis with position, freeze, blur, shift, and morph control"
+    },
+    "polyphony": 1,
+    "voice_stealing": "quietest_releasing_then_oldest",
+    "reported_latency_frames": 1536,
+    "layer_count": 1,
+    "layers": [
+      {
+        "id": "spectral",
+        "enabled": true,
+        "trigger": {
+          "event": "note_on",
+          "key_min": 0,
+          "key_max": 127,
+          "velocity_min": 1,
+          "velocity_max": 127
+        },
+        "generator": {
+          "kind": "spectral",
+          "output_mode": "stereo",
+          "asset_a_path": "../assets/spectral-reference-a.wav",
+          "asset_a_sha256_specified": true,
+          "asset_a_prepared": true,
+          "asset_b_path": null,
+          "asset_b_sha256_specified": false,
+          "asset_b_prepared": false,
+          "asset_b_source_sample_rate": null,
+          "asset_b_prepared_sample_rate": null,
+          "asset_b_source_channels": null,
+          "asset_b_source_frame_count": null,
+          "asset_b_spectral_frame_count": null,
+          "asset_b_prepared_bytes": null,
+          "source_sample_rate": 44100,
+          "prepared_sample_rate": 48000.0,
+          "source_channels": 2,
+          "source_frame_count": 70560,
+          "spectral_frame_count": 153,
+          "prepared_bytes": 3763800,
+          "fft_size": 2048,
+          "hop_size": 512,
+          "bin_count": 1025,
+          "latency_frames": 1536,
+          "root_note": 60,
+          "position": 0.0,
+          "position_parameter": "layer.spectral.generator.spectral_position",
+          "freeze": 0.0,
+          "freeze_parameter": "layer.spectral.generator.spectral_freeze",
+          "blur_seconds": 0.0,
+          "blur_parameter": "layer.spectral.generator.spectral_blur",
+          "shift_hz": 0.0,
+          "shift_parameter": "layer.spectral.generator.spectral_shift",
+          "morph": null,
+          "morph_parameter": null,
+          "phase_reset": true
+        },
+        "asset_status": "enabled",
+        "gain_db": 0.0,
+        "gain_linear": 1.0,
+        "pan": 0.0,
+        "tuning_cents": 0.0,
+        "tuning_ratio": 1.0,
+        "envelope": {
+          "attack_samples": 0,
+          "decay_samples": 0,
+          "sustain_level": 1.0,
+          "release_samples": 0
+        },
+        "processors": []
+      }
+    ],
+    "voice_processors": [],
+    "global_processors": [],
+    "parameters": [
+      {
+        "id": "layer.spectral.gain",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "decibels",
+        "min": -60.0,
+        "max": 12.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.pan",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "pan",
+        "min": -1.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.tuning",
+        "owner": {
+          "layer": {
+            "definition_index": 0
+          }
+        },
+        "unit": "cents",
+        "min": -1200.0,
+        "max": 1200.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.005
+      },
+      {
+        "id": "layer.spectral.generator.spectral_position",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_freeze",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "normalized",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      },
+      {
+        "id": "layer.spectral.generator.spectral_blur",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "seconds",
+        "min": 0.0,
+        "max": 1.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.02
+      },
+      {
+        "id": "layer.spectral.generator.spectral_shift",
+        "owner": {
+          "layer_generator": {
+            "definition_index": 0
+          }
+        },
+        "unit": "hertz",
+        "min": -12000.0,
+        "max": 12000.0,
+        "default": 0.0,
+        "scale": "linear",
+        "smoothing_seconds": 0.01
+      }
+    ],
+    "sources": [
+      {
+        "id": "velocity",
+        "scope": "voice",
+        "kind": "velocity"
+      },
+      {
+        "id": "key_tracking",
+        "scope": "voice",
+        "kind": "key_tracking"
+      }
+    ],
+    "routes": [],
+    "diagnostics": [
+      {
+        "code": "ASSET_RESAMPLED",
+        "severity": "warning",
+        "path": "layers[0].generator.spectral.asset_a.path",
+        "message": "asset was resampled to the process sample rate",
+        "detail": null
+      }
+    ]
+  }
+}

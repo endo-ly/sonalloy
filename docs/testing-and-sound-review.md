@@ -131,10 +131,14 @@ flowchart LR
 
 ### Spectral Resynthesis
 
-- Metrics：Periodic Hannの端点、4倍Overlap-addのWindow正規化、非Bin中心周波数のInstantaneous Frequency、FFT Roundtrip、Identity ResynthesisのSNR、Position Frame選択、Freeze中のPhase連続性、Root Note Pitch、Layer Tuning、Frequency Shift、A/B Normalized Timeline、Magnitude Blur、Reported Latency、Block Size 32 / 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、Mono / Stereo Channelの保持、Prepared Bytesを検査する
-- 自動確認：DefinitionのField Range、A/B Asset Preparation、Channel一致、`asset_b`によるMorph Parameterの登録、1024 / 2048 / 4096 FFT、Missing Asset診断、Source Metadata、Spectral Frame数、FFT / Hop / Bin数、Parameter Descriptor、Position / Freeze / Blur / Pitch / Shift / Morph Endpoint / Identical Source、Source EndとBlur Tail / OLA Drain、Allocation 0、Latency、Render結果のFinite性を確認する
+- 保存先：`review-output/spectral-resynthesis/`（audio/technical / definitions / events / midi / assets / inspect.json / metrics.json / review-summary.md）
+- 生成：`python3 scripts/review/generate_spectral_reference_assets.py`、続けて`python3 scripts/review/generate_spectral_resynthesis_package.py`
+- 内容：Stereo A/B Reference、Position、Freeze、Blur、Shift、Morph、Spectral Hybrid、Additive / Sample / Noise Layer、Layer / Voice / Global Processor、Modulation、Parameter Change、MIDI、16 Voice、Voice Stealing、Existing Generator回帰を同じCLI経路から確認する
+- Metrics：Periodic Hannの端点、4倍Overlap-addのWindow正規化、非Bin中心周波数のInstantaneous Frequency、FFT Roundtrip、Identity ResynthesisのSNR / RMS Error / Max Error / Correlation、Position Frame選択、Freeze中のPhase連続性とTransition Delta、Root Note Pitch、Layer Tuning、Frequency ShiftのDominant Frequency / Spectral Centroid、A/B Normalized Timeline、Magnitude BlurのSpectral Flux、Morph Endpoint / Midpoint / Sweep、Reported LatencyとImpulse位置、High-note近傍Energy、Block Size 32 / 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、Mono / Stereo Channelの保持、Prepared Bytesを検査する
+- 自動確認：DefinitionのField Range、A/B Asset Preparation、Channel一致、`asset_b`によるMorph Parameterの登録、1024 / 2048 / 4096 FFT、Missing Asset診断、Source Metadata、Spectral Frame数、FFT / Hop / Bin数、Parameter Descriptor、Position / Freeze / Blur / Pitch / Shift / Morph Endpoint / Identical Source、Source EndとBlur Tail / OLA Drain、Allocation 0、Latency、Layer Latency Compensation、16 Voice、Voice Stealing、Reset、MIDI、既存Generator 9系統、Render結果のFinite性を確認する
+- Performance：Release BuildでStereo FFT 2048 Morph有効の1 / 4 / 8 / 16 Voiceを1秒Renderし、Audio Duration、Elapsed Time、Realtime比、Finite性、Peak、RMSを`metrics.json`へ記録する。Performance専用WAVは一時Directoryへ出力し、Packageへ保存しない
 - 人間の確認：元WAVとの音色・Transient・Noise Floorの一致、PositionによるSource Segment、Freeze中の音色と連続Phase、Blurの時間的な拡散とTail、A/B Morphの連続性とStereo Image、Pitch変更時のDuration維持、Shiftの周波数移動、Latency後の時間位置、Mono / Stereoの定位、FFT Size変更による品質とCPU負荷を確認する
-- Process中はAsset Decode、File I/O、FFT Plan生成、Heap拡張を行わない。Sound Review用のWAVは`review-output/`へ保存し、Repositoryへ生成物を追加しない
+- Process中はAsset Decode、File I/O、FFT Plan生成、Heap拡張を行わない。技術確認用WAVは`audio/technical/`へ保存し、Performance専用WAVは保存しない
 
 ### Essential Synthesis and Sampling
 

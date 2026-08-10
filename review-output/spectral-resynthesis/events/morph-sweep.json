@@ -1,0 +1,28 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 1,
+      "note": 60,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 8192,
+      "type": "parameter_change",
+      "parameter": "layer.spectral.generator.spectral_morph",
+      "normalized": 0.5
+    },
+    {
+      "absolute_frame": 16384,
+      "type": "parameter_change",
+      "parameter": "layer.spectral.generator.spectral_morph",
+      "normalized": 1.0
+    },
+    {
+      "absolute_frame": 24576,
+      "type": "note_off",
+      "note_id": 1
+    }
+  ]
+}

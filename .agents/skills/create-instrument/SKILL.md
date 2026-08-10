@@ -140,6 +140,8 @@ sha256sum <path>
 
 5. `instrument inspect --json`でAsset A/BのPrepared状態、Source / Prepared Sample Rate、Channel、Spectral Frame、FFT / Hop / Bin、Latency、Position / Freeze / Blur / Shift / MorphのParameter IDを確認する。Aまたは指定Bが欠落した場合はSpectral Layerだけが発音候補から外れます
 6. `position`、`freeze`、`blur_seconds`、`morph`、`shift_hz`をParameter ChangeまたはModulationから動かし、`render events`でSource Segment、Freeze中の連続Phase、Blur Tail、A/B Morph、Pitch、Frequency Shift、Stereo Imageを確認する
+7. Stereo A/Bの基準例は`examples/instruments/spectral-generator-reference.json`、Spectral、Additive、Sample、Noiseと既存Processor / Modulationを組み合わせる場合は`examples/instruments/spectral-hybrid-reference.json`を使う。Hybridでは`instrument inspect --json`でLayer / Voice / Global ProcessorとRoute Targetを確認する
+8. MIDI Phraseを含む最終確認は`render midi`で行い、Block Size、Sample Rate、Fresh Runtime、16 Voice、Voice Stealingの機械確認は`python3 scripts/review/generate_spectral_resynthesis_package.py`で再生成する
 
 ## Step 5: Operator Modulation Layerを追加する（Operator Modulationを使う場合）
 

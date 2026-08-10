@@ -90,6 +90,8 @@ SpectralのJSON Inspectでは、`asset_a`と指定された`asset_b`の準備状
 
 Harmonic / Formant HybridのJSON Inspectでは、各LayerのGeneratorとProcessor、Voice / Global Processor Chain、Modulation Source / Routeを同じReportで表示します。[`harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)を使うと、Formant、Additive、Sample、Noise、Filter、Drive、Delay、Reverb、MIDI制御Targetを一つの構造として確認できます。
 
+Spectralの単体とHybridは[`spectral-generator-reference.json`](../examples/instruments/spectral-generator-reference.json)と[`spectral-hybrid-reference.json`](../examples/instruments/spectral-hybrid-reference.json)で確認できます。単体例ではStereo A/B Prepared状態、FFT 2048、Hop 512、Bin数、Reported Latency、5つのSpectral Parameterを確認し、Hybrid例ではSpectral、Additive、Sample、Noise、Layer / Voice / Global Processor、Modulation Routeを同じReportで確認します。
+
 ## `render` Command
 
 ### `render note`
@@ -313,6 +315,18 @@ sonalloy dev render-sine \
 - `GENERATOR_RESOURCE_LIMIT_EXCEEDED`（Unison Voice数）
 
 AssetのMissingやDecode失敗はWarningとして表示され、ほかの有効LayerがあればRenderは継続します。
+
+## Spectral Resynthesisの確認例
+
+```bash
+sonalloy instrument validate examples/instruments/spectral-generator-reference.json --json
+sonalloy instrument inspect examples/instruments/spectral-generator-reference.json --json
+sonalloy render midi examples/instruments/spectral-hybrid-reference.json \
+  testdata/midi/basic-poly-synth-phrase.mid --sample-rate 48000 --block-size 257 \
+  --tail 0.2 --output out/spectral-hybrid-reference/midi.wav --json
+```
+
+Review用の全条件（Parameter Change、Block Size、Sample Rate、Fresh Runtime、16 Voice、Voice Stealing、既存Generator回帰）は`python3 scripts/review/generate_spectral_resynthesis_package.py`で`review-output/spectral-resynthesis/`へ生成します。Performance測定の音声は保存せず、`metrics.json`へ測定値だけを記録します。
 
 ## Sampleを含むInstrumentの確認例
 

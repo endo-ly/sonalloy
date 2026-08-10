@@ -469,6 +469,12 @@ Dynamic Parameterは次のCanonical IDを持ちます。`spectral_blur`だけ20m
 
 Primary SourceまたはMorph Sourceの欠落・Hash不一致・Decode失敗では、依存するSpectral Layerを発音候補から除外し、ほかの有効LayerのCompileとRenderを継続します。A/BのChannel数が異なる場合はCompile Errorです。`instrument inspect`ではAsset A/BのPrepared状態、Source / Prepared Sample Rate、Source Metadata、Prepared Frame数、FFT / Hop / Bin数、Prepared Bytes、Latency、Parameter IDを確認できます。
 
+### Spectral Hybrid
+
+SpectralはほかのGeneratorと同じLayer列へ配置できます。[`spectral-hybrid-reference.json`](../examples/instruments/spectral-hybrid-reference.json)はSpectralのStereo A/B Resynthesisを持続Bodyとして使い、AdditiveのHarmonic Body、SampleのAttack、NoiseのAirを重ねます。Layer ProcessorはGenerator直後、`voice_processors`は全LayerのMix後、`global_processors`は全VoiceのSum後にDefinition順で適用されます。
+
+この例ではSpectralのPosition、Blur、Shift、MorphをModulation Routeへ接続し、Voice FilterとGlobal Delay / Reverbも同じParameter Catalogへ登録します。`asset_b`を使うSpectral LayerはA/BのChannel数を一致させ、MIDI RenderではNote、Velocity、Mod Wheel、Parameter Changeを同じProcess経路へ渡します。単体のStereo制御を確認する場合は[`spectral-generator-reference.json`](../examples/instruments/spectral-generator-reference.json)を使用します。
+
 ### Granular
 
 Granularは一つのPrepared AudioをCompile時にRegionへ変換し、Noteごとに固定Poolから複数のGrainを生成するGeneratorです。Sample GeneratorのPlayback Modeではなく、独立したGeneratorとしてLayerへ配置します。Mono AssetもGrainごとにConstant-powerでStereo配置するため、出力はStereoです。

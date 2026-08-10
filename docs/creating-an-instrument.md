@@ -352,6 +352,18 @@ sonalloy render note my-instrument.json \
 
 `inspect --json`ではAsset A/BのPrepared状態、Source Channel、Spectral Frame数、Prepared Bytes、FFT / Hop / Bin数、Latency、5つのParameter IDを確認します。Asset Aまたは指定Bが見つからない、Hashが一致しない、Decodeできない場合はSpectral Layerだけが無効になります。A/BのChannel数が異なる場合はCompile Errorです。
 
+Stereo A/Bと全Spectral Parameterを一度に確認する場合は[`spectral-generator-reference.json`](../examples/instruments/spectral-generator-reference.json)を使います。既存のLayer / Voice / Global Processor、Modulation、Additive、Sample、Noiseを含む構成は[`spectral-hybrid-reference.json`](../examples/instruments/spectral-hybrid-reference.json)を使います。
+
+```bash
+sonalloy instrument validate examples/instruments/spectral-generator-reference.json --json
+sonalloy instrument inspect examples/instruments/spectral-hybrid-reference.json --json
+sonalloy render midi examples/instruments/spectral-hybrid-reference.json \
+  testdata/midi/basic-poly-synth-phrase.mid --sample-rate 48000 --block-size 257 \
+  --tail 0.2 --output out/spectral-hybrid-reference/midi.wav --json
+```
+
+`render events`ではCanonical Parameter IDへ`parameter_change`を送り、Position、Freeze、Blur、Shift、Morphを個別に確認できます。Spectral LayerのLatencyはほかのLayerにも補償されるため、Layer単独ではなくHybrid全体でTransientの時間位置を確認します。
+
 ### Operator Modulationを使う
 
 4つのSine OperatorでBell、Bass、AM、Ringの音色を作れます。最初は既存の[`examples/instruments/operator-modulation-reference.json`](../examples/instruments/operator-modulation-reference.json)を複製し、`algorithm`、Ratio、Envelope、Modulation Amountを調整します。
