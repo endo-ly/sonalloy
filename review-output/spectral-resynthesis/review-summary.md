@@ -7,7 +7,7 @@ Machine checks performed by the generator:
 - Spectral A/B preparation, Stereo output, FFT 1024 / 2048 / 4096, Morph, and all five Spectral control parameters.
 - Spectral plus Additive, Sample, and Noise with Layer, Voice, and Global Processor chains and Modulation routes.
 - MIDI render, absolute-frame parameter changes, 16-voice rendering, one-voice stealing, supported block sizes, supported sample rates, Fresh Runtime reproducibility, and the reported latency impulse position.
-- Existing Oscillator, Noise, Sample, Granular, Wave Sequence, Wavetable, Operator Modulation, Additive, and Formant reference renders.
+- Existing Oscillator, Noise, Granular, Wave Sequence, Digital Hybrid (Sample, Wavetable, and Operator Modulation), Additive, and Formant reference renders.
 - Identity SNR / error / correlation, Freeze boundary adjacent-sample assertion, transition and spectral-flux measurements, Shift and Pitch spectrum estimates, Morph boundary measurements, and high-note near-Nyquist energy are recorded in metrics.json.
 - Release performance measurements for FFT 1024 / 2048 / 4096 with 1 / 4 / 8 / 16 Stereo voices and Morph enabled. Performance audio is kept outside the package.
 

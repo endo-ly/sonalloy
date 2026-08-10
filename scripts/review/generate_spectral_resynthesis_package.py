@@ -403,25 +403,17 @@ def create_special_definitions(
     }
 
 
-def copy_regression_definitions(definition_dir: Path) -> dict[str, Path]:
+def regression_definition_paths() -> dict[str, Path]:
     names = {
         "oscillator": "basic-poly-synth-sine.json",
         "noise": "basic-generators-reference.json",
-        "sample": "digital-hybrid-reference.json",
+        "digital-hybrid": "digital-hybrid-reference.json",
         "granular": "granular-generator-reference.json",
         "wave-sequence": "wave-sequence-reference.json",
-        "wavetable": "digital-hybrid-reference.json",
-        "operator-modulation": "digital-hybrid-reference.json",
         "additive": "additive-generator-reference.json",
         "formant": "formant-generator-reference.json",
     }
-    result: dict[str, Path] = {}
-    for kind, name in names.items():
-        source = definition_path(name)
-        destination = definition_dir / f"regression-{kind}.json"
-        write_definition(destination, read_definition(source))
-        result[kind] = source
-    return result
+    return {kind: definition_path(name) for kind, name in names.items()}
 
 
 def render_technical_audio(
@@ -545,8 +537,8 @@ def render_technical_audio(
     )
     add("15-morph-sweep", morph_sweep)
 
-    spectral_note = TECHNICAL_AUDIO / "spectral-note.wav"
-    render_note(definitions["spectral"], 60, spectral_note, gate_seconds=0.3, tail_seconds=0.1)
+    stereo_resynthesis = TECHNICAL_AUDIO / "17-stereo-resynthesis.wav"
+    spectral_note = stereo_resynthesis
     add("spectral-note", spectral_note)
     hybrid_note = TECHNICAL_AUDIO / "19-spectral-hybrid.wav"
     render_note(definitions["hybrid"], 60, hybrid_note, gate_seconds=0.3, tail_seconds=0.2)
@@ -606,14 +598,19 @@ def render_technical_audio(
     )
     add("latency-impulse", latency_impulse)
 
-    for fft_size in (1024, 2048, 4096):
+    fft_paths: dict[str, Path] = {"2048": stereo_resynthesis}
+    for fft_size in (1024, 4096):
         definition = spectral_variant(f"spectral-fft-{fft_size}", fft_size=fft_size)
         path = TECHNICAL_AUDIO / f"fft-{fft_size}.wav"
         render_note(definition, 60, path, gate_seconds=0.3, tail_seconds=0.1)
-        add(f"fft-{fft_size}", path)
+        fft_paths[str(fft_size)] = path
+    for fft_size in (1024, 2048, 4096):
+        add(f"fft-{fft_size}", fft_paths[str(fft_size)])
 
-    block_paths: dict[str, Path] = {}
+    block_paths: dict[str, Path] = {str(BASE_BLOCK_SIZE): stereo_resynthesis}
     for block_size in BLOCK_SIZES:
+        if block_size == BASE_BLOCK_SIZE:
+            continue
         path = TECHNICAL_AUDIO / f"spectral-block-{block_size}.wav"
         render_note(
             definitions["spectral"],
@@ -624,10 +621,11 @@ def render_technical_audio(
             tail_seconds=0.1,
         )
         block_paths[str(block_size)] = path
-        add(f"spectral-block-{block_size}", path)
+    for block_size in BLOCK_SIZES:
+        add(f"spectral-block-{block_size}", block_paths[str(block_size)])
 
-    sample_rate_paths: dict[str, Path] = {}
-    for sample_rate in (44_100, SAMPLE_RATE, 96_000):
+    sample_rate_paths: dict[str, Path] = {str(SAMPLE_RATE): stereo_resynthesis}
+    for sample_rate in (44_100, 96_000):
         path = TECHNICAL_AUDIO / f"spectral-sample-rate-{sample_rate}.wav"
         render_note(
             definitions["spectral"],
@@ -638,7 +636,8 @@ def render_technical_audio(
             tail_seconds=0.1,
         )
         sample_rate_paths[str(sample_rate)] = path
-        add(f"spectral-sample-rate-{sample_rate}", path)
+    for sample_rate in (44_100, SAMPLE_RATE, 96_000):
+        add(f"spectral-sample-rate-{sample_rate}", sample_rate_paths[str(sample_rate)])
 
     fresh_a = TECHNICAL_AUDIO / "spectral-fresh-a.wav"
     fresh_b = TECHNICAL_AUDIO / "spectral-fresh-b.wav"
@@ -656,7 +655,9 @@ def render_technical_audio(
 
     assert_audio_metrics(metrics)
     block_comparisons = {
-        block_size: compare_wav(block_paths["257"], block_paths[str(block_size)])
+        block_size: compare_wav(
+            block_paths[str(BASE_BLOCK_SIZE)], block_paths[str(block_size)]
+        )
         for block_size in BLOCK_SIZES
     }
     invalid_block_comparisons = {
@@ -849,7 +850,7 @@ def main() -> None:
     special_definitions = create_special_definitions(
         definitions, REVIEW_ROOT / "assets"
     )
-    regression_definitions = copy_regression_definitions(REVIEW_ROOT / "definitions")
+    regression_definitions = regression_definition_paths()
     inspect = {name: inspect_definition(path) for name, path in definitions.items()}
     inspect.update(
         {
@@ -905,7 +906,7 @@ Machine checks performed by the generator:
 - Spectral A/B preparation, Stereo output, FFT 1024 / 2048 / 4096, Morph, and all five Spectral control parameters.
 - Spectral plus Additive, Sample, and Noise with Layer, Voice, and Global Processor chains and Modulation routes.
 - MIDI render, absolute-frame parameter changes, 16-voice rendering, one-voice stealing, supported block sizes, supported sample rates, Fresh Runtime reproducibility, and the reported latency impulse position.
-- Existing Oscillator, Noise, Sample, Granular, Wave Sequence, Wavetable, Operator Modulation, Additive, and Formant reference renders.
+- Existing Oscillator, Noise, Granular, Wave Sequence, Digital Hybrid (Sample, Wavetable, and Operator Modulation), Additive, and Formant reference renders.
 - Identity SNR / error / correlation, Freeze boundary adjacent-sample assertion, transition and spectral-flux measurements, Shift and Pitch spectrum estimates, Morph boundary measurements, and high-note near-Nyquist energy are recorded in metrics.json.
 - Release performance measurements for FFT 1024 / 2048 / 4096 with 1 / 4 / 8 / 16 Stereo voices and Morph enabled. Performance audio is kept outside the package.
 
