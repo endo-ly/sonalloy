@@ -131,9 +131,9 @@ flowchart LR
 
 ### Spectral Resynthesis
 
-- Metrics：Periodic Hannの端点、4倍Overlap-addのWindow正規化、非Bin中心周波数のInstantaneous Frequency、FFT Roundtrip、Identity ResynthesisのSNR、Position Frame選択、Freeze中のPhase連続性、Root Note Pitch、Layer Tuning、Frequency Shift、Reported Latency、Block Size 32 / 64 / 257 / 1024、Mono / Stereo Channelの保持、Prepared Bytesを検査する
-- 自動確認：DefinitionのField Rangeと`asset_b`によるMorph Parameterの登録、1024 / 2048 / 4096 FFT、Missing Asset診断、Source Metadata、Spectral Frame数、FFT / Hop / Bin数、Parameter Descriptor、Position / Freeze / Pitch / Shift、Source EndとOLA Drain、Latency、Render結果のFinite性を確認する
-- 人間の確認：元WAVとの音色・Transient・Noise Floorの一致、PositionによるSource Segment、Freeze中の音色と連続Phase、Pitch変更時のDuration維持、Shiftの周波数移動、Latency後の時間位置、Mono / Stereoの定位、FFT Size変更による品質とCPU負荷を確認する
+- Metrics：Periodic Hannの端点、4倍Overlap-addのWindow正規化、非Bin中心周波数のInstantaneous Frequency、FFT Roundtrip、Identity ResynthesisのSNR、Position Frame選択、Freeze中のPhase連続性、Root Note Pitch、Layer Tuning、Frequency Shift、A/B Normalized Timeline、Magnitude Blur、Reported Latency、Block Size 32 / 64 / 257 / 1024、Sample Rate 44.1 / 48 / 96 kHz、Mono / Stereo Channelの保持、Prepared Bytesを検査する
+- 自動確認：DefinitionのField Range、A/B Asset Preparation、Channel一致、`asset_b`によるMorph Parameterの登録、1024 / 2048 / 4096 FFT、Missing Asset診断、Source Metadata、Spectral Frame数、FFT / Hop / Bin数、Parameter Descriptor、Position / Freeze / Blur / Pitch / Shift / Morph Endpoint / Identical Source、Source EndとBlur Tail / OLA Drain、Allocation 0、Latency、Render結果のFinite性を確認する
+- 人間の確認：元WAVとの音色・Transient・Noise Floorの一致、PositionによるSource Segment、Freeze中の音色と連続Phase、Blurの時間的な拡散とTail、A/B Morphの連続性とStereo Image、Pitch変更時のDuration維持、Shiftの周波数移動、Latency後の時間位置、Mono / Stereoの定位、FFT Size変更による品質とCPU負荷を確認する
 - Process中はAsset Decode、File I/O、FFT Plan生成、Heap拡張を行わない。Sound Review用のWAVは`review-output/`へ保存し、Repositoryへ生成物を追加しない
 
 ### Essential Synthesis and Sampling

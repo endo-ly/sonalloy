@@ -15,14 +15,34 @@ use super::{ensure_finite, invalid_state, validate_generator_span};
 
 const TAU: f32 = std::f32::consts::TAU;
 const PI: f32 = std::f32::consts::PI;
+const BLUR_SILENCE_THRESHOLD: f32 = 1.0e-5;
 
+#[derive(Clone, Copy)]
+struct SpectralFramePosition {
+    lower: usize,
+    upper: usize,
+    mix: f32,
+}
+
+#[derive(Clone, Copy)]
+struct SpectralBinValues {
+    magnitude: f32,
+    frequency: f32,
+    phase: f32,
+}
+
+#[allow(clippy::struct_excessive_bools)]
 pub(crate) struct SpectralRuntime {
     source: Option<Arc<PreparedSpectralAsset>>,
+    source_b: Option<Arc<PreparedSpectralAsset>>,
+    asset_b_required: bool,
     synthesis_plan: Arc<crate::spectral::SpectralSynthesisPlan>,
     root_note: u8,
     phase_reset: bool,
     phase_accumulators: Vec<f32>,
     phase_initialized: bool,
+    blur_accumulators: Vec<f32>,
+    blur_initialized: bool,
     inverse_input: Vec<Complex<f32>>,
     inverse_output: Vec<f32>,
     inverse_scratch: Vec<Complex<f32>>,
@@ -57,6 +77,17 @@ impl SpectralRuntime {
             {
                 return Err(invalid_state());
             }
+            if let Some(source_b) = &compiled.source_b {
+                if !source_b.check_layout()
+                    || source_b.sample_rate.total_cmp(&spec.sample_rate)
+                        != std::cmp::Ordering::Equal
+                    || source_b.fft_size != fft_size
+                    || source_b.hop_size != hop_size
+                    || source_b.channels != source.channels
+                {
+                    return Err(invalid_state());
+                }
+            }
             source.channels
         } else {
             1
@@ -66,11 +97,15 @@ impl SpectralRuntime {
         let ola_capacity = fft_size.saturating_add(hop_size).max(fft_size);
         Ok(Self {
             source: compiled.source.clone(),
+            source_b: compiled.source_b.clone(),
+            asset_b_required: compiled.asset_b_path.is_some(),
             synthesis_plan: Arc::clone(&compiled.synthesis_plan),
             root_note: compiled.root_note,
             phase_reset: compiled.phase_reset,
             phase_accumulators: vec![0.0; phase_accumulator_count],
             phase_initialized: false,
+            blur_accumulators: vec![0.0; phase_accumulator_count],
+            blur_initialized: false,
             inverse_input: vec![Complex::new(0.0, 0.0); bin_count],
             inverse_output: vec![0.0; fft_size],
             inverse_scratch: vec![
@@ -89,7 +124,7 @@ impl SpectralRuntime {
     }
 
     pub(super) fn start(&mut self) -> Result<(), ProcessError> {
-        if self.source.is_none() {
+        if self.source.is_none() || (self.asset_b_required && self.source_b.is_none()) {
             return Err(invalid_state());
         }
         self.reset_note_state();
@@ -106,7 +141,7 @@ impl SpectralRuntime {
             .map_or(0, |source| source.latency_frames)
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     pub(super) fn render(
         &mut self,
         frames: usize,
@@ -143,6 +178,10 @@ impl SpectralRuntime {
         left[..frames].fill(0.0);
         right[..frames].fill(0.0);
         let source = self.source.clone().ok_or_else(invalid_state)?;
+        let source_b = self.source_b.clone();
+        if self.asset_b_required && source_b.is_none() {
+            return Err(invalid_state());
+        }
         if frames == 0 {
             return Ok(self.is_finished());
         }
@@ -150,35 +189,69 @@ impl SpectralRuntime {
             start: tuning_start,
             end: tuning_end,
         };
+        let morph = morph.unwrap_or(ValueSpan {
+            start: 0.0,
+            end: 0.0,
+        });
         let hop_size = self.synthesis_plan.hop_size();
         for offset in 0..frames {
             if self.samples_until_next_frame == 0 {
+                let position_value = position.value_at(offset, frames);
+                let freeze_value = freeze.value_at(offset, frames);
+                let blur_value = blur.value_at(offset, frames);
+                let shift_value = shift.value_at(offset, frames);
+                let tuning_value = tuning.value_at(offset, frames);
+                let morph_value = morph.value_at(offset, frames);
+                let pitch_ratio = pitch_ratio(note_number, tuning_value, self.root_note)?;
+                let mut frame_scheduled = false;
                 if !self.source_exhausted {
-                    let position_value = position.value_at(offset, frames);
-                    let freeze_value = freeze.value_at(offset, frames);
-                    let shift_value = shift.value_at(offset, frames);
-                    let tuning_value = tuning.value_at(offset, frames);
-                    let pitch_ratio = pitch_ratio(note_number, tuning_value, self.root_note)?;
-                    if let Some((lower_frame, upper_frame, frame_mix)) =
-                        self.source_frame_position(&source, position_value)
+                    let normalized_position = f64::from(position_value) + self.scan_progress;
+                    if let Some(source_position) =
+                        Self::source_frame_position(&source, normalized_position)
                     {
+                        let source_b_position = source_b.as_ref().and_then(|source_b| {
+                            Self::source_frame_position(source_b, normalized_position)
+                        });
                         self.add_spectral_frame(
                             &source,
-                            lower_frame,
-                            upper_frame,
-                            frame_mix,
+                            source_b.as_deref(),
+                            Some(source_position),
+                            source_b_position,
                             pitch_ratio,
                             shift_value,
+                            blur_value,
+                            morph_value,
                             sample_rate,
                         )?;
-                        self.last_scheduled_end = self.last_scheduled_end.max(
-                            self.output_position
-                                .saturating_add(self.synthesis_plan.fft_size()),
-                        );
+                        frame_scheduled = true;
                         self.advance_scan(&source, freeze_value);
                     } else {
                         self.source_exhausted = true;
                     }
+                }
+                if self.source_exhausted && !frame_scheduled {
+                    if self.blur_tail_active(blur_value) {
+                        self.add_spectral_frame(
+                            &source,
+                            source_b.as_deref(),
+                            None,
+                            None,
+                            pitch_ratio,
+                            shift_value,
+                            blur_value,
+                            morph_value,
+                            sample_rate,
+                        )?;
+                        frame_scheduled = true;
+                    } else {
+                        self.blur_accumulators.fill(0.0);
+                    }
+                }
+                if frame_scheduled {
+                    self.last_scheduled_end = self.last_scheduled_end.max(
+                        self.output_position
+                            .saturating_add(self.synthesis_plan.fft_size()),
+                    );
                 }
                 self.samples_until_next_frame = hop_size;
             }
@@ -202,15 +275,14 @@ impl SpectralRuntime {
     }
 
     fn source_frame_position(
-        &self,
         source: &PreparedSpectralAsset,
-        position: f32,
-    ) -> Option<(usize, usize, f32)> {
+        normalized_position: f64,
+    ) -> Option<SpectralFramePosition> {
         #[allow(clippy::cast_precision_loss)]
         let source_frames = source.source_frames as f64;
         #[allow(clippy::cast_precision_loss)]
         let hop_size = source.hop_size as f64;
-        let frame_position = (f64::from(position) + self.scan_progress) * source_frames / hop_size;
+        let frame_position = normalized_position * source_frames / hop_size;
         #[allow(clippy::cast_precision_loss)]
         let last_frame = source.spectral_frame_count.saturating_sub(1) as f64;
         if !frame_position.is_finite() || frame_position > last_frame + f64::EPSILON {
@@ -222,7 +294,7 @@ impl SpectralRuntime {
         let upper = lower.saturating_add(1).min(source.spectral_frame_count - 1);
         #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
         let mix = (clamped - lower as f64) as f32;
-        Some((lower, upper, mix))
+        Some(SpectralFramePosition { lower, upper, mix })
     }
 
     fn advance_scan(&mut self, source: &PreparedSpectralAsset, freeze: f32) {
@@ -234,62 +306,65 @@ impl SpectralRuntime {
     #[allow(clippy::too_many_arguments)]
     fn add_spectral_frame(
         &mut self,
-        source: &PreparedSpectralAsset,
-        lower_frame: usize,
-        upper_frame: usize,
-        frame_mix: f32,
+        source_a: &PreparedSpectralAsset,
+        source_b: Option<&PreparedSpectralAsset>,
+        source_a_position: Option<SpectralFramePosition>,
+        secondary_position: Option<SpectralFramePosition>,
         pitch_ratio: f32,
         shift_hz: f32,
+        blur_seconds: f32,
+        morph: f32,
         sample_rate: f64,
     ) -> Result<(), ProcessError> {
         let initialize_phase = !self.phase_initialized;
-        if initialize_phase {
-            self.initialize_phase_accumulators(source, lower_frame, upper_frame, frame_mix)?;
-        }
+        let initialize_blur = !self.blur_initialized;
+        let blur_alpha =
+            Self::blur_alpha(blur_seconds, sample_rate, self.synthesis_plan.hop_size())?;
         let bin_count = self.synthesis_plan.bin_count();
-        let nyquist = source.sample_rate * 0.5;
+        let nyquist = source_a.sample_rate * 0.5;
         let plan = Arc::clone(&self.synthesis_plan);
         #[allow(clippy::cast_precision_loss)]
         let normalization = 1.0 / plan.fft_size() as f32;
         let read_position = self.read_position;
         let capacity = self.ola_left.len();
-        for channel in 0..source.channels {
+        for channel in 0..source_a.channels {
             self.inverse_input.fill(Complex::new(0.0, 0.0));
             for bin in 0..bin_count {
-                let magnitude = Self::frame_value(
-                    source,
-                    &source.magnitudes,
+                let values = Self::spectral_bin_values(
+                    source_a,
+                    source_b,
+                    source_a_position,
+                    secondary_position,
                     channel,
                     bin,
-                    lower_frame,
-                    upper_frame,
-                    frame_mix,
+                    morph,
                 )?;
-                let instantaneous_frequency = Self::frame_value(
-                    source,
-                    &source.instantaneous_frequencies_hz,
-                    channel,
-                    bin,
-                    lower_frame,
-                    upper_frame,
-                    frame_mix,
-                )?;
-                if !magnitude.is_finite() || !instantaneous_frequency.is_finite() {
-                    return Err(super::non_finite());
-                }
                 let phase_index = channel * bin_count + bin;
+                let magnitude = if initialize_blur || blur_seconds <= 0.0 {
+                    self.blur_accumulators[phase_index] = values.magnitude;
+                    values.magnitude
+                } else {
+                    let smoothed = self
+                        .blur_accumulators
+                        .get_mut(phase_index)
+                        .ok_or_else(invalid_state)?;
+                    *smoothed += blur_alpha * (values.magnitude - *smoothed);
+                    *smoothed
+                };
                 let mut phase = self
                     .phase_accumulators
                     .get(phase_index)
                     .copied()
                     .ok_or_else(invalid_state)?;
-                if !initialize_phase && bin > 0 {
-                    let phase_frequency = f64::from(instantaneous_frequency)
-                        * f64::from(pitch_ratio)
-                        + f64::from(shift_hz);
+                if initialize_phase {
+                    phase = wrap_phase(values.phase);
+                    self.phase_accumulators[phase_index] = phase;
+                } else if bin > 0 {
+                    let phase_frequency =
+                        f64::from(values.frequency) * f64::from(pitch_ratio) + f64::from(shift_hz);
                     #[allow(clippy::cast_precision_loss)]
                     let phase_advance =
-                        f64::from(TAU) * phase_frequency * source.hop_size as f64 / sample_rate;
+                        f64::from(TAU) * phase_frequency * source_a.hop_size as f64 / sample_rate;
                     #[allow(clippy::cast_possible_truncation)]
                     {
                         phase = wrap_phase(phase + phase_advance as f32);
@@ -302,7 +377,7 @@ impl SpectralRuntime {
                 } else {
                     #[allow(clippy::cast_precision_loss)]
                     let nominal_frequency =
-                        bin as f64 * source.sample_rate / source.fft_size as f64;
+                        bin as f64 * source_a.sample_rate / source_a.fft_size as f64;
                     let destination_frequency =
                         nominal_frequency * f64::from(pitch_ratio) + f64::from(shift_hz);
                     if destination_frequency.is_finite()
@@ -310,7 +385,7 @@ impl SpectralRuntime {
                     {
                         #[allow(clippy::cast_precision_loss)]
                         let destination_bin =
-                            destination_frequency * source.fft_size as f64 / source.sample_rate;
+                            destination_frequency * source_a.fft_size as f64 / source_a.sample_rate;
                         self.add_fractional_bin(destination_bin, complex);
                     }
                 }
@@ -334,42 +409,123 @@ impl SpectralRuntime {
                 output[index] += sample * normalization * plan.synthesis_window()[offset];
             }
         }
+        self.phase_initialized = true;
+        self.blur_initialized = true;
         Ok(())
     }
 
-    fn initialize_phase_accumulators(
-        &mut self,
-        source: &PreparedSpectralAsset,
-        lower_frame: usize,
-        upper_frame: usize,
-        frame_mix: f32,
-    ) -> Result<(), ProcessError> {
-        let bin_count = self.synthesis_plan.bin_count();
-        for channel in 0..source.channels {
-            for bin in 0..bin_count {
-                let phase =
-                    Self::frame_phase(source, channel, bin, lower_frame, upper_frame, frame_mix)?;
-                let index = channel * bin_count + bin;
-                self.phase_accumulators[index] = wrap_phase(phase);
-            }
+    fn spectral_bin_values(
+        source_a: &PreparedSpectralAsset,
+        source_b: Option<&PreparedSpectralAsset>,
+        source_a_position: Option<SpectralFramePosition>,
+        secondary_position: Option<SpectralFramePosition>,
+        channel: usize,
+        bin: usize,
+        morph: f32,
+    ) -> Result<SpectralBinValues, ProcessError> {
+        #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+        let nominal_frequency = bin as f32 * source_a.sample_rate as f32 / source_a.fft_size as f32;
+        let magnitude_a = Self::frame_value(
+            source_a,
+            &source_a.magnitudes,
+            channel,
+            bin,
+            source_a_position,
+        )?;
+        let frequency_a = Self::frame_value(
+            source_a,
+            &source_a.instantaneous_frequencies_hz,
+            channel,
+            bin,
+            source_a_position,
+        )?;
+        let phase_a = Self::frame_phase(source_a, channel, bin, source_a_position)?;
+        let Some(source_b) = source_b else {
+            return Ok(SpectralBinValues {
+                magnitude: magnitude_a,
+                frequency: if source_a_position.is_some() {
+                    frequency_a
+                } else {
+                    nominal_frequency
+                },
+                phase: phase_a,
+            });
+        };
+        let magnitude_b = Self::frame_value(
+            source_b,
+            &source_b.magnitudes,
+            channel,
+            bin,
+            secondary_position,
+        )?;
+        let frequency_b = Self::frame_value(
+            source_b,
+            &source_b.instantaneous_frequencies_hz,
+            channel,
+            bin,
+            secondary_position,
+        )?;
+        let phase_b = Self::frame_phase(source_b, channel, bin, secondary_position)?;
+        if morph <= 0.0 {
+            return Ok(SpectralBinValues {
+                magnitude: magnitude_a,
+                frequency: if source_a_position.is_some() {
+                    frequency_a
+                } else {
+                    nominal_frequency
+                },
+                phase: phase_a,
+            });
         }
-        self.phase_initialized = true;
-        Ok(())
+        if morph >= 1.0 {
+            return Ok(SpectralBinValues {
+                magnitude: magnitude_b,
+                frequency: if secondary_position.is_some() {
+                    frequency_b
+                } else {
+                    nominal_frequency
+                },
+                phase: phase_b,
+            });
+        }
+        let weight_a = f64::from(1.0 - morph) * f64::from(magnitude_a) * f64::from(magnitude_a);
+        let weight_b = f64::from(morph) * f64::from(magnitude_b) * f64::from(magnitude_b);
+        let total_weight = weight_a + weight_b;
+        if !total_weight.is_finite() {
+            return Err(super::non_finite());
+        }
+        let frequency = if total_weight > f64::EPSILON {
+            #[allow(clippy::cast_possible_truncation)]
+            {
+                ((weight_a * f64::from(frequency_a) + weight_b * f64::from(frequency_b))
+                    / total_weight) as f32
+            }
+        } else {
+            nominal_frequency
+        };
+        #[allow(clippy::cast_possible_truncation)]
+        let magnitude = total_weight.sqrt() as f32;
+        Ok(SpectralBinValues {
+            magnitude,
+            frequency,
+            phase: wrap_phase(phase_a + wrap_phase(phase_b - phase_a) * morph),
+        })
     }
 
     fn frame_phase(
         source: &PreparedSpectralAsset,
         channel: usize,
         bin: usize,
-        lower_frame: usize,
-        upper_frame: usize,
-        frame_mix: f32,
+        position: Option<SpectralFramePosition>,
     ) -> Result<f32, ProcessError> {
+        let Some(position) = position else {
+            return Ok(0.0);
+        };
         let lower_index = source
-            .index(channel, lower_frame, bin)
+            .index(channel, position.lower, bin)
             .ok_or_else(invalid_state)?;
         let upper_index = source
-            .index(channel, upper_frame, bin)
+            .index(channel, position.upper, bin)
             .ok_or_else(invalid_state)?;
         let lower = source
             .phases
@@ -381,7 +537,7 @@ impl SpectralRuntime {
             .get(upper_index)
             .copied()
             .ok_or_else(invalid_state)?;
-        Ok(wrap_phase(lower + wrap_phase(upper - lower) * frame_mix))
+        Ok(wrap_phase(lower + wrap_phase(upper - lower) * position.mix))
     }
 
     fn frame_value(
@@ -389,19 +545,51 @@ impl SpectralRuntime {
         values: &[f32],
         channel: usize,
         bin: usize,
-        lower_frame: usize,
-        upper_frame: usize,
-        frame_mix: f32,
+        position: Option<SpectralFramePosition>,
     ) -> Result<f32, ProcessError> {
+        let Some(position) = position else {
+            return Ok(0.0);
+        };
         let lower_index = source
-            .index(channel, lower_frame, bin)
+            .index(channel, position.lower, bin)
             .ok_or_else(invalid_state)?;
         let upper_index = source
-            .index(channel, upper_frame, bin)
+            .index(channel, position.upper, bin)
             .ok_or_else(invalid_state)?;
         let lower = values.get(lower_index).copied().ok_or_else(invalid_state)?;
         let upper = values.get(upper_index).copied().ok_or_else(invalid_state)?;
-        Ok(lower + (upper - lower) * frame_mix)
+        Ok(lower + (upper - lower) * position.mix)
+    }
+
+    fn blur_alpha(
+        blur_seconds: f32,
+        sample_rate: f64,
+        hop_size: usize,
+    ) -> Result<f32, ProcessError> {
+        if blur_seconds <= 0.0 {
+            return Ok(1.0);
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let exponent = -(hop_size as f64) / (f64::from(blur_seconds) * sample_rate);
+        #[allow(clippy::cast_possible_truncation)]
+        let alpha = (1.0 - exponent.exp()) as f32;
+        if alpha.is_finite() {
+            Ok(alpha)
+        } else {
+            Err(super::non_finite())
+        }
+    }
+
+    fn blur_tail_active(&self, blur_seconds: f32) -> bool {
+        blur_seconds > 0.0 && !self.blur_is_silent()
+    }
+
+    fn blur_is_silent(&self) -> bool {
+        #[allow(clippy::cast_precision_loss)]
+        let threshold = BLUR_SILENCE_THRESHOLD * self.synthesis_plan.fft_size() as f32;
+        self.blur_accumulators
+            .iter()
+            .all(|value| value.abs() <= threshold)
     }
 
     fn add_fractional_bin(&mut self, destination_bin: f64, value: Complex<f32>) {
@@ -426,7 +614,9 @@ impl SpectralRuntime {
     }
 
     fn is_finished(&self) -> bool {
-        self.source_exhausted && self.output_position >= self.last_scheduled_end
+        self.source_exhausted
+            && self.blur_is_silent()
+            && self.output_position >= self.last_scheduled_end
     }
 
     fn take_ola_sample(read_position: usize, buffer: &mut [f32]) -> f32 {
@@ -447,6 +637,8 @@ impl SpectralRuntime {
         self.inverse_scratch.fill(Complex::new(0.0, 0.0));
         self.ola_left.fill(0.0);
         self.ola_right.fill(0.0);
+        self.blur_accumulators.fill(0.0);
+        self.blur_initialized = false;
         self.scan_progress = 0.0;
         self.read_position = 0;
         self.samples_until_next_frame = 0;
@@ -481,49 +673,94 @@ mod tests {
     use crate::spectral::prepare_spectral_asset;
 
     fn test_runtime(phase_reset: bool) -> SpectralRuntime {
-        let samples = (0..4_096)
+        test_runtime_with(phase_reset, 1024, false, false)
+    }
+
+    fn test_runtime_with(
+        phase_reset: bool,
+        fft_size: usize,
+        stereo: bool,
+        morph: bool,
+    ) -> SpectralRuntime {
+        let frame_count = fft_size * 4;
+        let left_samples = (0..frame_count)
             .map(|index| {
                 #[allow(clippy::cast_precision_loss)]
                 let time = index as f32 / 48_000.0;
                 (std::f32::consts::TAU * 440.0 * time).sin()
             })
             .collect::<Vec<_>>();
-        let audio = PreparedAudio {
+        let right_samples = (0..frame_count)
+            .map(|index| {
+                #[allow(clippy::cast_precision_loss)]
+                let time = index as f32 / 48_000.0;
+                (std::f32::consts::TAU * 660.0 * time).sin()
+            })
+            .collect::<Vec<_>>();
+        let make_audio = |left: Vec<f32>, right: Vec<f32>| PreparedAudio {
             sample_rate: 48_000.0,
-            frames: samples.len(),
+            frames: frame_count,
             source_metadata: SampleMetadata {
                 source_sample_rate: 48_000,
-                source_channels: 1,
+                source_channels: usize::from(stereo) + 1,
                 bits_per_sample: Some(32),
-                source_frames: samples.len(),
+                source_frames: frame_count,
             },
-            channels: PreparedAudioChannels::Mono {
-                samples: Arc::from(samples.into_boxed_slice()),
+            channels: if stereo {
+                PreparedAudioChannels::Stereo {
+                    left: Arc::from(left.into_boxed_slice()),
+                    right: Arc::from(right.into_boxed_slice()),
+                }
+            } else {
+                PreparedAudioChannels::Mono {
+                    samples: Arc::from(left.into_boxed_slice()),
+                }
             },
         };
-        let source = Arc::new(prepare_spectral_asset(&audio, 1024).expect("spectral source"));
+        let audio = make_audio(left_samples, right_samples);
+        let source = Arc::new(prepare_spectral_asset(&audio, fft_size).expect("spectral source"));
+        let source_b = morph.then(|| {
+            let left = (0..frame_count)
+                .map(|index| {
+                    #[allow(clippy::cast_precision_loss)]
+                    let time = index as f32 / 48_000.0;
+                    (std::f32::consts::TAU * 880.0 * time).sin()
+                })
+                .collect::<Vec<_>>();
+            let right = (0..frame_count)
+                .map(|index| {
+                    #[allow(clippy::cast_precision_loss)]
+                    let time = index as f32 / 48_000.0;
+                    (std::f32::consts::TAU * 550.0 * time).sin()
+                })
+                .collect::<Vec<_>>();
+            Arc::new(
+                prepare_spectral_asset(&make_audio(left, right), fft_size).expect("morph source"),
+            )
+        });
         let synthesis_plan =
-            Arc::new(crate::spectral::SpectralSynthesisPlan::new(1024).expect("spectral plan"));
+            Arc::new(crate::spectral::SpectralSynthesisPlan::new(fft_size).expect("spectral plan"));
         SpectralRuntime::new(
             &CompiledSpectral {
                 source: Some(source),
+                source_b,
                 asset_a_path: "fixture.wav".to_owned(),
                 asset_a_sha256_specified: false,
-                asset_b_path: None,
+                asset_b_path: morph.then(|| "morph.wav".to_owned()),
                 asset_b_sha256_specified: false,
                 root_note: 60,
-                fft_size: 1024,
-                hop_size: 256,
+                fft_size,
+                hop_size: fft_size / 4,
                 phase_reset,
                 parameters: CompiledSpectralParameters {
                     position: ParameterHandle::new(0),
                     freeze: ParameterHandle::new(1),
                     blur: ParameterHandle::new(2),
                     shift: ParameterHandle::new(3),
-                    morph: None,
+                    morph: morph.then(|| ParameterHandle::new(4)),
                 },
                 synthesis_plan,
-                latency_frames: 768,
+                latency_frames: fft_size - fft_size / 4,
             },
             ProcessSpec::new(48_000.0, 64, 2).expect("process spec"),
         )
@@ -531,6 +768,25 @@ mod tests {
     }
 
     fn targets(position: f32, freeze: f32, shift: f32) -> LayerGeneratorTargetSpan {
+        targets_with_blur(position, freeze, 0.0, shift)
+    }
+
+    fn targets_with_blur(
+        position: f32,
+        freeze: f32,
+        blur: f32,
+        shift: f32,
+    ) -> LayerGeneratorTargetSpan {
+        targets_with_blur_and_morph(position, freeze, blur, shift, None)
+    }
+
+    fn targets_with_blur_and_morph(
+        position: f32,
+        freeze: f32,
+        blur: f32,
+        shift: f32,
+        morph: Option<f32>,
+    ) -> LayerGeneratorTargetSpan {
         let position = ValueSpan {
             start: position,
             end: position,
@@ -542,14 +798,17 @@ mod tests {
                 end: freeze,
             },
             blur: ValueSpan {
-                start: 0.0,
-                end: 0.0,
+                start: blur,
+                end: blur,
             },
             shift: ValueSpan {
                 start: shift,
                 end: shift,
             },
-            morph: None,
+            morph: morph.map(|value| ValueSpan {
+                start: value,
+                end: value,
+            }),
         }
     }
 
@@ -568,12 +827,43 @@ mod tests {
                     0.0,
                     0.0,
                     48_000.0,
-                    targets(0.0, 0.0, 0.0),
+                    targets_with_blur(0.0, 0.0, 0.02, 0.0),
                     &mut mono,
                     &mut left,
                     &mut right,
                 )
                 .expect("spectral render");
+        });
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
+    fn spectral_sixteen_voice_stereo_morph_render_does_not_allocate() {
+        let mut runtimes = (0..16)
+            .map(|_| test_runtime_with(true, 2048, true, true))
+            .collect::<Vec<_>>();
+        for runtime in &mut runtimes {
+            runtime.start().expect("spectral runtime starts");
+        }
+        let mut mono = [0.0_f32; 64];
+        let mut left = [0.0_f32; 64];
+        let mut right = [0.0_f32; 64];
+        let allocations = crate::test_allocator::count_allocations(|| {
+            for (index, runtime) in runtimes.iter_mut().enumerate() {
+                runtime
+                    .render(
+                        64,
+                        60 + u8::try_from(index).expect("voice index fits"),
+                        0.0,
+                        0.0,
+                        48_000.0,
+                        targets_with_blur_and_morph(0.0, 0.0, 0.02, 0.0, Some(0.5)),
+                        &mut mono,
+                        &mut left,
+                        &mut right,
+                    )
+                    .expect("spectral render");
+            }
         });
         assert_eq!(allocations, 0);
     }
@@ -634,12 +924,11 @@ mod tests {
     fn fractional_position_interpolates_adjacent_frames() {
         let runtime = test_runtime(true);
         let source = runtime.source.as_ref().expect("spectral source");
-        let (lower, upper, mix) = runtime
-            .source_frame_position(source, 0.53125)
+        let position = SpectralRuntime::source_frame_position(source, 0.53125)
             .expect("position remains in source");
-        assert_eq!(lower, 8);
-        assert_eq!(upper, 9);
-        assert!((mix - 0.5).abs() <= 1.0e-6);
+        assert_eq!(position.lower, 8);
+        assert_eq!(position.upper, 9);
+        assert!((position.mix - 0.5).abs() <= 1.0e-6);
     }
 
     #[test]
@@ -679,5 +968,99 @@ mod tests {
         let phase_after = runtime.phase_accumulators[9];
         assert!((phase_after - phase_before).abs() > 1.0e-4);
         assert!(runtime.scan_progress.abs() <= f64::EPSILON);
+    }
+
+    #[test]
+    fn blur_state_smooths_a_new_source_magnitude() {
+        let mut runtime = test_runtime(true);
+        let source = runtime.source.clone().expect("spectral source");
+        let target_position = SpectralRuntime::source_frame_position(&source, 0.75)
+            .expect("blur target remains in source");
+        let target_index = source
+            .index(0, target_position.lower, 9)
+            .expect("target bin exists");
+        let target_magnitude = source.magnitudes[target_index];
+        runtime.start().expect("spectral runtime starts");
+        let mut mono = vec![0.0; 256];
+        let mut left = vec![0.0; 256];
+        let mut right = vec![0.0; 256];
+        runtime
+            .render(
+                64,
+                60,
+                0.0,
+                0.0,
+                48_000.0,
+                targets_with_blur(0.0, 0.0, 0.02, 0.0),
+                &mut mono,
+                &mut left,
+                &mut right,
+            )
+            .expect("initial spectral render");
+        let initial_magnitude = runtime.blur_accumulators[9];
+        runtime
+            .render(
+                256,
+                60,
+                0.0,
+                0.0,
+                48_000.0,
+                targets_with_blur(0.75, 1.0, 0.02, 0.0),
+                &mut mono,
+                &mut left,
+                &mut right,
+            )
+            .expect("blurred spectral render");
+        let smoothed_magnitude = runtime.blur_accumulators[9];
+        assert!((smoothed_magnitude - initial_magnitude).abs() > 1.0e-4);
+        assert!((smoothed_magnitude - target_magnitude).abs() > 1.0e-4);
+    }
+
+    #[test]
+    fn blur_tail_keeps_runtime_active_until_the_smoothed_state_decays() {
+        let mut runtime = test_runtime(true);
+        runtime.start().expect("spectral runtime starts");
+        let mut mono = vec![0.0; 128];
+        let mut left = vec![0.0; 128];
+        let mut right = vec![0.0; 128];
+        let mut guard = 0;
+        while !runtime.source_exhausted {
+            runtime
+                .render(
+                    128,
+                    60,
+                    0.0,
+                    0.0,
+                    48_000.0,
+                    targets_with_blur(0.0, 0.0, 0.02, 0.0),
+                    &mut mono,
+                    &mut left,
+                    &mut right,
+                )
+                .expect("spectral source render");
+            guard += 1;
+            assert!(guard < 100, "source did not reach its end");
+        }
+        assert!(!runtime.is_finished());
+        let mut finished = false;
+        for _ in 0..300 {
+            finished = runtime
+                .render(
+                    128,
+                    60,
+                    0.0,
+                    0.0,
+                    48_000.0,
+                    targets_with_blur(0.0, 0.0, 0.02, 0.0),
+                    &mut mono,
+                    &mut left,
+                    &mut right,
+                )
+                .expect("spectral blur tail render");
+            if finished {
+                break;
+            }
+        }
+        assert!(finished, "blur tail did not drain");
     }
 }

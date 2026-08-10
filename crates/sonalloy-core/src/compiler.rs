@@ -7,15 +7,15 @@ use crate::asset::{
     resolved_asset_path,
 };
 use crate::definition::{
-    AdditiveDefinition, AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition,
-    FilterProcessorDefinition, FormantDefinition, GeneratorDefinition, GranularDefinition,
-    InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform, ModulationCurve,
-    ModulationSourceDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
-    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, ProcessorDefinition,
-    ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition,
-    SpectralDefinition, UnisonDefinition, VoiceStealingDefinition, WaveSequenceDefinition,
-    WaveSequenceDirection, WaveSequenceDurationDefinition, WaveSequenceStepPlayback,
-    WavetableDefinition,
+    AdditiveDefinition, AdsrDefinition, AssetReference, DelayProcessorDefinition,
+    DriveProcessorDefinition, FilterProcessorDefinition, FormantDefinition, GeneratorDefinition,
+    GranularDefinition, InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform,
+    ModulationCurve, ModulationSourceDefinition, NoiseColor, OperatorAlgorithm,
+    OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition, OscillatorWaveform,
+    ProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition,
+    SampleZoneDefinition, SpectralDefinition, UnisonDefinition, VoiceStealingDefinition,
+    WaveSequenceDefinition, WaveSequenceDirection, WaveSequenceDurationDefinition,
+    WaveSequenceStepPlayback, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
@@ -311,7 +311,9 @@ impl CompiledGenerator {
             Self::WaveSequence(value) => value.steps.iter().any(|step| step.source.is_some()),
             Self::Sample(value) => value.zones.iter().any(CompiledSampleZone::is_enabled),
             Self::Wavetable(value) => value.prepared.is_some(),
-            Self::Spectral(value) => value.source.is_some(),
+            Self::Spectral(value) => {
+                value.source.is_some() && (value.asset_b_path.is_none() || value.source_b.is_some())
+            }
         }
     }
 }
@@ -772,6 +774,8 @@ pub struct CompiledSpectralParameters {
 pub struct CompiledSpectral {
     /// Prepared primary source, absent when preparation failed.
     pub source: Option<Arc<PreparedSpectralAsset>>,
+    /// Prepared optional morph source, absent when the Definition source is unavailable.
+    pub source_b: Option<Arc<PreparedSpectralAsset>>,
     /// Primary asset path as written in the Definition.
     pub asset_a_path: String,
     /// Whether the primary Definition supplied an asset hash.
@@ -2336,62 +2340,69 @@ fn compile_spectral(
 ) -> CompiledSpectral {
     let spectral_path = format!("layers[{layer_index}].generator.spectral");
     let asset_a_path = format!("{spectral_path}.asset_a.path");
-    if Path::new(&spectral.asset_a.path).is_absolute() {
-        diagnostics.push(
-            Diagnostic::warning(
-                DiagnosticCode::AssetAbsolutePath,
-                "absolute asset paths reduce Definition portability",
-            )
-            .with_path(&asset_a_path),
-        );
-    }
     let fft_size = usize::from(spectral.fft_size);
     let hop_size = spectral_hop_size(fft_size).expect("validated spectral fft size");
-    let source = match prepare_cached_spectral(
+    let source = compile_spectral_asset(
         &spectral.asset_a,
+        &asset_a_path,
+        &format!("{spectral_path}.asset_a.sha256"),
         definition_base_dir,
         sample_rate,
         fft_size,
         asset_cache,
         spectral_asset_cache,
-    ) {
-        Ok(source) => {
-            if spectral.asset_a.sha256.is_none() {
-                diagnostics.push(
-                    Diagnostic::warning(
-                        DiagnosticCode::AssetHashMissing,
-                        "asset sha256 is not specified",
-                    )
-                    .with_path(format!("{spectral_path}.asset_a.sha256")),
-                );
-            }
-            if (f64::from(source.source_metadata.source_sample_rate) - sample_rate).abs()
-                > f64::EPSILON
-            {
-                diagnostics.push(
-                    Diagnostic::warning(
-                        DiagnosticCode::AssetResampled,
-                        "asset was resampled to the process sample rate",
-                    )
-                    .with_path(&asset_a_path),
-                );
-            }
-            Some(source)
+        diagnostics,
+    );
+    let asset_b_path = spectral
+        .asset_b
+        .as_ref()
+        .map(|_| format!("{spectral_path}.asset_b.path"));
+    let source_b = spectral.asset_b.as_ref().and_then(|asset_b| {
+        let path = asset_b_path.as_deref().expect("asset B path exists");
+        let prepared = compile_spectral_asset(
+            asset_b,
+            path,
+            &format!("{spectral_path}.asset_b.sha256"),
+            definition_base_dir,
+            sample_rate,
+            fft_size,
+            asset_cache,
+            spectral_asset_cache,
+            diagnostics,
+        );
+        if let (Some(source_a), Some(source_b)) = (source.as_ref(), prepared.as_ref())
+            && source_a.channels != source_b.channels
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::SpectralPreparationFailed,
+                    "spectral asset A and asset B must have the same channel count",
+                )
+                .with_path(path)
+                .with_detail(format!(
+                    "asset A has {} channels, asset B has {} channels",
+                    source_a.channels, source_b.channels
+                )),
+            );
+            return None;
         }
-        Err(error) => {
-            report_spectral_preparation_error(&asset_a_path, error, diagnostics);
-            None
-        }
-    };
+        prepared
+    });
     let synthesis_plan = spectral_plan_cache
         .entry(fft_size)
         .or_insert_with(|| {
             Arc::new(SpectralSynthesisPlan::new(fft_size).expect("validated spectral fft size"))
         })
         .clone();
+    let available = source.is_some() && (spectral.asset_b.is_none() || source_b.is_some());
     CompiledSpectral {
-        latency_frames: source.as_ref().map_or(0, |value| value.latency_frames),
+        latency_frames: if available {
+            source.as_ref().map_or(0, |value| value.latency_frames)
+        } else {
+            0
+        },
         source,
+        source_b,
         asset_a_path: spectral.asset_a.path.clone(),
         asset_a_sha256_specified: spectral.asset_a.sha256.is_some(),
         asset_b_path: spectral.asset_b.as_ref().map(|asset| asset.path.clone()),
@@ -2415,6 +2426,68 @@ fn compile_spectral(
                 .map(|_| generator_parameter_handle(catalog, layer_id, SPECTRAL_MORPH)),
         },
         synthesis_plan,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compile_spectral_asset(
+    reference: &AssetReference,
+    asset_path: &str,
+    hash_path: &str,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    fft_size: usize,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    spectral_asset_cache: &mut HashMap<
+        SpectralAssetCacheKey,
+        Result<Arc<PreparedSpectralAsset>, SpectralPreparationError>,
+    >,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Arc<PreparedSpectralAsset>> {
+    if Path::new(&reference.path).is_absolute() {
+        diagnostics.push(
+            Diagnostic::warning(
+                DiagnosticCode::AssetAbsolutePath,
+                "absolute asset paths reduce Definition portability",
+            )
+            .with_path(asset_path),
+        );
+    }
+    match prepare_cached_spectral(
+        reference,
+        definition_base_dir,
+        sample_rate,
+        fft_size,
+        asset_cache,
+        spectral_asset_cache,
+    ) {
+        Ok(source) => {
+            if reference.sha256.is_none() {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::AssetHashMissing,
+                        "asset sha256 is not specified",
+                    )
+                    .with_path(hash_path),
+                );
+            }
+            if (f64::from(source.source_metadata.source_sample_rate) - sample_rate).abs()
+                > f64::EPSILON
+            {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::AssetResampled,
+                        "asset was resampled to the process sample rate",
+                    )
+                    .with_path(asset_path),
+                );
+            }
+            Some(source)
+        }
+        Err(error) => {
+            report_spectral_preparation_error(asset_path, error, diagnostics);
+            None
+        }
     }
 }
 

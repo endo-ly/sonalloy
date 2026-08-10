@@ -415,6 +415,13 @@ enum InspectGenerator {
         asset_a_prepared: bool,
         asset_b_path: Option<String>,
         asset_b_sha256_specified: bool,
+        asset_b_prepared: bool,
+        asset_b_source_sample_rate: Option<u32>,
+        asset_b_prepared_sample_rate: Option<f64>,
+        asset_b_source_channels: Option<usize>,
+        asset_b_source_frame_count: Option<usize>,
+        asset_b_spectral_frame_count: Option<usize>,
+        asset_b_prepared_bytes: Option<usize>,
         source_sample_rate: Option<u32>,
         prepared_sample_rate: Option<f64>,
         source_channels: Option<usize>,
@@ -2029,7 +2036,9 @@ fn inspect_spectral_generator(
     spectral: &sonalloy_core::compiler::CompiledSpectral,
 ) -> (InspectGenerator, &'static str) {
     let source = spectral.source.as_ref();
+    let source_b = spectral.source_b.as_ref();
     let metadata = source.map(|value| &value.source_metadata);
+    let metadata_b = source_b.map(|value| &value.source_metadata);
     (
         InspectGenerator::Spectral {
             output_mode: output_mode_name(generator.output_mode()),
@@ -2038,6 +2047,13 @@ fn inspect_spectral_generator(
             asset_a_prepared: source.is_some(),
             asset_b_path: spectral.asset_b_path.clone(),
             asset_b_sha256_specified: spectral.asset_b_sha256_specified,
+            asset_b_prepared: source_b.is_some(),
+            asset_b_source_sample_rate: metadata_b.map(|value| value.source_sample_rate),
+            asset_b_prepared_sample_rate: source_b.map(|value| value.sample_rate),
+            asset_b_source_channels: metadata_b.map(|value| value.source_channels),
+            asset_b_source_frame_count: metadata_b.map(|value| value.source_frames),
+            asset_b_spectral_frame_count: source_b.map(|value| value.spectral_frame_count),
+            asset_b_prepared_bytes: source_b.map(|value| value.prepared_bytes),
             source_sample_rate: metadata.map(|value| value.source_sample_rate),
             prepared_sample_rate: source.map(|value| value.sample_rate),
             source_channels: metadata.map(|value| value.source_channels),
@@ -2067,7 +2083,7 @@ fn inspect_spectral_generator(
                 .map(|handle| parameter_descriptor_id(compiled, handle)),
             phase_reset: spectral.phase_reset,
         },
-        if source.is_some() {
+        if source.is_some() && (spectral.asset_b_path.is_none() || spectral.source_b.is_some()) {
             "enabled"
         } else {
             "disabled"
@@ -2722,6 +2738,13 @@ fn print_spectral_generator(layer_id: &str, generator: &InspectGenerator) {
         asset_a_prepared,
         asset_b_path,
         asset_b_sha256_specified,
+        asset_b_prepared,
+        asset_b_source_sample_rate,
+        asset_b_prepared_sample_rate,
+        asset_b_source_channels,
+        asset_b_source_frame_count,
+        asset_b_spectral_frame_count,
+        asset_b_prepared_bytes,
         source_sample_rate,
         prepared_sample_rate,
         source_channels,
@@ -2748,27 +2771,38 @@ fn print_spectral_generator(layer_id: &str, generator: &InspectGenerator) {
     else {
         return;
     };
-    println!(
-        "layer {layer_id}: enabled {asset_a_prepared} generator spectral output_mode {output_mode}"
-    );
+    let enabled = *asset_a_prepared && (asset_b_path.is_none() || *asset_b_prepared);
+    println!("layer {layer_id}: enabled {enabled} generator spectral output_mode {output_mode}");
     println!(
         "  asset_a: {asset_a_path} sha256_specified: {asset_a_sha256_specified} prepared: {asset_a_prepared}"
     );
     println!(
-        "  asset_b: {} sha256_specified: {asset_b_sha256_specified}",
+        "  asset_b: {} sha256_specified: {asset_b_sha256_specified} prepared: {asset_b_prepared}",
         asset_b_path.as_deref().unwrap_or("none")
     );
     println!(
-        "  source: sample_rate {} prepared_sample_rate {} channels {} frames {}",
+        "  asset_a_source: sample_rate {} prepared_sample_rate {} channels {} frames {}",
         source_sample_rate.map_or_else(|| "none".to_owned(), |value| value.to_string()),
         prepared_sample_rate.map_or_else(|| "none".to_owned(), |value| value.to_string()),
         source_channels.map_or_else(|| "none".to_owned(), |value| value.to_string()),
         source_frame_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
     );
     println!(
-        "  spectral_frames: {} prepared_bytes: {}",
+        "  asset_a_spectral: frames {} prepared_bytes {}",
         spectral_frame_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
         prepared_bytes.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+    );
+    println!(
+        "  asset_b_source: sample_rate {} prepared_sample_rate {} channels {} frames {}",
+        asset_b_source_sample_rate.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        asset_b_prepared_sample_rate.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        asset_b_source_channels.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        asset_b_source_frame_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+    );
+    println!(
+        "  asset_b_spectral: frames {} prepared_bytes {}",
+        asset_b_spectral_frame_count.map_or_else(|| "none".to_owned(), |value| value.to_string()),
+        asset_b_prepared_bytes.map_or_else(|| "none".to_owned(), |value| value.to_string()),
     );
     println!(
         "  fft_size: {fft_size} hop_size: {hop_size} bin_count: {bin_count} latency_frames: {latency_frames}"

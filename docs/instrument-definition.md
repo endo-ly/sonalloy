@@ -445,7 +445,7 @@ Spectralは、WAV Assetを短時間Fourier変換したSpectrum Frameから再構
 | Field | Range | Dynamic | Meaning |
 |---|---:|---:|---|
 | `asset_a` | — | No | 解析と時間軸の基準になるMonoまたはStereo WAV Asset |
-| `asset_b` | — / `null` | No | Optionalな二つ目のAsset。指定時だけMorph ParameterをCatalogへ追加 |
+| `asset_b` | — / `null` | No | Optionalな二つ目のMonoまたはStereo Asset。`asset_a`とChannel数を一致させ、指定時だけMorph ParameterをCatalogへ追加 |
 | `root_note` | 0〜127 | No | Sourceが表すMIDI Note |
 | `fft_size` | 1024 / 2048 / 4096 | No | STFTとIFFTのサイズ |
 | `position` | 0〜1 | Yes | Source Positionの初期値 |
@@ -457,7 +457,7 @@ Spectralは、WAV Assetを短時間Fourier変換したSpectrum Frameから再構
 
 Hop Sizeは常に`fft_size / 4`です。Compile時にPeriodic Hann Window、Magnitude、Absolute Phase、Instantaneous Frequencyを準備し、4倍Overlap-add用のSynthesis Windowを正規化します。前後のZero Paddingを含むため、Reported Latencyは`fft_size - hop_size` Frameです。FFT SizeごとのPrepared Spectral DataはAsset単位で共有され、64 MiBを超える場合は準備できません。
 
-RuntimeはSynthesis HopごとにPositionからFractional Frameを求め、MagnitudeとInstantaneous Frequencyを補間します。FreezeはSource Scanだけを止め、PhaseはInstantaneous Frequencyから継続します。MIDI NoteとLayer TuningはRoot Noteに対する周波数比、`shift_hz`は加算周波数としてDestination Binへ反映し、Fractional Binの範囲外Energyは破棄します。Pitch変更はSource Scan速度を変えず、`phase_reset`がfalseのVoice再利用ではPhase Accumulatorを保持します。
+RuntimeはSynthesis Hopごとに`asset_a`をTiming MasterにしたNormalized CursorをA/Bへ個別変換し、MagnitudeとInstantaneous Frequencyを補間します。Magnitude MorphはConstant-energy寄りのWeighted Energy、Frequency MorphはMagnitude Energy Weighted、Initial Phase MorphはCircular Interpolationです。Morph後のMagnitudeへ時間方向One-pole Blurを適用し、`blur_seconds = 0`では直接Targetを使います。FreezeはSource Scanだけを止め、PhaseはInstantaneous Frequencyから継続します。MIDI NoteとLayer TuningはRoot Noteに対する周波数比、`shift_hz`は加算周波数としてDestination Binへ反映し、Fractional Binの範囲外Energyは破棄します。Pitch変更はSource Scan速度を変えず、`phase_reset`がfalseのVoice再利用ではPhase Accumulatorを保持します。
 
 Dynamic Parameterは次のCanonical IDを持ちます。`spectral_blur`だけ20ms、それ以外は10msでSmoothingされます。`spectral_morph`は`asset_b`を指定した場合だけ登録されます。
 
@@ -467,7 +467,7 @@ Dynamic Parameterは次のCanonical IDを持ちます。`spectral_blur`だけ20m
 - `layer.<layer_id>.generator.spectral_shift`（Hertz、-12000〜12000）
 - `layer.<layer_id>.generator.spectral_morph`（Normalized、0〜1、`asset_b`指定時）
 
-Primary Sourceの欠落・Hash不一致・Decode失敗ではSpectral Layerを発音候補から除外し、ほかの有効LayerのCompileとRenderを継続します。`instrument inspect`ではSource / Prepared Sample Rate、Source Metadata、Prepared Frame数、FFT / Hop / Bin数、Prepared Bytes、Latency、Parameter IDを確認できます。
+Primary SourceまたはMorph Sourceの欠落・Hash不一致・Decode失敗では、依存するSpectral Layerを発音候補から除外し、ほかの有効LayerのCompileとRenderを継続します。A/BのChannel数が異なる場合はCompile Errorです。`instrument inspect`ではAsset A/BのPrepared状態、Source / Prepared Sample Rate、Source Metadata、Prepared Frame数、FFT / Hop / Bin数、Prepared Bytes、Latency、Parameter IDを確認できます。
 
 ### Granular
 

@@ -38,11 +38,11 @@ Process仕様と実行時の仕組みを提供します。
 | `process` | Process仕様と共通のLifecycle |
 | `definition` | Instrument Definitionの読み込みとValidation |
 | `parameter` | Canonical Parameter ID、Descriptor、Normalize / Denormalize、Catalog |
-| `compiler` | DefinitionからCompiled Instrumentへの変換、Prepared Audio共有、Wavetableの帯域制限Tableと固定Operator Topology、Granular Region、Wave Sequence Step、Additive Partial、Formant ProfileとSine Table、Spectral AssetとInverse Planの準備 |
+| `compiler` | DefinitionからCompiled Instrumentへの変換、Prepared Audio共有、Wavetableの帯域制限Tableと固定Operator Topology、Granular Region、Wave Sequence Step、Additive Partial、Formant ProfileとSine Table、Spectral Asset A/BとInverse Planの準備・Channel検証 |
 | `asset` | SHA-256照合、WAV読み込み、Planar Mono / Stereo化、Sample Rate変換、Prepared Audio共有 |
 | `spectral` | Periodic HannによるSTFT、Magnitude / Phase / Instantaneous Frequencyの準備、Synthesis Window正規化、Real FFT Plan共有 |
 | `wavetable` | Wavetable AssetのFrame分割、FFT/IFFTによるBand Table生成、Guard Sample付与 |
-| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Time Stretch、Granular、Wave Sequence、Wavetable、Private Partial Bank、Additive、Formant、Operator Modulation、Processor Chain |
+| `runtime` | Shared Parameter State、Voice、Source、Route、ADSR、Layer、Generator、Sample、Time Stretch、Granular、Wave Sequence、Wavetable、Private Partial Bank、Additive、Formant、Operator Modulation、Spectral、Processor Chain |
 | `render` | Offline Render Loop、Event、Tempo Mapの供給 |
 | `diagnostics` | 画面表示に依存しないError Code、Severity、Message |
 
@@ -54,7 +54,7 @@ Additiveは外部Native依存を持たないCore Rustの専用Generatorです。
 
 FormantはAdditiveと同じPartial Bankを使うCore Rustの専用Generatorです。Compile時に1〜8個のProfile、各5本のBand、4つのDynamic Parameter Handle、4096点Sine Tableを確定し、VoiceごとにProfile補間、Gaussian Spectrum、Spectral Control Tick、Phaseを保持します。FormantのDefinitionはCLIのGenerator Variantとして公開しますが、Partial Bankは内部Primitiveに留めます。
 
-Spectral ResynthesisはCore Rustの専用Generatorです。Compile時に`asset_a`をPrepared Audioへ変換し、FFT SizeごとのPrepared Magnitude、Absolute Phase、Instantaneous Frequency、Normalized Synthesis Window、共有Inverse PlanをCompiled Instrumentへ確定します。RuntimeはVoiceごとのPhase Accumulator、Hop Scheduler、OLA Bufferを使い、Position、Freeze、Root Note Pitch、Layer Tuning、Frequency Shiftを処理します。Optionalな`asset_b`はDefinitionとInspectへ保持し、Primary Sourceは`asset_a`を使います。SpectralのFFT処理はNative DSPへ依存しません。
+Spectral ResynthesisはCore Rustの専用Generatorです。Compile時に`asset_a`と指定された`asset_b`をPrepared Audioへ変換し、FFT SizeごとのPrepared Magnitude、Absolute Phase、Instantaneous Frequency、Normalized Synthesis Window、共有Inverse PlanをCompiled Instrumentへ確定します。A/BのChannel数が一致しない場合はCompile Error、Bが指定されていて準備できない場合はSpectral LayerをUnavailableとします。RuntimeはVoiceごとのPhase Accumulator、Magnitude Blur State、Hop Scheduler、OLA Bufferを使い、Position、Freeze、Root Note Pitch、Layer Tuning、Frequency Shift、正規化タイムライン上のMorphを処理します。SpectralのFFT処理はNative DSPへ依存しません。
 
 Harmonic / Formant Hybridは既存のLayer、Voice、Global Processor ChainとModulation Tableをそのまま組み合わせます。Formant、Additive、Sample、NoiseのLayer Mix、MIDI Event、Processor Stateは新しいNative責務を追加せず、既存のCompile / Prepare / Process / Reset境界で所有します。
 

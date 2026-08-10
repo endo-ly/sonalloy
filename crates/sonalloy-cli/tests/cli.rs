@@ -504,6 +504,7 @@ fn spectral_validate_and_inspect_reports_prepared_asset() {
         .success()
         .stdout(predicates::str::contains("\"kind\":\"spectral\""))
         .stdout(predicates::str::contains("\"asset_a_prepared\":true"))
+        .stdout(predicates::str::contains("\"asset_b_prepared\":false"))
         .stdout(predicates::str::contains("\"prepared_sample_rate\":48000"))
         .stdout(predicates::str::contains("\"fft_size\":1024"))
         .stdout(predicates::str::contains("\"hop_size\":256"))

@@ -146,16 +146,18 @@ Prepared WavetableはCompile時に`Arc`でCompiled Instrumentへ保持し、全V
 
 ## Spectral Runtime
 
-SpectralのPrimary SourceはCompile時にDecode、Sample Rate変換、STFT解析まで完了し、`Arc`でCompiled Instrumentから全Voiceへ共有されます。FFT処理はCore Rustの`realfft`を使い、Native DSP境界へ渡しません。Optionalな`asset_b`はDefinitionとInspectへ保持され、RuntimeのPrimary Sourceは`asset_a`のPrepared Frameを使います。
+Spectralの`asset_a`と指定された`asset_b`はCompile時にDecode、Sample Rate変換、STFT解析まで完了し、`Arc`でCompiled Instrumentから全Voiceへ共有されます。A/BのChannel数は一致させ、Bの準備に失敗した場合はAだけへフォールバックせずLayerをUnavailableにします。FFT処理はCore Rustの`realfft`を使い、Native DSP境界へ渡しません。
 
 - Analysis WindowはPeriodic Hann、Hop SizeはFFT Sizeの4分の1です。Analysis Windowを適用したSpectrumからMagnitude、Absolute Phase、Hop間のPhase AdvanceからInstantaneous Frequencyを準備します
 - Sourceの前後へZero Paddingを置き、最初の再構成FrameからSourceの時間位置までを`fft_size - hop_size` FrameのReported Latencyとして扱います
 - Host BlockではなくSynthesis HopをSchedulerの基準にし、PositionとNatural Scanから得たFractional FrameのMagnitude / Instantaneous FrequencyをLinear Interpolationします。FreezeはSource Scan速度を`1 - freeze`へ変換し、Freeze中もPhase Accumulatorを進めます
+- A/Bは`asset_a`をTiming Masterにした共有Normalized CursorからそれぞれのFrame位置へ変換します。Magnitudeは`A²`と`B²`のWeighted Energy平方根、Instantaneous FrequencyはMagnitude Energy Weighted Interpolation、Initial PhaseはCircular InterpolationでMorphします。Absolute PhaseはNote On / Phase Reset時だけ使い、定常処理ではMorph後のInstantaneous FrequencyからPhase Accumulatorを進めます
+- Morph後のTarget Magnitudeへ、Hop単位で一度だけ算出したOne-pole係数を使う時間方向Magnitude Blurを適用します。`blur_seconds = 0`は直接Targetを使い、Source終了後は固定Silent ThresholdまでBlur Stateを減衰させてからOLA Tailを排出します
 - RuntimeはNote On時のPrepared Absolute Phaseを初期値としてPhase Accumulatorを進め、Prepared Magnitude / PhaseをComplex Spectrumへ戻し、共有Inverse FFT PlanでIFFTします。IFFT出力は`1 / fft_size`で正規化し、Normalized Synthesis Windowを掛けて固定長のOLA Bufferへ加算します。Position変更ではPhase Accumulatorを初期化しません
 - MIDI NoteとLayer TuningはRoot Noteに対する周波数比へ変換し、Source Scan速度を変更せずDestination Binを移動します。Spectral ShiftはHzの加算移動としてDestination BinへFractional Distributionし、範囲外のEnergyは破棄します
-- Mono Sourceは左右へ同じ値を出し、Stereo Sourceは左右の再構成結果を保持します。GeneratorのOutput ModeもPrepared SourceのChannel数から決定します
+- Mono Sourceは左右へ同じ値を出し、Stereo Sourceは左右のMagnitude、Phase、Instantaneous Frequency、Phase Accumulator、Blur State、OLAを独立に再構成します。Position、Freeze、Blur、Shift、MorphのTargetは共有し、GeneratorのOutput ModeはPrepared Source AのChannel数から決定します
 - Note OnではSource Scan、Hop Scheduler、OLAを先頭へ戻します。`phase_reset`が有効ならPrepared PhaseからPhase Accumulatorを初期化し、無効ならVoice再利用時のPhase Accumulatorを維持します。Instrument Resetでは全状態を初期化します
-- Natural ScanはOne-shotでSource末尾を超えると停止し、最後に生成したFrameのOLA Tailを出力してGeneratorを終了します。Freeze中はSource側の終了条件へ到達しません
+- Natural ScanはOne-shotでSource Aの末尾を超えると停止します。Blur Stateが残っている場合はゼロTargetのSynthesis Hopを追加し、Blur StateとOLA Tailの両方がSilent Thresholdへ到達してからGeneratorを終了します。Freeze中はSource側の終了条件へ到達しません
 - Runtime PrepareでInverse FFT Input、Output、Scratch、OLA Bufferを確保します。Process中はAsset Decode、File I/O、FFT Plan生成、Heap拡張を行いません
 - `spectral_position`、`spectral_freeze`、`spectral_blur`、`spectral_shift`、`spectral_morph`はParameter Spanの範囲を検証してGeneratorへ渡します。Synthesis Hop単位で変化するTargetもHost Block Sizeから独立して処理します
 

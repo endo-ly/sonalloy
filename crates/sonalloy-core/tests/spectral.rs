@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use approx::assert_relative_eq;
 use sonalloy_core::{
-    AdsrDefinition, AssetReference, CompileContext, GeneratorDefinition, GeneratorOutputMode,
-    InstrumentDefinition, ParameterUnit, ProcessEventKind, ProcessSpec, RenderRequest,
-    ScheduledEvent, SpectralDefinition, compile_instrument, render_instrument,
+    AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, GeneratorDefinition,
+    GeneratorOutputMode, InstrumentDefinition, ParameterUnit, ProcessEventKind, ProcessSpec,
+    RenderRequest, ScheduledEvent, SpectralDefinition, compile_instrument, render_instrument,
 };
 use tempfile::TempDir;
 
@@ -140,11 +140,20 @@ fn compile(
     base_dir: &Path,
     block_size: usize,
 ) -> Arc<sonalloy_core::CompiledInstrument> {
+    compile_at_sample_rate(definition, base_dir, block_size, 48_000.0)
+}
+
+fn compile_at_sample_rate(
+    definition: &InstrumentDefinition,
+    base_dir: &Path,
+    block_size: usize,
+    sample_rate: f64,
+) -> Arc<sonalloy_core::CompiledInstrument> {
     let result = compile_instrument(
         definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(sample_rate, block_size, 2).expect("valid process spec"),
         },
     );
     result.instrument.expect("Spectral Definition compiles")
@@ -166,15 +175,33 @@ fn render_note(
     source_frames: usize,
     note_number: u8,
 ) -> sonalloy_core::RenderedAudio {
+    render_note_at_sample_rate(
+        definition,
+        base_dir,
+        block_size,
+        source_frames,
+        note_number,
+        48_000.0,
+    )
+}
+
+fn render_note_at_sample_rate(
+    definition: &InstrumentDefinition,
+    base_dir: &Path,
+    block_size: usize,
+    source_frames: usize,
+    note_number: u8,
+    sample_rate: f64,
+) -> sonalloy_core::RenderedAudio {
     let fft_size = match &definition.layers[0].generator {
         GeneratorDefinition::Spectral(spectral) => usize::from(spectral.fft_size),
         _ => panic!("fixture must use Spectral"),
     };
     let latency = fft_size - fft_size / 4;
     render_instrument(
-        compile(definition, base_dir, block_size),
+        compile_at_sample_rate(definition, base_dir, block_size, sample_rate),
         RenderRequest {
-            sample_rate: 48_000.0,
+            sample_rate,
             block_size,
             duration_frames: u64::try_from(source_frames + latency * 2)
                 .expect("fixture frame count fits render request"),
@@ -675,4 +702,292 @@ fn spectral_one_shot_drains_ola_and_finishes_after_source_end() {
         .map(f32::abs)
         .fold(0.0_f32, f32::max);
     assert!(tail_peak < 1.0e-4, "OLA tail did not finish: {tail_peak}");
+}
+
+#[test]
+fn spectral_asset_b_is_prepared_and_missing_asset_b_disables_the_layer() {
+    let directory = fixture_directory();
+    let path_a = directory.path().join("asset-a.wav");
+    let path_b = directory.path().join("asset-b.wav");
+    write_pcm16_wav(&path_a, &tone_samples(16_384, 440.0));
+    write_pcm16_wav(&path_b, &tone_samples(16_384, 880.0));
+    let mut definition = definition("asset-a.wav".to_owned(), 1024);
+    let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator else {
+        panic!("fixture must use Spectral");
+    };
+    spectral.asset_b = Some(AssetReference {
+        path: "asset-b.wav".to_owned(),
+        sha256: None,
+    });
+    spectral.morph = 0.5;
+
+    let compiled = compile(&definition, directory.path(), 257);
+    let sonalloy_core::compiler::CompiledGenerator::Spectral(spectral) =
+        &compiled.layers[0].generator
+    else {
+        panic!("definition must compile to Spectral");
+    };
+    assert!(spectral.source.is_some());
+    assert!(spectral.source_b.is_some());
+    assert_eq!(spectral.source.as_ref().expect("asset A").channels, 1);
+    assert_eq!(spectral.source_b.as_ref().expect("asset B").channels, 1);
+
+    let mut unavailable = definition.clone();
+    let GeneratorDefinition::Spectral(spectral) = &mut unavailable.layers[0].generator else {
+        panic!("fixture must use Spectral");
+    };
+    spectral.asset_b = Some(AssetReference {
+        path: "missing-b.wav".to_owned(),
+        sha256: None,
+    });
+    let unavailable_compiled = compile(&unavailable, directory.path(), 257);
+    let sonalloy_core::compiler::CompiledGenerator::Spectral(spectral) =
+        &unavailable_compiled.layers[0].generator
+    else {
+        panic!("definition must compile to Spectral");
+    };
+    assert!(spectral.source.is_some());
+    assert!(spectral.source_b.is_none());
+    assert_eq!(spectral.latency_frames, 0);
+    assert_eq!(unavailable_compiled.reported_latency_frames, 0);
+    let audio = render(&unavailable, directory.path(), 257, 16_384);
+    let peak = audio
+        .channels
+        .iter()
+        .flatten()
+        .copied()
+        .map(f32::abs)
+        .fold(0.0_f32, f32::max);
+    assert!(
+        peak <= 1.0e-8,
+        "missing morph source was not disabled: {peak}"
+    );
+}
+
+#[test]
+fn spectral_mismatched_asset_b_channels_are_rejected() {
+    let directory = fixture_directory();
+    let path_a = directory.path().join("mono.wav");
+    let path_b = directory.path().join("stereo.wav");
+    let samples = tone_samples(8_192, 440.0);
+    write_pcm16_wav(&path_a, &samples);
+    write_stereo_pcm16_wav(&path_b, &samples, &tone_samples(8_192, 880.0));
+    let mut definition = definition("mono.wav".to_owned(), 1024);
+    let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator else {
+        panic!("fixture must use Spectral");
+    };
+    spectral.asset_b = Some(AssetReference {
+        path: "stereo.wav".to_owned(),
+        sha256: None,
+    });
+    spectral.morph = 0.5;
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: directory.path().to_path_buf(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    );
+    assert!(result.instrument.is_none());
+    assert!(result.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == DiagnosticCode::SpectralPreparationFailed
+            && diagnostic.path.as_deref() == Some("layers[0].generator.spectral.asset_b.path")
+    }));
+}
+
+#[test]
+fn spectral_morph_endpoints_select_the_corresponding_source() {
+    let directory = fixture_directory();
+    let path_a = directory.path().join("morph-a.wav");
+    let path_b = directory.path().join("morph-b.wav");
+    let source_frames = 32_768;
+    write_pcm16_wav(&path_a, &tone_samples(source_frames, 440.0));
+    write_pcm16_wav(&path_b, &tone_samples(source_frames, 880.0));
+    let mut definition = definition("morph-a.wav".to_owned(), 1024);
+    {
+        let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator else {
+            panic!("fixture must use Spectral");
+        };
+        spectral.asset_b = Some(AssetReference {
+            path: "morph-b.wav".to_owned(),
+            sha256: None,
+        });
+        spectral.morph = 0.0;
+    }
+    let source_audio = render(&definition, directory.path(), 257, source_frames);
+    if let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator {
+        spectral.morph = 1.0;
+    } else {
+        panic!("fixture must use Spectral");
+    }
+    let morph_audio = render(&definition, directory.path(), 257, source_frames);
+    let window_start = 768 + 4_096;
+    let source_window = &source_audio.channels[0][window_start..window_start + 8_192];
+    let morph_window = &morph_audio.channels[0][window_start..window_start + 8_192];
+    assert!(
+        frequency_energy(source_window, 48_000.0, 440.0)
+            > frequency_energy(source_window, 48_000.0, 880.0) * 4.0
+    );
+    assert!(
+        frequency_energy(morph_window, 48_000.0, 880.0)
+            > frequency_energy(morph_window, 48_000.0, 440.0) * 4.0
+    );
+}
+
+#[test]
+fn spectral_morph_of_identical_sources_is_identity_resynthesis() {
+    let directory = fixture_directory();
+    let path = directory.path().join("identical.wav");
+    let samples = source_samples(16_384);
+    write_pcm16_wav(&path, &samples);
+    let mut definition = definition("identical.wav".to_owned(), 1024);
+    let baseline = render(&definition, directory.path(), 257, samples.len());
+    let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator else {
+        panic!("fixture must use Spectral");
+    };
+    spectral.asset_b = Some(AssetReference {
+        path: "identical.wav".to_owned(),
+        sha256: None,
+    });
+    spectral.morph = 0.5;
+    let morphed = render(&definition, directory.path(), 257, samples.len());
+    let maximum_difference = baseline
+        .channels
+        .iter()
+        .flatten()
+        .zip(morphed.channels.iter().flatten())
+        .map(|(left, right)| (left - right).abs())
+        .fold(0.0_f32, f32::max);
+    assert!(
+        maximum_difference <= 1.0e-6,
+        "identical-source morph changed the signal: {maximum_difference}"
+    );
+}
+
+#[test]
+fn spectral_morph_sweep_changes_the_active_source() {
+    let directory = fixture_directory();
+    let path_a = directory.path().join("sweep-a.wav");
+    let path_b = directory.path().join("sweep-b.wav");
+    let source_frames = 65_536;
+    write_pcm16_wav(&path_a, &tone_samples(source_frames, 440.0));
+    write_pcm16_wav(&path_b, &tone_samples(source_frames, 880.0));
+    let mut definition = definition("sweep-a.wav".to_owned(), 1024);
+    let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator else {
+        panic!("fixture must use Spectral");
+    };
+    spectral.asset_b = Some(AssetReference {
+        path: "sweep-b.wav".to_owned(),
+        sha256: None,
+    });
+    let compiled = compile(&definition, directory.path(), 257);
+    let morph_handle = compiled
+        .parameter_handle("layer.body.generator.spectral_morph")
+        .expect("morph parameter");
+    let audio = render_instrument(
+        compiled,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: u64::try_from(source_frames + 2_048).expect("render frame count fits"),
+            tail_frames: 0,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 110,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 32_768,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: morph_handle,
+                    normalized: 1.0,
+                },
+            },
+        ],
+    )
+    .expect("Spectral morph sweep renders");
+    let before = &audio.channels[0][768 + 4_096..768 + 12_288];
+    let after = &audio.channels[0][768 + 40_000..768 + 48_192];
+    assert!(frequency_energy(before, 48_000.0, 440.0) > 1.0);
+    assert!(frequency_energy(after, 48_000.0, 880.0) > 1.0);
+    assert!(
+        frequency_energy(after, 48_000.0, 880.0) > frequency_energy(after, 48_000.0, 440.0) * 2.0
+    );
+}
+
+#[test]
+fn spectral_stereo_morph_keeps_left_and_right_independent() {
+    let directory = fixture_directory();
+    let path_a = directory.path().join("stereo-a.wav");
+    let path_b = directory.path().join("stereo-b.wav");
+    let source_frames = 16_384;
+    write_stereo_pcm16_wav(
+        &path_a,
+        &tone_samples(source_frames, 440.0),
+        &tone_samples(source_frames, 550.0),
+    );
+    write_stereo_pcm16_wav(
+        &path_b,
+        &tone_samples(source_frames, 880.0),
+        &tone_samples(source_frames, 660.0),
+    );
+    let mut definition = definition("stereo-a.wav".to_owned(), 1024);
+    let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator else {
+        panic!("fixture must use Spectral");
+    };
+    spectral.asset_b = Some(AssetReference {
+        path: "stereo-b.wav".to_owned(),
+        sha256: None,
+    });
+    spectral.morph = 0.5;
+    let compiled = compile(&definition, directory.path(), 257);
+    let sonalloy_core::compiler::CompiledGenerator::Spectral(spectral) =
+        &compiled.layers[0].generator
+    else {
+        panic!("definition must compile to Spectral");
+    };
+    assert_eq!(spectral.output_mode(), GeneratorOutputMode::Stereo);
+    assert_eq!(spectral.source_b.as_ref().expect("asset B").channels, 2);
+    let audio = render(&definition, directory.path(), 257, source_frames);
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    let channel_difference = audio.channels[0]
+        .iter()
+        .zip(&audio.channels[1])
+        .map(|(left, right)| (left - right).abs())
+        .fold(0.0_f32, f32::max);
+    assert!(channel_difference > 0.01);
+}
+
+#[test]
+fn spectral_resynthesis_remains_finite_at_supported_sample_rates() {
+    let directory = fixture_directory();
+    let path = directory.path().join("sample-rates.wav");
+    let samples = tone_samples(24_000, 440.0);
+    write_pcm16_wav(&path, &samples);
+    let definition = definition("sample-rates.wav".to_owned(), 1024);
+    for sample_rate in [44_100.0, 48_000.0, 96_000.0] {
+        let audio = render_note_at_sample_rate(
+            &definition,
+            directory.path(),
+            257,
+            samples.len(),
+            60,
+            sample_rate,
+        );
+        let window_start = 768 + 4_096;
+        let window = &audio.channels[0][window_start..window_start + 8_192];
+        assert!(window.iter().all(|sample| sample.is_finite()));
+        assert!(frequency_energy(window, sample_rate, 440.0) > 1.0);
+    }
 }

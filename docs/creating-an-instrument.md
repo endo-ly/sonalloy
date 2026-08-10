@@ -318,7 +318,7 @@ Wavetableは、周期波形をFrame単位で連結したWAVを用意して、`fr
 
 ### Spectral / Resynthesisを使う
 
-録音や生成したWAVをSpectrum経由で元に近く再構成する場合は、`spectral` Generatorへ`asset_a`を指定します。`asset_a`のMono / Stereo Channel、Source Metadata、時間軸を保ったままCompile時にSTFTを準備します。
+録音や生成したWAVをSpectrum経由で元に近く再構成する場合は、`spectral` Generatorへ`asset_a`を指定します。`asset_a`のMono / Stereo Channel、Source Metadata、時間軸を保ったままCompile時にSTFTを準備します。A/B Morphを使う場合は、同じChannel数のWAVを`asset_b`へ指定します。
 
 ```json
 "generator": {
@@ -340,7 +340,7 @@ Wavetableは、周期波形をFrame単位で連結したWAVを用意して、`fr
 }
 ```
 
-`fft_size`は1024、2048、4096から選びます。Hop SizeはFFT Sizeの4分の1、Reported Latencyは`fft_size - hop_size`です。`position`はSourceの開始位置へNatural Scanを加え、`freeze`はScan速度を下げて1でFrameを固定します。MIDI NoteとLayer TuningはRoot NoteからのPitch比として適用され、Source Durationは変わりません。`shift_hz`は各Spectral成分をHz単位で移動します。`asset_b`を指定した場合だけMorph ParameterがCatalogへ追加されます。Identity Resynthesisを確認するときは、`position`、`freeze`、`blur_seconds`、`shift_hz`、`morph`を0にして、元WAVとRender結果をLatency後で比較します。
+`fft_size`は1024、2048、4096から選びます。Hop SizeはFFT Sizeの4分の1、Reported Latencyは`fft_size - hop_size`です。`position`はSourceの開始位置へNatural Scanを加え、`freeze`はScan速度を下げて1でFrameを固定します。`blur_seconds`は時間方向Magnitude Smoothing、`morph`はA/Bの正規化タイムライン上のMorph、MIDI NoteとLayer TuningはRoot NoteからのPitch比として適用され、Source Durationは変わりません。`shift_hz`は各Spectral成分をHz単位で移動します。`asset_b`を指定した場合だけMorph ParameterがCatalogへ追加され、Bの準備失敗時はAだけへフォールバックせずLayerが無効になります。Identity Resynthesisを確認するときは、`position`、`freeze`、`blur_seconds`、`shift_hz`、`morph`を0にして、元WAVとRender結果をLatency後で比較します。
 
 ```bash
 sonalloy instrument validate my-instrument.json --json
@@ -350,7 +350,7 @@ sonalloy render note my-instrument.json \
   --block-size 257 --output out/my-instrument/spectral.wav
 ```
 
-`inspect --json`ではPrepared状態、Source Channel、Spectral Frame数、Prepared Bytes、FFT / Hop / Bin数、Latency、4つの基本Parameter IDを確認します。`asset_b`を指定した場合はMorph Parameter IDも表示されます。Asset Aが見つからない、Hashが一致しない、Decodeできない場合はSpectral Layerだけが無効になります。
+`inspect --json`ではAsset A/BのPrepared状態、Source Channel、Spectral Frame数、Prepared Bytes、FFT / Hop / Bin数、Latency、5つのParameter IDを確認します。Asset Aまたは指定Bが見つからない、Hashが一致しない、Decodeできない場合はSpectral Layerだけが無効になります。A/BのChannel数が異なる場合はCompile Errorです。
 
 ### Operator Modulationを使う
 
