@@ -7,14 +7,15 @@ use crate::asset::{
     resolved_asset_path,
 };
 use crate::definition::{
-    AdditiveDefinition, AdsrDefinition, DelayProcessorDefinition, DriveProcessorDefinition,
-    FilterProcessorDefinition, FormantDefinition, GeneratorDefinition, GranularDefinition,
-    InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform, ModulationCurve,
-    ModulationSourceDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
-    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, ProcessorDefinition,
-    ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition,
-    UnisonDefinition, VoiceStealingDefinition, WaveSequenceDefinition, WaveSequenceDirection,
-    WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
+    AdditiveDefinition, AdsrDefinition, AssetReference, DelayProcessorDefinition,
+    DriveProcessorDefinition, FilterProcessorDefinition, FormantDefinition, GeneratorDefinition,
+    GranularDefinition, InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform,
+    ModulationCurve, ModulationSourceDefinition, NoiseColor, OperatorAlgorithm,
+    OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition, OscillatorWaveform,
+    ProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition,
+    SampleZoneDefinition, SpectralDefinition, UnisonDefinition, VoiceStealingDefinition,
+    WaveSequenceDefinition, WaveSequenceDirection, WaveSequenceDurationDefinition,
+    WaveSequenceStepPlayback, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
@@ -22,13 +23,18 @@ use crate::generator_parameters::{
     FORMANT_SHIFT, FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY,
     GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_GRAIN_POOL_LIMIT,
     GRANULAR_POSITION, GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK,
-    PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE,
+    PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO, PULSE_WIDTH, SPECTRAL_BLUR,
+    SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE,
     UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION, effective_max_frequency,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
 use crate::runtime::InstrumentRuntime;
 use crate::runtime::generator::partial_bank::build_sine_table;
+use crate::spectral::{
+    PreparedSpectralAsset, SpectralPreparationError, SpectralSynthesisPlan, prepare_spectral_asset,
+    spectral_hop_size,
+};
 use crate::wavetable::{
     WavetablePreparation, WavetablePreparationError, WavetableWarning, prepare_wavetable_asset,
 };
@@ -226,6 +232,8 @@ pub enum CompiledGenerator {
     WaveSequence(CompiledWaveSequence),
     /// Prepared band-limited wavetable generator.
     Wavetable(CompiledWavetable),
+    /// Prepared spectral resynthesis generator.
+    Spectral(CompiledSpectral),
     /// Fixed-topology four-operator modulation generator.
     OperatorModulation(CompiledOperatorModulation),
 }
@@ -262,6 +270,7 @@ impl CompiledGenerator {
                     GeneratorOutputMode::Stereo
                 }
             }
+            Self::Spectral(value) => value.output_mode(),
             Self::OperatorModulation(value) => {
                 if value.unison.position_distribution.len() == 1 {
                     GeneratorOutputMode::Mono
@@ -279,6 +288,7 @@ impl CompiledGenerator {
             Self::Sample(value) => value
                 .stretch_latency
                 .map_or(0, |latency| latency.output_frames),
+            Self::Spectral(value) => value.latency_frames,
             Self::Oscillator(_)
             | Self::Noise(_)
             | Self::Additive(_)
@@ -301,6 +311,9 @@ impl CompiledGenerator {
             Self::WaveSequence(value) => value.steps.iter().any(|step| step.source.is_some()),
             Self::Sample(value) => value.zones.iter().any(CompiledSampleZone::is_enabled),
             Self::Wavetable(value) => value.prepared.is_some(),
+            Self::Spectral(value) => {
+                value.source.is_some() && (value.asset_b_path.is_none() || value.source_b.is_some())
+            }
         }
     }
 }
@@ -741,6 +754,63 @@ pub struct CompiledWavetable {
     pub asset_sha256_specified: bool,
 }
 
+/// Dynamic parameter handles owned by a Spectral Generator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledSpectralParameters {
+    /// Normalized source position handle.
+    pub position: ParameterHandle,
+    /// Source scan freeze handle.
+    pub freeze: ParameterHandle,
+    /// Temporal magnitude blur handle.
+    pub blur: ParameterHandle,
+    /// Frequency translation handle.
+    pub shift: ParameterHandle,
+    /// Optional A/B morph handle.
+    pub morph: Option<ParameterHandle>,
+}
+
+/// Compiled spectral source and fixed resynthesis plan.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledSpectral {
+    /// Prepared primary source, absent when preparation failed.
+    pub source: Option<Arc<PreparedSpectralAsset>>,
+    /// Prepared optional morph source, absent when the Definition source is unavailable.
+    pub source_b: Option<Arc<PreparedSpectralAsset>>,
+    /// Primary asset path as written in the Definition.
+    pub asset_a_path: String,
+    /// Whether the primary Definition supplied an asset hash.
+    pub asset_a_sha256_specified: bool,
+    /// Optional second asset path retained for inspection.
+    pub asset_b_path: Option<String>,
+    /// Whether the second Definition supplied an asset hash.
+    pub asset_b_sha256_specified: bool,
+    /// MIDI note represented by the primary source.
+    pub root_note: u8,
+    /// FFT size used for the prepared source.
+    pub fft_size: usize,
+    /// Fixed hop size used by the prepared source.
+    pub hop_size: usize,
+    /// Whether Note On restores the prepared phase.
+    pub phase_reset: bool,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledSpectralParameters,
+    /// Shared inverse FFT plan and synthesis window.
+    pub(crate) synthesis_plan: Arc<SpectralSynthesisPlan>,
+    /// Reported algorithmic latency.
+    pub latency_frames: usize,
+}
+
+impl CompiledSpectral {
+    /// Return the prepared source channel layout, or mono while unavailable.
+    #[must_use]
+    pub fn output_mode(&self) -> GeneratorOutputMode {
+        match self.source.as_ref().map(|source| source.channels) {
+            Some(2) => GeneratorOutputMode::Stereo,
+            _ => GeneratorOutputMode::Mono,
+        }
+    }
+}
+
 /// Compiled operator connection topology.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CompiledOperatorTopology {
@@ -1148,6 +1218,8 @@ pub fn compile_instrument(
     let parameter_catalog = ParameterCatalog::from_definition(definition);
     let mut asset_cache = HashMap::new();
     let mut wavetable_asset_cache = HashMap::new();
+    let mut spectral_asset_cache = HashMap::new();
+    let mut spectral_plan_cache = HashMap::new();
 
     let performance = CompiledPerformance {
         polyphony: usize::from(definition.performance.polyphony),
@@ -1173,6 +1245,8 @@ pub fn compile_instrument(
                 context.process_spec.max_block_size,
                 &mut asset_cache,
                 &mut wavetable_asset_cache,
+                &mut spectral_asset_cache,
+                &mut spectral_plan_cache,
                 &mut diagnostics,
             );
             let envelope_path = format!("layers[{definition_index}].envelope");
@@ -1839,6 +1913,11 @@ fn compile_generator(
         WavetableAssetCacheKey,
         Result<WavetablePreparation, WavetablePreparationError>,
     >,
+    spectral_asset_cache: &mut HashMap<
+        SpectralAssetCacheKey,
+        Result<Arc<PreparedSpectralAsset>, SpectralPreparationError>,
+    >,
+    spectral_plan_cache: &mut HashMap<usize, Arc<SpectralSynthesisPlan>>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CompiledGenerator {
     match generator {
@@ -1961,6 +2040,18 @@ fn compile_generator(
                 diagnostics,
             ))
         }
+        GeneratorDefinition::Spectral(spectral) => CompiledGenerator::Spectral(compile_spectral(
+            spectral,
+            layer_index,
+            layer_id,
+            catalog,
+            definition_base_dir,
+            sample_rate,
+            asset_cache,
+            spectral_asset_cache,
+            spectral_plan_cache,
+            diagnostics,
+        )),
         GeneratorDefinition::OperatorModulation(operator_modulation) => {
             CompiledGenerator::OperatorModulation(compile_operator_modulation(
                 operator_modulation,
@@ -2080,6 +2171,14 @@ struct WavetableAssetCacheKey {
     frame_length: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct SpectralAssetCacheKey {
+    path: PathBuf,
+    sha256: Option<String>,
+    sample_rate_bits: u64,
+    fft_size: usize,
+}
+
 fn prepare_cached_asset(
     reference: &crate::definition::AssetReference,
     definition_base_dir: &Path,
@@ -2128,6 +2227,38 @@ fn prepare_cached_wavetable(
     }
     let result = prepare_wavetable_asset(reference, definition_base_dir, frame_length);
     asset_cache.insert(key, result.clone());
+    result
+}
+
+fn prepare_cached_spectral(
+    reference: &crate::definition::AssetReference,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    fft_size: usize,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    spectral_cache: &mut HashMap<
+        SpectralAssetCacheKey,
+        Result<Arc<PreparedSpectralAsset>, SpectralPreparationError>,
+    >,
+) -> Result<Arc<PreparedSpectralAsset>, SpectralPreparationError> {
+    let resolved = resolved_asset_path(definition_base_dir, &reference.path);
+    let path = std::fs::canonicalize(&resolved).unwrap_or(resolved);
+    let key = SpectralAssetCacheKey {
+        path,
+        sha256: reference
+            .sha256
+            .as_ref()
+            .map(|value| value.to_ascii_lowercase()),
+        sample_rate_bits: sample_rate.to_bits(),
+        fft_size,
+    };
+    if let Some(result) = spectral_cache.get(&key) {
+        return result.clone();
+    }
+    let result = prepare_cached_asset(reference, definition_base_dir, sample_rate, asset_cache)
+        .map_err(SpectralPreparationError::Asset)
+        .and_then(|prepared| prepare_spectral_asset(&prepared.audio, fft_size).map(Arc::new));
+    spectral_cache.insert(key, result.clone());
     result
 }
 
@@ -2189,6 +2320,223 @@ fn compile_wavetable(
         asset_path: wavetable.asset.path.clone(),
         asset_sha256_specified: wavetable.asset.sha256.is_some(),
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compile_spectral(
+    spectral: &SpectralDefinition,
+    layer_index: usize,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    spectral_asset_cache: &mut HashMap<
+        SpectralAssetCacheKey,
+        Result<Arc<PreparedSpectralAsset>, SpectralPreparationError>,
+    >,
+    spectral_plan_cache: &mut HashMap<usize, Arc<SpectralSynthesisPlan>>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledSpectral {
+    let spectral_path = format!("layers[{layer_index}].generator.spectral");
+    let asset_a_path = format!("{spectral_path}.asset_a.path");
+    let fft_size = usize::from(spectral.fft_size);
+    let hop_size = spectral_hop_size(fft_size).expect("validated spectral fft size");
+    let source = compile_spectral_asset(
+        &spectral.asset_a,
+        &asset_a_path,
+        &format!("{spectral_path}.asset_a.sha256"),
+        definition_base_dir,
+        sample_rate,
+        fft_size,
+        asset_cache,
+        spectral_asset_cache,
+        diagnostics,
+    );
+    let asset_b_path = spectral
+        .asset_b
+        .as_ref()
+        .map(|_| format!("{spectral_path}.asset_b.path"));
+    let source_b = spectral.asset_b.as_ref().and_then(|asset_b| {
+        let path = asset_b_path.as_deref().expect("asset B path exists");
+        let prepared = compile_spectral_asset(
+            asset_b,
+            path,
+            &format!("{spectral_path}.asset_b.sha256"),
+            definition_base_dir,
+            sample_rate,
+            fft_size,
+            asset_cache,
+            spectral_asset_cache,
+            diagnostics,
+        );
+        if let (Some(source_a), Some(source_b)) = (source.as_ref(), prepared.as_ref())
+            && source_a.channels != source_b.channels
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::SpectralPreparationFailed,
+                    "spectral asset A and asset B must have the same channel count",
+                )
+                .with_path(path)
+                .with_detail(format!(
+                    "asset A has {} channels, asset B has {} channels",
+                    source_a.channels, source_b.channels
+                )),
+            );
+            return None;
+        }
+        prepared
+    });
+    let synthesis_plan = spectral_plan_cache
+        .entry(fft_size)
+        .or_insert_with(|| {
+            Arc::new(SpectralSynthesisPlan::new(fft_size).expect("validated spectral fft size"))
+        })
+        .clone();
+    let available = source.is_some() && (spectral.asset_b.is_none() || source_b.is_some());
+    CompiledSpectral {
+        latency_frames: if available {
+            source.as_ref().map_or(0, |value| value.latency_frames)
+        } else {
+            0
+        },
+        source,
+        source_b,
+        asset_a_path: spectral.asset_a.path.clone(),
+        asset_a_sha256_specified: spectral.asset_a.sha256.is_some(),
+        asset_b_path: spectral.asset_b.as_ref().map(|asset| asset.path.clone()),
+        asset_b_sha256_specified: spectral
+            .asset_b
+            .as_ref()
+            .and_then(|asset| asset.sha256.as_ref())
+            .is_some(),
+        root_note: spectral.root_note,
+        fft_size,
+        hop_size,
+        phase_reset: spectral.phase_reset,
+        parameters: CompiledSpectralParameters {
+            position: generator_parameter_handle(catalog, layer_id, SPECTRAL_POSITION),
+            freeze: generator_parameter_handle(catalog, layer_id, SPECTRAL_FREEZE),
+            blur: generator_parameter_handle(catalog, layer_id, SPECTRAL_BLUR),
+            shift: generator_parameter_handle(catalog, layer_id, SPECTRAL_SHIFT),
+            morph: spectral
+                .asset_b
+                .as_ref()
+                .map(|_| generator_parameter_handle(catalog, layer_id, SPECTRAL_MORPH)),
+        },
+        synthesis_plan,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compile_spectral_asset(
+    reference: &AssetReference,
+    asset_path: &str,
+    hash_path: &str,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    fft_size: usize,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    spectral_asset_cache: &mut HashMap<
+        SpectralAssetCacheKey,
+        Result<Arc<PreparedSpectralAsset>, SpectralPreparationError>,
+    >,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Arc<PreparedSpectralAsset>> {
+    if Path::new(&reference.path).is_absolute() {
+        diagnostics.push(
+            Diagnostic::warning(
+                DiagnosticCode::AssetAbsolutePath,
+                "absolute asset paths reduce Definition portability",
+            )
+            .with_path(asset_path),
+        );
+    }
+    match prepare_cached_spectral(
+        reference,
+        definition_base_dir,
+        sample_rate,
+        fft_size,
+        asset_cache,
+        spectral_asset_cache,
+    ) {
+        Ok(source) => {
+            if reference.sha256.is_none() {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::AssetHashMissing,
+                        "asset sha256 is not specified",
+                    )
+                    .with_path(hash_path),
+                );
+            }
+            if (f64::from(source.source_metadata.source_sample_rate) - sample_rate).abs()
+                > f64::EPSILON
+            {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::AssetResampled,
+                        "asset was resampled to the process sample rate",
+                    )
+                    .with_path(asset_path),
+                );
+            }
+            Some(source)
+        }
+        Err(error) => {
+            report_spectral_preparation_error(asset_path, error, diagnostics);
+            None
+        }
+    }
+}
+
+fn report_spectral_preparation_error(
+    asset_path: &str,
+    error: SpectralPreparationError,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let (severity, code, message, detail) = match error {
+        SpectralPreparationError::Asset(error) => {
+            let (code, message) = asset_diagnostic(&error);
+            (
+                DiagnosticSeverity::Warning,
+                code,
+                message.to_owned(),
+                Some(error.to_string()),
+            )
+        }
+        SpectralPreparationError::InvalidFftSize(value) => (
+            DiagnosticSeverity::Error,
+            DiagnosticCode::SpectralPreparationFailed,
+            "spectral FFT size is invalid".to_owned(),
+            Some(format!("FFT size {value} is not supported")),
+        ),
+        SpectralPreparationError::Layout(detail)
+        | SpectralPreparationError::Preparation(detail) => (
+            DiagnosticSeverity::Error,
+            DiagnosticCode::SpectralPreparationFailed,
+            "spectral preparation failed".to_owned(),
+            Some(detail),
+        ),
+        SpectralPreparationError::ResourceLimit(bytes) => (
+            DiagnosticSeverity::Error,
+            DiagnosticCode::GeneratorResourceLimitExceeded,
+            "prepared spectral asset exceeds the resource limit".to_owned(),
+            Some(format!("prepared spectral data requires {bytes} bytes")),
+        ),
+    };
+    let diagnostic = if severity == DiagnosticSeverity::Warning {
+        Diagnostic::warning(code, message)
+    } else {
+        Diagnostic::error(code, message)
+    }
+    .with_path(asset_path);
+    diagnostics.push(if let Some(detail) = detail {
+        diagnostic.with_detail(detail)
+    } else {
+        diagnostic
+    });
 }
 
 fn compile_operator_modulation(

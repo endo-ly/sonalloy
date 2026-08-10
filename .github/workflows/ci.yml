@@ -22,6 +22,10 @@ jobs:
         run: cargo build --workspace --release
       - name: CLI smoke render
         run: cargo run -p sonalloy-cli -- dev render-sine --frequency 440 --duration 0.01 --sample-rate 48000 --block-size 257 --output ci-sine.wav
+      - name: Spectral reference smoke
+        run: cargo run -p sonalloy-cli -- instrument validate examples/instruments/spectral-generator-reference.json --json
+      - name: Spectral hybrid MIDI smoke
+        run: cargo run -p sonalloy-cli -- render midi examples/instruments/spectral-hybrid-reference.json testdata/midi/basic-poly-synth-phrase.mid --sample-rate 48000 --block-size 257 --tail 0.1 --output ci-spectral-hybrid.wav --json
 
   linux:
     runs-on: ubuntu-latest
@@ -42,6 +46,10 @@ jobs:
         run: cargo build --workspace --release
       - name: CLI smoke render
         run: cargo run -p sonalloy-cli -- dev render-sine --frequency 440 --duration 0.01 --sample-rate 48000 --block-size 257 --output ci-sine.wav
+      - name: Spectral reference smoke
+        run: cargo run -p sonalloy-cli -- instrument validate examples/instruments/spectral-generator-reference.json --json
+      - name: Spectral hybrid MIDI smoke
+        run: cargo run -p sonalloy-cli -- render midi examples/instruments/spectral-hybrid-reference.json testdata/midi/basic-poly-synth-phrase.mid --sample-rate 48000 --block-size 257 --tail 0.1 --output ci-spectral-hybrid.wav --json
 
   linux-native-fault-injection:
     runs-on: ubuntu-latest

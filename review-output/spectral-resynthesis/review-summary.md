@@ -1,0 +1,22 @@
+# Spectral resynthesis review package
+
+The package contains the two reference Definitions, their source assets, inspect output, MIDI and absolute-frame event fixtures, technical renders, regression renders for the existing Generator families, and machine measurements.
+
+Machine checks performed by the generator:
+
+- Spectral A/B preparation, Stereo output, FFT 1024 / 2048 / 4096, Morph, and all five Spectral control parameters.
+- Spectral plus Additive, Sample, and Noise with Layer, Voice, and Global Processor chains and Modulation routes.
+- MIDI render, absolute-frame parameter changes, 16-voice rendering, one-voice stealing, supported block sizes, supported sample rates, Fresh Runtime reproducibility, and the reported latency impulse position.
+- Existing Oscillator, Noise, Granular, Wave Sequence, Digital Hybrid (Sample, Wavetable, and Operator Modulation), Additive, and Formant reference renders.
+- Identity SNR / error / correlation, Freeze boundary adjacent-sample assertion, transition and spectral-flux measurements, Shift and Pitch spectrum estimates, Morph boundary measurements, and high-note near-Nyquist energy are recorded in metrics.json.
+- Release performance measurements for FFT 1024 / 2048 / 4096 with 1 / 4 / 8 / 16 Stereo voices and Morph enabled. Performance audio is kept outside the package.
+
+Human listening checklist:
+
+- [ ] Spectral note has a stable, clearly differentiated stereo image.
+- [ ] Position and Freeze remain stable when held.
+- [ ] Blur changes temporal definition without clicks.
+- [ ] Shift changes pitch without changing scan duration.
+- [ ] Morph moves smoothly between A and B.
+- [ ] Hybrid layers remain distinguishable and the processor chain remains controlled.
+- [ ] MIDI timing, velocity, and external controls are musically usable.

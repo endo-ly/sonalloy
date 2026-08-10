@@ -11,6 +11,7 @@ sonalloy-dsp-sys = { path = "../sonalloy-dsp-sys" }
 rubato = "4.0.0"
 symphonia = { version = "0.6.0", default-features = false, features = ["pcm", "wav"] }
 thiserror = "2.0.19"
+realfft = "3.5.0"
 rustfft = "6.4.1"
 
 [dev-dependencies]

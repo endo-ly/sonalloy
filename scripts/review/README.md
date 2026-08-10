@@ -20,6 +20,8 @@
 | `common.py` | Review Package生成で共有するCLI実行、入力出力、Render、WAV測定補助を定義する |
 | `generate_essential_synthesis_sampling_package.py` | Sample Zone、Velocity Layer、Round Robin、Forward / Reverse Playback、Loop / Crossfade、Release Trigger、Slice、HybridのDefinition、Event、Synthetic Asset、WAV、MetricsをReview Packageへまとめる |
 | `generate_digital_synthesis_package.py` | Wavetable、4 Operator Modulation、Complex Oscillator、Digital HybridのAsset、Definition、Event、WAV、Inspect、Metricsを一つのReview Packageへまとめる |
+| `generate_spectral_reference_assets.py` | Spectral Reference Instrumentが使用する決定論的Stereo sourceとLatency impulse fixtureを生成する |
+| `generate_spectral_resynthesis_package.py` | Spectral Generator、Spectral Hybrid、既存Generator回帰、MIDI、Processor、Modulation、Block Size、Sample Rate、Fresh Runtime、Release PerformanceのDefinition、Event、Asset、WAV、Inspect、MetricsをReview Packageへまとめる |
 | `manifest.py` | Basic Poly Synthの固定Render条件と共通Render処理を定義する |
 | `measure_wav.py` | WAVのMetadata、Finite性、Peak、RMS、DC、周波数、境界差分を測定する |
 
@@ -38,8 +40,10 @@ python scripts/review/generate_wave_sequence_package.py
 python scripts/review/generate_harmonic_formant_package.py
 python scripts/review/generate_essential_synthesis_sampling_package.py
 py -3 scripts/review/generate_digital_synthesis_package.py
+python3 scripts/review/generate_spectral_reference_assets.py
+python3 scripts/review/generate_spectral_resynthesis_package.py
 ```
 
-生成先は`review-output/basic-poly-synth/`、`review-output/metallic-hybrid/`、`review-output/dynamic-parameters/`、`review-output/processor-chain/`、`review-output/basic-generators/`、`review-output/granular-generator/`、`review-output/wave-sequence/`、`review-output/harmonic-formant-synthesis/`、`review-output/essential-synthesis-sampling/`、`review-output/digital-synthesis/`です。Digital Synthesis PackageにはComplex Oscillatorの成果物も含まれ、Package内のDefinitionは同梱された入力を参照するため、コピー後の内容だけでも再確認できます。Wave Sequence Packageも同梱Assetを参照し、SequenceとHybridの検証を単独で再現できます。Harmonic / Formant PackageはAdditive、Formant、HybridのDefinition、Event、MIDI、Asset、Release Performance Fixtureを同梱し、各Generator、Processor、Block Size、Sample Rate、Fresh Runtime、既存Reference回帰を同じMetricsへ記録します。
+生成先は`review-output/basic-poly-synth/`、`review-output/metallic-hybrid/`、`review-output/dynamic-parameters/`、`review-output/processor-chain/`、`review-output/basic-generators/`、`review-output/granular-generator/`、`review-output/wave-sequence/`、`review-output/harmonic-formant-synthesis/`、`review-output/essential-synthesis-sampling/`、`review-output/digital-synthesis/`、`review-output/spectral-resynthesis/`です。Digital Synthesis PackageにはComplex Oscillatorの成果物も含まれ、Package内のDefinitionは同梱された入力を参照するため、コピー後の内容だけでも再確認できます。Wave Sequence Packageも同梱Assetを参照し、SequenceとHybridの検証を単独で再現できます。Harmonic / Formant PackageはAdditive、Formant、HybridのDefinition、Event、MIDI、Asset、Release Performance Fixtureを同梱し、各Generator、Processor、Block Size、Sample Rate、Fresh Runtime、既存Reference回帰を同じMetricsへ記録します。Spectral Resynthesis PackageはStereo A/B source、決定論的Latency impulse、Spectral Hybrid、全Spectral Parameter、既存Generator回帰、MIDI、Identity / Freeze / Blur / Shift / Pitch / Morph / LatencyのMetrics、Release Performance Metricsを同梱します。Performance測定の音声はPackageへ保存しません。
 
 Metallic Hybridの生成時は、`instrument inspect --json`のSample Layer状態、許容されたAsset Warning、DefinitionとSource AssetのSHA-256一致、Sample-only出力の非無音性、Hybrid MixとOscillator-onlyの差分も自動検査します。検査に失敗した場合はMetricsやReview資料を更新せず終了します。

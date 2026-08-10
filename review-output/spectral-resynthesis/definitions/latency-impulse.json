@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Spectral Generator Reference",
+    "author": "Sonalloy",
+    "description": "Stereo spectral resynthesis with position, freeze, blur, shift, and morph control"
+  },
+  "performance": {
+    "polyphony": 1,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "spectral",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": 0.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.0
+      },
+      "generator": {
+        "spectral": {
+          "asset_a": {
+            "path": "../assets/spectral-reference-impulse.wav",
+            "sha256": "dbc99e08b7fcab308ac50e1a1a9f9a6c926991dbb4d415c05e813696f1f3d366"
+          },
+          "asset_b": null,
+          "root_note": 60,
+          "fft_size": 2048,
+          "position": 0.0,
+          "freeze": 0.0,
+          "blur_seconds": 0.0,
+          "shift_hz": 0.0,
+          "morph": 0.0,
+          "phase_reset": true
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": null
+}

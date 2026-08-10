@@ -1,6 +1,6 @@
 ---
 name: create-instrument
-description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add an Additive, Formant, Sample, Wavetable, Operator Modulation, or Granular layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi. Not for CLI reference questions (docs/cli.md) or architecture questions (docs/architecture.md).
+description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add an Additive, Formant, Sample, Wavetable, Spectral, Operator Modulation, or Granular layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi. Not for CLI reference questions (docs/cli.md) or architecture questions (docs/architecture.md).
 ---
 
 # Create Instrument
@@ -11,7 +11,7 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 
 | | 内容 |
 |---|---|
-| 対象 | 新規Instrumentの作成、既存Definitionの編集、Additive / Formant / Sample / Wavetable / Operator Modulation / Granular / Wave Sequence Layerの追加、音源の試聴・修正 |
+| 対象 | 新規Instrumentの作成、既存Definitionの編集、Additive / Formant / Sample / Wavetable / Spectral / Operator Modulation / Granular / Wave Sequence Layerの追加、音源の試聴・修正 |
 | 対象外 | 仕様の説明（`docs/instrument-definition.md`）、CLIの全コマンド解説（`docs/cli.md`）、実行時挙動（`docs/runtime-processing.md`） |
 | 成果物 | Definition JSONと、`render`で生成した試聴用WAV（`out/<name>/`配下） |
 
@@ -48,10 +48,12 @@ sonalloy instrument init <path>
 - `schema_version`は`1`のみ。未知FieldはJSON Parse Errorになる
 - `polyphony`は1〜64。`gain_db`は-60〜12、`pan`は-1〜1、`tuning_cents`は-1200〜1200
 - ADSRは0〜30秒、Sustainは0〜1。Keyは0〜127、Velocityは1〜127
-- Generatorは`oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、`operator_modulation`、`sample`、`granular`、`wave_sequence`、`additive`、または`formant`
+- Generatorは`oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`wavetable`、`spectral`、`operator_modulation`、`sample`、`granular`、`wave_sequence`、`additive`、または`formant`
 - Oscillatorの`waveform`は`{"type": "..."}`形式。Pulseは`pulse_width`、全Oscillatorは`phase_reset`と`phase`を持つ
 - Wavetableは`asset`、`frame_length`（64〜4096の2の冪）、`position`（0〜1）、`phase_reset`、`phase`を持つ。Asset全体のSample数がFrame Lengthで割り切れることを確認する
 - WavetableのSource Sample RateはPitchへ使われず、Compile時にResampleされない。SHA-256を指定し、`instrument inspect --json`でPrepared状態とBandを確認する
+- Spectralは`asset_a`、`root_note`（0〜127）、`fft_size`（1024 / 2048 / 4096）、`position`、`freeze`、`blur_seconds`、`shift_hz`、`morph`、`phase_reset`を持つ。`asset_b`を指定したときだけMorph Parameterが登録され、A/BのChannel数を一致させる
+- SpectralのPositionはNatural Scanの開始位置、FreezeはScan速度、Blurは時間方向Magnitude Smoothing、Morphは正規化タイムライン上のA/B Spectrum補間、MIDI NoteとLayer TuningはRoot NoteからのPitch比、ShiftはHzの加算移動です。Pitch変更でSource Durationは変わりません
 - Operator Modulationは4 Operator固定で、`algorithm`は`stack_4`、`stack_3_plus_carrier`、`two_stacks`、`fork_to_carrier`、`two_modulators_plus_carrier`、`three_modulators`、`shared_modulator`、`parallel`から選ぶ。Carrierだけに`level`を設定し、接続元だけに`modulation_amount`を設定する
 - Operator Modulationの`mode`は`phase`、`frequency`、`amplitude`、`ring`。Phase / FrequencyのAmountは0〜8、Amplitude / Ringは0〜1で、AM / RingのFeedbackは0だけを許可する。Unisonは最大4 Voice
 - Sample Zoneは`asset`、MIDI範囲、`playback.region`、`direction`、`loop`、`time`を持つ。`time`は`{"mode":"resample"}`、`{"mode":"fixed_stretch","ratio":1.5}`、`{"mode":"tempo_sync","source_bpm":120.0}`のいずれかを指定する
@@ -71,7 +73,7 @@ sonalloy instrument inspect <definition> --json    # 実行値を機械可読で
 ```
 
 - `validate`の成功は`valid <path>`。Warningは`print_warnings`で表示されるため必ず確認する
-- `inspect`でPolyphony、Layer Trigger、GeneratorのWaveform / Color / Seed / Wavetable Band / Granular Region / Wave Sequence Steps / Output Mode、Gain、Pan、Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
+- `inspect`でPolyphony、Layer Trigger、GeneratorのWaveform / Color / Seed / Wavetable Band / Spectral Frame / Asset A/B Prepared状態 / Granular Region / Wave Sequence Steps / Output Mode、Gain、Pan、Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
 - Operator Modulationでは`inspect --json`のMode、Algorithm、Evaluation Order、Carrier、4 OperatorのParameter ID、Envelope、Unison、Effective Frequency上限を確認する
 - Complex Oscillatorではphase_domain Backend、Signal Order、DC Blocker、WavefolderのParameter IDも確認する
 - Warningが1つでも残る場合は「ほかのLayerでRenderを継続する」設計のため、意図しない無効化がないかを確認する
@@ -109,6 +111,37 @@ sha256sum <path>
 ```
 
 5. `validate`でFrame Layout、Hash、Silent Frame / DC Warningを確認し、`inspect --json`でPrepared状態、Band、Position Parameter ID、Output Modeを確認する。Assetの欠落・Hash不一致・Decode失敗ではWavetable Layerだけが無効化されてRenderが継続する
+
+### Spectral / Resynthesis
+
+1. 再構成したいMonoまたはStereo WAVを用意し、`asset_a`へ指定する。Morphを使う場合は、同じChannel数の二つ目のWAVを`asset_b`へ指定する。SpectralはCompile時にSample Rate変換とSTFT解析を行うため、Process Sample Rateに依存したPrepared Frameになります
+2. `root_note`へ素材の基準MIDI Note、`fft_size`へ1024 / 2048 / 4096のいずれかを指定する。Hop SizeはFFT Sizeの4分の1、Reported Latencyは`fft_size - hop_size`です
+3. Position、Freeze、Blur、Morph、Shiftを初期値として設定する。PositionとFreezeは0〜1、Blurは0〜1秒、Morphは0〜1、Shiftは-12000〜12000 Hzです。Layerの`tuning_cents`とMIDI Noteは素材のRoot Noteを基準に周波数だけを変えます
+4. SHA-256を計算し、`instrument validate`でAssetとField Rangeを確認する
+
+```json
+{
+  "generator": {
+    "spectral": {
+      "asset_a": { "path": "<definitionからの相対Path>", "sha256": "<計算値>" },
+      "asset_b": null,
+      "root_note": 60,
+      "fft_size": 2048,
+      "position": 0.0,
+      "freeze": 0.0,
+      "blur_seconds": 0.0,
+      "shift_hz": 0.0,
+      "morph": 0.0,
+      "phase_reset": true
+    }
+  }
+}
+```
+
+5. `instrument inspect --json`でAsset A/BのPrepared状態、Source / Prepared Sample Rate、Channel、Spectral Frame、FFT / Hop / Bin、Latency、Position / Freeze / Blur / Shift / MorphのParameter IDを確認する。Aまたは指定Bが欠落した場合はSpectral Layerだけが発音候補から外れます
+6. `position`、`freeze`、`blur_seconds`、`morph`、`shift_hz`をParameter ChangeまたはModulationから動かし、`render events`でSource Segment、Freeze中の連続Phase、Blur Tail、A/B Morph、Pitch、Frequency Shift、Stereo Imageを確認する
+7. Stereo A/Bの基準例は`examples/instruments/spectral-generator-reference.json`、Spectral、Additive、Sample、Noiseと既存Processor / Modulationを組み合わせる場合は`examples/instruments/spectral-hybrid-reference.json`を使う。Hybridでは`instrument inspect --json`でLayer / Voice / Global ProcessorとRoute Targetを確認する
+8. MIDI Phraseを含む最終確認は`render midi`で行い、Block Size、Sample Rate、Fresh Runtime、16 Voice、Voice Stealingの機械確認は`python3 scripts/review/generate_spectral_resynthesis_package.py`で再生成する
 
 ## Step 5: Operator Modulation Layerを追加する（Operator Modulationを使う場合）
 

@@ -176,6 +176,13 @@ pub(crate) enum LayerGeneratorTargetSpan {
         unison_detune: Option<ValueSpan>,
         unison_spread: Option<ValueSpan>,
     },
+    Spectral {
+        position: ValueSpan,
+        freeze: ValueSpan,
+        blur: ValueSpan,
+        shift: ValueSpan,
+        morph: Option<ValueSpan>,
+    },
     OperatorModulation {
         operators: [OperatorTargetSpan; 4],
         unison_detune: Option<ValueSpan>,
@@ -240,6 +247,13 @@ impl CompiledGenerator {
                 position: zero,
                 unison_detune: value.parameters.unison_detune.map(|_| zero),
                 unison_spread: value.parameters.unison_spread.map(|_| zero),
+            },
+            Self::Spectral(value) => LayerGeneratorTargetSpan::Spectral {
+                position: zero,
+                freeze: zero,
+                blur: zero,
+                shift: zero,
+                morph: value.parameters.morph.map(|_| zero),
             },
             Self::OperatorModulation(value) => LayerGeneratorTargetSpan::OperatorModulation {
                 operators: std::array::from_fn(|index| {

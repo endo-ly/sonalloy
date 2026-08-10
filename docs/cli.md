@@ -60,6 +60,7 @@ Compile後の実行値を表示します。`--json`を付けると同じ内容�
 | Additive | Output Mode、Partial Count / 最大Partial Count、Phase Reset、Morph、Spectrum Tilt、Inharmonicity、各PartialのID / Ratio / Amplitude A / B / Phase / Envelope有無 |
 | Formant | Output Mode、Partial Count / 最大Partial Count、Phase Reset、Profile Count、Vowel Position、Formant Shift、Throat、Spectral Tilt、各ProfileのIDと5本のFrequency / Bandwidth / Gain |
 | Wavetable | Asset Path、SHA指定有無、Prepared状態、Source Channel / Frame Count、Frame Length / Count、Band Count / Max Harmonic、Position、Parameter ID、Phase、Unison、Output Mode、Effective Frequency上限 |
+| Spectral | Output Mode、Asset A/B Path、SHA指定有無、Asset A/B Prepared状態、A/B各Source / Prepared Sample Rate、Channel / Frame Count、Spectral Frame Count、Prepared Bytes、FFT / Hop / Bin数、Root Note、Latency、Position / Freeze / Blur / Shift / Morph、各Parameter ID、Phase Reset |
 | Granular | Asset Path、SHA指定有無、Prepared状態、Source Channel / Prepared Frame、Region、Root Note、Position、Grain Size、Density、Pitch、Randomness、Pan Spread、各Parameter ID、Seed、Grain Pool Limit、Output Mode |
 | Wave Sequence | Output Mode、Step Count、Enabled Step Count、Direction、Loop、Crossfade、各StepのID / Asset / Region / Duration Type / Duration / Playback / Playback Direction / Gain / Pitch / Availability、Source Channel / Prepared Frame |
 | Operator Modulation | Mode、Algorithm、Evaluation Order、Incoming Mask、Carrier Operator、4 OperatorのRatio / Detune / Level / Modulation Amount / Feedback / Envelope / Parameter ID、Phase Reset、Unison、Output Mode、Effective Frequency上限 |
@@ -85,7 +86,11 @@ AdditiveのJSON Inspectでは、固定Partial数と最大値、初期Morph / Spe
 
 FormantのJSON Inspectでは、固定Partial数と最大値、Phase Reset、Profile数、初期Vowel Position / Formant Shift / Throat / Spectral Tilt、Profile順のID、5本のFormant Bandを表示します。Dynamic ParameterのCanonical IDは、`layer.<layer_id>.generator.formant_vowel_position`、`layer.<layer_id>.generator.formant_shift`、`layer.<layer_id>.generator.formant_throat`、`layer.<layer_id>.generator.formant_spectral_tilt`です。
 
+SpectralのJSON Inspectでは、`asset_a`と指定された`asset_b`の準備状態、各AssetのSource / Prepared Sample Rate、Source Metadata、Prepared Spectral Frame数、Prepared Bytes、FFT / Hop / Bin数、Reported Latency、Position / Freeze / Blur / Shift / MorphのParameter値とCanonical IDを表示します。Aまたは指定Bが準備できない場合も、ほかの有効Layerを含むCompile結果を確認できます。
+
 Harmonic / Formant HybridのJSON Inspectでは、各LayerのGeneratorとProcessor、Voice / Global Processor Chain、Modulation Source / Routeを同じReportで表示します。[`harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)を使うと、Formant、Additive、Sample、Noise、Filter、Drive、Delay、Reverb、MIDI制御Targetを一つの構造として確認できます。
+
+Spectralの単体とHybridは[`spectral-generator-reference.json`](../examples/instruments/spectral-generator-reference.json)と[`spectral-hybrid-reference.json`](../examples/instruments/spectral-hybrid-reference.json)で確認できます。単体例ではStereo A/B Prepared状態、FFT 2048、Hop 512、Bin数、Reported Latency、5つのSpectral Parameterを確認し、Hybrid例ではSpectral、Additive、Sample、Noise、Layer / Voice / Global Processor、Modulation Routeを同じReportで確認します。
 
 ## `render` Command
 
@@ -293,6 +298,11 @@ sonalloy dev render-sine \
 - `WAVETABLE_DC_OFFSET`
 - `GENERATOR_RESOURCE_LIMIT_EXCEEDED`
 
+**Spectral**
+
+- `SPECTRAL_PREPARATION_FAILED`
+- `GENERATOR_RESOURCE_LIMIT_EXCEEDED`
+
 **Wave Sequence**
 
 - `INVALID_SEQUENCE`
@@ -305,6 +315,18 @@ sonalloy dev render-sine \
 - `GENERATOR_RESOURCE_LIMIT_EXCEEDED`（Unison Voice数）
 
 AssetのMissingやDecode失敗はWarningとして表示され、ほかの有効LayerがあればRenderは継続します。
+
+## Spectral Resynthesisの確認例
+
+```bash
+sonalloy instrument validate examples/instruments/spectral-generator-reference.json --json
+sonalloy instrument inspect examples/instruments/spectral-generator-reference.json --json
+sonalloy render midi examples/instruments/spectral-hybrid-reference.json \
+  testdata/midi/basic-poly-synth-phrase.mid --sample-rate 48000 --block-size 257 \
+  --tail 0.2 --output out/spectral-hybrid-reference/midi.wav --json
+```
+
+Review用の全条件（Parameter Change、Block Size、Sample Rate、Fresh Runtime、16 Voice、Voice Stealing、既存Generator回帰）は`python3 scripts/review/generate_spectral_resynthesis_package.py`で`review-output/spectral-resynthesis/`へ生成します。Performance測定の音声は保存せず、`metrics.json`へ測定値だけを記録します。
 
 ## Sampleを含むInstrumentの確認例
 

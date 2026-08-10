@@ -127,6 +127,7 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 - **Additive**：Compile済みの固定Partial SlotをPrivate Partial Bankへ渡し、Note Frequency × Partial RatioのSineを加算します。MorphはAmplitude A / Bだけを補間し、Spectrum TiltはRatioの`log2`、Inharmonicityは固定されたStiff-string式からControl TickごとにGain / Ratioへ変換します。高域PartialはFrequency Clampではなく0.40〜0.45 Sample Rate比のFadeで抑え、Energy NormalizationはDefinition上の全Partial Gainを基準にします。出力はMonoです
 - **Formant**：整数倍のHarmonic PartialをPrivate Partial Bankへ渡し、Profileから補間した5本のFormant BandをGaussian-likeなSpectral Envelopeとして適用します。Frequency / BandwidthはGeometric、GainはdB LinearでProfile Morphし、Formant ShiftはCenterとBandwidthだけへ適用します。ThroatはBandwidth全体を0.5〜2倍し、Spectral Tiltと0.40〜0.45 Sample Rate比のAlias Fadeを乗算します。出力はMonoです
 - **Wavetable**：Compile時にWAVをFrameへ分割し、FFT/IFFTでHarmonic上限の異なるBand Tableを準備します。PositionはFrame間をLinear、Table内をFour-point Cubicで補間し、Component Frequencyに応じたBandをLog2領域でCrossfadeします。Source Sample RateはPitchへ使わず、Unison 1ではMono、2 Voice以上ではStereoで出力します
+- **Spectral / Resynthesis**：Compile時にPrimary AudioをSTFTへ変換し、Magnitude、Absolute Phase、Instantaneous FrequencyをPrepared Assetへ保持します。RuntimeはPhase Accumulatorを使ってFrameを再構成し、Position、Freeze、MIDI Pitch、Layer Tuning、Frequency ShiftをSpectrumへ適用してからReal IFFT、正規化したSynthesis Window、4倍Overlap-addで出力します。Primary AudioのMono / Stereo Channelを保持します
 - **Operator Modulation**：4 OperatorをCompile済みの固定Topology順にSampleごとに評価します。Phase、Frequency、Amplitude、Ringは同じOperator信号を使いながら別の相互作用として処理し、Carrier Sum後に`1 / sqrt(carrier_count)`で正規化します。Operator Envelopeは各Operator出力へ乗算し、Carrier以外のOperatorは接続先へのModulation Signalだけを供給します。Unison 1はMono、2〜4はComponentごとのPhaseとPrevious Outputを持つStereoです
 - **Complex Oscillator**：Phase DistortionまたはOscillator Feedbackを含むDefinitionはRustのPhase-domain Sine Backendで処理します。Phase Distortionは`breakpoint = 0.5 - amount × 0.45`の連続Mapping、Feedbackは直前Sampleを`tanh(previous × amount × 2.5) × 0.25` cycleへ変換してRead Phaseへ加算します。Wavefoldは既存OscillatorのUnison MixとWaveshapingの後へDaisySP MIT版Wavefolderで適用し、AmountをDrive / Dry-Wetへ固定変換します。非線形機能の後へSample Rate依存のDC Blockerを置きます。Phase DistortionとFeedbackはSineだけで使用でき、Hard Syncとは併用できません
 - **Sample**：後述のSample Zone選択と再生を使います。Compileで無効になったZoneは選択候補から除外されます
@@ -142,6 +143,23 @@ Prepared WavetableはCompile時に`Arc`でCompiled Instrumentへ保持し、全V
 - Band Tableは`N/2, N/4, ..., 1`のHarmonic上限を持ち、隣接Bandの切替をLog2領域でCrossfadeします。DCはCompile時のSource値を保持します
 - Note Onでは`phase_reset`が有効な場合だけInitial Phaseへ戻し、Instrument Resetでは常にInitial Phaseへ戻します
 - Process中はAsset Decode、FFT、File I/O、メモリ確保を行いません
+
+## Spectral Runtime
+
+Spectralの`asset_a`と指定された`asset_b`はCompile時にDecode、Sample Rate変換、STFT解析まで完了し、`Arc`でCompiled Instrumentから全Voiceへ共有されます。A/BのChannel数は一致させ、Bの準備に失敗した場合はAだけへフォールバックせずLayerをUnavailableにします。FFT処理はCore Rustの`realfft`を使い、Native DSP境界へ渡しません。
+
+- Analysis WindowはPeriodic Hann、Hop SizeはFFT Sizeの4分の1です。Analysis Windowを適用したSpectrumからMagnitude、Absolute Phase、Hop間のPhase AdvanceからInstantaneous Frequencyを準備します
+- Sourceの前後へZero Paddingを置き、最初の再構成FrameからSourceの時間位置までを`fft_size - hop_size` FrameのReported Latencyとして扱います
+- Host BlockではなくSynthesis HopをSchedulerの基準にし、PositionとNatural Scanから得たFractional FrameのMagnitude / Instantaneous FrequencyをLinear Interpolationします。FreezeはSource Scan速度を`1 - freeze`へ変換し、Freeze中もPhase Accumulatorを進めます
+- A/Bは`asset_a`をTiming Masterにした共有Normalized CursorからそれぞれのFrame位置へ変換します。Magnitudeは`A²`と`B²`のWeighted Energy平方根、Instantaneous FrequencyはMagnitude Energy Weighted Interpolation、Initial PhaseはCircular InterpolationでMorphします。Absolute PhaseはNote On / Phase Reset時だけ使い、定常処理ではMorph後のInstantaneous FrequencyからPhase Accumulatorを進めます
+- Morph後のTarget Magnitudeへ、Hop単位で一度だけ算出したOne-pole係数を使う時間方向Magnitude Blurを適用します。`blur_seconds = 0`は直接Targetを使い、Source終了後は固定Silent ThresholdまでBlur Stateを減衰させてからOLA Tailを排出します
+- RuntimeはNote On時のPrepared Absolute Phaseを初期値としてPhase Accumulatorを進め、Prepared Magnitude / PhaseをComplex Spectrumへ戻し、共有Inverse FFT PlanでIFFTします。IFFT出力は`1 / fft_size`で正規化し、Normalized Synthesis Windowを掛けて固定長のOLA Bufferへ加算します。Position変更ではPhase Accumulatorを初期化しません
+- MIDI NoteとLayer TuningはRoot Noteに対する周波数比へ変換し、Source Scan速度を変更せずDestination Binを移動します。Spectral ShiftはHzの加算移動としてDestination BinへFractional Distributionし、範囲外のEnergyは破棄します
+- Mono Sourceは左右へ同じ値を出し、Stereo Sourceは左右のMagnitude、Phase、Instantaneous Frequency、Phase Accumulator、Blur State、OLAを独立に再構成します。Position、Freeze、Blur、Shift、MorphのTargetは共有し、GeneratorのOutput ModeはPrepared Source AのChannel数から決定します
+- Note OnではSource Scan、Hop Scheduler、OLAを先頭へ戻します。`phase_reset`が有効ならPrepared PhaseからPhase Accumulatorを初期化し、無効ならVoice再利用時のPhase Accumulatorを維持します。Instrument Resetでは全状態を初期化します
+- Natural ScanはOne-shotでSource Aの末尾を超えると停止します。Blur Stateが残っている場合はゼロTargetのSynthesis Hopを追加し、Blur StateとOLA Tailの両方がSilent Thresholdへ到達してからGeneratorを終了します。Freeze中はSource側の終了条件へ到達しません
+- Runtime PrepareでInverse FFT Input、Output、Scratch、OLA Bufferを確保します。Process中はAsset Decode、File I/O、FFT Plan生成、Heap拡張を行いません
+- `spectral_position`、`spectral_freeze`、`spectral_blur`、`spectral_shift`、`spectral_morph`はParameter Spanの範囲を検証してGeneratorへ渡します。Synthesis Hop単位で変化するTargetもHost Block Sizeから独立して処理します
 
 ## Additive Runtime
 
@@ -177,7 +195,10 @@ Formantの生成順は、`Profile補間 → Gaussian Spectral Envelope → Spect
 - LayerのGeneratorはMono / Stereoを問わずVoice Mixへ揃え、既存SampleのPrepared AudioとNoise StreamはCompile / Prepareで確定した状態を使います
 - Voice Filter / Driveは全LayerのSumへ適用し、Global Delay / Reverbは全VoiceのSumへ適用します。Global ProcessorのDelay / Reverb StateはInstrument Runtimeが所有し、Resetで初期化します
 - Voice Stealingでは全Layer、Layer / Voice Processor、Voice Sourceを同じVoice Stateとして再初期化します。MIDI RenderはNote、Velocity、Control Eventを同じProcess境界へ変換します
+- Spectral Layerも同じMix経路へ入り、Stereo A/Bの再構成結果をLayer Processor、Voice Processor、Global Processorへ順番に渡します。SpectralのReported Latencyが最大Layer Latencyになる場合、ほかのGenerator Layerへ`instrument latency - layer intrinsic latency`の遅延をPrepare時に設定します
+- Spectral HybridのPosition、Freeze、Blur、Shift、Morphは既存Parameter SpanとModulation Routeを使い、MIDIのParameter ChangeおよびExternal Controlと同じSmoothing境界で評価します
 - Additive、Formant、HybridのProcessor Chain、Modulation、MIDI、Block Size、Sample Rate、Fresh Runtime、Release Performanceの統合確認は`review-output/harmonic-formant-synthesis/`へ保存します
+- Spectral、Spectral Hybrid、既存Generator回帰、16 Voice、Voice Stealing、Fresh Runtime、Block Size、Sample Rate、MIDI、Release Performanceの確認は`review-output/spectral-resynthesis/`へ保存します。Performance専用音声は一時Directoryへ出力します
 
 ## Operator Modulation Runtime
 
@@ -237,7 +258,7 @@ Wave Sequenceが最後のOne-shot Stepを終え、Sequence Loopが無効な場�
 ## 準備とリセット
 
 - **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time StretchのInput / Output Latencyを含むScratch、Granular Grain Pool、Wave SequenceのPlayback Slot、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、OscillatorとOperatorとAdditive / Formant Partial Bankの位相、Additive / FormantのGain / Ratio RampとSpectral Control Tick、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Granular Grain Pool / Grain Serial / Scheduler、Wave SequenceのCurrent / Next SlotとStep Cursor、Partial / Operator Envelope、Round Robin Counter、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
+- **Reset**：全Voice、OscillatorとOperatorとAdditive / Formant Partial Bankの位相、Additive / FormantのGain / Ratio RampとSpectral Phase Accumulator / Scan / OLA、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Granular Grain Pool / Grain Serial / Scheduler、Wave SequenceのCurrent / Next SlotとStep Cursor、Partial / Operator Envelope、Round Robin Counter、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
 - Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
 - ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
 

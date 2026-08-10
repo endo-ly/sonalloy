@@ -1,0 +1,23 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 1,
+      "note": 48,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 64,
+      "type": "note_on",
+      "note_id": 2,
+      "note": 60,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 8192,
+      "type": "note_off",
+      "note_id": 2
+    }
+  ]
+}

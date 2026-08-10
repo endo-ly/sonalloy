@@ -16,7 +16,8 @@ use crate::generator_parameters::{
     OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN, OPERATOR_PARAMETER_SMOOTHING_SECONDS,
     OPERATOR_PARAMETER_SUFFIXES, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
     OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN,
-    OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD,
+    OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE,
+    SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD,
     WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 
@@ -404,6 +405,39 @@ fn push_generator_descriptors(
             );
         }
         GeneratorDefinition::Sample(_) | GeneratorDefinition::WaveSequence(_) => {}
+        GeneratorDefinition::Spectral(spectral) => {
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                SPECTRAL_POSITION,
+                spectral.position,
+            );
+            push_generator_descriptor(descriptors, prefix, owner, SPECTRAL_FREEZE, spectral.freeze);
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                SPECTRAL_BLUR,
+                spectral.blur_seconds,
+            );
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                SPECTRAL_SHIFT,
+                spectral.shift_hz,
+            );
+            if spectral.asset_b.is_some() {
+                push_generator_descriptor(
+                    descriptors,
+                    prefix,
+                    owner,
+                    SPECTRAL_MORPH,
+                    spectral.morph,
+                );
+            }
+        }
         GeneratorDefinition::Granular(granular) => {
             push_generator_descriptor(
                 descriptors,

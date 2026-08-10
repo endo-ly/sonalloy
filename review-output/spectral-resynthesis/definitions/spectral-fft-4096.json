@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Spectral Generator Reference",
+    "author": "Sonalloy",
+    "description": "Stereo spectral resynthesis with position, freeze, blur, shift, and morph control"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "spectral",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.15,
+        "sustain_level": 0.8,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "spectral": {
+          "asset_a": {
+            "path": "../assets/spectral-reference-a.wav",
+            "sha256": "07a99e2d212ad1623e7959b812367b53571274131ce6f8a99c3d7ad5699fa6bd"
+          },
+          "asset_b": {
+            "path": "../assets/spectral-reference-b.wav",
+            "sha256": "21f05fd36f60977919edea73ac09231177f836a755c12aa9d563ec01a92b6863"
+          },
+          "root_note": 60,
+          "fft_size": 4096,
+          "position": 0.2,
+          "freeze": 0.1,
+          "blur_seconds": 0.08,
+          "shift_hz": 110.0,
+          "morph": 0.35,
+          "phase_reset": true
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "spectral_tone",
+          "cutoff_hz": 9000.0,
+          "resonance": 0.15
+        },
+        {
+          "type": "drive",
+          "id": "spectral_drive",
+          "amount": 0.1,
+          "mix": 0.2
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": null
+}
