@@ -42,6 +42,8 @@ REVIEW_ROOT = ROOT / "review-output" / "spectral-resynthesis"
 TECHNICAL_AUDIO = REVIEW_ROOT / "audio" / "technical"
 MINIMUM_AUDIO_RMS = 1.0e-8
 MAX_BLOCK_DIFFERENCE = 1.0e-5
+FREEZE_TRANSITION_FRAME = 8_192
+MAX_FREEZE_TRANSITION_DELTA = 0.01
 
 
 def definition_path(name: str) -> Path:
@@ -489,7 +491,7 @@ def render_technical_audio(
         freeze_transition_events,
         [
             {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 112},
-            {"absolute_frame": 8_192, "type": "parameter_change", "parameter": "layer.spectral.generator.spectral_freeze", "normalized": 1.0},
+            {"absolute_frame": FREEZE_TRANSITION_FRAME, "type": "parameter_change", "parameter": "layer.spectral.generator.spectral_freeze", "normalized": 1.0},
             {"absolute_frame": 24_576, "type": "note_off", "note_id": 1},
         ],
     )
@@ -677,6 +679,19 @@ def render_technical_audio(
             "spectral latency impulse mismatch: "
             f"expected {expected_latency_peak_frame}, got {latency_peak_frame}"
         )
+    freeze_transition_delta = boundary_differences(
+        freeze_transition, [FREEZE_TRANSITION_FRAME]
+    )
+    invalid_freeze_transition = {
+        boundary: delta
+        for boundary, delta in freeze_transition_delta.items()
+        if delta > MAX_FREEZE_TRANSITION_DELTA
+    }
+    if invalid_freeze_transition:
+        raise RuntimeError(
+            "spectral freeze transition exceeded the adjacent-sample delta limit: "
+            f"{invalid_freeze_transition}"
+        )
     feature_metrics = {
         "identity": {
             **aligned_identity_metrics(
@@ -688,9 +703,7 @@ def render_technical_audio(
             "reported_latency_frames": 1_536,
         },
         "freeze": {
-            "transition_delta": boundary_differences(
-                freeze_transition, [8_192]
-            ),
+            "transition_delta": freeze_transition_delta,
             "spectral_flux": spectral_flux(freeze_transition, 12_288, 8_192),
         },
         "blur": {
@@ -762,42 +775,49 @@ def generate_performance_metrics() -> dict[str, object]:
     build_cli(release=True)
     with tempfile.TemporaryDirectory(prefix="sonalloy-spectral-performance-") as temporary:
         temporary_root = Path(temporary)
-        for voice_count in (1, 4, 8, 16):
-            value = read_definition(definition_path("spectral-generator-reference.json"))
-            value["performance"]["polyphony"] = voice_count
-            spectral = value["layers"][0]["generator"]["spectral"]
-            spectral["asset_a"]["path"] = str(
-                ROOT / "examples" / "assets" / "spectral-reference-a.wav"
-            )
-            spectral["asset_b"]["path"] = str(
-                ROOT / "examples" / "assets" / "spectral-reference-b.wav"
-            )
-            definition = temporary_root / f"spectral-voices-{voice_count}.json"
-            events = temporary_root / f"spectral-voices-{voice_count}-events.json"
-            output = temporary_root / f"spectral-voices-{voice_count}.wav"
-            write_definition(definition, value)
-            write_events(events, polyphony_events(voice_count, duration_frames))
-            run_cli(["instrument", "validate", str(definition), "--json"])
-            result = timed_render(
-                definition,
-                events,
-                output,
-                duration_frames,
-                BASE_BLOCK_SIZE,
-                SAMPLE_RATE,
-                release=True,
-            )
-            audio = performance_audio_metrics(output)
-            if not audio["finite"] or audio["rms"] <= MINIMUM_AUDIO_RMS:
-                raise RuntimeError(f"performance audio checks failed: {audio}")
-            cases[str(voice_count)] = {
-                "voice_count": voice_count,
-                "fft_size": 2048,
-                "stereo": True,
-                "morph_enabled": True,
-                **result,
-                "audio": audio,
-            }
+        for fft_size in (1024, 2048, 4096):
+            for voice_count in (1, 4, 8, 16):
+                value = read_definition(definition_path("spectral-generator-reference.json"))
+                value["performance"]["polyphony"] = voice_count
+                spectral = value["layers"][0]["generator"]["spectral"]
+                spectral["fft_size"] = fft_size
+                spectral["asset_a"]["path"] = str(
+                    ROOT / "examples" / "assets" / "spectral-reference-a.wav"
+                )
+                spectral["asset_b"]["path"] = str(
+                    ROOT / "examples" / "assets" / "spectral-reference-b.wav"
+                )
+                case_name = f"fft_{fft_size}_voices_{voice_count}"
+                definition = temporary_root / f"{case_name}.json"
+                events = temporary_root / f"{case_name}-events.json"
+                output = temporary_root / f"{case_name}.wav"
+                write_definition(definition, value)
+                write_events(events, polyphony_events(voice_count, duration_frames))
+                run_cli(["instrument", "validate", str(definition), "--json"])
+                generator = inspect_definition(definition)["layers"][0]["generator"]
+                result = timed_render(
+                    definition,
+                    events,
+                    output,
+                    duration_frames,
+                    BASE_BLOCK_SIZE,
+                    SAMPLE_RATE,
+                    release=True,
+                )
+                audio = performance_audio_metrics(output)
+                if not audio["finite"] or audio["rms"] <= MINIMUM_AUDIO_RMS:
+                    raise RuntimeError(f"performance audio checks failed: {audio}")
+                cases[case_name] = {
+                    "voice_count": voice_count,
+                    "fft_size": fft_size,
+                    "hop_size": generator["hop_size"],
+                    "spectral_frames": generator["spectral_frame_count"],
+                    "prepared_bytes": generator["prepared_bytes"],
+                    "stereo": generator["output_mode"] == "stereo",
+                    "morph_enabled": True,
+                    **result,
+                    "audio": audio,
+                }
     return {
         "build": "release",
         "sample_rate": SAMPLE_RATE,
@@ -882,12 +902,12 @@ The package contains the two reference Definitions, their source assets, inspect
 
 Machine checks performed by the generator:
 
-- Spectral A/B preparation, Stereo output, FFT 2048, Morph, and all five Spectral control parameters.
+- Spectral A/B preparation, Stereo output, FFT 1024 / 2048 / 4096, Morph, and all five Spectral control parameters.
 - Spectral plus Additive, Sample, and Noise with Layer, Voice, and Global Processor chains and Modulation routes.
 - MIDI render, absolute-frame parameter changes, 16-voice rendering, one-voice stealing, supported block sizes, supported sample rates, Fresh Runtime reproducibility, and the reported latency impulse position.
 - Existing Oscillator, Noise, Sample, Granular, Wave Sequence, Wavetable, Operator Modulation, Additive, and Formant reference renders.
-- Identity SNR / error / correlation, transition and spectral-flux measurements, Shift and Pitch spectrum estimates, Morph boundary measurements, and high-note near-Nyquist energy are recorded in metrics.json.
-- Release performance measurements for 1, 4, 8, and 16 Stereo voices with FFT 2048 and Morph enabled. Performance audio is kept outside the package.
+- Identity SNR / error / correlation, Freeze boundary adjacent-sample assertion, transition and spectral-flux measurements, Shift and Pitch spectrum estimates, Morph boundary measurements, and high-note near-Nyquist energy are recorded in metrics.json.
+- Release performance measurements for FFT 1024 / 2048 / 4096 with 1 / 4 / 8 / 16 Stereo voices and Morph enabled. Performance audio is kept outside the package.
 
 Human listening checklist:
 
