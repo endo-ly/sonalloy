@@ -1,246 +1,216 @@
 # CLI
 
-## 本書の範囲
+Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み込み、検証・コンパイルし、WAVへレンダリングします。
 
-本書はSonalloy CLIの**インターフェース**を定義します。Command、Option、Exit Code、Diagnosticsの出力形式です。
+この文書では、各コマンドを「**音源を作る → 検証する → 音を鳴らす**」の順に説明します。実行時の挙動（Voice、ADSR、Sample再生など）は`docs/runtime-processing.md`、音源定義のJSON形式は`docs/instrument-definition.md`を参照してください。
 
-| 本書に書かないこと | 参照先 |
-|---|---|
-| CLIの所有責務・Crate境界 | `docs/architecture.md` |
-| 実行時の挙動・Error規則 | `docs/runtime-processing.md` |
-| DefinitionのJSON形式・制約 | `docs/instrument-definition.md` |
-
-Binary名は`sonalloy`です。CLIはDefinitionの読込・表示・Compileを行い、CoreのRendererを呼び出して生成されたAudioをWAVへ保存します。
-
-## コマンド一覧
+## コマンドの全体像
 
 | コマンド | 役割 |
 |---|---|
-| `instrument init` | 最小のOscillator Definitionを生成する |
-| `instrument validate` | DefinitionをJSON Parse → Validation → Compileまで検証する |
-| `instrument inspect` | Compile後の実行値を表示する |
-| `render note` | 1つのNote On / Note OffをRenderしてWAVを生成する |
-| `render events` | Absolute FrameのEvent SequenceをRenderしてWAVを生成する |
-| `render midi` | Standard MIDI FileをRenderしてWAVを生成する |
-| `dev render-sine` | 全処理経路を通すSine Render（動作確認用） |
+| `instrument init` | 音源定義のひな形を生成する |
+| `instrument validate` | 音源定義を検証する |
+| `instrument inspect` | コンパイル後の実行値を表示する |
+| `render note` | 1音をレンダリングする |
+| `render events` | Event Sequenceをレンダリングする |
+| `render midi` | MIDI Fileをレンダリングする |
+| `dev render-sine` | 動作確認用のSineをレンダリングする |
 
-## `instrument` Command
+## 音源定義を作る
 
-### `instrument init`
+### `instrument init` — ひな形の生成
 
-最小のOscillator Definition（Saw、Polyphony 16）を生成します。
+最小のOscillator音源（Saw波形、Polyphony 16）を生成します。ここから編集を始めるための土台です。
 
 ```bash
 sonalloy instrument init <path>
 ```
 
-### `instrument validate`
+## 音源定義を検証する
 
-DefinitionをJSON Parse → Validation → Compileの順に検証します。WAVは生成しません。
+### `instrument validate` — 検証
 
-- 成功時：`valid <path>`とWarningを表示
-- 失敗時：Diagnosticsを表示
+音源定義が正しくコンパイルできるかを確認します。JSONの構文、Fieldの制約、Assetの準備まで検証します（WAVは生成しません）。成功すると`valid <path>`と表示されます。失敗時は、どのFieldに問題があるか（例：`layers[0].envelope.attack_seconds`）を示すので、その場所を直します。
 
 ```bash
 sonalloy instrument validate <definition>
-sonalloy instrument validate <definition> --json
+sonalloy instrument validate <definition> --json   # 結果を機械可読で出力
 ```
 
-### `instrument inspect`
+### `instrument inspect` — コンパイル結果の確認
 
-Compile後の実行値を表示します。`--json`を付けると同じ内容を機械可読形式で返します。
-
-| 表示項目 | 内容 |
-|---|---|
-| Metadata | 名前、作者、説明 |
-| Performance | Polyphony、Voice Stealing方式、Reported Latency（Frame） |
-| Layer | Trigger Event（`note_on` / `note_off`）、Key / Velocity範囲、Generator、Gain、Pan、Tuning、Envelope |
-| Oscillator | Waveform、Phase Reset、Phase、Backend、Output Mode、Effective Frequency上限、Pulse Width（Pulseのみ）、Hard Sync、Waveshaping、Phase Distortion、Wavefold、Oscillator Feedback、DC Blocker、Signal Order、Unison |
-| Noise | Color、Seed、Stereo Correlation Parameter、Output Mode |
-| Additive | Output Mode、Partial Count / 最大Partial Count、Phase Reset、Morph、Spectrum Tilt、Inharmonicity、各PartialのID / Ratio / Amplitude A / B / Phase / Envelope有無 |
-| Formant | Output Mode、Partial Count / 最大Partial Count、Phase Reset、Profile Count、Vowel Position、Formant Shift、Throat、Spectral Tilt、各ProfileのIDと5本のFrequency / Bandwidth / Gain |
-| Wavetable | Asset Path、SHA指定有無、Prepared状態、Source Channel / Frame Count、Frame Length / Count、Band Count / Max Harmonic、Position、Parameter ID、Phase、Unison、Output Mode、Effective Frequency上限 |
-| Spectral | Output Mode、Asset A/B Path、SHA指定有無、Asset A/B Prepared状態、A/B各Source / Prepared Sample Rate、Channel / Frame Count、Spectral Frame Count、Prepared Bytes、FFT / Hop / Bin数、Root Note、Latency、Position / Freeze / Blur / Shift / Morph、各Parameter ID、Phase Reset |
-| Granular | Asset Path、SHA指定有無、Prepared状態、Source Channel / Prepared Frame、Region、Root Note、Position、Grain Size、Density、Pitch、Randomness、Pan Spread、各Parameter ID、Seed、Grain Pool Limit、Output Mode |
-| Wave Sequence | Output Mode、Step Count、Enabled Step Count、Direction、Loop、Crossfade、各StepのID / Asset / Region / Duration Type / Duration / Playback / Playback Direction / Gain / Pitch / Availability、Source Channel / Prepared Frame |
-| Operator Modulation | Mode、Algorithm、Evaluation Order、Incoming Mask、Carrier Operator、4 OperatorのRatio / Detune / Level / Modulation Amount / Feedback / Envelope / Parameter ID、Phase Reset、Unison、Output Mode、Effective Frequency上限 |
-| Sample | Zone Count、Enabled / Disabled Count、Prepared Asset共有数、Zone ID、Key / Velocity範囲、Root Note、Round Robin Group、Playback Region、Direction、Loop / Crossfade Frame、Time Mode、Duration Ratio / Source BPM、Asset Metadata、Output Mode |
-| Parameter | Canonical ID、Owner、Unit、Range、Default、Scale、Smoothing |
-| Modulation | Source ID、Source種類、Scope、Target、Amount、Curve |
-| Processor | Layer、Voice、Globalの配置、Chain順、ID、Static Field、Dynamic Parameter |
-| Warning | Compile時の警告一覧 |
+音源定義をコンパイルした結果（最終的なGain、Pan、ADSR、Parameter、Modulation、Processorなど）を表示します。書いた定義が意図どおりに解釈されたかを確認するために使います。
 
 ```bash
 sonalloy instrument inspect <definition>
 sonalloy instrument inspect <definition> --json
 ```
 
-`inspect`のParameter IDはCompiled Catalogから取得したCanonical IDです。RouteのSource ID、Target ID、設定値もCompiled Instrumentの内容をそのまま表示します。Sample Zoneは`direction`、Region Frame、Loop Frame、`crossfade_frames`、Time Mode、Duration Ratio / Source BPM、Source Channel数、Prepared Frame数を表示します。Wave SequenceはMissing Stepを含む全StepをDefinition順で表示し、`enabled`、Region Frame、Duration、Step Playback、Asset Playback Direction、Gain、Pitch、Source Metadataを確認できます。Instrument全体の`reported_latency_frames`も表示します。Layer Triggerは`event`を表示し、`note_off` LayerがRelease Triggerとして構成されていることを確認できます。
-ProcessorはChainごとに`placement`、`chain_index`、`id`、`kind`、Static Field、Parameter Descriptorを表示します。FilterはParameterのDefaultとSample Rateに応じたDSP適用上限をStatic Fieldへ表示します。DelayのTimeとReverbのPre-delayはStatic Fieldです。
+主な確認項目：
 
-Operator ModulationのJSON Inspectでは、Operator番号を1始まりで表示し、固定Topologyを`evaluation_order`、`incoming_masks`、`carrier_operators`として表示します。`level`、`modulation_amount`、`feedback`はTopologyとModeで使用されないOperatorでは`null`になります。OperatorのParameter IDは`layer.<layer_id>.generator.operator.<1-4>.<parameter>`形式です。
+| 項目 | 内容 |
+|---|---|
+| Performance | 同時発音数、Voice Stealingの方式、報告Latency |
+| Layer | 発音条件、Generator、Gain、Pan、Tuning、ADSR |
+| Generator | 各Generatorの構成値（波形、Asset、Parameter、Algorithmなど） |
+| Parameter | Parameter ID、単位、範囲、初期値 |
+| Modulation | SourceとTargetの接続 |
+| Processor | Layer / Voice / Globalの各Processor Chain |
+| Warning | コンパイル時の警告（Asset欠落など） |
 
-Complex OscillatorのJSON Inspectでは、`backend`が`phase_domain`になる条件、`phase_distortion_parameter`、`wavefold_parameter`、`oscillator_feedback_parameter`、`dc_blocker`、`signal_order`、`combination_constraints`を表示します。Wavefoldだけを指定した場合は既存Oscillator Backendを維持します。
+`--json`は、Generatorごとの構造をFieldとして返します。Parameter IDは`layer.<layer_id>.generator.<name>`形式（Operator Modulationだけ`operator.<1-4>.<parameter>`）。各GeneratorがどのFieldを返すかは、実際に`--json`を実行して確認してください。
 
-AdditiveのJSON Inspectでは、固定Partial数と最大値、初期Morph / Spectrum Tilt / Inharmonicity、Definition順のPartial ID、Ratio、Amplitude A / B、Initial Phase、Optional Envelopeの有無を表示します。Dynamic ParameterのCanonical IDは、`layer.<layer_id>.generator.additive_morph`、`layer.<layer_id>.generator.additive_spectrum_tilt`、`layer.<layer_id>.generator.additive_inharmonicity`です。
+## 音を鳴らす
 
-FormantのJSON Inspectでは、固定Partial数と最大値、Phase Reset、Profile数、初期Vowel Position / Formant Shift / Throat / Spectral Tilt、Profile順のID、5本のFormant Bandを表示します。Dynamic ParameterのCanonical IDは、`layer.<layer_id>.generator.formant_vowel_position`、`layer.<layer_id>.generator.formant_shift`、`layer.<layer_id>.generator.formant_throat`、`layer.<layer_id>.generator.formant_spectral_tilt`です。
+3つの`render`コマンドは、いずれもWAVを生成します。確認したい内容に合わせて使い分けます。
 
-SpectralのJSON Inspectでは、`asset_a`と指定された`asset_b`の準備状態、各AssetのSource / Prepared Sample Rate、Source Metadata、Prepared Spectral Frame数、Prepared Bytes、FFT / Hop / Bin数、Reported Latency、Position / Freeze / Blur / Shift / MorphのParameter値とCanonical IDを表示します。Aまたは指定Bが準備できない場合も、ほかの有効Layerを含むCompile結果を確認できます。
+| コマンド | 向いている用途 |
+|---|---|
+| `render note` | 1音の鳴り方（Attack、Sustain、Release）を手軽に確かめる |
+| `render events` | 演奏中のParameter変化（Filter Cutoff、Pitch Bendなど）を正確な位置で再現する |
+| `render midi` | MIDI Fileのフレーズを鳴らす |
 
-Harmonic / Formant HybridのJSON Inspectでは、各LayerのGeneratorとProcessor、Voice / Global Processor Chain、Modulation Source / Routeを同じReportで表示します。[`harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)を使うと、Formant、Additive、Sample、Noise、Filter、Drive、Delay、Reverb、MIDI制御Targetを一つの構造として確認できます。
+### `render note` — 1音のレンダリング
 
-Spectralの単体とHybridは[`spectral-generator-reference.json`](../examples/instruments/spectral-generator-reference.json)と[`spectral-hybrid-reference.json`](../examples/instruments/spectral-hybrid-reference.json)で確認できます。単体例ではStereo A/B Prepared状態、FFT 2048、Hop 512、Bin数、Reported Latency、5つのSpectral Parameterを確認し、Hybrid例ではSpectral、Additive、Sample、Noise、Layer / Voice / Global Processor、Modulation Routeを同じReportで確認します。
-
-## `render` Command
-
-### `render note`
-
-Coreへ1つのNote On / Note Offを渡してRenderします。単音の確認用です。
+1つのNote OnとNote Offをレンダリングします。音色の素性を手軽に確かめるのに使います。
 
 ```bash
-sonalloy render note examples/instruments/basic-poly-synth.json \
+sonalloy render note <definition> \
   --note 60 --velocity 100 --gate 0.5 --tail 0.5 \
   --tempo 120 \
   --sample-rate 48000 --block-size 257 --output out/note.wav
 ```
 
-| Option | 必須 | Default | 内容 |
-|---|---:|---:|---|
-| `--note <0-127>` | No | `60` | MIDI Note番号 |
-| `--velocity <1-127>` | No | `100` | MIDI Velocity |
-| `--gate <seconds>` | No | `0.5` | Note OnからNote Offまでの時間。有限かつ0以上 |
-| `--tail <seconds>` | No | `0.5` | Note Off後の追加Frame。有限かつ0以上 |
-| `--tempo <bpm>` | No | `120` | Process Tempo。有限かつ0より大きい値。Tempo Sync SampleのDuration比に使う |
-| `--sample-rate <Hz>` | No | `48000` | 正の整数。WAV HeaderとDSPへ同じ値を渡す |
-| `--block-size <frames>` | No | `257` | Process最大Block Size |
-| `--output <path>` | Yes | — | Stereo WAV出力先 |
-| `--json` | No | Off | ResultまたはDiagnosticをJSONで出力 |
+| Option | Default | 内容 |
+|---|---|---|
+| `--note` | 60 | MIDI Note番号（0〜127） |
+| `--velocity` | 100 | 強さ（1〜127） |
+| `--gate` | 0.5 | Note OnからNote Offまでの秒数 |
+| `--tail` | 0.5 | Note Off後の余韻の秒数 |
+| `--tempo` | 120 | Tempo Sync Sampleの基準BPM |
+| `--sample-rate` | 48000 | 出力Sample Rate |
+| `--block-size` | 257 | 処理の最大Block Size |
+| `--output` | — | 出力先（必須） |
+| `--json` | Off | 結果を機械可読で出力 |
 
-### `render events`
+### `render events` — Event Sequenceのレンダリング
 
-Absolute FrameのEvent Sequence JSONを読み込み、Parameter ChangeとExternal Controlを含む再現可能なRenderを行います。Parameter IDはRender開始前にHandleへ解決されます。
+MIDI Fileを使わずに、Event（Note、Parameter Change、Pitch Bendなど）を**正確なFrame位置で制御**しながらレンダリングします。パラメータ変化の滑らかさや、特定のタイミングでの変化を検証する時に使います。
 
 ```bash
-sonalloy render events \
-  examples/instruments/basic-poly-synth.json \
-  events.json \
-  --sample-rate 48000 --block-size 257 \
-  --duration-frames 192000 --tail 1.0 --output out/events.wav
+sonalloy render events <definition> <events.json> \
+  --duration-frames 192000 --tail 1.0 \
+  --sample-rate 48000 --block-size 257 --output out/events.wav
 ```
 
-Event Fileの例です。
+**Event Fileの書き方**
+
+Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**再生開始位置からの経過Frame数**（`absolute_frame`）と、Eventの種類（`type`）を持ちます。
 
 ```json
 {
   "events": [
-    {
-      "absolute_frame": 0,
-      "type": "parameter_change",
-      "parameter": "voice.processor.tone.cutoff",
-      "normalized": 0.35
-    },
-    {
-      "absolute_frame": 0,
-      "type": "note_on",
-      "note_id": 1,
-      "note": 60,
-      "velocity": 100
-    },
-    {
-      "absolute_frame": 24000,
-      "type": "mod_wheel",
-      "value": 1.0
-    },
-    {
-      "absolute_frame": 48000,
-      "type": "note_off",
-      "note_id": 1
-    }
+    { "absolute_frame": 0,     "type": "parameter_change", "parameter": "voice.processor.tone.cutoff", "normalized": 0.35 },
+    { "absolute_frame": 0,     "type": "note_on",          "note_id": 1, "note": 60, "velocity": 100 },
+    { "absolute_frame": 24000, "type": "mod_wheel",        "value": 1.0 },
+    { "absolute_frame": 48000, "type": "note_off",         "note_id": 1 }
   ]
 }
 ```
 
-対応する`type`は`note_on`、`note_off`、`parameter_change`、`pitch_bend`、`mod_wheel`、`aftertouch`です。入力EventはAbsolute Frame昇順で並べ、同一FrameではCoreのEvent Priorityへ従って安定Sortします。Duration外のEvent、未解決Parameter ID、範囲外の値が一つでもあればWAVを生成しません。
+書けるEventの種類：
 
-| Option | 必須 | Default | 内容 |
-|---|---:|---:|---|
-| `--duration-frames <frames>` | Yes | — | Main Render長。EventのAbsolute Frameはこの値未満 |
-| `--tail <seconds>` | No | `1.0` | Main Render後の追加Frame |
-| `--tempo <bpm>` | No | `120` | Process Tempo。Tempo Sync SampleのDuration比に使う |
-| `--sample-rate <Hz>` | No | `48000` | 正の整数 |
-| `--block-size <frames>` | No | `257` | Process最大Block Size |
-| `--output <path>` | Yes | — | Stereo WAV出力先 |
-| `--json` | No | Off | ResultまたはDiagnosticをJSONで出力 |
+| `type` | 渡す値 | 働き |
+|---|---|---|
+| `note_on` / `note_off` | `note_id`、`note`、`velocity` | 音を鳴らす / 止める。`note_id`でOnとOffを対応付ける |
+| `parameter_change` | `parameter`、`normalized` | Parameter IDへ0〜1の値を送る |
+| `pitch_bend` | `value` | -1〜1 |
+| `mod_wheel` | `value` | 0〜1 |
+| `aftertouch` | `value` | 0〜1 |
 
-### `render midi`
+読み込み時の処理：
 
-Standard MIDI FileをAbsolute Frameの`ScheduledEvent`とTempo Mapへ変換してRenderします。
+- Eventを**時系列へ正しく処理するため**、`absolute_frame`の昇順へ整列します。同じFrameでは、決まった優先順位（Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note On）で処理します
+- 次のいずれかがあると、安全のためWAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、範囲外の値
 
-- Tick、Tempo、Channel、NoteはCLI側でAbsolute Frameへ変換する
-- MIDI Tempo EventはTempo Mapとして保持し、Tempo変更FrameでCoreのProcess Blockを分割する
-- Note OnのVelocity 0はNote Offとして扱う
-- Note IDはChannel・Note Number・発音Serialから生成する
-- CC1はMod Wheel、Pitch Bendは-1〜1、Channel Aftertouchは0〜1へ変換する
-- 同一FrameのNote On / Note Offはゼロ長Noteとして両方を除外する
-- Sustain Pedal、Polyphonic Aftertouch、CC1以外のController、Program Change等は無視し、Warningを返す
-- 複数ChannelのNoteを一つのInstrumentへ統合した場合はWarningを返す
-- Controlは、Active Noteへ適用されるInstrument Scope値が複数Channelから供給され、Channelごとの値と統合値が異なる場合にWarningを返す
-- Note Eventを含まないMIDI FileはErrorとして拒否する
-- Coreへ`midly`型は渡さない
+| Option | Default | 内容 |
+|---|---|---|
+| `--duration-frames` | — | レンダリング長（Frame、必須）。Eventの`absolute_frame`はこの値未満にします |
+| `--tail` | 1.0 | レンダリング後の余韻の秒数 |
+| `--tempo` | 120 | Tempo Sync Sampleの基準BPM |
+| `--sample-rate` | 48000 | 出力Sample Rate |
+| `--block-size` | 257 | 処理の最大Block Size |
+| `--output` | — | 出力先（必須） |
+| `--json` | Off | 結果を機械可読で出力 |
+
+### `render midi` — MIDI Fileのレンダリング
+
+Standard MIDI Fileを読み込んでレンダリングします。演奏フレーズを鳴らす時に使います。
 
 ```bash
-sonalloy render midi \
-  examples/instruments/basic-poly-synth.json \
-  testdata/midi/basic-poly-synth-phrase.mid \
+sonalloy render midi <definition> <midi-file> \
   --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --output out/basic-poly-synth.wav
+  --output out/phrase.wav
 ```
 
-| Option | 必須 | Default | 内容 |
-|---|---:|---:|---|
-| `--tail <seconds>` | No | `1.0` | 最後のNote Off後の追加Frame。有限かつ0以上 |
-| `--sample-rate <Hz>` | No | `48000` | 正の整数。WAV HeaderとDSPへ同じ値を渡す |
-| `--block-size <frames>` | No | `257` | Process最大Block Size |
-| `--output <path>` | Yes | — | Stereo WAV出力先 |
-| `--json` | No | Off | ResultまたはDiagnosticをJSONで出力 |
+MIDIを読み込むと、CLIは次の変換を行います：
 
-## `dev render-sine`
+- MIDIのTick・Tempo・Channel・Noteを、**再生開始位置からのFrame数**へ変換します。Tempo変更があると、その位置で処理Blockを分けて、切り替わりの前後で正確な長さを保ちます
+- Note OnのVelocity 0はNote Offとして扱います
+- CC1はMod Wheel、Pitch Bendは-1〜1、Channel Aftertouchは0〜1へ変換します
+- 同じ時刻でNote OnとNote Offが重なると、長さ0のNoteとして両方を無視します
 
-全処理経路（Process Contract、Native FFI、Stereo WAV出力）を通す動作確認用のSine Renderです。
+対応しないMIDI機能（Sustain Pedal、Polyphonic Aftertouch、CC1以外のController、Program Change）は無視してWarningを出します。複数ChannelのNoteを1つの音源へ当てた場合や、ChannelごとにControl値が違う場合もWarningを出します。Note Eventを1つも含まないMIDI Fileは、Errorとして受け付けません。
+
+| Option | Default | 内容 |
+|---|---|---|
+| `--tail` | 1.0 | 最後のNote Off後の余韻の秒数 |
+| `--sample-rate` | 48000 | 出力Sample Rate |
+| `--block-size` | 257 | 処理の最大Block Size |
+| `--output` | — | 出力先（必須） |
+| `--json` | Off | 結果を機械可読で出力 |
+
+## 動作確認
+
+### `dev render-sine` — 処理経路の確認
+
+処理契約、Native FFI、WAV出力までの全経路を通す、単音のSineレンダリングです。ビルド後の動作確認に使います。
 
 ```bash
 sonalloy dev render-sine \
-  --frequency 440 \
-  --duration 1.0 \
-  --sample-rate 48000 \
-  --block-size 257 \
-  --output out/sine.wav
+  --frequency 440 --duration 1.0 \
+  --sample-rate 48000 --block-size 257 --output out/sine.wav
 ```
 
-| Option | 必須 | Default | 内容 |
-|---|---:|---:|---|
-| `--frequency <Hz>` | No | `440` | Sine周波数。有限かつ0以上 |
-| `--duration <seconds>` | Yes | — | Main Render時間。有限かつ0以上 |
-| `--sample-rate <Hz>` | No | `48000` | 正の整数。WAV HeaderとDSPへ同じ値を渡す |
-| `--block-size <frames>` | No | `257` | Process最大Block Size |
-| `--tail <seconds>` | No | `0` | Main Render後の追加Frame |
-| `--output <path>` | Yes | — | Stereo WAV出力先 |
-| `--json` | No | Off | ResultまたはDiagnosticをJSONで出力 |
+| Option | Default | 内容 |
+|---|---|---|
+| `--frequency` | 440 | 周波数（Hz） |
+| `--duration` | — | レンダリング長（秒、必須） |
+| `--sample-rate` | 48000 | 出力Sample Rate |
+| `--block-size` | 257 | 処理の最大Block Size |
+| `--tail` | 0 | レンダリング後の余韻の秒数 |
+| `--output` | — | 出力先（必須） |
+| `--json` | Off | 結果を機械可読で出力 |
 
-出力は32-bit float、2 Channel、指定Sample RateのWAVです。Time Stretchを含む場合、CLIはReported Latency分を内部Renderへ追加し、前置き分を除去してMusical TimelineのFrame 0からWAVを生成します。成功JSONには`reported_latency_frames`を含みます。親Directoryは事前に作成してください。
+## 出力とエラー
 
-## Exit Code
+### 出力WAV
+
+すべての`render`コマンドは、32-bit float・2 Channel・指定Sample RateのStereo WAVを出力します。出力先の親Directoryは事前に作成してください。
+
+Time Stretchを含む音源では、CLIが内部で報告Latency分を追加レンダリングし、先頭の無音部分を除去して、**演奏タイムラインのFrame 0**からWAVを始めます。成功時のJSONには`reported_latency_frames`が含まれます。
+
+### Exit Code
 
 | Code | 意味 |
 |---:|---|
 | `0` | 成功 |
-| `1` | Definition / Compile Error |
-| `2` | CLI入力またはRender Request Error |
-| `3` | Core Process / Render Error |
-| `4` | WAV出力 Error |
+| `1` | 音源定義 / コンパイルエラー |
+| `2` | CLI入力 / レンダリングリクエストエラー |
+| `3` | Core処理 / レンダリングエラー |
+| `4` | WAV出力エラー |
 
-入力不正はJSON時に次の形で返ります。
+`--json`を付けると、入力エラーを次の形で返します：
 
 ```json
 {
@@ -258,83 +228,25 @@ sonalloy dev render-sine \
 }
 ```
 
-## 診断Code
+### 診断Code
 
-**Definition / Event**
+検証・コンパイル・レンダリングで発生する主な診断Codeです。
 
-- `SCHEMA_UNSUPPORTED`
-- `JSON_INVALID`
-- `REQUIRED_FIELD_MISSING`
-- `ID_DUPLICATED`
-- `VALUE_OUT_OF_RANGE`
-- `LAYER_RANGE_INVALID`
-- `PARAMETER_ID_INVALID`
-- `PARAMETER_NOT_FOUND`
-- `SOURCE_ID_INVALID`
-- `SOURCE_ID_DUPLICATED`
-- `SOURCE_NOT_FOUND`
-- `SOURCE_VALUE_INVALID`
-- `ROUTE_AMOUNT_INVALID`
-- `ROUTE_TARGET_INVALID`
-- `FILTER_CUTOFF_CLAMPED`
-- `EVENT_ORDER_INVALID`
-- `DSP_ERROR`
+**音源定義・Event**
+
+`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`PARAMETER_ID_INVALID`、`PARAMETER_NOT_FOUND`、`SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_AMOUNT_INVALID`、`ROUTE_TARGET_INVALID`、`FILTER_CUTOFF_CLAMPED`、`EVENT_ORDER_INVALID`、`DSP_ERROR`
 
 **Asset**
 
-- `ASSET_NOT_FOUND`
-- `ASSET_HASH_MISMATCH`
-- `ASSET_DECODE_FAILED`
-- `ASSET_RESAMPLED`
-- `ASSET_DOWNMIXED`
-- `ASSET_HASH_MISSING`
-- `ASSET_ABSOLUTE_PATH`
+`ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`ASSET_HASH_MISSING`、`ASSET_ABSOLUTE_PATH`
 
-**Wavetable**
+**Generator別**
 
-- `WAVETABLE_LAYOUT_INVALID`
-- `WAVETABLE_PREPARATION_FAILED`
-- `WAVETABLE_SILENT_FRAME`
-- `WAVETABLE_DC_OFFSET`
-- `GENERATOR_RESOURCE_LIMIT_EXCEEDED`
+| Generator | Code |
+|---|---|
+| Wavetable | `WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`WAVETABLE_SILENT_FRAME`、`WAVETABLE_DC_OFFSET`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
+| Spectral | `SPECTRAL_PREPARATION_FAILED`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
+| Wave Sequence | `INVALID_SEQUENCE`、`INVALID_STEP_DURATION` |
+| Operator Modulation | `VALUE_OUT_OF_RANGE`、`DEFINITION_ERROR`（Carrier Level / 非Carrier Level / 未接続Amount / AM・Ring Feedback）、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
 
-**Spectral**
-
-- `SPECTRAL_PREPARATION_FAILED`
-- `GENERATOR_RESOURCE_LIMIT_EXCEEDED`
-
-**Wave Sequence**
-
-- `INVALID_SEQUENCE`
-- `INVALID_STEP_DURATION`
-
-**Operator Modulation**
-
-- `VALUE_OUT_OF_RANGE`（Operator数、Ratio、Detune、Level、Amount、Phase、Feedback、Unison範囲）
-- `DEFINITION_ERROR`（Carrier Level、非Carrier Level、未接続Amount、AM / Ring Feedback）
-- `GENERATOR_RESOURCE_LIMIT_EXCEEDED`（Unison Voice数）
-
-AssetのMissingやDecode失敗はWarningとして表示され、ほかの有効LayerがあればRenderは継続します。
-
-## Spectral Resynthesisの確認例
-
-```bash
-sonalloy instrument validate examples/instruments/spectral-generator-reference.json --json
-sonalloy instrument inspect examples/instruments/spectral-generator-reference.json --json
-sonalloy render midi examples/instruments/spectral-hybrid-reference.json \
-  testdata/midi/basic-poly-synth-phrase.mid --sample-rate 48000 --block-size 257 \
-  --tail 0.2 --output out/spectral-hybrid-reference/midi.wav --json
-```
-
-Review用の全条件（Parameter Change、Block Size、Sample Rate、Fresh Runtime、16 Voice、Voice Stealing、既存Generator回帰）は`python3 scripts/review/generate_spectral_resynthesis_package.py`で`review-output/spectral-resynthesis/`へ生成します。Performance測定の音声は保存せず、`metrics.json`へ測定値だけを記録します。
-
-## Sampleを含むInstrumentの確認例
-
-SampleとOscillatorを組み合わせたInstrumentは次のように確認できます。
-
-```bash
-sonalloy instrument inspect examples/instruments/metallic-hybrid.json --json
-sonalloy render midi examples/instruments/metallic-hybrid.json \
-  testdata/midi/metallic-hybrid-phrase.mid --sample-rate 48000 --block-size 257 \
-  --tail 1.0 --output out/metallic-hybrid.wav
-```
+Assetの欠落・Decode失敗はWarningとして扱われ、ほかの有効なLayerがあればレンダリングを続けます。

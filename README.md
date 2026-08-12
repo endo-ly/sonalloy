@@ -1,6 +1,19 @@
 # Sonalloy
 
-Sonalloyは、音声素材と音響合成をLayerとして組み合わせ、演奏可能なInstrumentへ変換する音源エンジンです。JSONのDefinitionをCompileし、Basic / Complex Oscillator、Additive、Formant、Wavetable、4 Operator Modulation、Stereo Sample、Granular Generator、Wave Sequenceを同じVoiceで合成して、Stereo WAVをOffline Renderします。Additiveは最大64 Partial、Spectrum Morph、Spectrum Tilt、Inharmonicity、Partial Envelopeを備え、Formantは最大64 Harmonic Partial、5バンドProfile、Vowel Position、Formant Shift、Throat、Spectral Tiltを備えます。SampleはRegion、Reverse、Loop、Constant-power Crossfade Loop、Release Trigger、Fixed Stretch、Tempo Syncを備え、GranularはPosition、Grain Size、Density、Pitch、Randomness、Pan Spreadを備え、Wave Sequenceは複数Step、Seconds / Beats Duration、Direction、Crossfade、Step Pitch / Gainを備えます。Complex OscillatorはPhase Distortion、Wavefold、Oscillator Feedbackを含み、Formant / Additive / Sample / NoiseのHybrid Layer、Filter / Drive / Delay / Reverb、MIDI Modulationを同じRuntimeで扱えます。
+Sonalloyは、JSONで書いた音源定義を読み込んで、オフラインで音源WAVを生成する音源エンジンです。複数の音の層（Layer）を重ね、エフェクトとモジュレーションを組み合わせて、1つの音源を作ります。
+
+## 特長
+
+- **AIファースト設計**: 音源はJSONで定義し、CLIで検証・確認する。テキストだけで完結するため、AIが音源を設計・生成・検査できる
+- **多彩な合成方式を組み合わせる**: 次の方式をLayerとして重ね、1つの音源を作る
+  - 波形オシレータ（基本波形、FM、ハードシンク、ウェーブテーブル）
+  - 加算合成・フォルマント（倍音設計、母音共鳴）
+  - サンプリング（サンプル再生、グラニュラー、ウェーブシーケンス）
+  - スペクトル再構成（周波数分解した音の再構成）
+- **エフェクトとモジュレーション**:
+  - エフェクト: Filter、Drive、Delay、Reverb
+  - モジュレーション: Velocity、LFO、Envelope等でパラメータを動かす
+- **決定的なレンダリング**: 同じ入力から常に同じWAVを生成。単音、イベントシーケンス、MIDIファイルに対応
 
 ## クイックスタート
 
@@ -48,7 +61,7 @@ cargo test --workspace
 
 | 文書 | 内容 |
 |---|---|
-| [`docs/creating-an-instrument.md`](docs/creating-an-instrument.md) | 音源の作り方（ガイド） |
+| [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源の作り方（手順書） |
 | [`docs/architecture.md`](docs/architecture.md) | 静的構造：Crate・依存方向・Native境界 |
 | [`docs/runtime-processing.md`](docs/runtime-processing.md) | 実行時仕様：Process Contract・Lifecycle・Error規則 |
 | [`docs/cli.md`](docs/cli.md) | CLI仕様：Command・Option・Exit Code |

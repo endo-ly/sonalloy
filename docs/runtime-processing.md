@@ -2,7 +2,7 @@
 
 ## 本書の範囲
 
-本書ではSonalloyの**実行時の動作**を説明します。1つのNoteが鳴って消えるまでの仕組み、1つのBlockの処理手順、Sampleの再生、準備とリセット、エラー時の扱いです。
+本書ではSonalloyの**実行時の動作**（Noteが鳴って消えるまでの仕組み、Blockの処理、各Generatorの振る舞い、準備とリセット、エラー時の扱い）を説明します。
 
 | 本書で扱わない内容 | 参照先 |
 |---|---|
@@ -12,40 +12,39 @@
 
 ## 全体像
 
-音源（Instrument Runtime）は、Polyphony数分のVoiceを固定で持っています。`process`を呼ばれるたびに、1つのBlock（最大Block SizeまでのSample列）を出力します。
-
-1回の`process`は次の順で進みます。
+音源（Instrument Runtime）はPolyphony数分のVoiceを固定で持ち、`process`を呼ぶたびに1 Block（最大Block SizeまでのSample列）を出力します。
 
 ```mermaid
 flowchart LR
     A[出力をゼロで埋める] --> B[Eventの位置で区切る]
     B --> C[その位置のEventを適用]
     C --> D[区間ごとにVoiceを鳴らす]
-    D --> E{次のEventはあるか}
+    D --> E{次のEvent}
     E -- あり --> B
-    E -- なし --> F[Blockの最後まで鳴らす]
+    E -- なし --> F[Block末尾まで鳴らす]
 ```
 
-- 出力はStereoで、左右のチャンネルを分けた`f32`バッファに書き込みます
+- 出力はStereoで、左右のChannelを分けた`f32`Bufferへ書き込みます
 - EventはNote、Parameter Change、Pitch Bend、Mod Wheel、Aftertouchを含みます。音の計算は毎Sample行われます
-- Note OnからNote Offまでの間、そのNoteは1つのVoiceに割り当てられます
+- Note OnからNote Offまでの間、そのNoteは1つのVoiceへ割り当てられます
 
 ## Blockの処理
 
-`process`に渡すものは、処理するFrame数、Blockの先頭位置（`absolute_frame`）、Event列、出力バッファです。EventはBlock内のSample位置（`sample_offset`）を持ち、その位置で正確に適用されます。
+`process`へ渡すのは、処理するFrame数、Block先頭位置、Event列、出力Bufferです。EventはBlock内のSample位置（`sample_offset`）を持ち、その位置で正確に適用されます。
 
-- 出力は先にゼロで埋めてから書き込みます。前のBlockの残りは混ざりません
-- 区間ごとのRenderとEventの適用を繰り返し、最後にBlockの末尾まで鳴らします
-- Frame数が0のBlockは、何もせず成功として扱います
+- 出力は先にゼロで埋み。前のBlockの残りは混ざりません
+- 区間ごとのRenderとEvent適用を繰り返し、最後にBlock末尾まで鳴らします
+- Frame数が0のBlockは何もせず成功扱いです
 
 **Eventの規則**
 
-- Eventは`sample_offset`の昇順に並べます
-- 同じ位置では`Note Off`、`Parameter Change`、`Pitch Bend`、`Mod Wheel`、`Aftertouch`、`Note On`の順に置きます
-- 位置が前後している、または同じ位置の優先順位が不正な場合はエラーになります
-- Parameter Handle、Normalized値、External Control値はBlock開始前に全件検証します。不正EventがあればStateを変更せず、対象Blockを無音にします
+| 規則 | 内容 |
+|---|---|
+| 順序 | Eventは`sample_offset`の昇順に並べます |
+| 同一位置の優先順位 | Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note On |
+| 検証 | Parameter Handle、Normalized値、External Control値はBlock開始前に全件検証します。不正EventがあればStateを変更せず、対象Blockを無音にします |
 
-## Noteの一生
+## Noteのライフサイクル
 
 ```mermaid
 stateDiagram-v2
@@ -55,45 +54,44 @@ stateDiagram-v2
     Releasing --> Idle: Release完了
     Active --> StealFading: 別のNoteに奪われる
     StealFading --> Active: Fade完了で新しいNoteを開始
-    StealFading --> Idle: 新しいNoteがキャンセルされた
+    StealFading --> Idle: 新しいNoteがキャンセル
 ```
 
 **Note On**
 
-1. どのLayerもTrigger条件（Event / Key / Velocity）に合わないNoteは無視します
-2. Voiceを1つ選びます。Idle → 最も音量の小さいReleasing → 最古のActive の順です
-3. `note_on` Layerを開始し、`note_off` LayerをArmedにします。Armed LayerはAudioを生成せず、Note IDを保持します
-4. 選んだVoiceがIdleなら即座にNoteを開始します。空きがない場合は、5msのFadeで古い音を消してから新しいNoteを開始します（Voice Stealing）
+1. どのLayerのTrigger条件（Event / Key / Velocity）にも合わないNoteは無視します
+2. Voiceを1つ選びます。優先順位は Idle → 最も音量の小さいReleasing → 最古のActive です
+3. `note_on` Layerを開始し、`note_off` Layerを待機状態にします。待機Layerは音を出さずNote IDだけ保持します
+4. 選んだVoiceがIdleなら即座に開始。空きがない場合は5msのFadeで古い音を消してから新しいNoteを開始します（Voice Stealing）
 
-**Note Off**
+**Note OffとVoice Stealing**
 
-- Note IDでVoiceを探し、Activeな`note_on` Layerを現在のADSR値からReleaseへ移行します
-- Armedな`note_off` Layerは独立したEnvelopeのAttackから開始します。Armed Layerがある間は、Note On Layerが先に終了してもVoiceを保持します
-- Voice Stealingの待機中だったNoteは、ここでキャンセルできます
+| タイミング | 振る舞い |
+|---|---|
+| Note Off（通常） | Note IDでVoiceを探し、Activeな`note_on` Layerを現在のADSR値からReleaseへ移行 |
+| Note Off（待機Layerあり） | 待機中の`note_off` Layerを独立したADSRのAttackから開始。待機Layerがある間は、Note On Layerが先に終了してもVoiceを保持 |
+| Steal開始 | 古い音を5msで音量ゼロへFade。Steal中の待機Layerは発音しない |
+| Steal中のNote Off | 待機中の新しいNoteをキャンセルできる |
+| Steal完了 | 待機していたNoteを開始し、待機状態を破棄 |
+| Voiceの解放 | Active Layerと待機Layerがすべて終わったらIdleへ戻る |
 
-**Voice Stealing**
+## Voiceの構成
 
-- 古い音は5msで音量をゼロへFadeします。Fade中にNote Offが来たら、待機中の新しいNoteをキャンセルします
-- Fadeが終わると待機していたNoteを開始し、Armed Stateを破棄します。演奏上のNote Offではないため、Steal中のArmed Layerは発音しません
-- Active LayerとArmed Layerがすべて終わったらIdleへ戻ります
-
-## Voiceの中身
-
-Voiceは複数のLayer、Voice Source State、Layer Processor Chain、Voice Processor Chainを持ちます。Layerは「Generator + Layer Processor Chain + ADSR + Gain + Pan」のセットで、Trigger条件に合ったLayerだけが鳴ります。Base ParameterとInstrument ScopeのExternal Controlは全Voiceで共有し、LFO、Modulation Envelope、RandomはVoiceごとに保持します。Global Processor ChainはInstrument Runtimeが一つだけ所有します。
+Voiceは複数のLayer、Voice Source、Layer / Voice / Globalの3段階のProcessor Chainを持ちます。Layerは「Generator + Layer Processor + ADSR + Gain + Pan」のセットで、Trigger条件に合ったLayerだけが鳴ります。
 
 ```mermaid
 flowchart TD
-    G[Generator Mono or Stereo] --> LP[Matching Layer Processor Chain]
+    G[Generator Mono or Stereo] --> LP[Layer Processor Chain]
     LP --> E[ADSR]
     E --> A[Gain]
     A --> P[Pan or Stereo Balance]
-    P --> M[Layerの出力をすべて合成]
-    M --> VP[Voice Processor Chain 左右独立]
-    VP --> V[Voice Sum]
+    P --> M[Layer Mix]
+    M --> VP[Voice Processor Chain]
+    VP --> V[Voice合計]
     V --> GP[Global Processor Chain]
     GP --> O[Stereo出力]
     S[Voice Source] --> T[Route評価]
-    X[Shared Base / External Control] --> T
+    X[共有: Base / External Control] --> T
     T --> A
     T --> P
     T --> G
@@ -102,190 +100,187 @@ flowchart TD
     T --> GP
 ```
 
-- **ADSR**：Note OnでAttackから始まり、Decayを経てSustainで待ちます。Note Offで現在の値からReleaseへ進みます。長さ0の区間は飛ばします
-- **Gain**：Base値とRouteをdB Domainで加算し、RangeへClampした後にLinear Gainへ変換します。Note開始Fade、Amplitude ADSR、Dynamic Gainを順に乗算します
-- **Pan**：Constant-powerで左右へ振り分けます
-- **Tuning**：Base値とRouteをcentで加算し、OscillatorのFrequencyまたはSampleのPlayback Ratioへ変換します
-- **Processor**：FilterはCutoffをLog2、ResonanceをLinearで評価して10msで滑らかに変化させます。Drive、Delay、ReverbのDynamic ParameterはDefinitionのTarget範囲でSmoothingします。Layer ProcessorはGenerator後、Voice ProcessorはLayer Mix後、Global ProcessorはVoice Sum後に適用します。Stereo GeneratorのLayer Filter / Driveは左右のStateを個別に持ちます
-- **Global Tail**：Global DelayとReverbはActive Voiceがなくても毎Block処理されます。Note LifecycleやVoice StealingではGlobal ProcessorのStateを停止・初期化しません
+| 要素 | 振る舞い |
+|---|---|
+| **ADSR** | Note OnでAttackから始まり、Decayを経てSustainで待機。Note Offで現在値からReleaseへ。長さ0の区間は飛ばす |
+| **Gain** | Base値とRouteをdB Domainで加算してClampし、Linear Gainへ変換。Note開始Fade・ADSR・Dynamic Gainを順に乗算 |
+| **Pan** | 定電力で左右へ振り分け |
+| **Tuning** | Base値とRouteをcentで加算し、Oscillatorの周波数またはSampleの再生速度へ変換 |
+| **Processor** | FilterはCutoffをLog2・ResonanceをLinearで評価して10msで滑らかに変化。Drive・Delay・ReverbはDefinition範囲でSmoothing。Layer ProcessorはGenerator後、Voice ProcessorはLayer Mix後、Global ProcessorはVoice合計後に適用。Stereo GeneratorのLayer Filter / Driveは左右独立のStateを持つ |
+| **Global Tail** | Global DelayとReverbはActive Voiceがなくても毎Block処理。Note LifecycleやVoice Stealingでは停止・初期化しない |
+
+Base ParameterとExternal Controlは全Voiceで共有し、LFO・Modulation Envelope・RandomはVoiceごとに保持します。Global Processor ChainはInstrument Runtimeが1つだけ持ちます。
 
 ## ParameterとModulation
 
-Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを持ちます。Process側はCatalogのDense Handleだけを使い、ID文字列を音声処理へ渡しません。
+Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを持ちます。RuntimeはCatalogの整数Handleだけを使い、ID文字列を音声処理へ渡しません。
 
-- Base ParameterはNormalized値をSmootherへ入れ、5ms（Filterは10ms、DelayとReverbはProcessor種別に応じた固定値）でTargetへ近づけます
-- Routeは同じTargetについて書かれた順にSource値へAmountを掛けて加算します。Linear ParameterはNative範囲、Log2 ParameterはLog2範囲で加算し、最後にClampします
-- Shared Parameter Spanは最大32Frame単位で全Voiceへ同じ値を渡します。Voice SourceはVoiceごとにSpanを計算します
-- `velocity`、`key_tracking`、LFO、Modulation Envelope、RandomはVoiceに属します。Pitch Bend、Mod Wheel、Aftertouchは共有External Controlです
-- Note OffはLayer ADSR、Operator Envelope、Modulation Envelopeへ伝えます。LFOとRandomはVoice終了まで保持し、Voice終了時に初期値へ戻します
-- Instrument ResetではBase ParameterとExternal ControlもDefinition Defaultへ戻します
+| 項目 | 振る舞い |
+|---|---|
+| **Base Parameter** | Normalized値をSmootherへ入れ、5ms（Filterは10ms、DelayとReverbは固定値）でTargetへ近づける |
+| **Route** | 同じTargetについて書かれた順にSource値へAmountを掛けて加算。LinearはNative範囲、Log2はLog2範囲で加算し、最後にClamp |
+| **Parameter Span** | 最大32 Frame単位で全Voiceへ同じ値を渡す。Voice SourceはVoiceごとにSpanを計算 |
+| **Sourceの所属** | `velocity`・`key_tracking`・LFO・Modulation Envelope・RandomはVoice。Pitch Bend・Mod Wheel・Aftertouchは共有External Control |
+| **Note Off伝播** | Layer ADSR・Operator ADSR・Modulation Envelopeへ伝える。LFOとRandomはVoice終了まで保持し、終了時に初期値へ戻す |
+| **Reset** | Base ParameterとExternal ControlもDefinition Defaultへ戻す |
 
-**Generatorの種類**
+## Generatorの実行時振る舞い
 
-- **Oscillator**：Note番号とTuningから周波数を決め、Sine / Saw / Square / Triangle / Pulseを生成します。`phase_reset`が有効ならNoteごとにCompiled Initial Phaseへ戻し、TriangleのIntegrator Stateも初期化します。Pulse Widthは5msでSmoothingし、既存Modulationから制御できます。Hard SyncはVariable Shape BackendでMaster / Slaveを生成し、RatioをLog2で5ms Smoothingします。UnisonはPrepare時に固定したComponent数でDetune、Phase、Stereo Placementを行い、2 Voice以上をStereoで出力します。WaveshapingはUnison Mix直後にAmountをLinearで5ms Smoothingして適用します
-- **Noise**：White / Pink / Brownを決定的なPRNG Streamから生成します。Shared、Left Independent、Right Independentの3 Streamを持ち、Correlationを`√correlation`と`√(1-correlation)`でMixして常にStereoで出力します
-- **Additive**：Compile済みの固定Partial SlotをPrivate Partial Bankへ渡し、Note Frequency × Partial RatioのSineを加算します。MorphはAmplitude A / Bだけを補間し、Spectrum TiltはRatioの`log2`、Inharmonicityは固定されたStiff-string式からControl TickごとにGain / Ratioへ変換します。高域PartialはFrequency Clampではなく0.40〜0.45 Sample Rate比のFadeで抑え、Energy NormalizationはDefinition上の全Partial Gainを基準にします。出力はMonoです
-- **Formant**：整数倍のHarmonic PartialをPrivate Partial Bankへ渡し、Profileから補間した5本のFormant BandをGaussian-likeなSpectral Envelopeとして適用します。Frequency / BandwidthはGeometric、GainはdB LinearでProfile Morphし、Formant ShiftはCenterとBandwidthだけへ適用します。ThroatはBandwidth全体を0.5〜2倍し、Spectral Tiltと0.40〜0.45 Sample Rate比のAlias Fadeを乗算します。出力はMonoです
-- **Wavetable**：Compile時にWAVをFrameへ分割し、FFT/IFFTでHarmonic上限の異なるBand Tableを準備します。PositionはFrame間をLinear、Table内をFour-point Cubicで補間し、Component Frequencyに応じたBandをLog2領域でCrossfadeします。Source Sample RateはPitchへ使わず、Unison 1ではMono、2 Voice以上ではStereoで出力します
-- **Spectral / Resynthesis**：Compile時にPrimary AudioをSTFTへ変換し、Magnitude、Absolute Phase、Instantaneous FrequencyをPrepared Assetへ保持します。RuntimeはPhase Accumulatorを使ってFrameを再構成し、Position、Freeze、MIDI Pitch、Layer Tuning、Frequency ShiftをSpectrumへ適用してからReal IFFT、正規化したSynthesis Window、4倍Overlap-addで出力します。Primary AudioのMono / Stereo Channelを保持します
-- **Operator Modulation**：4 OperatorをCompile済みの固定Topology順にSampleごとに評価します。Phase、Frequency、Amplitude、Ringは同じOperator信号を使いながら別の相互作用として処理し、Carrier Sum後に`1 / sqrt(carrier_count)`で正規化します。Operator Envelopeは各Operator出力へ乗算し、Carrier以外のOperatorは接続先へのModulation Signalだけを供給します。Unison 1はMono、2〜4はComponentごとのPhaseとPrevious Outputを持つStereoです
-- **Complex Oscillator**：Phase DistortionまたはOscillator Feedbackを含むDefinitionはRustのPhase-domain Sine Backendで処理します。Phase Distortionは`breakpoint = 0.5 - amount × 0.45`の連続Mapping、Feedbackは直前Sampleを`tanh(previous × amount × 2.5) × 0.25` cycleへ変換してRead Phaseへ加算します。Wavefoldは既存OscillatorのUnison MixとWaveshapingの後へDaisySP MIT版Wavefolderで適用し、AmountをDrive / Dry-Wetへ固定変換します。非線形機能の後へSample Rate依存のDC Blockerを置きます。Phase DistortionとFeedbackはSineだけで使用でき、Hard Syncとは併用できません
-- **Sample**：後述のSample Zone選択と再生を使います。Compileで無効になったZoneは選択候補から除外されます
-- **Wave Sequence**：Compile時にStepのAsset、Region、Duration、方向、Pitch、Gainを準備し、VoiceごとにCurrent / Nextの最大2 Playback Slotを持ちます。MonoだけのSequenceはMono、Stereo Stepを一つでも含むSequenceはStereoとしてLayerへ渡します
+各Generatorの実行時の振る舞いを示します。Fieldの制約・Rangeは`docs/instrument-definition.md`を参照してください。
 
-## Wavetable Runtime
+### Oscillator
 
-Prepared WavetableはCompile時に`Arc`でCompiled Instrumentへ保持し、全Voiceで共有します。Voiceごとに保持するのはUnison ComponentごとのPhaseだけです。Assetが準備できなかったLayerはNote OnのSelectionから除外され、Runtimeへ到達した場合はInvalid State Errorになります。
+Note番号とTuningから周波数を決め、基本波形（Sine / Saw / Square / Triangle / Pulse）を生成します。
 
-- Frame Positionは`position × (frame_count - 1)`で求め、隣接FrameをLinear Interpolationします。PositionはParameter Spanの各Sample値を使います
-- Table PositionはPhaseから求め、`[last, sample0 ... sampleN-1, sample0, sample1]`のGuard付きTableをFour-point Cubicで読み出します
-- ComponentごとにBase Frequency、Unison Detune、Layer Tuningを適用し、`sample_rate × 0.45`へClampします。Band選択もComponent Frequencyごとに行います
-- Band Tableは`N/2, N/4, ..., 1`のHarmonic上限を持ち、隣接Bandの切替をLog2領域でCrossfadeします。DCはCompile時のSource値を保持します
-- Note Onでは`phase_reset`が有効な場合だけInitial Phaseへ戻し、Instrument Resetでは常にInitial Phaseへ戻します
-- Process中はAsset Decode、FFT、File I/O、メモリ確保を行いません
+| 項目 | 振る舞い |
+|---|---|
+| 位相 | `phase_reset`が有効ならNoteごとにCompile時の初期位相へ戻す |
+| 基本波形 | Sine / Saw / Square / Triangle / Pulse。Pulse Width・Hard Sync Ratio・Waveshaping Amountは滑らかに変化 |
+| Hard Sync | Master / Slaveで倍音を合成。Sineでは使えない |
+| Unison | 固定Component数でDetune・位相・Stereo配置。2 Voice以上でStereo出力 |
+| Phase Distortion（Sine限定） | 位相の非線形Map。Hard Syncと併用不可 |
+| Feedback（Sine限定） | 直前Sampleで自己変調。Hard Syncと併用不可 |
+| Wavefold | 全Waveformで可能。非線形処理の後にDC除去フィルタを置く |
 
-## Spectral Runtime
+### Noise
 
-Spectralの`asset_a`と指定された`asset_b`はCompile時にDecode、Sample Rate変換、STFT解析まで完了し、`Arc`でCompiled Instrumentから全Voiceへ共有されます。A/BのChannel数は一致させ、Bの準備に失敗した場合はAだけへフォールバックせずLayerをUnavailableにします。FFT処理はCore Rustの`realfft`を使い、Native DSP境界へ渡しません。
+White / Pink / Brownを決定的乱数で生成します。Stereo Correlationで左右の相関を制御し、常にStereo出力します。
 
-- Analysis WindowはPeriodic Hann、Hop SizeはFFT Sizeの4分の1です。Analysis Windowを適用したSpectrumからMagnitude、Absolute Phase、Hop間のPhase AdvanceからInstantaneous Frequencyを準備します
-- Sourceの前後へZero Paddingを置き、最初の再構成FrameからSourceの時間位置までを`fft_size - hop_size` FrameのReported Latencyとして扱います
-- Host BlockではなくSynthesis HopをSchedulerの基準にし、PositionとNatural Scanから得たFractional FrameのMagnitude / Instantaneous FrequencyをLinear Interpolationします。FreezeはSource Scan速度を`1 - freeze`へ変換し、Freeze中もPhase Accumulatorを進めます
-- A/Bは`asset_a`をTiming Masterにした共有Normalized CursorからそれぞれのFrame位置へ変換します。Magnitudeは`A²`と`B²`のWeighted Energy平方根、Instantaneous FrequencyはMagnitude Energy Weighted Interpolation、Initial PhaseはCircular InterpolationでMorphします。Absolute PhaseはNote On / Phase Reset時だけ使い、定常処理ではMorph後のInstantaneous FrequencyからPhase Accumulatorを進めます
-- Morph後のTarget Magnitudeへ、Hop単位で一度だけ算出したOne-pole係数を使う時間方向Magnitude Blurを適用します。`blur_seconds = 0`は直接Targetを使い、Source終了後は固定Silent ThresholdまでBlur Stateを減衰させてからOLA Tailを排出します
-- RuntimeはNote On時のPrepared Absolute Phaseを初期値としてPhase Accumulatorを進め、Prepared Magnitude / PhaseをComplex Spectrumへ戻し、共有Inverse FFT PlanでIFFTします。IFFT出力は`1 / fft_size`で正規化し、Normalized Synthesis Windowを掛けて固定長のOLA Bufferへ加算します。Position変更ではPhase Accumulatorを初期化しません
-- MIDI NoteとLayer TuningはRoot Noteに対する周波数比へ変換し、Source Scan速度を変更せずDestination Binを移動します。Spectral ShiftはHzの加算移動としてDestination BinへFractional Distributionし、範囲外のEnergyは破棄します
-- Mono Sourceは左右へ同じ値を出し、Stereo Sourceは左右のMagnitude、Phase、Instantaneous Frequency、Phase Accumulator、Blur State、OLAを独立に再構成します。Position、Freeze、Blur、Shift、MorphのTargetは共有し、GeneratorのOutput ModeはPrepared Source AのChannel数から決定します
-- Note OnではSource Scan、Hop Scheduler、OLAを先頭へ戻します。`phase_reset`が有効ならPrepared PhaseからPhase Accumulatorを初期化し、無効ならVoice再利用時のPhase Accumulatorを維持します。Instrument Resetでは全状態を初期化します
-- Natural ScanはOne-shotでSource Aの末尾を超えると停止します。Blur Stateが残っている場合はゼロTargetのSynthesis Hopを追加し、Blur StateとOLA Tailの両方がSilent Thresholdへ到達してからGeneratorを終了します。Freeze中はSource側の終了条件へ到達しません
-- Runtime PrepareでInverse FFT Input、Output、Scratch、OLA Bufferを確保します。Process中はAsset Decode、File I/O、FFT Plan生成、Heap拡張を行いません
-- `spectral_position`、`spectral_freeze`、`spectral_blur`、`spectral_shift`、`spectral_morph`はParameter Spanの範囲を検証してGeneratorへ渡します。Synthesis Hop単位で変化するTargetもHost Block Sizeから独立して処理します
+### Additive
 
-## Additive Runtime
+1〜64個のPartialのSineを加算合成します。出力はMonoです。
 
-多数Sineの合成処理を、`runtime/generator/partial_bank.rs`の非公開Partial Bankへ閉じ込めます。AdditiveとFormantのDefinitionはCompile時に1〜64 Slotの固定配列へ変換され、4096点の一周期Sine TableとGuard SampleをCompiled Instrumentへ保持します。Sine LookupはPhaseを`[0, 1)`へWrapし、Table端をLinear Interpolationします。
+| 項目 | 振る舞い |
+|---|---|
+| Morph | A/Bの振幅だけを補間（周波数・位相は不変） |
+| Spectrum Tilt | 高域Partialの減衰傾斜 |
+| Inharmonicity | 高域の周波数比を非整数化 |
+| 高域の扱い | 滑らかに減衰（NyquistへClampせず、Partialごとの消え方を維持） |
+| 正規化 | 全PartialのEnergyで正規化 |
+| ADSR | 各Partialに個別ADSRを指定可。Layer ADSRはPartial合計の後に適用 |
 
-- Partial BankのPhase、Gain、Ratio Factor、Ramp StateはVoiceごとに保持します。Process中にPartial数を変更せず、Vec拡張、Sine Table生成、`sin()`直接評価を行いません
-- Morph、Spectrum Tilt、Inharmonicityは約1msのSpectral Control Tickで評価します。Tick間はGainとRatio FactorをSample Rateから算出したInterval長でRampするため、Host Block SizeはTick位置を変えません
-- Spectrum Tiltは`db_to_linear(tilt × log2(ratio))`でGainへ変換します。Inharmonicityは`B = amount × 0.0005`とし、Ratio 1.0を固定したまま`ratio × sqrt((1 + B × ratio²) / (1 + B))`を使います
-- Alias FadeはEffective Frequency / Sample Rateが0.40以下なら1、0.45以上なら0、その間はLinearです。周波数をNyquistへClampしないため、Partialの個別の消え方を維持します
-- 全PartialのSpectral Gainから`1 / max(1, sqrt(Σ gain²))`を求め、Partial EnvelopeのActive数に応じて他PartialのGainを変更しません
-- Partial EnvelopeはPartial Sumの前に適用し、Note Onで開始、Note OffでRelease、Voice StealingとResetで初期状態へ戻します。Layer EnvelopeはPartial Sumの後に従来どおり適用します
+### Formant
 
-Additiveの生成順は、`Partial Gain / Ratio計算 → Partial Bank加算 → Layer Envelope → Layer Processor`です。Sine TableのLookup誤差はCore Testで全Phaseを比較し、最大絶対誤差を`1e-5`以下に制限します。
+整数倍Partialへ母音共鳴の5本Bandを適用します。出力はMonoです。
 
-## Formant Runtime
+| 項目 | 振る舞い |
+|---|---|
+| Vowel Position | 隣接Profileを補間（周波数・帯域幅は幾何平均、GainはdB線形） |
+| Formant Shift | Bandの中心周波数と帯域幅だけを移動（基音Pitchは不変） |
+| Throat | 帯域幅を拡大・縮小 |
+| ADSR | Formant固有ADSRはなく、Layer ADSRをPartial合計の後に適用 |
 
-Formant Runtimeは固定Partial数、Profile配列、Partial Bank StateをVoiceごとに所有します。Compiled Profileは5本のBand配列へ変換され、Process中にProfileの追加、BandのSort、Definitionの再解析は行いません。
+### Wavetable
 
-- `vowel_position`は`position × (profile_count - 1)`から隣接Profileを選び、対応するBandを補間します。端点1.0は最後のProfileへ到達し、Profile名は音価を決めません
-- Formant Shiftは`2^(cents / 1200)`をFormant中心とBandwidthへ掛け、PartialのHarmonic RatioとBase Frequencyは変更しません
-- Throatは`2^(2 × (throat - 0.5))`でBandのBandwidthを拡大・縮小します。各BandのSigmaは`bandwidth / 2.35482`です
-- 各Control Tickで5 BandのGaussian GainをPartialごとに加算し、Spectral Tilt、Alias Fade、固定Partial RatioをTargetへ設定します。固定Partial全体のEnergyを基準にTarget GainをNormalizeし、Active Partial数には追従させません。SampleごとはSine Table Lookup、固定配列のGain Ramp、Phase更新だけを行います
-- Formant固有Envelopeは持たず、Layer EnvelopeをPartial Sumの後へ適用します。Note Onでは`phase_reset`に従ってPhaseを初期化し、Note OffではLayer EnvelopeをReleaseへ進めます
-- ResetではPhase、Gain Ramp、Ratio State、Spectral Control Tickを初期化し、Fresh Runtimeと同じEvent列から同じ出力を生成します
+Compile時にWAVをFrame分割して帯域別Tableを作り、全Voiceで共有します。
 
-Formantの生成順は、`Profile補間 → Gaussian Spectral Envelope → Spectral Tilt / Alias Fade → Partial Bank加算 → Layer Envelope → Layer Processor`です。Process中はProfile、Sine Table、Partial Slotのいずれも拡張しません。
+| 項目 | 振る舞い |
+|---|---|
+| Voiceごとの状態 | Unison Component分の位相だけ |
+| Position | Frame間を補間し、周波数帯に応じたTableを選んで帯域境界で交差フェード |
+| Sample Rate | Source Sample RateはPitchに使わない |
+| 無効化 | Asset準備失敗のLayerは発音候補から除外 |
 
-## Hybrid Runtime
+### Spectral
 
-異なるGeneratorはDefinitionのLayer順に同じVoiceへ加算されます。Harmonic / Formant Hybridでは、FormantのVocal-like Spectrum、AdditiveのHarmonic Body、SampleのTransient、NoiseのAirをそれぞれのLayer Envelopeで整えた後、Layer Processor、Voice Processor、Global Processorの順に通します。
+Compile時にSTFT解析でMagnitude・絶対位相・瞬時周波数を準備し、全Voiceで共有します。
 
-- FormantのVowel Position、Shift、Throat、Spectral TiltはVoice SourceとExternal Controlから通常のTarget評価を受け、ほかのLayerやProcessorと同じParameter Spanへ統合されます
-- LayerのGeneratorはMono / Stereoを問わずVoice Mixへ揃え、既存SampleのPrepared AudioとNoise StreamはCompile / Prepareで確定した状態を使います
-- Voice Filter / Driveは全LayerのSumへ適用し、Global Delay / Reverbは全VoiceのSumへ適用します。Global ProcessorのDelay / Reverb StateはInstrument Runtimeが所有し、Resetで初期化します
-- Voice Stealingでは全Layer、Layer / Voice Processor、Voice Sourceを同じVoice Stateとして再初期化します。MIDI RenderはNote、Velocity、Control Eventを同じProcess境界へ変換します
-- Spectral Layerも同じMix経路へ入り、Stereo A/Bの再構成結果をLayer Processor、Voice Processor、Global Processorへ順番に渡します。SpectralのReported Latencyが最大Layer Latencyになる場合、ほかのGenerator Layerへ`instrument latency - layer intrinsic latency`の遅延をPrepare時に設定します
-- Spectral HybridのPosition、Freeze、Blur、Shift、Morphは既存Parameter SpanとModulation Routeを使い、MIDIのParameter ChangeおよびExternal Controlと同じSmoothing境界で評価します
-- Additive、Formant、HybridのProcessor Chain、Modulation、MIDI、Block Size、Sample Rate、Fresh Runtime、Release Performanceの統合確認は`review-output/harmonic-formant-synthesis/`へ保存します
-- Spectral、Spectral Hybrid、既存Generator回帰、16 Voice、Voice Stealing、Fresh Runtime、Block Size、Sample Rate、MIDI、Release Performanceの確認は`review-output/spectral-resynthesis/`へ保存します。Performance専用音声は一時Directoryへ出力します
+| 項目 | 振る舞い |
+|---|---|
+| 再構成 | 位相累積でFrameを再構成し、Position・Freeze・Pitch・Shiftを適用して逆FFT・窓・Overlap-addで出力 |
+| Morph / Blur | A/B Morph、時間方向のBlur、Mono / Stereoを保持 |
+| Latency | `fft_size - hop_size`で報告され、他Layerへ補償される |
+| 無効化 | A/B Channel不一致はCompile Error。Bの準備失敗はLayer無効化（Aだけへはフォールバックしない） |
 
-## Operator Modulation Runtime
+### Operator Modulation
 
-Operatorの`evaluation_order`、`incoming_masks`、`carrier_mask`はCompile時に確定し、RuntimeはAlgorithm名を参照しません。各Sampleでは、依存するModulatorのCurrent Outputと対象Operator自身のPrevious Outputだけを読みます。Operator間の任意Cycleはなく、Self Feedbackだけが一Sample遅延を持ちます。
+4 OperatorをCompile時に確定した固定Topology順に評価します。RuntimeはAlgorithm名を参照しません。
 
-- Operator Frequencyは`note_frequency × ratio × cents_to_ratio(layer_tuning + detune + unison_detune)`で作り、Phase / Frequencyは`sample_rate × 0.24`、Amplitude / Ringは`sample_rate × 0.45`以下へ制限します
-- Phaseは`Σ(modulator_output × modulation_amount × 0.5)`をRead Phaseへ加えます。Frequencyは`base_frequency × (1 + Σ(modulator_output × modulation_amount) + feedback_offset)`を瞬時周波数とし、正負を許可したまま絶対値を上限へClampします
-- AmplitudeはIncomingごとに`1 + modulator_output × depth`を乗算し、0〜4へClampします。Ringは`carrier + (carrier × modulator_output - carrier) × depth`をIncoming順に適用します
-- Feedbackは直前Sampleの自身の出力を`tanh(previous × amount × 2.5) × 0.25`へ変換し、PhaseまたはFrequencyへ加えます。Finite確認とReset時の0初期化を行い、Feedback SignalをCarrier Sumへ直接加算しません
-- Note Onで4つのOperator Envelopeを開始し、Note Offで4つをReleaseへ移行します。Voice Stealingで新しいNoteを開始するとEnvelopeとPrevious Outputを新しいNoteの状態へ戻します
-- Operator UnisonはEnvelopeを全Componentで共有し、ComponentごとにPhaseとPrevious Outputを分離します。Carrier Sum後の各ComponentをStereo Spreadへ通し、Component数の平方根で正規化します
-- Process中の配列拡張やHeap Allocationは行いません。OperatorのComponent配列とEnvelopeはPrepare時に確保します
+| 項目 | 振る舞い |
+|---|---|
+| Mode | Phase（PM）/ Frequency（FM）/ Amplitude（AM）/ Ring |
+| Carrier | Carrierだけが出力を持ち、他のOperatorは変調信号だけを供給 |
+| Feedback | 直前Sampleで自己変調（AM / Ringでは不可） |
+| 正規化 | Carrier SumをOperator数の平方根で正規化 |
+| Unison | 2〜4 VoiceでStereo、ADSRは全Componentで共有 |
 
-## Sampleの再生
+### Sample
 
-SampleはCompile時にZoneごとのRegion、Direction、Loop、Time Modeへ変換し、同じAssetのPrepared Audioを全Voiceで共有します。Prepared AudioはMonoまたはStereoのPlanar Channelを保持します。Voiceごとに選択Zone、再生位置（Cursor）、Loop状態、必要なStretch Backend状態だけを持ち、Reverse用の複製Bufferは作りません。
+Compile時にZoneごとのRegion・方向・Loop・Time Modeを確定し、同じAssetのPrepared Audioを全Voiceで共有します。
 
-- Layer Trigger判定後、NoteとVelocityに一致するZoneを選択します。同じ条件のRound Robin GroupはInstrument単位のCounterをDefinition順に進めます。Voice StealingでNote開始が遅れても、Note Event時点のZone選択を保持します
-- Regionは`[start, end)`で、Compile時にPrepared Frameへ変換します。Endを省略するとAsset終端になります
-- `forward`はRegion StartからEndへ、`reverse`はRegion End側のFrameからStartへCursorを進めます。再生速度は`2^((note - root) / 12) × Tuning Ratio`です。Tuning RatioはParameter SpanのStart / EndからLog Domainで補間します
-- Cursorは再生速度で進み、左右を同じCursorで4点Cubic補間します。Monoは左右へ同じ値を渡し、Stereoは左右のChannelを保持します
-- Region外を補間へ参照しません。LoopなしではRegion末尾（Reverseでは先頭）の5msをゼロへFadeし、音が急に切れないようにします
-- LoopはRegion内に置き、ForwardではLoop EndからLoop Startへ、ReverseではLoop StartからLoop End側へ戻ります。Fractional Overshootは`rem_euclid`で保持し、Loop境界の補間はLoop Region内だけを参照します
-- `crossfade_seconds`が0より大きいLoopは、境界付近でLoop終端側と開始側をConstant-powerでBlendします。Crossfade Frame数はCompile時に確定し、Loop長の半分を超える設定は拒否します
-- `resample`は`2^((note - root) / 12) × Tuning Ratio`をCursorの進行速度へ使います。`fixed_stretch`と`tempo_sync`はCursorの進行速度へPitchを混ぜず、Stretch BackendへPitchとInput / Output Frame比を別々に渡します
-- `fixed_stretch`のOutput / Input比はDefinitionの`ratio`、`tempo_sync`の比は`source_bpm / ProcessContext.tempo_bpm`です。Tempoは1回のProcess呼び出し中は一定で、Tempo境界はRendererがBlock境界として扱います
-- Time StretchはStereoの2 Channel BackendをPrepare時に構成し、Pitchを変えずにDurationだけを変えます。Layer Tuningは`start → end`をBackendの分析Interval境界へ適用し、HostのBlock Sizeによって更新位置を変えません。ReverseとTime Stretchの組み合わせはDefinitionで拒否します
-- Note OffではPlayback Cursorを止めず、ActiveなLayerのADSR Releaseを進めます。`note_off` LayerはArmed状態からAttackを開始し、EnvelopeとSampleが終わるまでVoiceを保持します
+| 項目 | 振る舞い |
+|---|---|
+| Zone選択 | NoteとVelocityで選び、同一条件のRound Robin GroupはDefinition順に交代 |
+| Cursor | 4点補間で進み、Region外を参照しない |
+| Loop | Region内に置き、Crossfadeで境界を滑らかに |
+| Time Mode | `resample`（Pitchと連動）、`fixed_stretch` / `tempo_sync`（Pitchを保ってDurationだけ変える） |
+| Latency | Time StretchのLatencyは他Layerへ補償。ReverseとTime Stretchは併用不可 |
 
-Time Stretch Backendが報告するInput LatencyとOutput LatencyはCompiled Sampleへ保持されます。Note開始時はInput Latency分を`seek`で先行投入し、Instrumentから見える前置きはOutput Latencyだけにします。One-shotはSource終端後にInput Latency分の無音を処理してから`flush`し、内部に残る出力を回収します。Instrumentは利用中Layerの最大Output LatencyをReported Latencyとし、同じVoice内の各Layerへ`instrument latency - layer intrinsic latency`の遅延をPrepare時に確保します。これにより、Stretch Sampleと非Stretch LayerのTransient位置を揃えます。
+### Granular
 
-## Granular Runtime
+64 Slot固定のGrain PoolをVoiceごとに持ち、Sampleと同じPrepared AudioからGrainを生成します。
 
-GranularはSample Generatorと同じPrepared Audioを使いますが、Voiceごとに独立した固定64 SlotのGrain PoolとSchedulerを持ちます。GrainはNote Onで初期化され、Voice StealingやResetで次のNoteへ持ち越しません。
+| 項目 | 振る舞い |
+|---|---|
+| Scheduler | 絶対Sampleタイムラインで動作し、Block Sizeに依存しない |
+| Parameter | Position・Grain Size・Density・Pitch・Randomness・Pan SpreadはGrain開始時にSnapshotし、発音中のGrainへは後から適用しない |
+| Window | Hann窓を適用し、発音中GrainのWindow Power合計で連続的に正規化（Grain増減で段差を作らない） |
+| 乱数 | Definition Seed・Layer・Note・Grain番号から決定的に算出し、Voice処理順に依存しない |
+| Pan | Mono AssetはGrainごとに定電力PanでStereo配置 |
+| Note Off | Grainを破棄せずLayer ADSRのReleaseへ進む。固定PositionでFreeze、PositionをLFO等で動かすとScrub |
 
-- SchedulerはProcess Blockの先頭を基準にせず、Grains per SecondをSample Rateで割ったFractional PhaseをAbsolute Sample Timelineへ累積します。ProcessのBlock Sizeが変わってもSpawn Frameは変わりません
-- Grain開始時にPosition、Grain Size、Pitch、Pan、Random OffsetをSnapshotし、発音中のGrainへ後からParameter値を適用しません
-- WindowはHann固定です。Active GrainのWindow Power合計を基準に連続的に正規化し、Grainの生成・終了で発音中のGrainのゲインを段階変化させません。Source PositionはRegion内へ変換し、Pitchで必要となるRead SpanとGrain長を考慮してRegion終端を越えないようにします。Randomnessによる端越えはNormalized Region上で循環します
-- RandomはDefinition Seed、Layer Stable ID、Note ID、Grain Serial、用途別Streamから直接算出します。Global RNGやVoice処理順を使用しないため、同じ入力とBlock Sizeに依存しない結果になります
-- Mono AssetはGrainごとのConstant-power PanでStereoへ配置します。Stereo Assetは左右を同じPosition、Pitch、WindowでReadし、Pan SpreadをStereo Balanceとして適用します。左右を独立したRandom Positionへ分けません
-- Position、Grain Size、Density、Pitch、Randomness、Pan SpreadはParameter Spanの値を使います。ScrubはPositionをLFO等から動かし、FreezeはPositionを固定したままSchedulerを動かして実現します
+### Wave Sequence
 
-Granular Generatorは無期限にGrainを生成するため、Note Off後はLayer EnvelopeのReleaseで音量を下げます。Assetが準備できないLayerはNote On Selectionから除外されます。Process中はGrain Pool拡張、Assetアクセス、Heap Allocationを行いません。
+Compile時に各StepのAsset・Region・Duration・方向・Pitch・Gainを確定し、VoiceごとにCurrent / Nextの最大2 Slotを持ちます。
 
-## Wave Sequence Runtime
+| 項目 | 振る舞い |
+|---|---|
+| Direction | Forward / Reverse / Ping Pong。Loop有効時だけ終端から先頭へ戻る |
+| Duration | Seconds（Sample Rate基準）またはBeats（Tempo基準）。One-shotとLoopを選ぶ |
+| Crossfade | 隣接Stepを定電力で混合 |
+| Missing Step | 削除せず、Durationを保持した無音として進行（後続Stepの時間を変えない） |
+| 終了 | 最後のOne-shot Stepを終えLoop無しならGeneratorを終了。Note Off後は通常のLayer Lifecycleに従う |
 
-Wave SequenceはCompiled Stepを共有し、Voiceごとに選択中のStepと次のStepだけをRuntime Stateとして保持します。StepのAssetがMissingでもStep自体は削除せず、指定されたDurationの無音として進行します。そのため一部Assetの欠落で後続Stepの時間位置は変わりません。
+### Hybrid
 
-- Sequence DirectionはStepを選択する順序です。Forwardは先頭から末尾、Reverseは末尾から先頭、Ping Pongは終端を重複させずに往復します。Sequence Loopが有効な場合だけ終端から開始位置へ戻ります
-- Step PlaybackはOne-shotとLoopを持ちます。One-shotのSource CursorがRegion終端へ到達した後もStepのDurationまで無音を出力し、LoopはRegion内を循環します。Playback DirectionはSequence Directionとは独立してRegionのRead方向を決めます
-- Seconds StepはSample Rateで進行し、Beats Stepは`tempo / 60 / sample_rate`を一Sampleごとに積算します。Tempo Mapの境界ではRendererがProcessを分割するため、変更後のStep進行速度だけが変わります
-- Crossfadeは隣接StepのDurationの短い方を基準に最大50%までOverlapし、Current / NextをConstant-powerで混合します。CrossfadeがなくてもStep境界でCurrentを次Stepへ置き換えます
-- Step PitchはNote、Layer Tuning、Root Noteへ加算し、Step GainはLinearへ変換してSourceへ乗算します。Stereo Assetは左右のCursorを共有し、Mono Assetは左右同じ値を出力します
+複数GeneratorはDefinitionのLayer順に同じVoiceへ加算されます。例えばFormant（共鳴）+ Additive（倍音芯）+ Sample（Attack）+ Noise（Air）のように役割を分けます。
 
-Wave Sequenceが最後のOne-shot Stepを終え、Sequence Loopが無効な場合はGeneratorを終了します。Note Off後のLayer Envelopeや他Layerの状態は通常のVoice Lifecycleに従い、Sequenceの完了だけでほかのLayerを終了させません。
+| 項目 | 振る舞い |
+|---|---|
+| Parameter | 各GeneratorのParameterは通常のRoute評価と同じParameter Spanへ統合される |
+| Latency | SpectralのLatencyが最大のとき、他Layerへ遅延補償を確保してTransient位置を揃える |
+| Voice Stealing | 全Layer・Processor・Sourceを同じVoice Stateとして再初期化する |
 
 ## 準備とリセット
 
-- **Prepare**：Polyphony数分のVoiceを作り、Block Scratch、Note On Selection Scratch、Pending Note Selection Buffer、Native Handle、Time StretchのInput / Output Latencyを含むScratch、Granular Grain Pool、Wave SequenceのPlayback Slot、Layer遅延補償Bufferを確保します。Sample RateがCompile時と一致しない場合は失敗します。Block Sizeの変更だけは許されます
-- **Reset**：全Voice、OscillatorとOperatorとAdditive / Formant Partial Bankの位相、Additive / FormantのGain / Ratio RampとSpectral Phase Accumulator / Scan / OLA、Operator Previous Output、TriangleのIntegrator State、Noise Stream、Sampleの選択Zone / Cursor / Loop状態、Granular Grain Pool / Grain Serial / Scheduler、Wave SequenceのCurrent / Next SlotとStep Cursor、Partial / Operator Envelope、Round Robin Counter、ADSR、Voice Source、Layer Processor、Voice Processor、Global Processor、Base Parameter、External Control、Scratch、絶対位置を最初の状態へ戻します。Reset後は同じ入力に対して同じ出力になります
-- Prepareに失敗した場合は、それまでの状態を破棄して利用できない状態にします
-- ProcessまたはReset中にNative DSP処理が失敗した場合は、出力を無音化してErrorを返し、Runtimeを未準備状態へ移行します。再利用にはPrepareが必要です
+| フェーズ | 内容 |
+|---|---|
+| **Prepare** | Polyphony数分のVoiceを作り、各種Scratch Buffer・Native Handle・Time Stretch Latency・Grain Pool・Wave Sequence Slot・Layer遅延補償Bufferを確保します。Sample RateがCompile時と異なる場合は失敗します（Block Sizeの変更だけは許可） |
+| **Reset** | 全Voice・位相・ADSR・Noise Stream・Sample Cursor・Grain Pool・Wave Sequence Slot・Processor・Base Parameter・External Control・絶対位置を初期状態へ戻します。同じ入力へ同じ出力を返します |
+| **Prepare失敗** | それまでの状態を破棄し、利用不可状態へ移行します |
+| **Process / Reset中のNative DSP失敗** | 出力を無音化してErrorを返し、Runtimeを未準備状態へします。再利用にはPrepareが必要です |
 
-Oscillatorの信号順序は、Component生成、Unison Mix / Stereo Placement、Generator Waveshaping、必要なWavefolder、必要なDC Blocker、Layer Processor Chainです。Unisonの各Componentは同じDefinitionから独立したNative Stateを持ち、`1 / sqrt(voices)`で正規化します。Basic TriangleのPolyBLEPとIntegrator StateはNative Wrapperが所有します。Hard SyncのResetはNative WrapperでVariable Shape Oscillatorを再初期化し、Waveform ShapeとSync設定を復元します。Phase-domain ComponentはPhaseとPrevious OutputをComponentごとに保持し、WavefolderはMonoでは1つ、Stereoでは左右独立のHandleを使用します。
+## Sine（開発用）
 
-## Sine Runtime（開発用）
-
-- `dev render-sine`で使う単音のRuntimeです。Voiceの仕組みはなく、Event列を受け取るとエラーになります
-- Prepareで周波数を検証し（Nyquist以下）、Native Oscillatorで生成した同じ信号を左右へコピーします
+`dev render-sine`で使う単音のRuntimeです。Voiceの仕組みを持たず、Event列を受け取るとErrorになります。Prepareで周波数を検証（Nyquist以下）し、Native Oscillatorの信号を左右へコピーします。
 
 ## 約束事
 
-**Process中にしてはいけないこと**
+**Process中に禁止する操作**
 
-- JSONの解析、ファイルの読み書き、素材の読み込み・Sample Rate変換・Hash計算
+- JSONの解析、Fileの読み書き、Assetの読み込み・Sample Rate変換・Hash計算
 - メモリの新規確保
-- 通信、同期型のログ出力、ブロックする待ち合わせ
+- 通信、同期Log、Blockする待ち合わせ
 
 **エラー時の扱い**
 
-- 不正な入力や位置のずれ（Context不一致）はエラーにし、そのBlockの出力は無音にします
+- 不正な入力や位置のずれ（Context不一致）はErrorとし、そのBlockの出力を無音にします
 - Native側の失敗は`ProcessError::DspFailure`、Rust Processor側の失敗は`ProcessError::ProcessorFailure`へ変換します
-- エラーとExit Codeの対応は`docs/cli.md`を参照してください
+- ErrorとExit Codeの対応は`docs/cli.md`を参照してください
 
 ## 書き出し（Offline Render）
 
-ファイルへの書き出しは、CoreのRendererが同じProcessをBlock単位で繰り返します。
+CoreのRendererが同じProcessをBlock単位で繰り返します。
 
 ```mermaid
 flowchart LR
@@ -294,7 +289,7 @@ flowchart LR
     C --> D[RenderedAudio]
 ```
 
-- 長さは「秒 × Sample Rate」を最も近い整数に丸め、TailのFrame数を足します
-- `ProcessContext.tempo_bpm`は正の有限値で、Tempo Mapを使う場合はTempo変更Frameを跨がないBlockへ分割します。MIDI以外のRenderでは中央定義のDefault Tempoまたは指定Tempoを使います
-- 最後のBlockは残りのFrame数だけを処理するので、余分なSampleはできません
-- Coreは`RenderedAudio`（左右のSample列）を返し、WAVへの変換はCLI側の仕事です
+- 長さは「秒 × Sample Rate」を整数へ丸め、Tail Frame数を足します
+- `tempo_bpm`は正の有限値。Tempo Mapを使う場合はTempo変更Frameを跨がないBlockへ分割します
+- 最後のBlockは残りFrame数だけ処理するため、余分なSampleはできません
+- Coreは`RenderedAudio`（左右のSample列）を返し、WAVへの変換はCLIが行います

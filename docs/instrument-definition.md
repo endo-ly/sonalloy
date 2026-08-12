@@ -1,879 +1,618 @@
-# 音源定義（Instrument Definition）
+# 音源定義
+
+音源定義（JSONファイル）は、手で編集して保存・管理する正本です。この文書は、音源定義を正しく書くための**Fieldの制約・Range・振る舞い**を、読者の書きたい音源の該当箇所を調べられる形でまとめます。
+
+読者のプロセスに沿って、**全体構造 → 共通の制約 → Layer → Generator → 複数Generatorの組み合わせ → Processor → Modulation → コンパイル時の変換**の順で説明します。実行時の振る舞い（Voice、ADSRの進行、Sample再生、Grain生成など）は`docs/runtime-processing.md`を、CLIの使い方は`docs/cli.md`を参照してください。
+
+音声処理は音源定義を直接使わず、コンパイルして変換した値だけを使います。
 
 ## 本書の範囲
 
-本書ではInstrument Definitionファイルの**データ形式**を説明します。JSONの書き方、各項目の制約、Compile時の変換とError / Warningの扱いです。
-
 | 本書で扱わない内容 | 参照先 |
 |---|---|
-| 実行時の動き（Voice・ADSR・Sampleの再生） | `docs/runtime-processing.md` |
+| 実行時の動き（Voice・ADSR・Sample再生） | `docs/runtime-processing.md` |
 | CLIの使い方・Option | `docs/cli.md` |
 
-Instrument Definitionは、手で編集して保存・管理するJSONファイルの正本です。Audio処理はDefinitionを直接使わず、`compile_instrument`で変換した`CompiledInstrument`の値だけを使います。
+## 全体構造
 
-## 全体の例
+音源定義は、次のトップレベルFieldを持ちます。
+
+| Field | 内容 |
+|---|---|
+| `schema_version` | スキーマ版。`1`のみ |
+| `metadata` | `name`、`author`、`description` |
+| `performance` | `polyphony`、`voice_stealing` |
+| `layers` | 発音の単位となるLayer配列（1個以上） |
+| `voice_processors` | 全LayerのMix後に適用するProcessor Chain |
+| `global_processors` | 全Voiceの合計後に適用するProcessor Chain |
+| `modulation` | SourceとRouteの定義（省略可） |
+
+全体の例（Saw Oscillatorの最小構成）：
 
 ```json
 {
   "schema_version": 1,
-  "metadata": {
-    "name": "Basic Poly Synth",
-    "author": null,
-    "description": "A headless oscillator instrument"
-  },
-  "performance": {
-    "polyphony": 16,
-    "voice_stealing": "quietest_releasing_then_oldest"
-  },
+  "metadata": { "name": "Basic Poly Synth", "author": null, "description": "..." },
+  "performance": { "polyphony": 16, "voice_stealing": "quietest_releasing_then_oldest" },
   "layers": [
     {
       "id": "body",
       "enabled": true,
-      "trigger": {
-        "event": "note_on",
-        "key_min": 0,
-        "key_max": 127,
-        "velocity_min": 1,
-        "velocity_max": 127
-      },
+      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
       "gain_db": -14.0,
       "pan": 0.0,
       "tuning_cents": 0.0,
-      "envelope": {
-        "attack_seconds": 0.005,
-        "decay_seconds": 0.18,
-        "sustain_level": 0.65,
-        "release_seconds": 0.3
-      },
-      "generator": {
-        "oscillator": {
-          "waveform": {
-            "type": "saw"
-          },
-          "phase_reset": true,
-          "phase": 0.0
-        }
-      },
+      "envelope": { "attack_seconds": 0.005, "decay_seconds": 0.18, "sustain_level": 0.65, "release_seconds": 0.3 },
+      "generator": { "oscillator": { "waveform": { "type": "saw" }, "phase_reset": true, "phase": 0.0 } },
       "processors": []
     }
   ],
-  "voice_processors": [
-    {
-      "type": "filter",
-      "id": "tone",
-      "cutoff_hz": 12000.0,
-      "resonance": 0.12
-    }
-  ],
+  "voice_processors": [ { "type": "filter", "id": "tone", "cutoff_hz": 12000.0, "resonance": 0.12 } ],
   "global_processors": [],
   "modulation": {
     "sources": [],
     "routes": [
+      { "source": "velocity", "target": "layer.body.gain", "amount": 0.08, "curve": "linear" }
+    ]
+  }
+}
+```
+
+## 共通の制約
+
+| 項目 | 制約 |
+|---|---|
+| `polyphony` | 1〜64 |
+| `gain_db` | -60〜12 dB |
+| `pan` | -1〜1 |
+| `tuning_cents` | -1200〜1200 |
+| Key / Velocity | Key 0〜127、Velocity 1〜127。最小値は最大値以下 |
+| ADSR | Attack / Decay / Releaseは0〜30秒、Sustainは0〜1 |
+| Filter | `cutoff_hz` 20〜20000 Hz、`resonance` 0〜1。CutoffがSample Rateの上限を超える場合はWarningを出し、`min(20000, Sample Rate × 0.45)`へ制限します |
+| Drive | `amount` / `mix`ともに0〜1 |
+| Delay | `time_seconds` 0.001〜2秒、`feedback` 0〜0.95、`mix` 0〜1。Globalのみ |
+| Reverb | `pre_delay_seconds` 0〜0.2秒、`decay` 0〜0.98、`damping` / `width` / `mix` 0〜1。Globalのみ |
+| ID（Processor / Layer / Source） | 小文字で始まり、小文字・数字・`_`を使用。`.`は使わない |
+| Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
+| LFO | Rate 0.01〜40 Hz、Phase 0以上1未満 |
+| Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
+| 未知のField | JSON Parse Error |
+
+`layers`は書かれた順に同じVoiceへMixします。`enabled: false`のLayerはコンパイル対象外です。
+
+## Layer
+
+Layerは「Generator + Layer Processor + ADSR + Gain + Pan」のセットで、Trigger条件に合ったLayerだけが鳴ります。
+
+| Field | 内容 |
+|---|---|
+| `id` | Layer識別子。一意 |
+| `enabled` | 発音の有無 |
+| `trigger` | 発音条件（下記） |
+| `gain_db` / `pan` / `tuning_cents` | Layer音量・定位・音程 |
+| `envelope` | ADSR |
+| `processors` | Generator後に直列適用するProcessor Chain |
+| `generator` | 音源（[Generator](#generator)参照） |
+
+**Trigger**
+
+| Field | 内容 |
+|---|---|
+| `event` | `note_on`（Note Onで発音）または`note_off`（Note Onで待機状態になり、対応するNote Offで発音）。Voice Stealingは演奏上のNote Offではないため、待機Layerを発音しません |
+| `key_min` / `key_max` | 発音するMIDI Note範囲（0〜127） |
+| `velocity_min` / `velocity_max` | 発音するVelocity範囲（1〜127） |
+
+**ADSR**
+
+ADSRは音の音量変化を形作る4区間です。Note OnでAttackから始まり、Decayを経てSustainで待機し、Note OffでReleaseへ進みます。
+
+| Field | 内容 |
+|---|---|
+| `attack_seconds` | Note Onから最大音量へ達する時間 |
+| `decay_seconds` | 最大音量からSustain Levelへ下がる時間 |
+| `sustain_level` | Note On中の音量（0〜1） |
+| `release_seconds` | Note Offから無音へ至る時間 |
+
+## Generator
+
+GeneratorはLayerの`generator` Fieldへ、いずれか1つを指定します。
+
+| Generator | 用途 |
+|---|---|
+| [Oscillator](#oscillator) | 基本波形とComplex変形 |
+| [Noise](#noise) | White / Pink / Brown Noise |
+| [Additive](#additive) | Partial直接設計による倍音構成 |
+| [Formant](#formant) | 母音共鳴のBand制御 |
+| [Wavetable](#wavetable) | 周期波形Frame列のPosition走査 |
+| [Spectral](#spectral) | WAVのSTFT再構成とA/B Morph |
+| [Operator Modulation](#operator-modulation) | 4 Operator FM / PM / AM / Ring |
+| [Sample](#sample) | 鍵盤範囲別のSample再生 |
+| [Granular](#granular) | Grain分解によるTexture再構成 |
+| [Wave Sequence](#wave-sequence) | 複数Assetの時系列切り替え |
+
+以下では各Fieldの**制約・Range・Dynamic Parameter**を示します。実行時の振る舞い（位相の進行、Cursor、Grain生成など）は`docs/runtime-processing.md`を参照してください。Dynamic ParameterのIDは`layer.<layer_id>.generator.<name>`形式（Operator Modulationだけ`operator.<1-4>.<parameter>`）です。
+
+### Oscillator
+
+基本波形（Sine / Saw / Square / Triangle / Pulse）を生成します。`waveform`はTagged Objectで、Pulseだけが`pulse_width`を持ちます。
+
+```json
+"generator": {
+  "oscillator": {
+    "waveform": { "type": "saw" },
+    "phase_reset": true,
+    "phase": 0.0
+  }
+}
+```
+
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `waveform.type` | `sine` / `saw` / `square` / `triangle` / `pulse` | No | 波形 |
+| `waveform.pulse_width` | 0.05〜0.95 | Yes | Pulseのデューティ比（Pulseのみ） |
+| `phase_reset` | Boolean | No | Note Onで初期位相へ戻すか |
+| `phase` | 0〜1 | No | 初期位相 |
+
+Dynamic Parameter：`pulse_width`
+
+**Complex Oscillator** — OscillatorへHard Sync、Waveshaping、Unison、Phase Distortion、Wavefold、Feedbackを追加できます。存在する設定だけがDynamic Parameterへ登録されます。
+
+```json
+"generator": {
+  "oscillator": {
+    "waveform": { "type": "sine" },
+    "phase_reset": true, "phase": 0.0,
+    "hard_sync": { "ratio": 3.0 },
+    "waveshaping": { "amount": 0.25 },
+    "phase_distortion": { "amount": 0.55 },
+    "wavefold": { "amount": 0.25 },
+    "feedback": { "amount": 0.3 },
+    "unison": { "voices": 5, "detune_cents": 18.0, "stereo_spread": 0.85, "phase_spread": 0.0 }
+  }
+}
+```
+
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `hard_sync.ratio` | 1〜16 | Yes | Masterに対するSlaveの周波数比。Log2 |
+| `waveshaping.amount` | 0〜1 | Yes | Waveshapingの強さ |
+| `phase_distortion.amount` | 0〜1 | Yes | Sineの位相を非線形に変形する量 |
+| `wavefold.amount` | 0〜1 | Yes | Wavefoldの強さ |
+| `feedback.amount` | 0〜1 | Yes | 直前Sampleで自己変調する量 |
+| `unison.voices` | 2〜8 | No | UnisonのVoice数 |
+| `unison.detune_cents` | 0〜100 | Yes | 各VoiceのDetune幅 |
+| `unison.stereo_spread` | 0〜1 | Yes | 左右への配置幅 |
+| `unison.phase_spread` | 0〜1 | No | 各Voiceの位相ばらつき |
+
+制約：
+
+- Hard SyncはSineでは使えません。Hard Sync指定時の`phase`は0だけです
+- Phase DistortionとFeedbackはSineだけで使え、Hard Syncとは併用できません
+- Wavefoldは全Waveformで使えます
+- Hard SyncとUnisonを組み合わせる場合、`phase_spread`は0だけです
+
+Dynamic Parameter：`sync_ratio`、`waveshape`、`phase_distortion`、`wavefold`、`oscillator_feedback`、`unison_detune`、`unison_spread`
+
+### Noise
+
+White / Pink / Brown Noiseを生成します。常にStereo出力します。
+
+```json
+"generator": {
+  "noise": { "color": "pink", "seed": 812347, "stereo_correlation": 0.65 }
+}
+```
+
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `color` | `white` / `pink` / `brown` | No | Noiseの種類 |
+| `seed` | 整数 | No | 決定的Noise StreamのSeed |
+| `stereo_correlation` | 0〜1 | Yes | 左右の相関。0で左右独立、1で左右同一 |
+
+Dynamic Parameter：`noise_correlation`
+
+### Additive
+
+Note Frequencyを基準にした1〜64個のPartialのSineを加算します。整数比で倍音構成、非整数比で非整数倍音Bellや金属的質感を作れます。出力はMonoです。
+
+```json
+"generator": {
+  "additive": {
+    "phase_reset": true,
+    "morph": 0.0,
+    "spectrum_tilt_db_per_octave": -3.0,
+    "inharmonicity": 0.0,
+    "partials": [
+      { "id": "fundamental", "ratio": 1.0, "amplitude_a": 1.0, "amplitude_b": 0.7, "phase": 0.0 },
+      { "id": "second", "ratio": 2.0, "amplitude_a": 0.45, "amplitude_b": 0.8, "phase": 0.0,
+        "envelope": { "attack_seconds": 0.01, "decay_seconds": 0.8, "sustain_level": 0.2, "release_seconds": 0.3 } }
+    ]
+  }
+}
+```
+
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `morph` | 0〜1 | Yes | A/Bの振幅を補間する位置。周波数・位相は変わらない |
+| `spectrum_tilt_db_per_octave` | -24〜12 dB/octave | Yes | 高域Partialの減衰傾き |
+| `inharmonicity` | 0〜1 | Yes | 高域Ratioの非整数化 |
+| `partials` | 1〜64個 | No | Definition順の固定Partial |
+| `partials[].id` | 空でない一意な文字列 | No | Partial識別子 |
+| `partials[].ratio` | 0.125〜64 | No | Note Frequencyに対する周波数比 |
+| `partials[].amplitude_a` / `amplitude_b` | 0〜1 | No | Morph両端の振幅 |
+| `partials[].phase` | 0〜1 cycle | No | 初期位相 |
+| `partials[].envelope` | Optional ADSR | No | Partial個別のADSR |
+
+- 高域Partialは滑らかに減衰させ（NyquistへClampせず、個別の消え方を維持）、全PartialのEnergyで正規化します
+- Layer ADSRはPartial合計の後に適用します
+
+Dynamic Parameter：`additive_morph`、`additive_spectrum_tilt`、`additive_inharmonicity`
+
+完全無音Spectrum、空のPartial配列、重複ID、65個以上のPartialはValidation Errorです。
+
+### Formant
+
+整数倍Partialへ母音共鳴の5本Bandを適用します。1〜8個のProfileを組み合わせ、母音Positionで補間します。出力はMonoです。
+
+```json
+"generator": {
+  "formant": {
+    "phase_reset": true,
+    "partial_count": 48,
+    "vowel_position": 0.0,
+    "formant_shift_cents": 0.0,
+    "throat": 0.5,
+    "spectral_tilt_db_per_octave": -6.0,
+    "profiles": [
+      { "id": "a", "formants": [
+        { "frequency_hz": 800.0, "bandwidth_hz": 80.0, "gain_db": 0.0 },
+        { "frequency_hz": 1150.0, "bandwidth_hz": 90.0, "gain_db": -5.0 },
+        { "frequency_hz": 2900.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
+        { "frequency_hz": 3900.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
+        { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+      ]}
+    ]
+  }
+}
+```
+
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `partial_count` | 1〜64 | No | 生成する整数倍Partial数 |
+| `vowel_position` | 0〜1 | Yes | Profile配列の先頭から末尾への位置 |
+| `formant_shift_cents` | -2400〜2400 cents | Yes | Bandの中心周波数と帯域幅を移動（基音Pitchは不変） |
+| `throat` | 0〜1 | Yes | 帯域幅の拡大・縮小（0.5で等倍） |
+| `spectral_tilt_db_per_octave` | -24〜12 dB/octave | Yes | 高域Partialの減衰傾き |
+| `profiles` | 1〜8個 | No | Definition順のProfile |
+| `profiles[].id` | 空でない一意な文字列 | No | Profile識別子 |
+| `profiles[].formants` | 5個固定 | No | 周波数昇順のBand |
+| `frequency_hz` | 100〜12000 Hz | No | Bandの中心周波数 |
+| `bandwidth_hz` | 20〜5000 Hz | No | Bandの帯域幅 |
+| `gain_db` | -60〜12 dB | No | Bandの相対強度 |
+
+- 隣接Profileの補間は、周波数・帯域幅が幾何平均、GainがdB線形です
+- Formant固有ADSRはなく、Layer ADSRをPartial合計の後に適用します
+
+Dynamic Parameter：`formant_vowel_position`、`formant_shift`、`formant_throat`、`formant_spectral_tilt`
+
+Profileが0個または9個以上、Partial数が0または65以上、Band数が5以外、ID重複、周波数非昇順、各Range違反はValidation Errorです。
+
+### Wavetable
+
+周期波形をFrame順に連結したWAVを、Frame単位で走査します。
+
+```json
+"generator": {
+  "wavetable": {
+    "asset": { "path": "<WAVへの相対Path>", "sha256": "<SHA-256>" },
+    "frame_length": 2048,
+    "position": 0.25,
+    "phase_reset": true, "phase": 0.0,
+    "unison": { "voices": 5, "detune_cents": 14.0, "stereo_spread": 0.75, "phase_spread": 0.5 }
+  }
+}
+```
+
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `asset` | — | No | MonoまたはStereoのWAV。StereoはMonoへDownmix |
+| `frame_length` | 64〜4096（2の冪） | No | 1周期FrameのSample数 |
+| `position` | 0〜1 | Yes | 最初のFrameから最後のFrameへの位置 |
+| `phase_reset` / `phase` | — | No | Oscillatorと同じ |
+| `unison` | — | 一部Yes | Oscillatorと同じ |
+
+- Asset全体のSample数は`frame_length`で割り切れ、Frame数が1〜256である必要があります
+- Source Sample RateはPitchへ使わず、WavetableをResampleしません
+- Unison 1はMono、2 Voice以上はStereoです
+
+Dynamic Parameter：`wavetable_position`、`unison_detune` / `unison_spread`（Unison指定時）
+
+Assetの欠落・Hash不一致・Decode失敗、レイアウト不正、全Frame無音は、Wavetable Layerを発音候補から除外します（他Layerのコンパイルとレンダリングは継続）。
+
+### Spectral
+
+WAVをSTFT解析して再構成します。`asset_a`を必須の一次Sourceとし、`asset_b`でA/B Morphを使います。
+
+```json
+"generator": {
+  "spectral": {
+    "asset_a": { "path": "<WAVへの相対Path>", "sha256": "<SHA-256>" },
+    "asset_b": null,
+    "root_note": 60,
+    "fft_size": 2048,
+    "position": 0.0, "freeze": 0.0, "blur_seconds": 0.0, "shift_hz": 0.0, "morph": 0.0,
+    "phase_reset": true
+  }
+}
+```
+
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `asset_a` | — | No | 解析と時間軸の基準になるWAV。Mono/Stereoを保持 |
+| `asset_b` | — / `null` | No | 2つ目のWAV。`asset_a`とChannel数を一致させる。指定時だけMorph Parameterが登録される |
+| `root_note` | 0〜127 | No | Sourceが表すMIDI Note |
+| `fft_size` | 1024 / 2048 / 4096 | No | STFT Size。Hopは`fft_size / 4`、報告Latencyは`fft_size - hop_size` |
+| `position` | 0〜1 | Yes | Source Position |
+| `freeze` | 0〜1 | Yes | 1でFrameを固定 |
+| `blur_seconds` | 0〜1秒 | Yes | 時間方向のBlur |
+| `shift_hz` | -12000〜12000 Hz | Yes | 周波数をHzで移動 |
+| `morph` | 0〜1 | Yes | A/BのMorph。`asset_b`なしで0以外はValidation Error |
+| `phase_reset` | Boolean | No | Note Onで位相を初期状態へ戻すか |
+
+- MIDI NoteとLayer TuningはRoot Noteに対する周波数比として適用され、Source Durationは変わりません
+- 報告Latencyは他Layerへ補償されます
+
+Dynamic Parameter：`spectral_position`、`spectral_freeze`、`spectral_blur`、`spectral_shift`、`spectral_morph`（`asset_b`指定時のみ）
+
+A/BのChannel数不一致はCompile Error、Assetの欠落・Hash不一致・Decode失敗はSpectral Layerを発音候補から除外します（Aだけへはフォールバックしません）。
+
+### Operator Modulation
+
+4つのSine Operatorを固定Topologyで接続します。Carrierだけが出力を持ち、他のOperatorは変調信号を供給します。Algorithmは`stack_4`、`stack_3_plus_carrier`、`two_stacks`、`fork_to_carrier`、`two_modulators_plus_carrier`、`three_modulators`、`shared_modulator`、`parallel`から選びます。任意の接続GraphやOperator間Cycleは指定できません。
+
+```json
+"generator": {
+  "operator_modulation": {
+    "mode": "phase",
+    "algorithm": "stack_4",
+    "operators": [
+      { "ratio": 1.0, "detune_cents": 0.0, "level": 0.9, "modulation_amount": 0.0, "feedback": 0.0, "phase": 0.0,
+        "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.1, "sustain_level": 1.0, "release_seconds": 0.1 } },
+      { "ratio": 2.0, "detune_cents": 0.0, "level": 0.0, "modulation_amount": 2.5, "feedback": 0.0, "phase": 0.0,
+        "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.08, "sustain_level": 1.0, "release_seconds": 0.08 } },
+      { "ratio": 3.0, "detune_cents": 0.0, "level": 0.0, "modulation_amount": 1.5, "feedback": 0.0, "phase": 0.0,
+        "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.06, "sustain_level": 1.0, "release_seconds": 0.06 } },
+      { "ratio": 5.0, "detune_cents": 0.0, "level": 0.0, "modulation_amount": 2.0, "feedback": 0.25, "phase": 0.0,
+        "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.04, "sustain_level": 1.0, "release_seconds": 0.04 } }
+    ],
+    "phase_reset": true,
+    "unison": null
+  }
+}
+```
+
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `mode` | `phase` / `frequency` / `amplitude` / `ring` | No | PM / FM / AM / Ring |
+| `algorithm` | 上記8種 | No | Operatorの接続Topology |
+| `operators[].ratio` | 0.25〜32 | Yes | Note Frequencyに対する周波数比 |
+| `operators[].detune_cents` | -100〜100 | Yes | 周波数の微調整 |
+| `operators[].level` | 0〜1 | Yes | Carrierの出力音量（Carrierのみ） |
+| `operators[].modulation_amount` | Mode依存 | Yes | 変調の強さ。Phase/Frequencyは0〜8、Amplitude/Ringは0〜1 |
+| `operators[].feedback` | 0〜1 | Yes | 直前Sampleで自己変調する量（Phase/Frequencyのみ） |
+| `operators[].phase` | 0〜1 | No | 初期位相 |
+| `operators[].envelope` | Optional ADSR | No | Operator個別のADSR |
+| `unison.voices` | 1〜4 | No | UnisonのVoice数 |
+
+制約：
+
+- Carrierの`level`だけが出力へ寄与し、Carrier以外の`level`は0です
+- 接続元のOperatorだけが`modulation_amount`を持ち、出力先を持たないAmountは0です
+- FeedbackはPhase/Frequencyだけで、Amplitude/Ringでは0だけを許可します
+- Unisonは最大4 Voice。ADSRを全Componentで共有します
+
+Dynamic Parameter：`operator.<1-4>.ratio`、`operator.<1-4>.detune`、`operator.<1-4>.level`（Carrierのみ）、`operator.<1-4>.modulation_amount`（接続元のみ）、`operator.<1-4>.feedback`（Phase/Frequencyのみ）、`unison_detune` / `unison_spread`（Unison指定時）
+
+### Sample
+
+鍵盤範囲・Velocity範囲でZoneを選んで再生します。Mono/StereoのChannel構成を保持します。
+
+```json
+"generator": {
+  "sample": {
+    "interpolation": "cubic",
+    "zones": [
       {
-        "source": "velocity",
-        "target": "layer.body.gain",
-        "amount": 0.08,
-        "curve": "linear"
-      },
-      {
-        "source": "velocity",
-        "target": "voice.processor.tone.cutoff",
-        "amount": 0.08,
-        "curve": "linear"
+        "id": "main",
+        "asset": { "path": "<WAVへの相対Path>", "sha256": "<SHA-256>" },
+        "root_note": 60,
+        "key_min": 0, "key_max": 127,
+        "velocity_min": 1, "velocity_max": 127,
+        "round_robin_group": null,
+        "playback": {
+          "region": { "start_seconds": 0.0, "end_seconds": null },
+          "direction": "forward",
+          "loop": null,
+          "time": { "mode": "resample" }
+        }
       }
     ]
   }
 }
 ```
 
-## 各項目の制約
+**Zone**
 
-| 項目 | 制約 |
+| Field | Range | 意味 |
+|---|---|---|
+| `id` | 一意な文字列 | Zone識別子 |
+| `asset` | — | Mono/StereoのWAV |
+| `root_note` | 0〜127 | Zoneの基準音程 |
+| `key_min` / `key_max` | 0〜127 | 発音するMIDI Note範囲 |
+| `velocity_min` / `velocity_max` | 1〜127 | 発音するVelocity範囲 |
+| `round_robin_group` | — / `null` | 同一条件のZoneをDefinition順に選ぶGroup |
+| `interpolation` | `cubic` | 補間方式 |
+
+- 重なるZoneは、同じ`round_robin_group`と完全一致するKey/Velocity範囲を持ちます
+- 同じRound Robin Groupの選択はDefinition順で、Instrument単位のCounterで交代します
+- 同一Assetを参照するZoneは、Prepared Audioを共有します
+
+**Playback**
+
+| Field | 意味 |
 |---|---|
-| `schema_version` | 1のみ |
-| `layers` | 1個以上。複数のLayerは書かれた順に同じVoiceへMixされます。`enabled`が`false`のLayerはCompile対象外 |
-| `generator` | `oscillator`（`sine` / `saw` / `square` / `triangle` / `pulse`）、`noise`（`white` / `pink` / `brown`）、`additive`、`formant`、`wavetable`、`spectral`、`sample`、`granular`、`wave_sequence`、または`operator_modulation` |
-| `processors` | Layerごとの直列Processor配列。書かれた順にGeneratorとLayer Mixの間で適用 |
-| `voice_processors` | Voice Mix後に適用する直列Processor配列 |
-| `global_processors` | Voice Sum後にInstrument全体へ適用する直列Processor配列 |
-| `polyphony` | 1〜64 |
-| `gain_db` | -60〜12 dB |
-| `pan` | -1〜1 |
-| `tuning_cents` | -1200〜1200 |
-| Key / Velocity | 0〜127。最小値は最大値以下 |
-| ADSR | Attack / Decay / Releaseは0〜30秒、Sustainは0〜1 |
-| Filter | `cutoff_hz`は20〜20000Hz、`resonance`は0〜1。CutoffがSample Rateの上限を超える場合はWarningを出して`min(20000, Sample Rate × 0.45)`に制限します |
-| Drive | `amount`、`mix`ともに0〜1 |
-| Delay | `time_seconds`は0.001〜2秒、`feedback`は0〜0.95、`mix`は0〜1。Globalのみ |
-| Reverb | `pre_delay_seconds`は0〜0.2秒、`decay`は0〜0.98、`damping`、`width`、`mix`は0〜1。Globalのみ |
-| Processor ID | 各Chain内で一意。小文字で始まり、小文字・数字・`_`を使用。`.`は使用しません |
-| Layer / Source ID | 小文字で始まり、小文字・数字・`_`を使用。`.`は使用しません |
-| Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
-| LFO | Rate 0.01〜40Hz、Phase 0以上1未満 |
-| Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
-| Parameter Target | `layer.<layer_id>.(gain\|pan\|tuning)`、`layer.<layer_id>.generator.(pulse_width\|sync_ratio\|waveshape\|wavetable_position\|spectral_position\|spectral_freeze\|spectral_blur\|spectral_shift\|spectral_morph\|unison_detune\|unison_spread\|noise_correlation\|granular_position\|grain_size\|grain_density\|grain_pitch\|grain_randomness\|grain_pan_spread\|additive_morph\|additive_spectrum_tilt\|additive_inharmonicity\|formant_vowel_position\|formant_shift\|formant_throat\|formant_spectral_tilt)`、`layer.<layer_id>.generator.operator.<1-4>.<parameter>`、`layer.<layer_id>.processor.<processor_id>.<parameter>`、`voice.processor.<processor_id>.<parameter>`、`global.processor.<processor_id>.<parameter>` |
-| 未知のField | JSON Parse Errorとして扱います |
-| 保存しないもの | Runtime状態、DaisySP Handle、Decode済みBuffer、Layer / Voice / Global Processor状態、Scratch Buffer |
-
-Validation Errorには`layers[0].envelope.attack_seconds`のようなField Pathが付きます。
-
-## Generator
-
-### Oscillator
-
-`waveform`はTagged Objectです。文字列だけのWaveformは受け付けません。
-
-```json
-{
-  "generator": {
-    "oscillator": {
-      "waveform": {
-        "type": "pulse",
-        "pulse_width": 0.35
-      },
-      "phase_reset": true,
-      "phase": 0.0
-    }
-  }
-}
-```
-
-`type`は`sine`、`saw`、`square`、`triangle`、`pulse`です。`pulse`だけが`pulse_width`を持ち、値域は0.05〜0.95です。`phase_reset`はNote Onごとの初期PhaseへのResetを、`phase`は0〜1の初期Phaseを表します。
-
-Square、Triangle、PulseはBand-limited Native Oscillatorを使用します。Pulse Widthは`layer.<layer_id>.generator.pulse_width`として5msでSmoothingされ、既存のLFO、Envelope、External ControlなどからModulationできます。
-
-### Complex Oscillator
-
-基本Oscillatorへ`hard_sync`、`waveshaping`、`unison`を追加できます。これらの設定はStatic Fieldであり、存在する設定だけがDynamic Parameter Catalogへ登録されます。
-
-```json
-{
-  "generator": {
-    "oscillator": {
-      "waveform": { "type": "saw" },
-      "phase_reset": true,
-      "phase": 0.0,
-      "hard_sync": { "ratio": 3.0 },
-      "waveshaping": { "amount": 0.25 },
-      "unison": {
-        "voices": 5,
-        "detune_cents": 18.0,
-        "stereo_spread": 0.85,
-        "phase_spread": 0.0
-      }
-    }
-  }
-}
-```
-
-| Field | Range | Dynamic | Scale | Smoothing |
-|---|---:|---:|---|---:|
-| `hard_sync.ratio` | 1〜16 | 可 | Log2 | 5ms |
-| `waveshaping.amount` | 0〜1 | 可 | Linear | 5ms |
-| `unison.voices` | 2〜8 | 不可 | — | — |
-| `unison.detune_cents` | 0〜100 | 可 | Linear | 10ms |
-| `unison.stereo_spread` | 0〜1 | 可 | Linear | 10ms |
-| `unison.phase_spread` | 0〜1 | 不可 | — | — |
-
-Hard SyncはSineでは使用できません。Saw、Square、Triangle、PulseはDaisySPのVariable Shape Oscillatorを使い、Master Frequency、Slave Frequency（Master × Ratio）、Pulse WidthをSample単位で更新します。Hard Syncは任意の開始Phaseを設定できないため、`phase`は0だけを指定できます。Hard SyncのEffective Frequency上限はBackendの安全範囲に制限されます。Hard SyncとUnisonを組み合わせる場合、`phase_spread`は0だけを指定できます。
-
-UnisonのDetune DistributionとPan Distributionは`-1`から`1`の対称係数で、Phase Distributionは`phase_spread × index / voices`です。各Voiceは`1 / sqrt(voices)`で正規化し、2 Voice以上ではStereo GeneratorとしてLayerへ渡します。WaveshapingはUnison MixとStereo Placementの直後、Layer Processorの前に適用されます。`amount = 0`は入力を変更しません。
-
-Dynamic Parameterは次のIDで既存のLFO、Envelope、Mod Wheel、Parameter Changeから制御できます。
-
-- `layer.<layer_id>.generator.sync_ratio`
-- `layer.<layer_id>.generator.waveshape`
-- `layer.<layer_id>.generator.unison_detune`
-- `layer.<layer_id>.generator.unison_spread`
-
-Phase Distortion、Oscillator Feedback、WavefoldはOptional Fieldです。Phase DistortionとOscillator FeedbackはSineだけで使用でき、Hard Syncとは併用できません。Wavefoldは全Waveformで使用できます。
-
-```json
-{
-  "generator": {
-    "oscillator": {
-      "waveform": { "type": "sine" },
-      "phase_reset": true,
-      "phase": 0.0,
-      "hard_sync": null,
-      "waveshaping": { "amount": 0.15 },
-      "phase_distortion": { "amount": 0.65 },
-      "wavefold": { "amount": 0.35 },
-      "feedback": { "amount": 0.3 },
-      "unison": null
-    }
-  }
-}
-```
-
-| Field | Range | Dynamic | Meaning |
-|---|---:|---:|---|
-| `phase_distortion.amount` | 0〜1 | Yes | SineのRead Phaseを連続的に変形する量 |
-| `wavefold.amount` | 0〜1 | Yes | DaisySP WavefolderのDriveとDry/Wetへ変換する量 |
-| `feedback.amount` | 0〜1 | Yes | 直前Sampleの出力をPhaseへ戻す量 |
-
-Canonical Parameter IDは`layer.<layer_id>.generator.phase_distortion`、`layer.<layer_id>.generator.wavefold`、`layer.<layer_id>.generator.oscillator_feedback`です。いずれも5msでSmoothingされます。WavefoldのAmountは内部で`drive = 1 + amount × 7`、`mix = amount`へ変換され、DaisySPのOffsetは0に固定されます。
-
-信号順は`Phase-domain生成 → Unison Mix → Existing Waveshaping → Wavefolder → DC Blocker`です。Wavefoldだけを使用する場合は既存Oscillator Backendを維持し、WavefoldをUnison MixとExisting Waveshapingの後へ適用します。Phase Distortion、Oscillator Feedback、Wavefoldのいずれかが有効な場合はGenerator末尾へDC Blockerを置きます。
-
-### Noise
-
-```json
-{
-  "generator": {
-    "noise": {
-      "color": "pink",
-      "seed": 812347,
-      "stereo_correlation": 0.65
-    }
-  }
-}
-```
-
-`color`は`white`、`pink`、`brown`です。`seed`、Layer ID、Note ID、Stream種別から決定的なNoise Streamを生成します。`stereo_correlation`は0〜1で、0は左右独立、1は左右同一のStreamです。このParameterは`layer.<layer_id>.generator.noise_correlation`として10msでSmoothingされます。Noise Generatorは常にStereoです。
-
-### Additive
-
-Additiveは、LayerのNote Frequencyを基準にした1〜64個のSine Partialを加算します。Integer RatioによるHarmonic、Fractional RatioによるInharmonic Spectrum、PartialごとのInitial PhaseとOptional ADSRを同じPartial Slotへ定義できます。
-
-```json
-{
-  "generator": {
-    "additive": {
-      "phase_reset": true,
-      "morph": 0.0,
-      "spectrum_tilt_db_per_octave": -3.0,
-      "inharmonicity": 0.0,
-      "partials": [
-        {
-          "id": "fundamental",
-          "ratio": 1.0,
-          "amplitude_a": 1.0,
-          "amplitude_b": 0.7,
-          "phase": 0.0
-        },
-        {
-          "id": "second",
-          "ratio": 2.0,
-          "amplitude_a": 0.45,
-          "amplitude_b": 0.8,
-          "phase": 0.0,
-          "envelope": {
-            "attack_seconds": 0.01,
-            "decay_seconds": 0.8,
-            "sustain_level": 0.2,
-            "release_seconds": 0.3
-          }
-        },
-        {
-          "id": "inharmonic",
-          "ratio": 2.73,
-          "amplitude_a": 0.15,
-          "amplitude_b": 0.5,
-          "phase": 0.25
-        }
-      ]
-    }
-  }
-}
-```
-
-| Field | Range / Unit | Dynamic | Meaning |
-|---|---:|---:|---|
-| `phase_reset` | Boolean | No | Note OnでPartial Phaseを初期値へ戻すか。Instrument Resetでは常に戻ります |
-| `morph` | 0〜1 | Yes | Spectrum AからSpectrum BへのAmplitude補間 |
-| `spectrum_tilt_db_per_octave` | -24〜12 dB / octave | Yes | Ratio 1を基準にした高次Partialの傾き |
-| `inharmonicity` | 0〜1 | Yes | Ratioが高いPartialほど周波数をStretchする量 |
-| `partials` | 1〜64個 | No | Definition順の固定Partial Slot |
-| `partials[].id` | 空でない一意な文字列 | No | InspectとDiagnosticでPartialを識別する名前。Parameter IDには展開しません |
-| `partials[].ratio` | 0.125〜64 | No | Note Frequencyに対する倍率。整数に限定しません |
-| `partials[].amplitude_a` / `amplitude_b` | 0〜1 | No | Morphの両端で使うAmplitude |
-| `partials[].phase` | 0〜1 cycle | No | PartialのInitial Phase |
-| `partials[].envelope` | Optional ADSR | No | Partialだけに適用するAmplitude Envelope |
-
-`morph`はAmplitudeだけを`A + (B - A) × morph`で補間します。Ratio、Phase、Partial ID、Envelope DefinitionはMorph中に変わりません。Spectrum Tiltは`log2(ratio)`をOctave数としてGainへ変換し、Inharmonicityは`ratio × sqrt((1 + B × ratio²) / (1 + B))`で高次RatioをStretchします。Ratio 1.0のFundamentalは常に1.0です。
-
-多数Partialの加算はEnergy Normalizationを使います。`Σ gain²`の平方根が1を超える場合だけ全Partial Gainを割り、Partial EnvelopeのActive数はNormalizationへ使用しません。高域PartialはFrequency Clampを行わず、Sample Rateの0.40〜0.45倍でLinear Fadeします。Additiveの出力はMonoです。
-
-Dynamic Parameterは次のCanonical IDで制御できます。
-
-- `layer.<layer_id>.generator.additive_morph`（Normalized、0〜1、Linear、10ms）
-- `layer.<layer_id>.generator.additive_spectrum_tilt`（Decibels Per Octave、-24〜12、Linear、10ms）
-- `layer.<layer_id>.generator.additive_inharmonicity`（Normalized、0〜1、Linear、10ms）
-
-基準となるDefinitionは[`examples/instruments/additive-generator-reference.json`](../examples/instruments/additive-generator-reference.json)です。
-
-### Formant
-
-Formantは、Note Frequencyの整数倍Harmonic Partialへ5本のGaussian-likeなFormant Bandを適用します。External Audioを必要とせず、Profileの組み合わせでVowel-likeなSpectrumを作ります。出力はMonoです。
-
-```json
-{
-  "generator": {
-    "formant": {
-      "phase_reset": true,
-      "partial_count": 48,
-      "vowel_position": 0.0,
-      "formant_shift_cents": 0.0,
-      "throat": 0.5,
-      "spectral_tilt_db_per_octave": -6.0,
-      "profiles": [
-        {
-          "id": "a",
-          "formants": [
-            { "frequency_hz": 800.0, "bandwidth_hz": 80.0, "gain_db": 0.0 },
-            { "frequency_hz": 1150.0, "bandwidth_hz": 90.0, "gain_db": -5.0 },
-            { "frequency_hz": 2900.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-            { "frequency_hz": 3900.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-            { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
-          ]
-        }
-      ]
-    }
-  }
-}
-```
-
-| Field | Range / Unit | Dynamic | Meaning |
-|---|---:|---:|---|
-| `phase_reset` | Boolean | No | Note OnでHarmonic PartialのPhaseを初期値へ戻すか |
-| `partial_count` | 1〜64 | No | 生成するHarmonic Partial数 |
-| `vowel_position` | 0〜1、Normalized | Yes | Profile配列の先頭から末尾までの位置 |
-| `formant_shift_cents` | -2400〜2400 cents | Yes | Formant中心とBandwidthへ同じRatioで適用する周波数移動 |
-| `throat` | 0〜1、Normalized | Yes | Bandwidth倍率。0で0.5倍、0.5で1倍、1で2倍 |
-| `spectral_tilt_db_per_octave` | -24〜12 dB / octave | Yes | Harmonic Ratioに対するSpectral Tilt |
-| `profiles` | 1〜8件 | No | Morphに使うDefinition順のProfile |
-| `profiles[].id` | 空でない一意な文字列 | No | InspectとDiagnosticでProfileを識別する名前 |
-| `profiles[].formants` | 5件固定 | No | 周波数昇順のFormant Band |
-| `frequency_hz` | 100〜12000 Hz | No | Gaussian Peakの中心周波数 |
-| `bandwidth_hz` | 20〜5000 Hz | No | GaussianのFWHM |
-| `gain_db` | -60〜12 dB | No | Formant Bandの相対強度 |
-
-Profile間のFrequencyとBandwidthはGeometric Interpolation、GainはdB Linear Interpolationです。`formant_shift_cents`はCenterとBandwidthへ同じ`2^(cents / 1200)`を掛け、NoteのFundamental Frequencyは変更しません。`throat`のBandwidth倍率は`2^(2 × (throat - 0.5))`です。各PartialのGainは5 Bandの`db_to_linear(gain_db) × exp(-0.5 × ((frequency - center) / (bandwidth / 2.35482))²)`を加算し、Spectral TiltとAlias Fadeを乗算します。最後に固定Partial全体のEnergyを基準としてTarget GainをNormalizeします。
-
-高域PartialはFrequency Clampを行わず、Sample Rateの0.40〜0.45倍でLinear Fadeします。PhaseはGainが0の間も進み続けます。Gaussian計算は約1msのSpectral Control Tickで行い、Tick間はPartial Bankの固定Rampを使います。
-
-Dynamic Parameterは次のCanonical IDで制御できます。
-
-- `layer.<layer_id>.generator.formant_vowel_position`（Normalized、0〜1、Linear、10ms）
-- `layer.<layer_id>.generator.formant_shift`（Cents、-2400〜2400、Linear、10ms）
-- `layer.<layer_id>.generator.formant_throat`（Normalized、0〜1、Linear、10ms）
-- `layer.<layer_id>.generator.formant_spectral_tilt`（Decibels Per Octave、-24〜12、Linear、10ms）
-
-Profileが0件または9件以上、Partial数が0または65以上、Band数が5以外、ID重複、周波数非昇順、各Range違反はValidation Errorです。基準となるDefinitionは[`examples/instruments/formant-generator-reference.json`](../examples/instruments/formant-generator-reference.json)です。AdditiveとFormantを重ねる基準例は[`examples/instruments/harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)です。
-
-### Harmonic / Formant Hybrid
-
-Formant、Additive、Sample、NoiseはLayerへ同時に記述できます。Layerの記述順にGenerator出力を加算し、各LayerのEnvelopeとProcessor、Voice Processor、Global Processorを順番に適用します。Formantの4 ParameterはHybridでも同じCanonical IDを使うため、LFO、Modulation Envelope、Velocity、Mod Wheel、Aftertouch、Parameter Changeから制御できます。
-
-動作する構成例は[`harmonic-formant-hybrid-reference.json`](../examples/instruments/harmonic-formant-hybrid-reference.json)です。このDefinitionは、FormantとAdditiveを持続成分、SampleをAttack、NoiseをAirとして配置し、Layer Filter / Drive、Voice Filter / Drive、Global Delay / Reverbを組み合わせています。Processor ChainとRouteは`instrument inspect --json`で配置、順序、Parameter ID、Source、Targetを確認できます。
-
-### Wavetable
-
-Wavetableは、WAVのMono Sample列またはStereo Sample列を、明示した`frame_length`ごとの連続した周期Frameとして読み込みます。Stereo AssetはCompile時にMonoへ平均Downmixされます。
-
-```json
-{
-  "generator": {
-    "wavetable": {
-      "asset": {
-        "path": "../../testdata/assets/digital-motion.wav",
-        "sha256": "<SHA-256>"
-      },
-      "frame_length": 2048,
-      "position": 0.25,
-      "phase_reset": true,
-      "phase": 0.0,
-      "unison": {
-        "voices": 5,
-        "detune_cents": 14.0,
-        "stereo_spread": 0.75,
-        "phase_spread": 0.5
-      }
-    }
-  }
-}
-```
-
-| Field | Range | Dynamic | Meaning |
-|---|---:|---:|---|
-| `asset` | — | No | MonoまたはStereoのWAV Asset |
-| `frame_length` | 64〜4096、2の冪 | No | 一周期FrameのSample数 |
-| `position` | 0〜1 | Yes | 最初のFrameから最後のFrameまでの位置 |
-| `phase_reset` | Boolean | No | Note Onで初期Phaseへ戻すか |
-| `phase` | 0〜1 | No | Initial Phase |
-| `unison` | 既存Unison範囲 | 一部Yes | Wavetable全体のUnison設定 |
-
-Asset全体のSample数は`frame_length`で割り切れ、Frame数が1〜256である必要があります。FrameはAssetの先頭から順に分割され、Frame間はLinear、Table内はFour-point Cubicで補間されます。Source Sample RateはWavetableの時間軸やPitchへ使わず、Wavetable AssetをResampleしません。
-
-Compile時には各FrameへFFTを適用し、`frame_length / 2`から`1`までのHarmonic上限を持つBand Tableを作成します。DCは保持し、Bandごとの自動Normalizeは行いません。RuntimeはComponent Frequencyに応じてBandを選び、隣接BandをLog2領域でCrossfadeします。WavetableはUnison 1ではMono、2 Voice以上ではStereoです。
-
-Dynamic Parameterは次のCanonical IDを持ちます。
-
-- `layer.<layer_id>.generator.wavetable_position`（0〜1、10ms Smoothing）
-- `layer.<layer_id>.generator.unison_detune`（Unison指定時、0〜100 cents、10ms Smoothing）
-- `layer.<layer_id>.generator.unison_spread`（Unison指定時、0〜1、10ms Smoothing）
-
-Assetの欠落・Hash不一致・Decode失敗ではWavetable Layerだけを発音候補から除外し、ほかの有効LayerはCompileとRenderを継続します。レイアウト不正や全Frame無音はWavetableを準備できない診断になります。
-
-### Spectral / Resynthesis
-
-Spectralは、WAV Assetを短時間Fourier変換したSpectrum Frameから再構成するGeneratorです。`asset_a`を必須の一次Sourceとし、SourceのSample RateをProcess Sample Rateへ合わせてから解析します。`asset_a`のMono / Stereo Channelはそのまま保持されます。
-
-```json
-{
-  "generator": {
-    "spectral": {
-      "asset_a": {
-        "path": "../../testdata/assets/metal-hit.wav",
-        "sha256": "<SHA-256>"
-      },
-      "asset_b": null,
-      "root_note": 60,
-      "fft_size": 2048,
-      "position": 0.0,
-      "freeze": 0.0,
-      "blur_seconds": 0.0,
-      "shift_hz": 0.0,
-      "morph": 0.0,
-      "phase_reset": true
-    }
-  }
-}
-```
-
-| Field | Range | Dynamic | Meaning |
-|---|---:|---:|---|
-| `asset_a` | — | No | 解析と時間軸の基準になるMonoまたはStereo WAV Asset |
-| `asset_b` | — / `null` | No | Optionalな二つ目のMonoまたはStereo Asset。`asset_a`とChannel数を一致させ、指定時だけMorph ParameterをCatalogへ追加 |
-| `root_note` | 0〜127 | No | Sourceが表すMIDI Note |
-| `fft_size` | 1024 / 2048 / 4096 | No | STFTとIFFTのサイズ |
-| `position` | 0〜1 | Yes | Source Positionの初期値 |
-| `freeze` | 0〜1 | Yes | Frame Freezeの初期値 |
-| `blur_seconds` | 0〜1秒 | Yes | Magnitude Blurの初期値 |
-| `shift_hz` | -12000〜12000 Hz | Yes | Frequency Shiftの初期値 |
-| `morph` | 0〜1 | Yes | Asset A/B Morphの初期値。`asset_b`なしで0以外はValidation Error |
-| `phase_reset` | Boolean | No | Note OnでSource Phaseを初期状態へ戻すか |
-
-Hop Sizeは常に`fft_size / 4`です。Compile時にPeriodic Hann Window、Magnitude、Absolute Phase、Instantaneous Frequencyを準備し、4倍Overlap-add用のSynthesis Windowを正規化します。前後のZero Paddingを含むため、Reported Latencyは`fft_size - hop_size` Frameです。FFT SizeごとのPrepared Spectral DataはAsset単位で共有され、64 MiBを超える場合は準備できません。
-
-RuntimeはSynthesis Hopごとに`asset_a`をTiming MasterにしたNormalized CursorをA/Bへ個別変換し、MagnitudeとInstantaneous Frequencyを補間します。Magnitude MorphはConstant-energy寄りのWeighted Energy、Frequency MorphはMagnitude Energy Weighted、Initial Phase MorphはCircular Interpolationです。Morph後のMagnitudeへ時間方向One-pole Blurを適用し、`blur_seconds = 0`では直接Targetを使います。FreezeはSource Scanだけを止め、PhaseはInstantaneous Frequencyから継続します。MIDI NoteとLayer TuningはRoot Noteに対する周波数比、`shift_hz`は加算周波数としてDestination Binへ反映し、Fractional Binの範囲外Energyは破棄します。Pitch変更はSource Scan速度を変えず、`phase_reset`がfalseのVoice再利用ではPhase Accumulatorを保持します。
-
-Dynamic Parameterは次のCanonical IDを持ちます。`spectral_blur`だけ20ms、それ以外は10msでSmoothingされます。`spectral_morph`は`asset_b`を指定した場合だけ登録されます。
-
-- `layer.<layer_id>.generator.spectral_position`（Normalized、0〜1）
-- `layer.<layer_id>.generator.spectral_freeze`（Normalized、0〜1）
-- `layer.<layer_id>.generator.spectral_blur`（Seconds、0〜1）
-- `layer.<layer_id>.generator.spectral_shift`（Hertz、-12000〜12000）
-- `layer.<layer_id>.generator.spectral_morph`（Normalized、0〜1、`asset_b`指定時）
-
-Primary SourceまたはMorph Sourceの欠落・Hash不一致・Decode失敗では、依存するSpectral Layerを発音候補から除外し、ほかの有効LayerのCompileとRenderを継続します。A/BのChannel数が異なる場合はCompile Errorです。`instrument inspect`ではAsset A/BのPrepared状態、Source / Prepared Sample Rate、Source Metadata、Prepared Frame数、FFT / Hop / Bin数、Prepared Bytes、Latency、Parameter IDを確認できます。
-
-### Spectral Hybrid
-
-SpectralはほかのGeneratorと同じLayer列へ配置できます。[`spectral-hybrid-reference.json`](../examples/instruments/spectral-hybrid-reference.json)はSpectralのStereo A/B Resynthesisを持続Bodyとして使い、AdditiveのHarmonic Body、SampleのAttack、NoiseのAirを重ねます。Layer ProcessorはGenerator直後、`voice_processors`は全LayerのMix後、`global_processors`は全VoiceのSum後にDefinition順で適用されます。
-
-この例ではSpectralのPosition、Blur、Shift、MorphをModulation Routeへ接続し、Voice FilterとGlobal Delay / Reverbも同じParameter Catalogへ登録します。`asset_b`を使うSpectral LayerはA/BのChannel数を一致させ、MIDI RenderではNote、Velocity、Mod Wheel、Parameter Changeを同じProcess経路へ渡します。単体のStereo制御を確認する場合は[`spectral-generator-reference.json`](../examples/instruments/spectral-generator-reference.json)を使用します。
+| `region` | 再生領域`[start, end)`（秒）。`end: null`はAsset終端 |
+| `direction` | `forward` / `reverse`。ReverseはCursor方向だけを反転 |
+| `loop` | Region内のLoop（`start_seconds` / `end_seconds` / `crossfade_seconds`）。`null`はOne-shot |
+| `time` | 時間伸縮Mode（下記）。省略不可 |
+
+- `loop.crossfade_seconds`が0より大きいと、境界を定電力でBlendします。CrossfadeはLoop長の半分以下です
+
+| `time.mode` | 動作 | 制約 |
+|---|---|---|
+| `resample` | Pitch変更へ合わせてDurationも変える | — |
+| `fixed_stretch` | `ratio`（0.5〜2.0）でDurationだけを変える | Pitch不変。Reverseとは併用不可 |
+| `tempo_sync` | `source_bpm`とProcess TempoからDuration比を決める | Pitch不変。Reverseとは併用不可 |
+
+- `fixed_stretch`と`tempo_sync`のDuration比が0.5〜2.0の範囲外だとProcess Errorです
+- Assetの欠落・Hash不一致・Decode失敗はそのZoneだけを無効化し、他ZoneとLayerのコンパイルを継続します
 
 ### Granular
 
-Granularは一つのPrepared AudioをCompile時にRegionへ変換し、Noteごとに固定Poolから複数のGrainを生成するGeneratorです。Sample GeneratorのPlayback Modeではなく、独立したGeneratorとしてLayerへ配置します。Mono AssetもGrainごとにConstant-powerでStereo配置するため、出力はStereoです。
+Sampleと同じAssetをGrainへ分解して再構成します。Mono AssetでもGrainごとに定電力PanでStereo配置するため、出力は常にStereoです。
 
 ```json
-{
-  "generator": {
-    "granular": {
-      "asset": {
-        "path": "../../testdata/assets/metal-hit.wav",
-        "sha256": "<SHA-256>"
-      },
-      "root_note": 60,
-      "region": {
-        "start_seconds": 0.05,
-        "end_seconds": 0.9
-      },
-      "position": 0.5,
-      "grain_size": 0.08,
-      "density": 24.0,
-      "pitch": 0.0,
-      "randomness": 0.35,
-      "pan_spread": 0.75,
-      "seed": 8128
-    }
+"generator": {
+  "granular": {
+    "asset": { "path": "<WAVへの相対Path>", "sha256": "<SHA-256>" },
+    "root_note": 60,
+    "region": { "start_seconds": 0.05, "end_seconds": 0.9 },
+    "position": 0.5,
+    "grain_size": 0.08,
+    "density": 24.0,
+    "pitch": 0.0,
+    "randomness": 0.35,
+    "pan_spread": 0.75,
+    "seed": 8128
   }
 }
 ```
 
-| Field | Range / Unit | Dynamic | Meaning |
-|---|---:|---:|---|
-| `asset` | — | No | MonoまたはStereoのWAV Asset。Sampleと同じPrepared Audioを共有 |
-| `root_note` | 0〜127 | No | Sourceの基準MIDI Note |
-| `region.start_seconds` / `end_seconds` | 0以上の秒 | No | Grain Positionが参照するPrepared Region。End省略時はAsset終端 |
-| `position` | 0〜1 | Yes | Region内の基本Source Position。0はRegion Start、1はGrain長を考慮したRegion End側 |
-| `grain_size` | 0.005〜0.5秒 | Yes | Hann Windowを適用するGrain長 |
-| `density` | 1〜100 grains/sec | Yes | Grain Schedulerの生成密度 |
-| `pitch` | -2400〜2400 cents | Yes | Note / Layer Tuningへ加算するGrain Pitch |
-| `randomness` | 0〜1 | Yes | Deterministic RandomでRegion内へ分散する量 |
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `asset` | — | No | Mono/StereoのWAV。SampleとPrepared Audioを共有 |
+| `root_note` | 0〜127 | No | 基準MIDI Note |
+| `region` | 0以上の秒 | No | Grainが参照するPrepared Region。`end`省略時はAsset終端 |
+| `position` | 0〜1 | Yes | Region内の基本位置。0がStart、1がGrain長を考慮したEnd側 |
+| `grain_size` | 0.005〜0.5秒 | Yes | Grain長 |
+| `density` | 1〜100 grains/sec | Yes | Grainの生成密度 |
+| `pitch` | -2400〜2400 cents | Yes | Note PitchとLayer Tuningへ加算 |
+| `randomness` | 0〜1 | Yes | Positionの分散幅 |
 | `pan_spread` | 0〜1 | Yes | GrainごとのStereo配置幅 |
-| `seed` | uint64 | No | Grain Position / Panの決定的Seed |
+| `seed` | 整数 | No | Position・Panの決定的Seed |
 
-WindowはHann固定で、Window種別をDefinitionへ公開しません。GrainはCompile時に確保した64 Slotの固定Poolを再利用し、最大Densityと最大Grain SizeでもPoolを超えない範囲で動作します。PositionがRegion外へ回り込むRandom結果は循環し、実際のGrain長とPitchを考慮してRegion外をReadしません。
+Dynamic Parameter：`granular_position`、`grain_size`、`grain_density`、`grain_pitch`、`grain_randomness`、`grain_pan_spread`
 
-Canonical Parameter IDは次の形式です。
-
-- `layer.<layer_id>.generator.granular_position`（Normalized、0〜1、5ms）
-- `layer.<layer_id>.generator.grain_size`（Seconds、0.005〜0.5、Log2、10ms）
-- `layer.<layer_id>.generator.grain_density`（Per Second、1〜100、Log2、10ms）
-- `layer.<layer_id>.generator.grain_pitch`（Cents、-2400〜2400、5ms）
-- `layer.<layer_id>.generator.grain_randomness`（Normalized、0〜1、10ms）
-- `layer.<layer_id>.generator.grain_pan_spread`（Normalized、0〜1、10ms）
-
-Assetの欠落・Hash不一致・Decode失敗ではGranular Layerを発音候補から除外し、ほかの有効LayerはCompileとRenderを継続します。RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Parameter範囲違反は`INVALID_GRAIN_PARAMETER`を返します。
+RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Parameter範囲違反は`INVALID_GRAIN_PARAMETER`です。Assetの欠落・Hash不一致・Decode失敗はGranular Layerを発音候補から除外します。
 
 ### Wave Sequence
 
-Wave Sequenceは複数のAudio Assetを一つのGeneratorで時間順に再生します。StepはCompile後もDefinition順の不変配列として保持され、Assetを共有します。
+複数Assetを時間順に切り替えます。StepはDefinition順の不変配列で、Assetを共有します。
 
 ```json
-{
-  "generator": {
-    "wave_sequence": {
-      "root_note": 60,
-      "direction": "ping_pong",
-      "loop": true,
-      "crossfade": 0.25,
-      "steps": [
-        {
-          "id": "attack",
-          "asset": {
-            "path": "../../testdata/assets/metal-hit.wav",
-            "sha256": "<SHA-256>"
-          },
-          "region": {
-            "start_seconds": 0.0,
-            "end_seconds": 0.08
-          },
-          "duration": {
-            "mode": "seconds",
-            "value": 0.18
-          },
-          "playback": "loop",
-          "playback_direction": "forward",
-          "gain_db": -3.0,
-          "pitch_cents": 0.0
-        },
-        {
-          "id": "body",
-          "asset": {
-            "path": "../../testdata/assets/metal-hit.wav",
-            "sha256": "<SHA-256>"
-          },
-          "region": {
-            "start_seconds": 0.08,
-            "end_seconds": 0.16
-          },
-          "duration": {
-            "mode": "beats",
-            "value": 0.5
-          },
-          "playback": "one_shot",
-          "playback_direction": "reverse",
-          "gain_db": -6.0,
-          "pitch_cents": 300.0
-        }
-      ]
-    }
+"generator": {
+  "wave_sequence": {
+    "root_note": 60,
+    "direction": "ping_pong",
+    "loop": true,
+    "crossfade": 0.25,
+    "steps": [
+      { "id": "attack", "asset": { "path": "<WAVへの相対Path>", "sha256": "<SHA-256>" },
+        "region": { "start_seconds": 0.0, "end_seconds": 0.08 },
+        "duration": { "mode": "seconds", "value": 0.18 },
+        "playback": "loop", "playback_direction": "forward", "gain_db": -3.0, "pitch_cents": 0.0 },
+      { "id": "body", "asset": { "path": "<WAVへの相対Path>", "sha256": "<SHA-256>" },
+        "region": { "start_seconds": 0.08, "end_seconds": 0.16 },
+        "duration": { "mode": "beats", "value": 0.5 },
+        "playback": "one_shot", "playback_direction": "reverse", "gain_db": -6.0, "pitch_cents": 300.0 }
+    ]
   }
 }
 ```
 
-| Field | Range / Unit | Dynamic | Meaning |
-|---|---:|---:|---|
-| `root_note` | 0〜127 | No | Step Assetの基準MIDI Note |
-| `direction` | `forward` / `reverse` / `ping_pong` | No | Stepを選択する順序 |
-| `loop` | Boolean | No | 終端後にSequenceを繰り返すか |
-| `crossfade` | 0〜0.5 | No | 隣接Stepを重ねる割合。Constant-powerで混合 |
-| `steps` | 1〜128個 | No | 時間順のStep配列 |
-| `steps[].id` | Component ID | No | Sequence内で一意なStep ID |
-| `steps[].asset` | — | No | MonoまたはStereoのWAV Asset |
-| `steps[].region` | 0以上の秒 | No | Assetから読む`[start, end)` Region |
-| `steps[].duration` | `seconds`または`beats`、正の値 | No | Stepを保持する時間 |
-| `steps[].playback` | `one_shot` / `loop` | No | Step内でAssetを一度だけ読むか繰り返すか |
-| `steps[].playback_direction` | `forward` / `reverse` | No | Step AssetのRead方向 |
-| `steps[].gain_db` | -60〜12 dB | No | Step固有のGain |
-| `steps[].pitch_cents` | -2400〜2400 cents | No | Root Noteへ加算するStep Pitch |
+| Field | Range | 意味 |
+|---|---|---|
+| `root_note` | 0〜127 | Step Assetの基準MIDI Note |
+| `direction` | `forward` / `reverse` / `ping_pong` | Stepを選ぶ順序。`ping_pong`は終端を重複させず往復 |
+| `loop` | Boolean | 終端後にSequenceを繰り返すか |
+| `crossfade` | 0〜0.5 | 隣接Stepを重ねる割合。定電力で混合 |
+| `steps` | 1〜128個 | 時間順のStep配列 |
+| `steps[].id` | 一意な文字列 | Step識別子 |
+| `steps[].asset` | — | Mono/StereoのWAV |
+| `steps[].region` | 0以上の秒 | Assetから読む`[start, end)`領域 |
+| `steps[].duration` | `seconds` / `beats`、正の値 | Stepを保持する時間。`beats`はProcess Tempoへ追従 |
+| `steps[].playback` | `one_shot` / `loop` | Assetを一度だけ読むか繰り返すか |
+| `steps[].playback_direction` | `forward` / `reverse` | AssetのRead方向（Sequence方向とは独立） |
+| `steps[].gain_db` | -60〜12 dB | Step固有のGain |
+| `steps[].pitch_cents` | -2400〜2400 cents | Root Noteへ加算するPitch |
 
-`direction`はStepを選ぶ順序、`playback_direction`は選択されたAssetを読む方向です。`ping_pong`は終端Stepを重複再生せず、`A B C D C B A`の順で進みます。`one_shot`のSourceがDurationより先に終わった場合はStep終端まで無音を保持し、`loop`はRegionを繰り返します。
+- `one_shot`はSourceがDurationより先に終わるとStep終端まで無音を保持し、`loop`はRegionを繰り返します
+- Missing Assetや不正RegionのStepは削除せず、Durationを保持した無音Stepとして残ります（後続Stepの時間を変えません）
+- 全Stepが利用できない場合はLayerだけを発音候補から除外します
 
-`duration.mode`が`seconds`の場合はTempoに依存せず、`beats`の場合はProcess Tempoの変更後から進行速度を変えます。途中のTempo変更でStepを先頭へ戻しません。Missing Assetや不正RegionのStepはCompile配列から削除せず、指定Durationを持つ無音Stepとして残します。全Stepが利用できない場合はLayerだけを発音候補から除外します。
+Wave Sequence固有のDynamic Parameterはありません。Step構造はコンパイル時に確定します。
 
-Wave Sequence固有のDynamic Parameterは定義しません。Step構造、Duration、Direction、Crossfade、Pitch、GainはCompile時に確定します。
+## 複数Generatorの組み合わせ
 
-### Operator Modulation
+複数GeneratorはLayerへ同時に記述でき、DefinitionのLayer順に加算されます。各LayerのADSRとProcessor、Voice Processor、Global Processorを順に適用します。
 
-Operator Modulationは4つのSine Operatorを固定Topologyで接続するGeneratorです。Definitionでは利用者向けのOperator番号を1〜4で記述し、Compile後は固定配列へ変換します。接続Algorithmは`stack_4`、`stack_3_plus_carrier`、`two_stacks`、`fork_to_carrier`、`two_modulators_plus_carrier`、`three_modulators`、`shared_modulator`、`parallel`です。任意の接続GraphやOperator間Cycleは指定できません。
+代表的な役割分担：
 
-```json
-{
-  "generator": {
-    "operator_modulation": {
-      "mode": "phase",
-      "algorithm": "stack_4",
-      "operators": [
-        {
-          "ratio": 1.0,
-          "detune_cents": 0.0,
-          "level": 0.9,
-          "modulation_amount": 0.0,
-          "feedback": 0.0,
-          "phase": 0.0,
-          "envelope": {
-            "attack_seconds": 0.0,
-            "decay_seconds": 0.1,
-            "sustain_level": 1.0,
-            "release_seconds": 0.1
-          }
-        },
-        {
-          "ratio": 2.0,
-          "detune_cents": 0.0,
-          "level": 0.0,
-          "modulation_amount": 2.5,
-          "feedback": 0.0,
-          "phase": 0.0,
-          "envelope": {
-            "attack_seconds": 0.0,
-            "decay_seconds": 0.08,
-            "sustain_level": 1.0,
-            "release_seconds": 0.08
-          }
-        },
-        {
-          "ratio": 3.0,
-          "detune_cents": 0.0,
-          "level": 0.0,
-          "modulation_amount": 1.5,
-          "feedback": 0.0,
-          "phase": 0.0,
-          "envelope": {
-            "attack_seconds": 0.0,
-            "decay_seconds": 0.06,
-            "sustain_level": 1.0,
-            "release_seconds": 0.06
-          }
-        },
-        {
-          "ratio": 5.0,
-          "detune_cents": 0.0,
-          "level": 0.0,
-          "modulation_amount": 2.0,
-          "feedback": 0.25,
-          "phase": 0.0,
-          "envelope": {
-            "attack_seconds": 0.0,
-            "decay_seconds": 0.04,
-            "sustain_level": 1.0,
-            "release_seconds": 0.04
-          }
-        }
-      ],
-      "phase_reset": true,
-      "unison": null
-    }
-  }
-}
-```
+| 構成 | Layer構成 |
+|---|---|
+| Harmonic / Formant | Formant（共鳴）+ Additive（倍音芯）+ Sample（Attack）+ Noise（Air） |
+| Spectral | Spectral（持続Body）+ Additive（倍音）+ Sample（Attack）+ Noise（Air） |
+| Digital | Wavetable（持続）+ Operator Modulation（倍音芯）+ Sample（短アタック） |
 
-`mode`は`phase`、`frequency`、`amplitude`、`ring`のいずれかです。PhaseはModulator出力へAmountの0.5を掛けてCycle単位のRead Phaseへ加え、Frequencyは`base_frequency × (1 + modulation + feedback)`で瞬時周波数を作ります。AmplitudeはIncomingごとの`1 + output × depth`を乗算し、最終値を0〜4へ制限します。RingはCarrierと`Carrier × Modulator`をDepthでCrossfadeします。
+各GeneratorのDynamic Parameterは、単体の場合と同じModulation RouteやParameter Changeから制御できます。Spectralの報告Latencyが最大のとき、他Layerへ遅延補償を確保して、Transientの時間位置を揃えます。
 
-各Operatorの`ratio`は0.25〜32、`detune_cents`は-100〜100、`level`と`phase`は0〜1です。`modulation_amount`はPhase / Frequencyで0〜8のIndex、Amplitude / Ringで0〜1のNormalizedです。`feedback`は0〜1で、直前Sampleの自身の出力だけを`tanh`でBoundしてPhaseまたはFrequencyへ加えます。Amplitude / Ringでは0だけを許可します。
+## Processor
 
-Operator EnvelopeはLayer Envelopeとは別に全Operatorへ適用され、Note Onで開始、Note OffでReleaseへ移行します。Carrierの`level`だけが最終出力へ寄与し、Carrier以外の`level`と出力先を持たない`modulation_amount`は0でなければなりません。Unisonは最大4 Voiceで、Envelopeを共有しながらComponentごとにPhaseとFeedback Stateを持ちます。Unison 1はMono、2以上はStereoです。
+Processorは配列の順序で直列に適用されます。配置と種類は固定です。
 
-Dynamic ParameterはTopologyとModeに応じて次を公開します。
+| 配置 | 適用位置 | 使える種類 |
+|---|---|---|
+| Layer（`processors`） | Generatorの直後 | Filter、Drive |
+| Voice（`voice_processors`） | 全LayerのMix後 | Filter、Drive |
+| Global（`global_processors`） | 全Voiceの合計後 | Filter、Drive、Delay、Reverb |
 
-- `layer.<layer_id>.generator.operator.<1-4>.ratio`（Ratio、Log2、0.25〜32、5ms）
-- `layer.<layer_id>.generator.operator.<1-4>.detune`（Cents、Linear、-100〜100、5ms）
-- `layer.<layer_id>.generator.operator.<1-4>.level`（Carrierのみ、Normalized、0〜1、5ms）
-- `layer.<layer_id>.generator.operator.<1-4>.modulation_amount`（接続元のみ、Mode依存、5ms）
-- `layer.<layer_id>.generator.operator.<1-4>.feedback`（Phase / Frequencyのみ、0〜1、5ms）
-- `layer.<layer_id>.generator.unison_detune` / `unison_spread`（Unison指定時）
-
-OperatorのEffective Frequency上限はPhase / Frequencyで`Sample Rate × 0.24`、Amplitude / Ringで`Sample Rate × 0.45`です。詳細なTopologyとSignal順序は[`docs/runtime-processing.md`](runtime-processing.md)を参照してください。
-
-Generator ParameterはLayer Gain / Pan / Tuningの後、Layer Processorの前にParameter Catalogへ追加されます。Sample、Wave Sequenceの構造はStaticで、Additiveの3 Parameter、Formantの4 Parameter、Granularの6 ParameterはDynamicです。
-
-## Processor Chain
-
-Processorは配列の順序で直列に適用されます。Processorの種類と配置は固定されており、LayerとVoiceではFilterとDrive、GlobalではFilter、Drive、Delay、Reverbを指定できます。DelayとReverbをLayerまたはVoiceへ置くとValidation Errorになります。
+DelayとReverbをLayerまたはVoiceへ置くとValidation Errorです。
 
 ```json
-{
-  "processors": [
-    {
-      "type": "filter",
-      "id": "attack_tone",
-      "cutoff_hz": 9000.0,
-      "resonance": 0.1
-    },
-    {
-      "type": "drive",
-      "id": "attack_drive",
-      "amount": 0.25,
-      "mix": 0.4
-    }
-  ],
-  "voice_processors": [],
-  "global_processors": [
-    {
-      "type": "delay",
-      "id": "echo",
-      "time_seconds": 0.28,
-      "feedback": 0.3,
-      "mix": 0.15
-    },
-    {
-      "type": "reverb",
-      "id": "space",
-      "pre_delay_seconds": 0.012,
-      "decay": 0.6,
-      "damping": 0.35,
-      "width": 1.0,
-      "mix": 0.2
-    }
-  ]
-}
+"processors": [
+  { "type": "filter", "id": "attack_tone", "cutoff_hz": 9000.0, "resonance": 0.1 },
+  { "type": "drive", "id": "attack_drive", "amount": 0.25, "mix": 0.4 }
+],
+"voice_processors": [],
+"global_processors": [
+  { "type": "delay", "id": "echo", "time_seconds": 0.28, "feedback": 0.3, "mix": 0.15 },
+  { "type": "reverb", "id": "space", "pre_delay_seconds": 0.012, "decay": 0.6, "damping": 0.35, "width": 1.0, "mix": 0.2 }
+]
 ```
 
-Filterの`cutoff_hz`と`resonance`、Driveの`amount`と`mix`、Delayの`feedback`と`mix`、Reverbの`decay`、`damping`、`width`、`mix`がDynamic Parameterです。Delayの`time_seconds`とReverbの`pre_delay_seconds`、Processorの種類・ID・配置・順序はCompile時に固定されます。
+各ProcessorのDynamic Parameter（Filterの`cutoff_hz` / `resonance`、Driveの`amount` / `mix`、Delayの`feedback` / `mix`、Reverbの`decay` / `damping` / `width` / `mix`）は、Modulation RouteやParameter Changeから制御できます。Delayの`time_seconds`、Reverbの`pre_delay_seconds`、Processorの種類・ID・配置・順序はコンパイル時に固定です。
 
-Canonical Parameter IDは次の形式です。
+Parameter IDの形式：
 
-- `layer.<layer_id>.processor.<processor_id>.<parameter>`
-- `voice.processor.<processor_id>.<parameter>`
-- `global.processor.<processor_id>.<parameter>`
-
-Parameter Catalogは、各Layerの基本Parameter、Generator Parameter、Layer Processor、Voice Processor、Global Processorの順に並びます。Disabled LayerのCatalog項目もDefinitionの順序を維持します。
-
-## Sample Layer
-
-Sampleを使うLayerの最小構成です。
-
-```json
-{
-  "id": "attack",
-  "enabled": true,
-  "trigger": {
-    "event": "note_on",
-    "key_min": 0,
-    "key_max": 127,
-    "velocity_min": 1,
-    "velocity_max": 127
-  },
-  "gain_db": -18.0,
-  "pan": 0.0,
-  "tuning_cents": 0.0,
-  "envelope": {
-    "attack_seconds": 0.0,
-    "decay_seconds": 0.08,
-    "sustain_level": 0.0,
-    "release_seconds": 0.1
-  },
-  "generator": {
-    "sample": {
-      "interpolation": "cubic",
-      "zones": [
-        {
-          "id": "main",
-          "asset": {
-            "path": "../../testdata/assets/metal-hit.wav",
-            "sha256": "ecebbaa000ad97f19d659b4c7b42313ae47889b54191b85e6da0e8471979635c"
-          },
-          "root_note": 60,
-          "key_min": 0,
-          "key_max": 127,
-          "velocity_min": 1,
-          "velocity_max": 127,
-          "round_robin_group": null,
-          "playback": {
-            "region": {
-              "start_seconds": 0.0,
-              "end_seconds": null
-            },
-            "direction": "forward",
-            "loop": null,
-            "time": { "mode": "resample" }
-          }
-        }
-      ]
-    }
-  }
-}
-```
-
-**Assetの読み込み（Compile時）**
-
-- Asset PathはDefinitionがあるフォルダを基準に解決します
-- SHA-256を照合してから、SymphoniaでWAVを読み込みます
-- Sample GeneratorのStereo WAVは左右を保持したPlanar Prepared Audioへ変換します。Mono WAVはMonoのまま保持します
-- 再生時のSample Rateと違う場合は、RubatoでSample Rateを変換します
-- ResampleはChannelごとに同じ設定で行い、左右のFrame数を一致させます
-- 元のSample Rate、Channel数、Bit Depth、Frame数はPrepared AudioのSource Metadataに保持します
-- 同一Assetを参照するZoneはCompile時にPrepared Audioを共有します
-- Assetの欠落・Hash不一致・Decode失敗はそのZoneだけを無効化し、ほかのZoneとLayerのCompileを継続します
-
-**Sample Zone**
-
-- `id`はSample Generator内で一意なComponent IDです
-- `root_note`は0〜127、`key_min` / `key_max`は0〜127、`velocity_min` / `velocity_max`は1〜127です。各範囲は`min <= max`で記述します
-- `key_min` / `key_max`と`velocity_min` / `velocity_max`で発音範囲を指定します
-- 重なるZoneは同じ`round_robin_group`と完全一致するKey / Velocity範囲を持つ必要があります
-- Velocity Layerは重ならないVelocity範囲で記述します。範囲のGapでは発音しません
-- 同じRound Robin Groupの選択はDefinition順で、Instrument単位のCounterによりA/B/A/Bと進みます
-
-**Layer Trigger Event**
-
-- `event`は`note_on`または`note_off`です。通常のLayerは`note_on`を指定します
-- `note_on` LayerはNote Onで発音を開始します
-- `note_off` LayerはNote OnでArmedになり、Audioを生成せずにNote IDを保持します。対応するNote Offで独立したEnvelopeのAttackから発音を開始します
-- Voice Stealingは演奏上のNote Offではないため、Armed Layerを発音しません
-
-**Playback Region**
-
-- `region`は`start_seconds`と`end_seconds`を持ち、`[start, end)`として扱います。`end_seconds: null`はAsset終端です
-- `direction`は`forward`または`reverse`です。ReverseはPrepared Audioを複製せずCursor方向だけを反転します
-- `loop: null`はOne-shotです。Loopを指定する場合はRegion内の`start_seconds`、`end_seconds`、`crossfade_seconds`を記述します
-- `crossfade_seconds: 0`は通常Loop、0より大きい場合はConstant-power Crossfade Loopです。CrossfadeはLoop長の半分以下でなければなりません
-- `time`は`resample`、`fixed_stretch`、`tempo_sync`のいずれかです。省略できません
-- `resample`はPitch変更に合わせてDurationも変えます。`fixed_stretch`は`ratio`（0.5〜2.0）でDurationだけを変え、`tempo_sync`は`source_bpm`（0より大きい値）とProcess TempoからDuration比を決めます
-- `fixed_stretch`と`tempo_sync`はReverseと併用できません。RatioはCompile時にも検証され、範囲外の値をClampしません
-- RegionとLoopはCompile時にEngine Sample RateのFrameへ変換され、RegionとLoopには最低2 Frameが必要です
-- Explicit Sliceは同じAssetと異なるOne-shot Regionを持つ複数Zoneで表現します
-
-```json
-"playback": {
-  "region": { "start_seconds": 0.0, "end_seconds": null },
-  "direction": "forward",
-  "loop": null,
-  "time": { "mode": "fixed_stretch", "ratio": 1.5 }
-}
-```
-
-Tempoに追従するZoneは次の形式です。
-
-```json
-"time": { "mode": "tempo_sync", "source_bpm": 120.0 }
-```
-
-`source_bpm / process_tempo_bpm`が0.5〜2.0の範囲外になる場合はProcess Errorになります。Tempo SyncはTempo Mapの境界でProcess Blockを分割して適用します。
-
-Sampleの再生の動き（Cursor、再生速度、補間、終端の扱い）は、`docs/runtime-processing.md`の「Sampleの再生」を参照してください。
+- Layer Processor: `layer.<layer_id>.processor.<processor_id>.<parameter>`
+- Voice Processor: `voice.processor.<processor_id>.<parameter>`
+- Global Processor: `global.processor.<processor_id>.<parameter>`
 
 ## Modulation
 
-`modulation`は省略可能です。`sources`はVoiceごとのSource定義、`routes`はSourceから連続Parameterへの接続です。Routeは書かれた順に同じTargetへ加算され、最後にTarget範囲へClampされます。
+`modulation`は省略可能です。`sources`はVoiceごとのSource定義、`routes`はSourceからDynamic Parameterへの接続です。Routeは書かれた順に同じTargetへ加算され、最後にTarget範囲へClampされます。
 
-組み込みSourceは次のとおりです。
+**組み込みSource**（定義なしで使えます）：
 
 | Source ID | 範囲 | 動作 |
 |---|---|---|
@@ -883,77 +622,55 @@ Sampleの再生の動き（Cursor、再生速度、補間、終端の扱い）�
 | `mod_wheel` | 0〜1 | 共有External Control |
 | `aftertouch` | 0〜1 | 共有External Control |
 
-Definitionで追加できるSourceは`lfo`、`envelope`、`random`です。LFOはBipolar、EnvelopeはNote Lifecycle、RandomはSeedとNote IDから決まるVoice単位の値です。
+**追加できるSource**：
+
+| `type` | Field | 動作 |
+|---|---|---|
+| `lfo` | `waveform`、`rate_hz`（0.01〜40）、`phase`（0〜1） | Bipolarの周期信号 |
+| `envelope` | ADSR | Note Lifecycleに追従 |
+| `random` | `seed` | SeedとNote IDから決まる、Voiceごとの固定値 |
 
 ```json
-{
-  "modulation": {
-    "sources": [
-      {
-        "type": "lfo",
-        "id": "vibrato",
-        "waveform": "sine",
-        "rate_hz": 5.0,
-        "phase": 0.0
-      },
-      {
-        "type": "envelope",
-        "id": "filter_env",
-        "attack_seconds": 0.01,
-        "decay_seconds": 0.2,
-        "sustain_level": 0.3,
-        "release_seconds": 0.25
-      },
-      {
-        "type": "random",
-        "id": "random_pan",
-        "seed": 42
-      }
-    ],
-    "routes": [
-      {
-        "source": "vibrato",
-        "target": "layer.body.tuning",
-        "amount": 0.02,
-        "curve": "linear"
-      },
-      {
-        "source": "filter_env",
-        "target": "voice.processor.tone.cutoff",
-        "amount": 0.2,
-        "curve": "smooth_step"
-      },
-      {
-        "source": "random_pan",
-        "target": "layer.body.pan",
-        "amount": 1.0,
-        "curve": "linear"
-      }
-    ]
-  }
+"modulation": {
+  "sources": [
+    { "type": "lfo", "id": "vibrato", "waveform": "sine", "rate_hz": 5.0, "phase": 0.0 },
+    { "type": "envelope", "id": "filter_env", "attack_seconds": 0.01, "decay_seconds": 0.2, "sustain_level": 0.3, "release_seconds": 0.25 },
+    { "type": "random", "id": "random_pan", "seed": 42 }
+  ],
+  "routes": [
+    { "source": "vibrato", "target": "layer.body.tuning", "amount": 0.02, "curve": "linear" },
+    { "source": "filter_env", "target": "voice.processor.tone.cutoff", "amount": 0.2, "curve": "smooth_step" },
+    { "source": "random_pan", "target": "layer.body.pan", "amount": 1.0, "curve": "linear" }
+  ]
 }
 ```
 
-ParameterのBase値はNormalized EventからDescriptorを通してNative値へ戻されます。GainはdB、Panは-1〜1、Tuningはcent、CutoffとRatioはLog2、IndexとResonanceはLinearで評価します。音声処理中に文字列IDやJSONを扱わないため、Parameter IDとRoute解決はCompile前に完了します。
+各Routeの`amount`は-1〜1で、TargetのNative範囲に対する割合です。Parameter IDの解決とRouteの計算はコンパイル前に完了するため、音声処理中に文字列IDやJSONを扱いません。
 
-## Compile時の変換
+## コンパイル時の変換
 
-Compileで一度だけ計算します。
+コンパイルで一度だけ計算し、実行時はその値を使います。
 
 | 変換 | 内容 |
 |---|---|
-| dB → Gain | `gain_db`を線形のGainへ |
+| dB → Gain | `gain_db`を線形Gainへ |
 | cent → 音程比 | `tuning_cents`を再生速度の比へ |
 | ADSRの秒 → Frame数 | Sample Rateに依存するFrame数へ |
 | Granular Regionの秒 → Frame数 | Prepared Audio内の固定Regionへ |
 | Filter Cutoff | Sample Rateの上限へ制限 |
-| Parameter Catalog | LayerとProcessorの連続Parameterへ安定ID、範囲、Scale、Smoothingを割り当て |
-| Modulation | SourceをDense Tableへ、RouteをTarget別の範囲へ変換 |
+| Parameter一覧 | LayerとProcessorのDynamic Parameterへ、安定ID・範囲・Scale・Smoothingを割り当て |
+| Modulation | SourceをTableへ、RouteをTarget別の範囲へ変換 |
+
+**Assetの準備**
+
+Sample、Wavetable、Spectral、Granular、Wave Sequenceは、コンパイル時にAssetを読み込み、SHA-256を照合してWAVをDecodeします。Sample Rateが異なる場合は変換し、同一Assetを参照するZoneやGenerator間でPrepared Audioを共有します。
 
 **ErrorとWarning**
 
-- Errorが1つでもあれば、`CompiledInstrument`を返しません
-- Warningだけなら、Warning付きの`CompiledInstrument`を返して処理を続けます
+- Errorが1つでもあれば、コンパイル結果を返しません
+- Warningだけなら、Warning付きのコンパイル結果を返して処理を続けます
 - Zone AssetのSHA-256省略はWarningです（Assetを読み込めたZoneは有効のまま）
-- Assetの欠落・Hash不一致・読み込み失敗のあるSample Zoneは無効にしてWarningを残し、ほかの有効なZoneやLayerがあれば処理を続けます
-- Parameter ID、Source ID、Source設定、Route Target、AmountのErrorはCompile前にまとめて返します
+- Assetの欠落・Hash不一致・Decode失敗のあるSample Zoneは無効にしてWarningを残し、他の有効なZoneやLayerがあれば処理を続けます
+- Parameter ID、Source ID、Source設定、Route Target、AmountのErrorはコンパイル前にまとめて返します
+
+検証エラーには`layers[0].envelope.attack_seconds`のようなField Pathが付きます。
