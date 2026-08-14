@@ -5,12 +5,12 @@ use tempfile::tempdir;
 
 fn reference_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/basic-poly-synth.json")
+        .join("../../testdata/instruments/basic-poly-synth.json")
 }
 
 fn basic_generators_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/basic-generators-reference.json")
+        .join("../../testdata/instruments/basic-generators-reference.json")
 }
 
 fn write_spectral_definition(directory: &std::path::Path) -> std::path::PathBuf {
@@ -62,42 +62,42 @@ fn write_spectral_definition(directory: &std::path::Path) -> std::path::PathBuf 
 
 fn complex_oscillator_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/complex-oscillator-reference.json")
+        .join("../../testdata/instruments/complex-oscillator-reference.json")
 }
 
 fn complex_oscillator_phase_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/complex-oscillator-phase-reference.json")
+        .join("../../testdata/instruments/complex-oscillator-phase-reference.json")
 }
 
 fn operator_modulation_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/operator-modulation-reference.json")
+        .join("../../testdata/instruments/operator-modulation-reference.json")
 }
 
 fn additive_generator_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/additive-generator-reference.json")
+        .join("../../testdata/instruments/additive-generator-reference.json")
 }
 
 fn formant_generator_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/formant-generator-reference.json")
+        .join("../../testdata/instruments/formant-generator-reference.json")
 }
 
 fn harmonic_formant_hybrid_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/harmonic-formant-hybrid-reference.json")
+        .join("../../testdata/instruments/harmonic-formant-hybrid-reference.json")
 }
 
 fn spectral_reference_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/spectral-generator-reference.json")
+        .join("../../testdata/instruments/spectral-generator-reference.json")
 }
 
 fn spectral_hybrid_reference_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/spectral-hybrid-reference.json")
+        .join("../../testdata/instruments/spectral-hybrid-reference.json")
 }
 
 fn reference_midi() -> std::path::PathBuf {
@@ -107,7 +107,7 @@ fn reference_midi() -> std::path::PathBuf {
 
 fn hybrid_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/metallic-hybrid.json")
+        .join("../../testdata/instruments/metallic-hybrid.json")
 }
 
 fn hybrid_midi() -> std::path::PathBuf {
@@ -117,7 +117,7 @@ fn hybrid_midi() -> std::path::PathBuf {
 
 fn expressive_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/expressive-hybrid-lead.json")
+        .join("../../testdata/instruments/expressive-hybrid-lead.json")
 }
 
 fn expressive_midi() -> std::path::PathBuf {
@@ -127,12 +127,12 @@ fn expressive_midi() -> std::path::PathBuf {
 
 fn missing_asset_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/metallic-hybrid-missing-asset.json")
+        .join("../../testdata/instruments/metallic-hybrid-missing-asset.json")
 }
 
 fn processed_definition() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/processed-hybrid.json")
+        .join("../../testdata/instruments/processed-hybrid.json")
 }
 
 fn processed_events() -> std::path::PathBuf {

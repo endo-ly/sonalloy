@@ -73,7 +73,7 @@ fn warning_samples() -> Vec<i16> {
 
 fn definition(asset_path: String, unison: Option<UnisonDefinition>) -> InstrumentDefinition {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/basic-poly-synth.json");
+        .join("../../testdata/instruments/basic-poly-synth.json");
     let mut definition: InstrumentDefinition =
         serde_json::from_str(&std::fs::read_to_string(path).expect("reference Definition exists"))
             .expect("reference Definition parses");

@@ -3054,7 +3054,7 @@ mod tests {
     #[test]
     fn inspect_reports_sample_playback_and_trigger_event() {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../examples/instruments/mapped-sample-instrument.json");
+            .join("../../testdata/instruments/mapped-sample-instrument.json");
         let mut definition: InstrumentDefinition =
             serde_json::from_str(&std::fs::read_to_string(path).expect("sample Definition exists"))
                 .expect("sample Definition parses");
@@ -3075,7 +3075,7 @@ mod tests {
             &definition,
             &CompileContext {
                 definition_base_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../examples/instruments"),
+                    .join("../../testdata/instruments"),
                 process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
             },
         );

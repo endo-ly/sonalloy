@@ -27,13 +27,13 @@ cargo run -p sonalloy-cli -- dev render-sine \
 
 # 既存音源からWAVを生成する
 cargo run -p sonalloy-cli -- render midi \
-  examples/instruments/basic-poly-synth.json \
+  testdata/instruments/basic-poly-synth.json \
   testdata/midi/basic-poly-synth-phrase.mid \
   --output out/basic-poly-synth.wav
 
 # 発音中のParameter / Control Eventを再現する
 cargo run -p sonalloy-cli -- render events \
-  examples/instruments/expressive-hybrid-lead.json \
+  testdata/instruments/expressive-hybrid-lead.json \
   testdata/events/expressive-hybrid-lead.json \
   --duration-frames 96000 --output out/expressive-lead.wav
 ```

@@ -103,7 +103,7 @@ fn frequency_energy(samples: &[f32], sample_rate: f64, frequency_hz: f64) -> f64
 
 fn definition(asset_path: String, fft_size: u16) -> InstrumentDefinition {
     let reference = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/basic-poly-synth.json");
+        .join("../../testdata/instruments/basic-poly-synth.json");
     let mut definition: InstrumentDefinition = serde_json::from_str(
         &std::fs::read_to_string(reference).expect("reference Definition exists"),
     )
@@ -995,7 +995,7 @@ fn spectral_resynthesis_remains_finite_at_supported_sample_rates() {
 
 fn example_definition(name: &str) -> (InstrumentDefinition, PathBuf) {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments")
+        .join("../../testdata/instruments")
         .join(name);
     let definition =
         serde_json::from_str(&std::fs::read_to_string(&path).expect("example Definition exists"))
@@ -1299,7 +1299,7 @@ fn spectral_layer_latency_aligns_an_existing_generator_layer() {
     write_pcm16_wav(&path, &vec![0; 8_192]);
     let mut definition = definition("silence.wav".to_owned(), 2048);
     let reference = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/basic-poly-synth.json");
+        .join("../../testdata/instruments/basic-poly-synth.json");
     let basic: InstrumentDefinition = serde_json::from_str(
         &std::fs::read_to_string(reference).expect("oscillator reference exists"),
     )

@@ -1455,13 +1455,13 @@ mod tests {
     #[test]
     fn spectral_sixteen_voice_stereo_morph_render_does_not_allocate_after_prepare() {
         let definition_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../examples/instruments/spectral-generator-reference.json");
+            .join("../../testdata/instruments/spectral-generator-reference.json");
         let mut source: crate::definition::InstrumentDefinition = serde_json::from_str(
             &std::fs::read_to_string(definition_path).expect("spectral reference reads"),
         )
         .expect("spectral reference parses");
         let asset_directory =
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/assets");
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/assets");
         let crate::definition::GeneratorDefinition::Spectral(spectral) =
             &mut source.layers[0].generator
         else {

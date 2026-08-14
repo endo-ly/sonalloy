@@ -45,7 +45,7 @@ fn write_stereo_fixture(path: &Path) {
 
 fn definition(asset_path: String) -> InstrumentDefinition {
     let reference = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/basic-poly-synth.json");
+        .join("../../testdata/instruments/basic-poly-synth.json");
     let mut definition: InstrumentDefinition = serde_json::from_str(
         &std::fs::read_to_string(reference).expect("reference Definition exists"),
     )
@@ -265,7 +265,7 @@ fn granular_region_outside_prepared_asset_is_rejected_at_compile() {
 #[test]
 fn granular_missing_asset_does_not_disable_other_layers() {
     let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/basic-poly-synth.json");
+        .join("../../testdata/instruments/basic-poly-synth.json");
     let reference: InstrumentDefinition = serde_json::from_str(
         &std::fs::read_to_string(definition_path).expect("reference Definition exists"),
     )

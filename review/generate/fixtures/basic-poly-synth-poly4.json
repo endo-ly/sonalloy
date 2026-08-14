@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Basic Poly Synth Poly4",
+    "author": null,
+    "description": "Four-voice reference for voice stealing review"
+  },
+  "performance": {
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.18,
+        "sustain_level": 0.65,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "cutoff_hz": 12000.0,
+      "resonance": 0.12
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "amount": 0.08,
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "amount": 0.08,
+        "curve": "linear"
+      }
+    ]
+  }
+}

@@ -6,8 +6,10 @@
 
 | 本書で扱わない内容 | 参照先 |
 |---|---|
-| 個々のReview結果の記録 | `review-output/*/review-summary.md` |
-| Review Scriptの責務 | `scripts/review/README.md` |
+| 個々のReview結果の記録 | `review/*/review-summary.md` |
+| Review成果物の管理・運用ルール | [`review/README.md`](../review/README.md) |
+| Review Scriptの責務 | `review/generate/README.md` |
+| Fixture（testdata）の管理・運用ルール | [`testdata/README.md`](../testdata/README.md) |
 | 製品仕様 | `docs/architecture.md` ほか |
 
 ## テスト配置
@@ -62,7 +64,7 @@ flowchart LR
     E -- なし --> F[完了]
 ```
 
-- Metricsは`scripts/review/measure_wav.py`でWAVから生成する（手入力しない）
+- Metricsは`review/generate/measure_wav.py`でWAVから生成する（手入力しない）
 - 自動Testの期待値は`testdata/expected/`で管理する
 - Metrics合格は音質合格ではない。最終判断は人間が試聴して行う
 - 同じ再生環境・音量で比較し、結果を`review-summary.md`へ記録する
@@ -75,8 +77,8 @@ flowchart LR
 
 | 項目 | 内容 |
 |---|---|
-| 保存先 | `review-output/<package>/`（`audio/technical` / `definitions` / `events` / `midi` / `assets` / `inspect` JSON / `metrics.json` / `review-summary.md`、対象により構成が異なる） |
-| 生成 | 各Packageの`scripts/review/generate_*.py`を実行する |
+| 保存先 | `review/<package>/`（`audio/technical` / `definitions` / `events` / `midi` / `assets` / `inspect` JSON / `metrics.json` / `review-summary.md`、対象により構成が異なる） |
+| 生成 | 各Packageの`review/generate/generate_*.py`を実行する |
 | 基本Metrics | Finite性、Peak / RMS / DC、Sample Rate 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024での比較、Fresh Runtime再現性 |
 | 自動確認 | Definition Validate、Inspect JSON、Resource Limit、Parameter Lifecycle等をTestで検証する |
 | 音声の扱い | 技術確認用の生出力（`audio/technical/`）をMetricsと試聴で共用する。試聴専用の正規化コピーは保存せず、音量は再生側で調整する |

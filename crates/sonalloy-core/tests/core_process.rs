@@ -102,7 +102,7 @@ fn sine_runtime_reset_restarts_signal() {
 
 fn definition() -> InstrumentDefinition {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/basic-poly-synth.json");
+        .join("../../testdata/instruments/basic-poly-synth.json");
     serde_json::from_str(&std::fs::read_to_string(path).expect("reference Definition exists"))
         .expect("reference Definition parses")
 }
@@ -694,7 +694,7 @@ fn existing_lfo_modulation_controls_pulse_width() {
 #[test]
 fn moving_hybrid_routes_cover_the_reference_signal_paths() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/moving-hybrid-pad.json");
+        .join("../../testdata/instruments/moving-hybrid-pad.json");
     let definition: InstrumentDefinition = serde_json::from_str(
         &std::fs::read_to_string(path).expect("moving hybrid Definition exists"),
     )
@@ -727,7 +727,7 @@ fn moving_hybrid_routes_cover_the_reference_signal_paths() {
         &definition,
         &CompileContext {
             definition_base_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../../examples/instruments"),
+                .join("../../testdata/instruments"),
             process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
         },
     );
@@ -742,12 +742,12 @@ fn moving_hybrid_routes_cover_the_reference_signal_paths() {
 
 fn harmonic_formant_hybrid_reference() -> (InstrumentDefinition, PathBuf) {
     let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/harmonic-formant-hybrid-reference.json");
+        .join("../../testdata/instruments/harmonic-formant-hybrid-reference.json");
     let definition: InstrumentDefinition = serde_json::from_str(
         &std::fs::read_to_string(&definition_path).expect("harmonic formant hybrid exists"),
     )
     .expect("harmonic formant hybrid parses");
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     (definition, base_dir)
 }
 
@@ -974,13 +974,13 @@ fn harmonic_formant_hybrid_integrates_generators_processors_and_modulation() {
 #[test]
 fn expressive_reference_renders_at_supported_sample_rates() {
     let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/expressive-hybrid-lead.json");
+        .join("../../testdata/instruments/expressive-hybrid-lead.json");
     let definition: InstrumentDefinition = serde_json::from_str(
         &std::fs::read_to_string(&definition_path).expect("expressive Definition exists"),
     )
     .expect("expressive Definition parses");
     let definition_base_dir =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     for sample_rate in [44_100.0, 48_000.0, 96_000.0] {
         let process_spec = ProcessSpec::new(sample_rate, 257, 2).expect("valid process spec");
         let instrument = compile_instrument(
@@ -1051,13 +1051,13 @@ fn absolute_event_timing_is_stable_across_block_sizes() {
 
 fn render_expressive_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
     let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/expressive-hybrid-lead.json");
+        .join("../../testdata/instruments/expressive-hybrid-lead.json");
     let definition: InstrumentDefinition = serde_json::from_str(
         &std::fs::read_to_string(&definition_path).expect("expressive Definition exists"),
     )
     .expect("expressive Definition parses");
     let definition_base_dir =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let instrument = compile_instrument(
         &definition,
         &CompileContext {
@@ -1246,7 +1246,7 @@ fn deterministic_random_route_repeats_across_runtime_instances() {
 
 fn hybrid_definition() -> InstrumentDefinition {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/metallic-hybrid.json");
+        .join("../../testdata/instruments/metallic-hybrid.json");
     serde_json::from_str(&std::fs::read_to_string(path).expect("hybrid Definition exists"))
         .expect("hybrid Definition parses")
 }
@@ -1312,7 +1312,7 @@ fn sample_only_definition(zones: Vec<SampleZoneDefinition>) -> InstrumentDefinit
 
 fn processed_hybrid_definition() -> InstrumentDefinition {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/processed-hybrid.json");
+        .join("../../testdata/instruments/processed-hybrid.json");
     serde_json::from_str(&std::fs::read_to_string(path).expect("processed hybrid exists"))
         .expect("processed hybrid parses")
 }
@@ -1320,7 +1320,7 @@ fn processed_hybrid_definition() -> InstrumentDefinition {
 #[test]
 fn processed_hybrid_compiles_all_processor_scopes_and_keeps_a_global_tail() {
     let definition = processed_hybrid_definition();
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let result = compile_instrument(
         &definition,
         &CompileContext {
@@ -1388,7 +1388,7 @@ fn processed_hybrid_compiles_all_processor_scopes_and_keeps_a_global_tail() {
 #[test]
 fn hybrid_compiles_two_layers_and_prepares_the_sample() {
     let definition = hybrid_definition();
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let result = compile_instrument(
         &definition,
         &CompileContext {
@@ -1438,7 +1438,7 @@ fn release_sample_layer_remains_armed_until_note_off() {
         0.08,
     )]);
     definition.layers[0].trigger.event = sonalloy_core::LayerTriggerEvent::NoteOff;
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let instrument = compile_instrument(
         &definition,
         &CompileContext {
@@ -1535,7 +1535,7 @@ fn sample_zone_mapping_and_asset_cache_select_by_key_and_share_preparation() {
             0.16,
         ),
     ]);
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let result = compile_instrument(
         &definition,
         &CompileContext {
@@ -1632,7 +1632,7 @@ fn round_robin_selection_is_definition_ordered_and_block_independent() {
             0.16,
         ),
     ]);
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let compiled_result = compile_instrument(
         &definition,
         &CompileContext {
@@ -1754,7 +1754,7 @@ fn pending_round_robin_selection_is_captured_before_voice_stealing() {
         ),
     ]);
     definition.performance.polyphony = 1;
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let compiled = compile_instrument(
         &definition,
         &CompileContext {
@@ -1871,7 +1871,7 @@ fn missing_round_robin_member_is_skipped_without_disabling_valid_zone() {
             0.16,
         ),
     ]);
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let result = compile_instrument(
         &definition,
         &CompileContext {
@@ -1916,7 +1916,7 @@ fn missing_round_robin_member_is_skipped_without_disabling_valid_zone() {
 #[test]
 fn hybrid_layers_share_one_voice_and_render_finite_audio() {
     let definition = hybrid_definition();
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let result = compile_instrument(
         &definition,
         &CompileContext {
@@ -1970,11 +1970,11 @@ fn hybrid_layers_share_one_voice_and_render_finite_audio() {
 #[test]
 fn missing_sample_keeps_the_oscillator_available() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/metallic-hybrid-missing-asset.json");
+        .join("../../testdata/instruments/metallic-hybrid-missing-asset.json");
     let definition: InstrumentDefinition =
         serde_json::from_str(&std::fs::read_to_string(path).expect("missing fixture exists"))
             .expect("missing fixture parses");
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let result = compile_instrument(
         &definition,
         &CompileContext {
@@ -2035,7 +2035,7 @@ fn sample_without_hash_is_enabled_with_a_warning() {
             panic!("attack layer must be a sample")
         }
     }
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let result = compile_instrument(
         &definition,
         &CompileContext {
@@ -2092,7 +2092,7 @@ fn absolute_sample_path_is_enabled_with_a_warning() {
             panic!("attack layer must be a sample")
         }
     }
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let result = compile_instrument(
         &definition,
         &CompileContext {
@@ -2128,7 +2128,7 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
             panic!("attack layer must be a sample")
         }
     }
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/instruments");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let result = compile_instrument(
         &definition,
         &CompileContext {

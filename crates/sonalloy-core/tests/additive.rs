@@ -11,7 +11,7 @@ use sonalloy_core::{
 
 fn base_definition() -> InstrumentDefinition {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/instruments/basic-poly-synth.json");
+        .join("../../testdata/instruments/basic-poly-synth.json");
     let mut definition: InstrumentDefinition =
         serde_json::from_str(&std::fs::read_to_string(path).expect("reference Definition exists"))
             .expect("reference Definition parses");
