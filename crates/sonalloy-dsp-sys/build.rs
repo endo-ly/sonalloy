@@ -69,6 +69,10 @@ fn main() {
     println!("cargo:rustc-link-lib=static=sonalloy_signalsmith_stretch_wrapper");
 
     if env::var("CARGO_CFG_TARGET_FAMILY").as_deref() == Ok("unix") {
-        println!("cargo:rustc-link-lib=dylib=stdc++");
+        let cxx_runtime = match env::var("CARGO_CFG_TARGET_OS").as_deref() {
+            Ok("macos") => "c++",
+            _ => "stdc++",
+        };
+        println!("cargo:rustc-link-lib=dylib={cxx_runtime}");
     }
 }
