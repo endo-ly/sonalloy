@@ -1,0 +1,165 @@
+name: Release
+
+# Release runs when a semver tag (vX.Y.Z) is pushed. The tag must point at a
+# commit whose CI run on `main` already passed, and must match the version in
+# the workspace Cargo.toml (compute-version verifies this).
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Releases run sequentially so that concurrent tag pushes never publish
+# artifacts out of order.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compute-version:
+    name: Compute Release Version
+    runs-on: ubuntu-latest
+
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate tag against Cargo.toml
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '${TAG}' is not a semver tag (expected vX.Y.Z)"
+            exit 1
+          fi
+
+          CARGO_VERSION=$(
+            grep -m1 '^version' Cargo.toml |
+              sed 's/version = "//;s/"//'
+          )
+          if [ "${CARGO_VERSION}" != "${TAG#v}" ]; then
+            echo "::error::Cargo.toml version ${CARGO_VERSION} does not match tag ${TAG}"
+            exit 1
+          fi
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+  build-assets:
+    name: Build ${{ matrix.target.label }}
+    runs-on: ${{ matrix.target.os }}
+    needs: [compute-version]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - label: linux-x86_64
+            os: ubuntu-latest
+            bin: sonalloy
+            target_triple: x86_64-unknown-linux-gnu
+            asset_triple: x86_64-unknown-linux-gnu
+
+          - label: linux-arm64
+            os: ubuntu-24.04-arm
+            bin: sonalloy
+            target_triple: aarch64-unknown-linux-gnu
+            asset_triple: aarch64-unknown-linux-gnu
+
+          - label: macos-arm64
+            os: macos-14
+            bin: sonalloy
+            target_triple: aarch64-apple-darwin
+            asset_triple: aarch64-apple-darwin
+
+          - label: windows-x86_64
+            os: windows-latest
+            bin: sonalloy.exe
+            target_triple: x86_64-pc-windows-msvc
+            asset_triple: x86_64-pc-windows-msvc
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target.target_triple }}
+
+      - name: Install native tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes cmake g++
+
+      - name: Build release binary
+        shell: bash
+        run: cargo build --release -p sonalloy-cli
+
+      - name: Package archive
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.compute-version.outputs.version }}
+        run: |
+          ASSET_NAME="sonalloy-${RELEASE_VERSION}-${{ matrix.target.asset_triple }}.tar.gz"
+          tar -czf "${ASSET_NAME}" \
+            -C target/release \
+            "${{ matrix.target.bin }}"
+          echo "ASSET_NAME=${ASSET_NAME}" >> "$GITHUB_ENV"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target.label }}
+          path: ${{ env.ASSET_NAME }}
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [compute-version, build-assets]
+
+    permissions:
+      contents: write
+
+    env:
+      RELEASE_TAG: ${{ needs.compute-version.outputs.tag }}
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd dist
+          sha256sum *.tar.gz > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${RELEASE_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${RELEASE_TAG}" \
+            --generate-notes \
+            dist/*.tar.gz \
+            dist/SHA256SUMS.txt

@@ -10,6 +10,10 @@ members = [
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+description = "JSON-defined offline instrument engine that renders WAV"
+repository = "https://github.com/endo-ly/sonalloy"
+publish = false
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"

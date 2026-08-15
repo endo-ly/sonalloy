@@ -15,58 +15,91 @@ Sonalloyは、JSONで書いた音源定義を読み込んで、オフライン�
   - モジュレーション: Velocity、LFO、Envelope等でパラメータを動かす
 - **決定的なレンダリング**: 同じ入力から常に同じWAVを生成。単音、イベントシーケンス、MIDIファイルに対応
 
-## クイックスタート
+## インストール
+
+対応プラットフォームは Linux x86_64 / arm64、macOS arm64、Windows x86_64です（Windows は Git Bash から実行します）。次のコマンドで、最新リリースのバイナリが `~/.local/bin`（Windows では `C:\Users\<ユーザー名>\.local\bin`）へインストールされます。
 
 ```bash
-cargo build --workspace
-
-# 動作確認：Sine WAVを生成する
-cargo run -p sonalloy-cli -- dev render-sine \
-  --frequency 440 --duration 1.0 --sample-rate 48000 \
-  --block-size 257 --output out/sine.wav
-
-# 既存音源からWAVを生成する
-cargo run -p sonalloy-cli -- render midi \
-  testdata/instruments/basic-poly-synth.json \
-  testdata/midi/basic-poly-synth-phrase.mid \
-  --output out/basic-poly-synth.wav
-
-# 発音中のParameter / Control Eventを再現する
-cargo run -p sonalloy-cli -- render events \
-  testdata/instruments/expressive-hybrid-lead.json \
-  testdata/events/expressive-hybrid-lead.json \
-  --duration-frames 96000 --output out/expressive-lead.wav
+curl -fsSL https://raw.githubusercontent.com/endo-ly/sonalloy/main/scripts/install.sh | bash
 ```
 
-## 必要なツール
+`sonalloy` をどこからでも使えるようにするため、インストール先をPATHへ追加してください。
+
+| 環境 | PATHへの追加方法 |
+|---|---|
+| Linux / macOS | 次の行を `~/.bashrc`（または `~/.zshrc`）へ追加: `export PATH="$HOME/.local/bin:$PATH"` |
+| Windows | 「環境変数」設定の「Path」へ `C:\Users\<ユーザー名>\.local\bin` を追加 |
+
+アップデートは同じコマンドを再実行します。アンインストールする場合は、バイナリ（`sonalloy` / Windowsでは`sonalloy.exe`）を削除してください。
+
+## クイックスタート
+
+3つのコマンドで、最初の音源を作って鳴らします。
+
+```bash
+# 音源定義のひな形を生成する（Saw波形・同時発音数16）
+sonalloy instrument init my-synth.json
+
+# 定義を検証する
+sonalloy instrument validate my-synth.json
+
+# 1音をレンダリングしてWAVを生成する
+sonalloy render note my-synth.json --output my-synth.wav
+```
+
+生成された `my-synth.wav` を再生して音を確認します。以降は、`my-synth.json` を編集して音色を変えながら、「検証 → レンダリング」を繰り返して音を作り込んでいきます。定義ファイルの書き方は[音源定義](docs/instrument-definition.md)、コマンドの詳細は[CLI](docs/cli.md)、手順全体は[音源の作り方](.agents/skills/create-instrument/SKILL.md)を参照してください。
+
+## 使い方
+
+| コマンド | 役割 |
+|---|---|
+| `sonalloy instrument init <path>` | 音源定義のひな形を生成する |
+| `sonalloy instrument validate <definition>` | 定義を検証する（JSON構文・制約・Assetの準備） |
+| `sonalloy instrument inspect <definition>` | コンパイル後の実行値を表示する |
+| `sonalloy render note <definition> --output <wav>` | 1音をレンダリングする |
+| `sonalloy render events <definition> <events.json> --output <wav>` | Event Sequenceをレンダリングする（Pitch BendやParameter変更をFrame単位で制御） |
+| `sonalloy render midi <definition> <midi-file> --output <wav>` | MIDI Fileをレンダリングする |
+
+すべての`render`コマンドは、32-bit float・StereoのWAVを出力します。各コマンドのオプションは[CLI](docs/cli.md)を参照してください。
+
+## 技術スタック
+
+| 項目 | 内容 |
+|---|---|
+| 言語 | Rust（Edition 2024） |
+| 音源定義 | JSON（テキストだけで完結する定義形式） |
+| DSP | DaisySP、Signalsmith Stretch / Linear |
+
+## 開発
+
+ソースからビルドする場合は、次の環境が必要です。
 
 - Rust stable（`rustup`で導入）
 - CMake 3.14以上
 - Windows: Visual Studio C++ Build Tools
 - Linux: `g++`または`clang++`、`git`
+- macOS: Xcode Command Line Tools
 
-初回のNative BuildではCMakeがDaisySP V1.0.0の固定Commitを取得するため、Network接続が必要です。Signalsmith StretchとSignalsmith Linearは固定RevisionをRepositoryへ同梱しているため、これらのBuildにはNetwork接続を必要としません。
-
-## BuildとTest
+初回のビルドではCMakeがDaisySP V1.0.0の固定Commitを取得するため、ネットワーク接続が必要です。Signalsmith StretchとSignalsmith Linearは固定Revisionをリポジトリへ同梱しているため、これらのビルドではネットワーク接続を必要としません。
 
 ```bash
-cargo build --workspace
 cargo build --workspace --release
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
 ```
 
 ## ドキュメント
 
 | 文書 | 内容 |
 |---|---|
-| [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源の作り方（手順書） |
-| [`docs/architecture.md`](docs/architecture.md) | 静的構造：Crate・依存方向・Native境界 |
-| [`docs/runtime-processing.md`](docs/runtime-processing.md) | 実行時仕様：Process Contract・Lifecycle・Error規則 |
 | [`docs/cli.md`](docs/cli.md) | CLI仕様：Command・Option・Exit Code |
-| [`docs/instrument-definition.md`](docs/instrument-definition.md) | Definitionのデータ仕様・制約・Compile |
+| [`docs/instrument-definition.md`](docs/instrument-definition.md) | 音源定義のデータ仕様・制約・Compile |
+| [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源の作り方（手順書） |
+| [`docs/runtime-processing.md`](docs/runtime-processing.md) | 実行時仕様：Process Contract・Lifecycle・Error規則 |
 | [`docs/testing-and-sound-review.md`](docs/testing-and-sound-review.md) | 検証とReviewの手順 |
+| [`docs/architecture.md`](docs/architecture.md) | 静的構造：Crate・依存方向・Native境界 |
+| [`docs/release.md`](docs/release.md) | リリース手順 |
 | [`docs/CONCEPT.md`](docs/CONCEPT.md) | 要件定義・基本設計 |
 | [`docs/plan/plan-dynamic-parameters.md`](docs/plan/plan-dynamic-parameters.md) | Dynamic Parameter / Modulationの詳細設計 |
 | [`docs/plan/plan-mvp.md`](docs/plan/plan-mvp.md) | 詳細設計・実装計画 |
