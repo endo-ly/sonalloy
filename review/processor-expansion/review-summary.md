@@ -4,6 +4,7 @@
 
 - Filter 4 Mode、EQ、Resonator、Bitcrusher、Chorus、Flanger、Phaser、Compressor、Limiter、Full Chain 3のDefinitionを生成した。
 - 生成したDefinitionをValidateし、Compile後のInspect JSONを保存した。
+- Processor単体比較はHarmonic Sourceを使い、Noise LayerはLo-fi Textureへ明示的に追加した。
 - すべての技術WAVについてFinite性、Peak、RMS、DC、Stereo情報を測定した。
 - 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024、Fresh RuntimeとReset後の出力を比較した。
 - Release BuildのRender時間とRealtime比を`metrics.json`へ記録した。

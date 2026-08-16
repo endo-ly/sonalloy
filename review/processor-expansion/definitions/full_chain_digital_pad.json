@@ -35,7 +35,7 @@
             "path": "../assets/digital-motion.wav",
             "sha256": "b099e4597b8f2b44f621d07e74b06bb151585b2c6a6a3c8d306aa2553ebb1527"
           },
-          "frame_length": 64,
+          "frame_length": 256,
           "position": 0.35,
           "phase_reset": true,
           "phase": 0.0

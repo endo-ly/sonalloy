@@ -38,38 +38,47 @@ def load_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def noise_layer(
+    template: dict[str, object],
+    *,
+    layer_id: str,
+    gain_db: float,
+    pan: float,
+    seed: int,
+    stereo_correlation: float,
+) -> dict[str, object]:
+    value = copy.deepcopy(template)
+    value["id"] = layer_id
+    value["gain_db"] = gain_db
+    value["pan"] = pan
+    value["generator"] = {
+        "noise": {
+            "color": "white",
+            "seed": seed,
+            "stereo_correlation": stereo_correlation,
+        }
+    }
+    value["processors"] = []
+    return value
+
+
 def base_instrument() -> dict[str, object]:
     source = load_json(ROOT / "testdata" / "instruments" / "basic-poly-synth.json")
     source["metadata"] = {
         "name": "Processor Expansion Source",
         "author": "Sonalloy",
-        "description": "Broadband source for processor review",
+        "description": "Harmonic source for processor review",
     }
     saw = copy.deepcopy(source["layers"][0])
     saw["id"] = "body"
     saw["gain_db"] = -12.0
     saw["pan"] = -0.12
     saw["processors"] = []
-    noise = copy.deepcopy(source["layers"][0])
-    noise["id"] = "air"
-    noise["gain_db"] = -25.0
-    noise["pan"] = 0.12
-    noise["generator"] = {
-        "noise": {"color": "white", "seed": 4812, "stereo_correlation": 0.35}
-    }
-    noise["processors"] = []
-    source["layers"] = [saw, noise]
+    source["layers"] = [saw]
     source["voice_processors"] = []
     source["global_processors"] = []
     source["modulation"] = None
     return source
-
-
-def one_layer_instrument(generator: dict[str, object]) -> dict[str, object]:
-    value = base_instrument()
-    value["layers"] = [value["layers"][0]]
-    value["layers"][0]["generator"] = generator
-    return value
 
 
 def filter_variants() -> dict[str, dict[str, object]]:
@@ -331,7 +340,7 @@ def full_chain_variants(asset_dir: Path) -> dict[str, dict[str, object]]:
             "generator": {
                 "wavetable": {
                     "asset": asset_reference("digital-motion.wav", asset_dir),
-                    "frame_length": 64,
+                    "frame_length": 256,
                     "position": 0.35,
                     "phase_reset": True,
                     "phase": 0.0,
@@ -497,8 +506,16 @@ def full_chain_variants(asset_dir: Path) -> dict[str, dict[str, object]]:
             mix=0.65,
         )
     ]
-    texture["layers"][1]["id"] = "noise"
-    texture["layers"][1]["gain_db"] = -29.0
+    texture["layers"].append(
+        noise_layer(
+            texture["layers"][0],
+            layer_id="noise",
+            gain_db=-36.0,
+            pan=0.12,
+            seed=4812,
+            stereo_correlation=0.35,
+        )
+    )
     texture["global_processors"] = [
         processor(
             "eq",
@@ -596,9 +613,15 @@ def main() -> None:
 
     validation: dict[str, object] = {}
     for name, definition in definitions.items():
-        validation[name] = json.loads(
+        result = json.loads(
             run_cli(["instrument", "validate", str(definition), "--json"])
         )
+        if name == "full_chain_digital_pad" and any(
+            diagnostic.get("code") == "WAVETABLE_DC_OFFSET"
+            for diagnostic in result.get("diagnostics", [])
+        ):
+            raise RuntimeError("Digital Pad wavetable contains a DC-offset frame")
+        validation[name] = result
         write_utf8(
             inspect_dir / f"{name}.json",
             run_cli(["instrument", "inspect", str(definition), "--json"]),
@@ -677,6 +700,9 @@ def main() -> None:
         }
         for name in jobs
     }
+    digital_pad_dc = abs(audio_metrics["full_chain_digital_pad.wav"]["dc"])
+    if digital_pad_dc > 1.0e-3:
+        raise RuntimeError(f"Digital Pad render has excessive DC offset: {digital_pad_dc}")
     block_comparison = {
         block_size: compare_wav(block_outputs["257"], block_outputs[block_size])
         for block_size in map(str, BLOCK_SIZES)
@@ -755,6 +781,7 @@ def main() -> None:
             "## Automated checks\n\n"
             "- Filter 4 Mode、EQ、Resonator、Bitcrusher、Chorus、Flanger、Phaser、Compressor、Limiter、Full Chain 3のDefinitionを生成した。\n"
             "- 生成したDefinitionをValidateし、Compile後のInspect JSONを保存した。\n"
+            "- Processor単体比較はHarmonic Sourceを使い、Noise LayerはLo-fi Textureへ明示的に追加した。\n"
             "- すべての技術WAVについてFinite性、Peak、RMS、DC、Stereo情報を測定した。\n"
             "- 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024、Fresh RuntimeとReset後の出力を比較した。\n"
             "- Release BuildのRender時間とRealtime比を`metrics.json`へ記録した。\n\n"
