@@ -5,13 +5,14 @@ use approx::assert_relative_eq;
 use sonalloy_core::{
     AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, DriveProcessorDefinition,
     GeneratorDefinition, HardSyncDefinition, InstrumentDefinition, InstrumentProcessor,
-    InstrumentRuntime, LfoDefinition, LfoWaveform, ModulationCurve, ModulationDefinition,
-    ModulationDepthDefinition, ModulationRouteDefinition, ModulationSourceDefinition, NoiseColor,
-    NoiseDefinition, OscillatorDefinition, OscillatorWaveform, ProcessBlock, ProcessContext,
-    ProcessEvent, ProcessEventKind, ProcessSpec, ProcessorDefinition, RandomDefinition,
-    RenderRequest, SampleZoneDefinition, SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime,
-    TempoMap, TraceRequest, UnisonDefinition, WaveshapingDefinition, compile_instrument,
-    render_instrument, render_instrument_with_trace,
+    InstrumentRuntime, LfoDefinition, LfoWaveform, MAX_TRACE_OBSERVATIONS, ModulationCurve,
+    ModulationDefinition, ModulationDepthDefinition, ModulationRouteDefinition,
+    ModulationSourceDefinition, NoiseColor, NoiseDefinition, OscillatorDefinition,
+    OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec,
+    ProcessorDefinition, RandomDefinition, RenderError, RenderRequest, SampleZoneDefinition,
+    SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime, TempoMap, TraceRequest,
+    UnisonDefinition, WaveshapingDefinition, compile_instrument, render_instrument,
+    render_instrument_with_trace,
 };
 
 fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
@@ -647,7 +648,6 @@ fn trace_enabled_render_matches_audio_and_reports_selected_routes() {
                     .expect("gain handle"),
             ],
             every_frames: 64,
-            reported_latency_frames: 0,
         },
     )
     .expect("trace render");
@@ -677,6 +677,125 @@ fn trace_enabled_render_matches_audio_and_reports_selected_routes() {
         sonalloy_core::ModulationUnit::Decibels
     );
     assert!(routed.routes[0].contribution.value > 0.0);
+}
+
+#[test]
+fn trace_limit_is_checked_before_building_periodic_boundaries() {
+    let instrument = compile_instrument(
+        &definition(),
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    )
+    .instrument
+    .expect("reference Definition compiles");
+    let handle = instrument
+        .parameter_handle("layer.body.gain")
+        .expect("gain handle");
+    let error = render_instrument_with_trace(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: u64::try_from(MAX_TRACE_OBSERVATIONS + 1).expect("test duration fits"),
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }],
+        &TempoMap::constant(120.0).expect("tempo map"),
+        &TraceRequest {
+            parameters: vec![handle],
+            every_frames: 1,
+        },
+    )
+    .expect_err("trace should be rejected by the observation limit");
+    match error {
+        RenderError::TraceLimitExceeded { estimated, limit } => {
+            assert!(estimated > limit);
+            assert_eq!(limit, MAX_TRACE_OBSERVATIONS);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn trace_final_matches_the_filter_effective_cutoff_limit() {
+    let mut definition = basic_generator_definition();
+    definition.layers[0].processors = vec![ProcessorDefinition::Filter(
+        sonalloy_core::FilterProcessorDefinition {
+            id: "tone".to_owned(),
+            mode: sonalloy_core::FilterModeDefinition::LowPass,
+            cutoff_hz: 1_000.0,
+            resonance: 0.0,
+        },
+    )];
+    definition.modulation = Some(ModulationDefinition {
+        sources: Vec::new(),
+        routes: vec![ModulationRouteDefinition {
+            source: "velocity".to_owned(),
+            target: "layer.body.processor.tone.cutoff".to_owned(),
+            depth: ModulationDepthDefinition {
+                value: 9.0,
+                unit: sonalloy_core::ModulationUnit::Octaves,
+            },
+            curve: ModulationCurve::Linear,
+        }],
+    });
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(20_000.0, 64, 2).expect("valid process spec"),
+        },
+    );
+    assert!(
+        result.instrument.is_some(),
+        "compile diagnostics: {:?}",
+        result.diagnostics
+    );
+    let compiled = result.instrument.expect("filter definition compiles");
+    let cutoff = compiled
+        .parameter_handle("layer.body.processor.tone.cutoff")
+        .expect("cutoff handle");
+    let (_, report) = render_instrument_with_trace(
+        compiled,
+        RenderRequest {
+            sample_rate: 20_000.0,
+            block_size: 64,
+            duration_frames: 2,
+            tail_frames: 0,
+        },
+        &[ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }],
+        &TempoMap::constant(120.0).expect("tempo map"),
+        &TraceRequest {
+            parameters: vec![cutoff],
+            every_frames: 2,
+        },
+    )
+    .expect("filter trace render");
+    let active = report.parameters[0]
+        .observations
+        .iter()
+        .filter(|observation| observation.voice.is_some())
+        .collect::<Vec<_>>();
+    assert!(!active.is_empty());
+    assert!(active.iter().all(|observation| {
+        observation.before_clamp > 9_000.0 && (observation.final_value - 9_000.0).abs() < 1.0e-4
+    }));
 }
 
 #[test]

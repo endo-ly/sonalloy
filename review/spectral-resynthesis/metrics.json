@@ -113,7 +113,7 @@
         }
       },
       "stereo_rms_difference": 0.030356245075456336,
-      "stereo_correlation": 0.9089632426424076
+      "stereo_correlation": 0.90896326
     },
     "02-position-quarter": {
       "sample_rate": 48000,
@@ -214,7 +214,7 @@
         }
       },
       "stereo_rms_difference": 0.010960689277659929,
-      "stereo_correlation": 0.909712421926778
+      "stereo_correlation": 0.90971243
     },
     "03-position-half": {
       "sample_rate": 48000,
@@ -315,7 +315,7 @@
         }
       },
       "stereo_rms_difference": 0.010659388058208662,
-      "stereo_correlation": 0.9111763596256944
+      "stereo_correlation": 0.9111764
     },
     "04-freeze": {
       "sample_rate": 48000,
@@ -416,7 +416,7 @@
         }
       },
       "stereo_rms_difference": 0.011947644856809747,
-      "stereo_correlation": 0.8851088816683172
+      "stereo_correlation": 0.8851089
     },
     "06-blur": {
       "sample_rate": 48000,
@@ -517,7 +517,7 @@
         }
       },
       "stereo_rms_difference": 0.011982177334098263,
-      "stereo_correlation": 0.883364056708634
+      "stereo_correlation": 0.8833641
     },
     "07-shift-up": {
       "sample_rate": 48000,
@@ -618,7 +618,7 @@
         }
       },
       "stereo_rms_difference": 0.007518639532441577,
-      "stereo_correlation": 0.8998335804044065
+      "stereo_correlation": 0.89983356
     },
     "08-shift-down": {
       "sample_rate": 48000,
@@ -719,7 +719,7 @@
         }
       },
       "stereo_rms_difference": 0.0031743501901503866,
-      "stereo_correlation": -0.05306117743831034
+      "stereo_correlation": -0.053061176
     },
     "09-root-note": {
       "sample_rate": 48000,
@@ -820,7 +820,7 @@
         }
       },
       "stereo_rms_difference": 0.010525919169329448,
-      "stereo_correlation": 0.8663182207225141
+      "stereo_correlation": 0.8663182
     },
     "10-pitch-up-octave": {
       "sample_rate": 48000,
@@ -921,7 +921,7 @@
         }
       },
       "stereo_rms_difference": 0.010525919169329448,
-      "stereo_correlation": 0.8663182207225141
+      "stereo_correlation": 0.8663182
     },
     "11-pitch-down-octave": {
       "sample_rate": 48000,
@@ -1022,7 +1022,7 @@
         }
       },
       "stereo_rms_difference": 0.013153556216479505,
-      "stereo_correlation": 0.8741193824987381
+      "stereo_correlation": 0.8741194
     },
     "12-morph-a": {
       "sample_rate": 48000,
@@ -1123,7 +1123,7 @@
         }
       },
       "stereo_rms_difference": 0.01301035199753578,
-      "stereo_correlation": 0.9085234254701723
+      "stereo_correlation": 0.90852344
     },
     "13-morph-mid": {
       "sample_rate": 48000,
@@ -1224,7 +1224,7 @@
         }
       },
       "stereo_rms_difference": 0.011539007713291803,
-      "stereo_correlation": 0.8851263228274753
+      "stereo_correlation": 0.88512635
     },
     "14-morph-b": {
       "sample_rate": 48000,
@@ -1325,7 +1325,7 @@
         }
       },
       "stereo_rms_difference": 0.013263361571407733,
-      "stereo_correlation": 0.9089693345319181
+      "stereo_correlation": 0.90896934
     },
     "17-stereo-resynthesis": {
       "sample_rate": 48000,
@@ -1426,7 +1426,7 @@
         }
       },
       "stereo_rms_difference": 0.011983953211280478,
-      "stereo_correlation": 0.8834464487565727
+      "stereo_correlation": 0.88344646
     },
     "18-high-note-spectrum": {
       "sample_rate": 48000,
@@ -1527,7 +1527,7 @@
         }
       },
       "stereo_rms_difference": 0.008513256829444562,
-      "stereo_correlation": 0.908402742970956
+      "stereo_correlation": 0.90840274
     },
     "05-freeze-transition": {
       "sample_rate": 48000,
@@ -1628,7 +1628,7 @@
         }
       },
       "stereo_rms_difference": 0.012367637362211909,
-      "stereo_correlation": 0.8824487739686891
+      "stereo_correlation": 0.8824488
     },
     "16-position-scrub": {
       "sample_rate": 48000,
@@ -1729,7 +1729,7 @@
         }
       },
       "stereo_rms_difference": 0.01283541933774421,
-      "stereo_correlation": 0.871555624695497
+      "stereo_correlation": 0.8715556
     },
     "15-morph-sweep": {
       "sample_rate": 48000,
@@ -1830,7 +1830,7 @@
         }
       },
       "stereo_rms_difference": 0.011621884703985253,
-      "stereo_correlation": 0.8772731181535236
+      "stereo_correlation": 0.87727314
     },
     "spectral-note": {
       "sample_rate": 48000,
@@ -1931,7 +1931,7 @@
         }
       },
       "stereo_rms_difference": 0.011983953211280478,
-      "stereo_correlation": 0.8834464487565727
+      "stereo_correlation": 0.88344646
     },
     "19-spectral-hybrid": {
       "sample_rate": 48000,
@@ -2032,7 +2032,7 @@
         }
       },
       "stereo_rms_difference": 0.11305750604983329,
-      "stereo_correlation": 0.5443246358333073
+      "stereo_correlation": 0.54432464
     },
     "20-spectral-hybrid-midi": {
       "sample_rate": 48000,
@@ -2133,7 +2133,7 @@
         }
       },
       "stereo_rms_difference": 0.13696316877444795,
-      "stereo_correlation": 0.336151914326357
+      "stereo_correlation": 0.33615193
     },
     "spectral-hybrid-controls": {
       "sample_rate": 48000,
@@ -2234,7 +2234,7 @@
         }
       },
       "stereo_rms_difference": 0.15099556908330738,
-      "stereo_correlation": 0.6007091288940977
+      "stereo_correlation": 0.60070914
     },
     "21-spectral-polyphony": {
       "sample_rate": 48000,
@@ -2335,7 +2335,7 @@
         }
       },
       "stereo_rms_difference": 0.06397079551026105,
-      "stereo_correlation": 0.881616604813345
+      "stereo_correlation": 0.8816166
     },
     "spectral-voice-stealing": {
       "sample_rate": 48000,
@@ -2440,7 +2440,7 @@
         }
       },
       "stereo_rms_difference": 0.07331747065476209,
-      "stereo_correlation": 0.9091378704133298
+      "stereo_correlation": 0.90913785
     },
     "identity-metric": {
       "sample_rate": 48000,
@@ -2545,7 +2545,7 @@
         }
       },
       "stereo_rms_difference": 0.1032944900626934,
-      "stereo_correlation": 0.9091004459066966
+      "stereo_correlation": 0.9091005
     },
     "latency-impulse": {
       "sample_rate": 48000,
@@ -2753,7 +2753,7 @@
         }
       },
       "stereo_rms_difference": 0.009137278018648437,
-      "stereo_correlation": 0.9115694423117224
+      "stereo_correlation": 0.9115694
     },
     "fft-2048": {
       "sample_rate": 48000,
@@ -2854,7 +2854,7 @@
         }
       },
       "stereo_rms_difference": 0.011983953211280478,
-      "stereo_correlation": 0.8834464487565727
+      "stereo_correlation": 0.88344646
     },
     "fft-4096": {
       "sample_rate": 48000,
@@ -2955,7 +2955,7 @@
         }
       },
       "stereo_rms_difference": 0.007090500879933185,
-      "stereo_correlation": 0.8796573177700173
+      "stereo_correlation": 0.8796573
     },
     "spectral-block-32": {
       "sample_rate": 48000,
@@ -3056,7 +3056,7 @@
         }
       },
       "stereo_rms_difference": 0.011983953211280478,
-      "stereo_correlation": 0.8834464487565727
+      "stereo_correlation": 0.88344646
     },
     "spectral-block-64": {
       "sample_rate": 48000,
@@ -3157,7 +3157,7 @@
         }
       },
       "stereo_rms_difference": 0.011983953211280478,
-      "stereo_correlation": 0.8834464487565727
+      "stereo_correlation": 0.88344646
     },
     "spectral-block-257": {
       "sample_rate": 48000,
@@ -3258,7 +3258,7 @@
         }
       },
       "stereo_rms_difference": 0.011983953211280478,
-      "stereo_correlation": 0.8834464487565727
+      "stereo_correlation": 0.88344646
     },
     "spectral-block-1024": {
       "sample_rate": 48000,
@@ -3359,7 +3359,7 @@
         }
       },
       "stereo_rms_difference": 0.011983953211280478,
-      "stereo_correlation": 0.8834464487565727
+      "stereo_correlation": 0.88344646
     },
     "spectral-sample-rate-44100": {
       "sample_rate": 44100,
@@ -3460,7 +3460,7 @@
         }
       },
       "stereo_rms_difference": 0.01808366609126412,
-      "stereo_correlation": 0.9067208697870706
+      "stereo_correlation": 0.9067209
     },
     "spectral-sample-rate-48000": {
       "sample_rate": 48000,
@@ -3561,7 +3561,7 @@
         }
       },
       "stereo_rms_difference": 0.011983953211280478,
-      "stereo_correlation": 0.8834464487565727
+      "stereo_correlation": 0.88344646
     },
     "spectral-sample-rate-96000": {
       "sample_rate": 96000,
@@ -3662,7 +3662,7 @@
         }
       },
       "stereo_rms_difference": 0.010492328875708423,
-      "stereo_correlation": 0.881629105446414
+      "stereo_correlation": 0.8816291
     },
     "spectral-fresh-a": {
       "sample_rate": 48000,
@@ -3763,7 +3763,7 @@
         }
       },
       "stereo_rms_difference": 0.11305750604983329,
-      "stereo_correlation": 0.5443246358333073
+      "stereo_correlation": 0.54432464
     },
     "spectral-fresh-b": {
       "sample_rate": 48000,
@@ -3864,7 +3864,7 @@
         }
       },
       "stereo_rms_difference": 0.11305750604983329,
-      "stereo_correlation": 0.5443246358333073
+      "stereo_correlation": 0.54432464
     },
     "regression-oscillator": {
       "sample_rate": 48000,
@@ -4167,7 +4167,7 @@
         }
       },
       "stereo_rms_difference": 0.11750130854301986,
-      "stereo_correlation": 0.6379152339671201
+      "stereo_correlation": 0.63791525
     },
     "regression-granular": {
       "sample_rate": 48000,
@@ -4268,7 +4268,7 @@
         }
       },
       "stereo_rms_difference": 0.11243093696118692,
-      "stereo_correlation": -0.0005067155932551105
+      "stereo_correlation": -0.000506716
     },
     "regression-wave-sequence": {
       "sample_rate": 48000,
@@ -4760,7 +4760,7 @@
         "prepared_bytes": 3730536,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.1255423128604889,
+        "elapsed_seconds": 0.14501739852130413,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -4768,8 +4768,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.1255423128604889,
-        "cli_realtime_factor": 7.965441907313494,
+        "realtime_ratio": 0.14501739852130413,
+        "cli_realtime_factor": 6.895724307542951,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -4787,7 +4787,7 @@
         "prepared_bytes": 3730536,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.22145157679915428,
+        "elapsed_seconds": 0.23621811158955097,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -4795,8 +4795,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.22145157679915428,
-        "cli_realtime_factor": 4.515659876772749,
+        "realtime_ratio": 0.23621811158955097,
+        "cli_realtime_factor": 4.233375642836333,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -4814,7 +4814,7 @@
         "prepared_bytes": 3730536,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.3427088037133217,
+        "elapsed_seconds": 0.38404830545186996,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -4822,8 +4822,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.3427088037133217,
-        "cli_realtime_factor": 2.9179291257323725,
+        "realtime_ratio": 0.38404830545186996,
+        "cli_realtime_factor": 2.603839115559704,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -4841,7 +4841,7 @@
         "prepared_bytes": 3730536,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.5984187722206116,
+        "elapsed_seconds": 0.6700338702648878,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -4849,8 +4849,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.5984187722206116,
-        "cli_realtime_factor": 1.671070572016318,
+        "realtime_ratio": 0.6700338702648878,
+        "cli_realtime_factor": 1.4924618655541473,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -4868,7 +4868,7 @@
         "prepared_bytes": 3763800,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.12464992143213749,
+        "elapsed_seconds": 0.12547767348587513,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -4876,8 +4876,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.12464992143213749,
-        "cli_realtime_factor": 8.022467952732924,
+        "realtime_ratio": 0.12547767348587513,
+        "cli_realtime_factor": 7.96954527621656,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -4895,7 +4895,7 @@
         "prepared_bytes": 3763800,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.21930070780217648,
+        "elapsed_seconds": 0.2233437765389681,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -4903,8 +4903,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.21930070780217648,
-        "cli_realtime_factor": 4.559948802819483,
+        "realtime_ratio": 0.2233437765389681,
+        "cli_realtime_factor": 4.477402574168098,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -4922,7 +4922,7 @@
         "prepared_bytes": 3763800,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.3551984243094921,
+        "elapsed_seconds": 0.3503219373524189,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -4930,8 +4930,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.3551984243094921,
-        "cli_realtime_factor": 2.8153278042941943,
+        "realtime_ratio": 0.3503219373524189,
+        "cli_realtime_factor": 2.8545172122464435,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -4949,7 +4949,7 @@
         "prepared_bytes": 3763800,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.6731691863387823,
+        "elapsed_seconds": 0.6592906471341848,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -4957,8 +4957,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.6731691863387823,
-        "cli_realtime_factor": 1.4855106565984963,
+        "realtime_ratio": 0.6592906471341848,
+        "cli_realtime_factor": 1.5167817173606453,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -4976,7 +4976,7 @@
         "prepared_bytes": 3835728,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.13076318614184856,
+        "elapsed_seconds": 0.13169324211776257,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -4984,8 +4984,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.13076318614184856,
-        "cli_realtime_factor": 7.647412314619082,
+        "realtime_ratio": 0.13169324211776257,
+        "cli_realtime_factor": 7.593404064771837,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -5003,7 +5003,7 @@
         "prepared_bytes": 3835728,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.2383116129785776,
+        "elapsed_seconds": 0.2352585271000862,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -5011,8 +5011,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.2383116129785776,
-        "cli_realtime_factor": 4.196186612567186,
+        "realtime_ratio": 0.2352585271000862,
+        "cli_realtime_factor": 4.250642951507425,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -5030,7 +5030,7 @@
         "prepared_bytes": 3835728,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.3733747471123934,
+        "elapsed_seconds": 0.382351515814662,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -5038,8 +5038,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.3733747471123934,
-        "cli_realtime_factor": 2.6782743282286834,
+        "realtime_ratio": 0.382351515814662,
+        "cli_realtime_factor": 2.615394365233096,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,
@@ -5057,7 +5057,7 @@
         "prepared_bytes": 3835728,
         "stereo": true,
         "morph_enabled": true,
-        "elapsed_seconds": 0.6450488269329071,
+        "elapsed_seconds": 0.6642578523606062,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -5065,8 +5065,8 @@
         "block_size": 257,
         "build": "release",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.6450488269329071,
-        "cli_realtime_factor": 1.5502702404015256,
+        "realtime_ratio": 0.6642578523606062,
+        "cli_realtime_factor": 1.5054394862571068,
         "audio": {
           "sample_rate": 48000,
           "channels": 2,

@@ -14,8 +14,6 @@ pub struct TraceRequest {
     pub parameters: Vec<ParameterHandle>,
     /// Period between regular observations in frames.
     pub every_frames: usize,
-    /// Number of internal latency frames removed from the public timeline.
-    pub reported_latency_frames: usize,
 }
 
 /// Machine-readable trace report grouped by selected parameter.
@@ -131,7 +129,19 @@ pub(crate) struct TraceCollector {
     sample_rate: f64,
     latency_frames: usize,
     last_public_frame: Option<u64>,
+    observation_count: usize,
     report: RenderTraceReport,
+}
+
+pub(crate) enum TraceCollectError {
+    Process(ProcessError),
+    LimitExceeded { observed: usize, limit: usize },
+}
+
+impl From<ProcessError> for TraceCollectError {
+    fn from(error: ProcessError) -> Self {
+        Self::Process(error)
+    }
 }
 
 impl TraceCollector {
@@ -156,8 +166,9 @@ impl TraceCollector {
         Self {
             target_handles: request.parameters.clone(),
             sample_rate: compiled.process_sample_rate,
-            latency_frames: request.reported_latency_frames,
+            latency_frames: compiled.reported_latency_frames,
             last_public_frame: None,
+            observation_count: 0,
             report: RenderTraceReport {
                 every_frames: request.every_frames,
                 parameters,
@@ -169,7 +180,7 @@ impl TraceCollector {
         &mut self,
         runtime: &InstrumentRuntime,
         internal_frame: u64,
-    ) -> Result<(), ProcessError> {
+    ) -> Result<(), TraceCollectError> {
         let latency = u64::try_from(self.latency_frames).unwrap_or(u64::MAX);
         let public_frame = internal_frame.saturating_sub(latency);
         if self.last_public_frame == Some(public_frame) {
@@ -177,15 +188,27 @@ impl TraceCollector {
         }
         let observations =
             runtime.trace_snapshots(&self.target_handles, public_frame, self.sample_rate)?;
+        let Some(observation_count) = self.observation_count.checked_add(observations.len()) else {
+            return Err(TraceCollectError::LimitExceeded {
+                observed: usize::MAX,
+                limit: MAX_TRACE_OBSERVATIONS,
+            });
+        };
+        if observation_count > MAX_TRACE_OBSERVATIONS {
+            return Err(TraceCollectError::LimitExceeded {
+                observed: observation_count,
+                limit: MAX_TRACE_OBSERVATIONS,
+            });
+        }
         for (handle, observation) in observations {
             let Some(index) = self
                 .target_handles
                 .iter()
                 .position(|candidate| *candidate == handle)
             else {
-                return Err(ProcessError::ProcessorFailure {
+                return Err(TraceCollectError::Process(ProcessError::ProcessorFailure {
                     kind: crate::process::ProcessorFailureKind::InvalidState,
-                });
+                }));
             };
             self.report
                 .parameters
@@ -196,6 +219,7 @@ impl TraceCollector {
                 .observations
                 .push(observation);
         }
+        self.observation_count = observation_count;
         self.last_public_frame = Some(public_frame);
         Ok(())
     }

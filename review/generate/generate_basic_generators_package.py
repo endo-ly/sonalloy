@@ -13,7 +13,6 @@ from common import (
     ROOT,
     SAMPLE_RATE,
     measure_stereo,
-    native_parameter_value,
     render_events,
     render_note,
     run_cli,
@@ -135,9 +134,7 @@ def main() -> None:
                 "absolute_frame": 4_096,
                 "type": "parameter_change",
                 "parameter": "layer.pulse.generator.pulse_width",
-                "native_value": native_parameter_value(
-                    "layer.pulse.generator.pulse_width", 0.7777778
-                ),
+                "native_value": 0.75000002,
             },
             {"absolute_frame": 12_000, "type": "note_off", "note_id": 1},
         ],
@@ -157,9 +154,7 @@ def main() -> None:
                 "absolute_frame": 4_096,
                 "type": "parameter_change",
                 "parameter": "layer.pink.generator.noise_correlation",
-                "native_value": native_parameter_value(
-                    "layer.pink.generator.noise_correlation", 0.0
-                ),
+                "native_value": 0.0,
             },
             {"absolute_frame": 12_000, "type": "note_off", "note_id": 2},
         ],

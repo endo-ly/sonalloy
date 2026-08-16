@@ -13,7 +13,6 @@ from common import (
     BLOCK_SIZES,
     SAMPLE_RATE,
     measure_stereo,
-    native_parameter_value,
     render_events,
     render_note,
     run_cli,
@@ -567,17 +566,13 @@ def render_event_fixture(path: Path) -> None:
                     "absolute_frame": 12_000,
                     "type": "parameter_change",
                     "parameter": "global.processor.pad_chorus.mix",
-                    "native_value": native_parameter_value(
-                        "global.processor.pad_chorus.mix", 0.72
-                    ),
+                    "native_value": 0.72,
                 },
                 {
                     "absolute_frame": 24_000,
                     "type": "parameter_change",
                     "parameter": "global.processor.pad_compressor.threshold_db",
-                    "native_value": native_parameter_value(
-                        "global.processor.pad_compressor.threshold_db", 0.62
-                    ),
+                    "native_value": -22.799999999999997,
                 },
                 {"absolute_frame": 36_000, "type": "note_off", "note_id": 1},
             ]

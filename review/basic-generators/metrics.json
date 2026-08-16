@@ -147,7 +147,7 @@
         "harmonic_energy_ratio": 0.8991383
       },
       "stereo_rms_difference": 0.024874184149568962,
-      "stereo_correlation": 0.9999999999999993
+      "stereo_correlation": 1.0
     },
     "02-saw-reference.wav": {
       "sample_rate": 48000,
@@ -288,7 +288,7 @@
         "harmonic_energy_ratio": 0.91221154
       },
       "stereo_rms_difference": 0.02019507633791289,
-      "stereo_correlation": 0.9999999999999993
+      "stereo_correlation": 1.0
     },
     "03-square.wav": {
       "sample_rate": 48000,
@@ -429,7 +429,7 @@
         "harmonic_energy_ratio": 0.905584
       },
       "stereo_rms_difference": 0.024801480657689386,
-      "stereo_correlation": 0.9999999999999996
+      "stereo_correlation": 1.0
     },
     "04-triangle.wav": {
       "sample_rate": 48000,
@@ -570,7 +570,7 @@
         "harmonic_energy_ratio": 0.86107004
       },
       "stereo_rms_difference": 0.020331079543207925,
-      "stereo_correlation": 0.9999999999999993
+      "stereo_correlation": 1.0
     },
     "05-pulse-width-025.wav": {
       "sample_rate": 48000,
@@ -1054,7 +1054,7 @@
         }
       },
       "stereo_rms_difference": 0.0038969377864734173,
-      "stereo_correlation": 0.6902519870511408
+      "stereo_correlation": 0.690252
     },
     "09-brown-noise.wav": {
       "sample_rate": 48000,
@@ -1155,7 +1155,7 @@
         }
       },
       "stereo_rms_difference": 0.0004958477075983049,
-      "stereo_correlation": 0.41593078871613615
+      "stereo_correlation": 0.41593078
     },
     "10-pink-correlation-1.wav": {
       "sample_rate": 48000,
@@ -1357,7 +1357,7 @@
         }
       },
       "stereo_rms_difference": 0.006587026989687214,
-      "stereo_correlation": 0.0641668547423204
+      "stereo_correlation": 0.06416686
     },
     "12-pwm-lfo.wav": {
       "sample_rate": 48000,
@@ -1559,7 +1559,7 @@
         }
       },
       "stereo_rms_difference": 0.00592505703610066,
-      "stereo_correlation": 0.4143592795798264
+      "stereo_correlation": 0.41435927
     },
     "14-high-register-square.wav": {
       "sample_rate": 48000,
@@ -1700,7 +1700,7 @@
         "harmonic_energy_ratio": 0.9987451
       },
       "stereo_rms_difference": 0.02275101051720275,
-      "stereo_correlation": 0.9999999999999994
+      "stereo_correlation": 1.0
     },
     "regression-block-1024.wav": {
       "sample_rate": 48000,

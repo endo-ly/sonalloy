@@ -14,7 +14,8 @@ use crate::trace::{
 };
 
 use super::modulation::{
-    ParameterSpanValue, SharedParameterSpan, ValueSpan, apply_domain_sum, route_domain_delta,
+    ParameterSpanValue, SharedParameterSpan, ValueSpan, apply_domain_sum_with_maximum,
+    route_domain_delta,
 };
 use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
@@ -234,7 +235,16 @@ impl InstrumentRuntime {
                 },
             });
         }
-        let evaluated = apply_domain_sum(descriptor, base_normalized, domain_sum)?;
+        let effective_maximum = self
+            .compiled
+            .effective_parameter_maximum(handle)
+            .ok_or_else(invalid_state)?;
+        let evaluated = apply_domain_sum_with_maximum(
+            descriptor,
+            base_normalized,
+            domain_sum,
+            effective_maximum,
+        )?;
         #[allow(clippy::cast_precision_loss)]
         let seconds = frame as f64 / sample_rate;
         Ok(TraceObservation {
@@ -619,10 +629,7 @@ impl InstrumentRuntime {
     ) -> Result<ProcessorTargetSpan, ProcessError> {
         match &processor.processor {
             CompiledProcessorKind::Filter(value) => Ok(ProcessorTargetSpan::Filter {
-                cutoff: clamp_filter_span(
-                    Self::evaluate_global_target(compiled, value.parameters.cutoff, shared)?,
-                    value.effective_max_cutoff_hz,
-                ),
+                cutoff: Self::evaluate_global_target(compiled, value.parameters.cutoff, shared)?,
                 resonance: Self::evaluate_global_target(
                     compiled,
                     value.parameters.resonance,
@@ -767,8 +774,19 @@ impl InstrumentRuntime {
             start_domain_sum += route_domain_delta(source.start, route.depth, route.curve);
             end_domain_sum += route_domain_delta(source.end, route.depth, route.curve);
         }
-        let start = apply_domain_sum(descriptor, base.start, start_domain_sum)?.final_value;
-        let end = apply_domain_sum(descriptor, base.end, end_domain_sum)?.final_value;
+        let effective_maximum = compiled
+            .effective_parameter_maximum(handle)
+            .ok_or_else(invalid_state)?;
+        let start = apply_domain_sum_with_maximum(
+            descriptor,
+            base.start,
+            start_domain_sum,
+            effective_maximum,
+        )?
+        .final_value;
+        let end =
+            apply_domain_sum_with_maximum(descriptor, base.end, end_domain_sum, effective_maximum)?
+                .final_value;
         Ok(ValueSpan { start, end })
     }
 }
@@ -1043,13 +1061,6 @@ impl InstrumentProcessor for InstrumentRuntime {
         }
         self.absolute_frame = 0;
         Ok(())
-    }
-}
-
-fn clamp_filter_span(span: ValueSpan, maximum: f32) -> ValueSpan {
-    ValueSpan {
-        start: span.start.min(maximum),
-        end: span.end.min(maximum),
     }
 }
 

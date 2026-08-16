@@ -56,7 +56,8 @@ mod contract_tests {
             -1_200.0,
             1_200.0,
         );
-        let evaluated = apply_domain_sum(&descriptor, 0.5, 20.0).expect("linear evaluation");
+        let evaluated = apply_domain_sum_with_maximum(&descriptor, 0.5, 20.0, descriptor.max)
+            .expect("linear evaluation");
 
         assert!((evaluated.base - 0.0).abs() < 1.0e-5);
         assert!((evaluated.unclamped - 20.0).abs() < 1.0e-5);
@@ -68,7 +69,8 @@ mod contract_tests {
     fn logarithmic_depth_is_applied_as_octaves() {
         let descriptor = descriptor(ParameterUnit::Hertz, ParameterScale::Log2, 20.0, 20_000.0);
         let base = descriptor.normalize(1_000.0).expect("base normalizes");
-        let evaluated = apply_domain_sum(&descriptor, base, 2.0).expect("logarithmic evaluation");
+        let evaluated = apply_domain_sum_with_maximum(&descriptor, base, 2.0, descriptor.max)
+            .expect("logarithmic evaluation");
 
         assert!((evaluated.base - 1_000.0).abs() < 1.0e-3);
         assert!((evaluated.unclamped - 4_000.0).abs() < 1.0e-3);
@@ -79,7 +81,8 @@ mod contract_tests {
     #[test]
     fn final_clamp_is_reported_after_route_sum() {
         let descriptor = descriptor(ParameterUnit::Pan, ParameterScale::Linear, -1.0, 1.0);
-        let evaluated = apply_domain_sum(&descriptor, 0.5, 2.0).expect("clamped evaluation");
+        let evaluated = apply_domain_sum_with_maximum(&descriptor, 0.5, 2.0, descriptor.max)
+            .expect("clamped evaluation");
 
         assert!((evaluated.unclamped - 2.0).abs() < 1.0e-5);
         assert!((evaluated.final_value - 1.0).abs() < 1.0e-5);
@@ -107,10 +110,11 @@ pub fn route_domain_delta(source: f32, depth: f32, curve: ModulationCurve) -> f3
 }
 
 /// Apply a summed direct-depth modulation value to a native parameter value.
-pub(crate) fn apply_domain_sum(
+pub(crate) fn apply_domain_sum_with_maximum(
     descriptor: &ParameterDescriptor,
     base_normalized: f32,
     domain_sum: f32,
+    effective_maximum: f32,
 ) -> Result<EvaluatedParameterValue, ProcessError> {
     let base = descriptor
         .denormalize(base_normalized)
@@ -122,7 +126,9 @@ pub(crate) fn apply_domain_sum(
     if !unclamped.is_finite() {
         return Err(ProcessError::InvalidEventValue);
     }
-    let final_value = unclamped.clamp(descriptor.min, descriptor.max);
+    let final_value = unclamped
+        .clamp(descriptor.min, descriptor.max)
+        .min(effective_maximum);
     if !final_value.is_finite() {
         return Err(ProcessError::InvalidEventValue);
     }
@@ -130,7 +136,7 @@ pub(crate) fn apply_domain_sum(
         base,
         unclamped,
         final_value,
-        clamped: unclamped < descriptor.min || unclamped > descriptor.max,
+        clamped: final_value.total_cmp(&unclamped).is_ne(),
     })
 }
 

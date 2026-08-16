@@ -6,7 +6,8 @@ use sonalloy_core::{
     AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, GeneratorDefinition,
     GeneratorOutputMode, InstrumentDefinition, InstrumentProcessor, ParameterUnit, ProcessBlock,
     ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec, RenderRequest, ScheduledEvent,
-    SpectralDefinition, compile_instrument, render_instrument,
+    SpectralDefinition, TempoMap, TraceRequest, compile_instrument, render_instrument,
+    render_instrument_with_trace,
 };
 use tempfile::TempDir;
 
@@ -1322,4 +1323,59 @@ fn spectral_layer_latency_aligns_an_existing_generator_layer() {
         .position(|sample| sample.abs() > 1.0e-5)
         .expect("carrier produces output");
     assert!(first_signal >= 1_536);
+}
+
+#[test]
+fn trace_uses_public_frames_for_latency_compensated_spectral_render() {
+    let directory = fixture_directory();
+    let path = directory.path().join("silence.wav");
+    write_pcm16_wav(&path, &vec![0; 8_192]);
+    let mut definition = definition("silence.wav".to_owned(), 2048);
+    definition.layers[0].envelope.release_seconds = 1.0;
+    let compiled = compile(&definition, directory.path(), 257);
+    assert_eq!(compiled.reported_latency_frames, 1_536);
+    let gain = compiled
+        .parameter_handle("layer.body.gain")
+        .expect("gain handle");
+    let public_frames = 1_000_u64;
+    let (audio, report) = render_instrument_with_trace(
+        compiled,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 1_536 + public_frames,
+            tail_frames: 0,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 112,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 700,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ],
+        &TempoMap::constant(120.0).expect("tempo map"),
+        &TraceRequest {
+            parameters: vec![gain],
+            every_frames: 480,
+        },
+    )
+    .expect("latency trace render");
+
+    assert_eq!(
+        audio.frames(),
+        1_536 + usize::try_from(public_frames).expect("test duration fits")
+    );
+    let frames = report.parameters[0]
+        .observations
+        .iter()
+        .map(|observation| observation.frame)
+        .collect::<Vec<_>>();
+    assert_eq!(frames, vec![0, 1, 480, 701, 960, 1_000]);
 }

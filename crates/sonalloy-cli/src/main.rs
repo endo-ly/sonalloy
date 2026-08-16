@@ -956,12 +956,8 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
             Ok(result) => result,
             Err(failure) => return finish_failure(args.json, failure),
         };
-    let trace_request = match resolve_trace_request(
-        &compiled,
-        &args.trace,
-        args.trace_every_frames,
-        compiled.reported_latency_frames,
-    ) {
+    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
+    {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
@@ -1056,12 +1052,8 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
             Ok(result) => result,
             Err(failure) => return finish_failure(args.json, failure),
         };
-    let trace_request = match resolve_trace_request(
-        &compiled,
-        &args.trace,
-        args.trace_every_frames,
-        compiled.reported_latency_frames,
-    ) {
+    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
+    {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
@@ -1327,12 +1319,8 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
             Ok(result) => result,
             Err(failure) => return finish_failure(args.json, failure),
         };
-    let trace_request = match resolve_trace_request(
-        &compiled,
-        &args.trace,
-        args.trace_every_frames,
-        compiled.reported_latency_frames,
-    ) {
+    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
+    {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
@@ -1467,7 +1455,6 @@ fn resolve_trace_request(
     compiled: &CompiledInstrument,
     ids: &[String],
     every_frames: Option<usize>,
-    reported_latency_frames: usize,
 ) -> Result<Option<TraceRequest>, CliFailure> {
     if ids.is_empty() {
         if every_frames.is_some() {
@@ -1513,7 +1500,6 @@ fn resolve_trace_request(
     Ok(Some(TraceRequest {
         parameters,
         every_frames,
-        reported_latency_frames,
     }))
 }
 

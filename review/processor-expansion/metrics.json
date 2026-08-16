@@ -247,7 +247,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.011369913353261051,
-        "stereo_correlation": 0.9999777874485682
+        "stereo_correlation": 0.99997777
       }
     },
     "filter_high_pass.wav": {
@@ -355,7 +355,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.005354325802853032,
-        "stereo_correlation": 0.9999219343180944
+        "stereo_correlation": 0.9999219
       }
     },
     "filter_band_pass.wav": {
@@ -459,7 +459,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.0053666368450285,
-        "stereo_correlation": 0.9999619773248439
+        "stereo_correlation": 0.999962
       }
     },
     "filter_notch.wav": {
@@ -567,7 +567,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010061032314139505,
-        "stereo_correlation": 0.9999944372354648
+        "stereo_correlation": 0.99999446
       }
     },
     "eq_flat.wav": {
@@ -675,7 +675,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010421720460055578,
-        "stereo_correlation": 0.9999999999999994
+        "stereo_correlation": 1.0
       }
     },
     "eq_low_boost.wav": {
@@ -783,7 +783,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.01198305889181334,
-        "stereo_correlation": 0.9999999996786223
+        "stereo_correlation": 1.0
       }
     },
     "eq_mid_cut.wav": {
@@ -887,7 +887,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.008898837854771354,
-        "stereo_correlation": 0.999999999999353
+        "stereo_correlation": 1.0
       }
     },
     "eq_high_boost.wav": {
@@ -1025,7 +1025,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010740433925963414,
-        "stereo_correlation": 0.999999999999987
+        "stereo_correlation": 1.0
       }
     },
     "eq_combined.wav": {
@@ -1163,7 +1163,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010461602100072973,
-        "stereo_correlation": 0.9999999996476137
+        "stereo_correlation": 1.0
       }
     },
     "resonator_220hz.wav": {
@@ -1267,7 +1267,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.007540178996704029,
-        "stereo_correlation": 0.9999999999999858
+        "stereo_correlation": 1.0
       }
     },
     "resonator_440hz.wav": {
@@ -1371,7 +1371,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.01974135320576294,
-        "stereo_correlation": 0.9999999999999827
+        "stereo_correlation": 1.0
       }
     },
     "resonator_short_decay.wav": {
@@ -1475,7 +1475,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.007816898597816084,
-        "stereo_correlation": 0.9999999999999934
+        "stereo_correlation": 1.0
       }
     },
     "resonator_long_decay.wav": {
@@ -1579,7 +1579,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.014934357751442726,
-        "stereo_correlation": 0.9999999999999792
+        "stereo_correlation": 1.0
       }
     },
     "resonator_dark_damping.wav": {
@@ -1683,7 +1683,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.007426090252749579,
-        "stereo_correlation": 0.9999999999999476
+        "stereo_correlation": 1.0
       }
     },
     "bitcrusher_16bit_fullrate.wav": {
@@ -1791,7 +1791,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010421720813334728,
-        "stereo_correlation": 0.9999999999999994
+        "stereo_correlation": 1.0
       }
     },
     "bitcrusher_8bit.wav": {
@@ -1899,7 +1899,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010421704636903055,
-        "stereo_correlation": 0.9999999999999993
+        "stereo_correlation": 1.0
       }
     },
     "bitcrusher_4bit.wav": {
@@ -2007,7 +2007,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010460386457416636,
-        "stereo_correlation": 0.9999999999999993
+        "stereo_correlation": 1.0
       }
     },
     "bitcrusher_quarter_rate.wav": {
@@ -2127,7 +2127,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010360685022316393,
-        "stereo_correlation": 0.9999999999999994
+        "stereo_correlation": 1.0
       }
     },
     "bitcrusher_combined.wav": {
@@ -2247,7 +2247,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010361477048178545,
-        "stereo_correlation": 0.9999999999999994
+        "stereo_correlation": 1.0
       }
     },
     "chorus_narrow.wav": {
@@ -2351,7 +2351,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.03575777820764187,
-        "stereo_correlation": 0.5427727800031132
+        "stereo_correlation": 0.54277277
       }
     },
     "chorus_wide.wav": {
@@ -2455,7 +2455,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.03935813228643234,
-        "stereo_correlation": 0.499098109004597
+        "stereo_correlation": 0.4990981
       }
     },
     "flanger_feedback.wav": {
@@ -2559,7 +2559,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.05650253005508017,
-        "stereo_correlation": 0.4538823174519346
+        "stereo_correlation": 0.4538823
       }
     },
     "flanger_negative_feedback.wav": {
@@ -2663,7 +2663,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.049069389858236785,
-        "stereo_correlation": 0.45579541962109776
+        "stereo_correlation": 0.4557954
       }
     },
     "phaser_4stage.wav": {
@@ -2767,7 +2767,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.013377826985954296,
-        "stereo_correlation": 0.9996665099069041
+        "stereo_correlation": 0.9996665
       }
     },
     "phaser_8stage.wav": {
@@ -2871,7 +2871,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.009846403054443951,
-        "stereo_correlation": 0.9962789487430516
+        "stereo_correlation": 0.99627894
       }
     },
     "dynamics_dry.wav": {
@@ -2979,7 +2979,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010421720460055578,
-        "stereo_correlation": 0.9999999999999994
+        "stereo_correlation": 1.0
       }
     },
     "compressor_gentle.wav": {
@@ -3109,7 +3109,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.012754892745336255,
-        "stereo_correlation": 0.9999999999999988
+        "stereo_correlation": 1.0
       }
     },
     "compressor_strong.wav": {
@@ -3217,7 +3217,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.006826823368828698,
-        "stereo_correlation": 0.999999999999999
+        "stereo_correlation": 1.0
       }
     },
     "compressor_parallel.wav": {
@@ -3327,7 +3327,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.010559899871942674,
-        "stereo_correlation": 0.9999999999999982
+        "stereo_correlation": 1.0
       }
     },
     "limiter.wav": {
@@ -3465,7 +3465,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.039668883338052886,
-        "stereo_correlation": 0.9999999999999984
+        "stereo_correlation": 1.0
       }
     },
     "full_chain_digital_pad.wav": {
@@ -3569,7 +3569,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.06462587269557096,
-        "stereo_correlation": 0.5737881791996419
+        "stereo_correlation": 0.57378817
       }
     },
     "full_chain_metallic_pluck.wav": {
@@ -3685,7 +3685,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.05082068813737389,
-        "stereo_correlation": 0.716678058746615
+        "stereo_correlation": 0.7166781
       }
     },
     "full_chain_lofi_texture.wav": {
@@ -3789,7 +3789,7 @@
       "stereo": {
         "sample_rate": 48000,
         "stereo_rms_difference": 0.021271657513304877,
-        "stereo_correlation": -0.020512708431217143
+        "stereo_correlation": -0.02051271
       }
     }
   },
@@ -4149,7 +4149,7 @@
     "repeat_sha256": "5d1c8344e1b7e380b9038ece0f3d63c0565cfbec71c4eeefa02058299b755e2b"
   },
   "release_render": {
-    "elapsed_seconds": 0.036554789170622826,
+    "elapsed_seconds": 0.03769577108323574,
     "frames": 48000,
     "channels": 2,
     "duration_frames": 48000,
@@ -4157,7 +4157,7 @@
     "block_size": 257,
     "build": "release",
     "audio_duration_seconds": 1.0,
-    "realtime_ratio": 0.036554789170622826,
-    "cli_realtime_factor": 27.356196621252785
+    "realtime_ratio": 0.03769577108323574,
+    "cli_realtime_factor": 26.528174680175866
   }
 }

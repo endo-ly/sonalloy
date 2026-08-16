@@ -10,7 +10,7 @@ use super::generator::GeneratorRuntime;
 use super::mix::constant_power_pan;
 use super::modulation::{
     LayerGeneratorTargetSpan, LayerTargetSpan, SharedParameterSpan, ValueSpan, VoiceTargetScratch,
-    apply_domain_sum, route_domain_delta,
+    apply_domain_sum_with_maximum, route_domain_delta,
 };
 use super::processor::{LayerProcessorChain, ProcessorTargetSpan, StereoProcessorChain};
 use super::random::{bipolar_f32, splitmix64_finalizer};
@@ -1170,10 +1170,7 @@ impl VoiceRuntime {
             CompiledProcessorKind::Filter(value) => {
                 let cutoff = self.evaluate_target(compiled, value.parameters.cutoff, shared)?;
                 Ok(ProcessorTargetSpan::Filter {
-                    cutoff: ValueSpan {
-                        start: cutoff.start.min(value.effective_max_cutoff_hz),
-                        end: cutoff.end.min(value.effective_max_cutoff_hz),
-                    },
+                    cutoff,
                     resonance: self.evaluate_target(
                         compiled,
                         value.parameters.resonance,
@@ -1286,8 +1283,19 @@ impl VoiceRuntime {
             start_domain_sum += route_domain_delta(source.start, route.depth, route.curve);
             end_domain_sum += route_domain_delta(source.end, route.depth, route.curve);
         }
-        let start = apply_domain_sum(descriptor, base.start, start_domain_sum)?.final_value;
-        let end = apply_domain_sum(descriptor, base.end, end_domain_sum)?.final_value;
+        let effective_maximum = compiled
+            .effective_parameter_maximum(handle)
+            .ok_or_else(invalid_state)?;
+        let start = apply_domain_sum_with_maximum(
+            descriptor,
+            base.start,
+            start_domain_sum,
+            effective_maximum,
+        )?
+        .final_value;
+        let end =
+            apply_domain_sum_with_maximum(descriptor, base.end, end_domain_sum, effective_maximum)?
+                .final_value;
         Ok(ValueSpan { start, end })
     }
 

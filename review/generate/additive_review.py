@@ -14,7 +14,6 @@ from common import (
     ROOT,
     SAMPLE_RATE,
     measure_stereo,
-    native_parameter_value,
     render_events,
     render_note,
     run_cli,
@@ -300,9 +299,7 @@ def generate_additive_section(review_root: Path) -> dict[str, object]:
                 "absolute_frame": 4_096,
                 "type": "parameter_change",
                 "parameter": "layer.body.generator.additive_morph",
-                "native_value": native_parameter_value(
-                    "layer.body.generator.additive_morph", 1.0
-                ),
+                "native_value": 1.0,
             },
             {"absolute_frame": 12_000, "type": "note_off", "note_id": 1},
         ],
@@ -318,9 +315,7 @@ def generate_additive_section(review_root: Path) -> dict[str, object]:
                 "absolute_frame": 4_096,
                 "type": "parameter_change",
                 "parameter": "layer.body.generator.additive_spectrum_tilt",
-                "native_value": native_parameter_value(
-                    "layer.body.generator.additive_spectrum_tilt", 1.0
-                ),
+                "native_value": 12.0,
             },
             {"absolute_frame": 12_000, "type": "note_off", "note_id": 2},
         ],
@@ -336,9 +331,7 @@ def generate_additive_section(review_root: Path) -> dict[str, object]:
                 "absolute_frame": 4_096,
                 "type": "parameter_change",
                 "parameter": "layer.body.generator.additive_inharmonicity",
-                "native_value": native_parameter_value(
-                    "layer.body.generator.additive_inharmonicity", 1.0
-                ),
+                "native_value": 1.0,
             },
             {"absolute_frame": 12_000, "type": "note_off", "note_id": 3},
         ],

@@ -79,6 +79,8 @@ pub struct CompiledInstrument {
     pub global_processors: Box<[CompiledProcessor]>,
     /// Dense continuous parameter catalog.
     pub parameter_catalog: ParameterCatalog,
+    /// Product-level maximum values after processor-specific runtime limits.
+    pub(crate) effective_parameter_maxima: Box<[f32]>,
     /// Voice-scoped source table.
     pub sources: Box<[CompiledSource]>,
     /// Compiled routes grouped by target handle.
@@ -115,6 +117,10 @@ impl CompiledInstrument {
         handle: ParameterHandle,
     ) -> Option<&crate::parameter::ParameterDescriptor> {
         self.parameter_catalog.descriptor(handle)
+    }
+
+    pub(crate) fn effective_parameter_maximum(&self, handle: ParameterHandle) -> Option<f32> {
+        self.effective_parameter_maxima.get(handle.index()).copied()
     }
 
     /// Return the route slice for one target handle.
@@ -1529,6 +1535,13 @@ pub fn compile_instrument(
         };
     }
 
+    let effective_parameter_maxima = effective_parameter_maxima(
+        &parameter_catalog,
+        &layers,
+        &voice_processors,
+        &global_processors,
+    );
+
     let compiled = CompiledInstrument {
         process_sample_rate: context.process_spec.sample_rate,
         reported_latency_frames: layers
@@ -1546,6 +1559,7 @@ pub fn compile_instrument(
         voice_processors,
         global_processors,
         parameter_catalog,
+        effective_parameter_maxima,
         sources,
         routes,
         route_ranges,
@@ -1560,6 +1574,33 @@ pub fn compile_instrument(
         instrument: Some(Arc::new(compiled)),
         diagnostics,
     }
+}
+
+fn effective_parameter_maxima(
+    parameter_catalog: &ParameterCatalog,
+    layers: &[CompiledLayer],
+    voice_processors: &[CompiledProcessor],
+    global_processors: &[CompiledProcessor],
+) -> Box<[f32]> {
+    let mut maxima = parameter_catalog
+        .parameters()
+        .iter()
+        .map(|parameter| parameter.max)
+        .collect::<Vec<_>>();
+    for processor in layers
+        .iter()
+        .flat_map(|layer| layer.processors.iter())
+        .chain(voice_processors.iter())
+        .chain(global_processors.iter())
+    {
+        let CompiledProcessorKind::Filter(filter) = &processor.processor else {
+            continue;
+        };
+        if let Some(maximum) = maxima.get_mut(filter.parameters.cutoff.index()) {
+            *maximum = maximum.min(filter.effective_max_cutoff_hz);
+        }
+    }
+    maxima.into_boxed_slice()
 }
 
 #[derive(Clone, Copy)]
