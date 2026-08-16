@@ -8,12 +8,14 @@
   },
   "polyphony": 16,
   "voice_stealing": "quietest_releasing_then_oldest",
+  "reported_latency_frames": 0,
   "layer_count": 1,
   "layers": [
     {
       "id": "motion",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,
@@ -79,7 +81,11 @@
       "max": 12.0,
       "default": -4.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.motion.pan",
@@ -93,7 +99,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.motion.tuning",
@@ -107,7 +117,11 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     },
     {
       "id": "layer.motion.generator.wavetable_position",
@@ -121,7 +135,18 @@
       "max": 1.0,
       "default": 0.25,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      },
+      "modulated_range_from_default": {
+        "unclamped_min": -0.25,
+        "unclamped_max": 0.75,
+        "effective_min": 0.0,
+        "effective_max": 0.75,
+        "may_clamp": true
+      }
     },
     {
       "id": "layer.motion.generator.unison_detune",
@@ -135,7 +160,11 @@
       "max": 100.0,
       "default": 18.0,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 100.0
+      }
     },
     {
       "id": "layer.motion.generator.unison_spread",
@@ -149,24 +178,43 @@
       "max": 1.0,
       "default": 0.85,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     }
   ],
   "sources": [
     {
       "id": "velocity",
       "scope": "voice",
-      "kind": "velocity"
+      "kind": "velocity",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
     },
     {
       "id": "key_tracking",
       "scope": "voice",
-      "kind": "key_tracking"
+      "kind": "key_tracking",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      }
     },
     {
       "id": "motion_lfo",
       "scope": "voice",
       "kind": "lfo",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      },
       "waveform": "sine",
       "rate_hz": 0.35,
       "phase": 0.0
@@ -176,8 +224,21 @@
     {
       "source": "motion_lfo",
       "target": "layer.motion.generator.wavetable_position",
-      "amount": 0.5,
-      "curve": "linear"
+      "depth": {
+        "value": 0.5,
+        "unit": "normalized"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": -1.0,
+        "max": 1.0
+      },
+      "effect": {
+        "kind": "additive",
+        "unit": "normalized",
+        "min_delta": -0.5,
+        "max_delta": 0.5
+      }
     }
   ]
 }

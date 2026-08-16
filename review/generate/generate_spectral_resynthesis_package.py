@@ -18,6 +18,7 @@ from common import (  # noqa: E402
     SAMPLE_RATE,
     build_cli,
     measure_stereo,
+    native_parameter_value,
     render_events,
     render_midi,
     render_note,
@@ -257,31 +258,41 @@ def control_events() -> list[dict[str, object]]:
             "absolute_frame": 4_096,
             "type": "parameter_change",
             "parameter": "layer.spectral.generator.spectral_position",
-            "normalized": 0.8,
+            "native_value": native_parameter_value(
+                "layer.spectral.generator.spectral_position", 0.8
+            ),
         },
         {
             "absolute_frame": 8_192,
             "type": "parameter_change",
             "parameter": "layer.spectral.generator.spectral_freeze",
-            "normalized": 0.7,
+            "native_value": native_parameter_value(
+                "layer.spectral.generator.spectral_freeze", 0.7
+            ),
         },
         {
             "absolute_frame": 12_288,
             "type": "parameter_change",
             "parameter": "layer.spectral.generator.spectral_blur",
-            "normalized": 0.55,
+            "native_value": native_parameter_value(
+                "layer.spectral.generator.spectral_blur", 0.55
+            ),
         },
         {
             "absolute_frame": 16_384,
             "type": "parameter_change",
             "parameter": "layer.spectral.generator.spectral_shift",
-            "normalized": 0.56,
+            "native_value": native_parameter_value(
+                "layer.spectral.generator.spectral_shift", 0.56
+            ),
         },
         {
             "absolute_frame": 20_480,
             "type": "parameter_change",
             "parameter": "layer.spectral.generator.spectral_morph",
-            "normalized": 0.85,
+            "native_value": native_parameter_value(
+                "layer.spectral.generator.spectral_morph", 0.85
+            ),
         },
         {"absolute_frame": 24_576, "type": "mod_wheel", "value": 0.8},
         {"absolute_frame": 28_672, "type": "note_off", "note_id": 1},
@@ -405,9 +416,9 @@ def regression_definition_paths() -> dict[str, Path]:
     paths = {
         "oscillator": "review/generate/fixtures/basic-poly-synth-sine.json",
         "noise": "testdata/instruments/basic-generators-reference.json",
-        "digital-hybrid": "review/generate/fixtures/digital-hybrid-reference.json",
-        "granular": "review/generate/fixtures/granular-generator-reference.json",
-        "wave-sequence": "review/generate/fixtures/wave-sequence-reference.json",
+        "digital-hybrid": "review/digital-synthesis/definitions/digital-hybrid-reference.json",
+        "granular": "review/granular-generator/definitions/granular-pad.json",
+        "wave-sequence": "review/wave-sequence/definitions/wave-sequence-reference.json",
         "additive": "testdata/instruments/additive-generator-reference.json",
         "formant": "testdata/instruments/formant-generator-reference.json",
     }
@@ -481,7 +492,14 @@ def render_technical_audio(
         freeze_transition_events,
         [
             {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 112},
-            {"absolute_frame": FREEZE_TRANSITION_FRAME, "type": "parameter_change", "parameter": "layer.spectral.generator.spectral_freeze", "normalized": 1.0},
+            {
+                "absolute_frame": FREEZE_TRANSITION_FRAME,
+                "type": "parameter_change",
+                "parameter": "layer.spectral.generator.spectral_freeze",
+                "native_value": native_parameter_value(
+                    "layer.spectral.generator.spectral_freeze", 1.0
+                ),
+            },
             {"absolute_frame": 24_576, "type": "note_off", "note_id": 1},
         ],
     )
@@ -500,8 +518,22 @@ def render_technical_audio(
         position_scrub_events,
         [
             {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 112},
-            {"absolute_frame": 8_192, "type": "parameter_change", "parameter": "layer.spectral.generator.spectral_position", "normalized": 0.75},
-            {"absolute_frame": 16_384, "type": "parameter_change", "parameter": "layer.spectral.generator.spectral_position", "normalized": 0.2},
+            {
+                "absolute_frame": 8_192,
+                "type": "parameter_change",
+                "parameter": "layer.spectral.generator.spectral_position",
+                "native_value": native_parameter_value(
+                    "layer.spectral.generator.spectral_position", 0.75
+                ),
+            },
+            {
+                "absolute_frame": 16_384,
+                "type": "parameter_change",
+                "parameter": "layer.spectral.generator.spectral_position",
+                "native_value": native_parameter_value(
+                    "layer.spectral.generator.spectral_position", 0.2
+                ),
+            },
             {"absolute_frame": 24_576, "type": "note_off", "note_id": 1},
         ],
     )
@@ -520,8 +552,22 @@ def render_technical_audio(
         morph_sweep_events,
         [
             {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 112},
-            {"absolute_frame": 8_192, "type": "parameter_change", "parameter": "layer.spectral.generator.spectral_morph", "normalized": 0.5},
-            {"absolute_frame": 16_384, "type": "parameter_change", "parameter": "layer.spectral.generator.spectral_morph", "normalized": 1.0},
+            {
+                "absolute_frame": 8_192,
+                "type": "parameter_change",
+                "parameter": "layer.spectral.generator.spectral_morph",
+                "native_value": native_parameter_value(
+                    "layer.spectral.generator.spectral_morph", 0.5
+                ),
+            },
+            {
+                "absolute_frame": 16_384,
+                "type": "parameter_change",
+                "parameter": "layer.spectral.generator.spectral_morph",
+                "native_value": native_parameter_value(
+                    "layer.spectral.generator.spectral_morph", 1.0
+                ),
+            },
             {"absolute_frame": 24_576, "type": "note_off", "note_id": 1},
         ],
     )

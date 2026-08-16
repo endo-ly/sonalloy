@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Wave Sequence Hybrid Reference",
     "author": "Sonalloy",
@@ -348,13 +348,19 @@
       {
         "source": "texture_motion",
         "target": "layer.texture.generator.granular_position",
-        "amount": 0.35,
+        "depth": {
+          "value": 0.35,
+          "unit": "normalized"
+        },
         "curve": "linear"
       },
       {
         "source": "mod_wheel",
         "target": "layer.texture.generator.grain_density",
-        "amount": 0.35,
+        "depth": {
+          "value": 2.325349,
+          "unit": "octaves"
+        },
         "curve": "linear"
       }
     ]

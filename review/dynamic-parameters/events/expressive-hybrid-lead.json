@@ -11,7 +11,7 @@
       "absolute_frame": 12000,
       "type": "parameter_change",
       "parameter": "voice.processor.tone.cutoff",
-      "normalized": 0.62
+      "native_value": 1448.87195
     },
     {
       "absolute_frame": 24000,

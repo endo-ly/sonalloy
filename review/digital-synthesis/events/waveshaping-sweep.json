@@ -11,13 +11,13 @@
       "absolute_frame": 4096,
       "type": "parameter_change",
       "parameter": "layer.unison_body.generator.waveshape",
-      "normalized": 0.75
+      "native_value": 0.75
     },
     {
       "absolute_frame": 12000,
       "type": "parameter_change",
       "parameter": "layer.unison_body.generator.waveshape",
-      "normalized": 0.05
+      "native_value": 0.05
     },
     {
       "absolute_frame": 14000,

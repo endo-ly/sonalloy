@@ -11,7 +11,7 @@
       "absolute_frame": 4096,
       "type": "parameter_change",
       "parameter": "layer.body.generator.additive_inharmonicity",
-      "normalized": 1.0
+      "native_value": 1.0
     },
     {
       "absolute_frame": 12000,

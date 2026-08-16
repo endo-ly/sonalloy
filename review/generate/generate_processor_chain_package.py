@@ -11,7 +11,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from common import render_midi
+from common import record_render_report, render_midi
 from measure_wav import compare_wav, measure, read_float_wav
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,7 +36,7 @@ def write_utf8(path: Path, content: str) -> None:
     path.write_bytes(content.encode("utf-8"))
 
 
-def run_cli(arguments: list[str]) -> None:
+def run_cli(arguments: list[str]) -> str:
     result = subprocess.run(
         cli_command() + arguments,
         cwd=ROOT,
@@ -51,6 +51,8 @@ def run_cli(arguments: list[str]) -> None:
             part for part in (result.stdout, result.stderr) if part
         ).strip()
         raise RuntimeError(f"CLI failed with exit code {result.returncode}: {details}")
+    record_render_report(arguments, result.stdout)
+    return result.stdout
 
 
 def render_note(
@@ -78,6 +80,7 @@ def render_note(
             str(block_size),
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )
@@ -105,6 +108,7 @@ def render_events(
             "0.5",
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )

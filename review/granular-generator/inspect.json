@@ -77,7 +77,11 @@
       "max": 12.0,
       "default": -3.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.texture.pan",
@@ -91,7 +95,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.texture.tuning",
@@ -105,7 +113,11 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     },
     {
       "id": "layer.texture.generator.granular_position",
@@ -119,7 +131,11 @@
       "max": 1.0,
       "default": 0.45,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.texture.generator.grain_size",
@@ -133,7 +149,11 @@
       "max": 0.5,
       "default": 0.08,
       "scale": "log2",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 6.643856
+      }
     },
     {
       "id": "layer.texture.generator.grain_density",
@@ -147,7 +167,11 @@
       "max": 100.0,
       "default": 24.0,
       "scale": "log2",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 6.643856
+      }
     },
     {
       "id": "layer.texture.generator.grain_pitch",
@@ -161,7 +185,11 @@
       "max": 2400.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 4800.0
+      }
     },
     {
       "id": "layer.texture.generator.grain_randomness",
@@ -175,7 +203,11 @@
       "max": 1.0,
       "default": 0.3,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.texture.generator.grain_pan_spread",
@@ -189,19 +221,33 @@
       "max": 1.0,
       "default": 0.8,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     }
   ],
   "sources": [
     {
       "id": "velocity",
       "scope": "voice",
-      "kind": "velocity"
+      "kind": "velocity",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
     },
     {
       "id": "key_tracking",
       "scope": "voice",
-      "kind": "key_tracking"
+      "kind": "key_tracking",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      }
     }
   ],
   "routes": []

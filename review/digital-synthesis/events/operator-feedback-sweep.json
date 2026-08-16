@@ -11,13 +11,13 @@
       "absolute_frame": 4096,
       "type": "parameter_change",
       "parameter": "layer.operator.generator.operator.2.feedback",
-      "normalized": 0.25
+      "native_value": 0.25
     },
     {
       "absolute_frame": 8192,
       "type": "parameter_change",
       "parameter": "layer.operator.generator.operator.2.feedback",
-      "normalized": 0.65
+      "native_value": 0.65
     },
     {
       "absolute_frame": 12000,

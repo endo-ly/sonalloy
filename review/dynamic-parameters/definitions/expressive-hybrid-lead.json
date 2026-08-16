@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Expressive Hybrid Lead",
     "author": "Sonalloy",
@@ -106,43 +106,64 @@
       {
         "source": "velocity",
         "target": "layer.lead.gain",
-        "amount": 0.08,
+        "depth": {
+          "value": 5.76000023,
+          "unit": "decibels"
+        },
         "curve": "linear"
       },
       {
         "source": "velocity",
         "target": "layer.attack.gain",
-        "amount": 0.06,
+        "depth": {
+          "value": 4.32000017,
+          "unit": "decibels"
+        },
         "curve": "linear"
       },
       {
         "source": "pitch_bend",
         "target": "layer.attack.tuning",
-        "amount": 0.04,
+        "depth": {
+          "value": 96,
+          "unit": "cents"
+        },
         "curve": "linear"
       },
       {
         "source": "pitch_bend",
         "target": "layer.lead.tuning",
-        "amount": 0.04,
+        "depth": {
+          "value": 96,
+          "unit": "cents"
+        },
         "curve": "linear"
       },
       {
         "source": "mod_wheel",
         "target": "layer.lead.pan",
-        "amount": 0.35,
+        "depth": {
+          "value": 0.699999988,
+          "unit": "pan"
+        },
         "curve": "linear"
       },
       {
         "source": "aftertouch",
         "target": "layer.lead.gain",
-        "amount": 0.05,
+        "depth": {
+          "value": 3.5999999,
+          "unit": "decibels"
+        },
         "curve": "smooth_step"
       },
       {
         "source": "aftertouch",
         "target": "voice.processor.tone.cutoff",
-        "amount": 0.2,
+        "depth": {
+          "value": 1.99315691,
+          "unit": "octaves"
+        },
         "curve": "smooth_step"
       }
     ]

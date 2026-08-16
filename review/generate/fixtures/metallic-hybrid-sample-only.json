@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Metallic Hybrid Attack",
     "author": "Sonalloy",
@@ -77,14 +77,18 @@
       {
         "source": "velocity",
         "target": "layer.attack.gain",
-        "amount": 0.06,
-        "curve": "linear"
+        "depth": {
+          "value": 4.32000017,
+          "unit": "decibels"
+        },        "curve": "linear"
       },
       {
         "source": "velocity",
         "target": "voice.processor.tone.cutoff",
-        "amount": 0.06,
-        "curve": "linear"
+        "depth": {
+          "value": 0.597947061,
+          "unit": "octaves"
+        },        "curve": "linear"
       }
     ]
   }

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Essential Hybrid Instrument",
     "author": "Sonalloy",
@@ -306,8 +306,10 @@
       {
         "source": "body_motion",
         "target": "layer.body.generator.pulse_width",
-        "amount": 0.2,
-        "curve": "linear"
+        "depth": {
+          "value": 0.180000007,
+          "unit": "normalized"
+        },        "curve": "linear"
       }
     ]
   }

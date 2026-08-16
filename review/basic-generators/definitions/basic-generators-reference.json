@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Basic Generators Reference",
     "author": null,
@@ -14,6 +14,7 @@
       "id": "square",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 48,
         "key_max": 48,
         "velocity_min": 1,
@@ -43,6 +44,7 @@
       "id": "triangle",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 52,
         "key_max": 52,
         "velocity_min": 1,
@@ -72,6 +74,7 @@
       "id": "pulse",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 55,
         "key_max": 55,
         "velocity_min": 1,
@@ -102,6 +105,7 @@
       "id": "white",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 60,
         "key_max": 60,
         "velocity_min": 1,
@@ -129,6 +133,7 @@
       "id": "pink",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 64,
         "key_max": 64,
         "velocity_min": 1,
@@ -156,6 +161,7 @@
       "id": "brown",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 67,
         "key_max": 67,
         "velocity_min": 1,
@@ -203,13 +209,19 @@
       {
         "source": "pwm_lfo",
         "target": "layer.pulse.generator.pulse_width",
-        "amount": 0.4,
+        "depth": {
+          "value": 0.360000014,
+          "unit": "normalized"
+        },
         "curve": "linear"
       },
       {
         "source": "correlation_lfo",
         "target": "layer.pink.generator.noise_correlation",
-        "amount": -0.5,
+        "depth": {
+          "value": -0.5,
+          "unit": "normalized"
+        },
         "curve": "linear"
       }
     ]

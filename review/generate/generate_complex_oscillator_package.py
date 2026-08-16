@@ -16,6 +16,7 @@ from common import (
     SAMPLE_RATE,
     measure_stereo,
     midi_note_frequency,
+    native_parameter_value,
     render_events,
     render_note as render_common_note,
     run_cli,
@@ -257,13 +258,17 @@ def main(review_root: Path) -> None:
                 "absolute_frame": 4096,
                 "type": "parameter_change",
                 "parameter": "layer.hard_sync_lead.generator.sync_ratio",
-                "normalized": 0.8,
+                "native_value": native_parameter_value(
+                    "layer.hard_sync_lead.generator.sync_ratio", 0.8
+                ),
             },
             {
                 "absolute_frame": 12_000,
                 "type": "parameter_change",
                 "parameter": "layer.hard_sync_lead.generator.sync_ratio",
-                "normalized": 0.1,
+                "native_value": native_parameter_value(
+                    "layer.hard_sync_lead.generator.sync_ratio", 0.1
+                ),
             },
             {"absolute_frame": 14_000, "type": "note_off", "note_id": 1},
         ],
@@ -283,13 +288,17 @@ def main(review_root: Path) -> None:
                 "absolute_frame": 4096,
                 "type": "parameter_change",
                 "parameter": "layer.unison_body.generator.waveshape",
-                "normalized": 0.75,
+                "native_value": native_parameter_value(
+                    "layer.unison_body.generator.waveshape", 0.75
+                ),
             },
             {
                 "absolute_frame": 12_000,
                 "type": "parameter_change",
                 "parameter": "layer.unison_body.generator.waveshape",
-                "normalized": 0.05,
+                "native_value": native_parameter_value(
+                    "layer.unison_body.generator.waveshape", 0.05
+                ),
             },
             {"absolute_frame": 14_000, "type": "note_off", "note_id": 2},
         ],
@@ -309,13 +318,17 @@ def main(review_root: Path) -> None:
                 "absolute_frame": 4096,
                 "type": "parameter_change",
                 "parameter": "layer.hard_sync_lead.generator.phase_distortion",
-                "normalized": 0.8,
+                "native_value": native_parameter_value(
+                    "layer.hard_sync_lead.generator.phase_distortion", 0.8
+                ),
             },
             {
                 "absolute_frame": 12_000,
                 "type": "parameter_change",
                 "parameter": "layer.hard_sync_lead.generator.phase_distortion",
-                "normalized": 0.1,
+                "native_value": native_parameter_value(
+                    "layer.hard_sync_lead.generator.phase_distortion", 0.1
+                ),
             },
             {"absolute_frame": 14_000, "type": "note_off", "note_id": 3},
         ],
@@ -335,13 +348,17 @@ def main(review_root: Path) -> None:
                 "absolute_frame": 4096,
                 "type": "parameter_change",
                 "parameter": "layer.hard_sync_lead.generator.oscillator_feedback",
-                "normalized": 0.8,
+                "native_value": native_parameter_value(
+                    "layer.hard_sync_lead.generator.oscillator_feedback", 0.8
+                ),
             },
             {
                 "absolute_frame": 12_000,
                 "type": "parameter_change",
                 "parameter": "layer.hard_sync_lead.generator.oscillator_feedback",
-                "normalized": 0.1,
+                "native_value": native_parameter_value(
+                    "layer.hard_sync_lead.generator.oscillator_feedback", 0.1
+                ),
             },
             {"absolute_frame": 14_000, "type": "note_off", "note_id": 4},
         ],
@@ -361,13 +378,17 @@ def main(review_root: Path) -> None:
                 "absolute_frame": 4096,
                 "type": "parameter_change",
                 "parameter": "layer.unison_body.generator.wavefold",
-                "normalized": 0.75,
+                "native_value": native_parameter_value(
+                    "layer.unison_body.generator.wavefold", 0.75
+                ),
             },
             {
                 "absolute_frame": 12_000,
                 "type": "parameter_change",
                 "parameter": "layer.unison_body.generator.wavefold",
-                "normalized": 0.05,
+                "native_value": native_parameter_value(
+                    "layer.unison_body.generator.wavefold", 0.05
+                ),
             },
             {"absolute_frame": 14_000, "type": "note_off", "note_id": 5},
         ],

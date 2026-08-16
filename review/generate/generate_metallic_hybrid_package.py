@@ -13,7 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-from common import render_midi  # noqa: E402
+from common import record_render_report, render_midi  # noqa: E402
 from measure_wav import compare_wav, measure, read_float_wav  # noqa: E402
 
 
@@ -32,6 +32,7 @@ def run_cli(arguments: list[str]) -> str:
         raise RuntimeError(
             f"CLI failed with exit code {result.returncode}: {details}"
         )
+    record_render_report(arguments, result.stdout)
     return result.stdout
 
 
@@ -55,6 +56,7 @@ def render_note(definition: Path, output: Path, gate: str = "0.5") -> None:
             "257",
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Harmonic Formant Hybrid Reference",
     "author": null,
@@ -297,62 +297,82 @@
       {
         "source": "velocity",
         "target": "layer.voice.gain",
-        "amount": 0.04,
-        "curve": "linear"
+        "depth": {
+          "value": 2.88000011,
+          "unit": "decibels"
+        },        "curve": "linear"
       },
       {
         "source": "velocity",
         "target": "layer.harmonic_body.gain",
-        "amount": 0.04,
-        "curve": "linear"
+        "depth": {
+          "value": 2.88000011,
+          "unit": "decibels"
+        },        "curve": "linear"
       },
       {
         "source": "velocity",
         "target": "layer.attack.gain",
-        "amount": 0.04,
-        "curve": "linear"
+        "depth": {
+          "value": 2.88000011,
+          "unit": "decibels"
+        },        "curve": "linear"
       },
       {
         "source": "vowel_motion",
         "target": "layer.voice.generator.formant_vowel_position",
-        "amount": 0.75,
-        "curve": "smooth_step"
+        "depth": {
+          "value": 0.75,
+          "unit": "normalized"
+        },        "curve": "smooth_step"
       },
       {
         "source": "brightness_motion",
         "target": "layer.voice.generator.formant_spectral_tilt",
-        "amount": 0.18,
-        "curve": "smooth_step"
+        "depth": {
+          "value": 6.48000002,
+          "unit": "decibels_per_octave"
+        },        "curve": "smooth_step"
       },
       {
         "source": "formant_breath",
         "target": "layer.voice.generator.formant_throat",
-        "amount": 0.3,
-        "curve": "linear"
+        "depth": {
+          "value": 0.300000012,
+          "unit": "normalized"
+        },        "curve": "linear"
       },
       {
         "source": "mod_wheel",
         "target": "layer.voice.generator.formant_shift",
-        "amount": 0.35,
-        "curve": "linear"
+        "depth": {
+          "value": 1680,
+          "unit": "cents"
+        },        "curve": "linear"
       },
       {
         "source": "vowel_motion",
         "target": "voice.processor.voice_tone.cutoff",
-        "amount": 0.08,
-        "curve": "smooth_step"
+        "depth": {
+          "value": 0.797262728,
+          "unit": "octaves"
+        },        "curve": "smooth_step"
       },
       {
         "source": "mod_wheel",
         "target": "global.processor.space.mix",
-        "amount": 0.25,
-        "curve": "linear"
+        "depth": {
+          "value": 0.25,
+          "unit": "normalized"
+        },        "curve": "linear"
       },
       {
         "source": "aftertouch",
         "target": "global.processor.echo.mix",
-        "amount": 0.12,
-        "curve": "linear"
+        "depth": {
+          "value": 0.119999997,
+          "unit": "normalized"
+        },        "curve": "linear"
       }
     ]
   }

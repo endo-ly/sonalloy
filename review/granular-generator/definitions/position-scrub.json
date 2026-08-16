@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Position Scrub",
     "author": "Sonalloy",
@@ -68,7 +68,10 @@
       {
         "source": "position_lfo",
         "target": "layer.texture.generator.granular_position",
-        "amount": 0.45,
+        "depth": {
+          "value": 0.45,
+          "unit": "normalized"
+        },
         "curve": "linear"
       }
     ]

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Complex Oscillator Reference",
     "author": null,
@@ -130,19 +130,28 @@
       {
         "source": "sync_sweep",
         "target": "layer.hard_sync_lead.generator.sync_ratio",
-        "amount": 0.35,
+        "depth": {
+          "value": 1.39999998,
+          "unit": "octaves"
+        },
         "curve": "linear"
       },
       {
         "source": "body_motion",
         "target": "layer.unison_body.generator.waveshape",
-        "amount": 0.45,
+        "depth": {
+          "value": 0.449999988,
+          "unit": "normalized"
+        },
         "curve": "linear"
       },
       {
         "source": "body_motion",
         "target": "layer.unison_body.generator.unison_spread",
-        "amount": 0.25,
+        "depth": {
+          "value": 0.25,
+          "unit": "normalized"
+        },
         "curve": "linear"
       }
     ]

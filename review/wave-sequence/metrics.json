@@ -5,14 +5,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.4798022210597992,
-    "rms": 0.05519409366033359,
-    "dc": 0.0002574113903421413,
+    "peak": 0.47980222,
+    "rms": 0.055194095,
+    "dc": 0.00025741139,
     "positive_zero_crossings_left": 1989,
     "zero_crossing_frequency_hz": 994.5,
     "estimated_frequency_hz": 994.5,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.2442227005958557,
+    "max_adjacent_frame_delta": 0.2442227,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -20,7 +20,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.47980222,
+        "peak_dbfs": -6.378755,
+        "rms": 0.055194095,
+        "rms_dbfs": -25.162148,
+        "crest_factor_db": 18.783392,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00024336093,
+        0.00027146185
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 60,
+        "peak_frame": 4037,
+        "last_frame": 80190
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.2442227,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.931632
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2893.5898,
+        "peaks": [
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.33947462
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.32626268
+          },
+          {
+            "frequency_hz": 7300.7812,
+            "relative_power": 0.11968002
+          },
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 0.032733124
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.02040246
+          },
+          {
+            "frequency_hz": 363.28125,
+            "relative_power": 0.008652453
+          },
+          {
+            "frequency_hz": 515.625,
+            "relative_power": 0.004090494
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "02-reverse.wav": {
     "sample_rate": 48000,
@@ -28,14 +103,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.4798022210597992,
-    "rms": 0.04675656030295223,
-    "dc": 0.00018091941186926047,
+    "peak": 0.47980222,
+    "rms": 0.04675656,
+    "dc": 0.000180919405,
     "positive_zero_crossings_left": 1716,
     "zero_crossing_frequency_hz": 858.0,
     "estimated_frequency_hz": 858.0,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.2442227005958557,
+    "max_adjacent_frame_delta": 0.2442227,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -43,7 +118,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.47980222,
+        "peak_dbfs": -6.378755,
+        "rms": 0.04675656,
+        "rms_dbfs": -26.603148,
+        "crest_factor_db": 20.224392,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00017787571,
+        0.0001839631
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 9,
+        "peak_frame": 31399,
+        "last_frame": 79685
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.2442227,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.8711992
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2917.5999,
+        "peaks": [
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.319087
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.27710426
+          },
+          {
+            "frequency_hz": 7300.7812,
+            "relative_power": 0.11482469
+          },
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 0.06595471
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.038915664
+          },
+          {
+            "frequency_hz": 363.28125,
+            "relative_power": 0.017569292
+          },
+          {
+            "frequency_hz": 515.625,
+            "relative_power": 0.011531841
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "03-ping-pong.wav": {
     "sample_rate": 48000,
@@ -51,14 +201,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.4798022210597992,
-    "rms": 0.04790279612393146,
-    "dc": 0.00017003294600617742,
+    "peak": 0.47980222,
+    "rms": 0.047902796,
+    "dc": 0.000170032945,
     "positive_zero_crossings_left": 1480,
     "zero_crossing_frequency_hz": 740.0,
     "estimated_frequency_hz": 740.0,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.2442227005958557,
+    "max_adjacent_frame_delta": 0.2442227,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -66,7 +216,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.47980222,
+        "peak_dbfs": -6.378755,
+        "rms": 0.047902796,
+        "rms_dbfs": -26.392782,
+        "crest_factor_db": 20.014027,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00014882056,
+        0.00019124533
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 60,
+        "peak_frame": 4037,
+        "last_frame": 80190
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.2442227,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.86398345
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2790.8643,
+        "peaks": [
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.33903623
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.32448965
+          },
+          {
+            "frequency_hz": 7300.7812,
+            "relative_power": 0.11849428
+          },
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 0.0715976
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.043438137
+          },
+          {
+            "frequency_hz": 363.28125,
+            "relative_power": 0.019018993
+          },
+          {
+            "frequency_hz": 550.78125,
+            "relative_power": 0.0074942154
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "04-single-step.wav": {
     "sample_rate": 48000,
@@ -74,14 +299,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.3392713963985443,
-    "rms": 0.07820941493033044,
-    "dc": 0.0007299872171343227,
+    "peak": 0.3392714,
+    "rms": 0.078209415,
+    "dc": 0.0007299872,
     "positive_zero_crossings_left": 6065,
     "zero_crossing_frequency_hz": 3032.5,
     "estimated_frequency_hz": 3032.5,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.17269152402877808,
+    "max_adjacent_frame_delta": 0.17269152,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -89,7 +314,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.3392714,
+        "peak_dbfs": -9.389055,
+        "rms": 0.078209415,
+        "rms_dbfs": -22.134819,
+        "crest_factor_db": 12.745764,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.0007299872,
+        0.0007299872
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 64,
+        "peak_frame": 4037,
+        "last_frame": 80400
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.17269152,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 1.0
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 3084.2063,
+        "peaks": [
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.32208136
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.26770604
+          },
+          {
+            "frequency_hz": 7300.7812,
+            "relative_power": 0.10537193
+          },
+          {
+            "frequency_hz": 2988.2812,
+            "relative_power": 0.005110686
+          },
+          {
+            "frequency_hz": 2800.7812,
+            "relative_power": 0.0037918256
+          },
+          {
+            "frequency_hz": 199.21875,
+            "relative_power": 0.0026328412
+          },
+          {
+            "frequency_hz": 3046.875,
+            "relative_power": 0.0024707764
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "05-missing-step.wav": {
     "sample_rate": 48000,
@@ -97,14 +397,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.4798022210597992,
-    "rms": 0.05512294780069216,
-    "dc": 0.0002589590551398906,
+    "peak": 0.47980222,
+    "rms": 0.05512295,
+    "dc": 0.00025895906499999997,
     "positive_zero_crossings_left": 2040,
     "zero_crossing_frequency_hz": 1020.0,
     "estimated_frequency_hz": 1020.0,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.2442227005958557,
+    "max_adjacent_frame_delta": 0.2442227,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -112,7 +412,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.47980222,
+        "peak_dbfs": -6.378755,
+        "rms": 0.05512295,
+        "rms_dbfs": -25.173351,
+        "crest_factor_db": 18.794596,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.0002449086,
+        0.00027300953
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 60,
+        "peak_frame": 4037,
+        "last_frame": 80190
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.2442227,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.9314555
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2897.4912,
+        "peaks": [
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.3396143
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.32622162
+          },
+          {
+            "frequency_hz": 7300.7812,
+            "relative_power": 0.11968018
+          },
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 0.03275005
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.020382723
+          },
+          {
+            "frequency_hz": 363.28125,
+            "relative_power": 0.008644847
+          },
+          {
+            "frequency_hz": 550.78125,
+            "relative_power": 0.0031719957
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "06-pitch-variant.wav": {
     "sample_rate": 48000,
@@ -120,14 +495,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.49179893732070923,
-    "rms": 0.05597721728085948,
-    "dc": 0.0002682389658172097,
+    "peak": 0.49179894,
+    "rms": 0.055977218,
+    "dc": 0.000268238965,
     "positive_zero_crossings_left": 2753,
     "zero_crossing_frequency_hz": 1376.5,
     "estimated_frequency_hz": 1376.5,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.35875166207551956,
+    "max_adjacent_frame_delta": 0.35875165,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 177,
     "large_discontinuity_frames": [
@@ -152,7 +527,99 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.49179894,
+        "peak_dbfs": -6.164248,
+        "rms": 0.055977218,
+        "rms_dbfs": -25.039772,
+        "crest_factor_db": 18.875525,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.0002541885,
+        0.00028228943
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 44,
+        "peak_frame": 2644,
+        "last_frame": 80190
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.35875165,
+        "large_delta_count": 177,
+        "first_large_delta_frames": [
+          184,
+          234,
+          235,
+          256,
+          272,
+          285,
+          306,
+          322,
+          373,
+          410,
+          423,
+          511,
+          2622,
+          2630,
+          2643,
+          2646
+        ]
+      },
+      "stereo": {
+        "correlation": 0.9335299
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 4376.56,
+        "peaks": [
+          {
+            "frequency_hz": 4347.6562,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 7113.2812,
+            "relative_power": 0.27260205
+          },
+          {
+            "frequency_hz": 398.4375,
+            "relative_power": 0.24018784
+          },
+          {
+            "frequency_hz": 10933.594,
+            "relative_power": 0.08524176
+          },
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 0.025709767
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.015337604
+          },
+          {
+            "frequency_hz": 292.96875,
+            "relative_power": 0.0074040573
+          },
+          {
+            "frequency_hz": 515.625,
+            "relative_power": 0.0034748004
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "07-gain-variant.wav": {
     "sample_rate": 48000,
@@ -160,14 +627,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.0901547521352768,
-    "rms": 0.01598120374559535,
-    "dc": 3.174182219368211e-05,
+    "peak": 0.09015475,
+    "rms": 0.015981203,
+    "dc": 3.17418235e-05,
     "positive_zero_crossings_left": 1961,
     "zero_crossing_frequency_hz": 980.5,
     "estimated_frequency_hz": 980.5,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.09308069944381714,
+    "max_adjacent_frame_delta": 0.0930807,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -175,7 +642,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.09015475,
+        "peak_dbfs": -20.900229,
+        "rms": 0.015981203,
+        "rms_dbfs": -35.92781,
+        "crest_factor_db": 15.027582,
+        "over_full_scale": false
+      },
+      "dc": [
+        1.769136e-05,
+        4.5792287e-05
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 66,
+        "peak_frame": 22089,
+        "last_frame": 80190
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.0930807,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.185532
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 1074.968,
+        "peaks": [
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.5840691
+          },
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 0.5053583
+          },
+          {
+            "frequency_hz": 363.28125,
+            "relative_power": 0.27492955
+          },
+          {
+            "frequency_hz": 292.96875,
+            "relative_power": 0.2440631
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.18038152
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.16502114
+          },
+          {
+            "frequency_hz": 515.625,
+            "relative_power": 0.12734434
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "08-block-1024.wav": {
     "sample_rate": 48000,
@@ -183,14 +725,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.4798022210597992,
-    "rms": 0.05519409366033359,
-    "dc": 0.0002574113903421413,
+    "peak": 0.47980222,
+    "rms": 0.055194095,
+    "dc": 0.00025741139,
     "positive_zero_crossings_left": 1989,
     "zero_crossing_frequency_hz": 994.5,
     "estimated_frequency_hz": 994.5,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.2442227005958557,
+    "max_adjacent_frame_delta": 0.2442227,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -198,7 +740,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.47980222,
+        "peak_dbfs": -6.378755,
+        "rms": 0.055194095,
+        "rms_dbfs": -25.162148,
+        "crest_factor_db": 18.783392,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00024336093,
+        0.00027146185
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 60,
+        "peak_frame": 4037,
+        "last_frame": 80190
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.2442227,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.931632
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2893.5898,
+        "peaks": [
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.33947462
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.32626268
+          },
+          {
+            "frequency_hz": 7300.7812,
+            "relative_power": 0.11968002
+          },
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 0.032733124
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.02040246
+          },
+          {
+            "frequency_hz": 363.28125,
+            "relative_power": 0.008652453
+          },
+          {
+            "frequency_hz": 515.625,
+            "relative_power": 0.004090494
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "08-block-257.wav": {
     "sample_rate": 48000,
@@ -206,14 +823,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.4798022210597992,
-    "rms": 0.05519409366033359,
-    "dc": 0.0002574113903421413,
+    "peak": 0.47980222,
+    "rms": 0.055194095,
+    "dc": 0.00025741139,
     "positive_zero_crossings_left": 1989,
     "zero_crossing_frequency_hz": 994.5,
     "estimated_frequency_hz": 994.5,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.2442227005958557,
+    "max_adjacent_frame_delta": 0.2442227,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -221,7 +838,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.47980222,
+        "peak_dbfs": -6.378755,
+        "rms": 0.055194095,
+        "rms_dbfs": -25.162148,
+        "crest_factor_db": 18.783392,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00024336093,
+        0.00027146185
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 60,
+        "peak_frame": 4037,
+        "last_frame": 80190
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.2442227,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.931632
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2893.5898,
+        "peaks": [
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.33947462
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.32626268
+          },
+          {
+            "frequency_hz": 7300.7812,
+            "relative_power": 0.11968002
+          },
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 0.032733124
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.02040246
+          },
+          {
+            "frequency_hz": 363.28125,
+            "relative_power": 0.008652453
+          },
+          {
+            "frequency_hz": 515.625,
+            "relative_power": 0.004090494
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "08-block-64.wav": {
     "sample_rate": 48000,
@@ -229,14 +921,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.4798022210597992,
-    "rms": 0.05519409366033359,
-    "dc": 0.0002574113903421413,
+    "peak": 0.47980222,
+    "rms": 0.055194095,
+    "dc": 0.00025741139,
     "positive_zero_crossings_left": 1989,
     "zero_crossing_frequency_hz": 994.5,
     "estimated_frequency_hz": 994.5,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.2442227005958557,
+    "max_adjacent_frame_delta": 0.2442227,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -244,7 +936,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.47980222,
+        "peak_dbfs": -6.378755,
+        "rms": 0.055194095,
+        "rms_dbfs": -25.162148,
+        "crest_factor_db": 18.783392,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00024336093,
+        0.00027146185
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 60,
+        "peak_frame": 4037,
+        "last_frame": 80190
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.2442227,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.931632
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2893.5898,
+        "peaks": [
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.33947462
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.32626268
+          },
+          {
+            "frequency_hz": 7300.7812,
+            "relative_power": 0.11968002
+          },
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 0.032733124
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.02040246
+          },
+          {
+            "frequency_hz": 363.28125,
+            "relative_power": 0.008652453
+          },
+          {
+            "frequency_hz": 515.625,
+            "relative_power": 0.004090494
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "09-sample-rate-44100.wav": {
     "sample_rate": 44100,
@@ -252,14 +1019,14 @@
     "frames": 96000,
     "duration_seconds": 2.17687074829932,
     "finite": true,
-    "peak": 0.47611865401268005,
-    "rms": 0.05275203834302678,
-    "dc": 0.0002094345671943474,
+    "peak": 0.47611865,
+    "rms": 0.052752037,
+    "dc": 0.000209434575,
     "positive_zero_crossings_left": 1884,
     "zero_crossing_frequency_hz": 865.4625,
     "estimated_frequency_hz": 865.4625,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.26599569246172905,
+    "max_adjacent_frame_delta": 0.26599568,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 3,
     "large_discontinuity_frames": [
@@ -271,7 +1038,86 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 44100,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.17687074829932,
+      "finite": true,
+      "level": {
+        "peak": 0.47611865,
+        "peak_dbfs": -6.4456964,
+        "rms": 0.052752037,
+        "rms_dbfs": -25.555214,
+        "crest_factor_db": 19.109518,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00025481562,
+        0.00016405353
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 0,
+        "peak_frame": 3547,
+        "last_frame": 79369
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.26599568,
+        "large_delta_count": 3,
+        "first_large_delta_frames": [
+          3597,
+          32264,
+          60931
+        ]
+      },
+      "stereo": {
+        "correlation": 0.9317053
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2907.3364,
+        "peaks": [
+          {
+            "frequency_hz": 2896.2158,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 4748.0713,
+            "relative_power": 0.31816927
+          },
+          {
+            "frequency_hz": 258.39844,
+            "relative_power": 0.31351689
+          },
+          {
+            "frequency_hz": 7299.756,
+            "relative_power": 0.10706257
+          },
+          {
+            "frequency_hz": 150.73242,
+            "relative_power": 0.028203176
+          },
+          {
+            "frequency_hz": 183.03223,
+            "relative_power": 0.020879755
+          },
+          {
+            "frequency_hz": 366.06445,
+            "relative_power": 0.00767326
+          },
+          {
+            "frequency_hz": 549.0967,
+            "relative_power": 0.0024535323
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "09-sample-rate-48000.wav": {
     "sample_rate": 48000,
@@ -279,14 +1125,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.4798022210597992,
-    "rms": 0.05519409366033359,
-    "dc": 0.0002574113903421413,
+    "peak": 0.47980222,
+    "rms": 0.055194095,
+    "dc": 0.00025741139,
     "positive_zero_crossings_left": 1989,
     "zero_crossing_frequency_hz": 994.5,
     "estimated_frequency_hz": 994.5,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.2442227005958557,
+    "max_adjacent_frame_delta": 0.2442227,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -294,7 +1140,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.47980222,
+        "peak_dbfs": -6.378755,
+        "rms": 0.055194095,
+        "rms_dbfs": -25.162148,
+        "crest_factor_db": 18.783392,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00024336093,
+        0.00027146185
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 60,
+        "peak_frame": 4037,
+        "last_frame": 80190
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.2442227,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.931632
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2893.5898,
+        "peaks": [
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.33947462
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.32626268
+          },
+          {
+            "frequency_hz": 7300.7812,
+            "relative_power": 0.11968002
+          },
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 0.032733124
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.02040246
+          },
+          {
+            "frequency_hz": 363.28125,
+            "relative_power": 0.008652453
+          },
+          {
+            "frequency_hz": 515.625,
+            "relative_power": 0.004090494
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "09-sample-rate-96000.wav": {
     "sample_rate": 96000,
@@ -302,14 +1223,14 @@
     "frames": 96000,
     "duration_seconds": 1.0,
     "finite": true,
-    "peak": 0.48993998765945435,
-    "rms": 0.06182706025834954,
-    "dc": 0.0003666734842262496,
+    "peak": 0.48994,
+    "rms": 0.06182706,
+    "dc": 0.000366673485,
     "positive_zero_crossings_left": 1311,
     "zero_crossing_frequency_hz": 1311.0,
     "estimated_frequency_hz": 1311.0,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.1248692749068141,
+    "max_adjacent_frame_delta": 0.12486927,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -317,7 +1238,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 96000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 1.0,
+      "finite": true,
+      "level": {
+        "peak": 0.48994,
+        "peak_dbfs": -6.197142,
+        "rms": 0.06182706,
+        "rms_dbfs": -24.176428,
+        "crest_factor_db": 17.979286,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00041563905,
+        0.00031770792
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 121,
+        "peak_frame": 7924,
+        "last_frame": 79665
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.12486927,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.94662184
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2950.496,
+        "peaks": [
+          {
+            "frequency_hz": 2906.25,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.29996043
+          },
+          {
+            "frequency_hz": 4757.8125,
+            "relative_power": 0.2767172
+          },
+          {
+            "frequency_hz": 7289.0625,
+            "relative_power": 0.0793804
+          },
+          {
+            "frequency_hz": 140.625,
+            "relative_power": 0.024842916
+          },
+          {
+            "frequency_hz": 375.0,
+            "relative_power": 0.006109581
+          },
+          {
+            "frequency_hz": 539.0625,
+            "relative_power": 0.0027302094
+          },
+          {
+            "frequency_hz": 5789.0625,
+            "relative_power": 0.00027232326
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "10-tempo-change.wav": {
     "sample_rate": 48000,
@@ -325,14 +1321,14 @@
     "frames": 441601,
     "duration_seconds": 9.200020833333333,
     "finite": true,
-    "peak": 0.5576515793800354,
-    "rms": 0.0541440900031281,
-    "dc": 0.0004032516359675879,
+    "peak": 0.5576516,
+    "rms": 0.05414409,
+    "dc": 0.00040325165,
     "positive_zero_crossings_left": 6376,
     "zero_crossing_frequency_hz": 693.041908872489,
     "estimated_frequency_hz": 693.041908872489,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.15519597008824348,
+    "max_adjacent_frame_delta": 0.15519597,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -340,7 +1336,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 441601,
+      "duration_seconds": 9.200020833333333,
+      "finite": true,
+      "level": {
+        "peak": 0.5576516,
+        "peak_dbfs": -5.0727415,
+        "rms": 0.05414409,
+        "rms_dbfs": -25.32898,
+        "crest_factor_db": 20.256237,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.0004013007,
+        0.0004052026
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 85,
+        "peak_frame": 211904,
+        "last_frame": 441600
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.15519597,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.956492
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 1517.6543,
+        "peaks": [
+          {
+            "frequency_hz": 2167.9688,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 726.5625,
+            "relative_power": 0.80332655
+          },
+          {
+            "frequency_hz": 1089.8438,
+            "relative_power": 0.7472919
+          },
+          {
+            "frequency_hz": 972.65625,
+            "relative_power": 0.7416754
+          },
+          {
+            "frequency_hz": 914.0625,
+            "relative_power": 0.7130733
+          },
+          {
+            "frequency_hz": 1933.5938,
+            "relative_power": 0.64923185
+          },
+          {
+            "frequency_hz": 1828.125,
+            "relative_power": 0.5767883
+          },
+          {
+            "frequency_hz": 82.03125,
+            "relative_power": 0.4554413
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "11-wave-sequence-hybrid.wav": {
     "sample_rate": 48000,
@@ -348,14 +1419,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.3821917474269867,
-    "rms": 0.07646271545885035,
-    "dc": 0.0007133590462269742,
-    "positive_zero_crossings_left": 1931,
-    "zero_crossing_frequency_hz": 965.5,
-    "estimated_frequency_hz": 965.5,
+    "peak": 0.41890502,
+    "rms": 0.08667311,
+    "dc": 0.00046437786999999997,
+    "positive_zero_crossings_left": 1805,
+    "zero_crossing_frequency_hz": 902.5,
+    "estimated_frequency_hz": 902.5,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.08835870213806629,
+    "max_adjacent_frame_delta": 0.088485986,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -363,7 +1434,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.41890502,
+        "peak_dbfs": -7.5576887,
+        "rms": 0.08667311,
+        "rms_dbfs": -21.242313,
+        "crest_factor_db": 13.684625,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00045538144,
+        0.0004733743
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 2,
+        "peak_frame": 62036,
+        "last_frame": 95999
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.088485986,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.18561195
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 690.52454,
+        "peaks": [
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 222.65625,
+            "relative_power": 0.46540377
+          },
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 0.22479272
+          },
+          {
+            "frequency_hz": 832.03125,
+            "relative_power": 0.13222879
+          },
+          {
+            "frequency_hz": 550.78125,
+            "relative_power": 0.12179265
+          },
+          {
+            "frequency_hz": 785.15625,
+            "relative_power": 0.08178038
+          },
+          {
+            "frequency_hz": 433.59375,
+            "relative_power": 0.017643621
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.0077778636
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "12-wave-sequence-hybrid-midi.wav": {
     "sample_rate": 48000,
@@ -371,14 +1517,14 @@
     "frames": 441601,
     "duration_seconds": 9.200020833333333,
     "finite": true,
-    "peak": 0.6068044900894165,
-    "rms": 0.1084382173529515,
-    "dc": 0.0011817353525199327,
-    "positive_zero_crossings_left": 9016,
-    "zero_crossing_frequency_hz": 979.9977808021268,
-    "estimated_frequency_hz": 979.9977808021268,
+    "peak": 0.64087653,
+    "rms": 0.11529441,
+    "dc": 0.0016107716,
+    "positive_zero_crossings_left": 8447,
+    "zero_crossing_frequency_hz": 918.1500947688071,
+    "estimated_frequency_hz": 918.1500947688071,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.09377641975879669,
+    "max_adjacent_frame_delta": 0.09470696,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -386,7 +1532,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 441601,
+      "duration_seconds": 9.200020833333333,
+      "finite": true,
+      "level": {
+        "peak": 0.64087653,
+        "peak_dbfs": -3.8645127,
+        "rms": 0.11529441,
+        "rms_dbfs": -18.763836,
+        "crest_factor_db": 14.899323,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.0016225919,
+        0.0015989513
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 1,
+        "peak_frame": 245397,
+        "last_frame": 441600
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.09470696,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.049701814
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 613.992,
+        "peaks": [
+          {
+            "frequency_hz": 82.03125,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 222.65625,
+            "relative_power": 0.8938346
+          },
+          {
+            "frequency_hz": 164.0625,
+            "relative_power": 0.41187316
+          },
+          {
+            "frequency_hz": 128.90625,
+            "relative_power": 0.18182379
+          },
+          {
+            "frequency_hz": 1089.8438,
+            "relative_power": 0.15948828
+          },
+          {
+            "frequency_hz": 1933.5938,
+            "relative_power": 0.14860228
+          },
+          {
+            "frequency_hz": 3550.7812,
+            "relative_power": 0.110040516
+          },
+          {
+            "frequency_hz": 292.96875,
+            "relative_power": 0.09160437
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "13-repeat.wav": {
     "sample_rate": 48000,
@@ -394,14 +1615,14 @@
     "frames": 96000,
     "duration_seconds": 2.0,
     "finite": true,
-    "peak": 0.4798022210597992,
-    "rms": 0.05519409366033359,
-    "dc": 0.0002574113903421413,
+    "peak": 0.47980222,
+    "rms": 0.055194095,
+    "dc": 0.00025741139,
     "positive_zero_crossings_left": 1989,
     "zero_crossing_frequency_hz": 994.5,
     "estimated_frequency_hz": 994.5,
     "fundamental_frequency_source": "zero_crossing",
-    "max_adjacent_frame_delta": 0.2442227005958557,
+    "max_adjacent_frame_delta": 0.2442227,
     "large_discontinuity_threshold": 0.25,
     "large_discontinuity_count": 0,
     "large_discontinuity_frames": [],
@@ -409,7 +1630,82 @@
       64,
       257,
       1024
-    ]
+    ],
+    "product_analysis": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 96000,
+      "duration_seconds": 2.0,
+      "finite": true,
+      "level": {
+        "peak": 0.47980222,
+        "peak_dbfs": -6.378755,
+        "rms": 0.055194095,
+        "rms_dbfs": -25.162148,
+        "crest_factor_db": 18.783392,
+        "over_full_scale": false
+      },
+      "dc": [
+        0.00024336093,
+        0.00027146185
+      ],
+      "activity": {
+        "threshold_dbfs": -80.0,
+        "first_frame": 60,
+        "peak_frame": 4037,
+        "last_frame": 80190
+      },
+      "continuity": {
+        "large_delta_threshold": 0.25,
+        "max_adjacent_frame_delta": 0.2442227,
+        "large_delta_count": 0,
+        "first_large_delta_frames": []
+      },
+      "stereo": {
+        "correlation": 0.931632
+      },
+      "spectrum": {
+        "fft_size": 4096,
+        "hop_size": 2048,
+        "spectral_centroid_hz": 2893.5898,
+        "peaks": [
+          {
+            "frequency_hz": 2894.5312,
+            "relative_power": 1.0
+          },
+          {
+            "frequency_hz": 257.8125,
+            "relative_power": 0.33947462
+          },
+          {
+            "frequency_hz": 4746.0938,
+            "relative_power": 0.32626268
+          },
+          {
+            "frequency_hz": 7300.7812,
+            "relative_power": 0.11968002
+          },
+          {
+            "frequency_hz": 152.34375,
+            "relative_power": 0.032733124
+          },
+          {
+            "frequency_hz": 187.5,
+            "relative_power": 0.02040246
+          },
+          {
+            "frequency_hz": 363.28125,
+            "relative_power": 0.008652453
+          },
+          {
+            "frequency_hz": 515.625,
+            "relative_power": 0.004090494
+          }
+        ],
+        "reference_frequency_hz": null,
+        "harmonic_energy_ratio": null
+      }
+    }
   },
   "block_comparisons": {
     "64": {
@@ -438,14 +1734,14 @@
       "frames": 96000,
       "duration_seconds": 2.17687074829932,
       "finite": true,
-      "peak": 0.47611865401268005,
-      "rms": 0.05275203834302678,
-      "dc": 0.0002094345671943474,
+      "peak": 0.47611865,
+      "rms": 0.052752037,
+      "dc": 0.000209434575,
       "positive_zero_crossings_left": 1884,
       "zero_crossing_frequency_hz": 865.4625,
       "estimated_frequency_hz": 865.4625,
       "fundamental_frequency_source": "zero_crossing",
-      "max_adjacent_frame_delta": 0.26599569246172905,
+      "max_adjacent_frame_delta": 0.26599568,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 3,
       "large_discontinuity_frames": [
@@ -457,7 +1753,86 @@
         64,
         257,
         1024
-      ]
+      ],
+      "product_analysis": {
+        "sample_rate": 44100,
+        "channels": 2,
+        "frames": 96000,
+        "duration_seconds": 2.17687074829932,
+        "finite": true,
+        "level": {
+          "peak": 0.47611865,
+          "peak_dbfs": -6.4456964,
+          "rms": 0.052752037,
+          "rms_dbfs": -25.555214,
+          "crest_factor_db": 19.109518,
+          "over_full_scale": false
+        },
+        "dc": [
+          0.00025481562,
+          0.00016405353
+        ],
+        "activity": {
+          "threshold_dbfs": -80.0,
+          "first_frame": 0,
+          "peak_frame": 3547,
+          "last_frame": 79369
+        },
+        "continuity": {
+          "large_delta_threshold": 0.25,
+          "max_adjacent_frame_delta": 0.26599568,
+          "large_delta_count": 3,
+          "first_large_delta_frames": [
+            3597,
+            32264,
+            60931
+          ]
+        },
+        "stereo": {
+          "correlation": 0.9317053
+        },
+        "spectrum": {
+          "fft_size": 4096,
+          "hop_size": 2048,
+          "spectral_centroid_hz": 2907.3364,
+          "peaks": [
+            {
+              "frequency_hz": 2896.2158,
+              "relative_power": 1.0
+            },
+            {
+              "frequency_hz": 4748.0713,
+              "relative_power": 0.31816927
+            },
+            {
+              "frequency_hz": 258.39844,
+              "relative_power": 0.31351689
+            },
+            {
+              "frequency_hz": 7299.756,
+              "relative_power": 0.10706257
+            },
+            {
+              "frequency_hz": 150.73242,
+              "relative_power": 0.028203176
+            },
+            {
+              "frequency_hz": 183.03223,
+              "relative_power": 0.020879755
+            },
+            {
+              "frequency_hz": 366.06445,
+              "relative_power": 0.00767326
+            },
+            {
+              "frequency_hz": 549.0967,
+              "relative_power": 0.0024535323
+            }
+          ],
+          "reference_frequency_hz": null,
+          "harmonic_energy_ratio": null
+        }
+      }
     },
     "48000": {
       "sample_rate": 48000,
@@ -465,14 +1840,14 @@
       "frames": 96000,
       "duration_seconds": 2.0,
       "finite": true,
-      "peak": 0.4798022210597992,
-      "rms": 0.05519409366033359,
-      "dc": 0.0002574113903421413,
+      "peak": 0.47980222,
+      "rms": 0.055194095,
+      "dc": 0.00025741139,
       "positive_zero_crossings_left": 1989,
       "zero_crossing_frequency_hz": 994.5,
       "estimated_frequency_hz": 994.5,
       "fundamental_frequency_source": "zero_crossing",
-      "max_adjacent_frame_delta": 0.2442227005958557,
+      "max_adjacent_frame_delta": 0.2442227,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -480,7 +1855,82 @@
         64,
         257,
         1024
-      ]
+      ],
+      "product_analysis": {
+        "sample_rate": 48000,
+        "channels": 2,
+        "frames": 96000,
+        "duration_seconds": 2.0,
+        "finite": true,
+        "level": {
+          "peak": 0.47980222,
+          "peak_dbfs": -6.378755,
+          "rms": 0.055194095,
+          "rms_dbfs": -25.162148,
+          "crest_factor_db": 18.783392,
+          "over_full_scale": false
+        },
+        "dc": [
+          0.00024336093,
+          0.00027146185
+        ],
+        "activity": {
+          "threshold_dbfs": -80.0,
+          "first_frame": 60,
+          "peak_frame": 4037,
+          "last_frame": 80190
+        },
+        "continuity": {
+          "large_delta_threshold": 0.25,
+          "max_adjacent_frame_delta": 0.2442227,
+          "large_delta_count": 0,
+          "first_large_delta_frames": []
+        },
+        "stereo": {
+          "correlation": 0.931632
+        },
+        "spectrum": {
+          "fft_size": 4096,
+          "hop_size": 2048,
+          "spectral_centroid_hz": 2893.5898,
+          "peaks": [
+            {
+              "frequency_hz": 2894.5312,
+              "relative_power": 1.0
+            },
+            {
+              "frequency_hz": 257.8125,
+              "relative_power": 0.33947462
+            },
+            {
+              "frequency_hz": 4746.0938,
+              "relative_power": 0.32626268
+            },
+            {
+              "frequency_hz": 7300.7812,
+              "relative_power": 0.11968002
+            },
+            {
+              "frequency_hz": 152.34375,
+              "relative_power": 0.032733124
+            },
+            {
+              "frequency_hz": 187.5,
+              "relative_power": 0.02040246
+            },
+            {
+              "frequency_hz": 363.28125,
+              "relative_power": 0.008652453
+            },
+            {
+              "frequency_hz": 515.625,
+              "relative_power": 0.004090494
+            }
+          ],
+          "reference_frequency_hz": null,
+          "harmonic_energy_ratio": null
+        }
+      }
     },
     "96000": {
       "sample_rate": 96000,
@@ -488,14 +1938,14 @@
       "frames": 96000,
       "duration_seconds": 1.0,
       "finite": true,
-      "peak": 0.48993998765945435,
-      "rms": 0.06182706025834954,
-      "dc": 0.0003666734842262496,
+      "peak": 0.48994,
+      "rms": 0.06182706,
+      "dc": 0.000366673485,
       "positive_zero_crossings_left": 1311,
       "zero_crossing_frequency_hz": 1311.0,
       "estimated_frequency_hz": 1311.0,
       "fundamental_frequency_source": "zero_crossing",
-      "max_adjacent_frame_delta": 0.1248692749068141,
+      "max_adjacent_frame_delta": 0.12486927,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -503,7 +1953,82 @@
         64,
         257,
         1024
-      ]
+      ],
+      "product_analysis": {
+        "sample_rate": 96000,
+        "channels": 2,
+        "frames": 96000,
+        "duration_seconds": 1.0,
+        "finite": true,
+        "level": {
+          "peak": 0.48994,
+          "peak_dbfs": -6.197142,
+          "rms": 0.06182706,
+          "rms_dbfs": -24.176428,
+          "crest_factor_db": 17.979286,
+          "over_full_scale": false
+        },
+        "dc": [
+          0.00041563905,
+          0.00031770792
+        ],
+        "activity": {
+          "threshold_dbfs": -80.0,
+          "first_frame": 121,
+          "peak_frame": 7924,
+          "last_frame": 79665
+        },
+        "continuity": {
+          "large_delta_threshold": 0.25,
+          "max_adjacent_frame_delta": 0.12486927,
+          "large_delta_count": 0,
+          "first_large_delta_frames": []
+        },
+        "stereo": {
+          "correlation": 0.94662184
+        },
+        "spectrum": {
+          "fft_size": 4096,
+          "hop_size": 2048,
+          "spectral_centroid_hz": 2950.496,
+          "peaks": [
+            {
+              "frequency_hz": 2906.25,
+              "relative_power": 1.0
+            },
+            {
+              "frequency_hz": 257.8125,
+              "relative_power": 0.29996043
+            },
+            {
+              "frequency_hz": 4757.8125,
+              "relative_power": 0.2767172
+            },
+            {
+              "frequency_hz": 7289.0625,
+              "relative_power": 0.0793804
+            },
+            {
+              "frequency_hz": 140.625,
+              "relative_power": 0.024842916
+            },
+            {
+              "frequency_hz": 375.0,
+              "relative_power": 0.006109581
+            },
+            {
+              "frequency_hz": 539.0625,
+              "relative_power": 0.0027302094
+            },
+            {
+              "frequency_hz": 5789.0625,
+              "relative_power": 0.00027232326
+            }
+          ],
+          "reference_frequency_hz": null,
+          "harmonic_energy_ratio": null
+        }
+      }
     }
   },
   "pitch_comparison": {
@@ -524,7 +2049,7 @@
     "rms_difference": 0.0,
     "different_sample_count": 0
   },
-  "hybrid_stereo_difference_rms": 0.09323124241805344,
+  "hybrid_stereo_difference_rms": 0.11077192646503357,
   "automatic_checks": {
     "all_audio_finite": true,
     "peaks_within_float_wav_range": true,

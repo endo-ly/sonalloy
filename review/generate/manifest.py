@@ -7,6 +7,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from common import record_render_report
+
 
 SAMPLE_RATE = 48_000
 BASE_BLOCK_SIZE = 257
@@ -93,7 +95,7 @@ def cli_command(root: Path) -> list[str]:
 
 
 def render_job(root: Path, job: RenderJob, output: Path, block_size: int) -> None:
-    command = cli_command(root) + [
+    arguments = [
         "render",
         "midi",
         str(root / job.definition),
@@ -106,5 +108,22 @@ def render_job(root: Path, job: RenderJob, output: Path, block_size: int) -> Non
         str(job.tail_seconds),
         "--output",
         str(output),
+        "--analyze",
+        "--json",
     ]
-    subprocess.run(command, cwd=root, check=True)
+    command = cli_command(root) + arguments
+    result = subprocess.run(
+        command,
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.returncode != 0:
+        details = "\n".join(
+            part for part in (result.stdout, result.stderr) if part
+        ).strip()
+        raise RuntimeError(f"CLI render failed with exit code {result.returncode}: {details}")
+    record_render_report(arguments, result.stdout)

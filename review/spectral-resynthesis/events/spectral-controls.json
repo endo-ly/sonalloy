@@ -11,31 +11,31 @@
       "absolute_frame": 4096,
       "type": "parameter_change",
       "parameter": "layer.spectral.generator.spectral_position",
-      "normalized": 0.8
+      "native_value": 0.8
     },
     {
       "absolute_frame": 8192,
       "type": "parameter_change",
       "parameter": "layer.spectral.generator.spectral_freeze",
-      "normalized": 0.7
+      "native_value": 0.7
     },
     {
       "absolute_frame": 12288,
       "type": "parameter_change",
       "parameter": "layer.spectral.generator.spectral_blur",
-      "normalized": 0.55
+      "native_value": 0.55
     },
     {
       "absolute_frame": 16384,
       "type": "parameter_change",
       "parameter": "layer.spectral.generator.spectral_shift",
-      "normalized": 0.56
+      "native_value": 1440.0000000000018
     },
     {
       "absolute_frame": 20480,
       "type": "parameter_change",
       "parameter": "layer.spectral.generator.spectral_morph",
-      "normalized": 0.85
+      "native_value": 0.85
     },
     {
       "absolute_frame": 24576,

@@ -22,6 +22,7 @@ from common import (
     build_cli,
     measure_stereo,
     midi_note_frequency,
+    native_parameter_value,
     render_events,
     render_midi,
     render_note,
@@ -353,7 +354,7 @@ def formant_with_lfo(source: dict[str, object]) -> dict[str, object]:
             {
                 "source": "vowel_position_lfo",
                 "target": "layer.voice.generator.formant_vowel_position",
-                "amount": 0.5,
+                "depth": {"value": 0.5, "unit": "normalized"},
                 "curve": "linear",
             }
         ],
@@ -409,7 +410,9 @@ def event_sequence(parameter: str, normalized: float, note_id: int) -> list[dict
             "absolute_frame": 4_096,
             "type": "parameter_change",
             "parameter": f"layer.voice.generator.{parameter}",
-            "normalized": normalized,
+            "native_value": native_parameter_value(
+                f"layer.voice.generator.{parameter}", normalized
+            ),
         },
         {"absolute_frame": 12_000, "type": "note_off", "note_id": note_id},
     ]
@@ -428,7 +431,9 @@ def hybrid_event_sequence() -> list[dict[str, object]]:
             "absolute_frame": 4_096,
             "type": "parameter_change",
             "parameter": "layer.voice.generator.formant_shift",
-            "normalized": 0.75,
+            "native_value": native_parameter_value(
+                "layer.voice.generator.formant_shift", 0.75
+            ),
         },
         {"absolute_frame": 8_192, "type": "mod_wheel", "value": 0.8},
         {"absolute_frame": 10_240, "type": "aftertouch", "value": 0.7},
@@ -1027,7 +1032,10 @@ def main() -> None:
             hybrid_note_path, hybrid_controls_path
         ),
         "existing_review_regression": {
-            "validated_definitions": existing_review_definitions,
+            "validated_definitions": [
+                str(definition.relative_to(ROOT))
+                for definition in existing_review_definitions
+            ],
             "rendered_definitions": list(existing_render_paths),
         },
         "high_frequency_energy": high_frequency_metrics,

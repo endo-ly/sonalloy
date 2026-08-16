@@ -11,7 +11,7 @@
       "absolute_frame": 4096,
       "type": "parameter_change",
       "parameter": "layer.pink.generator.noise_correlation",
-      "normalized": 0.0
+      "native_value": 0.0
     },
     {
       "absolute_frame": 12000,

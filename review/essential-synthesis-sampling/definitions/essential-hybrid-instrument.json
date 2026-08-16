@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Essential Hybrid Instrument",
     "author": "Sonalloy",
@@ -181,13 +181,19 @@
       {
         "source": "velocity",
         "target": "layer.attack.processor.attack_drive.mix",
-        "amount": 0.18,
+        "depth": {
+          "value": 0.180000007,
+          "unit": "normalized"
+        },
         "curve": "linear"
       },
       {
         "source": "mod_wheel",
         "target": "global.processor.space.mix",
-        "amount": 0.35,
+        "depth": {
+          "value": 0.349999994,
+          "unit": "normalized"
+        },
         "curve": "linear"
       }
     ]

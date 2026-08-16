@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Mod Wheel Position",
     "author": "Sonalloy",
@@ -52,7 +52,10 @@
       {
         "source": "mod_wheel",
         "target": "layer.motion.generator.wavetable_position",
-        "amount": 1.0,
+        "depth": {
+          "value": 1.0,
+          "unit": "normalized"
+        },
         "curve": "linear"
       }
     ]

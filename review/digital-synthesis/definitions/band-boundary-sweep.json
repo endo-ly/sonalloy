@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Band Boundary Sweep",
     "author": "Sonalloy",
@@ -52,7 +52,10 @@
       {
         "source": "pitch_bend",
         "target": "layer.motion.tuning",
-        "amount": 0.35,
+        "depth": {
+          "value": 840.0,
+          "unit": "cents"
+        },
         "curve": "linear"
       }
     ]

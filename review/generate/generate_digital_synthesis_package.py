@@ -21,6 +21,7 @@ from common import (
     cli_command,
     measure_stereo,
     midi_note_frequency,
+    native_parameter_value,
     render_events,
     render_midi,
     render_note,
@@ -395,14 +396,18 @@ def finalize_integrated_package(review_root: Path) -> None:
                 "absolute_frame": 4096,
                 "type": "parameter_change",
                 "parameter": "layer.motion.generator.wavetable_position",
-                "normalized": 0.85,
+                "native_value": native_parameter_value(
+                    "layer.motion.generator.wavetable_position", 0.85
+                ),
             },
             {"absolute_frame": 6144, "type": "note_on", "note_id": 2, "note": 55, "velocity": 96},
             {
                 "absolute_frame": 9216,
                 "type": "parameter_change",
                 "parameter": "layer.motion.generator.wavetable_position",
-                "normalized": 0.2,
+                "native_value": native_parameter_value(
+                    "layer.motion.generator.wavetable_position", 0.2
+                ),
             },
             {"absolute_frame": 12288, "type": "note_off", "note_id": 1},
             {"absolute_frame": 14336, "type": "note_off", "note_id": 2},
@@ -616,7 +621,7 @@ def definition(
     if extra_layers:
         layers.extend(copy.deepcopy(extra_layers))
     value: dict[str, object] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
@@ -689,7 +694,7 @@ def operator_definition(
             }
         )
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
@@ -918,7 +923,7 @@ def main() -> None:
         {
             "source": "motion_lfo",
             "target": position_parameter,
-            "amount": 0.5,
+            "depth": {"value": 0.5, "unit": "normalized"},
             "curve": "linear",
         },
     )
@@ -927,7 +932,7 @@ def main() -> None:
         {
             "source": "mod_wheel",
             "target": position_parameter,
-            "amount": 1.0,
+            "depth": {"value": 1.0, "unit": "normalized"},
             "curve": "linear",
         },
     )
@@ -936,7 +941,7 @@ def main() -> None:
         {
             "source": "pitch_bend",
             "target": "layer.motion.tuning",
-            "amount": 0.35,
+            "depth": {"value": 840.0, "unit": "cents"},
             "curve": "linear",
         },
     )
@@ -1115,13 +1120,13 @@ def main() -> None:
                     "absolute_frame": 4_096,
                     "type": "parameter_change",
                     "parameter": position_parameter,
-                    "normalized": 1.0,
+                    "native_value": native_parameter_value(position_parameter, 1.0),
                 },
                 {
                     "absolute_frame": 8_192,
                     "type": "parameter_change",
                     "parameter": position_parameter,
-                    "normalized": 0.1,
+                    "native_value": native_parameter_value(position_parameter, 0.1),
                 },
             ],
         ),
@@ -1163,13 +1168,13 @@ def main() -> None:
                     "absolute_frame": 4_096,
                     "type": "parameter_change",
                     "parameter": ratio_parameter,
-                    "normalized": 0.03,
+                    "native_value": native_parameter_value(ratio_parameter, 0.03),
                 },
                 {
                     "absolute_frame": 8_192,
                     "type": "parameter_change",
                     "parameter": ratio_parameter,
-                    "normalized": 0.09,
+                    "native_value": native_parameter_value(ratio_parameter, 0.09),
                 },
             ],
         ),
@@ -1184,13 +1189,13 @@ def main() -> None:
                     "absolute_frame": 4_096,
                     "type": "parameter_change",
                     "parameter": index_parameter,
-                    "normalized": 0.1,
+                    "native_value": native_parameter_value(index_parameter, 0.1),
                 },
                 {
                     "absolute_frame": 8_192,
                     "type": "parameter_change",
                     "parameter": index_parameter,
-                    "normalized": 0.4,
+                    "native_value": native_parameter_value(index_parameter, 0.4),
                 },
             ],
         ),
@@ -1205,13 +1210,13 @@ def main() -> None:
                     "absolute_frame": 4_096,
                     "type": "parameter_change",
                     "parameter": feedback_parameter,
-                    "normalized": 0.25,
+                    "native_value": native_parameter_value(feedback_parameter, 0.25),
                 },
                 {
                     "absolute_frame": 8_192,
                     "type": "parameter_change",
                     "parameter": feedback_parameter,
-                    "normalized": 0.65,
+                    "native_value": native_parameter_value(feedback_parameter, 0.65),
                 },
             ],
         ),

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Spectral Hybrid Reference",
     "author": "Sonalloy",
@@ -266,55 +266,82 @@
       {
         "source": "spectral_motion",
         "target": "layer.spectral.generator.spectral_position",
-        "amount": 0.35,
+        "depth": {
+          "value": 0.349999994,
+          "unit": "normalized"
+        },
         "curve": "smooth_step"
       },
       {
         "source": "spectral_breath",
         "target": "layer.spectral.generator.spectral_blur",
-        "amount": 0.25,
+        "depth": {
+          "value": 0.25,
+          "unit": "seconds"
+        },
         "curve": "linear"
       },
       {
         "source": "mod_wheel",
         "target": "layer.spectral.generator.spectral_shift",
-        "amount": 0.2,
+        "depth": {
+          "value": 4800,
+          "unit": "hertz"
+        },
         "curve": "linear"
       },
       {
         "source": "spectral_motion",
         "target": "layer.spectral.generator.spectral_morph",
-        "amount": 0.55,
+        "depth": {
+          "value": 0.550000012,
+          "unit": "normalized"
+        },
         "curve": "smooth_step"
       },
       {
         "source": "velocity",
         "target": "layer.attack.gain",
-        "amount": 0.04,
+        "depth": {
+          "value": 2.88000011,
+          "unit": "decibels"
+        },
         "curve": "linear"
       },
       {
         "source": "spectral_motion",
         "target": "layer.spectral.processor.spectral_tone.cutoff",
-        "amount": 0.1,
+        "depth": {
+          "value": 0.996578455,
+          "unit": "octaves"
+        },
         "curve": "smooth_step"
       },
       {
         "source": "spectral_motion",
         "target": "voice.processor.voice_tone.cutoff",
-        "amount": 0.08,
+        "depth": {
+          "value": 0.797262728,
+          "unit": "octaves"
+        },
         "curve": "smooth_step"
       },
       {
         "source": "mod_wheel",
         "target": "global.processor.echo.mix",
-        "amount": 0.2,
+        "depth": {
+          "value": 0.200000003,
+          "unit": "normalized"
+        },
         "curve": "linear"
       },
       {
         "source": "mod_wheel",
         "target": "global.processor.space.mix",
-        "amount": 0.2,
+        "depth": {
+          "value": 0.200000003,
+          "unit": "normalized"
+        },
         "curve": "linear"
       }
     ]

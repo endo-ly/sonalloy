@@ -44,19 +44,19 @@ python scripts/review/generate_basic_generators_package.py
 
 ## 人間の確認欄
 
-- [x] Square / Triangle / Pulseの音色差が明確である
-- [x] 高音域で耳障りなAliasが強すぎない
-- [x] Pulse Width 0.25 / 0.75の差が明確である
-- [x] PWMにClickやBlock境界の不連続がない
-- [x] White / Pink / Brownの差が明確である
-- [x] Brownが低域へ過度に偏らず、DC感が強すぎない
-- [x] Pinkに不自然な周期性がない
-- [x] Correlation 0 / 1でStereo幅の差が明確である
-- [x] 同じDefinitionの新規Runtime間でNoiseの冒頭が一致する
+- [ ] Square / Triangle / Pulseの音色差が明確である
+- [ ] 高音域で耳障りなAliasが強すぎない
+- [ ] Pulse Width 0.25 / 0.75の差が明確である
+- [ ] PWMにClickやBlock境界の不連続がない
+- [ ] White / Pink / Brownの差が明確である
+- [ ] Brownが低域へ過度に偏らず、DC感が強すぎない
+- [ ] Pinkに不自然な周期性がない
+- [ ] Correlation 0 / 1でStereo幅の差が明確である
+- [ ] 同じDefinitionの新規Runtime間でNoiseの冒頭が一致する
 
 ### 人間の回答
 
-- 判定：承認
-- 修正指示：なし
-- 確認者：利用者
-- 確認日：2026-08-05
+- 判定：
+- 修正指示：
+- 確認者：
+- 確認日：

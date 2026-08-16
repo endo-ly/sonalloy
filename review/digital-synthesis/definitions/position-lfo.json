@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Position LFO",
     "author": "Sonalloy",
@@ -60,7 +60,10 @@
       {
         "source": "motion_lfo",
         "target": "layer.motion.generator.wavetable_position",
-        "amount": 0.5,
+        "depth": {
+          "value": 0.5,
+          "unit": "normalized"
+        },
         "curve": "linear"
       }
     ]

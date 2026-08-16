@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Moving Hybrid Pad",
     "author": "Sonalloy",
@@ -114,19 +114,28 @@
       {
         "source": "velocity",
         "target": "layer.attack.gain",
-        "amount": 0.08,
+        "depth": {
+          "value": 5.76000023,
+          "unit": "decibels"
+        },
         "curve": "linear"
       },
       {
         "source": "velocity",
         "target": "layer.body.gain",
-        "amount": 0.08,
+        "depth": {
+          "value": 5.76000023,
+          "unit": "decibels"
+        },
         "curve": "linear"
       },
       {
         "source": "filter_motion",
         "target": "voice.processor.tone.cutoff",
-        "amount": 0.18,
+        "depth": {
+          "value": 1.79384112,
+          "unit": "octaves"
+        },
         "curve": "smooth_step"
       }
     ]

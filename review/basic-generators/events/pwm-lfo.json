@@ -11,7 +11,7 @@
       "absolute_frame": 4096,
       "type": "parameter_change",
       "parameter": "layer.pulse.generator.pulse_width",
-      "normalized": 0.7777778
+      "native_value": 0.75000002
     },
     {
       "absolute_frame": 12000,
