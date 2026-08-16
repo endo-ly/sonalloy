@@ -53,12 +53,35 @@ sonalloy instrument inspect <definition> --json
 | Performance | 同時発音数、Voice Stealingの方式、報告Latency |
 | Layer | 発音条件、Generator、Gain、Pan、Tuning、ADSR |
 | Generator | 各Generatorの構成値（波形、Asset、Parameter、Algorithmなど） |
-| Parameter | Parameter ID、単位、範囲、初期値 |
-| Modulation | SourceとTargetの接続 |
+| Parameter | Parameter ID、Owner、Native Unit、Native範囲、Default、Scale、Smoothing、Modulation Unit、最大Depth |
+| Modulation | Sourceの範囲・Polarity、RouteのDepth、Curve、Static Effect、DefaultからのReachable Range、Clamp可能性 |
 | Processor | Layer / Voice / Globalの各Processor Chain |
 | Warning | コンパイル時の警告（Asset欠落など） |
 
-`--json`は、Generatorごとの構造をFieldとして返します。Parameter IDは`layer.<layer_id>.generator.<name>`形式（Operator Modulationだけ`operator.<1-4>.<parameter>`）。各GeneratorがどのFieldを返すかは、実際に`--json`を実行して確認してください。
+`--json`は、Generatorごとの構造をFieldとして返します。Parameter IDは`layer.<layer_id>.generator.<name>`形式（Operator Modulationだけ`operator.<1-4>.<parameter>`）。各GeneratorがどのFieldを返すかは、実際に`--json`を実行して確認してください。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。
+
+例（抜粋）：
+
+```json
+{
+  "id": "layer.body.tuning",
+  "unit": "cents",
+  "min": -1200.0,
+  "max": 1200.0,
+  "default": 0.0,
+  "scale": "linear",
+  "modulation": { "unit": "cents", "max_abs_depth": 2400.0 },
+  "modulated_range_from_default": {
+    "unclamped_min": -20.0,
+    "unclamped_max": 20.0,
+    "effective_min": -20.0,
+    "effective_max": 20.0,
+    "may_clamp": false
+  }
+}
+```
+
+`modulated_range_from_default`は、各Sourceが宣言されたEndpointへ独立に到達できると仮定した決定的なBoundです。特定の演奏で実際に通る値の予測ではありません。
 
 ## 音を鳴らす
 
@@ -91,6 +114,9 @@ sonalloy render note <definition> \
 | `--sample-rate` | 48000 | 出力Sample Rate |
 | `--block-size` | 257 | 処理の最大Block Size |
 | `--output` | — | 出力先（必須） |
+| `--analyze` | Off | 補正後WAVのLevel、DC、Activity、Continuity、Stereo、Spectrumを計算 |
+| `--trace <id>` | なし | 選択したDynamic ParameterをTrace（複数指定可） |
+| `--trace-every-frames <N>` | 480（Trace指定時） | 定期Trace間隔。1以上。Traceなしでは指定不可 |
 | `--json` | Off | 結果を機械可読で出力 |
 
 ### `render events` — Event Sequenceのレンダリング
@@ -110,7 +136,7 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 ```json
 {
   "events": [
-    { "absolute_frame": 0,     "type": "parameter_change", "parameter": "voice.processor.tone.cutoff", "normalized": 0.35 },
+    { "absolute_frame": 0,     "type": "parameter_change", "parameter": "voice.processor.tone.cutoff", "native_value": 3500.0 },
     { "absolute_frame": 0,     "type": "note_on",          "note_id": 1, "note": 60, "velocity": 100 },
     { "absolute_frame": 24000, "type": "mod_wheel",        "value": 1.0 },
     { "absolute_frame": 48000, "type": "note_off",         "note_id": 1 }
@@ -123,7 +149,7 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 | `type` | 渡す値 | 働き |
 |---|---|---|
 | `note_on` / `note_off` | `note_id`、`note`、`velocity` | 音を鳴らす / 止める。`note_id`でOnとOffを対応付ける |
-| `parameter_change` | `parameter`、`normalized` | Parameter IDへ0〜1の値を送る |
+| `parameter_change` | `parameter`、`native_value` | Parameter CatalogのNative Unit値を送る（CutoffはHz、TuningはCents、GainはdB） |
 | `pitch_bend` | `value` | -1〜1 |
 | `mod_wheel` | `value` | 0〜1 |
 | `aftertouch` | `value` | 0〜1 |
@@ -131,7 +157,7 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 読み込み時の処理：
 
 - Eventを**時系列へ正しく処理するため**、`absolute_frame`の昇順へ整列します。同じFrameでは、決まった優先順位（Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note On）で処理します
-- 次のいずれかがあると、安全のためWAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、範囲外の値
+- 次のいずれかがあると、安全のためWAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、Native範囲外の値。旧`normalized` Fieldは受け付けません
 
 | Option | Default | 内容 |
 |---|---|---|
@@ -141,7 +167,46 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 | `--sample-rate` | 48000 | 出力Sample Rate |
 | `--block-size` | 257 | 処理の最大Block Size |
 | `--output` | — | 出力先（必須） |
+| `--analyze` | Off | 補正後WAVの解析を追加 |
+| `--trace <id>` | なし | 選択したDynamic ParameterをTrace（複数指定可） |
+| `--trace-every-frames <N>` | 480（Trace指定時） | 定期Trace間隔 |
 | `--json` | Off | 結果を機械可読で出力 |
+
+### Render diagnostics — AnalysisとTrace
+
+`render note`、`render events`、`render midi`は、`--analyze`で補正後の出力WAVを決定的に解析し、`--trace`で選択したParameterの実行中の値をJSON成功Reportへ追加します。`--json`を付けない場合も、短いSummaryを標準出力へ表示します。
+
+Analysisの主なFieldは次のとおりです。
+
+| Field | 意味 |
+|---|---|
+| `level` | 全ChannelのPeak、RMS、dBFS、Crest Factor、`over_full_scale`（Peak > 1） |
+| `dc` | Channelごとの算術平均 |
+| `activity` | -80 dBFSを超えた最初・Peak・最後のFrame。無音なら`null` |
+| `continuity` | 隣接Frame最大差分、差分が0.25を超えた件数、先頭最大16箇所 |
+| `stereo.correlation` | Zero-mean Pearson相関。分母が0なら`null` |
+| `spectrum` | Hann窓STFTのCentroid、最大8局所Peak、指定NoteのReference周波数とHarmonic比 |
+
+ZeroのdBFS、無音のActivity、短すぎる音声のSpectrum指標、一定信号のStereo相関は`null`で表し、NaNやInfinityはJSONへ出しません。`render note`だけは指定MIDI Noteから`440 × 2^((note - 69) / 12)`をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
+
+Trace対象は既存CatalogのDynamic Parameter IDだけです。Traceは次を含みます。
+
+- frame 0のBaseline、`N` FrameごとのPeriodic Point、Event処理後のPoint、最終Frame。重複Frameは1点にまとめます
+- `base`、Routeごとの`raw` / `shaped` Source、Definitionの`depth`、Domain Contribution、Clamp前の`before_clamp`、Clamp後の`final`、`clamped`
+- Voice所属TargetではVoice Index、Note ID / Number、Velocity、State。Global Targetでは`voice: null`
+- Layer TargetはそのLayerがActiveなVoiceだけを報告し、Inactive Layerの架空値は出しません
+
+Trace FrameはLatency補正後のWAVと同じPublic Timelineです。`--trace`は繰り返し指定でき、重複IDは最初の指定順を保ってDeduplicateされます。未知のID、0以下の間隔、Traceなしの`--trace-every-frames`は入力Errorです。観測数には100,000件の上限があります。
+
+例：
+
+```bash
+sonalloy render note presets/basic.json --analyze \
+  --trace layer.body.tuning --trace voice.processor.tone.cutoff \
+  --trace-every-frames 480 --json --output out/note.wav
+```
+
+`trace.parameters[].observations[]`の`final`が、全Route加算とTarget Clamp後の実効Native値です。Traceを有効にしても、通常Renderと同じRuntimeを使い、出力Audioは既存のBlock分割許容範囲内で一致します。
 
 ### `render midi` — MIDI Fileのレンダリング
 
@@ -168,6 +233,9 @@ MIDIを読み込むと、CLIは次の変換を行います：
 | `--sample-rate` | 48000 | 出力Sample Rate |
 | `--block-size` | 257 | 処理の最大Block Size |
 | `--output` | — | 出力先（必須） |
+| `--analyze` | Off | 補正後WAVの解析を追加 |
+| `--trace <id>` | なし | 選択したDynamic ParameterをTrace（複数指定可） |
+| `--trace-every-frames <N>` | 480（Trace指定時） | 定期Trace間隔 |
 | `--json` | Off | 結果を機械可読で出力 |
 
 ## 動作確認
@@ -234,7 +302,7 @@ Time Stretchを含む音源では、CLIが内部で報告Latency分を追加レ�
 
 **音源定義・Event**
 
-`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`PARAMETER_ID_INVALID`、`PARAMETER_NOT_FOUND`、`SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_AMOUNT_INVALID`、`ROUTE_TARGET_INVALID`、`FILTER_CUTOFF_CLAMPED`、`EVENT_ORDER_INVALID`、`DSP_ERROR`
+`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`PARAMETER_ID_INVALID`、`PARAMETER_NOT_FOUND`、`SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_DEPTH_INVALID`、`ROUTE_DEPTH_UNIT_INVALID`、`ROUTE_TARGET_INVALID`、`FILTER_CUTOFF_CLAMPED`、`TRACE_LIMIT_EXCEEDED`、`EVENT_ORDER_INVALID`、`DSP_ERROR`
 
 **Asset**
 

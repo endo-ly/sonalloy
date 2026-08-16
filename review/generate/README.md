@@ -23,7 +23,7 @@
 | `manifest.py` | Basic Poly Synthの固定Render条件と共通Render処理を定義する |
 | `measure_wav.py` | WAVのMetadata、Finite性、Peak、RMS、DC、周波数、境界差分を測定する |
 
-これらは本体機能ではありませんが、Review資料を同じ条件で再生成し、測定方法を追跡できるようにするためRepositoryへ含めます。生成済みWAVやMetricsと一緒に変更履歴へ残す対象です。
+これらは本体機能ではありませんが、Review資料を同じ条件で再生成し、測定方法を追跡できるようにするためRepositoryへ含めます。生成済みWAVやMetricsと一緒に変更履歴へ残す対象です。共通のRenderではCLIの`--analyze --json`を実行して製品のAnalysis Reportを取得し、Metricsへ保存します。`measure_wav.py`はそのReportの代替計算を増やさず、Review固有の比較（Package間の差分、Block境界、回帰判定）だけを担当します。
 
 ## 再生成
 

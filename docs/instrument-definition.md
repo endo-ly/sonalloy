@@ -19,19 +19,19 @@
 
 | Field | 内容 |
 |---|---|
-| `schema_version` | スキーマ版。`1`のみ |
+| `schema_version` | スキーマ版。現在は`2`。`1`はUnsupportedとして拒否 |
 | `metadata` | `name`、`author`、`description` |
 | `performance` | `polyphony`、`voice_stealing` |
 | `layers` | 発音の単位となるLayer配列（1個以上） |
 | `voice_processors` | 全LayerのMix後に適用するProcessor Chain |
 | `global_processors` | 全Voiceの合計後に適用するProcessor Chain |
-| `modulation` | SourceとRouteの定義（省略可） |
+| `modulation` | SourceとRouteの定義（省略可）。Routeは`depth.value`と`depth.unit`でTargetに直接効く量を指定 |
 
 全体の例（Saw Oscillatorの最小構成）：
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": { "name": "Basic Poly Synth", "author": null, "description": "..." },
   "performance": { "polyphony": 16, "voice_stealing": "quietest_releasing_then_oldest" },
   "layers": [
@@ -52,7 +52,7 @@
   "modulation": {
     "sources": [],
     "routes": [
-      { "source": "velocity", "target": "layer.body.gain", "amount": 0.08, "curve": "linear" }
+      { "source": "velocity", "target": "layer.body.gain", "depth": { "value": 8.0, "unit": "decibels" }, "curve": "linear" }
     ]
   }
 }
@@ -81,7 +81,7 @@
 | Compressor | `threshold_db` -60〜0 dB、`ratio` 1〜20、`attack_ms` 0.1〜200、`release_ms` 5〜2000、`knee_db` 0〜24、`makeup_gain_db` -12〜24 dB、`mix` 0〜1 |
 | Limiter | `ceiling_db` -12〜0 dBFS、`release_ms` 5〜1000、`input_gain_db` -24〜24 dB |
 | ID（Processor / Layer / Source） | 小文字で始まり、小文字・数字・`_`を使用。`.`は使わない |
-| Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
+| Modulation Depth | Targetに対応するModulation Unitで指定するSigned値。Linear TargetはNative Unit、Log2 TargetはOctaves |
 | LFO | Rate 0.01〜40 Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
 | 未知のField | JSON Parse Error |
@@ -185,10 +185,10 @@ Dynamic Parameter：`pulse_width`
 | Field | Range | Dynamic | 意味 |
 |---|---|---|---|
 | `hard_sync.ratio` | 1〜16 | Yes | Masterに対するSlaveの周波数比。Log2 |
-| `waveshaping.amount` | 0〜1 | Yes | Waveshapingの強さ |
-| `phase_distortion.amount` | 0〜1 | Yes | Sineの位相を非線形に変形する量 |
-| `wavefold.amount` | 0〜1 | Yes | Wavefoldの強さ |
-| `feedback.amount` | 0〜1 | Yes | 直前Sampleで自己変調する量 |
+| `waveshaping.amount` | 0〜1 | Yes | 0はBypass。`shape = 1 + amount × 3`、Wetは`tanh(shape × x) / tanh(shape)`、DryからWetへ`amount`でLinear Crossfade |
+| `phase_distortion.amount` | 0〜1 | Yes | 0はIdentity。Phase Breakpointは`0.5 - amount × 0.45`（1で0.05） |
+| `wavefold.amount` | 0〜1 | Yes | 0はBypass。DaisySP Driveは`1 + amount × 7`、Wavefolderへ渡すWet量は同じ`amount` |
+| `feedback.amount` | 0〜1 | Yes | 0は無効。直前Sample`previous`から`(tanh(previous × amount × 2.5)) × 0.25`のPhase寄与を作る |
 | `unison.voices` | 2〜8 | No | UnisonのVoice数 |
 | `unison.detune_cents` | 0〜100 | Yes | 各VoiceのDetune幅 |
 | `unison.stereo_spread` | 0〜1 | Yes | 左右への配置幅 |
@@ -202,6 +202,8 @@ Dynamic Parameter：`pulse_width`
 - Hard SyncとUnisonを組み合わせる場合、`phase_spread`は0だけです
 
 Dynamic Parameter：`sync_ratio`、`waveshape`、`phase_distortion`、`wavefold`、`oscillator_feedback`、`unison_detune`、`unison_spread`
+
+`waveshaping.amount`、`phase_distortion.amount`、`wavefold.amount`、`feedback.amount`は0〜1のAlgorithm Strengthです。Routeで動かす場合も、Inspectに表示されるParameterのNative範囲とUnitを使用します。
 
 ### Noise
 
@@ -408,7 +410,7 @@ A/BのChannel数不一致はCompile Error、Assetの欠落・Hash不一致・Dec
 | `operators[].ratio` | 0.25〜32 | Yes | Note Frequencyに対する周波数比 |
 | `operators[].detune_cents` | -100〜100 | Yes | 周波数の微調整 |
 | `operators[].level` | 0〜1 | Yes | Carrierの出力音量（Carrierのみ） |
-| `operators[].modulation_amount` | Mode依存 | Yes | 変調の強さ。Phase/Frequencyは0〜8、Amplitude/Ringは0〜1 |
+| `operators[].modulation_amount` | Mode依存 | Yes | Phase/Frequencyは0〜8、Amplitude/Ringは0〜1。下記のMode式で使用 |
 | `operators[].feedback` | 0〜1 | Yes | 直前Sampleで自己変調する量（Phase/Frequencyのみ） |
 | `operators[].phase` | 0〜1 | No | 初期位相 |
 | `operators[].envelope` | Optional ADSR | No | Operator個別のADSR |
@@ -422,6 +424,17 @@ A/BのChannel数不一致はCompile Error、Assetの欠落・Hash不一致・Dec
 - Unisonは最大4 Voice。ADSRを全Componentで共有します
 
 Dynamic Parameter：`operator.<1-4>.ratio`、`operator.<1-4>.detune`、`operator.<1-4>.level`（Carrierのみ）、`operator.<1-4>.modulation_amount`（接続元のみ）、`operator.<1-4>.feedback`（Phase/Frequencyのみ）、`unison_detune` / `unison_spread`（Unison指定時）
+
+Operatorの`modulation_amount`はModeごとに次の意味です。`output`は接続元Operatorの現在出力、`signal`は出力先Carrierの現在信号です。
+
+| Mode | Runtimeでの意味 |
+|---|---|
+| Phase | 接続元の`output × amount`を加算し、合計へ`0.5`を掛けた値をCarrierのPhaseへ加算 |
+| Frequency | 接続元の`output × amount`を加算し、`frequency × (1 + sum + feedback_offset)`で瞬時周波数を計算してClamp |
+| Amplitude | 各接続元について`1 + output × amount`を乗算し、最後に振幅倍率を`0..4`へClamp |
+| Ring | `signal`を`signal × output`へ`amount`でLinear Crossfade |
+
+Phase/FrequencyのFeedbackは、直前出力`previous`とAmountから`(tanh(previous × amount × 2.5)) × 0.25`を作り、PhaseまたはFrequencyの式へ加算します。
 
 ### Sample
 
@@ -641,19 +654,39 @@ Parameter IDの形式：
 - Voice Processor: `voice.processor.<processor_id>.<parameter>`
 - Global Processor: `global.processor.<processor_id>.<parameter>`
 
+## 数値の意味論
+
+Definitionの数値は、名前だけから効果を推測せず、次のEndpointと式で解釈します。範囲内で値を変えるときは、`instrument inspect`でNative Unit・Scale・Clamp範囲を確認できます。
+
+| Field | 0 / 中立 | 1 / 終端 | 実行時の意味 |
+|---|---|---|---|
+| `drive.amount` | Identity | 最大Shape | Shape係数は`amount × 4`。Wetは正規化`tanh` Saturation |
+| `drive.mix` | Dry | Wet | `input + (wet - input) × mix`のLinear Crossfade |
+| Additive / Spectral `morph` | A | B | AdditiveはA/B振幅、SpectralはA/B Spectral Frameを補間 |
+| Wavetable / Spectral / Granular `position` | Source Domainの開始 | Source Domainの終了 | それぞれFrame列、Spectral Frame列、Granular Regionの読出位置 |
+| Noise `stereo_correlation` | 左右独立 | 左右同一 | Shared NoiseとIndependent Noiseを平方根Gainで混合 |
+| `unison.stereo_spread` / `grain_pan_spread` | 中央 | 最大配置幅 | 左右配置係数へ対称に適用。Unisonは中心から各Voiceを配置 |
+| Spectral `freeze` | 通常走査 | Frame固定 | Scan進行量を`1 - freeze`倍する。Phaseは進む |
+| Formant `throat` | — | — | `0.5`がBandwidth不変。0〜1でBandwidthを`0.5〜2`倍へ変える |
+| Reverb `decay` | 最短Decay | 最長Decay | Tank Feedbackは`clamp(decay × 0.2, 0, 0.19)` |
+| Granular `randomness` | 指定Position | 最大分散 | Grainごとの決定的なBipolar位置値へ係数として掛け、Region内でWrap |
+| Additive `inharmonicity` | Harmonic | 最大非整数化 | 高次PartialのRatioへ実装済みの非整数化係数を適用。Fundamental Ratio 1は維持 |
+
+`position`の範囲は対象Generatorが準備したSource Domainの範囲であり、音声Buffer全体の絶対位置ではありません。`formant.throat`の0.5はNeutral Pointで、0や1が無変化ではありません。
+
 ## Modulation
 
 `modulation`は省略可能です。`sources`はVoiceごとのSource定義、`routes`はSourceからDynamic Parameterへの接続です。Routeは書かれた順に同じTargetへ加算され、最後にTarget範囲へClampされます。
 
 **組み込みSource**（定義なしで使えます）：
 
-| Source ID | 範囲 | 動作 |
-|---|---|---|
-| `velocity` | 0〜1 | Note OnのVelocity |
-| `key_tracking` | -1〜1 | MIDI Note 0を-1、127を+1へ変換 |
-| `pitch_bend` | -1〜1 | 共有External Control |
-| `mod_wheel` | 0〜1 | 共有External Control |
-| `aftertouch` | 0〜1 | 共有External Control |
+| Source ID | 範囲 | Polarity | 動作 |
+|---|---:|---|---|
+| `velocity` | 0〜1 | Unipolar | Note OnのVelocity |
+| `key_tracking` | -1〜1 | Bipolar | MIDI Note 0を-1、127を+1へ変換 |
+| `pitch_bend` | -1〜1 | Bipolar | 共有External Control |
+| `mod_wheel` | 0〜1 | Unipolar | 共有External Control |
+| `aftertouch` | 0〜1 | Unipolar | 共有External Control |
 
 **追加できるSource**：
 
@@ -663,6 +696,8 @@ Parameter IDの形式：
 | `envelope` | ADSR | Note Lifecycleに追従 |
 | `random` | `seed` | SeedとNote IDから決まる、Voiceごとの固定値 |
 
+追加SourceのPolarityは、LFOとRandomがBipolar（-1〜1）、EnvelopeがUnipolar（0〜1）です。Depthの符号は方向を決め、Bipolar Sourceでは正負両方向へ作用します。
+
 ```json
 "modulation": {
   "sources": [
@@ -671,14 +706,14 @@ Parameter IDの形式：
     { "type": "random", "id": "random_pan", "seed": 42 }
   ],
   "routes": [
-    { "source": "vibrato", "target": "layer.body.tuning", "amount": 0.02, "curve": "linear" },
-    { "source": "filter_env", "target": "voice.processor.tone.cutoff", "amount": 0.2, "curve": "smooth_step" },
-    { "source": "random_pan", "target": "layer.body.pan", "amount": 1.0, "curve": "linear" }
+    { "source": "vibrato", "target": "layer.body.tuning", "depth": { "value": 20.0, "unit": "cents" }, "curve": "linear" },
+    { "source": "filter_env", "target": "voice.processor.tone.cutoff", "depth": { "value": 2.0, "unit": "octaves" }, "curve": "smooth_step" },
+    { "source": "random_pan", "target": "layer.body.pan", "depth": { "value": 0.5, "unit": "pan" }, "curve": "linear" }
   ]
 }
 ```
 
-各Routeの`amount`は-1〜1で、TargetのNative範囲に対する割合です。Parameter IDの解決とRouteの計算はコンパイル前に完了するため、音声処理中に文字列IDやJSONを扱いません。
+各Routeの`depth.value`はSigned値、`depth.unit`はTargetのModulation Unitです。Linear Targetは`curved_source × depth.value`をNative Domainへ加算し、Log2 TargetはOctave Domainで加算して`base × 2^sum`へ変換します。RouteはDefinition順に加算し、最後にTarget範囲へClampします。Parameter IDの解決とRouteの計算はコンパイル前に完了するため、音声処理中に文字列IDやJSONを扱いません。
 
 ## コンパイル時の変換
 
@@ -692,7 +727,7 @@ Parameter IDの形式：
 | Granular Regionの秒 → Frame数 | Prepared Audio内の固定Regionへ |
 | Filter Cutoff | Sample Rateの上限へ制限 |
 | Parameter一覧 | LayerとProcessorのDynamic Parameterへ、安定ID・範囲・Scale・Smoothingを割り当て |
-| Modulation | SourceをTableへ、RouteをTarget別の範囲へ変換 |
+| Modulation | SourceをTableへ、RouteのDepthをTargetのNativeまたはLog2 Domainへ解決 |
 
 **Assetの準備**
 
@@ -704,6 +739,6 @@ Sample、Wavetable、Spectral、Granular、Wave Sequenceは、コンパイル時
 - Warningだけなら、Warning付きのコンパイル結果を返して処理を続けます
 - Zone AssetのSHA-256省略はWarningです（Assetを読み込めたZoneは有効のまま）
 - Assetの欠落・Hash不一致・Decode失敗のあるSample Zoneは無効にしてWarningを残し、他の有効なZoneやLayerがあれば処理を続けます
-- Parameter ID、Source ID、Source設定、Route Target、AmountのErrorはコンパイル前にまとめて返します
+- Parameter ID、Source ID、Source設定、Route Target、Depth Unit / 範囲のErrorはコンパイル前にまとめて返します
 
 検証エラーには`layers[0].envelope.attack_seconds`のようなField Pathが付きます。
