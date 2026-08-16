@@ -91,3 +91,102 @@ fn compression_reduction(level_db: f32, threshold_db: f32, ratio: f32, knee_db: 
         -slope * (over + knee_db * 0.5).powi(2) / (2.0 * knee_db)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::compiler::{CompiledCompressorParameters, CompiledCompressorProcessor};
+    use crate::parameter::ParameterHandle;
+
+    fn span(value: f32) -> ValueSpan {
+        ValueSpan {
+            start: value,
+            end: value,
+        }
+    }
+
+    fn runtime(attack_coeff: f32, release_coeff: f32) -> CompressorRuntime {
+        CompressorRuntime::new(&CompiledCompressorProcessor {
+            attack_coeff,
+            release_coeff,
+            knee_db: 0.0,
+            parameters: CompiledCompressorParameters {
+                threshold_db: ParameterHandle::new(0),
+                ratio: ParameterHandle::new(1),
+                makeup_gain_db: ParameterHandle::new(2),
+                mix: ParameterHandle::new(3),
+            },
+        })
+    }
+
+    #[test]
+    fn ratio_one_without_makeup_is_an_identity() {
+        let mut runtime = runtime(0.0, 0.0);
+        let original_left = [0.8, -0.4, 0.2, -0.1];
+        let original_right = [-0.3, 0.6, -0.2, 0.05];
+        let mut left = original_left;
+        let mut right = original_right;
+        runtime
+            .process(
+                span(-18.0),
+                span(1.0),
+                span(0.0),
+                span(1.0),
+                &mut left,
+                &mut right,
+            )
+            .expect("compressor processes");
+        assert!(
+            left.into_iter()
+                .zip(original_left)
+                .all(|(actual, expected)| (actual - expected).abs() < f32::EPSILON)
+        );
+        assert!(
+            right
+                .into_iter()
+                .zip(original_right)
+                .all(|(actual, expected)| (actual - expected).abs() < f32::EPSILON)
+        );
+    }
+
+    #[test]
+    fn stereo_link_uses_one_gain_reduction_for_both_channels() {
+        let mut runtime = runtime(0.0, 0.0);
+        let mut left = [0.8; 4];
+        let mut right = [0.2; 4];
+        runtime
+            .process(
+                span(-12.0),
+                span(4.0),
+                span(0.0),
+                span(1.0),
+                &mut left,
+                &mut right,
+            )
+            .expect("compressor processes");
+        let left_gain = left[0] / 0.8;
+        let right_gain = right[0] / 0.2;
+        assert!(left_gain < 1.0);
+        assert!((left_gain - right_gain).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn attack_reacts_to_loud_input_and_release_recovers() {
+        let mut runtime = runtime(0.0, 0.5);
+        let mut left = vec![0.8; 4];
+        left.extend([0.2; 8]);
+        let mut right = left.clone();
+        runtime
+            .process(
+                span(-12.0),
+                span(4.0),
+                span(0.0),
+                span(1.0),
+                &mut left,
+                &mut right,
+            )
+            .expect("compressor processes");
+        assert!(left[0] < 0.8);
+        assert!(left[11] > left[4]);
+    }
+}

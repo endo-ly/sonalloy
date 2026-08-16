@@ -166,3 +166,87 @@ fn process_channel(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::compiler::{CompiledResonatorParameters, CompiledResonatorProcessor};
+    use crate::parameter::ParameterHandle;
+
+    fn span(value: f32) -> ValueSpan {
+        ValueSpan {
+            start: value,
+            end: value,
+        }
+    }
+
+    fn runtime() -> ResonatorRuntime {
+        ResonatorRuntime::new(
+            &CompiledResonatorProcessor {
+                parameters: CompiledResonatorParameters {
+                    frequency_hz: ParameterHandle::new(0),
+                    decay_seconds: ParameterHandle::new(1),
+                    damping: ParameterHandle::new(2),
+                    mix: ParameterHandle::new(3),
+                },
+                max_delay_frames: 48_000,
+                sample_rate: 48_000.0,
+            },
+            GeneratorOutputMode::Mono,
+        )
+    }
+
+    fn impulse_response(frequency_hz: f32, decay_seconds: f32) -> Vec<f32> {
+        let mut runtime = runtime();
+        let mut buffer = vec![0.0; 4_096];
+        buffer[0] = 1.0;
+        runtime
+            .process_mono(
+                span(frequency_hz),
+                span(decay_seconds),
+                span(0.35),
+                span(1.0),
+                &mut buffer,
+            )
+            .expect("resonator processes");
+        buffer
+    }
+
+    #[test]
+    fn mix_zero_is_an_identity() {
+        let mut runtime = runtime();
+        let original = [0.1, -0.8, 0.4, 0.0, 0.7, -0.2];
+        let mut buffer = original;
+        runtime
+            .process_mono(span(440.0), span(0.5), span(0.35), span(0.0), &mut buffer)
+            .expect("resonator processes");
+        assert!(
+            buffer
+                .into_iter()
+                .zip(original)
+                .all(|(actual, expected)| (actual - expected).abs() < f32::EPSILON)
+        );
+    }
+
+    #[test]
+    fn frequency_and_decay_change_the_impulse_response() {
+        let low = impulse_response(220.0, 0.55);
+        let high = impulse_response(440.0, 0.55);
+        let short = impulse_response(330.0, 0.05);
+        let long = impulse_response(330.0, 1.0);
+        assert!(
+            low.iter()
+                .zip(&high)
+                .any(|(left, right)| (left - right).abs() > 1.0e-4)
+        );
+        let short_tail = short[1_024..]
+            .iter()
+            .map(|sample| sample * sample)
+            .sum::<f32>();
+        let long_tail = long[1_024..]
+            .iter()
+            .map(|sample| sample * sample)
+            .sum::<f32>();
+        assert!(long_tail > short_tail * 2.0);
+    }
+}

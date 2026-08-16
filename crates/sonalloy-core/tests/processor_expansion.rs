@@ -5,9 +5,10 @@ use sonalloy_core::{
     AdsrDefinition, BitcrusherProcessorDefinition, ChorusProcessorDefinition, CompileContext,
     CompressorProcessorDefinition, EqProcessorDefinition, FilterModeDefinition,
     FlangerProcessorDefinition, InstrumentDefinition, InstrumentProcessor,
-    LimiterProcessorDefinition, PhaserProcessorDefinition, ProcessBlock, ProcessContext,
-    ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderRequest,
-    ResonatorProcessorDefinition, ScheduledEvent, compile_instrument, render_instrument,
+    LimiterProcessorDefinition, ModulationCurve, ModulationDefinition, ModulationRouteDefinition,
+    PhaserProcessorDefinition, ProcessBlock, ProcessContext, ProcessEventKind, ProcessSpec,
+    ProcessorDefinition, RenderRequest, ResonatorProcessorDefinition, ScheduledEvent,
+    compile_instrument, render_instrument,
 };
 
 fn base_definition() -> InstrumentDefinition {
@@ -77,6 +78,37 @@ fn render(
         }],
     )
     .expect("processor render succeeds")
+}
+
+fn render_events(
+    definition: &InstrumentDefinition,
+    sample_rate: f64,
+    block_size: usize,
+    frames: u64,
+    events: &[ScheduledEvent],
+) -> sonalloy_core::RenderedAudio {
+    render_instrument(
+        compile(definition, sample_rate, block_size),
+        RenderRequest {
+            sample_rate,
+            block_size,
+            duration_frames: frames,
+            tail_frames: 0,
+        },
+        events,
+    )
+    .expect("processor event render succeeds")
+}
+
+fn note_on() -> ScheduledEvent {
+    ScheduledEvent {
+        absolute_frame: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 1,
+            note_number: 60,
+            velocity: 110,
+        },
+    }
 }
 
 #[test]
@@ -479,6 +511,126 @@ fn modulation_effect_state_is_independent_of_block_size() {
             .zip(&split.channels[0])
             .all(|(left, right)| (left - right).abs() < 1.0e-5)
     );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn processor_parameter_changes_and_global_modulation_are_block_size_independent() {
+    let mut definition = base_definition();
+    definition.layers[0].processors = vec![ProcessorDefinition::Resonator(
+        ResonatorProcessorDefinition {
+            id: "body".to_owned(),
+            frequency_hz: 220.0,
+            decay_seconds: 0.55,
+            damping: 0.35,
+            mix: 0.7,
+        },
+    )];
+    definition.voice_processors = vec![ProcessorDefinition::Compressor(
+        CompressorProcessorDefinition {
+            id: "glue".to_owned(),
+            threshold_db: -18.0,
+            ratio: 4.0,
+            attack_ms: 15.0,
+            release_ms: 180.0,
+            knee_db: 6.0,
+            makeup_gain_db: 0.0,
+            mix: 1.0,
+        },
+    )];
+    definition.global_processors = vec![ProcessorDefinition::Chorus(ChorusProcessorDefinition {
+        id: "chorus".to_owned(),
+        delay_ms: 15.0,
+        rate_hz: 0.35,
+        depth: 0.0,
+        feedback: 0.1,
+        width: 0.0,
+        mix: 0.6,
+    })];
+    definition.modulation = Some(ModulationDefinition {
+        sources: Vec::new(),
+        routes: vec![ModulationRouteDefinition {
+            source: "mod_wheel".to_owned(),
+            target: "global.processor.chorus.width".to_owned(),
+            amount: 1.0,
+            curve: ModulationCurve::Linear,
+        }],
+    });
+
+    let compiled = compile(&definition, 48_000.0, 257);
+    let frequency = compiled
+        .parameter_handle("layer.body.processor.body.frequency_hz")
+        .expect("layer resonator frequency parameter");
+    let threshold = compiled
+        .parameter_handle("voice.processor.glue.threshold_db")
+        .expect("voice compressor threshold parameter");
+    let depth = compiled
+        .parameter_handle("global.processor.chorus.depth")
+        .expect("global chorus depth parameter");
+    let events = [
+        note_on(),
+        ScheduledEvent {
+            absolute_frame: 512,
+            kind: ProcessEventKind::ParameterChange {
+                parameter: frequency,
+                normalized: 1.0,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 1_024,
+            kind: ProcessEventKind::ParameterChange {
+                parameter: threshold,
+                normalized: 0.0,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 1_536,
+            kind: ProcessEventKind::ParameterChange {
+                parameter: depth,
+                normalized: 1.0,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 2_048,
+            kind: ProcessEventKind::ModWheel { value: 1.0 },
+        },
+    ];
+    let baseline = render_events(&definition, 48_000.0, 257, 4_096, &[note_on()]);
+    let renders = [32, 64, 257, 1_024]
+        .map(|block_size| render_events(&definition, 48_000.0, block_size, 4_096, &events));
+    for audio in &renders {
+        assert!(
+            audio
+                .channels
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
+        );
+    }
+    assert!(
+        baseline.channels[0]
+            .iter()
+            .zip(&renders[0].channels[0])
+            .skip(2_500)
+            .any(|(before, after)| (before - after).abs() > 1.0e-4)
+    );
+
+    let reference = &renders[0];
+    for (block_size, audio) in [32, 64, 257, 1_024].into_iter().zip(&renders) {
+        let (max_error, squared_error) = reference.channels[0].iter().zip(&audio.channels[0]).fold(
+            (0.0_f32, 0.0_f32),
+            |(max_error, squared_error), (left, right)| {
+                let error = (left - right).abs();
+                (max_error.max(error), squared_error + error * error)
+            },
+        );
+        #[allow(clippy::cast_precision_loss)]
+        let error_rms = (squared_error / reference.channels[0].len() as f32).sqrt();
+        assert!(
+            max_error <= 1.0e-2 && error_rms <= 2.0e-3,
+            "block size {block_size} differs by max {max_error} and RMS {error_rms}"
+        );
+    }
 }
 
 #[test]

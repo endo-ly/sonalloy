@@ -134,3 +134,46 @@ impl BitcrusherRuntime {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn span(value: f32) -> ValueSpan {
+        ValueSpan {
+            start: value,
+            end: value,
+        }
+    }
+
+    #[test]
+    fn mix_zero_is_an_identity() {
+        let mut runtime = BitcrusherRuntime::new(GeneratorOutputMode::Mono);
+        let original = [0.1, -0.8, 0.4, 0.0, 0.7, -0.2];
+        let mut buffer = original;
+        runtime
+            .process_mono(span(4.0), span(0.25), span(0.0), &mut buffer)
+            .expect("bitcrusher processes");
+        assert!(
+            buffer
+                .into_iter()
+                .zip(original)
+                .all(|(actual, expected)| (actual - expected).abs() < f32::EPSILON)
+        );
+    }
+
+    #[test]
+    fn quantization_and_sample_hold_follow_the_requested_settings() {
+        let mut runtime = BitcrusherRuntime::new(GeneratorOutputMode::Mono);
+        let mut buffer = [0.1, 0.7, -0.7, -0.7];
+        runtime
+            .process_mono(span(4.0), span(0.5), span(1.0), &mut buffer)
+            .expect("bitcrusher processes");
+        let quantized_positive = 5.0 / 7.0;
+        let quantized_negative = -5.0 / 7.0;
+        assert!(buffer[0].abs() < f32::EPSILON);
+        assert!((buffer[1] - quantized_positive).abs() < 1.0e-6);
+        assert!((buffer[2] - quantized_positive).abs() < 1.0e-6);
+        assert!((buffer[3] - quantized_negative).abs() < 1.0e-6);
+    }
+}

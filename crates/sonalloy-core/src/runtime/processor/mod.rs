@@ -146,7 +146,7 @@ impl LayerProcessorChain {
                         value,
                         sample_rate,
                         output_mode,
-                    )));
+                    )?));
                 }
                 CompiledProcessorKind::Resonator(value) => {
                     runtime.push(LayerProcessorRuntime::Resonator(ResonatorRuntime::new(
@@ -551,7 +551,7 @@ impl StereoProcessorChain {
                         value,
                         sample_rate,
                         GeneratorOutputMode::Stereo,
-                    )));
+                    )?));
                 }
                 CompiledProcessorKind::Resonator(value) => {
                     runtime.push(StereoProcessorRuntime::Resonator(ResonatorRuntime::new(
