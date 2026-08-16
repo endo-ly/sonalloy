@@ -1,6 +1,6 @@
 use sonalloy_dsp_sys::{
-    DspError, DspFilter, DspFilterError, DspOscillator, DspOscillatorWaveform, backend_version,
-    capabilities,
+    DspError, DspFilter, DspFilterError, DspFilterMode, DspOscillator, DspOscillatorWaveform,
+    backend_version, capabilities,
 };
 
 fn render_blocks(block_size: usize, waveform: DspOscillatorWaveform) -> Vec<f32> {
@@ -380,25 +380,31 @@ fn filter_lifecycle_and_reset_are_safe() {
     let mut filter = DspFilter::new().expect("filter allocation");
     let mut output = [1.0_f32; 64];
     assert_eq!(
-        filter.process(1_000.0, 0.1, &mut output),
+        filter.process(DspFilterMode::LowPass, 1_000.0, 0.1, &mut output),
         Err(DspFilterError::NotPrepared)
     );
     assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
     filter.prepare(48_000.0).expect("filter preparation");
     output.fill(1.0);
     filter
-        .process(1_000.0, 0.1, &mut output)
+        .process(DspFilterMode::LowPass, 1_000.0, 0.1, &mut output)
         .expect("filter process");
     assert!(output.iter().all(|sample| sample.is_finite()));
     assert!(output.iter().any(|sample| sample.abs() > 0.0));
     filter.reset().expect("filter reset");
     let mut after_reset = [1.0_f32; 64];
     filter
-        .process(1_000.0, 0.1, &mut after_reset)
+        .process(DspFilterMode::LowPass, 1_000.0, 0.1, &mut after_reset)
         .expect("filter process after reset");
     assert!(after_reset.iter().all(|sample| sample.is_finite()));
     filter
-        .process_ramp(500.0, 4_000.0, 0.1, &mut after_reset)
+        .process_ramp(
+            DspFilterMode::LowPass,
+            500.0,
+            4_000.0,
+            0.1,
+            &mut after_reset,
+        )
         .expect("native cutoff ramp process");
     assert!(after_reset.iter().all(|sample| sample.is_finite()));
 }
@@ -409,19 +415,19 @@ fn filter_rejects_invalid_parameters_and_clears_output() {
     filter.prepare(48_000.0).expect("filter preparation");
     let mut output = [1.0_f32; 8];
     assert_eq!(
-        filter.process(0.0, 0.1, &mut output),
+        filter.process(DspFilterMode::LowPass, 0.0, 0.1, &mut output),
         Err(DspFilterError::InvalidArgument)
     );
     assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
     output.fill(1.0);
     assert_eq!(
-        filter.process(1_000.0, 1.1, &mut output),
+        filter.process(DspFilterMode::LowPass, 1_000.0, 1.1, &mut output),
         Err(DspFilterError::InvalidArgument)
     );
     assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
     output.fill(1.0);
     assert_eq!(
-        filter.process_ramp(1_000.0, 0.0, 0.1, &mut output),
+        filter.process_ramp(DspFilterMode::LowPass, 1_000.0, 0.0, 0.1, &mut output),
         Err(DspFilterError::InvalidArgument)
     );
     assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
@@ -433,9 +439,56 @@ fn filter_cutoff_and_resonance_ramp_is_finite() {
     filter.prepare(48_000.0).expect("filter preparation");
     let mut output = [1.0_f32; 128];
     filter
-        .process_ramp_with_resonance(500.0, 4_000.0, 0.05, 0.35, &mut output)
+        .process_ramp_with_resonance(
+            DspFilterMode::LowPass,
+            500.0,
+            4_000.0,
+            0.05,
+            0.35,
+            &mut output,
+        )
         .expect("filter cutoff and resonance ramp");
     assert!(output.iter().all(|sample| sample.is_finite()));
+}
+
+#[test]
+fn filter_modes_select_distinct_finite_outputs() {
+    let input: Vec<f32> = (0..128)
+        .map(|index| {
+            #[allow(clippy::cast_precision_loss)]
+            let phase = index as f32 * 0.17;
+            phase.sin()
+        })
+        .collect();
+    let modes = [
+        DspFilterMode::LowPass,
+        DspFilterMode::HighPass,
+        DspFilterMode::BandPass,
+        DspFilterMode::Notch,
+    ];
+    let mut outputs = Vec::new();
+    for mode in modes {
+        let mut filter = DspFilter::new().expect("filter allocation");
+        filter.prepare(48_000.0).expect("filter preparation");
+        let mut output = input.clone();
+        filter
+            .process_ramp_with_resonance(mode, 1_000.0, 1_000.0, 0.4, 0.4, &mut output)
+            .expect("filter mode process");
+        assert!(output.iter().all(|sample| sample.is_finite()));
+        outputs.push(output);
+    }
+    assert!(
+        outputs[0]
+            .iter()
+            .zip(&outputs[1])
+            .any(|(left, right)| (left - right).abs() > 1.0e-4)
+    );
+    assert!(
+        outputs[2]
+            .iter()
+            .zip(&outputs[3])
+            .any(|(left, right)| (left - right).abs() > 1.0e-4)
+    );
 }
 
 #[test]
@@ -458,10 +511,23 @@ fn filter_cutoff_ramp_matches_fixed_resonance_ramp() {
     let mut fixed_resonance_output = input;
 
     cutoff_only
-        .process_ramp(500.0, 4_000.0, 0.2, &mut cutoff_only_output)
+        .process_ramp(
+            DspFilterMode::LowPass,
+            500.0,
+            4_000.0,
+            0.2,
+            &mut cutoff_only_output,
+        )
         .expect("cutoff-only ramp");
     fixed_resonance
-        .process_ramp_with_resonance(500.0, 4_000.0, 0.2, 0.2, &mut fixed_resonance_output)
+        .process_ramp_with_resonance(
+            DspFilterMode::LowPass,
+            500.0,
+            4_000.0,
+            0.2,
+            0.2,
+            &mut fixed_resonance_output,
+        )
         .expect("fixed-resonance ramp");
 
     assert!(

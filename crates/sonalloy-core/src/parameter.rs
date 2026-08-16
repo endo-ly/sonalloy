@@ -642,6 +642,7 @@ fn push_generator_descriptor(
     });
 }
 
+#[allow(clippy::too_many_lines)]
 fn push_processor_descriptors(
     descriptors: &mut Vec<ParameterDescriptor>,
     processor: &ProcessorDefinition,
@@ -689,6 +690,167 @@ fn push_processor_descriptors(
                 value.mix,
                 0.005,
                 1.0,
+            );
+        }
+        ProcessorDefinition::Eq(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.low_gain_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -24.0,
+                24.0,
+                value.low_gain_db,
+                0.005,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.mid_gain_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -24.0,
+                24.0,
+                value.mid_gain_db,
+                0.005,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.high_gain_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -24.0,
+                24.0,
+                value.high_gain_db,
+                0.005,
+            );
+        }
+        ProcessorDefinition::Resonator(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.frequency_hz"),
+                owner,
+                ParameterUnit::Hertz,
+                ParameterScale::Log2,
+                40.0,
+                12_000.0,
+                value.frequency_hz,
+                0.010,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.decay_seconds"),
+                owner,
+                ParameterUnit::Seconds,
+                ParameterScale::Linear,
+                0.02,
+                10.0,
+                value.decay_seconds,
+                0.020,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.damping"),
+                owner,
+                value.damping,
+                0.010,
+                1.0,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.010,
+                1.0,
+            );
+        }
+        ProcessorDefinition::Bitcrusher(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.bit_depth"),
+                owner,
+                ParameterUnit::Index,
+                ParameterScale::Linear,
+                2.0,
+                16.0,
+                value.bit_depth,
+                0.005,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.sample_rate_ratio"),
+                owner,
+                ParameterUnit::Ratio,
+                ParameterScale::Linear,
+                0.01,
+                1.0,
+                value.sample_rate_ratio,
+                0.005,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.005,
+                1.0,
+            );
+        }
+        ProcessorDefinition::Chorus(value) => {
+            push_processor_modulation_descriptors(
+                descriptors,
+                &base,
+                owner,
+                value.rate_hz,
+                0.01,
+                8.0,
+                value.depth,
+                0.0,
+                1.0,
+                value.feedback,
+                0.0,
+                0.85,
+                value.width,
+                value.mix,
+            );
+        }
+        ProcessorDefinition::Flanger(value) => {
+            push_processor_modulation_descriptors(
+                descriptors,
+                &base,
+                owner,
+                value.rate_hz,
+                0.01,
+                10.0,
+                value.depth,
+                0.0,
+                1.0,
+                value.feedback,
+                -0.95,
+                0.95,
+                value.width,
+                value.mix,
+            );
+        }
+        ProcessorDefinition::Phaser(value) => {
+            push_processor_modulation_descriptors(
+                descriptors,
+                &base,
+                owner,
+                value.rate_hz,
+                0.01,
+                8.0,
+                value.depth,
+                0.0,
+                1.0,
+                value.feedback,
+                -0.9,
+                0.9,
+                value.width,
+                value.mix,
             );
         }
         ProcessorDefinition::Delay(value) => {
@@ -743,7 +905,159 @@ fn push_processor_descriptors(
                 1.0,
             );
         }
+        ProcessorDefinition::Compressor(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.threshold_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -60.0,
+                0.0,
+                value.threshold_db,
+                0.010,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.ratio"),
+                owner,
+                ParameterUnit::Ratio,
+                ParameterScale::Linear,
+                1.0,
+                20.0,
+                value.ratio,
+                0.010,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.makeup_gain_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -12.0,
+                24.0,
+                value.makeup_gain_db,
+                0.010,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.010,
+                1.0,
+            );
+        }
+        ProcessorDefinition::Limiter(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.ceiling_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -12.0,
+                0.0,
+                value.ceiling_db,
+                0.010,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.input_gain_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -24.0,
+                24.0,
+                value.input_gain_db,
+                0.010,
+            );
+        }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_processor_modulation_descriptors(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    base: &str,
+    owner: ParameterOwner,
+    rate_hz: f32,
+    rate_min: f32,
+    rate_max: f32,
+    depth: f32,
+    depth_min: f32,
+    depth_max: f32,
+    feedback: f32,
+    feedback_min: f32,
+    feedback_max: f32,
+    width: f32,
+    mix: f32,
+) {
+    push_processor_descriptor(
+        descriptors,
+        format!("{base}.rate_hz"),
+        owner,
+        ParameterUnit::PerSecond,
+        ParameterScale::Linear,
+        rate_min,
+        rate_max,
+        rate_hz,
+        0.010,
+    );
+    push_processor_descriptor(
+        descriptors,
+        format!("{base}.depth"),
+        owner,
+        ParameterUnit::Normalized,
+        ParameterScale::Linear,
+        depth_min,
+        depth_max,
+        depth,
+        0.010,
+    );
+    push_processor_descriptor(
+        descriptors,
+        format!("{base}.feedback"),
+        owner,
+        ParameterUnit::Normalized,
+        ParameterScale::Linear,
+        feedback_min,
+        feedback_max,
+        feedback,
+        0.010,
+    );
+    push_normalized_descriptor(
+        descriptors,
+        format!("{base}.width"),
+        owner,
+        width,
+        0.010,
+        1.0,
+    );
+    push_normalized_descriptor(descriptors, format!("{base}.mix"), owner, mix, 0.010, 1.0);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_processor_descriptor(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    id: String,
+    owner: ParameterOwner,
+    unit: ParameterUnit,
+    scale: ParameterScale,
+    min: f32,
+    max: f32,
+    default: f32,
+    smoothing_seconds: f32,
+) {
+    descriptors.push(ParameterDescriptor {
+        id,
+        owner,
+        unit,
+        scale,
+        min,
+        max,
+        default,
+        smoothing_seconds,
+    });
 }
 
 fn push_normalized_descriptor(
@@ -845,7 +1159,28 @@ pub fn is_parameter_id(value: &str) -> bool {
 fn is_processor_parameter(value: &str) -> bool {
     matches!(
         value,
-        "cutoff" | "resonance" | "amount" | "mix" | "feedback" | "decay" | "damping" | "width"
+        "cutoff"
+            | "resonance"
+            | "amount"
+            | "mix"
+            | "feedback"
+            | "decay"
+            | "damping"
+            | "width"
+            | "low_gain_db"
+            | "mid_gain_db"
+            | "high_gain_db"
+            | "frequency_hz"
+            | "decay_seconds"
+            | "bit_depth"
+            | "sample_rate_ratio"
+            | "rate_hz"
+            | "depth"
+            | "threshold_db"
+            | "ratio"
+            | "makeup_gain_db"
+            | "ceiling_db"
+            | "input_gain_db"
     )
 }
 
@@ -880,6 +1215,7 @@ mod tests {
         source.voice_processors.push(ProcessorDefinition::Filter(
             crate::definition::FilterProcessorDefinition {
                 id: "tone".to_owned(),
+                mode: crate::definition::FilterModeDefinition::LowPass,
                 cutoff_hz: 1_000.0,
                 resonance: 0.2,
             },

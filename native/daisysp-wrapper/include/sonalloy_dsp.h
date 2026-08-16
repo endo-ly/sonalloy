@@ -30,6 +30,13 @@ enum sonalloy_dsp_waveform {
     SONALLOY_DSP_WAVEFORM_PULSE = 4
 };
 
+enum sonalloy_dsp_filter_mode {
+    SONALLOY_DSP_FILTER_LOW_PASS = 0,
+    SONALLOY_DSP_FILTER_HIGH_PASS = 1,
+    SONALLOY_DSP_FILTER_BAND_PASS = 2,
+    SONALLOY_DSP_FILTER_NOTCH = 3
+};
+
 enum sonalloy_dsp_capability {
     SONALLOY_DSP_CAPABILITY_SINE = 1u << 0,
     SONALLOY_DSP_CAPABILITY_SAW = 1u << 1,
@@ -122,6 +129,7 @@ int32_t sonalloy_dsp_filter_prepare(
 int32_t sonalloy_dsp_filter_reset(sonalloy_dsp_filter* handle);
 int32_t sonalloy_dsp_filter_process(
     sonalloy_dsp_filter* handle,
+    int32_t mode,
     float cutoff_hz,
     float resonance,
     float* buffer,
@@ -129,6 +137,7 @@ int32_t sonalloy_dsp_filter_process(
 );
 int32_t sonalloy_dsp_filter_process_ramp(
     sonalloy_dsp_filter* handle,
+    int32_t mode,
     float start_cutoff_hz,
     float end_cutoff_hz,
     float resonance,
@@ -137,6 +146,7 @@ int32_t sonalloy_dsp_filter_process_ramp(
 );
 int32_t sonalloy_dsp_filter_process_ramp_with_resonance(
     sonalloy_dsp_filter* handle,
+    int32_t mode,
     float start_cutoff_hz,
     float end_cutoff_hz,
     float start_resonance,

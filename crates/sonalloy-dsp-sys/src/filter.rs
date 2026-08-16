@@ -15,7 +15,31 @@ fn result_from_code(code: i32) -> Result<(), DspFilterError> {
     }
 }
 
-/// Errors returned by the native low-pass filter boundary.
+/// Output selected from the `DaisySP` state-variable filter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DspFilterMode {
+    /// Low-pass output.
+    LowPass,
+    /// High-pass output.
+    HighPass,
+    /// Band-pass output.
+    BandPass,
+    /// Notch output.
+    Notch,
+}
+
+impl DspFilterMode {
+    fn raw(self) -> i32 {
+        match self {
+            Self::LowPass => ffi::FILTER_LOW_PASS,
+            Self::HighPass => ffi::FILTER_HIGH_PASS,
+            Self::BandPass => ffi::FILTER_BAND_PASS,
+            Self::Notch => ffi::FILTER_NOTCH,
+        }
+    }
+}
+
+/// Errors returned by the native state-variable filter boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum DspFilterError {
     /// The native object could not be allocated.
@@ -38,7 +62,7 @@ pub enum DspFilterError {
     Unknown(i32),
 }
 
-/// Safe owner of one opaque `DaisySP` state-variable low-pass filter.
+/// Safe owner of one opaque `DaisySP` state-variable filter.
 pub struct DspFilter {
     handle: NonNull<ffi::DspFilter>,
     prepared: bool,
@@ -90,6 +114,7 @@ impl DspFilter {
     /// error the supplied buffer is cleared by the native boundary.
     pub fn process(
         &mut self,
+        mode: DspFilterMode,
         cutoff_hz: f32,
         resonance: f32,
         buffer: &mut [f32],
@@ -108,6 +133,7 @@ impl DspFilter {
         let code = unsafe {
             ffi::sonalloy_dsp_filter_process(
                 self.handle.as_ptr(),
+                mode.raw(),
                 cutoff_hz,
                 resonance,
                 buffer.as_mut_ptr(),
@@ -129,6 +155,7 @@ impl DspFilter {
     /// error the supplied buffer is cleared by the native boundary.
     pub fn process_ramp(
         &mut self,
+        mode: DspFilterMode,
         start_cutoff_hz: f32,
         end_cutoff_hz: f32,
         resonance: f32,
@@ -148,6 +175,7 @@ impl DspFilter {
         let code = unsafe {
             ffi::sonalloy_dsp_filter_process_ramp(
                 self.handle.as_ptr(),
+                mode.raw(),
                 start_cutoff_hz,
                 end_cutoff_hz,
                 resonance,
@@ -170,6 +198,7 @@ impl DspFilter {
     /// error the supplied buffer is cleared.
     pub fn process_ramp_with_resonance(
         &mut self,
+        mode: DspFilterMode,
         start_cutoff_hz: f32,
         end_cutoff_hz: f32,
         start_resonance: f32,
@@ -190,6 +219,7 @@ impl DspFilter {
         let code = unsafe {
             ffi::sonalloy_dsp_filter_process_ramp_with_resonance(
                 self.handle.as_ptr(),
+                mode.raw(),
                 start_cutoff_hz,
                 end_cutoff_hz,
                 start_resonance,

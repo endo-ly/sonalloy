@@ -86,6 +86,26 @@ bool valid_resonance(float resonance) {
     return std::isfinite(resonance) && resonance >= 0.0f && resonance <= 1.0f;
 }
 
+bool valid_filter_mode(int32_t mode) {
+    return mode >= SONALLOY_DSP_FILTER_LOW_PASS &&
+           mode <= SONALLOY_DSP_FILTER_NOTCH;
+}
+
+float filter_output(sonalloy_dsp_filter* handle, int32_t mode) {
+    switch (mode) {
+        case SONALLOY_DSP_FILTER_LOW_PASS:
+            return handle->filter.Low();
+        case SONALLOY_DSP_FILTER_HIGH_PASS:
+            return handle->filter.High();
+        case SONALLOY_DSP_FILTER_BAND_PASS:
+            return handle->filter.Band();
+        case SONALLOY_DSP_FILTER_NOTCH:
+            return handle->filter.Notch();
+        default:
+            return 0.0f;
+    }
+}
+
 bool valid_wavefolder_drive(float drive) {
     return std::isfinite(drive) && drive >= 1.0f && drive <= 8.0f;
 }
@@ -779,6 +799,7 @@ extern "C" int32_t sonalloy_dsp_filter_reset(sonalloy_dsp_filter* handle) {
 
 extern "C" int32_t sonalloy_dsp_filter_process(
     sonalloy_dsp_filter* handle,
+    int32_t mode,
     float cutoff_hz,
     float resonance,
     float* buffer,
@@ -798,7 +819,8 @@ extern "C" int32_t sonalloy_dsp_filter_process(
         }
         return SONALLOY_DSP_NOT_PREPARED;
     }
-    if (!valid_cutoff(cutoff_hz, handle->sample_rate) ||
+    if (!valid_filter_mode(mode) ||
+        !valid_cutoff(cutoff_hz, handle->sample_rate) ||
         !valid_resonance(resonance)) {
         if (buffer != nullptr) {
             for (uint32_t index = 0; index < frames; ++index) {
@@ -812,7 +834,7 @@ extern "C" int32_t sonalloy_dsp_filter_process(
         handle->filter.SetRes(resonance);
         for (uint32_t index = 0; index < frames; ++index) {
             handle->filter.Process(buffer[index]);
-            buffer[index] = handle->filter.Low();
+            buffer[index] = filter_output(handle, mode);
         }
         return SONALLOY_DSP_OK;
     } catch (...) {
@@ -827,6 +849,7 @@ extern "C" int32_t sonalloy_dsp_filter_process(
 
 extern "C" int32_t sonalloy_dsp_filter_process_ramp(
     sonalloy_dsp_filter* handle,
+    int32_t mode,
     float start_cutoff_hz,
     float end_cutoff_hz,
     float resonance,
@@ -847,7 +870,8 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp(
         }
         return SONALLOY_DSP_NOT_PREPARED;
     }
-    if (!valid_cutoff(start_cutoff_hz, handle->sample_rate) ||
+    if (!valid_filter_mode(mode) ||
+        !valid_cutoff(start_cutoff_hz, handle->sample_rate) ||
         !valid_cutoff(end_cutoff_hz, handle->sample_rate) ||
         !valid_resonance(resonance)) {
         if (buffer != nullptr) {
@@ -867,7 +891,7 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp(
                 (end_cutoff_hz - start_cutoff_hz) * position;
             handle->filter.SetFreq(cutoff_hz);
             handle->filter.Process(buffer[index]);
-            buffer[index] = handle->filter.Low();
+            buffer[index] = filter_output(handle, mode);
         }
         return SONALLOY_DSP_OK;
     } catch (...) {
@@ -882,6 +906,7 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp(
 
 extern "C" int32_t sonalloy_dsp_filter_process_ramp_with_resonance(
     sonalloy_dsp_filter* handle,
+    int32_t mode,
     float start_cutoff_hz,
     float end_cutoff_hz,
     float start_resonance,
@@ -903,7 +928,8 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp_with_resonance(
         }
         return SONALLOY_DSP_NOT_PREPARED;
     }
-    if (!valid_cutoff(start_cutoff_hz, handle->sample_rate) ||
+    if (!valid_filter_mode(mode) ||
+        !valid_cutoff(start_cutoff_hz, handle->sample_rate) ||
         !valid_cutoff(end_cutoff_hz, handle->sample_rate) ||
         !valid_resonance(start_resonance) ||
         !valid_resonance(end_resonance)) {
@@ -926,7 +952,7 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp_with_resonance(
             handle->filter.SetFreq(cutoff_hz);
             handle->filter.SetRes(resonance);
             handle->filter.Process(buffer[index]);
-            buffer[index] = handle->filter.Low();
+            buffer[index] = filter_output(handle, mode);
         }
         return SONALLOY_DSP_OK;
     } catch (...) {

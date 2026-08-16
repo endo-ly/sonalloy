@@ -5,7 +5,7 @@ mod stretch;
 mod variable_oscillator;
 mod wavefolder;
 
-pub use filter::{DspFilter, DspFilterError};
+pub use filter::{DspFilter, DspFilterError, DspFilterMode};
 pub use oscillator::{
     DspCapabilities, DspError, DspOscillator, DspOscillatorWaveform, backend_version, capabilities,
 };
