@@ -12,6 +12,10 @@ pub(crate) struct ValueSpan {
 }
 
 impl ValueSpan {
+    pub(crate) fn is_constant(self) -> bool {
+        self.start.total_cmp(&self.end).is_eq()
+    }
+
     pub(crate) fn value_at(self, index: usize, frames: usize) -> f32 {
         let position = if frames == 0 {
             0.0

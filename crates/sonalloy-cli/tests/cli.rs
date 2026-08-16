@@ -438,6 +438,7 @@ fn instrument_init_validate_and_inspect_are_available() {
         .stdout(predicates::str::contains("layer.body.gain"))
         .stdout(predicates::str::contains("\"phase_reset\":true"))
         .stdout(predicates::str::contains("\"asset_status\""))
+        .stdout(predicates::str::contains("\"mode\":\"low_pass\""))
         .stdout(predicates::str::contains("\"voice.processor.tone.cutoff\""))
         .stdout(predicates::str::contains("\"effective_max_cutoff_hz\""))
         .stdout(predicates::str::contains(

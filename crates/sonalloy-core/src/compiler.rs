@@ -7,15 +7,18 @@ use crate::asset::{
     resolved_asset_path,
 };
 use crate::definition::{
-    AdditiveDefinition, AdsrDefinition, AssetReference, DelayProcessorDefinition,
-    DriveProcessorDefinition, FilterProcessorDefinition, FormantDefinition, GeneratorDefinition,
+    AdditiveDefinition, AdsrDefinition, AssetReference, BitcrusherProcessorDefinition,
+    ChorusProcessorDefinition, CompressorProcessorDefinition, DelayProcessorDefinition,
+    DriveProcessorDefinition, EqProcessorDefinition, FilterModeDefinition,
+    FilterProcessorDefinition, FlangerProcessorDefinition, FormantDefinition, GeneratorDefinition,
     GranularDefinition, InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform,
-    ModulationCurve, ModulationSourceDefinition, NoiseColor, OperatorAlgorithm,
-    OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition, OscillatorWaveform,
-    ProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition,
-    SampleZoneDefinition, SpectralDefinition, UnisonDefinition, VoiceStealingDefinition,
-    WaveSequenceDefinition, WaveSequenceDirection, WaveSequenceDurationDefinition,
-    WaveSequenceStepPlayback, WavetableDefinition,
+    LimiterProcessorDefinition, ModulationCurve, ModulationSourceDefinition, NoiseColor,
+    OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition,
+    OscillatorWaveform, PhaserProcessorDefinition, ProcessorDefinition,
+    ResonatorProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection,
+    SampleTimeDefinition, SampleZoneDefinition, SpectralDefinition, UnisonDefinition,
+    VoiceStealingDefinition, WaveSequenceDefinition, WaveSequenceDirection,
+    WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
@@ -984,6 +987,8 @@ pub struct CompiledFilterParameters {
 /// Compiled filter processor.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CompiledFilterProcessor {
+    /// Selected filter output mode.
+    pub mode: FilterModeDefinition,
     /// Runtime parameter bindings.
     pub parameters: CompiledFilterParameters,
     /// Safe DSP cutoff upper bound for this process sample rate.
@@ -997,6 +1002,189 @@ pub struct CompiledDriveProcessor {
     pub amount: ParameterHandle,
     /// Mix handle.
     pub mix: ParameterHandle,
+}
+
+/// Dynamic parameter handles used by a three-band equalizer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledEqParameters {
+    /// Low-shelf gain handle.
+    pub low_gain_db: ParameterHandle,
+    /// Mid peaking gain handle.
+    pub mid_gain_db: ParameterHandle,
+    /// High-shelf gain handle.
+    pub high_gain_db: ParameterHandle,
+}
+
+/// Compiled three-band equalizer processor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledEqProcessor {
+    /// Low-shelf midpoint.
+    pub low_frequency_hz: f32,
+    /// Mid peaking center frequency.
+    pub mid_frequency_hz: f32,
+    /// Mid peaking Q factor.
+    pub mid_q: f32,
+    /// High-shelf midpoint.
+    pub high_frequency_hz: f32,
+    /// Dynamic gain bindings.
+    pub parameters: CompiledEqParameters,
+}
+
+/// Dynamic parameter handles used by a tuned resonator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledResonatorParameters {
+    /// Resonance frequency handle.
+    pub frequency_hz: ParameterHandle,
+    /// Decay time handle.
+    pub decay_seconds: ParameterHandle,
+    /// Damping handle.
+    pub damping: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled tuned resonator processor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledResonatorProcessor {
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledResonatorParameters,
+    /// Maximum delay-line length in frames.
+    pub max_delay_frames: usize,
+    /// Process sample rate.
+    pub sample_rate: f32,
+}
+
+/// Dynamic parameter handles used by a bitcrusher.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledBitcrusherParameters {
+    /// Quantizer bit-depth handle.
+    pub bit_depth: ParameterHandle,
+    /// Sample-rate ratio handle.
+    pub sample_rate_ratio: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled bitcrusher processor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledBitcrusherProcessor {
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledBitcrusherParameters,
+}
+
+/// Dynamic parameter handles used by a modulated delay effect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledModulationDelayParameters {
+    /// LFO rate handle.
+    pub rate_hz: ParameterHandle,
+    /// Delay depth handle.
+    pub depth: ParameterHandle,
+    /// Feedback handle.
+    pub feedback: ParameterHandle,
+    /// Stereo width handle.
+    pub width: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled chorus processor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledChorusProcessor {
+    /// Center delay in frames.
+    pub delay_frames: f32,
+    /// Allocated maximum delay length in frames.
+    pub max_delay_frames: usize,
+    /// Process sample rate.
+    pub sample_rate: f32,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledModulationDelayParameters,
+}
+
+/// Compiled flanger processor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledFlangerProcessor {
+    /// Center delay in frames.
+    pub delay_frames: f32,
+    /// Allocated maximum delay length in frames.
+    pub max_delay_frames: usize,
+    /// Process sample rate.
+    pub sample_rate: f32,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledModulationDelayParameters,
+}
+
+/// Dynamic parameter handles used by a phaser.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledPhaserParameters {
+    /// LFO rate handle.
+    pub rate_hz: ParameterHandle,
+    /// Sweep depth handle.
+    pub depth: ParameterHandle,
+    /// Feedback handle.
+    pub feedback: ParameterHandle,
+    /// Stereo width handle.
+    pub width: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled phaser processor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledPhaserProcessor {
+    /// Number of all-pass stages.
+    pub stages: u8,
+    /// Sweep center frequency.
+    pub center_hz: f32,
+    /// Sweep range in octaves.
+    pub sweep_octaves: f32,
+    /// Process sample rate.
+    pub sample_rate: f32,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledPhaserParameters,
+}
+
+/// Dynamic parameter handles used by a compressor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledCompressorParameters {
+    /// Threshold handle.
+    pub threshold_db: ParameterHandle,
+    /// Ratio handle.
+    pub ratio: ParameterHandle,
+    /// Makeup gain handle.
+    pub makeup_gain_db: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled compressor processor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledCompressorProcessor {
+    /// Attack coefficient.
+    pub attack_coeff: f32,
+    /// Release coefficient.
+    pub release_coeff: f32,
+    /// Soft-knee width.
+    pub knee_db: f32,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledCompressorParameters,
+}
+
+/// Dynamic parameter handles used by a limiter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledLimiterParameters {
+    /// Ceiling handle.
+    pub ceiling_db: ParameterHandle,
+    /// Input gain handle.
+    pub input_gain_db: ParameterHandle,
+}
+
+/// Compiled limiter processor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledLimiterProcessor {
+    /// Release coefficient.
+    pub release_coeff: f32,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledLimiterParameters,
 }
 
 /// Compiled delay processor.
@@ -1071,14 +1259,30 @@ pub struct CompiledReverbProcessor {
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::large_enum_variant)]
 pub enum CompiledProcessorKind {
-    /// Low-pass filter processor.
+    /// State-variable filter processor.
     Filter(CompiledFilterProcessor),
     /// Soft-clipping drive processor.
     Drive(CompiledDriveProcessor),
+    /// Three-band equalizer processor.
+    Eq(CompiledEqProcessor),
+    /// Tuned resonator processor.
+    Resonator(CompiledResonatorProcessor),
+    /// Bitcrusher processor.
+    Bitcrusher(CompiledBitcrusherProcessor),
+    /// Chorus processor.
+    Chorus(CompiledChorusProcessor),
+    /// Flanger processor.
+    Flanger(CompiledFlangerProcessor),
+    /// Phaser processor.
+    Phaser(CompiledPhaserProcessor),
     /// Stereo delay processor.
     Delay(CompiledDelayProcessor),
     /// Stereo plate reverb processor.
     Reverb(CompiledReverbProcessor),
+    /// Stereo-linked compressor processor.
+    Compressor(CompiledCompressorProcessor),
+    /// Zero-latency limiter processor.
+    Limiter(CompiledLimiterProcessor),
 }
 
 /// One processor in a Definition-ordered chain.
@@ -1412,6 +1616,54 @@ fn compile_processor(
         ProcessorDefinition::Drive(value) => {
             compile_drive_processor(value, placement, layer_id, catalog)
         }
+        ProcessorDefinition::Eq(value) => compile_eq_processor(
+            value,
+            placement,
+            layer_id,
+            path,
+            catalog,
+            sample_rate,
+            diagnostics,
+        ),
+        ProcessorDefinition::Resonator(value) => compile_resonator_processor(
+            value,
+            placement,
+            layer_id,
+            path,
+            catalog,
+            sample_rate,
+            diagnostics,
+        ),
+        ProcessorDefinition::Bitcrusher(value) => {
+            compile_bitcrusher_processor(value, placement, layer_id, catalog)
+        }
+        ProcessorDefinition::Chorus(value) => compile_chorus_processor(
+            value,
+            placement,
+            layer_id,
+            path,
+            catalog,
+            sample_rate,
+            diagnostics,
+        ),
+        ProcessorDefinition::Flanger(value) => compile_flanger_processor(
+            value,
+            placement,
+            layer_id,
+            path,
+            catalog,
+            sample_rate,
+            diagnostics,
+        ),
+        ProcessorDefinition::Phaser(value) => compile_phaser_processor(
+            value,
+            placement,
+            layer_id,
+            path,
+            catalog,
+            sample_rate,
+            diagnostics,
+        ),
         ProcessorDefinition::Delay(value) => compile_delay_processor(
             value,
             placement,
@@ -1430,6 +1682,12 @@ fn compile_processor(
             sample_rate,
             diagnostics,
         ),
+        ProcessorDefinition::Compressor(value) => {
+            compile_compressor_processor(value, placement, layer_id, catalog, sample_rate)
+        }
+        ProcessorDefinition::Limiter(value) => {
+            compile_limiter_processor(value, placement, layer_id, catalog, sample_rate)
+        }
     };
     CompiledProcessor { id, processor }
 }
@@ -1472,6 +1730,7 @@ fn compile_filter_processor(
         );
     }
     CompiledProcessorKind::Filter(CompiledFilterProcessor {
+        mode: value.mode,
         parameters: CompiledFilterParameters { cutoff, resonance },
         effective_max_cutoff_hz,
     })
@@ -1486,6 +1745,348 @@ fn compile_drive_processor(
     let amount = processor_parameter_handle(catalog, placement, layer_id, &value.id, "amount");
     let mix = processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix");
     CompiledProcessorKind::Drive(CompiledDriveProcessor { amount, mix })
+}
+
+fn compile_eq_processor(
+    value: &EqProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessorKind {
+    validate_processor_frequency(
+        value.high_frequency_hz,
+        sample_rate,
+        &format!("{path}.high_frequency_hz"),
+        diagnostics,
+    );
+    let parameters = CompiledEqParameters {
+        low_gain_db: processor_parameter_handle(
+            catalog,
+            placement,
+            layer_id,
+            &value.id,
+            "low_gain_db",
+        ),
+        mid_gain_db: processor_parameter_handle(
+            catalog,
+            placement,
+            layer_id,
+            &value.id,
+            "mid_gain_db",
+        ),
+        high_gain_db: processor_parameter_handle(
+            catalog,
+            placement,
+            layer_id,
+            &value.id,
+            "high_gain_db",
+        ),
+    };
+    CompiledProcessorKind::Eq(CompiledEqProcessor {
+        low_frequency_hz: value.low_frequency_hz,
+        mid_frequency_hz: value.mid_frequency_hz,
+        mid_q: value.mid_q,
+        high_frequency_hz: value.high_frequency_hz,
+        parameters,
+    })
+}
+
+fn compile_resonator_processor(
+    value: &ResonatorProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessorKind {
+    validate_processor_frequency(
+        value.frequency_hz,
+        sample_rate,
+        &format!("{path}.frequency_hz"),
+        diagnostics,
+    );
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    let sample_rate = sample_rate as f32;
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let max_delay_frames = (sample_rate / 40.0).ceil() as usize + 4;
+    let parameters = CompiledResonatorParameters {
+        frequency_hz: processor_parameter_handle(
+            catalog,
+            placement,
+            layer_id,
+            &value.id,
+            "frequency_hz",
+        ),
+        decay_seconds: processor_parameter_handle(
+            catalog,
+            placement,
+            layer_id,
+            &value.id,
+            "decay_seconds",
+        ),
+        damping: processor_parameter_handle(catalog, placement, layer_id, &value.id, "damping"),
+        mix: processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix"),
+    };
+    CompiledProcessorKind::Resonator(CompiledResonatorProcessor {
+        parameters,
+        max_delay_frames,
+        sample_rate,
+    })
+}
+
+fn compile_bitcrusher_processor(
+    value: &BitcrusherProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+) -> CompiledProcessorKind {
+    CompiledProcessorKind::Bitcrusher(CompiledBitcrusherProcessor {
+        parameters: CompiledBitcrusherParameters {
+            bit_depth: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "bit_depth",
+            ),
+            sample_rate_ratio: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "sample_rate_ratio",
+            ),
+            mix: processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix"),
+        },
+    })
+}
+
+fn compile_chorus_processor(
+    value: &ChorusProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessorKind {
+    compile_modulation_delay_processor(
+        value.delay_ms,
+        placement,
+        layer_id,
+        &value.id,
+        path,
+        catalog,
+        sample_rate,
+        diagnostics,
+        true,
+    )
+}
+
+fn compile_flanger_processor(
+    value: &FlangerProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessorKind {
+    compile_modulation_delay_processor(
+        value.delay_ms,
+        placement,
+        layer_id,
+        &value.id,
+        path,
+        catalog,
+        sample_rate,
+        diagnostics,
+        false,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compile_modulation_delay_processor(
+    delay_ms: f32,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    processor_id: &str,
+    path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+    chorus: bool,
+) -> CompiledProcessorKind {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    let sample_rate_f32 = sample_rate as f32;
+    let center_frames = delay_ms * sample_rate_f32 / 1_000.0;
+    let modulation_factor = if chorus { 0.9 } else { 0.95 };
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let max_delay_frames = (center_frames * (1.0 + modulation_factor) + 4.0).ceil() as usize;
+    let parameters = CompiledModulationDelayParameters {
+        rate_hz: processor_parameter_handle(catalog, placement, layer_id, processor_id, "rate_hz"),
+        depth: processor_parameter_handle(catalog, placement, layer_id, processor_id, "depth"),
+        feedback: processor_parameter_handle(
+            catalog,
+            placement,
+            layer_id,
+            processor_id,
+            "feedback",
+        ),
+        width: processor_parameter_handle(catalog, placement, layer_id, processor_id, "width"),
+        mix: processor_parameter_handle(catalog, placement, layer_id, processor_id, "mix"),
+    };
+    if max_delay_frames == 0 || !center_frames.is_finite() {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "modulation delay length cannot be represented",
+            )
+            .with_path(format!("{path}.delay_ms")),
+        );
+    }
+    if chorus {
+        CompiledProcessorKind::Chorus(CompiledChorusProcessor {
+            delay_frames: center_frames,
+            max_delay_frames: max_delay_frames.max(1),
+            sample_rate: sample_rate_f32,
+            parameters,
+        })
+    } else {
+        CompiledProcessorKind::Flanger(CompiledFlangerProcessor {
+            delay_frames: center_frames,
+            max_delay_frames: max_delay_frames.max(1),
+            sample_rate: sample_rate_f32,
+            parameters,
+        })
+    }
+}
+
+fn compile_phaser_processor(
+    value: &PhaserProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessorKind {
+    let upper_frequency = value.center_hz * 2.0_f32.powf(value.sweep_octaves / 2.0);
+    validate_processor_frequency(
+        upper_frequency,
+        sample_rate,
+        &format!("{path}.sweep_octaves"),
+        diagnostics,
+    );
+    CompiledProcessorKind::Phaser(CompiledPhaserProcessor {
+        stages: value.stages,
+        center_hz: value.center_hz,
+        sweep_octaves: value.sweep_octaves,
+        #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+        sample_rate: sample_rate as f32,
+        parameters: CompiledPhaserParameters {
+            rate_hz: processor_parameter_handle(catalog, placement, layer_id, &value.id, "rate_hz"),
+            depth: processor_parameter_handle(catalog, placement, layer_id, &value.id, "depth"),
+            feedback: processor_parameter_handle(
+                catalog, placement, layer_id, &value.id, "feedback",
+            ),
+            width: processor_parameter_handle(catalog, placement, layer_id, &value.id, "width"),
+            mix: processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix"),
+        },
+    })
+}
+
+fn compile_compressor_processor(
+    value: &CompressorProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+) -> CompiledProcessorKind {
+    let attack_seconds = value.attack_ms / 1_000.0;
+    let release_seconds = value.release_ms / 1_000.0;
+    CompiledProcessorKind::Compressor(CompiledCompressorProcessor {
+        attack_coeff: time_constant_coefficient(attack_seconds, sample_rate),
+        release_coeff: time_constant_coefficient(release_seconds, sample_rate),
+        knee_db: value.knee_db,
+        parameters: CompiledCompressorParameters {
+            threshold_db: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "threshold_db",
+            ),
+            ratio: processor_parameter_handle(catalog, placement, layer_id, &value.id, "ratio"),
+            makeup_gain_db: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "makeup_gain_db",
+            ),
+            mix: processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix"),
+        },
+    })
+}
+
+fn compile_limiter_processor(
+    value: &LimiterProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+) -> CompiledProcessorKind {
+    CompiledProcessorKind::Limiter(CompiledLimiterProcessor {
+        release_coeff: time_constant_coefficient(value.release_ms / 1_000.0, sample_rate),
+        parameters: CompiledLimiterParameters {
+            ceiling_db: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "ceiling_db",
+            ),
+            input_gain_db: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "input_gain_db",
+            ),
+        },
+    })
+}
+
+fn time_constant_coefficient(seconds: f32, sample_rate: f64) -> f32 {
+    let denominator = f64::from(seconds.max(f32::MIN_POSITIVE)) * sample_rate;
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        (-1.0 / denominator).exp() as f32
+    }
+}
+
+fn validate_processor_frequency(
+    frequency_hz: f32,
+    sample_rate: f64,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    let limit = (sample_rate * 0.45) as f32;
+    if !frequency_hz.is_finite() || frequency_hz >= limit {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                format!("processor frequency must be below {limit:.3} Hz at this sample rate"),
+            )
+            .with_path(path),
+        );
+    }
 }
 
 fn compile_delay_processor(
@@ -3721,6 +4322,7 @@ mod tests {
         source.voice_processors.push(ProcessorDefinition::Filter(
             crate::definition::FilterProcessorDefinition {
                 id: "tone".to_owned(),
+                mode: crate::definition::FilterModeDefinition::LowPass,
                 cutoff_hz: 20_000.0,
                 resonance: 0.1,
             },
@@ -3767,6 +4369,7 @@ mod tests {
         source.layers[0].processors = vec![
             ProcessorDefinition::Filter(crate::definition::FilterProcessorDefinition {
                 id: "layer_tone".to_owned(),
+                mode: crate::definition::FilterModeDefinition::LowPass,
                 cutoff_hz: 8_000.0,
                 resonance: 0.1,
             }),

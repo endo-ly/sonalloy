@@ -649,6 +649,7 @@ fn stereo_layer_processors_and_balance_preserve_the_generator_contract() {
     definition.layers[0].processors = vec![
         ProcessorDefinition::Filter(sonalloy_core::FilterProcessorDefinition {
             id: "tone".to_owned(),
+            mode: sonalloy_core::FilterModeDefinition::LowPass,
             cutoff_hz: 8_000.0,
             resonance: 0.1,
         }),

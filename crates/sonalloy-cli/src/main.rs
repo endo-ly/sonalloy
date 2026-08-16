@@ -559,6 +559,8 @@ struct InspectProcessor {
     chain_index: usize,
     id: String,
     kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mode: Option<&'static str>,
     static_fields: Vec<InspectStaticField>,
     parameters: Vec<InspectProcessorParameter>,
 }
@@ -1402,6 +1404,7 @@ fn default_definition() -> InstrumentDefinition {
         voice_processors: vec![ProcessorDefinition::Filter(
             sonalloy_core::FilterProcessorDefinition {
                 id: "tone".to_owned(),
+                mode: sonalloy_core::FilterModeDefinition::LowPass,
                 cutoff_hz: 12_000.0,
                 resonance: 0.12,
             },
@@ -1426,6 +1429,7 @@ fn parameter_descriptor_id(compiled: &CompiledInstrument, handle: ParameterHandl
         .clone()
 }
 
+#[allow(clippy::too_many_lines)]
 fn inspect_processor(
     compiled: &CompiledInstrument,
     processor: &sonalloy_core::compiler::CompiledProcessor,
@@ -1444,6 +1448,107 @@ fn inspect_processor(
         sonalloy_core::compiler::CompiledProcessorKind::Drive(value) => {
             ("drive", Vec::new(), vec![value.amount, value.mix])
         }
+        sonalloy_core::compiler::CompiledProcessorKind::Eq(value) => (
+            "eq",
+            vec![
+                InspectStaticField {
+                    id: "low_frequency_hz",
+                    value: value.low_frequency_hz,
+                },
+                InspectStaticField {
+                    id: "mid_frequency_hz",
+                    value: value.mid_frequency_hz,
+                },
+                InspectStaticField {
+                    id: "mid_q",
+                    value: value.mid_q,
+                },
+                InspectStaticField {
+                    id: "high_frequency_hz",
+                    value: value.high_frequency_hz,
+                },
+            ],
+            vec![
+                value.parameters.low_gain_db,
+                value.parameters.mid_gain_db,
+                value.parameters.high_gain_db,
+            ],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Resonator(value) => (
+            "resonator",
+            vec![InspectStaticField {
+                id: "max_delay_frames",
+                #[allow(clippy::cast_precision_loss)]
+                value: value.max_delay_frames as f32,
+            }],
+            vec![
+                value.parameters.frequency_hz,
+                value.parameters.decay_seconds,
+                value.parameters.damping,
+                value.parameters.mix,
+            ],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Bitcrusher(value) => (
+            "bitcrusher",
+            Vec::new(),
+            vec![
+                value.parameters.bit_depth,
+                value.parameters.sample_rate_ratio,
+                value.parameters.mix,
+            ],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Chorus(value) => (
+            "chorus",
+            vec![InspectStaticField {
+                id: "delay_frames",
+                value: value.delay_frames,
+            }],
+            vec![
+                value.parameters.rate_hz,
+                value.parameters.depth,
+                value.parameters.feedback,
+                value.parameters.width,
+                value.parameters.mix,
+            ],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Flanger(value) => (
+            "flanger",
+            vec![InspectStaticField {
+                id: "delay_frames",
+                value: value.delay_frames,
+            }],
+            vec![
+                value.parameters.rate_hz,
+                value.parameters.depth,
+                value.parameters.feedback,
+                value.parameters.width,
+                value.parameters.mix,
+            ],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Phaser(value) => (
+            "phaser",
+            vec![
+                InspectStaticField {
+                    id: "stages",
+                    value: f32::from(value.stages),
+                },
+                InspectStaticField {
+                    id: "center_hz",
+                    value: value.center_hz,
+                },
+                InspectStaticField {
+                    id: "sweep_octaves",
+                    value: value.sweep_octaves,
+                },
+            ],
+            vec![
+                value.parameters.rate_hz,
+                value.parameters.depth,
+                value.parameters.feedback,
+                value.parameters.width,
+                value.parameters.mix,
+            ],
+        ),
         sonalloy_core::compiler::CompiledProcessorKind::Delay(value) => (
             "delay",
             vec![InspectStaticField {
@@ -1462,12 +1567,53 @@ fn inspect_processor(
             }],
             vec![value.decay, value.damping, value.width, value.mix],
         ),
+        sonalloy_core::compiler::CompiledProcessorKind::Compressor(value) => (
+            "compressor",
+            vec![
+                InspectStaticField {
+                    id: "attack_coeff",
+                    value: value.attack_coeff,
+                },
+                InspectStaticField {
+                    id: "release_coeff",
+                    value: value.release_coeff,
+                },
+                InspectStaticField {
+                    id: "knee_db",
+                    value: value.knee_db,
+                },
+            ],
+            vec![
+                value.parameters.threshold_db,
+                value.parameters.ratio,
+                value.parameters.makeup_gain_db,
+                value.parameters.mix,
+            ],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Limiter(value) => (
+            "limiter",
+            vec![InspectStaticField {
+                id: "release_coeff",
+                value: value.release_coeff,
+            }],
+            vec![value.parameters.ceiling_db, value.parameters.input_gain_db],
+        ),
+    };
+    let mode = match &processor.processor {
+        sonalloy_core::compiler::CompiledProcessorKind::Filter(value) => Some(match value.mode {
+            sonalloy_core::FilterModeDefinition::LowPass => "low_pass",
+            sonalloy_core::FilterModeDefinition::HighPass => "high_pass",
+            sonalloy_core::FilterModeDefinition::BandPass => "band_pass",
+            sonalloy_core::FilterModeDefinition::Notch => "notch",
+        }),
+        _ => None,
     };
     InspectProcessor {
         placement,
         chain_index,
         id: processor.id.clone(),
         kind,
+        mode,
         static_fields,
         parameters: handles
             .into_iter()
@@ -2900,6 +3046,9 @@ fn print_processor_reports(processors: &[InspectProcessor], placement: &'static 
             "  processor[{}] {} ({})",
             report.chain_index, report.id, report.kind
         );
+        if let Some(mode) = report.mode {
+            println!("    mode: {mode}");
+        }
         for field in &report.static_fields {
             println!("    {}: {:.3}", field.id, field.value);
         }

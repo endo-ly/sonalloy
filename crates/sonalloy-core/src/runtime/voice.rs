@@ -145,12 +145,13 @@ impl LayerRuntime {
         instrument_latency_frames: usize,
     ) -> Result<Self, ProcessError> {
         let generator = GeneratorRuntime::new(&compiled.generator, spec)?;
+        let output_mode = compiled.generator.output_mode();
         let note_start_fade_frames =
             rounded_frame_count(spec.sample_rate * GAIN_SMOOTHING_SECONDS).max(1);
-        let processors = LayerProcessorChain::new(&compiled.processors, spec)?;
+        let processors = LayerProcessorChain::new(&compiled.processors, spec, output_mode)?;
         Ok(Self {
             envelope: AdsrRuntime::new(compiled.envelope),
-            output_mode: compiled.generator.output_mode(),
+            output_mode,
             generator,
             processors,
             active: false,
@@ -1158,16 +1159,73 @@ impl VoiceRuntime {
                 amount: self.evaluate_target(compiled, value.amount, shared)?,
                 mix: self.evaluate_target(compiled, value.mix, shared)?,
             }),
-            CompiledProcessorKind::Delay(value) => Ok(ProcessorTargetSpan::Delay {
-                feedback: self.evaluate_target(compiled, value.feedback, shared)?,
-                mix: self.evaluate_target(compiled, value.mix, shared)?,
+            CompiledProcessorKind::Eq(value) => Ok(ProcessorTargetSpan::Eq {
+                low_gain_db: self.evaluate_target(
+                    compiled,
+                    value.parameters.low_gain_db,
+                    shared,
+                )?,
+                mid_gain_db: self.evaluate_target(
+                    compiled,
+                    value.parameters.mid_gain_db,
+                    shared,
+                )?,
+                high_gain_db: self.evaluate_target(
+                    compiled,
+                    value.parameters.high_gain_db,
+                    shared,
+                )?,
             }),
-            CompiledProcessorKind::Reverb(value) => Ok(ProcessorTargetSpan::Reverb {
-                decay: self.evaluate_target(compiled, value.decay, shared)?,
-                damping: self.evaluate_target(compiled, value.damping, shared)?,
-                width: self.evaluate_target(compiled, value.width, shared)?,
-                mix: self.evaluate_target(compiled, value.mix, shared)?,
+            CompiledProcessorKind::Resonator(value) => Ok(ProcessorTargetSpan::Resonator {
+                frequency_hz: self.evaluate_target(
+                    compiled,
+                    value.parameters.frequency_hz,
+                    shared,
+                )?,
+                decay_seconds: self.evaluate_target(
+                    compiled,
+                    value.parameters.decay_seconds,
+                    shared,
+                )?,
+                damping: self.evaluate_target(compiled, value.parameters.damping, shared)?,
+                mix: self.evaluate_target(compiled, value.parameters.mix, shared)?,
             }),
+            CompiledProcessorKind::Compressor(value) => Ok(ProcessorTargetSpan::Compressor {
+                threshold_db: self.evaluate_target(
+                    compiled,
+                    value.parameters.threshold_db,
+                    shared,
+                )?,
+                ratio: self.evaluate_target(compiled, value.parameters.ratio, shared)?,
+                makeup_gain_db: self.evaluate_target(
+                    compiled,
+                    value.parameters.makeup_gain_db,
+                    shared,
+                )?,
+                mix: self.evaluate_target(compiled, value.parameters.mix, shared)?,
+            }),
+            CompiledProcessorKind::Limiter(value) => Ok(ProcessorTargetSpan::Limiter {
+                ceiling_db: self.evaluate_target(compiled, value.parameters.ceiling_db, shared)?,
+                input_gain_db: self.evaluate_target(
+                    compiled,
+                    value.parameters.input_gain_db,
+                    shared,
+                )?,
+            }),
+            CompiledProcessorKind::Bitcrusher(value) => Ok(ProcessorTargetSpan::Bitcrusher {
+                bit_depth: self.evaluate_target(compiled, value.parameters.bit_depth, shared)?,
+                sample_rate_ratio: self.evaluate_target(
+                    compiled,
+                    value.parameters.sample_rate_ratio,
+                    shared,
+                )?,
+                mix: self.evaluate_target(compiled, value.parameters.mix, shared)?,
+            }),
+            CompiledProcessorKind::Chorus(_)
+            | CompiledProcessorKind::Flanger(_)
+            | CompiledProcessorKind::Phaser(_)
+            | CompiledProcessorKind::Delay(_)
+            | CompiledProcessorKind::Reverb(_) => Err(invalid_state()),
         }
     }
 

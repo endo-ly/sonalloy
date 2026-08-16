@@ -37,6 +37,10 @@ pub(crate) const WAVEFORM_SAW: c_int = 1;
 pub(crate) const WAVEFORM_TRIANGLE: c_int = 2;
 pub(crate) const WAVEFORM_SQUARE: c_int = 3;
 pub(crate) const WAVEFORM_PULSE: c_int = 4;
+pub(crate) const FILTER_LOW_PASS: c_int = 0;
+pub(crate) const FILTER_HIGH_PASS: c_int = 1;
+pub(crate) const FILTER_BAND_PASS: c_int = 2;
+pub(crate) const FILTER_NOTCH: c_int = 3;
 pub(crate) const CAPABILITY_SINE: c_uint = 1 << 0;
 pub(crate) const CAPABILITY_SAW: c_uint = 1 << 1;
 pub(crate) const CAPABILITY_TRIANGLE: c_uint = 1 << 2;
@@ -133,6 +137,7 @@ unsafe extern "C" {
     pub(crate) fn sonalloy_dsp_filter_reset(handle: *mut DspFilter) -> c_int;
     pub(crate) fn sonalloy_dsp_filter_process(
         handle: *mut DspFilter,
+        mode: c_int,
         cutoff_hz: c_float,
         resonance: c_float,
         buffer: *mut c_float,
@@ -140,6 +145,7 @@ unsafe extern "C" {
     ) -> c_int;
     pub(crate) fn sonalloy_dsp_filter_process_ramp(
         handle: *mut DspFilter,
+        mode: c_int,
         start_cutoff_hz: c_float,
         end_cutoff_hz: c_float,
         resonance: c_float,
@@ -148,6 +154,7 @@ unsafe extern "C" {
     ) -> c_int;
     pub(crate) fn sonalloy_dsp_filter_process_ramp_with_resonance(
         handle: *mut DspFilter,
+        mode: c_int,
         start_cutoff_hz: c_float,
         end_cutoff_hz: c_float,
         start_resonance: c_float,

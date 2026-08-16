@@ -838,14 +838,30 @@ pub struct AdsrDefinition {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProcessorDefinition {
-    /// Low-pass filter.
+    /// State-variable filter.
     Filter(FilterProcessorDefinition),
     /// Soft-clipping drive.
     Drive(DriveProcessorDefinition),
+    /// Fixed three-band equalizer.
+    Eq(EqProcessorDefinition),
+    /// Tuned feedback resonator.
+    Resonator(ResonatorProcessorDefinition),
+    /// Sample-rate reducer and quantizer.
+    Bitcrusher(BitcrusherProcessorDefinition),
+    /// Stereo chorus.
+    Chorus(ChorusProcessorDefinition),
+    /// Stereo flanger.
+    Flanger(FlangerProcessorDefinition),
+    /// Stereo phaser.
+    Phaser(PhaserProcessorDefinition),
     /// Stereo feedback delay.
     Delay(DelayProcessorDefinition),
     /// Stereo plate reverb.
     Reverb(ReverbProcessorDefinition),
+    /// Stereo-linked compressor.
+    Compressor(CompressorProcessorDefinition),
+    /// Zero-latency stereo-linked limiter.
+    Limiter(LimiterProcessorDefinition),
 }
 
 impl ProcessorDefinition {
@@ -853,18 +869,44 @@ impl ProcessorDefinition {
         match self {
             Self::Filter(value) => &value.id,
             Self::Drive(value) => &value.id,
+            Self::Eq(value) => &value.id,
+            Self::Resonator(value) => &value.id,
+            Self::Bitcrusher(value) => &value.id,
+            Self::Chorus(value) => &value.id,
+            Self::Flanger(value) => &value.id,
+            Self::Phaser(value) => &value.id,
             Self::Delay(value) => &value.id,
             Self::Reverb(value) => &value.id,
+            Self::Compressor(value) => &value.id,
+            Self::Limiter(value) => &value.id,
         }
     }
 }
 
-/// Low-pass filter processor settings.
+/// Output mode selected from the state-variable filter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum FilterModeDefinition {
+    /// Low-pass output.
+    #[default]
+    LowPass,
+    /// High-pass output.
+    HighPass,
+    /// Band-pass output.
+    BandPass,
+    /// Notch output.
+    Notch,
+}
+
+/// State-variable filter processor settings.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FilterProcessorDefinition {
     /// Stable processor identifier.
     pub id: String,
+    /// Filter output mode.
+    #[serde(default)]
+    pub mode: FilterModeDefinition,
     /// Cutoff frequency in Hz.
     pub cutoff_hz: f32,
     /// Normalized resonance.
@@ -879,6 +921,122 @@ pub struct DriveProcessorDefinition {
     pub id: String,
     /// Soft-clipping amount.
     pub amount: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Fixed three-band equalizer processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EqProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Low-shelf midpoint in Hz.
+    pub low_frequency_hz: f32,
+    /// Low-shelf gain in dB.
+    pub low_gain_db: f32,
+    /// Mid peaking center frequency in Hz.
+    pub mid_frequency_hz: f32,
+    /// Mid peaking gain in dB.
+    pub mid_gain_db: f32,
+    /// Mid peaking Q factor.
+    pub mid_q: f32,
+    /// High-shelf midpoint in Hz.
+    pub high_frequency_hz: f32,
+    /// High-shelf gain in dB.
+    pub high_gain_db: f32,
+}
+
+/// Tuned feedback resonator processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResonatorProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Resonance frequency in Hz.
+    pub frequency_hz: f32,
+    /// Approximate T60 decay in seconds.
+    pub decay_seconds: f32,
+    /// High-frequency damping amount.
+    pub damping: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Bitcrusher processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BitcrusherProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Fractional quantizer bit depth.
+    pub bit_depth: f32,
+    /// Fraction of the input sample rate retained by sample-and-hold.
+    pub sample_rate_ratio: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Chorus processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChorusProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Center delay in milliseconds.
+    pub delay_ms: f32,
+    /// LFO rate in Hz.
+    pub rate_hz: f32,
+    /// Delay modulation depth.
+    pub depth: f32,
+    /// Positive feedback amount.
+    pub feedback: f32,
+    /// Stereo LFO phase width.
+    pub width: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Flanger processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FlangerProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Center delay in milliseconds.
+    pub delay_ms: f32,
+    /// LFO rate in Hz.
+    pub rate_hz: f32,
+    /// Delay modulation depth.
+    pub depth: f32,
+    /// Positive or negative feedback amount.
+    pub feedback: f32,
+    /// Stereo LFO phase width.
+    pub width: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Phaser processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PhaserProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Number of first-order all-pass stages.
+    pub stages: u8,
+    /// Sweep center frequency in Hz.
+    pub center_hz: f32,
+    /// Sweep width in octaves.
+    pub sweep_octaves: f32,
+    /// LFO rate in Hz.
+    pub rate_hz: f32,
+    /// Sweep depth.
+    pub depth: f32,
+    /// Positive or negative feedback amount.
+    pub feedback: f32,
+    /// Stereo LFO phase width.
+    pub width: f32,
     /// Dry/wet mix.
     pub mix: f32,
 }
@@ -913,6 +1071,42 @@ pub struct ReverbProcessorDefinition {
     pub width: f32,
     /// Dry/wet mix.
     pub mix: f32,
+}
+
+/// Stereo-linked compressor processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompressorProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Compression threshold in dB.
+    pub threshold_db: f32,
+    /// Compression ratio.
+    pub ratio: f32,
+    /// Attack time in milliseconds.
+    pub attack_ms: f32,
+    /// Release time in milliseconds.
+    pub release_ms: f32,
+    /// Soft-knee width in dB.
+    pub knee_db: f32,
+    /// Makeup gain in dB.
+    pub makeup_gain_db: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Stereo-linked limiter processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LimiterProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Output ceiling in dBFS.
+    pub ceiling_db: f32,
+    /// Release time in milliseconds.
+    pub release_ms: f32,
+    /// Input gain in dB.
+    pub input_gain_db: f32,
 }
 
 /// Modulation sources and routes stored in a Definition.
@@ -1197,15 +1391,15 @@ fn validate_processor_chain(
                 .with_path(id_path),
             );
         }
-        if let (
-            ProcessorPlacement::Layer | ProcessorPlacement::Voice,
-            ProcessorDefinition::Delay(_) | ProcessorDefinition::Reverb(_),
-        ) = (placement, processor)
-        {
+        if !processor_allowed_at(processor, placement) {
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::ProcessorPlacementInvalid,
-                    "delay and reverb processors are allowed only in global_processors",
+                    format!(
+                        "{} processor is not allowed in {} processors",
+                        processor_type_name(processor),
+                        placement_name(placement)
+                    ),
                 )
                 .with_path(&path),
             );
@@ -1214,6 +1408,67 @@ fn validate_processor_chain(
     }
 }
 
+fn processor_allowed_at(processor: &ProcessorDefinition, placement: ProcessorPlacement) -> bool {
+    match placement {
+        ProcessorPlacement::Layer => matches!(
+            processor,
+            ProcessorDefinition::Filter(_)
+                | ProcessorDefinition::Drive(_)
+                | ProcessorDefinition::Eq(_)
+                | ProcessorDefinition::Resonator(_)
+                | ProcessorDefinition::Bitcrusher(_)
+        ),
+        ProcessorPlacement::Voice => matches!(
+            processor,
+            ProcessorDefinition::Filter(_)
+                | ProcessorDefinition::Drive(_)
+                | ProcessorDefinition::Eq(_)
+                | ProcessorDefinition::Resonator(_)
+                | ProcessorDefinition::Compressor(_)
+                | ProcessorDefinition::Limiter(_)
+        ),
+        ProcessorPlacement::Global => matches!(
+            processor,
+            ProcessorDefinition::Filter(_)
+                | ProcessorDefinition::Drive(_)
+                | ProcessorDefinition::Eq(_)
+                | ProcessorDefinition::Chorus(_)
+                | ProcessorDefinition::Flanger(_)
+                | ProcessorDefinition::Phaser(_)
+                | ProcessorDefinition::Delay(_)
+                | ProcessorDefinition::Reverb(_)
+                | ProcessorDefinition::Compressor(_)
+                | ProcessorDefinition::Limiter(_)
+        ),
+    }
+}
+
+fn placement_name(placement: ProcessorPlacement) -> &'static str {
+    match placement {
+        ProcessorPlacement::Layer => "layer",
+        ProcessorPlacement::Voice => "voice",
+        ProcessorPlacement::Global => "global",
+    }
+}
+
+fn processor_type_name(processor: &ProcessorDefinition) -> &'static str {
+    match processor {
+        ProcessorDefinition::Filter(_) => "filter",
+        ProcessorDefinition::Drive(_) => "drive",
+        ProcessorDefinition::Eq(_) => "eq",
+        ProcessorDefinition::Resonator(_) => "resonator",
+        ProcessorDefinition::Bitcrusher(_) => "bitcrusher",
+        ProcessorDefinition::Chorus(_) => "chorus",
+        ProcessorDefinition::Flanger(_) => "flanger",
+        ProcessorDefinition::Phaser(_) => "phaser",
+        ProcessorDefinition::Delay(_) => "delay",
+        ProcessorDefinition::Reverb(_) => "reverb",
+        ProcessorDefinition::Compressor(_) => "compressor",
+        ProcessorDefinition::Limiter(_) => "limiter",
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 fn validate_processor_values(
     diagnostics: &mut Vec<Diagnostic>,
     path: &str,
@@ -1243,6 +1498,211 @@ fn validate_processor_values(
                 value.amount,
                 0.0..=1.0,
                 "amount must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::Eq(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.low_frequency_hz"),
+                value.low_frequency_hz,
+                20.0..=500.0,
+                "low_frequency_hz must be finite and between 20 and 500 Hz",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.low_gain_db"),
+                value.low_gain_db,
+                -24.0..=24.0,
+                "low_gain_db must be finite and between -24 and 24 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mid_frequency_hz"),
+                value.mid_frequency_hz,
+                100.0..=12_000.0,
+                "mid_frequency_hz must be finite and between 100 and 12000 Hz",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mid_gain_db"),
+                value.mid_gain_db,
+                -24.0..=24.0,
+                "mid_gain_db must be finite and between -24 and 24 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mid_q"),
+                value.mid_q,
+                0.25..=8.0,
+                "mid_q must be finite and between 0.25 and 8",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.high_frequency_hz"),
+                value.high_frequency_hz,
+                2_000.0..=20_000.0,
+                "high_frequency_hz must be finite and between 2000 and 20000 Hz",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.high_gain_db"),
+                value.high_gain_db,
+                -24.0..=24.0,
+                "high_gain_db must be finite and between -24 and 24 dB",
+            );
+            if value.low_frequency_hz >= value.mid_frequency_hz
+                || value.mid_frequency_hz >= value.high_frequency_hz
+            {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ValueOutOfRange,
+                        "EQ frequencies must be strictly ordered from low to high",
+                    )
+                    .with_path(path),
+                );
+            }
+        }
+        ProcessorDefinition::Resonator(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.frequency_hz"),
+                value.frequency_hz,
+                40.0..=12_000.0,
+                "frequency_hz must be finite and between 40 and 12000 Hz",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.decay_seconds"),
+                value.decay_seconds,
+                0.02..=10.0,
+                "decay_seconds must be finite and between 0.02 and 10 seconds",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.damping"),
+                value.damping,
+                0.0..=1.0,
+                "damping must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::Bitcrusher(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.bit_depth"),
+                value.bit_depth,
+                2.0..=16.0,
+                "bit_depth must be finite and between 2 and 16",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.sample_rate_ratio"),
+                value.sample_rate_ratio,
+                0.01..=1.0,
+                "sample_rate_ratio must be finite and between 0.01 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::Chorus(value) => {
+            validate_chorus_values(
+                diagnostics,
+                path,
+                value.delay_ms,
+                value.rate_hz,
+                value.depth,
+                value.feedback,
+                value.width,
+                value.mix,
+                5.0..=30.0,
+                0.01..=8.0,
+                0.0..=0.85,
+            );
+        }
+        ProcessorDefinition::Flanger(value) => {
+            validate_chorus_values(
+                diagnostics,
+                path,
+                value.delay_ms,
+                value.rate_hz,
+                value.depth,
+                value.feedback,
+                value.width,
+                value.mix,
+                0.5..=10.0,
+                0.01..=10.0,
+                -0.95..=0.95,
+            );
+        }
+        ProcessorDefinition::Phaser(value) => {
+            if !matches!(value.stages, 2 | 4 | 6 | 8) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ValueOutOfRange,
+                        "stages must be one of 2, 4, 6, or 8",
+                    )
+                    .with_path(format!("{path}.stages")),
+                );
+            }
+            validate_range(
+                diagnostics,
+                format!("{path}.center_hz"),
+                value.center_hz,
+                100.0..=5_000.0,
+                "center_hz must be finite and between 100 and 5000 Hz",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.sweep_octaves"),
+                value.sweep_octaves,
+                0.25..=6.0,
+                "sweep_octaves must be finite and between 0.25 and 6 octaves",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.rate_hz"),
+                value.rate_hz,
+                0.01..=8.0,
+                "rate_hz must be finite and between 0.01 and 8 Hz",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.depth"),
+                value.depth,
+                0.0..=1.0,
+                "depth must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.feedback"),
+                value.feedback,
+                -0.9..=0.9,
+                "feedback must be finite and between -0.9 and 0.9",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.width"),
+                value.width,
+                0.0..=1.0,
+                "width must be finite and between 0 and 1",
             );
             validate_range(
                 diagnostics,
@@ -1312,7 +1772,139 @@ fn validate_processor_values(
                 "mix must be finite and between 0 and 1",
             );
         }
+        ProcessorDefinition::Compressor(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.threshold_db"),
+                value.threshold_db,
+                -60.0..=0.0,
+                "threshold_db must be finite and between -60 and 0 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.ratio"),
+                value.ratio,
+                1.0..=20.0,
+                "ratio must be finite and between 1 and 20",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.attack_ms"),
+                value.attack_ms,
+                0.1..=200.0,
+                "attack_ms must be finite and between 0.1 and 200 ms",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.release_ms"),
+                value.release_ms,
+                5.0..=2_000.0,
+                "release_ms must be finite and between 5 and 2000 ms",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.knee_db"),
+                value.knee_db,
+                0.0..=24.0,
+                "knee_db must be finite and between 0 and 24 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.makeup_gain_db"),
+                value.makeup_gain_db,
+                -12.0..=24.0,
+                "makeup_gain_db must be finite and between -12 and 24 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::Limiter(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.ceiling_db"),
+                value.ceiling_db,
+                -12.0..=0.0,
+                "ceiling_db must be finite and between -12 and 0 dBFS",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.release_ms"),
+                value.release_ms,
+                5.0..=1_000.0,
+                "release_ms must be finite and between 5 and 1000 ms",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.input_gain_db"),
+                value.input_gain_db,
+                -24.0..=24.0,
+                "input_gain_db must be finite and between -24 and 24 dB",
+            );
+        }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_chorus_values(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    delay_ms: f32,
+    rate_hz: f32,
+    depth: f32,
+    feedback: f32,
+    width: f32,
+    mix: f32,
+    delay_range: std::ops::RangeInclusive<f32>,
+    rate_range: std::ops::RangeInclusive<f32>,
+    feedback_range: std::ops::RangeInclusive<f32>,
+) {
+    validate_range(
+        diagnostics,
+        format!("{path}.delay_ms"),
+        delay_ms,
+        delay_range,
+        "delay_ms is outside its supported range",
+    );
+    validate_range(
+        diagnostics,
+        format!("{path}.rate_hz"),
+        rate_hz,
+        rate_range,
+        "rate_hz is outside its supported range",
+    );
+    validate_range(
+        diagnostics,
+        format!("{path}.depth"),
+        depth,
+        0.0..=1.0,
+        "depth must be finite and between 0 and 1",
+    );
+    validate_range(
+        diagnostics,
+        format!("{path}.feedback"),
+        feedback,
+        feedback_range,
+        "feedback is outside its supported range",
+    );
+    validate_range(
+        diagnostics,
+        format!("{path}.width"),
+        width,
+        0.0..=1.0,
+        "width must be finite and between 0 and 1",
+    );
+    validate_range(
+        diagnostics,
+        format!("{path}.mix"),
+        mix,
+        0.0..=1.0,
+        "mix must be finite and between 0 and 1",
+    );
 }
 
 fn validate_modulation(diagnostics: &mut Vec<Diagnostic>, modulation: &ModulationDefinition) {
@@ -2989,6 +3581,7 @@ pub(crate) mod tests {
         value.voice_processors = vec![
             ProcessorDefinition::Filter(FilterProcessorDefinition {
                 id: "tone".to_owned(),
+                mode: FilterModeDefinition::LowPass,
                 cutoff_hz: 1_000.0,
                 resonance: 0.1,
             }),

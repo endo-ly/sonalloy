@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Lo-fi Texture",
+    "author": "Sonalloy",
+    "description": "Granular and noise texture through bit reduction, EQ, modulation, and space"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "granular",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16.0,
+      "pan": -0.12,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.18,
+        "sustain_level": 0.65,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "granular": {
+          "asset": {
+            "path": "../assets/mono-texture.wav",
+            "sha256": "4b8ed1af8f678b5a1f99e2137493b76d8a394bd304c5115ade04f5462efb0482"
+          },
+          "root_note": 60,
+          "region": {
+            "start_seconds": 0.1,
+            "end_seconds": 1.2
+          },
+          "position": 0.48,
+          "grain_size": 0.07,
+          "density": 28.0,
+          "pitch": 0.0,
+          "randomness": 0.35,
+          "pan_spread": 0.85,
+          "seed": 9912
+        }
+      },
+      "processors": [
+        {
+          "type": "bitcrusher",
+          "id": "texture_crush",
+          "bit_depth": 8.0,
+          "sample_rate_ratio": 0.45,
+          "mix": 0.65
+        }
+      ]
+    },
+    {
+      "id": "noise",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -36.0,
+      "pan": 0.12,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.18,
+        "sustain_level": 0.65,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4812,
+          "stereo_correlation": 0.35
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "eq",
+      "id": "texture_eq",
+      "low_frequency_hz": 160.0,
+      "low_gain_db": -2.0,
+      "mid_frequency_hz": 1400.0,
+      "mid_gain_db": 3.0,
+      "mid_q": 1.3,
+      "high_frequency_hz": 6500.0,
+      "high_gain_db": -4.0
+    },
+    {
+      "type": "flanger",
+      "id": "texture_flanger",
+      "delay_ms": 3.0,
+      "rate_hz": 0.3,
+      "depth": 0.65,
+      "feedback": -0.35,
+      "width": 0.9,
+      "mix": 0.28
+    },
+    {
+      "type": "reverb",
+      "id": "texture_reverb",
+      "pre_delay_seconds": 0.01,
+      "decay": 0.68,
+      "damping": 0.55,
+      "width": 0.95,
+      "mix": 0.22
+    }
+  ],
+  "modulation": null
+}
