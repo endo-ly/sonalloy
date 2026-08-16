@@ -457,6 +457,7 @@ impl InstrumentRuntime {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     fn evaluate_global_processor_target(
         compiled: &CompiledInstrument,
         processor: &CompiledProcessor,
@@ -478,6 +479,70 @@ impl InstrumentRuntime {
                 amount: Self::evaluate_global_target(compiled, value.amount, shared)?,
                 mix: Self::evaluate_global_target(compiled, value.mix, shared)?,
             }),
+            CompiledProcessorKind::Eq(value) => Ok(ProcessorTargetSpan::Eq {
+                low_gain_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.low_gain_db,
+                    shared,
+                )?,
+                mid_gain_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.mid_gain_db,
+                    shared,
+                )?,
+                high_gain_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.high_gain_db,
+                    shared,
+                )?,
+            }),
+            CompiledProcessorKind::Resonator(value) => Ok(ProcessorTargetSpan::Resonator {
+                frequency_hz: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.frequency_hz,
+                    shared,
+                )?,
+                decay_seconds: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.decay_seconds,
+                    shared,
+                )?,
+                damping: Self::evaluate_global_target(compiled, value.parameters.damping, shared)?,
+                mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
+            }),
+            CompiledProcessorKind::Chorus(value) => Ok(ProcessorTargetSpan::Chorus {
+                rate_hz: Self::evaluate_global_target(compiled, value.parameters.rate_hz, shared)?,
+                depth: Self::evaluate_global_target(compiled, value.parameters.depth, shared)?,
+                feedback: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.feedback,
+                    shared,
+                )?,
+                width: Self::evaluate_global_target(compiled, value.parameters.width, shared)?,
+                mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
+            }),
+            CompiledProcessorKind::Flanger(value) => Ok(ProcessorTargetSpan::Flanger {
+                rate_hz: Self::evaluate_global_target(compiled, value.parameters.rate_hz, shared)?,
+                depth: Self::evaluate_global_target(compiled, value.parameters.depth, shared)?,
+                feedback: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.feedback,
+                    shared,
+                )?,
+                width: Self::evaluate_global_target(compiled, value.parameters.width, shared)?,
+                mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
+            }),
+            CompiledProcessorKind::Phaser(value) => Ok(ProcessorTargetSpan::Phaser {
+                rate_hz: Self::evaluate_global_target(compiled, value.parameters.rate_hz, shared)?,
+                depth: Self::evaluate_global_target(compiled, value.parameters.depth, shared)?,
+                feedback: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.feedback,
+                    shared,
+                )?,
+                width: Self::evaluate_global_target(compiled, value.parameters.width, shared)?,
+                mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
+            }),
             CompiledProcessorKind::Delay(value) => Ok(ProcessorTargetSpan::Delay {
                 feedback: Self::evaluate_global_target(compiled, value.feedback, shared)?,
                 mix: Self::evaluate_global_target(compiled, value.mix, shared)?,
@@ -488,6 +553,33 @@ impl InstrumentRuntime {
                 width: Self::evaluate_global_target(compiled, value.width, shared)?,
                 mix: Self::evaluate_global_target(compiled, value.mix, shared)?,
             }),
+            CompiledProcessorKind::Compressor(value) => Ok(ProcessorTargetSpan::Compressor {
+                threshold_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.threshold_db,
+                    shared,
+                )?,
+                ratio: Self::evaluate_global_target(compiled, value.parameters.ratio, shared)?,
+                makeup_gain_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.makeup_gain_db,
+                    shared,
+                )?,
+                mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
+            }),
+            CompiledProcessorKind::Limiter(value) => Ok(ProcessorTargetSpan::Limiter {
+                ceiling_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.ceiling_db,
+                    shared,
+                )?,
+                input_gain_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.input_gain_db,
+                    shared,
+                )?,
+            }),
+            CompiledProcessorKind::Bitcrusher(_) => Err(invalid_state()),
         }
     }
 
@@ -1102,6 +1194,148 @@ mod tests {
         }];
 
         let _ = process(&mut runtime, 64, 0, &event);
+        runtime.reset().expect("reset");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn processor_expansion_render_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].processors = vec![
+            crate::definition::ProcessorDefinition::Eq(crate::definition::EqProcessorDefinition {
+                id: "layer_eq".to_owned(),
+                low_frequency_hz: 120.0,
+                low_gain_db: 2.0,
+                mid_frequency_hz: 1_000.0,
+                mid_gain_db: -2.0,
+                mid_q: 1.0,
+                high_frequency_hz: 8_000.0,
+                high_gain_db: 1.0,
+            }),
+            crate::definition::ProcessorDefinition::Resonator(
+                crate::definition::ResonatorProcessorDefinition {
+                    id: "layer_ring".to_owned(),
+                    frequency_hz: 220.0,
+                    decay_seconds: 0.4,
+                    damping: 0.3,
+                    mix: 0.2,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Bitcrusher(
+                crate::definition::BitcrusherProcessorDefinition {
+                    id: "layer_crush".to_owned(),
+                    bit_depth: 8.0,
+                    sample_rate_ratio: 0.5,
+                    mix: 0.2,
+                },
+            ),
+        ];
+        source.voice_processors = vec![
+            crate::definition::ProcessorDefinition::Eq(crate::definition::EqProcessorDefinition {
+                id: "voice_eq".to_owned(),
+                low_frequency_hz: 120.0,
+                low_gain_db: 0.0,
+                mid_frequency_hz: 1_000.0,
+                mid_gain_db: 0.0,
+                mid_q: 1.0,
+                high_frequency_hz: 8_000.0,
+                high_gain_db: 0.0,
+            }),
+            crate::definition::ProcessorDefinition::Resonator(
+                crate::definition::ResonatorProcessorDefinition {
+                    id: "voice_ring".to_owned(),
+                    frequency_hz: 440.0,
+                    decay_seconds: 0.2,
+                    damping: 0.5,
+                    mix: 0.1,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Compressor(
+                crate::definition::CompressorProcessorDefinition {
+                    id: "voice_compressor".to_owned(),
+                    threshold_db: -18.0,
+                    ratio: 4.0,
+                    attack_ms: 15.0,
+                    release_ms: 180.0,
+                    knee_db: 6.0,
+                    makeup_gain_db: 2.0,
+                    mix: 1.0,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Limiter(
+                crate::definition::LimiterProcessorDefinition {
+                    id: "voice_limiter".to_owned(),
+                    ceiling_db: -1.0,
+                    release_ms: 80.0,
+                    input_gain_db: 0.0,
+                },
+            ),
+        ];
+        source.global_processors = vec![
+            crate::definition::ProcessorDefinition::Eq(crate::definition::EqProcessorDefinition {
+                id: "global_eq".to_owned(),
+                low_frequency_hz: 120.0,
+                low_gain_db: 0.0,
+                mid_frequency_hz: 1_000.0,
+                mid_gain_db: 0.0,
+                mid_q: 1.0,
+                high_frequency_hz: 8_000.0,
+                high_gain_db: 0.0,
+            }),
+            crate::definition::ProcessorDefinition::Chorus(
+                crate::definition::ChorusProcessorDefinition {
+                    id: "chorus".to_owned(),
+                    delay_ms: 15.0,
+                    rate_hz: 0.35,
+                    depth: 0.65,
+                    feedback: 0.1,
+                    width: 0.8,
+                    mix: 0.3,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Flanger(
+                crate::definition::FlangerProcessorDefinition {
+                    id: "flanger".to_owned(),
+                    delay_ms: 2.0,
+                    rate_hz: 0.25,
+                    depth: 0.8,
+                    feedback: 0.55,
+                    width: 0.5,
+                    mix: 0.2,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Phaser(
+                crate::definition::PhaserProcessorDefinition {
+                    id: "phaser".to_owned(),
+                    stages: 6,
+                    center_hz: 900.0,
+                    sweep_octaves: 3.0,
+                    rate_hz: 0.3,
+                    depth: 0.8,
+                    feedback: 0.4,
+                    width: 0.7,
+                    mix: 0.2,
+                },
+            ),
+        ];
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        process_with_stack_output(&mut runtime, 0, &event);
         runtime.reset().expect("reset");
 
         let allocations = crate::test_allocator::count_allocations(|| {
@@ -2189,6 +2423,7 @@ mod tests {
             .push(crate::definition::ProcessorDefinition::Filter(
                 crate::definition::FilterProcessorDefinition {
                     id: "tone".to_owned(),
+                    mode: crate::definition::FilterModeDefinition::LowPass,
                     cutoff_hz: 2_000.0,
                     resonance: 0.15,
                 },
