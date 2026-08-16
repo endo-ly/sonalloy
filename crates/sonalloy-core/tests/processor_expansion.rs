@@ -5,10 +5,10 @@ use sonalloy_core::{
     AdsrDefinition, BitcrusherProcessorDefinition, ChorusProcessorDefinition, CompileContext,
     CompressorProcessorDefinition, EqProcessorDefinition, FilterModeDefinition,
     FlangerProcessorDefinition, InstrumentDefinition, InstrumentProcessor,
-    LimiterProcessorDefinition, ModulationCurve, ModulationDefinition, ModulationRouteDefinition,
-    PhaserProcessorDefinition, ProcessBlock, ProcessContext, ProcessEventKind, ProcessSpec,
-    ProcessorDefinition, RenderRequest, ResonatorProcessorDefinition, ScheduledEvent,
-    compile_instrument, render_instrument,
+    LimiterProcessorDefinition, ModulationCurve, ModulationDefinition, ModulationDepthDefinition,
+    ModulationRouteDefinition, PhaserProcessorDefinition, ProcessBlock, ProcessContext,
+    ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderRequest,
+    ResonatorProcessorDefinition, ScheduledEvent, compile_instrument, render_instrument,
 };
 
 fn base_definition() -> InstrumentDefinition {
@@ -552,7 +552,10 @@ fn processor_parameter_changes_and_global_modulation_are_block_size_independent(
         routes: vec![ModulationRouteDefinition {
             source: "mod_wheel".to_owned(),
             target: "global.processor.chorus.width".to_owned(),
-            amount: 1.0,
+            depth: ModulationDepthDefinition {
+                value: 1.0,
+                unit: sonalloy_core::ModulationUnit::Normalized,
+            },
             curve: ModulationCurve::Linear,
         }],
     });

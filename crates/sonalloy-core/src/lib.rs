@@ -1,3 +1,4 @@
+pub mod analysis;
 pub mod asset;
 pub mod compiler;
 pub mod definition;
@@ -8,8 +9,13 @@ pub mod process;
 pub mod render;
 pub mod runtime;
 mod spectral;
+pub mod trace;
 mod wavetable;
 
+pub use analysis::{
+    ActivityAnalysis, AudioAnalysis, AudioAnalysisError, AudioAnalysisOptions, ContinuityAnalysis,
+    LevelAnalysis, SpectralPeak, SpectrumAnalysis, StereoAnalysis, analyze_rendered_audio,
+};
 pub use asset::{PreparedAudio, PreparedAudioChannels, SampleMetadata};
 pub use compiler::{
     CompileContext, CompileResult, CompiledAdditive, CompiledAdditiveParameters,
@@ -36,9 +42,9 @@ pub use definition::{
     FlangerProcessorDefinition, FormantBandDefinition, FormantDefinition, FormantProfileDefinition,
     GeneratorDefinition, GranularDefinition, HardSyncDefinition, InstrumentDefinition,
     InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, LayerTriggerEvent,
-    LimiterProcessorDefinition, NoiseColor, NoiseDefinition, OperatorAlgorithm, OperatorDefinition,
-    OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition,
-    OscillatorFeedbackDefinition, OscillatorWaveform, PerformanceDefinition,
+    LimiterProcessorDefinition, ModulationDepthDefinition, NoiseColor, NoiseDefinition,
+    OperatorAlgorithm, OperatorDefinition, OperatorModulationDefinition, OperatorModulationMode,
+    OscillatorDefinition, OscillatorFeedbackDefinition, OscillatorWaveform, PerformanceDefinition,
     PhaseDistortionDefinition, PhaserProcessorDefinition, ProcessorDefinition,
     ResonatorProcessorDefinition, ReverbProcessorDefinition, SampleDefinition, SampleInterpolation,
     SampleLoopDefinition, SamplePlaybackDirection, SampleRegionDefinition, SampleTimeDefinition,
@@ -53,10 +59,10 @@ pub use definition::{
 };
 pub use diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity, from_render_error};
 pub use parameter::{
-    BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterDescriptor, ParameterHandle, ParameterOwner,
-    ParameterScale, ParameterUnit, ParameterValueError, global_processor_parameter_id,
-    is_component_id, is_parameter_id, layer_generator_parameter_id, layer_parameter_id,
-    layer_processor_parameter_id, voice_processor_parameter_id,
+    BUILTIN_SOURCE_IDS, ModulationUnit, ParameterCatalog, ParameterDescriptor, ParameterHandle,
+    ParameterOwner, ParameterScale, ParameterUnit, ParameterValueError,
+    global_processor_parameter_id, is_component_id, is_parameter_id, layer_generator_parameter_id,
+    layer_parameter_id, layer_processor_parameter_id, voice_processor_parameter_id,
 };
 pub use process::{
     DspFailureKind, InstrumentProcessor, NoteId, ProcessBlock, ProcessContext, ProcessError,
@@ -64,11 +70,15 @@ pub use process::{
 };
 pub use render::{
     DEFAULT_TEMPO_BPM, RenderError, RenderRequest, RenderedAudio, TempoChange, TempoMap,
-    render_instrument, render_instrument_with_tempo, render_instrument_with_tempo_map, render_sine,
-    seconds_to_frames,
+    render_instrument, render_instrument_with_tempo, render_instrument_with_tempo_map,
+    render_instrument_with_trace, render_sine, seconds_to_frames,
 };
 pub use runtime::{InstrumentRuntime, SineRuntime, VoiceState};
 pub use spectral::PreparedSpectralAsset;
+pub use trace::{
+    MAX_TRACE_OBSERVATIONS, RenderTraceReport, TraceContribution, TraceDepth, TraceObservation,
+    TraceParameterReport, TraceRequest, TraceRoute, TraceVoice, TraceVoiceState,
+};
 
 /// Backend metadata exposed without backend-specific types.
 #[derive(Debug, Clone, PartialEq, Eq)]

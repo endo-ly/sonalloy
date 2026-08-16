@@ -6,11 +6,12 @@ use sonalloy_core::{
     AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, DriveProcessorDefinition,
     GeneratorDefinition, HardSyncDefinition, InstrumentDefinition, InstrumentProcessor,
     InstrumentRuntime, LfoDefinition, LfoWaveform, ModulationCurve, ModulationDefinition,
-    ModulationRouteDefinition, ModulationSourceDefinition, NoiseColor, NoiseDefinition,
-    OscillatorDefinition, OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEvent,
-    ProcessEventKind, ProcessSpec, ProcessorDefinition, RandomDefinition, RenderRequest,
-    SampleZoneDefinition, SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime,
-    UnisonDefinition, WaveshapingDefinition, compile_instrument, render_instrument,
+    ModulationDepthDefinition, ModulationRouteDefinition, ModulationSourceDefinition, NoiseColor,
+    NoiseDefinition, OscillatorDefinition, OscillatorWaveform, ProcessBlock, ProcessContext,
+    ProcessEvent, ProcessEventKind, ProcessSpec, ProcessorDefinition, RandomDefinition,
+    RenderRequest, SampleZoneDefinition, SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime,
+    TempoMap, TraceRequest, UnisonDefinition, WaveshapingDefinition, compile_instrument,
+    render_instrument, render_instrument_with_trace,
 };
 
 fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
@@ -191,7 +192,10 @@ fn pulse_definition(with_modulation: bool) -> InstrumentDefinition {
             routes: vec![ModulationRouteDefinition {
                 source: "pwm_lfo".to_owned(),
                 target: "layer.body.generator.pulse_width".to_owned(),
-                amount: 0.5,
+                depth: ModulationDepthDefinition {
+                    value: 0.45,
+                    unit: sonalloy_core::ModulationUnit::Normalized,
+                },
                 curve: ModulationCurve::Linear,
             }],
         });
@@ -583,6 +587,96 @@ fn reference_definition_compiles_and_renders_stereo() {
             .flatten()
             .any(|sample| sample.abs() > 0.01)
     );
+}
+
+#[test]
+fn trace_enabled_render_matches_audio_and_reports_selected_routes() {
+    let mut definition = definition();
+    definition.modulation = Some(ModulationDefinition {
+        sources: Vec::new(),
+        routes: vec![ModulationRouteDefinition {
+            source: "velocity".to_owned(),
+            target: "layer.body.gain".to_owned(),
+            depth: ModulationDepthDefinition {
+                value: 6.0,
+                unit: sonalloy_core::ModulationUnit::Decibels,
+            },
+            curve: ModulationCurve::Linear,
+        }],
+    });
+    let compiled = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    )
+    .instrument
+    .expect("trace definition compiles");
+    let events = [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 7,
+                note_number: 60,
+                velocity: 100,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 192,
+            kind: ProcessEventKind::NoteOff { note_id: 7 },
+        },
+    ];
+    let request = RenderRequest {
+        sample_rate: 48_000.0,
+        block_size: 257,
+        duration_frames: 256,
+        tail_frames: 0,
+    };
+    let plain =
+        render_instrument(Arc::clone(&compiled), request, &events).expect("ordinary render");
+    let (traced, report) = render_instrument_with_trace(
+        Arc::clone(&compiled),
+        request,
+        &events,
+        &TempoMap::constant(120.0).expect("tempo map"),
+        &TraceRequest {
+            parameters: vec![
+                compiled
+                    .parameter_handle("layer.body.gain")
+                    .expect("gain handle"),
+            ],
+            every_frames: 64,
+            reported_latency_frames: 0,
+        },
+    )
+    .expect("trace render");
+
+    for (plain_channel, traced_channel) in plain.channels.iter().zip(&traced.channels) {
+        for (plain_sample, traced_sample) in plain_channel.iter().zip(traced_channel) {
+            assert_relative_eq!(*plain_sample, *traced_sample, epsilon = 1.0e-6);
+        }
+    }
+    let observations = &report.parameters[0].observations;
+    assert!(
+        observations
+            .iter()
+            .any(|observation| observation.frame == 1)
+    );
+    assert!(
+        observations
+            .iter()
+            .any(|observation| observation.frame == 64)
+    );
+    let routed = observations
+        .iter()
+        .find(|observation| observation.voice.is_some())
+        .expect("active voice observation");
+    assert_eq!(
+        routed.routes[0].depth.unit,
+        sonalloy_core::ModulationUnit::Decibels
+    );
+    assert!(routed.routes[0].contribution.value > 0.0);
 }
 
 #[test]
@@ -1215,7 +1309,10 @@ fn deterministic_random_route_repeats_across_runtime_instances() {
         routes: vec![ModulationRouteDefinition {
             source: "random_pan".to_owned(),
             target: "layer.body.pan".to_owned(),
-            amount: 1.0,
+            depth: ModulationDepthDefinition {
+                value: 2.0,
+                unit: sonalloy_core::ModulationUnit::Pan,
+            },
             curve: ModulationCurve::Linear,
         }],
     });

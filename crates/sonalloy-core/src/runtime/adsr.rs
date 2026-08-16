@@ -140,7 +140,7 @@ impl AdsrRuntime {
         self.state == AdsrState::Idle
     }
 
-    fn current_value(&self) -> f32 {
+    pub(crate) fn current_value(&self) -> f32 {
         match self.state {
             AdsrState::Idle => 0.0,
             AdsrState::Attack => {

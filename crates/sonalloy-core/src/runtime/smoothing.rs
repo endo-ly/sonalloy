@@ -46,6 +46,10 @@ impl Smoother {
         }
     }
 
+    pub(crate) fn current(&self) -> f32 {
+        self.current
+    }
+
     pub(crate) fn next(&mut self) -> f32 {
         if self.remaining == 0 {
             return self.current;

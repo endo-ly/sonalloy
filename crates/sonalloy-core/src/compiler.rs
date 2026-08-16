@@ -177,6 +177,8 @@ pub struct CompiledLayerParameters {
 /// Compiled layer configuration.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledLayer {
+    /// Original index in the Definition layer array.
+    pub definition_index: usize,
     /// Stable layer identifier.
     pub id: String,
     /// Compiled trigger conditions.
@@ -1377,8 +1379,8 @@ pub struct CompiledRoute {
     pub source: CompiledSourceRef,
     /// Target parameter handle.
     pub target: ParameterHandle,
-    /// Signed target-range amount.
-    pub amount: f32,
+    /// Signed depth in the target descriptor's modulation domain.
+    pub depth: f32,
     /// Source curve.
     pub curve: ModulationCurve,
 }
@@ -1482,6 +1484,7 @@ pub fn compile_instrument(
             );
             let intrinsic_latency_frames = generator.intrinsic_latency_frames();
             CompiledLayer {
+                definition_index,
                 id: layer.id.clone(),
                 trigger: compile_trigger(layer.trigger),
                 parameters,
@@ -2417,11 +2420,40 @@ fn compile_modulation(
                 );
                 continue;
             };
-            let owner = catalog
+            let descriptor = catalog
                 .descriptor(target)
-                .expect("compiled route target handle must be valid")
-                .owner;
-            if !route_source_allowed(owner, source) {
+                .expect("compiled route target handle must be valid");
+            if route.depth.unit != descriptor.modulation_unit() {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::RouteDepthUnitInvalid,
+                        "route depth unit does not match the target parameter",
+                    )
+                    .with_path(format!("modulation.routes[{index}].depth.unit"))
+                    .with_detail(format!(
+                        "expected {:?}, received {:?}",
+                        descriptor.modulation_unit(),
+                        route.depth.unit
+                    )),
+                );
+                continue;
+            }
+            let maximum = descriptor.max_modulation_depth();
+            if !route.depth.value.is_finite() || route.depth.value.abs() > maximum {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::RouteDepthInvalid,
+                        "route depth exceeds the target modulation range",
+                    )
+                    .with_path(format!("modulation.routes[{index}].depth.value"))
+                    .with_detail(format!(
+                        "allowed absolute depth is at most {maximum} {:?}",
+                        descriptor.modulation_unit()
+                    )),
+                );
+                continue;
+            }
+            if !route_source_allowed(descriptor.owner, source) {
                 diagnostics.push(
                     Diagnostic::error(
                         DiagnosticCode::GlobalRouteScopeInvalid,
@@ -2436,7 +2468,7 @@ fn compile_modulation(
                 CompiledRoute {
                     source,
                     target,
-                    amount: route.amount,
+                    depth: route.depth.value,
                     curve: route.curve,
                 },
             ));
@@ -4538,7 +4570,10 @@ mod tests {
             routes: vec![crate::definition::ModulationRouteDefinition {
                 source: "velocity".to_owned(),
                 target: "global.processor.master_drive.mix".to_owned(),
-                amount: 0.2,
+                depth: crate::definition::ModulationDepthDefinition {
+                    value: 0.2,
+                    unit: crate::parameter::ModulationUnit::Normalized,
+                },
                 curve: ModulationCurve::Linear,
             }],
         });
@@ -4575,13 +4610,19 @@ mod tests {
                 crate::definition::ModulationRouteDefinition {
                     source: "velocity".to_owned(),
                     target: "layer.body.gain".to_owned(),
-                    amount: 0.1,
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 7.2,
+                        unit: crate::parameter::ModulationUnit::Decibels,
+                    },
                     curve: ModulationCurve::Linear,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "key_tracking".to_owned(),
                     target: "layer.body.gain".to_owned(),
-                    amount: -0.2,
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: -14.4,
+                        unit: crate::parameter::ModulationUnit::Decibels,
+                    },
                     curve: ModulationCurve::SmoothStep,
                 },
             ],
@@ -4590,8 +4631,48 @@ mod tests {
         let compiled = result.instrument.expect("routes compile");
         let routes = compiled.routes_for(compiled.layers[0].parameters.gain);
         assert_eq!(routes.len(), 2);
-        assert!((routes[0].amount - 0.1).abs() < f32::EPSILON);
-        assert!((routes[1].amount + 0.2).abs() < f32::EPSILON);
+        assert!((routes[0].depth - 7.2).abs() < f32::EPSILON);
+        assert!((routes[1].depth + 14.4).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn route_depth_units_and_limits_are_checked_against_the_target_descriptor() {
+        let mut source = definition();
+        source.modulation = Some(crate::definition::ModulationDefinition {
+            sources: vec![],
+            routes: vec![
+                crate::definition::ModulationRouteDefinition {
+                    source: "velocity".to_owned(),
+                    target: "layer.body.gain".to_owned(),
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 1.0,
+                        unit: crate::parameter::ModulationUnit::Pan,
+                    },
+                    curve: ModulationCurve::Linear,
+                },
+                crate::definition::ModulationRouteDefinition {
+                    source: "velocity".to_owned(),
+                    target: "layer.body.gain".to_owned(),
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 72.1,
+                        unit: crate::parameter::ModulationUnit::Decibels,
+                    },
+                    curve: ModulationCurve::Linear,
+                },
+            ],
+        });
+
+        let result = compile_instrument(&source, &context());
+
+        assert!(result.instrument.is_none());
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::RouteDepthUnitInvalid
+                && diagnostic.path.as_deref() == Some("modulation.routes[0].depth.unit")
+        }));
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::RouteDepthInvalid
+                && diagnostic.path.as_deref() == Some("modulation.routes[1].depth.value")
+        }));
     }
 
     #[test]
@@ -4627,19 +4708,28 @@ mod tests {
                 crate::definition::ModulationRouteDefinition {
                     source: "slow_lfo".to_owned(),
                     target: "layer.body.gain".to_owned(),
-                    amount: 0.1,
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 7.2,
+                        unit: crate::parameter::ModulationUnit::Decibels,
+                    },
                     curve: ModulationCurve::Linear,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "mod_env".to_owned(),
                     target: "layer.body.pan".to_owned(),
-                    amount: 0.2,
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 0.4,
+                        unit: crate::parameter::ModulationUnit::Pan,
+                    },
                     curve: ModulationCurve::SmoothStep,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "random".to_owned(),
                     target: "layer.body.tuning".to_owned(),
-                    amount: 0.05,
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 120.0,
+                        unit: crate::parameter::ModulationUnit::Cents,
+                    },
                     curve: ModulationCurve::Linear,
                 },
             ],
@@ -4664,7 +4754,10 @@ mod tests {
             routes: vec![crate::definition::ModulationRouteDefinition {
                 source: "missing".to_owned(),
                 target: "layer.missing.gain".to_owned(),
-                amount: 0.1,
+                depth: crate::definition::ModulationDepthDefinition {
+                    value: 0.1,
+                    unit: crate::parameter::ModulationUnit::Normalized,
+                },
                 curve: ModulationCurve::Linear,
             }],
         });

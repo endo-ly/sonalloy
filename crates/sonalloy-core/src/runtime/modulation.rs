@@ -1,6 +1,9 @@
 use crate::compiler::{CompiledGenerator, CompiledOscillatorBackend};
 use crate::compiler::{CompiledLayer, CompiledProcessor};
+use crate::definition::ModulationCurve;
 use crate::parameter::ParameterHandle;
+use crate::parameter::{ParameterDescriptor, ParameterScale};
+use crate::process::ProcessError;
 
 use super::processor::ProcessorTargetSpan;
 
@@ -9,6 +12,126 @@ use super::processor::ProcessorTargetSpan;
 pub(crate) struct ValueSpan {
     pub(crate) start: f32,
     pub(crate) end: f32,
+}
+
+/// Result of evaluating one parameter in its native value domain.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct EvaluatedParameterValue {
+    pub(crate) base: f32,
+    pub(crate) unclamped: f32,
+    pub(crate) final_value: f32,
+    pub(crate) clamped: bool,
+}
+
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+    use crate::parameter::{ParameterOwner, ParameterUnit};
+
+    fn descriptor(
+        unit: ParameterUnit,
+        scale: ParameterScale,
+        min: f32,
+        max: f32,
+    ) -> ParameterDescriptor {
+        ParameterDescriptor {
+            id: "test".to_owned(),
+            owner: ParameterOwner::Layer {
+                definition_index: 0,
+            },
+            unit,
+            scale,
+            min,
+            max,
+            default: 0.0,
+            smoothing_seconds: 0.0,
+        }
+    }
+
+    #[test]
+    fn linear_depth_is_applied_in_native_units() {
+        let descriptor = descriptor(
+            ParameterUnit::Cents,
+            ParameterScale::Linear,
+            -1_200.0,
+            1_200.0,
+        );
+        let evaluated = apply_domain_sum(&descriptor, 0.5, 20.0).expect("linear evaluation");
+
+        assert!((evaluated.base - 0.0).abs() < 1.0e-5);
+        assert!((evaluated.unclamped - 20.0).abs() < 1.0e-5);
+        assert!((evaluated.final_value - 20.0).abs() < 1.0e-5);
+        assert!(!evaluated.clamped);
+    }
+
+    #[test]
+    fn logarithmic_depth_is_applied_as_octaves() {
+        let descriptor = descriptor(ParameterUnit::Hertz, ParameterScale::Log2, 20.0, 20_000.0);
+        let base = descriptor.normalize(1_000.0).expect("base normalizes");
+        let evaluated = apply_domain_sum(&descriptor, base, 2.0).expect("logarithmic evaluation");
+
+        assert!((evaluated.base - 1_000.0).abs() < 1.0e-3);
+        assert!((evaluated.unclamped - 4_000.0).abs() < 1.0e-3);
+        assert!((evaluated.final_value - 4_000.0).abs() < 1.0e-3);
+        assert!(!evaluated.clamped);
+    }
+
+    #[test]
+    fn final_clamp_is_reported_after_route_sum() {
+        let descriptor = descriptor(ParameterUnit::Pan, ParameterScale::Linear, -1.0, 1.0);
+        let evaluated = apply_domain_sum(&descriptor, 0.5, 2.0).expect("clamped evaluation");
+
+        assert!((evaluated.unclamped - 2.0).abs() < 1.0e-5);
+        assert!((evaluated.final_value - 1.0).abs() < 1.0e-5);
+        assert!(evaluated.clamped);
+    }
+}
+
+/// Shape one normalized source value before applying a route depth.
+#[must_use]
+pub fn curve_value(value: f32, curve: ModulationCurve) -> f32 {
+    match curve {
+        ModulationCurve::Linear => value,
+        ModulationCurve::SmoothStep => {
+            let magnitude = value.abs();
+            let shaped = magnitude * magnitude * (3.0 - 2.0 * magnitude);
+            value.signum() * shaped
+        }
+    }
+}
+
+/// Convert a shaped source value into the target's modulation domain.
+#[must_use]
+pub fn route_domain_delta(source: f32, depth: f32, curve: ModulationCurve) -> f32 {
+    curve_value(source, curve) * depth
+}
+
+/// Apply a summed direct-depth modulation value to a native parameter value.
+pub(crate) fn apply_domain_sum(
+    descriptor: &ParameterDescriptor,
+    base_normalized: f32,
+    domain_sum: f32,
+) -> Result<EvaluatedParameterValue, ProcessError> {
+    let base = descriptor
+        .denormalize(base_normalized)
+        .map_err(|_| ProcessError::InvalidEventValue)?;
+    let unclamped = match descriptor.scale {
+        ParameterScale::Linear => base + domain_sum,
+        ParameterScale::Log2 => base * 2.0_f32.powf(domain_sum),
+    };
+    if !unclamped.is_finite() {
+        return Err(ProcessError::InvalidEventValue);
+    }
+    let final_value = unclamped.clamp(descriptor.min, descriptor.max);
+    if !final_value.is_finite() {
+        return Err(ProcessError::InvalidEventValue);
+    }
+    Ok(EvaluatedParameterValue {
+        base,
+        unclamped,
+        final_value,
+        clamped: unclamped < descriptor.min || unclamped > descriptor.max,
+    })
 }
 
 impl ValueSpan {

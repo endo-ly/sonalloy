@@ -65,9 +65,12 @@ pub enum DiagnosticCode {
     /// A source setting is outside its supported range.
     #[serde(rename = "SOURCE_VALUE_INVALID")]
     SourceValueInvalid,
-    /// A route amount is outside its supported range.
-    #[serde(rename = "ROUTE_AMOUNT_INVALID")]
-    RouteAmountInvalid,
+    /// A route depth is non-finite or outside its supported range.
+    #[serde(rename = "ROUTE_DEPTH_INVALID")]
+    RouteDepthInvalid,
+    /// A route depth uses a unit that does not match its target.
+    #[serde(rename = "ROUTE_DEPTH_UNIT_INVALID")]
+    RouteDepthUnitInvalid,
     /// A route target is invalid or unsupported.
     #[serde(rename = "ROUTE_TARGET_INVALID")]
     RouteTargetInvalid,
@@ -170,6 +173,9 @@ pub enum DiagnosticCode {
     /// A Wave Sequence step duration is invalid.
     #[serde(rename = "INVALID_STEP_DURATION")]
     InvalidStepDuration,
+    /// A requested runtime trace exceeds the diagnostic memory limit.
+    #[serde(rename = "TRACE_LIMIT_EXCEEDED")]
+    TraceLimitExceeded,
 }
 
 /// A structured, frontend-neutral diagnostic.
@@ -247,6 +253,7 @@ pub fn from_render_error(error: &RenderError) -> Diagnostic {
             DiagnosticCode::InvalidStretchRatio
         }
         RenderError::Process(_) => DiagnosticCode::ProcessError,
+        RenderError::TraceLimitExceeded { .. } => DiagnosticCode::TraceLimitExceeded,
         _ => DiagnosticCode::RenderError,
     };
     Diagnostic::error(code, error.to_string())

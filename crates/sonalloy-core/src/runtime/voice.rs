@@ -1,9 +1,8 @@
 use crate::compiler::{
     CompiledGenerator, CompiledInstrument, CompiledLayer, CompiledProcessorKind, CompiledSourceRef,
-    CompiledVoiceSource, GeneratorOutputMode, db_to_linear,
+    CompiledVoiceSource, GeneratorOutputMode, SourceHandle, db_to_linear,
 };
 use crate::definition::LfoWaveform;
-use crate::parameter::ParameterScale;
 use crate::process::{NoteId, ProcessError, ProcessSpec};
 
 use super::adsr::AdsrRuntime;
@@ -11,6 +10,7 @@ use super::generator::GeneratorRuntime;
 use super::mix::constant_power_pan;
 use super::modulation::{
     LayerGeneratorTargetSpan, LayerTargetSpan, SharedParameterSpan, ValueSpan, VoiceTargetScratch,
+    apply_domain_sum, route_domain_delta,
 };
 use super::processor::{LayerProcessorChain, ProcessorTargetSpan, StereoProcessorChain};
 use super::random::{bipolar_f32, splitmix64_finalizer};
@@ -362,6 +362,32 @@ impl VoiceRuntime {
 
     pub(crate) fn estimated_level(&self) -> f32 {
         self.estimated_level
+    }
+
+    pub(crate) fn trace_identity(&self) -> Option<(NoteId, u8, u8, VoiceState)> {
+        self.note_id
+            .map(|note_id| (note_id, self.note_number, self.velocity, self.state))
+    }
+
+    pub(crate) fn trace_layer_active(&self, index: usize) -> bool {
+        self.layers.get(index).is_some_and(|layer| layer.active)
+    }
+
+    pub(crate) fn trace_source_value(&self, handle: SourceHandle) -> Option<f32> {
+        let definition = self.source_definitions.get(handle.index())?;
+        let state = self.source_states.get(handle.index())?;
+        match (definition, state) {
+            (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value))
+            | (CompiledVoiceSource::KeyTracking, VoiceSourceRuntime::KeyTracking(value))
+            | (CompiledVoiceSource::Random(_), VoiceSourceRuntime::Random(value)) => Some(*value),
+            (CompiledVoiceSource::Lfo(value), VoiceSourceRuntime::Lfo { phase }) => {
+                Some(lfo_value(value.waveform, *phase))
+            }
+            (CompiledVoiceSource::Envelope(_), VoiceSourceRuntime::Envelope(envelope)) => {
+                Some(envelope.current_value())
+            }
+            _ => None,
+        }
     }
 
     #[cfg(test)]
@@ -1241,22 +1267,8 @@ impl VoiceRuntime {
             },
         )?;
         let base = shared.parameter(handle).ok_or_else(invalid_state)?;
-        let base_start = descriptor
-            .denormalize(base.start)
-            .map_err(|_| ProcessError::InvalidEventValue)?;
-        let base_end = descriptor
-            .denormalize(base.end)
-            .map_err(|_| ProcessError::InvalidEventValue)?;
-        let mut linear_start = 0.0;
-        let mut linear_end = 0.0;
-        let mut logarithmic_start = 0.0;
-        let mut logarithmic_end = 0.0;
-        let range = descriptor.max - descriptor.min;
-        let log_range = if descriptor.scale == ParameterScale::Log2 {
-            (descriptor.max / descriptor.min).log2()
-        } else {
-            0.0
-        };
+        let mut start_domain_sum = 0.0;
+        let mut end_domain_sum = 0.0;
         let routes = compiled
             .routes_for_checked(handle)
             .ok_or_else(invalid_state)?;
@@ -1271,35 +1283,12 @@ impl VoiceRuntime {
                 CompiledSourceRef::ModWheel => shared.mod_wheel(),
                 CompiledSourceRef::Aftertouch => shared.aftertouch(),
             };
-            let start = curve_value(source.start, route.curve);
-            let end = curve_value(source.end, route.curve);
-            match descriptor.scale {
-                ParameterScale::Linear => {
-                    linear_start += start * route.amount * range;
-                    linear_end += end * route.amount * range;
-                }
-                ParameterScale::Log2 => {
-                    logarithmic_start += start * route.amount * log_range;
-                    logarithmic_end += end * route.amount * log_range;
-                }
-            }
+            start_domain_sum += route_domain_delta(source.start, route.depth, route.curve);
+            end_domain_sum += route_domain_delta(source.end, route.depth, route.curve);
         }
-        let (start, end) = match descriptor.scale {
-            ParameterScale::Linear => (
-                (base_start + linear_start).clamp(descriptor.min, descriptor.max),
-                (base_end + linear_end).clamp(descriptor.min, descriptor.max),
-            ),
-            ParameterScale::Log2 => (
-                (base_start * 2.0_f32.powf(logarithmic_start))
-                    .clamp(descriptor.min, descriptor.max),
-                (base_end * 2.0_f32.powf(logarithmic_end)).clamp(descriptor.min, descriptor.max),
-            ),
-        };
-        if start.is_finite() && end.is_finite() {
-            Ok(ValueSpan { start, end })
-        } else {
-            Err(ProcessError::InvalidEventValue)
-        }
+        let start = apply_domain_sum(descriptor, base.start, start_domain_sum)?.final_value;
+        let end = apply_domain_sum(descriptor, base.end, end_domain_sum)?.final_value;
+        Ok(ValueSpan { start, end })
     }
 
     fn next_voice_boundary(&self, remaining: usize, sample_rate: f64) -> usize {
@@ -1356,17 +1345,6 @@ fn invalid_state() -> ProcessError {
     }
 }
 
-fn curve_value(value: f32, curve: crate::definition::ModulationCurve) -> f32 {
-    match curve {
-        crate::definition::ModulationCurve::Linear => value,
-        crate::definition::ModulationCurve::SmoothStep => {
-            let magnitude = value.abs();
-            let shaped = magnitude * magnitude * (3.0 - 2.0 * magnitude);
-            value.signum() * shaped
-        }
-    }
-}
-
 fn lfo_boundary(phase: f32, rate_hz: f32, sample_rate: f64, remaining: usize) -> usize {
     #[allow(clippy::cast_precision_loss)]
     let increment = f64::from(rate_hz) / sample_rate;
@@ -1388,6 +1366,7 @@ fn deterministic_random(seed: u64, note_id: NoteId, source_hash: u64) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::modulation::curve_value;
 
     #[test]
     fn lfo_waveforms_match_the_definition() {
