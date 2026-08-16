@@ -1031,6 +1031,8 @@ Output
 
 CoefficientはW3C Audio EQ Cookbook / Robert Bristow-Johnson式を基準とする。
 
+Low Shelf / High Shelfのslope `S`は`1.0`に固定する。
+
 - Low Shelf：`low_frequency_hz`, `low_gain_db`
 - Peaking：`mid_frequency_hz`, `mid_q`, `mid_gain_db`
 - High Shelf：`high_frequency_hz`, `high_gain_db`
