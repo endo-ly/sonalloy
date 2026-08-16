@@ -1015,7 +1015,10 @@ fn inspect_lists_external_modulation_sources() {
         .stdout(predicates::str::contains("\"id\":\"mod_wheel\""))
         .stdout(predicates::str::contains("\"id\":\"aftertouch\""))
         .stdout(predicates::str::contains("\"scope\":\"instrument\""))
-        .stdout(predicates::str::contains("\"kind\":\"external_control\""));
+        .stdout(predicates::str::contains("\"kind\":\"external_control\""))
+        .stdout(predicates::str::contains("\"max_abs_depth\""))
+        .stdout(predicates::str::contains("\"polarity\":\"bipolar\""))
+        .stdout(predicates::str::contains("\"effect\""));
 }
 
 #[test]
@@ -1048,6 +1051,94 @@ fn render_note_uses_the_compiled_instrument() {
 }
 
 #[test]
+fn render_note_reports_analysis_and_trace_without_changing_audio() {
+    let directory = tempdir().expect("temporary directory");
+    let plain_output = directory.path().join("plain.wav");
+    let traced_output = directory.path().join("traced.wav");
+    let definition = reference_definition();
+    let common_args = [
+        "render",
+        "note",
+        definition.to_str().expect("definition path"),
+        "--gate",
+        "0.02",
+        "--tail",
+        "0.02",
+        "--sample-rate",
+        "48000",
+        "--block-size",
+        "257",
+    ];
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(common_args)
+        .args([
+            "--output",
+            plain_output.to_str().expect("plain output path"),
+        ])
+        .assert()
+        .success();
+
+    let traced = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(common_args)
+        .args([
+            "--analyze",
+            "--trace",
+            "layer.body.gain",
+            "--trace",
+            "voice.processor.tone.cutoff",
+            "--trace-every-frames",
+            "480",
+            "--output",
+            traced_output.to_str().expect("traced output path"),
+            "--json",
+        ])
+        .output()
+        .expect("traced render starts");
+    assert!(traced.status.success());
+
+    let report: serde_json::Value = serde_json::from_slice(&traced.stdout).expect("JSON report");
+    assert_eq!(report["status"], "ok");
+    assert_eq!(report["analysis"]["finite"], true);
+    assert!(report["analysis"]["level"]["rms"].is_number());
+    assert_eq!(
+        report["trace"]["parameters"].as_array().map(Vec::len),
+        Some(2)
+    );
+    for parameter in report["trace"]["parameters"]
+        .as_array()
+        .expect("trace parameters")
+    {
+        assert!(
+            !parameter["observations"]
+                .as_array()
+                .expect("trace observations")
+                .is_empty()
+        );
+    }
+
+    let plain_samples = hound::WavReader::open(plain_output)
+        .expect("plain WAV")
+        .into_samples::<f32>()
+        .map(|sample| sample.expect("plain sample"))
+        .collect::<Vec<_>>();
+    let traced_samples = hound::WavReader::open(traced_output)
+        .expect("traced WAV")
+        .into_samples::<f32>()
+        .map(|sample| sample.expect("traced sample"))
+        .collect::<Vec<_>>();
+    assert_eq!(plain_samples.len(), traced_samples.len());
+    assert!(
+        plain_samples
+            .iter()
+            .zip(traced_samples)
+            .all(|(plain, traced)| (plain - traced).abs() <= 1.0e-5)
+    );
+}
+
+#[test]
 fn render_events_supports_parameter_and_external_control_events() {
     let directory = tempdir().expect("temporary directory");
     let events = directory.path().join("events.json");
@@ -1056,7 +1147,7 @@ fn render_events_supports_parameter_and_external_control_events() {
         r#"{
           "events": [
             {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
-            {"absolute_frame": 128, "type": "parameter_change", "parameter": "layer.body.gain", "normalized": 0.9},
+            {"absolute_frame": 128, "type": "parameter_change", "parameter": "layer.body.gain", "native_value": 6.8},
             {"absolute_frame": 256, "type": "pitch_bend", "value": 0.5},
             {"absolute_frame": 384, "type": "mod_wheel", "value": 1.0},
             {"absolute_frame": 512, "type": "aftertouch", "value": 0.75},
@@ -1104,7 +1195,7 @@ fn render_events_rejects_an_unknown_parameter_before_rendering() {
     let events = directory.path().join("events.json");
     std::fs::write(
         &events,
-        r#"{"events":[{"absolute_frame":0,"type":"parameter_change","parameter":"layer.missing.gain","normalized":0.5}]}"#,
+        r#"{"events":[{"absolute_frame":0,"type":"parameter_change","parameter":"layer.missing.gain","native_value":-24.0}]}"#,
     )
     .expect("event sequence fixture");
     let output = directory.path().join("events.wav");
