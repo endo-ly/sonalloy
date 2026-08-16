@@ -68,15 +68,25 @@
 | `tuning_cents` | -1200〜1200 |
 | Key / Velocity | Key 0〜127、Velocity 1〜127。最小値は最大値以下 |
 | ADSR | Attack / Decay / Releaseは0〜30秒、Sustainは0〜1 |
-| Filter | `cutoff_hz` 20〜20000 Hz、`resonance` 0〜1。CutoffがSample Rateの上限を超える場合はWarningを出し、`min(20000, Sample Rate × 0.45)`へ制限します |
+| Filter | `mode`は`low_pass` / `high_pass` / `band_pass` / `notch`、`cutoff_hz` 20〜20000 Hz、`resonance` 0〜1。CutoffがSample Rateの上限を超える場合はWarningを出し、`min(20000, Sample Rate × 0.45)`へ制限します |
 | Drive | `amount` / `mix`ともに0〜1 |
+| EQ | Low Shelf / Mid Peaking / High Shelfの3帯域。周波数は順に20〜500、100〜12000、2000〜20000 Hz、Gainは各-24〜24 dB、Mid Qは0.25〜8 |
+| Resonator | `frequency_hz` 40〜12000 Hz、`decay_seconds` 0.02〜10秒、`damping` / `mix` 0〜1 |
+| Bitcrusher | `bit_depth` 2〜16、`sample_rate_ratio` 0.01〜1、`mix` 0〜1 |
+| Chorus | `delay_ms` 5〜30、`rate_hz` 0.01〜8、`depth` / `width` / `mix` 0〜1、`feedback` 0〜0.85 |
+| Flanger | `delay_ms` 0.5〜10、`rate_hz` 0.01〜10、`depth` / `width` / `mix` 0〜1、`feedback` -0.95〜0.95 |
+| Phaser | `stages` 2 / 4 / 6 / 8、`center_hz` 100〜5000、`sweep_octaves` 0.25〜6、`rate_hz` 0.01〜8、`depth` / `width` / `mix` 0〜1、`feedback` -0.9〜0.9 |
 | Delay | `time_seconds` 0.001〜2秒、`feedback` 0〜0.95、`mix` 0〜1。Globalのみ |
 | Reverb | `pre_delay_seconds` 0〜0.2秒、`decay` 0〜0.98、`damping` / `width` / `mix` 0〜1。Globalのみ |
+| Compressor | `threshold_db` -60〜0 dB、`ratio` 1〜20、`attack_ms` 0.1〜200、`release_ms` 5〜2000、`knee_db` 0〜24、`makeup_gain_db` -12〜24 dB、`mix` 0〜1 |
+| Limiter | `ceiling_db` -12〜0 dBFS、`release_ms` 5〜1000、`input_gain_db` -24〜24 dB |
 | ID（Processor / Layer / Source） | 小文字で始まり、小文字・数字・`_`を使用。`.`は使わない |
 | Modulation Amount | -1〜1。TargetのNative範囲に対する割合 |
 | LFO | Rate 0.01〜40 Hz、Phase 0以上1未満 |
 | Modulation Envelope | 各時間0〜30秒、Sustain 0〜1 |
 | 未知のField | JSON Parse Error |
+
+Filterの`mode`を省略したJSONは`low_pass`として読み込まれます。新しくSerializerで出力するFilter JSONには`mode`が明示されます。
 
 `layers`は書かれた順に同じVoiceへMixします。`enabled: false`のLayerはコンパイル対象外です。
 
@@ -578,29 +588,52 @@ Wave Sequence固有のDynamic Parameterはありません。Step構造はコン�
 
 ## Processor
 
-Processorは配列の順序で直列に適用されます。配置と種類は固定です。
+Processorは配列の順序で直列に適用されます。配置と種類は固定で、任意のGraphやRoutingは作りません。Processorの内部FeedbackやDelay Stateは許可しますが、Processor間の接続先をDefinitionから指定することはできません。
 
 | 配置 | 適用位置 | 使える種類 |
 |---|---|---|
-| Layer（`processors`） | Generatorの直後 | Filter、Drive |
-| Voice（`voice_processors`） | 全LayerのMix後 | Filter、Drive |
-| Global（`global_processors`） | 全Voiceの合計後 | Filter、Drive、Delay、Reverb |
+| Layer（`processors`） | Generatorの直後 | Filter、Drive、EQ、Resonator、Bitcrusher |
+| Voice（`voice_processors`） | 全LayerのMix後 | Filter、Drive、EQ、Resonator、Compressor、Limiter |
+| Global（`global_processors`） | 全Voiceの合計後 | Filter、Drive、EQ、Chorus、Flanger、Phaser、Delay、Reverb、Compressor、Limiter |
 
-DelayとReverbをLayerまたはVoiceへ置くとValidation Errorです。
+LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力Channel数に応じたStateをCompile時に確保します。VoiceとGlobalのDynamicsは左右のPeakをリンクして処理します。Chorus、Flanger、PhaserはGlobal Chainに1つのStateを持ち、Voiceごとには複製しません。
 
 ```json
 "processors": [
-  { "type": "filter", "id": "attack_tone", "cutoff_hz": 9000.0, "resonance": 0.1 },
-  { "type": "drive", "id": "attack_drive", "amount": 0.25, "mix": 0.4 }
+  { "type": "filter", "id": "attack_tone", "mode": "low_pass", "cutoff_hz": 9000.0, "resonance": 0.1 },
+  { "type": "eq", "id": "attack_shape", "low_frequency_hz": 180.0, "low_gain_db": 2.0, "mid_frequency_hz": 1200.0, "mid_gain_db": -3.0, "mid_q": 1.1, "high_frequency_hz": 7000.0, "high_gain_db": 1.5 },
+  { "type": "resonator", "id": "attack_ring", "frequency_hz": 440.0, "decay_seconds": 0.8, "damping": 0.35, "mix": 0.2 },
+  { "type": "bitcrusher", "id": "attack_crush", "bit_depth": 10.0, "sample_rate_ratio": 0.5, "mix": 0.15 }
 ],
 "voice_processors": [],
 "global_processors": [
+  { "type": "chorus", "id": "width", "delay_ms": 18.0, "rate_hz": 0.3, "depth": 0.7, "feedback": 0.1, "width": 0.8, "mix": 0.25 },
+  { "type": "compressor", "id": "glue", "threshold_db": -18.0, "ratio": 3.0, "attack_ms": 10.0, "release_ms": 120.0, "knee_db": 6.0, "makeup_gain_db": 2.0, "mix": 0.8 },
+  { "type": "limiter", "id": "ceiling", "ceiling_db": -1.0, "release_ms": 80.0, "input_gain_db": 0.0 },
   { "type": "delay", "id": "echo", "time_seconds": 0.28, "feedback": 0.3, "mix": 0.15 },
   { "type": "reverb", "id": "space", "pre_delay_seconds": 0.012, "decay": 0.6, "damping": 0.35, "width": 1.0, "mix": 0.2 }
 ]
 ```
 
-各ProcessorのDynamic Parameter（Filterの`cutoff_hz` / `resonance`、Driveの`amount` / `mix`、Delayの`feedback` / `mix`、Reverbの`decay` / `damping` / `width` / `mix`）は、Modulation RouteやParameter Changeから制御できます。Delayの`time_seconds`、Reverbの`pre_delay_seconds`、Processorの種類・ID・配置・順序はコンパイル時に固定です。
+### Processor FieldとDynamic Parameter
+
+各行の`Dynamic`はModulation RouteやParameter Changeから制御でき、`Static`はCompile時に確定します。CatalogのIDはDefinition Fieldと同じ意味を持ちますが、Filterの`cutoff_hz`だけは既存のCanonical IDとして`cutoff`になります。
+
+| Type | Dynamic Parameter（Catalog ID） | Static Field |
+|---|---|---|
+| Filter | `cutoff`、`resonance` | `mode` |
+| Drive | `amount`、`mix` | なし |
+| EQ | `low_gain_db`、`mid_gain_db`、`high_gain_db` | 3帯域の周波数、`mid_q` |
+| Resonator | `frequency_hz`、`decay_seconds`、`damping`、`mix` | 最大Delay容量（Sample Rate依存） |
+| Bitcrusher | `bit_depth`、`sample_rate_ratio`、`mix` | なし |
+| Chorus / Flanger | `rate_hz`、`depth`、`feedback`、`width`、`mix` | `delay_ms` |
+| Phaser | `rate_hz`、`depth`、`feedback`、`width`、`mix` | `stages`、`center_hz`、`sweep_octaves` |
+| Delay | `feedback`、`mix` | `time_seconds` |
+| Reverb | `decay`、`damping`、`width`、`mix` | `pre_delay_seconds` |
+| Compressor | `threshold_db`、`ratio`、`makeup_gain_db`、`mix` | `attack_ms`、`release_ms`、`knee_db` |
+| Limiter | `ceiling_db`、`input_gain_db` | `release_ms` |
+
+Definitionの変更でProcessorの種類、ID、配置、順序、Static Fieldを変えた場合は再Compileが必要です。Dynamic Parameterの範囲外の値はRoute加算後にClampされ、Sample RateやBlock Sizeをまたいでも同じ時間軸で処理されます。
 
 Parameter IDの形式：
 

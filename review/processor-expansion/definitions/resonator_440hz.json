@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Processor Expansion Source",
+    "author": "Sonalloy",
+    "description": "Broadband source for processor review"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": -0.12,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.18,
+        "sustain_level": 0.65,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -25.0,
+      "pan": 0.12,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.18,
+        "sustain_level": 0.65,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4812,
+          "stereo_correlation": 0.35
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "resonator",
+      "id": "resonator_440hz",
+      "frequency_hz": 440.0,
+      "decay_seconds": 0.55,
+      "damping": 0.45,
+      "mix": 0.65
+    }
+  ],
+  "global_processors": [],
+  "modulation": null
+}

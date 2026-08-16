@@ -92,6 +92,7 @@ flowchart LR
 | Metallic Hybrid | Sample + Oscillator Hybrid | 原音との差、Pitch品質、Sample終端のClick、Attackの初速、Solo / Mixの一体感 |
 | Dynamic Parameters | Parameter Change、LFO、Modulation Envelope、Random、External Control | LFO周期と位相、Envelope、Velocity、Key Tracking、Random Pan、Pitch Bend連続性、Mod Wheel / Aftertouch |
 | Processor Chain | Layer / Voice / Global Processor、Reset | Layer範囲、Drive質感とAliasing、Delay間隔・Feedback・定位、Reverb初期反射・Tail・Damping・Width |
+| Processor Expansion | Filter 4 Mode、EQ、Resonator、Bitcrusher、Chorus、Flanger、Phaser、Compressor、Limiter、Full Chain 3 | Mode差、帯域変化、Pitch / Decay、Digital Texture、Stereo幅、Sweep、Punch、Peak Ceiling、実用性 |
 | Basic Generator | Band-limited波形、Pulse Width、PWM、Noise色、Stereo Correlation | 波形間音色差、高音域Alias、Pulse Width差、PWMのClick、Noise色、Stereo幅、新規Runtime間の冒頭一致 |
 | Harmonic / Formant | Additive（Partial / Morph / Tilt / Inharmonicity / Envelope）、Formant（Vowel / Shift / Throat / Tilt）、Hybrid | 基音と倍音の明瞭さ、Inharmonic Bellの金属感、Morph / Tilt / Inharmonicity連続性、各Vowelの共鳴、Vowel Morph、Formant Shiftで基音不変、Hybrid音色成立 |
 | Digital Synthesis | Wavetable、4 Operator Modulation、Complex Oscillator、Digital Hybrid（40音源） | Frame / Position、Band切替、PM / FM / AM / Ring、Algorithm、Feedback、Phase Distortion、Wavefold、Unison、Hybrid音色成立 |

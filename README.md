@@ -11,7 +11,7 @@ Sonalloyは、JSONで書いた音源定義を読み込んで、オフライン�
   - サンプリング（サンプル再生、グラニュラー、ウェーブシーケンス）
   - スペクトル再構成（周波数分解した音の再構成）
 - **エフェクトとモジュレーション**:
-  - エフェクト: Filter、Drive、Delay、Reverb
+  - エフェクト: Filter、Drive、EQ、Resonator、Bitcrusher、Chorus、Flanger、Phaser、Delay、Reverb、Compressor、Limiter
   - モジュレーション: Velocity、LFO、Envelope等でパラメータを動かす
 - **決定的なレンダリング**: 同じ入力から常に同じWAVを生成。単音、イベントシーケンス、MIDIファイルに対応
 

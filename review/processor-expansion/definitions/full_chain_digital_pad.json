@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "name": "Digital Pad",
+    "author": "Sonalloy",
+    "description": "Wavetable and additive pad through tone, modulation, space, and dynamics"
+  },
+  "performance": {
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "table",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": -0.12,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.18,
+        "sustain_level": 0.65,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../assets/digital-motion.wav",
+            "sha256": "b099e4597b8f2b44f621d07e74b06bb151585b2c6a6a3c8d306aa2553ebb1527"
+          },
+          "frame_length": 64,
+          "position": 0.35,
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "harmonics",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -22.0,
+      "pan": -0.12,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.18,
+        "sustain_level": 0.65,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.25,
+          "spectrum_tilt_db_per_octave": -4.0,
+          "inharmonicity": 0.02,
+          "partials": [
+            {
+              "id": "fundamental",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 0.9,
+              "phase": 0.0
+            },
+            {
+              "id": "third",
+              "ratio": 3.0,
+              "amplitude_a": 0.28,
+              "amplitude_b": 0.4,
+              "phase": 0.0
+            },
+            {
+              "id": "fifth",
+              "ratio": 5.0,
+              "amplitude_a": 0.14,
+              "amplitude_b": 0.24,
+              "phase": 0.0
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "eq",
+      "id": "pad_eq",
+      "low_frequency_hz": 180.0,
+      "low_gain_db": 3.0,
+      "mid_frequency_hz": 1100.0,
+      "mid_gain_db": -2.0,
+      "mid_q": 1.0,
+      "high_frequency_hz": 7500.0,
+      "high_gain_db": 3.0
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "pad_chorus",
+      "delay_ms": 20.0,
+      "rate_hz": 0.22,
+      "depth": 0.7,
+      "feedback": 0.12,
+      "width": 0.85,
+      "mix": 0.32
+    },
+    {
+      "type": "reverb",
+      "id": "pad_reverb",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.62,
+      "damping": 0.35,
+      "width": 0.9,
+      "mix": 0.18
+    },
+    {
+      "type": "compressor",
+      "id": "pad_compressor",
+      "threshold_db": -20.0,
+      "ratio": 2.5,
+      "attack_ms": 14.0,
+      "release_ms": 160.0,
+      "knee_db": 6.0,
+      "makeup_gain_db": 2.0,
+      "mix": 0.75
+    }
+  ],
+  "modulation": null
+}

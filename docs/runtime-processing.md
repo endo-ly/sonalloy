@@ -106,8 +106,10 @@ flowchart TD
 | **Gain** | Base値とRouteをdB Domainで加算してClampし、Linear Gainへ変換。Note開始Fade・ADSR・Dynamic Gainを順に乗算 |
 | **Pan** | 定電力で左右へ振り分け |
 | **Tuning** | Base値とRouteをcentで加算し、Oscillatorの周波数またはSampleの再生速度へ変換 |
-| **Processor** | FilterはCutoffをLog2・ResonanceをLinearで評価して10msで滑らかに変化。Drive・Delay・ReverbはDefinition範囲でSmoothing。Layer ProcessorはGenerator後、Voice ProcessorはLayer Mix後、Global ProcessorはVoice合計後に適用。Stereo GeneratorのLayer Filter / Driveは左右独立のStateを持つ |
-| **Global Tail** | Global DelayとReverbはActive Voiceがなくても毎Block処理。Note LifecycleやVoice Stealingでは停止・初期化しない |
+| **Processor** | LayerはFilter / Drive / EQ / Resonator / Bitcrusher、VoiceはFilter / Drive / EQ / Resonator / Compressor / Limiter、GlobalはFilter / Drive / EQ / Chorus / Flanger / Phaser / Delay / Reverb / Compressor / LimiterをDefinition順に適用。FilterのCutoffはLog2、ResonanceはLinear、その他のDynamic Parameterは各Catalog Unitで滑らかに変化する。EQはLow Shelf / Mid Peaking / High Shelf、ResonatorはFractional Delay、BitcrusherはSample-and-HoldとQuantization、Modulation FXはGlobal State、Dynamicsは左右Peak-linkedで処理する。Stereo GeneratorのLayer Stateは左右独立で、Mono GeneratorではMono側だけを確保する |
+| **Global Tail** | Global Delay、Reverb、Chorus、Flanger、PhaserはActive Voiceがなくても毎Block処理。Note LifecycleやVoice Stealingでは停止・初期化しない |
+
+ProcessorのRuntime StateはCompile時に決まったChainの順序で所有します。LayerのFilter / EQ / Resonator / BitcrusherはLayer Runtime、Voice ProcessorはVoice Runtime、GlobalのModulation FX・Delay・Reverb・DynamicsはInstrument Runtimeが保持します。Resonator、Chorus、FlangerのFractional Delay MemoryはPrepare時に最大容量を確保し、Process中に拡張しません。
 
 Base ParameterとExternal Controlは全Voiceで共有し、LFO・Modulation Envelope・RandomはVoiceごとに保持します。Global Processor ChainはInstrument Runtimeが1つだけ持ちます。
 
@@ -123,6 +125,8 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 | **Sourceの所属** | `velocity`・`key_tracking`・LFO・Modulation Envelope・RandomはVoice。Pitch Bend・Mod Wheel・Aftertouchは共有External Control |
 | **Note Off伝播** | Layer ADSR・Operator ADSR・Modulation Envelopeへ伝える。LFOとRandomはVoice終了まで保持し、終了時に初期値へ戻す |
 | **Reset** | Base ParameterとExternal ControlもDefinition Defaultへ戻す |
+
+Processorの連続ParameterはBlock内でStart / Endを受け取り、各Sampleへ補間します。Processorの種類、配置、順序、Filter Mode、EQ周波数、Delay容量などCompile時に決まる値はProcess中に変更できません。Filter ModeはNative State-Variable Filterへ同じModeを渡し、Low / High / Band / Notchの出力を選択します。
 
 ## Generatorの実行時振る舞い
 
@@ -271,6 +275,8 @@ Compile時に各StepのAsset・Region・Duration・方向・Pitch・Gainを確�
 - JSONの解析、Fileの読み書き、Assetの読み込み・Sample Rate変換・Hash計算
 - メモリの新規確保
 - 通信、同期Log、Blockする待ち合わせ
+
+ProcessorのProcessは既に確保したStateを再利用し、FilterのNative Handle、EQのBiquad State、Fractional Delay Buffer、DynamicsのDetector Stateを追加確保せず更新します。Resetではこれらを初期値へ戻すため、同じEvent SequenceをFresh RuntimeとReset後のRuntimeへ与えた結果は一致します。
 
 **エラー時の扱い**
 
