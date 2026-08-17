@@ -34,6 +34,7 @@
 - Native Error時は出力Bufferを無音化し、Error・Buffer長・所有権・Destroy・Resetを検証する
 - Guard付きTestでProcess領域外が変更されていないことを確認する
 - Native境界を含むTestはLinux CIでASan / UBSan / Leak検出の対象にする
+- Modal ResonatorはMode Count、Parameter Ramp、Prepare前Process、Reset、Native Exception、Non-Finite出力時の無音化を検証する
 - Time Stretch境界ではMono / Stereo、Pitch、入力・出力Latency、無効なHandle・Buffer、Native故障時の無音化を検証する
 - Stretchを使うRuntimeでは、Prepare後のProcessが追加Allocationを発生させず、Reset後に同じ出力を生成することを検証する
 
@@ -96,6 +97,7 @@ flowchart LR
 | Basic Generator | Band-limited波形、Pulse Width、PWM、Noise色、Stereo Correlation | 波形間音色差、高音域Alias、Pulse Width差、PWMのClick、Noise色、Stereo幅、新規Runtime間の冒頭一致 |
 | Harmonic / Formant | Additive（Partial / Morph / Tilt / Inharmonicity / Envelope）、Formant（Vowel / Shift / Throat / Tilt）、Hybrid | 基音と倍音の明瞭さ、Inharmonic Bellの金属感、Morph / Tilt / Inharmonicity連続性、各Vowelの共鳴、Vowel Morph、Formant Shiftで基音不変、Hybrid音色成立 |
 | Digital Synthesis | Wavetable、4 Operator Modulation、Complex Oscillator、Digital Hybrid（40音源） | Frame / Position、Band切替、PM / FM / AM / Ring、Algorithm、Feedback、Phase Distortion、Wavefold、Unison、Hybrid音色成立 |
+| Physical / Modal | Physical String、Modal、String + Modal Hybrid | StringのPitch / Decay / Brightness / Stiffness、ModalのMode Count / Structure / Brightness / Decay、Note Lifecycle、Processor統合、Reset / Block Size / Sample Rate |
 | Spectral Resynthesis | Spectral A / B、Position、Freeze、Blur、Shift、Morph、Hybrid、16 Voice、既存Generator回帰 | 元WAVとの一致（音色・Transient・Noise Floor）、Source Segment、Freeze中の音色と連続Phase、Blur拡散、A / B Morph連続性、Pitch維持、Shift移動、Latency後の時間位置、Mono / Stereo定位 |
 | Essential Sampling | Key Zone、Velocity Layer、Round Robin、Stereo、Forward / Reverse、Loop、Crossfade、Release Trigger、Fixed Stretch、Tempo Sync | Key / Velocity境界、Pitch Mapping、Round Robin順、Stereo Image、Reverse方向感、Loop周期とClick、Crossfade連続性、Release発音タイミング、Stretch Pitch保持、Tempo SyncのBPM変化 |
 | Granular | Granular Pad、Vocal Freeze、Percussion Cloud、Position Scrub、Stereo Source、Polyphony | Grain開始・終了のClick、Density密度、Grain Size質感、Pitch、Randomness広がり、Pan Spread、Scrub追従、Freeze持続、Vocal明瞭さ、Percussion Transient |

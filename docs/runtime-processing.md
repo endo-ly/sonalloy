@@ -154,6 +154,28 @@ Note番号とTuningから周波数を決め、基本波形（Sine / Saw / Square
 
 White / Pink / Brownを決定的乱数で生成します。Stereo Correlationで左右の相関を制御し、常にStereo出力します。
 
+### Physical String
+
+Physical StringはMono Generatorです。Note開始時にDelay Line、Loop Filter、Dispersion All-pass、ExciterをResetし、Layer Hash・Note ID・Definition Seedから決まるExciterを1回だけ発生させます。Sustain中に自動再励振は行いません。
+
+```text
+Exciter + Feedback
+↓
+Fractional Delay → Loop Low-pass → Dispersion All-pass → Feedback Gain
+↓
+Mono Output（Delayed Signal + Direct Exciter）
+```
+
+各SampleでNote FrequencyからFractional Delayの周期を求め、StiffnessによるAll-passのGroup Delayを補正します。`decay_seconds`は周波数ごとのFeedback GainへT60として変換し、`brightness`はDelay後のLoop Low-pass Cutoff、`stiffness`は高次成分のPhase Delay差として適用します。TuningのStart / EndとGenerator TargetのStart / Endは同じSpan位置式で補間するため、Block Sizeを変えても同じ時間軸をたどります。
+
+Delay BufferとScratch BufferはPrepare時に確保し、Process中に拡張しません。Note OffではGenerator Stateを止めず、Layer ADSRのReleaseだけを後段で適用します。
+
+### Modal
+
+ModalはMono Generatorです。Note開始時に共通Physical ExciterとDaisySP `Resonator` StateをResetし、ExciterのMono Scratch BufferをNative Resonatorへ1 Render Spanにつき1回渡します。Native側はSpanのStart / Endから各SampleのFrequency、Structure、Brightness、Decayを補間し、4 / 8 / 12 / 16 / 20 / 24の固定Modeを処理します。
+
+`structure`はMode間隔、`brightness`は高次Modeの残留、`decay`は共鳴のDampingを制御します。`mode_count`はCompile時に決まり、Render中に再初期化しません。ResetではNative `Resonator::Init`を同じMode数・Sample Rateで再実行し、Handleを再生成せずにStateを初期化します。Native ErrorやNon-Finite出力時はBufferを無音化して`ProcessError`へ変換します。
+
 ### Additive
 
 1〜64個のPartialのSineを加算合成します。出力はMonoです。
@@ -263,8 +285,8 @@ Compile時に各StepのAsset・Region・Duration・方向・Pitch・Gainを確�
 
 | フェーズ | 内容 |
 |---|---|
-| **Prepare** | Polyphony数分のVoiceを作り、各種Scratch Buffer・Native Handle・Time Stretch Latency・Grain Pool・Wave Sequence Slot・Layer遅延補償Bufferを確保します。Sample RateがCompile時と異なる場合は失敗します（Block Sizeの変更だけは許可） |
-| **Reset** | 全Voice・位相・ADSR・Noise Stream・Sample Cursor・Grain Pool・Wave Sequence Slot・Processor・Base Parameter・External Control・絶対位置を初期状態へ戻します。同じ入力へ同じ出力を返します |
+| **Prepare** | Polyphony数分のVoiceを作り、各種Scratch Buffer・Physical String Delay・Native Modal Handle・Time Stretch Latency・Grain Pool・Wave Sequence Slot・Layer遅延補償Bufferを確保します。Sample RateがCompile時と異なる場合は失敗します（Block Sizeの変更だけは許可） |
+| **Reset** | 全Voice・位相・ADSR・Noise Stream・Physical String Delay / Filter / Dispersion・Modal Resonator・Sample Cursor・Grain Pool・Wave Sequence Slot・Processor・Base Parameter・External Control・絶対位置を初期状態へ戻します。同じ入力へ同じ出力を返します |
 | **Prepare失敗** | それまでの状態を破棄し、利用不可状態へ移行します |
 | **Process / Reset中のNative DSP失敗** | 出力を無音化してErrorを返し、Runtimeを未準備状態へします。再利用にはPrepareが必要です |
 
@@ -280,7 +302,7 @@ Compile時に各StepのAsset・Region・Duration・方向・Pitch・Gainを確�
 - メモリの新規確保
 - 通信、同期Log、Blockする待ち合わせ
 
-ProcessorのProcessは既に確保したStateを再利用し、FilterのNative Handle、EQのBiquad State、Fractional Delay Buffer、DynamicsのDetector Stateを追加確保せず更新します。Resetではこれらを初期値へ戻すため、同じEvent SequenceをFresh RuntimeとReset後のRuntimeへ与えた結果は一致します。
+ProcessorとPhysical / Modal GeneratorのProcessは既に確保したStateを再利用し、FilterのNative Handle、EQのBiquad State、Fractional Delay Buffer、Physical StringのDelay / Filter State、ModalのNative Handle、DynamicsのDetector Stateを追加確保せず更新します。Resetではこれらを初期値へ戻すため、同じEvent SequenceをFresh RuntimeとReset後のRuntimeへ与えた結果は一致します。
 
 **エラー時の扱い**
 

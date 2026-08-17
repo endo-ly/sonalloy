@@ -131,6 +131,8 @@ GeneratorはLayerの`generator` Fieldへ、いずれか1つを指定します。
 |---|---|
 | [Oscillator](#oscillator) | 基本波形とComplex変形 |
 | [Noise](#noise) | White / Pink / Brown Noise |
+| [Physical String](#physical-string) | Fractional Delay Feedbackによる弦・硬質振動 |
+| [Modal](#modal) | 複数Modeの共鳴によるBody・Bell・Plate |
 | [Additive](#additive) | Partial直接設計による倍音構成 |
 | [Formant](#formant) | 母音共鳴のBand制御 |
 | [Wavetable](#wavetable) | 周期波形Frame列のPosition走査 |
@@ -222,6 +224,84 @@ White / Pink / Brown Noiseを生成します。常にStereo出力します。
 | `stereo_correlation` | 0〜1 | Yes | 左右の相関。0で左右独立、1で左右同一 |
 
 Dynamic Parameter：`noise_correlation`
+
+### Physical String
+
+Deterministic ExciterをFractional DelayのFeedback Loopへ入力し、弦や硬質な振動体の撥弦・金属的な振動を作ります。出力はMonoです。これは特定の楽器を再現するModelではなく、Layer Processorや他のGeneratorと組み合わせるための固定Topologyです。
+
+```json
+"generator": {
+  "physical_string": {
+    "exciter": {
+      "type": "noise_burst",
+      "duration_seconds": 0.006,
+      "brightness": 0.82,
+      "seed": 4001
+    },
+    "decay_seconds": 2.4,
+    "brightness": 0.68,
+    "stiffness": 0.18
+  }
+}
+```
+
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `exciter.type` | `impulse` / `noise_burst` | No | Note On時の励振方式 |
+| `exciter.duration_seconds` | 0.0005〜0.100秒 | No | Noise Burstの励振長。最後は指数Envelopeで-60 dB相当まで下がる |
+| `exciter.brightness` | 0〜1 | No | Exciter Low-passのLog位置 |
+| `exciter.seed` | 整数 | No | Note IDとLayer IDへ結び付いた決定的Noise Seed |
+| `decay_seconds` | 0.05〜20秒 | Yes | Feedback LoopのNominal T60。Loopの高域損失により高域の実測Decayは短くなる |
+| `brightness` | 0〜1 | Yes | Loop Low-passのCutoff。0は暗く、1は高域を残す |
+| `stiffness` | 0〜1 | Yes | First-order All-passのDispersion。高いほど高次成分のDelay差が増える |
+
+ExciterのCutoffは次で決まります。
+
+```text
+max_cutoff = min(18000, sample_rate × 0.45)
+cutoff = 200 × (max_cutoff / 200) ^ exciter.brightness
+```
+
+LoopのBrightnessは基音から2〜8 Octave上を基準に同じ上限へ制限します。StiffnessのAll-pass係数は`stiffness × 0.75`です。Fundamentalは4 Hz以上、処理Sample Rateの0.45倍以下で、Layer Tuningを含めてこの範囲を外れる場合はRender Errorになります。Note OffはGenerator固有のEnvelopeを追加せず、Layer ADSRのReleaseを適用します。
+
+Dynamic Parameter：`physical_string_decay_seconds`、`physical_string_brightness`、`physical_string_stiffness`
+
+Parameter ID例：`layer.string.generator.physical_string_decay_seconds`。`decay_seconds`は`Seconds + Log2`で、Modulation DepthのUnitは`octaves`です。
+
+### Modal
+
+Rust側のDeterministic ExciterをPinned DaisySPの低レベル`Resonator`へ入力し、複数Modeの共鳴で棒・板・ベル・金属・木質・ガラス的なBodyを作ります。出力はMonoです。`ModalVoice`や任意の共鳴Graphは使用せず、Mode数と3つのDynamic ParameterをCompile時に固定します。
+
+```json
+"generator": {
+  "modal": {
+    "exciter": {
+      "type": "noise_burst",
+      "duration_seconds": 0.010,
+      "brightness": 0.58,
+      "seed": 9102
+    },
+    "mode_count": 24,
+    "structure": 0.72,
+    "brightness": 0.76,
+    "decay": 0.66
+  }
+}
+```
+
+| Field | Range | Dynamic | 意味 |
+|---|---|---|---|
+| `exciter` | Physical Stringと同じ | No | 共鳴体へ与えるDeterministic Exciter |
+| `mode_count` | `4` / `8` / `12` / `16` / `20` / `24` | No | 同時に計算するMode数。多いほど密度とCPU負荷が増える |
+| `structure` | 0〜1 | Yes | Mode間隔のStiffness Character。領域により高次Modeの圧縮・ほぼHarmonic・Stretchが変化 |
+| `brightness` | 0〜1 | Yes | 高次Modeの強さと高域Loss |
+| `decay` | 0〜1 | Yes | 共鳴のDecay。0が短く、1が長い。秒単位のT60ではない |
+
+`structure`は単純な明るさではなくMode配置を変える値です。`decay`はNative ResonatorのDampingへ渡しますが、周波数・Structure・Brightnessとの相互作用があるため、一定秒数のDecayとして解釈しません。Fundamentalの安全周波数範囲とNote Off時のLayer ADSRはPhysical Stringと同じです。
+
+Dynamic Parameter：`modal_structure`、`modal_brightness`、`modal_decay`
+
+Parameter ID例：`layer.body.generator.modal_structure`。`mode_count`とExciterのStatic FieldはParameter Catalogへ登録されません。
 
 ### Additive
 
@@ -596,6 +676,7 @@ Wave Sequence固有のDynamic Parameterはありません。Step構造はコン�
 | Harmonic / Formant | Formant（共鳴）+ Additive（倍音芯）+ Sample（Attack）+ Noise（Air） |
 | Spectral | Spectral（持続Body）+ Additive（倍音）+ Sample（Attack）+ Noise（Air） |
 | Digital | Wavetable（持続）+ Operator Modulation（倍音芯）+ Sample（短アタック） |
+| Physical / Modal | Physical String（撥弦・振動）+ Modal（Body・共鳴）+ Layer / Voice / Global Processor |
 
 各GeneratorのDynamic Parameterは、単体の場合と同じModulation RouteやParameter Changeから制御できます。Spectralの報告Latencyが最大のとき、他Layerへ遅延補償を確保して、Transientの時間位置を揃えます。
 
@@ -671,6 +752,11 @@ Definitionの数値は、名前だけから効果を推測せず、次のEndpoin
 | Reverb `decay` | 最短Decay | 最長Decay | Tank Feedbackは`clamp(decay × 0.2, 0, 0.19)` |
 | Granular `randomness` | 指定Position | 最大分散 | Grainごとの決定的なBipolar位置値へ係数として掛け、Region内でWrap |
 | Additive `inharmonicity` | Harmonic | 最大非整数化 | 高次PartialのRatioへ実装済みの非整数化係数を適用。Fundamental Ratio 1は維持 |
+| Physical String `brightness` | 暗いLoop | 高域を残すLoop | 基音の2〜8 Octave上を基準にLoop Low-pass Cutoffを決め、`sample_rate × 0.45`以下へ制限 |
+| Physical String `stiffness` | Harmonic寄り | Dispersion増加 | First-order All-pass係数を`stiffness × 0.75`として高次成分のPhase Delayを変える |
+| Modal `structure` | Mode間隔の圧縮側 | Mode間隔のStretch側 | 0〜1をNative Resonatorへ渡し、単純なBrightnessではなくMode配置を変える |
+| Modal `brightness` | 暗いBody | 高次Modeが強いBody | 高次ModeのAttenuation / Q Lossへ作用 |
+| Modal `decay` | 短い共鳴 | 長い共鳴 | Native ResonatorのDampingへ渡す。周波数・Structure・Brightnessと相互作用する |
 
 `position`の範囲は対象Generatorが準備したSource Domainの範囲であり、音声Buffer全体の絶対位置ではありません。`formant.throat`の0.5はNeutral Pointで、0や1が無変化ではありません。
 
