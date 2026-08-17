@@ -21,6 +21,11 @@ pub(crate) struct DspWavefolder {
 }
 
 #[repr(C)]
+pub(crate) struct DspModalResonator {
+    _private: [u8; 0],
+}
+
+#[repr(C)]
 pub(crate) struct DspStretch {
     _private: [u8; 0],
 }
@@ -183,6 +188,28 @@ unsafe extern "C" {
         end_drive: c_float,
         start_mix: c_float,
         end_mix: c_float,
+        buffer: *mut c_float,
+        frames: c_uint,
+    ) -> c_int;
+
+    pub(crate) fn sonalloy_dsp_modal_resonator_create() -> *mut DspModalResonator;
+    pub(crate) fn sonalloy_dsp_modal_resonator_destroy(handle: *mut DspModalResonator);
+    pub(crate) fn sonalloy_dsp_modal_resonator_prepare(
+        handle: *mut DspModalResonator,
+        sample_rate: c_double,
+        mode_count: c_int,
+    ) -> c_int;
+    pub(crate) fn sonalloy_dsp_modal_resonator_reset(handle: *mut DspModalResonator) -> c_int;
+    pub(crate) fn sonalloy_dsp_modal_resonator_process_ramp(
+        handle: *mut DspModalResonator,
+        start_frequency_hz: c_float,
+        end_frequency_hz: c_float,
+        start_structure: c_float,
+        end_structure: c_float,
+        start_brightness: c_float,
+        end_brightness: c_float,
+        start_decay: c_float,
+        end_decay: c_float,
         buffer: *mut c_float,
         frames: c_uint,
     ) -> c_int;

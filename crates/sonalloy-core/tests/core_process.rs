@@ -1629,6 +1629,8 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::PhysicalString(_)
+        | sonalloy_core::compiler::CompiledGenerator::Modal(_)
         | sonalloy_core::compiler::CompiledGenerator::Additive(_)
         | sonalloy_core::compiler::CompiledGenerator::Formant(_)
         | sonalloy_core::compiler::CompiledGenerator::Granular(_)
@@ -2242,6 +2244,8 @@ fn sample_without_hash_is_enabled_with_a_warning() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::PhysicalString(_)
+        | sonalloy_core::GeneratorDefinition::Modal(_)
         | sonalloy_core::GeneratorDefinition::Additive(_)
         | sonalloy_core::GeneratorDefinition::Formant(_)
         | sonalloy_core::GeneratorDefinition::Granular(_)
@@ -2274,6 +2278,8 @@ fn sample_without_hash_is_enabled_with_a_warning() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::PhysicalString(_)
+        | sonalloy_core::compiler::CompiledGenerator::Modal(_)
         | sonalloy_core::compiler::CompiledGenerator::Additive(_)
         | sonalloy_core::compiler::CompiledGenerator::Formant(_)
         | sonalloy_core::compiler::CompiledGenerator::Granular(_)
@@ -2299,6 +2305,8 @@ fn absolute_sample_path_is_enabled_with_a_warning() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::PhysicalString(_)
+        | sonalloy_core::GeneratorDefinition::Modal(_)
         | sonalloy_core::GeneratorDefinition::Additive(_)
         | sonalloy_core::GeneratorDefinition::Formant(_)
         | sonalloy_core::GeneratorDefinition::Granular(_)
@@ -2335,6 +2343,8 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
         }
         sonalloy_core::GeneratorDefinition::Oscillator(_)
         | sonalloy_core::GeneratorDefinition::Noise(_)
+        | sonalloy_core::GeneratorDefinition::PhysicalString(_)
+        | sonalloy_core::GeneratorDefinition::Modal(_)
         | sonalloy_core::GeneratorDefinition::Additive(_)
         | sonalloy_core::GeneratorDefinition::Formant(_)
         | sonalloy_core::GeneratorDefinition::Granular(_)
@@ -2369,6 +2379,8 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
         }
         sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
         | sonalloy_core::compiler::CompiledGenerator::Noise(_)
+        | sonalloy_core::compiler::CompiledGenerator::PhysicalString(_)
+        | sonalloy_core::compiler::CompiledGenerator::Modal(_)
         | sonalloy_core::compiler::CompiledGenerator::Additive(_)
         | sonalloy_core::compiler::CompiledGenerator::Formant(_)
         | sonalloy_core::compiler::CompiledGenerator::Granular(_)

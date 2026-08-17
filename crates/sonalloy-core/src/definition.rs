@@ -6,14 +6,16 @@ use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::generator_parameters::{
     ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SHIFT,
     FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY, GRAIN_PAN_SPREAD,
-    GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION, MAX_PARTIALS, NOISE_CORRELATION,
-    OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX,
-    OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX,
-    OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,
-    OPERATOR_PHASE_MAX, OPERATOR_PHASE_MIN, OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN,
-    OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE,
-    SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD,
-    WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+    GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION, MAX_PARTIALS, MODAL_BRIGHTNESS,
+    MODAL_DECAY, MODAL_STRUCTURE, NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX,
+    OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX,
+    OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
+    OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_PHASE_MAX,
+    OPERATOR_PHASE_MIN, OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN, OSCILLATOR_FEEDBACK,
+    PHASE_DISTORTION, PHYSICAL_EXCITER_DURATION_SECONDS_MAX, PHYSICAL_EXCITER_DURATION_SECONDS_MIN,
+    PHYSICAL_STRING_BRIGHTNESS, PHYSICAL_STRING_DECAY_SECONDS, PHYSICAL_STRING_STIFFNESS,
+    PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT,
+    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, ModulationUnit, is_component_id, is_parameter_id};
 
@@ -137,6 +139,10 @@ pub enum GeneratorDefinition {
     Oscillator(OscillatorDefinition),
     /// A deterministic stereo noise generator.
     Noise(NoiseDefinition),
+    /// A deterministic fractional-delay feedback string model.
+    PhysicalString(PhysicalStringDefinition),
+    /// A deterministic `DaisySP` modal resonator.
+    Modal(ModalDefinition),
     /// A directly specified bank of sine partials.
     Additive(AdditiveDefinition),
     /// A harmonic bank shaped by interpolated formant profiles.
@@ -249,6 +255,53 @@ pub struct NoiseDefinition {
     pub seed: u64,
     /// Shared-to-independent stereo mix in the inclusive zero-to-one range.
     pub stereo_correlation: f32,
+}
+
+/// Deterministic excitation used by the physical and modal generators.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PhysicalExciterDefinition {
+    /// A single-sample impulse.
+    Impulse,
+    /// A short deterministic noise burst with a one-pole brightness filter.
+    NoiseBurst {
+        /// Burst duration in seconds.
+        duration_seconds: f32,
+        /// Low-pass brightness in the inclusive zero-to-one range.
+        brightness: f32,
+        /// Deterministic excitation seed.
+        seed: u64,
+    },
+}
+
+/// Fractional-delay feedback string generator settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PhysicalStringDefinition {
+    /// Deterministic note-start excitation.
+    pub exciter: PhysicalExciterDefinition,
+    /// Nominal decay time in seconds.
+    pub decay_seconds: f32,
+    /// Low-pass loop brightness.
+    pub brightness: f32,
+    /// First-order all-pass dispersion amount.
+    pub stiffness: f32,
+}
+
+/// `DaisySP` modal resonator generator settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModalDefinition {
+    /// Deterministic note-start excitation.
+    pub exciter: PhysicalExciterDefinition,
+    /// Fixed number of resonant modes.
+    pub mode_count: u8,
+    /// Resonator structure control.
+    pub structure: f32,
+    /// Resonator brightness control.
+    pub brightness: f32,
+    /// Resonator damping control.
+    pub decay: f32,
 }
 
 /// Additive generator settings.
@@ -1319,6 +1372,12 @@ impl InstrumentDefinition {
                 }
                 GeneratorDefinition::Noise(noise) => {
                     validate_noise(&mut diagnostics, &path, noise);
+                }
+                GeneratorDefinition::PhysicalString(physical_string) => {
+                    validate_physical_string(&mut diagnostics, &path, physical_string);
+                }
+                GeneratorDefinition::Modal(modal) => {
+                    validate_modal(&mut diagnostics, &path, modal);
                 }
                 GeneratorDefinition::Additive(additive) => {
                     validate_additive(&mut diagnostics, &path, additive);
@@ -3097,6 +3156,103 @@ fn validate_noise(diagnostics: &mut Vec<Diagnostic>, path: &str, noise: &NoiseDe
         noise.stereo_correlation,
         NOISE_CORRELATION.min..=NOISE_CORRELATION.max,
         "stereo_correlation must be finite and between 0 and 1",
+    );
+}
+
+fn validate_physical_exciter(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    exciter: PhysicalExciterDefinition,
+) {
+    if let PhysicalExciterDefinition::NoiseBurst {
+        duration_seconds,
+        brightness,
+        ..
+    } = exciter
+    {
+        validate_range(
+            diagnostics,
+            format!("{path}.duration_seconds"),
+            duration_seconds,
+            PHYSICAL_EXCITER_DURATION_SECONDS_MIN..=PHYSICAL_EXCITER_DURATION_SECONDS_MAX,
+            "noise burst duration_seconds must be finite and between 0.0005 and 0.1 seconds",
+        );
+        validate_range(
+            diagnostics,
+            format!("{path}.brightness"),
+            brightness,
+            0.0..=1.0,
+            "noise burst brightness must be finite and between 0 and 1",
+        );
+    }
+}
+
+fn validate_physical_string(
+    diagnostics: &mut Vec<Diagnostic>,
+    path: &str,
+    physical_string: &PhysicalStringDefinition,
+) {
+    let string_path = format!("{path}.generator.physical_string");
+    validate_physical_exciter(
+        diagnostics,
+        &format!("{string_path}.exciter"),
+        physical_string.exciter,
+    );
+    validate_range(
+        diagnostics,
+        format!("{string_path}.decay_seconds"),
+        physical_string.decay_seconds,
+        PHYSICAL_STRING_DECAY_SECONDS.min..=PHYSICAL_STRING_DECAY_SECONDS.max,
+        "physical string decay_seconds must be finite and between 0.05 and 20 seconds",
+    );
+    validate_range(
+        diagnostics,
+        format!("{string_path}.brightness"),
+        physical_string.brightness,
+        PHYSICAL_STRING_BRIGHTNESS.min..=PHYSICAL_STRING_BRIGHTNESS.max,
+        "physical string brightness must be finite and between 0 and 1",
+    );
+    validate_range(
+        diagnostics,
+        format!("{string_path}.stiffness"),
+        physical_string.stiffness,
+        PHYSICAL_STRING_STIFFNESS.min..=PHYSICAL_STRING_STIFFNESS.max,
+        "physical string stiffness must be finite and between 0 and 1",
+    );
+}
+
+fn validate_modal(diagnostics: &mut Vec<Diagnostic>, path: &str, modal: &ModalDefinition) {
+    let modal_path = format!("{path}.generator.modal");
+    validate_physical_exciter(diagnostics, &format!("{modal_path}.exciter"), modal.exciter);
+    if !matches!(modal.mode_count, 4 | 8 | 12 | 16 | 20 | 24) {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "modal mode_count must be one of 4, 8, 12, 16, 20, or 24",
+            )
+            .with_path(format!("{modal_path}.mode_count")),
+        );
+    }
+    validate_range(
+        diagnostics,
+        format!("{modal_path}.structure"),
+        modal.structure,
+        MODAL_STRUCTURE.min..=MODAL_STRUCTURE.max,
+        "modal structure must be finite and between 0 and 1",
+    );
+    validate_range(
+        diagnostics,
+        format!("{modal_path}.brightness"),
+        modal.brightness,
+        MODAL_BRIGHTNESS.min..=MODAL_BRIGHTNESS.max,
+        "modal brightness must be finite and between 0 and 1",
+    );
+    validate_range(
+        diagnostics,
+        format!("{modal_path}.decay"),
+        modal.decay,
+        MODAL_DECAY.min..=MODAL_DECAY.max,
+        "modal decay must be finite and between 0 and 1",
     );
 }
 

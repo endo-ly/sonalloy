@@ -1,11 +1,13 @@
 mod ffi;
 mod filter;
+mod modal_resonator;
 mod oscillator;
 mod stretch;
 mod variable_oscillator;
 mod wavefolder;
 
 pub use filter::{DspFilter, DspFilterError, DspFilterMode};
+pub use modal_resonator::{DspModalResonator, DspModalResonatorError};
 pub use oscillator::{
     DspCapabilities, DspError, DspOscillator, DspOscillatorWaveform, backend_version, capabilities,
 };

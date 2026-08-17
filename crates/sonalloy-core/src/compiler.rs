@@ -12,23 +12,26 @@ use crate::definition::{
     DriveProcessorDefinition, EqProcessorDefinition, FilterModeDefinition,
     FilterProcessorDefinition, FlangerProcessorDefinition, FormantDefinition, GeneratorDefinition,
     GranularDefinition, InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform,
-    LimiterProcessorDefinition, ModulationCurve, ModulationSourceDefinition, NoiseColor,
-    OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition,
-    OscillatorWaveform, PhaserProcessorDefinition, ProcessorDefinition,
-    ResonatorProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection,
-    SampleTimeDefinition, SampleZoneDefinition, SpectralDefinition, UnisonDefinition,
-    VoiceStealingDefinition, WaveSequenceDefinition, WaveSequenceDirection,
-    WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
+    LimiterProcessorDefinition, ModalDefinition, ModulationCurve, ModulationSourceDefinition,
+    NoiseColor, OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode,
+    OscillatorDefinition, OscillatorWaveform, PhaserProcessorDefinition, PhysicalExciterDefinition,
+    PhysicalStringDefinition, ProcessorDefinition, ResonatorProcessorDefinition,
+    ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition,
+    SpectralDefinition, UnisonDefinition, VoiceStealingDefinition, WaveSequenceDefinition,
+    WaveSequenceDirection, WaveSequenceDurationDefinition, WaveSequenceStepPlayback,
+    WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
     ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, BASIC_FREQUENCY_LIMIT_RATIO,
     FORMANT_SHIFT, FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY,
     GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_GRAIN_POOL_LIMIT,
-    GRANULAR_POSITION, GeneratorParameterSpec, NOISE_CORRELATION, OSCILLATOR_FEEDBACK,
-    PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO, PULSE_WIDTH, SPECTRAL_BLUR,
-    SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE,
-    UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION, effective_max_frequency,
+    GRANULAR_POSITION, GeneratorParameterSpec, MODAL_BRIGHTNESS, MODAL_DECAY, MODAL_STRUCTURE,
+    NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO,
+    PHYSICAL_FREQUENCY_LIMIT_RATIO, PHYSICAL_STRING_BRIGHTNESS, PHYSICAL_STRING_DECAY_SECONDS,
+    PHYSICAL_STRING_STIFFNESS, PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE, SPECTRAL_MORPH,
+    SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD,
+    WAVESHAPE, WAVETABLE_POSITION, effective_max_frequency,
 };
 use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 use crate::process::ProcessSpec;
@@ -231,6 +234,10 @@ pub enum CompiledGenerator {
     Oscillator(CompiledOscillator),
     /// Noise generator.
     Noise(CompiledNoise),
+    /// Fractional-delay feedback string generator.
+    PhysicalString(CompiledPhysicalString),
+    /// `DaisySP` modal resonator generator.
+    Modal(CompiledModal),
     /// Directly specified sine partial generator.
     Additive(CompiledAdditive),
     /// Harmonic generator shaped by interpolated formant profiles.
@@ -271,7 +278,9 @@ impl CompiledGenerator {
                 }
             }
             Self::Noise(_) | Self::Granular(_) => GeneratorOutputMode::Stereo,
-            Self::Additive(_) | Self::Formant(_) => GeneratorOutputMode::Mono,
+            Self::Additive(_) | Self::Formant(_) | Self::PhysicalString(_) | Self::Modal(_) => {
+                GeneratorOutputMode::Mono
+            }
             Self::WaveSequence(value) => value.output_mode(),
             Self::Sample(value) => value.output_mode(),
             Self::Wavetable(value) => {
@@ -307,6 +316,8 @@ impl CompiledGenerator {
             | Self::Granular(_)
             | Self::WaveSequence(_)
             | Self::Wavetable(_)
+            | Self::PhysicalString(_)
+            | Self::Modal(_)
             | Self::OperatorModulation(_) => 0,
         }
     }
@@ -317,6 +328,8 @@ impl CompiledGenerator {
             | Self::Noise(_)
             | Self::Additive(_)
             | Self::Formant(_)
+            | Self::PhysicalString(_)
+            | Self::Modal(_)
             | Self::OperatorModulation(_) => true,
             Self::Granular(value) => value.source.is_some(),
             Self::WaveSequence(value) => value.steps.iter().any(|step| step.source.is_some()),
@@ -421,6 +434,72 @@ pub struct CompiledNoise {
     pub layer_hash: u64,
     /// Sample-rate-specific Brown noise coefficient.
     pub brown_coefficient: f32,
+}
+
+/// Compiled deterministic excitation shared by physical generators.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CompiledPhysicalExciter {
+    /// A single-sample impulse.
+    Impulse,
+    /// A filtered deterministic noise burst.
+    NoiseBurst {
+        /// Burst duration in seconds.
+        duration_seconds: f32,
+        /// Low-pass brightness.
+        brightness: f32,
+        /// Explicit deterministic seed.
+        seed: u64,
+    },
+}
+
+/// Dynamic parameters owned by a physical string generator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledPhysicalStringParameters {
+    /// Nominal decay time handle.
+    pub decay_seconds: ParameterHandle,
+    /// Loop brightness handle.
+    pub brightness: ParameterHandle,
+    /// Dispersion stiffness handle.
+    pub stiffness: ParameterHandle,
+}
+
+/// Compiled fractional-delay feedback string generator.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledPhysicalString {
+    /// Deterministic note-start excitation.
+    pub exciter: CompiledPhysicalExciter,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledPhysicalStringParameters,
+    /// Stable hash of the owning layer identifier.
+    pub layer_hash: u64,
+    /// Process-rate-derived safe frequency limit.
+    pub effective_max_frequency: f32,
+}
+
+/// Dynamic parameters owned by a modal generator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledModalParameters {
+    /// Structure handle.
+    pub structure: ParameterHandle,
+    /// Brightness handle.
+    pub brightness: ParameterHandle,
+    /// Decay handle.
+    pub decay: ParameterHandle,
+}
+
+/// Compiled `DaisySP` modal resonator generator.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledModal {
+    /// Deterministic note-start excitation.
+    pub exciter: CompiledPhysicalExciter,
+    /// Fixed number of modes.
+    pub mode_count: u8,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledModalParameters,
+    /// Stable hash of the owning layer identifier.
+    pub layer_hash: u64,
+    /// Process-rate-derived safe frequency limit.
+    pub effective_max_frequency: f32,
 }
 
 /// Parameter handles owned by an Additive Generator.
@@ -2662,6 +2741,12 @@ fn compile_generator(
             layer_hash: source_id_hash(layer_id),
             brown_coefficient: brown_noise_coefficient(sample_rate),
         }),
+        GeneratorDefinition::PhysicalString(physical_string) => CompiledGenerator::PhysicalString(
+            compile_physical_string(physical_string, layer_id, catalog, sample_rate),
+        ),
+        GeneratorDefinition::Modal(modal) => {
+            CompiledGenerator::Modal(compile_modal(modal, layer_id, catalog, sample_rate))
+        }
         GeneratorDefinition::Additive(additive) => CompiledGenerator::Additive(compile_additive(
             additive,
             layer_index,
@@ -2736,6 +2821,68 @@ fn compile_generator(
                 diagnostics,
             ))
         }
+    }
+}
+
+fn compile_physical_exciter(exciter: PhysicalExciterDefinition) -> CompiledPhysicalExciter {
+    match exciter {
+        PhysicalExciterDefinition::Impulse => CompiledPhysicalExciter::Impulse,
+        PhysicalExciterDefinition::NoiseBurst {
+            duration_seconds,
+            brightness,
+            seed,
+        } => CompiledPhysicalExciter::NoiseBurst {
+            duration_seconds,
+            brightness,
+            seed,
+        },
+    }
+}
+
+fn compile_physical_string(
+    value: &PhysicalStringDefinition,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+) -> CompiledPhysicalString {
+    CompiledPhysicalString {
+        exciter: compile_physical_exciter(value.exciter),
+        parameters: CompiledPhysicalStringParameters {
+            decay_seconds: generator_parameter_handle(
+                catalog,
+                layer_id,
+                PHYSICAL_STRING_DECAY_SECONDS,
+            ),
+            brightness: generator_parameter_handle(catalog, layer_id, PHYSICAL_STRING_BRIGHTNESS),
+            stiffness: generator_parameter_handle(catalog, layer_id, PHYSICAL_STRING_STIFFNESS),
+        },
+        layer_hash: source_id_hash(layer_id),
+        effective_max_frequency: effective_max_frequency(
+            sample_rate,
+            PHYSICAL_FREQUENCY_LIMIT_RATIO,
+        ),
+    }
+}
+
+fn compile_modal(
+    value: &ModalDefinition,
+    layer_id: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+) -> CompiledModal {
+    CompiledModal {
+        exciter: compile_physical_exciter(value.exciter),
+        mode_count: value.mode_count,
+        parameters: CompiledModalParameters {
+            structure: generator_parameter_handle(catalog, layer_id, MODAL_STRUCTURE),
+            brightness: generator_parameter_handle(catalog, layer_id, MODAL_BRIGHTNESS),
+            decay: generator_parameter_handle(catalog, layer_id, MODAL_DECAY),
+        },
+        layer_hash: source_id_hash(layer_id),
+        effective_max_frequency: effective_max_frequency(
+            sample_rate,
+            PHYSICAL_FREQUENCY_LIMIT_RATIO,
+        ),
     }
 }
 

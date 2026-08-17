@@ -1,8 +1,8 @@
 use crate::compiler::CompiledChorusProcessor;
 use crate::process::{ProcessError, ProcessorFailureKind};
 
+use super::super::fractional_delay::FractionalDelayLine;
 use super::ValueSpan;
-use super::fractional_delay::FractionalDelayLine;
 
 pub(crate) struct ChorusRuntime {
     sample_rate: f32,

@@ -283,6 +283,16 @@ pub(crate) enum LayerGeneratorTargetSpan {
     Noise {
         correlation: ValueSpan,
     },
+    PhysicalString {
+        decay_seconds: ValueSpan,
+        brightness: ValueSpan,
+        stiffness: ValueSpan,
+    },
+    Modal {
+        structure: ValueSpan,
+        brightness: ValueSpan,
+        decay: ValueSpan,
+    },
     Additive {
         morph: ValueSpan,
         spectrum_tilt: ValueSpan,
@@ -355,6 +365,16 @@ impl CompiledGenerator {
                 unison_spread: value.parameters.unison_spread.map(|_| zero),
             },
             Self::Noise(_) => LayerGeneratorTargetSpan::Noise { correlation: zero },
+            Self::PhysicalString(_) => LayerGeneratorTargetSpan::PhysicalString {
+                decay_seconds: zero,
+                brightness: zero,
+                stiffness: zero,
+            },
+            Self::Modal(_) => LayerGeneratorTargetSpan::Modal {
+                structure: zero,
+                brightness: zero,
+                decay: zero,
+            },
             Self::Additive(_) => LayerGeneratorTargetSpan::Additive {
                 morph: zero,
                 spectrum_tilt: zero,

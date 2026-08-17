@@ -4,6 +4,7 @@
 #include "Synthesis/variableshapeosc.h"
 #include "Filters/svf.h"
 #include "Effects/wavefolder.h"
+#include "PhysicalModeling/resonator.h"
 
 #include <cmath>
 #include <cstdint>
@@ -49,6 +50,16 @@ struct sonalloy_dsp_wavefolder {
 #endif
 };
 
+struct sonalloy_dsp_modal_resonator {
+    daisysp::Resonator resonator;
+    float sample_rate = 0.0f;
+    int32_t mode_count = 0;
+    bool prepared = false;
+#ifdef SONALLOY_DSP_TEST_HOOKS
+    bool throw_on_process = false;
+#endif
+};
+
 namespace {
 
 constexpr const char* kBackendVersion =
@@ -67,6 +78,20 @@ bool valid_frequency(float frequency_hz, float sample_rate) {
 bool valid_variable_frequency(float frequency_hz, float sample_rate) {
     return std::isfinite(frequency_hz) && frequency_hz > 0.0f &&
            frequency_hz <= sample_rate * 0.5f;
+}
+
+bool valid_modal_mode_count(int32_t mode_count) {
+    return mode_count == 4 || mode_count == 8 || mode_count == 12 ||
+           mode_count == 16 || mode_count == 20 || mode_count == 24;
+}
+
+bool valid_modal_frequency(float frequency_hz, float sample_rate) {
+    return std::isfinite(frequency_hz) && frequency_hz > 0.0f &&
+           frequency_hz <= sample_rate * 0.45f;
+}
+
+bool valid_modal_parameter(float value) {
+    return std::isfinite(value) && value >= 0.0f && value <= 1.0f;
 }
 
 bool valid_phase(float phase) {
@@ -114,7 +139,7 @@ bool valid_wavefolder_mix(float mix) {
     return std::isfinite(mix) && mix >= 0.0f && mix <= 1.0f;
 }
 
-bool valid_wavefolder_input(const float* buffer, uint32_t frames) {
+bool valid_buffer_input(const float* buffer, uint32_t frames) {
     for (uint32_t index = 0; index < frames; ++index) {
         if (!std::isfinite(buffer[index])) {
             return false;
@@ -1037,7 +1062,7 @@ extern "C" int32_t sonalloy_dsp_wavefolder_process(
         return SONALLOY_DSP_NOT_PREPARED;
     }
     if (!valid_wavefolder_drive(drive) || !valid_wavefolder_mix(mix) ||
-        !valid_wavefolder_input(buffer, frames)) {
+        !valid_buffer_input(buffer, frames)) {
         clear_variable_output(buffer, frames);
         return SONALLOY_DSP_INVALID_ARGUMENT;
     }
@@ -1087,7 +1112,7 @@ extern "C" int32_t sonalloy_dsp_wavefolder_process_ramp(
     }
     if (!valid_wavefolder_drive(start_drive) || !valid_wavefolder_drive(end_drive) ||
         !valid_wavefolder_mix(start_mix) || !valid_wavefolder_mix(end_mix) ||
-        !valid_wavefolder_input(buffer, frames)) {
+        !valid_buffer_input(buffer, frames)) {
         clear_variable_output(buffer, frames);
         return SONALLOY_DSP_INVALID_ARGUMENT;
     }
@@ -1121,6 +1146,141 @@ extern "C" int32_t sonalloy_dsp_wavefolder_process_ramp(
     }
 }
 
+extern "C" sonalloy_dsp_modal_resonator*
+sonalloy_dsp_modal_resonator_create(void) {
+    try {
+        return new sonalloy_dsp_modal_resonator();
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+extern "C" void sonalloy_dsp_modal_resonator_destroy(
+    sonalloy_dsp_modal_resonator* handle
+) {
+    try {
+        delete handle;
+    } catch (...) {
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_modal_resonator_prepare(
+    sonalloy_dsp_modal_resonator* handle,
+    double sample_rate,
+    int32_t mode_count
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    handle->prepared = false;
+#ifdef SONALLOY_DSP_TEST_HOOKS
+    handle->throw_on_process = false;
+#endif
+    if (!valid_sample_rate(sample_rate) ||
+        !valid_modal_mode_count(mode_count)) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    try {
+        handle->sample_rate = static_cast<float>(sample_rate);
+        handle->mode_count = mode_count;
+        handle->resonator.Init(0.015f, mode_count, handle->sample_rate);
+        handle->prepared = true;
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        handle->prepared = false;
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_modal_resonator_reset(
+    sonalloy_dsp_modal_resonator* handle
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (!handle->prepared) {
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    try {
+        handle->resonator.Init(0.015f, handle->mode_count, handle->sample_rate);
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
+extern "C" int32_t sonalloy_dsp_modal_resonator_process_ramp(
+    sonalloy_dsp_modal_resonator* handle,
+    float start_frequency_hz,
+    float end_frequency_hz,
+    float start_structure,
+    float end_structure,
+    float start_brightness,
+    float end_brightness,
+    float start_decay,
+    float end_decay,
+    float* buffer,
+    uint32_t frames
+) {
+    if (handle == nullptr) {
+        return SONALLOY_DSP_NULL_HANDLE;
+    }
+    if (frames > 0u && buffer == nullptr) {
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+    if (!handle->prepared) {
+        clear_variable_output(buffer, frames);
+        return SONALLOY_DSP_NOT_PREPARED;
+    }
+    if (!valid_modal_frequency(start_frequency_hz, handle->sample_rate) ||
+        !valid_modal_frequency(end_frequency_hz, handle->sample_rate) ||
+        !valid_modal_parameter(start_structure) ||
+        !valid_modal_parameter(end_structure) ||
+        !valid_modal_parameter(start_brightness) ||
+        !valid_modal_parameter(end_brightness) ||
+        !valid_modal_parameter(start_decay) ||
+        !valid_modal_parameter(end_decay) ||
+        !valid_buffer_input(buffer, frames)) {
+        clear_variable_output(buffer, frames);
+        return SONALLOY_DSP_INVALID_ARGUMENT;
+    }
+
+    try {
+#ifdef SONALLOY_DSP_TEST_HOOKS
+        if (handle->throw_on_process) {
+            handle->throw_on_process = false;
+            throw std::runtime_error("native modal process test exception");
+        }
+#endif
+        for (uint32_t index = 0; index < frames; ++index) {
+            const float position = frames <= 1u
+                ? 0.0f
+                : static_cast<float>(index) / static_cast<float>(frames);
+            const float frequency_hz = start_frequency_hz +
+                (end_frequency_hz - start_frequency_hz) * position;
+            const float structure = start_structure +
+                (end_structure - start_structure) * position;
+            const float brightness = start_brightness +
+                (end_brightness - start_brightness) * position;
+            const float decay = start_decay +
+                (end_decay - start_decay) * position;
+            handle->resonator.SetFreq(frequency_hz);
+            handle->resonator.SetStructure(structure);
+            handle->resonator.SetBrightness(brightness);
+            handle->resonator.SetDamping(decay);
+            buffer[index] = handle->resonator.Process(buffer[index]);
+            if (!std::isfinite(buffer[index])) {
+                clear_variable_output(buffer, frames);
+                return SONALLOY_DSP_NON_FINITE;
+            }
+        }
+        return SONALLOY_DSP_OK;
+    } catch (...) {
+        clear_variable_output(buffer, frames);
+        return SONALLOY_DSP_NATIVE_EXCEPTION;
+    }
+}
+
 #ifdef SONALLOY_DSP_TEST_HOOKS
 extern "C" void sonalloy_dsp_test_arm_process_exception(
     sonalloy_dsp_oscillator* handle
@@ -1140,6 +1300,14 @@ extern "C" void sonalloy_dsp_test_arm_variable_process_exception(
 
 extern "C" void sonalloy_dsp_test_arm_wavefolder_process_exception(
     sonalloy_dsp_wavefolder* handle
+) {
+    if (handle != nullptr) {
+        handle->throw_on_process = true;
+    }
+}
+
+extern "C" void sonalloy_dsp_test_arm_modal_process_exception(
+    sonalloy_dsp_modal_resonator* handle
 ) {
     if (handle != nullptr) {
         handle->throw_on_process = true;

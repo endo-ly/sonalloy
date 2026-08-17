@@ -356,6 +356,29 @@ enum InspectGenerator {
         noise_seed: u64,
         noise_correlation_parameter: String,
     },
+    PhysicalString {
+        output_mode: &'static str,
+        exciter: InspectPhysicalExciter,
+        decay_seconds: f32,
+        decay_parameter: String,
+        brightness: f32,
+        brightness_parameter: String,
+        stiffness: f32,
+        stiffness_parameter: String,
+        effective_max_frequency_hz: f32,
+    },
+    Modal {
+        output_mode: &'static str,
+        exciter: InspectPhysicalExciter,
+        mode_count: u8,
+        structure: f32,
+        structure_parameter: String,
+        brightness: f32,
+        brightness_parameter: String,
+        decay: f32,
+        decay_parameter: String,
+        effective_max_frequency_hz: f32,
+    },
     Additive {
         output_mode: &'static str,
         partial_count: usize,
@@ -492,6 +515,14 @@ enum InspectGenerator {
         unison_spread_parameter: Option<String>,
         effective_max_frequency_hz: f32,
     },
+}
+
+#[derive(Debug, Serialize)]
+struct InspectPhysicalExciter {
+    kind: &'static str,
+    duration_seconds: Option<f32>,
+    brightness: Option<f32>,
+    seed: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -2112,6 +2143,41 @@ fn inspect_generator(
             },
             "not_applicable (noise)",
         ),
+        sonalloy_core::compiler::CompiledGenerator::PhysicalString(string) => (
+            InspectGenerator::PhysicalString {
+                output_mode: output_mode_name(generator.output_mode()),
+                exciter: inspect_physical_exciter(string.exciter),
+                decay_seconds: parameter_default(compiled, string.parameters.decay_seconds),
+                decay_parameter: parameter_descriptor_id(compiled, string.parameters.decay_seconds),
+                brightness: parameter_default(compiled, string.parameters.brightness),
+                brightness_parameter: parameter_descriptor_id(
+                    compiled,
+                    string.parameters.brightness,
+                ),
+                stiffness: parameter_default(compiled, string.parameters.stiffness),
+                stiffness_parameter: parameter_descriptor_id(compiled, string.parameters.stiffness),
+                effective_max_frequency_hz: string.effective_max_frequency,
+            },
+            "ready",
+        ),
+        sonalloy_core::compiler::CompiledGenerator::Modal(modal) => (
+            InspectGenerator::Modal {
+                output_mode: output_mode_name(generator.output_mode()),
+                exciter: inspect_physical_exciter(modal.exciter),
+                mode_count: modal.mode_count,
+                structure: parameter_default(compiled, modal.parameters.structure),
+                structure_parameter: parameter_descriptor_id(compiled, modal.parameters.structure),
+                brightness: parameter_default(compiled, modal.parameters.brightness),
+                brightness_parameter: parameter_descriptor_id(
+                    compiled,
+                    modal.parameters.brightness,
+                ),
+                decay: parameter_default(compiled, modal.parameters.decay),
+                decay_parameter: parameter_descriptor_id(compiled, modal.parameters.decay),
+                effective_max_frequency_hz: modal.effective_max_frequency,
+            },
+            "ready",
+        ),
         sonalloy_core::compiler::CompiledGenerator::Additive(additive) => {
             inspect_additive_generator(compiled, generator, additive)
         }
@@ -2155,6 +2221,29 @@ fn inspect_generator(
         sonalloy_core::compiler::CompiledGenerator::OperatorModulation(operator) => {
             inspect_operator_generator(compiled, generator, operator)
         }
+    }
+}
+
+fn inspect_physical_exciter(
+    exciter: sonalloy_core::compiler::CompiledPhysicalExciter,
+) -> InspectPhysicalExciter {
+    match exciter {
+        sonalloy_core::compiler::CompiledPhysicalExciter::Impulse => InspectPhysicalExciter {
+            kind: "impulse",
+            duration_seconds: None,
+            brightness: None,
+            seed: None,
+        },
+        sonalloy_core::compiler::CompiledPhysicalExciter::NoiseBurst {
+            duration_seconds,
+            brightness,
+            seed,
+        } => InspectPhysicalExciter {
+            kind: "noise_burst",
+            duration_seconds: Some(duration_seconds),
+            brightness: Some(brightness),
+            seed: Some(seed),
+        },
     }
 }
 
@@ -3041,6 +3130,7 @@ fn print_oscillator_generator(layer_id: &str, generator: &InspectGenerator) {
     println!("  unison_voices: {unison_voices} phase_spread: {phase_spread:.3}");
 }
 
+#[allow(clippy::too_many_lines)]
 fn print_generator(layer_id: &str, generator: &InspectGenerator) {
     match generator {
         InspectGenerator::Oscillator { .. } => print_oscillator_generator(layer_id, generator),
@@ -3055,6 +3145,45 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
             );
             println!("  noise seed: {noise_seed}");
             println!("  noise correlation parameter: {noise_correlation_parameter}");
+        }
+        InspectGenerator::PhysicalString {
+            output_mode,
+            exciter,
+            decay_seconds,
+            decay_parameter,
+            brightness,
+            brightness_parameter,
+            stiffness,
+            stiffness_parameter,
+            effective_max_frequency_hz,
+        } => {
+            println!(
+                "layer {layer_id}: enabled true generator physical_string output_mode {output_mode}"
+            );
+            print_physical_exciter(exciter);
+            println!(
+                "  decay_seconds: {decay_seconds:.6} ({decay_parameter}) brightness: {brightness:.6} ({brightness_parameter}) stiffness: {stiffness:.6} ({stiffness_parameter})"
+            );
+            println!("  effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
+        }
+        InspectGenerator::Modal {
+            output_mode,
+            exciter,
+            mode_count,
+            structure,
+            structure_parameter,
+            brightness,
+            brightness_parameter,
+            decay,
+            decay_parameter,
+            effective_max_frequency_hz,
+        } => {
+            println!("layer {layer_id}: enabled true generator modal output_mode {output_mode}");
+            print_physical_exciter(exciter);
+            println!(
+                "  mode_count: {mode_count} structure: {structure:.6} ({structure_parameter}) brightness: {brightness:.6} ({brightness_parameter}) decay: {decay:.6} ({decay_parameter})"
+            );
+            println!("  effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
         }
         InspectGenerator::Additive { .. } => print_additive_generator(layer_id, generator),
         InspectGenerator::Formant { .. } => print_formant_generator(layer_id, generator),
@@ -3123,6 +3252,13 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
             print_operator_generator(layer_id, generator);
         }
     }
+}
+
+fn print_physical_exciter(exciter: &InspectPhysicalExciter) {
+    println!(
+        "  exciter: {} duration_seconds: {:?} brightness: {:?} seed: {:?}",
+        exciter.kind, exciter.duration_seconds, exciter.brightness, exciter.seed
+    );
 }
 
 fn print_additive_generator(layer_id: &str, generator: &InspectGenerator) {

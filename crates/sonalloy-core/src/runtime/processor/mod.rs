@@ -5,7 +5,6 @@ mod delay;
 mod drive;
 mod eq;
 mod flanger;
-mod fractional_delay;
 mod limiter;
 mod phaser;
 mod resonator;

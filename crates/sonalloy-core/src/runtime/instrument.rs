@@ -437,6 +437,8 @@ impl InstrumentRuntime {
             match &layer.generator {
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
+                | CompiledGenerator::PhysicalString(_)
+                | CompiledGenerator::Modal(_)
                 | CompiledGenerator::Additive(_)
                 | CompiledGenerator::Formant(_)
                 | CompiledGenerator::Granular(_)
@@ -855,6 +857,8 @@ impl InstrumentProcessor for InstrumentRuntime {
                 CompiledGenerator::Sample(sample) => vec![0; sample.groups.len()],
                 CompiledGenerator::Oscillator(_)
                 | CompiledGenerator::Noise(_)
+                | CompiledGenerator::PhysicalString(_)
+                | CompiledGenerator::Modal(_)
                 | CompiledGenerator::Additive(_)
                 | CompiledGenerator::Formant(_)
                 | CompiledGenerator::Granular(_)
@@ -2525,6 +2529,8 @@ mod tests {
             | crate::definition::GeneratorDefinition::Granular(_)
             | crate::definition::GeneratorDefinition::WaveSequence(_)
             | crate::definition::GeneratorDefinition::Noise(_)
+            | crate::definition::GeneratorDefinition::PhysicalString(_)
+            | crate::definition::GeneratorDefinition::Modal(_)
             | crate::definition::GeneratorDefinition::Additive(_)
             | crate::definition::GeneratorDefinition::Formant(_)
             | crate::definition::GeneratorDefinition::Wavetable(_)

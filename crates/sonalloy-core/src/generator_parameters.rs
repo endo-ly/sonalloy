@@ -212,6 +212,64 @@ pub(crate) const NOISE_CORRELATION: GeneratorParameterSpec = GeneratorParameterS
     smoothing_seconds: 0.010,
 };
 
+pub(crate) const PHYSICAL_EXCITER_DURATION_SECONDS_MIN: f32 = 0.0005;
+pub(crate) const PHYSICAL_EXCITER_DURATION_SECONDS_MAX: f32 = 0.100;
+pub(crate) const PHYSICAL_FREQUENCY_LIMIT_RATIO: f64 = BASIC_FREQUENCY_LIMIT_RATIO;
+
+pub(crate) const PHYSICAL_STRING_DECAY_SECONDS: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "physical_string_decay_seconds",
+    unit: ParameterUnit::Seconds,
+    scale: ParameterScale::Log2,
+    min: 0.05,
+    max: 20.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const PHYSICAL_STRING_BRIGHTNESS: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "physical_string_brightness",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const PHYSICAL_STRING_STIFFNESS: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "physical_string_stiffness",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const MODAL_STRUCTURE: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "modal_structure",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const MODAL_BRIGHTNESS: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "modal_brightness",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
+pub(crate) const MODAL_DECAY: GeneratorParameterSpec = GeneratorParameterSpec {
+    suffix: "modal_decay",
+    unit: ParameterUnit::Normalized,
+    scale: ParameterScale::Linear,
+    min: 0.0,
+    max: 1.0,
+    smoothing_seconds: 0.010,
+};
+
 pub(crate) const GRANULAR_POSITION: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "granular_position",
     unit: ParameterUnit::Normalized,
@@ -312,6 +370,12 @@ pub(crate) fn is_suffix(value: &str) -> bool {
         UNISON_DETUNE,
         UNISON_SPREAD,
         NOISE_CORRELATION,
+        PHYSICAL_STRING_DECAY_SECONDS,
+        PHYSICAL_STRING_BRIGHTNESS,
+        PHYSICAL_STRING_STIFFNESS,
+        MODAL_STRUCTURE,
+        MODAL_BRIGHTNESS,
+        MODAL_DECAY,
         ADDITIVE_MORPH,
         ADDITIVE_SPECTRUM_TILT,
         ADDITIVE_INHARMONICITY,
