@@ -334,8 +334,10 @@ pub fn render_instrument_with_trace(
     }
     let latency_frames = u64::try_from(compiled.reported_latency_frames)
         .map_err(|_| RenderError::FrameCountOverflow)?;
-    let public_frames = total_frames.saturating_sub(latency_frames);
-    let boundary_count = trace_boundary_count(public_frames, trace_request.every_frames, events);
+    // Audio is rendered through the latency-extended request, while Trace follows the runtime's
+    // performance timeline before the generator output reaches the delayed audio frame.
+    let trace_frames = total_frames.saturating_sub(latency_frames);
+    let boundary_count = trace_boundary_count(trace_frames, trace_request.every_frames, events);
     let estimate = boundary_count
         .saturating_mul(trace_request.parameters.len())
         .saturating_mul(compiled.performance.polyphony.max(1));
@@ -346,38 +348,26 @@ pub fn render_instrument_with_trace(
         });
     }
     let mut boundaries = Vec::with_capacity(boundary_count);
-    if public_frames > 0 {
-        boundaries.push(latency_frames);
+    if trace_frames > 0 {
+        boundaries.push(0);
         let every_frames = u64::try_from(trace_request.every_frames)
             .map_err(|_| RenderError::FrameCountOverflow)?;
         let mut periodic = every_frames;
-        while periodic < public_frames {
-            boundaries.push(
-                latency_frames
-                    .checked_add(periodic)
-                    .ok_or(RenderError::FrameCountOverflow)?,
-            );
+        while periodic < trace_frames {
+            boundaries.push(periodic);
             periodic = periodic
                 .checked_add(every_frames)
                 .ok_or(RenderError::FrameCountOverflow)?;
         }
         for event in events {
-            if event.absolute_frame < public_frames
+            if event.absolute_frame < trace_frames
                 && let Some(frame) = event.absolute_frame.checked_add(1)
-                && frame <= public_frames
+                && frame <= trace_frames
             {
-                boundaries.push(
-                    latency_frames
-                        .checked_add(frame)
-                        .ok_or(RenderError::FrameCountOverflow)?,
-                );
+                boundaries.push(frame);
             }
         }
-        boundaries.push(
-            latency_frames
-                .checked_add(public_frames)
-                .ok_or(RenderError::FrameCountOverflow)?,
-        );
+        boundaries.push(trace_frames);
         boundaries.sort_unstable();
         boundaries.dedup();
     }

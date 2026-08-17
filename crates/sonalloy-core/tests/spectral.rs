@@ -4,8 +4,10 @@ use std::sync::Arc;
 use approx::assert_relative_eq;
 use sonalloy_core::{
     AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, GeneratorDefinition,
-    GeneratorOutputMode, InstrumentDefinition, InstrumentProcessor, ParameterUnit, ProcessBlock,
-    ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec, RenderRequest, ScheduledEvent,
+    GeneratorOutputMode, InstrumentDefinition, InstrumentProcessor, LfoDefinition, LfoWaveform,
+    ModulationCurve, ModulationDefinition, ModulationDepthDefinition, ModulationRouteDefinition,
+    ModulationSourceDefinition, ParameterUnit, ProcessBlock, ProcessContext, ProcessEvent,
+    ProcessEventKind, ProcessSpec, RenderRequest, RenderTraceReport, ScheduledEvent,
     SpectralDefinition, TempoMap, TraceRequest, compile_instrument, render_instrument,
     render_instrument_with_trace,
 };
@@ -1377,5 +1379,203 @@ fn trace_uses_public_frames_for_latency_compensated_spectral_render() {
         .iter()
         .map(|observation| observation.frame)
         .collect::<Vec<_>>();
-    assert_eq!(frames, vec![0, 1, 480, 701, 960, 1_000]);
+    assert_eq!(frames, vec![1, 480, 701, 960, 1_000]);
+}
+
+fn trace_lfo_modulation() -> ModulationDefinition {
+    ModulationDefinition {
+        sources: vec![ModulationSourceDefinition::Lfo(LfoDefinition {
+            id: "trace_lfo".to_owned(),
+            waveform: LfoWaveform::Sine,
+            rate_hz: 2.0,
+            phase: 0.0,
+        })],
+        routes: vec![ModulationRouteDefinition {
+            source: "trace_lfo".to_owned(),
+            target: "layer.body.gain".to_owned(),
+            depth: ModulationDepthDefinition {
+                value: 6.0,
+                unit: sonalloy_core::ModulationUnit::Decibels,
+            },
+            curve: ModulationCurve::Linear,
+        }],
+    }
+}
+
+fn zero_latency_trace_definition() -> InstrumentDefinition {
+    let reference = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/instruments/basic-poly-synth.json");
+    let mut definition: InstrumentDefinition = serde_json::from_str(
+        &std::fs::read_to_string(reference).expect("oscillator reference exists"),
+    )
+    .expect("oscillator reference parses");
+    definition.layers[0].gain_db = 0.0;
+    definition.layers[0].envelope = AdsrDefinition {
+        attack_seconds: 0.0,
+        decay_seconds: 0.0,
+        sustain_level: 1.0,
+        release_seconds: 1.0,
+    };
+    definition.voice_processors.clear();
+    definition.global_processors.clear();
+    definition.modulation = Some(trace_lfo_modulation());
+    definition
+}
+
+fn compile_trace_definition(
+    definition: &InstrumentDefinition,
+    base_dir: &Path,
+) -> Arc<sonalloy_core::CompiledInstrument> {
+    compile_instrument(
+        definition,
+        &CompileContext {
+            definition_base_dir: base_dir.to_path_buf(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+        },
+    )
+    .instrument
+    .expect("trace fixture compiles")
+}
+
+fn trace_events() -> [ScheduledEvent; 2] {
+    [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 112,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 700,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        },
+    ]
+}
+
+fn render_trace_report(
+    compiled: Arc<sonalloy_core::CompiledInstrument>,
+    handle: sonalloy_core::ParameterHandle,
+    duration_frames: u64,
+    events: &[ScheduledEvent],
+) -> RenderTraceReport {
+    render_instrument_with_trace(
+        compiled,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames,
+            tail_frames: 0,
+        },
+        events,
+        &TempoMap::constant(120.0).expect("tempo map"),
+        &TraceRequest {
+            parameters: vec![handle],
+            every_frames: 480,
+        },
+    )
+    .expect("trace render")
+    .1
+}
+
+fn assert_trace_reports_match(zero_latency: &RenderTraceReport, latency: &RenderTraceReport) {
+    let expected_frames = [1_u64, 480, 701, 960, 1_000];
+    let zero_latency_observations = &zero_latency.parameters[0].observations;
+    let latency_observations = &latency.parameters[0].observations;
+    for observations in [zero_latency_observations, latency_observations] {
+        assert_eq!(
+            observations
+                .iter()
+                .map(|observation| observation.frame)
+                .collect::<Vec<_>>(),
+            expected_frames
+        );
+    }
+    for frame in expected_frames {
+        let zero_latency_observation = zero_latency_observations
+            .iter()
+            .find(|observation| observation.frame == frame)
+            .expect("zero-latency observation exists");
+        let latency_observation = latency_observations
+            .iter()
+            .find(|observation| observation.frame == frame)
+            .expect("latency observation exists");
+        assert_relative_eq!(
+            zero_latency_observation.base,
+            latency_observation.base,
+            epsilon = 1.0e-6
+        );
+        assert_relative_eq!(
+            zero_latency_observation.routes[0].raw,
+            latency_observation.routes[0].raw,
+            epsilon = 1.0e-6
+        );
+        assert_relative_eq!(
+            zero_latency_observation.routes[0].shaped,
+            latency_observation.routes[0].shaped,
+            epsilon = 1.0e-6
+        );
+        assert_relative_eq!(
+            zero_latency_observation.routes[0].contribution.value,
+            latency_observation.routes[0].contribution.value,
+            epsilon = 1.0e-6
+        );
+        assert_relative_eq!(
+            zero_latency_observation.before_clamp,
+            latency_observation.before_clamp,
+            epsilon = 1.0e-6
+        );
+        assert_relative_eq!(
+            zero_latency_observation.final_value,
+            latency_observation.final_value,
+            epsilon = 1.0e-6
+        );
+        assert_eq!(zero_latency_observation.voice, latency_observation.voice);
+        assert_eq!(
+            zero_latency_observation.clamped,
+            latency_observation.clamped
+        );
+    }
+}
+
+#[test]
+fn latency_trace_reads_runtime_state_at_the_performance_frame() {
+    let directory = fixture_directory();
+    let path = directory.path().join("silence.wav");
+    write_pcm16_wav(&path, &vec![0; 8_192]);
+    let zero_latency = zero_latency_trace_definition();
+    let mut latency_definition = zero_latency.clone();
+    let mut spectral_layer = definition("silence.wav".to_owned(), 2048)
+        .layers
+        .into_iter()
+        .next()
+        .expect("spectral layer exists");
+    spectral_layer.id = "latency".to_owned();
+    latency_definition.layers.push(spectral_layer);
+
+    let zero_latency_compiled = compile_trace_definition(&zero_latency, directory.path());
+    let latency_compiled = compile_trace_definition(&latency_definition, directory.path());
+    assert_eq!(zero_latency_compiled.reported_latency_frames, 0);
+    assert_eq!(latency_compiled.reported_latency_frames, 1_536);
+    let zero_latency_gain = zero_latency_compiled
+        .parameter_handle("layer.body.gain")
+        .expect("zero-latency gain handle");
+    let latency_gain = latency_compiled
+        .parameter_handle("layer.body.gain")
+        .expect("latency gain handle");
+    let events = trace_events();
+    let zero_latency_report = render_trace_report(
+        Arc::clone(&zero_latency_compiled),
+        zero_latency_gain,
+        1_000,
+        &events,
+    );
+    let latency_report = render_trace_report(
+        Arc::clone(&latency_compiled),
+        latency_gain,
+        1_536 + 1_000,
+        &events,
+    );
+    assert_trace_reports_match(&zero_latency_report, &latency_report);
 }

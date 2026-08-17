@@ -127,7 +127,6 @@ pub struct TraceContribution {
 pub(crate) struct TraceCollector {
     target_handles: Vec<ParameterHandle>,
     sample_rate: f64,
-    latency_frames: usize,
     last_public_frame: Option<u64>,
     observation_count: usize,
     report: RenderTraceReport,
@@ -166,7 +165,6 @@ impl TraceCollector {
         Self {
             target_handles: request.parameters.clone(),
             sample_rate: compiled.process_sample_rate,
-            latency_frames: compiled.reported_latency_frames,
             last_public_frame: None,
             observation_count: 0,
             report: RenderTraceReport {
@@ -179,15 +177,13 @@ impl TraceCollector {
     pub(crate) fn observe(
         &mut self,
         runtime: &InstrumentRuntime,
-        internal_frame: u64,
+        frame: u64,
     ) -> Result<(), TraceCollectError> {
-        let latency = u64::try_from(self.latency_frames).unwrap_or(u64::MAX);
-        let public_frame = internal_frame.saturating_sub(latency);
-        if self.last_public_frame == Some(public_frame) {
+        if self.last_public_frame == Some(frame) {
             return Ok(());
         }
         let observations =
-            runtime.trace_snapshots(&self.target_handles, public_frame, self.sample_rate)?;
+            runtime.trace_snapshots(&self.target_handles, frame, self.sample_rate)?;
         let Some(observation_count) = self.observation_count.checked_add(observations.len()) else {
             return Err(TraceCollectError::LimitExceeded {
                 observed: usize::MAX,
@@ -220,7 +216,7 @@ impl TraceCollector {
                 .push(observation);
         }
         self.observation_count = observation_count;
-        self.last_public_frame = Some(public_frame);
+        self.last_public_frame = Some(frame);
         Ok(())
     }
 
