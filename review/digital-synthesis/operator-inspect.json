@@ -8,12 +8,14 @@
   },
   "polyphony": 16,
   "voice_stealing": "quietest_releasing_then_oldest",
+  "reported_latency_frames": 0,
   "layer_count": 1,
   "layers": [
     {
       "id": "operator",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,
@@ -157,7 +159,11 @@
       "max": 12.0,
       "default": -6.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.operator.pan",
@@ -171,7 +177,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.operator.tuning",
@@ -185,7 +195,11 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.1.ratio",
@@ -199,7 +213,11 @@
       "max": 32.0,
       "default": 1.0,
       "scale": "log2",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 7.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.1.detune",
@@ -213,7 +231,11 @@
       "max": 100.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 200.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.1.level",
@@ -227,7 +249,11 @@
       "max": 1.0,
       "default": 0.9,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.1.feedback",
@@ -241,7 +267,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.2.ratio",
@@ -255,7 +285,11 @@
       "max": 32.0,
       "default": 2.0,
       "scale": "log2",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 7.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.2.detune",
@@ -269,7 +303,11 @@
       "max": 100.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 200.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.2.modulation_amount",
@@ -283,7 +321,11 @@
       "max": 8.0,
       "default": 1.8,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "index",
+        "max_abs_depth": 8.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.2.feedback",
@@ -297,7 +339,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.3.ratio",
@@ -311,7 +357,11 @@
       "max": 32.0,
       "default": 1.0,
       "scale": "log2",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 7.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.3.detune",
@@ -325,7 +375,11 @@
       "max": 100.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 200.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.3.modulation_amount",
@@ -339,7 +393,11 @@
       "max": 8.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "index",
+        "max_abs_depth": 8.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.3.feedback",
@@ -353,7 +411,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.4.ratio",
@@ -367,7 +429,11 @@
       "max": 32.0,
       "default": 1.0,
       "scale": "log2",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 7.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.4.detune",
@@ -381,7 +447,11 @@
       "max": 100.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 200.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.4.modulation_amount",
@@ -395,7 +465,11 @@
       "max": 8.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "index",
+        "max_abs_depth": 8.0
+      }
     },
     {
       "id": "layer.operator.generator.operator.4.feedback",
@@ -409,7 +483,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.operator.generator.unison_detune",
@@ -423,7 +501,11 @@
       "max": 100.0,
       "default": 16.0,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 100.0
+      }
     },
     {
       "id": "layer.operator.generator.unison_spread",
@@ -437,19 +519,33 @@
       "max": 1.0,
       "default": 0.85,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     }
   ],
   "sources": [
     {
       "id": "velocity",
       "scope": "voice",
-      "kind": "velocity"
+      "kind": "velocity",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
     },
     {
       "id": "key_tracking",
       "scope": "voice",
-      "kind": "key_tracking"
+      "kind": "key_tracking",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      }
     }
   ],
   "routes": []

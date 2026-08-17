@@ -109,7 +109,7 @@ def sequence_definition(
     steps: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
@@ -166,7 +166,7 @@ def sample_zone(assets: dict[str, str], direction: str, start: float, end: float
 
 def hybrid_definition(assets: dict[str, str]) -> dict[str, object]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "metadata": {
             "name": "Wave Sequence Hybrid Reference",
             "author": "Sonalloy",
@@ -324,13 +324,13 @@ def hybrid_definition(assets: dict[str, str]) -> dict[str, object]:
                 {
                     "source": "texture_motion",
                     "target": "layer.texture.generator.granular_position",
-                    "amount": 0.35,
+                    "depth": {"value": 0.35, "unit": "normalized"},
                     "curve": "linear",
                 },
                 {
                     "source": "mod_wheel",
                     "target": "layer.texture.generator.grain_density",
-                    "amount": 0.35,
+                    "depth": {"value": 2.325349, "unit": "octaves"},
                     "curve": "linear",
                 },
             ],
@@ -362,6 +362,7 @@ def render_sequence(
             "0",
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )

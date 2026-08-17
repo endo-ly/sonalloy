@@ -353,7 +353,7 @@ def formant_with_lfo(source: dict[str, object]) -> dict[str, object]:
             {
                 "source": "vowel_position_lfo",
                 "target": "layer.voice.generator.formant_vowel_position",
-                "amount": 0.5,
+                "depth": {"value": 0.5, "unit": "normalized"},
                 "curve": "linear",
             }
         ],
@@ -396,7 +396,7 @@ def formant_with_noise(source: dict[str, object]) -> dict[str, object]:
     return value
 
 
-def event_sequence(parameter: str, normalized: float, note_id: int) -> list[dict[str, object]]:
+def event_sequence(parameter: str, native_value: float, note_id: int) -> list[dict[str, object]]:
     return [
         {
             "absolute_frame": 0,
@@ -409,7 +409,7 @@ def event_sequence(parameter: str, normalized: float, note_id: int) -> list[dict
             "absolute_frame": 4_096,
             "type": "parameter_change",
             "parameter": f"layer.voice.generator.{parameter}",
-            "normalized": normalized,
+            "native_value": native_value,
         },
         {"absolute_frame": 12_000, "type": "note_off", "note_id": note_id},
     ]
@@ -428,7 +428,7 @@ def hybrid_event_sequence() -> list[dict[str, object]]:
             "absolute_frame": 4_096,
             "type": "parameter_change",
             "parameter": "layer.voice.generator.formant_shift",
-            "normalized": 0.75,
+            "native_value": 1200.0,
         },
         {"absolute_frame": 8_192, "type": "mod_wheel", "value": 0.8},
         {"absolute_frame": 10_240, "type": "aftertouch", "value": 0.7},
@@ -638,9 +638,9 @@ def main() -> None:
 
     event_values = {
         "vowel-morph": event_sequence("formant_vowel_position", 1.0, 1),
-        "formant-shift": event_sequence("formant_shift", 0.75, 2),
+        "formant-shift": event_sequence("formant_shift", 1200.0, 2),
         "throat-sweep": event_sequence("formant_throat", 1.0, 3),
-        "formant-tilt-sweep": event_sequence("formant_spectral_tilt", 1.0, 4),
+        "formant-tilt-sweep": event_sequence("formant_spectral_tilt", 12.0, 4),
     }
     event_paths: dict[str, Path] = {}
     for name, events in event_values.items():
@@ -1027,7 +1027,10 @@ def main() -> None:
             hybrid_note_path, hybrid_controls_path
         ),
         "existing_review_regression": {
-            "validated_definitions": existing_review_definitions,
+            "validated_definitions": [
+                str(definition.relative_to(ROOT))
+                for definition in existing_review_definitions
+            ],
             "rendered_definitions": list(existing_render_paths),
         },
         "high_frequency_energy": high_frequency_metrics,

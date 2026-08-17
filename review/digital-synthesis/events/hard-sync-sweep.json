@@ -11,13 +11,13 @@
       "absolute_frame": 4096,
       "type": "parameter_change",
       "parameter": "layer.hard_sync_lead.generator.sync_ratio",
-      "normalized": 0.8
+      "native_value": 9.18958683997628
     },
     {
       "absolute_frame": 12000,
       "type": "parameter_change",
       "parameter": "layer.hard_sync_lead.generator.sync_ratio",
-      "normalized": 0.1
+      "native_value": 1.3195079107728942
     },
     {
       "absolute_frame": 14000,

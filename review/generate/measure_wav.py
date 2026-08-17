@@ -10,6 +10,25 @@ import struct
 from pathlib import Path
 
 
+_CLI_ANALYSIS: dict[Path, dict[str, object]] = {}
+
+
+def register_cli_analysis(path: Path, analysis: dict[str, object]) -> None:
+    """Associate a CLI-rendered WAV with its product-level analysis report."""
+
+    _CLI_ANALYSIS[path.resolve()] = analysis
+
+
+def _registered_cli_analysis(path: Path) -> dict[str, object] | None:
+    return _CLI_ANALYSIS.get(path.resolve())
+
+
+def registered_cli_analysis(path: Path) -> dict[str, object] | None:
+    """Return the product analysis registered for a CLI-rendered WAV, if any."""
+
+    return _registered_cli_analysis(path)
+
+
 def read_float_wav(path: Path) -> tuple[int, int, list[float]]:
     data = path.read_bytes()
     if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
@@ -195,14 +214,34 @@ def measure(
         raise ValueError("sample count is not divisible by channel count")
     frames = len(samples) // channels
     left = samples[0::channels]
-    finite = all(math.isfinite(sample) for sample in samples)
-    peak = max((abs(sample) for sample in samples), default=0.0)
-    rms = (
-        math.sqrt(sum(sample * sample for sample in samples) / len(samples))
-        if samples
-        else 0.0
-    )
-    dc = sum(samples) / len(samples) if samples else 0.0
+    product_analysis = _registered_cli_analysis(path)
+    if product_analysis is None:
+        finite = all(math.isfinite(sample) for sample in samples)
+        peak = max((abs(sample) for sample in samples), default=0.0)
+        rms = (
+            math.sqrt(sum(sample * sample for sample in samples) / len(samples))
+            if samples
+            else 0.0
+        )
+        dc = sum(samples) / len(samples) if samples else 0.0
+        max_delta, large_count, candidate_frames = max_adjacent_frame_delta(
+            samples, channels, frames
+        )
+    else:
+        level = product_analysis["level"]
+        dc_values = product_analysis["dc"]
+        continuity = product_analysis["continuity"]
+        finite = bool(product_analysis["finite"])
+        peak = float(level["peak"])
+        rms = float(level["rms"])
+        dc = (
+            sum(float(value) for value in dc_values) / len(dc_values)
+            if dc_values
+            else 0.0
+        )
+        max_delta = float(continuity["max_adjacent_frame_delta"])
+        large_count = int(continuity["large_delta_count"])
+        candidate_frames = [int(value) for value in continuity["first_large_delta_frames"]]
     crossings = positive_zero_crossings(left)
     zero_crossing_frequency = crossings * sample_rate / frames if frames else 0.0
     if fundamental_frequency_hz is not None and (
@@ -214,9 +253,22 @@ def measure(
         if fundamental_frequency_hz is not None
         else zero_crossing_frequency
     )
-    max_delta, large_count, candidate_frames = max_adjacent_frame_delta(
-        samples, channels, frames
-    )
+    spectrum_report = None
+    if product_analysis is not None and include_spectrum:
+        spectrum = product_analysis["spectrum"]
+        spectrum_report = {
+            "fft_size": spectrum["fft_size"],
+            "peaks": [
+                {
+                    "frequency_hz": peak["frequency_hz"],
+                    "relative_amplitude": peak["relative_power"],
+                }
+                for peak in spectrum["peaks"]
+            ],
+            "spectral_centroid_hz": spectrum["spectral_centroid_hz"] or 0.0,
+            "harmonic_reference_frequency_hz": spectrum["reference_frequency_hz"],
+            "harmonic_energy_ratio": spectrum["harmonic_energy_ratio"] or 0.0,
+        }
     return {
         "sample_rate": sample_rate,
         "channels": channels,
@@ -237,11 +289,11 @@ def measure(
         "large_discontinuity_count": large_count,
         "large_discontinuity_frames": candidate_frames,
         "block_sizes_checked": block_sizes,
+        **({"product_analysis": product_analysis} if product_analysis is not None else {}),
         **(
             {
-                "spectrum_reference": spectrum_reference(
-                    left, sample_rate, frames, estimated_frequency
-                )
+                "spectrum_reference": spectrum_report
+                or spectrum_reference(left, sample_rate, frames, estimated_frequency)
             }
             if include_spectrum
             else {}

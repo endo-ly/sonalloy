@@ -21,7 +21,7 @@ BLOCK_SIZES = (32, 64, 257, 1024)
 MAX_BLOCK_DIFFERENCE = 1.0e-5
 
 
-
+from common import record_render_report  # noqa: E402
 from measure_wav import compare_wav, measure, read_float_wav  # noqa: E402
 
 
@@ -53,6 +53,7 @@ def run_cli(arguments: list[str]) -> str:
             part for part in (result.stdout, result.stderr) if part
         ).strip()
         raise RuntimeError(f"CLI failed with exit code {result.returncode}: {details}")
+    record_render_report(arguments, result.stdout)
     return result.stdout
 
 
@@ -201,7 +202,7 @@ def sample_instrument(
     trigger_event: str = "note_on",
 ) -> dict[str, object]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
@@ -297,6 +298,7 @@ def render_events(
             str(tempo_bpm),
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )

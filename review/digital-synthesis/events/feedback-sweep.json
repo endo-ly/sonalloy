@@ -11,13 +11,13 @@
       "absolute_frame": 4096,
       "type": "parameter_change",
       "parameter": "layer.hard_sync_lead.generator.oscillator_feedback",
-      "normalized": 0.8
+      "native_value": 0.8
     },
     {
       "absolute_frame": 12000,
       "type": "parameter_change",
       "parameter": "layer.hard_sync_lead.generator.oscillator_feedback",
-      "normalized": 0.1
+      "native_value": 0.1
     },
     {
       "absolute_frame": 14000,

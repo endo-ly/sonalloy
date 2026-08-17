@@ -47,7 +47,7 @@ sonalloy instrument validate my-synth.json
 sonalloy render note my-synth.json --output my-synth.wav
 ```
 
-生成された `my-synth.wav` を再生して音を確認します。以降は、`my-synth.json` を編集して音色を変えながら、「検証 → レンダリング」を繰り返して音を作り込んでいきます。定義ファイルの書き方は[音源定義](docs/instrument-definition.md)、コマンドの詳細は[CLI](docs/cli.md)、手順全体は[音源の作り方](.agents/skills/create-instrument/SKILL.md)を参照してください。
+生成された `my-synth.wav` を再生して音を確認します。以降は、`my-synth.json` を編集して「検証 → Inspect → レンダリング（必要ならAnalysis / Trace） → 試聴」を繰り返して音を作り込みます。定義ファイルの書き方は[音源定義](docs/instrument-definition.md)、コマンドの詳細は[CLI](docs/cli.md)、手順全体は[音源の作り方](.agents/skills/create-instrument/SKILL.md)を参照してください。
 
 ## 使い方
 

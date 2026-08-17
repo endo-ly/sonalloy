@@ -10,7 +10,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 from measure_wav import compare_wav, measure  # noqa: E402
-from manifest import BASE_BLOCK_SIZE, BLOCK_SIZES, PRIMARY_RENDERS, render_job  # noqa: E402
+from manifest import (  # noqa: E402
+    BASE_BLOCK_SIZE,
+    BLOCK_SIZES,
+    PRIMARY_RENDERS,
+    all_renders,
+    render_job,
+)
 
 
 def main() -> None:
@@ -22,6 +28,11 @@ def main() -> None:
         if path.is_file() and path.suffix == ".wav" and path.name not in names
     ]
     all_names = names + companion_names
+    jobs_by_name = {job.audio_name: job for job in all_renders()}
+    for name in all_names:
+        job = jobs_by_name.get(name)
+        if job is not None:
+            render_job(ROOT, job, audio_dir / name, block_size=BASE_BLOCK_SIZE)
     metrics = {
         "sample_rate": 48000,
         "block_size": BASE_BLOCK_SIZE,

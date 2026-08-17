@@ -339,6 +339,7 @@
       "chain_index": 0,
       "id": "tone",
       "kind": "filter",
+      "mode": "low_pass",
       "static_fields": [
         {
           "id": "effective_max_cutoff_hz",
@@ -353,7 +354,11 @@
           "max": 20000.0,
           "default": 4800.0,
           "scale": "log2",
-          "smoothing_seconds": 0.01
+          "smoothing_seconds": 0.01,
+          "modulation": {
+            "unit": "octaves",
+            "max_abs_depth": 9.965784
+          }
         },
         {
           "id": "voice.processor.tone.resonance",
@@ -362,7 +367,11 @@
           "max": 1.0,
           "default": 0.16,
           "scale": "linear",
-          "smoothing_seconds": 0.01
+          "smoothing_seconds": 0.01,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
         }
       ]
     },
@@ -380,7 +389,11 @@
           "max": 1.0,
           "default": 0.12,
           "scale": "linear",
-          "smoothing_seconds": 0.005
+          "smoothing_seconds": 0.005,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
         },
         {
           "id": "voice.processor.glue.mix",
@@ -389,7 +402,11 @@
           "max": 1.0,
           "default": 0.3,
           "scale": "linear",
-          "smoothing_seconds": 0.005
+          "smoothing_seconds": 0.005,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
         }
       ]
     }
@@ -414,7 +431,11 @@
           "max": 0.95,
           "default": 0.34,
           "scale": "linear",
-          "smoothing_seconds": 0.01
+          "smoothing_seconds": 0.01,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 0.95
+          }
         },
         {
           "id": "global.processor.echo.mix",
@@ -423,7 +444,11 @@
           "max": 1.0,
           "default": 0.18,
           "scale": "linear",
-          "smoothing_seconds": 0.01
+          "smoothing_seconds": 0.01,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
         }
       ]
     },
@@ -446,7 +471,11 @@
           "max": 0.98,
           "default": 0.7,
           "scale": "linear",
-          "smoothing_seconds": 0.02
+          "smoothing_seconds": 0.02,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 0.98
+          }
         },
         {
           "id": "global.processor.space.damping",
@@ -455,7 +484,11 @@
           "max": 1.0,
           "default": 0.32,
           "scale": "linear",
-          "smoothing_seconds": 0.02
+          "smoothing_seconds": 0.02,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
         },
         {
           "id": "global.processor.space.width",
@@ -464,7 +497,11 @@
           "max": 1.0,
           "default": 0.9,
           "scale": "linear",
-          "smoothing_seconds": 0.02
+          "smoothing_seconds": 0.02,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
         },
         {
           "id": "global.processor.space.mix",
@@ -473,7 +510,11 @@
           "max": 1.0,
           "default": 0.24,
           "scale": "linear",
-          "smoothing_seconds": 0.02
+          "smoothing_seconds": 0.02,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
         }
       ]
     }
@@ -491,7 +532,11 @@
       "max": 12.0,
       "default": -18.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.motion.pan",
@@ -505,7 +550,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.motion.tuning",
@@ -519,7 +568,11 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     },
     {
       "id": "layer.motion.generator.wavetable_position",
@@ -533,7 +586,11 @@
       "max": 1.0,
       "default": 0.35,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.motion.generator.unison_detune",
@@ -547,7 +604,11 @@
       "max": 100.0,
       "default": 12.0,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 100.0
+      }
     },
     {
       "id": "layer.motion.generator.unison_spread",
@@ -561,7 +622,11 @@
       "max": 1.0,
       "default": 0.65,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.texture.gain",
@@ -575,7 +640,11 @@
       "max": 12.0,
       "default": -12.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.texture.pan",
@@ -589,7 +658,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.texture.tuning",
@@ -603,7 +676,11 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     },
     {
       "id": "layer.texture.generator.granular_position",
@@ -617,7 +694,18 @@
       "max": 1.0,
       "default": 0.5,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      },
+      "modulated_range_from_default": {
+        "unclamped_min": 0.15,
+        "unclamped_max": 0.85,
+        "effective_min": 0.15,
+        "effective_max": 0.85,
+        "may_clamp": false
+      }
     },
     {
       "id": "layer.texture.generator.grain_size",
@@ -631,7 +719,11 @@
       "max": 0.5,
       "default": 0.08,
       "scale": "log2",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 6.643856
+      }
     },
     {
       "id": "layer.texture.generator.grain_density",
@@ -645,7 +737,18 @@
       "max": 100.0,
       "default": 24.0,
       "scale": "log2",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 6.643856
+      },
+      "modulated_range_from_default": {
+        "unclamped_min": 24.0,
+        "unclamped_max": 120.28489,
+        "effective_min": 24.0,
+        "effective_max": 100.0,
+        "may_clamp": true
+      }
     },
     {
       "id": "layer.texture.generator.grain_pitch",
@@ -659,7 +762,11 @@
       "max": 2400.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 4800.0
+      }
     },
     {
       "id": "layer.texture.generator.grain_randomness",
@@ -673,7 +780,11 @@
       "max": 1.0,
       "default": 0.35,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.texture.generator.grain_pan_spread",
@@ -687,7 +798,11 @@
       "max": 1.0,
       "default": 0.75,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.sequence.gain",
@@ -701,7 +816,11 @@
       "max": 12.0,
       "default": -18.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.sequence.pan",
@@ -715,7 +834,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.sequence.tuning",
@@ -729,7 +852,11 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     },
     {
       "id": "layer.attack.gain",
@@ -743,7 +870,11 @@
       "max": 12.0,
       "default": -18.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.attack.pan",
@@ -757,7 +888,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.attack.tuning",
@@ -771,7 +906,11 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     },
     {
       "id": "layer.release.gain",
@@ -785,7 +924,11 @@
       "max": 12.0,
       "default": -21.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.release.pan",
@@ -799,7 +942,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.release.tuning",
@@ -813,7 +960,11 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     },
     {
       "id": "voice.processor.tone.cutoff",
@@ -827,7 +978,11 @@
       "max": 20000.0,
       "default": 4800.0,
       "scale": "log2",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 9.965784
+      }
     },
     {
       "id": "voice.processor.tone.resonance",
@@ -841,7 +996,11 @@
       "max": 1.0,
       "default": 0.16,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "voice.processor.glue.amount",
@@ -855,7 +1014,11 @@
       "max": 1.0,
       "default": 0.12,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "voice.processor.glue.mix",
@@ -869,7 +1032,11 @@
       "max": 1.0,
       "default": 0.3,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "global.processor.echo.feedback",
@@ -883,7 +1050,11 @@
       "max": 0.95,
       "default": 0.34,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 0.95
+      }
     },
     {
       "id": "global.processor.echo.mix",
@@ -897,7 +1068,11 @@
       "max": 1.0,
       "default": 0.18,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "global.processor.space.decay",
@@ -911,7 +1086,11 @@
       "max": 0.98,
       "default": 0.7,
       "scale": "linear",
-      "smoothing_seconds": 0.02
+      "smoothing_seconds": 0.02,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 0.98
+      }
     },
     {
       "id": "global.processor.space.damping",
@@ -925,7 +1104,11 @@
       "max": 1.0,
       "default": 0.32,
       "scale": "linear",
-      "smoothing_seconds": 0.02
+      "smoothing_seconds": 0.02,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "global.processor.space.width",
@@ -939,7 +1122,11 @@
       "max": 1.0,
       "default": 0.9,
       "scale": "linear",
-      "smoothing_seconds": 0.02
+      "smoothing_seconds": 0.02,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "global.processor.space.mix",
@@ -953,24 +1140,43 @@
       "max": 1.0,
       "default": 0.24,
       "scale": "linear",
-      "smoothing_seconds": 0.02
+      "smoothing_seconds": 0.02,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     }
   ],
   "sources": [
     {
       "id": "velocity",
       "scope": "voice",
-      "kind": "velocity"
+      "kind": "velocity",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
     },
     {
       "id": "key_tracking",
       "scope": "voice",
-      "kind": "key_tracking"
+      "kind": "key_tracking",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      }
     },
     {
       "id": "texture_motion",
       "scope": "voice",
       "kind": "lfo",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      },
       "waveform": "sine",
       "rate_hz": 0.18,
       "phase": 0.0
@@ -978,21 +1184,54 @@
     {
       "id": "mod_wheel",
       "scope": "instrument",
-      "kind": "external_control"
+      "kind": "external_control",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
     }
   ],
   "routes": [
     {
       "source": "texture_motion",
       "target": "layer.texture.generator.granular_position",
-      "amount": 0.35,
-      "curve": "linear"
+      "depth": {
+        "value": 0.35,
+        "unit": "normalized"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": -1.0,
+        "max": 1.0
+      },
+      "effect": {
+        "kind": "additive",
+        "unit": "normalized",
+        "min_delta": -0.35,
+        "max_delta": 0.35
+      }
     },
     {
       "source": "mod_wheel",
       "target": "layer.texture.generator.grain_density",
-      "amount": 0.35,
-      "curve": "linear"
+      "depth": {
+        "value": 2.325349,
+        "unit": "octaves"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "effect": {
+        "kind": "multiplicative",
+        "unit": "octaves",
+        "min_octaves": 0.0,
+        "max_octaves": 2.325349,
+        "min_factor": 1.0,
+        "max_factor": 5.0118704
+      }
     }
   ],
   "diagnostics": [

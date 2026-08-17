@@ -4,8 +4,8 @@ use std::sync::Arc;
 use approx::assert_relative_eq;
 use sonalloy_core::{
     AdsrDefinition, CompileContext, GeneratorDefinition, InstrumentDefinition, InstrumentProcessor,
-    LfoDefinition, LfoWaveform, ModulationCurve, ModulationDefinition, ModulationRouteDefinition,
-    ModulationSourceDefinition, OperatorAlgorithm, OperatorDefinition,
+    LfoDefinition, LfoWaveform, ModulationCurve, ModulationDefinition, ModulationDepthDefinition,
+    ModulationRouteDefinition, ModulationSourceDefinition, OperatorAlgorithm, OperatorDefinition,
     OperatorModulationDefinition, OperatorModulationMode, ProcessEvent, ProcessEventKind,
     ProcessSpec, RenderRequest, ScheduledEvent, UnisonDefinition, compile_instrument,
     render_instrument,
@@ -373,7 +373,10 @@ fn modulation_route_reaches_operator_index_parameter() {
         routes: vec![ModulationRouteDefinition {
             source: "index_lfo".to_owned(),
             target: "layer.body.generator.operator.2.modulation_amount".to_owned(),
-            amount: 0.25,
+            depth: ModulationDepthDefinition {
+                value: 2.0,
+                unit: sonalloy_core::ModulationUnit::Index,
+            },
             curve: ModulationCurve::Linear,
         }],
     });

@@ -8,6 +8,9 @@ use crate::process::{
     ScheduledEvent,
 };
 use crate::runtime::{InstrumentRuntime, SineRuntime};
+use crate::trace::{
+    MAX_TRACE_OBSERVATIONS, RenderTraceReport, TraceCollectError, TraceCollector, TraceRequest,
+};
 
 const U64_LIMIT_AS_F64: f64 = 18_446_744_073_709_551_616.0;
 
@@ -190,6 +193,23 @@ pub enum RenderError {
         /// Invalid absolute frame.
         frame: u64,
     },
+    /// A trace interval is zero.
+    #[error("trace interval must be greater than zero")]
+    TraceIntervalInvalid,
+    /// A trace target is not present in the compiled parameter catalog.
+    #[error("trace parameter handle {handle} is not present in the compiled catalog")]
+    TraceParameterInvalid {
+        /// Invalid dense parameter handle.
+        handle: usize,
+    },
+    /// A trace would retain more observations than the diagnostic safety limit.
+    #[error("trace would exceed the observation limit of {limit} records")]
+    TraceLimitExceeded {
+        /// Estimated or actual observation count.
+        estimated: usize,
+        /// Maximum allowed records.
+        limit: usize,
+    },
 }
 
 /// Convert seconds to an exact frame count using round-to-nearest.
@@ -275,6 +295,136 @@ pub fn render_instrument_with_tempo_map(
     render_processor_with_tempo_map(&mut runtime, request, events, tempo_map)
 }
 
+/// Render a compiled instrument and collect selected runtime parameter observations.
+///
+/// The observation boundaries are inserted into the offline process loop. The same runtime and
+/// event ordering are used as an ordinary render, so the trace is diagnostic output rather than
+/// an alternate audio path.
+///
+/// # Errors
+///
+/// Returns an error when the request, trace selection, event timeline, or instrument runtime is
+/// invalid.
+#[allow(clippy::needless_pass_by_value)]
+pub fn render_instrument_with_trace(
+    compiled: Arc<CompiledInstrument>,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+    tempo_map: &TempoMap,
+    trace_request: &TraceRequest,
+) -> Result<(RenderedAudio, RenderTraceReport), RenderError> {
+    if trace_request.every_frames == 0 {
+        return Err(RenderError::TraceIntervalInvalid);
+    }
+    for handle in &trace_request.parameters {
+        if compiled.parameter_descriptor(*handle).is_none() {
+            return Err(RenderError::TraceParameterInvalid {
+                handle: handle.index(),
+            });
+        }
+    }
+    let total_frames = request.total_frames()?;
+    if trace_request.parameters.is_empty() {
+        let mut runtime = InstrumentRuntime::new(Arc::clone(&compiled));
+        let audio = render_processor_with_tempo_map(&mut runtime, request, events, tempo_map)?;
+        return Ok((
+            audio,
+            TraceCollector::new(trace_request, &compiled).finish(),
+        ));
+    }
+    let latency_frames = u64::try_from(compiled.reported_latency_frames)
+        .map_err(|_| RenderError::FrameCountOverflow)?;
+    // Audio is rendered through the latency-extended request, while Trace follows the runtime's
+    // performance timeline before the generator output reaches the delayed audio frame.
+    let trace_frames = total_frames.saturating_sub(latency_frames);
+    let boundary_count = trace_boundary_count(trace_frames, trace_request.every_frames, events);
+    let estimate = boundary_count
+        .saturating_mul(trace_request.parameters.len())
+        .saturating_mul(compiled.performance.polyphony.max(1));
+    if estimate > MAX_TRACE_OBSERVATIONS {
+        return Err(RenderError::TraceLimitExceeded {
+            estimated: estimate,
+            limit: MAX_TRACE_OBSERVATIONS,
+        });
+    }
+    let mut boundaries = Vec::with_capacity(boundary_count);
+    if trace_frames > 0 {
+        boundaries.push(0);
+        let every_frames = u64::try_from(trace_request.every_frames)
+            .map_err(|_| RenderError::FrameCountOverflow)?;
+        let mut periodic = every_frames;
+        while periodic < trace_frames {
+            boundaries.push(periodic);
+            periodic = periodic
+                .checked_add(every_frames)
+                .ok_or(RenderError::FrameCountOverflow)?;
+        }
+        for event in events {
+            if event.absolute_frame < trace_frames
+                && let Some(frame) = event.absolute_frame.checked_add(1)
+                && frame <= trace_frames
+            {
+                boundaries.push(frame);
+            }
+        }
+        boundaries.push(trace_frames);
+        boundaries.sort_unstable();
+        boundaries.dedup();
+    }
+    let mut runtime = InstrumentRuntime::new(Arc::clone(&compiled));
+    let mut collector = TraceCollector::new(trace_request, &compiled);
+    let mut observe = |frame: u64, runtime: &mut InstrumentRuntime| {
+        collector
+            .observe(runtime, frame)
+            .map_err(|error| match error {
+                TraceCollectError::Process(error) => RenderError::Process(error),
+                TraceCollectError::LimitExceeded { observed, limit } => {
+                    RenderError::TraceLimitExceeded {
+                        estimated: observed,
+                        limit,
+                    }
+                }
+            })
+    };
+    let audio = render_processor_with_tempo_map_observed(
+        &mut runtime,
+        request,
+        events,
+        tempo_map,
+        &boundaries,
+        &mut observe,
+    )?;
+    Ok((audio, collector.finish()))
+}
+
+fn trace_boundary_count(
+    public_frames: u64,
+    every_frames: usize,
+    events: &[ScheduledEvent],
+) -> usize {
+    let periodic_count = if public_frames == 0 {
+        0
+    } else {
+        let every_frames = u64::try_from(every_frames).unwrap_or(u64::MAX);
+        (public_frames - 1) / every_frames
+    };
+    let event_count = events
+        .iter()
+        .filter(|event| {
+            event.absolute_frame < public_frames
+                && event
+                    .absolute_frame
+                    .checked_add(1)
+                    .is_some_and(|frame| frame <= public_frames)
+        })
+        .count();
+    let fixed_count = if public_frames > 0 { 2 } else { 0 };
+    let count = periodic_count
+        .saturating_add(u64::try_from(event_count).unwrap_or(u64::MAX))
+        .saturating_add(fixed_count);
+    usize::try_from(count).unwrap_or(usize::MAX)
+}
+
 fn render_processor<P: InstrumentProcessor>(
     processor: &mut P,
     request: RenderRequest,
@@ -289,6 +439,29 @@ fn render_processor_with_tempo_map<P: InstrumentProcessor>(
     events: &[ScheduledEvent],
     tempo_map: &TempoMap,
 ) -> Result<RenderedAudio, RenderError> {
+    let mut observe = |_frame: u64, _processor: &mut P| Ok(());
+    render_processor_with_tempo_map_observed(
+        processor,
+        request,
+        events,
+        tempo_map,
+        &[],
+        &mut observe,
+    )
+}
+
+fn render_processor_with_tempo_map_observed<P, F>(
+    processor: &mut P,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+    tempo_map: &TempoMap,
+    observation_boundaries: &[u64],
+    observe: &mut F,
+) -> Result<RenderedAudio, RenderError>
+where
+    P: InstrumentProcessor,
+    F: FnMut(u64, &mut P) -> Result<(), RenderError>,
+{
     let total_frames = request.total_frames()?;
     let spec = request.process_spec()?;
     let total_frames_usize =
@@ -307,6 +480,11 @@ fn render_processor_with_tempo_map<P: InstrumentProcessor>(
         });
     }
     processor.prepare(spec)?;
+    let mut observation_index = 0_usize;
+    if observation_boundaries.first() == Some(&0) {
+        observe(0, processor)?;
+        observation_index = 1;
+    }
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let sample_rate = request.sample_rate as u32;
@@ -318,13 +496,21 @@ fn render_processor_with_tempo_map<P: InstrumentProcessor>(
     let mut event_index = 0_usize;
     let mut block_events = Vec::with_capacity(events.len());
     while offset < total_frames_usize {
+        let next_observation = observation_boundaries.get(observation_index).copied();
         let next_tempo_frame = tempo_map
             .next_change_after(u64::try_from(offset).map_err(|_| RenderError::FrameCountOverflow)?)
             .and_then(|frame| usize::try_from(frame).ok())
             .unwrap_or(total_frames_usize);
         let frames = (total_frames_usize - offset)
             .min(request.block_size)
-            .min(next_tempo_frame.saturating_sub(offset));
+            .min(next_tempo_frame.saturating_sub(offset))
+            .min(
+                next_observation.map_or(total_frames_usize - offset, |boundary| {
+                    usize::try_from(boundary)
+                        .ok()
+                        .map_or(0, |boundary| boundary.saturating_sub(offset))
+                }),
+            );
         if frames == 0 {
             return Err(RenderError::FrameCountOverflow);
         }
@@ -363,6 +549,10 @@ fn render_processor_with_tempo_map<P: InstrumentProcessor>(
             processor.process(block)?;
         }
         offset = end;
+        if next_observation == Some(end as u64) {
+            observe(end as u64, processor)?;
+            observation_index += 1;
+        }
     }
     Ok(audio)
 }

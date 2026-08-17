@@ -42,7 +42,9 @@ flowchart LR
 |---|---|
 | 順序 | Eventは`sample_offset`の昇順に並べます |
 | 同一位置の優先順位 | Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note On |
-| 検証 | Parameter Handle、Normalized値、External Control値はBlock開始前に全件検証します。不正EventがあればStateを変更せず、対象Blockを無音にします |
+| 検証 | Parameter Handle、Catalogへ変換済みのParameter値、External Control値はBlock開始前に全件検証します。不正EventがあればStateを変更せず、対象Blockを無音にします |
+
+CLIなどのAuthoring Interfaceでは`Parameter Change`をCatalogのParameter Unit（TuningはCents、Filter CutoffはHertz、GainはDecibels）で受け取ります。FrontendはDescriptorで検証してからCoreの既存Process Eventへ正規化値として渡し、Runtimeはその値をBase Parameterへ設定します。Authoring JSONの`native_value`とCore EventのTransport表現を混同しません。
 
 ## Noteのライフサイクル
 
@@ -119,14 +121,16 @@ Compiled InstrumentはParameter Catalog、Source Table、Target別Route Tableを
 
 | 項目 | 振る舞い |
 |---|---|
-| **Base Parameter** | Normalized値をSmootherへ入れ、5ms（Filterは10ms、DelayとReverbは固定値）でTargetへ近づける |
-| **Route** | 同じTargetについて書かれた順にSource値へAmountを掛けて加算。LinearはNative範囲、Log2はLog2範囲で加算し、最後にClamp |
+| **Base Parameter** | Native Unit値をSmootherへ入れ、5ms（Filterは10ms、DelayとReverbは固定値）でTargetへ近づける |
+| **Route** | 同じTargetについてDefinition順に、Curve後のSourceへ直接Depthを掛けて加算。LinearはNative Domain、Log2はOctave Domainで合計し、最後にClamp |
 | **Parameter Span** | 最大32 Frame単位で全Voiceへ同じ値を渡す。Voice SourceはVoiceごとにSpanを計算 |
 | **Sourceの所属** | `velocity`・`key_tracking`・LFO・Modulation Envelope・RandomはVoice。Pitch Bend・Mod Wheel・Aftertouchは共有External Control |
 | **Note Off伝播** | Layer ADSR・Operator ADSR・Modulation Envelopeへ伝える。LFOとRandomはVoice終了まで保持し、終了時に初期値へ戻す |
 | **Reset** | Base ParameterとExternal ControlもDefinition Defaultへ戻す |
 
 Processorの連続ParameterはBlock内でStart / Endを受け取り、各Sampleへ補間します。Processorの種類、配置、順序、Filter Mode、EQ周波数、Delay容量などCompile時に決まる値はProcess中に変更できません。Filter ModeはNative State-Variable Filterへ同じModeを渡し、Low / High / Band / Notchの出力を選択します。
+
+Linear Targetの評価は次の順です：`base + Σ(curved_source × depth)` → Target範囲へClamp。Log2 Targetは`base × 2^(Σ(curved_source × depth_in_octaves))` → Target範囲へClampです。DepthのUnitはDefinitionで検証済みで、SmootherはBase Parameterの状態へ適用されます。Routeの加算順とClamp位置はBlockやVoiceの分割に依存しません。
 
 ## Generatorの実行時振る舞い
 

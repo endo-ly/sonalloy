@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Formant Generator Reference",
     "author": null,
@@ -210,7 +210,10 @@
       {
         "source": "vowel_position_lfo",
         "target": "layer.voice.generator.formant_vowel_position",
-        "amount": 0.5,
+        "depth": {
+          "value": 0.5,
+          "unit": "normalized"
+        },
         "curve": "linear"
       }
     ]

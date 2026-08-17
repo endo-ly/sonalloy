@@ -11,14 +11,15 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 ## 全体フロー
 
 ```text
-init → edit → validate → render → refine
+init → edit → validate → inspect → render/analyze/trace → refine
 ```
 
 1. **init**：新規Definitionのひな形を生成（既存を編集する場合は省略）
 2. **edit**：Generator、ADSR、Processor、Modulationを編集
-3. **validate**：`instrument validate` / `instrument inspect`で検証
-4. **render**：`render note` / `render events` / `render midi`でWAVを生成
-5. **refine**：`metadata`の整理と関連docsの確認
+3. **validate**：`instrument validate`でJSON、制約、Asset準備を検証
+4. **inspect**：`instrument inspect --json`でCompile後のUnit、Source Polarity、Route Effect、Clamp範囲を確認
+5. **render/analyze/trace**：`render note` / `render events` / `render midi`でWAVを生成し、必要な事実を`--analyze`と`--trace`で取得
+6. **refine**：数値・音色・`metadata`を整理し、再度InspectとRenderを実行
 
 ## Definitionを編集する
 
@@ -36,7 +37,7 @@ Saw Oscillatorの最小Definition（Polyphony 16、ADSR `0.005 / 0.18 / 0.65 / 0
 
 | Field | 内容 | 主な制約 |
 |---|---|---|
-| `schema_version` | スキーマ版 | `1`のみ。未知FieldはJSON Parse Error |
+| `schema_version` | スキーマ版 | `2`。`1`はUnsupported。未知FieldはJSON Parse Error |
 | `metadata` | `name`、`description` | — |
 | `performance` | `polyphony` | 1〜64 |
 | `layers` | 発音の単位となるLayer配列 | [Layerの構造](#layerの構造)参照 |
@@ -114,8 +115,8 @@ Level
 ```json
 "modulation": {
   "routes": [
-    { "source": "velocity", "target": "layer.main.gain", "amount": 0.08, "curve": "linear" },
-    { "source": "lfo", "target": "voice.processor.tone.cutoff", "amount": 0.18, "curve": "linear" }
+    { "source": "velocity", "target": "layer.main.gain", "depth": { "value": 8.0, "unit": "decibels" }, "curve": "linear" },
+    { "source": "lfo", "target": "voice.processor.tone.cutoff", "depth": { "value": 1.5, "unit": "octaves" }, "curve": "linear" }
   ],
   "sources": [
     { "id": "lfo", "type": "lfo", "waveform": "sine", "rate_hz": 0.5, "phase": 0.0 }
@@ -124,6 +125,28 @@ Level
 ```
 
 VelocityとKey Trackingは組み込みSourceのため、Source定義なしで`routes`から参照できます。Target ID・Range・Curveの正本は`docs/instrument-definition.md`です。
+
+Routeの`depth.value`はTargetに意味のあるUnitで書きます。Linear TargetはNative Domainへ加算し、Log2 TargetはOctave Domainへ加算します。たとえばTuningの`20 cents`、Filter Cutoffの`2 octaves`、Gainの`-9 decibels`のように、旧来の全Rangeに対する割合へ換算しません。
+
+### 数値の意味を読む
+
+音色設計で迷いやすい値のEndpointと実装式は次のとおりです。より詳細なRangeは`docs/instrument-definition.md`で確認します。
+
+| Field | 意味 |
+|---|---|
+| `waveshaping.amount` | 0はBypass。`shape = 1 + amount × 3`、正規化`tanh` WetをAmountでDryからCrossfade |
+| `phase_distortion.amount` | 0はIdentity。Breakpointは`0.5 - amount × 0.45`、1で0.05 |
+| `wavefold.amount` | 0はBypass。DaisySP Driveは`1 + amount × 7`、Wet量はAmount |
+| `feedback.amount` | 0は無効。Phase寄与は`(tanh(previous × amount × 2.5)) × 0.25` |
+| `drive.amount` / `drive.mix` | Amount 0はIdentity、Shapeは`amount × 4`。Mix 0はDry、1はWetのLinear Crossfade |
+| `morph` / `position` | MorphはA→B。Positionは対象Source Domainの開始→終了 |
+| `stereo_correlation` | 0は左右独立、1は同一 |
+| `pan_spread` / Unison spread | 0は中央、1は設定可能な最大配置幅 |
+| `freeze` | 0は通常走査、1はFrame固定（Phaseは進む） |
+| `formant.throat` | 0.5がBandwidth不変。0〜1で0.5〜2倍 |
+| Operator `modulation_amount` | Phaseは合計へ0.5を掛けたPhase Offset、Frequencyは`frequency × (1 + sum + feedback_offset)`、Amplitudeは`1 + output × amount`の積、RingはCarrierとProductのCrossfade |
+
+> **重要**：Inspect、Analysis、Traceが既に公開している事実を得るために、RuntimeのSource Codeを読んだり、同じ値を再計算する外部Python解析を作ったりしないでください。製品Interfaceで不足する研究や一回限りの人間向け分析に限り、外部ツールを使えます。
 
 ## Asset（WAV）を扱う
 
@@ -548,7 +571,7 @@ sonalloy instrument inspect <definition> --json    # 実行値を機械可読で
 ```
 
 - `validate`の成功は`valid <path>`。Warningは`print_warnings`で表示されるため必ず確認する
-- `inspect`でPolyphony、Layer Trigger、Generator詳細、Gain / Pan / Tuning、Envelope、Processor Chain、Modulation、Warningを確認する
+- `inspect`でPolyphony、Layer Trigger、Generator詳細、Gain / Pan / Tuning、Envelope、Processor Chain、ParameterのNative / Modulation Unit、Source Polarity、Route Effect、Reachable Range、Warningを確認する
 - Errorには`layers[0].envelope.attack_seconds`のようなField Pathが付くため、そのまま該当箇所へ反映できる
 - Warningが残る場合、Sonalloyは「他LayerでRenderを継続する」設計のため、意図しない無効化がないかを確認する
 
@@ -558,7 +581,9 @@ sonalloy instrument inspect <definition> --json    # 実行値を機械可読で
 # 単音
 sonalloy render note <definition> \
   --note 60 --velocity 100 --gate 0.5 --tail 0.5 --tempo 120 \
-  --sample-rate 48000 --block-size 257 --output out/<name>/note.wav
+  --sample-rate 48000 --block-size 257 --analyze \
+  --trace layer.main.tuning --trace-every-frames 480 \
+  --output out/<name>/note.wav --json
 
 # 発音中のParameter / Control Event
 sonalloy render events <definition> <events.json> \
@@ -581,18 +606,25 @@ sonalloy render midi <definition> <midi-file> \
 | `--block-size` | 処理最大Block Size（Frame） | `257` |
 | `--output` | Stereo WAV出力先（必須） | — |
 | `--duration-frames` | `render events`の長さ（Frame） | — |
+| `--analyze` | 補正後WAVのLevel / DC / Activity / Continuity / Stereo / Spectrumを出力 | Off |
+| `--trace <id>` | 選択したDynamic ParameterのRuntime Snapshot。複数指定可 | なし |
+| `--trace-every-frames <N>` | 定期Trace間隔。Event後と最終Frameも記録 | 480 |
+| `--json` | Analysis / Traceを含む成功Reportを機械可読で出力 | Off |
 
 - 出力は32-bit float・2 ChannelのStereo WAV。親Directoryは事前に作成する
 - `render note`と`render events`の`--tempo`はTempo Syncの処理Tempo。`render midi`はMIDI内のTempo Meta EventからTempo Mapを作成する
-- `render events`ではNote Eventと同じ絶対Frame位置にParameter Change / Pitch Bend / Mod Wheel / Aftertouchを記述できる。`render midi`ではMIDI Pitch Bend / CC1 / Channel Aftertouchが同じ実行時Eventへ変換される
+- `render events`ではNote Eventと同じ絶対Frame位置にParameter Change（`native_value`）/ Pitch Bend / Mod Wheel / Aftertouchを記述できる。`render midi`ではMIDI Pitch Bend / CC1 / Channel Aftertouchが同じ実行時Eventへ変換される
 - Time Stretchを含む場合は報告Latencyが`inspect`と成功JSONへ表示され、CLIが前置きLatencyを除去して演奏タイムラインのFrame 0からWAVを生成する
+
+`--analyze`のdBFSは0を`null`で返し、Activityの閾値は-80 dBFS、ContinuityのLarge Delta閾値は0.25です。`--trace`はFrame 0、既定480 Frame間隔、Event後、最終FrameをLatency補正後のTimelineで記録します。`final`はRoute加算とClamp後のNative値です。
 
 人間の確認項目は`docs/testing-and-sound-review.md`にまとめています。
 
 ## 仕上げる
 
 - `metadata.name`と`metadata.description`を実際の音色に合わせる
-- `validate` / `inspect --json`のWarning、出力Mode、Parameter IDを最終確認する
+- `validate` / `inspect --json`のWarning、出力Mode、Parameter Unit、Route Effect、Parameter IDを最終確認する
+- `--analyze`で数値的な出力状態を確認し、`--trace`で宣言したModulationが意図した範囲を動いたか確認する
 - 生成したWAVを同じ音量条件で試聴する
 - 関連docs（`docs/instrument-definition.md`など）と矛盾しないか確認する
 

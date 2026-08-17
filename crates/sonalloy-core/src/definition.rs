@@ -15,10 +15,10 @@ use crate::generator_parameters::{
     SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD,
     WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
-use crate::parameter::{BUILTIN_SOURCE_IDS, is_component_id, is_parameter_id};
+use crate::parameter::{BUILTIN_SOURCE_IDS, ModulationUnit, is_component_id, is_parameter_id};
 
 /// The Definition schema accepted by the compiler.
-pub const CURRENT_SCHEMA_VERSION: u32 = 1;
+pub const CURRENT_SCHEMA_VERSION: u32 = 2;
 
 /// Stable identifier assigned to a layer.
 pub type LayerId = String;
@@ -1189,13 +1189,23 @@ pub struct ModulationRouteDefinition {
     pub source: String,
     /// Canonical parameter identifier.
     pub target: String,
-    /// Signed amount in target-range units.
-    pub amount: f32,
+    /// Signed modulation depth in the target's declared modulation unit.
+    pub depth: ModulationDepthDefinition,
     /// Source shaping curve.
     pub curve: ModulationCurve,
 }
 
-/// Curve applied to a source before its route amount.
+/// Signed modulation depth written by an instrument author.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModulationDepthDefinition {
+    /// Signed depth applied when the shaped source reaches one.
+    pub value: f32,
+    /// Unit required by the target parameter.
+    pub unit: ModulationUnit,
+}
+
+/// Curve applied to a source before its route depth.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModulationCurve {
@@ -1987,12 +1997,11 @@ fn validate_modulation(diagnostics: &mut Vec<Diagnostic>, modulation: &Modulatio
                 .with_path(format!("modulation.routes[{index}].target")),
             );
         }
-        validate_range(
+        validate_finite(
             diagnostics,
-            format!("modulation.routes[{index}].amount"),
-            route.amount,
-            -1.0..=1.0,
-            "route amount must be finite and between -1 and 1",
+            format!("modulation.routes[{index}].depth.value"),
+            route.depth.value,
+            "route depth value must be finite",
         );
     }
 }
@@ -3396,6 +3405,13 @@ fn validate_range(
     }
 }
 
+fn validate_finite(diagnostics: &mut Vec<Diagnostic>, path: String, value: f32, message: &str) {
+    if !value.is_finite() {
+        diagnostics
+            .push(Diagnostic::error(DiagnosticCode::RouteDepthInvalid, message).with_path(path));
+    }
+}
+
 fn range_message(field: &str, min: f32, max: f32) -> String {
     format!("{field} must be finite and between {min} and {max}")
 }
@@ -3655,6 +3671,33 @@ pub(crate) mod tests {
         let restored: InstrumentDefinition =
             serde_json::from_str(&json).expect("definition parses");
         assert_eq!(source, restored);
+    }
+
+    #[test]
+    fn v2_routes_require_depth_and_reject_legacy_amount_fields() {
+        let mut legacy = serde_json::to_value(definition()).expect("definition serializes");
+        legacy["modulation"] = serde_json::json!({
+            "sources": [],
+            "routes": [{
+                "source": "velocity",
+                "target": "layer.body.gain",
+                "amount": 0.5,
+                "curve": "linear"
+            }]
+        });
+        assert!(serde_json::from_value::<InstrumentDefinition>(legacy).is_err());
+
+        let mut unknown_depth = serde_json::to_value(definition()).expect("definition serializes");
+        unknown_depth["modulation"] = serde_json::json!({
+            "sources": [],
+            "routes": [{
+                "source": "velocity",
+                "target": "layer.body.gain",
+                "depth": {"value": 1.0, "unit": "decibels", "extra": 1},
+                "curve": "linear"
+            }]
+        });
+        assert!(serde_json::from_value::<InstrumentDefinition>(unknown_depth).is_err());
     }
 
     #[test]
@@ -4113,13 +4156,19 @@ pub(crate) mod tests {
                 ModulationRouteDefinition {
                     source: "bad-id".to_owned(),
                     target: "layer.body.gain".to_owned(),
-                    amount: 0.0,
+                    depth: ModulationDepthDefinition {
+                        value: 0.0,
+                        unit: crate::parameter::ModulationUnit::Decibels,
+                    },
                     curve: ModulationCurve::Linear,
                 },
                 ModulationRouteDefinition {
                     source: "velocity".to_owned(),
                     target: " layer.body.gain".to_owned(),
-                    amount: 0.0,
+                    depth: ModulationDepthDefinition {
+                        value: 0.0,
+                        unit: crate::parameter::ModulationUnit::Decibels,
+                    },
                     curve: ModulationCurve::Linear,
                 },
             ],

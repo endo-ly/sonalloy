@@ -8,12 +8,14 @@
   },
   "polyphony": 8,
   "voice_stealing": "quietest_releasing_then_oldest",
+  "reported_latency_frames": 0,
   "layer_count": 3,
   "layers": [
     {
       "id": "motion",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,
@@ -67,6 +69,7 @@
       "id": "bell",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,
@@ -198,6 +201,7 @@
       "id": "hit",
       "enabled": true,
       "trigger": {
+        "event": "note_on",
         "key_min": 0,
         "key_max": 127,
         "velocity_min": 1,
@@ -223,10 +227,15 @@
             "velocity_max": 127,
             "round_robin_group": null,
             "playback_type": "one_shot",
+            "direction": "forward",
             "start_frame": 0,
             "end_frame": 3840,
             "loop_start_frame": null,
             "loop_end_frame": null,
+            "crossfade_frames": null,
+            "time_mode": "resample",
+            "duration_ratio": null,
+            "source_bpm": null,
             "source_sample_rate": 44100,
             "source_channels": 1,
             "prepared_frames": 21600
@@ -263,7 +272,11 @@
       "max": 12.0,
       "default": -8.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.motion.pan",
@@ -277,7 +290,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.motion.tuning",
@@ -291,7 +308,11 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     },
     {
       "id": "layer.motion.generator.wavetable_position",
@@ -305,7 +326,11 @@
       "max": 1.0,
       "default": 0.25,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.motion.generator.unison_detune",
@@ -319,7 +344,11 @@
       "max": 100.0,
       "default": 18.0,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 100.0
+      }
     },
     {
       "id": "layer.motion.generator.unison_spread",
@@ -333,7 +362,11 @@
       "max": 1.0,
       "default": 0.85,
       "scale": "linear",
-      "smoothing_seconds": 0.01
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.bell.gain",
@@ -347,7 +380,11 @@
       "max": 12.0,
       "default": -12.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.bell.pan",
@@ -361,7 +398,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.bell.tuning",
@@ -375,7 +416,11 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.1.ratio",
@@ -389,7 +434,11 @@
       "max": 32.0,
       "default": 1.0,
       "scale": "log2",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 7.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.1.detune",
@@ -403,7 +452,11 @@
       "max": 100.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 200.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.1.level",
@@ -417,7 +470,11 @@
       "max": 1.0,
       "default": 0.9,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.1.feedback",
@@ -431,7 +488,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.2.ratio",
@@ -445,7 +506,11 @@
       "max": 32.0,
       "default": 2.71,
       "scale": "log2",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 7.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.2.detune",
@@ -459,7 +524,11 @@
       "max": 100.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 200.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.2.modulation_amount",
@@ -473,7 +542,11 @@
       "max": 8.0,
       "default": 3.8,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "index",
+        "max_abs_depth": 8.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.2.feedback",
@@ -487,7 +560,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.3.ratio",
@@ -501,7 +578,11 @@
       "max": 32.0,
       "default": 4.07,
       "scale": "log2",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 7.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.3.detune",
@@ -515,7 +596,11 @@
       "max": 100.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 200.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.3.modulation_amount",
@@ -529,7 +614,11 @@
       "max": 8.0,
       "default": 2.7,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "index",
+        "max_abs_depth": 8.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.3.feedback",
@@ -543,7 +632,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.4.ratio",
@@ -557,7 +650,11 @@
       "max": 32.0,
       "default": 6.83,
       "scale": "log2",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 7.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.4.detune",
@@ -571,7 +668,11 @@
       "max": 100.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 200.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.4.modulation_amount",
@@ -585,7 +686,11 @@
       "max": 8.0,
       "default": 2.1,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "index",
+        "max_abs_depth": 8.0
+      }
     },
     {
       "id": "layer.bell.generator.operator.4.feedback",
@@ -599,7 +704,11 @@
       "max": 1.0,
       "default": 0.18,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
     },
     {
       "id": "layer.hit.gain",
@@ -613,7 +722,11 @@
       "max": 12.0,
       "default": -14.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
     },
     {
       "id": "layer.hit.pan",
@@ -627,7 +740,11 @@
       "max": 1.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
     },
     {
       "id": "layer.hit.tuning",
@@ -641,19 +758,33 @@
       "max": 1200.0,
       "default": 0.0,
       "scale": "linear",
-      "smoothing_seconds": 0.005
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
     }
   ],
   "sources": [
     {
       "id": "velocity",
       "scope": "voice",
-      "kind": "velocity"
+      "kind": "velocity",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
     },
     {
       "id": "key_tracking",
       "scope": "voice",
-      "kind": "key_tracking"
+      "kind": "key_tracking",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      }
     }
   ],
   "routes": [],

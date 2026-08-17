@@ -19,6 +19,7 @@ SAMPLE_RATES = (44_100, 48_000, 96_000)
 MAX_BLOCK_DIFFERENCE = 1.0e-5
 
 
+from common import record_render_report  # noqa: E402
 from measure_wav import compare_wav, measure, read_float_wav  # noqa: E402
 
 
@@ -46,6 +47,7 @@ def run_cli(arguments: list[str]) -> str:
     if result.returncode != 0:
         details = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
         raise RuntimeError(f"CLI failed with exit code {result.returncode}: {details}")
+    record_render_report(arguments, result.stdout)
     return result.stdout
 
 
@@ -78,7 +80,7 @@ def granular_definition(
     modulation: dict[str, object] | None = None,
 ) -> dict[str, object]:
     value: dict[str, object] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
@@ -159,6 +161,7 @@ def render_events(
             "0",
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )
@@ -228,7 +231,7 @@ def main() -> None:
                     {
                         "source": "position_lfo",
                         "target": "layer.texture.generator.granular_position",
-                        "amount": 0.45,
+                        "depth": {"value": 0.45, "unit": "normalized"},
                         "curve": "linear",
                     }
                 ],

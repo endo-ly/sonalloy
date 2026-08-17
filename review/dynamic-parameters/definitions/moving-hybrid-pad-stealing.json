@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Moving Hybrid Pad",
     "author": "Sonalloy",
@@ -127,49 +127,73 @@
       {
         "source": "velocity",
         "target": "layer.attack.gain",
-        "amount": 0.08,
+        "depth": {
+          "value": 5.76000023,
+          "unit": "decibels"
+        },
         "curve": "linear"
       },
       {
         "source": "velocity",
         "target": "layer.body.gain",
-        "amount": 0.08,
+        "depth": {
+          "value": 5.76000023,
+          "unit": "decibels"
+        },
         "curve": "linear"
       },
       {
         "source": "filter_motion",
         "target": "voice.processor.tone.cutoff",
-        "amount": 0.18,
+        "depth": {
+          "value": 1.79384112,
+          "unit": "octaves"
+        },
         "curve": "smooth_step"
       },
       {
         "source": "filter_motion",
         "target": "layer.attack.pan",
-        "amount": 0.08,
+        "depth": {
+          "value": 0.159999996,
+          "unit": "pan"
+        },
         "curve": "linear"
       },
       {
         "source": "key_tracking",
         "target": "voice.processor.tone.cutoff",
-        "amount": 0.08,
+        "depth": {
+          "value": 0.797262728,
+          "unit": "octaves"
+        },
         "curve": "linear"
       },
       {
         "source": "mod_wheel",
         "target": "voice.processor.tone.cutoff",
-        "amount": 0.12,
+        "depth": {
+          "value": 1.19589412,
+          "unit": "octaves"
+        },
         "curve": "linear"
       },
       {
         "source": "pitch_motion",
         "target": "layer.body.tuning",
-        "amount": 0.04,
+        "depth": {
+          "value": 96,
+          "unit": "cents"
+        },
         "curve": "linear"
       },
       {
         "source": "voice_pan",
         "target": "layer.attack.pan",
-        "amount": 0.1,
+        "depth": {
+          "value": 0.200000003,
+          "unit": "pan"
+        },
         "curve": "linear"
       }
     ]

@@ -3,7 +3,7 @@ pub(crate) mod generator;
 mod instrument;
 pub(crate) mod interpolation;
 pub(crate) mod mix;
-pub(crate) mod modulation;
+pub mod modulation;
 pub(crate) mod processor;
 mod random;
 pub(crate) mod sample;

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Granular Generator Reference",
     "author": "Sonalloy",
@@ -68,8 +68,10 @@
       {
         "source": "position_lfo",
         "target": "layer.texture.generator.granular_position",
-        "amount": 0.35,
-        "curve": "linear"
+        "depth": {
+          "value": 0.349999994,
+          "unit": "normalized"
+        },        "curve": "linear"
       }
     ]
   }

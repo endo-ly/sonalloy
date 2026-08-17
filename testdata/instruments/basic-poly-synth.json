@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Basic Poly Synth",
     "author": null,
@@ -55,14 +55,18 @@
       {
         "source": "velocity",
         "target": "layer.body.gain",
-        "amount": 0.08,
-        "curve": "linear"
+        "depth": {
+          "value": 5.76000023,
+          "unit": "decibels"
+        },        "curve": "linear"
       },
       {
         "source": "velocity",
         "target": "voice.processor.tone.cutoff",
-        "amount": 0.08,
-        "curve": "linear"
+        "depth": {
+          "value": 0.797262728,
+          "unit": "octaves"
+        },        "curve": "linear"
       }
     ]
   }

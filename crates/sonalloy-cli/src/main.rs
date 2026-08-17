@@ -7,13 +7,15 @@ use std::sync::Arc;
 use clap::{Args, Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use sonalloy_core::{
-    AdsrDefinition, CompileContext, CompiledInstrument, DEFAULT_TEMPO_BPM, Diagnostic,
-    DiagnosticCode, InstrumentDefinition, InstrumentMetadata, LayerDefinition,
-    LayerTriggerDefinition, ModulationCurve, OscillatorDefinition, OscillatorWaveform,
-    ParameterHandle, ParameterOwner, ParameterScale, ParameterUnit, PerformanceDefinition,
-    ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderError, RenderRequest, ScheduledEvent,
-    VoiceStealingDefinition, backend_info, compile_instrument, from_render_error,
-    render_instrument_with_tempo, render_instrument_with_tempo_map, render_sine, seconds_to_frames,
+    AdsrDefinition, AudioAnalysis, AudioAnalysisOptions, CompileContext, CompiledInstrument,
+    DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, InstrumentDefinition, InstrumentMetadata,
+    LayerDefinition, LayerTriggerDefinition, ModulationCurve, ModulationUnit, OscillatorDefinition,
+    OscillatorWaveform, ParameterHandle, ParameterOwner, ParameterScale, ParameterUnit,
+    PerformanceDefinition, ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderError,
+    RenderRequest, RenderTraceReport, ScheduledEvent, TempoMap, TraceRequest,
+    VoiceStealingDefinition, analyze_rendered_audio, backend_info, compile_instrument,
+    from_render_error, render_instrument_with_tempo, render_instrument_with_tempo_map,
+    render_instrument_with_trace, render_sine, seconds_to_frames,
 };
 
 use crate::midi::read_midi;
@@ -123,6 +125,15 @@ struct RenderNoteArgs {
     /// Emit machine-readable JSON.
     #[arg(long)]
     json: bool,
+    /// Analyze the corrected output audio.
+    #[arg(long)]
+    analyze: bool,
+    /// Trace a compiled Dynamic Parameter; may be repeated.
+    #[arg(long = "trace")]
+    trace: Vec<String>,
+    /// Interval between trace observations in frames.
+    #[arg(long = "trace-every-frames")]
+    trace_every_frames: Option<usize>,
 }
 
 #[derive(Debug, Args)]
@@ -146,6 +157,15 @@ struct RenderMidiArgs {
     /// Emit machine-readable JSON.
     #[arg(long)]
     json: bool,
+    /// Analyze the corrected output audio.
+    #[arg(long)]
+    analyze: bool,
+    /// Trace a compiled Dynamic Parameter; may be repeated.
+    #[arg(long = "trace")]
+    trace: Vec<String>,
+    /// Interval between trace observations in frames.
+    #[arg(long = "trace-every-frames")]
+    trace_every_frames: Option<usize>,
 }
 
 #[derive(Debug, Args)]
@@ -175,6 +195,15 @@ struct RenderEventsArgs {
     /// Emit machine-readable JSON.
     #[arg(long)]
     json: bool,
+    /// Analyze the corrected output audio.
+    #[arg(long)]
+    analyze: bool,
+    /// Trace a compiled Dynamic Parameter; may be repeated.
+    #[arg(long = "trace")]
+    trace: Vec<String>,
+    /// Interval between trace observations in frames.
+    #[arg(long = "trace-every-frames")]
+    trace_every_frames: Option<usize>,
 }
 
 #[derive(Debug, Args)]
@@ -211,6 +240,10 @@ struct SuccessReport {
     reported_latency_frames: usize,
     output: String,
     backend: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    analysis: Option<AudioAnalysis>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    trace: Option<RenderTraceReport>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     diagnostics: Vec<Diagnostic>,
 }
@@ -580,6 +613,7 @@ struct InspectProcessorParameter {
     default: f32,
     scale: ParameterScale,
     smoothing_seconds: f32,
+    modulation: InspectModulation,
 }
 
 #[derive(Debug, Serialize)]
@@ -592,6 +626,56 @@ struct InspectParameter {
     default: f32,
     scale: ParameterScale,
     smoothing_seconds: f32,
+    modulation: InspectModulation,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    modulated_range_from_default: Option<InspectModulatedRange>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectModulation {
+    unit: ModulationUnit,
+    max_abs_depth: f32,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectModulatedRange {
+    unclamped_min: f32,
+    unclamped_max: f32,
+    effective_min: f32,
+    effective_max: f32,
+    may_clamp: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectSourceRange {
+    min: f32,
+    max: f32,
+    polarity: InspectPolarity,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum InspectPolarity {
+    Unipolar,
+    Bipolar,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectRouteEffect {
+    kind: &'static str,
+    unit: ModulationUnit,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    min_delta: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_delta: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    min_octaves: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_octaves: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    min_factor: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_factor: Option<f32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -599,6 +683,7 @@ struct InspectSource {
     id: String,
     scope: &'static str,
     kind: &'static str,
+    value_range: InspectSourceRange,
     #[serde(skip_serializing_if = "Option::is_none")]
     waveform: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -621,8 +706,22 @@ struct InspectSource {
 struct InspectRoute {
     source: String,
     target: String,
-    amount: f32,
+    depth: InspectDepth,
     curve: ModulationCurve,
+    source_range: InspectSourceBounds,
+    effect: InspectRouteEffect,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectDepth {
+    value: f32,
+    unit: ModulationUnit,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+struct InspectSourceBounds {
+    min: f32,
+    max: f32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -650,7 +749,7 @@ enum EventSequenceKind {
     },
     ParameterChange {
         parameter: String,
-        normalized: f32,
+        native_value: f32,
     },
     PitchBend {
         value: f32,
@@ -857,6 +956,11 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
             Ok(result) => result,
             Err(failure) => return finish_failure(args.json, failure),
         };
+    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
+    {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
     let events = [
         ScheduledEvent {
             absolute_frame: 0,
@@ -881,12 +985,36 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
-    let mut audio =
-        match render_instrument_with_tempo(Arc::clone(&compiled), request, &events, args.tempo) {
-            Ok(audio) => audio,
+    let (mut audio, trace) = if let Some(trace_request) = trace_request.as_ref() {
+        let tempo_map = match TempoMap::constant(args.tempo) {
+            Ok(tempo_map) => tempo_map,
             Err(error) => return finish_failure(args.json, render_failure(&error)),
         };
+        match render_instrument_with_trace(
+            Arc::clone(&compiled),
+            request,
+            &events,
+            &tempo_map,
+            trace_request,
+        ) {
+            Ok((audio, trace)) => (audio, Some(trace)),
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        }
+    } else {
+        match render_instrument_with_tempo(Arc::clone(&compiled), request, &events, args.tempo) {
+            Ok(audio) => (audio, None),
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        }
+    };
     correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
+    let analysis = if args.analyze {
+        match analyze_audio(&audio, Some(note_frequency_hz(args.note))) {
+            Ok(analysis) => Some(analysis),
+            Err(failure) => return finish_failure(args.json, failure),
+        }
+    } else {
+        None
+    };
     if let Err(error) = write_wav(&args.output, &audio) {
         return finish_failure(
             args.json,
@@ -907,6 +1035,8 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
             output: args.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics: std::mem::take(&mut diagnostics),
+            analysis,
+            trace,
         },
     )
 }
@@ -922,6 +1052,11 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
             Ok(result) => result,
             Err(failure) => return finish_failure(args.json, failure),
         };
+    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
+    {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
     let sequence = match load_event_sequence(&args.events) {
         Ok(sequence) => sequence,
         Err(failure) => return finish_failure(args.json, failure),
@@ -940,12 +1075,36 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
-    let mut audio =
-        match render_instrument_with_tempo(Arc::clone(&compiled), request, &events, args.tempo) {
-            Ok(audio) => audio,
+    let (mut audio, trace) = if let Some(trace_request) = trace_request.as_ref() {
+        let tempo_map = match TempoMap::constant(args.tempo) {
+            Ok(tempo_map) => tempo_map,
             Err(error) => return finish_failure(args.json, render_failure(&error)),
         };
+        match render_instrument_with_trace(
+            Arc::clone(&compiled),
+            request,
+            &events,
+            &tempo_map,
+            trace_request,
+        ) {
+            Ok((audio, trace)) => (audio, Some(trace)),
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        }
+    } else {
+        match render_instrument_with_tempo(Arc::clone(&compiled), request, &events, args.tempo) {
+            Ok(audio) => (audio, None),
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        }
+    };
     correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
+    let analysis = if args.analyze {
+        match analyze_audio(&audio, None) {
+            Ok(analysis) => Some(analysis),
+            Err(failure) => return finish_failure(args.json, failure),
+        }
+    } else {
+        None
+    };
     if let Err(error) = write_wav(&args.output, &audio) {
         return finish_failure(
             args.json,
@@ -966,6 +1125,8 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
             output: args.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics,
+            analysis,
+            trace,
         },
     )
 }
@@ -1062,7 +1223,7 @@ fn compile_event_sequence(
             }
             EventSequenceKind::ParameterChange {
                 parameter,
-                normalized,
+                native_value,
             } => {
                 let Some(handle) = compiled.parameter_handle(parameter) else {
                     diagnostics.push(
@@ -1074,18 +1235,22 @@ fn compile_event_sequence(
                     );
                     continue;
                 };
-                if !normalized.is_finite() || !(0.0..=1.0).contains(normalized) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::ValueOutOfRange,
-                            "normalized must be finite and between 0 and 1",
-                        )
-                        .with_path(format!("{event_path}.normalized")),
-                    );
-                }
+                let descriptor = compiled
+                    .parameter_descriptor(handle)
+                    .expect("parameter handle was resolved from the catalog");
+                let normalized = match descriptor.normalize(*native_value) {
+                    Ok(normalized) => normalized,
+                    Err(error) => {
+                        diagnostics.push(
+                            Diagnostic::error(DiagnosticCode::ValueOutOfRange, error.to_string())
+                                .with_path(format!("{event_path}.native_value")),
+                        );
+                        0.0
+                    }
+                };
                 ProcessEventKind::ParameterChange {
                     parameter: handle,
-                    normalized: *normalized,
+                    normalized,
                 }
             }
             EventSequenceKind::PitchBend { value } => {
@@ -1154,6 +1319,11 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
             Ok(result) => result,
             Err(failure) => return finish_failure(args.json, failure),
         };
+    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
+    {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
     let midi = match read_midi(&args.midi, sample_rate) {
         Ok(midi) => midi,
         Err(midi_diagnostics) => {
@@ -1177,16 +1347,37 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
-    let mut audio = match render_instrument_with_tempo_map(
-        Arc::clone(&compiled),
-        request,
-        &midi.events,
-        &midi.tempo_map,
-    ) {
-        Ok(audio) => audio,
-        Err(error) => return finish_failure(args.json, render_failure(&error)),
+    let (mut audio, trace) = if let Some(trace_request) = trace_request.as_ref() {
+        match render_instrument_with_trace(
+            Arc::clone(&compiled),
+            request,
+            &midi.events,
+            &midi.tempo_map,
+            trace_request,
+        ) {
+            Ok((audio, trace)) => (audio, Some(trace)),
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        }
+    } else {
+        match render_instrument_with_tempo_map(
+            Arc::clone(&compiled),
+            request,
+            &midi.events,
+            &midi.tempo_map,
+        ) {
+            Ok(audio) => (audio, None),
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        }
     };
     correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
+    let analysis = if args.analyze {
+        match analyze_audio(&audio, None) {
+            Ok(analysis) => Some(analysis),
+            Err(failure) => return finish_failure(args.json, failure),
+        }
+    } else {
+        None
+    };
     if let Err(error) = write_wav(&args.output, &audio) {
         return finish_failure(
             args.json,
@@ -1207,6 +1398,8 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
             output: args.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics,
+            analysis,
+            trace,
         },
     )
 }
@@ -1253,7 +1446,84 @@ fn render_sine_command(args: &RenderSineArgs) -> Result<SuccessReport, CliFailur
         output: args.output.to_string_lossy().into_owned(),
         backend: backend_info().version,
         diagnostics: Vec::new(),
+        analysis: None,
+        trace: None,
     })
+}
+
+fn resolve_trace_request(
+    compiled: &CompiledInstrument,
+    ids: &[String],
+    every_frames: Option<usize>,
+) -> Result<Option<TraceRequest>, CliFailure> {
+    if ids.is_empty() {
+        if every_frames.is_some() {
+            return Err(CliFailure {
+                code: 2,
+                diagnostics: vec![Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    "--trace-every-frames requires at least one --trace parameter",
+                )],
+            });
+        }
+        return Ok(None);
+    }
+    let every_frames = every_frames.unwrap_or(480);
+    if every_frames == 0 {
+        return Err(CliFailure {
+            code: 2,
+            diagnostics: vec![Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "--trace-every-frames must be greater than zero",
+            )],
+        });
+    }
+    let mut parameters = Vec::with_capacity(ids.len());
+    for id in ids {
+        let Some(handle) = compiled.parameter_handle(id) else {
+            return Err(CliFailure {
+                code: 2,
+                diagnostics: vec![
+                    Diagnostic::error(
+                        DiagnosticCode::ParameterNotFound,
+                        "trace parameter id is not present in the compiled catalog",
+                    )
+                    .with_path("--trace")
+                    .with_detail(id),
+                ],
+            });
+        };
+        if !parameters.contains(&handle) {
+            parameters.push(handle);
+        }
+    }
+    Ok(Some(TraceRequest {
+        parameters,
+        every_frames,
+    }))
+}
+
+fn analyze_audio(
+    audio: &sonalloy_core::RenderedAudio,
+    reference_frequency_hz: Option<f32>,
+) -> Result<AudioAnalysis, CliFailure> {
+    analyze_rendered_audio(
+        audio,
+        AudioAnalysisOptions {
+            reference_frequency_hz,
+        },
+    )
+    .map_err(|error| CliFailure {
+        code: 3,
+        diagnostics: vec![
+            Diagnostic::error(DiagnosticCode::RenderError, "audio analysis failed")
+                .with_detail(error.to_string()),
+        ],
+    })
+}
+
+fn note_frequency_hz(note: u8) -> f32 {
+    440.0_f32 * 2.0_f32.powf((f32::from(note) - 69.0) / 12.0)
 }
 
 fn extend_request_for_latency(
@@ -1629,6 +1899,7 @@ fn inspect_processor(
                     default: descriptor.default,
                     scale: descriptor.scale,
                     smoothing_seconds: descriptor.smoothing_seconds,
+                    modulation: inspect_modulation(descriptor),
                 }
             })
             .collect(),
@@ -1640,6 +1911,7 @@ fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSo
         id: source.id.clone(),
         scope: "voice",
         kind: "unknown",
+        value_range: inspect_source_range("unknown"),
         waveform: None,
         rate_hz: None,
         phase: None,
@@ -1675,6 +1947,7 @@ fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSo
             result.seed = Some(value.seed);
         }
     }
+    result.value_range = inspect_source_range(result.kind);
     result
 }
 
@@ -1711,6 +1984,7 @@ fn inspect_external_source(id: &'static str) -> InspectSource {
         id: id.to_owned(),
         scope: "instrument",
         kind: "external_control",
+        value_range: inspect_source_range(id),
         waveform: None,
         rate_hz: None,
         phase: None,
@@ -1719,6 +1993,24 @@ fn inspect_external_source(id: &'static str) -> InspectSource {
         sustain_level: None,
         release_samples: None,
         seed: None,
+    }
+}
+
+fn inspect_source_range(kind: &str) -> InspectSourceRange {
+    let (min, max, polarity) = match kind {
+        "velocity" | "envelope" | "mod_wheel" | "aftertouch" => {
+            (0.0, 1.0, InspectPolarity::Unipolar)
+        }
+        "key_tracking" | "lfo" | "random" | "pitch_bend" => (-1.0, 1.0, InspectPolarity::Bipolar),
+        _ => (0.0, 0.0, InspectPolarity::Unipolar),
+    };
+    InspectSourceRange { min, max, polarity }
+}
+
+fn inspect_modulation(descriptor: &sonalloy_core::ParameterDescriptor) -> InspectModulation {
+    InspectModulation {
+        unit: descriptor.modulation_unit(),
+        max_abs_depth: descriptor.max_modulation_depth(),
     }
 }
 
@@ -2333,6 +2625,112 @@ fn operator_algorithm_name(algorithm: sonalloy_core::OperatorAlgorithm) -> &'sta
     }
 }
 
+fn inspect_source_bounds(
+    compiled: &CompiledInstrument,
+    source: sonalloy_core::compiler::CompiledSourceRef,
+) -> InspectSourceBounds {
+    let range = match source {
+        sonalloy_core::compiler::CompiledSourceRef::Voice(handle) => {
+            compiled.sources.get(handle.index()).map_or_else(
+                || inspect_source_range("unknown"),
+                |source| inspect_source(source).value_range,
+            )
+        }
+        sonalloy_core::compiler::CompiledSourceRef::PitchBend => inspect_source_range("pitch_bend"),
+        sonalloy_core::compiler::CompiledSourceRef::ModWheel => inspect_source_range("mod_wheel"),
+        sonalloy_core::compiler::CompiledSourceRef::Aftertouch => {
+            inspect_source_range("aftertouch")
+        }
+    };
+    InspectSourceBounds {
+        min: range.min,
+        max: range.max,
+    }
+}
+
+fn inspect_route_effect(
+    descriptor: &sonalloy_core::ParameterDescriptor,
+    source_range: InspectSourceBounds,
+    depth: f32,
+    curve: ModulationCurve,
+) -> InspectRouteEffect {
+    let first =
+        sonalloy_core::runtime::modulation::route_domain_delta(source_range.min, depth, curve);
+    let second =
+        sonalloy_core::runtime::modulation::route_domain_delta(source_range.max, depth, curve);
+    let (min, max) = if first <= second {
+        (first, second)
+    } else {
+        (second, first)
+    };
+    match descriptor.scale {
+        ParameterScale::Linear => InspectRouteEffect {
+            kind: "additive",
+            unit: descriptor.modulation_unit(),
+            min_delta: Some(min),
+            max_delta: Some(max),
+            min_octaves: None,
+            max_octaves: None,
+            min_factor: None,
+            max_factor: None,
+        },
+        ParameterScale::Log2 => InspectRouteEffect {
+            kind: "multiplicative",
+            unit: descriptor.modulation_unit(),
+            min_delta: None,
+            max_delta: None,
+            min_octaves: Some(min),
+            max_octaves: Some(max),
+            min_factor: Some(2.0_f32.powf(min)),
+            max_factor: Some(2.0_f32.powf(max)),
+        },
+    }
+}
+
+fn inspect_modulated_range(
+    compiled: &CompiledInstrument,
+    handle: ParameterHandle,
+) -> Option<InspectModulatedRange> {
+    let descriptor = compiled.parameter_descriptor(handle)?;
+    let routes = compiled.routes_for(handle);
+    if routes.is_empty() {
+        return None;
+    }
+    let mut minimum = 0.0_f32;
+    let mut maximum = 0.0_f32;
+    for route in routes {
+        let source_range = inspect_source_bounds(compiled, route.source);
+        let first = sonalloy_core::runtime::modulation::route_domain_delta(
+            source_range.min,
+            route.depth,
+            route.curve,
+        );
+        let second = sonalloy_core::runtime::modulation::route_domain_delta(
+            source_range.max,
+            route.depth,
+            route.curve,
+        );
+        minimum += first.min(second);
+        maximum += first.max(second);
+    }
+    let (unclamped_min, unclamped_max) = match descriptor.scale {
+        ParameterScale::Linear => (descriptor.default + minimum, descriptor.default + maximum),
+        ParameterScale::Log2 => (
+            descriptor.default * 2.0_f32.powf(minimum),
+            descriptor.default * 2.0_f32.powf(maximum),
+        ),
+    };
+    let effective_min = unclamped_min.clamp(descriptor.min, descriptor.max);
+    let effective_max = unclamped_max.clamp(descriptor.min, descriptor.max);
+    Some(InspectModulatedRange {
+        unclamped_min,
+        unclamped_max,
+        effective_min,
+        effective_max,
+        may_clamp: unclamped_min < descriptor.min || unclamped_max > descriptor.max,
+    })
+}
+
 #[allow(clippy::too_many_lines)]
 fn make_inspect_report(
     compiled: &CompiledInstrument,
@@ -2386,15 +2784,23 @@ fn make_inspect_report(
     let routes = compiled
         .routes
         .iter()
-        .map(|route| InspectRoute {
-            source: source_id(compiled, route.source),
-            target: compiled
+        .map(|route| {
+            let descriptor = compiled
                 .parameter_descriptor(route.target)
-                .expect("compiled route target handle must be valid")
-                .id
-                .clone(),
-            amount: route.amount,
-            curve: route.curve,
+                .expect("compiled route target handle must be valid");
+            let source_range = inspect_source_bounds(compiled, route.source);
+            let effect = inspect_route_effect(descriptor, source_range, route.depth, route.curve);
+            InspectRoute {
+                source: source_id(compiled, route.source),
+                target: descriptor.id.clone(),
+                depth: InspectDepth {
+                    value: route.depth,
+                    unit: descriptor.modulation_unit(),
+                },
+                curve: route.curve,
+                source_range,
+                effect,
+            }
         })
         .collect::<Vec<_>>();
     let mut sources = compiled
@@ -2442,15 +2848,22 @@ fn make_inspect_report(
         parameters: compiled
             .parameters()
             .iter()
-            .map(|parameter| InspectParameter {
-                id: parameter.id.clone(),
-                owner: parameter.owner,
-                unit: parameter.unit,
-                min: parameter.min,
-                max: parameter.max,
-                default: parameter.default,
-                scale: parameter.scale,
-                smoothing_seconds: parameter.smoothing_seconds,
+            .map(|parameter| {
+                let handle = compiled
+                    .parameter_handle(&parameter.id)
+                    .expect("parameter descriptor must resolve to its catalog handle");
+                InspectParameter {
+                    id: parameter.id.clone(),
+                    owner: parameter.owner,
+                    unit: parameter.unit,
+                    min: parameter.min,
+                    max: parameter.max,
+                    default: parameter.default,
+                    scale: parameter.scale,
+                    smoothing_seconds: parameter.smoothing_seconds,
+                    modulation: inspect_modulation(parameter),
+                    modulated_range_from_default: inspect_modulated_range(compiled, handle),
+                }
             })
             .collect(),
         sources,
@@ -2514,16 +2927,61 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
         println!("  range: {:.3} .. {:.3}", parameter.min, parameter.max);
         println!("  default: {:.3}", parameter.default);
         println!("  scale: {:?}", parameter.scale);
+        println!(
+            "  modulation: {:?}, max absolute depth {:.3}",
+            parameter.modulation.unit, parameter.modulation.max_abs_depth
+        );
+        if let Some(range) = &parameter.modulated_range_from_default {
+            println!(
+                "  reachable: {:.3} .. {:.3} (effective {:.3} .. {:.3}, may_clamp {})",
+                range.unclamped_min,
+                range.unclamped_max,
+                range.effective_min,
+                range.effective_max,
+                range.may_clamp
+            );
+        }
         println!("  smoothing: {:.3} s", parameter.smoothing_seconds);
     }
     for source in &report.sources {
-        println!("source {}: {} ({})", source.id, source.kind, source.scope);
+        println!(
+            "source {}: {} ({}) range {:.3} .. {:.3} {:?}",
+            source.id,
+            source.kind,
+            source.scope,
+            source.value_range.min,
+            source.value_range.max,
+            source.value_range.polarity
+        );
     }
     for route in &report.routes {
-        println!(
-            "route {} -> {} amount {:.3} curve {:?}",
-            route.source, route.target, route.amount, route.curve
+        print!(
+            "route {} -> {} depth {:.3} {:?} curve {:?} source_range {:.3} .. {:.3} effect {} {:?}",
+            route.source,
+            route.target,
+            route.depth.value,
+            route.depth.unit,
+            route.curve,
+            route.source_range.min,
+            route.source_range.max,
+            route.effect.kind,
+            route.effect.unit
         );
+        match route.effect.kind {
+            "additive" => println!(
+                " delta {:.3} .. {:.3}",
+                route.effect.min_delta.unwrap_or(0.0),
+                route.effect.max_delta.unwrap_or(0.0)
+            ),
+            "multiplicative" => println!(
+                " octaves {:.3} .. {:.3} factor {:.3} .. {:.3}",
+                route.effect.min_octaves.unwrap_or(0.0),
+                route.effect.max_octaves.unwrap_or(0.0),
+                route.effect.min_factor.unwrap_or(1.0),
+                route.effect.max_factor.unwrap_or(1.0)
+            ),
+            _ => println!(),
+        }
     }
     print_warnings(&report.diagnostics);
 }
@@ -3053,7 +3511,17 @@ fn print_processor_reports(processors: &[InspectProcessor], placement: &'static 
             println!("    {}: {:.3}", field.id, field.value);
         }
         for parameter in &report.parameters {
-            println!("    parameter {}", parameter.id);
+            println!(
+                "    parameter {}: {:?} {:.3}..{:.3}, default {:.3}, scale {:?}, modulation {:?} max {:.3}",
+                parameter.id,
+                parameter.unit,
+                parameter.min,
+                parameter.max,
+                parameter.default,
+                parameter.scale,
+                parameter.modulation.unit,
+                parameter.modulation.max_abs_depth
+            );
         }
     }
 }
@@ -3116,10 +3584,10 @@ fn render_failure(error: &RenderError) -> CliFailure {
     } else {
         2
     };
-    let diagnostic = if code == 2 {
-        Diagnostic::error(DiagnosticCode::ValueOutOfRange, error.to_string())
-    } else {
-        from_render_error(error)
+    let diagnostic = match error {
+        RenderError::TraceLimitExceeded { .. } => from_render_error(error),
+        _ if code == 2 => Diagnostic::error(DiagnosticCode::ValueOutOfRange, error.to_string()),
+        _ => from_render_error(error),
     };
     CliFailure {
         code,
@@ -3139,6 +3607,54 @@ fn print_success(json: bool, report: SuccessReport) -> ExitCode {
             "rendered {} frames at {} Hz to {} using {}",
             report.frames, report.sample_rate, report.output, report.backend
         );
+        if let Some(analysis) = &report.analysis {
+            println!("analysis");
+            match analysis.level.peak_dbfs {
+                Some(peak) => println!("  peak: {peak:.2} dBFS"),
+                None => println!("  peak: -inf dBFS"),
+            }
+            match analysis.level.rms_dbfs {
+                Some(rms) => println!("  rms: {rms:.2} dBFS"),
+                None => println!("  rms: -inf dBFS"),
+            }
+            if let Some(centroid) = analysis.spectrum.spectral_centroid_hz {
+                println!("  centroid: {centroid:.1} Hz");
+            } else {
+                println!("  centroid: none");
+            }
+            match analysis.stereo.correlation {
+                Some(correlation) => println!("  stereo correlation: {correlation:.3}"),
+                None => println!("  stereo correlation: none"),
+            }
+            match (analysis.activity.first_frame, analysis.activity.last_frame) {
+                (Some(first), Some(last)) => println!(
+                    "  activity: frames {first}..{last} at {:.0} dBFS threshold",
+                    analysis.activity.threshold_dbfs
+                ),
+                _ => println!(
+                    "  activity: none at {:.0} dBFS threshold",
+                    analysis.activity.threshold_dbfs
+                ),
+            }
+            println!(
+                "  large discontinuities: {}",
+                analysis.continuity.large_delta_count
+            );
+        }
+        if let Some(trace) = &report.trace {
+            for parameter in &trace.parameters {
+                let last_frame = parameter.observations.last().map_or_else(
+                    || "none".to_owned(),
+                    |observation| observation.frame.to_string(),
+                );
+                println!(
+                    "trace {}: {} observations, last frame {}",
+                    parameter.parameter,
+                    parameter.observations.len(),
+                    last_frame
+                );
+            }
+        }
         print_warnings(&report.diagnostics);
     }
     ExitCode::SUCCESS

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::definition::{
@@ -100,6 +100,32 @@ pub enum ParameterScale {
     Log2,
 }
 
+/// Unit used to express a signed modulation depth.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModulationUnit {
+    /// Gain change in decibels.
+    Decibels,
+    /// Constant-power pan change.
+    Pan,
+    /// Tuning change in cents.
+    Cents,
+    /// Additive frequency change in hertz.
+    Hertz,
+    /// Additive duration change in seconds.
+    Seconds,
+    /// Additive rate change per second.
+    PerSecond,
+    /// Additive synthesis index change.
+    Index,
+    /// Spectral tilt change in decibels per octave.
+    DecibelsPerOctave,
+    /// Additive change in a normalized parameter.
+    Normalized,
+    /// Base-two logarithmic change.
+    Octaves,
+}
+
 /// Error returned when a parameter value cannot be represented.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum ParameterValueError {
@@ -133,6 +159,56 @@ pub struct ParameterDescriptor {
 }
 
 impl ParameterDescriptor {
+    /// Return the native unit used by modulation routes targeting this parameter.
+    ///
+    /// # Panics
+    ///
+    /// Panics when a descriptor contains a unit and scale combination that is not part of the
+    /// parameter contract.
+    #[must_use]
+    pub fn modulation_unit(&self) -> ModulationUnit {
+        match self.unit {
+            ParameterUnit::Decibels if self.scale == ParameterScale::Linear => {
+                ModulationUnit::Decibels
+            }
+            ParameterUnit::Pan if self.scale == ParameterScale::Linear => ModulationUnit::Pan,
+            ParameterUnit::Cents if self.scale == ParameterScale::Linear => ModulationUnit::Cents,
+            ParameterUnit::Hertz => match self.scale {
+                ParameterScale::Linear => ModulationUnit::Hertz,
+                ParameterScale::Log2 => ModulationUnit::Octaves,
+            },
+            ParameterUnit::Ratio if self.scale == ParameterScale::Log2 => ModulationUnit::Octaves,
+            ParameterUnit::Seconds => match self.scale {
+                ParameterScale::Linear => ModulationUnit::Seconds,
+                ParameterScale::Log2 => ModulationUnit::Octaves,
+            },
+            ParameterUnit::PerSecond => match self.scale {
+                ParameterScale::Linear => ModulationUnit::PerSecond,
+                ParameterScale::Log2 => ModulationUnit::Octaves,
+            },
+            ParameterUnit::Index if self.scale == ParameterScale::Linear => ModulationUnit::Index,
+            ParameterUnit::DecibelsPerOctave if self.scale == ParameterScale::Linear => {
+                ModulationUnit::DecibelsPerOctave
+            }
+            ParameterUnit::Normalized if self.scale == ParameterScale::Linear => {
+                ModulationUnit::Normalized
+            }
+            unit => panic!(
+                "unsupported parameter unit/scale combination: {unit:?}/{:?}",
+                self.scale
+            ),
+        }
+    }
+
+    /// Return the greatest absolute modulation depth representable by this parameter.
+    #[must_use]
+    pub fn max_modulation_depth(&self) -> f32 {
+        match self.scale {
+            ParameterScale::Linear => self.max - self.min,
+            ParameterScale::Log2 => (self.max / self.min).log2(),
+        }
+    }
+
     /// Convert a native value to normalized form.
     ///
     /// # Errors
@@ -784,7 +860,7 @@ fn push_processor_descriptors(
                 format!("{base}.sample_rate_ratio"),
                 owner,
                 ParameterUnit::Ratio,
-                ParameterScale::Linear,
+                ParameterScale::Log2,
                 0.01,
                 1.0,
                 value.sample_rate_ratio,
@@ -922,7 +998,7 @@ fn push_processor_descriptors(
                 format!("{base}.ratio"),
                 owner,
                 ParameterUnit::Ratio,
-                ParameterScale::Linear,
+                ParameterScale::Log2,
                 1.0,
                 20.0,
                 value.ratio,
@@ -1496,6 +1572,68 @@ mod tests {
         };
         let normalized = log.normalize(1_000.0).expect("normalizes");
         assert!((log.denormalize(normalized).expect("denormalizes") - 1_000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn modulation_contract_reports_target_units_and_limits() {
+        let mut source = definition();
+        source.voice_processors.push(ProcessorDefinition::Filter(
+            crate::definition::FilterProcessorDefinition {
+                id: "tone".to_owned(),
+                mode: crate::definition::FilterModeDefinition::LowPass,
+                cutoff_hz: 1_000.0,
+                resonance: 0.2,
+            },
+        ));
+        let catalog = ParameterCatalog::from_definition(&source);
+
+        let tuning = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "layer.body.tuning")
+            .expect("layer tuning descriptor");
+        assert_eq!(tuning.modulation_unit(), ModulationUnit::Cents);
+        assert!((tuning.max_modulation_depth() - 2_400.0).abs() < f32::EPSILON);
+
+        let cutoff = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "voice.processor.tone.cutoff")
+            .expect("filter cutoff descriptor");
+        assert_eq!(cutoff.modulation_unit(), ModulationUnit::Octaves);
+        assert!((cutoff.max_modulation_depth() - 1_000.0_f32.log2()).abs() < 1.0e-6);
+
+        let resonance = catalog
+            .parameters()
+            .iter()
+            .find(|parameter| parameter.id == "voice.processor.tone.resonance")
+            .expect("filter resonance descriptor");
+        assert_eq!(resonance.modulation_unit(), ModulationUnit::Normalized);
+        assert!((resonance.max_modulation_depth() - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn logarithmic_duration_and_rate_use_octave_depth() {
+        let descriptor = |unit, min, max| ParameterDescriptor {
+            id: "test".to_owned(),
+            owner: ParameterOwner::Layer {
+                definition_index: 0,
+            },
+            unit,
+            scale: ParameterScale::Log2,
+            min,
+            max,
+            default: min,
+            smoothing_seconds: 0.0,
+        };
+
+        let seconds = descriptor(ParameterUnit::Seconds, 0.01, 4.0);
+        assert_eq!(seconds.modulation_unit(), ModulationUnit::Octaves);
+        assert!((seconds.max_modulation_depth() - 400.0_f32.log2()).abs() < 1.0e-6);
+
+        let rate = descriptor(ParameterUnit::PerSecond, 1.0, 256.0);
+        assert_eq!(rate.modulation_unit(), ModulationUnit::Octaves);
+        assert!((rate.max_modulation_depth() - 8.0).abs() < 1.0e-6);
     }
 
     #[test]

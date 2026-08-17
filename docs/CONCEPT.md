@@ -156,11 +156,24 @@ LFO、Envelope、MSEG、Step Modulator、Sample & Hold、Smooth Random、Velocit
 
 **共通規則**：
 - 各Parameterは一意なID、型、単位、最小/最大/初期値を持つ
-- Modulation RouteはSource・Target・Amount・Curveで定義
+- Modulation RouteはSource・Target・Depth・Curveで定義する。DepthはTargetに応じた明示的な単位（dB、Pan、Cents、Hertz、Seconds、PerSecond、Index、dB/Octave、Normalized、Octaves）を持つ
 - Source出力は正規化（単方向：0〜1、正負：-1〜1）
-- 複数Routeが同一Targetへ接続された場合、定義順で加算しClamp
+- 複数Routeが同一Targetへ接続された場合、定義順でDepthをTargetのDomainへ加算し、最後にClampする。Linear ParameterはNative Domain、Log2 ParameterはOctave Domainで評価する
 - 連続値変更は平滑化を適用しクリックノイズを回避
 - 波形種類、FM Algorithm、Processor種類などの離散値はModulation対象外とし、変更時は再Compile
+
+Routeの定義例：
+
+```json
+{
+  "source": "vibrato",
+  "target": "layer.body.tuning",
+  "depth": { "value": 20.0, "unit": "cents" },
+  "curve": "linear"
+}
+```
+
+Linear Targetでは`curved_source × depth`をNative値へ加算します。Log2 TargetではDepthをOctave Domainの加算値として`base × 2^sum`へ変換します。たとえば`2` octavesはNative値を最大4倍、`-1` octaveは半分にします。
 
 **評価単位**：
 - **Voice単位**：Velocity、Key Tracking、Envelope、LFO、MSEG、Random
@@ -385,7 +398,7 @@ Instrument Definition + Referenced Assets
 - 識別：Schema Version、Metadata（名前、作者、説明）
 - 音源構成：Layer一覧、Trigger、Mix、Processing、Generator種類と固有Parameter
 - Parameter：Parameter ID、型、単位、最小/最大/Default、Smoothing
-- 変調：Source、Route、Amount、Curve、Macro、Vector
+- 変調：Source、Route、Depth（値と単位）、Curve、Macro、Vector
 - Sample Mapping：Zones、Key/Velocity/Articulation/RR、Loop、Slice、Stretch
 - 合成Asset：Wavetable、Spectral Frame、IR、Modal Data、Wave Sequence Asset
 - 演奏：発音方式、Polyphony、Voice Stealing、Sustain、Legato、Portamento
@@ -514,7 +527,7 @@ Process
 - Latencyを持つ構成はPrepare/Compile時に報告可能
 
 **正規化Event**：
-Coreへ渡すEventは、生MIDI ByteやPlugin固有Eventではなく、次へ正規化します：
+FrontendのAuthoring Eventは、生MIDI ByteやPlugin固有Eventではなく、Parameter CatalogのNative Unit（例：CutoffはHz、TuningはCents）で受け取ります。その後、Descriptorで検証してCoreの共有Event表現へ正規化します。
 Note On/Off、Sustain Pedal、Pitch Bend、Mod Wheel、Aftertouch、Note単位Expression、Parameter Change、Macro Change、Transport/Tempo Context
 
 各EventはAudio Block内のSample Offsetを持ち、Frontendに関係なく同じRuntimeで処理します。

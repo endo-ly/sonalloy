@@ -2,15 +2,21 @@ use std::sync::Arc;
 
 use crate::compiler::{
     CompiledGenerator, CompiledInstrument, CompiledProcessor, CompiledProcessorKind,
-    CompiledSampleZone,
+    CompiledSampleZone, CompiledSourceRef,
 };
 use crate::definition::LayerTriggerEvent;
-use crate::parameter::ParameterScale;
+use crate::parameter::{ParameterHandle, ParameterOwner, ParameterScale};
 use crate::process::{
     InstrumentProcessor, ProcessBlock, ProcessError, ProcessEventKind, ProcessSpec, clear_output,
 };
+use crate::trace::{
+    TraceContribution, TraceDepth, TraceObservation, TraceRoute, TraceVoice, TraceVoiceState,
+};
 
-use super::modulation::{ParameterSpanValue, SharedParameterSpan, ValueSpan};
+use super::modulation::{
+    ParameterSpanValue, SharedParameterSpan, ValueSpan, apply_domain_sum_with_maximum,
+    route_domain_delta,
+};
 use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
 use super::voice::{NoteRequest, PreparedLayerSelection, VoiceRuntime, VoiceState};
@@ -95,6 +101,164 @@ impl InstrumentRuntime {
     #[must_use]
     pub fn voice_state(&self, index: usize) -> Option<VoiceState> {
         self.voices.get(index).map(VoiceRuntime::state)
+    }
+
+    pub(crate) fn trace_snapshots(
+        &self,
+        handles: &[ParameterHandle],
+        frame: u64,
+        sample_rate: f64,
+    ) -> Result<Vec<(ParameterHandle, TraceObservation)>, ProcessError> {
+        let mut observations = Vec::new();
+        for &handle in handles {
+            let descriptor = self.compiled.parameter_descriptor(handle).ok_or(
+                ProcessError::ParameterHandleOutOfRange {
+                    handle: handle.index(),
+                },
+            )?;
+            let layer_owned = matches!(
+                descriptor.owner,
+                ParameterOwner::Layer { .. }
+                    | ParameterOwner::LayerGenerator { .. }
+                    | ParameterOwner::LayerProcessor { .. }
+            );
+            let layer_index = match descriptor.owner {
+                ParameterOwner::Layer { definition_index }
+                | ParameterOwner::LayerGenerator { definition_index }
+                | ParameterOwner::LayerProcessor {
+                    definition_index, ..
+                } => self
+                    .compiled
+                    .layers
+                    .iter()
+                    .position(|layer| layer.definition_index == definition_index),
+                ParameterOwner::VoiceProcessor { .. } | ParameterOwner::GlobalProcessor { .. } => {
+                    None
+                }
+            };
+            if layer_owned && layer_index.is_none() {
+                continue;
+            }
+            if matches!(descriptor.owner, ParameterOwner::GlobalProcessor { .. }) {
+                observations.push((
+                    handle,
+                    self.trace_observation(handle, frame, sample_rate, None, None)?,
+                ));
+                continue;
+            }
+            for (voice_index, voice) in self.voices.iter().enumerate() {
+                let Some((note_id, note_number, velocity, state)) = voice.trace_identity() else {
+                    continue;
+                };
+                if let Some(layer_index) = layer_index
+                    && !voice.trace_layer_active(layer_index)
+                {
+                    continue;
+                }
+                let trace_state = match state {
+                    VoiceState::Active => TraceVoiceState::Active,
+                    VoiceState::Releasing => TraceVoiceState::Releasing,
+                    VoiceState::StealFading => TraceVoiceState::StealFading,
+                    VoiceState::Idle => continue,
+                };
+                let voice_info = TraceVoice {
+                    index: voice_index,
+                    note_id,
+                    note_number,
+                    velocity,
+                    state: trace_state,
+                };
+                observations.push((
+                    handle,
+                    self.trace_observation(
+                        handle,
+                        frame,
+                        sample_rate,
+                        Some(voice_info),
+                        Some(voice),
+                    )?,
+                ));
+            }
+        }
+        Ok(observations)
+    }
+
+    fn trace_observation(
+        &self,
+        handle: ParameterHandle,
+        frame: u64,
+        sample_rate: f64,
+        voice_info: Option<TraceVoice>,
+        voice: Option<&VoiceRuntime>,
+    ) -> Result<TraceObservation, ProcessError> {
+        let descriptor = self.compiled.parameter_descriptor(handle).ok_or(
+            ProcessError::ParameterHandleOutOfRange {
+                handle: handle.index(),
+            },
+        )?;
+        let base_normalized = self
+            .parameter_states
+            .get(handle.index())
+            .ok_or_else(invalid_state)?
+            .current();
+        let mut routes = Vec::new();
+        let mut domain_sum = 0.0;
+        for route in self
+            .compiled
+            .routes_for_checked(handle)
+            .ok_or_else(invalid_state)?
+        {
+            let raw = match route.source {
+                CompiledSourceRef::Voice(source) => voice
+                    .and_then(|voice| voice.trace_source_value(source))
+                    .ok_or_else(invalid_state)?,
+                CompiledSourceRef::PitchBend => self.pitch_bend.current(),
+                CompiledSourceRef::ModWheel => self.mod_wheel.current(),
+                CompiledSourceRef::Aftertouch => self.aftertouch.current(),
+            };
+            let shaped = super::modulation::curve_value(raw, route.curve);
+            let contribution = super::modulation::route_domain_delta(raw, route.depth, route.curve);
+            domain_sum += contribution;
+            routes.push(TraceRoute {
+                source: trace_source_id(&self.compiled, route.source),
+                raw,
+                shaped,
+                depth: TraceDepth {
+                    value: route.depth,
+                    unit: descriptor.modulation_unit(),
+                },
+                contribution: TraceContribution {
+                    value: contribution,
+                    unit: descriptor.modulation_unit(),
+                    factor: (descriptor.scale == ParameterScale::Log2)
+                        .then(|| 2.0_f32.powf(contribution)),
+                },
+            });
+        }
+        let effective_maximum = self
+            .compiled
+            .effective_parameter_maximum(handle)
+            .ok_or_else(invalid_state)?;
+        let evaluated = apply_domain_sum_with_maximum(
+            descriptor,
+            base_normalized,
+            domain_sum,
+            effective_maximum,
+        )?;
+        #[allow(clippy::cast_precision_loss)]
+        let seconds = frame as f64 / sample_rate;
+        Ok(TraceObservation {
+            frame,
+            seconds,
+            parameter: descriptor.id.clone(),
+            unit: descriptor.unit,
+            voice: voice_info,
+            base: evaluated.base,
+            routes,
+            before_clamp: evaluated.unclamped,
+            final_value: evaluated.final_value,
+            clamped: evaluated.clamped,
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -465,10 +629,7 @@ impl InstrumentRuntime {
     ) -> Result<ProcessorTargetSpan, ProcessError> {
         match &processor.processor {
             CompiledProcessorKind::Filter(value) => Ok(ProcessorTargetSpan::Filter {
-                cutoff: clamp_filter_span(
-                    Self::evaluate_global_target(compiled, value.parameters.cutoff, shared)?,
-                    value.effective_max_cutoff_hz,
-                ),
+                cutoff: Self::evaluate_global_target(compiled, value.parameters.cutoff, shared)?,
                 resonance: Self::evaluate_global_target(
                     compiled,
                     value.parameters.resonance,
@@ -594,22 +755,8 @@ impl InstrumentRuntime {
             },
         )?;
         let base = shared.parameter(handle).ok_or_else(invalid_state)?;
-        let base_start = descriptor
-            .denormalize(base.start)
-            .map_err(|_| ProcessError::InvalidEventValue)?;
-        let base_end = descriptor
-            .denormalize(base.end)
-            .map_err(|_| ProcessError::InvalidEventValue)?;
-        let range = descriptor.max - descriptor.min;
-        let log_range = if descriptor.scale == ParameterScale::Log2 {
-            (descriptor.max / descriptor.min).log2()
-        } else {
-            0.0
-        };
-        let mut linear_start = 0.0;
-        let mut linear_end = 0.0;
-        let mut logarithmic_start = 0.0;
-        let mut logarithmic_end = 0.0;
+        let mut start_domain_sum = 0.0;
+        let mut end_domain_sum = 0.0;
         let routes = compiled
             .routes_for_checked(handle)
             .ok_or_else(invalid_state)?;
@@ -624,35 +771,23 @@ impl InstrumentRuntime {
                     });
                 }
             };
-            let start = curve_value(source.start, route.curve);
-            let end = curve_value(source.end, route.curve);
-            match descriptor.scale {
-                ParameterScale::Linear => {
-                    linear_start += start * route.amount * range;
-                    linear_end += end * route.amount * range;
-                }
-                ParameterScale::Log2 => {
-                    logarithmic_start += start * route.amount * log_range;
-                    logarithmic_end += end * route.amount * log_range;
-                }
-            }
+            start_domain_sum += route_domain_delta(source.start, route.depth, route.curve);
+            end_domain_sum += route_domain_delta(source.end, route.depth, route.curve);
         }
-        let (start, end) = match descriptor.scale {
-            ParameterScale::Linear => (
-                (base_start + linear_start).clamp(descriptor.min, descriptor.max),
-                (base_end + linear_end).clamp(descriptor.min, descriptor.max),
-            ),
-            ParameterScale::Log2 => (
-                (base_start * 2.0_f32.powf(logarithmic_start))
-                    .clamp(descriptor.min, descriptor.max),
-                (base_end * 2.0_f32.powf(logarithmic_end)).clamp(descriptor.min, descriptor.max),
-            ),
-        };
-        if start.is_finite() && end.is_finite() {
-            Ok(ValueSpan { start, end })
-        } else {
-            Err(ProcessError::InvalidEventValue)
-        }
+        let effective_maximum = compiled
+            .effective_parameter_maximum(handle)
+            .ok_or_else(invalid_state)?;
+        let start = apply_domain_sum_with_maximum(
+            descriptor,
+            base.start,
+            start_domain_sum,
+            effective_maximum,
+        )?
+        .final_value;
+        let end =
+            apply_domain_sum_with_maximum(descriptor, base.end, end_domain_sum, effective_maximum)?
+                .final_value;
+        Ok(ValueSpan { start, end })
     }
 }
 
@@ -929,24 +1064,6 @@ impl InstrumentProcessor for InstrumentRuntime {
     }
 }
 
-fn clamp_filter_span(span: ValueSpan, maximum: f32) -> ValueSpan {
-    ValueSpan {
-        start: span.start.min(maximum),
-        end: span.end.min(maximum),
-    }
-}
-
-fn curve_value(value: f32, curve: crate::definition::ModulationCurve) -> f32 {
-    match curve {
-        crate::definition::ModulationCurve::Linear => value,
-        crate::definition::ModulationCurve::SmoothStep => {
-            let magnitude = value.abs();
-            let shaped = magnitude * magnitude * (3.0 - 2.0 * magnitude);
-            value.signum() * shaped
-        }
-    }
-}
-
 fn control_smoothing_frames(sample_rate: f64) -> usize {
     rounded_frame_count(sample_rate * CONTROL_SMOOTHING_SECONDS).max(1)
 }
@@ -960,6 +1077,18 @@ fn zone_matches(zone: &CompiledSampleZone, note_number: u8, velocity: u8) -> boo
 fn invalid_state() -> ProcessError {
     ProcessError::ProcessorFailure {
         kind: crate::process::ProcessorFailureKind::InvalidState,
+    }
+}
+
+fn trace_source_id(compiled: &CompiledInstrument, source: CompiledSourceRef) -> String {
+    match source {
+        CompiledSourceRef::Voice(handle) => compiled
+            .sources
+            .get(handle.index())
+            .map_or_else(|| "unknown".to_owned(), |source| source.id.clone()),
+        CompiledSourceRef::PitchBend => "pitch_bend".to_owned(),
+        CompiledSourceRef::ModWheel => "mod_wheel".to_owned(),
+        CompiledSourceRef::Aftertouch => "aftertouch".to_owned(),
     }
 }
 
@@ -2452,19 +2581,28 @@ mod tests {
                 crate::definition::ModulationRouteDefinition {
                     source: "steal_lfo".to_owned(),
                     target: "layer.body.gain".to_owned(),
-                    amount: 0.5,
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 36.0,
+                        unit: crate::parameter::ModulationUnit::Decibels,
+                    },
                     curve: crate::definition::ModulationCurve::Linear,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "steal_lfo".to_owned(),
                     target: "voice.processor.tone.cutoff".to_owned(),
-                    amount: 0.25,
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 2.491_446_5,
+                        unit: crate::parameter::ModulationUnit::Octaves,
+                    },
                     curve: crate::definition::ModulationCurve::Linear,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "steal_envelope".to_owned(),
                     target: "layer.body.tuning".to_owned(),
-                    amount: 0.1,
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 240.0,
+                        unit: crate::parameter::ModulationUnit::Cents,
+                    },
                     curve: crate::definition::ModulationCurve::Linear,
                 },
             ],
@@ -3010,13 +3148,19 @@ mod tests {
                 crate::definition::ModulationRouteDefinition {
                     source: "mod_wheel".to_owned(),
                     target: "global.processor.echo.feedback".to_owned(),
-                    amount: 1.0,
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 0.94,
+                        unit: crate::parameter::ModulationUnit::Normalized,
+                    },
                     curve: crate::definition::ModulationCurve::Linear,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "mod_wheel".to_owned(),
                     target: "global.processor.space.decay".to_owned(),
-                    amount: 1.0,
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 0.96,
+                        unit: crate::parameter::ModulationUnit::Normalized,
+                    },
                     curve: crate::definition::ModulationCurve::Linear,
                 },
             ],

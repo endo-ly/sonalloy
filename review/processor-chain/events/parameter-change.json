@@ -11,7 +11,7 @@
       "absolute_frame": 24000,
       "type": "parameter_change",
       "parameter": "layer.body.processor.body_drive.amount",
-      "normalized": 0.72
+      "native_value": 0.720000029
     },
     {
       "absolute_frame": 96000,

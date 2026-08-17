@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "metadata": {
     "name": "Basic Generators Reference",
     "author": null,
@@ -209,14 +209,18 @@
       {
         "source": "pwm_lfo",
         "target": "layer.pulse.generator.pulse_width",
-        "amount": 0.4,
-        "curve": "linear"
+        "depth": {
+          "value": 0.360000014,
+          "unit": "normalized"
+        },        "curve": "linear"
       },
       {
         "source": "correlation_lfo",
         "target": "layer.pink.generator.noise_correlation",
-        "amount": -0.5,
-        "curve": "linear"
+        "depth": {
+          "value": -0.5,
+          "unit": "normalized"
+        },        "curve": "linear"
       }
     ]
   }

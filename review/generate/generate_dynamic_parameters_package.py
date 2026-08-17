@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from common import render_midi
+from common import record_render_report, render_midi
 from measure_wav import compare_wav, measure
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,7 +43,7 @@ def write_utf8(path: Path, content: str) -> None:
         handle.write(content)
 
 
-def run_cli(arguments: list[str]) -> None:
+def run_cli(arguments: list[str]) -> str:
     result = subprocess.run(
         cli_command() + arguments,
         cwd=ROOT,
@@ -58,6 +58,8 @@ def run_cli(arguments: list[str]) -> None:
             part for part in (result.stdout, result.stderr) if part
         ).strip()
         raise RuntimeError(f"CLI failed with exit code {result.returncode}: {details}")
+    record_render_report(arguments, result.stdout)
+    return result.stdout
 
 
 def render_events(definition: Path, events: Path, output: Path, block_size: int) -> None:
@@ -77,6 +79,7 @@ def render_events(definition: Path, events: Path, output: Path, block_size: int)
             "0.5",
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )
@@ -102,6 +105,7 @@ def render_note(definition: Path, output: Path, block_size: int) -> None:
             str(block_size),
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )
@@ -214,7 +218,7 @@ def main() -> None:
             {
                 "source": "mod_wheel",
                 "target": "voice.processor.tone.resonance",
-                "amount": 0.5,
+                "depth": {"value": 0.5, "unit": "normalized"},
                 "curve": "linear",
             }
         ],

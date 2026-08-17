@@ -12,7 +12,7 @@ import threading
 import time
 from pathlib import Path
 
-from measure_wav import read_float_wav
+from measure_wav import read_float_wav, register_cli_analysis, registered_cli_analysis
 
 ROOT = Path(__file__).resolve().parents[2]
 SAMPLE_RATE = 48_000
@@ -90,7 +90,20 @@ def run_cli(arguments: list[str]) -> str:
             part for part in (result.stdout, result.stderr) if part
         ).strip()
         raise RuntimeError(f"CLI failed with exit code {result.returncode}: {details}")
+    record_render_report(arguments, result.stdout)
     return result.stdout
+
+
+def record_render_report(arguments: list[str], stdout: str) -> None:
+    """Register a successful analyzed render for the review metric adapter."""
+
+    if "--analyze" not in arguments or "--json" not in arguments:
+        return
+    report = json.loads(stdout)
+    analysis = report.get("analysis")
+    if analysis is not None and "--output" in arguments:
+        output_index = arguments.index("--output") + 1
+        register_cli_analysis(Path(arguments[output_index]), analysis)
 
 
 def write_utf8(path: Path, content: str) -> None:
@@ -134,6 +147,7 @@ def render_note(
             str(block_size),
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )
@@ -163,6 +177,7 @@ def render_events(
             str(tail_seconds),
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )
@@ -190,6 +205,7 @@ def render_midi(
             str(tail_seconds),
             "--output",
             str(output),
+            "--analyze",
             "--json",
         ]
     )
@@ -275,6 +291,7 @@ def timed_render(
         str(block_size),
         "--output",
         str(output),
+        "--analyze",
         "--json",
     ]
     started = time.perf_counter()
@@ -339,16 +356,23 @@ def measure_stereo(path: Path) -> dict[str, object]:
         raise ValueError(f"expected stereo WAV: {path}")
     left = samples[0::2]
     right = samples[1::2]
-    left_mean = sum(left) / len(left) if left else 0.0
-    right_mean = sum(right) / len(right) if right else 0.0
-    covariance = sum(
-        (left_sample - left_mean) * (right_sample - right_mean)
-        for left_sample, right_sample in zip(left, right)
-    )
-    left_variance = sum((sample - left_mean) ** 2 for sample in left)
-    right_variance = sum((sample - right_mean) ** 2 for sample in right)
-    denominator = math.sqrt(left_variance * right_variance)
-    correlation = covariance / denominator if denominator > 0.0 else 1.0
+    product_analysis = registered_cli_analysis(path)
+    if product_analysis is not None:
+        product_correlation = product_analysis["stereo"]["correlation"]
+        correlation = (
+            float(product_correlation) if product_correlation is not None else None
+        )
+    else:
+        left_mean = sum(left) / len(left) if left else 0.0
+        right_mean = sum(right) / len(right) if right else 0.0
+        covariance = sum(
+            (left_sample - left_mean) * (right_sample - right_mean)
+            for left_sample, right_sample in zip(left, right)
+        )
+        left_variance = sum((sample - left_mean) ** 2 for sample in left)
+        right_variance = sum((sample - right_mean) ** 2 for sample in right)
+        denominator = math.sqrt(left_variance * right_variance)
+        correlation = covariance / denominator if denominator > 0.0 else None
     difference_rms = (
         math.sqrt(
             sum(
