@@ -1,0 +1,76 @@
+{
+  "schema_version": 2,
+  "metadata": {
+    "name": "Physical Pluck",
+    "author": "Sonalloy",
+    "description": "Physical String and Modal synthesis review definition"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "string",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -7.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.4
+      },
+      "generator": {
+        "physical_string": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.004,
+            "brightness": 0.8,
+            "seed": 4201
+          },
+          "decay_seconds": 2.8,
+          "brightness": 0.62,
+          "stiffness": 0.08
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "pluck_tone",
+      "mode": "low_pass",
+      "cutoff_hz": 9000.0,
+      "resonance": 0.16
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "pluck_space",
+      "pre_delay_seconds": 0.012,
+      "decay": 0.35,
+      "damping": 0.45,
+      "width": 0.8,
+      "mix": 0.18
+    },
+    {
+      "type": "limiter",
+      "id": "pluck_ceiling",
+      "ceiling_db": -1.0,
+      "release_ms": 80.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": null
+}

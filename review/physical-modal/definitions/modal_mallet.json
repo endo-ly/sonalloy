@@ -1,0 +1,81 @@
+{
+  "schema_version": 2,
+  "metadata": {
+    "name": "Modal Mallet",
+    "author": "Sonalloy",
+    "description": "Physical String and Modal synthesis review definition"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.4
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.01,
+            "brightness": 0.42,
+            "seed": 4301
+          },
+          "mode_count": 12,
+          "structure": 0.34,
+          "brightness": 0.58,
+          "decay": 0.62
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "eq",
+      "id": "mallet_body",
+      "low_frequency_hz": 180.0,
+      "low_gain_db": 3.0,
+      "mid_frequency_hz": 1100.0,
+      "mid_gain_db": -1.5,
+      "mid_q": 1.0,
+      "high_frequency_hz": 7000.0,
+      "high_gain_db": -2.0
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "mallet_space",
+      "pre_delay_seconds": 0.008,
+      "decay": 0.3,
+      "damping": 0.5,
+      "width": 0.85,
+      "mix": 0.16
+    },
+    {
+      "type": "limiter",
+      "id": "mallet_ceiling",
+      "ceiling_db": -1.0,
+      "release_ms": 80.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": null
+}

@@ -1,0 +1,135 @@
+{
+  "schema_version": 2,
+  "metadata": {
+    "name": "Imaginary Metal Body",
+    "author": "Sonalloy",
+    "description": "Physical String and Modal synthesis review definition"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "string",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -11.0,
+      "pan": -0.08,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.4
+      },
+      "generator": {
+        "physical_string": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.006,
+            "brightness": 0.8,
+            "seed": 4401
+          },
+          "decay_seconds": 2.2,
+          "brightness": 0.9,
+          "stiffness": 0.78
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": 0.08,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.4
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "impulse"
+          },
+          "mode_count": 24,
+          "structure": 0.78,
+          "brightness": 0.88,
+          "decay": 0.72
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "metal_tone",
+      "mode": "low_pass",
+      "cutoff_hz": 13000.0,
+      "resonance": 0.22
+    },
+    {
+      "type": "drive",
+      "id": "metal_edge",
+      "amount": 0.12,
+      "mix": 0.2
+    },
+    {
+      "type": "compressor",
+      "id": "metal_glue",
+      "threshold_db": -20.0,
+      "ratio": 2.5,
+      "attack_ms": 8.0,
+      "release_ms": 120.0,
+      "knee_db": 6.0,
+      "makeup_gain_db": 1.0,
+      "mix": 0.7
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "metal_width",
+      "delay_ms": 14.0,
+      "rate_hz": 0.22,
+      "depth": 0.35,
+      "feedback": 0.08,
+      "width": 0.75,
+      "mix": 0.16
+    },
+    {
+      "type": "reverb",
+      "id": "metal_space",
+      "pre_delay_seconds": 0.015,
+      "decay": 0.42,
+      "damping": 0.32,
+      "width": 0.95,
+      "mix": 0.2
+    },
+    {
+      "type": "limiter",
+      "id": "metal_ceiling",
+      "ceiling_db": -1.0,
+      "release_ms": 80.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": null
+}
