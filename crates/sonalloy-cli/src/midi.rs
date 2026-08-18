@@ -7,6 +7,11 @@ use sonalloy_core::{
     TempoMap,
 };
 
+use crate::midi_common::{
+    MOD_WHEEL_CONTROLLER, SUSTAIN_PEDAL_CONTROLLER, normalize_control, normalize_pitch_bend,
+    note_id,
+};
+
 /// MIDI events and duration prepared for the Core renderer.
 pub(crate) struct MidiRender {
     /// Absolute-frame events in Core order.
@@ -23,6 +28,7 @@ pub(crate) struct MidiRender {
 enum RawKind {
     NoteOn { channel: u8, note: u8, velocity: u8 },
     NoteOff { channel: u8, note: u8 },
+    SustainPedal { channel: u8, down: bool },
     PitchBend { channel: u8, value: i16 },
     ModWheel { channel: u8, value: u8 },
     Aftertouch { channel: u8, value: u8 },
@@ -48,16 +54,23 @@ struct ConvertedEvent {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum ControlKind {
+    SustainPedal,
     PitchBend,
     ModWheel,
     Aftertouch,
 }
 
 impl ControlKind {
-    const ALL: [Self; 3] = [Self::PitchBend, Self::ModWheel, Self::Aftertouch];
+    const ALL: [Self; 4] = [
+        Self::SustainPedal,
+        Self::PitchBend,
+        Self::ModWheel,
+        Self::Aftertouch,
+    ];
 
     const fn label(self) -> &'static str {
         match self {
+            Self::SustainPedal => "sustain pedal",
             Self::PitchBend => "pitch bend",
             Self::ModWheel => "mod wheel",
             Self::Aftertouch => "aftertouch",
@@ -156,7 +169,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                             });
                         }
                         MidiMessage::Controller { controller, value }
-                            if controller.as_int() == 1 =>
+                            if controller.as_int() == MOD_WHEEL_CONTROLLER =>
                         {
                             raw_events.push(RawEvent {
                                 tick,
@@ -179,14 +192,18 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                                 },
                             });
                         }
-                        MidiMessage::Controller { controller, .. } if controller.as_int() == 64 => {
-                            diagnostics.push(
-                                Diagnostic::warning(
-                                    DiagnosticCode::MidiError,
-                                    "sustain pedal event is not supported and was ignored",
-                                )
-                                .with_path(format!("track[{track_index}].event[{event_index}]")),
-                            );
+                        MidiMessage::Controller { controller, value }
+                            if controller.as_int() == SUSTAIN_PEDAL_CONTROLLER =>
+                        {
+                            raw_events.push(RawEvent {
+                                tick,
+                                track: track_index,
+                                index: event_index,
+                                kind: RawKind::SustainPedal {
+                                    channel,
+                                    down: value.as_int() >= 64,
+                                },
+                            });
                         }
                         MidiMessage::Aftertouch { .. } => {
                             diagnostics.push(
@@ -291,8 +308,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             } => {
                 let key = (channel, note);
                 let serial = serials.entry(key).or_default();
-                let note_id =
-                    (u64::from(channel) << 56) | (u64::from(note) << 48) | u64::from(*serial);
+                let note_id = note_id(channel, note, *serial);
                 *serial = serial.checked_add(1).ok_or_else(|| {
                     vec![Diagnostic::error(
                         DiagnosticCode::MidiError,
@@ -341,8 +357,17 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                     });
                 }
             }
+            RawKind::SustainPedal { channel, down } => {
+                converted.push(ConvertedEvent {
+                    frame,
+                    track: raw.track,
+                    index: raw.index,
+                    channel,
+                    kind: ProcessEventKind::SustainPedal { down },
+                });
+            }
             RawKind::PitchBend { channel, value } => {
-                let normalized = pitch_bend_value(value);
+                let normalized = normalize_pitch_bend(value);
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
@@ -352,7 +377,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                 });
             }
             RawKind::ModWheel { channel, value } => {
-                let normalized = f32::from(value) / 127.0;
+                let normalized = normalize_control(value);
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
@@ -362,7 +387,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                 });
             }
             RawKind::Aftertouch { channel, value } => {
-                let normalized = f32::from(value) / 127.0;
+                let normalized = normalize_control(value);
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
@@ -447,14 +472,6 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
     })
 }
 
-fn pitch_bend_value(value: i16) -> f32 {
-    if value < 0 {
-        f32::from(value) / 8192.0
-    } else {
-        f32::from(value) / 8191.0
-    }
-}
-
 fn control_warning_needed(kind: ControlKind, events: &[ConvertedEvent]) -> bool {
     let mut active_notes = [0_u32; 16];
     let mut channel_values = [0.0_f32; 16];
@@ -472,6 +489,11 @@ fn control_warning_needed(kind: ControlKind, events: &[ConvertedEvent]) -> bool 
                 }
                 ProcessEventKind::NoteOn { .. } => {
                     active_notes[channel] = active_notes[channel].saturating_add(1);
+                }
+                ProcessEventKind::SustainPedal { down } if kind == ControlKind::SustainPedal => {
+                    let value = if down { 1.0 } else { 0.0 };
+                    channel_values[channel] = value;
+                    merged_value = value;
                 }
                 ProcessEventKind::PitchBend { value } if kind == ControlKind::PitchBend => {
                     channel_values[channel] = value;
@@ -659,10 +681,10 @@ mod tests {
 
     #[test]
     fn pitch_bend_conversion_uses_the_asymmetric_midi_center() {
-        assert!((pitch_bend_value(-8192) + 1.0).abs() < f32::EPSILON);
-        assert!(pitch_bend_value(0).abs() < f32::EPSILON);
-        assert!((pitch_bend_value(8191) - 1.0).abs() < f32::EPSILON);
-        assert!((-1.0..=1.0).contains(&pitch_bend_value(4096)));
+        assert!((normalize_pitch_bend(-8192) + 1.0).abs() < f32::EPSILON);
+        assert!(normalize_pitch_bend(0).abs() < f32::EPSILON);
+        assert!((normalize_pitch_bend(8191) - 1.0).abs() < f32::EPSILON);
+        assert!((-1.0..=1.0).contains(&normalize_pitch_bend(4096)));
     }
 
     #[test]
@@ -678,10 +700,10 @@ mod tests {
             ProcessEventKind::PitchBend { value: 0.5 },
         ];
         events.sort_by_key(|event| event.priority());
-        assert_eq!(events[0].priority(), 0);
-        assert_eq!(events[1].priority(), 2);
-        assert_eq!(events[2].priority(), 4);
-        assert_eq!(events[3].priority(), 5);
+        assert_eq!(events[0].priority(), 1);
+        assert_eq!(events[1].priority(), 3);
+        assert_eq!(events[2].priority(), 5);
+        assert_eq!(events[3].priority(), 6);
     }
 
     #[test]
