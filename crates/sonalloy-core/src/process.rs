@@ -94,6 +94,11 @@ pub enum ProcessEventKind {
         /// Frontend-assigned note identity.
         note_id: NoteId,
     },
+    /// Hold released notes until the sustain pedal is lifted.
+    SustainPedal {
+        /// Whether the pedal is currently held down.
+        down: bool,
+    },
     /// Change a continuous parameter's normalized base value.
     ParameterChange {
         /// Compiled parameter handle resolved by control code.
@@ -123,12 +128,13 @@ impl ProcessEventKind {
     #[must_use]
     pub const fn priority(self) -> u8 {
         match self {
-            Self::NoteOff { .. } => 0,
-            Self::ParameterChange { .. } => 1,
-            Self::PitchBend { .. } => 2,
-            Self::ModWheel { .. } => 3,
-            Self::Aftertouch { .. } => 4,
-            Self::NoteOn { .. } => 5,
+            Self::SustainPedal { .. } => 0,
+            Self::NoteOff { .. } => 1,
+            Self::ParameterChange { .. } => 2,
+            Self::PitchBend { .. } => 3,
+            Self::ModWheel { .. } => 4,
+            Self::Aftertouch { .. } => 5,
+            Self::NoteOn { .. } => 6,
         }
     }
 
@@ -144,7 +150,7 @@ impl ProcessEventKind {
                 }
                 return Ok(());
             }
-            Self::NoteOff { .. } => return Ok(()),
+            Self::NoteOff { .. } | Self::SustainPedal { .. } => return Ok(()),
             Self::ParameterChange { normalized, .. } => (normalized, 0.0, 1.0),
             Self::PitchBend { value } => (value, -1.0, 1.0),
             Self::ModWheel { value } | Self::Aftertouch { value } => (value, 0.0, 1.0),
@@ -694,6 +700,10 @@ mod tests {
             },
             ProcessEvent {
                 sample_offset: 4,
+                kind: ProcessEventKind::SustainPedal { down: true },
+            },
+            ProcessEvent {
+                sample_offset: 4,
                 kind: ProcessEventKind::NoteOff { note_id: 7 },
             },
         ];
@@ -712,6 +722,10 @@ mod tests {
         );
 
         let valid_events = [
+            ProcessEvent {
+                sample_offset: 4,
+                kind: ProcessEventKind::SustainPedal { down: true },
+            },
             ProcessEvent {
                 sample_offset: 4,
                 kind: ProcessEventKind::NoteOff { note_id: 7 },

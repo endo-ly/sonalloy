@@ -149,6 +149,9 @@ pub enum DiagnosticCode {
     /// MIDI input or conversion failure.
     #[serde(rename = "MIDI_ERROR")]
     MidiError,
+    /// Audio device enumeration, configuration, or stream setup failure.
+    #[serde(rename = "AUDIO_DEVICE_ERROR")]
+    AudioDeviceError,
     /// A Sample playback combination is not supported.
     #[serde(rename = "UNSUPPORTED_PLAYBACK_COMBINATION")]
     UnsupportedPlaybackCombination,
@@ -281,5 +284,16 @@ mod tests {
             ProcessError::StretchRatioOutOfRange { ratio: 2.5 },
         ));
         assert_eq!(render.code, DiagnosticCode::InvalidStretchRatio);
+    }
+
+    #[test]
+    fn audio_device_errors_use_the_stable_serialized_code() {
+        let value = serde_json::to_value(DiagnosticCode::AudioDeviceError)
+            .expect("audio device code serializes");
+
+        assert_eq!(
+            value,
+            serde_json::Value::String("AUDIO_DEVICE_ERROR".to_owned())
+        );
     }
 }

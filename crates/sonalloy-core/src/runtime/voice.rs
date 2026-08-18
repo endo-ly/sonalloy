@@ -39,6 +39,13 @@ pub(crate) struct NoteRequest {
     pub(crate) started_at_frame: u64,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct PendingNote {
+    request: NoteRequest,
+    key_down: bool,
+    sustain_held: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PreparedLayerSelection {
     Inactive,
@@ -274,6 +281,8 @@ pub(crate) struct VoiceRuntime {
     note_number: u8,
     velocity: u8,
     started_at_frame: u64,
+    key_down: bool,
+    sustain_held: bool,
     estimated_level: f32,
     layers: Vec<LayerRuntime>,
     processors: StereoProcessorChain,
@@ -282,7 +291,7 @@ pub(crate) struct VoiceRuntime {
     source_definitions: Vec<CompiledVoiceSource>,
     source_used: Vec<bool>,
     targets: VoiceTargetScratch,
-    pending: Option<NoteRequest>,
+    pending: Option<PendingNote>,
     pending_layer_selection: Vec<PreparedLayerSelection>,
     steal_fade_total: usize,
     steal_fade_remaining: usize,
@@ -337,6 +346,8 @@ impl VoiceRuntime {
             note_number: 0,
             velocity: 0,
             started_at_frame: 0,
+            key_down: false,
+            sustain_held: false,
             estimated_level: 0.0,
             layers,
             processors,
@@ -413,7 +424,11 @@ impl VoiceRuntime {
         }
         self.pending_layer_selection
             .copy_from_slice(layer_selection);
-        self.pending = Some(request);
+        self.pending = Some(PendingNote {
+            request,
+            key_down: true,
+            sustain_held: false,
+        });
         self.state = VoiceState::StealFading;
         self.steal_fade_total = fade_frames;
         self.steal_fade_remaining = fade_frames;
@@ -427,39 +442,78 @@ impl VoiceRuntime {
         &mut self,
         compiled: &CompiledInstrument,
         note_id: NoteId,
+        sustain_down: bool,
     ) -> Result<(), ProcessError> {
-        if self
+        if let Some(pending) = self
             .pending
-            .as_ref()
-            .is_some_and(|pending| pending.note_id == note_id)
+            .as_mut()
+            .filter(|pending| pending.request.note_id == note_id)
         {
-            self.pending = None;
+            if sustain_down {
+                pending.key_down = false;
+                pending.sustain_held = true;
+            } else {
+                self.pending = None;
+            }
         }
         if self.note_id != Some(note_id) {
             return Ok(());
         }
         if matches!(self.state, VoiceState::Active) {
-            let note = NoteRequest::new(
-                note_id,
-                self.note_number,
-                self.velocity,
-                self.started_at_frame,
-            );
-            for (index, layer) in self.layers.iter_mut().enumerate() {
-                if layer.active {
-                    layer.note_off();
-                } else if layer.armed {
-                    let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
-                    layer.start_armed(note, compiled_layer)?;
-                }
+            if sustain_down {
+                self.key_down = false;
+                self.sustain_held = true;
+                return Ok(());
             }
-            for state in &mut self.source_states {
-                if let VoiceSourceRuntime::Envelope(envelope) = state {
-                    envelope.note_off();
-                }
-            }
-            self.state = VoiceState::Releasing;
+            self.begin_release(compiled)?;
         }
+        Ok(())
+    }
+
+    pub(crate) fn release_sustain(
+        &mut self,
+        compiled: &CompiledInstrument,
+    ) -> Result<(), ProcessError> {
+        if self
+            .pending
+            .as_ref()
+            .is_some_and(|pending| !pending.key_down && pending.sustain_held)
+        {
+            self.pending = None;
+        }
+        if self.state == VoiceState::Active && !self.key_down && self.sustain_held {
+            self.begin_release(compiled)?;
+        }
+        Ok(())
+    }
+
+    fn begin_release(&mut self, compiled: &CompiledInstrument) -> Result<(), ProcessError> {
+        if !matches!(self.state, VoiceState::Active) {
+            return Ok(());
+        }
+        let note_id = self.note_id.ok_or_else(invalid_state)?;
+        let note = NoteRequest::new(
+            note_id,
+            self.note_number,
+            self.velocity,
+            self.started_at_frame,
+        );
+        for (index, layer) in self.layers.iter_mut().enumerate() {
+            if layer.active {
+                layer.note_off();
+            } else if layer.armed {
+                let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
+                layer.start_armed(note, compiled_layer)?;
+            }
+        }
+        for state in &mut self.source_states {
+            if let VoiceSourceRuntime::Envelope(envelope) = state {
+                envelope.note_off();
+            }
+        }
+        self.key_down = false;
+        self.sustain_held = false;
+        self.state = VoiceState::Releasing;
         Ok(())
     }
 
@@ -596,7 +650,7 @@ impl VoiceRuntime {
         layer_selection: &[PreparedLayerSelection],
     ) -> Result<(), ProcessError> {
         self.reset_note_state()?;
-        self.activate_note(compiled, request, layer_selection)
+        self.activate_note(compiled, request, layer_selection, true, false)
     }
 
     fn activate_note(
@@ -604,6 +658,8 @@ impl VoiceRuntime {
         compiled: &CompiledInstrument,
         note: NoteRequest,
         layer_selection: &[PreparedLayerSelection],
+        key_down: bool,
+        sustain_held: bool,
     ) -> Result<(), ProcessError> {
         if layer_selection.len() != self.layers.len() {
             return Err(invalid_state());
@@ -612,6 +668,8 @@ impl VoiceRuntime {
         self.note_number = note.note_number;
         self.velocity = note.velocity;
         self.started_at_frame = note.started_at_frame;
+        self.key_down = key_down;
+        self.sustain_held = sustain_held;
         for (index, (layer, selection)) in self.layers.iter_mut().zip(layer_selection).enumerate() {
             let compiled_layer = compiled.layers.get(index).ok_or_else(invalid_state)?;
             match selection {
@@ -638,8 +696,8 @@ impl VoiceRuntime {
         self.state = VoiceState::Idle;
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
-        if let Some(request) = pending {
-            self.activate_pending_note(compiled, request)?;
+        if let Some(pending) = pending {
+            self.activate_pending_note(compiled, pending)?;
         } else {
             self.reset_to_idle()?;
         }
@@ -649,12 +707,18 @@ impl VoiceRuntime {
     fn activate_pending_note(
         &mut self,
         compiled: &CompiledInstrument,
-        request: NoteRequest,
+        pending: PendingNote,
     ) -> Result<(), ProcessError> {
         let pending_layer_selection = std::mem::take(&mut self.pending_layer_selection);
         let result = (|| {
             self.reset_note_state()?;
-            self.activate_note(compiled, request, &pending_layer_selection)
+            self.activate_note(
+                compiled,
+                pending.request,
+                &pending_layer_selection,
+                pending.key_down,
+                pending.sustain_held,
+            )
         })();
         self.pending_layer_selection = pending_layer_selection;
         result
@@ -793,6 +857,8 @@ impl VoiceRuntime {
         self.note_id = None;
         self.note_number = 0;
         self.velocity = 0;
+        self.key_down = false;
+        self.sustain_held = false;
         self.estimated_level = 0.0;
         self.pending = None;
         self.steal_fade_total = 0;

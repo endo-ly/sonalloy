@@ -44,6 +44,7 @@ pub struct InstrumentRuntime {
     pitch_bend: Smoother,
     mod_wheel: Smoother,
     aftertouch: Smoother,
+    sustain_down: bool,
     global_processors: Option<StereoProcessorChain>,
     global_targets: Vec<ProcessorTargetSpan>,
     round_robin_counters: Vec<Vec<u64>>,
@@ -71,6 +72,7 @@ impl InstrumentRuntime {
             pitch_bend: Smoother::new(0.0),
             mod_wheel: Smoother::new(0.0),
             aftertouch: Smoother::new(0.0),
+            sustain_down: false,
             global_processors: None,
             global_targets: Vec::new(),
             round_robin_counters: Vec::new(),
@@ -347,7 +349,18 @@ impl InstrumentRuntime {
             }
             ProcessEventKind::NoteOff { note_id } => {
                 for voice in &mut self.voices {
-                    voice.release_note(&self.compiled, note_id)?;
+                    voice.release_note(&self.compiled, note_id, self.sustain_down)?;
+                }
+            }
+            ProcessEventKind::SustainPedal { down } => {
+                if self.sustain_down == down {
+                    return Ok(());
+                }
+                self.sustain_down = down;
+                if !down {
+                    for voice in &mut self.voices {
+                        voice.release_sustain(&self.compiled)?;
+                    }
                 }
             }
             ProcessEventKind::ParameterChange {
@@ -808,6 +821,7 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.pitch_bend.reset(0.0);
         self.mod_wheel.reset(0.0);
         self.aftertouch.reset(0.0);
+        self.sustain_down = false;
         self.global_processors = None;
         self.global_targets.clear();
         self.round_robin_counters.clear();
@@ -1048,6 +1062,7 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.pitch_bend.reset(0.0);
         self.mod_wheel.reset(0.0);
         self.aftertouch.reset(0.0);
+        self.sustain_down = false;
         self.scratch.layer_mono.fill(0.0);
         self.scratch.layer_left.fill(0.0);
         self.scratch.layer_right.fill(0.0);
@@ -1276,6 +1291,155 @@ mod tests {
     }
 
     #[test]
+    fn sustain_defers_release_until_the_pedal_is_lifted() {
+        let mut runtime = runtime();
+        prepare(&mut runtime);
+        let note_on = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &note_on);
+
+        let sustain_and_note_off = [
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::SustainPedal { down: true },
+            },
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ];
+        let _ = process(&mut runtime, 64, 64, &sustain_and_note_off);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+
+        let pedal_up = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::SustainPedal { down: false },
+        }];
+        let _ = process(&mut runtime, 64, 128, &pedal_up);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
+    }
+
+    #[test]
+    fn sustain_does_not_release_a_key_that_is_still_down() {
+        let mut runtime = runtime();
+        prepare(&mut runtime);
+        let note_on = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &note_on);
+        let pedal_down = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::SustainPedal { down: true },
+        }];
+        let _ = process(&mut runtime, 64, 64, &pedal_down);
+        let pedal_up = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::SustainPedal { down: false },
+        }];
+        let _ = process(&mut runtime, 64, 128, &pedal_up);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+
+        let note_off = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        }];
+        let _ = process(&mut runtime, 64, 192, &note_off);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
+    }
+
+    #[test]
+    fn repeated_sustain_state_changes_are_idempotent() {
+        let mut runtime = runtime();
+        prepare(&mut runtime);
+        let note_on = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &note_on);
+        let repeated_down = [
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::SustainPedal { down: true },
+            },
+            ProcessEvent {
+                sample_offset: 1,
+                kind: ProcessEventKind::SustainPedal { down: true },
+            },
+            ProcessEvent {
+                sample_offset: 2,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ];
+        let _ = process(&mut runtime, 64, 64, &repeated_down);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+
+        let repeated_up = [
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::SustainPedal { down: false },
+            },
+            ProcessEvent {
+                sample_offset: 1,
+                kind: ProcessEventKind::SustainPedal { down: false },
+            },
+        ];
+        let _ = process(&mut runtime, 64, 128, &repeated_up);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
+    }
+
+    #[test]
+    fn reset_clears_sustain_state() {
+        let mut runtime = runtime();
+        prepare(&mut runtime);
+        let note_on = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let _ = process(&mut runtime, 64, 0, &note_on);
+        let held_note = [
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::SustainPedal { down: true },
+            },
+            ProcessEvent {
+                sample_offset: 1,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ];
+        let _ = process(&mut runtime, 64, 64, &held_note);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+
+        runtime.reset().expect("reset");
+        let _ = process(&mut runtime, 64, 0, &note_on);
+        let note_off = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        }];
+        let _ = process(&mut runtime, 64, 64, &note_off);
+
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
+    }
+
+    #[test]
     fn note_on_reuses_prepared_layer_selection_storage() {
         let mut source = definition();
         source.performance.polyphony = 1;
@@ -1317,14 +1481,28 @@ mod tests {
         source.performance.polyphony = 1;
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
-        let event = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 100,
+        let event = [
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
             },
-        }];
+            ProcessEvent {
+                sample_offset: 1,
+                kind: ProcessEventKind::SustainPedal { down: true },
+            },
+            ProcessEvent {
+                sample_offset: 2,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+            ProcessEvent {
+                sample_offset: 3,
+                kind: ProcessEventKind::SustainPedal { down: false },
+            },
+        ];
 
         let _ = process(&mut runtime, 64, 0, &event);
         runtime.reset().expect("reset");
@@ -2355,6 +2533,65 @@ mod tests {
         let _ = process(&mut runtime, 64, 192, &empty);
         let _ = process(&mut runtime, 64, 256, &empty);
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
+    }
+
+    #[test]
+    fn pending_note_off_is_held_by_sustain_until_steal_completes() {
+        let mut source = definition();
+        source.performance.polyphony = 1;
+        source.layers[0].envelope.attack_seconds = 0.0;
+        source.layers[0].envelope.decay_seconds = 0.0;
+        source.layers[0].envelope.sustain_level = 1.0;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let _ = process(
+            &mut runtime,
+            64,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        let _ = process(
+            &mut runtime,
+            64,
+            64,
+            &[
+                ProcessEvent {
+                    sample_offset: 0,
+                    kind: ProcessEventKind::NoteOn {
+                        note_id: 2,
+                        note_number: 64,
+                        velocity: 127,
+                    },
+                },
+                ProcessEvent {
+                    sample_offset: 1,
+                    kind: ProcessEventKind::SustainPedal { down: true },
+                },
+                ProcessEvent {
+                    sample_offset: 2,
+                    kind: ProcessEventKind::NoteOff { note_id: 2 },
+                },
+            ],
+        );
+        let empty: [ProcessEvent; 0] = [];
+        let _ = process(&mut runtime, 64, 128, &empty);
+        let _ = process(&mut runtime, 64, 192, &empty);
+        let _ = process(&mut runtime, 64, 256, &empty);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+
+        let pedal_up = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::SustainPedal { down: false },
+        }];
+        let _ = process(&mut runtime, 64, 320, &pedal_up);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
     }
 
     #[test]
