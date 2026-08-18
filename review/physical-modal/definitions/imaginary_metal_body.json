@@ -131,5 +131,18 @@
       "input_gain_db": 0.0
     }
   ],
-  "modulation": null
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "mod_wheel",
+        "target": "layer.body.generator.modal_decay",
+        "depth": {
+          "value": 0.35,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
 }

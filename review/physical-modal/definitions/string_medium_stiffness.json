@@ -1,0 +1,51 @@
+{
+  "schema_version": 2,
+  "metadata": {
+    "name": "Physical String Medium Stiffness",
+    "author": "Sonalloy",
+    "description": "Physical String and Modal synthesis review definition"
+  },
+  "performance": {
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "string",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.4
+      },
+      "generator": {
+        "physical_string": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.006,
+            "brightness": 0.8,
+            "seed": 4010
+          },
+          "decay_seconds": 2.4,
+          "brightness": 0.65,
+          "stiffness": 0.5
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": null
+}

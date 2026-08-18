@@ -11,7 +11,7 @@
 
 ## 生成物
 
-`definitions/`にTechnical Definitionと3つのMusical Definition、`validation/`に全DefinitionのCLI Validate JSON、`inspect/`に3つのMusical DefinitionのInspect JSON、`audio/technical/`と`audio/musical/`に同じ生出力を保存しています。`metrics.json`はCLIの`--analyze --json`を基礎にFinite性、Level、DC、Continuity、Spectrum、Block Size、Sample Rate、Fresh Runtime、SHA-256、Performanceを記録し、Stiffness 0のPhysical Stringは時間領域の自己相関でPitch Errorを20 cents以内へ検証します。FFTのNearest Bin値は分解能の参考値として併記します。
+`definitions/`にTechnical Definitionと3つのMusical Definition、`validation/`に全DefinitionのCLI Validate JSON、`inspect/`に3つのMusical DefinitionのInspect JSON、`audio/technical/`と`audio/musical/`に同じ生出力、`trace/`にParameter Traceを保存しています。`metrics.json`はCLIの`--analyze --json`を基礎にFinite性、Level、DC、Continuity、Spectrum、Block Size、Sample Rate、Fresh Runtime、Reset、SHA-256、Performanceを記録し、Physical StringはStiffness 0 / 0.5 / 1の時間領域自己相関でPitch Errorを20 cents以内へ検証します。Dynamic ParameterのBlock Size比較、Trace Final Value、同一Prepared RuntimeのReset再現性、Fresh Runtimeとの一致も記録します。FFTのNearest Bin値は分解能の参考値として併記します。
 
 再生成：
 
@@ -31,11 +31,11 @@ Parameter Changeを含むHybridの出力は`audio/musical/imaginary_metal_body-p
 
 ## Technical Definition
 
-String：Impulse、Noise BurstのSoft / Bright、Short / Long Decay、Loop Brightness、Low / High Stiffnessを含みます。Modal：4 / 8 / 12 / 16 / 20 / 24 Mode、Harmonic / Stretched Structure、Dark / Bright、Short / Long Decay、Impulse / Noise Burstを含みます。
+String：Impulse、Noise BurstのSoft / Bright、Short / Long Decay、Loop Brightness、Low / Medium / High Stiffnessを含みます。Modal：4 / 8 / 12 / 16 / 20 / 24 Mode、Harmonic / Stretched Structure、Dark / Bright、Short / Long Decay、Impulse / Noise Burstを含みます。
 
 ## 人間の試聴欄
 
-- [ ] StringのPitchがNote間で安定し、Stiffness 0でHarmonic寄りに聞こえる
+- [ ] StringのPitchがNote間で安定し、Stiffness 0 / 0.5 / 1で基音が保たれる
 - [ ] StringのShort / Long Decayが単なる音量差ではなくTailの長さとして聞こえる
 - [ ] StringのLoop Brightnessで高域Lossが変化する
 - [ ] StringのStiffnessを上げると高次成分が硬く、Metallic方向へ変化する
@@ -47,6 +47,10 @@ String：Impulse、Noise BurstのSoft / Bright、Short / Long Decay、Loop Brigh
 - [ ] `modal_mallet`が木質・棒状のBody方向として成立する
 - [ ] `imaginary_metal_body`が既存Processorと混ぜても破綻しない架空音色として成立する
 - [ ] Block SizeやSample Rateを変えてClick・Timing差・大きな音色破綻がない
+- [ ] `audio/musical/imaginary_metal_body-parameter-sweep.wav`でParameter Changeが連続的に聞こえる
+- [ ] `trace/parameter-sweep.json`のFinal Valueが演奏中のParameter変化を反映している
+- [ ] `metrics.json`のReset比較が同一Prepared RuntimeとFresh Runtimeの両方で一致している
+- [ ] `metrics.json`のPhysical / Modal Performance測定結果を実行環境の基準として確認した
 
 ### 人間の回答
 

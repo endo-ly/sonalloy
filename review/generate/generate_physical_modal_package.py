@@ -30,6 +30,7 @@ REVIEW_ROOT = ROOT / "review" / "physical-modal"
 DEFINITION_DIR = REVIEW_ROOT / "definitions"
 VALIDATION_DIR = REVIEW_ROOT / "validation"
 INSPECT_DIR = REVIEW_ROOT / "inspect"
+TRACE_DIR = REVIEW_ROOT / "trace"
 TECHNICAL_DIR = REVIEW_ROOT / "audio" / "technical"
 MUSICAL_DIR = REVIEW_ROOT / "audio" / "musical"
 EVENT_DIR = REVIEW_ROOT / "events"
@@ -41,7 +42,13 @@ MUSICAL_NOTES = {
 }
 BLOCK_SIZE_MAX_DIFFERENCE = 1.0e-4
 PITCH_ACCURACY_LIMIT_CENTS = 20.0
-PITCH_ACCURACY_DEFINITIONS = {"string_impulse", "string_low_stiffness", "physical_pluck"}
+PITCH_ACCURACY_DEFINITIONS = {
+    "string_impulse",
+    "string_low_stiffness",
+    "string_medium_stiffness",
+    "string_high_stiffness",
+    "physical_pluck",
+}
 PITCH_ACCURACY_FILENAMES = {f"{name}.wav" for name in PITCH_ACCURACY_DEFINITIONS}
 
 
@@ -84,6 +91,7 @@ def instrument(
     *,
     voice_processors: list[dict[str, object]] | None = None,
     global_processors: list[dict[str, object]] | None = None,
+    modulation: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
         "schema_version": 2,
@@ -99,7 +107,7 @@ def instrument(
         "layers": layers,
         "voice_processors": voice_processors or [],
         "global_processors": global_processors or [],
-        "modulation": None,
+        "modulation": modulation,
     }
 
 
@@ -254,6 +262,10 @@ def definitions() -> dict[str, dict[str, object]]:
         "Physical String Low Stiffness",
         [layer("string", physical_string(stiffness=0.0, seed=4008))],
     )
+    values["string_medium_stiffness"] = instrument(
+        "Physical String Medium Stiffness",
+        [layer("string", physical_string(stiffness=0.5, seed=4010))],
+    )
     values["string_high_stiffness"] = instrument(
         "Physical String High Stiffness",
         [layer("string", physical_string(stiffness=1.0, seed=4009))],
@@ -364,12 +376,123 @@ def definitions() -> dict[str, dict[str, object]]:
             processor("reverb", "metal_space", pre_delay_seconds=0.015, decay=0.42, damping=0.32, width=0.95, mix=0.2),
             processor("limiter", "metal_ceiling", ceiling_db=-1.0, release_ms=80.0, input_gain_db=0.0),
         ],
+        modulation={
+            "sources": [],
+            "routes": [
+                {
+                    "source": "mod_wheel",
+                    "target": "layer.body.generator.modal_decay",
+                    "depth": {"value": 0.35, "unit": "normalized"},
+                    "curve": "linear",
+                }
+            ],
+        },
     )
     return values
 
 
+def performance_events(voice_count: int, note_off_frame: int = 24_000) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    for index in range(voice_count):
+        events.append(
+            {
+                "absolute_frame": index * 32,
+                "type": "note_on",
+                "note_id": index + 1,
+                "note": 48 + index % 24,
+                "velocity": 96 + index % 32,
+            }
+        )
+    for index in range(voice_count):
+        events.append(
+            {
+                "absolute_frame": note_off_frame,
+                "type": "note_off",
+                "note_id": index + 1,
+            }
+        )
+    return events
+
+
+def render_events_with_trace(
+    definition: Path,
+    events: Path,
+    output: Path,
+    duration_frames: int,
+    parameters: list[str],
+) -> dict[str, object]:
+    arguments = [
+        "render",
+        "events",
+        str(definition),
+        str(events),
+        "--duration-frames",
+        str(duration_frames),
+        "--sample-rate",
+        str(SAMPLE_RATE),
+        "--block-size",
+        str(BASE_BLOCK_SIZE),
+        "--tail",
+        "0",
+        "--output",
+        str(output),
+        "--json",
+        "--trace-every-frames",
+        "256",
+    ]
+    for parameter in parameters:
+        arguments.extend(("--trace", parameter))
+    report = json.loads(run_cli(arguments))
+    trace = report.get("trace")
+    if not isinstance(trace, dict):
+        raise RuntimeError(f"trace report missing from render: {report}")
+    return trace
+
+
+def render_events_with_reset_check(
+    definition: Path,
+    events: Path,
+    output: Path,
+    duration_frames: int,
+) -> dict[str, object]:
+    report = json.loads(
+        run_cli(
+            [
+                "render",
+                "events",
+                str(definition),
+                str(events),
+                "--duration-frames",
+                str(duration_frames),
+                "--sample-rate",
+                str(SAMPLE_RATE),
+                "--block-size",
+                str(BASE_BLOCK_SIZE),
+                "--tail",
+                "0",
+                "--output",
+                str(output),
+                "--reset-check",
+                "--json",
+            ]
+        )
+    )
+    comparison = report.get("reset_comparison")
+    if not isinstance(comparison, dict):
+        raise RuntimeError(f"reset comparison missing from render: {report}")
+    return comparison
+
+
 def main() -> None:
-    for directory in (DEFINITION_DIR, VALIDATION_DIR, INSPECT_DIR, TECHNICAL_DIR, MUSICAL_DIR, EVENT_DIR):
+    for directory in (
+        DEFINITION_DIR,
+        VALIDATION_DIR,
+        INSPECT_DIR,
+        TRACE_DIR,
+        TECHNICAL_DIR,
+        MUSICAL_DIR,
+        EVENT_DIR,
+    ):
         directory.mkdir(parents=True, exist_ok=True)
 
     definition_values = definitions()
@@ -398,6 +521,7 @@ def main() -> None:
             {"absolute_frame": 12_000, "type": "parameter_change", "parameter": "layer.string.generator.physical_string_stiffness", "native_value": 0.9},
             {"absolute_frame": 16_000, "type": "parameter_change", "parameter": "layer.body.generator.modal_structure", "native_value": 0.35},
             {"absolute_frame": 20_000, "type": "parameter_change", "parameter": "layer.body.generator.modal_decay", "native_value": 0.85},
+            {"absolute_frame": 24_000, "type": "mod_wheel", "value": 1.0},
             {"absolute_frame": 32_000, "type": "note_off", "note_id": 1},
         ],
     )
@@ -430,6 +554,34 @@ def main() -> None:
     render_events(definition_paths["imaginary_metal_body"], physical_event_path, sweep_path, BASE_BLOCK_SIZE, duration_frames=48_000)
     musical_paths["imaginary_metal_body-parameter-sweep"] = sweep_path
 
+    trace_parameters = [
+        "layer.string.generator.physical_string_brightness",
+        "layer.string.generator.physical_string_stiffness",
+        "layer.body.generator.modal_structure",
+        "layer.body.generator.modal_decay",
+    ]
+    trace = render_events_with_trace(
+        definition_paths["imaginary_metal_body"],
+        physical_event_path,
+        sweep_path,
+        duration_frames=48_000,
+        parameters=trace_parameters,
+    )
+    if len(trace.get("parameters", [])) != len(trace_parameters):
+        raise RuntimeError(f"unexpected trace parameter count: {trace}")
+    for parameter in trace["parameters"]:
+        observations = parameter.get("observations", [])
+        if not observations or any(
+            not isinstance(observation.get("final"), (int, float))
+            or not math.isfinite(float(observation["final"]))
+            for observation in observations
+        ):
+            raise RuntimeError(f"trace final values are incomplete: {parameter}")
+    write_utf8(
+        TRACE_DIR / "parameter-sweep.json",
+        json.dumps(trace, ensure_ascii=False, indent=2) + "\n",
+    )
+
     all_audio = {**technical_paths, **musical_paths}
     technical_metrics: dict[str, object] = {}
     for name, path in sorted(all_audio.items()):
@@ -437,7 +589,7 @@ def main() -> None:
         technical_metrics[path.name] = measure(
             path,
             list(BLOCK_SIZES),
-            include_spectrum=name in {"string_impulse", "string_low_stiffness", "string_bright", "string_high_stiffness", "modal_4_modes", "modal_24_modes", "modal_stretched_structure", "physical_pluck", "modal_mallet", "imaginary_metal_body"},
+            include_spectrum=name in {"string_impulse", "string_low_stiffness", "string_medium_stiffness", "string_bright", "string_high_stiffness", "modal_4_modes", "modal_24_modes", "modal_stretched_structure", "physical_pluck", "modal_mallet", "imaginary_metal_body"},
             fundamental_frequency_hz=midi_note_frequency(note),
         )
         pitch_error = nearest_spectral_peak_error_cents(
@@ -473,8 +625,11 @@ def main() -> None:
         raise RuntimeError(f"pitch accuracy checks failed: {invalid_pitch}")
 
     block_size_comparisons: dict[str, object] = {}
+    parameter_change_block_size_comparisons: dict[str, object] = {}
     sample_rate_metrics: dict[str, object] = {}
     fresh_render_comparisons: dict[str, object] = {}
+    reset_comparisons: dict[str, object] = {}
+    performance_matrix: dict[str, object] = {}
     with tempfile.TemporaryDirectory(prefix="sonalloy-physical-modal-") as temporary:
         temporary_root = Path(temporary)
         for name in MUSICAL_NOTES:
@@ -519,6 +674,88 @@ def main() -> None:
                 "second_sha256": sha256_file(second),
             }
 
+            reset_events = temporary_root / f"{name}-reset-events.json"
+            write_events(
+                reset_events,
+                [
+                    {
+                        "absolute_frame": 0,
+                        "type": "note_on",
+                        "note_id": 1,
+                        "note": MUSICAL_NOTES[name],
+                        "velocity": 112,
+                    },
+                    {
+                        "absolute_frame": 7_200,
+                        "type": "note_off",
+                        "note_id": 1,
+                    },
+                ],
+            )
+            reset_output = temporary_root / f"{name}-reset.wav"
+            same_runtime_comparison = render_events_with_reset_check(
+                definition_path,
+                reset_events,
+                reset_output,
+                duration_frames=48_000,
+            )
+            fresh_output = temporary_root / f"{name}-fresh-events.wav"
+            render_events(
+                definition_path,
+                reset_events,
+                fresh_output,
+                BASE_BLOCK_SIZE,
+                duration_frames=48_000,
+            )
+            fresh_runtime_comparison = compare_wav(fresh_output, reset_output)
+            if (
+                not same_runtime_comparison.get("compatible")
+                or same_runtime_comparison.get("max_abs_difference") != 0.0
+                or not fresh_runtime_comparison.get("compatible")
+                or fresh_runtime_comparison.get("max_abs_difference") != 0.0
+            ):
+                raise RuntimeError(
+                    f"{name} reset is not reproducible: "
+                    f"same_runtime={same_runtime_comparison}, "
+                    f"fresh_runtime={fresh_runtime_comparison}"
+                )
+            reset_comparisons[name] = {
+                "same_runtime": same_runtime_comparison,
+                "fresh_runtime": fresh_runtime_comparison,
+                "reset_sha256": sha256_file(reset_output),
+                "fresh_sha256": sha256_file(fresh_output),
+            }
+
+        dynamic_reference = temporary_root / "parameter-change-block-257.wav"
+        render_events(
+            definition_paths["imaginary_metal_body"],
+            physical_event_path,
+            dynamic_reference,
+            BASE_BLOCK_SIZE,
+            duration_frames=48_000,
+        )
+        dynamic_comparisons: dict[str, object] = {}
+        for block_size in BLOCK_SIZES:
+            candidate = temporary_root / f"parameter-change-block-{block_size}.wav"
+            render_events(
+                definition_paths["imaginary_metal_body"],
+                physical_event_path,
+                candidate,
+                block_size,
+                duration_frames=48_000,
+            )
+            comparison = compare_wav(dynamic_reference, candidate)
+            if (
+                not comparison.get("compatible")
+                or float(comparison.get("max_abs_difference", 1.0)) > BLOCK_SIZE_MAX_DIFFERENCE
+                or float(comparison.get("rms_difference", 1.0)) > 1.0e-5
+            ):
+                raise RuntimeError(
+                    f"parameter-change block-size mismatch at {block_size}: {comparison}"
+                )
+            dynamic_comparisons[str(block_size)] = comparison
+        parameter_change_block_size_comparisons["imaginary_metal_body"] = dynamic_comparisons
+
         performance: dict[str, object] = {}
         for name in ("physical_pluck", "modal_mallet"):
             performance[name] = timed_render(
@@ -532,6 +769,44 @@ def main() -> None:
             if float(performance[name]["realtime_ratio"]) >= 1.0:
                 raise RuntimeError(f"{name} is slower than realtime: {performance[name]}")
 
+        performance_jobs = {
+            "physical_string": ("physical_pluck", (1, 8, 16, 32)),
+            "modal_12_modes": ("modal_mallet", (1, 8, 16)),
+            "modal_24_modes": ("modal_24_modes", (1, 8, 16)),
+        }
+        for matrix_name, (source_name, voice_counts) in performance_jobs.items():
+            voice_metrics: dict[str, object] = {}
+            for voice_count in voice_counts:
+                definition_path = temporary_root / f"{matrix_name}-{voice_count}-voices.json"
+                value = json.loads(json.dumps(definition_values[source_name]))
+                value["performance"]["polyphony"] = voice_count
+                write_definition(definition_path, value)
+                events_path = temporary_root / f"{matrix_name}-{voice_count}-voices-events.json"
+                write_events(events_path, performance_events(voice_count))
+                output_path = temporary_root / f"{matrix_name}-{voice_count}-voices.wav"
+                metrics = timed_render(
+                    definition_path,
+                    events_path,
+                    output_path,
+                    duration_frames=48_000,
+                    block_size=BASE_BLOCK_SIZE,
+                    release=True,
+                )
+                audio_metrics = measure(output_path, [], include_spectrum=False)
+                if not audio_metrics["finite"]:
+                    raise RuntimeError(
+                        f"{matrix_name} at {voice_count} voices is non-finite: {audio_metrics}"
+                    )
+                voice_metrics[str(voice_count)] = {
+                    **metrics,
+                    "finite": audio_metrics["finite"],
+                    "rms": audio_metrics["rms"],
+                }
+            performance_matrix[matrix_name] = {
+                "source_definition": source_name,
+                "voices": voice_metrics,
+            }
+
     metrics = {
         "sample_rate": SAMPLE_RATE,
         "base_block_size": BASE_BLOCK_SIZE,
@@ -540,9 +815,13 @@ def main() -> None:
         "validation": validation_reports,
         "technical": technical_metrics,
         "block_size_comparisons": block_size_comparisons,
+        "parameter_change_block_size_comparisons": parameter_change_block_size_comparisons,
         "sample_rate_metrics": sample_rate_metrics,
         "fresh_render_comparisons": fresh_render_comparisons,
+        "reset_comparisons": reset_comparisons,
         "performance": performance,
+        "performance_matrix": performance_matrix,
+        "trace": trace,
         "audio_sha256": {path.name: sha256_file(path) for path in all_audio.values()},
     }
     write_utf8(REVIEW_ROOT / "metrics.json", json.dumps(metrics, ensure_ascii=False, indent=2) + "\n")
@@ -560,7 +839,7 @@ def main() -> None:
 
 ## 生成物
 
-`definitions/`にTechnical Definitionと3つのMusical Definition、`validation/`に全DefinitionのCLI Validate JSON、`inspect/`に3つのMusical DefinitionのInspect JSON、`audio/technical/`と`audio/musical/`に同じ生出力を保存しています。`metrics.json`はCLIの`--analyze --json`を基礎にFinite性、Level、DC、Continuity、Spectrum、Block Size、Sample Rate、Fresh Runtime、SHA-256、Performanceを記録し、Stiffness 0のPhysical Stringは時間領域の自己相関でPitch Errorを20 cents以内へ検証します。FFTのNearest Bin値は分解能の参考値として併記します。
+`definitions/`にTechnical Definitionと3つのMusical Definition、`validation/`に全DefinitionのCLI Validate JSON、`inspect/`に3つのMusical DefinitionのInspect JSON、`audio/technical/`と`audio/musical/`に同じ生出力、`trace/`にParameter Traceを保存しています。`metrics.json`はCLIの`--analyze --json`を基礎にFinite性、Level、DC、Continuity、Spectrum、Block Size、Sample Rate、Fresh Runtime、Reset、SHA-256、Performanceを記録し、Physical StringはStiffness 0 / 0.5 / 1の時間領域自己相関でPitch Errorを20 cents以内へ検証します。Dynamic ParameterのBlock Size比較、Trace Final Value、同一Prepared RuntimeのReset再現性、Fresh Runtimeとの一致も記録します。FFTのNearest Bin値は分解能の参考値として併記します。
 
 再生成：
 
@@ -580,11 +859,11 @@ Parameter Changeを含むHybridの出力は`audio/musical/imaginary_metal_body-p
 
 ## Technical Definition
 
-String：Impulse、Noise BurstのSoft / Bright、Short / Long Decay、Loop Brightness、Low / High Stiffnessを含みます。Modal：4 / 8 / 12 / 16 / 20 / 24 Mode、Harmonic / Stretched Structure、Dark / Bright、Short / Long Decay、Impulse / Noise Burstを含みます。
+String：Impulse、Noise BurstのSoft / Bright、Short / Long Decay、Loop Brightness、Low / Medium / High Stiffnessを含みます。Modal：4 / 8 / 12 / 16 / 20 / 24 Mode、Harmonic / Stretched Structure、Dark / Bright、Short / Long Decay、Impulse / Noise Burstを含みます。
 
 ## 人間の試聴欄
 
-- [ ] StringのPitchがNote間で安定し、Stiffness 0でHarmonic寄りに聞こえる
+- [ ] StringのPitchがNote間で安定し、Stiffness 0 / 0.5 / 1で基音が保たれる
 - [ ] StringのShort / Long Decayが単なる音量差ではなくTailの長さとして聞こえる
 - [ ] StringのLoop Brightnessで高域Lossが変化する
 - [ ] StringのStiffnessを上げると高次成分が硬く、Metallic方向へ変化する
@@ -596,6 +875,10 @@ String：Impulse、Noise BurstのSoft / Bright、Short / Long Decay、Loop Brigh
 - [ ] `modal_mallet`が木質・棒状のBody方向として成立する
 - [ ] `imaginary_metal_body`が既存Processorと混ぜても破綻しない架空音色として成立する
 - [ ] Block SizeやSample Rateを変えてClick・Timing差・大きな音色破綻がない
+- [ ] `audio/musical/imaginary_metal_body-parameter-sweep.wav`でParameter Changeが連続的に聞こえる
+- [ ] `trace/parameter-sweep.json`のFinal Valueが演奏中のParameter変化を反映している
+- [ ] `metrics.json`のReset比較が同一Prepared RuntimeとFresh Runtimeの両方で一致している
+- [ ] `metrics.json`のPhysical / Modal Performance測定結果を実行環境の基準として確認した
 
 ### 人間の回答
 
