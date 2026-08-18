@@ -24,15 +24,16 @@ pub use compiler::{
     CompiledEqParameters, CompiledEqProcessor, CompiledFlangerProcessor, CompiledFormant,
     CompiledFormantBand, CompiledFormantParameters, CompiledFormantProfile, CompiledGranular,
     CompiledGranularParameters, CompiledInstrument, CompiledLimiterParameters,
-    CompiledLimiterProcessor, CompiledModulationDelayParameters, CompiledOperator,
-    CompiledOperatorModulation, CompiledOperatorParameters, CompiledOperatorTopology,
-    CompiledPhaserParameters, CompiledPhaserProcessor, CompiledResonatorParameters,
-    CompiledResonatorProcessor, CompiledSampleDirection, CompiledSampleLoop,
-    CompiledSamplePlayback, CompiledSampleTime, CompiledSpectral, CompiledSpectralParameters,
-    CompiledStretchLatency, CompiledWaveSequence, CompiledWaveSequenceDuration,
-    CompiledWaveSequenceStep, CompiledWaveSequenceStepPlayback, CompiledWavetable,
-    CompiledWavetableParameters, GeneratorOutputMode, PreparedWavetable, PreparedWavetableBand,
-    PreparedWavetableFrame, WavetableSourceMetadata, compile_instrument,
+    CompiledLimiterProcessor, CompiledModal, CompiledModalParameters,
+    CompiledModulationDelayParameters, CompiledOperator, CompiledOperatorModulation,
+    CompiledOperatorParameters, CompiledOperatorTopology, CompiledPhaserParameters,
+    CompiledPhaserProcessor, CompiledPhysicalExciter, CompiledPhysicalString,
+    CompiledPhysicalStringParameters, CompiledResonatorParameters, CompiledResonatorProcessor,
+    CompiledSampleDirection, CompiledSampleLoop, CompiledSamplePlayback, CompiledSampleTime,
+    CompiledSpectral, CompiledSpectralParameters, CompiledStretchLatency, CompiledWaveSequence,
+    CompiledWaveSequenceDuration, CompiledWaveSequenceStep, CompiledWaveSequenceStepPlayback,
+    CompiledWavetable, CompiledWavetableParameters, GeneratorOutputMode, PreparedWavetable,
+    PreparedWavetableBand, PreparedWavetableFrame, WavetableSourceMetadata, compile_instrument,
 };
 pub use definition::{
     AdditiveDefinition, AdditivePartialDefinition, AdsrDefinition, AssetReference,
@@ -42,10 +43,11 @@ pub use definition::{
     FlangerProcessorDefinition, FormantBandDefinition, FormantDefinition, FormantProfileDefinition,
     GeneratorDefinition, GranularDefinition, HardSyncDefinition, InstrumentDefinition,
     InstrumentMetadata, LayerDefinition, LayerTriggerDefinition, LayerTriggerEvent,
-    LimiterProcessorDefinition, ModulationDepthDefinition, NoiseColor, NoiseDefinition,
-    OperatorAlgorithm, OperatorDefinition, OperatorModulationDefinition, OperatorModulationMode,
-    OscillatorDefinition, OscillatorFeedbackDefinition, OscillatorWaveform, PerformanceDefinition,
-    PhaseDistortionDefinition, PhaserProcessorDefinition, ProcessorDefinition,
+    LimiterProcessorDefinition, ModalDefinition, ModulationDepthDefinition, NoiseColor,
+    NoiseDefinition, OperatorAlgorithm, OperatorDefinition, OperatorModulationDefinition,
+    OperatorModulationMode, OscillatorDefinition, OscillatorFeedbackDefinition, OscillatorWaveform,
+    PerformanceDefinition, PhaseDistortionDefinition, PhaserProcessorDefinition,
+    PhysicalExciterDefinition, PhysicalStringDefinition, ProcessorDefinition,
     ResonatorProcessorDefinition, ReverbProcessorDefinition, SampleDefinition, SampleInterpolation,
     SampleLoopDefinition, SamplePlaybackDirection, SampleRegionDefinition, SampleTimeDefinition,
     SampleZoneDefinition, SampleZonePlaybackDefinition, SpectralDefinition, UnisonDefinition,
@@ -70,8 +72,8 @@ pub use process::{
 };
 pub use render::{
     DEFAULT_TEMPO_BPM, RenderError, RenderRequest, RenderedAudio, TempoChange, TempoMap,
-    render_instrument, render_instrument_with_tempo, render_instrument_with_tempo_map,
-    render_instrument_with_trace, render_sine, seconds_to_frames,
+    render_instrument, render_instrument_with_reset, render_instrument_with_tempo,
+    render_instrument_with_tempo_map, render_instrument_with_trace, render_sine, seconds_to_frames,
 };
 pub use runtime::{InstrumentRuntime, SineRuntime, VoiceState};
 pub use spectral::PreparedSpectralAsset;

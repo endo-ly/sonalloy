@@ -11,6 +11,7 @@ typedef struct sonalloy_dsp_oscillator sonalloy_dsp_oscillator;
 typedef struct sonalloy_dsp_variable_oscillator sonalloy_dsp_variable_oscillator;
 typedef struct sonalloy_dsp_filter sonalloy_dsp_filter;
 typedef struct sonalloy_dsp_wavefolder sonalloy_dsp_wavefolder;
+typedef struct sonalloy_dsp_modal_resonator sonalloy_dsp_modal_resonator;
 
 enum sonalloy_dsp_result {
     SONALLOY_DSP_OK = 0,
@@ -178,6 +179,34 @@ int32_t sonalloy_dsp_wavefolder_process_ramp(
     float* buffer,
     uint32_t frames
 );
+
+sonalloy_dsp_modal_resonator* sonalloy_dsp_modal_resonator_create(void);
+void sonalloy_dsp_modal_resonator_destroy(sonalloy_dsp_modal_resonator* handle);
+int32_t sonalloy_dsp_modal_resonator_prepare(
+    sonalloy_dsp_modal_resonator* handle,
+    double sample_rate,
+    int32_t mode_count
+);
+int32_t sonalloy_dsp_modal_resonator_reset(sonalloy_dsp_modal_resonator* handle);
+int32_t sonalloy_dsp_modal_resonator_process_ramp(
+    sonalloy_dsp_modal_resonator* handle,
+    float start_frequency_hz,
+    float end_frequency_hz,
+    float start_structure,
+    float end_structure,
+    float start_brightness,
+    float end_brightness,
+    float start_decay,
+    float end_decay,
+    float* buffer,
+    uint32_t frames
+);
+
+#ifdef SONALLOY_DSP_TEST_HOOKS
+void sonalloy_dsp_test_arm_modal_process_exception(
+    sonalloy_dsp_modal_resonator* handle
+);
+#endif
 
 #ifdef __cplusplus
 }

@@ -51,8 +51,8 @@ GeneratorはネイティブDSPへの依存の有無で2系統に分かれます�
 
 | 分類 | Generator | 備考 |
 |---|---|---|
-| Core Rust専用 | Additive、Formant、Spectral | ネイティブDSPに依存しない |
-| ネイティブDSP利用 | Oscillator、Filter、Wavefold、Time Stretch | `sonalloy-dsp-sys`経由 |
+| Core Rust専用 | Additive、Formant、Spectral、Physical String | Physical Stringは共通Fractional DelayとDeterministic ExciterをRuntimeが所有 |
+| ネイティブDSP利用 | Oscillator、Filter、Wavefold、Modal、Time Stretch | Modalは`sonalloy-dsp-sys`経由のPinned DaisySP `Resonator`。他も同じNative境界を使う |
 
 Assetはコンパイル時に読み込み、デコード済みのPrepared Audioを`Arc`で共有します。Sample・Granular・Wave Sequence・SpectralはStereo Channelを保持し、WavetableだけMonoへDownmixします。コンパイル時・実行時の振る舞いの詳細は`docs/runtime-processing.md`を参照してください。
 
@@ -62,10 +62,10 @@ Assetはコンパイル時に読み込み、デコード済みのPrepared Audio�
 
 | 項目 | 内容 |
 |---|---|
-| DaisySP | V1.0.0（commit `a0494a3adb67f549e18dfd71a35fa656f65b38b6`）をCMakeでビルド・静的リンク。WavefolderはLGPL版でなくMIT版を選択 |
+| DaisySP | V1.0.0（commit `a0494a3adb67f549e18dfd71a35fa656f65b38b6`）をCMakeでビルド・静的リンク。Modalは`PhysicalModeling/resonator.cpp`だけを追加し、WavefolderはLGPL版でなくMIT版を選択 |
 | Time Stretch | 同梱のSignalsmith Stretch 1.3.2・Linear 0.3.1をC++17でビルド（ネットワークダウンロードなし） |
 | 公開範囲 | DaisySPのクラス名・列挙型はラッパー内に留め、DefinitionやCoreの公開APIへ露出しない。Waveform・Noise・Output Modeの所有はCore |
-| Wavefolder | 不透明ハンドルへ閉じ込め、Amount 0〜1だけ公開。LGPL版はビルド対象外 |
+| Wavefolder / Modal | 不透明ハンドルへ閉じ込め、WavefolderはAmount 0〜1、ModalはFrequency・Structure・Brightness・Decayの固定Ramp APIだけを公開。LGPL版はビルド対象外 |
 
 ## Native境界
 
@@ -80,7 +80,7 @@ Rust側はネイティブのC++ Objectを不透明ハンドルとして所有し
 | フェーズ | 所有・確保するもの |
 |---|---|
 | Compile | 変更不能な`CompiledInstrument`（Metadata、Performance、Enabled Layer、Processor Chain、Parameter Catalog、Source、Route、Asset Warning）。Parameter IDをDense Handleへ解決。`sonalloy-core`が所有 |
-| Prepare | `InstrumentRuntime`の状態。スクラッチバッファ、Time Stretch Backend、Grain Pool、Playback Slot、Partial Bank、Layer遅延補償バッファ、ネイティブハンドル、同時発音数分のVoiceを生成 |
+| Prepare | `InstrumentRuntime`の状態。スクラッチバッファ、Physical String Delay、Modal Resonator、Time Stretch Backend、Grain Pool、Playback Slot、Partial Bank、Layer遅延補償バッファ、ネイティブハンドル、同時発音数分のVoiceを生成 |
 | Process / Reset | 確保した状態を再利用。Resetは準備時と同じ初期状態を復元 |
 
 `CompiledInstrument`は変更不能で、Runtimeが持つ可変状態（Base Smoother、External Control、Voice Source、Generator Cursor、Processor State）は音源定義や`CompiledInstrument`へ書き戻しません。Voice StealingではLayer・Generator・Processor・Modulation Sourceを同じVoice Stateとして切り替えます。

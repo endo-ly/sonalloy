@@ -1,6 +1,6 @@
 use crate::process::{ProcessError, ProcessorFailureKind};
 
-use super::super::interpolation::cubic_interpolate;
+use super::interpolation::cubic_interpolate;
 
 pub(crate) struct FractionalDelayLine {
     buffer: Vec<f32>,

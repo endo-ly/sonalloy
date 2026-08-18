@@ -10,7 +10,7 @@ Sonalloyは次の外部ソフトウェアを直接利用します。各License�
 - Fixed Commit: `a0494a3adb67f549e18dfd71a35fa656f65b38b6`
 - Repository: <https://github.com/electro-smith/DaisySP>
 - License: MIT License
-- Usage: `Source/Synthesis/oscillator.cpp`によるBasic Oscillator、`Source/Synthesis/variableshapeosc.cpp`によるHard Sync Oscillator、`Source/Filters/svf.cpp`によるFilter Processor
+- Usage: `Source/Synthesis/oscillator.cpp`によるBasic Oscillator、`Source/Synthesis/variableshapeosc.cpp`によるHard Sync Oscillator、`Source/Filters/svf.cpp`によるFilter Processor、`Source/PhysicalModeling/resonator.cpp`によるModal Generator
 
 SonalloyではDaisySPのSourceを変更せず、Sonalloy固有のOpaque HandleとResult CodeをWrapper側へ実装しています。
 

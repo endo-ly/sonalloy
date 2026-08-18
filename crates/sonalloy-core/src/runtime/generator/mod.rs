@@ -1,10 +1,13 @@
 mod additive;
 mod formant;
 mod granular;
+mod modal;
 mod noise;
 mod operator;
 mod oscillator;
 pub(crate) mod partial_bank;
+mod physical_exciter;
+mod physical_string;
 mod spectral;
 mod wave_sequence;
 mod wavetable;
@@ -19,9 +22,11 @@ use super::sample::{SampleRuntime, playback_ratio};
 use additive::AdditiveRuntime;
 use formant::FormantRuntime;
 use granular::GranularRuntime;
+use modal::ModalRuntime;
 use noise::NoiseRuntime;
 use operator::OperatorModulationRuntime;
 use oscillator::OscillatorRuntime;
+use physical_string::PhysicalStringRuntime;
 use spectral::SpectralRuntime;
 use wave_sequence::WaveSequenceRuntime;
 use wavetable::WavetableRuntime;
@@ -90,6 +95,8 @@ pub(super) fn non_finite() -> ProcessError {
 pub(super) enum GeneratorRuntime {
     Oscillator(OscillatorRuntime),
     Noise(Box<NoiseRuntime>),
+    PhysicalString(Box<PhysicalStringRuntime>),
+    Modal(Box<ModalRuntime>),
     Additive(Box<AdditiveRuntime>),
     Formant(Box<FormantRuntime>),
     Sample { sample: SampleRuntime },
@@ -110,6 +117,12 @@ impl GeneratorRuntime {
                 Ok(Self::Oscillator(OscillatorRuntime::new(value, spec)?))
             }
             CompiledGenerator::Noise(value) => Ok(Self::Noise(Box::new(NoiseRuntime::new(value)))),
+            CompiledGenerator::PhysicalString(value) => Ok(Self::PhysicalString(Box::new(
+                PhysicalStringRuntime::new(value, spec)?,
+            ))),
+            CompiledGenerator::Modal(value) => {
+                Ok(Self::Modal(Box::new(ModalRuntime::new(value, spec)?)))
+            }
             CompiledGenerator::Additive(value) => {
                 Ok(Self::Additive(Box::new(AdditiveRuntime::new(value, spec)?)))
             }
@@ -149,6 +162,11 @@ impl GeneratorRuntime {
                 noise.start(note_id);
                 Ok(())
             }
+            Self::PhysicalString(string) => {
+                string.start(note_id);
+                Ok(())
+            }
+            Self::Modal(modal) => modal.start(note_id),
             Self::Additive(additive) => {
                 additive.start();
                 Ok(())
@@ -198,6 +216,8 @@ impl GeneratorRuntime {
             Self::Spectral(spectral) => spectral.intrinsic_latency_frames(),
             Self::Oscillator(_)
             | Self::Noise(_)
+            | Self::PhysicalString(_)
+            | Self::Modal(_)
             | Self::Additive(_)
             | Self::Formant(_)
             | Self::Granular(_)
@@ -249,6 +269,30 @@ impl GeneratorRuntime {
                     });
                 };
                 noise.render(frames, correlation, left, right)?;
+                Ok(false)
+            }
+            Self::PhysicalString(string) => {
+                string.render(
+                    frames,
+                    note_number,
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    targets,
+                    mono,
+                )?;
+                Ok(false)
+            }
+            Self::Modal(modal) => {
+                modal.render(
+                    frames,
+                    note_number,
+                    tuning_start,
+                    tuning_end,
+                    sample_rate,
+                    targets,
+                    mono,
+                )?;
                 Ok(false)
             }
             Self::Additive(additive) => {
@@ -453,6 +497,11 @@ impl GeneratorRuntime {
                 noise.reset();
                 Ok(())
             }
+            Self::PhysicalString(string) => {
+                string.reset();
+                Ok(())
+            }
+            Self::Modal(modal) => modal.reset(),
             Self::Additive(additive) => {
                 additive.reset();
                 Ok(())

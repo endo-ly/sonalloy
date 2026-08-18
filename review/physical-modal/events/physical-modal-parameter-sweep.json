@@ -1,0 +1,45 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 1,
+      "note": 48,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 8000,
+      "type": "parameter_change",
+      "parameter": "layer.string.generator.physical_string_brightness",
+      "native_value": 0.2
+    },
+    {
+      "absolute_frame": 12000,
+      "type": "parameter_change",
+      "parameter": "layer.string.generator.physical_string_stiffness",
+      "native_value": 0.9
+    },
+    {
+      "absolute_frame": 16000,
+      "type": "parameter_change",
+      "parameter": "layer.body.generator.modal_structure",
+      "native_value": 0.35
+    },
+    {
+      "absolute_frame": 20000,
+      "type": "parameter_change",
+      "parameter": "layer.body.generator.modal_decay",
+      "native_value": 0.85
+    },
+    {
+      "absolute_frame": 24000,
+      "type": "mod_wheel",
+      "value": 1.0
+    },
+    {
+      "absolute_frame": 32000,
+      "type": "note_off",
+      "note_id": 1
+    }
+  ]
+}

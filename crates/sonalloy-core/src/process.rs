@@ -452,6 +452,31 @@ impl ProcessError {
         Self::DspFailure { kind }
     }
 
+    pub(crate) fn from_modal_resonator_error(
+        error: sonalloy_dsp_sys::DspModalResonatorError,
+    ) -> Self {
+        let kind = match error {
+            sonalloy_dsp_sys::DspModalResonatorError::AllocationFailed => {
+                DspFailureKind::ResourceUnavailable
+            }
+            sonalloy_dsp_sys::DspModalResonatorError::InvalidArgument => {
+                DspFailureKind::InvalidInput
+            }
+            sonalloy_dsp_sys::DspModalResonatorError::NotPrepared => DspFailureKind::InvalidState,
+            sonalloy_dsp_sys::DspModalResonatorError::NonFinite => {
+                return Self::ProcessorFailure {
+                    kind: ProcessorFailureKind::NonFinite,
+                };
+            }
+            sonalloy_dsp_sys::DspModalResonatorError::NullHandle
+            | sonalloy_dsp_sys::DspModalResonatorError::NativeException
+            | sonalloy_dsp_sys::DspModalResonatorError::Unknown(_) => {
+                DspFailureKind::BackendFailure
+            }
+        };
+        Self::DspFailure { kind }
+    }
+
     pub(crate) fn from_stretch_error(error: sonalloy_dsp_sys::DspStretchError) -> Self {
         let kind = match error {
             sonalloy_dsp_sys::DspStretchError::AllocationFailed => {

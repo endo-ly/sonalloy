@@ -1,6 +1,6 @@
 ---
 name: create-instrument
-description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add an Additive, Formant, Sample, Wavetable, Spectral, Operator Modulation, or Granular layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi.
+description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add an Additive, Formant, Sample, Wavetable, Spectral, Operator Modulation, Granular, Physical String, or Modal layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi.
 ---
 
 # Create Instrument
@@ -191,6 +191,8 @@ GeneratorはLayerの`generator` Fieldへ指定します。Modulation Target ID�
 | [Wave Sequence](#wave-sequence) | 複数Assetの時系列切り替え |
 | [Additive](#additive) | Partial直接設計による倍音構成 |
 | [Formant](#formant) | 母音共鳴のBand制御 |
+| [Physical String](#physical-string) | Fractional Delay Feedbackによる弦・硬質振動 |
+| [Modal](#modal) | 複数Modeの共鳴によるBody・Bell・Plate |
 
 ### Oscillator
 
@@ -237,6 +239,41 @@ White / Pink / Brown Noiseを生成します。Stereo Correlationは0で左右�
   }
 }
 ```
+
+### Physical String
+
+弦を弾く、はじく、または硬い振動体を作るときに使います。Deterministic ExciterをFractional Delay Feedbackへ入力するMono Generatorです。`decay_seconds`はNominal Loop T60、`brightness`はLoopの高域Loss、`stiffness`はDispersionを表します。特定のGuitarやPianoを再現するModelではありません。
+
+```json
+"generator": {
+  "physical_string": {
+    "exciter": { "type": "noise_burst", "duration_seconds": 0.006, "brightness": 0.82, "seed": 4001 },
+    "decay_seconds": 2.4,
+    "brightness": 0.68,
+    "stiffness": 0.18
+  }
+}
+```
+
+`exciter.type`は`impulse`または`noise_burst`です。Noise Burstの`duration_seconds`は0.0005〜0.100、Exciter `brightness`は0〜1です。Dynamic Parameterは`physical_string_decay_seconds`、`physical_string_brightness`、`physical_string_stiffness`の3つで、`decay_seconds`だけ`Seconds + Log2`です。Pitchを作るのはLayer NoteとTuningであり、Generator独自のPitch Parameterは追加しません。
+
+### Modal
+
+棒、板、ベル、金属、木、ガラス、膜的な共鳴を作るときに使います。Rust側のExciterをPinned DaisySPの低レベル`Resonator`へ渡すMono Generatorです。`mode_count`は4 / 8 / 12 / 16 / 20 / 24のStatic Fieldで、`structure`はMode間隔、`brightness`は高次Modeの残留、`decay`は共鳴の長さを制御します。
+
+```json
+"generator": {
+  "modal": {
+    "exciter": { "type": "impulse" },
+    "mode_count": 24,
+    "structure": 0.72,
+    "brightness": 0.76,
+    "decay": 0.66
+  }
+}
+```
+
+Dynamic Parameterは`modal_structure`、`modal_brightness`、`modal_decay`です。`mode_count`とExciterのStatic FieldはParameter ChangeやModulation RouteのTargetにしません。Mode Countを増やすと共鳴密度とCPU負荷が増えますが、実在楽器名をGeneratorのModel名として扱わず、Layer・Processor・Hybridで音色を作ります。
 
 ### Wavetable
 

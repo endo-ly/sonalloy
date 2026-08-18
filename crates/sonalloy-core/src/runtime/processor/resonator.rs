@@ -1,8 +1,8 @@
 use crate::compiler::{CompiledResonatorProcessor, GeneratorOutputMode};
 use crate::process::{ProcessError, ProcessorFailureKind};
 
+use super::super::fractional_delay::FractionalDelayLine;
 use super::ValueSpan;
-use super::fractional_delay::FractionalDelayLine;
 
 pub(crate) struct ResonatorRuntime {
     sample_rate: f32,

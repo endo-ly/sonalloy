@@ -26,6 +26,7 @@ add_library(DaisySP STATIC
     ${daisysp_SOURCE_DIR}/Source/Synthesis/variableshapeosc.cpp
     ${daisysp_SOURCE_DIR}/Source/Filters/svf.cpp
     ${daisysp_SOURCE_DIR}/Source/Effects/wavefolder.cpp
+    ${daisysp_SOURCE_DIR}/Source/PhysicalModeling/resonator.cpp
 )
 target_compile_features(DaisySP PUBLIC cxx_std_14)
 target_include_directories(DaisySP PUBLIC

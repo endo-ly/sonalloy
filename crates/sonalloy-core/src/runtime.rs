@@ -1,4 +1,5 @@
 pub(crate) mod adsr;
+pub(crate) mod fractional_delay;
 pub(crate) mod generator;
 mod instrument;
 pub(crate) mod interpolation;

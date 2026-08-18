@@ -14,8 +14,8 @@ use sonalloy_core::{
     PerformanceDefinition, ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderError,
     RenderRequest, RenderTraceReport, ScheduledEvent, TempoMap, TraceRequest,
     VoiceStealingDefinition, analyze_rendered_audio, backend_info, compile_instrument,
-    from_render_error, render_instrument_with_tempo, render_instrument_with_tempo_map,
-    render_instrument_with_trace, render_sine, seconds_to_frames,
+    from_render_error, render_instrument_with_reset, render_instrument_with_tempo,
+    render_instrument_with_tempo_map, render_instrument_with_trace, render_sine, seconds_to_frames,
 };
 
 use crate::midi::read_midi;
@@ -204,6 +204,9 @@ struct RenderEventsArgs {
     /// Interval between trace observations in frames.
     #[arg(long = "trace-every-frames")]
     trace_every_frames: Option<usize>,
+    /// Render the same event sequence again after resetting the prepared runtime.
+    #[arg(long)]
+    reset_check: bool,
 }
 
 #[derive(Debug, Args)]
@@ -244,8 +247,18 @@ struct SuccessReport {
     analysis: Option<AudioAnalysis>,
     #[serde(skip_serializing_if = "Option::is_none")]
     trace: Option<RenderTraceReport>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reset_comparison: Option<ResetComparison>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Serialize)]
+struct ResetComparison {
+    compatible: bool,
+    max_abs_difference: f64,
+    rms_difference: f64,
+    different_sample_count: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -355,6 +368,29 @@ enum InspectGenerator {
         noise_color: &'static str,
         noise_seed: u64,
         noise_correlation_parameter: String,
+    },
+    PhysicalString {
+        output_mode: &'static str,
+        exciter: InspectPhysicalExciter,
+        decay_seconds: f32,
+        decay_parameter: String,
+        brightness: f32,
+        brightness_parameter: String,
+        stiffness: f32,
+        stiffness_parameter: String,
+        effective_max_frequency_hz: f32,
+    },
+    Modal {
+        output_mode: &'static str,
+        exciter: InspectPhysicalExciter,
+        mode_count: u8,
+        structure: f32,
+        structure_parameter: String,
+        brightness: f32,
+        brightness_parameter: String,
+        decay: f32,
+        decay_parameter: String,
+        effective_max_frequency_hz: f32,
     },
     Additive {
         output_mode: &'static str,
@@ -492,6 +528,14 @@ enum InspectGenerator {
         unison_spread_parameter: Option<String>,
         effective_max_frequency_hz: f32,
     },
+}
+
+#[derive(Debug, Serialize)]
+struct InspectPhysicalExciter {
+    kind: &'static str,
+    duration_seconds: Option<f32>,
+    brightness: Option<f32>,
+    seed: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1037,6 +1081,7 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
             diagnostics: std::mem::take(&mut diagnostics),
             analysis,
             trace,
+            reset_comparison: None,
         },
     )
 }
@@ -1075,26 +1120,20 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
-    let (mut audio, trace) = if let Some(trace_request) = trace_request.as_ref() {
-        let tempo_map = match TempoMap::constant(args.tempo) {
-            Ok(tempo_map) => tempo_map,
-            Err(error) => return finish_failure(args.json, render_failure(&error)),
-        };
-        match render_instrument_with_trace(
-            Arc::clone(&compiled),
-            request,
-            &events,
-            &tempo_map,
-            trace_request,
-        ) {
-            Ok((audio, trace)) => (audio, Some(trace)),
-            Err(error) => return finish_failure(args.json, render_failure(&error)),
-        }
-    } else {
-        match render_instrument_with_tempo(Arc::clone(&compiled), request, &events, args.tempo) {
-            Ok(audio) => (audio, None),
-            Err(error) => return finish_failure(args.json, render_failure(&error)),
-        }
+    let tempo_map = match TempoMap::constant(args.tempo) {
+        Ok(tempo_map) => tempo_map,
+        Err(error) => return finish_failure(args.json, render_failure(&error)),
+    };
+    let (mut audio, trace, reset_comparison) = match render_event_audio(
+        &compiled,
+        request,
+        &events,
+        &tempo_map,
+        trace_request.as_ref(),
+        args.reset_check,
+    ) {
+        Ok(rendered) => rendered,
+        Err(failure) => return finish_failure(args.json, failure),
     };
     correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
     let analysis = if args.analyze {
@@ -1127,8 +1166,56 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
             diagnostics,
             analysis,
             trace,
+            reset_comparison,
         },
     )
+}
+
+fn render_event_audio(
+    compiled: &Arc<CompiledInstrument>,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+    tempo_map: &TempoMap,
+    trace_request: Option<&TraceRequest>,
+    reset_check: bool,
+) -> Result<
+    (
+        sonalloy_core::RenderedAudio,
+        Option<RenderTraceReport>,
+        Option<ResetComparison>,
+    ),
+    CliFailure,
+> {
+    if reset_check {
+        if trace_request.is_some() {
+            return Err(CliFailure {
+                code: 2,
+                diagnostics: vec![Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    "--reset-check cannot be combined with --trace",
+                )],
+            });
+        }
+        let (first, second) =
+            render_instrument_with_reset(Arc::clone(compiled), request, events, tempo_map)
+                .map_err(|error| render_failure(&error))?;
+        let comparison = compare_rendered_audio(&first, &second);
+        return Ok((second, None, Some(comparison)));
+    }
+    if let Some(trace_request) = trace_request {
+        let (audio, trace) = render_instrument_with_trace(
+            Arc::clone(compiled),
+            request,
+            events,
+            tempo_map,
+            trace_request,
+        )
+        .map_err(|error| render_failure(&error))?;
+        return Ok((audio, Some(trace), None));
+    }
+    let audio = render_instrument_with_tempo_map(Arc::clone(compiled), request, events, tempo_map)
+        .map_err(|error| render_failure(&error))?;
+    Ok((audio, None, None))
 }
 
 fn load_event_sequence(path: &Path) -> Result<EventSequence, CliFailure> {
@@ -1400,6 +1487,7 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
             diagnostics,
             analysis,
             trace,
+            reset_comparison: None,
         },
     )
 }
@@ -1448,7 +1536,56 @@ fn render_sine_command(args: &RenderSineArgs) -> Result<SuccessReport, CliFailur
         diagnostics: Vec::new(),
         analysis: None,
         trace: None,
+        reset_comparison: None,
     })
+}
+
+fn compare_rendered_audio(
+    first: &sonalloy_core::RenderedAudio,
+    second: &sonalloy_core::RenderedAudio,
+) -> ResetComparison {
+    let compatible = first.sample_rate == second.sample_rate
+        && first.channels.len() == second.channels.len()
+        && first
+            .channels
+            .iter()
+            .zip(&second.channels)
+            .all(|(left, right)| left.len() == right.len());
+    if !compatible {
+        return ResetComparison {
+            compatible: false,
+            max_abs_difference: 0.0,
+            rms_difference: 0.0,
+            different_sample_count: 0,
+        };
+    }
+    let mut max_abs_difference = 0.0_f64;
+    let mut squared_sum = 0.0_f64;
+    let mut sample_count = 0_usize;
+    let mut different_sample_count = 0_usize;
+    for (first_channel, second_channel) in first.channels.iter().zip(&second.channels) {
+        for (first, second) in first_channel.iter().zip(second_channel) {
+            let difference = f64::from(*first) - f64::from(*second);
+            max_abs_difference = max_abs_difference.max(difference.abs());
+            squared_sum += difference * difference;
+            sample_count += 1;
+            if difference != 0.0 {
+                different_sample_count += 1;
+            }
+        }
+    }
+    ResetComparison {
+        compatible: true,
+        max_abs_difference,
+        rms_difference: if sample_count == 0 {
+            0.0
+        } else {
+            #[allow(clippy::cast_precision_loss)]
+            let sample_count = sample_count as f64;
+            (squared_sum / sample_count).sqrt()
+        },
+        different_sample_count,
+    }
 }
 
 fn resolve_trace_request(
@@ -2112,6 +2249,41 @@ fn inspect_generator(
             },
             "not_applicable (noise)",
         ),
+        sonalloy_core::compiler::CompiledGenerator::PhysicalString(string) => (
+            InspectGenerator::PhysicalString {
+                output_mode: output_mode_name(generator.output_mode()),
+                exciter: inspect_physical_exciter(string.exciter),
+                decay_seconds: parameter_default(compiled, string.parameters.decay_seconds),
+                decay_parameter: parameter_descriptor_id(compiled, string.parameters.decay_seconds),
+                brightness: parameter_default(compiled, string.parameters.brightness),
+                brightness_parameter: parameter_descriptor_id(
+                    compiled,
+                    string.parameters.brightness,
+                ),
+                stiffness: parameter_default(compiled, string.parameters.stiffness),
+                stiffness_parameter: parameter_descriptor_id(compiled, string.parameters.stiffness),
+                effective_max_frequency_hz: string.effective_max_frequency,
+            },
+            "ready",
+        ),
+        sonalloy_core::compiler::CompiledGenerator::Modal(modal) => (
+            InspectGenerator::Modal {
+                output_mode: output_mode_name(generator.output_mode()),
+                exciter: inspect_physical_exciter(modal.exciter),
+                mode_count: modal.mode_count,
+                structure: parameter_default(compiled, modal.parameters.structure),
+                structure_parameter: parameter_descriptor_id(compiled, modal.parameters.structure),
+                brightness: parameter_default(compiled, modal.parameters.brightness),
+                brightness_parameter: parameter_descriptor_id(
+                    compiled,
+                    modal.parameters.brightness,
+                ),
+                decay: parameter_default(compiled, modal.parameters.decay),
+                decay_parameter: parameter_descriptor_id(compiled, modal.parameters.decay),
+                effective_max_frequency_hz: modal.effective_max_frequency,
+            },
+            "ready",
+        ),
         sonalloy_core::compiler::CompiledGenerator::Additive(additive) => {
             inspect_additive_generator(compiled, generator, additive)
         }
@@ -2155,6 +2327,29 @@ fn inspect_generator(
         sonalloy_core::compiler::CompiledGenerator::OperatorModulation(operator) => {
             inspect_operator_generator(compiled, generator, operator)
         }
+    }
+}
+
+fn inspect_physical_exciter(
+    exciter: sonalloy_core::compiler::CompiledPhysicalExciter,
+) -> InspectPhysicalExciter {
+    match exciter {
+        sonalloy_core::compiler::CompiledPhysicalExciter::Impulse => InspectPhysicalExciter {
+            kind: "impulse",
+            duration_seconds: None,
+            brightness: None,
+            seed: None,
+        },
+        sonalloy_core::compiler::CompiledPhysicalExciter::NoiseBurst {
+            duration_seconds,
+            brightness,
+            seed,
+        } => InspectPhysicalExciter {
+            kind: "noise_burst",
+            duration_seconds: Some(duration_seconds),
+            brightness: Some(brightness),
+            seed: Some(seed),
+        },
     }
 }
 
@@ -3041,6 +3236,7 @@ fn print_oscillator_generator(layer_id: &str, generator: &InspectGenerator) {
     println!("  unison_voices: {unison_voices} phase_spread: {phase_spread:.3}");
 }
 
+#[allow(clippy::too_many_lines)]
 fn print_generator(layer_id: &str, generator: &InspectGenerator) {
     match generator {
         InspectGenerator::Oscillator { .. } => print_oscillator_generator(layer_id, generator),
@@ -3055,6 +3251,45 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
             );
             println!("  noise seed: {noise_seed}");
             println!("  noise correlation parameter: {noise_correlation_parameter}");
+        }
+        InspectGenerator::PhysicalString {
+            output_mode,
+            exciter,
+            decay_seconds,
+            decay_parameter,
+            brightness,
+            brightness_parameter,
+            stiffness,
+            stiffness_parameter,
+            effective_max_frequency_hz,
+        } => {
+            println!(
+                "layer {layer_id}: enabled true generator physical_string output_mode {output_mode}"
+            );
+            print_physical_exciter(exciter);
+            println!(
+                "  decay_seconds: {decay_seconds:.6} ({decay_parameter}) brightness: {brightness:.6} ({brightness_parameter}) stiffness: {stiffness:.6} ({stiffness_parameter})"
+            );
+            println!("  effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
+        }
+        InspectGenerator::Modal {
+            output_mode,
+            exciter,
+            mode_count,
+            structure,
+            structure_parameter,
+            brightness,
+            brightness_parameter,
+            decay,
+            decay_parameter,
+            effective_max_frequency_hz,
+        } => {
+            println!("layer {layer_id}: enabled true generator modal output_mode {output_mode}");
+            print_physical_exciter(exciter);
+            println!(
+                "  mode_count: {mode_count} structure: {structure:.6} ({structure_parameter}) brightness: {brightness:.6} ({brightness_parameter}) decay: {decay:.6} ({decay_parameter})"
+            );
+            println!("  effective_max_frequency_hz: {effective_max_frequency_hz:.3}");
         }
         InspectGenerator::Additive { .. } => print_additive_generator(layer_id, generator),
         InspectGenerator::Formant { .. } => print_formant_generator(layer_id, generator),
@@ -3123,6 +3358,13 @@ fn print_generator(layer_id: &str, generator: &InspectGenerator) {
             print_operator_generator(layer_id, generator);
         }
     }
+}
+
+fn print_physical_exciter(exciter: &InspectPhysicalExciter) {
+    println!(
+        "  exciter: {} duration_seconds: {:?} brightness: {:?} seed: {:?}",
+        exciter.kind, exciter.duration_seconds, exciter.brightness, exciter.seed
+    );
 }
 
 fn print_additive_generator(layer_id: &str, generator: &InspectGenerator) {

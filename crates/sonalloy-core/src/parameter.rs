@@ -11,14 +11,15 @@ use crate::generator_parameters::{
     ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SHIFT,
     FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY, GRAIN_PAN_SPREAD,
     GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION, GeneratorParameterSpec,
-    NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN,
-    OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN,
-    OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN, OPERATOR_PARAMETER_SMOOTHING_SECONDS,
-    OPERATOR_PARAMETER_SUFFIXES, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX,
-    OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN,
-    OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE,
-    SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD,
-    WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+    MODAL_BRIGHTNESS, MODAL_DECAY, MODAL_STRUCTURE, NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX,
+    OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX,
+    OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
+    OPERATOR_PARAMETER_SMOOTHING_SECONDS, OPERATOR_PARAMETER_SUFFIXES,
+    OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_RATIO_MAX,
+    OPERATOR_RATIO_MIN, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PHYSICAL_STRING_BRIGHTNESS,
+    PHYSICAL_STRING_DECAY_SECONDS, PHYSICAL_STRING_STIFFNESS, PULSE_WIDTH, SPECTRAL_BLUR,
+    SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE,
+    UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 
 /// Dense reference to a parameter in one compiled instrument.
@@ -438,6 +439,40 @@ fn push_generator_descriptors(
                 NOISE_CORRELATION,
                 noise.stereo_correlation,
             );
+        }
+        GeneratorDefinition::PhysicalString(physical_string) => {
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                PHYSICAL_STRING_DECAY_SECONDS,
+                physical_string.decay_seconds,
+            );
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                PHYSICAL_STRING_BRIGHTNESS,
+                physical_string.brightness,
+            );
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                PHYSICAL_STRING_STIFFNESS,
+                physical_string.stiffness,
+            );
+        }
+        GeneratorDefinition::Modal(modal) => {
+            push_generator_descriptor(descriptors, prefix, owner, MODAL_STRUCTURE, modal.structure);
+            push_generator_descriptor(
+                descriptors,
+                prefix,
+                owner,
+                MODAL_BRIGHTNESS,
+                modal.brightness,
+            );
+            push_generator_descriptor(descriptors, prefix, owner, MODAL_DECAY, modal.decay);
         }
         GeneratorDefinition::Additive(additive) => {
             push_generator_descriptor(descriptors, prefix, owner, ADDITIVE_MORPH, additive.morph);

@@ -913,6 +913,7 @@ impl VoiceRuntime {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn evaluate_targets(
         &mut self,
         compiled: &CompiledInstrument,
@@ -929,6 +930,38 @@ impl VoiceRuntime {
                 }
                 CompiledGenerator::Noise(value) => LayerGeneratorTargetSpan::Noise {
                     correlation: self.evaluate_target(compiled, value.correlation, shared)?,
+                },
+                CompiledGenerator::PhysicalString(value) => {
+                    LayerGeneratorTargetSpan::PhysicalString {
+                        decay_seconds: self.evaluate_target(
+                            compiled,
+                            value.parameters.decay_seconds,
+                            shared,
+                        )?,
+                        brightness: self.evaluate_target(
+                            compiled,
+                            value.parameters.brightness,
+                            shared,
+                        )?,
+                        stiffness: self.evaluate_target(
+                            compiled,
+                            value.parameters.stiffness,
+                            shared,
+                        )?,
+                    }
+                }
+                CompiledGenerator::Modal(value) => LayerGeneratorTargetSpan::Modal {
+                    structure: self.evaluate_target(
+                        compiled,
+                        value.parameters.structure,
+                        shared,
+                    )?,
+                    brightness: self.evaluate_target(
+                        compiled,
+                        value.parameters.brightness,
+                        shared,
+                    )?,
+                    decay: self.evaluate_target(compiled, value.parameters.decay, shared)?,
                 },
                 CompiledGenerator::Additive(value) => LayerGeneratorTargetSpan::Additive {
                     morph: self.evaluate_target(compiled, value.parameters.morph, shared)?,

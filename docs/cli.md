@@ -52,7 +52,7 @@ sonalloy instrument inspect <definition> --json
 |---|---|
 | Performance | 同時発音数、Voice Stealingの方式、報告Latency |
 | Layer | 発音条件、Generator、Gain、Pan、Tuning、ADSR |
-| Generator | 各Generatorの構成値（波形、Asset、Parameter、Algorithmなど） |
+| Generator | 各Generatorの構成値（波形、Asset、Parameter、Algorithmなど）。Physical StringはExciterとLoop Parameter、ModalはExciter・Mode Count・共鳴Parameter・実効周波数上限を表示 |
 | Parameter | Parameter ID、Owner、Native Unit、Native範囲、Default、Scale、Smoothing、Modulation Unit、最大Depth |
 | Modulation | Sourceの範囲・Polarity、RouteのDepth、Curve、Static Effect、DefaultからのReachable Range、Clamp可能性 |
 | Processor | Layer / Voice / Globalの各Processor Chain |
@@ -170,6 +170,7 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 | `--analyze` | Off | 補正後WAVの解析を追加 |
 | `--trace <id>` | なし | 選択したDynamic ParameterをTrace（複数指定可） |
 | `--trace-every-frames <N>` | 480（Trace指定時） | 定期Trace間隔 |
+| `--reset-check` | Off | 同じPrepared RuntimeをResetして同じEvent列を再実行し、差分をReportへ追加 |
 | `--json` | Off | 結果を機械可読で出力 |
 
 ### Render diagnostics — AnalysisとTrace
@@ -207,6 +208,8 @@ sonalloy render note presets/basic.json --analyze \
 ```
 
 `trace.parameters[].observations[]`の`final`が、全Route加算とTarget Clamp後の実効Native値です。Traceを有効にしても、通常Renderと同じRuntimeを使い、出力Audioは既存のBlock分割許容範囲内で一致します。
+
+`render events --reset-check`は`trace`と併用できません。成功Reportの`reset_comparison`には、同じPrepared Runtimeを`reset`した前後のStereo Audioについて、`max_abs_difference`、`rms_difference`、差分Sample数を記録します。全Stateが初期化されていれば、これらは0になります。
 
 ### `render midi` — MIDI Fileのレンダリング
 
