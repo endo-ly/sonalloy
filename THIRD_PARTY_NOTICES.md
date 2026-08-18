@@ -40,10 +40,13 @@ SonalloyではDaisySPのSourceを変更せず、Sonalloy固有のOpaque Handle�
 | `serde_json` | 1.0.151 | CLI JSON Output | MIT OR Apache-2.0 |
 | `clap` | 4.6.4 | CLI Argument Parse | MIT OR Apache-2.0 |
 | `hound` | 3.5.1 | WAV Encode | Apache-2.0 |
-| `midly` | 0.5.3 | Standard MIDI File Decode | MIT |
+| `midly` | 0.5.3 | Standard MIDI File and live MIDI Message Decode | MIT |
 | `sha2` | 0.11.0 | Sample Asset SHA-256検証 | MIT OR Apache-2.0 |
 | `rubato` | 4.0.0 | Sample Rate変換 | MIT OR Apache-2.0 |
 | `symphonia` | 0.6.0 | WAV Asset Probe / Decode | MPL-2.0 |
+| `cpal` | 0.18.1 | Realtime Audio Device I/O | Apache-2.0 |
+| `midir` | 0.11.0 | Realtime MIDI Input | MIT |
+| `crossbeam-queue` | 0.3.13 | Fixed-capacity Realtime Event Queue | MIT OR Apache-2.0 |
 
 ## Test-only direct dependencies
 

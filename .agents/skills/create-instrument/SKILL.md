@@ -11,7 +11,7 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 ## 全体フロー
 
 ```text
-init → edit → validate → inspect → render/analyze/trace → refine
+init → edit → validate → inspect → render/analyze/trace → optional realtime trial → refine
 ```
 
 1. **init**：新規Definitionのひな形を生成（既存を編集する場合は省略）
@@ -19,7 +19,8 @@ init → edit → validate → inspect → render/analyze/trace → refine
 3. **validate**：`instrument validate`でJSON、制約、Asset準備を検証
 4. **inspect**：`instrument inspect --json`でCompile後のUnit、Source Polarity、Route Effect、Clamp範囲を確認
 5. **render/analyze/trace**：`render note` / `render events` / `render midi`でWAVを生成し、必要な事実を`--analyze`と`--trace`で取得
-6. **refine**：数値・音色・`metadata`を整理し、再度InspectとRenderを実行
+6. **realtime trial**：Deviceが利用できる場合は`device list`で確認し、同じDefinitionを`play`でMIDI演奏する
+7. **refine**：数値・音色・`metadata`を整理し、再度InspectとRenderを実行
 
 ## Definitionを編集する
 
@@ -632,6 +633,16 @@ sonalloy render midi <definition> <midi-file> \
   --output out/<name>/phrase.wav
 ```
 
+## Deviceが利用できる場合のRealtime試聴
+
+```bash
+sonalloy device list
+sonalloy device list --json
+sonalloy play <definition> --midi-device <id>
+```
+
+`play`は同じDefinitionをCoreのRealtime経路で演奏します。起動前に`device list`でAudio OutputとMIDI InputのOpaque IDを確認し、複数のMIDI Inputがある場合は`--midi-device`を必ず指定します。標準入力のEnterで停止します。Realtime試聴はOffline Render、Analysis、Traceを置き換えません。
+
 | Option | 意味 | 既定値 |
 |---|---|---|
 | `--note` | MIDI Note番号 | `60` |
@@ -650,12 +661,12 @@ sonalloy render midi <definition> <midi-file> \
 
 - 出力は32-bit float・2 ChannelのStereo WAV。親Directoryは事前に作成する
 - `render note`と`render events`の`--tempo`はTempo Syncの処理Tempo。`render midi`はMIDI内のTempo Meta EventからTempo Mapを作成する
-- `render events`ではNote Eventと同じ絶対Frame位置にParameter Change（`native_value`）/ Pitch Bend / Mod Wheel / Aftertouchを記述できる。`render midi`ではMIDI Pitch Bend / CC1 / Channel Aftertouchが同じ実行時Eventへ変換される
+- `render events`ではNote Eventと同じ絶対Frame位置にParameter Change（`native_value`）/ Pitch Bend / Mod Wheel / Aftertouch / Sustain Pedal（`down`）を記述できる。`render midi`ではMIDI Pitch Bend / CC1 / Channel Aftertouch / CC64が同じ実行時Eventへ変換される
 - Time Stretchを含む場合は報告Latencyが`inspect`と成功JSONへ表示され、CLIが前置きLatencyを除去して演奏タイムラインのFrame 0からWAVを生成する
 
 `--analyze`のdBFSは0を`null`で返し、Activityの閾値は-80 dBFS、ContinuityのLarge Delta閾値は0.25です。`--trace`はFrame 0、既定480 Frame間隔、Event後、最終FrameをLatency補正後のTimelineで記録します。`final`はRoute加算とClamp後のNative値です。
 
-人間の確認項目は`docs/testing-and-sound-review.md`にまとめています。
+人間の確認項目は`docs/testing-and-sound-review.md`にまとめています。RealtimeではNote、Pitch Bend、Mod Wheel、Channel Aftertouch、Sustainを含む入力、256 / 128 FrameのBuffer、10分以上の連続演奏、Xrun・Fatal Fault・Stuck Note・Queue Overflowを確認します。
 
 ## 仕上げる
 
@@ -697,6 +708,7 @@ sonalloy render midi <definition> <midi-file> \
 | `INVALID_GRAIN_REGION` / `INVALID_GRAIN_PARAMETER` | Granular |
 | `WAVETABLE_LAYOUT_INVALID` / `WAVETABLE_PREPARATION_FAILED` / `WAVETABLE_SILENT_FRAME` / `WAVETABLE_DC_OFFSET` | Wavetable |
 | `GENERATOR_RESOURCE_LIMIT_EXCEEDED` | Generator資源 |
+| `MIDI_ERROR` / `AUDIO_DEVICE_ERROR` | Realtime MIDI / Audio Device |
 
 ## 参照
 

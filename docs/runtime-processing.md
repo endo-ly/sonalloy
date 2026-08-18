@@ -25,8 +25,8 @@ flowchart LR
 ```
 
 - 出力はStereoで、左右のChannelを分けた`f32`Bufferへ書き込みます
-- EventはNote、Parameter Change、Pitch Bend、Mod Wheel、Aftertouchを含みます。音の計算は毎Sample行われます
-- Note OnからNote Offまでの間、そのNoteは1つのVoiceへ割り当てられます
+- EventはNote、Sustain Pedal、Parameter Change、Pitch Bend、Mod Wheel、Aftertouchを含みます。音の計算は毎Sample行われます
+- Note OnからVoiceがIdleへ戻るまで、そのNoteは1つのVoiceへ割り当てられます
 
 ## Blockの処理
 
@@ -41,10 +41,20 @@ flowchart LR
 | 規則 | 内容 |
 |---|---|
 | 順序 | Eventは`sample_offset`の昇順に並べます |
-| 同一位置の優先順位 | Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note On |
+| 同一位置の優先順位 | Sustain Pedal → Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note On |
 | 検証 | Parameter Handle、Catalogへ変換済みのParameter値、External Control値はBlock開始前に全件検証します。不正EventがあればStateを変更せず、対象Blockを無音にします |
 
 CLIなどのAuthoring Interfaceでは`Parameter Change`をCatalogのParameter Unit（TuningはCents、Filter CutoffはHertz、GainはDecibels）で受け取ります。FrontendはDescriptorで検証してからCoreの既存Process Eventへ正規化値として渡し、Runtimeはその値をBase Parameterへ設定します。Authoring JSONの`native_value`とCore EventのTransport表現を混同しません。
+
+## Realtime Adapter
+
+Realtime演奏では、CLIのAudio Adapterが同じ`ProcessBlock`と`ProcessEventKind`を使用します。CoreはAudio Device APIやMIDI APIを参照しません。
+
+- CPALが渡すHost CallbackのFrame数は要求値と異なる場合があるため、AdapterはCallback全体をCoreの最大Block Size以下へ分割し、各Blockの`absolute_frame`を連続させます。
+- Live MIDI Eventは固定容量4096のQueueへ入り、Audio Callbackが次のCore Blockの先頭で取り出します。同じ位置ではCoreのPriorityと入力Sequenceで並べ替えます。Queueが満杯になった場合は黙って破棄・上書きせず、Sessionを停止します。
+- Coreの出力は確保済みPlanar `f32` Stereoです。AdapterはDeviceのPCM Sample Formatへ変換し、ch 0 / 1へLeft / Rightを出力します。3ch以上では残りのChannelを無音にします。Mono、PCM以外、要求Buffer非対応のDeviceはStream開始前に拒否します。
+- Audio CallbackではHeap Allocation、Log、Blocking Lock、File / JSON / Device Queryを行いません。Device選択、DefinitionのCompile、RuntimeのPrepareはCallback開始前に完了させます。
+- Callback中のProcess Error、Device Error、Queue Overflowは出力を無音にしてFatal Statusへ遷移します。Realtime Schedulingの拒否はWarning、XrunはCounterとしてSessionを継続します。
 
 ## Noteのライフサイクル
 
@@ -52,7 +62,9 @@ CLIなどのAuthoring Interfaceでは`Parameter Change`をCatalogのParameter Un
 stateDiagram-v2
     [*] --> Idle
     Idle --> Active: Note On
-    Active --> Releasing: Note Off
+    Active --> Active: Note Off（Sustain Down）
+    Active --> Releasing: Note Off（Sustain Up）
+    Active --> Releasing: Pedal Up（Key Up済み）
     Releasing --> Idle: Release完了
     Active --> StealFading: 別のNoteに奪われる
     StealFading --> Active: Fade完了で新しいNoteを開始
@@ -70,12 +82,16 @@ stateDiagram-v2
 
 | タイミング | 振る舞い |
 |---|---|
-| Note Off（通常） | Note IDでVoiceを探し、Activeな`note_on` Layerを現在のADSR値からReleaseへ移行 |
+| Note Off（Sustain Up） | Note IDでVoiceを探し、Activeな`note_on` Layerを現在のADSR値からReleaseへ移行 |
+| Note Off（Sustain Down） | Key状態を解除し、Voiceは`Active`のままSustain Heldとして保持。Layer ADSR、Modulation Envelope、Release Triggerは開始しない |
+| Pedal Up | Key Up済みでSustain HeldのVoiceへ、Note Offと同じRelease処理を適用。Keyが押下中のVoiceはReleaseしない |
 | Note Off（待機Layerあり） | 待機中の`note_off` Layerを独立したADSRのAttackから開始。待機Layerがある間は、Note On Layerが先に終了してもVoiceを保持 |
 | Steal開始 | 古い音を5msで音量ゼロへFade。Steal中の待機Layerは発音しない |
 | Steal中のNote Off | 待機中の新しいNoteをキャンセルできる |
 | Steal完了 | 待機していたNoteを開始し、待機状態を破棄 |
 | Voiceの解放 | Active Layerと待機Layerがすべて終わったらIdleへ戻る |
+
+Sustainは新しい`VoiceState::Sustained`を追加せず、`Active` Voiceの`key_down`と`sustain_held`で表現します。Sustain Held Voiceは通常のActive Voiceと同じVoice Stealing Policyへ参加します。
 
 ## Voiceの構成
 
@@ -104,7 +120,7 @@ flowchart TD
 
 | 要素 | 振る舞い |
 |---|---|
-| **ADSR** | Note OnでAttackから始まり、Decayを経てSustainで待機。Note Offで現在値からReleaseへ。長さ0の区間は飛ばす |
+| **ADSR** | Note OnでAttackから始まり、Decayを経てSustainで待機。Sustain中のKey Upでは待機し、実際のRelease位置（通常のNote OffまたはPedal Up）で現在値からReleaseへ進む。長さ0の区間は飛ばす |
 | **Gain** | Base値とRouteをdB Domainで加算してClampし、Linear Gainへ変換。Note開始Fade・ADSR・Dynamic Gainを順に乗算 |
 | **Pan** | 定電力で左右へ振り分け |
 | **Tuning** | Base値とRouteをcentで加算し、Oscillatorの周波数またはSampleの再生速度へ変換 |

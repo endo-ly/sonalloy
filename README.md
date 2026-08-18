@@ -1,6 +1,6 @@
 # Sonalloy
 
-Sonalloyは、JSONで書いた音源定義を読み込んで、オフラインで音源WAVを生成する音源エンジンです。複数の音の層（Layer）を重ね、エフェクトとモジュレーションを組み合わせて、1つの音源を作ります。
+Sonalloyは、JSONで書いた音源定義からリアルタイム演奏とオフラインレンダリングを行うハイブリッド音源エンジンです。複数の音の層（Layer）を重ね、エフェクトとモジュレーションを組み合わせて、1つの音源を作ります。
 
 ## 特長
 
@@ -14,7 +14,7 @@ Sonalloyは、JSONで書いた音源定義を読み込んで、オフライン�
 - **エフェクトとモジュレーション**:
   - エフェクト: Filter、Drive、EQ、Resonator、Bitcrusher、Chorus、Flanger、Phaser、Delay、Reverb、Compressor、Limiter
   - モジュレーション: Velocity、LFO、Envelope等でパラメータを動かす
-- **決定的なレンダリング**: 同じ入力から常に同じWAVを生成。単音、イベントシーケンス、MIDIファイルに対応
+- **演奏と検証を同じCoreで実行**: `device list`でAudio / MIDI Deviceを確認し、`play`でMIDI演奏、単音・Event Sequence・MIDI Fileをオフラインで再現できる
 
 ## インストール
 
@@ -50,6 +50,13 @@ sonalloy render note my-synth.json --output my-synth.wav
 
 生成された `my-synth.wav` を再生して音を確認します。以降は、`my-synth.json` を編集して「検証 → Inspect → レンダリング（必要ならAnalysis / Trace） → 試聴」を繰り返して音を作り込みます。定義ファイルの書き方は[音源定義](docs/instrument-definition.md)、コマンドの詳細は[CLI](docs/cli.md)、手順全体は[音源の作り方](.agents/skills/create-instrument/SKILL.md)を参照してください。
 
+MIDI Keyboardで演奏する場合は、Deviceを確認してから次を実行します。
+
+```bash
+sonalloy device list
+sonalloy play my-synth.json --midi-device <id>
+```
+
 ## 使い方
 
 | コマンド | 役割 |
@@ -60,8 +67,10 @@ sonalloy render note my-synth.json --output my-synth.wav
 | `sonalloy render note <definition> --output <wav>` | 1音をレンダリングする |
 | `sonalloy render events <definition> <events.json> --output <wav>` | Event Sequenceをレンダリングする（Pitch BendやParameter変更をFrame単位で制御） |
 | `sonalloy render midi <definition> <midi-file> --output <wav>` | MIDI Fileをレンダリングする |
+| `sonalloy device list [--json]` | Audio OutputとMIDI Inputを列挙する |
+| `sonalloy play <definition>` | MIDI InputからAudio Outputへリアルタイム演奏する |
 
-すべての`render`コマンドは、32-bit float・StereoのWAVを出力します。各コマンドのオプションは[CLI](docs/cli.md)を参照してください。
+`render`コマンドは32-bit float・StereoのWAVを出力します。`play`はDeviceのNative Sample Formatへ変換して出力します。各コマンドのオプションは[CLI](docs/cli.md)を参照してください。
 
 ## 技術スタック
 
@@ -70,6 +79,7 @@ sonalloy render note my-synth.json --output my-synth.wav
 | 言語 | Rust（Edition 2024） |
 | 音源定義 | JSON（テキストだけで完結する定義形式） |
 | DSP | DaisySP、Signalsmith Stretch / Linear |
+| Realtime I/O | CPAL、Midir、Crossbeam Queue（CLIのみ） |
 
 ## 開発
 
@@ -79,6 +89,7 @@ sonalloy render note my-synth.json --output my-synth.wav
 - CMake 3.14以上
 - Windows: Visual Studio C++ Build Tools
 - Linux: `g++`または`clang++`、`git`
+- Linux realtime build: `pkg-config`、`libasound2-dev`
 - macOS: Xcode Command Line Tools
 
 初回のビルドではCMakeがDaisySP V1.0.0の固定Commitを取得するため、ネットワーク接続が必要です。Signalsmith StretchとSignalsmith Linearは固定Revisionをリポジトリへ同梱しているため、これらのビルドではネットワーク接続を必要としません。

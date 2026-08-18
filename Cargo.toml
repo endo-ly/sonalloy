@@ -11,7 +11,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
-description = "JSON-defined offline instrument engine that renders WAV"
+description = "JSON-defined hybrid instrument engine for realtime performance and offline rendering"
 repository = "https://github.com/endo-ly/sonalloy"
 publish = false
 
