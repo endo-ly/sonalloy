@@ -20,7 +20,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -10.0,
+      "gain_db": 3.0,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -34,12 +34,12 @@
           "exciter": {
             "type": "noise_burst",
             "duration_seconds": 0.008,
-            "brightness": 0.6,
+            "brightness": 1.0,
             "seed": 9102
           },
           "mode_count": 24,
           "structure": 0.5,
-          "brightness": 0.65,
+          "brightness": 0.92,
           "decay": 0.65
         }
       },

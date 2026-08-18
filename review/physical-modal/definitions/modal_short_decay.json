@@ -20,7 +20,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -10.0,
+      "gain_db": 6.0,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -40,7 +40,7 @@
           "mode_count": 12,
           "structure": 0.5,
           "brightness": 0.65,
-          "decay": 0.05
+          "decay": 0.2
         }
       },
       "processors": []

@@ -44,6 +44,9 @@ BLOCK_SIZE_MAX_DIFFERENCE = 1.0e-4
 PITCH_ACCURACY_LIMIT_CENTS = 20.0
 REVIEW_SAMPLE_RATES = (44_100, SAMPLE_RATE, 96_000)
 PERFORMANCE_SAMPLE_RATES = (SAMPLE_RATE, 96_000)
+REVIEW_LAYER_GAIN_DB = 3.0
+MIN_AUDITION_RMS = 1.0e-3
+MIN_MODAL_DENSITY_DIFFERENCE_RATIO = 0.3
 PITCH_ACCURACY_DEFINITIONS = {
     "string_impulse",
     "string_low_stiffness",
@@ -58,7 +61,7 @@ def layer(
     layer_id: str,
     generator: dict[str, object],
     *,
-    gain_db: float = -10.0,
+    gain_db: float = REVIEW_LAYER_GAIN_DB,
     pan: float = 0.0,
     trigger_event: str = "note_on",
     release_seconds: float = 0.4,
@@ -254,7 +257,7 @@ def definitions() -> dict[str, dict[str, object]]:
     )
     values["string_soft"] = instrument(
         "Physical String Dark Loop",
-        [layer("string", physical_string(brightness=0.05, seed=4006))],
+        [layer("string", physical_string(brightness=0.05, seed=4006), gain_db=6.0)],
     )
     values["string_bright"] = instrument(
         "Physical String Bright Loop",
@@ -273,15 +276,36 @@ def definitions() -> dict[str, dict[str, object]]:
         [layer("string", physical_string(stiffness=1.0, seed=4009))],
     )
 
+    density_exciter = {
+        "type": "noise_burst",
+        "duration_seconds": 0.008,
+        "brightness": 1.0,
+        "seed": 9102,
+    }
     values["modal_4_modes"] = instrument(
         "Modal Four Modes",
-        [layer("body", modal(mode_count=4))],
+        [layer("body", modal(mode_count=4, brightness=0.92, exciter=density_exciter))],
     )
-    values["modal_8_modes"] = instrument("Modal Eight Modes", [layer("body", modal(mode_count=8))])
-    values["modal_12_modes"] = instrument("Modal Twelve Modes", [layer("body", modal(mode_count=12))])
-    values["modal_16_modes"] = instrument("Modal Sixteen Modes", [layer("body", modal(mode_count=16))])
-    values["modal_20_modes"] = instrument("Modal Twenty Modes", [layer("body", modal(mode_count=20))])
-    values["modal_24_modes"] = instrument("Modal Twenty Four Modes", [layer("body", modal(mode_count=24))])
+    values["modal_8_modes"] = instrument(
+        "Modal Eight Modes",
+        [layer("body", modal(mode_count=8, brightness=0.92, exciter=density_exciter))],
+    )
+    values["modal_12_modes"] = instrument(
+        "Modal Twelve Modes",
+        [layer("body", modal(mode_count=12, brightness=0.92, exciter=density_exciter))],
+    )
+    values["modal_16_modes"] = instrument(
+        "Modal Sixteen Modes",
+        [layer("body", modal(mode_count=16, brightness=0.92, exciter=density_exciter))],
+    )
+    values["modal_20_modes"] = instrument(
+        "Modal Twenty Modes",
+        [layer("body", modal(mode_count=20, brightness=0.92, exciter=density_exciter))],
+    )
+    values["modal_24_modes"] = instrument(
+        "Modal Twenty Four Modes",
+        [layer("body", modal(mode_count=24, brightness=0.92, exciter=density_exciter))],
+    )
     values["modal_harmonic_structure"] = instrument(
         "Modal Harmonic Structure",
         [layer("body", modal(mode_count=12, structure=0.28, brightness=0.5, decay=0.55))],
@@ -292,7 +316,7 @@ def definitions() -> dict[str, dict[str, object]]:
     )
     values["modal_dark"] = instrument(
         "Modal Dark Body",
-        [layer("body", modal(mode_count=24, brightness=0.05))],
+        [layer("body", modal(mode_count=24, brightness=0.05), gain_db=6.0)],
     )
     values["modal_bright"] = instrument(
         "Modal Bright Body",
@@ -300,7 +324,7 @@ def definitions() -> dict[str, dict[str, object]]:
     )
     values["modal_short_decay"] = instrument(
         "Modal Short Decay",
-        [layer("body", modal(mode_count=12, decay=0.05))],
+        [layer("body", modal(mode_count=12, decay=0.2), gain_db=6.0)],
     )
     values["modal_long_decay"] = instrument(
         "Modal Long Decay",
@@ -328,7 +352,7 @@ def definitions() -> dict[str, dict[str, object]]:
                     brightness=0.62,
                     stiffness=0.08,
                 ),
-                gain_db=-7.0,
+                gain_db=0.0,
             )
         ],
         voice_processors=[
@@ -351,7 +375,7 @@ def definitions() -> dict[str, dict[str, object]]:
                     decay=0.62,
                     exciter={"type": "noise_burst", "duration_seconds": 0.010, "brightness": 0.42, "seed": 4301},
                 ),
-                gain_db=-9.0,
+                gain_db=0.0,
             )
         ],
         voice_processors=[
@@ -365,8 +389,8 @@ def definitions() -> dict[str, dict[str, object]]:
     values["imaginary_metal_body"] = instrument(
         "Imaginary Metal Body",
         [
-            layer("string", physical_string(seed=4401, decay_seconds=2.2, brightness=0.9, stiffness=0.78), gain_db=-11.0, pan=-0.08),
-            layer("body", modal(mode_count=24, structure=0.78, brightness=0.88, decay=0.72, exciter={"type": "impulse"}), gain_db=-12.0, pan=0.08),
+            layer("string", physical_string(seed=4401, decay_seconds=2.2, brightness=0.9, stiffness=0.78), gain_db=-1.0, pan=-0.08),
+            layer("body", modal(mode_count=24, structure=0.78, brightness=0.88, decay=0.72, exciter={"type": "impulse"}), gain_db=-2.0, pan=0.08),
         ],
         voice_processors=[
             processor("filter", "metal_tone", mode="low_pass", cutoff_hz=13_000.0, resonance=0.22),
@@ -591,7 +615,7 @@ def main() -> None:
         technical_metrics[path.name] = measure(
             path,
             list(BLOCK_SIZES),
-            include_spectrum=name in {"string_impulse", "string_low_stiffness", "string_medium_stiffness", "string_bright", "string_high_stiffness", "modal_4_modes", "modal_24_modes", "modal_stretched_structure", "physical_pluck", "modal_mallet", "imaginary_metal_body"},
+            include_spectrum=name in {"string_impulse", "string_low_stiffness", "string_medium_stiffness", "string_bright", "string_high_stiffness", "modal_4_modes", "modal_12_modes", "modal_24_modes", "modal_stretched_structure", "physical_pluck", "modal_mallet", "imaginary_metal_body"},
             fundamental_frequency_hz=midi_note_frequency(note),
         )
         pitch_error = nearest_spectral_peak_error_cents(
@@ -625,6 +649,44 @@ def main() -> None:
     ]
     if invalid_pitch:
         raise RuntimeError(f"pitch accuracy checks failed: {invalid_pitch}")
+
+    audition_level_checks = {}
+    for name in ("modal_dark", "modal_short_decay", "string_soft"):
+        values = technical_metrics[f"{name}.wav"]
+        rms = float(values["rms"])
+        audition_level_checks[name] = {
+            "rms": rms,
+            "minimum_rms": MIN_AUDITION_RMS,
+            "pass": rms >= MIN_AUDITION_RMS,
+        }
+    failed_audition_levels = [
+        name for name, values in audition_level_checks.items() if not values["pass"]
+    ]
+    if failed_audition_levels:
+        raise RuntimeError(f"audition level checks failed: {failed_audition_levels}")
+
+    modal_density_comparison = compare_wav(
+        technical_paths["modal_12_modes"], technical_paths["modal_24_modes"]
+    )
+    if not modal_density_comparison.get("compatible"):
+        raise RuntimeError(f"modal density renders are incompatible: {modal_density_comparison}")
+    modal_density_rms = max(
+        float(technical_metrics["modal_12_modes.wav"]["rms"]),
+        float(technical_metrics["modal_24_modes.wav"]["rms"]),
+    )
+    modal_density_difference_ratio = (
+        float(modal_density_comparison["rms_difference"]) / modal_density_rms
+        if modal_density_rms > 0.0
+        else 0.0
+    )
+    modal_density_check = {
+        **modal_density_comparison,
+        "rms_difference_ratio": modal_density_difference_ratio,
+        "minimum_difference_ratio": MIN_MODAL_DENSITY_DIFFERENCE_RATIO,
+        "pass": modal_density_difference_ratio >= MIN_MODAL_DENSITY_DIFFERENCE_RATIO,
+    }
+    if not modal_density_check["pass"]:
+        raise RuntimeError(f"modal density difference is too small: {modal_density_check}")
 
     block_size_comparisons: dict[str, object] = {}
     parameter_change_block_size_comparisons: dict[str, object] = {}
@@ -831,6 +893,8 @@ def main() -> None:
         "performance_matrix": performance_matrix,
         "trace": trace,
         "audio_sha256": {path.name: sha256_file(path) for path in all_audio.values()},
+        "audition_level_checks": audition_level_checks,
+        "modal_density_check": modal_density_check,
     }
     write_utf8(REVIEW_ROOT / "metrics.json", json.dumps(metrics, ensure_ascii=False, indent=2) + "\n")
 
@@ -845,6 +909,8 @@ def main() -> None:
 - Performance Matrix：48,000 / 96,000 Hz、Physical String 1 / 8 / 16 / 32 voices、Modal 12 / 24 modes × 1 / 8 / 16 voices
 - Output：Stereo、32-bit float WAV
 - Backend：DaisySP V1.0.0 (`a0494a3adb67f549e18dfd71a35fa656f65b38b6`)
+- Technical Definitionの基準Layer Gain：+3 dB
+- `modal_dark`、`modal_short_decay`、`string_soft`：比較用Layer Gain +6 dB
 
 ## 生成物
 
@@ -868,7 +934,7 @@ Parameter Changeを含むHybridの出力は`audio/musical/imaginary_metal_body-p
 
 ## Technical Definition
 
-String：Impulse、Noise BurstのSoft / Bright、Short / Long Decay、Loop Brightness、Low / Medium / High Stiffnessを含みます。Modal：4 / 8 / 12 / 16 / 20 / 24 Mode、Harmonic / Stretched Structure、Dark / Bright、Short / Long Decay、Impulse / Noise Burstを含みます。
+String：Impulse、Noise BurstのSoft / Bright、Short / Long Decay、Loop Brightness、Low / Medium / High Stiffnessを含みます。Modal：4 / 8 / 12 / 16 / 20 / 24 Mode、Harmonic / Stretched Structure、Dark / Bright、Short / Long Decay、Impulse / Noise Burstを含みます。Technical Definitionは基準Layer Gainを揃え、Dark / Short / Soft Loopだけ比較用Gainを加えて、発音とTailを確認できるようにしています。
 
 ## 人間の試聴欄
 

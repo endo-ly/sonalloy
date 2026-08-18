@@ -20,7 +20,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -9.0,
+      "gain_db": 0.0,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {

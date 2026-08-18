@@ -9,6 +9,8 @@
 - Performance Matrix：48,000 / 96,000 Hz、Physical String 1 / 8 / 16 / 32 voices、Modal 12 / 24 modes × 1 / 8 / 16 voices
 - Output：Stereo、32-bit float WAV
 - Backend：DaisySP V1.0.0 (`a0494a3adb67f549e18dfd71a35fa656f65b38b6`)
+- Technical Definitionの基準Layer Gain：+3 dB
+- `modal_dark`、`modal_short_decay`、`string_soft`：比較用Layer Gain +6 dB
 
 ## 生成物
 
@@ -32,7 +34,7 @@ Parameter Changeを含むHybridの出力は`audio/musical/imaginary_metal_body-p
 
 ## Technical Definition
 
-String：Impulse、Noise BurstのSoft / Bright、Short / Long Decay、Loop Brightness、Low / Medium / High Stiffnessを含みます。Modal：4 / 8 / 12 / 16 / 20 / 24 Mode、Harmonic / Stretched Structure、Dark / Bright、Short / Long Decay、Impulse / Noise Burstを含みます。
+String：Impulse、Noise BurstのSoft / Bright、Short / Long Decay、Loop Brightness、Low / Medium / High Stiffnessを含みます。Modal：4 / 8 / 12 / 16 / 20 / 24 Mode、Harmonic / Stretched Structure、Dark / Bright、Short / Long Decay、Impulse / Noise Burstを含みます。Technical Definitionは基準Layer Gainを揃え、Dark / Short / Soft Loopだけ比較用Gainを加えて、発音とTailを確認できるようにしています。
 
 ## 人間の試聴欄
 

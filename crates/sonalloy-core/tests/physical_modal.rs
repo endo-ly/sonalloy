@@ -192,6 +192,34 @@ fn every_supported_modal_mode_count_compiles_and_renders() {
 }
 
 #[test]
+fn modal_mode_count_changes_resonance_density() {
+    let mut definition = physical_modal_definition();
+    definition.layers[0].enabled = false;
+    {
+        let GeneratorDefinition::Modal(modal) = &mut definition.layers[1].generator else {
+            panic!("modal fixture must use the modal generator");
+        };
+        modal.brightness = 0.92;
+        modal.mode_count = 12;
+    }
+    let twelve_modes = render(&definition, 48_000.0, 257, 2_048);
+    {
+        let GeneratorDefinition::Modal(modal) = &mut definition.layers[1].generator else {
+            panic!("modal fixture must use the modal generator");
+        };
+        modal.mode_count = 24;
+    }
+    let twenty_four_modes = render(&definition, 48_000.0, 257, 2_048);
+
+    let (max_abs, rms) =
+        max_abs_and_rms_difference(&twelve_modes.channels[0], &twenty_four_modes.channels[0]);
+    assert!(
+        max_abs > 1.0e-3 && rms > 1.0e-4,
+        "mode count difference is too small: max {max_abs}, rms {rms}"
+    );
+}
+
+#[test]
 fn compile_exposes_the_declared_parameter_contract() {
     let instrument = compile(&physical_modal_definition(), 48_000.0, 257);
     assert!(matches!(
