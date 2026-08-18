@@ -5,13 +5,14 @@ use sonalloy_core::compiler::CompiledGenerator;
 use sonalloy_core::{
     AdsrDefinition, ChorusProcessorDefinition, CompileContext, CompressorProcessorDefinition,
     DriveProcessorDefinition, FilterModeDefinition, FilterProcessorDefinition, GeneratorDefinition,
-    InstrumentDefinition, InstrumentProcessor, LfoDefinition, LfoWaveform,
+    InstrumentDefinition, InstrumentProcessor, LayerTriggerEvent, LfoDefinition, LfoWaveform,
     LimiterProcessorDefinition, ModEnvelopeDefinition, ModalDefinition, ModulationCurve,
     ModulationDefinition, ModulationDepthDefinition, ModulationRouteDefinition,
     ModulationSourceDefinition, ParameterUnit, PhysicalExciterDefinition, PhysicalStringDefinition,
     ProcessBlock, ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec, ProcessorDefinition,
     RenderRequest, ResonatorProcessorDefinition, ReverbProcessorDefinition, ScheduledEvent,
-    compile_instrument, render_instrument,
+    TempoMap, TraceRequest, compile_instrument, render_instrument, render_instrument_with_reset,
+    render_instrument_with_trace,
 };
 
 fn reference_definition() -> InstrumentDefinition {
@@ -103,6 +104,43 @@ fn render(
         &[note_on()],
     )
     .expect("physical/modal render succeeds")
+}
+
+fn process_runtime(
+    runtime: &mut sonalloy_core::InstrumentRuntime,
+    frames: usize,
+    absolute_frame: u64,
+    events: &[ProcessEvent],
+) -> [Vec<f32>; 2] {
+    let mut left = vec![0.0; frames];
+    let mut right = vec![0.0; frames];
+    let mut output: [&mut [f32]; 2] = [left.as_mut_slice(), right.as_mut_slice()];
+    runtime
+        .process(ProcessBlock {
+            frames,
+            context: ProcessContext {
+                absolute_frame,
+                tempo_bpm: 120.0,
+            },
+            events,
+            output: &mut output,
+        })
+        .expect("runtime process succeeds");
+    [left, right]
+}
+
+fn max_abs_and_rms_difference(left: &[f32], right: &[f32]) -> (f32, f32) {
+    assert_eq!(left.len(), right.len());
+    let mut max_abs = 0.0_f32;
+    let mut squared_sum = 0.0_f64;
+    for (left, right) in left.iter().zip(right) {
+        let difference = left - right;
+        max_abs = max_abs.max(difference.abs());
+        squared_sum += f64::from(difference) * f64::from(difference);
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    let rms = (squared_sum / left.len() as f64).sqrt() as f32;
+    (max_abs, rms)
 }
 
 #[test]
@@ -264,6 +302,114 @@ fn constant_render_is_bit_exact_across_block_sizes_and_reset_repeats() {
                 .collect::<Vec<_>>()
         );
     }
+}
+
+#[test]
+fn parameter_changes_are_stable_across_required_block_sizes() {
+    let definition = physical_modal_definition();
+    let render_dynamic = |block_size: usize| {
+        let instrument = compile(&definition, 48_000.0, block_size);
+        let brightness = instrument
+            .parameter_handle("layer.string.generator.physical_string_brightness")
+            .expect("brightness handle");
+        let stiffness = instrument
+            .parameter_handle("layer.string.generator.physical_string_stiffness")
+            .expect("stiffness handle");
+        let structure = instrument
+            .parameter_handle("layer.modal.generator.modal_structure")
+            .expect("structure handle");
+        let events = [
+            note_on(),
+            ScheduledEvent {
+                absolute_frame: 64,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: brightness,
+                    normalized: 0.15,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 128,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: stiffness,
+                    normalized: 0.9,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 192,
+                kind: ProcessEventKind::ParameterChange {
+                    parameter: structure,
+                    normalized: 0.2,
+                },
+            },
+        ];
+        render_instrument(
+            instrument,
+            RenderRequest {
+                sample_rate: 48_000.0,
+                block_size,
+                duration_frames: 2_048,
+                tail_frames: 0,
+            },
+            &events,
+        )
+        .expect("dynamic render succeeds")
+    };
+
+    let reference = render_dynamic(257);
+    for block_size in [32, 64, 1_024] {
+        let candidate = render_dynamic(block_size);
+        for (reference_channel, candidate_channel) in
+            reference.channels.iter().zip(&candidate.channels)
+        {
+            let (max_abs, rms) = max_abs_and_rms_difference(reference_channel, candidate_channel);
+            assert!(
+                max_abs <= 1.0e-4 && rms <= 1.0e-5,
+                "block size {block_size} differs by max {max_abs} and rms {rms}"
+            );
+        }
+    }
+}
+
+#[test]
+fn reset_then_same_note_matches_fresh_runtime() {
+    let definition = physical_modal_definition();
+    let instrument = compile(&definition, 48_000.0, 257);
+    let mut runtime = instrument.instantiate();
+    runtime
+        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .expect("runtime prepares");
+    let events = [ProcessEvent {
+        sample_offset: 0,
+        kind: note_on().kind,
+    }];
+
+    let first = process_runtime(&mut runtime, 257, 0, &events);
+    runtime.reset().expect("runtime resets");
+    let after_reset = process_runtime(&mut runtime, 257, 0, &events);
+    let mut fresh_runtime = instrument.instantiate();
+    fresh_runtime
+        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .expect("fresh runtime prepares");
+    let fresh = process_runtime(&mut fresh_runtime, 257, 0, &events);
+
+    assert_eq!(first, after_reset);
+    assert_eq!(first, fresh);
+
+    let (rendered_first, rendered_after_reset) = render_instrument_with_reset(
+        Arc::clone(&instrument),
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 257,
+            tail_frames: 0,
+        },
+        &[note_on()],
+        &TempoMap::constant(120.0).expect("constant tempo"),
+    )
+    .expect("prepared runtime reset render succeeds");
+    assert_eq!(rendered_first.channels, rendered_after_reset.channels);
+    assert_eq!(rendered_first.channels[0], first[0]);
+    assert_eq!(rendered_first.channels[1], first[1]);
 }
 
 #[test]
@@ -551,6 +697,98 @@ fn modulation_routes_reach_physical_modal_parameters() {
 }
 
 #[test]
+fn modulation_trace_reports_final_values_for_physical_modal_targets() {
+    let mut definition = physical_modal_definition();
+    definition.modulation = Some(ModulationDefinition {
+        sources: vec![ModulationSourceDefinition::Lfo(LfoDefinition {
+            id: "trace_lfo".to_owned(),
+            waveform: LfoWaveform::Sine,
+            rate_hz: 2.0,
+            phase: 0.0,
+        })],
+        routes: vec![
+            ModulationRouteDefinition {
+                source: "trace_lfo".to_owned(),
+                target: "layer.string.generator.physical_string_stiffness".to_owned(),
+                depth: ModulationDepthDefinition {
+                    value: 0.4,
+                    unit: sonalloy_core::ModulationUnit::Normalized,
+                },
+                curve: ModulationCurve::Linear,
+            },
+            ModulationRouteDefinition {
+                source: "mod_wheel".to_owned(),
+                target: "layer.modal.generator.modal_decay".to_owned(),
+                depth: ModulationDepthDefinition {
+                    value: 0.5,
+                    unit: sonalloy_core::ModulationUnit::Normalized,
+                },
+                curve: ModulationCurve::Linear,
+            },
+        ],
+    });
+    let instrument = compile(&definition, 48_000.0, 257);
+    let stiffness = instrument
+        .parameter_handle("layer.string.generator.physical_string_stiffness")
+        .expect("stiffness handle");
+    let decay = instrument
+        .parameter_handle("layer.modal.generator.modal_decay")
+        .expect("decay handle");
+    let (_, report) = render_instrument_with_trace(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 1_024,
+            tail_frames: 0,
+        },
+        &[
+            note_on(),
+            ScheduledEvent {
+                absolute_frame: 256,
+                kind: ProcessEventKind::ModWheel { value: 1.0 },
+            },
+        ],
+        &TempoMap::constant(120.0).expect("constant tempo"),
+        &TraceRequest {
+            parameters: vec![stiffness, decay],
+            every_frames: 128,
+        },
+    )
+    .expect("trace render succeeds");
+
+    assert_eq!(report.parameters.len(), 2);
+    for parameter in &report.parameters {
+        assert!(
+            !parameter.observations.is_empty(),
+            "{}",
+            parameter.parameter
+        );
+        assert!(parameter.observations.iter().all(|observation| {
+            observation.final_value.is_finite()
+                && observation.before_clamp.is_finite()
+                && observation
+                    .routes
+                    .iter()
+                    .all(|route| route.contribution.value.is_finite())
+        }));
+        assert!(
+            parameter
+                .observations
+                .iter()
+                .any(|observation| !observation.routes.is_empty())
+        );
+    }
+    let decay_observations = &report.parameters[1].observations;
+    assert!(decay_observations.iter().any(|observation| {
+        observation
+            .routes
+            .iter()
+            .any(|route| route.source == "mod_wheel" && route.raw > 0.0)
+    }));
+}
+
+#[test]
 fn polyphony_stealing_and_note_off_trigger_keep_physical_layers_finite() {
     let mut definition = physical_modal_definition();
     definition.performance.polyphony = 2;
@@ -613,5 +851,68 @@ fn polyphony_stealing_and_note_off_trigger_keep_physical_layers_finite() {
             .iter()
             .flatten()
             .any(|sample| sample.abs() > 1.0e-6)
+    );
+}
+
+#[test]
+fn note_off_trigger_starts_a_modal_exciter() {
+    let mut definition = physical_modal_definition();
+    definition.layers.truncate(1);
+    definition.layers[0].trigger.event = LayerTriggerEvent::NoteOff;
+    definition.layers[0].generator = GeneratorDefinition::Modal(ModalDefinition {
+        exciter: PhysicalExciterDefinition::Impulse,
+        mode_count: 12,
+        structure: 0.5,
+        brightness: 0.65,
+        decay: 0.7,
+    });
+    let instrument = compile(&definition, 48_000.0, 257);
+    let audio = render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 1_024,
+            tail_frames: 0,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 256,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ],
+    )
+    .expect("note-off modal render succeeds");
+
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .take(256)
+            .all(|sample| { sample.abs() <= 1.0e-7 })
+    );
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .skip(256)
+            .any(|sample| { sample.abs() > 1.0e-6 })
     );
 }

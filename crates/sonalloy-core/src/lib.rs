@@ -72,8 +72,8 @@ pub use process::{
 };
 pub use render::{
     DEFAULT_TEMPO_BPM, RenderError, RenderRequest, RenderedAudio, TempoChange, TempoMap,
-    render_instrument, render_instrument_with_tempo, render_instrument_with_tempo_map,
-    render_instrument_with_trace, render_sine, seconds_to_frames,
+    render_instrument, render_instrument_with_reset, render_instrument_with_tempo,
+    render_instrument_with_tempo_map, render_instrument_with_trace, render_sine, seconds_to_frames,
 };
 pub use runtime::{InstrumentRuntime, SineRuntime, VoiceState};
 pub use spectral::PreparedSpectralAsset;

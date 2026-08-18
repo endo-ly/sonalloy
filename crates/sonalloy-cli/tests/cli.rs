@@ -1190,6 +1190,53 @@ fn render_events_supports_parameter_and_external_control_events() {
 }
 
 #[test]
+fn render_events_reset_check_reports_a_bit_exact_comparison() {
+    let directory = tempdir().expect("temporary directory");
+    let events = directory.path().join("events.json");
+    std::fs::write(
+        &events,
+        r#"{
+          "events": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 512, "type": "note_off", "note_id": 1}
+          ]
+        }"#,
+    )
+    .expect("event sequence fixture");
+    let output = directory.path().join("reset-check.wav");
+    let report = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "events",
+            reference_definition().to_str().expect("definition path"),
+            events.to_str().expect("events path"),
+            "--duration-frames",
+            "1024",
+            "--tail",
+            "0",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--reset-check",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .output()
+        .expect("reset-check render starts");
+    assert!(report.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&report.stdout).expect("JSON report");
+    assert_eq!(report["status"], "ok");
+    assert_eq!(report["reset_comparison"]["compatible"], true);
+    assert_eq!(report["reset_comparison"]["max_abs_difference"], 0.0);
+    assert_eq!(report["reset_comparison"]["rms_difference"], 0.0);
+    assert_eq!(report["reset_comparison"]["different_sample_count"], 0);
+    assert!(output.exists());
+}
+
+#[test]
 fn render_events_rejects_an_unknown_parameter_before_rendering() {
     let directory = tempdir().expect("temporary directory");
     let events = directory.path().join("events.json");

@@ -295,6 +295,48 @@ pub fn render_instrument_with_tempo_map(
     render_processor_with_tempo_map(&mut runtime, request, events, tempo_map)
 }
 
+/// Render an instrument, reset the same prepared runtime, and render the same events again.
+///
+/// This is intended for deterministic runtime diagnostics. Both renders use the same prepared
+/// allocation and the second render begins only after [`InstrumentProcessor::reset`] succeeds.
+///
+/// # Errors
+///
+/// Returns an error when the request, event timeline, preparation, reset, or either render is
+/// invalid.
+pub fn render_instrument_with_reset(
+    compiled: Arc<CompiledInstrument>,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+    tempo_map: &TempoMap,
+) -> Result<(RenderedAudio, RenderedAudio), RenderError> {
+    let total_frames_usize = validate_render_inputs(request, events)?;
+    let spec = request.process_spec()?;
+    let mut runtime = InstrumentRuntime::new(compiled);
+    runtime.prepare(spec)?;
+    let mut observe = |_frame: u64, _runtime: &mut InstrumentRuntime| Ok(());
+    let first = render_prepared_processor_with_tempo_map_observed(
+        &mut runtime,
+        request,
+        events,
+        tempo_map,
+        &[],
+        &mut observe,
+        total_frames_usize,
+    )?;
+    runtime.reset()?;
+    let second = render_prepared_processor_with_tempo_map_observed(
+        &mut runtime,
+        request,
+        events,
+        tempo_map,
+        &[],
+        &mut observe,
+        total_frames_usize,
+    )?;
+    Ok((first, second))
+}
+
 /// Render a compiled instrument and collect selected runtime parameter observations.
 ///
 /// The observation boundaries are inserted into the offline process loop. The same runtime and
@@ -462,24 +504,33 @@ where
     P: InstrumentProcessor,
     F: FnMut(u64, &mut P) -> Result<(), RenderError>,
 {
-    let total_frames = request.total_frames()?;
+    let total_frames_usize = validate_render_inputs(request, events)?;
     let spec = request.process_spec()?;
-    let total_frames_usize =
-        usize::try_from(total_frames).map_err(|_| RenderError::FrameCountOverflow)?;
-    for window in events.windows(2) {
-        if window[0].absolute_frame > window[1].absolute_frame {
-            return Err(RenderError::ScheduledEventsNotSorted);
-        }
-    }
-    if let Some(event) = events
-        .iter()
-        .find(|event| event.absolute_frame >= total_frames)
-    {
-        return Err(RenderError::ScheduledEventOutOfRange {
-            frame: event.absolute_frame,
-        });
-    }
     processor.prepare(spec)?;
+    render_prepared_processor_with_tempo_map_observed(
+        processor,
+        request,
+        events,
+        tempo_map,
+        observation_boundaries,
+        observe,
+        total_frames_usize,
+    )
+}
+
+fn render_prepared_processor_with_tempo_map_observed<P, F>(
+    processor: &mut P,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+    tempo_map: &TempoMap,
+    observation_boundaries: &[u64],
+    observe: &mut F,
+    total_frames_usize: usize,
+) -> Result<RenderedAudio, RenderError>
+where
+    P: InstrumentProcessor,
+    F: FnMut(u64, &mut P) -> Result<(), RenderError>,
+{
     let mut observation_index = 0_usize;
     if observation_boundaries.first() == Some(&0) {
         observe(0, processor)?;
@@ -555,6 +606,29 @@ where
         }
     }
     Ok(audio)
+}
+
+fn validate_render_inputs(
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+) -> Result<usize, RenderError> {
+    let total_frames = request.total_frames()?;
+    let total_frames_usize =
+        usize::try_from(total_frames).map_err(|_| RenderError::FrameCountOverflow)?;
+    for window in events.windows(2) {
+        if window[0].absolute_frame > window[1].absolute_frame {
+            return Err(RenderError::ScheduledEventsNotSorted);
+        }
+    }
+    if let Some(event) = events
+        .iter()
+        .find(|event| event.absolute_frame >= total_frames)
+    {
+        return Err(RenderError::ScheduledEventOutOfRange {
+            frame: event.absolute_frame,
+        });
+    }
+    Ok(total_frames_usize)
 }
 
 #[cfg(test)]

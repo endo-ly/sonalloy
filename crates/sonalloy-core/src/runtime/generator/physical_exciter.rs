@@ -5,7 +5,7 @@ use crate::process::{ProcessError, ProcessorFailureKind};
 use super::super::random::{bipolar_f32, splitmix64_finalizer};
 
 const STREAM_PHYSICAL_EXCITER: u64 = 0x7068_7973_6963_0001;
-const EXCITER_GAIN: f32 = 0.25;
+pub(super) const PHYSICAL_EXCITER_GAIN: f32 = 0.25;
 pub(super) const PHYSICAL_MIN_CUTOFF_HZ: f32 = 200.0;
 pub(super) const PHYSICAL_MAX_CUTOFF_HZ: f32 = 18_000.0;
 pub(super) const MIN_PHYSICAL_FREQUENCY_HZ: f32 = 4.0;
@@ -108,7 +108,7 @@ impl PhysicalExciterRuntime {
             *sample = match self.definition {
                 CompiledPhysicalExciter::Impulse => {
                     if self.frame == 0 {
-                        EXCITER_GAIN
+                        PHYSICAL_EXCITER_GAIN
                     } else {
                         0.0
                     }
@@ -122,7 +122,7 @@ impl PhysicalExciterRuntime {
                         self.lowpass_state = self
                             .lowpass_coefficient
                             .mul_add(self.lowpass_state, (1.0 - self.lowpass_coefficient) * white);
-                        self.lowpass_state * self.envelope * EXCITER_GAIN
+                        self.lowpass_state * self.envelope * PHYSICAL_EXCITER_GAIN
                     }
                 }
             };
@@ -159,7 +159,7 @@ mod tests {
         exciter.start(3);
         let mut output = [0.0; 4];
         exciter.render(4, &mut output).expect("render");
-        assert_eq!(output[0].to_bits(), EXCITER_GAIN.to_bits());
+        assert_eq!(output[0].to_bits(), PHYSICAL_EXCITER_GAIN.to_bits());
         assert!(
             output[1..]
                 .iter()
