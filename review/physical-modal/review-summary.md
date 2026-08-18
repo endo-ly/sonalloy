@@ -6,12 +6,13 @@
 - Sample Rate比較：44,100 / 48,000 / 96,000 Hz
 - 基準Block Size：257 frames
 - 比較Block Size：32 / 64 / 257 / 1024 frames
+- Performance Matrix：48,000 / 96,000 Hz、Physical String 1 / 8 / 16 / 32 voices、Modal 12 / 24 modes × 1 / 8 / 16 voices
 - Output：Stereo、32-bit float WAV
 - Backend：DaisySP V1.0.0 (`a0494a3adb67f549e18dfd71a35fa656f65b38b6`)
 
 ## 生成物
 
-`definitions/`にTechnical Definitionと3つのMusical Definition、`validation/`に全DefinitionのCLI Validate JSON、`inspect/`に3つのMusical DefinitionのInspect JSON、`audio/technical/`と`audio/musical/`に同じ生出力、`trace/`にParameter Traceを保存しています。`metrics.json`はCLIの`--analyze --json`を基礎にFinite性、Level、DC、Continuity、Spectrum、Block Size、Sample Rate、Fresh Runtime、Reset、SHA-256、Performanceを記録し、Physical StringはStiffness 0 / 0.5 / 1の時間領域自己相関でPitch Errorを20 cents以内へ検証します。Dynamic ParameterのBlock Size比較、Trace Final Value、同一Prepared RuntimeのReset再現性、Fresh Runtimeとの一致も記録します。FFTのNearest Bin値は分解能の参考値として併記します。
+`definitions/`にTechnical Definitionと3つのMusical Definition、`validation/`に全DefinitionのCLI Validate JSON、`inspect/`に3つのMusical DefinitionのInspect JSON、`audio/technical/`と`audio/musical/`に同じ生出力、`trace/`にParameter Traceを保存しています。`metrics.json`はCLIの`--analyze --json`を基礎にFinite性、Level、DC、Continuity、Spectrum、Block Size、Sample Rate、Fresh Runtime、Reset、SHA-256、Performanceを記録し、Physical StringはStiffness 0 / 0.5 / 1の時間領域自己相関でPitch Errorを20 cents以内へ検証します。Dynamic ParameterのBlock Size比較、Trace Final Value、同一Prepared RuntimeのReset再現性、Fresh Runtimeとの一致、48,000 / 96,000 HzのVoice数別Performance Matrixも記録します。FFTのNearest Bin値は分解能の参考値として併記します。
 
 再生成：
 

@@ -42,6 +42,8 @@ MUSICAL_NOTES = {
 }
 BLOCK_SIZE_MAX_DIFFERENCE = 1.0e-4
 PITCH_ACCURACY_LIMIT_CENTS = 20.0
+REVIEW_SAMPLE_RATES = (44_100, SAMPLE_RATE, 96_000)
+PERFORMANCE_SAMPLE_RATES = (SAMPLE_RATE, 96_000)
 PITCH_ACCURACY_DEFINITIONS = {
     "string_impulse",
     "string_low_stiffness",
@@ -652,7 +654,7 @@ def main() -> None:
             block_size_comparisons[name] = comparisons
 
             rates: dict[str, object] = {}
-            for sample_rate in (44_100, SAMPLE_RATE, 96_000):
+            for sample_rate in REVIEW_SAMPLE_RATES:
                 candidate = temporary_root / f"{name}-rate-{sample_rate}.wav"
                 render_note(definition_path, MUSICAL_NOTES[name], candidate, BASE_BLOCK_SIZE, sample_rate, tail_seconds=1.0)
                 values = measure(candidate, list(BLOCK_SIZES), include_spectrum=True, fundamental_frequency_hz=midi_note_frequency(MUSICAL_NOTES[name]))
@@ -764,6 +766,7 @@ def main() -> None:
                 temporary_root / f"{name}-performance.wav",
                 duration_frames=48_000,
                 block_size=BASE_BLOCK_SIZE,
+                sample_rate=SAMPLE_RATE,
                 release=True,
             )
             if float(performance[name]["realtime_ratio"]) >= 1.0:
@@ -775,43 +778,48 @@ def main() -> None:
             "modal_24_modes": ("modal_24_modes", (1, 8, 16)),
         }
         for matrix_name, (source_name, voice_counts) in performance_jobs.items():
-            voice_metrics: dict[str, object] = {}
-            for voice_count in voice_counts:
-                definition_path = temporary_root / f"{matrix_name}-{voice_count}-voices.json"
-                value = json.loads(json.dumps(definition_values[source_name]))
-                value["performance"]["polyphony"] = voice_count
-                write_definition(definition_path, value)
-                events_path = temporary_root / f"{matrix_name}-{voice_count}-voices-events.json"
-                write_events(events_path, performance_events(voice_count))
-                output_path = temporary_root / f"{matrix_name}-{voice_count}-voices.wav"
-                metrics = timed_render(
-                    definition_path,
-                    events_path,
-                    output_path,
-                    duration_frames=48_000,
-                    block_size=BASE_BLOCK_SIZE,
-                    release=True,
-                )
-                audio_metrics = measure(output_path, [], include_spectrum=False)
-                if not audio_metrics["finite"]:
-                    raise RuntimeError(
-                        f"{matrix_name} at {voice_count} voices is non-finite: {audio_metrics}"
+            sample_rate_metrics: dict[str, object] = {}
+            for sample_rate in PERFORMANCE_SAMPLE_RATES:
+                voice_metrics: dict[str, object] = {}
+                for voice_count in voice_counts:
+                    definition_path = temporary_root / f"{matrix_name}-{sample_rate}-{voice_count}-voices.json"
+                    value = json.loads(json.dumps(definition_values[source_name]))
+                    value["performance"]["polyphony"] = voice_count
+                    write_definition(definition_path, value)
+                    events_path = temporary_root / f"{matrix_name}-{sample_rate}-{voice_count}-voices-events.json"
+                    write_events(events_path, performance_events(voice_count))
+                    output_path = temporary_root / f"{matrix_name}-{sample_rate}-{voice_count}-voices.wav"
+                    metrics = timed_render(
+                        definition_path,
+                        events_path,
+                        output_path,
+                        duration_frames=48_000,
+                        block_size=BASE_BLOCK_SIZE,
+                        sample_rate=sample_rate,
+                        release=True,
                     )
-                voice_metrics[str(voice_count)] = {
-                    **metrics,
-                    "finite": audio_metrics["finite"],
-                    "rms": audio_metrics["rms"],
-                }
+                    audio_metrics = measure(output_path, [], include_spectrum=False)
+                    if audio_metrics["sample_rate"] != sample_rate or not audio_metrics["finite"]:
+                        raise RuntimeError(
+                            f"{matrix_name} at {sample_rate} Hz / {voice_count} voices is invalid: {audio_metrics}"
+                        )
+                    voice_metrics[str(voice_count)] = {
+                        **metrics,
+                        "finite": audio_metrics["finite"],
+                        "rms": audio_metrics["rms"],
+                    }
+                sample_rate_metrics[str(sample_rate)] = {"voices": voice_metrics}
             performance_matrix[matrix_name] = {
                 "source_definition": source_name,
-                "voices": voice_metrics,
+                "sample_rates": sample_rate_metrics,
             }
 
     metrics = {
         "sample_rate": SAMPLE_RATE,
         "base_block_size": BASE_BLOCK_SIZE,
         "block_sizes": list(BLOCK_SIZES),
-        "sample_rates": [44_100, SAMPLE_RATE, 96_000],
+        "sample_rates": list(REVIEW_SAMPLE_RATES),
+        "performance_sample_rates": list(PERFORMANCE_SAMPLE_RATES),
         "validation": validation_reports,
         "technical": technical_metrics,
         "block_size_comparisons": block_size_comparisons,
@@ -834,12 +842,13 @@ def main() -> None:
 - Sample Rate比較：44,100 / 48,000 / 96,000 Hz
 - 基準Block Size：257 frames
 - 比較Block Size：32 / 64 / 257 / 1024 frames
+- Performance Matrix：48,000 / 96,000 Hz、Physical String 1 / 8 / 16 / 32 voices、Modal 12 / 24 modes × 1 / 8 / 16 voices
 - Output：Stereo、32-bit float WAV
 - Backend：DaisySP V1.0.0 (`a0494a3adb67f549e18dfd71a35fa656f65b38b6`)
 
 ## 生成物
 
-`definitions/`にTechnical Definitionと3つのMusical Definition、`validation/`に全DefinitionのCLI Validate JSON、`inspect/`に3つのMusical DefinitionのInspect JSON、`audio/technical/`と`audio/musical/`に同じ生出力、`trace/`にParameter Traceを保存しています。`metrics.json`はCLIの`--analyze --json`を基礎にFinite性、Level、DC、Continuity、Spectrum、Block Size、Sample Rate、Fresh Runtime、Reset、SHA-256、Performanceを記録し、Physical StringはStiffness 0 / 0.5 / 1の時間領域自己相関でPitch Errorを20 cents以内へ検証します。Dynamic ParameterのBlock Size比較、Trace Final Value、同一Prepared RuntimeのReset再現性、Fresh Runtimeとの一致も記録します。FFTのNearest Bin値は分解能の参考値として併記します。
+`definitions/`にTechnical Definitionと3つのMusical Definition、`validation/`に全DefinitionのCLI Validate JSON、`inspect/`に3つのMusical DefinitionのInspect JSON、`audio/technical/`と`audio/musical/`に同じ生出力、`trace/`にParameter Traceを保存しています。`metrics.json`はCLIの`--analyze --json`を基礎にFinite性、Level、DC、Continuity、Spectrum、Block Size、Sample Rate、Fresh Runtime、Reset、SHA-256、Performanceを記録し、Physical StringはStiffness 0 / 0.5 / 1の時間領域自己相関でPitch Errorを20 cents以内へ検証します。Dynamic ParameterのBlock Size比較、Trace Final Value、同一Prepared RuntimeのReset再現性、Fresh Runtimeとの一致、48,000 / 96,000 HzのVoice数別Performance Matrixも記録します。FFTのNearest Bin値は分解能の参考値として併記します。
 
 再生成：
 
