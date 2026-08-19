@@ -51,10 +51,10 @@ CLIなどのAuthoring Interfaceでは`Parameter Change`をCatalogのParameter Un
 Realtime演奏では、CLIのAudio Adapterが同じ`ProcessBlock`と`ProcessEventKind`を使用します。CoreはAudio Device APIやMIDI APIを参照しません。
 
 - CPALが渡すHost CallbackのFrame数は要求値と異なる場合があるため、AdapterはCallback全体をCoreの最大Block Size以下へ分割し、各Blockの`absolute_frame`を連続させます。
-- Live MIDI Eventは固定容量4096のQueueへ入り、Audio Callbackが次のCore Blockの先頭で取り出します。同じ位置ではCoreのPriorityと入力Sequenceで並べ替えます。Queueが満杯になった場合は黙って破棄・上書きせず、Sessionを停止します。
+- Live MIDI Eventは接続開始からのTimestampと入力Sequenceを保持して固定容量4096のQueueへ入り、Audio Callbackが次のCore Blockの先頭で取り出します。Timestampの異なるEventはTimestamp順を維持し、同じTimestampだけCoreのPriorityと入力Sequenceで並べ替えます。Audio ClockへのSample Accurate変換は行わず、取り出したEventはBlock先頭へ適用します。Queueが満杯になった場合は黙って破棄・上書きせず、Sessionを停止します。
 - Coreの出力は確保済みPlanar `f32` Stereoです。AdapterはDeviceのPCM Sample Formatへ変換し、ch 0 / 1へLeft / Rightを出力します。3ch以上では残りのChannelを無音にします。Mono、PCM以外、要求Buffer非対応のDeviceはStream開始前に拒否します。
 - Audio CallbackではHeap Allocation、Log、Blocking Lock、File / JSON / Device Queryを行いません。Device選択、DefinitionのCompile、RuntimeのPrepareはCallback開始前に完了させます。
-- Callback中のProcess Error、Device Error、Queue Overflowは出力を無音にしてFatal Statusへ遷移します。Realtime Schedulingの拒否はWarning、XrunはCounterとしてSessionを継続します。
+- Callback中のProcess Error、Audio Device Error、MIDI Error、Queue Overflowは出力を無音にしてFatal Statusへ遷移します。終了時は原因に対応する`PROCESS_ERROR`、`AUDIO_DEVICE_ERROR`、`MIDI_ERROR`を表示します。Realtime Schedulingの拒否はWarning、XrunはCounterとしてSessionを継続します。実際に渡されたCallback Frame数は最小値・最大値・回数を記録します。
 
 ## Noteのライフサイクル
 

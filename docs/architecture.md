@@ -33,7 +33,7 @@ flowchart TD
 | `sonalloy-core` | 処理契約、Definitionの読込と検証、Compile、Runtime、Render | CLI、clap、hound、midly、cpal、midir、crossbeam-queue、C++ヘッダー、オーディオデバイスAPI |
 | `sonalloy-dsp-sys` | 内部C ABIの宣言と、生ポインタを隠蔽するSafe Rustラッパー | — |
 
-Realtimeの外部境界は`sonalloy-cli`に閉じ込めます。Main ThreadがDevice選択、DefinitionのCompile、RuntimeのPrepare、Streamの起動を行い、Audio Callbackだけが準備済みRuntimeとNative DSP Handleを排他的に所有します。MIDI CallbackはLive Messageを共通Process Eventへ変換して固定容量Queueへ送り、Queue Overflow・Process Error・Device Errorは共有StatusでSessionへ伝えます。CoreはDevice名、Port ID、CPAL / Midir型を知りません。
+Realtimeの外部境界は`sonalloy-cli`に閉じ込めます。Main ThreadがDevice選択、DefinitionのCompile、RuntimeのPrepare、Streamの起動を行い、Audio Callbackだけが準備済みRuntimeとNative DSP Handleを排他的に所有します。Native Handle Wrapperの`Send`保証は各Wrapperの一意所有・非共有アクセス・Thread affinityなしの条件へ限定し、Audio Engine全体で一括して握り潰しません。MIDI CallbackはLive Messageを共通Process Eventへ変換し、TimestampをQueueの順序情報として保持して固定容量Queueへ送ります。Queue Overflow・Process Error・Device Errorは共有StatusでSessionへ伝えます。CoreはDevice名、Port ID、CPAL / Midir型を知りません。
 
 ## `sonalloy-core`
 

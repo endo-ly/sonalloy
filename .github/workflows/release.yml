@@ -111,6 +111,11 @@ jobs:
         shell: bash
         run: cargo build --release -p sonalloy-cli
 
+      - name: Smoke-test release binary (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: target/release/sonalloy --version
+
       - name: Package archive
         shell: bash
         env:

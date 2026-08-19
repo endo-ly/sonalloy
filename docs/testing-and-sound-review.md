@@ -61,8 +61,8 @@ Realtime Adapterの自動検証は物理Deviceを使用せず、CoreとDevice非
 |---|---|
 | Callback分割 | Host Callbackの1、63、64、255、256、257、511、641、1024 FrameをCore最大Block以下へ分割し、絶対Frameを連続させる |
 | Channel / Format | StereoのLeft / Right、3ch以上の余剰Channel無音、PCMの符号付き・符号なし・24-bitを含むSample Format変換 |
-| Queue / 順序 | Emptyから4096 Event、同一OffsetのPriority + Sequence、4097個目のPushで既存Eventを保持したままFatal化 |
-| Fault / Status | Process ErrorとOutput Errorの無音化、RealtimeDeniedのWarning、XrunのCounter、Device lossのFatal化 |
+| Queue / 順序 | Emptyから4096 Event、Timestamp順・同一TimestampのPriority + Sequence、Note On / Note Off / Sustainの時系列回帰、4097個目のPushで既存Eventを保持したままFatal化 |
+| Fault / Status | Process Error・Audio Error・MIDI Error・Queue Overflowの無音化と原因別Diagnostic、RealtimeDeniedのWarning、XrunのCounter、Device lossのFatal化 |
 | Callback安全性 | Eventあり・なし、Host Callback分割、Multi-channelを含むAudio Callback本体のAllocation 0 |
 
 物理Deviceを使うReviewでは、Release BuildでWindowsとLinuxを確認します。最初に`sonalloy device list`でAudio Output / MIDI Inputの名前とOpaque IDを確認し、`sonalloy device list --json`で機械可読ReportのFieldと`buffer_size: null`を含む未知値の表現を確認します。
@@ -75,7 +75,7 @@ Realtime Adapterの自動検証は物理Deviceを使用せず、CoreとDevice非
 | Buffer | 256 Frameを通常の完了判定対象、128 Frameを追加評価として記録する。Hostが要求値と異なるCallbackを返しても音切れ・停止がない |
 | 長時間 | 各OSでRelease Buildを10分以上連続演奏し、Fatal Fault、Stuck Note、Queue Overflow、通常利用中の継続的Xrun、Memoryの継続増加がない |
 
-Review結果は`review/realtime-performance/`へ記録します。Machine-specificなOpaque IDは公開Artifactへ残さず、Device Name、Backend、Sample Rate、要求 / 実Callback Frame、Engine Latency、時間、Xrun、Fatal状態、入力応答を記録します。
+Review結果は`review/realtime-performance/`へ記録します。Machine-specificなOpaque IDは公開Artifactへ残さず、Device Name、Backend、Sample Rate、要求Frame、観測したCallback Frameの最小値・最大値・回数、Engine Latency、時間、Xrun、Fatal状態、入力応答を記録します。
 
 ## 音声Review
 

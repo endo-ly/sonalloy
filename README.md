@@ -88,8 +88,7 @@ sonalloy play my-synth.json --midi-device <id>
 - Rust stable（`rustup`で導入）
 - CMake 3.14以上
 - Windows: Visual Studio C++ Build Tools
-- Linux: `g++`または`clang++`、`git`
-- Linux realtime build: `pkg-config`、`libasound2-dev`
+- Linux: `g++`または`clang++`、`git`、`pkg-config`、`libasound2-dev`
 - macOS: Xcode Command Line Tools
 
 初回のビルドではCMakeがDaisySP V1.0.0の固定Commitを取得するため、ネットワーク接続が必要です。Signalsmith StretchとSignalsmith Linearは固定Revisionをリポジトリへ同梱しているため、これらのビルドではネットワーク接続を必要としません。

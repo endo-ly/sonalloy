@@ -121,13 +121,13 @@ sonalloy play <definition> --audio-device <id> --sample-rate 48000 --buffer-size
 | `--buffer-size <frames>` | 256 | CPALへ要求するFrame数。0やDeviceの対応範囲外はError |
 | `--tempo <bpm>` | 120 | `ProcessContext.tempo_bpm`へ渡す一定Tempo |
 
-起動時にDefinition名、Audio / MIDI Device名とOpaque ID、Sample Rate、Device Channel、Sample Format、要求Buffer、Engine Latency、Tempoを表示します。Backendから実際のCallback Frame数を取得できない場合があるため、Host Callbackは要求値と異なることがあります。`play`は長時間実行Commandで、標準入力のEnterで停止します。
+起動時にDefinition名、Audio / MIDI Device名とOpaque ID、Sample Rate、Device Channel、Sample Format、要求Buffer、Engine Latency、Tempoを表示します。Host Callbackの実Frame数はBackendにより要求値と異なるため、停止時に観測した最小Frame数・最大Frame数・Callback回数を表示します。`play`は長時間実行Commandで、標準入力のEnterで停止します。
 
 AudioはCoreのPlanar `f32` StereoをDevice Sample Formatへ変換します。2chより多いDeviceではch 0 / 1へLeft / Rightを出力し、残りを無音にします。Mono Device、PCM以外のFormat、Unsupported Bufferは起動Errorです。Audio CallbackではHeap Allocation、Log、Blocking Lockを行いません。
 
-DeviceがRealtime Schedulingを拒否した場合はWarningを表示してSessionを継続します。XrunはCounterとして終了時に表示し、Device Error、Process Error、Queue Overflowは無音化してSessionを終了します。
+DeviceがRealtime Schedulingを拒否した場合はWarningを表示してSessionを継続します。XrunはCounterとして終了時に表示し、Audio Device Errorは`AUDIO_DEVICE_ERROR`、MIDI Errorは`MIDI_ERROR`、Process ErrorとQueue Overflowは`PROCESS_ERROR`として無音化後にSessionを終了します。
 
-MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64は、Offline経路と同じCore Eventへ変換されます。CC64はDown中にNote OffのReleaseを保留し、UpでReleaseを開始します。Realtime DeniedはWarning、XrunはCounter、Device / Process / Queue Faultは無音化してSessionを終了します。
+MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64は、Offline経路と同じCore Eventへ変換されます。CC64はDown中にNote OffのReleaseを保留し、UpでReleaseを開始します。Realtime DeniedはWarning、XrunはCounter、Faultは原因に応じたDiagnostic Codeで無音化後にSessionを終了します。
 
 `play`にはStreaming JSON Protocolを設けません。Deviceの機械可読な確認には`device list --json`を使用します。
 
@@ -355,7 +355,7 @@ Time Stretchを含む音源では、CLIが内部で報告Latency分を追加レ�
 
 **音源定義・Event**
 
-`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`PARAMETER_ID_INVALID`、`PARAMETER_NOT_FOUND`、`SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_DEPTH_INVALID`、`ROUTE_DEPTH_UNIT_INVALID`、`ROUTE_TARGET_INVALID`、`FILTER_CUTOFF_CLAMPED`、`TRACE_LIMIT_EXCEEDED`、`EVENT_ORDER_INVALID`、`DSP_ERROR`、`MIDI_ERROR`、`AUDIO_DEVICE_ERROR`
+`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`PARAMETER_ID_INVALID`、`PARAMETER_NOT_FOUND`、`SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_DEPTH_INVALID`、`ROUTE_DEPTH_UNIT_INVALID`、`ROUTE_TARGET_INVALID`、`FILTER_CUTOFF_CLAMPED`、`TRACE_LIMIT_EXCEEDED`、`EVENT_ORDER_INVALID`、`PROCESS_ERROR`、`DSP_ERROR`、`MIDI_ERROR`、`AUDIO_DEVICE_ERROR`
 
 **Asset**
 

@@ -6,7 +6,7 @@ WindowsとLinuxのRelease Buildで、既存Referenceを`sonalloy play`へ渡し�
 
 ## 記録
 
-`metrics.json`へPlatformごとのDevice条件、Sample Rate、要求 / 実Callback Frame、Engine Latency、演奏時間、Xrun、Queue Overflow、Fatal状態を記録する。入力応答と音質の人間の判断はこの文書へ追記する。
+`metrics.json`へPlatformごとのDevice条件、Sample Rate、要求Frame、観測したCallback Frameの最小値・最大値・回数、Engine Latency、演奏時間、Xrun、Queue Overflow、Fatal状態を記録する。入力応答と音質の人間の判断はこの文書へ追記する。
 
 | Platform | Device / Buffer | 入力応答 | 長時間安定性 | 判定 |
 |---|---|---|---|---|
