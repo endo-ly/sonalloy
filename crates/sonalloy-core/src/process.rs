@@ -239,6 +239,18 @@ impl ProcessBlock<'_> {
     /// Returns an error when the frame count, channel count, output lengths, or event offsets
     /// violate the process contract.
     pub fn validate_for(&self, spec: ProcessSpec) -> Result<(), ProcessError> {
+        self.validate_for_ordered(spec, true)
+    }
+
+    pub(crate) fn validate_for_realtime(&self, spec: ProcessSpec) -> Result<(), ProcessError> {
+        self.validate_for_ordered(spec, false)
+    }
+
+    fn validate_for_ordered(
+        &self,
+        spec: ProcessSpec,
+        enforce_same_offset_priority: bool,
+    ) -> Result<(), ProcessError> {
         if !self.context.tempo_bpm.is_finite() || self.context.tempo_bpm <= 0.0 {
             return Err(ProcessError::InvalidTempo);
         }
@@ -283,7 +295,8 @@ impl ProcessBlock<'_> {
                     current_offset: window[1].sample_offset,
                 });
             }
-            if window[0].sample_offset == window[1].sample_offset
+            if enforce_same_offset_priority
+                && window[0].sample_offset == window[1].sample_offset
                 && window[0].kind.priority() > window[1].kind.priority()
             {
                 return Err(ProcessError::EventOrderInvalid);
@@ -720,6 +733,7 @@ mod tests {
             block.validate_for(spec),
             Err(ProcessError::EventOrderInvalid)
         );
+        assert_eq!(block.validate_for_realtime(spec), Ok(()));
 
         let valid_events = [
             ProcessEvent {

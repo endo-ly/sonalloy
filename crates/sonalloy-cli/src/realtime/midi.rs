@@ -41,12 +41,7 @@ pub(crate) fn connect(
     let state = LiveMidiState::new(events, status);
     selected
         .input
-        .connect(
-            &selected.port,
-            "sonalloy",
-            |_timestamp, message, state| handle_message(message, state),
-            state,
-        )
+        .connect(&selected.port, "sonalloy", handle_message, state)
         .map_err(|error| DeviceError {
             diagnostic: sonalloy_core::Diagnostic::error(
                 sonalloy_core::DiagnosticCode::MidiError,
@@ -56,7 +51,7 @@ pub(crate) fn connect(
         })
 }
 
-fn handle_message(message: &[u8], state: &mut LiveMidiState) {
+fn handle_message(timestamp_us: u64, message: &[u8], state: &mut LiveMidiState) {
     if state.status.fatal() != FatalStatus::None {
         return;
     }
@@ -82,6 +77,7 @@ fn handle_message(message: &[u8], state: &mut LiveMidiState) {
                 .push_back(note_id);
             enqueue(
                 state,
+                timestamp_us,
                 ProcessEventKind::NoteOn {
                     note_id,
                     note_number: note,
@@ -96,7 +92,7 @@ fn handle_message(message: &[u8], state: &mut LiveMidiState) {
                 .get_mut(&(channel, note))
                 .and_then(VecDeque::pop_front)
             {
-                enqueue(state, ProcessEventKind::NoteOff { note_id });
+                enqueue(state, timestamp_us, ProcessEventKind::NoteOff { note_id });
             }
         }
         MidiMessage::Controller { controller, value }
@@ -104,6 +100,7 @@ fn handle_message(message: &[u8], state: &mut LiveMidiState) {
         {
             enqueue(
                 state,
+                timestamp_us,
                 ProcessEventKind::SustainPedal {
                     down: value.as_int() >= 64,
                 },
@@ -114,6 +111,7 @@ fn handle_message(message: &[u8], state: &mut LiveMidiState) {
         {
             enqueue(
                 state,
+                timestamp_us,
                 ProcessEventKind::ModWheel {
                     value: normalize_control(value.as_int()),
                 },
@@ -122,6 +120,7 @@ fn handle_message(message: &[u8], state: &mut LiveMidiState) {
         MidiMessage::PitchBend { bend } => {
             enqueue(
                 state,
+                timestamp_us,
                 ProcessEventKind::PitchBend {
                     value: normalize_pitch_bend(bend.as_int()),
                 },
@@ -130,6 +129,7 @@ fn handle_message(message: &[u8], state: &mut LiveMidiState) {
         MidiMessage::ChannelAftertouch { vel } => {
             enqueue(
                 state,
+                timestamp_us,
                 ProcessEventKind::Aftertouch {
                     value: normalize_control(vel.as_int()),
                 },
@@ -152,7 +152,7 @@ fn next_serial(state: &mut LiveMidiState, channel: u8, note: u8) -> Option<u32> 
     Some(current)
 }
 
-fn enqueue(state: &mut LiveMidiState, kind: ProcessEventKind) {
+fn enqueue(state: &mut LiveMidiState, timestamp_us: u64, kind: ProcessEventKind) {
     if state.status.fatal() != FatalStatus::None {
         return;
     }
@@ -161,6 +161,7 @@ fn enqueue(state: &mut LiveMidiState, kind: ProcessEventKind) {
         return;
     };
     let event = QueuedEvent {
+        timestamp_us,
         sequence: state.next_sequence,
         kind,
     };
@@ -196,10 +197,10 @@ mod tests {
     fn note_offs_match_same_key_note_ons_in_fifo_order() {
         let (mut state, events, status) = state();
 
-        handle_message(&[0x90, 60, 100], &mut state);
-        handle_message(&[0x90, 60, 110], &mut state);
-        handle_message(&[0x80, 60, 0], &mut state);
-        handle_message(&[0x80, 60, 0], &mut state);
+        handle_message(10, &[0x90, 60, 100], &mut state);
+        handle_message(20, &[0x90, 60, 110], &mut state);
+        handle_message(30, &[0x80, 60, 0], &mut state);
+        handle_message(40, &[0x80, 60, 0], &mut state);
 
         let first = events.pop().expect("first event");
         let second = events.pop().expect("second event");
@@ -223,6 +224,8 @@ mod tests {
             fourth.kind,
             ProcessEventKind::NoteOff { note_id: second_id }
         );
+        assert_eq!(first.timestamp_us, 10);
+        assert_eq!(third.timestamp_us, 30);
         assert_eq!(status.fatal(), FatalStatus::None);
     }
 
@@ -230,10 +233,10 @@ mod tests {
     fn live_controls_are_normalized_into_core_events() {
         let (mut state, events, status) = state();
 
-        handle_message(&[0xB0, SUSTAIN_PEDAL_CONTROLLER, 127], &mut state);
-        handle_message(&[0xB0, MOD_WHEEL_CONTROLLER, 64], &mut state);
-        handle_message(&[0xE0, 0, 64], &mut state);
-        handle_message(&[0xD0, 32], &mut state);
+        handle_message(10, &[0xB0, SUSTAIN_PEDAL_CONTROLLER, 127], &mut state);
+        handle_message(20, &[0xB0, MOD_WHEEL_CONTROLLER, 64], &mut state);
+        handle_message(30, &[0xE0, 0, 64], &mut state);
+        handle_message(40, &[0xD0, 32], &mut state);
 
         assert_eq!(
             events.pop().expect("sustain event").kind,
@@ -264,7 +267,7 @@ mod tests {
     fn malformed_live_message_stops_midi_input() {
         let (mut state, _events, status) = state();
 
-        handle_message(&[0x90, 60], &mut state);
+        handle_message(10, &[0x90, 60], &mut state);
 
         assert_eq!(status.fatal(), FatalStatus::Midi);
     }
@@ -275,8 +278,8 @@ mod tests {
         let status = Arc::new(RealtimeStatus::new());
         let mut state = LiveMidiState::new(events.clone(), status.clone());
 
-        handle_message(&[0x90, 60, 100], &mut state);
-        handle_message(&[0x90, 61, 100], &mut state);
+        handle_message(10, &[0x90, 60, 100], &mut state);
+        handle_message(20, &[0x90, 61, 100], &mut state);
 
         assert_eq!(status.fatal(), FatalStatus::EventQueue);
         assert!(matches!(

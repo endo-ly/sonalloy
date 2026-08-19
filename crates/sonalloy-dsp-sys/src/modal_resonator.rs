@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::ptr::NonNull;
 
 use thiserror::Error;
@@ -47,8 +46,12 @@ fn result_from_code(code: i32) -> Result<(), DspModalResonatorError> {
 pub struct DspModalResonator {
     handle: NonNull<ffi::DspModalResonator>,
     prepared: bool,
-    not_send_or_sync: PhantomData<*mut ()>,
 }
+
+// SAFETY: The wrapper uniquely owns the native resonator, the native object has no thread
+// affinity, and all stateful operations require exclusive `&mut self` access. It is deliberately
+// not `Sync`; callers cannot share the mutable native state concurrently.
+unsafe impl Send for DspModalResonator {}
 
 impl DspModalResonator {
     /// Create an unprepared modal resonator.
@@ -63,7 +66,6 @@ impl DspModalResonator {
         Ok(Self {
             handle,
             prepared: false,
-            not_send_or_sync: PhantomData,
         })
     }
 

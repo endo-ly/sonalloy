@@ -48,6 +48,10 @@ pub struct DspWavefolder {
     prepared: bool,
 }
 
+// SAFETY: The wrapper uniquely owns the native Wavefolder, the native object has no thread
+// affinity, and all stateful operations require exclusive `&mut self` access.
+unsafe impl Send for DspWavefolder {}
+
 impl DspWavefolder {
     /// Create an unprepared Wavefolder.
     ///

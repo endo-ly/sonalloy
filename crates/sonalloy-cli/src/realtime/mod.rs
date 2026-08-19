@@ -55,6 +55,7 @@ pub(crate) fn run_play(args: &PlayArgs) -> ExitCode {
     };
     println!("playing {} through live MIDI", args.definition.display());
     println!("press Enter to stop");
+    let status = session.status.clone();
     let (stop_sender, stop_receiver) = mpsc::channel();
     let stop_thread = std::thread::spawn(move || {
         let mut input = String::new();
@@ -62,7 +63,7 @@ pub(crate) fn run_play(args: &PlayArgs) -> ExitCode {
         let _ = stop_sender.send(result.is_ok());
     });
     let mut input_error = false;
-    while session.status.fatal() == audio::FatalStatus::None {
+    while status.fatal() == audio::FatalStatus::None {
         match stop_receiver.recv_timeout(Duration::from_millis(50)) {
             Ok(success) => {
                 input_error = !success;
@@ -72,41 +73,49 @@ pub(crate) fn run_play(args: &PlayArgs) -> ExitCode {
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
     }
-    let fatal = session.status.fatal();
+    let fatal = status.fatal();
     if input_error {
         eprintln!("warning: could not read the stop command; stopping");
     }
-    if session.status.realtime_denied() {
+    drop(session);
+    if status.realtime_denied() {
         eprintln!("warning: realtime scheduling was denied by the audio backend");
     }
-    let xruns = session.status.xrun_count();
+    let xruns = status.xrun_count();
     if xruns > 0 {
         eprintln!("warning: audio xruns: {xruns}");
     }
+    let callback_frames = status.callback_frame_stats();
     println!("Stopped.");
     println!("XRuns: {xruns}");
     println!(
         "Realtime priority warning: {}",
-        if session.status.realtime_denied() {
+        if status.realtime_denied() {
             "denied"
         } else {
             "none"
         }
     );
-    drop(session);
+    match (callback_frames.min, callback_frames.max) {
+        (Some(min), Some(max)) => println!(
+            "Callback frames: {min}..={max} ({count} callbacks)",
+            count = callback_frames.count
+        ),
+        _ => println!("Callback frames: none"),
+    }
     if fatal == audio::FatalStatus::None {
         let _ = stop_thread.join();
         ExitCode::SUCCESS
     } else {
         drop(stop_thread);
+        let Some(diagnostic) = fatal.diagnostic() else {
+            return ExitCode::SUCCESS;
+        };
         finish_failure(
             false,
             CliFailure {
                 code: 3,
-                diagnostics: vec![
-                    Diagnostic::error(DiagnosticCode::ProcessError, "realtime session stopped")
-                        .with_detail(fatal.label()),
-                ],
+                diagnostics: vec![diagnostic],
             },
         )
     }
@@ -227,7 +236,7 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
     println!("Device channels: {}", selected_audio.config.channels());
     println!("Sample format: {sample_format}");
     println!("Requested buffer: {} frames", args.buffer_size);
-    println!("Actual callback buffer: backend supplied (may vary)");
+    println!("Callback frames: measured at shutdown");
     let latency_frames_for_display = u32::try_from(reported_latency_frames).unwrap_or(u32::MAX);
     let latency_ms = f64::from(latency_frames_for_display) * 1_000.0 / f64::from(sample_rate);
     println!("Engine latency: {reported_latency_frames} frames ({latency_ms:.3} ms)");

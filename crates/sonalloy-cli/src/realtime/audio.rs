@@ -7,7 +7,7 @@ use cpal::traits::DeviceTrait;
 use cpal::{ErrorKind, FromSample, I24, SampleFormat, SizedSample, Stream, StreamConfig, U24};
 use crossbeam_queue::ArrayQueue;
 use sonalloy_core::{
-    InstrumentProcessor, InstrumentRuntime, ProcessBlock, ProcessContext, ProcessEvent,
+    Diagnostic, DiagnosticCode, InstrumentRuntime, ProcessBlock, ProcessContext, ProcessEvent,
     ProcessEventKind,
 };
 
@@ -17,6 +17,7 @@ pub(crate) const REALTIME_EVENT_QUEUE_CAPACITY: usize = 4_096;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct QueuedEvent {
+    pub(crate) timestamp_us: u64,
     pub(crate) sequence: u64,
     pub(crate) kind: ProcessEventKind,
 }
@@ -51,12 +52,39 @@ impl FatalStatus {
             Self::EventQueue => "event queue overflow",
         }
     }
+
+    pub(crate) fn diagnostic(self) -> Option<Diagnostic> {
+        let (code, message) = match self {
+            Self::None => return None,
+            Self::Process => (DiagnosticCode::ProcessError, "realtime processing failed"),
+            Self::Output => (
+                DiagnosticCode::AudioDeviceError,
+                "realtime audio output stopped",
+            ),
+            Self::Midi => (DiagnosticCode::MidiError, "realtime MIDI input stopped"),
+            Self::EventQueue => (
+                DiagnosticCode::ProcessError,
+                "realtime event queue overflow",
+            ),
+        };
+        Some(Diagnostic::error(code, message).with_detail(self.label()))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CallbackFrameStats {
+    pub(crate) count: u64,
+    pub(crate) min: Option<u64>,
+    pub(crate) max: Option<u64>,
 }
 
 pub(crate) struct RealtimeStatus {
     fatal: AtomicU8,
     realtime_denied: AtomicBool,
     xrun_count: AtomicU64,
+    callback_count: AtomicU64,
+    callback_frames_min: AtomicU64,
+    callback_frames_max: AtomicU64,
 }
 
 impl RealtimeStatus {
@@ -65,6 +93,9 @@ impl RealtimeStatus {
             fatal: AtomicU8::new(FatalStatus::None as u8),
             realtime_denied: AtomicBool::new(false),
             xrun_count: AtomicU64::new(0),
+            callback_count: AtomicU64::new(0),
+            callback_frames_min: AtomicU64::new(u64::MAX),
+            callback_frames_max: AtomicU64::new(0),
         }
     }
 
@@ -96,6 +127,24 @@ impl RealtimeStatus {
     pub(crate) fn xrun_count(&self) -> u64 {
         self.xrun_count.load(Ordering::Relaxed)
     }
+
+    pub(crate) fn record_callback_frames(&self, frames: usize) {
+        let frames = u64::try_from(frames).unwrap_or(u64::MAX);
+        self.callback_count.fetch_add(1, Ordering::Relaxed);
+        self.callback_frames_min
+            .fetch_min(frames, Ordering::Relaxed);
+        self.callback_frames_max
+            .fetch_max(frames, Ordering::Relaxed);
+    }
+
+    pub(crate) fn callback_frame_stats(&self) -> CallbackFrameStats {
+        let count = self.callback_count.load(Ordering::Relaxed);
+        CallbackFrameStats {
+            count,
+            min: (count > 0).then(|| self.callback_frames_min.load(Ordering::Relaxed)),
+            max: (count > 0).then(|| self.callback_frames_max.load(Ordering::Relaxed)),
+        }
+    }
 }
 
 pub(crate) struct AudioEngine {
@@ -110,11 +159,6 @@ pub(crate) struct AudioEngine {
     queued_events: Vec<QueuedEvent>,
     process_events: Vec<ProcessEvent>,
 }
-
-// SAFETY: the prepared runtime and its native DSP handles are exclusively owned by this
-// callback after stream construction. No other thread accesses the runtime, and every native
-// operation is performed through that exclusive owner.
-unsafe impl Send for AudioEngine {}
 
 impl AudioEngine {
     pub(crate) fn new(
@@ -159,6 +203,7 @@ impl AudioEngine {
             self.status.set_fatal(FatalStatus::Output);
             return;
         }
+        self.status.record_callback_frames(frames);
 
         let mut frame_start = 0;
         while frame_start < frames {
@@ -173,7 +218,7 @@ impl AudioEngine {
                 &mut self.left[..block_frames],
                 &mut self.right[..block_frames],
             ];
-            let result = self.runtime.process(ProcessBlock {
+            let result = self.runtime.process_realtime(ProcessBlock {
                 frames: block_frames,
                 context: ProcessContext {
                     absolute_frame: self.runtime.absolute_frame(),
@@ -206,9 +251,9 @@ impl AudioEngine {
             self.queued_events.push(event);
         }
         self.queued_events.sort_unstable_by(|left, right| {
-            left.kind
-                .priority()
-                .cmp(&right.kind.priority())
+            left.timestamp_us
+                .cmp(&right.timestamp_us)
+                .then(left.kind.priority().cmp(&right.kind.priority()))
                 .then(left.sequence.cmp(&right.sequence))
         });
         for event in &self.queued_events {
@@ -314,7 +359,7 @@ fn handle_stream_error(status: &RealtimeStatus, kind: ErrorKind) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sonalloy_core::{CompileContext, ProcessSpec};
+    use sonalloy_core::{CompileContext, InstrumentProcessor, ProcessSpec, VoiceState};
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::cell::Cell;
     use std::path::PathBuf;
@@ -435,6 +480,39 @@ mod tests {
     }
 
     #[test]
+    fn fatal_statuses_map_to_their_frontend_diagnostic_categories() {
+        assert_eq!(
+            FatalStatus::Process
+                .diagnostic()
+                .expect("process diagnostic")
+                .code,
+            DiagnosticCode::ProcessError
+        );
+        assert_eq!(
+            FatalStatus::EventQueue
+                .diagnostic()
+                .expect("queue diagnostic")
+                .code,
+            DiagnosticCode::ProcessError
+        );
+        assert_eq!(
+            FatalStatus::Output
+                .diagnostic()
+                .expect("output diagnostic")
+                .code,
+            DiagnosticCode::AudioDeviceError
+        );
+        assert_eq!(
+            FatalStatus::Midi
+                .diagnostic()
+                .expect("MIDI diagnostic")
+                .code,
+            DiagnosticCode::MidiError
+        );
+        assert!(FatalStatus::None.diagnostic().is_none());
+    }
+
+    #[test]
     fn fatal_status_silences_the_next_callback() {
         let mut engine = prepared_engine(2);
         engine.status.set_fatal(FatalStatus::Process);
@@ -458,6 +536,15 @@ mod tests {
             assert_eq!(engine.runtime.absolute_frame(), expected_frame);
             assert_eq!(engine.status.fatal(), FatalStatus::None);
         }
+
+        assert_eq!(
+            engine.status.callback_frame_stats(),
+            CallbackFrameStats {
+                count: 9,
+                min: Some(1),
+                max: Some(1024),
+            }
+        );
     }
 
     #[test]
@@ -482,6 +569,7 @@ mod tests {
         engine
             .events
             .push(QueuedEvent {
+                timestamp_us: 0,
                 sequence: 0,
                 kind: ProcessEventKind::NoteOn {
                     note_id: 1,
@@ -513,6 +601,7 @@ mod tests {
         let mut engine = prepared_engine(2);
         let events = [
             QueuedEvent {
+                timestamp_us: 0,
                 sequence: 3,
                 kind: ProcessEventKind::NoteOn {
                     note_id: 1,
@@ -521,18 +610,22 @@ mod tests {
                 },
             },
             QueuedEvent {
+                timestamp_us: 0,
                 sequence: 1,
                 kind: ProcessEventKind::NoteOff { note_id: 1 },
             },
             QueuedEvent {
+                timestamp_us: 0,
                 sequence: 4,
                 kind: ProcessEventKind::SustainPedal { down: true },
             },
             QueuedEvent {
+                timestamp_us: 0,
                 sequence: 0,
                 kind: ProcessEventKind::SustainPedal { down: false },
             },
             QueuedEvent {
+                timestamp_us: 0,
                 sequence: 2,
                 kind: ProcessEventKind::PitchBend { value: 0.0 },
             },
@@ -569,12 +662,118 @@ mod tests {
     }
 
     #[test]
+    fn queue_drain_preserves_timestamp_order_before_same_time_priority() {
+        let mut engine = prepared_engine(2);
+        let events = [
+            QueuedEvent {
+                timestamp_us: 30,
+                sequence: 2,
+                kind: ProcessEventKind::SustainPedal { down: true },
+            },
+            QueuedEvent {
+                timestamp_us: 10,
+                sequence: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            QueuedEvent {
+                timestamp_us: 20,
+                sequence: 1,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ];
+        for event in events {
+            engine.events.push(event).expect("queue has capacity");
+        }
+
+        engine.drain_events();
+
+        let kinds = engine
+            .process_events
+            .iter()
+            .map(|event| event.kind)
+            .collect::<Vec<_>>();
+        assert!(matches!(
+            kinds.as_slice(),
+            [
+                ProcessEventKind::NoteOn { .. },
+                ProcessEventKind::NoteOff { .. },
+                ProcessEventKind::SustainPedal { down: true },
+            ]
+        ));
+    }
+
+    fn active_voice_count_after(events: &[QueuedEvent]) -> usize {
+        let mut engine = prepared_engine(2);
+        for event in events {
+            engine.events.push(*event).expect("queue has capacity");
+        }
+        let mut data = vec![0.0_f32; 64 * 2];
+        engine.process_callback(&mut data);
+        assert_eq!(engine.status.fatal(), FatalStatus::None);
+        (0..engine.runtime.voice_count())
+            .filter(|&index| engine.runtime.voice_state(index) == Some(VoiceState::Active))
+            .count()
+    }
+
+    #[test]
+    fn timestamp_order_keeps_note_release_and_sustain_semantics() {
+        let note_on = QueuedEvent {
+            timestamp_us: 10,
+            sequence: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        };
+        let note_off = QueuedEvent {
+            timestamp_us: 20,
+            sequence: 1,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        };
+        let sustain_down_after_note_off = QueuedEvent {
+            timestamp_us: 30,
+            sequence: 2,
+            kind: ProcessEventKind::SustainPedal { down: true },
+        };
+        let sustain_down_before_note_off = QueuedEvent {
+            timestamp_us: 20,
+            sequence: 2,
+            kind: ProcessEventKind::SustainPedal { down: true },
+        };
+        let note_off_after_sustain = QueuedEvent {
+            timestamp_us: 30,
+            sequence: 1,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        };
+
+        assert_eq!(active_voice_count_after(&[note_on, note_off]), 0);
+        assert_eq!(
+            active_voice_count_after(&[note_on, note_off, sustain_down_after_note_off]),
+            0
+        );
+        assert_eq!(
+            active_voice_count_after(&[
+                note_on,
+                sustain_down_before_note_off,
+                note_off_after_sustain,
+            ]),
+            1
+        );
+    }
+
+    #[test]
     fn queue_drain_handles_the_fixed_capacity_without_growth() {
         let mut engine = prepared_engine(2);
         for sequence in 0..REALTIME_EVENT_QUEUE_CAPACITY {
             engine
                 .events
                 .push(QueuedEvent {
+                    timestamp_us: 0,
                     sequence: u64::try_from(sequence).expect("test sequence fits u64"),
                     kind: ProcessEventKind::PitchBend { value: 0.0 },
                 })
@@ -597,6 +796,7 @@ mod tests {
         engine
             .events
             .push(QueuedEvent {
+                timestamp_us: 0,
                 sequence: 0,
                 kind: ProcessEventKind::NoteOn {
                     note_id: 1,
