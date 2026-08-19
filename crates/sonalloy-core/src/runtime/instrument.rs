@@ -498,22 +498,6 @@ impl InstrumentRuntime {
         Ok(can_trigger)
     }
 
-    /// Process a realtime block whose events are already ordered by the host timestamp.
-    ///
-    /// Realtime adapters may coalesce events received during one audio callback at offset zero.
-    /// In that case their timestamp order is the event contract, including when it differs from
-    /// the offline same-offset priority. Buffer shape, event values, and offsets are still fully
-    /// validated.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`ProcessError`] when the runtime is unprepared, the block is invalid, or a DSP
-    /// operation fails.
-    pub fn process_realtime(&mut self, block: ProcessBlock<'_>) -> Result<(), ProcessError> {
-        let mut block = block;
-        self.process_inner(&mut block, false)
-    }
-
     fn select_sample_zone(
         &mut self,
         layer_index: usize,
@@ -918,18 +902,10 @@ impl InstrumentRuntime {
 
 impl InstrumentRuntime {
     #[allow(clippy::too_many_lines)]
-    fn process_inner(
-        &mut self,
-        block: &mut ProcessBlock<'_>,
-        enforce_same_offset_priority: bool,
-    ) -> Result<(), ProcessError> {
+    fn process_inner(&mut self, block: &mut ProcessBlock<'_>) -> Result<(), ProcessError> {
         clear_output(&mut *block.output, block.frames);
         let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
-        if enforce_same_offset_priority {
-            block.validate_for(spec)?;
-        } else {
-            block.validate_for_realtime(spec)?;
-        }
+        block.validate_for(spec)?;
         self.validate_parameter_events(block.events)?;
         if block.context.absolute_frame != self.absolute_frame {
             return Err(ProcessError::ContextDiscontinuity {
@@ -1064,7 +1040,7 @@ impl InstrumentProcessor for InstrumentRuntime {
 
     fn process(&mut self, block: ProcessBlock<'_>) -> Result<(), ProcessError> {
         let mut block = block;
-        self.process_inner(&mut block, true)
+        self.process_inner(&mut block)
     }
 
     fn reset(&mut self) -> Result<(), ProcessError> {

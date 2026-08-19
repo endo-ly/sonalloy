@@ -191,7 +191,7 @@ pub struct ProcessBlock<'a> {
 - ProcessごとのFrame数は可変
 - `frames <= max_block_size`
 - EventはBlock内`sample_offset`を持つ
-- Event順序をCore側で検証する
+- `sample_offset`の昇順をCore側で検証し、同一Offsetは入力順で処理する
 - `absolute_frame`の連続性をRuntimeが検証する
 - OutputはPlanar Stereo `f32`
 - `prepare()`でVoice / Scratch / DSP Stateを確保する
@@ -201,7 +201,7 @@ pub struct ProcessBlock<'a> {
 
 ## 2.3 現行Event
 
-現在の`ProcessEventKind`は次である。
+`ProcessEventKind`は次を持つ。
 
 ```text
 NoteOn
@@ -210,13 +210,13 @@ ParameterChange
 PitchBend
 ModWheel
 Aftertouch
+SustainPedal
 ```
 
-Sustain Pedalは存在しない。
-
-同一Offsetの現在の優先順位は次である。
+Offline Adapterが同一Offsetを正規化する優先順位は次である。
 
 ```text
+SustainPedal
 NoteOff
 ParameterChange
 PitchBend
@@ -225,7 +225,7 @@ Aftertouch
 NoteOn
 ```
 
-今回、この既存相対順序を保ちながらSustain Pedalを追加する。
+Coreは同一OffsetのEventを入力された順番で処理し、Offline Adapterだけがこの順序へ正規化する。
 
 ## 2.4 現行Performance Definition
 
@@ -255,10 +255,10 @@ StealFading
 
 VoiceはNote ID、Note Number、Velocity、Layer Runtime、Processor、Modulation Source、Pending Note、Steal Fade Stateを所有する。
 
-Note Offを受けると現在は即時に次を行う。
+Note Offを受けると、SustainがDownかどうかに応じて次を行う。
 
 ```text
-Active Layer
+Sustain Up
   → Generator Note Off
   → Layer ADSR Release
 
@@ -270,50 +270,48 @@ Modulation Envelope
 
 Voice State
   → Releasing
+
+Sustain Down
+  → Key状態だけを解除
+  → VoiceとLayerを保持
 ```
 
 SustainはこのRelease開始を延期する機能として統合する。
 
 ## 2.6 現行CLI
 
-現在のTop-level Commandは次である。
+Top-level Commandは次である。
 
 ```text
 instrument
 render
+device
+play
 dev
 ```
 
-Realtime Device関連Commandは存在しない。
-
-現在のCLI Sourceは主に次の二Fileである。
+CLI Sourceは主に次のFileで構成する。
 
 ```text
 crates/sonalloy-cli/src/main.rs
 crates/sonalloy-cli/src/midi.rs
+crates/sonalloy-cli/src/realtime/
 ```
 
 `main.rs`にはCommand、Inspect、Render、JSON Report等が集約されている。Realtime Device処理まで`main.rs`へ直接追加せず、明確な責務を持つModuleへ分ける。
 
 ## 2.7 現行MIDI File Adapter
 
-現在の`midi.rs`はStandard MIDI Fileから次を変換する。
+`midi.rs`はStandard MIDI Fileから次を変換する。
 
 ```text
 Note On / Off
 Pitch Bend
 CC1 Mod Wheel
 Channel Aftertouch
+CC64 Sustain Pedal
 Tempo
 ```
-
-CC64 Sustain Pedalは現在、
-
-```text
-sustain pedal event is not supported and was ignored
-```
-
-というWarningを出して破棄している。
 
 また同一Noteの重複発音を正しく扱うため、
 
@@ -325,7 +323,7 @@ HashMap<(channel, note), VecDeque<(note_id, frame)>>
 
 ## 2.8 現行CLI Test
 
-現在、`crates/sonalloy-cli/tests/cli.rs`にCLI結合Testが集約されている。Realtime Deviceが存在することを前提としたCI Testは作らず、Device非依存のAdapter処理をUnit Testし、既存CLI Integration TestへSustain / Command Parse等を追加する。
+`crates/sonalloy-cli/tests/cli.rs`にCLI結合Testが集約されている。Realtime Deviceが存在することを前提としたCI Testは作らず、Device非依存のAdapter処理をUnit Testし、CLI Integration TestでSustain / Command Parse等を確認する。
 
 ---
 
@@ -534,7 +532,7 @@ Audio Callback Thread
   │
   ├─ CPAL interleaved output
   ├─ Queue drain
-  ├─ same-offset order normalize
+  ├─ timestamp / sequence order
   ├─ ProcessBlock
   ├─ Planar Stereo f32
   └─ Device sample formatへ変換
@@ -1014,7 +1012,7 @@ Queue Drain
 Event順序確定
         │
         ▼
-        InstrumentRuntime::process_realtime
+        InstrumentProcessor::process
         │
         ▼
 Left / RightをDevice Sample Formatへ変換
@@ -1033,7 +1031,7 @@ Callback処理の先頭で対象BufferをSample FormatのEquilibriumへ設定す
 
 ## 12.2 Core Process Error
 
-`runtime.process_realtime()`が失敗した場合：
+`InstrumentProcessor::process()`が失敗した場合：
 
 1. 現在Chunk以降はSilenceのまま残す
 2. `RealtimeStatus.fatal`を`Process`へ設定
@@ -1136,7 +1134,7 @@ Queueは各Core Chunkの先頭でDrainする。
 
 Callback処理中にMIDI Eventが到着した場合、次の未処理Chunkで反映できる。
 
-Live MIDI TimestampをAudio ClockのSample Offsetへ変換する処理は今回行わないため、DrainしたEventの`sample_offset`は全て`0`とする。ただしMidirの接続起点Microsecond TimestampはQueueへ保持し、Timestampの異なるEventをPriorityで逆転させない。
+Live MIDI TimestampをAudio ClockのSample Offsetへ変換する処理は今回行わないため、DrainしたEventの`sample_offset`は全て`0`とする。ただしMidirの接続起点Microsecond TimestampはQueueへ保持し、`(timestamp_us, sequence)`の順序でTimestampと入力順を維持する。
 
 ---
 
@@ -1185,10 +1183,10 @@ QueueからDrainしたEventは全て`sample_offset = 0`である。
 `sort_unstable_by_key`等、Heap Allocationを必要としないSortを使い、Keyを次にする。
 
 ```text
-(timestamp_us, kind.priority(), sequence)
+(timestamp_us, sequence)
 ```
 
-Timestampが異なるEventはTimestamp順を絶対に維持する。同じTimestampだけ`kind.priority()`を適用し、同じPriorityでは`sequence`の昇順とする。Offlineの同一Offset Priority検証を保ったままLive MIDIのTimestamp順を適用するため、Realtime AdapterはHost Timestamp順を許容するCore入口を使用する。
+Timestampが異なるEventはTimestamp順を絶対に維持し、同じTimestampでもMIDI Callbackへ到着した`sequence`の昇順を維持する。Live MIDIでは`kind.priority()`を適用しない。Coreは同じ`sample_offset`のEventをSlice内の順番で適用するため、Realtime Adapterも共通の`InstrumentProcessor::process()`を使用する。
 
 Stable Sort実装が一時Allocationを必要とする可能性を避けるため、Stable Sortへ依存しない。
 
@@ -1310,7 +1308,7 @@ Midir CallbackはMicrosecond Timestampを提供するが、その起点はCPAL S
 
 Realtime Eventは「Audio Threadが次にQueueをDrainしたCore ChunkのOffset 0」で適用する。
 
-Timestampの異なるEventはTimestamp順、同一TimestampのEventは`ProcessEventKind::priority()`とSequence順で適用する。Offlineの同一Offset検証を維持するため、Realtime Adapterはこの順序を受け入れるRuntime入口を使う。
+Timestampの異なるEventはTimestamp順、同一TimestampのEventはSequence順で適用する。Realtime AdapterはLive MIDIの到着順を保ったEvent列を共通の`InstrumentProcessor::process()`へ渡す。
 
 これをAdapterのScheduling精度としてDocumentへ明記する。
 
@@ -1390,9 +1388,9 @@ SustainはModulation Sourceではない。
 
 SustainはNote ReleaseのLifecycle Controlであり、Parameter Routeへ接続する値ではない。
 
-## 18.2 Event Priority
+## 18.2 Offline Event Canonicalization
 
-同一Offsetの優先順位を次へ変更する。
+Offline Adapterが同一OffsetのEventを正規化する優先順位を次へ定義する。
 
 ```text
 0 SustainPedal
@@ -1406,7 +1404,7 @@ SustainはNote ReleaseのLifecycle Controlであり、Parameter Routeへ接続�
 
 既存Event同士の相対順序は維持される。
 
-SustainをNote Offより前にする理由は、同じSample位置でPedal状態が変わる場合、その位置のNote Offへ新しいPedal状態を適用するためである。
+SustainをNote Offより前にする理由は、Offline Event列で同じSample位置にPedal状態の変更とNote Offがある場合、その位置のNote Offへ新しいPedal状態を適用するためである。Live MIDIではこのPriorityを適用せず、Timestampと入力Sequenceを維持する。
 
 例：
 
@@ -1432,7 +1430,7 @@ Note off
 
 `down`はboolのためNumeric Range Validationは不要。
 
-Offline Event列は既存`ProcessBlock::validate_for()`で同一OffsetのPriorityまで検証する。Live MIDI Event列はTimestamp順を先に確定するため、同一Offset Priorityだけを緩和する`ProcessBlock::validate_for_realtime()`と`InstrumentRuntime::process_realtime()`を使い、Frame形状・値・Offset範囲の検証は維持する。
+Coreの`ProcessBlock::validate_for()`はFrame形状、Event値、Offset範囲、Offsetの昇順だけを検証する。同じOffsetのEventはSlice内の順番で処理する。Offline Event JSON / MIDI File Adapterは`ProcessEventKind::priority()`で同じFrameを正規化し、Live MIDI Adapterは`(timestamp_us, sequence)`の順番を維持したまま、共通の`InstrumentProcessor::process()`へ渡す。
 
 ## 18.4 Reset
 
@@ -1687,7 +1685,7 @@ JSON例：
 }
 ```
 
-EventをCompileした後、既存`ProcessEventKind::priority()`で同一Frameを並べる。
+EventをCompileした後、既存`ProcessEventKind::priority()`で同一FrameをOfflineのCanonical順へ並べる。
 
 ## 21.2 `render midi`
 
@@ -1987,7 +1985,7 @@ reset-check
 
 Sustain Eventが存在しないEvent列では、既存出力を変化させない。
 
-相対Event Priorityも既存Event同士では維持する。
+Offline AdapterのCanonical順は既存Event同士で維持する。
 
 ## 25.3 Realtime Random
 
@@ -2185,9 +2183,9 @@ Rust direct dependencyへ追加する。
 
 - `SustainPedal { down: true }`がValid
 - `SustainPedal { down: false }`がValid
-- Same-offset PriorityでSustainがNote Offより前
-- 既存Event相対順序を維持
-- Event Sort違反を検出
+- 同じOffsetでは入力された順番で適用
+- Offline Adapterは`priority()`でSustainをNote Offより前へ正規化
+- Offsetの昇順違反を検出
 
 ## 28.2 Basic Sustain
 
@@ -2389,7 +2387,7 @@ SustainDown
 PitchBend
 ```
 
-等へ崩しても、Timestampの異なるEventは前後を維持し、同一TimestampではPriority + Sequenceになること。NoteOn → NoteOff、NoteOff → SustainDown、SustainDown → NoteOffの順序がVoice状態へ反映されること。
+等へ崩しても、Timestampの異なるEventは前後を維持し、同一TimestampでもSequence順になること。NoteOn → NoteOff、NoteOff → SustainDown、SustainDown → NoteOffの順序がVoice状態へ反映されること。
 
 ## 29.8 Queue Overflow
 
@@ -2627,9 +2625,9 @@ Machine-specific IDが公開に不適切な文字列を含む場合、Review Art
 ## 32.1 `crates/sonalloy-core/src/process.rs`
 
 - `ProcessEventKind::SustainPedal`
-- Priority更新
-- Offline / Realtime Validation更新
-- Realtime Event順序を許容するRuntime入口
+- Offline AdapterのCanonical順
+- Core Process Validation更新
+- 共通`InstrumentProcessor::process()`によるRealtime Event処理
 - Unit Test
 
 ## 32.2 `crates/sonalloy-core/src/runtime/instrument.rs`
@@ -2737,7 +2735,7 @@ Standard MIDI File Parser全体を移動しない。
 - Sample Format Dispatch
 - Callback Chunk処理
 - Queue Drain / Sort
-- Timestamp → 同一Timestamp Priority → Sequenceの順序
+- Timestamp → Sequenceの順序
 - Callback Frameの最小値・最大値・回数
 - Channel Mapping
 - Fault Handling
@@ -2847,7 +2845,7 @@ CPAL / Midir / Crossbeam Queue。
 ## P1. Sustain Core Contract
 
 1. `ProcessEventKind::SustainPedal`
-2. Priority
+2. Offline Event Canonicalization
 3. Process Validation
 4. `InstrumentRuntime.sustain_down`
 5. Voice `key_down / sustain_held`
@@ -2989,7 +2987,7 @@ Windows / Linux Release Buildで`sonalloy device list`と`sonalloy play`を実�
 
 - Sustain EventがPublic Process Contractへ存在
 - Pedal Down / UpがSample Offsetで適用される
-- Same-offset Priorityが固定
+- Offline Adapterの同一Offset Canonical順が固定
 - Existing Eventの意味が維持
 - ResetでPedal State初期化
 

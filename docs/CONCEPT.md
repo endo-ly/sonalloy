@@ -521,7 +521,7 @@ Process
 - Audio Sample Formatは `f32`、Planar Buffer
 - 少なくともMono/Stereo Outputを扱う
 - Input BufferはInstrumentが要求する場合だけ使用
-- EventはSample Offset昇順。同一Offsetでは入力順を維持し、同一NoteのNote OffとNote Onが同時の場合はNote Offを先に処理
+- EventはSample Offset昇順。同一OffsetではAdapterが確定した順序を維持し、CoreはEvent列の順番で処理する。OfflineのEvent JSON / MIDI File Adapterは同一NoteのNote OffとNote Onが同時の場合を含め、`priority()`でCanonical順へ正規化する。Realtime MIDI AdapterはMIDI Callbackの入力Sequenceを維持する
 - Audio CallbackからPanic/例外を漏らさない
 - Process中の新規Asset解析・Graph構築・Heap拡張を禁止
 - Latencyを持つ構成はPrepare/Compile時に報告可能

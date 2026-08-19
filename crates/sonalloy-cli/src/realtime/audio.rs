@@ -7,8 +7,8 @@ use cpal::traits::DeviceTrait;
 use cpal::{ErrorKind, FromSample, I24, SampleFormat, SizedSample, Stream, StreamConfig, U24};
 use crossbeam_queue::ArrayQueue;
 use sonalloy_core::{
-    Diagnostic, DiagnosticCode, InstrumentRuntime, ProcessBlock, ProcessContext, ProcessEvent,
-    ProcessEventKind,
+    Diagnostic, DiagnosticCode, InstrumentProcessor, InstrumentRuntime, ProcessBlock,
+    ProcessContext, ProcessEvent, ProcessEventKind,
 };
 
 use super::device::{DeviceError, SelectedAudioDevice};
@@ -218,7 +218,7 @@ impl AudioEngine {
                 &mut self.left[..block_frames],
                 &mut self.right[..block_frames],
             ];
-            let result = self.runtime.process_realtime(ProcessBlock {
+            let result = self.runtime.process(ProcessBlock {
                 frames: block_frames,
                 context: ProcessContext {
                     absolute_frame: self.runtime.absolute_frame(),
@@ -253,7 +253,6 @@ impl AudioEngine {
         self.queued_events.sort_unstable_by(|left, right| {
             left.timestamp_us
                 .cmp(&right.timestamp_us)
-                .then(left.kind.priority().cmp(&right.kind.priority()))
                 .then(left.sequence.cmp(&right.sequence))
         });
         for event in &self.queued_events {
@@ -597,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn queue_drain_orders_events_and_preserves_capacity() {
+    fn queue_drain_orders_events_by_timestamp_then_sequence() {
         let mut engine = prepared_engine(2);
         let events = [
             QueuedEvent {
@@ -647,28 +646,28 @@ mod tests {
             kinds[0],
             ProcessEventKind::SustainPedal { down: false }
         ));
+        assert!(matches!(kinds[1], ProcessEventKind::NoteOff { note_id: 1 }));
+        assert!(matches!(kinds[2], ProcessEventKind::PitchBend { value } if value == 0.0));
         assert!(matches!(
-            kinds[1],
-            ProcessEventKind::SustainPedal { down: true }
+            kinds[3],
+            ProcessEventKind::NoteOn { note_id: 1, .. }
         ));
-        assert!(matches!(kinds[2], ProcessEventKind::NoteOff { note_id: 1 }));
-        assert!(matches!(kinds[3], ProcessEventKind::PitchBend { value } if value == 0.0));
         assert!(matches!(
             kinds[4],
-            ProcessEventKind::NoteOn { note_id: 1, .. }
+            ProcessEventKind::SustainPedal { down: true }
         ));
         assert_eq!(engine.queued_events.capacity(), queued_capacity);
         assert_eq!(engine.process_events.capacity(), process_capacity);
     }
 
     #[test]
-    fn queue_drain_preserves_timestamp_order_before_same_time_priority() {
+    fn queue_drain_preserves_input_order_for_equal_timestamps() {
         let mut engine = prepared_engine(2);
         let events = [
             QueuedEvent {
-                timestamp_us: 30,
+                timestamp_us: 20,
                 sequence: 2,
-                kind: ProcessEventKind::SustainPedal { down: true },
+                kind: ProcessEventKind::SustainPedal { down: false },
             },
             QueuedEvent {
                 timestamp_us: 10,
@@ -683,6 +682,11 @@ mod tests {
                 timestamp_us: 20,
                 sequence: 1,
                 kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+            QueuedEvent {
+                timestamp_us: 20,
+                sequence: 3,
+                kind: ProcessEventKind::SustainPedal { down: true },
             },
         ];
         for event in events {
@@ -701,6 +705,7 @@ mod tests {
             [
                 ProcessEventKind::NoteOn { .. },
                 ProcessEventKind::NoteOff { .. },
+                ProcessEventKind::SustainPedal { down: false },
                 ProcessEventKind::SustainPedal { down: true },
             ]
         ));
@@ -720,7 +725,26 @@ mod tests {
     }
 
     #[test]
-    fn timestamp_order_keeps_note_release_and_sustain_semantics() {
+    fn same_timestamp_sequence_preserves_note_and_sustain_semantics() {
+        let same_time_note_on = QueuedEvent {
+            timestamp_us: 100,
+            sequence: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        };
+        let same_time_note_off = QueuedEvent {
+            timestamp_us: 100,
+            sequence: 1,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        };
+        assert_eq!(
+            active_voice_count_after(&[same_time_note_on, same_time_note_off]),
+            0
+        );
+
         let note_on = QueuedEvent {
             timestamp_us: 10,
             sequence: 0,
@@ -736,22 +760,21 @@ mod tests {
             kind: ProcessEventKind::NoteOff { note_id: 1 },
         };
         let sustain_down_after_note_off = QueuedEvent {
-            timestamp_us: 30,
+            timestamp_us: 20,
             sequence: 2,
             kind: ProcessEventKind::SustainPedal { down: true },
         };
         let sustain_down_before_note_off = QueuedEvent {
             timestamp_us: 20,
-            sequence: 2,
+            sequence: 1,
             kind: ProcessEventKind::SustainPedal { down: true },
         };
         let note_off_after_sustain = QueuedEvent {
-            timestamp_us: 30,
-            sequence: 1,
+            timestamp_us: 20,
+            sequence: 2,
             kind: ProcessEventKind::NoteOff { note_id: 1 },
         };
 
-        assert_eq!(active_voice_count_after(&[note_on, note_off]), 0);
         assert_eq!(
             active_voice_count_after(&[note_on, note_off, sustain_down_after_note_off]),
             0
