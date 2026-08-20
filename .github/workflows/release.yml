@@ -105,11 +105,16 @@ jobs:
 
       - name: Install native tools (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --yes cmake g++
+        run: sudo apt-get update && sudo apt-get install --yes cmake g++ pkg-config libasound2-dev
 
       - name: Build release binary
         shell: bash
         run: cargo build --release -p sonalloy-cli
+
+      - name: Smoke-test release binary (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: target/release/sonalloy --version
 
       - name: Package archive
         shell: bash

@@ -116,6 +116,10 @@ pub struct DspOscillator {
     prepared: bool,
 }
 
+// SAFETY: The wrapper uniquely owns the native oscillator, the native object has no thread
+// affinity, and all stateful operations require exclusive `&mut self` access.
+unsafe impl Send for DspOscillator {}
+
 impl DspOscillator {
     /// Create an unprepared oscillator.
     ///

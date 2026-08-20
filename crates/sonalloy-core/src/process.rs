@@ -94,6 +94,11 @@ pub enum ProcessEventKind {
         /// Frontend-assigned note identity.
         note_id: NoteId,
     },
+    /// Hold released notes until the sustain pedal is lifted.
+    SustainPedal {
+        /// Whether the pedal is currently held down.
+        down: bool,
+    },
     /// Change a continuous parameter's normalized base value.
     ParameterChange {
         /// Compiled parameter handle resolved by control code.
@@ -119,16 +124,17 @@ pub enum ProcessEventKind {
 }
 
 impl ProcessEventKind {
-    /// Return the stable same-offset processing priority.
+    /// Return the canonicalization priority used by frontend adapters for same-offset events.
     #[must_use]
     pub const fn priority(self) -> u8 {
         match self {
-            Self::NoteOff { .. } => 0,
-            Self::ParameterChange { .. } => 1,
-            Self::PitchBend { .. } => 2,
-            Self::ModWheel { .. } => 3,
-            Self::Aftertouch { .. } => 4,
-            Self::NoteOn { .. } => 5,
+            Self::SustainPedal { .. } => 0,
+            Self::NoteOff { .. } => 1,
+            Self::ParameterChange { .. } => 2,
+            Self::PitchBend { .. } => 3,
+            Self::ModWheel { .. } => 4,
+            Self::Aftertouch { .. } => 5,
+            Self::NoteOn { .. } => 6,
         }
     }
 
@@ -144,7 +150,7 @@ impl ProcessEventKind {
                 }
                 return Ok(());
             }
-            Self::NoteOff { .. } => return Ok(()),
+            Self::NoteOff { .. } | Self::SustainPedal { .. } => return Ok(()),
             Self::ParameterChange { normalized, .. } => (normalized, 0.0, 1.0),
             Self::PitchBend { value } => (value, -1.0, 1.0),
             Self::ModWheel { value } | Self::Aftertouch { value } => (value, 0.0, 1.0),
@@ -231,7 +237,7 @@ impl ProcessBlock<'_> {
     /// # Errors
     ///
     /// Returns an error when the frame count, channel count, output lengths, or event offsets
-    /// violate the process contract.
+    /// violate the process contract. Events with the same offset are applied in slice order.
     pub fn validate_for(&self, spec: ProcessSpec) -> Result<(), ProcessError> {
         if !self.context.tempo_bpm.is_finite() || self.context.tempo_bpm <= 0.0 {
             return Err(ProcessError::InvalidTempo);
@@ -276,11 +282,6 @@ impl ProcessBlock<'_> {
                     previous_offset: window[0].sample_offset,
                     current_offset: window[1].sample_offset,
                 });
-            }
-            if window[0].sample_offset == window[1].sample_offset
-                && window[0].kind.priority() > window[1].kind.priority()
-            {
-                return Err(ProcessError::EventOrderInvalid);
             }
         }
         Ok(())
@@ -344,9 +345,6 @@ pub enum ProcessError {
         /// Current event offset.
         current_offset: usize,
     },
-    /// Same-offset events are not ordered by the common processing priority.
-    #[error("same-offset events must follow the processing priority order")]
-    EventOrderInvalid,
     /// An event was supplied to a zero-frame block.
     #[error("zero-frame blocks cannot contain events")]
     ZeroFrameEvents,
@@ -673,9 +671,9 @@ mod tests {
     }
 
     #[test]
-    fn same_offset_note_off_precedes_matching_note_on() {
+    fn same_offset_events_follow_the_input_order() {
         let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
-        let invalid_events = [
+        let events = [
             ProcessEvent {
                 sample_offset: 4,
                 kind: ProcessEventKind::NoteOn {
@@ -694,6 +692,10 @@ mod tests {
             },
             ProcessEvent {
                 sample_offset: 4,
+                kind: ProcessEventKind::SustainPedal { down: true },
+            },
+            ProcessEvent {
+                sample_offset: 4,
                 kind: ProcessEventKind::NoteOff { note_id: 7 },
             },
         ];
@@ -703,38 +705,10 @@ mod tests {
         let block = ProcessBlock {
             frames: 64,
             context: context(),
-            events: &invalid_events,
+            events: &events,
             output: &mut output,
         };
-        assert_eq!(
-            block.validate_for(spec),
-            Err(ProcessError::EventOrderInvalid)
-        );
-
-        let valid_events = [
-            ProcessEvent {
-                sample_offset: 4,
-                kind: ProcessEventKind::NoteOff { note_id: 7 },
-            },
-            ProcessEvent {
-                sample_offset: 4,
-                kind: ProcessEventKind::NoteOn {
-                    note_id: 7,
-                    note_number: 60,
-                    velocity: 100,
-                },
-            },
-        ];
-        let mut left = [0.0_f32; 64];
-        let mut right = [0.0_f32; 64];
-        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
-        let block = ProcessBlock {
-            frames: 64,
-            context: context(),
-            events: &valid_events,
-            output: &mut output,
-        };
-        assert!(block.validate_for(spec).is_ok());
+        assert_eq!(block.validate_for(spec), Ok(()));
     }
 
     fn validate_event(

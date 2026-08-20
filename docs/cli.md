@@ -1,6 +1,6 @@
 # CLI
 
-Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み込み、検証・コンパイルし、WAVへレンダリングします。
+Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み込み、検証・コンパイルし、リアルタイム演奏またはWAVレンダリングを行います。
 
 この文書では、各コマンドを「**音源を作る → 検証する → 音を鳴らす**」の順に説明します。実行時の挙動（Voice、ADSR、Sample再生など）は`docs/runtime-processing.md`、音源定義のJSON形式は`docs/instrument-definition.md`を参照してください。
 
@@ -14,6 +14,8 @@ Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み
 | `render note` | 1音をレンダリングする |
 | `render events` | Event Sequenceをレンダリングする |
 | `render midi` | MIDI Fileをレンダリングする |
+| `device list` | Audio OutputとMIDI Inputを列挙する |
+| `play` | MIDI InputからAudio Outputへリアルタイム演奏する |
 | `dev render-sine` | 動作確認用のSineをレンダリングする |
 
 ## 音源定義を作る
@@ -83,6 +85,52 @@ sonalloy instrument inspect <definition> --json
 
 `modulated_range_from_default`は、各Sourceが宣言されたEndpointへ独立に到達できると仮定した決定的なBoundです。特定の演奏で実際に通る値の予測ではありません。
 
+## リアルタイム演奏
+
+### `device list` — Deviceの列挙
+
+Audio OutputとMIDI Inputを列挙します。Audio Inputは対象外です。IDは表示順やIndexではなく、CPAL / Midirが返すOpaque Stringをそのまま指定します。
+
+```bash
+sonalloy device list
+sonalloy device list --json
+```
+
+JSONでは次のFieldを返します。`SupportedBufferSize::Unknown`のときは`buffer_size: null`です。
+
+| Field | 内容 |
+|---|---|
+| `audio_outputs[].id` | CPALのAudio Device ID |
+| `audio_outputs[].default` | OS Default Outputかどうか |
+| `audio_outputs[].default_config` | Device DefaultのSample Rate、Channel、Sample Format、Buffer範囲 |
+| `midi_inputs[].id` | MidirのMIDI Port ID |
+
+### `play` — MIDIからAudioへ演奏
+
+```bash
+sonalloy play <definition>
+sonalloy play <definition> --midi-device <id>
+sonalloy play <definition> --audio-device <id> --sample-rate 48000 --buffer-size 256 --tempo 120
+```
+
+| Option | Default | 内容 |
+|---|---:|---|
+| `--audio-device <id>` | OS Default | CPAL Stable Device ID。指定IDが存在しない場合はError |
+| `--midi-device <id>` | 条件付き自動選択 | Midir Stable Port ID。0件はError、1件は自動選択、2件以上はID必須 |
+| `--sample-rate <hz>` | Device Default | Deviceが対応するRateだけを選択し、そのRateでCompile |
+| `--buffer-size <frames>` | 256 | CPALへ要求するFrame数。0やDeviceの対応範囲外はError |
+| `--tempo <bpm>` | 120 | `ProcessContext.tempo_bpm`へ渡す一定Tempo |
+
+起動時にDefinition名、Audio / MIDI Device名とOpaque ID、Sample Rate、Device Channel、Sample Format、要求Buffer、Engine Latency、Tempoを表示します。Host Callbackの実Frame数はBackendにより要求値と異なるため、停止時に観測した最小Frame数・最大Frame数・Callback回数を表示します。`play`は長時間実行Commandで、標準入力のEnterで停止します。
+
+AudioはCoreのPlanar `f32` StereoをDevice Sample Formatへ変換します。2chより多いDeviceではch 0 / 1へLeft / Rightを出力し、残りを無音にします。Mono Device、PCM以外のFormat、Unsupported Bufferは起動Errorです。Audio CallbackではHeap Allocation、Log、Blocking Lockを行いません。
+
+DeviceがRealtime Schedulingを拒否した場合はWarningを表示してSessionを継続します。XrunはCounterとして終了時に表示し、Audio Device Errorは`AUDIO_DEVICE_ERROR`、MIDI Errorは`MIDI_ERROR`、Process ErrorとQueue Overflowは`PROCESS_ERROR`として無音化後にSessionを終了します。
+
+MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64は、Offline経路と同じCore Eventへ変換されます。CC64はDown中にNote OffのReleaseを保留し、UpでReleaseを開始します。Realtime DeniedはWarning、XrunはCounter、Faultは原因に応じたDiagnostic Codeで無音化後にSessionを終了します。
+
+`play`にはStreaming JSON Protocolを設けません。Deviceの機械可読な確認には`device list --json`を使用します。
+
 ## 音を鳴らす
 
 3つの`render`コマンドは、いずれもWAVを生成します。確認したい内容に合わせて使い分けます。
@@ -149,6 +197,7 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 | `type` | 渡す値 | 働き |
 |---|---|---|
 | `note_on` / `note_off` | `note_id`、`note`、`velocity` | 音を鳴らす / 止める。`note_id`でOnとOffを対応付ける |
+| `sustain_pedal` | `down`（bool） | Pedal Down中はNote Off後のReleaseを保留し、Pedal UpでReleaseを開始する |
 | `parameter_change` | `parameter`、`native_value` | Parameter CatalogのNative Unit値を送る（CutoffはHz、TuningはCents、GainはdB） |
 | `pitch_bend` | `value` | -1〜1 |
 | `mod_wheel` | `value` | 0〜1 |
@@ -156,7 +205,7 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 
 読み込み時の処理：
 
-- Eventを**時系列へ正しく処理するため**、`absolute_frame`の昇順へ整列します。同じFrameでは、決まった優先順位（Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note On）で処理します
+- Eventを**時系列へ正しく処理するため**、`absolute_frame`の昇順へ整列します。同じFrameでは、決まった優先順位（Sustain Pedal → Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note On）で処理します
 - 次のいずれかがあると、安全のためWAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、Native範囲外の値。旧`normalized` Fieldは受け付けません
 
 | Option | Default | 内容 |
@@ -225,10 +274,11 @@ MIDIを読み込むと、CLIは次の変換を行います：
 
 - MIDIのTick・Tempo・Channel・Noteを、**再生開始位置からのFrame数**へ変換します。Tempo変更があると、その位置で処理Blockを分けて、切り替わりの前後で正確な長さを保ちます
 - Note OnのVelocity 0はNote Offとして扱います
+- CC64はSustain Pedalへ変換します。64以上をDown、63以下をUpとします
 - CC1はMod Wheel、Pitch Bendは-1〜1、Channel Aftertouchは0〜1へ変換します
 - 同じ時刻でNote OnとNote Offが重なると、長さ0のNoteとして両方を無視します
 
-対応しないMIDI機能（Sustain Pedal、Polyphonic Aftertouch、CC1以外のController、Program Change）は無視してWarningを出します。複数ChannelのNoteを1つの音源へ当てた場合や、ChannelごとにControl値が違う場合もWarningを出します。Note Eventを1つも含まないMIDI Fileは、Errorとして受け付けません。
+対応しないMIDI機能（Polyphonic Aftertouch、CC1以外のController、Program Change）は無視してWarningを出します。複数ChannelのNoteを1つの音源へ当てた場合や、ChannelごとにControl値が違う場合もWarningを出します。Note Eventを1つも含まないMIDI Fileは、Errorとして受け付けません。
 
 | Option | Default | 内容 |
 |---|---|---|
@@ -305,7 +355,7 @@ Time Stretchを含む音源では、CLIが内部で報告Latency分を追加レ�
 
 **音源定義・Event**
 
-`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`PARAMETER_ID_INVALID`、`PARAMETER_NOT_FOUND`、`SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_DEPTH_INVALID`、`ROUTE_DEPTH_UNIT_INVALID`、`ROUTE_TARGET_INVALID`、`FILTER_CUTOFF_CLAMPED`、`TRACE_LIMIT_EXCEEDED`、`EVENT_ORDER_INVALID`、`DSP_ERROR`
+`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`PARAMETER_ID_INVALID`、`PARAMETER_NOT_FOUND`、`SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_DEPTH_INVALID`、`ROUTE_DEPTH_UNIT_INVALID`、`ROUTE_TARGET_INVALID`、`FILTER_CUTOFF_CLAMPED`、`TRACE_LIMIT_EXCEEDED`、`EVENT_ORDER_INVALID`、`PROCESS_ERROR`、`DSP_ERROR`、`MIDI_ERROR`、`AUDIO_DEVICE_ERROR`
 
 **Asset**
 

@@ -109,6 +109,29 @@ fn definition() -> InstrumentDefinition {
         .expect("reference Definition parses")
 }
 
+fn process_runtime(
+    runtime: &mut InstrumentRuntime,
+    frames: usize,
+    absolute_frame: u64,
+    events: &[ProcessEvent],
+) -> Vec<Vec<f32>> {
+    let mut left = vec![0.0; frames];
+    let mut right = vec![0.0; frames];
+    let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+    runtime
+        .process(ProcessBlock {
+            frames,
+            context: ProcessContext {
+                absolute_frame,
+                tempo_bpm: 120.0,
+            },
+            events,
+            output: &mut output,
+        })
+        .expect("runtime process succeeds");
+    vec![left, right]
+}
+
 fn render_instrument_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
     let definition = definition();
     let result = compile_instrument(
@@ -144,6 +167,67 @@ fn render_instrument_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
         &events,
     )
     .expect("instrument render succeeds")
+}
+
+fn render_sustain_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
+    let definition = basic_generator_definition();
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec"),
+        },
+    );
+    let instrument = result.instrument.expect("sustain definition compiles");
+    let events = [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 128,
+            kind: ProcessEventKind::SustainPedal { down: true },
+        },
+        ScheduledEvent {
+            absolute_frame: 256,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        },
+        ScheduledEvent {
+            absolute_frame: 512,
+            kind: ProcessEventKind::SustainPedal { down: false },
+        },
+    ];
+    render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size,
+            duration_frames: 1_024,
+            tail_frames: 0,
+        },
+        &events,
+    )
+    .expect("sustain render succeeds")
+}
+
+#[test]
+fn sustain_release_is_independent_of_block_size() {
+    let reference = render_sustain_blocks(64);
+
+    for block_size in [1, 32, 257, 1_024] {
+        let candidate = render_sustain_blocks(block_size);
+        assert_eq!(candidate.channels.len(), 2);
+        for (expected, actual) in reference.channels[0].iter().zip(&candidate.channels[0]) {
+            assert_relative_eq!(*expected, *actual, epsilon = 1.0e-6);
+        }
+        for (expected, actual) in reference.channels[1].iter().zip(&candidate.channels[1]) {
+            assert_relative_eq!(*expected, *actual, epsilon = 1.0e-6);
+        }
+    }
 }
 
 fn basic_generator_definition() -> InstrumentDefinition {
@@ -1644,7 +1728,7 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
 }
 
 #[test]
-fn release_sample_layer_remains_armed_until_note_off() {
+fn release_sample_layer_waits_for_actual_release_with_sustain() {
     let mut definition = sample_only_definition(vec![sample_zone(
         "release",
         "../../testdata/assets/metal-hit.wav",
@@ -1680,52 +1764,41 @@ fn release_sample_layer_remains_armed_until_note_off() {
             velocity: 100,
         },
     }];
-    let mut armed_left = vec![0.0; 128];
-    let mut armed_right = vec![0.0; 128];
-    let mut armed_output: [&mut [f32]; 2] = [&mut armed_left, &mut armed_right];
-    runtime
-        .process(ProcessBlock {
-            frames: 128,
-            context: ProcessContext {
-                absolute_frame: 0,
-                tempo_bpm: 120.0,
-            },
-            events: &note_on,
-            output: &mut armed_output,
-        })
-        .expect("note on arms the release layer");
+    let armed = process_runtime(&mut runtime, 128, 0, &note_on);
     assert_eq!(
         runtime.voice_state(0),
         Some(sonalloy_core::VoiceState::Active)
     );
-    assert!(armed_left.iter().all(|sample| sample.abs() < 1.0e-12));
-    assert!(armed_right.iter().all(|sample| sample.abs() < 1.0e-12));
+    assert!(armed.iter().flatten().all(|sample| sample.abs() < 1.0e-12));
 
-    let note_off = [ProcessEvent {
+    let sustain_and_note_off = [
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::SustainPedal { down: true },
+        },
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 9 },
+        },
+    ];
+    let held = process_runtime(&mut runtime, 512, 128, &sustain_and_note_off);
+    assert_eq!(
+        runtime.voice_state(0),
+        Some(sonalloy_core::VoiceState::Active)
+    );
+    assert!(held.iter().flatten().all(|sample| sample.abs() < 1.0e-12));
+
+    let pedal_up = [ProcessEvent {
         sample_offset: 0,
-        kind: ProcessEventKind::NoteOff { note_id: 9 },
+        kind: ProcessEventKind::SustainPedal { down: false },
     }];
-    let mut release_left = vec![0.0; 512];
-    let mut release_right = vec![0.0; 512];
-    let mut release_output: [&mut [f32]; 2] = [&mut release_left, &mut release_right];
-    runtime
-        .process(ProcessBlock {
-            frames: 512,
-            context: ProcessContext {
-                absolute_frame: 128,
-                tempo_bpm: 120.0,
-            },
-            events: &note_off,
-            output: &mut release_output,
-        })
-        .expect("note off starts the release layer");
+    let release = process_runtime(&mut runtime, 512, 640, &pedal_up);
     assert_eq!(
         runtime.voice_state(0),
         Some(sonalloy_core::VoiceState::Releasing)
     );
-    assert!(release_left.iter().all(|sample| sample.is_finite()));
-    assert!(release_right.iter().all(|sample| sample.is_finite()));
-    assert!(release_left.iter().any(|sample| sample.abs() > 1.0e-6));
+    assert!(release.iter().flatten().all(|sample| sample.is_finite()));
+    assert!(release[0].iter().any(|sample| sample.abs() > 1.0e-6));
 }
 
 #[test]

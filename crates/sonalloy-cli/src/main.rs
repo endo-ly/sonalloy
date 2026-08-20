@@ -1,4 +1,6 @@
 mod midi;
+mod midi_common;
+mod realtime;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -27,7 +29,7 @@ const DEFAULT_BLOCK_SIZE: usize = 257;
 #[command(
     name = "sonalloy",
     version,
-    about = "Sonalloy offline instrument engine"
+    about = "Sonalloy realtime and offline instrument engine"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -46,6 +48,13 @@ enum Command {
         #[command(subcommand)]
         command: RenderCommand,
     },
+    /// Inspect realtime audio and MIDI devices.
+    Device {
+        #[command(subcommand)]
+        command: DeviceCommand,
+    },
+    /// Play an instrument from a live MIDI input through an audio output.
+    Play(PlayArgs),
     /// Development-only commands used to verify the audio path.
     Dev {
         #[command(subcommand)]
@@ -71,6 +80,40 @@ enum RenderCommand {
     Events(RenderEventsArgs),
     /// Render events from a Standard MIDI File.
     Midi(RenderMidiArgs),
+}
+
+#[derive(Debug, Subcommand)]
+enum DeviceCommand {
+    /// List available audio outputs and MIDI inputs.
+    List(DeviceListArgs),
+}
+
+#[derive(Debug, Args)]
+struct DeviceListArgs {
+    /// Emit machine-readable JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
+struct PlayArgs {
+    /// Definition JSON path.
+    definition: PathBuf,
+    /// CPAL output device ID. The OS default is used when omitted.
+    #[arg(long)]
+    audio_device: Option<String>,
+    /// Midir input port ID. A single available port is selected automatically.
+    #[arg(long)]
+    midi_device: Option<String>,
+    /// Requested output sample rate. The device default is used when omitted.
+    #[arg(long)]
+    sample_rate: Option<u32>,
+    /// Requested callback buffer size in frames.
+    #[arg(long, default_value_t = realtime::DEFAULT_BUFFER_SIZE)]
+    buffer_size: usize,
+    /// Constant tempo supplied to the Core process context.
+    #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
+    tempo: f64,
 }
 
 #[derive(Debug, Subcommand)]
@@ -791,6 +834,9 @@ enum EventSequenceKind {
     NoteOff {
         note_id: u64,
     },
+    SustainPedal {
+        down: bool,
+    },
     ParameterChange {
         parameter: String,
         native_value: f32,
@@ -815,6 +861,10 @@ fn main() -> ExitCode {
             RenderCommand::Events(args) => run_render_events(&args),
             RenderCommand::Midi(args) => run_render_midi(&args),
         },
+        Command::Device { command } => match command {
+            DeviceCommand::List(args) => realtime::run_device_list(args.json),
+        },
+        Command::Play(args) => realtime::run_play(&args),
         Command::Dev { command } => match command {
             DevCommand::RenderSine(args) => run_render_sine(&args),
         },
@@ -1307,6 +1357,9 @@ fn compile_event_sequence(
             }
             EventSequenceKind::NoteOff { note_id } => {
                 ProcessEventKind::NoteOff { note_id: *note_id }
+            }
+            EventSequenceKind::SustainPedal { down } => {
+                ProcessEventKind::SustainPedal { down: *down }
             }
             EventSequenceKind::ParameterChange {
                 parameter,

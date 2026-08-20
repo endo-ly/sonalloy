@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "sessions": [
+    {
+      "platform": "windows",
+      "status": "not_measured",
+      "audio_device": null,
+      "midi_device": null,
+      "sample_rate": null,
+      "requested_buffer_frames": null,
+      "callback_frames_min": null,
+      "callback_frames_max": null,
+      "callback_count": null,
+      "engine_latency_frames": null,
+      "duration_seconds": null,
+      "xrun_count": null,
+      "queue_overflow": null,
+      "fatal_fault": null
+    },
+    {
+      "platform": "linux",
+      "status": "not_measured",
+      "audio_device": null,
+      "midi_device": null,
+      "sample_rate": null,
+      "requested_buffer_frames": null,
+      "callback_frames_min": null,
+      "callback_frames_max": null,
+      "callback_count": null,
+      "engine_latency_frames": null,
+      "duration_seconds": null,
+      "xrun_count": null,
+      "queue_overflow": null,
+      "fatal_fault": null
+    }
+  ]
+}

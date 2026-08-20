@@ -53,6 +53,10 @@ pub struct DspStretch {
     prepared: bool,
 }
 
+// SAFETY: The wrapper uniquely owns the native stretch processor, the native object has no
+// thread affinity, and all stateful operations require exclusive `&mut self` access.
+unsafe impl Send for DspStretch {}
+
 impl DspStretch {
     /// Create an unprepared stretch backend.
     ///

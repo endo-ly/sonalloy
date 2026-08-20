@@ -43,7 +43,7 @@
 Dynamic Parameterを追加・変更した場合は、次の観点をUnit TestまたはIntegration Testで検証します。
 
 - Parameter IDの重複、未知のTarget / Source、Range違反がCompile時に診断される
-- Parameter Change、Pitch Bend、Mod Wheel、Aftertouchが絶対Frame位置へ反映され、同一OffsetのEventが優先順位どおりに処理される
+- Parameter Change、Pitch Bend、Mod Wheel、Aftertouchが絶対Frame位置へ反映され、Coreは同一Offsetを入力順に処理し、Offline AdapterはCanonical順へ正規化する
 - Layer Gain / Pan / Tuning、Layer / Voice / Global Processor ParameterがTargetのUnitとRangeへ変換され、Route加算後にClampされる
 - LFO、Modulation Envelope、Random、Velocity、Key TrackingのSourceが同じDefinitionとEventから決定的に再現される
 - Block Sizeを変更してもSourceの時間軸、Event位置、出力のFinite性が変わらない
@@ -52,6 +52,30 @@ Dynamic Parameterを追加・変更した場合は、次の観点をUnit Testま
 - NativeのOscillator / Filter Rampが有効なBuffer境界を守り、故障時に無音化とError伝播を行う
 
 Testは時刻、外部MIDI Device、OS依存の乱数、File更新時刻に依存させず、乱数SeedとEvent Sequenceを固定します。公開経路は`tests/`、内部計算は実装Module内のUnit Testへ置きます。
+
+## Realtime Adapter Review
+
+Realtime Adapterの自動検証は物理Deviceを使用せず、CoreとDevice非依存のAdapter境界を確認します。Audio Deviceの列挙、Stream生成、実際の鍵盤応答は人間のReviewで行い、OfflineのWAV品質判定とは分けて記録します。
+
+| 自動確認 | 観点 |
+|---|---|
+| Callback分割 | Host Callbackの1、63、64、255、256、257、511、641、1024 FrameをCore最大Block以下へ分割し、絶対Frameを連続させる |
+| Channel / Format | StereoのLeft / Right、3ch以上の余剰Channel無音、PCMの符号付き・符号なし・24-bitを含むSample Format変換 |
+| Queue / 順序 | Emptyから4096 Event、Timestamp + Sequence順、同一Timestampの入力順、Note On / Note Off / Sustainの時系列回帰、4097個目のPushで既存Eventを保持したままFatal化 |
+| Fault / Status | Process Error・Audio Error・MIDI Error・Queue Overflowの無音化と原因別Diagnostic、RealtimeDeniedのWarning、XrunのCounter、Device lossのFatal化 |
+| Callback安全性 | Eventあり・なし、Host Callback分割、Multi-channelを含むAudio Callback本体のAllocation 0 |
+
+物理Deviceを使うReviewでは、Release BuildでWindowsとLinuxを確認します。最初に`sonalloy device list`でAudio Output / MIDI Inputの名前とOpaque IDを確認し、`sonalloy device list --json`で機械可読ReportのFieldと`buffer_size: null`を含む未知値の表現を確認します。
+
+| 確認 | 内容 |
+|---|---|
+| 起動 | `sonalloy play <definition> --midi-device <id>`で選択Device、Sample Rate、Channel、Sample Format、要求Buffer、Engine Latency、Tempoが表示される |
+| 入力 | Note On / Note Off、Velocity 0、同音重複、Pitch Bend、Mod Wheel、Channel Aftertouch、Sustain Down / Upを確認する |
+| 音色 | 既存のBasic、Expressive、Physical / Modal、Spectral / Granular ReferenceでGenerator、Processor、Global TailがRealtime経路でも機能する |
+| Buffer | 256 Frameを通常の完了判定対象、128 Frameを追加評価として記録する。Hostが要求値と異なるCallbackを返しても音切れ・停止がない |
+| 長時間 | 各OSでRelease Buildを10分以上連続演奏し、Fatal Fault、Stuck Note、Queue Overflow、通常利用中の継続的Xrun、Memoryの継続増加がない |
+
+Review結果は`review/realtime-performance/`へ記録します。Machine-specificなOpaque IDは公開Artifactへ残さず、Device Name、Backend、Sample Rate、要求Frame、観測したCallback Frameの最小値・最大値・回数、Engine Latency、時間、Xrun、Fatal状態、入力応答を記録します。
 
 ## 音声Review
 

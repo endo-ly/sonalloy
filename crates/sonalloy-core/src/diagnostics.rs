@@ -143,12 +143,15 @@ pub enum DiagnosticCode {
     /// A filter cutoff was limited by the process sample rate.
     #[serde(rename = "FILTER_CUTOFF_CLAMPED")]
     FilterCutoffClamped,
-    /// Events violate the same-offset ordering contract.
+    /// Event positions are not in ascending order.
     #[serde(rename = "EVENT_ORDER_INVALID")]
     EventOrderInvalid,
     /// MIDI input or conversion failure.
     #[serde(rename = "MIDI_ERROR")]
     MidiError,
+    /// Audio device enumeration, configuration, or stream setup failure.
+    #[serde(rename = "AUDIO_DEVICE_ERROR")]
+    AudioDeviceError,
     /// A Sample playback combination is not supported.
     #[serde(rename = "UNSUPPORTED_PLAYBACK_COMBINATION")]
     UnsupportedPlaybackCombination,
@@ -236,7 +239,6 @@ impl Diagnostic {
 pub fn from_process_error(error: &ProcessError) -> Diagnostic {
     let code = match error {
         ProcessError::DspFailure { .. } => DiagnosticCode::DspError,
-        ProcessError::EventOrderInvalid => DiagnosticCode::EventOrderInvalid,
         ProcessError::StretchRatioOutOfRange { .. } => DiagnosticCode::InvalidStretchRatio,
         _ => DiagnosticCode::ProcessError,
     };
@@ -248,7 +250,6 @@ pub fn from_process_error(error: &ProcessError) -> Diagnostic {
 pub fn from_render_error(error: &RenderError) -> Diagnostic {
     let code = match error {
         RenderError::Process(ProcessError::DspFailure { .. }) => DiagnosticCode::DspError,
-        RenderError::Process(ProcessError::EventOrderInvalid) => DiagnosticCode::EventOrderInvalid,
         RenderError::Process(ProcessError::StretchRatioOutOfRange { .. }) => {
             DiagnosticCode::InvalidStretchRatio
         }
@@ -264,15 +265,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn event_order_errors_use_the_stable_event_code() {
-        let process = from_process_error(&ProcessError::EventOrderInvalid);
-        assert_eq!(process.code, DiagnosticCode::EventOrderInvalid);
-
-        let render = from_render_error(&RenderError::Process(ProcessError::EventOrderInvalid));
-        assert_eq!(render.code, DiagnosticCode::EventOrderInvalid);
-    }
-
-    #[test]
     fn runtime_stretch_range_errors_use_the_stretch_code() {
         let process = from_process_error(&ProcessError::StretchRatioOutOfRange { ratio: 2.5 });
         assert_eq!(process.code, DiagnosticCode::InvalidStretchRatio);
@@ -281,5 +273,16 @@ mod tests {
             ProcessError::StretchRatioOutOfRange { ratio: 2.5 },
         ));
         assert_eq!(render.code, DiagnosticCode::InvalidStretchRatio);
+    }
+
+    #[test]
+    fn audio_device_errors_use_the_stable_serialized_code() {
+        let value = serde_json::to_value(DiagnosticCode::AudioDeviceError)
+            .expect("audio device code serializes");
+
+        assert_eq!(
+            value,
+            serde_json::Value::String("AUDIO_DEVICE_ERROR".to_owned())
+        );
     }
 }

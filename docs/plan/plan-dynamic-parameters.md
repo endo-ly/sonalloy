@@ -1438,7 +1438,7 @@ Quantum境界はProcess Block先頭ではなくAbsolute Frame 0を基準にす�
 next_boundary = ((absolute_frame / 32) + 1) × 32
 ```
 Block Sizeが64、257、1024でも同じAbsolute FrameでSourceを評価する。
-## 10.3 Event Priority
+## 10.3 Offline Event Canonicalization
 同一Sample Offsetでは次の順序を使用する。
 1. Note Off
 2. Parameter Change
@@ -1446,7 +1446,7 @@ Block Sizeが64、257、1024でも同じAbsolute FrameでSourceを評価する�
 4. Mod Wheel
 5. Aftertouch
 6. Note On
-Core側の`ProcessEventKind::priority()`へ規則を一か所に置き、`ProcessBlock::validate_for`とCLI / MIDIのSortで共通利用する。
+`ProcessEventKind::priority()`へ規則を一か所に置き、OfflineのCLI / MIDI Adapterが同一OffsetのEventを正規化するために利用する。Coreの`ProcessBlock::validate_for`は同じOffsetのEventを入力順で受け入れる。
 理由：
 - Existing Noteを先にReleaseへ移す
 - 新しいBase / External Controlを同じSampleから反映する
@@ -1455,14 +1455,14 @@ Core側の`ProcessEventKind::priority()`へ規則を一か所に置き、`Proces
 
 同じParameterまたはExternal Controlへ同一Offsetで複数Eventがある場合、最後のEventが最終Targetになる。
 
-CLI / MIDI Adapterもこの順序でScheduled Eventを安定Sortする。
+CLI / MIDI Adapterはこの順序でOfflineのScheduled Eventを安定Sortする。
 ## 10.4 Event Validation
 Process開始前にBlock内全EventをValidationする。
 
 `ProcessBlock::validate_for`は、ProcessSpecだけで判定できる次を確認する。
 - Sample Offset昇順
 - Offset < frames
-- 同一Offset Priority順
+- 同一Offsetの入力順
 - Note Number / Velocity Range
 - Normalized Value Range
 - External Control Range
@@ -2006,7 +2006,7 @@ CLI側で次を検査する。
 - Note / Velocity Range
 - External Control Range
 - Note IDの型
-同一FrameのEventはCore Priorityへ従って安定Sortする。
+同一FrameのEventはOffline AdapterのCanonical順へ安定Sortする。
 
 不正Eventで一部WAVを成功扱いしない。
 ## 15.4 MIDI Pitch Bend
@@ -2529,7 +2529,7 @@ P3は一つの実装単位である。
 - Runtime Parameter State
 - Parameter Change Event
 - External Control Event
-- Event Priority
+- Offline Event Canonicalization
 - Shared Span
 - Smoothing
 - Absolute Control Clock
@@ -2542,7 +2542,7 @@ P3は一つの実装単位である。
 5. Parameter Change Eventを追加する
 6. External Control Eventを追加する
 7. Event全件事前Validationを実装する
-8. 同一Offset Priorityを実装する
+8. Offline Event Canonicalizationを実装する
 9. Absolute Quantum境界を実装する
 10. Shared Parameter Spanを一度だけ生成する
 11. VoiceへRead-only Spanを渡す
@@ -2694,7 +2694,7 @@ P3機能をCLIだけで理解・再現・試聴できるようにする。
 ## 20.2 `docs/runtime-processing.md`
 更新する内容：
 - Parameter Change Event
-- Event Priority
+- Offline Event Canonicalization
 - Shared / Voice State
 - Control Span
 - Effective値
@@ -2807,7 +2807,7 @@ Parameter Catalog、Compiled Route、Runtime Stateの責務境界を理解する
 - Reference Instrument
 ## 22.2 正確性
 - Event位置がSample Accurate
-- 同一Offset Priorityが固定
+- Offlineの同一Offset Canonical順が固定
 - BaseとEffectiveが分離
 - Shared StateをVoice数分進めない
 - Voice Sourceが独立

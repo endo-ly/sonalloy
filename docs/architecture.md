@@ -18,6 +18,9 @@
 ```mermaid
 flowchart TD
     CLI[sonalloy-cli] --> Core[sonalloy-core]
+    CLI --> Audio[CPAL Audio Adapter]
+    CLI --> Midi[Midir MIDI Adapter]
+    CLI --> Queue[Crossbeam Queue]
     Core --> Sys[sonalloy-dsp-sys]
     Sys --> ABI[Internal C ABI]
     ABI --> DSP[DaisySP]
@@ -26,9 +29,11 @@ flowchart TD
 
 | クレート | 役割 | 依存しないもの |
 |---|---|---|
-| `sonalloy-cli` | 引数解釈、MIDI→イベント変換、WAV出力、診断表示、終了コード | DaisySPのFFIを直接呼ばない |
-| `sonalloy-core` | 処理契約、Definitionの読込と検証、Compile、Runtime、Render | CLI、clap、hound、midly、C++ヘッダー、オーディオデバイスAPI |
+| `sonalloy-cli` | 引数解釈、Offline MIDI→Event変換、WAV出力、Audio Device Adapter、Realtime MIDI Adapter、Realtime Session、診断表示、終了コード | DaisySPのFFIを直接呼ばない |
+| `sonalloy-core` | 処理契約、Definitionの読込と検証、Compile、Runtime、Render | CLI、clap、hound、midly、cpal、midir、crossbeam-queue、C++ヘッダー、オーディオデバイスAPI |
 | `sonalloy-dsp-sys` | 内部C ABIの宣言と、生ポインタを隠蔽するSafe Rustラッパー | — |
+
+Realtimeの外部境界は`sonalloy-cli`に閉じ込めます。Main ThreadがDevice選択、DefinitionのCompile、RuntimeのPrepare、Streamの起動を行い、Audio Callbackだけが準備済みRuntimeとNative DSP Handleを排他的に所有します。Native Handle Wrapperの`Send`保証は各Wrapperの一意所有・非共有アクセス・Thread affinityなしの条件へ限定し、Audio Engine全体で一括して握り潰しません。MIDI CallbackはLive Messageを共通Process Eventへ変換し、TimestampをQueueの順序情報として保持して固定容量Queueへ送ります。Queue Overflow・Process Error・Device Errorは共有StatusでSessionへ伝えます。CoreはDevice名、Port ID、CPAL / Midir型を知りません。
 
 ## `sonalloy-core`
 
@@ -82,5 +87,6 @@ Rust側はネイティブのC++ Objectを不透明ハンドルとして所有し
 | Compile | 変更不能な`CompiledInstrument`（Metadata、Performance、Enabled Layer、Processor Chain、Parameter Catalog、Source、Route、Asset Warning）。Parameter IDをDense Handleへ解決。`sonalloy-core`が所有 |
 | Prepare | `InstrumentRuntime`の状態。スクラッチバッファ、Physical String Delay、Modal Resonator、Time Stretch Backend、Grain Pool、Playback Slot、Partial Bank、Layer遅延補償バッファ、ネイティブハンドル、同時発音数分のVoiceを生成 |
 | Process / Reset | 確保した状態を再利用。Resetは準備時と同じ初期状態を復元 |
+| Realtime Session | CLIがCPAL Stream、Midir Connection、固定容量Event Queue、Atomic Statusを所有。Audio CallbackはPlanar Stereo出力をDevice形式へ変換し、MIDI CallbackはNote IDとControl Stateを管理 |
 
 `CompiledInstrument`は変更不能で、Runtimeが持つ可変状態（Base Smoother、External Control、Voice Source、Generator Cursor、Processor State）は音源定義や`CompiledInstrument`へ書き戻しません。Voice StealingではLayer・Generator・Processor・Modulation Sourceを同じVoice Stateとして切り替えます。

@@ -172,6 +172,79 @@ fn write_control_only_midi(directory: &std::path::Path) -> std::path::PathBuf {
     path
 }
 
+fn write_sustain_midi(directory: &std::path::Path) -> std::path::PathBuf {
+    let path = directory.join("sustain.mid");
+    let mut smf = Smf::new(Header::new(
+        Format::SingleTrack,
+        Timing::Metrical(480.into()),
+    ));
+    smf.tracks.push(vec![
+        TrackEvent {
+            delta: 0.into(),
+            kind: TrackEventKind::Midi {
+                channel: 0.into(),
+                message: MidiMessage::NoteOn {
+                    key: 60.into(),
+                    vel: 100.into(),
+                },
+            },
+        },
+        TrackEvent {
+            delta: 240.into(),
+            kind: TrackEventKind::Midi {
+                channel: 0.into(),
+                message: MidiMessage::Controller {
+                    controller: 64.into(),
+                    value: 127.into(),
+                },
+            },
+        },
+        TrackEvent {
+            delta: 240.into(),
+            kind: TrackEventKind::Midi {
+                channel: 0.into(),
+                message: MidiMessage::NoteOff {
+                    key: 60.into(),
+                    vel: 0.into(),
+                },
+            },
+        },
+        TrackEvent {
+            delta: 240.into(),
+            kind: TrackEventKind::Midi {
+                channel: 0.into(),
+                message: MidiMessage::Controller {
+                    controller: 64.into(),
+                    value: 0.into(),
+                },
+            },
+        },
+        TrackEvent {
+            delta: 0.into(),
+            kind: TrackEventKind::Meta(midly::MetaMessage::EndOfTrack),
+        },
+    ]);
+    smf.save(&path).expect("sustain MIDI fixture");
+    path
+}
+
+#[test]
+fn play_rejects_zero_buffer_before_accessing_devices() {
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "play",
+            reference_definition().to_str().expect("definition path"),
+            "--buffer-size",
+            "0",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicates::str::contains(
+            "buffer size must be greater than zero",
+        ));
+}
+
 #[test]
 fn render_sine_writes_stereo_wav() {
     let directory = tempdir().expect("temporary directory");
@@ -1190,6 +1263,48 @@ fn render_events_supports_parameter_and_external_control_events() {
 }
 
 #[test]
+fn render_events_accepts_sustain_pedal_events() {
+    let directory = tempdir().expect("temporary directory");
+    let events = directory.path().join("sustain-events.json");
+    std::fs::write(
+        &events,
+        r#"{
+          "events": [
+            {"absolute_frame": 0, "type": "note_on", "note_id": 1, "note": 60, "velocity": 100},
+            {"absolute_frame": 128, "type": "sustain_pedal", "down": true},
+            {"absolute_frame": 256, "type": "note_off", "note_id": 1},
+            {"absolute_frame": 384, "type": "sustain_pedal", "down": false}
+          ]
+        }"#,
+    )
+    .expect("sustain event sequence fixture");
+    let output = directory.path().join("sustain-events.wav");
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "events",
+            reference_definition().to_str().expect("definition path"),
+            events.to_str().expect("events path"),
+            "--duration-frames",
+            "512",
+            "--tail",
+            "0",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+}
+
+#[test]
 fn render_events_reset_check_reports_a_bit_exact_comparison() {
     let directory = tempdir().expect("temporary directory");
     let events = directory.path().join("events.json");
@@ -1365,6 +1480,38 @@ fn render_midi_converts_external_controls() {
         .collect();
     assert!(samples.iter().all(|sample| sample.is_finite()));
     assert!(samples.iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
+fn render_midi_converts_sustain_cc64() {
+    let directory = tempdir().expect("temporary directory");
+    let midi = write_sustain_midi(directory.path());
+    let output = directory.path().join("sustain.wav");
+
+    let report = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "midi",
+            reference_definition().to_str().expect("definition path"),
+            midi.to_str().expect("MIDI path"),
+            "--tail",
+            "0",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("output path"),
+            "--json",
+        ])
+        .output()
+        .expect("sustain MIDI render starts");
+    assert!(report.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&report.stdout).expect("JSON report");
+    assert_eq!(report["status"], "ok");
+    assert!(report.get("diagnostics").is_none());
+    assert!(output.exists());
 }
 
 #[test]

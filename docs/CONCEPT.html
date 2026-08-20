@@ -827,7 +827,7 @@ footer b{color:var(--muted);font-weight:400}
     <li>Sample Rate・最大 Block Size・出力 Channel 数は Prepare 時に確定</li>
     <li>一回の Process で扱う Frame 数は最大 Block Size以下。呼び出しごとに変化してよい</li>
     <li>Audio Sample Format は <code>f32</code>、Buffer は Channel ごとに分離した Planar 形式。少なくとも Mono と Stereo 出力を扱う</li>
-    <li>Event は Sample Offset の昇順で渡す。同一 Offset では入力順を維持。ただし同一 Note の Note Off と Note On が同時の場合は Note Off を先に処理</li>
+    <li>Event は Sample Offset の昇順で渡す。同一 Offset では Adapter が確定した順序を維持し、Core は Event 列の順番で処理する。Offline の Event JSON / MIDI File Adapter は同一 Note の Note Off と Note On が同時の場合を含めて Canonical 順へ正規化し、Realtime MIDI Adapter は MIDI Callback の入力 Sequence を維持する</li>
     <li>Audio Callback 内で回復不能な例外を外部へ送出しない。処理できない Event は診断対象とし、その Process は無音または処理可能な範囲で継続</li>
   </ul>
 

@@ -68,6 +68,10 @@ pub struct DspFilter {
     prepared: bool,
 }
 
+// SAFETY: The wrapper uniquely owns the native filter, the native object has no thread affinity,
+// and all stateful operations require exclusive `&mut self` access.
+unsafe impl Send for DspFilter {}
+
 impl DspFilter {
     /// Create an unprepared filter.
     ///
