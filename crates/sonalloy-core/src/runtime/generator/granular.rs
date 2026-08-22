@@ -163,7 +163,7 @@ impl GranularRuntime {
             let (frame_left, frame_right) = self.render_frame()?;
             left[frame] = frame_left;
             right[frame] = frame_right;
-            mono[frame] = (frame_left + frame_right) * 0.5;
+            mono[frame] = f32::midpoint(frame_left, frame_right);
             let current_density = density.value_at(frame, frames);
             #[allow(clippy::cast_precision_loss)]
             {
