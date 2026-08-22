@@ -1985,7 +1985,28 @@ fn pattern_commands_export_and_import_midi() {
     let pattern = directory.path().join("groove.json");
     let midi = directory.path().join("groove.mid");
     let imported = directory.path().join("imported.json");
-    init_pattern(&pattern);
+    let source = json!({
+        "schema_version": 1,
+        "name": null,
+        "ticks_per_beat": 480,
+        "length_ticks": 1920,
+        "tempo_changes": [{"tick": 0, "bpm": 120.0}],
+        "time_signature_changes": [
+            {"tick": 0, "numerator": 4, "denominator": 4},
+            {"tick": 960, "numerator": 3, "denominator": 4}
+        ],
+        "events": [
+            {"type": "note", "tick": 0, "duration_ticks": 480, "note": 60, "velocity": 100},
+            {"type": "note", "tick": 480, "duration_ticks": 240, "note": 64, "velocity": 80},
+            {"type": "sustain_pedal", "tick": 720, "down": true},
+            {"type": "sustain_pedal", "tick": 960, "down": false}
+        ]
+    });
+    std::fs::write(
+        &pattern,
+        serde_json::to_vec_pretty(&source).expect("round-trip pattern serializes"),
+    )
+    .expect("round-trip pattern writes");
 
     Command::cargo_bin("sonalloy")
         .expect("binary")
@@ -2037,6 +2058,59 @@ fn pattern_commands_export_and_import_midi() {
         .assert()
         .success()
         .stdout(predicates::str::contains("\"status\":\"ok\""));
+
+    let imported_json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&imported).expect("imported pattern JSON"))
+            .expect("imported pattern parses");
+    assert_eq!(imported_json["ticks_per_beat"], source["ticks_per_beat"]);
+    assert_eq!(imported_json["length_ticks"], source["length_ticks"]);
+    assert_eq!(imported_json["tempo_changes"], source["tempo_changes"]);
+    assert_eq!(
+        imported_json["time_signature_changes"],
+        source["time_signature_changes"]
+    );
+    assert_eq!(imported_json["events"], source["events"]);
+}
+
+#[test]
+fn pattern_export_rejects_overlapping_same_pitch_notes() {
+    let directory = tempdir().expect("temporary directory");
+    let pattern = directory.path().join("overlap.json");
+    let output = directory.path().join("overlap.mid");
+    let pattern_json = json!({
+        "schema_version": 1,
+        "name": null,
+        "ticks_per_beat": 480,
+        "length_ticks": 960,
+        "tempo_changes": [{"tick": 0, "bpm": 120.0}],
+        "time_signature_changes": [{"tick": 0, "numerator": 4, "denominator": 4}],
+        "events": [
+            {"type": "note", "tick": 0, "duration_ticks": 720, "note": 60, "velocity": 100},
+            {"type": "note", "tick": 480, "duration_ticks": 240, "note": 60, "velocity": 80}
+        ]
+    });
+    std::fs::write(
+        &pattern,
+        serde_json::to_vec_pretty(&pattern_json).expect("overlap pattern serializes"),
+    )
+    .expect("overlap pattern writes");
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "pattern",
+            "export-midi",
+            pattern.to_str().expect("pattern path"),
+            "--output",
+            output.to_str().expect("MIDI path"),
+            "--json",
+        ])
+        .assert()
+        .code(2)
+        .stdout(predicates::str::contains(
+            "notes with the same pitch cannot overlap in Standard MIDI",
+        ));
+    assert!(!output.exists());
 }
 
 #[test]

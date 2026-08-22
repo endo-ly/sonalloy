@@ -842,7 +842,7 @@ pub(crate) fn midi_events(
         return Err(diagnostics);
     }
     let mut events = Vec::with_capacity(pattern.events.len().saturating_mul(2));
-    let mut unsupported = Vec::new();
+    let mut errors = midi_note_overlap_diagnostics(pattern);
     for (source_index, event) in pattern.events.iter().enumerate() {
         match event {
             PatternEvent::Note {
@@ -888,7 +888,7 @@ pub(crate) fn midi_events(
                 source_index,
                 kind: PatternMidiEventKind::Aftertouch { value: *value },
             }),
-            PatternEvent::ParameterChange { .. } => unsupported.push(
+            PatternEvent::ParameterChange { .. } => errors.push(
                 Diagnostic::error(
                     DiagnosticCode::MidiError,
                     "Sonalloy parameter changes cannot be represented in Standard MIDI",
@@ -897,11 +897,60 @@ pub(crate) fn midi_events(
             ),
         }
     }
-    if !unsupported.is_empty() {
-        return Err(unsupported);
+    if !errors.is_empty() {
+        return Err(errors);
     }
     events.sort_by_key(|event| (event.tick, event.kind.priority(), event.source_index));
     Ok(events)
+}
+
+fn midi_note_overlap_diagnostics(pattern: &PatternDefinition) -> Vec<Diagnostic> {
+    let mut notes = pattern
+        .events
+        .iter()
+        .enumerate()
+        .filter_map(|(source_index, event)| {
+            let PatternEvent::Note {
+                tick,
+                duration_ticks,
+                note,
+                ..
+            } = event
+            else {
+                return None;
+            };
+            let end_tick = tick
+                .checked_add(*duration_ticks)
+                .expect("validated note duration fits the tick counter");
+            Some((source_index, *note, *tick, end_tick))
+        })
+        .collect::<Vec<_>>();
+    notes.sort_unstable_by_key(|(_, note, tick, end_tick)| (*note, *tick, *end_tick));
+
+    let mut latest_end_by_note = [None; 128];
+    let mut diagnostics = Vec::new();
+    for (source_index, note, start_tick, end_tick) in notes {
+        if let Some((previous_index, previous_end_tick)) = latest_end_by_note[usize::from(note)]
+            && start_tick < previous_end_tick
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::MidiError,
+                    "notes with the same pitch cannot overlap in Standard MIDI",
+                )
+                .with_path(format!("events[{source_index}]"))
+                .with_detail(format!(
+                    "events[{source_index}] overlaps events[{previous_index}] for note {note}"
+                )),
+            );
+        }
+        if latest_end_by_note[usize::from(note)]
+            .is_none_or(|(_, previous_end_tick)| end_tick > previous_end_tick)
+        {
+            latest_end_by_note[usize::from(note)] = Some((source_index, end_tick));
+        }
+    }
+    diagnostics
 }
 
 pub(crate) fn time_signature_denominator_power(denominator: u8) -> u8 {
@@ -989,6 +1038,36 @@ mod tests {
             events[1].kind,
             PatternMidiEventKind::NoteOn { .. }
         ));
+    }
+
+    #[test]
+    fn midi_events_reject_overlapping_notes_with_the_same_pitch() {
+        let pattern = PatternDefinition {
+            length_ticks: 960,
+            events: vec![
+                PatternEvent::Note {
+                    tick: 0,
+                    duration_ticks: 720,
+                    note: 60,
+                    velocity: 100,
+                },
+                PatternEvent::Note {
+                    tick: 480,
+                    duration_ticks: 240,
+                    note: 60,
+                    velocity: 80,
+                },
+            ],
+            ..default_pattern()
+        };
+
+        let diagnostics = midi_events(&pattern).expect_err("overlapping notes are not MIDI-safe");
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(
+            diagnostics[0].message,
+            "notes with the same pitch cannot overlap in Standard MIDI"
+        );
+        assert_eq!(diagnostics[0].path.as_deref(), Some("events[1]"));
     }
 
     #[test]

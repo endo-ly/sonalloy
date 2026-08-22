@@ -81,6 +81,13 @@ struct ConvertedEvent {
 }
 
 #[derive(Debug)]
+struct PendingRenderNote {
+    note_id: u64,
+    start_tick: u64,
+    start_frame: u64,
+}
+
+#[derive(Debug)]
 struct PendingImportedNote {
     tick: u64,
     track: usize,
@@ -337,7 +344,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             ]
         })?;
 
-    let mut active_notes: HashMap<(u8, u8), VecDeque<(u64, u64)>> = HashMap::new();
+    let mut active_notes: HashMap<(u8, u8), VecDeque<PendingRenderNote>> = HashMap::new();
     let mut serials: HashMap<(u8, u8), u32> = HashMap::new();
     let mut zero_length_note_ids = HashSet::new();
     let mut converted = Vec::new();
@@ -372,7 +379,11 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                 active_notes
                     .entry(key)
                     .or_default()
-                    .push_back((note_id, raw.tick));
+                    .push_back(PendingRenderNote {
+                        note_id,
+                        start_tick: raw.tick,
+                        start_frame: frame,
+                    });
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
@@ -387,9 +398,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             }
             RawMidiEventKind::NoteOff { channel, note } => {
                 let key = (channel, note);
-                let Some((note_id, start_tick)) =
-                    active_notes.get_mut(&key).and_then(VecDeque::pop_front)
-                else {
+                let Some(pending) = active_notes.get_mut(&key).and_then(VecDeque::pop_front) else {
                     diagnostics.push(
                         Diagnostic::warning(
                             DiagnosticCode::MidiError,
@@ -399,15 +408,17 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                     );
                     continue;
                 };
-                if start_tick == raw.tick {
-                    zero_length_note_ids.insert(note_id);
+                if pending.start_tick == raw.tick || pending.start_frame == frame {
+                    zero_length_note_ids.insert(pending.note_id);
                 } else {
                     converted.push(ConvertedEvent {
                         frame,
                         track: raw.track,
                         index: raw.index,
                         channel,
-                        kind: ProcessEventKind::NoteOff { note_id },
+                        kind: ProcessEventKind::NoteOff {
+                            note_id: pending.note_id,
+                        },
                     });
                 }
             }
@@ -1058,11 +1069,18 @@ mod tests {
     use super::*;
 
     fn midi_file(events: Vec<TrackEvent<'static>>) -> (tempfile::TempDir, PathBuf) {
+        midi_file_with_ticks_per_beat(480, events)
+    }
+
+    fn midi_file_with_ticks_per_beat(
+        ticks_per_beat: u16,
+        events: Vec<TrackEvent<'static>>,
+    ) -> (tempfile::TempDir, PathBuf) {
         let directory = tempfile::tempdir().expect("temporary directory");
         let path = directory.path().join("test.mid");
         let mut smf = Smf::new(Header::new(
             Format::SingleTrack,
-            Timing::Metrical(480.into()),
+            Timing::Metrical(u15::new(ticks_per_beat)),
         ));
         smf.tracks.push(events);
         smf.save(&path).expect("MIDI fixture");
@@ -1090,12 +1108,60 @@ mod tests {
         )
     }
 
+    fn note_on(channel: u8) -> TrackEvent<'static> {
+        note_on_with_delta(channel, 0)
+    }
+
     fn note_off_with_delta(channel: u8, delta: u32) -> TrackEvent<'static> {
         midi_event_with_delta(
             channel,
             MidiMessage::NoteOff {
                 key: u7::new(60),
                 vel: u7::new(0),
+            },
+            delta,
+        )
+    }
+
+    fn note_off(channel: u8) -> TrackEvent<'static> {
+        note_off_with_delta(channel, 0)
+    }
+
+    fn pitch_bend_with_delta(channel: u8, value: i16, delta: u32) -> TrackEvent<'static> {
+        midi_event_with_delta(
+            channel,
+            MidiMessage::PitchBend {
+                bend: midly::PitchBend::from_int(value),
+            },
+            delta,
+        )
+    }
+
+    fn pitch_bend(channel: u8, value: i16) -> TrackEvent<'static> {
+        pitch_bend_with_delta(channel, value, 0)
+    }
+
+    fn controller_with_delta(
+        channel: u8,
+        controller: u8,
+        value: u8,
+        delta: u32,
+    ) -> TrackEvent<'static> {
+        midi_event_with_delta(
+            channel,
+            MidiMessage::Controller {
+                controller: u7::new(controller),
+                value: u7::new(value),
+            },
+            delta,
+        )
+    }
+
+    fn aftertouch_with_delta(channel: u8, value: u8, delta: u32) -> TrackEvent<'static> {
+        midi_event_with_delta(
+            channel,
+            MidiMessage::ChannelAftertouch {
+                vel: u7::new(value),
             },
             delta,
         )
@@ -1113,6 +1179,49 @@ mod tests {
         assert!((normalize_pitch_bend(-8192) + 1.0).abs() < f32::EPSILON);
         assert!(normalize_pitch_bend(0).abs() < f32::EPSILON);
         assert!((normalize_pitch_bend(8191) - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn supported_midi_controls_are_converted() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            controller_with_delta(0, MOD_WHEEL_CONTROLLER, 64, 0),
+            controller_with_delta(0, SUSTAIN_PEDAL_CONTROLLER, 127, 0),
+            aftertouch_with_delta(0, 32, 0),
+            pitch_bend(0, 4096),
+            note_off_with_delta(0, 480),
+            controller_with_delta(0, SUSTAIN_PEDAL_CONTROLLER, 0, 0),
+            end_of_track(),
+        ]);
+
+        let render = read_midi(&path, 48_000.0).expect("MIDI with supported controls");
+        assert!(
+            render
+                .events
+                .iter()
+                .any(|event| matches!(event.kind, ProcessEventKind::SustainPedal { down: true }))
+        );
+        assert!(
+            render
+                .events
+                .iter()
+                .any(|event| matches!(event.kind, ProcessEventKind::SustainPedal { down: false }))
+        );
+        assert!(render.events.iter().any(|event| matches!(
+            event.kind,
+            ProcessEventKind::ModWheel { value }
+                if (value - normalize_control(64)).abs() < f32::EPSILON
+        )));
+        assert!(render.events.iter().any(|event| matches!(
+            event.kind,
+            ProcessEventKind::Aftertouch { value }
+                if (value - normalize_control(32)).abs() < f32::EPSILON
+        )));
+        assert!(render.events.iter().any(|event| matches!(
+            event.kind,
+            ProcessEventKind::PitchBend { value }
+                if (value - normalize_pitch_bend(4096)).abs() < f32::EPSILON
+        )));
     }
 
     #[test]
@@ -1184,6 +1293,151 @@ mod tests {
     }
 
     #[test]
+    fn control_from_a_channel_without_notes_emits_a_warning() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            pitch_bend(1, 4096),
+            note_off_with_delta(0, 480),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("pitch bend controls from MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn control_after_all_notes_end_needs_no_warning() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            note_off_with_delta(0, 480),
+            pitch_bend_with_delta(1, 4096, 480),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(!render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("pitch bend controls from MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn control_from_a_later_note_channel_warns_during_another_channel_note() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            pitch_bend_with_delta(1, 4096, 480),
+            note_off_with_delta(0, 480),
+            note_on_with_delta(1, 480),
+            note_off_with_delta(1, 480),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("pitch bend controls from MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn same_channel_note_and_control_needs_no_warning() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            pitch_bend(0, 4096),
+            note_off_with_delta(0, 480),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(!render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("pitch bend controls from MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn differing_control_values_across_channels_emit_a_warning() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            note_on(1),
+            pitch_bend(0, 0),
+            pitch_bend(1, 4096),
+            note_off_with_delta(0, 480),
+            note_off(1),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("pitch bend controls from MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn differing_controls_in_non_overlapping_notes_need_no_warning() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            pitch_bend(0, 4096),
+            note_off_with_delta(0, 480),
+            note_on(1),
+            pitch_bend(1, -4096),
+            note_off_with_delta(1, 480),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(!render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("pitch bend controls from MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn equal_control_values_across_note_channels_need_no_control_warning() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            note_on(1),
+            pitch_bend(0, 4096),
+            pitch_bend(1, 4096),
+            note_off_with_delta(0, 480),
+            note_off(1),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(!render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("pitch bend controls from MIDI channels")
+        }));
+        assert!(render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("notes from multiple MIDI channels")
+        }));
+    }
+
+    #[test]
+    fn notes_from_multiple_channels_emit_a_warning() {
+        let (_directory, path) = midi_file(vec![
+            note_on(0),
+            note_on(1),
+            note_off_with_delta(0, 480),
+            note_off(1),
+            end_of_track(),
+        ]);
+        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+        assert!(render.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("notes from multiple MIDI channels")
+        }));
+    }
+
+    #[test]
     fn same_tick_note_is_removed_from_render_input() {
         let (_directory, path) = midi_file(vec![
             note_on_with_delta(0, 0),
@@ -1194,5 +1448,39 @@ mod tests {
         ]);
         let render = read_midi(&path, 48_000.0).expect("non-zero note remains");
         assert_eq!(render.events.len(), 2);
+    }
+
+    #[test]
+    fn notes_that_share_a_frame_but_not_a_tick_are_removed_from_render_input() {
+        let (_directory, path) = midi_file_with_ticks_per_beat(
+            32_767,
+            vec![
+                TrackEvent {
+                    delta: 0.into(),
+                    kind: TrackEventKind::Meta(midly::MetaMessage::Tempo(u24::new(100_000))),
+                },
+                note_on(0),
+                note_off_with_delta(0, 1),
+                note_on_with_delta(0, 479),
+                note_off_with_delta(0, 480),
+                end_of_track(),
+            ],
+        );
+        let render = read_midi(&path, 48_000.0).expect("the longer note remains");
+
+        assert_eq!(render.events.len(), 2);
+        assert!(render.events[0].absolute_frame < render.events[1].absolute_frame);
+        assert!(render.events.iter().all(|event| match event.kind {
+            ProcessEventKind::NoteOn {
+                note_id: event_note_id,
+                ..
+            }
+            | ProcessEventKind::NoteOff {
+                note_id: event_note_id,
+            } => {
+                event_note_id == note_id(0, 60, 1)
+            }
+            _ => false,
+        }));
     }
 }
