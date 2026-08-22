@@ -261,7 +261,7 @@ impl SpectralRuntime {
             } else {
                 left_sample
             };
-            mono[offset] = (left_sample + right_sample) * 0.5;
+            mono[offset] = f32::midpoint(left_sample, right_sample);
             left[offset] = left_sample;
             right[offset] = right_sample;
             self.samples_until_next_frame = self.samples_until_next_frame.saturating_sub(1);

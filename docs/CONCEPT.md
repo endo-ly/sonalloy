@@ -67,12 +67,14 @@ Sonalloy本体はPlugin API・Audio Device APIに依存せず、すべてAdapter
 - **Modulation**：LFO/Envelope/MSEG/Step/Random/Velocity/Key Tracking/Macro/Envelope Follower
 - **Processing**：Filter/Drive/EQ/Comb/Bitcrusher/Freq Shifter/Chorus/Delay/Reverb/Convolution/Dynamics
 - **Instrument機能**：Hybrid構成/Polyphony/Voice Management/MIDI演奏
+- **Audition Pattern**：1つのInstrumentへ送るNote、Chord、Phrase、Drum Pattern、Performance Control、Parameter Changeの保存・Offline Render・Realtime Audition・MIDI Interchange
 
 **意図的に扱わない範囲**：
 - 完全自由なModular Audio Graph（Cycle管理・計算量予測が困難）
 - ユーザー定義の任意Feedback Routing（不安定な循環接続を防止）
 - 無制限のDSP Script実行（Realtime Safety・再現性の維持）
-- DAW機能（Arrangement/Recording/MixingはHostの責務）
+- DAW機能（複数InstrumentのTrack、Arrangement、Recording、MixingはHostの責務）
+- 一般的なPiano Roll、Step Sequencer、Pattern編集Framework
 - 生楽器の完全物理再現（電子音生成に有効なPhysical/Modal方式のみ）
 
 ---
@@ -459,14 +461,15 @@ GUIやDAWがなくても、CLIだけでSonalloyの主要機能を完結できま
 |--------------|----------|
 | **作る** | 新規作成、Layer/Generator/Processor追加・削除、Sample/Wavetable/IR追加、Parameter/Modulation設定 |
 | **理解する** | 内容表示、構成解析、Validation、依存Asset、Latency、推定計算量の確認 |
-| **演奏する** | 単音、Note Sequence、MIDI File、External Control、必要ならAudio Input付き演奏 |
+| **演奏する** | 単音、Audition Pattern、Note Sequence、MIDI File、External Control、必要ならAudio Input付き演奏 |
+| **交換する** | PatternとStandard MIDI FileのImport / Export |
 | **書き出す** | Offline Render、Stem/WAV等へのExport |
 | **素材処理** | Sample Slice、Loop確認、Wavetable/Spectral/IR事前解析 |
 | **リアルタイム** | MIDI Device + Audio Deviceによる演奏（Linux/Windows） |
 | **修復する** | 不足Assetの再指定、再Validation、再Compile |
 | **比較する** | 複数Definition/Parameter VariantのRender比較 |
 
-CLIが操作する正本はInstrument Definitionであり、Command列はDefinitionを操作する手段に過ぎません。
+CLIが扱う正本はInstrument Definitionと、1つのInstrumentを試奏するAudition Patternです。PatternはCLI Frontendの入力形式として既存のProcess Contractへ変換され、CoreへPatternやArrangementのモデルを持ち込みません。
 
 ### 5.2 Plugin（CLAP/VST3）
 
@@ -615,7 +618,7 @@ Neural OptionalにはDDSP、Timbre Transfer、Neural Codec Generator、Latent Mo
 | 区分 | 対象 |
 |------|------|
 | **Sonalloyが所有** | Definition、Layer、Generator Model、Compiler、Compiled Instrument、Voice、Modulation、Runtime、Sample Mapping、Processor Chain、共通Event/Process Contract |
-| **Frontend/Adapterが所有** | Audio/MIDI Device、Plugin Host API、Input Bus、JUCE/CPAL/CLAP/VST3固有変換 |
+| **Frontend/Adapterが所有** | Audio/MIDI Device、Plugin Host API、Input Bus、CLIのAudition Pattern JSON、Standard MIDI Fileの変換、JUCE/CPAL/CLAP/VST3固有変換 |
 | **既存Libraryに委譲** | FFT、Resampling、Codec、Device接続、MIDI接続等の汎用基盤 |
 | **Optional Backendが所有** | Neural推論Runtime、GPU固有処理等。SonalloyからCapability経由で利用 |
 
@@ -636,9 +639,10 @@ SonalloyはRiffraがなくても単独で主要機能が動作します。
 |------------|-------------------|
 | **Design** | Layer、Generator、Sample Mapping、Wavetable、FM Operator、Granular、Modulation、Processor、Macroを視覚編集。Definitionの意味を再実装しない |
 | **Play** | MIDI鍵盤等からRealtime演奏。Performance Settings、Macro、Expression、External Audio InputをProcess Contractへ変換 |
-| **Arrange** | 楽曲内でInstrumentを利用。Automation、Tempo、Transport、Audio Input RoutingをSonalloy Contractへ渡す |
+| **Audition** | 1つのInstrumentをPattern、Chord、Phrase、Drum Patternで確認。必要ならStandard MIDI FileをImport / Export |
+| **Arrange** | 複数InstrumentのTrack、Clip、Arrangement、Automation、Tempo、Transport、Audio Input Routingを管理し、必要なEventをSonalloy Contractへ渡す |
 
-**所有関係**：RiffraはAudio Device、JUCE Audio Callback、Host Input/Output Routingを所有します。Sonalloyは渡されたContext・Event・Input/Output Bufferを処理します。Sonalloy側からRiffraやJUCE固有APIを呼びません。
+**所有関係**：RiffraはProject、Track、Arrangement、Audio Device、JUCE Audio Callback、Host Input/Output Routingを所有します。Sonalloy CLIは1つのInstrumentを試奏するPatternとMIDI Interchangeを扱い、Riffraは必要に応じてTimelineからProcess Contractを直接駆動できます。Sonalloyは渡されたContext・Event・Input/Output Bufferを処理し、RiffraやJUCE固有APIを呼びません。
 
 **Design画面での構成変更Flow**：
 1. RiffraがControl側でCompileを要求

@@ -11,9 +11,17 @@ Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み
 | `instrument init` | 音源定義のひな形を生成する |
 | `instrument validate` | 音源定義を検証する |
 | `instrument inspect` | コンパイル後の実行値を表示する |
+| `pattern init` | 1つのInstrumentを試奏するPatternを生成する |
+| `pattern validate` | Patternの構造を検証する |
+| `pattern inspect` | Patternの音楽的な長さとEvent概要を表示する |
+| `pattern import-midi` | MIDIの1 ChannelをPatternへ変換する |
+| `pattern export-midi` | PatternをSingle Track MIDIへ変換する |
 | `render note` | 1音をレンダリングする |
 | `render events` | Event Sequenceをレンダリングする |
 | `render midi` | MIDI Fileをレンダリングする |
+| `render pattern` | Musical-time Patternをレンダリングする |
+| `audition pattern` | PatternをAudio Deviceで試聴する |
+| `audition midi` | MIDI Fileを1 Channel選択して試聴する |
 | `device list` | Audio OutputとMIDI Inputを列挙する |
 | `play` | MIDI InputからAudio Outputへリアルタイム演奏する |
 | `dev render-sine` | 動作確認用のSineをレンダリングする |
@@ -85,6 +93,54 @@ sonalloy instrument inspect <definition> --json
 
 `modulated_range_from_default`は、各Sourceが宣言されたEndpointへ独立に到達できると仮定した決定的なBoundです。特定の演奏で実際に通る値の予測ではありません。
 
+## Audition Pattern
+
+Audition Patternは、1つのInstrumentをNote、Chord、Phrase、Drum Pattern、Performance Control、Parameter Changeを含むMusical-time JSONで試奏するための形式です。Schema、Validation、Loop、MIDI Interchangeの正本は[`docs/pattern.md`](pattern.md)です。
+
+### `pattern init` — 試奏Patternの生成
+
+```bash
+sonalloy pattern init phrase.json
+```
+
+480 Ticks Per Beat、120 BPM、4/4、1小節、C4のQuarter Note 1つを持つValid Patternを生成します。既存のPathは上書きしません。
+
+### `pattern validate` — 構造検証
+
+```bash
+sonalloy pattern validate phrase.json
+sonalloy pattern validate phrase.json --json
+```
+
+Schema Version、未知Field、Tick、Tempo、Time Signature、Note、Control Range、Finite Value、最低1 Noteを検証します。Instrument固有Parameterの存在とNative Rangeは、Instrumentを指定する`render pattern`または`audition pattern`で解決します。
+
+### `pattern inspect` — Pattern概要
+
+```bash
+sonalloy pattern inspect phrase.json
+sonalloy pattern inspect phrase.json --json
+```
+
+Name、Schema、Tick Resolution、Length、Tempo / Time Signature Change数、Note / Velocity範囲、Control数、Parameter ID数、Tempo Timelineから計算したSample Rate非依存のMusical Durationを表示します。
+
+### `pattern import-midi` — MIDIからPatternへ変換
+
+```bash
+sonalloy pattern import-midi phrase.mid --output phrase.json
+sonalloy pattern import-midi song.mid --channel 10 --output drums.json
+```
+
+Patternは1 Instrument用なので、Note Channelが複数あるMIDIは`--channel 1..16`で1つを選びます。自動選択は1 Channelだけの場合に限ります。TempoとTime SignatureはGlobal Metadataとして保持し、同じChannelを使う複数Trackは1つへ統合します。Output Pathが存在する場合は失敗します。
+
+### `pattern export-midi` — PatternからMIDIへ変換
+
+```bash
+sonalloy pattern export-midi phrase.json --output phrase.mid
+sonalloy pattern export-midi drums.json --channel 10 --output drums.mid
+```
+
+Single Track SMFとしてTempo、Time Signature、Note、Pitch Bend、CC1、CC64、Channel Aftertouchを出力します。Sonalloy固有のParameter ChangeはStandard MIDIへ表現できないため、1件でも含むPatternは`MIDI_ERROR`で失敗します。Output Pathが存在する場合は上書きしません。
+
 ## リアルタイム演奏
 
 ### `device list` — Deviceの列挙
@@ -131,15 +187,42 @@ MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64は、Offline経路と
 
 `play`にはStreaming JSON Protocolを設けません。Deviceの機械可読な確認には`device list --json`を使用します。
 
+### `audition pattern` — PatternのRealtime試聴
+
+```bash
+sonalloy audition pattern <definition> <pattern>
+sonalloy audition pattern <definition> <pattern> --loop
+```
+
+Audio Outputだけを使うため、MIDI Input DeviceやMIDI Keyboardは不要です。One-shotはPatternの終端、Tail、Engine Latencyを再生して自動終了します。`--loop`ではPatternのEvent Timelineだけを繰り返し、Instrument RuntimeをResetしません。Loop中は標準入力のEnterで停止します。
+
+| Option | Default | 内容 |
+|---|---:|---|
+| `--audio-device <id>` | OS Default | CPAL Stable Device ID |
+| `--sample-rate <hz>` | Device Default | PatternをCompileするSample Rate |
+| `--buffer-size <frames>` | 256 | CPALへ要求するFrame数 |
+| `--tail <seconds>` | 1.0 | One-shot終了時に追加するTail |
+| `--loop` | Off | Patternを反復する。MIDI Auditionにはありません |
+
+### `audition midi` — MIDI FileのRealtime試聴
+
+```bash
+sonalloy audition midi <definition> <midi-file>
+sonalloy audition midi <definition> <midi-file> --channel 2
+```
+
+MIDI FileをTick Domainで読み込み、1つのChannelをPatternへ変換してから`audition pattern`と同じScheduled Event Feedで再生します。複数Note Channelを含む場合は`--channel 1..16`が必要です。MIDI Input Deviceは使用しません。MIDI FileのLoopはなく、必要な場合は`pattern import-midi`でPatternへ保存してから`audition pattern --loop`を使います。
+
 ## 音を鳴らす
 
-3つの`render`コマンドは、いずれもWAVを生成します。確認したい内容に合わせて使い分けます。
+`render`コマンドはいずれもWAVを生成します。確認したい内容に合わせて使い分けます。
 
 | コマンド | 向いている用途 |
 |---|---|
 | `render note` | 1音の鳴り方（Attack、Sustain、Release）を手軽に確かめる |
 | `render events` | 演奏中のParameter変化（Filter Cutoff、Pitch Bendなど）を正確な位置で再現する |
 | `render midi` | MIDI Fileのフレーズを鳴らす |
+| `render pattern` | Sample Rateに依存しないMusical-time Patternを鳴らす |
 
 ### `render note` — 1音のレンダリング
 
@@ -224,7 +307,7 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 
 ### Render diagnostics — AnalysisとTrace
 
-`render note`、`render events`、`render midi`は、`--analyze`で補正後の出力WAVを決定的に解析し、`--trace`で選択したParameterの実行中の値をJSON成功Reportへ追加します。`--json`を付けない場合も、短いSummaryを標準出力へ表示します。
+`render note`、`render events`、`render midi`、`render pattern`は、`--analyze`で補正後の出力WAVを決定的に解析し、`--trace`で選択したParameterの実行中の値をJSON成功Reportへ追加します。`--json`を付けない場合も、短いSummaryを標準出力へ表示します。
 
 Analysisの主なFieldは次のとおりです。
 
@@ -290,6 +373,18 @@ MIDIを読み込むと、CLIは次の変換を行います：
 | `--trace <id>` | なし | 選択したDynamic ParameterをTrace（複数指定可） |
 | `--trace-every-frames <N>` | 480（Trace指定時） | 定期Trace間隔 |
 | `--json` | Off | 結果を機械可読で出力 |
+
+### `render pattern` — Audition Patternのレンダリング
+
+Musical-time PatternをInstrumentへCompileし、既存のOffline Renderと同じWAV出力へ接続します。
+
+```bash
+sonalloy render pattern <definition> <pattern> \
+  --sample-rate 48000 --block-size 257 --tail 1.0 \
+  --output out/pattern.wav
+```
+
+`--analyze`、`--trace`、`--trace-every-frames`、`--json`はほかのRender Commandと同じです。`--tail`はPatternの1周の長さに含めず、終端後の余韻として追加します。PatternのParameter ChangeはInstrument Compile後にParameter Catalogで解決されます。
 
 ## 動作確認
 

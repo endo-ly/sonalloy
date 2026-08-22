@@ -467,7 +467,7 @@ impl GeneratorRuntime {
                 .zip(&mut right[..frames])
             {
                 let (sample_left, sample_right) = sample.next_frame_with_ratio(start_ratio);
-                *mono = (sample_left + sample_right) * 0.5;
+                *mono = f32::midpoint(sample_left, sample_right);
                 *left = sample_left;
                 *right = sample_right;
             }
@@ -481,7 +481,7 @@ impl GeneratorRuntime {
                 .zip(&mut right[..frames])
             {
                 let (sample_left, sample_right) = sample.next_frame_with_ratio(ratio);
-                *mono = (sample_left + sample_right) * 0.5;
+                *mono = f32::midpoint(sample_left, sample_right);
                 *left = sample_left;
                 *right = sample_right;
                 ratio *= ratio_step;

@@ -350,7 +350,7 @@ impl SampleRuntime {
             .zip(&left[..frames])
             .zip(&right[..frames])
         {
-            *mono = (*left + *right) * 0.5;
+            *mono = f32::midpoint(*left, *right);
         }
         Ok(self.finished)
     }
@@ -813,7 +813,7 @@ mod tests {
 
     fn next_sample(runtime: &mut SampleRuntime, playback_ratio: f64) -> f32 {
         let (left, right) = runtime.next_frame_with_ratio(playback_ratio);
-        (left + right) * 0.5
+        f32::midpoint(left, right)
     }
 
     fn sample(values: &[f32]) -> PreparedAudio {

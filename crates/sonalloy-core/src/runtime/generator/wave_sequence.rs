@@ -168,7 +168,7 @@ impl WaveSequenceRuntime {
             };
             left[frame] = frame_left;
             right[frame] = frame_right;
-            mono[frame] = (frame_left + frame_right) * 0.5;
+            mono[frame] = f32::midpoint(frame_left, frame_right);
             Self::advance_slot(&self.steps, &mut self.current, tempo_bpm, sample_rate);
             if self.next.active {
                 Self::advance_slot(&self.steps, &mut self.next, tempo_bpm, sample_rate);
