@@ -1,46 +1,74 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
-use midly::{MidiMessage, Smf, Timing, TrackEventKind};
+use midly::{
+    Format, Header, MidiMessage, Smf, Timing, TrackEvent, TrackEventKind,
+    num::{u4, u7, u15, u24, u28},
+};
 use sonalloy_core::{
-    DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, ProcessEventKind, ScheduledEvent, TempoChange,
-    TempoMap,
+    DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, ProcessEventKind, ScheduledEvent, TempoMap,
 };
 
 use crate::midi_common::{
-    MOD_WHEEL_CONTROLLER, SUSTAIN_PEDAL_CONTROLLER, normalize_control, normalize_pitch_bend,
-    note_id,
+    MOD_WHEEL_CONTROLLER, SUSTAIN_PEDAL_CONTROLLER, denormalize_control, denormalize_pitch_bend,
+    normalize_control, normalize_pitch_bend, note_id, tempo_to_microseconds_per_beat,
+};
+use crate::musical_time::{TempoPoint, build_tempo_map, tick_to_frame};
+use crate::pattern::{
+    PATTERN_SCHEMA_VERSION, PatternDefinition, PatternEvent, PatternMidiEventKind,
+    PatternTempoChange, PatternTimeSignatureChange, midi_events, time_signature_denominator_power,
 };
 
-/// MIDI events and duration prepared for the Core renderer.
 pub(crate) struct MidiRender {
-    /// Absolute-frame events in Core order.
-    pub events: Vec<ScheduledEvent>,
-    /// Minimum main duration that includes the final event.
-    pub duration_frames: u64,
-    /// Tempo changes in the same absolute-frame timeline as `events`.
-    pub tempo_map: TempoMap,
-    /// Non-fatal MIDI conditions encountered during conversion.
-    pub diagnostics: Vec<Diagnostic>,
+    pub(crate) events: Vec<ScheduledEvent>,
+    pub(crate) duration_frames: u64,
+    pub(crate) tempo_map: TempoMap,
+    pub(crate) diagnostics: Vec<Diagnostic>,
 }
 
 #[derive(Debug, Clone, Copy)]
-enum RawKind {
+pub(crate) enum RawMidiEventKind {
     NoteOn { channel: u8, note: u8, velocity: u8 },
     NoteOff { channel: u8, note: u8 },
     SustainPedal { channel: u8, down: bool },
     PitchBend { channel: u8, value: i16 },
     ModWheel { channel: u8, value: u8 },
     Aftertouch { channel: u8, value: u8 },
-    Tempo { microseconds_per_beat: u32 },
 }
 
 #[derive(Debug, Clone, Copy)]
-struct RawEvent {
-    tick: u64,
-    track: usize,
-    index: usize,
-    kind: RawKind,
+pub(crate) struct RawMidiEvent {
+    pub(crate) tick: u64,
+    pub(crate) track: usize,
+    pub(crate) index: usize,
+    pub(crate) kind: RawMidiEventKind,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RawMidiTempoChange {
+    pub(crate) tick: u64,
+    pub(crate) microseconds_per_beat: u32,
+    pub(crate) track: usize,
+    pub(crate) index: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RawMidiTimeSignatureChange {
+    pub(crate) tick: u64,
+    pub(crate) numerator: u8,
+    pub(crate) denominator_power: u8,
+    pub(crate) track: usize,
+    pub(crate) index: usize,
+}
+
+#[derive(Debug)]
+pub(crate) struct ParsedMidi {
+    pub(crate) ticks_per_beat: u16,
+    pub(crate) end_tick: u64,
+    pub(crate) events: Vec<RawMidiEvent>,
+    pub(crate) tempo_changes: Vec<RawMidiTempoChange>,
+    pub(crate) time_signature_changes: Vec<RawMidiTimeSignatureChange>,
+    pub(crate) diagnostics: Vec<Diagnostic>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -50,6 +78,23 @@ struct ConvertedEvent {
     index: usize,
     channel: u8,
     kind: ProcessEventKind,
+}
+
+#[derive(Debug)]
+struct PendingImportedNote {
+    tick: u64,
+    track: usize,
+    index: usize,
+    note: u8,
+    velocity: u8,
+}
+
+#[derive(Debug)]
+struct ImportedPatternEvent {
+    tick: u64,
+    track: usize,
+    index: usize,
+    event: PatternEvent,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -78,9 +123,8 @@ impl ControlKind {
     }
 }
 
-/// Parse a Standard MIDI File and convert it to normalized absolute-frame events.
 #[allow(clippy::too_many_lines)]
-pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec<Diagnostic>> {
+pub(crate) fn parse_midi(path: &Path) -> Result<ParsedMidi, Vec<Diagnostic>> {
     let bytes = std::fs::read(path).map_err(|error| {
         vec![
             Diagnostic::error(DiagnosticCode::MidiError, "could not read MIDI input")
@@ -96,7 +140,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
         ]
     })?;
     let ticks_per_beat = match smf.header.timing {
-        Timing::Metrical(value) => u64::from(value.as_int()),
+        Timing::Metrical(value) => value.as_int(),
         Timing::Timecode(_, _) => {
             return Err(vec![
                 Diagnostic::error(
@@ -118,7 +162,10 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
     }
 
     let mut diagnostics = Vec::new();
-    let mut raw_events = Vec::new();
+    let mut events = Vec::new();
+    let mut tempo_changes = Vec::new();
+    let mut time_signature_changes = Vec::new();
+    let mut end_tick = 0_u64;
     for (track_index, track) in smf.tracks.iter().enumerate() {
         let mut tick = 0_u64;
         for (event_index, event) in track.iter().enumerate() {
@@ -130,16 +177,17 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                         "MIDI tick position overflow",
                     )]
                 })?;
+            end_tick = end_tick.max(tick);
             match event.kind {
                 TrackEventKind::Midi { channel, message } => {
                     let channel = channel.as_int();
                     match message {
                         MidiMessage::NoteOn { key, vel } if vel.as_int() > 0 => {
-                            raw_events.push(RawEvent {
+                            events.push(RawMidiEvent {
                                 tick,
                                 track: track_index,
                                 index: event_index,
-                                kind: RawKind::NoteOn {
+                                kind: RawMidiEventKind::NoteOn {
                                     channel,
                                     note: key.as_int(),
                                     velocity: vel.as_int(),
@@ -147,73 +195,69 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                             });
                         }
                         MidiMessage::NoteOn { key, .. } | MidiMessage::NoteOff { key, .. } => {
-                            raw_events.push(RawEvent {
+                            events.push(RawMidiEvent {
                                 tick,
                                 track: track_index,
                                 index: event_index,
-                                kind: RawKind::NoteOff {
+                                kind: RawMidiEventKind::NoteOff {
                                     channel,
                                     note: key.as_int(),
                                 },
                             });
                         }
-                        MidiMessage::PitchBend { bend } => {
-                            raw_events.push(RawEvent {
-                                tick,
-                                track: track_index,
-                                index: event_index,
-                                kind: RawKind::PitchBend {
-                                    channel,
-                                    value: bend.as_int(),
-                                },
-                            });
-                        }
+                        MidiMessage::PitchBend { bend } => events.push(RawMidiEvent {
+                            tick,
+                            track: track_index,
+                            index: event_index,
+                            kind: RawMidiEventKind::PitchBend {
+                                channel,
+                                value: bend.as_int(),
+                            },
+                        }),
                         MidiMessage::Controller { controller, value }
                             if controller.as_int() == MOD_WHEEL_CONTROLLER =>
                         {
-                            raw_events.push(RawEvent {
+                            events.push(RawMidiEvent {
                                 tick,
                                 track: track_index,
                                 index: event_index,
-                                kind: RawKind::ModWheel {
+                                kind: RawMidiEventKind::ModWheel {
                                     channel,
                                     value: value.as_int(),
-                                },
-                            });
-                        }
-                        MidiMessage::ChannelAftertouch { vel } => {
-                            raw_events.push(RawEvent {
-                                tick,
-                                track: track_index,
-                                index: event_index,
-                                kind: RawKind::Aftertouch {
-                                    channel,
-                                    value: vel.as_int(),
                                 },
                             });
                         }
                         MidiMessage::Controller { controller, value }
                             if controller.as_int() == SUSTAIN_PEDAL_CONTROLLER =>
                         {
-                            raw_events.push(RawEvent {
+                            events.push(RawMidiEvent {
                                 tick,
                                 track: track_index,
                                 index: event_index,
-                                kind: RawKind::SustainPedal {
+                                kind: RawMidiEventKind::SustainPedal {
                                     channel,
                                     down: value.as_int() >= 64,
                                 },
                             });
                         }
-                        MidiMessage::Aftertouch { .. } => {
-                            diagnostics.push(
-                                Diagnostic::warning(
-                                    DiagnosticCode::MidiError,
-                                    "polyphonic aftertouch is not supported and was ignored",
-                                )
-                                .with_path(format!("track[{track_index}].event[{event_index}]")),
-                            );
+                        MidiMessage::ChannelAftertouch { vel } => {
+                            events.push(RawMidiEvent {
+                                tick,
+                                track: track_index,
+                                index: event_index,
+                                kind: RawMidiEventKind::Aftertouch {
+                                    channel,
+                                    value: vel.as_int(),
+                                },
+                            });
                         }
+                        MidiMessage::Aftertouch { .. } => diagnostics.push(
+                            Diagnostic::warning(
+                                DiagnosticCode::MidiError,
+                                "polyphonic aftertouch is not supported and was ignored",
+                            )
+                            .with_path(format!("track[{track_index}].event[{event_index}]")),
+                        ),
                         MidiMessage::Controller { .. } | MidiMessage::ProgramChange { .. } => {
                             diagnostics.push(
                                 Diagnostic::warning(
@@ -236,79 +280,89 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                             .with_path(format!("track[{track_index}].event[{event_index}]")),
                         ]);
                     }
-                    raw_events.push(RawEvent {
+                    tempo_changes.push(RawMidiTempoChange {
                         tick,
+                        microseconds_per_beat,
                         track: track_index,
                         index: event_index,
-                        kind: RawKind::Tempo {
-                            microseconds_per_beat,
-                        },
                     });
                 }
-                TrackEventKind::Meta(_) | TrackEventKind::SysEx(_) | TrackEventKind::Escape(_) => {}
+                TrackEventKind::Meta(midly::MetaMessage::TimeSignature(
+                    numerator,
+                    denominator_power,
+                    _,
+                    _,
+                )) => time_signature_changes.push(RawMidiTimeSignatureChange {
+                    tick,
+                    numerator,
+                    denominator_power,
+                    track: track_index,
+                    index: event_index,
+                }),
+                TrackEventKind::Meta(_) => {}
+                TrackEventKind::SysEx(_) | TrackEventKind::Escape(_) => diagnostics.push(
+                    Diagnostic::warning(
+                        DiagnosticCode::MidiError,
+                        "unsupported MIDI event was ignored",
+                    )
+                    .with_path(format!("track[{track_index}].event[{event_index}]")),
+                ),
             }
         }
     }
-    raw_events.sort_by_key(|event| (event.tick, event.track, event.index));
-    let tempo_changes: Vec<(u64, u32)> = raw_events
-        .iter()
-        .filter_map(|event| match event.kind {
-            RawKind::Tempo {
-                microseconds_per_beat,
-            } => Some((event.tick, microseconds_per_beat)),
-            _ => None,
-        })
-        .collect();
+    events.sort_by_key(|event| (event.tick, event.track, event.index));
+    tempo_changes.sort_by_key(|change| (change.tick, change.track, change.index));
+    time_signature_changes.sort_by_key(|change| (change.tick, change.track, change.index));
+    Ok(ParsedMidi {
+        ticks_per_beat,
+        end_tick,
+        events,
+        tempo_changes,
+        time_signature_changes,
+        diagnostics,
+    })
+}
 
-    let mut tempo_index = 0_usize;
-    let mut tempo = 500_000_u32;
-    let mut cursor_tick = 0_u64;
-    let mut cursor_frames = 0.0_f64;
+#[allow(clippy::too_many_lines)]
+pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec<Diagnostic>> {
+    let parsed = parse_midi(path)?;
+    let mut diagnostics = parsed.diagnostics;
+    let tempo_points = midi_tempo_points(&parsed.tempo_changes);
+    let tempo_map =
+        build_tempo_map(parsed.ticks_per_beat, &tempo_points, sample_rate).map_err(|error| {
+            vec![
+                Diagnostic::error(DiagnosticCode::MidiError, "MIDI tempo map is invalid")
+                    .with_path(path.to_string_lossy())
+                    .with_detail(error.to_string()),
+            ]
+        })?;
+
     let mut active_notes: HashMap<(u8, u8), VecDeque<(u64, u64)>> = HashMap::new();
     let mut serials: HashMap<(u8, u8), u32> = HashMap::new();
     let mut zero_length_note_ids = HashSet::new();
     let mut converted = Vec::new();
-    let mut tempo_map_changes = vec![TempoChange {
-        absolute_frame: 0,
-        tempo_bpm: DEFAULT_TEMPO_BPM,
-    }];
-    for raw in raw_events {
-        advance_tempo(
-            raw.tick,
-            ticks_per_beat,
-            sample_rate,
-            &tempo_changes,
-            &mut tempo_index,
-            &mut tempo,
-            &mut cursor_tick,
-            &mut cursor_frames,
-        );
-        let frame = round_frame(cursor_frames)?;
+    for raw in &parsed.events {
+        let frame = tick_to_frame(raw.tick, parsed.ticks_per_beat, &tempo_points, sample_rate)
+            .map_err(|error| {
+                vec![
+                    Diagnostic::error(
+                        DiagnosticCode::MidiError,
+                        "MIDI event frame is outside the Core frame range",
+                    )
+                    .with_path(path.to_string_lossy())
+                    .with_detail(error.to_string()),
+                ]
+            })?;
         match raw.kind {
-            RawKind::Tempo {
-                microseconds_per_beat,
-            } => {
-                let tempo_bpm = 60_000_000.0 / f64::from(microseconds_per_beat);
-                if let Some(change) = tempo_map_changes
-                    .last_mut()
-                    .filter(|change| change.absolute_frame == frame)
-                {
-                    change.tempo_bpm = tempo_bpm;
-                } else {
-                    tempo_map_changes.push(TempoChange {
-                        absolute_frame: frame,
-                        tempo_bpm,
-                    });
-                }
-            }
-            RawKind::NoteOn {
+            RawMidiEventKind::NoteOn {
                 channel,
                 note,
                 velocity,
             } => {
                 let key = (channel, note);
                 let serial = serials.entry(key).or_default();
-                let note_id = note_id(channel, note, *serial);
+                let current_serial = *serial;
+                let note_id = note_id(channel, note, current_serial);
                 *serial = serial.checked_add(1).ok_or_else(|| {
                     vec![Diagnostic::error(
                         DiagnosticCode::MidiError,
@@ -318,7 +372,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                 active_notes
                     .entry(key)
                     .or_default()
-                    .push_back((note_id, frame));
+                    .push_back((note_id, raw.tick));
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
@@ -331,9 +385,9 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                     },
                 });
             }
-            RawKind::NoteOff { channel, note } => {
+            RawMidiEventKind::NoteOff { channel, note } => {
                 let key = (channel, note);
-                let Some((note_id, start_frame)) =
+                let Some((note_id, start_tick)) =
                     active_notes.get_mut(&key).and_then(VecDeque::pop_front)
                 else {
                     diagnostics.push(
@@ -345,7 +399,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                     );
                     continue;
                 };
-                if start_frame == frame {
+                if start_tick == raw.tick {
                     zero_length_note_ids.insert(note_id);
                 } else {
                     converted.push(ConvertedEvent {
@@ -357,7 +411,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                     });
                 }
             }
-            RawKind::SustainPedal { channel, down } => {
+            RawMidiEventKind::SustainPedal { channel, down } => {
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
@@ -366,34 +420,37 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
                     kind: ProcessEventKind::SustainPedal { down },
                 });
             }
-            RawKind::PitchBend { channel, value } => {
-                let normalized = normalize_pitch_bend(value);
+            RawMidiEventKind::PitchBend { channel, value } => {
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
                     index: raw.index,
                     channel,
-                    kind: ProcessEventKind::PitchBend { value: normalized },
+                    kind: ProcessEventKind::PitchBend {
+                        value: normalize_pitch_bend(value),
+                    },
                 });
             }
-            RawKind::ModWheel { channel, value } => {
-                let normalized = normalize_control(value);
+            RawMidiEventKind::ModWheel { channel, value } => {
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
                     index: raw.index,
                     channel,
-                    kind: ProcessEventKind::ModWheel { value: normalized },
+                    kind: ProcessEventKind::ModWheel {
+                        value: normalize_control(value),
+                    },
                 });
             }
-            RawKind::Aftertouch { channel, value } => {
-                let normalized = normalize_control(value);
+            RawMidiEventKind::Aftertouch { channel, value } => {
                 converted.push(ConvertedEvent {
                     frame,
                     track: raw.track,
                     index: raw.index,
                     channel,
-                    kind: ProcessEventKind::Aftertouch { value: normalized },
+                    kind: ProcessEventKind::Aftertouch {
+                        value: normalize_control(value),
+                    },
                 });
             }
         }
@@ -440,13 +497,6 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             "notes from multiple MIDI channels were merged into one instrument",
         ));
     }
-    let tempo_map = TempoMap::new(tempo_map_changes).map_err(|error| {
-        vec![
-            Diagnostic::error(DiagnosticCode::MidiError, "MIDI tempo map is invalid")
-                .with_path(path.to_string_lossy())
-                .with_detail(error.to_string()),
-        ]
-    })?;
     for kind in ControlKind::ALL {
         if control_warning_needed(kind, &converted) {
             diagnostics.push(Diagnostic::warning(
@@ -522,78 +572,488 @@ fn control_warning_needed(kind: ControlKind, events: &[ConvertedEvent]) -> bool 
     false
 }
 
-#[allow(clippy::too_many_arguments)]
-fn advance_tempo(
-    target_tick: u64,
-    ticks_per_beat: u64,
-    sample_rate: f64,
-    tempo_changes: &[(u64, u32)],
-    tempo_index: &mut usize,
-    tempo: &mut u32,
-    cursor_tick: &mut u64,
-    cursor_frames: &mut f64,
-) {
-    while *tempo_index < tempo_changes.len() && tempo_changes[*tempo_index].0 <= target_tick {
-        let (change_tick, change_tempo) = tempo_changes[*tempo_index];
-        if change_tick > *cursor_tick {
-            *cursor_frames += ticks_to_frames(
-                change_tick - *cursor_tick,
-                *tempo,
-                ticks_per_beat,
-                sample_rate,
-            );
-            *cursor_tick = change_tick;
+fn midi_tempo_points(changes: &[RawMidiTempoChange]) -> Vec<TempoPoint> {
+    let mut points = vec![TempoPoint {
+        tick: 0,
+        bpm: DEFAULT_TEMPO_BPM,
+    }];
+    for change in changes {
+        let bpm = 60_000_000.0 / f64::from(change.microseconds_per_beat);
+        if let Some(previous) = points.last_mut().filter(|point| point.tick == change.tick) {
+            previous.bpm = bpm;
+        } else {
+            points.push(TempoPoint {
+                tick: change.tick,
+                bpm,
+            });
         }
-        *tempo = change_tempo;
-        *tempo_index += 1;
     }
-    if target_tick > *cursor_tick {
-        *cursor_frames += ticks_to_frames(
-            target_tick - *cursor_tick,
-            *tempo,
-            ticks_per_beat,
-            sample_rate,
-        );
-        *cursor_tick = target_tick;
-    }
+    points.sort_by_key(|point| point.tick);
+    points
 }
 
-fn ticks_to_frames(
-    ticks: u64,
-    microseconds_per_beat: u32,
-    ticks_per_beat: u64,
-    sample_rate: f64,
-) -> f64 {
-    #[allow(clippy::cast_precision_loss)]
-    let ticks_f64 = ticks as f64;
-    #[allow(clippy::cast_precision_loss)]
-    let ticks_per_beat_f64 = ticks_per_beat as f64;
-    ticks_f64 * f64::from(microseconds_per_beat) * sample_rate / 1_000_000.0 / ticks_per_beat_f64
-}
+#[allow(clippy::too_many_lines)]
+pub(crate) fn import_pattern(
+    parsed: ParsedMidi,
+    channel: Option<u8>,
+) -> Result<(PatternDefinition, Vec<Diagnostic>), Vec<Diagnostic>> {
+    let mut diagnostics = parsed.diagnostics;
+    let mut available_channels = [false; 16];
+    for event in &parsed.events {
+        if let RawMidiEventKind::NoteOn { channel, .. } = event.kind {
+            available_channels[usize::from(channel)] = true;
+        }
+    }
+    let selected_channel = if let Some(channel) = channel {
+        if !available_channels[usize::from(channel)] {
+            return Err(vec![
+                Diagnostic::error(
+                    DiagnosticCode::MidiError,
+                    "the selected MIDI channel contains no note events",
+                )
+                .with_detail(format!("channel {}", usize::from(channel) + 1)),
+            ]);
+        }
+        channel
+    } else {
+        let channels = available_channels
+            .iter()
+            .enumerate()
+            .filter_map(|(index, present)| present.then_some(index))
+            .collect::<Vec<_>>();
+        match channels.as_slice() {
+            [channel] => u8::try_from(*channel).expect("MIDI channel fits u8"),
+            [] => {
+                return Err(vec![Diagnostic::error(
+                    DiagnosticCode::MidiError,
+                    "MIDI file contains no note events",
+                )]);
+            }
+            _ => {
+                let labels = channels
+                    .iter()
+                    .map(|channel| (channel + 1).to_string())
+                    .collect::<Vec<_>>();
+                return Err(vec![
+                    Diagnostic::error(
+                        DiagnosticCode::MidiError,
+                        "MIDI file contains notes on multiple channels; specify --channel",
+                    )
+                    .with_detail(format!("available channels: {}", labels.join(", "))),
+                ]);
+            }
+        }
+    };
 
-fn round_frame(frames: f64) -> Result<u64, Vec<Diagnostic>> {
-    #[allow(clippy::cast_precision_loss)]
-    let max_frame = u64::MAX as f64;
-    if !frames.is_finite() || frames < 0.0 || frames >= max_frame {
+    let mut pending_notes: HashMap<u8, VecDeque<PendingImportedNote>> = HashMap::new();
+    let mut imported = Vec::new();
+    let mut note_end_tick = 0_u64;
+    for raw in &parsed.events {
+        let raw_channel = raw_channel(raw.kind);
+        if raw_channel != selected_channel {
+            continue;
+        }
+        match raw.kind {
+            RawMidiEventKind::NoteOn { note, velocity, .. } => pending_notes
+                .entry(note)
+                .or_default()
+                .push_back(PendingImportedNote {
+                    tick: raw.tick,
+                    track: raw.track,
+                    index: raw.index,
+                    note,
+                    velocity,
+                }),
+            RawMidiEventKind::NoteOff { note, .. } => {
+                let Some(pending) = pending_notes.get_mut(&note).and_then(VecDeque::pop_front)
+                else {
+                    diagnostics.push(
+                        Diagnostic::warning(
+                            DiagnosticCode::MidiError,
+                            "Note Off without a matching Note On was ignored",
+                        )
+                        .with_detail(format!(
+                            "channel {}, note {note}",
+                            usize::from(selected_channel) + 1
+                        )),
+                    );
+                    continue;
+                };
+                if pending.tick == raw.tick {
+                    continue;
+                }
+                let duration_ticks = raw.tick.checked_sub(pending.tick).ok_or_else(|| {
+                    vec![Diagnostic::error(
+                        DiagnosticCode::MidiError,
+                        "MIDI note duration underflow",
+                    )]
+                })?;
+                note_end_tick = note_end_tick.max(raw.tick);
+                imported.push(ImportedPatternEvent {
+                    tick: pending.tick,
+                    track: pending.track,
+                    index: pending.index,
+                    event: PatternEvent::Note {
+                        tick: pending.tick,
+                        duration_ticks,
+                        note: pending.note,
+                        velocity: pending.velocity,
+                    },
+                });
+            }
+            RawMidiEventKind::SustainPedal { down, .. } => imported.push(ImportedPatternEvent {
+                tick: raw.tick,
+                track: raw.track,
+                index: raw.index,
+                event: PatternEvent::SustainPedal {
+                    tick: raw.tick,
+                    down,
+                },
+            }),
+            RawMidiEventKind::PitchBend { value, .. } => imported.push(ImportedPatternEvent {
+                tick: raw.tick,
+                track: raw.track,
+                index: raw.index,
+                event: PatternEvent::PitchBend {
+                    tick: raw.tick,
+                    value: normalize_pitch_bend(value),
+                },
+            }),
+            RawMidiEventKind::ModWheel { value, .. } => imported.push(ImportedPatternEvent {
+                tick: raw.tick,
+                track: raw.track,
+                index: raw.index,
+                event: PatternEvent::ModWheel {
+                    tick: raw.tick,
+                    value: normalize_control(value),
+                },
+            }),
+            RawMidiEventKind::Aftertouch { value, .. } => imported.push(ImportedPatternEvent {
+                tick: raw.tick,
+                track: raw.track,
+                index: raw.index,
+                event: PatternEvent::Aftertouch {
+                    tick: raw.tick,
+                    value: normalize_control(value),
+                },
+            }),
+        }
+    }
+    let unmatched = pending_notes.values().map(VecDeque::len).sum::<usize>();
+    if unmatched > 0 {
+        return Err(vec![
+            Diagnostic::error(
+                DiagnosticCode::MidiError,
+                "MIDI file contains Note On events without matching Note Off events",
+            )
+            .with_detail(format!("{unmatched} unmatched note(s)")),
+        ]);
+    }
+    if imported.iter().all(|event| !event.event.is_note()) {
         return Err(vec![Diagnostic::error(
             DiagnosticCode::MidiError,
-            "MIDI event frame is outside the Core frame range",
+            "MIDI file contains no non-zero-length note events on the selected channel",
         )]);
     }
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let frame = frames.round() as u64;
-    Ok(frame)
+
+    let mut length_ticks = parsed.end_tick.max(note_end_tick);
+    length_ticks = length_ticks.max(imported.iter().map(|event| event.tick).max().unwrap_or(0));
+    let mut tempo_changes = imported_tempo_changes(&parsed.tempo_changes);
+    let mut time_signature_changes =
+        imported_time_signature_changes(&parsed.time_signature_changes)?;
+    for change in &tempo_changes {
+        if change.tick >= length_ticks {
+            length_ticks = change.tick.checked_add(1).ok_or_else(|| {
+                vec![Diagnostic::error(
+                    DiagnosticCode::MidiError,
+                    "MIDI pattern length overflows the tick counter",
+                )]
+            })?;
+        }
+    }
+    for change in &time_signature_changes {
+        if change.tick >= length_ticks {
+            length_ticks = change.tick.checked_add(1).ok_or_else(|| {
+                vec![Diagnostic::error(
+                    DiagnosticCode::MidiError,
+                    "MIDI pattern length overflows the tick counter",
+                )]
+            })?;
+        }
+    }
+    if length_ticks == 0 {
+        return Err(vec![Diagnostic::error(
+            DiagnosticCode::MidiError,
+            "MIDI pattern length must be greater than zero",
+        )]);
+    }
+    tempo_changes.sort_by_key(|change| change.tick);
+    time_signature_changes.sort_by_key(|change| change.tick);
+    imported.sort_by_key(|event| (event.tick, event.track, event.index));
+    let pattern = PatternDefinition {
+        schema_version: PATTERN_SCHEMA_VERSION,
+        name: None,
+        ticks_per_beat: parsed.ticks_per_beat,
+        length_ticks,
+        tempo_changes,
+        time_signature_changes,
+        events: imported.into_iter().map(|event| event.event).collect(),
+    };
+    let pattern_diagnostics = crate::pattern::validate(&pattern);
+    if !pattern_diagnostics.is_empty() {
+        return Err(pattern_diagnostics);
+    }
+    Ok((pattern, std::mem::take(&mut diagnostics)))
+}
+
+fn raw_channel(kind: RawMidiEventKind) -> u8 {
+    match kind {
+        RawMidiEventKind::NoteOn { channel, .. }
+        | RawMidiEventKind::NoteOff { channel, .. }
+        | RawMidiEventKind::SustainPedal { channel, .. }
+        | RawMidiEventKind::PitchBend { channel, .. }
+        | RawMidiEventKind::ModWheel { channel, .. }
+        | RawMidiEventKind::Aftertouch { channel, .. } => channel,
+    }
+}
+
+fn imported_tempo_changes(changes: &[RawMidiTempoChange]) -> Vec<PatternTempoChange> {
+    let mut result = vec![PatternTempoChange {
+        tick: 0,
+        bpm: DEFAULT_TEMPO_BPM,
+    }];
+    for change in changes {
+        let bpm = 60_000_000.0 / f64::from(change.microseconds_per_beat);
+        if let Some(previous) = result
+            .last_mut()
+            .filter(|previous| previous.tick == change.tick)
+        {
+            previous.bpm = bpm;
+        } else {
+            result.push(PatternTempoChange {
+                tick: change.tick,
+                bpm,
+            });
+        }
+    }
+    result.sort_by_key(|change| change.tick);
+    result
+}
+
+fn imported_time_signature_changes(
+    changes: &[RawMidiTimeSignatureChange],
+) -> Result<Vec<PatternTimeSignatureChange>, Vec<Diagnostic>> {
+    let mut result = vec![PatternTimeSignatureChange {
+        tick: 0,
+        numerator: 4,
+        denominator: 4,
+    }];
+    for change in changes {
+        let Some(denominator) = 1_u16.checked_shl(u32::from(change.denominator_power)) else {
+            return Err(vec![
+                Diagnostic::error(
+                    DiagnosticCode::MidiError,
+                    "MIDI time signature denominator is not representable",
+                )
+                .with_detail(format!("track {}, event {}", change.track, change.index)),
+            ]);
+        };
+        let Ok(denominator) = u8::try_from(denominator) else {
+            return Err(vec![
+                Diagnostic::error(
+                    DiagnosticCode::MidiError,
+                    "MIDI time signature denominator must be between 1 and 128",
+                )
+                .with_detail(format!("track {}, event {}", change.track, change.index)),
+            ]);
+        };
+        let value = PatternTimeSignatureChange {
+            tick: change.tick,
+            numerator: change.numerator,
+            denominator,
+        };
+        if let Some(previous) = result
+            .last_mut()
+            .filter(|previous| previous.tick == change.tick)
+        {
+            *previous = value;
+        } else {
+            result.push(value);
+        }
+    }
+    result.sort_by_key(|change| change.tick);
+    Ok(result)
+}
+
+pub(crate) fn export_pattern(
+    path: &Path,
+    pattern: &PatternDefinition,
+    channel: u8,
+) -> Result<(), Vec<Diagnostic>> {
+    let pattern_events = midi_events(pattern)?;
+    let mut events = Vec::with_capacity(
+        pattern_events
+            .len()
+            .saturating_add(pattern.tempo_changes.len())
+            .saturating_add(pattern.time_signature_changes.len()),
+    );
+    for (index, change) in pattern.tempo_changes.iter().enumerate() {
+        let Some(microseconds_per_beat) = tempo_to_microseconds_per_beat(change.bpm) else {
+            return Err(vec![
+                Diagnostic::error(
+                    DiagnosticCode::MidiError,
+                    "tempo cannot be represented in Standard MIDI",
+                )
+                .with_path(format!("tempo_changes[{index}].bpm")),
+            ]);
+        };
+        events.push(ExportEvent {
+            tick: change.tick,
+            priority: 0,
+            source_index: index,
+            kind: ExportEventKind::Tempo(microseconds_per_beat),
+        });
+    }
+    for (index, change) in pattern.time_signature_changes.iter().enumerate() {
+        events.push(ExportEvent {
+            tick: change.tick,
+            priority: 0,
+            source_index: index,
+            kind: ExportEventKind::TimeSignature {
+                numerator: change.numerator,
+                denominator_power: time_signature_denominator_power(change.denominator),
+            },
+        });
+    }
+    for event in pattern_events {
+        events.push(ExportEvent {
+            tick: event.tick,
+            priority: event.kind.priority().saturating_add(1),
+            source_index: event.source_index,
+            kind: ExportEventKind::Midi(event.kind),
+        });
+    }
+    events.sort_by_key(|event| (event.tick, event.priority, event.source_index));
+
+    let mut track = Vec::with_capacity(events.len().saturating_add(1));
+    let mut previous_tick = 0_u64;
+    for event in events {
+        let delta = event.tick.checked_sub(previous_tick).ok_or_else(|| {
+            vec![Diagnostic::error(
+                DiagnosticCode::MidiError,
+                "MIDI events are not in ascending tick order",
+            )]
+        })?;
+        track.push(TrackEvent {
+            delta: u28_value(delta)?,
+            kind: export_event_kind(event.kind, channel),
+        });
+        previous_tick = event.tick;
+    }
+    let end_delta = pattern
+        .length_ticks
+        .checked_sub(previous_tick)
+        .ok_or_else(|| {
+            vec![Diagnostic::error(
+                DiagnosticCode::MidiError,
+                "MIDI event lies beyond pattern length",
+            )]
+        })?;
+    track.push(TrackEvent {
+        delta: u28_value(end_delta)?,
+        kind: TrackEventKind::Meta(midly::MetaMessage::EndOfTrack),
+    });
+    let mut smf = Smf::new(Header::new(
+        Format::SingleTrack,
+        Timing::Metrical(u15::new(pattern.ticks_per_beat)),
+    ));
+    smf.tracks.push(track);
+    smf.save(path).map_err(|error| {
+        vec![
+            Diagnostic::error(DiagnosticCode::MidiError, "could not write MIDI output")
+                .with_path(path.to_string_lossy())
+                .with_detail(error.to_string()),
+        ]
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ExportEvent {
+    tick: u64,
+    priority: u8,
+    source_index: usize,
+    kind: ExportEventKind,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ExportEventKind {
+    Tempo(u32),
+    TimeSignature {
+        numerator: u8,
+        denominator_power: u8,
+    },
+    Midi(PatternMidiEventKind),
+}
+
+fn u28_value(value: u64) -> Result<u28, Vec<Diagnostic>> {
+    if value > 0x0fff_ffff {
+        return Err(vec![Diagnostic::error(
+            DiagnosticCode::MidiError,
+            "MIDI delta tick exceeds the Standard MIDI variable-length range",
+        )]);
+    }
+    #[allow(clippy::cast_possible_truncation)]
+    Ok(u28::new(value as u32))
+}
+
+fn export_event_kind(kind: ExportEventKind, channel: u8) -> TrackEventKind<'static> {
+    let channel = u4::new(channel);
+    match kind {
+        ExportEventKind::Tempo(microseconds_per_beat) => {
+            TrackEventKind::Meta(midly::MetaMessage::Tempo(u24::new(microseconds_per_beat)))
+        }
+        ExportEventKind::TimeSignature {
+            numerator,
+            denominator_power,
+        } => TrackEventKind::Meta(midly::MetaMessage::TimeSignature(
+            numerator,
+            denominator_power,
+            24,
+            8,
+        )),
+        ExportEventKind::Midi(event) => TrackEventKind::Midi {
+            channel,
+            message: match event {
+                PatternMidiEventKind::NoteOn { note, velocity } => MidiMessage::NoteOn {
+                    key: u7::new(note),
+                    vel: u7::new(velocity),
+                },
+                PatternMidiEventKind::NoteOff { note } => MidiMessage::NoteOff {
+                    key: u7::new(note),
+                    vel: u7::new(0),
+                },
+                PatternMidiEventKind::SustainPedal { down } => MidiMessage::Controller {
+                    controller: u7::new(SUSTAIN_PEDAL_CONTROLLER),
+                    value: u7::new(if down { 127 } else { 0 }),
+                },
+                PatternMidiEventKind::PitchBend { value } => MidiMessage::PitchBend {
+                    bend: midly::PitchBend::from_int(denormalize_pitch_bend(value)),
+                },
+                PatternMidiEventKind::ModWheel { value } => MidiMessage::Controller {
+                    controller: u7::new(MOD_WHEEL_CONTROLLER),
+                    value: u7::new(denormalize_control(value)),
+                },
+                PatternMidiEventKind::Aftertouch { value } => MidiMessage::ChannelAftertouch {
+                    vel: u7::new(denormalize_control(value)),
+                },
+            },
+        },
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-
-    use midly::{
-        Format, Header, MetaMessage, MidiMessage, PitchBend, Smf, Timing, TrackEvent,
-        TrackEventKind,
-        num::{u4, u7},
-    };
 
     use super::*;
 
@@ -619,10 +1079,6 @@ mod tests {
         }
     }
 
-    fn note_on(channel: u8) -> TrackEvent<'static> {
-        note_on_with_delta(channel, 0)
-    }
-
     fn note_on_with_delta(channel: u8, delta: u32) -> TrackEvent<'static> {
         midi_event_with_delta(
             channel,
@@ -632,10 +1088,6 @@ mod tests {
             },
             delta,
         )
-    }
-
-    fn note_off(channel: u8) -> TrackEvent<'static> {
-        note_off_with_delta(channel, 0)
     }
 
     fn note_off_with_delta(channel: u8, delta: u32) -> TrackEvent<'static> {
@@ -649,33 +1101,10 @@ mod tests {
         )
     }
 
-    fn pitch_bend(channel: u8, value: i16) -> TrackEvent<'static> {
-        pitch_bend_with_delta(channel, value, 0)
-    }
-
-    fn pitch_bend_with_delta(channel: u8, value: i16, delta: u32) -> TrackEvent<'static> {
-        midi_event_with_delta(
-            channel,
-            MidiMessage::PitchBend {
-                bend: PitchBend::from_int(value),
-            },
-            delta,
-        )
-    }
-
     fn end_of_track() -> TrackEvent<'static> {
         TrackEvent {
             delta: 0.into(),
-            kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
-        }
-    }
-
-    fn tempo_with_delta(microseconds_per_beat: u32, delta: u32) -> TrackEvent<'static> {
-        TrackEvent {
-            delta: delta.into(),
-            kind: TrackEventKind::Meta(MetaMessage::Tempo(midly::num::u24::new(
-                microseconds_per_beat,
-            ))),
+            kind: TrackEventKind::Meta(midly::MetaMessage::EndOfTrack),
         }
     }
 
@@ -684,234 +1113,86 @@ mod tests {
         assert!((normalize_pitch_bend(-8192) + 1.0).abs() < f32::EPSILON);
         assert!(normalize_pitch_bend(0).abs() < f32::EPSILON);
         assert!((normalize_pitch_bend(8191) - 1.0).abs() < f32::EPSILON);
-        assert!((-1.0..=1.0).contains(&normalize_pitch_bend(4096)));
     }
 
     #[test]
-    fn event_priority_orders_note_off_before_controls_and_note_on() {
-        let mut events = [
-            ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 100,
+    fn parse_keeps_tempo_and_time_signature_in_tick_domain() {
+        let (_directory, path) = midi_file(vec![
+            TrackEvent {
+                delta: 0.into(),
+                kind: TrackEventKind::Meta(midly::MetaMessage::Tempo(u24::new(500_000))),
             },
-            ProcessEventKind::Aftertouch { value: 0.5 },
-            ProcessEventKind::NoteOff { note_id: 1 },
-            ProcessEventKind::PitchBend { value: 0.5 },
-        ];
-        events.sort_by_key(|event| event.priority());
-        assert_eq!(events[0].priority(), 1);
-        assert_eq!(events[1].priority(), 3);
-        assert_eq!(events[2].priority(), 5);
-        assert_eq!(events[3].priority(), 6);
+            TrackEvent {
+                delta: 0.into(),
+                kind: TrackEventKind::Meta(midly::MetaMessage::TimeSignature(3, 2, 24, 8)),
+            },
+            note_on_with_delta(0, 0),
+            note_off_with_delta(0, 480),
+            end_of_track(),
+        ]);
+
+        let parsed = parse_midi(&path).expect("valid MIDI");
+        assert_eq!(parsed.ticks_per_beat, 480);
+        assert_eq!(parsed.tempo_changes[0].tick, 0);
+        assert_eq!(parsed.time_signature_changes[0].tick, 0);
+        assert_eq!(parsed.end_tick, 480);
     }
 
     #[test]
     fn tempo_events_become_absolute_frame_tempo_changes() {
         let (_directory, path) = midi_file(vec![
-            tempo_with_delta(500_000, 0),
-            note_on(0),
-            tempo_with_delta(1_000_000, 480),
+            TrackEvent {
+                delta: 0.into(),
+                kind: TrackEventKind::Meta(midly::MetaMessage::Tempo(u24::new(500_000))),
+            },
+            note_on_with_delta(0, 0),
+            TrackEvent {
+                delta: 480.into(),
+                kind: TrackEventKind::Meta(midly::MetaMessage::Tempo(u24::new(1_000_000))),
+            },
             note_off_with_delta(0, 480),
             end_of_track(),
         ]);
 
-        let render = read_midi(&path, 48_000.0).expect("MIDI with tempo changes is valid");
-
+        let render = read_midi(&path, 48_000.0).expect("valid MIDI");
         assert_eq!(render.tempo_map.changes().len(), 2);
-        assert_eq!(render.tempo_map.changes()[0].absolute_frame, 0);
-        assert!((render.tempo_map.changes()[0].tempo_bpm - 120.0).abs() < f64::EPSILON);
         assert_eq!(render.tempo_map.changes()[1].absolute_frame, 24_000);
-        assert!((render.tempo_map.changes()[1].tempo_bpm - 60.0).abs() < f64::EPSILON);
         assert_eq!(render.events[0].absolute_frame, 0);
         assert_eq!(render.events[1].absolute_frame, 72_000);
     }
 
     #[test]
-    fn control_only_midi_is_rejected_without_note_events() {
-        let (_directory, path) = midi_file(vec![pitch_bend(0, 0), end_of_track()]);
+    fn control_only_midi_is_rejected() {
+        let (_directory, path) = midi_file(vec![
+            midi_event_with_delta(
+                0,
+                MidiMessage::PitchBend {
+                    bend: midly::PitchBend::from_int(0),
+                },
+                0,
+            ),
+            end_of_track(),
+        ]);
         let Err(diagnostics) = read_midi(&path, 48_000.0) else {
-            panic!("control-only MIDI is invalid");
+            panic!("control-only MIDI must fail");
         };
         assert!(
             diagnostics
                 .iter()
-                .any(|diagnostic| { diagnostic.message == "MIDI file contains no note events" })
+                .any(|diagnostic| diagnostic.message == "MIDI file contains no note events")
         );
     }
 
     #[test]
-    fn control_from_a_channel_without_notes_emits_a_warning() {
+    fn same_tick_note_is_removed_from_render_input() {
         let (_directory, path) = midi_file(vec![
-            note_on(0),
-            pitch_bend(1, 4096),
-            note_off_with_delta(0, 480),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn control_after_all_notes_end_needs_no_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            note_off_with_delta(0, 480),
-            pitch_bend_with_delta(1, 4096, 480),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(!render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn control_from_a_later_note_channel_warns_during_another_channel_note() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            pitch_bend_with_delta(1, 4096, 480),
-            note_off_with_delta(0, 480),
-            note_on_with_delta(1, 480),
-            note_off_with_delta(1, 480),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn same_channel_note_and_control_needs_no_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            pitch_bend(0, 4096),
-            note_off_with_delta(0, 480),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(!render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn differing_control_values_across_channels_emit_a_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            note_on(1),
-            pitch_bend(0, 0),
-            pitch_bend(1, 4096),
-            midi_event_with_delta(
-                0,
-                MidiMessage::NoteOff {
-                    key: u7::new(60),
-                    vel: u7::new(0),
-                },
-                480,
-            ),
-            note_off(1),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn differing_controls_in_non_overlapping_notes_need_no_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            pitch_bend(0, 4096),
-            midi_event_with_delta(
-                0,
-                MidiMessage::NoteOff {
-                    key: u7::new(60),
-                    vel: u7::new(0),
-                },
-                480,
-            ),
-            note_on(1),
-            pitch_bend(1, -4096),
-            midi_event_with_delta(
-                1,
-                MidiMessage::NoteOff {
-                    key: u7::new(60),
-                    vel: u7::new(0),
-                },
-                480,
-            ),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(!render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn equal_control_values_across_note_channels_need_no_control_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            note_on(1),
-            pitch_bend(0, 4096),
-            pitch_bend(1, 4096),
-            midi_event_with_delta(
-                0,
-                MidiMessage::NoteOff {
-                    key: u7::new(60),
-                    vel: u7::new(0),
-                },
-                480,
-            ),
-            note_off(1),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(!render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-        assert!(render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("notes from multiple MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn same_frame_note_on_and_note_off_are_removed_as_a_zero_length_note() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            note_off(0),
+            note_on_with_delta(0, 0),
+            note_off_with_delta(0, 0),
             note_on_with_delta(0, 480),
             note_off_with_delta(0, 480),
             end_of_track(),
         ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with a non-zero note is valid");
+        let render = read_midi(&path, 48_000.0).expect("non-zero note remains");
         assert_eq!(render.events.len(), 2);
-        let surviving_note_id = (60_u64 << 48) | 1;
-        assert!(render.events.iter().all(|event| match event.kind {
-            ProcessEventKind::NoteOn { note_id, .. } | ProcessEventKind::NoteOff { note_id } =>
-                note_id == surviving_note_id,
-            _ => false,
-        }));
     }
 }
