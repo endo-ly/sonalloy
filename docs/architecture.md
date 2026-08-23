@@ -2,18 +2,18 @@
 
 ## 本書の範囲
 
-本書ではSonalloyの**静的な構造**（クレート構成、依存関係、外部との境界、所有関係）を説明します。
+本書ではSonalloyの**静的な構造**（クレート構成、依存方向、外部との境界、所有関係）を説明します。読後に、どのクレートが何を所有し、外部依存をどこで止めているかを判断できることを目的とします。
 
 | 本書で扱わない内容 | 参照先 |
 |---|---|
 | 実行時の動作（処理契約、ライフサイクル、エラー時の扱い） | `docs/runtime-processing.md` |
 | CLIの使い方・Option・Exit Code | `docs/cli.md` |
-| Instrument Definition（JSON）の形式と制約 | `docs/instrument-definition.md` |
+| 音源定義（JSON）の形式と制約 | `docs/instrument-definition.md` |
 | テストと試聴の手順 | `docs/testing-and-sound-review.md` |
 
 ## クレート構成
 
-3つのRustクレートと、C/C++のネイティブDSPライブラリから成ります。参照は一方向で、下位クレートは上位クレートの存在を知りません。
+3つのRustクレートと、C/C++のネイティブDSPライブラリから成ります。参照は一方向で、下位クレートは上位クレートを参照しません。
 
 ```mermaid
 flowchart TD
@@ -29,11 +29,26 @@ flowchart TD
 
 | クレート | 役割 | 依存しないもの |
 |---|---|---|
-| `sonalloy-cli` | 引数解釈、Offline MIDI→Event変換、WAV出力、Audio Device Adapter、Realtime MIDI Adapter、Realtime Session、診断表示、終了コード | DaisySPのFFIを直接呼ばない |
-| `sonalloy-core` | 処理契約、Definitionの読込と検証、Compile、Runtime、Render | CLI、clap、hound、midly、cpal、midir、crossbeam-queue、C++ヘッダー、オーディオデバイスAPI |
+| `sonalloy-cli` | 引数解釈、Offline MIDI→Event変換、WAV出力、Realtime Session、診断表示、終了コード | DaisySPのFFIを直接呼ぶこと |
+| `sonalloy-core` | 処理契約、Definitionの読込と検証、Compile、Runtime、Render | CLIフレームワーク（clap）、WAV / MIDI入出力（hound / midly）、オーディオAPI（cpal / midir / crossbeam-queue）、C++ヘッダー |
 | `sonalloy-dsp-sys` | 内部C ABIの宣言と、生ポインタを隠蔽するSafe Rustラッパー | — |
 
-Realtimeの外部境界は`sonalloy-cli`に閉じ込めます。Main ThreadがDevice選択、DefinitionのCompile、RuntimeのPrepare、Streamの起動を行い、Audio Callbackだけが準備済みRuntimeとNative DSP Handleを排他的に所有します。Native Handle Wrapperの`Send`保証は各Wrapperの一意所有・非共有アクセス・Thread affinityなしの条件へ限定し、Audio Engine全体で一括して握り潰しません。MIDI CallbackはLive Messageを共通Process Eventへ変換し、TimestampをQueueの順序情報として保持して固定容量Queueへ送ります。Queue Overflow・Process Error・Device Errorは共有StatusでSessionへ伝えます。CoreはDevice名、Port ID、CPAL / Midir型を知りません。
+RealtimeでもOfflineでも音声は同じ`sonalloy-core`の処理契約を通ります。そのためDeviceやQueueといった外部I/Oの依存を`sonalloy-cli`へ集約し、Coreを環境非依存に保ちます。
+
+## `sonalloy-cli`
+
+CLIはユーザー入力の解釈と、OSのAudio / MIDI Deviceとのやり取りを担います。
+
+Realtime Sessionは、次の要素で構成されます。
+
+| 要素 | 責務 |
+|---|---|
+| Main Thread | Device選択、DefinitionのCompile、RuntimeのPrepare、Streamの起動 |
+| Audio Callback | 準備済みRuntimeとNative DSP Handleを排他的に所有し、Planar Stereo出力をDevice形式へ変換する |
+| MIDI Callback | Live MessageをProcess Eventへ変換し、固定容量Queueへ送る |
+| Status | Queue Overflow・Process Error・Device ErrorをSessionへ伝える |
+
+CoreはDevice名、Port ID、CPAL / Midir型を参照しません。Queueの整列規則などRealtimeの動作の詳細は`docs/runtime-processing.md`を参照してください。
 
 ## `sonalloy-core`
 
@@ -63,30 +78,32 @@ Assetはコンパイル時に読み込み、デコード済みのPrepared Audio�
 
 ## `sonalloy-dsp-sys`
 
-内部C ABIの宣言と、生ポインタを隠蔽するSafe Rustラッパーを提供します。
+ネイティブDSPライブラリのビルドと、Rustからの安全な呼び出し窓口を提供します。
 
 | 項目 | 内容 |
 |---|---|
-| DaisySP | V1.0.0（commit `a0494a3adb67f549e18dfd71a35fa656f65b38b6`）をCMakeでビルド・静的リンク。Modalは`PhysicalModeling/resonator.cpp`だけを追加し、WavefolderはLGPL版でなくMIT版を選択 |
-| Time Stretch | 同梱のSignalsmith Stretch 1.3.2・Linear 0.3.1をC++17でビルド（ネットワークダウンロードなし） |
-| 公開範囲 | DaisySPのクラス名・列挙型はラッパー内に留め、DefinitionやCoreの公開APIへ露出しない。Waveform・Noise・Output Modeの所有はCore |
-| Wavefolder / Modal | 不透明ハンドルへ閉じ込め、WavefolderはAmount 0〜1、ModalはFrequency・Structure・Brightness・Decayの固定Ramp APIだけを公開。LGPL版はビルド対象外 |
+| DaisySP | V1.0.0を固定Commitで取得し、CMakeでビルドして静的リンクする。Modal用に`PhysicalModeling/resonator.cpp`を追加し、WavefolderはMIT版を使用する |
+| Time Stretch | Signalsmith Stretch 1.3.2とSignalsmith Linear 0.3.1をリポジトリ同梱のソースからビルドする（ネットワーク接続不要） |
+| 公開範囲 | DaisySPのクラス名・列挙型はラッパーの内部に留め、DefinitionとCoreの公開APIでは波形・Noise・出力Modeといった音源上の概念として扱う。これらの概念の所有はCoreにある |
+| ハンドル | WavefolderとModalのNative Objectは不透明ハンドルへ閉じ込め、WavefolderはAmount、ModalはFrequency・Structure・Brightness・Decayの固定Ramp APIだけを公開する |
 
 ## Native境界
 
-C ABIは`sonalloy-dsp-sys`とネイティブDSPの間の**内部境界**です。外部製品向けの公開ABIではありません。
+C ABIは`sonalloy-dsp-sys`とネイティブDSPの間の**内部境界**であり、外部製品向けの公開ABIではありません。
 
-Rust側はネイティブのC++ Objectを不透明ハンドルとして所有し、生ポインタをSafe Rustラッパーの内側に隠します。ネイティブ側のエラー（ヌルハンドル、引数・バッファ違反、NaN・Infinity、C++例外）はすべて整数の結果コードへ正規化され、Rust側へは安全な値だけが渡ります。容量は`prepare`で確定し、処理中にネイティブ側で拡張しません。Time StretchのOutput LatencyはCompiled Layerへ渡り、Layer遅延補償に使われます。
+Rust側はネイティブのC++ Objectを不透明ハンドルとして所有し、生ポインタをSafe Rustラッパーの内側に隠します。ハンドルの`Send`実装は、一意所有・非共有アクセス・Thread affinityなしの条件を満たすWrapperに限定して許可します。これはAudio Callbackへの所有移動に必要な最小範囲です。
 
-## Lifecycle
+ネイティブ側の異常（ヌルハンドル、引数・バッファ違反、NaN・Infinity、C++例外）はすべて整数の結果コードへ正規化され、Rust側へは安全な値だけが渡ります。バッファ容量は`prepare`で確定し、処理中にネイティブ側で拡張しません。Time Stretchが報告するOutput LatencyはCompiled Layerへ渡り、Layer間の遅延補償に使われます。
 
-詳しい流れは`docs/runtime-processing.md`を参照してください。ここでは所有関係だけを説明します。
+## 所有関係
 
-| フェーズ | 所有・確保するもの |
+フェーズごとに誰が何を所有するかを示します。各フェーズの動作の詳細は`docs/runtime-processing.md`を参照してください。
+
+| フェーズ | 所有するもの |
 |---|---|
-| Compile | 変更不能な`CompiledInstrument`（Metadata、Performance、Enabled Layer、Processor Chain、Parameter Catalog、Source、Route、Asset Warning）。Parameter IDをDense Handleへ解決。`sonalloy-core`が所有 |
-| Prepare | `InstrumentRuntime`の状態。スクラッチバッファ、Physical String Delay、Modal Resonator、Time Stretch Backend、Grain Pool、Playback Slot、Partial Bank、Layer遅延補償バッファ、ネイティブハンドル、同時発音数分のVoiceを生成 |
-| Process / Reset | 確保した状態を再利用。Resetは準備時と同じ初期状態を復元 |
-| Realtime Session | CLIがCPAL Stream、Midir Connection、固定容量Event Queue、Atomic Statusを所有。Audio CallbackはPlanar Stereo出力をDevice形式へ変換し、MIDI CallbackはNote IDとControl Stateを管理 |
+| Compile | 変更不能な`CompiledInstrument`（Metadata、Performance、有効Layer、Processor Chain、Parameter Catalog、Source、Route、Asset Warning）。`sonalloy-core`が所有し、Parameter IDをDense Handleへ解決する |
+| Prepare | `InstrumentRuntime`の可変状態。Scratch Buffer、Generator State、同時発音数分のVoiceを実行前に確保する |
+| Process / Reset | Prepareで確保した状態を再利用する。Resetは準備時と同じ初期状態を復元する |
+| Realtime Session | `sonalloy-cli`がCPAL Stream、Midir Connection、固定容量Event Queue、Statusを所有する |
 
-`CompiledInstrument`は変更不能で、Runtimeが持つ可変状態（Base Smoother、External Control、Voice Source、Generator Cursor、Processor State）は音源定義や`CompiledInstrument`へ書き戻しません。Voice StealingではLayer・Generator・Processor・Modulation Sourceを同じVoice Stateとして切り替えます。
+`CompiledInstrument`は変更不能で、Runtimeが持つ可変状態（Base Smoother、External Control、Voice Source、Generator Cursor、Processor State）を書き戻す先はありません。Voice Stealingでは、Layer・Generator・Processor・Modulation Sourceをまとめて1つのVoice Stateとして切り替えます。

@@ -6,11 +6,11 @@ Sonalloyは、JSONで書いた音源定義からリアルタイム演奏とオ�
 
 - **AIファースト設計**: 音源はJSONで定義し、CLIで検証・確認する。テキストだけで完結するため、AIが音源を設計・生成・検査できる
 - **多彩な合成方式を組み合わせる**: 次の方式をLayerとして重ね、1つの音源を作る
-  - 波形オシレータ（基本波形、FM、ハードシンク、ウェーブテーブル）
-  - 加算合成・フォルマント（倍音設計、母音共鳴）
-  - Physical String・Modal（撥弦、硬質振動、棒・板・ベル・金属的な共鳴）
-  - サンプリング（サンプル再生、グラニュラー、ウェーブシーケンス）
-  - スペクトル再構成（周波数分解した音の再構成）
+  - 波形系: Oscillator（基本波形とHard SyncなどのComplex変形）、Operator Modulation（4 Operator FM / PM / AM / Ring）、Wavetable（周期波形Frame列の走査）
+  - 加算系: Additive（倍音設計）、Formant（母音共鳴）
+  - 物理モデル系: Physical String（撥弦・硬質振動）、Modal（棒・板・ベル・金属的な共鳴）
+  - サンプリング系: Sample再生、Granular、Wave Sequence
+  - スペクトル再構成: 周波数分解した音の再構成（Spectral）
 - **エフェクトとモジュレーション**:
   - エフェクト: Filter、Drive、EQ、Resonator、Bitcrusher、Chorus、Flanger、Phaser、Delay、Reverb、Compressor、Limiter
   - モジュレーション: Velocity、LFO、Envelope等でパラメータを動かす
@@ -84,7 +84,7 @@ sonalloy play my-synth.json --midi-device <id>
 | `sonalloy render note <definition> --output <wav>` | 1音をレンダリングする |
 | `sonalloy render events <definition> <events.json> --output <wav>` | Event Sequenceをレンダリングする（Pitch BendやParameter変更をFrame単位で制御） |
 | `sonalloy render midi <definition> <midi-file> --output <wav>` | MIDI Fileをレンダリングする |
-| `sonalloy render pattern <definition> <pattern> --output <wav>` | Musical-time Patternをレンダリングする |
+| `sonalloy render pattern <definition> <pattern> --output <wav>` | 演奏パターン（Pattern）をレンダリングする |
 | `sonalloy audition pattern <definition> <pattern>` | PatternをAudio Deviceで試聴する（MIDI Keyboard不要） |
 | `sonalloy audition midi <definition> <midi-file>` | MIDI Fileを1 Channel選択してAudio Deviceで試聴する |
 | `sonalloy device list [--json]` | Audio OutputとMIDI Inputを列挙する |
@@ -124,11 +124,11 @@ cargo fmt --all -- --check
 
 | 文書 | 内容 |
 |---|---|
-| [`docs/cli.md`](docs/cli.md) | CLI仕様：Command・Option・Exit Code |
+| [`docs/cli.md`](docs/cli.md) | CLI仕様：コマンド・Option・Exit Code |
 | [`docs/instrument-definition.md`](docs/instrument-definition.md) | 音源定義のデータ仕様・制約・Compile |
 | [`docs/pattern.md`](docs/pattern.md) | 1 Instrument用Audition PatternとMIDI Interchange |
 | [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源の作り方（手順書） |
-| [`docs/runtime-processing.md`](docs/runtime-processing.md) | 実行時仕様：Process Contract・Lifecycle・Error規則 |
+| [`docs/runtime-processing.md`](docs/runtime-processing.md) | 実行時の動作：Block処理・Noteの一生・実行上の約束事 |
 | [`docs/testing-and-sound-review.md`](docs/testing-and-sound-review.md) | 検証とReviewの手順 |
 | [`docs/architecture.md`](docs/architecture.md) | 静的構造：Crate・依存方向・Native境界 |
 | [`docs/release.md`](docs/release.md) | リリース手順 |

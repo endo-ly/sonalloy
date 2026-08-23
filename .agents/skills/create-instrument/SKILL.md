@@ -30,7 +30,7 @@ init → edit → validate → inspect → pattern trial / render / analyze / tr
 sonalloy instrument init <path>
 ```
 
-Saw Oscillatorの最小Definition（Polyphony 16、ADSR `0.005 / 0.18 / 0.65 / 0.3`、Gain `-14 dB`、Voice ProcessorのFilter `12000 Hz / 0.12`）が生成されます。
+Saw Oscillatorの最小Definition（同時発音数16、ADSR `0.005 / 0.18 / 0.65 / 0.3`、Gain `-14 dB`、Voice ProcessorのFilter `12000 Hz / 0.12`）が生成されます。
 
 ### トップレベルの構造
 
@@ -39,8 +39,8 @@ Saw Oscillatorの最小Definition（Polyphony 16、ADSR `0.005 / 0.18 / 0.65 / 0
 | Field | 内容 | 主な制約 |
 |---|---|---|
 | `schema_version` | スキーマ版 | `2`。`1`はUnsupported。未知FieldはJSON Parse Error |
-| `metadata` | `name`、`description` | — |
-| `performance` | `polyphony` | 1〜64 |
+| `metadata` | `name`、`author`、`description` | `author`と`description`は省略可 |
+| `performance` | `polyphony`、`voice_stealing` | `polyphony`は1〜64。`voice_stealing`のDefaultは`quietest_releasing_then_oldest` |
 | `layers` | 発音の単位となるLayer配列 | [Layerの構造](#layerの構造)参照 |
 | `voice_processors` | 全LayerのMix後に直列適用するProcessor Chain | — |
 | `global_processors` | 全Voiceの合計後に直列適用するProcessor Chain（Delay / ReverbはTailを保持） | — |
@@ -68,7 +68,7 @@ Layer 2 → Layer Processor → ADSR → Layer Gain / Pan ─┘
 | `pan` | 左右位置（-1 = 左、0 = 中央、1 = 右） | -1〜1。定電力で定位 |
 | `tuning_cents` | 音程調整（100 = 半音） | -1200〜1200 |
 | `envelope` | ADSR | [ADSRで音の輪郭を作る](#adsrで音の輪郭を作る)参照 |
-| `processors` | Generator後に直列適用するFilter / Drive | 配列順 |
+| `processors` | Generator後に直列適用するProcessor Chain | 配列順。Layerで使える種類は[ProcessorとModulation](#processorとmodulation)参照 |
 | `generator` | 音源 | [Generator](#generator)参照 |
 
 Oscillator Layerの全体例：
@@ -110,7 +110,7 @@ Level
 
 ### ProcessorとModulation
 
-- **Processor**：Layer / Voice / Globalの3段階で直列適用するFilter / Drive / Delay / Reverb。`cutoff_hz`、`resonance`、`amount`、`mix`などのDynamic Parameterを持ちます
+- **Processor**：Layer / Voice / Globalの3段階で直列適用します。置ける種類は配置ごとに決まっており、LayerはFilter / Drive / EQ / Resonator / Bitcrusher、VoiceはそれにCompressor / Limiterを加えたもの、GlobalはさらにChorus / Flanger / Phaser / Delay / Reverbを使えます。`cutoff_hz`、`resonance`、`amount`、`mix`などのDynamic Parameterを持ちます
 - **Modulation**：Velocity、Key Tracking、LFO、Envelope、RandomなどのSourceをDynamic Parameterへ接続します
 
 ```json
@@ -151,7 +151,7 @@ Routeの`depth.value`はTargetに意味のあるUnitで書きます。Linear Tar
 
 ## Asset（WAV）を扱う
 
-Sample、Wavetable、Spectral、Granular、Wave Sequenceは外部WAVをAssetとして参照します。共通する扱いをまとめます。各Generatorへ渡す`asset.path`はDefinitionのあるDirectoryを基準とした相対Path（または絶対Path）です。
+Sample、Wavetable、Spectral、Granular、Wave Sequenceは外部WAVをAssetとして参照します。共通する扱いをまとめます。各Generatorへ渡す`asset.path`は、DefinitionのあるDirectoryを基準とした相対Pathにします。絶対Pathは動作しますが`ASSET_ABSOLUTE_PATH`のWarning対象で、Definitionの移植性を下げます。
 
 ### 配置と形式
 
@@ -197,7 +197,7 @@ GeneratorはLayerの`generator` Fieldへ指定します。Modulation Target ID�
 
 ### Oscillator
 
-基本波形にHard Sync、Waveshaping、Phase Distortion、Wavefold、Feedback、Unisonを加えられます。WaveformはTagged Objectで、Pulseは`pulse_width`（0〜1）を持ちます。
+基本波形にHard Sync、Waveshaping、Phase Distortion、Wavefold、Feedback、Unisonを加えられます。WaveformはTagged Objectで、Pulseは`pulse_width`（0.05〜0.95）を持ちます。
 
 ```json
 "generator": {
@@ -221,7 +221,7 @@ GeneratorはLayerの`generator` Fieldへ指定します。Modulation Target ID�
 | `wavefold` | 全Waveformで使用可能 |
 | `hard_sync` | Sineでは使用不可。併用時の`phase`と`phase_spread`は0 |
 | 3つのAmount | 0〜1 |
-| `unison.voices` | 最大5 Voice |
+| `unison.voices` | 2〜8 Voice（Operator ModulationのUnisonだけ最大4） |
 
 Modulation Target：`pulse_width`、`sync_ratio`、`waveshape`、`phase_distortion`、`wavefold`、`oscillator_feedback`、`unison_detune`、`unison_spread`
 
@@ -274,7 +274,7 @@ White / Pink / Brown Noiseを生成します。Stereo Correlationは0で左右�
 }
 ```
 
-Dynamic Parameterは`modal_structure`、`modal_brightness`、`modal_decay`です。`mode_count`とExciterのStatic FieldはParameter ChangeやModulation RouteのTargetにしません。Mode Countを増やすと共鳴密度とCPU負荷が増えますが、実在楽器名をGeneratorのModel名として扱わず、Layer・Processor・Hybridで音色を作ります。
+Dynamic Parameterは`modal_structure`、`modal_brightness`、`modal_decay`です。`mode_count`とExciterのStatic FieldはParameter ChangeやModulation RouteのTargetにしません。`mode_count`を増やすと共鳴の密度とCPU負荷が増えます。実在する楽器名をGeneratorのModel名のように扱わず、Layer・Processor・Modulationの組み合わせで目指す音色を作ります。
 
 ### Wavetable
 
@@ -450,14 +450,14 @@ Sampleと同じAssetをGrainへ分解して再構成します。Mono Assetでも
 | Parameter | Range / 単位 | 使い方 |
 |---|---|---|
 | `position` | 0〜1 | 領域内の読出位置。固定でFreeze、LFO / Mod WheelでScrub |
-| `grain_size` | 0.005〜0.5秒 | ハン窓を適用するGrain長 |
+| `grain_size` | 0.005〜0.5秒 | Grain長 |
 | `density` | 1〜100 grains/sec | 1秒あたりのGrain数 |
 | `pitch` | -2400〜2400 cents | Note PitchとLayer Tuningへ加算 |
 | `randomness` | 0〜1 | Positionの決定的分散幅 |
 | `pan_spread` | 0〜1 | GrainごとのStereo配置幅 |
 | `seed` | 整数 | Grain生成のSeed |
 
-Note OffではGrainを破棄せずLayer EnvelopeがReleaseへ進み、ボイススティーリングまたはReset時だけPoolを初期化します。
+Note OffではGrainを破棄せずLayer EnvelopeがReleaseへ進み、Voice StealingまたはReset時だけPoolを初期化します。
 
 Modulation Target：`granular_position`、`grain_size`、`grain_density`、`grain_pitch`、`grain_randomness`、`grain_pan_spread`
 
@@ -493,7 +493,7 @@ Modulation Target：`granular_position`、`grain_size`、`grain_density`、`grai
 | 項目 | 内容 |
 |---|---|
 | Steps | 1〜128個。Definition順に再生 |
-| `direction` | `forward` / `backward` / `ping_pong`。`ping_pong`は終端を重複させず往復 |
+| `direction` | `forward` / `reverse` / `ping_pong`。`ping_pong`は終端を重複させず往復 |
 | `crossfade` | 隣接Stepの定電力Overlap。0〜0.5 |
 | `duration` | `{"mode":"seconds","value":...}`または`{"mode":"beats","value":...}` |
 | `playback` | `one_shot`（Asset終了後はStep残り時間が無音）/ `loop`（領域をStep終端まで繰り返す） |
@@ -669,7 +669,7 @@ sonalloy pattern import-midi <phrase.mid> --channel 1 \
 sonalloy audition midi <definition> <phrase.mid> --channel 1
 ```
 
-`ParameterChange`を含むPatternは`render pattern`や`audition pattern`ではInstrument固有Parameterとして解決されますが、Standard MIDIへExportできません。複数InstrumentのTrackやArrangementを作る場合はHost / DAWの責務です。
+`Parameter Change`を含むPatternは`render pattern`や`audition pattern`では音源固有Parameterとして解決されますが、Standard MIDIへExportできません。複数InstrumentのTrackやArrangementを作る場合はHost / DAWの責務です。
 
 ## Deviceが利用できる場合のRealtime試聴
 
@@ -679,14 +679,14 @@ sonalloy device list --json
 sonalloy play <definition> --midi-device <id>
 ```
 
-`play`は同じDefinitionをCoreのRealtime経路で演奏します。起動前に`device list`でAudio OutputとMIDI InputのOpaque IDを確認し、複数のMIDI Inputがある場合は`--midi-device`を必ず指定します。標準入力のEnterで停止します。Realtime試聴はOffline Render、Analysis、Traceを置き換えません。
+`play`は同じDefinitionをCoreのRealtime経路で演奏します。起動前に`device list`でAudio OutputとMIDI InputのIDを確認し、複数のMIDI Inputがある場合は`--midi-device`を必ず指定します。標準入力のEnterで停止します。Realtime試聴はOffline Render、Analysis、Traceを置き換えません。Optionの正本は`docs/cli.md`です。
 
 | Option | 意味 | 既定値 |
 |---|---|---|
 | `--note` | MIDI Note番号 | `60` |
 | `--velocity` | 打鍵の強さ | `100` |
 | `--gate` | Note OnからNote Offまでの時間（秒） | `0.5` |
-| `--tail` | 最後のNote Off後の追加時間（秒） | note: `0.5` / midi: `1.0` |
+| `--tail` | 最後のNote Off後の追加時間（秒） | `render note`: `0.5` / ほかのrender: `1.0` |
 | `--tempo` | 処理Tempo（BPM）。Tempo Sync Sampleへ適用 | `120` |
 | `--sample-rate` | Sample Rate（Hz） | `48000` |
 | `--block-size` | 処理最大Block Size（Frame） | `257` |
@@ -702,7 +702,7 @@ sonalloy play <definition> --midi-device <id>
 - `render events`ではNote Eventと同じ絶対Frame位置にParameter Change（`native_value`）/ Pitch Bend / Mod Wheel / Aftertouch / Sustain Pedal（`down`）を記述できる。`render midi`ではMIDI Pitch Bend / CC1 / Channel Aftertouch / CC64が同じ実行時Eventへ変換される
 - Time Stretchを含む場合は報告Latencyが`inspect`と成功JSONへ表示され、CLIが前置きLatencyを除去して演奏タイムラインのFrame 0からWAVを生成する
 
-`--analyze`のdBFSは0を`null`で返し、Activityの閾値は-80 dBFS、ContinuityのLarge Delta閾値は0.25です。`--trace`はFrame 0、既定480 Frame間隔、Event後、最終FrameをLatency補正後のTimelineで記録します。`final`はRoute加算とClamp後のNative値です。
+`--analyze`は無音信号（ゼロ）のdBFSを`null`で返し、Activityの閾値は-80 dBFS、ContinuityのLarge Delta閾値は0.25です。`--trace`はFrame 0、既定480 Frame間隔、Event後、最終FrameをLatency補正後のTimelineで記録します。`final`はRoute加算とClamp後のNative値です。
 
 人間の確認項目は`docs/testing-and-sound-review.md`にまとめています。RealtimeではNote、Pitch Bend、Mod Wheel、Channel Aftertouch、Sustainを含む入力、256 / 128 FrameのBuffer、10分以上の連続演奏、Xrun・Fatal Fault・Stuck Note・Queue Overflowを確認します。
 

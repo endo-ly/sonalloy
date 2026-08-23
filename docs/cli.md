@@ -2,7 +2,7 @@
 
 Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み込み、検証・コンパイルし、リアルタイム演奏またはWAVレンダリングを行います。
 
-この文書では、各コマンドを「**音源を作る → 検証する → 音を鳴らす**」の順に説明します。実行時の挙動（Voice、ADSR、Sample再生など）は`docs/runtime-processing.md`、音源定義のJSON形式は`docs/instrument-definition.md`を参照してください。
+この文書では、各コマンドを「**音源定義を作る → 検証する → Patternを用意する → 鳴らす（リアルタイム / オフライン）**」の順に説明します。実行時の挙動（Voice、ADSR、Sample再生など）は`docs/runtime-processing.md`、音源定義のJSON形式は`docs/instrument-definition.md`を参照してください。
 
 ## コマンドの全体像
 
@@ -19,7 +19,7 @@ Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み
 | `render note` | 1音をレンダリングする |
 | `render events` | Event Sequenceをレンダリングする |
 | `render midi` | MIDI Fileをレンダリングする |
-| `render pattern` | Musical-time Patternをレンダリングする |
+| `render pattern` | 演奏パターン（Pattern）をレンダリングする |
 | `audition pattern` | PatternをAudio Deviceで試聴する |
 | `audition midi` | MIDI Fileを1 Channel選択して試聴する |
 | `device list` | Audio OutputとMIDI Inputを列挙する |
@@ -30,7 +30,7 @@ Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み
 
 ### `instrument init` — ひな形の生成
 
-最小のOscillator音源（Saw波形、Polyphony 16）を生成します。ここから編集を始めるための土台です。
+最小のOscillator音源（Saw波形、同時発音数16）を生成します。ここから編集を始めるための土台です。
 
 ```bash
 sonalloy instrument init <path>
@@ -64,11 +64,11 @@ sonalloy instrument inspect <definition> --json
 | Layer | 発音条件、Generator、Gain、Pan、Tuning、ADSR |
 | Generator | 各Generatorの構成値（波形、Asset、Parameter、Algorithmなど）。Physical StringはExciterとLoop Parameter、ModalはExciter・Mode Count・共鳴Parameter・実効周波数上限を表示 |
 | Parameter | Parameter ID、Owner、Native Unit、Native範囲、Default、Scale、Smoothing、Modulation Unit、最大Depth |
-| Modulation | Sourceの範囲・Polarity、RouteのDepth、Curve、Static Effect、DefaultからのReachable Range、Clamp可能性 |
+| Modulation | Sourceの範囲とPolarity、RouteごとのDepthとCurve、Static Effect、Default値からModulationで到達しうる範囲とClampの有無 |
 | Processor | Layer / Voice / Globalの各Processor Chain |
 | Warning | コンパイル時の警告（Asset欠落など） |
 
-`--json`は、Generatorごとの構造をFieldとして返します。Parameter IDは`layer.<layer_id>.generator.<name>`形式（Operator Modulationだけ`operator.<1-4>.<parameter>`）。各GeneratorがどのFieldを返すかは、実際に`--json`を実行して確認してください。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。
+`--json`は、Generatorごとの構造をFieldとして返します。返るFieldはGeneratorの種類ごとに異なり、Parameter IDの形式は`docs/instrument-definition.md`を参照してください。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。
 
 例（抜粋）：
 
@@ -91,11 +91,11 @@ sonalloy instrument inspect <definition> --json
 }
 ```
 
-`modulated_range_from_default`は、各Sourceが宣言されたEndpointへ独立に到達できると仮定した決定的なBoundです。特定の演奏で実際に通る値の予測ではありません。
+`modulated_range_from_default`は、各Sourceが単独で最大Depthまで届いたと仮定して計算した理論上の範囲です。実際の演奏で通る値の予測ではありません。
 
 ## Audition Pattern
 
-Audition Patternは、1つのInstrumentをNote、Chord、Phrase、Drum Pattern、Performance Control、Parameter Changeを含むMusical-time JSONで試奏するための形式です。Schema、Validation、Loop、MIDI Interchangeの正本は[`docs/pattern.md`](pattern.md)です。
+Audition Patternは、1つのInstrumentを試奏するための演奏パターン（JSON）です。NoteやChord、フレーズ、ドラム、演奏操作、Parameter ChangeをTickベースの時間軸で書けます。Schema、Validation、Loop、MIDI Interchangeの正本は[`docs/pattern.md`](pattern.md)です。
 
 ### `pattern init` — 試奏Patternの生成
 
@@ -103,7 +103,7 @@ Audition Patternは、1つのInstrumentをNote、Chord、Phrase、Drum Pattern�
 sonalloy pattern init phrase.json
 ```
 
-480 Ticks Per Beat、120 BPM、4/4、1小節、C4のQuarter Note 1つを持つValid Patternを生成します。既存のPathは上書きしません。
+検証を通る1小節のPatternを生成します（120 BPM、4/4拍子、C4の四分音符1つ）。既存のPathは上書きしません。
 
 ### `pattern validate` — 構造検証
 
@@ -112,7 +112,14 @@ sonalloy pattern validate phrase.json
 sonalloy pattern validate phrase.json --json
 ```
 
-Schema Version、未知Field、Tick、Tempo、Time Signature、Note、Control Range、Finite Value、最低1 Noteを検証します。Instrument固有Parameterの存在とNative Rangeは、Instrumentを指定する`render pattern`または`audition pattern`で解決します。
+次を検証します：
+
+- Schema Versionと未知のField
+- Tick、Tempo、Time Signatureの整合
+- NoteとControl値の範囲と有限数
+- Noteが1つ以上あること
+
+Instrument固有Parameterの存在と範囲は、Instrumentを指定する`render pattern`または`audition pattern`で解決します。
 
 ### `pattern inspect` — Pattern概要
 
@@ -121,7 +128,13 @@ sonalloy pattern inspect phrase.json
 sonalloy pattern inspect phrase.json --json
 ```
 
-Name、Schema、Tick Resolution、Length、Tempo / Time Signature Change数、Note / Velocity範囲、Control数、Parameter ID数、Tempo Timelineから計算したSample Rate非依存のMusical Durationを表示します。
+表示項目：
+
+- Name、Schema、Tick Resolution
+- Length（Tempo Timelineから計算した、Sample Rateに依存しない音楽的な長さ）
+- Tempo Change / Time Signature Changeの件数
+- Note数とVelocity範囲
+- Control数とParameter ID数
 
 ### `pattern import-midi` — MIDIからPatternへ変換
 
@@ -130,7 +143,7 @@ sonalloy pattern import-midi phrase.mid --output phrase.json
 sonalloy pattern import-midi song.mid --channel 10 --output drums.json
 ```
 
-Patternは1 Instrument用なので、Note Channelが複数あるMIDIは`--channel 1..16`で1つを選びます。自動選択は1 Channelだけの場合に限ります。TempoとTime SignatureはGlobal Metadataとして保持し、同じChannelを使う複数Trackは1つへ統合します。Output Pathが存在する場合は失敗します。
+Patternは1 Instrument用なので、Note Channelが複数あるMIDIは`--channel 1..16`で1つを選びます。Channelが1つだけの場合は自動選択します。Output Pathが存在する場合は失敗します。Tick対応付けやTempo・拍子の扱いなど変換の規則は[`docs/pattern.md`](pattern.md)を参照してください。
 
 ### `pattern export-midi` — PatternからMIDIへ変換
 
@@ -139,20 +152,20 @@ sonalloy pattern export-midi phrase.json --output phrase.mid
 sonalloy pattern export-midi drums.json --channel 10 --output drums.mid
 ```
 
-Single Track SMFとしてTempo、Time Signature、Note、Pitch Bend、CC1、CC64、Channel Aftertouchを出力します。Sonalloy固有のParameter ChangeはStandard MIDIへ表現できないため、1件でも含むPatternは`MIDI_ERROR`で失敗します。Output Pathが存在する場合は上書きしません。
+出力されるMIDIの内容と往復変換で保たれる情報は[`docs/pattern.md`](pattern.md)を参照してください。Sonalloy固有のParameter Changeを含むPatternは`MIDI_ERROR`で失敗し、Output Pathが存在する場合も上書きしません。
 
 ## リアルタイム演奏
 
 ### `device list` — Deviceの列挙
 
-Audio OutputとMIDI Inputを列挙します。Audio Inputは対象外です。IDは表示順やIndexではなく、CPAL / Midirが返すOpaque Stringをそのまま指定します。
+Audio OutputとMIDI Inputを列挙します。Audio Inputは対象外です。IDには、表示順やIndexではなくCPAL / Midirが返す文字列をそのまま指定します。
 
 ```bash
 sonalloy device list
 sonalloy device list --json
 ```
 
-JSONでは次のFieldを返します。`SupportedBufferSize::Unknown`のときは`buffer_size: null`です。
+JSONでは次のFieldを返します。対応Buffer範囲が不明なDeviceでは`buffer_size`が`null`になります。
 
 | Field | 内容 |
 |---|---|
@@ -177,15 +190,21 @@ sonalloy play <definition> --audio-device <id> --sample-rate 48000 --buffer-size
 | `--buffer-size <frames>` | 256 | CPALへ要求するFrame数。0やDeviceの対応範囲外はError |
 | `--tempo <bpm>` | 120 | `ProcessContext.tempo_bpm`へ渡す一定Tempo |
 
-起動時にDefinition名、Audio / MIDI Device名とOpaque ID、Sample Rate、Device Channel、Sample Format、要求Buffer、Engine Latency、Tempoを表示します。Host Callbackの実Frame数はBackendにより要求値と異なるため、停止時に観測した最小Frame数・最大Frame数・Callback回数を表示します。`play`は長時間実行Commandで、標準入力のEnterで停止します。
+`play`は標準入力のEnterで停止する長時間実行コマンドで、次の情報を表示します。
 
-AudioはCoreのPlanar `f32` StereoをDevice Sample Formatへ変換します。2chより多いDeviceではch 0 / 1へLeft / Rightを出力し、残りを無音にします。Mono Device、PCM以外のFormat、Unsupported Bufferは起動Errorです。Audio CallbackではHeap Allocation、Log、Blocking Lockを行いません。
+- 起動時: Definition名、Audio / MIDI Device名とID、Sample Rate、Channel数、Sample Format、要求Buffer Size、Engine Latency、Tempo
+- 終了時: 観測した最小 / 最大Frame数とCallback回数（Host Callbackの実Frame数は要求値と異なることがあるため）
 
-DeviceがRealtime Schedulingを拒否した場合はWarningを表示してSessionを継続します。XrunはCounterとして終了時に表示し、Audio Device Errorは`AUDIO_DEVICE_ERROR`、MIDI Errorは`MIDI_ERROR`、Process ErrorとQueue Overflowは`PROCESS_ERROR`として無音化後にSessionを終了します。
+Deviceを機械可読で確認するときは`device list --json`を使います。
 
-MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64は、Offline経路と同じCore Eventへ変換されます。CC64はDown中にNote OffのReleaseを保留し、UpでReleaseを開始します。Realtime DeniedはWarning、XrunはCounter、Faultは原因に応じたDiagnostic Codeで無音化後にSessionを終了します。
+音声とエラーの扱いは次のとおりです。
 
-`play`にはStreaming JSON Protocolを設けません。Deviceの機械可読な確認には`device list --json`を使用します。
+- CoreのPlanar `f32` Stereo出力をDeviceのSample Formatへ変換します。2chより多いDeviceではch 0 / 1へLeft / Rightを出力し、残りを無音にします
+- Mono Device、PCM以外のFormat、対応範囲外のBuffer Sizeは起動Errorになります
+- Realtime Schedulingの拒否はWarningを表示して継続し、Xrunは回数を終了時に表示します
+- Audio Device Error / MIDI Error / Process Error・Queue Overflowは、出力を無音化してから`AUDIO_DEVICE_ERROR` / `MIDI_ERROR` / `PROCESS_ERROR`としてSessionを終了します
+
+MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64（Sustain Pedal）は、Offline経路と同じCore Eventへ変換されます。
 
 ### `audition pattern` — PatternのRealtime試聴
 
@@ -211,7 +230,7 @@ sonalloy audition midi <definition> <midi-file>
 sonalloy audition midi <definition> <midi-file> --channel 2
 ```
 
-MIDI FileをTick Domainで読み込み、1つのChannelをPatternへ変換してから`audition pattern`と同じScheduled Event Feedで再生します。複数Note Channelを含む場合は`--channel 1..16`が必要です。MIDI Input Deviceは使用しません。MIDI FileのLoopはなく、必要な場合は`pattern import-midi`でPatternへ保存してから`audition pattern --loop`を使います。
+MIDI FileをTickベースで読み込み、1つのChannelをPatternへ変換してから、`audition pattern`と同じ仕組みで再生します。複数Note Channelを含む場合は`--channel 1..16`が必要です。MIDI Input Deviceは使いません。Loop再生が必要なときは、`pattern import-midi`でPatternへ変換してから`audition pattern --loop`を使います。
 
 ## 音を鳴らす
 
@@ -222,7 +241,7 @@ MIDI FileをTick Domainで読み込み、1つのChannelをPatternへ変換して
 | `render note` | 1音の鳴り方（Attack、Sustain、Release）を手軽に確かめる |
 | `render events` | 演奏中のParameter変化（Filter Cutoff、Pitch Bendなど）を正確な位置で再現する |
 | `render midi` | MIDI Fileのフレーズを鳴らす |
-| `render pattern` | Sample Rateに依存しないMusical-time Patternを鳴らす |
+| `render pattern` | Tickベースの演奏パターンを鳴らす（Sample Rateに依存しない長さ） |
 
 ### `render note` — 1音のレンダリング
 
@@ -288,8 +307,8 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 
 読み込み時の処理：
 
-- Eventを**時系列へ正しく処理するため**、`absolute_frame`の昇順へ整列します。同じFrameでは、決まった優先順位（Sustain Pedal → Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note On）で処理します
-- 次のいずれかがあると、安全のためWAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、Native範囲外の値。旧`normalized` Fieldは受け付けません
+- Eventを時系列へ処理するため、`absolute_frame`の昇順へ整列します。同じFrameに複数Eventがある場合の適用順序は`docs/runtime-processing.md`を参照してください
+- 次のいずれかはErrorになり、WAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、Native範囲外の値
 
 | Option | Default | 内容 |
 |---|---|---|
@@ -305,7 +324,7 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 | `--reset-check` | Off | 同じPrepared RuntimeをResetして同じEvent列を再実行し、差分をReportへ追加 |
 | `--json` | Off | 結果を機械可読で出力 |
 
-### Render diagnostics — AnalysisとTrace
+### AnalysisとTrace（`--analyze` / `--trace`）
 
 `render note`、`render events`、`render midi`、`render pattern`は、`--analyze`で補正後の出力WAVを決定的に解析し、`--trace`で選択したParameterの実行中の値をJSON成功Reportへ追加します。`--json`を付けない場合も、短いSummaryを標準出力へ表示します。
 
@@ -320,16 +339,11 @@ Analysisの主なFieldは次のとおりです。
 | `stereo.correlation` | Zero-mean Pearson相関。分母が0なら`null` |
 | `spectrum` | Hann窓STFTのCentroid、最大8局所Peak、指定NoteのReference周波数とHarmonic比 |
 
-ZeroのdBFS、無音のActivity、短すぎる音声のSpectrum指標、一定信号のStereo相関は`null`で表し、NaNやInfinityはJSONへ出しません。`render note`だけは指定MIDI Noteから`440 × 2^((note - 69) / 12)`をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
+測定できない項目（無音時のLevel / Activityなど）は`null`になり、NaNとInfinityはJSONへ出力しません。`render note`だけは指定MIDI Noteの標準音高をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
 
-Trace対象は既存CatalogのDynamic Parameter IDだけです。Traceは次を含みます。
+Trace対象は既存CatalogのDynamic Parameter IDだけです。Reportには各時点のTarget値（Base、Routeごとの寄与、Clamp前後の値）が記録され、Voice所属Parameterなら所属Voiceの情報も付きます。Layer Targetは発音中のVoiceだけを報告します。
 
-- frame 0のBaseline、`N` FrameごとのPeriodic Point、Event処理後のPoint、最終Frame。重複Frameは1点にまとめます
-- `base`、Routeごとの`raw` / `shaped` Source、Definitionの`depth`、Domain Contribution、Clamp前の`before_clamp`、Clamp後の`final`、`clamped`
-- Voice所属TargetではVoice Index、Note ID / Number、Velocity、State。Global Targetでは`voice: null`
-- Layer TargetはそのLayerがActiveなVoiceだけを報告し、Inactive Layerの架空値は出しません
-
-Trace FrameはLatency補正後のWAVと同じPublic Timelineです。`--trace`は繰り返し指定でき、重複IDは最初の指定順を保ってDeduplicateされます。未知のID、0以下の間隔、Traceなしの`--trace-every-frames`は入力Errorです。観測数には100,000件の上限があります。
+Traceの時刻はLatency補正後の出力WAVと同じTimelineです。`--trace`は繰り返し指定でき、観測総数には100,000件の上限があります。
 
 例：
 
@@ -339,9 +353,9 @@ sonalloy render note presets/basic.json --analyze \
   --trace-every-frames 480 --json --output out/note.wav
 ```
 
-`trace.parameters[].observations[]`の`final`が、全Route加算とTarget Clamp後の実効Native値です。Traceを有効にしても、通常Renderと同じRuntimeを使い、出力Audioは既存のBlock分割許容範囲内で一致します。
+`trace.parameters[].observations[]`の`final`が、全Route加算とClamp後の実効値です。
 
-`render events --reset-check`は`trace`と併用できません。成功Reportの`reset_comparison`には、同じPrepared Runtimeを`reset`した前後のStereo Audioについて、`max_abs_difference`、`rms_difference`、差分Sample数を記録します。全Stateが初期化されていれば、これらは0になります。
+`--reset-check`は同じRuntimeをResetして同じEvent列を再実行し、前後のAudio差分をReportへ記録します。すべてのStateが初期化されていれば差分は0になります。`--reset-check`は`trace`と併用できません。
 
 ### `render midi` — MIDI Fileのレンダリング
 
@@ -376,7 +390,7 @@ MIDIを読み込むと、CLIは次の変換を行います：
 
 ### `render pattern` — Audition Patternのレンダリング
 
-Musical-time PatternをInstrumentへCompileし、既存のOffline Renderと同じWAV出力へ接続します。
+Audition PatternをInstrumentへCompileし、ほかのrenderコマンドと同じようにWAVを出力します。
 
 ```bash
 sonalloy render pattern <definition> <pattern> \
@@ -384,7 +398,7 @@ sonalloy render pattern <definition> <pattern> \
   --output out/pattern.wav
 ```
 
-`--analyze`、`--trace`、`--trace-every-frames`、`--json`はほかのRender Commandと同じです。`--tail`はPatternの1周の長さに含めず、終端後の余韻として追加します。PatternのParameter ChangeはInstrument Compile後にParameter Catalogで解決されます。
+`--analyze`、`--trace`、`--trace-every-frames`、`--json`はほかのrenderコマンドと同じです。`--tail`はPatternの1周の長さに含めず、終端後の余韻として追加します。PatternのParameter ChangeはInstrument Compile後にParameter Catalogで解決されます。
 
 ## 動作確認
 
@@ -446,22 +460,27 @@ Time Stretchを含む音源では、CLIが内部で報告Latency分を追加レ�
 
 ### 診断Code
 
-検証・コンパイル・レンダリングで発生する主な診断Codeです。
+検証・コンパイル・レンダリングで発生する主な診断Codeを分類ごとに示します。
 
-**音源定義・Event**
+| 分類 | Code |
+|---|---|
+| 定義と検証 | `SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`FILTER_CUTOFF_CLAMPED` |
+| Parameter | `PARAMETER_ID_INVALID`、`PARAMETER_NOT_FOUND` |
+| Modulation Source / Route | `SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_DEPTH_INVALID`、`ROUTE_DEPTH_UNIT_INVALID`、`ROUTE_TARGET_INVALID` |
+| Event File | `EVENT_ORDER_INVALID` |
+| Trace | `TRACE_LIMIT_EXCEEDED` |
+| Asset | `ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`ASSET_HASH_MISSING`、`ASSET_ABSOLUTE_PATH` |
+| 実行時 | `PROCESS_ERROR`、`DSP_ERROR` |
+| Realtime I/O | `MIDI_ERROR`、`AUDIO_DEVICE_ERROR` |
 
-`SCHEMA_UNSUPPORTED`、`JSON_INVALID`、`REQUIRED_FIELD_MISSING`、`ID_DUPLICATED`、`VALUE_OUT_OF_RANGE`、`LAYER_RANGE_INVALID`、`PARAMETER_ID_INVALID`、`PARAMETER_NOT_FOUND`、`SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_DEPTH_INVALID`、`ROUTE_DEPTH_UNIT_INVALID`、`ROUTE_TARGET_INVALID`、`FILTER_CUTOFF_CLAMPED`、`TRACE_LIMIT_EXCEEDED`、`EVENT_ORDER_INVALID`、`PROCESS_ERROR`、`DSP_ERROR`、`MIDI_ERROR`、`AUDIO_DEVICE_ERROR`
-
-**Asset**
-
-`ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`ASSET_HASH_MISSING`、`ASSET_ABSOLUTE_PATH`
-
-**Generator別**
+Generator固有の診断Codeは次のとおりです。
 
 | Generator | Code |
 |---|---|
 | Wavetable | `WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`WAVETABLE_SILENT_FRAME`、`WAVETABLE_DC_OFFSET`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
 | Spectral | `SPECTRAL_PREPARATION_FAILED`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
+| Granular | `INVALID_GRAIN_REGION`、`INVALID_GRAIN_PARAMETER` |
+| Sample | `UNSUPPORTED_PLAYBACK_COMBINATION`、`INVALID_STRETCH_RATIO`、`INVALID_SOURCE_TEMPO`、`STRETCH_BACKEND_FAILURE` |
 | Wave Sequence | `INVALID_SEQUENCE`、`INVALID_STEP_DURATION` |
 | Operator Modulation | `VALUE_OUT_OF_RANGE`、`DEFINITION_ERROR`（Carrier Level / 非Carrier Level / 未接続Amount / AM・Ring Feedback）、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
 
