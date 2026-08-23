@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Formant Generator Reference",
     "author": null,
     "description": "Harmonic formant synthesis with five-profile vowel morphing"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -41,51 +42,151 @@
             {
               "id": "a",
               "formants": [
-                { "frequency_hz": 800.0, "bandwidth_hz": 80.0, "gain_db": 0.0 },
-                { "frequency_hz": 1150.0, "bandwidth_hz": 90.0, "gain_db": -5.0 },
-                { "frequency_hz": 2900.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-                { "frequency_hz": 3900.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-                { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+                {
+                  "frequency_hz": 800.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 1150.0,
+                  "bandwidth_hz": 90.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2900.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3900.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
               ]
             },
             {
               "id": "e",
               "formants": [
-                { "frequency_hz": 530.0, "bandwidth_hz": 70.0, "gain_db": 0.0 },
-                { "frequency_hz": 1840.0, "bandwidth_hz": 100.0, "gain_db": -5.0 },
-                { "frequency_hz": 2480.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-                { "frequency_hz": 3650.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-                { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+                {
+                  "frequency_hz": 530.0,
+                  "bandwidth_hz": 70.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 1840.0,
+                  "bandwidth_hz": 100.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2480.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3650.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
               ]
             },
             {
               "id": "i",
               "formants": [
-                { "frequency_hz": 270.0, "bandwidth_hz": 60.0, "gain_db": 0.0 },
-                { "frequency_hz": 2290.0, "bandwidth_hz": 100.0, "gain_db": -6.0 },
-                { "frequency_hz": 3010.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-                { "frequency_hz": 3900.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-                { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+                {
+                  "frequency_hz": 270.0,
+                  "bandwidth_hz": 60.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 2290.0,
+                  "bandwidth_hz": 100.0,
+                  "gain_db": -6.0
+                },
+                {
+                  "frequency_hz": 3010.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3900.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
               ]
             },
             {
               "id": "o",
               "formants": [
-                { "frequency_hz": 570.0, "bandwidth_hz": 80.0, "gain_db": 0.0 },
-                { "frequency_hz": 840.0, "bandwidth_hz": 90.0, "gain_db": -5.0 },
-                { "frequency_hz": 2410.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-                { "frequency_hz": 3400.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-                { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+                {
+                  "frequency_hz": 570.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 840.0,
+                  "bandwidth_hz": 90.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2410.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3400.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
               ]
             },
             {
               "id": "u",
               "formants": [
-                { "frequency_hz": 300.0, "bandwidth_hz": 60.0, "gain_db": 0.0 },
-                { "frequency_hz": 870.0, "bandwidth_hz": 80.0, "gain_db": -5.0 },
-                { "frequency_hz": 2240.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-                { "frequency_hz": 3400.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-                { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+                {
+                  "frequency_hz": 300.0,
+                  "bandwidth_hz": 60.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 870.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2240.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3400.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
               ]
             }
           ]
@@ -96,5 +197,7 @@
   ],
   "voice_processors": [],
   "global_processors": [],
-  "modulation": null
+  "modulation": null,
+  "macros": [],
+  "vectors": []
 }

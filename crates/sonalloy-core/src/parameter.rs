@@ -63,6 +63,30 @@ pub enum ParameterOwner {
         /// Processor index within the global chain.
         processor_index: usize,
     },
+    /// A normalized instrument macro.
+    Macro {
+        /// Definition macro index.
+        macro_index: usize,
+    },
+    /// A normalized vector axis.
+    VectorAxis {
+        /// Definition vector index.
+        vector_index: usize,
+        /// Axis represented by the parameter.
+        axis: VectorAxis,
+    },
+}
+
+/// Axis represented by a vector parameter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VectorAxis {
+    /// Two-way position axis.
+    Position,
+    /// Four-way horizontal axis.
+    X,
+    /// Four-way vertical axis.
+    Y,
 }
 
 /// Native unit exposed by the parameter contract.
@@ -270,53 +294,7 @@ impl ParameterCatalog {
     pub(crate) fn from_definition(definition: &InstrumentDefinition) -> Self {
         let mut descriptors = Vec::with_capacity(definition.layers.len() * 3);
         for (definition_index, layer) in definition.layers.iter().enumerate() {
-            descriptors.push(ParameterDescriptor {
-                id: layer_parameter_id(&layer.id, "gain"),
-                owner: ParameterOwner::Layer { definition_index },
-                unit: ParameterUnit::Decibels,
-                scale: ParameterScale::Linear,
-                min: -60.0,
-                max: 12.0,
-                default: layer.gain_db,
-                smoothing_seconds: 0.005,
-            });
-            descriptors.push(ParameterDescriptor {
-                id: layer_parameter_id(&layer.id, "pan"),
-                owner: ParameterOwner::Layer { definition_index },
-                unit: ParameterUnit::Pan,
-                scale: ParameterScale::Linear,
-                min: -1.0,
-                max: 1.0,
-                default: layer.pan,
-                smoothing_seconds: 0.005,
-            });
-            descriptors.push(ParameterDescriptor {
-                id: layer_parameter_id(&layer.id, "tuning"),
-                owner: ParameterOwner::Layer { definition_index },
-                unit: ParameterUnit::Cents,
-                scale: ParameterScale::Linear,
-                min: -1200.0,
-                max: 1200.0,
-                default: layer.tuning_cents,
-                smoothing_seconds: 0.005,
-            });
-            push_generator_descriptors(
-                &mut descriptors,
-                &layer.generator,
-                ParameterOwner::LayerGenerator { definition_index },
-                &format!("layer.{}.generator", layer.id),
-            );
-            for (processor_index, processor) in layer.processors.iter().enumerate() {
-                push_processor_descriptors(
-                    &mut descriptors,
-                    processor,
-                    ParameterOwner::LayerProcessor {
-                        definition_index,
-                        processor_index,
-                    },
-                    &format!("layer.{}.processor", layer.id),
-                );
-            }
+            push_layer_descriptors(&mut descriptors, definition_index, layer);
         }
         for (processor_index, processor) in definition.voice_processors.iter().enumerate() {
             push_processor_descriptors(
@@ -334,6 +312,8 @@ impl ParameterCatalog {
                 "global.processor",
             );
         }
+        push_macro_descriptors(&mut descriptors, definition);
+        push_vector_descriptors(&mut descriptors, definition);
         let descriptors = descriptors.into_boxed_slice();
         let lookup = descriptors
             .iter()
@@ -366,6 +346,111 @@ impl ParameterCatalog {
 
     pub(crate) fn len(&self) -> usize {
         self.descriptors.len()
+    }
+}
+
+fn push_layer_descriptors(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    definition_index: usize,
+    layer: &crate::definition::LayerDefinition,
+) {
+    for (suffix, unit, min, max, default) in [
+        ("gain", ParameterUnit::Decibels, -60.0, 12.0, layer.gain_db),
+        ("pan", ParameterUnit::Pan, -1.0, 1.0, layer.pan),
+        (
+            "tuning",
+            ParameterUnit::Cents,
+            -1200.0,
+            1200.0,
+            layer.tuning_cents,
+        ),
+    ] {
+        descriptors.push(ParameterDescriptor {
+            id: layer_parameter_id(&layer.id, suffix),
+            owner: ParameterOwner::Layer { definition_index },
+            unit,
+            scale: ParameterScale::Linear,
+            min,
+            max,
+            default,
+            smoothing_seconds: 0.005,
+        });
+    }
+    push_generator_descriptors(
+        descriptors,
+        &layer.generator,
+        ParameterOwner::LayerGenerator { definition_index },
+        &format!("layer.{}.generator", layer.id),
+    );
+    for (processor_index, processor) in layer.processors.iter().enumerate() {
+        push_processor_descriptors(
+            descriptors,
+            processor,
+            ParameterOwner::LayerProcessor {
+                definition_index,
+                processor_index,
+            },
+            &format!("layer.{}.processor", layer.id),
+        );
+    }
+}
+
+fn push_macro_descriptors(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    definition: &InstrumentDefinition,
+) {
+    for (macro_index, value) in definition.macros.iter().enumerate() {
+        descriptors.push(ParameterDescriptor {
+            id: format!("macro.{}", value.id),
+            owner: ParameterOwner::Macro { macro_index },
+            unit: ParameterUnit::Normalized,
+            scale: ParameterScale::Linear,
+            min: 0.0,
+            max: 1.0,
+            default: value.default,
+            smoothing_seconds: 0.005,
+        });
+    }
+}
+
+fn push_vector_descriptors(
+    descriptors: &mut Vec<ParameterDescriptor>,
+    definition: &InstrumentDefinition,
+) {
+    for (vector_index, vector) in definition.vectors.iter().enumerate() {
+        let (id, axes) = match vector {
+            crate::definition::VectorDefinition::TwoWay { id, .. } => (
+                id.as_str(),
+                [Some(("position", VectorAxis::Position)), None],
+            ),
+            crate::definition::VectorDefinition::FourWay { id, .. } => (
+                id.as_str(),
+                [Some(("x", VectorAxis::X)), Some(("y", VectorAxis::Y))],
+            ),
+        };
+        for (suffix, axis) in axes.into_iter().flatten() {
+            descriptors.push(ParameterDescriptor {
+                id: format!("vector.{id}.{suffix}"),
+                owner: ParameterOwner::VectorAxis { vector_index, axis },
+                unit: ParameterUnit::Normalized,
+                scale: ParameterScale::Linear,
+                min: 0.0,
+                max: 1.0,
+                default: vector_axis_default(vector, axis),
+                smoothing_seconds: 0.005,
+            });
+        }
+    }
+}
+
+fn vector_axis_default(vector: &crate::definition::VectorDefinition, axis: VectorAxis) -> f32 {
+    match (vector, axis) {
+        (crate::definition::VectorDefinition::TwoWay { position, .. }, VectorAxis::Position) => {
+            *position
+        }
+        (crate::definition::VectorDefinition::FourWay { x, .. }, VectorAxis::X) => *x,
+        (crate::definition::VectorDefinition::FourWay { y, .. }, VectorAxis::Y) => *y,
+        _ => 0.0,
     }
 }
 
@@ -1263,6 +1348,10 @@ pub fn is_parameter_id(value: &str) -> bool {
         ["voice" | "global", "processor", processor_id, parameter] => {
             is_component_id(processor_id) && is_processor_parameter(parameter)
         }
+        ["macro", macro_id] => is_component_id(macro_id),
+        ["vector", vector_id, axis] => {
+            is_component_id(vector_id) && matches!(*axis, "position" | "x" | "y")
+        }
         _ => false,
     }
 }
@@ -1306,6 +1395,8 @@ pub const BUILTIN_SOURCE_IDS: &[&str] = &[
     "pitch_bend",
     "mod_wheel",
     "aftertouch",
+    "transport_beat_phase",
+    "transport_bar_phase",
 ];
 
 #[cfg(test)]

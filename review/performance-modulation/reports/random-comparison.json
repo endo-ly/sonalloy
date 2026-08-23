@@ -1,0 +1,2867 @@
+{
+  "status": "ok",
+  "sample_rate": 48000,
+  "channels": 2,
+  "frames": 192000,
+  "reported_latency_frames": 0,
+  "output": "/root/workspace/sonalloy/review/performance-modulation/audio/random-comparison.wav",
+  "backend": "DaisySP V1.0.0 (a0494a3adb67f549e18dfd71a35fa656f65b38b6)",
+  "analysis": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 192000,
+    "duration_seconds": 4.0,
+    "finite": true,
+    "level": {
+      "peak": 0.35876256,
+      "peak_dbfs": -8.903857,
+      "rms": 0.065202735,
+      "rms_dbfs": -23.714685,
+      "crest_factor_db": 14.810828,
+      "over_full_scale": false
+    },
+    "dc": [
+      -2.2842612e-05,
+      -1.610694e-05
+    ],
+    "activity": {
+      "threshold_dbfs": -80.0,
+      "first_frame": 5,
+      "peak_frame": 96736,
+      "last_frame": 160560
+    },
+    "continuity": {
+      "large_delta_threshold": 0.25,
+      "max_adjacent_frame_delta": 0.24712464,
+      "large_delta_count": 0,
+      "first_large_delta_frames": []
+    },
+    "stereo": {
+      "correlation": 0.87268704
+    },
+    "spectrum": {
+      "fft_size": 4096,
+      "hop_size": 2048,
+      "spectral_centroid_hz": 790.042,
+      "peaks": [
+        {
+          "frequency_hz": 316.40625,
+          "relative_power": 1.0
+        },
+        {
+          "frequency_hz": 257.8125,
+          "relative_power": 0.77571315
+        },
+        {
+          "frequency_hz": 398.4375,
+          "relative_power": 0.7743797
+        },
+        {
+          "frequency_hz": 785.15625,
+          "relative_power": 0.2786498
+        },
+        {
+          "frequency_hz": 503.90625,
+          "relative_power": 0.25202906
+        },
+        {
+          "frequency_hz": 632.8125,
+          "relative_power": 0.22882992
+        },
+        {
+          "frequency_hz": 1570.3125,
+          "relative_power": 0.13806559
+        },
+        {
+          "frequency_hz": 937.5,
+          "relative_power": 0.10031983
+        }
+      ],
+      "reference_frequency_hz": null,
+      "harmonic_energy_ratio": null
+    }
+  },
+  "trace": {
+    "every_frames": 2400,
+    "parameters": [
+      {
+        "parameter": "layer.body.tuning",
+        "unit": "cents",
+        "observations": [
+          {
+            "frame": 1,
+            "seconds": 2.0833333333333333e-05,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 2400,
+            "seconds": 0.05,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 4800,
+            "seconds": 0.1,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 7200,
+            "seconds": 0.15,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 9600,
+            "seconds": 0.2,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 12000,
+            "seconds": 0.25,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 14400,
+            "seconds": 0.3,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 16800,
+            "seconds": 0.35,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 19200,
+            "seconds": 0.4,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 21600,
+            "seconds": 0.45,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 24000,
+            "seconds": 0.5,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 26400,
+            "seconds": 0.55,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 28800,
+            "seconds": 0.6,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 31200,
+            "seconds": 0.65,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 33600,
+            "seconds": 0.7,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 36000,
+            "seconds": 0.75,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 38400,
+            "seconds": 0.8,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 40800,
+            "seconds": 0.85,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 43200,
+            "seconds": 0.9,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 45600,
+            "seconds": 0.95,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 48000,
+            "seconds": 1.0,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 48001,
+            "seconds": 1.0000208333333334,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 48001,
+            "seconds": 1.0000208333333334,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 50400,
+            "seconds": 1.05,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 50400,
+            "seconds": 1.05,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 52800,
+            "seconds": 1.1,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 52800,
+            "seconds": 1.1,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 55200,
+            "seconds": 1.15,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 55200,
+            "seconds": 1.15,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 57600,
+            "seconds": 1.2,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 57600,
+            "seconds": 1.2,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 60000,
+            "seconds": 1.25,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 60000,
+            "seconds": 1.25,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 62400,
+            "seconds": 1.3,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.6817714,
+                "shaped": -0.6817714,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -61.359425,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -61.359425,
+            "final": -61.359425,
+            "clamped": false
+          },
+          {
+            "frame": 62400,
+            "seconds": 1.3,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 64800,
+            "seconds": 1.35,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 67200,
+            "seconds": 1.4,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 69600,
+            "seconds": 1.45,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 72000,
+            "seconds": 1.5,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 74400,
+            "seconds": 1.55,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 76800,
+            "seconds": 1.6,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 79200,
+            "seconds": 1.65,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 81600,
+            "seconds": 1.7,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 84000,
+            "seconds": 1.75,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 86400,
+            "seconds": 1.8,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 88800,
+            "seconds": 1.85,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 91200,
+            "seconds": 1.9,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 93600,
+            "seconds": 1.95,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 96000,
+            "seconds": 2.0,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 96001,
+            "seconds": 2.000020833333333,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 96001,
+            "seconds": 2.000020833333333,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 98400,
+            "seconds": 2.05,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 98400,
+            "seconds": 2.05,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 100800,
+            "seconds": 2.1,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 100800,
+            "seconds": 2.1,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 103200,
+            "seconds": 2.15,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 103200,
+            "seconds": 2.15,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 105600,
+            "seconds": 2.2,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 105600,
+            "seconds": 2.2,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 108000,
+            "seconds": 2.25,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 108000,
+            "seconds": 2.25,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 110400,
+            "seconds": 2.3,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 110400,
+            "seconds": 2.3,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 1,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": -0.91878176,
+                "shaped": -0.91878176,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -82.69036,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": -82.69036,
+            "final": -82.69036,
+            "clamped": false
+          },
+          {
+            "frame": 112800,
+            "seconds": 2.35,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 115200,
+            "seconds": 2.4,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 117600,
+            "seconds": 2.45,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 120000,
+            "seconds": 2.5,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 122400,
+            "seconds": 2.55,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 124800,
+            "seconds": 2.6,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 127200,
+            "seconds": 2.65,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 129600,
+            "seconds": 2.7,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 132000,
+            "seconds": 2.75,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 134400,
+            "seconds": 2.8,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 136800,
+            "seconds": 2.85,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 139200,
+            "seconds": 2.9,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 141600,
+            "seconds": 2.95,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 144000,
+            "seconds": 3.0,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 144001,
+            "seconds": 3.000020833333333,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 146400,
+            "seconds": 3.05,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 148800,
+            "seconds": 3.1,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 151200,
+            "seconds": 3.15,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 153600,
+            "seconds": 3.2,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 156000,
+            "seconds": 3.25,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          },
+          {
+            "frame": 158400,
+            "seconds": 3.3,
+            "parameter": "layer.body.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "note_random",
+                "raw": 0.031046033,
+                "shaped": 0.031046033,
+                "depth": {
+                  "value": 90.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 2.794143,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 2.794143,
+            "final": 2.794143,
+            "clamped": false
+          }
+        ]
+      }
+    ]
+  }
+}

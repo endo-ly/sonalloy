@@ -1,6 +1,6 @@
 use std::fmt;
 
-use sonalloy_core::{TempoChange, TempoMap};
+use sonalloy_core::{MusicalTimeChange, MusicalTimeMap, TimeSignature};
 
 const U64_LIMIT_AS_F64: f64 = 18_446_744_073_709_551_616.0;
 
@@ -11,13 +11,21 @@ pub(crate) struct TempoPoint {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TimeSignaturePoint {
+    pub(crate) tick: u64,
+    pub(crate) numerator: u16,
+    pub(crate) denominator: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum MusicalTimeError {
     InvalidTicksPerBeat,
     InvalidSampleRate,
     InvalidTempo,
-    TempoMapEmpty,
-    TempoMapMustStartAtZero,
-    TempoMapNotSorted,
+    InvalidTimeSignature,
+    MusicalTimeMapEmpty,
+    MusicalTimeMapMustStartAtZero,
+    MusicalTimeMapNotSorted,
     TempoFrameCollision,
     FrameOverflow,
 }
@@ -28,9 +36,12 @@ impl fmt::Display for MusicalTimeError {
             Self::InvalidTicksPerBeat => "ticks per beat must be between 1 and 32767",
             Self::InvalidSampleRate => "sample rate must be finite and greater than zero",
             Self::InvalidTempo => "tempo must be finite and greater than zero",
-            Self::TempoMapEmpty => "tempo changes must not be empty",
-            Self::TempoMapMustStartAtZero => "tempo changes must start at tick zero",
-            Self::TempoMapNotSorted => "tempo changes must be strictly ordered by tick",
+            Self::InvalidTimeSignature => "time signature is invalid",
+            Self::MusicalTimeMapEmpty => "musical-time changes must not be empty",
+            Self::MusicalTimeMapMustStartAtZero => "musical-time changes must start at tick zero",
+            Self::MusicalTimeMapNotSorted => {
+                "musical-time changes must be strictly ordered by tick"
+            }
             Self::TempoFrameCollision => {
                 "tempo changes must map to distinct frames at the selected sample rate"
             }
@@ -48,10 +59,10 @@ pub(crate) fn validate_tempo_points(
         return Err(MusicalTimeError::InvalidTicksPerBeat);
     }
     let Some(first) = tempo_changes.first() else {
-        return Err(MusicalTimeError::TempoMapEmpty);
+        return Err(MusicalTimeError::MusicalTimeMapEmpty);
     };
     if first.tick != 0 {
-        return Err(MusicalTimeError::TempoMapMustStartAtZero);
+        return Err(MusicalTimeError::MusicalTimeMapMustStartAtZero);
     }
     if tempo_changes
         .iter()
@@ -63,7 +74,7 @@ pub(crate) fn validate_tempo_points(
         .windows(2)
         .any(|window| window[0].tick >= window[1].tick)
     {
-        return Err(MusicalTimeError::TempoMapNotSorted);
+        return Err(MusicalTimeError::MusicalTimeMapNotSorted);
     }
     Ok(())
 }
@@ -129,34 +140,77 @@ pub(crate) fn musical_duration_seconds(
     }
 }
 
-pub(crate) fn build_tempo_map(
+pub(crate) fn build_musical_time_map(
     ticks_per_beat: u16,
     tempo_changes: &[TempoPoint],
+    time_signature_changes: &[TimeSignaturePoint],
     sample_rate: f64,
-) -> Result<TempoMap, MusicalTimeError> {
+) -> Result<MusicalTimeMap, MusicalTimeError> {
     validate_tempo_points(ticks_per_beat, tempo_changes)?;
-    let mut changes = Vec::with_capacity(tempo_changes.len());
-    for change in tempo_changes {
-        let absolute_frame =
-            tick_to_frame(change.tick, ticks_per_beat, tempo_changes, sample_rate)?;
+    let Some(first_signature) = time_signature_changes.first() else {
+        return Err(MusicalTimeError::InvalidTimeSignature);
+    };
+    if first_signature.tick != 0
+        || time_signature_changes.iter().any(|change| {
+            !TimeSignature {
+                numerator: change.numerator,
+                denominator: change.denominator,
+            }
+            .is_valid()
+        })
+        || time_signature_changes
+            .windows(2)
+            .any(|window| window[0].tick >= window[1].tick)
+    {
+        return Err(MusicalTimeError::InvalidTimeSignature);
+    }
+    let mut ticks = tempo_changes
+        .iter()
+        .map(|change| change.tick)
+        .chain(time_signature_changes.iter().map(|change| change.tick))
+        .collect::<Vec<_>>();
+    ticks.sort_unstable();
+    ticks.dedup();
+
+    let mut changes = Vec::with_capacity(ticks.len());
+    for tick in ticks {
+        let tempo = tempo_changes
+            .iter()
+            .rev()
+            .find(|change| change.tick <= tick)
+            .expect("validated tempo changes start at tick zero")
+            .bpm;
+        let signature = time_signature_changes
+            .iter()
+            .rev()
+            .find(|change| change.tick <= tick)
+            .expect("validated time signatures start at tick zero");
+        let absolute_frame = tick_to_frame(tick, ticks_per_beat, tempo_changes, sample_rate)?;
         if changes
             .last()
-            .is_some_and(|previous: &TempoChange| previous.absolute_frame >= absolute_frame)
+            .is_some_and(|previous: &MusicalTimeChange| previous.absolute_frame >= absolute_frame)
         {
             return Err(MusicalTimeError::TempoFrameCollision);
         }
-        changes.push(TempoChange {
+        changes.push(MusicalTimeChange {
             absolute_frame,
-            tempo_bpm: change.bpm,
+            tempo_bpm: tempo,
+            time_signature: TimeSignature {
+                numerator: signature.numerator,
+                denominator: signature.denominator,
+            },
         });
     }
-    TempoMap::new(changes).map_err(|error| match error {
-        sonalloy_core::RenderError::TempoMapEmpty => MusicalTimeError::TempoMapEmpty,
-        sonalloy_core::RenderError::TempoMapMustStartAtZero => {
-            MusicalTimeError::TempoMapMustStartAtZero
+    MusicalTimeMap::new(changes).map_err(|error| match error {
+        sonalloy_core::RenderError::MusicalTimeMapEmpty => MusicalTimeError::MusicalTimeMapEmpty,
+        sonalloy_core::RenderError::MusicalTimeMapMustStartAtZero => {
+            MusicalTimeError::MusicalTimeMapMustStartAtZero
         }
-        sonalloy_core::RenderError::TempoMapNotSorted => MusicalTimeError::TempoMapNotSorted,
+        sonalloy_core::RenderError::MusicalTimeMapNotSorted => {
+            MusicalTimeError::MusicalTimeMapNotSorted
+        }
         sonalloy_core::RenderError::InvalidTempo => MusicalTimeError::InvalidTempo,
+        sonalloy_core::RenderError::InvalidTimeSignature => MusicalTimeError::InvalidTimeSignature,
         _ => MusicalTimeError::FrameOverflow,
     })
 }
@@ -226,7 +280,16 @@ mod tests {
         ];
 
         assert_eq!(
-            build_tempo_map(480, &changes, 1.0),
+            build_musical_time_map(
+                480,
+                &changes,
+                &[TimeSignaturePoint {
+                    tick: 0,
+                    numerator: 4,
+                    denominator: 4,
+                }],
+                1.0,
+            ),
             Err(MusicalTimeError::TempoFrameCollision)
         );
     }

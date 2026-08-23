@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "name": "Vector Hybrid Pattern",
+  "ticks_per_beat": 480,
+  "length_ticks": 1920,
+  "tempo_changes": [
+    { "tick": 0, "bpm": 120.0 },
+    { "tick": 960, "bpm": 90.0 }
+  ],
+  "time_signature_changes": [
+    { "tick": 0, "numerator": 4, "denominator": 4 },
+    { "tick": 1440, "numerator": 3, "denominator": 4 }
+  ],
+  "events": [
+    { "type": "note", "tick": 0, "duration_ticks": 960, "note": 60, "velocity": 112 },
+    { "type": "note", "tick": 480, "duration_ticks": 960, "note": 64, "velocity": 104 },
+    { "type": "parameter_change", "tick": 240, "parameter": "macro.position", "native_value": 0.1 },
+    { "type": "parameter_change", "tick": 720, "parameter": "vector.character.x", "native_value": 0.9 },
+    { "type": "parameter_change", "tick": 1200, "parameter": "vector.character.y", "native_value": 0.2 }
+  ]
+}

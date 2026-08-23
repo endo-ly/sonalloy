@@ -12,12 +12,13 @@ use crate::definition::{
     DriveProcessorDefinition, EqProcessorDefinition, FilterModeDefinition,
     FilterProcessorDefinition, FlangerProcessorDefinition, FormantDefinition, GeneratorDefinition,
     GranularDefinition, InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform,
-    LimiterProcessorDefinition, ModalDefinition, ModulationCurve, ModulationSourceDefinition,
-    NoiseColor, OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode,
-    OscillatorDefinition, OscillatorWaveform, PhaserProcessorDefinition, PhysicalExciterDefinition,
-    PhysicalStringDefinition, ProcessorDefinition, ResonatorProcessorDefinition,
-    ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition,
-    SpectralDefinition, UnisonDefinition, VoiceStealingDefinition, WaveSequenceDefinition,
+    LimiterProcessorDefinition, ModalDefinition, ModulationCurve, ModulationDurationUnit,
+    ModulationRateUnit, ModulationSourceDefinition, MsegDefinition, NoiseColor, OperatorAlgorithm,
+    OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition, OscillatorWaveform,
+    PhaserProcessorDefinition, PhysicalExciterDefinition, PhysicalStringDefinition,
+    ProcessorDefinition, ResonatorProcessorDefinition, ReverbProcessorDefinition,
+    SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition, SpectralDefinition,
+    UnisonDefinition, VectorDefinition, VoiceStealingDefinition, WaveSequenceDefinition,
     WaveSequenceDirection, WaveSequenceDurationDefinition, WaveSequenceStepPlayback,
     WavetableDefinition,
 };
@@ -86,6 +87,14 @@ pub struct CompiledInstrument {
     pub(crate) effective_parameter_maxima: Box<[f32]>,
     /// Voice-scoped source table.
     pub sources: Box<[CompiledSource]>,
+    /// Instrument-scoped source table.
+    pub instrument_sources: Box<[CompiledInstrumentSource]>,
+    /// Compiled vector bindings.
+    pub vectors: Box<[CompiledVector]>,
+    /// Macro definitions retained for inspection metadata.
+    pub macro_definitions: Box<[crate::definition::MacroDefinition]>,
+    /// Vector definitions retained for inspection metadata.
+    pub vector_definitions: Box<[VectorDefinition]>,
     /// Compiled routes grouped by target handle.
     pub routes: Box<[CompiledRoute]>,
     /// Route range for each parameter handle.
@@ -159,10 +168,27 @@ pub struct CompiledMetadata {
 /// Compiled performance settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompiledPerformance {
-    /// Maximum number of voices.
-    pub polyphony: usize,
-    /// Voice allocation policy.
-    pub voice_stealing: CompiledVoiceStealing,
+    /// Performance mode and transition policy.
+    pub mode: CompiledPerformanceMode,
+    /// Number of prepared voices.
+    pub voice_count: usize,
+}
+
+/// Compiled performance mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledPerformanceMode {
+    /// Polyphonic voice allocation.
+    Polyphonic {
+        /// Voice stealing policy.
+        voice_stealing: CompiledVoiceStealing,
+    },
+    /// Last-note-priority monophonic performance.
+    Monophonic {
+        /// Whether connected notes retain voice state.
+        legato: bool,
+        /// Glide duration in frames.
+        portamento_frames: Option<usize>,
+    },
 }
 
 /// Compiled voice allocation policy.
@@ -1393,6 +1419,18 @@ impl SourceHandle {
     }
 }
 
+/// Dense handle for an instrument-scoped source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct InstrumentSourceHandle(usize);
+
+impl InstrumentSourceHandle {
+    /// Return the dense source index.
+    #[must_use]
+    pub const fn index(self) -> usize {
+        self.0
+    }
+}
+
 /// Compiled voice source.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledSource {
@@ -1415,6 +1453,14 @@ pub enum CompiledVoiceSource {
     Envelope(CompiledModEnvelope),
     /// Note-scoped deterministic random value.
     Random(CompiledRandom),
+    /// Multi-segment envelope.
+    Mseg(CompiledMseg),
+    /// Held step sequence.
+    Step(CompiledStep),
+    /// Deterministic sample-and-hold source.
+    SampleHold(CompiledSampleHold),
+    /// Deterministic smooth-random source.
+    SmoothRandom(CompiledSmoothRandom),
 }
 
 /// Compiled LFO settings.
@@ -1422,8 +1468,10 @@ pub enum CompiledVoiceSource {
 pub struct CompiledLfo {
     /// LFO waveform.
     pub waveform: LfoWaveform,
-    /// Rate in hertz.
-    pub rate_hz: f32,
+    /// Rate value.
+    pub rate: f32,
+    /// Rate unit.
+    pub rate_unit: ModulationRateUnit,
     /// Initial phase.
     pub phase: f32,
 }
@@ -1444,17 +1492,112 @@ pub struct CompiledRandom {
     pub source_hash: u64,
 }
 
+/// Compiled MSEG segment.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledMsegSegment {
+    /// Duration value.
+    pub duration: f32,
+    /// Duration unit.
+    pub duration_unit: ModulationDurationUnit,
+    /// Segment target.
+    pub target: f32,
+    /// Segment interpolation curve.
+    pub curve: crate::definition::ModulationSegmentCurve,
+}
+
+/// Compiled MSEG source.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledMseg {
+    /// Initial value.
+    pub initial_value: f32,
+    /// Compiled segments.
+    pub segments: Box<[CompiledMsegSegment]>,
+    /// Optional loop range.
+    pub loop_range: Option<(usize, usize)>,
+}
+
+/// Compiled step source.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledStep {
+    /// Held values.
+    pub values: Box<[f32]>,
+    /// Step rate.
+    pub rate: f32,
+    /// Rate unit.
+    pub rate_unit: ModulationRateUnit,
+}
+
+/// Compiled sample-and-hold source.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledSampleHold {
+    /// Explicit seed.
+    pub seed: u64,
+    /// Source identifier hash.
+    pub source_hash: u64,
+    /// Update rate.
+    pub rate: f32,
+    /// Rate unit.
+    pub rate_unit: ModulationRateUnit,
+}
+
+/// Compiled smooth-random source.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledSmoothRandom {
+    /// Explicit seed.
+    pub seed: u64,
+    /// Source identifier hash.
+    pub source_hash: u64,
+    /// Transition rate.
+    pub rate: f32,
+    /// Rate unit.
+    pub rate_unit: ModulationRateUnit,
+}
+
+/// Compiled instrument-scoped source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledInstrumentSource {
+    /// Shared pitch bend.
+    PitchBend,
+    /// Shared modulation wheel.
+    ModWheel,
+    /// Shared channel aftertouch.
+    Aftertouch,
+    /// Macro parameter source.
+    Macro { parameter: ParameterHandle },
+    /// Transport beat phase.
+    BeatPhase,
+    /// Transport bar phase.
+    BarPhase,
+}
+
 /// A source reference in a compiled route.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompiledSourceRef {
     /// Voice-scoped source table entry.
     Voice(SourceHandle),
-    /// Shared pitch bend control.
-    PitchBend,
-    /// Shared modulation wheel control.
-    ModWheel,
-    /// Shared channel aftertouch control.
-    Aftertouch,
+    /// Instrument-scoped source table entry.
+    Instrument(InstrumentSourceHandle),
+}
+
+/// Compiled layer-vector binding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledVector {
+    /// Two-way crossfade.
+    TwoWay {
+        /// Position parameter.
+        position: ParameterHandle,
+        /// Bound layer indices.
+        layers: [usize; 2],
+    },
+    /// Four-way XY mixer.
+    FourWay {
+        /// Horizontal axis parameter.
+        x: ParameterHandle,
+        /// Vertical axis parameter.
+        y: ParameterHandle,
+        /// Bound layer indices in top-left, top-right, bottom-left, bottom-right order.
+        layers: [usize; 4],
+    },
 }
 
 /// Compiled route with a fixed target and source evaluation order.
@@ -1512,14 +1655,8 @@ pub fn compile_instrument(
     let mut spectral_asset_cache = HashMap::new();
     let mut spectral_plan_cache = HashMap::new();
 
-    let performance = CompiledPerformance {
-        polyphony: usize::from(definition.performance.polyphony),
-        voice_stealing: match definition.performance.voice_stealing {
-            VoiceStealingDefinition::QuietestReleasingThenOldest => {
-                CompiledVoiceStealing::QuietestReleasingThenOldest
-            }
-        },
-    };
+    let performance =
+        compile_performance(&definition.performance, context.process_spec.sample_rate);
     let layers = definition
         .layers
         .iter()
@@ -1601,12 +1738,13 @@ pub fn compile_instrument(
         &mut diagnostics,
     );
 
-    let (sources, routes, route_ranges) = compile_modulation(
+    let (sources, instrument_sources, routes, route_ranges) = compile_modulation(
         definition,
         &parameter_catalog,
         context.process_spec.sample_rate,
         &mut diagnostics,
     );
+    let vectors = compile_vectors(definition, &layers, &parameter_catalog, &mut diagnostics);
     if has_errors(&diagnostics) {
         return CompileResult {
             instrument: None,
@@ -1642,6 +1780,10 @@ pub fn compile_instrument(
         sources,
         routes,
         route_ranges,
+        instrument_sources,
+        vectors,
+        macro_definitions: definition.macros.clone().into_boxed_slice(),
+        vector_definitions: definition.vectors.clone().into_boxed_slice(),
         diagnostics: diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Warning)
@@ -1652,6 +1794,120 @@ pub fn compile_instrument(
     CompileResult {
         instrument: Some(Arc::new(compiled)),
         diagnostics,
+    }
+}
+
+fn compile_performance(
+    performance: &crate::definition::PerformanceDefinition,
+    sample_rate: f64,
+) -> CompiledPerformance {
+    match performance {
+        crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony,
+            voice_stealing,
+        } => CompiledPerformance {
+            mode: CompiledPerformanceMode::Polyphonic {
+                voice_stealing: match voice_stealing {
+                    VoiceStealingDefinition::QuietestReleasingThenOldest => {
+                        CompiledVoiceStealing::QuietestReleasingThenOldest
+                    }
+                },
+            },
+            voice_count: usize::from(*polyphony),
+        },
+        crate::definition::PerformanceDefinition::Monophonic { legato, portamento } => {
+            CompiledPerformance {
+                mode: CompiledPerformanceMode::Monophonic {
+                    legato: *legato,
+                    portamento_frames: portamento.map(|value| {
+                        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                        { (f64::from(value.time_seconds) * sample_rate).round() as usize }.max(1)
+                    }),
+                },
+                voice_count: 1,
+            }
+        }
+    }
+}
+
+fn compile_vectors(
+    definition: &InstrumentDefinition,
+    layers: &[CompiledLayer],
+    catalog: &ParameterCatalog,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Box<[CompiledVector]> {
+    let mut result = Vec::with_capacity(definition.vectors.len());
+    for (vector_index, vector) in definition.vectors.iter().enumerate() {
+        let layer_index = |id: &str| {
+            layers
+                .iter()
+                .position(|layer| layer.id == id)
+                .ok_or_else(|| {
+                    Diagnostic::error(
+                        DiagnosticCode::ParameterNotFound,
+                        "vector layer is not present in the compiled layer table",
+                    )
+                    .with_path(format!("vectors[{vector_index}]"))
+                })
+        };
+        let parameter = |axis: &str| {
+            catalog
+                .parameter_handle(&format!("vector.{}.{}", vector_id(vector), axis))
+                .ok_or_else(|| {
+                    Diagnostic::error(
+                        DiagnosticCode::ParameterNotFound,
+                        "vector axis is not present in the parameter catalog",
+                    )
+                    .with_path(format!("vectors[{vector_index}]"))
+                })
+        };
+        let compiled = match vector {
+            VectorDefinition::TwoWay {
+                layer_a, layer_b, ..
+            } => layer_index(layer_a)
+                .and_then(|a| layer_index(layer_b).map(|b| (a, b)))
+                .and_then(|(a, b)| {
+                    parameter("position").map(|position| CompiledVector::TwoWay {
+                        position,
+                        layers: [a, b],
+                    })
+                }),
+            VectorDefinition::FourWay {
+                top_left,
+                top_right,
+                bottom_left,
+                bottom_right,
+                ..
+            } => layer_index(top_left)
+                .and_then(|top_left| layer_index(top_right).map(|top_right| (top_left, top_right)))
+                .and_then(|(top_left, top_right)| {
+                    layer_index(bottom_left).map(|bottom_left| (top_left, top_right, bottom_left))
+                })
+                .and_then(|(top_left, top_right, bottom_left)| {
+                    layer_index(bottom_right)
+                        .map(|bottom_right| (top_left, top_right, bottom_left, bottom_right))
+                })
+                .and_then(|(top_left, top_right, bottom_left, bottom_right)| {
+                    parameter("x").and_then(|x| {
+                        parameter("y").map(|y| CompiledVector::FourWay {
+                            x,
+                            y,
+                            layers: [top_left, top_right, bottom_left, bottom_right],
+                        })
+                    })
+                }),
+        };
+        match compiled {
+            Ok(value) => result.push(value),
+            Err(error) => diagnostics.push(error),
+        }
+    }
+    result.into_boxed_slice()
+}
+
+fn vector_id(vector: &VectorDefinition) -> &str {
+    match vector {
+        VectorDefinition::TwoWay { id, .. } | VectorDefinition::FourWay { id, .. } => id,
     }
 }
 
@@ -2446,6 +2702,7 @@ fn scale_reverb_excursion(
 
 type CompiledModulation = (
     Box<[CompiledSource]>,
+    Box<[CompiledInstrumentSource]>,
     Box<[CompiledRoute]>,
     Box<[RouteRange]>,
 );
@@ -2498,6 +2755,32 @@ fn compile_modulation(
                         source_hash: source_id_hash(&value.id),
                     })
                 }
+                ModulationSourceDefinition::Mseg(value) => {
+                    CompiledVoiceSource::Mseg(compile_mseg(value))
+                }
+                ModulationSourceDefinition::Step(value) => {
+                    CompiledVoiceSource::Step(CompiledStep {
+                        values: value.values.clone().into_boxed_slice(),
+                        rate: value.rate.value,
+                        rate_unit: value.rate.unit,
+                    })
+                }
+                ModulationSourceDefinition::SampleHold(value) => {
+                    CompiledVoiceSource::SampleHold(CompiledSampleHold {
+                        seed: value.seed,
+                        source_hash: source_id_hash(&value.id),
+                        rate: value.rate.value,
+                        rate_unit: value.rate.unit,
+                    })
+                }
+                ModulationSourceDefinition::SmoothRandom(value) => {
+                    CompiledVoiceSource::SmoothRandom(CompiledSmoothRandom {
+                        seed: value.seed,
+                        source_hash: source_id_hash(&value.id),
+                        rate: value.rate.value,
+                        rate_unit: value.rate.unit,
+                    })
+                }
             };
             let handle = SourceHandle(sources.len());
             source_lookup.insert(source_id(source).to_owned(), handle);
@@ -2508,6 +2791,8 @@ fn compile_modulation(
         }
     }
 
+    let mut instrument_sources = Vec::new();
+    let mut instrument_lookup = HashMap::new();
     let mut unresolved_routes = Vec::new();
     if let Some(modulation) = &definition.modulation {
         for (index, route) in modulation.routes.iter().enumerate() {
@@ -2521,14 +2806,18 @@ fn compile_modulation(
                 );
                 continue;
             };
-            let source = match route.source.as_str() {
-                "pitch_bend" => Some(CompiledSourceRef::PitchBend),
-                "mod_wheel" => Some(CompiledSourceRef::ModWheel),
-                "aftertouch" => Some(CompiledSourceRef::Aftertouch),
-                _ => source_lookup
-                    .get(&route.source)
-                    .copied()
-                    .map(CompiledSourceRef::Voice),
+            let source = if let Some(handle) = source_lookup.get(&route.source).copied() {
+                Some(CompiledSourceRef::Voice(handle))
+            } else {
+                instrument_source_ref(
+                    &route.source,
+                    definition,
+                    catalog,
+                    &mut instrument_sources,
+                    &mut instrument_lookup,
+                    index,
+                    diagnostics,
+                )
             };
             let Some(source) = source else {
                 diagnostics.push(
@@ -2612,6 +2901,7 @@ fn compile_modulation(
     }
     (
         sources.into_boxed_slice(),
+        instrument_sources.into_boxed_slice(),
         routes.into_boxed_slice(),
         route_ranges.into_boxed_slice(),
     )
@@ -2619,11 +2909,15 @@ fn compile_modulation(
 
 fn route_source_allowed(owner: ParameterOwner, source: CompiledSourceRef) -> bool {
     match owner {
-        ParameterOwner::GlobalProcessor { .. } => !matches!(source, CompiledSourceRef::Voice(_)),
+        ParameterOwner::GlobalProcessor { .. } => {
+            matches!(source, CompiledSourceRef::Instrument(_))
+        }
+        ParameterOwner::Macro { .. } => false,
         ParameterOwner::Layer { .. }
         | ParameterOwner::LayerGenerator { .. }
         | ParameterOwner::LayerProcessor { .. }
-        | ParameterOwner::VoiceProcessor { .. } => true,
+        | ParameterOwner::VoiceProcessor { .. }
+        | ParameterOwner::VectorAxis { .. } => true,
     }
 }
 
@@ -2632,6 +2926,10 @@ fn source_id(source: &ModulationSourceDefinition) -> &str {
         ModulationSourceDefinition::Lfo(value) => &value.id,
         ModulationSourceDefinition::Envelope(value) => &value.id,
         ModulationSourceDefinition::Random(value) => &value.id,
+        ModulationSourceDefinition::Mseg(value) => &value.id,
+        ModulationSourceDefinition::Step(value) => &value.id,
+        ModulationSourceDefinition::SampleHold(value) => &value.id,
+        ModulationSourceDefinition::SmoothRandom(value) => &value.id,
     }
 }
 
@@ -2647,9 +2945,79 @@ pub(crate) fn source_id_hash(source_id: &str) -> u64 {
 fn compile_lfo(value: &LfoDefinition) -> CompiledLfo {
     CompiledLfo {
         waveform: value.waveform,
-        rate_hz: value.rate_hz,
+        rate: value.rate.value,
+        rate_unit: value.rate.unit,
         phase: value.phase,
     }
+}
+
+fn compile_mseg(value: &MsegDefinition) -> CompiledMseg {
+    CompiledMseg {
+        initial_value: value.initial_value,
+        segments: value
+            .segments
+            .iter()
+            .map(|segment| CompiledMsegSegment {
+                duration: segment.duration.value,
+                duration_unit: segment.duration.unit,
+                target: segment.target,
+                curve: segment.curve,
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+        loop_range: value
+            .loop_range
+            .map(|loop_range| (loop_range.start_segment, loop_range.end_segment)),
+    }
+}
+
+fn instrument_source_ref(
+    id: &str,
+    definition: &InstrumentDefinition,
+    catalog: &ParameterCatalog,
+    sources: &mut Vec<CompiledInstrumentSource>,
+    lookup: &mut HashMap<String, InstrumentSourceHandle>,
+    route_index: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<CompiledSourceRef> {
+    if let Some(handle) = lookup.get(id).copied() {
+        return Some(CompiledSourceRef::Instrument(handle));
+    }
+    let source = match id {
+        "pitch_bend" => CompiledInstrumentSource::PitchBend,
+        "mod_wheel" => CompiledInstrumentSource::ModWheel,
+        "aftertouch" => CompiledInstrumentSource::Aftertouch,
+        "transport_beat_phase" => CompiledInstrumentSource::BeatPhase,
+        "transport_bar_phase" => CompiledInstrumentSource::BarPhase,
+        _ => {
+            let macro_id = id.strip_prefix("macro.")?;
+            let Some(parameter) = catalog.parameter_handle(id) else {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::SourceNotFound,
+                        "instrument source is not defined",
+                    )
+                    .with_path(format!("modulation.routes[{route_index}].source")),
+                );
+                return None;
+            };
+            if !definition.macros.iter().any(|value| value.id == macro_id) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::SourceNotFound,
+                        "macro source is not defined",
+                    )
+                    .with_path(format!("modulation.routes[{route_index}].source")),
+                );
+                return None;
+            }
+            CompiledInstrumentSource::Macro { parameter }
+        }
+    };
+    let handle = InstrumentSourceHandle(sources.len());
+    lookup.insert(id.to_owned(), handle);
+    sources.push(source);
+    Some(CompiledSourceRef::Instrument(handle))
 }
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
@@ -4864,6 +5232,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn all_voice_source_kinds_compile_with_routes() {
         let mut source = definition();
         source.modulation = Some(crate::definition::ModulationDefinition {
@@ -4872,7 +5241,10 @@ mod tests {
                     crate::definition::LfoDefinition {
                         id: "slow_lfo".to_owned(),
                         waveform: crate::definition::LfoWaveform::Sine,
-                        rate_hz: 2.0,
+                        rate: crate::definition::ModulationRateDefinition {
+                            value: 2.0,
+                            unit: crate::definition::ModulationRateUnit::PerSecond,
+                        },
                         phase: 0.0,
                     },
                 ),
@@ -4889,6 +5261,51 @@ mod tests {
                     crate::definition::RandomDefinition {
                         id: "random".to_owned(),
                         seed: 7,
+                    },
+                ),
+                crate::definition::ModulationSourceDefinition::Mseg(
+                    crate::definition::MsegDefinition {
+                        id: "motion_env".to_owned(),
+                        initial_value: 0.0,
+                        segments: vec![crate::definition::MsegSegmentDefinition {
+                            duration: crate::definition::ModulationDurationDefinition {
+                                value: 0.1,
+                                unit: crate::definition::ModulationDurationUnit::Seconds,
+                            },
+                            target: 1.0,
+                            curve: crate::definition::ModulationSegmentCurve::Linear,
+                        }],
+                        loop_range: None,
+                    },
+                ),
+                crate::definition::ModulationSourceDefinition::Step(
+                    crate::definition::StepModulatorDefinition {
+                        id: "step".to_owned(),
+                        values: vec![-1.0, 1.0],
+                        rate: crate::definition::ModulationRateDefinition {
+                            value: 2.0,
+                            unit: crate::definition::ModulationRateUnit::PerSecond,
+                        },
+                    },
+                ),
+                crate::definition::ModulationSourceDefinition::SampleHold(
+                    crate::definition::SampleHoldDefinition {
+                        id: "sample_hold".to_owned(),
+                        seed: 11,
+                        rate: crate::definition::ModulationRateDefinition {
+                            value: 2.0,
+                            unit: crate::definition::ModulationRateUnit::PerSecond,
+                        },
+                    },
+                ),
+                crate::definition::ModulationSourceDefinition::SmoothRandom(
+                    crate::definition::SmoothRandomDefinition {
+                        id: "smooth_random".to_owned(),
+                        seed: 13,
+                        rate: crate::definition::ModulationRateDefinition {
+                            value: 2.0,
+                            unit: crate::definition::ModulationRateUnit::PerSecond,
+                        },
                     },
                 ),
             ],
@@ -4920,18 +5337,150 @@ mod tests {
                     },
                     curve: ModulationCurve::Linear,
                 },
+                crate::definition::ModulationRouteDefinition {
+                    source: "motion_env".to_owned(),
+                    target: "layer.body.pan".to_owned(),
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 0.4,
+                        unit: crate::parameter::ModulationUnit::Pan,
+                    },
+                    curve: ModulationCurve::Linear,
+                },
+                crate::definition::ModulationRouteDefinition {
+                    source: "step".to_owned(),
+                    target: "layer.body.tuning".to_owned(),
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 120.0,
+                        unit: crate::parameter::ModulationUnit::Cents,
+                    },
+                    curve: ModulationCurve::Linear,
+                },
+                crate::definition::ModulationRouteDefinition {
+                    source: "sample_hold".to_owned(),
+                    target: "layer.body.gain".to_owned(),
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 7.2,
+                        unit: crate::parameter::ModulationUnit::Decibels,
+                    },
+                    curve: ModulationCurve::Linear,
+                },
+                crate::definition::ModulationRouteDefinition {
+                    source: "smooth_random".to_owned(),
+                    target: "layer.body.tuning".to_owned(),
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 120.0,
+                        unit: crate::parameter::ModulationUnit::Cents,
+                    },
+                    curve: ModulationCurve::Linear,
+                },
             ],
         });
         let result = compile_instrument(&source, &context());
         let compiled = result.instrument.expect("all source kinds compile");
-        assert_eq!(compiled.sources.len(), 5);
-        assert_eq!(compiled.routes.len(), 3);
+        assert_eq!(compiled.sources.len(), 9);
+        assert_eq!(compiled.routes.len(), 7);
         assert!(
             compiled
                 .routes
                 .iter()
                 .all(|route| route.target.index() < compiled.parameters().len())
         );
+    }
+
+    #[test]
+    fn macros_vectors_and_transport_sources_compile_as_instrument_bindings() {
+        let mut source = definition();
+        let mut bright = source.layers[0].clone();
+        bright.id = "bright".to_owned();
+        source.layers.push(bright);
+        source.macros.push(crate::definition::MacroDefinition {
+            id: "motion".to_owned(),
+            name: "Motion".to_owned(),
+            default: 0.25,
+        });
+        source
+            .vectors
+            .push(crate::definition::VectorDefinition::TwoWay {
+                id: "tone".to_owned(),
+                name: "Tone".to_owned(),
+                layer_a: "body".to_owned(),
+                layer_b: "bright".to_owned(),
+                position: 0.25,
+            });
+        source.modulation = Some(crate::definition::ModulationDefinition {
+            sources: Vec::new(),
+            routes: vec![
+                crate::definition::ModulationRouteDefinition {
+                    source: "macro.motion".to_owned(),
+                    target: "vector.tone.position".to_owned(),
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 1.0,
+                        unit: crate::parameter::ModulationUnit::Normalized,
+                    },
+                    curve: ModulationCurve::Linear,
+                },
+                crate::definition::ModulationRouteDefinition {
+                    source: "transport_beat_phase".to_owned(),
+                    target: "layer.body.tuning".to_owned(),
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 20.0,
+                        unit: crate::parameter::ModulationUnit::Cents,
+                    },
+                    curve: ModulationCurve::Linear,
+                },
+            ],
+        });
+
+        let result = compile_instrument(&source, &context());
+        let compiled = result.instrument.expect("instrument bindings compile");
+
+        assert_eq!(compiled.macro_definitions.len(), 1);
+        assert_eq!(compiled.vector_definitions.len(), 1);
+        assert_eq!(compiled.vectors.len(), 1);
+        assert!(compiled.parameter_handle("macro.motion").is_some());
+        assert!(compiled.parameter_handle("vector.tone.position").is_some());
+        assert!(
+            compiled
+                .instrument_sources
+                .iter()
+                .any(|source| matches!(source, CompiledInstrumentSource::Macro { .. }))
+        );
+        assert!(
+            compiled
+                .instrument_sources
+                .contains(&CompiledInstrumentSource::BeatPhase)
+        );
+        assert_eq!(compiled.routes.len(), 2);
+    }
+
+    #[test]
+    fn macro_parameters_cannot_be_modulation_targets() {
+        let mut source = definition();
+        source.macros.push(crate::definition::MacroDefinition {
+            id: "motion".to_owned(),
+            name: "Motion".to_owned(),
+            default: 0.0,
+        });
+        source.modulation = Some(crate::definition::ModulationDefinition {
+            sources: Vec::new(),
+            routes: vec![crate::definition::ModulationRouteDefinition {
+                source: "velocity".to_owned(),
+                target: "macro.motion".to_owned(),
+                depth: crate::definition::ModulationDepthDefinition {
+                    value: 1.0,
+                    unit: crate::parameter::ModulationUnit::Normalized,
+                },
+                curve: ModulationCurve::Linear,
+            }],
+        });
+
+        let result = compile_instrument(&source, &context());
+
+        assert!(result.instrument.is_none());
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::GlobalRouteScopeInvalid
+                && diagnostic.path.as_deref() == Some("modulation.routes[0].source")
+        }));
     }
 
     #[test]

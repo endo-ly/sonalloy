@@ -453,6 +453,9 @@ fn wavetable_output_is_stable_across_block_sizes_and_reset() {
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: &[sonalloy_core::ProcessEvent {
                 sample_offset: 0,
@@ -475,6 +478,9 @@ fn wavetable_output_is_stable_across_block_sizes_and_reset() {
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: &[sonalloy_core::ProcessEvent {
                 sample_offset: 0,

@@ -1,0 +1,187 @@
+{
+  "schema_version": 3,
+  "metadata": {
+    "name": "Vector Hybrid",
+    "author": "Sonalloy",
+    "description": "Four oscillator layers arranged on a constant-power XY Vector"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "analog",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -2.0,
+      "pan": -0.25,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.02,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.7,
+        "release_seconds": 0.45
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    },
+    {
+      "id": "bright",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -2.0,
+      "pan": 0.25,
+      "tuning_cents": 1200.0,
+      "envelope": {
+        "attack_seconds": 0.02,
+        "decay_seconds": 0.22,
+        "sustain_level": 0.65,
+        "release_seconds": 0.45
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "square"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    },
+    {
+      "id": "texture",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -6.0,
+      "pan": -0.15,
+      "tuning_cents": -1200.0,
+      "envelope": {
+        "attack_seconds": 0.04,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.55,
+        "release_seconds": 0.5
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    },
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10.0,
+      "pan": 0.15,
+      "tuning_cents": 700.0,
+      "envelope": {
+        "attack_seconds": 0.08,
+        "decay_seconds": 0.35,
+        "sustain_level": 0.5,
+        "release_seconds": 0.6
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "type": "lfo",
+        "id": "vector_sweep",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.25,
+          "unit": "per_second"
+        },
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "macro.position",
+        "target": "vector.character.x",
+        "depth": {
+          "value": 1.0,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "vector_sweep",
+        "target": "vector.character.y",
+        "depth": {
+          "value": 0.5,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "position",
+      "name": "Position",
+      "default": 0.5
+    }
+  ],
+  "vectors": [
+    {
+      "type": "four_way",
+      "id": "character",
+      "name": "Character",
+      "top_left": "analog",
+      "top_right": "bright",
+      "bottom_left": "texture",
+      "bottom_right": "air",
+      "x": 0.5,
+      "y": 0.5
+    }
+  ]
+}

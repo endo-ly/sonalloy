@@ -8,7 +8,7 @@ use cpal::{ErrorKind, FromSample, I24, SampleFormat, SizedSample, Stream, Stream
 use crossbeam_queue::ArrayQueue;
 use sonalloy_core::{
     Diagnostic, DiagnosticCode, InstrumentProcessor, InstrumentRuntime, ProcessBlock,
-    ProcessContext, ProcessEvent, ProcessEventKind,
+    ProcessContext, ProcessEvent, ProcessEventKind, TimeSignature,
 };
 
 use super::device::{DeviceError, SelectedAudioDevice};
@@ -169,7 +169,9 @@ pub(crate) struct AudioEngine {
     feed: RealtimeEventFeed,
     status: Arc<RealtimeStatus>,
     max_block_size: usize,
+    sample_rate: f64,
     tempo_bpm: f64,
+    time_signature: TimeSignature,
     channels: usize,
     left: Vec<f32>,
     right: Vec<f32>,
@@ -178,12 +180,15 @@ pub(crate) struct AudioEngine {
 }
 
 impl AudioEngine {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         runtime: InstrumentRuntime,
         events: Arc<ArrayQueue<QueuedEvent>>,
         status: Arc<RealtimeStatus>,
         max_block_size: usize,
+        sample_rate: f64,
         tempo_bpm: f64,
+        time_signature: TimeSignature,
         channels: usize,
     ) -> Self {
         Self {
@@ -192,7 +197,9 @@ impl AudioEngine {
             feed: RealtimeEventFeed::Live,
             status,
             max_block_size,
+            sample_rate,
             tempo_bpm,
+            time_signature,
             channels,
             left: vec![0.0; max_block_size],
             right: vec![0.0; max_block_size],
@@ -206,16 +213,20 @@ impl AudioEngine {
         feed: ScheduledEventFeed,
         status: Arc<RealtimeStatus>,
         max_block_size: usize,
+        sample_rate: f64,
         channels: usize,
     ) -> Self {
         let process_event_capacity = feed.max_events_per_block();
+        let time_signature = feed.context_at(0, sample_rate).time_signature;
         Self {
             runtime,
             events: Arc::new(ArrayQueue::new(1)),
             feed: RealtimeEventFeed::Scheduled(feed),
             status,
             max_block_size,
+            sample_rate,
             tempo_bpm: 120.0,
+            time_signature,
             channels,
             left: vec![0.0; max_block_size],
             right: vec![0.0; max_block_size],
@@ -250,7 +261,7 @@ impl AudioEngine {
         while frame_start < frames {
             let block_frames = (frames - frame_start).min(self.max_block_size);
             let absolute_frame = self.runtime.absolute_frame();
-            let (block_frames, tempo_bpm) = match self.prepare_block(block_frames) {
+            let (block_frames, context) = match self.prepare_block(block_frames, absolute_frame) {
                 Ok(Some(block)) => block,
                 Ok(None) => return,
                 Err(()) => {
@@ -266,10 +277,7 @@ impl AudioEngine {
             ];
             let result = self.runtime.process(ProcessBlock {
                 frames: block_frames,
-                context: ProcessContext {
-                    absolute_frame,
-                    tempo_bpm,
-                },
+                context,
                 events: &self.process_events,
                 output: &mut output,
             });
@@ -290,14 +298,29 @@ impl AudioEngine {
         }
     }
 
-    fn prepare_block(&mut self, requested_frames: usize) -> Result<Option<(usize, f64)>, ()> {
+    fn prepare_block(
+        &mut self,
+        requested_frames: usize,
+        absolute_frame: u64,
+    ) -> Result<Option<(usize, ProcessContext)>, ()> {
         match &mut self.feed {
             RealtimeEventFeed::Live => {
                 self.drain_events();
                 if self.status.fatal() != FatalStatus::None {
                     return Ok(None);
                 }
-                Ok(Some((requested_frames, self.tempo_bpm)))
+                Ok(Some((
+                    requested_frames,
+                    ProcessContext {
+                        absolute_frame,
+                        tempo_bpm: self.tempo_bpm,
+                        beat_position: absolute_frame_as_f64(absolute_frame) * self.tempo_bpm
+                            / (60.0 * self.sample_rate),
+                        bar_position: absolute_frame_as_f64(absolute_frame) * self.tempo_bpm
+                            / (60.0 * self.sample_rate * self.time_signature.beats_per_bar()),
+                        time_signature: self.time_signature,
+                    },
+                )))
             }
             RealtimeEventFeed::Scheduled(feed) => {
                 let absolute_frame = self.runtime.absolute_frame();
@@ -308,7 +331,10 @@ impl AudioEngine {
                     self.status.mark_finished();
                     return Ok(None);
                 }
-                Ok(Some((frames, feed.tempo_at(absolute_frame))))
+                Ok(Some((
+                    frames,
+                    feed.context_at(absolute_frame, self.sample_rate),
+                )))
             }
         }
     }
@@ -344,6 +370,11 @@ impl AudioEngine {
     }
 }
 
+#[allow(clippy::cast_precision_loss)]
+fn absolute_frame_as_f64(frame: u64) -> f64 {
+    frame as f64
+}
+
 pub(crate) fn build_stream(
     selected: &SelectedAudioDevice,
     runtime: InstrumentRuntime,
@@ -351,6 +382,7 @@ pub(crate) fn build_stream(
     status: Arc<RealtimeStatus>,
     max_block_size: usize,
     tempo_bpm: f64,
+    time_signature: TimeSignature,
 ) -> Result<Stream, DeviceError> {
     let channels = usize::from(selected.config.channels());
     if channels < 2 {
@@ -374,7 +406,9 @@ pub(crate) fn build_stream(
         events,
         status.clone(),
         max_block_size,
+        f64::from(selected.config.sample_rate()),
         tempo_bpm,
+        time_signature,
         channels,
     );
     build_stream_with_engine(selected, engine, status)
@@ -404,8 +438,14 @@ pub(crate) fn build_scheduled_stream(
             ),
         });
     }
-    let engine =
-        AudioEngine::new_scheduled(runtime, feed, status.clone(), max_block_size, channels);
+    let engine = AudioEngine::new_scheduled(
+        runtime,
+        feed,
+        status.clone(),
+        max_block_size,
+        f64::from(selected.config.sample_rate()),
+        channels,
+    );
     build_stream_with_engine(selected, engine, status)
 }
 
@@ -476,7 +516,8 @@ fn handle_stream_error(status: &RealtimeStatus, kind: ErrorKind) {
 mod tests {
     use super::*;
     use sonalloy_core::{
-        CompileContext, InstrumentProcessor, ProcessSpec, ScheduledEvent, TempoMap, VoiceState,
+        CompileContext, InstrumentProcessor, MusicalTimeMap, ProcessSpec, ScheduledEvent,
+        VoiceState,
     };
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::cell::Cell;
@@ -565,7 +606,9 @@ mod tests {
             Arc::new(ArrayQueue::new(REALTIME_EVENT_QUEUE_CAPACITY)),
             Arc::new(RealtimeStatus::new()),
             256,
+            48_000.0,
             120.0,
+            sonalloy_core::DEFAULT_TIME_SIGNATURE,
             channels,
         )
     }
@@ -581,7 +624,7 @@ mod tests {
                         velocity: 100,
                     },
                 }],
-                tempo_map: TempoMap::constant(120.0).expect("tempo map"),
+                musical_time_map: MusicalTimeMap::constant(120.0).expect("tempo map"),
                 length_frames: 48_000,
                 one_shot_duration_frames: 48_000,
             },
@@ -595,6 +638,7 @@ mod tests {
             feed,
             Arc::new(RealtimeStatus::new()),
             256,
+            48_000.0,
             2,
         )
     }

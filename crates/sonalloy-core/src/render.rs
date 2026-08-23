@@ -4,8 +4,8 @@ use thiserror::Error;
 
 use crate::compiler::CompiledInstrument;
 use crate::process::{
-    InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessEvent, ProcessSpec,
-    ScheduledEvent,
+    DEFAULT_TIME_SIGNATURE, InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError,
+    ProcessEvent, ProcessSpec, ScheduledEvent, TimeSignature,
 };
 use crate::runtime::{InstrumentRuntime, SineRuntime};
 use crate::trace::{
@@ -57,34 +57,36 @@ impl RenderRequest {
     }
 }
 
-/// A tempo change at an absolute render frame.
+/// A tempo and meter change at an absolute render frame.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct TempoChange {
-    /// Absolute frame at which this tempo becomes active.
+pub struct MusicalTimeChange {
+    /// Absolute frame at which this tempo and meter become active.
     pub absolute_frame: u64,
     /// Tempo in beats per minute.
     pub tempo_bpm: f64,
+    /// Meter that becomes active at the change.
+    pub time_signature: TimeSignature,
 }
 
-/// An ordered tempo map used by the offline renderer.
+/// An ordered musical-time map used by the offline renderer.
 #[derive(Debug, Clone, PartialEq)]
-pub struct TempoMap {
-    changes: Vec<TempoChange>,
+pub struct MusicalTimeMap {
+    changes: Vec<MusicalTimeChange>,
 }
 
-impl TempoMap {
-    /// Create a tempo map whose first change is active at frame zero.
+impl MusicalTimeMap {
+    /// Create a musical-time map whose first change is active at frame zero.
     ///
     /// # Errors
     ///
     /// Returns an error when the map is empty, does not start at frame zero, is not strictly
     /// ordered, or contains a non-positive or non-finite tempo.
-    pub fn new(changes: Vec<TempoChange>) -> Result<Self, RenderError> {
+    pub fn new(changes: Vec<MusicalTimeChange>) -> Result<Self, RenderError> {
         let Some(first) = changes.first() else {
-            return Err(RenderError::TempoMapEmpty);
+            return Err(RenderError::MusicalTimeMapEmpty);
         };
         if first.absolute_frame != 0 {
-            return Err(RenderError::TempoMapMustStartAtZero);
+            return Err(RenderError::MusicalTimeMapMustStartAtZero);
         }
         if changes
             .iter()
@@ -93,32 +95,40 @@ impl TempoMap {
             return Err(RenderError::InvalidTempo);
         }
         if changes
+            .iter()
+            .any(|change| !change.time_signature.is_valid())
+        {
+            return Err(RenderError::InvalidTimeSignature);
+        }
+        if changes
             .windows(2)
             .any(|window| window[0].absolute_frame >= window[1].absolute_frame)
         {
-            return Err(RenderError::TempoMapNotSorted);
+            return Err(RenderError::MusicalTimeMapNotSorted);
         }
         Ok(Self { changes })
     }
 
-    /// Create a constant tempo map.
+    /// Create a constant musical-time map.
     ///
     /// # Errors
     ///
     /// Returns an error when the tempo is non-positive or non-finite.
     pub fn constant(tempo_bpm: f64) -> Result<Self, RenderError> {
-        Self::new(vec![TempoChange {
+        Self::new(vec![MusicalTimeChange {
             absolute_frame: 0,
             tempo_bpm,
+            time_signature: DEFAULT_TIME_SIGNATURE,
         }])
     }
 
-    /// Return the tempo changes in absolute-frame order.
+    /// Return the musical-time changes in absolute-frame order.
     #[must_use]
-    pub fn changes(&self) -> &[TempoChange] {
+    pub fn changes(&self) -> &[MusicalTimeChange] {
         &self.changes
     }
 
+    #[cfg(test)]
     fn tempo_at(&self, absolute_frame: u64) -> f64 {
         let index = self
             .changes
@@ -127,11 +137,103 @@ impl TempoMap {
         self.changes[index].tempo_bpm
     }
 
+    #[cfg(test)]
     fn next_change_after(&self, absolute_frame: u64) -> Option<u64> {
         self.changes
             .iter()
             .find(|change| change.absolute_frame > absolute_frame)
             .map(|change| change.absolute_frame)
+    }
+
+    /// Prepare musical positions for one render sample rate.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the sample rate is not finite and positive.
+    pub fn prepare(&self, sample_rate: f64) -> Result<PreparedMusicalTimeMap, RenderError> {
+        if !sample_rate.is_finite() || sample_rate <= 0.0 {
+            return Err(RenderError::InvalidSampleRate);
+        }
+        let mut segments = Vec::with_capacity(self.changes.len());
+        let mut beat_position = 0.0;
+        let mut bar_position = 0.0;
+        for (index, change) in self.changes.iter().enumerate() {
+            if let Some(previous) = self.changes.get(index.saturating_sub(1)) {
+                let frame_delta = change
+                    .absolute_frame
+                    .saturating_sub(previous.absolute_frame);
+                #[allow(clippy::cast_precision_loss)]
+                let frame_delta = frame_delta as f64;
+                let beat_delta = frame_delta * previous.tempo_bpm / (60.0 * sample_rate);
+                beat_position += beat_delta;
+                if previous.time_signature == change.time_signature {
+                    bar_position += beat_delta / previous.time_signature.beats_per_bar();
+                } else {
+                    bar_position = (bar_position
+                        + beat_delta / previous.time_signature.beats_per_bar())
+                    .ceil();
+                }
+            }
+            segments.push(PreparedMusicalTimeSegment {
+                start_frame: change.absolute_frame,
+                tempo_bpm: change.tempo_bpm,
+                time_signature: change.time_signature,
+                beat_position,
+                bar_position,
+            });
+        }
+        Ok(PreparedMusicalTimeMap {
+            sample_rate,
+            segments,
+        })
+    }
+}
+
+/// Prepared musical-time positions for one sample rate.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreparedMusicalTimeMap {
+    sample_rate: f64,
+    segments: Vec<PreparedMusicalTimeSegment>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct PreparedMusicalTimeSegment {
+    start_frame: u64,
+    tempo_bpm: f64,
+    time_signature: TimeSignature,
+    beat_position: f64,
+    bar_position: f64,
+}
+
+impl PreparedMusicalTimeMap {
+    fn segment_at(&self, absolute_frame: u64) -> PreparedMusicalTimeSegment {
+        let index = self
+            .segments
+            .partition_point(|segment| segment.start_frame <= absolute_frame)
+            .saturating_sub(1);
+        self.segments[index]
+    }
+
+    fn next_change_after(&self, absolute_frame: u64) -> Option<u64> {
+        self.segments
+            .iter()
+            .find(|segment| segment.start_frame > absolute_frame)
+            .map(|segment| segment.start_frame)
+    }
+
+    fn context_at(&self, absolute_frame: u64) -> ProcessContext {
+        let segment = self.segment_at(absolute_frame);
+        #[allow(clippy::cast_precision_loss)]
+        let frame_delta = absolute_frame.saturating_sub(segment.start_frame) as f64;
+        let beat_delta = frame_delta * segment.tempo_bpm / (60.0 * self.sample_rate);
+        ProcessContext {
+            absolute_frame,
+            tempo_bpm: segment.tempo_bpm,
+            beat_position: segment.beat_position + beat_delta,
+            bar_position: segment.bar_position
+                + beat_delta / segment.time_signature.beats_per_bar(),
+            time_signature: segment.time_signature,
+        }
     }
 }
 
@@ -166,15 +268,18 @@ pub enum RenderError {
     /// The render tempo is unsupported.
     #[error("tempo must be finite and greater than zero")]
     InvalidTempo,
-    /// No tempo change was supplied.
-    #[error("tempo map must contain at least one change")]
-    TempoMapEmpty,
-    /// The first tempo change must define the initial tempo.
-    #[error("tempo map must start at frame zero")]
-    TempoMapMustStartAtZero,
-    /// Tempo changes must be strictly ordered by absolute frame.
-    #[error("tempo map changes must be strictly ordered")]
-    TempoMapNotSorted,
+    /// The time signature is unsupported.
+    #[error("time signature is invalid")]
+    InvalidTimeSignature,
+    /// No musical-time change was supplied.
+    #[error("musical time map must contain at least one change")]
+    MusicalTimeMapEmpty,
+    /// The first musical-time change must define the initial tempo and meter.
+    #[error("musical time map must start at frame zero")]
+    MusicalTimeMapMustStartAtZero,
+    /// Musical-time changes must be strictly ordered by absolute frame.
+    #[error("musical time map changes must be strictly ordered")]
+    MusicalTimeMapNotSorted,
     /// The oscillator frequency is invalid.
     #[error("frequency must be finite and non-negative")]
     InvalidFrequency,
@@ -275,8 +380,8 @@ pub fn render_instrument_with_tempo(
     tempo_bpm: f64,
 ) -> Result<RenderedAudio, RenderError> {
     let mut runtime = InstrumentRuntime::new(compiled);
-    let tempo_map = TempoMap::constant(tempo_bpm)?;
-    render_processor_with_tempo_map(&mut runtime, request, events, &tempo_map)
+    let musical_time_map = MusicalTimeMap::constant(tempo_bpm)?;
+    render_processor_with_musical_time_map(&mut runtime, request, events, &musical_time_map)
 }
 
 /// Render a compiled instrument with an absolute-frame tempo map.
@@ -285,14 +390,14 @@ pub fn render_instrument_with_tempo(
 ///
 /// Returns an error when the request, tempo map, event timeline, or instrument runtime is
 /// invalid.
-pub fn render_instrument_with_tempo_map(
+pub fn render_instrument_with_musical_time_map(
     compiled: Arc<CompiledInstrument>,
     request: RenderRequest,
     events: &[ScheduledEvent],
-    tempo_map: &TempoMap,
+    musical_time_map: &MusicalTimeMap,
 ) -> Result<RenderedAudio, RenderError> {
     let mut runtime = InstrumentRuntime::new(compiled);
-    render_processor_with_tempo_map(&mut runtime, request, events, tempo_map)
+    render_processor_with_musical_time_map(&mut runtime, request, events, musical_time_map)
 }
 
 /// Render an instrument, reset the same prepared runtime, and render the same events again.
@@ -308,28 +413,29 @@ pub fn render_instrument_with_reset(
     compiled: Arc<CompiledInstrument>,
     request: RenderRequest,
     events: &[ScheduledEvent],
-    tempo_map: &TempoMap,
+    musical_time_map: &MusicalTimeMap,
 ) -> Result<(RenderedAudio, RenderedAudio), RenderError> {
     let total_frames_usize = validate_render_inputs(request, events)?;
     let spec = request.process_spec()?;
     let mut runtime = InstrumentRuntime::new(compiled);
     runtime.prepare(spec)?;
-    let mut observe = |_frame: u64, _runtime: &mut InstrumentRuntime| Ok(());
-    let first = render_prepared_processor_with_tempo_map_observed(
+    let mut observe =
+        |_frame: u64, _runtime: &mut InstrumentRuntime, _context: ProcessContext| Ok(());
+    let first = render_prepared_processor_with_musical_time_map_observed(
         &mut runtime,
         request,
         events,
-        tempo_map,
+        musical_time_map,
         &[],
         &mut observe,
         total_frames_usize,
     )?;
     runtime.reset()?;
-    let second = render_prepared_processor_with_tempo_map_observed(
+    let second = render_prepared_processor_with_musical_time_map_observed(
         &mut runtime,
         request,
         events,
-        tempo_map,
+        musical_time_map,
         &[],
         &mut observe,
         total_frames_usize,
@@ -352,7 +458,7 @@ pub fn render_instrument_with_trace(
     compiled: Arc<CompiledInstrument>,
     request: RenderRequest,
     events: &[ScheduledEvent],
-    tempo_map: &TempoMap,
+    musical_time_map: &MusicalTimeMap,
     trace_request: &TraceRequest,
 ) -> Result<(RenderedAudio, RenderTraceReport), RenderError> {
     if trace_request.every_frames == 0 {
@@ -368,7 +474,12 @@ pub fn render_instrument_with_trace(
     let total_frames = request.total_frames()?;
     if trace_request.parameters.is_empty() {
         let mut runtime = InstrumentRuntime::new(Arc::clone(&compiled));
-        let audio = render_processor_with_tempo_map(&mut runtime, request, events, tempo_map)?;
+        let audio = render_processor_with_musical_time_map(
+            &mut runtime,
+            request,
+            events,
+            musical_time_map,
+        )?;
         return Ok((
             audio,
             TraceCollector::new(trace_request, &compiled).finish(),
@@ -382,7 +493,7 @@ pub fn render_instrument_with_trace(
     let boundary_count = trace_boundary_count(trace_frames, trace_request.every_frames, events);
     let estimate = boundary_count
         .saturating_mul(trace_request.parameters.len())
-        .saturating_mul(compiled.performance.polyphony.max(1));
+        .saturating_mul(compiled.performance.voice_count.max(1));
     if estimate > MAX_TRACE_OBSERVATIONS {
         return Err(RenderError::TraceLimitExceeded {
             estimated: estimate,
@@ -415,9 +526,9 @@ pub fn render_instrument_with_trace(
     }
     let mut runtime = InstrumentRuntime::new(Arc::clone(&compiled));
     let mut collector = TraceCollector::new(trace_request, &compiled);
-    let mut observe = |frame: u64, runtime: &mut InstrumentRuntime| {
+    let mut observe = |frame: u64, runtime: &mut InstrumentRuntime, context: ProcessContext| {
         collector
-            .observe(runtime, frame)
+            .observe(runtime, frame, context)
             .map_err(|error| match error {
                 TraceCollectError::Process(error) => RenderError::Process(error),
                 TraceCollectError::LimitExceeded { observed, limit } => {
@@ -428,11 +539,11 @@ pub fn render_instrument_with_trace(
                 }
             })
     };
-    let audio = render_processor_with_tempo_map_observed(
+    let audio = render_processor_with_musical_time_map_observed(
         &mut runtime,
         request,
         events,
-        tempo_map,
+        musical_time_map,
         &boundaries,
         &mut observe,
     )?;
@@ -471,69 +582,70 @@ fn render_processor<P: InstrumentProcessor>(
     processor: &mut P,
     request: RenderRequest,
 ) -> Result<RenderedAudio, RenderError> {
-    let tempo_map = TempoMap::constant(DEFAULT_TEMPO_BPM)?;
-    render_processor_with_tempo_map(processor, request, &[], &tempo_map)
+    let musical_time_map = MusicalTimeMap::constant(DEFAULT_TEMPO_BPM)?;
+    render_processor_with_musical_time_map(processor, request, &[], &musical_time_map)
 }
 
-fn render_processor_with_tempo_map<P: InstrumentProcessor>(
+fn render_processor_with_musical_time_map<P: InstrumentProcessor>(
     processor: &mut P,
     request: RenderRequest,
     events: &[ScheduledEvent],
-    tempo_map: &TempoMap,
+    musical_time_map: &MusicalTimeMap,
 ) -> Result<RenderedAudio, RenderError> {
-    let mut observe = |_frame: u64, _processor: &mut P| Ok(());
-    render_processor_with_tempo_map_observed(
+    let mut observe = |_frame: u64, _processor: &mut P, _context: ProcessContext| Ok(());
+    render_processor_with_musical_time_map_observed(
         processor,
         request,
         events,
-        tempo_map,
+        musical_time_map,
         &[],
         &mut observe,
     )
 }
 
-fn render_processor_with_tempo_map_observed<P, F>(
+fn render_processor_with_musical_time_map_observed<P, F>(
     processor: &mut P,
     request: RenderRequest,
     events: &[ScheduledEvent],
-    tempo_map: &TempoMap,
+    musical_time_map: &MusicalTimeMap,
     observation_boundaries: &[u64],
     observe: &mut F,
 ) -> Result<RenderedAudio, RenderError>
 where
     P: InstrumentProcessor,
-    F: FnMut(u64, &mut P) -> Result<(), RenderError>,
+    F: FnMut(u64, &mut P, ProcessContext) -> Result<(), RenderError>,
 {
     let total_frames_usize = validate_render_inputs(request, events)?;
     let spec = request.process_spec()?;
     processor.prepare(spec)?;
-    render_prepared_processor_with_tempo_map_observed(
+    render_prepared_processor_with_musical_time_map_observed(
         processor,
         request,
         events,
-        tempo_map,
+        musical_time_map,
         observation_boundaries,
         observe,
         total_frames_usize,
     )
 }
 
-fn render_prepared_processor_with_tempo_map_observed<P, F>(
+fn render_prepared_processor_with_musical_time_map_observed<P, F>(
     processor: &mut P,
     request: RenderRequest,
     events: &[ScheduledEvent],
-    tempo_map: &TempoMap,
+    musical_time_map: &MusicalTimeMap,
     observation_boundaries: &[u64],
     observe: &mut F,
     total_frames_usize: usize,
 ) -> Result<RenderedAudio, RenderError>
 where
     P: InstrumentProcessor,
-    F: FnMut(u64, &mut P) -> Result<(), RenderError>,
+    F: FnMut(u64, &mut P, ProcessContext) -> Result<(), RenderError>,
 {
+    let timeline = musical_time_map.prepare(request.sample_rate)?;
     let mut observation_index = 0_usize;
     if observation_boundaries.first() == Some(&0) {
-        observe(0, processor)?;
+        observe(0, processor, timeline.context_at(0))?;
         observation_index = 1;
     }
 
@@ -548,7 +660,7 @@ where
     let mut block_events = Vec::with_capacity(events.len());
     while offset < total_frames_usize {
         let next_observation = observation_boundaries.get(observation_index).copied();
-        let next_tempo_frame = tempo_map
+        let next_tempo_frame = timeline
             .next_change_after(u64::try_from(offset).map_err(|_| RenderError::FrameCountOverflow)?)
             .and_then(|frame| usize::try_from(frame).ok())
             .unwrap_or(total_frames_usize);
@@ -586,14 +698,11 @@ where
                 &mut left_channel[0][offset..end],
                 &mut right_channel[0][offset..end],
             ];
+            let context = timeline
+                .context_at(u64::try_from(offset).map_err(|_| RenderError::FrameCountOverflow)?);
             let block = ProcessBlock {
                 frames,
-                context: ProcessContext {
-                    absolute_frame: offset as u64,
-                    tempo_bpm: tempo_map.tempo_at(
-                        u64::try_from(offset).map_err(|_| RenderError::FrameCountOverflow)?,
-                    ),
-                },
+                context,
                 events: &block_events,
                 output: &mut output,
             };
@@ -601,7 +710,7 @@ where
         }
         offset = end;
         if next_observation == Some(end as u64) {
-            observe(end as u64, processor)?;
+            observe(end as u64, processor, timeline.context_at(end as u64))?;
             observation_index += 1;
         }
     }
@@ -729,25 +838,33 @@ mod tests {
 
     #[test]
     fn tempo_boundaries_split_process_contexts() {
-        let tempo_map = TempoMap::new(vec![
-            TempoChange {
+        let musical_time_map = MusicalTimeMap::new(vec![
+            MusicalTimeChange {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                time_signature: DEFAULT_TIME_SIGNATURE,
             },
-            TempoChange {
+            MusicalTimeChange {
                 absolute_frame: 32,
                 tempo_bpm: 90.0,
+                time_signature: DEFAULT_TIME_SIGNATURE,
             },
-            TempoChange {
+            MusicalTimeChange {
                 absolute_frame: 80,
                 tempo_bpm: 60.0,
+                time_signature: DEFAULT_TIME_SIGNATURE,
             },
         ])
         .expect("tempo map");
         let mut processor = TempoRecordingProcessor { blocks: Vec::new() };
 
-        render_processor_with_tempo_map(&mut processor, request(96, 0, 64), &[], &tempo_map)
-            .expect("tempo-aware render");
+        render_processor_with_musical_time_map(
+            &mut processor,
+            request(96, 0, 64),
+            &[],
+            &musical_time_map,
+        )
+        .expect("tempo-aware render");
 
         assert_eq!(processor.blocks.len(), 3);
         assert_eq!((processor.blocks[0].0, processor.blocks[0].1), (0, 32));
@@ -777,41 +894,52 @@ mod tests {
     }
 
     #[test]
-    fn tempo_map_requires_valid_ordered_changes() {
-        assert_eq!(TempoMap::new(Vec::new()), Err(RenderError::TempoMapEmpty));
+    fn musical_time_map_requires_valid_ordered_changes() {
         assert_eq!(
-            TempoMap::new(vec![TempoChange {
+            MusicalTimeMap::new(Vec::new()),
+            Err(RenderError::MusicalTimeMapEmpty)
+        );
+        assert_eq!(
+            MusicalTimeMap::new(vec![MusicalTimeChange {
                 absolute_frame: 1,
                 tempo_bpm: 120.0,
+                time_signature: DEFAULT_TIME_SIGNATURE,
             }]),
-            Err(RenderError::TempoMapMustStartAtZero)
+            Err(RenderError::MusicalTimeMapMustStartAtZero)
         );
         assert_eq!(
-            TempoMap::new(vec![
-                TempoChange {
+            MusicalTimeMap::new(vec![
+                MusicalTimeChange {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    time_signature: DEFAULT_TIME_SIGNATURE,
                 },
-                TempoChange {
+                MusicalTimeChange {
                     absolute_frame: 0,
                     tempo_bpm: 90.0,
+                    time_signature: DEFAULT_TIME_SIGNATURE,
                 },
             ]),
-            Err(RenderError::TempoMapNotSorted)
+            Err(RenderError::MusicalTimeMapNotSorted)
         );
-        assert_eq!(TempoMap::constant(f64::NAN), Err(RenderError::InvalidTempo));
+        assert_eq!(
+            MusicalTimeMap::constant(f64::NAN),
+            Err(RenderError::InvalidTempo)
+        );
     }
 
     #[test]
-    fn tempo_map_exposes_the_tempo_at_each_boundary() {
-        let map = TempoMap::new(vec![
-            TempoChange {
+    fn musical_time_map_exposes_the_tempo_at_each_boundary() {
+        let map = MusicalTimeMap::new(vec![
+            MusicalTimeChange {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                time_signature: DEFAULT_TIME_SIGNATURE,
             },
-            TempoChange {
+            MusicalTimeChange {
                 absolute_frame: 32,
                 tempo_bpm: 90.0,
+                time_signature: DEFAULT_TIME_SIGNATURE,
             },
         ])
         .expect("tempo map");
@@ -821,5 +949,55 @@ mod tests {
         assert!((map.tempo_at(32) - 90.0).abs() < f64::EPSILON);
         assert_eq!(map.next_change_after(0), Some(32));
         assert_eq!(map.next_change_after(32), None);
+    }
+
+    #[test]
+    fn prepared_musical_time_tracks_beats_and_resets_bars_on_meter_change() {
+        let map = MusicalTimeMap::new(vec![
+            MusicalTimeChange {
+                absolute_frame: 0,
+                tempo_bpm: 120.0,
+                time_signature: TimeSignature {
+                    numerator: 4,
+                    denominator: 4,
+                },
+            },
+            MusicalTimeChange {
+                absolute_frame: 48_000,
+                tempo_bpm: 120.0,
+                time_signature: TimeSignature {
+                    numerator: 3,
+                    denominator: 4,
+                },
+            },
+        ])
+        .expect("valid musical-time map");
+        let prepared = map.prepare(48_000.0).expect("prepared map");
+
+        let before_change = prepared.context_at(47_999);
+        let at_change = prepared.context_at(48_000);
+        let later = prepared.context_at(72_000);
+
+        assert!((before_change.beat_position - 1.999_958_333_333_333_3).abs() < 1e-12);
+        assert!((at_change.beat_position - 2.0).abs() < f64::EPSILON);
+        assert!((at_change.bar_position - 1.0).abs() < f64::EPSILON);
+        assert_eq!(at_change.time_signature.denominator, 4);
+        assert!((later.beat_position - 3.0).abs() < f64::EPSILON);
+        assert!((later.bar_position - (4.0 / 3.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn musical_time_map_rejects_invalid_meter() {
+        assert_eq!(
+            MusicalTimeMap::new(vec![MusicalTimeChange {
+                absolute_frame: 0,
+                tempo_bpm: 120.0,
+                time_signature: TimeSignature {
+                    numerator: 4,
+                    denominator: 3,
+                },
+            }]),
+            Err(RenderError::InvalidTimeSignature)
+        );
     }
 }

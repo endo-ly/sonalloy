@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Essential Hybrid Instrument",
     "author": "Sonalloy",
     "description": "Pulse, hard sync, noise, and mapped sample layers through shared processing"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 12,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -298,8 +299,11 @@
         "type": "lfo",
         "id": "body_motion",
         "waveform": "sine",
-        "rate_hz": 0.28,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 0.28,
+          "unit": "per_second"
+        }
       }
     ],
     "routes": [
@@ -309,8 +313,11 @@
         "depth": {
           "value": 0.180000007,
           "unit": "normalized"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

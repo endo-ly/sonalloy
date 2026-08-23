@@ -7,12 +7,11 @@ use sonalloy_core::{
     GeneratorDefinition, HardSyncDefinition, InstrumentDefinition, InstrumentProcessor,
     InstrumentRuntime, LfoDefinition, LfoWaveform, MAX_TRACE_OBSERVATIONS, ModulationCurve,
     ModulationDefinition, ModulationDepthDefinition, ModulationRouteDefinition,
-    ModulationSourceDefinition, NoiseColor, NoiseDefinition, OscillatorDefinition,
+    ModulationSourceDefinition, MusicalTimeMap, NoiseColor, NoiseDefinition, OscillatorDefinition,
     OscillatorWaveform, ProcessBlock, ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec,
     ProcessorDefinition, RandomDefinition, RenderError, RenderRequest, SampleZoneDefinition,
-    SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime, TempoMap, TraceRequest,
-    UnisonDefinition, WaveshapingDefinition, compile_instrument, render_instrument,
-    render_instrument_with_trace,
+    SampleZonePlaybackDefinition, ScheduledEvent, SineRuntime, TraceRequest, UnisonDefinition,
+    WaveshapingDefinition, compile_instrument, render_instrument, render_instrument_with_trace,
 };
 
 fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
@@ -33,6 +32,9 @@ fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
                 context: ProcessContext {
                     absolute_frame: offset as u64,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
                 output: &mut output,
@@ -76,6 +78,9 @@ fn sine_runtime_reset_restarts_signal() {
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: &[],
             output: &mut output,
@@ -89,6 +94,9 @@ fn sine_runtime_reset_restarts_signal() {
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: &[],
             output: &mut reset_output,
@@ -124,6 +132,9 @@ fn process_runtime(
             context: ProcessContext {
                 absolute_frame,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
             output: &mut output,
@@ -271,7 +282,10 @@ fn pulse_definition(with_modulation: bool) -> InstrumentDefinition {
             sources: vec![ModulationSourceDefinition::Lfo(LfoDefinition {
                 id: "pwm_lfo".to_owned(),
                 waveform: LfoWaveform::Sine,
-                rate_hz: 2.0,
+                rate: sonalloy_core::ModulationRateDefinition {
+                    value: 2.0,
+                    unit: sonalloy_core::ModulationRateUnit::PerSecond,
+                },
                 phase: 0.0,
             })],
             routes: vec![ModulationRouteDefinition {
@@ -724,7 +738,7 @@ fn trace_enabled_render_matches_audio_and_reports_selected_routes() {
         Arc::clone(&compiled),
         request,
         &events,
-        &TempoMap::constant(120.0).expect("tempo map"),
+        &MusicalTimeMap::constant(120.0).expect("tempo map"),
         &TraceRequest {
             parameters: vec![
                 compiled
@@ -793,7 +807,7 @@ fn trace_limit_is_checked_before_building_periodic_boundaries() {
                 velocity: 100,
             },
         }],
-        &TempoMap::constant(120.0).expect("tempo map"),
+        &MusicalTimeMap::constant(120.0).expect("tempo map"),
         &TraceRequest {
             parameters: vec![handle],
             every_frames: 1,
@@ -864,7 +878,7 @@ fn trace_final_matches_the_filter_effective_cutoff_limit() {
                 velocity: 100,
             },
         }],
-        &TempoMap::constant(120.0).expect("tempo map"),
+        &MusicalTimeMap::constant(120.0).expect("tempo map"),
         &TraceRequest {
             parameters: vec![cutoff],
             every_frames: 2,
@@ -1192,6 +1206,9 @@ fn process_harmonic_formant_hybrid(
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
             output: &mut output,
@@ -2045,7 +2062,10 @@ fn pending_round_robin_selection_is_captured_before_voice_stealing() {
             0.16,
         ),
     ]);
-    definition.performance.polyphony = 1;
+    definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
+        polyphony: 1,
+        voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+    };
     let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     let compiled = compile_instrument(
         &definition,

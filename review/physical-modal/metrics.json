@@ -3612,7 +3612,7 @@
     "48000": {
       "voices": {
         "1": {
-          "elapsed_seconds": 0.02191842906177044,
+          "elapsed_seconds": 0.023703111335635185,
           "frames": 48000,
           "channels": 2,
           "duration_frames": 48000,
@@ -3620,13 +3620,13 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 1.0,
-          "realtime_ratio": 0.02191842906177044,
-          "cli_realtime_factor": 45.62370766544461,
+          "realtime_ratio": 0.023703111335635185,
+          "cli_realtime_factor": 42.188554314243255,
           "finite": true,
           "rms": 0.07455935534539847
         },
         "8": {
-          "elapsed_seconds": 0.12944000773131847,
+          "elapsed_seconds": 0.1236993633210659,
           "frames": 48000,
           "channels": 2,
           "duration_frames": 48000,
@@ -3634,13 +3634,13 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 1.0,
-          "realtime_ratio": 0.12944000773131847,
-          "cli_realtime_factor": 7.7255866831816205,
+          "realtime_ratio": 0.1236993633210659,
+          "cli_realtime_factor": 8.084115982104661,
           "finite": true,
           "rms": 0.2686255611310186
         },
         "16": {
-          "elapsed_seconds": 0.24323123134672642,
+          "elapsed_seconds": 0.24668144062161446,
           "frames": 48000,
           "channels": 2,
           "duration_frames": 48000,
@@ -3648,8 +3648,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 1.0,
-          "realtime_ratio": 0.24323123134672642,
-          "cli_realtime_factor": 4.111314137017621,
+          "realtime_ratio": 0.24668144062161446,
+          "cli_realtime_factor": 4.0538112534128725,
           "finite": true,
           "rms": 0.37487303367294483
         }
@@ -3658,7 +3658,7 @@
     "96000": {
       "voices": {
         "1": {
-          "elapsed_seconds": 0.02404506504535675,
+          "elapsed_seconds": 0.025360943749547005,
           "frames": 48000,
           "channels": 2,
           "duration_frames": 48000,
@@ -3666,13 +3666,13 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 0.5,
-          "realtime_ratio": 0.0480901300907135,
-          "cli_realtime_factor": 20.794287686759784,
+          "realtime_ratio": 0.05072188749909401,
+          "cli_realtime_factor": 19.715354638919184,
           "finite": true,
           "rms": 0.0734682072797028
         },
         "8": {
-          "elapsed_seconds": 0.13279259577393532,
+          "elapsed_seconds": 0.13593070395290852,
           "frames": 48000,
           "channels": 2,
           "duration_frames": 48000,
@@ -3680,13 +3680,13 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 0.5,
-          "realtime_ratio": 0.26558519154787064,
-          "cli_realtime_factor": 3.765270172526747,
+          "realtime_ratio": 0.27186140790581703,
+          "cli_realtime_factor": 3.6783448143784994,
           "finite": true,
           "rms": 0.2549993550553541
         },
         "16": {
-          "elapsed_seconds": 0.26953783072531223,
+          "elapsed_seconds": 0.2606538888067007,
           "frames": 48000,
           "channels": 2,
           "duration_frames": 48000,
@@ -3694,8 +3694,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 0.5,
-          "realtime_ratio": 0.5390756614506245,
-          "cli_realtime_factor": 1.8550271724548872,
+          "realtime_ratio": 0.5213077776134014,
+          "cli_realtime_factor": 1.9182526003699751,
           "finite": true,
           "rms": 0.40086935907115756
         }
@@ -3780,7 +3780,7 @@
   },
   "performance": {
     "physical_pluck": {
-      "elapsed_seconds": 0.02752021886408329,
+      "elapsed_seconds": 0.028291132301092148,
       "frames": 48000,
       "channels": 2,
       "duration_frames": 48000,
@@ -3788,11 +3788,11 @@
       "block_size": 257,
       "build": "release",
       "audio_duration_seconds": 1.0,
-      "realtime_ratio": 0.02752021886408329,
-      "cli_realtime_factor": 36.33692031806849
+      "realtime_ratio": 0.028291132301092148,
+      "cli_realtime_factor": 35.34676482218409
     },
     "modal_mallet": {
-      "elapsed_seconds": 0.02952628768980503,
+      "elapsed_seconds": 0.03003525733947754,
       "frames": 48000,
       "channels": 2,
       "duration_frames": 48000,
@@ -3800,8 +3800,8 @@
       "block_size": 257,
       "build": "release",
       "audio_duration_seconds": 1.0,
-      "realtime_ratio": 0.02952628768980503,
-      "cli_realtime_factor": 33.86812492331315
+      "realtime_ratio": 0.03003525733947754,
+      "cli_realtime_factor": 33.2942044976464
     }
   },
   "performance_matrix": {
@@ -3811,7 +3811,7 @@
         "48000": {
           "voices": {
             "1": {
-              "elapsed_seconds": 0.0378690455108881,
+              "elapsed_seconds": 0.03769046440720558,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3819,13 +3819,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 1.0,
-              "realtime_ratio": 0.0378690455108881,
-              "cli_realtime_factor": 26.40679178756909,
+              "realtime_ratio": 0.03769046440720558,
+              "cli_realtime_factor": 26.531909747676714,
               "finite": true,
               "rms": 0.005406457098599203
             },
             "8": {
-              "elapsed_seconds": 0.12400783412158489,
+              "elapsed_seconds": 0.11716577596962452,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3833,13 +3833,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 1.0,
-              "realtime_ratio": 0.12400783412158489,
-              "cli_realtime_factor": 8.064006657995,
+              "realtime_ratio": 0.11716577596962452,
+              "cli_realtime_factor": 8.534915522253291,
               "finite": true,
               "rms": 0.01621495428750688
             },
             "16": {
-              "elapsed_seconds": 0.18797403573989868,
+              "elapsed_seconds": 0.1844533123075962,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3847,13 +3847,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 1.0,
-              "realtime_ratio": 0.18797403573989868,
-              "cli_realtime_factor": 5.319883653419607,
+              "realtime_ratio": 0.1844533123075962,
+              "cli_realtime_factor": 5.4214260914566275,
               "finite": true,
               "rms": 0.04395065553510681
             },
             "32": {
-              "elapsed_seconds": 0.38832723908126354,
+              "elapsed_seconds": 0.35016887448728085,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3861,8 +3861,8 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 1.0,
-              "realtime_ratio": 0.38832723908126354,
-              "cli_realtime_factor": 2.5751477088392822,
+              "realtime_ratio": 0.35016887448728085,
+              "cli_realtime_factor": 2.855764954735641,
               "finite": true,
               "rms": 0.043871844213628074
             }
@@ -3871,7 +3871,7 @@
         "96000": {
           "voices": {
             "1": {
-              "elapsed_seconds": 0.05183654464781284,
+              "elapsed_seconds": 0.04860828258097172,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3879,13 +3879,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 0.5,
-              "realtime_ratio": 0.10367308929562569,
-              "cli_realtime_factor": 9.645704654835566,
+              "realtime_ratio": 0.09721656516194344,
+              "cli_realtime_factor": 10.286312814428273,
               "finite": true,
               "rms": 0.005663704870564645
             },
             "8": {
-              "elapsed_seconds": 0.15621119737625122,
+              "elapsed_seconds": 0.15700770169496536,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3893,13 +3893,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 0.5,
-              "realtime_ratio": 0.31242239475250244,
-              "cli_realtime_factor": 3.2007948751311153,
+              "realtime_ratio": 0.3140154033899307,
+              "cli_realtime_factor": 3.184557156128559,
               "finite": true,
               "rms": 0.012871345872895528
             },
             "16": {
-              "elapsed_seconds": 0.22349894233047962,
+              "elapsed_seconds": 0.22399858012795448,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3907,13 +3907,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 0.5,
-              "realtime_ratio": 0.44699788466095924,
-              "cli_realtime_factor": 2.237147052180088,
+              "realtime_ratio": 0.44799716025590897,
+              "cli_realtime_factor": 2.2321570061488134,
               "finite": true,
               "rms": 0.04404987787692845
             },
             "32": {
-              "elapsed_seconds": 0.4569794852286577,
+              "elapsed_seconds": 0.4258529432117939,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3921,8 +3921,8 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 0.5,
-              "realtime_ratio": 0.9139589704573154,
-              "cli_realtime_factor": 1.0941410198092727,
+              "realtime_ratio": 0.8517058864235878,
+              "cli_realtime_factor": 1.1741142287968873,
               "finite": true,
               "rms": 0.04531524178492114
             }
@@ -3936,7 +3936,7 @@
         "48000": {
           "voices": {
             "1": {
-              "elapsed_seconds": 0.03009943850338459,
+              "elapsed_seconds": 0.029329938814044,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3944,13 +3944,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 1.0,
-              "realtime_ratio": 0.03009943850338459,
-              "cli_realtime_factor": 33.22321112028562,
+              "realtime_ratio": 0.029329938814044,
+              "cli_realtime_factor": 34.09485462414848,
               "finite": true,
               "rms": 0.011203673271929494
             },
             "8": {
-              "elapsed_seconds": 0.10940966568887234,
+              "elapsed_seconds": 0.10699349641799927,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3958,13 +3958,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 1.0,
-              "realtime_ratio": 0.10940966568887234,
-              "cli_realtime_factor": 9.139960292390386,
+              "realtime_ratio": 0.10699349641799927,
+              "cli_realtime_factor": 9.346362475091265,
               "finite": true,
               "rms": 0.04535320242001286
             },
             "16": {
-              "elapsed_seconds": 0.21457220613956451,
+              "elapsed_seconds": 0.19975199177861214,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3972,8 +3972,8 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 1.0,
-              "realtime_ratio": 0.21457220613956451,
-              "cli_realtime_factor": 4.660435841115268,
+              "realtime_ratio": 0.19975199177861214,
+              "cli_realtime_factor": 5.006207903590337,
               "finite": true,
               "rms": 0.07331633290364312
             }
@@ -3982,7 +3982,7 @@
         "96000": {
           "voices": {
             "1": {
-              "elapsed_seconds": 0.03233996219933033,
+              "elapsed_seconds": 0.03003906086087227,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -3990,13 +3990,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 0.5,
-              "realtime_ratio": 0.06467992439866066,
-              "cli_realtime_factor": 15.460747817768123,
+              "realtime_ratio": 0.06007812172174454,
+              "cli_realtime_factor": 16.64499440630918,
               "finite": true,
               "rms": 0.008374064742648577
             },
             "8": {
-              "elapsed_seconds": 0.11552885733544827,
+              "elapsed_seconds": 0.11933466047048569,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -4004,13 +4004,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 0.5,
-              "realtime_ratio": 0.23105771467089653,
-              "cli_realtime_factor": 4.327923010163649,
+              "realtime_ratio": 0.23866932094097137,
+              "cli_realtime_factor": 4.189897537133915,
               "finite": true,
               "rms": 0.028343402352955967
             },
             "16": {
-              "elapsed_seconds": 0.21292326226830482,
+              "elapsed_seconds": 0.21248113922774792,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -4018,8 +4018,8 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 0.5,
-              "realtime_ratio": 0.42584652453660965,
-              "cli_realtime_factor": 2.348263851837614,
+              "realtime_ratio": 0.42496227845549583,
+              "cli_realtime_factor": 2.353150034008783,
               "finite": true,
               "rms": 0.04255856786690201
             }
@@ -4033,7 +4033,7 @@
         "48000": {
           "voices": {
             "1": {
-              "elapsed_seconds": 0.02191842906177044,
+              "elapsed_seconds": 0.023703111335635185,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -4041,13 +4041,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 1.0,
-              "realtime_ratio": 0.02191842906177044,
-              "cli_realtime_factor": 45.62370766544461,
+              "realtime_ratio": 0.023703111335635185,
+              "cli_realtime_factor": 42.188554314243255,
               "finite": true,
               "rms": 0.07455935534539847
             },
             "8": {
-              "elapsed_seconds": 0.12944000773131847,
+              "elapsed_seconds": 0.1236993633210659,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -4055,13 +4055,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 1.0,
-              "realtime_ratio": 0.12944000773131847,
-              "cli_realtime_factor": 7.7255866831816205,
+              "realtime_ratio": 0.1236993633210659,
+              "cli_realtime_factor": 8.084115982104661,
               "finite": true,
               "rms": 0.2686255611310186
             },
             "16": {
-              "elapsed_seconds": 0.24323123134672642,
+              "elapsed_seconds": 0.24668144062161446,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -4069,8 +4069,8 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 1.0,
-              "realtime_ratio": 0.24323123134672642,
-              "cli_realtime_factor": 4.111314137017621,
+              "realtime_ratio": 0.24668144062161446,
+              "cli_realtime_factor": 4.0538112534128725,
               "finite": true,
               "rms": 0.37487303367294483
             }
@@ -4079,7 +4079,7 @@
         "96000": {
           "voices": {
             "1": {
-              "elapsed_seconds": 0.02404506504535675,
+              "elapsed_seconds": 0.025360943749547005,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -4087,13 +4087,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 0.5,
-              "realtime_ratio": 0.0480901300907135,
-              "cli_realtime_factor": 20.794287686759784,
+              "realtime_ratio": 0.05072188749909401,
+              "cli_realtime_factor": 19.715354638919184,
               "finite": true,
               "rms": 0.0734682072797028
             },
             "8": {
-              "elapsed_seconds": 0.13279259577393532,
+              "elapsed_seconds": 0.13593070395290852,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -4101,13 +4101,13 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 0.5,
-              "realtime_ratio": 0.26558519154787064,
-              "cli_realtime_factor": 3.765270172526747,
+              "realtime_ratio": 0.27186140790581703,
+              "cli_realtime_factor": 3.6783448143784994,
               "finite": true,
               "rms": 0.2549993550553541
             },
             "16": {
-              "elapsed_seconds": 0.26953783072531223,
+              "elapsed_seconds": 0.2606538888067007,
               "frames": 48000,
               "channels": 2,
               "duration_frames": 48000,
@@ -4115,8 +4115,8 @@
               "block_size": 257,
               "build": "release",
               "audio_duration_seconds": 0.5,
-              "realtime_ratio": 0.5390756614506245,
-              "cli_realtime_factor": 1.8550271724548872,
+              "realtime_ratio": 0.5213077776134014,
+              "cli_realtime_factor": 1.9182526003699751,
               "finite": true,
               "rms": 0.40086935907115756
             }

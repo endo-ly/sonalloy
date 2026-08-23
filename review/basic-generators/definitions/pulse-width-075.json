@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Basic Generators Reference",
     "author": null,
     "description": "Basic oscillators, pulse width modulation, and colored noise generators"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -187,5 +188,7 @@
     }
   ],
   "voice_processors": [],
-  "global_processors": []
+  "global_processors": [],
+  "macros": [],
+  "vectors": []
 }

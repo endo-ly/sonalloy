@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Digital Pad",
     "author": "Sonalloy",
     "description": "Wavetable and additive pad through tone, modulation, space, and dynamics"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -141,5 +142,7 @@
       "mix": 0.75
     }
   ],
-  "modulation": null
+  "modulation": null,
+  "macros": [],
+  "vectors": []
 }

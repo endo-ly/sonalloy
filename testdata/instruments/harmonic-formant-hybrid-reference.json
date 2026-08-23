@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Harmonic Formant Hybrid Reference",
     "author": null,
     "description": "Formant vowel spectrum layered with a harmonic additive body"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -41,51 +42,151 @@
             {
               "id": "a",
               "formants": [
-                { "frequency_hz": 800.0, "bandwidth_hz": 80.0, "gain_db": 0.0 },
-                { "frequency_hz": 1150.0, "bandwidth_hz": 90.0, "gain_db": -5.0 },
-                { "frequency_hz": 2900.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-                { "frequency_hz": 3900.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-                { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+                {
+                  "frequency_hz": 800.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 1150.0,
+                  "bandwidth_hz": 90.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2900.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3900.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
               ]
             },
             {
               "id": "e",
               "formants": [
-                { "frequency_hz": 530.0, "bandwidth_hz": 70.0, "gain_db": 0.0 },
-                { "frequency_hz": 1840.0, "bandwidth_hz": 100.0, "gain_db": -5.0 },
-                { "frequency_hz": 2480.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-                { "frequency_hz": 3650.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-                { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+                {
+                  "frequency_hz": 530.0,
+                  "bandwidth_hz": 70.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 1840.0,
+                  "bandwidth_hz": 100.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2480.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3650.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
               ]
             },
             {
               "id": "i",
               "formants": [
-                { "frequency_hz": 270.0, "bandwidth_hz": 60.0, "gain_db": 0.0 },
-                { "frequency_hz": 2290.0, "bandwidth_hz": 100.0, "gain_db": -6.0 },
-                { "frequency_hz": 3010.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-                { "frequency_hz": 3900.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-                { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+                {
+                  "frequency_hz": 270.0,
+                  "bandwidth_hz": 60.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 2290.0,
+                  "bandwidth_hz": 100.0,
+                  "gain_db": -6.0
+                },
+                {
+                  "frequency_hz": 3010.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3900.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
               ]
             },
             {
               "id": "o",
               "formants": [
-                { "frequency_hz": 570.0, "bandwidth_hz": 80.0, "gain_db": 0.0 },
-                { "frequency_hz": 840.0, "bandwidth_hz": 90.0, "gain_db": -5.0 },
-                { "frequency_hz": 2410.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-                { "frequency_hz": 3400.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-                { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+                {
+                  "frequency_hz": 570.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 840.0,
+                  "bandwidth_hz": 90.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2410.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3400.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
               ]
             },
             {
               "id": "u",
               "formants": [
-                { "frequency_hz": 300.0, "bandwidth_hz": 60.0, "gain_db": 0.0 },
-                { "frequency_hz": 870.0, "bandwidth_hz": 80.0, "gain_db": -5.0 },
-                { "frequency_hz": 2240.0, "bandwidth_hz": 120.0, "gain_db": -12.0 },
-                { "frequency_hz": 3400.0, "bandwidth_hz": 130.0, "gain_db": -18.0 },
-                { "frequency_hz": 4950.0, "bandwidth_hz": 140.0, "gain_db": -24.0 }
+                {
+                  "frequency_hz": 300.0,
+                  "bandwidth_hz": 60.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 870.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2240.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3400.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -24.0
+                }
               ]
             }
           ]
@@ -126,10 +227,34 @@
           "spectrum_tilt_db_per_octave": -6.0,
           "inharmonicity": 0.0,
           "partials": [
-            { "id": "fundamental", "ratio": 1.0, "amplitude_a": 1.0, "amplitude_b": 1.0, "phase": 0.0 },
-            { "id": "second", "ratio": 2.0, "amplitude_a": 0.4, "amplitude_b": 0.4, "phase": 0.0 },
-            { "id": "third", "ratio": 3.0, "amplitude_a": 0.25, "amplitude_b": 0.25, "phase": 0.0 },
-            { "id": "fifth", "ratio": 5.0, "amplitude_a": 0.15, "amplitude_b": 0.15, "phase": 0.0 }
+            {
+              "id": "fundamental",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.0
+            },
+            {
+              "id": "second",
+              "ratio": 2.0,
+              "amplitude_a": 0.4,
+              "amplitude_b": 0.4,
+              "phase": 0.0
+            },
+            {
+              "id": "third",
+              "ratio": 3.0,
+              "amplitude_a": 0.25,
+              "amplitude_b": 0.25,
+              "phase": 0.0
+            },
+            {
+              "id": "fifth",
+              "ratio": 5.0,
+              "amplitude_a": 0.15,
+              "amplitude_b": 0.15,
+              "phase": 0.0
+            }
           ]
         }
       },
@@ -274,15 +399,21 @@
         "type": "lfo",
         "id": "vowel_motion",
         "waveform": "sine",
-        "rate_hz": 0.18,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 0.18,
+          "unit": "per_second"
+        }
       },
       {
         "type": "lfo",
         "id": "brightness_motion",
         "waveform": "triangle",
-        "rate_hz": 0.13,
-        "phase": 0.25
+        "phase": 0.25,
+        "rate": {
+          "value": 0.13,
+          "unit": "per_second"
+        }
       },
       {
         "type": "envelope",
@@ -300,7 +431,8 @@
         "depth": {
           "value": 2.88000011,
           "unit": "decibels"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "velocity",
@@ -308,7 +440,8 @@
         "depth": {
           "value": 2.88000011,
           "unit": "decibels"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "velocity",
@@ -316,7 +449,8 @@
         "depth": {
           "value": 2.88000011,
           "unit": "decibels"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "vowel_motion",
@@ -324,7 +458,8 @@
         "depth": {
           "value": 0.75,
           "unit": "normalized"
-        },        "curve": "smooth_step"
+        },
+        "curve": "smooth_step"
       },
       {
         "source": "brightness_motion",
@@ -332,7 +467,8 @@
         "depth": {
           "value": 6.48000002,
           "unit": "decibels_per_octave"
-        },        "curve": "smooth_step"
+        },
+        "curve": "smooth_step"
       },
       {
         "source": "formant_breath",
@@ -340,7 +476,8 @@
         "depth": {
           "value": 0.300000012,
           "unit": "normalized"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "mod_wheel",
@@ -348,7 +485,8 @@
         "depth": {
           "value": 1680,
           "unit": "cents"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "vowel_motion",
@@ -356,7 +494,8 @@
         "depth": {
           "value": 0.797262728,
           "unit": "octaves"
-        },        "curve": "smooth_step"
+        },
+        "curve": "smooth_step"
       },
       {
         "source": "mod_wheel",
@@ -364,7 +503,8 @@
         "depth": {
           "value": 0.25,
           "unit": "normalized"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "aftertouch",
@@ -372,8 +512,11 @@
         "depth": {
           "value": 0.119999997,
           "unit": "normalized"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

@@ -3479,7 +3479,7 @@
     },
     "performance": {
       "polyphony_1_unison_1": {
-        "elapsed_seconds": 0.11051106080412865,
+        "elapsed_seconds": 0.10425665229558945,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -3487,11 +3487,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.11051106080412865,
-        "cli_realtime_factor": 9.048867984105357
+        "realtime_ratio": 0.10425665229558945,
+        "cli_realtime_factor": 9.5917140823282
       },
       "polyphony_1_unison_4": {
-        "elapsed_seconds": 0.24863888882100582,
+        "elapsed_seconds": 0.22690201178193092,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -3499,11 +3499,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.24863888882100582,
-        "cli_realtime_factor": 4.021896995847243
+        "realtime_ratio": 0.22690201178193092,
+        "cli_realtime_factor": 4.407188777863599
       },
       "polyphony_8_unison_1": {
-        "elapsed_seconds": 0.5386669151484966,
+        "elapsed_seconds": 0.49626121670007706,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -3511,11 +3511,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.5386669151484966,
-        "cli_realtime_factor": 1.8564347872085771
+        "realtime_ratio": 0.49626121670007706,
+        "cli_realtime_factor": 2.0150678037054126
       },
       "polyphony_8_unison_4": {
-        "elapsed_seconds": 1.6445372812449932,
+        "elapsed_seconds": 1.5145409293472767,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -3523,11 +3523,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 1.6445372812449932,
-        "cli_realtime_factor": 0.6080737794177291
+        "realtime_ratio": 1.5145409293472767,
+        "cli_realtime_factor": 0.6602660784023652
       },
       "polyphony_16_unison_1": {
-        "elapsed_seconds": 1.027377787977457,
+        "elapsed_seconds": 0.9589234441518784,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -3535,11 +3535,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 1.027377787977457,
-        "cli_realtime_factor": 0.9733517813039795
+        "realtime_ratio": 0.9589234441518784,
+        "cli_realtime_factor": 1.0428361159575694
       },
       "polyphony_16_unison_4": {
-        "elapsed_seconds": 3.26558686979115,
+        "elapsed_seconds": 2.994490120559931,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -3547,8 +3547,8 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 3.26558686979115,
-        "cli_realtime_factor": 0.30622367123369615
+        "realtime_ratio": 2.994490120559931,
+        "cli_realtime_factor": 0.3339466686278507
       }
     },
     "allocation_check": {
@@ -5994,7 +5994,7 @@
     },
     "performance": {
       "basic_saw_polyphony_1_unison_1": {
-        "elapsed_seconds": 0.064933517947793,
+        "elapsed_seconds": 0.0634247437119484,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6002,11 +6002,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.064933517947793,
-        "cli_realtime_factor": 15.400366892242106
+        "realtime_ratio": 0.0634247437119484,
+        "cli_realtime_factor": 15.766717238017204
       },
       "basic_saw_polyphony_1_unison_4": {
-        "elapsed_seconds": 0.07806812226772308,
+        "elapsed_seconds": 0.07733519934117794,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6014,11 +6014,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.07806812226772308,
-        "cli_realtime_factor": 12.809325637046166
+        "realtime_ratio": 0.07733519934117794,
+        "cli_realtime_factor": 12.930722472031432
       },
       "basic_saw_polyphony_1_unison_8": {
-        "elapsed_seconds": 0.09265685454010963,
+        "elapsed_seconds": 0.0896009337157011,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6026,11 +6026,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.09265685454010963,
-        "cli_realtime_factor": 10.792509684937734
+        "realtime_ratio": 0.0896009337157011,
+        "cli_realtime_factor": 11.160597981857485
       },
       "basic_saw_polyphony_8_unison_1": {
-        "elapsed_seconds": 0.17860182002186775,
+        "elapsed_seconds": 0.17506377585232258,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6038,11 +6038,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.17860182002186775,
-        "cli_realtime_factor": 5.599047086292634
+        "realtime_ratio": 0.17506377585232258,
+        "cli_realtime_factor": 5.712203996122896
       },
       "basic_saw_polyphony_8_unison_4": {
-        "elapsed_seconds": 0.2769398223608732,
+        "elapsed_seconds": 0.274667851626873,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6050,11 +6050,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.2769398223608732,
-        "cli_realtime_factor": 3.6108927617384166
+        "realtime_ratio": 0.274667851626873,
+        "cli_realtime_factor": 3.6407609921472215
       },
       "basic_saw_polyphony_8_unison_8": {
-        "elapsed_seconds": 0.3841049149632454,
+        "elapsed_seconds": 0.3687912356108427,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6062,11 +6062,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.3841049149632454,
-        "cli_realtime_factor": 2.603455360876309
+        "realtime_ratio": 0.3687912356108427,
+        "cli_realtime_factor": 2.7115611854052406
       },
       "basic_saw_polyphony_16_unison_1": {
-        "elapsed_seconds": 0.279516177251935,
+        "elapsed_seconds": 0.27673147805035114,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6074,11 +6074,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.279516177251935,
-        "cli_realtime_factor": 3.5776104618756097
+        "realtime_ratio": 0.27673147805035114,
+        "cli_realtime_factor": 3.6136113139180015
       },
       "basic_saw_polyphony_16_unison_4": {
-        "elapsed_seconds": 0.505174420773983,
+        "elapsed_seconds": 0.49017309583723545,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6086,11 +6086,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.505174420773983,
-        "cli_realtime_factor": 1.979514319960796
+        "realtime_ratio": 0.49017309583723545,
+        "cli_realtime_factor": 2.0400956488482085
       },
       "basic_saw_polyphony_16_unison_8": {
-        "elapsed_seconds": 0.7281345333904028,
+        "elapsed_seconds": 0.698860751464963,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6098,11 +6098,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.7281345333904028,
-        "cli_realtime_factor": 1.3733725762788833
+        "realtime_ratio": 0.698860751464963,
+        "cli_realtime_factor": 1.4309002156778503
       },
       "hard_sync_polyphony_1_unison_1": {
-        "elapsed_seconds": 0.0643855482339859,
+        "elapsed_seconds": 0.06408933736383915,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6110,11 +6110,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.0643855482339859,
-        "cli_realtime_factor": 15.531435662640675
+        "realtime_ratio": 0.06408933736383915,
+        "cli_realtime_factor": 15.603219523443313
       },
       "hard_sync_polyphony_1_unison_4": {
-        "elapsed_seconds": 0.07815390266478062,
+        "elapsed_seconds": 0.07667104713618755,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6122,11 +6122,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.07815390266478062,
-        "cli_realtime_factor": 12.795266338639815
+        "realtime_ratio": 0.07667104713618755,
+        "cli_realtime_factor": 13.042733043983892
       },
       "hard_sync_polyphony_1_unison_8": {
-        "elapsed_seconds": 0.09200171753764153,
+        "elapsed_seconds": 0.09128761477768421,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6134,11 +6134,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.09200171753764153,
-        "cli_realtime_factor": 10.869362298490358
+        "realtime_ratio": 0.09128761477768421,
+        "cli_realtime_factor": 10.954388527242534
       },
       "hard_sync_polyphony_8_unison_1": {
-        "elapsed_seconds": 0.1627834066748619,
+        "elapsed_seconds": 0.1581977978348732,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6146,11 +6146,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.1627834066748619,
-        "cli_realtime_factor": 6.143132278816147
+        "realtime_ratio": 0.1581977978348732,
+        "cli_realtime_factor": 6.321200507758014
       },
       "hard_sync_polyphony_8_unison_4": {
-        "elapsed_seconds": 0.27646969072520733,
+        "elapsed_seconds": 0.2678387928754091,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6158,11 +6158,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.27646969072520733,
-        "cli_realtime_factor": 3.6170330186173434
+        "realtime_ratio": 0.2678387928754091,
+        "cli_realtime_factor": 3.7335891088232733
       },
       "hard_sync_polyphony_8_unison_8": {
-        "elapsed_seconds": 0.3854168374091387,
+        "elapsed_seconds": 0.41845730878412724,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6170,11 +6170,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.3854168374091387,
-        "cli_realtime_factor": 2.594593445170252
+        "realtime_ratio": 0.41845730878412724,
+        "cli_realtime_factor": 2.3897300369913665
       },
       "hard_sync_polyphony_16_unison_1": {
-        "elapsed_seconds": 0.2674805000424385,
+        "elapsed_seconds": 0.27290723100304604,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6182,11 +6182,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.2674805000424385,
-        "cli_realtime_factor": 3.738590289166275
+        "realtime_ratio": 0.27290723100304604,
+        "cli_realtime_factor": 3.66424882303261
       },
       "hard_sync_polyphony_16_unison_4": {
-        "elapsed_seconds": 0.5111561845988035,
+        "elapsed_seconds": 0.4975331239402294,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6194,11 +6194,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.5111561845988035,
-        "cli_realtime_factor": 1.9563492140565224
+        "realtime_ratio": 0.4975331239402294,
+        "cli_realtime_factor": 2.0099164294438694
       },
       "hard_sync_polyphony_16_unison_8": {
-        "elapsed_seconds": 0.7343825679272413,
+        "elapsed_seconds": 0.7249248083680868,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6206,11 +6206,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.7343825679272413,
-        "cli_realtime_factor": 1.361688095106139
+        "realtime_ratio": 0.7249248083680868,
+        "cli_realtime_factor": 1.3794534115216006
       },
       "waveshaping_polyphony_1_unison_1": {
-        "elapsed_seconds": 0.07247576862573624,
+        "elapsed_seconds": 0.06872623786330223,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6218,11 +6218,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.07247576862573624,
-        "cli_realtime_factor": 13.797715001326647
+        "realtime_ratio": 0.06872623786330223,
+        "cli_realtime_factor": 14.550483644820172
       },
       "waveshaping_polyphony_1_unison_4": {
-        "elapsed_seconds": 0.08575211092829704,
+        "elapsed_seconds": 0.08609225042164326,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6230,11 +6230,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.08575211092829704,
-        "cli_realtime_factor": 11.661520505730355
+        "realtime_ratio": 0.08609225042164326,
+        "cli_realtime_factor": 11.61544732658776
       },
       "waveshaping_polyphony_1_unison_8": {
-        "elapsed_seconds": 0.09980366192758083,
+        "elapsed_seconds": 0.09881079196929932,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6242,11 +6242,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.09980366192758083,
-        "cli_realtime_factor": 10.019672431715144
+        "realtime_ratio": 0.09881079196929932,
+        "cli_realtime_factor": 10.120352039185171
       },
       "waveshaping_polyphony_8_unison_1": {
-        "elapsed_seconds": 0.19894965924322605,
+        "elapsed_seconds": 0.2037572730332613,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6254,11 +6254,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.19894965924322605,
-        "cli_realtime_factor": 5.0263971489262484
+        "realtime_ratio": 0.2037572730332613,
+        "cli_realtime_factor": 4.907800271928258
       },
       "waveshaping_polyphony_8_unison_4": {
-        "elapsed_seconds": 0.34226763248443604,
+        "elapsed_seconds": 0.3322873879224062,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6266,11 +6266,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.34226763248443604,
-        "cli_realtime_factor": 2.9216902362085704
+        "realtime_ratio": 0.3322873879224062,
+        "cli_realtime_factor": 3.0094431397243224
       },
       "waveshaping_polyphony_8_unison_8": {
-        "elapsed_seconds": 0.4595146179199219,
+        "elapsed_seconds": 0.4330005794763565,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6278,11 +6278,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.4595146179199219,
-        "cli_realtime_factor": 2.1762093326360006
+        "realtime_ratio": 0.4330005794763565,
+        "cli_realtime_factor": 2.3094657314531464
       },
       "waveshaping_polyphony_16_unison_1": {
-        "elapsed_seconds": 0.36467321403324604,
+        "elapsed_seconds": 0.3419117573648691,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6290,11 +6290,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.36467321403324604,
-        "cli_realtime_factor": 2.742181113167345
+        "realtime_ratio": 0.3419117573648691,
+        "cli_realtime_factor": 2.9247312455911127
       },
       "waveshaping_polyphony_16_unison_4": {
-        "elapsed_seconds": 0.6405892930924892,
+        "elapsed_seconds": 0.6246051080524921,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6302,11 +6302,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.6405892930924892,
-        "cli_realtime_factor": 1.561062619658269
+        "realtime_ratio": 0.6246051080524921,
+        "cli_realtime_factor": 1.6010115625182486
       },
       "waveshaping_polyphony_16_unison_8": {
-        "elapsed_seconds": 0.845168873667717,
+        "elapsed_seconds": 0.8135463483631611,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6314,11 +6314,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.845168873667717,
-        "cli_realtime_factor": 1.1831954904590531
+        "realtime_ratio": 0.8135463483631611,
+        "cli_realtime_factor": 1.2291862682586923
       },
       "phase_domain_polyphony_1_unison_1": {
-        "elapsed_seconds": 0.07120570354163647,
+        "elapsed_seconds": 0.06835507601499557,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6326,11 +6326,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.07120570354163647,
-        "cli_realtime_factor": 14.043818827171126
+        "realtime_ratio": 0.06835507601499557,
+        "cli_realtime_factor": 14.629491448164323
       },
       "phase_domain_polyphony_1_unison_4": {
-        "elapsed_seconds": 0.10503537580370903,
+        "elapsed_seconds": 0.10270145162940025,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6338,11 +6338,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.10503537580370903,
-        "cli_realtime_factor": 9.520601914813998
+        "realtime_ratio": 0.10270145162940025,
+        "cli_realtime_factor": 9.736960716081358
       },
       "phase_domain_polyphony_1_unison_8": {
-        "elapsed_seconds": 0.16533012501895428,
+        "elapsed_seconds": 0.13626029342412949,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6350,11 +6350,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.16533012501895428,
-        "cli_realtime_factor": 6.0485044687733405
+        "realtime_ratio": 0.13626029342412949,
+        "cli_realtime_factor": 7.338895101945496
       },
       "phase_domain_polyphony_8_unison_1": {
-        "elapsed_seconds": 0.20662199892103672,
+        "elapsed_seconds": 0.2026569563895464,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6362,11 +6362,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.20662199892103672,
-        "cli_realtime_factor": 4.839755714405623
+        "realtime_ratio": 0.2026569563895464,
+        "cli_realtime_factor": 4.934446948259718
       },
       "phase_domain_polyphony_8_unison_4": {
-        "elapsed_seconds": 0.4627707526087761,
+        "elapsed_seconds": 0.4479589872062206,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6374,11 +6374,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.4627707526087761,
-        "cli_realtime_factor": 2.1608971491018027
+        "realtime_ratio": 0.4479589872062206,
+        "cli_realtime_factor": 2.232347220527231
       },
       "phase_domain_polyphony_8_unison_8": {
-        "elapsed_seconds": 0.7387350592762232,
+        "elapsed_seconds": 0.7237071078270674,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6386,11 +6386,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.7387350592762232,
-        "cli_realtime_factor": 1.3536652788345411
+        "realtime_ratio": 0.7237071078270674,
+        "cli_realtime_factor": 1.3817744626033905
       },
       "phase_domain_polyphony_16_unison_1": {
-        "elapsed_seconds": 0.3691073823720217,
+        "elapsed_seconds": 0.35597509890794754,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6398,11 +6398,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.3691073823720217,
-        "cli_realtime_factor": 2.7092386870553145
+        "realtime_ratio": 0.35597509890794754,
+        "cli_realtime_factor": 2.809185257810947
       },
       "phase_domain_polyphony_16_unison_4": {
-        "elapsed_seconds": 0.8845018036663532,
+        "elapsed_seconds": 0.848790654912591,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6410,11 +6410,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.8845018036663532,
-        "cli_realtime_factor": 1.1305799443877838
+        "realtime_ratio": 0.848790654912591,
+        "cli_realtime_factor": 1.1781468071216932
       },
       "phase_domain_polyphony_16_unison_8": {
-        "elapsed_seconds": 1.4507135711610317,
+        "elapsed_seconds": 1.4101420622318983,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6422,11 +6422,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 1.4507135711610317,
-        "cli_realtime_factor": 0.6893159475992785
+        "realtime_ratio": 1.4101420622318983,
+        "cli_realtime_factor": 0.7091484090739432
       },
       "wavefold_polyphony_1_unison_1": {
-        "elapsed_seconds": 0.0673532783985138,
+        "elapsed_seconds": 0.06718534976243973,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6434,11 +6434,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.0673532783985138,
-        "cli_realtime_factor": 14.847087235802109
+        "realtime_ratio": 0.06718534976243973,
+        "cli_realtime_factor": 14.884197277172687
       },
       "wavefold_polyphony_1_unison_4": {
-        "elapsed_seconds": 0.08409333601593971,
+        "elapsed_seconds": 0.0826697051525116,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6446,11 +6446,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.08409333601593971,
-        "cli_realtime_factor": 11.891548693114661
+        "realtime_ratio": 0.0826697051525116,
+        "cli_realtime_factor": 12.096329582344215
       },
       "wavefold_polyphony_1_unison_8": {
-        "elapsed_seconds": 0.09815007075667381,
+        "elapsed_seconds": 0.09478437714278698,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6458,11 +6458,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.09815007075667381,
-        "cli_realtime_factor": 10.188479664768902
+        "realtime_ratio": 0.09478437714278698,
+        "cli_realtime_factor": 10.550261869564855
       },
       "wavefold_polyphony_8_unison_1": {
-        "elapsed_seconds": 0.18924551084637642,
+        "elapsed_seconds": 0.1819653306156397,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6470,11 +6470,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.18924551084637642,
-        "cli_realtime_factor": 5.284141195886907
+        "realtime_ratio": 0.1819653306156397,
+        "cli_realtime_factor": 5.495552348443079
       },
       "wavefold_polyphony_8_unison_4": {
-        "elapsed_seconds": 0.3154605943709612,
+        "elapsed_seconds": 0.3118100520223379,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6482,11 +6482,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.3154605943709612,
-        "cli_realtime_factor": 3.169968033548003
+        "realtime_ratio": 0.3118100520223379,
+        "cli_realtime_factor": 3.2070807002987847
       },
       "wavefold_polyphony_8_unison_8": {
-        "elapsed_seconds": 0.4245508946478367,
+        "elapsed_seconds": 0.4140683710575104,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6494,11 +6494,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.4245508946478367,
-        "cli_realtime_factor": 2.3554302030843584
+        "realtime_ratio": 0.4140683710575104,
+        "cli_realtime_factor": 2.4150600961045368
       },
       "wavefold_polyphony_16_unison_1": {
-        "elapsed_seconds": 0.3250983040779829,
+        "elapsed_seconds": 0.31368836387991905,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6506,11 +6506,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.3250983040779829,
-        "cli_realtime_factor": 3.075992668851712
+        "realtime_ratio": 0.31368836387991905,
+        "cli_realtime_factor": 3.187877253817433
       },
       "wavefold_polyphony_16_unison_4": {
-        "elapsed_seconds": 0.5983948707580566,
+        "elapsed_seconds": 0.5813891850411892,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6518,11 +6518,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.5983948707580566,
-        "cli_realtime_factor": 1.6711373189632848
+        "realtime_ratio": 0.5813891850411892,
+        "cli_realtime_factor": 1.7200182351674702
       },
       "wavefold_polyphony_16_unison_8": {
-        "elapsed_seconds": 0.7977772913873196,
+        "elapsed_seconds": 0.7819251716136932,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6530,11 +6530,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.7977772913873196,
-        "cli_realtime_factor": 1.2534826583757717
+        "realtime_ratio": 0.7819251716136932,
+        "cli_realtime_factor": 1.2788947540034505
       },
       "processor_chain_polyphony_1_unison_1": {
-        "elapsed_seconds": 0.06880894675850868,
+        "elapsed_seconds": 0.0681987777352333,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6542,11 +6542,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.06880894675850868,
-        "cli_realtime_factor": 14.53299384903524
+        "realtime_ratio": 0.0681987777352333,
+        "cli_realtime_factor": 14.663019385512731
       },
       "processor_chain_polyphony_1_unison_4": {
-        "elapsed_seconds": 0.08347133547067642,
+        "elapsed_seconds": 0.08362945169210434,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6554,11 +6554,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.08347133547067642,
-        "cli_realtime_factor": 11.98016054686583
+        "realtime_ratio": 0.08362945169210434,
+        "cli_realtime_factor": 11.957509941374068
       },
       "processor_chain_polyphony_1_unison_8": {
-        "elapsed_seconds": 0.09618504904210567,
+        "elapsed_seconds": 0.09424644149839878,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6566,11 +6566,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.09618504904210567,
-        "cli_realtime_factor": 10.396626190440918
+        "realtime_ratio": 0.09424644149839878,
+        "cli_realtime_factor": 10.6104801847292
       },
       "processor_chain_polyphony_8_unison_1": {
-        "elapsed_seconds": 0.19175061583518982,
+        "elapsed_seconds": 0.18688459694385529,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6578,11 +6578,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.19175061583518982,
-        "cli_realtime_factor": 5.215107110057486
+        "realtime_ratio": 0.18688459694385529,
+        "cli_realtime_factor": 5.350895773932747
       },
       "processor_chain_polyphony_8_unison_4": {
-        "elapsed_seconds": 0.3178540915250778,
+        "elapsed_seconds": 0.3085205517709255,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6590,11 +6590,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.3178540915250778,
-        "cli_realtime_factor": 3.146097617312259
+        "realtime_ratio": 0.3085205517709255,
+        "cli_realtime_factor": 3.2412751573920864
       },
       "processor_chain_polyphony_8_unison_8": {
-        "elapsed_seconds": 0.43043935112655163,
+        "elapsed_seconds": 0.4364534206688404,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6602,11 +6602,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.43043935112655163,
-        "cli_realtime_factor": 2.3232076653372573
+        "realtime_ratio": 0.4364534206688404,
+        "cli_realtime_factor": 2.2911952401875006
       },
       "processor_chain_polyphony_16_unison_1": {
-        "elapsed_seconds": 0.33887358382344246,
+        "elapsed_seconds": 0.3296741060912609,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6614,11 +6614,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.33887358382344246,
-        "cli_realtime_factor": 2.9509529445086904
+        "realtime_ratio": 0.3296741060912609,
+        "cli_realtime_factor": 3.033298586462773
       },
       "processor_chain_polyphony_16_unison_4": {
-        "elapsed_seconds": 0.5791156403720379,
+        "elapsed_seconds": 0.5784675367176533,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6626,11 +6626,11 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.5791156403720379,
-        "cli_realtime_factor": 1.7267708386490406
+        "realtime_ratio": 0.5784675367176533,
+        "cli_realtime_factor": 1.7287054787451182
       },
       "processor_chain_polyphony_16_unison_8": {
-        "elapsed_seconds": 0.7982327304780483,
+        "elapsed_seconds": 0.7695579472929239,
         "frames": 48000,
         "channels": 2,
         "duration_frames": 48000,
@@ -6638,8 +6638,8 @@
         "block_size": 257,
         "build": "default",
         "audio_duration_seconds": 1.0,
-        "realtime_ratio": 0.7982327304780483,
-        "cli_realtime_factor": 1.2527674722146718
+        "realtime_ratio": 0.7695579472929239,
+        "cli_realtime_factor": 1.2994473041539012
       }
     }
   },

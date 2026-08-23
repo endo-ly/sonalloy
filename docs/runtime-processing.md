@@ -113,6 +113,14 @@ stateDiagram-v2
 
 Sustain Down中のNote OffはReleaseを保留するだけなので、VoiceはActiveのまま残ります。保留中かどうかはKeyの押下状態とPedalの状態で管理し、保留中のVoiceも通常どおりVoice Stealingの対象です。
 
+### Performance Mode
+
+PolyphonicではNoteごとにVoiceを割り当てます。MonophonicではVoiceを1つだけ使い、最後に押されたNoteを発音します。Current Noteを離したときに他のHeld Noteがあれば、最後に押されたHeld Noteへ戻ります。Sustainだけで保持されている音はHeld Noteではないため、新しいNoteとのLegato接続には使いません。
+
+Monophonicの`legato`が有効なConnected Transitionでは、同じVoiceのGenerator、Layer / Voice Processor、Envelope、Modulation Sourceを継続し、Note ID・Note Number・Velocityだけを更新します。`legato`が無効なら新しいNoteとして再発音します。Note-off Trigger Layerは実際にReleaseへ入るNote Offでだけ開始します。
+
+PortamentoはConnected TransitionとHeld Noteへの復帰にだけ適用され、Cents Domainで現在のPitchから新しいNoteへ滑らかに移動します。通常のLayer TuningやそのModulation Routeとは別に合成されるため、専用Parameterはありません。Sustainだけで残ったVoiceからの新しいNoteはFresh Startです。
+
 ## ParameterとModulation
 
 音色の骨格は音源定義で決まりますが、フィルタの開きやビブラートのような動きは、実行中にParameterへ値を供給することで実現します。コンパイル済みの音源はParameter Catalog、Source Table、Target別Route Tableを持ち、音声処理では文字列IDではなく整数Handleだけを扱います。
@@ -122,9 +130,9 @@ Sustain Down中のNote OffはReleaseを保留するだけなので、VoiceはAct
 | **Base Parameter** | Native Unit値をSmootherへ入れ、5ms（Filterは10ms、DelayとReverbは固定値）でTargetへ近づける |
 | **Route** | 同じTargetについてDefinition順に、Curve後のSourceへ直接Depthを掛けて加算する。Linear TargetはNative Domain、Log2 TargetはOctave Domainで合計し、最後にClampする |
 | **Parameter Span** | 最大32 Frame単位で全Voiceへ同じ値を渡す。VoiceごとのSourceはVoice単位でSpanを計算する |
-| **Sourceの所属** | `velocity`・`key_tracking`・LFO・Modulation Envelope・RandomはVoiceごと。Pitch Bend・Mod Wheel・Aftertouchは全Voiceで共有するExternal Control |
+| **Sourceの所属** | `velocity`・`key_tracking`・LFO・Modulation Envelope・Random・MSEG・Step・Sample & Hold・Smooth RandomはVoiceごと。Pitch Bend・Mod Wheel・Aftertouch・Macro・Beat Phase・Bar Phaseは全Voiceで共有するInstrument Source |
 | **Note Off伝播** | Layer ADSR・Operator ADSR・Modulation Envelopeへ伝える。LFOとRandomはVoiceの終了まで保持し、終了時に初期値へ戻す |
-| **Reset** | Base ParameterとExternal Controlも定義のDefault値へ戻す |
+| **Reset** | Base Parameter、Macro、Vector Axis、External Control、Held Note、Portamentoを定義の初期状態へ戻す |
 
 連続するParameterはBlock内でStart / Endの値を受け取り、各Sampleへ補間します。Processorの種類・配置・順序、Filter Mode、EQ周波数、Delay容量などCompile時に決まる値は、Process中に変更できません。
 
@@ -182,6 +190,8 @@ Host Callbackに渡されるFrame数は要求値と異なることがあるた�
 
 Callbackで行うのはQueueからの取り出しと`process`の呼び出しだけです。前章の禁止操作に加え、Device Queryも行いません。Device選択、DefinitionのCompile、RuntimeのPrepareはCallback開始前に完了させておきます。
 
+`play`のTempoと拍子はSession開始時に固定されます。Audio CallbackのAbsolute FrameからBeat / Bar位置を求めて各Process Contextへ渡すため、Callbackの分割数が変わってもTempo同期Sourceの位置は変わりません。Macro CCは開始前にParameter Handleへ解決され、MIDI Callbackでは既存のParameter Changeへ変換されます。
+
 **エラー時の扱い**
 
 - Process Error、Audio Device Error、MIDI Error、Queue Overflowは出力を無音にして致命的状態へ遷移し、終了時に原因に対応する`PROCESS_ERROR` / `AUDIO_DEVICE_ERROR` / `MIDI_ERROR`を報告します
@@ -199,9 +209,15 @@ flowchart LR
 ```
 
 - 長さは「秒 × Sample Rate」を整数へ丸め、Tail Frame数を足します
-- `tempo_bpm`は正の有限値を受け付けます。Tempo Mapを使う場合、Tempo変更Frameを跨がないようにBlockを分割します
+- `tempo_bpm`は正の有限値を受け付けます。Tempoと拍子を持つMusical Time Mapを使う場合、変更Frameを跨がないようにBlockを分割し、Beat / Bar位置をProcess Contextへ渡します
 - 最後のBlockは残りFrame数だけ処理するため、余分なSampleはできません
 - Coreは左右のSample列を返し、WAVへの変換はCLIが行います
+
+### Musical Time
+
+`ProcessContext`の`beat_position`はQuarter-note単位の連続位置、`bar_position`は小節単位の連続位置です。Tempo変更ではBeat / Barを連続させ、拍子変更ではBeatを連続させたまま新しい小節境界からBarを始めます。`transport_beat_phase`と`transport_bar_phase`はこの位置の小数部分を共有して参照します。
+
+LFO、Step、Sample & Hold、Smooth Randomの`per_beat`、およびMSEGの`beats`はこのBeat位置を時間基準にします。Step切替、MSEG Segment終端、Random更新、Transport PhaseのWrapはProcess内の境界として扱い、境界をまたぐ値を一つの線形Spanへ混ぜません。
 
 **開発用のSine Runtime**
 

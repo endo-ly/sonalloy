@@ -8,11 +8,11 @@ use sonalloy_core::{
     InstrumentDefinition, InstrumentProcessor, LayerTriggerEvent, LfoDefinition, LfoWaveform,
     LimiterProcessorDefinition, ModEnvelopeDefinition, ModalDefinition, ModulationCurve,
     ModulationDefinition, ModulationDepthDefinition, ModulationRouteDefinition,
-    ModulationSourceDefinition, ParameterUnit, PhysicalExciterDefinition, PhysicalStringDefinition,
-    ProcessBlock, ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec, ProcessorDefinition,
-    RenderRequest, ResonatorProcessorDefinition, ReverbProcessorDefinition, ScheduledEvent,
-    TempoMap, TraceRequest, compile_instrument, render_instrument, render_instrument_with_reset,
-    render_instrument_with_trace,
+    ModulationSourceDefinition, MusicalTimeMap, ParameterUnit, PhysicalExciterDefinition,
+    PhysicalStringDefinition, ProcessBlock, ProcessContext, ProcessEvent, ProcessEventKind,
+    ProcessSpec, ProcessorDefinition, RenderRequest, ResonatorProcessorDefinition,
+    ReverbProcessorDefinition, ScheduledEvent, TraceRequest, compile_instrument, render_instrument,
+    render_instrument_with_reset, render_instrument_with_trace,
 };
 
 fn reference_definition() -> InstrumentDefinition {
@@ -24,7 +24,10 @@ fn reference_definition() -> InstrumentDefinition {
 
 fn physical_modal_definition() -> InstrumentDefinition {
     let mut definition = reference_definition();
-    definition.performance.polyphony = 4;
+    definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
+        polyphony: 4,
+        voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+    };
     definition.voice_processors.clear();
     definition.modulation = None;
     "string".clone_into(&mut definition.layers[0].id);
@@ -121,6 +124,9 @@ fn process_runtime(
             context: ProcessContext {
                 absolute_frame,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
             output: &mut output,
@@ -432,7 +438,7 @@ fn reset_then_same_note_matches_fresh_runtime() {
             tail_frames: 0,
         },
         &[note_on()],
-        &TempoMap::constant(120.0).expect("constant tempo"),
+        &MusicalTimeMap::constant(120.0).expect("constant tempo"),
     )
     .expect("prepared runtime reset render succeeds");
     assert_eq!(rendered_first.channels, rendered_after_reset.channels);
@@ -441,6 +447,7 @@ fn reset_then_same_note_matches_fresh_runtime() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn parameter_change_and_note_off_keep_both_layers_active() {
     let definition = physical_modal_definition();
     let baseline = render(&definition, 48_000.0, 257, 257);
@@ -505,6 +512,9 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
                 context: ProcessContext {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &parameter_events,
                 output: &mut output,
@@ -535,6 +545,9 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
                 context: ProcessContext {
                     absolute_frame: 257,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &note_off_events,
                 output: &mut output,
@@ -634,7 +647,10 @@ fn modulation_routes_reach_physical_modal_parameters() {
             ModulationSourceDefinition::Lfo(LfoDefinition {
                 id: "physical_lfo".to_owned(),
                 waveform: LfoWaveform::Sine,
-                rate_hz: 2.0,
+                rate: sonalloy_core::ModulationRateDefinition {
+                    value: 2.0,
+                    unit: sonalloy_core::ModulationRateUnit::PerSecond,
+                },
                 phase: 0.0,
             }),
             ModulationSourceDefinition::Envelope(ModEnvelopeDefinition {
@@ -731,7 +747,10 @@ fn modulation_trace_reports_final_values_for_physical_modal_targets() {
         sources: vec![ModulationSourceDefinition::Lfo(LfoDefinition {
             id: "trace_lfo".to_owned(),
             waveform: LfoWaveform::Sine,
-            rate_hz: 2.0,
+            rate: sonalloy_core::ModulationRateDefinition {
+                value: 2.0,
+                unit: sonalloy_core::ModulationRateUnit::PerSecond,
+            },
             phase: 0.0,
         })],
         routes: vec![
@@ -777,7 +796,7 @@ fn modulation_trace_reports_final_values_for_physical_modal_targets() {
                 kind: ProcessEventKind::ModWheel { value: 1.0 },
             },
         ],
-        &TempoMap::constant(120.0).expect("constant tempo"),
+        &MusicalTimeMap::constant(120.0).expect("constant tempo"),
         &TraceRequest {
             parameters: vec![stiffness, decay],
             every_frames: 128,
@@ -819,7 +838,10 @@ fn modulation_trace_reports_final_values_for_physical_modal_targets() {
 #[test]
 fn polyphony_stealing_and_note_off_trigger_keep_physical_layers_finite() {
     let mut definition = physical_modal_definition();
-    definition.performance.polyphony = 2;
+    definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
+        polyphony: 2,
+        voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+    };
     definition.layers[1].trigger.event = sonalloy_core::LayerTriggerEvent::NoteOff;
     let instrument = compile(&definition, 48_000.0, 257);
     let audio = render_instrument(

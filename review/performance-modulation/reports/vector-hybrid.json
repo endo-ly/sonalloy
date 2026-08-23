@@ -1,0 +1,3379 @@
+{
+  "status": "ok",
+  "sample_rate": 48000,
+  "channels": 2,
+  "frames": 168000,
+  "reported_latency_frames": 0,
+  "output": "/root/workspace/sonalloy/review/performance-modulation/audio/vector-hybrid.wav",
+  "backend": "DaisySP V1.0.0 (a0494a3adb67f549e18dfd71a35fa656f65b38b6)",
+  "analysis": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 168000,
+    "duration_seconds": 3.5,
+    "finite": true,
+    "level": {
+      "peak": 0.4517969,
+      "peak_dbfs": -6.9011354,
+      "rms": 0.13313885,
+      "rms_dbfs": -17.513905,
+      "crest_factor_db": 10.612769,
+      "over_full_scale": false
+    },
+    "dc": [
+      -3.6123856e-05,
+      -2.9069815e-05
+    ],
+    "activity": {
+      "threshold_dbfs": -80.0,
+      "first_frame": 4,
+      "peak_frame": 1133,
+      "last_frame": 141385
+    },
+    "continuity": {
+      "large_delta_threshold": 0.25,
+      "max_adjacent_frame_delta": 0.4769652,
+      "large_delta_count": 832,
+      "first_large_delta_frames": [
+        230,
+        276,
+        322,
+        367,
+        413,
+        459,
+        505,
+        551,
+        597,
+        643,
+        688,
+        689,
+        734,
+        780,
+        826,
+        872
+      ]
+    },
+    "stereo": {
+      "correlation": 0.98010653
+    },
+    "spectrum": {
+      "fft_size": 4096,
+      "hop_size": 2048,
+      "spectral_centroid_hz": 794.08734,
+      "peaks": [
+        {
+          "frequency_hz": 527.34375,
+          "relative_power": 1.0
+        },
+        {
+          "frequency_hz": 386.71875,
+          "relative_power": 0.25104043
+        },
+        {
+          "frequency_hz": 128.90625,
+          "relative_power": 0.18693347
+        },
+        {
+          "frequency_hz": 1570.3125,
+          "relative_power": 0.1289512
+        },
+        {
+          "frequency_hz": 2613.2812,
+          "relative_power": 0.042299706
+        },
+        {
+          "frequency_hz": 3667.9688,
+          "relative_power": 0.017801346
+        },
+        {
+          "frequency_hz": 4710.9375,
+          "relative_power": 0.01322898
+        },
+        {
+          "frequency_hz": 5753.9062,
+          "relative_power": 0.008526535
+        }
+      ],
+      "reference_frequency_hz": null,
+      "harmonic_energy_ratio": null
+    }
+  },
+  "trace": {
+    "every_frames": 2400,
+    "parameters": [
+      {
+        "parameter": "vector.character.x",
+        "unit": "normalized",
+        "observations": [
+          {
+            "frame": 1,
+            "seconds": 2.0833333333333333e-05,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 2400,
+            "seconds": 0.05,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 4800,
+            "seconds": 0.1,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 7200,
+            "seconds": 0.15,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 9600,
+            "seconds": 0.2,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 12000,
+            "seconds": 0.25,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 14400,
+            "seconds": 0.3,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 16800,
+            "seconds": 0.35,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 19200,
+            "seconds": 0.4,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 21600,
+            "seconds": 0.45,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 24000,
+            "seconds": 0.5,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.5,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.0,
+            "final": 1.0,
+            "clamped": false
+          },
+          {
+            "frame": 24001,
+            "seconds": 0.5000208333333334,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.49791667,
+                "shaped": 0.49791667,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.49791667,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.9979167,
+            "final": 0.9979167,
+            "clamped": false
+          },
+          {
+            "frame": 26400,
+            "seconds": 0.55,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 28800,
+            "seconds": 0.6,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 31200,
+            "seconds": 0.65,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 33600,
+            "seconds": 0.7,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 36000,
+            "seconds": 0.75,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 38400,
+            "seconds": 0.8,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 40800,
+            "seconds": 0.85,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 43200,
+            "seconds": 0.9,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 45600,
+            "seconds": 0.95,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 48000,
+            "seconds": 1.0,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 50400,
+            "seconds": 1.05,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 52800,
+            "seconds": 1.1,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 55200,
+            "seconds": 1.15,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 57600,
+            "seconds": 1.2,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 60000,
+            "seconds": 1.25,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 62400,
+            "seconds": 1.3,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 64800,
+            "seconds": 1.35,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 67200,
+            "seconds": 1.4,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 69600,
+            "seconds": 1.45,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 72000,
+            "seconds": 1.5,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.5,
+            "final": 0.5,
+            "clamped": false
+          },
+          {
+            "frame": 72001,
+            "seconds": 1.5000208333333334,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 0.004166667,
+                "shaped": 0.004166667,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 0.004166667,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.50416666,
+            "final": 0.50416666,
+            "clamped": false
+          },
+          {
+            "frame": 74400,
+            "seconds": 1.55,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 76800,
+            "seconds": 1.6,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 79200,
+            "seconds": 1.65,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 81600,
+            "seconds": 1.7,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 84000,
+            "seconds": 1.75,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 86400,
+            "seconds": 1.8,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 88800,
+            "seconds": 1.85,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 91200,
+            "seconds": 1.9,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 93600,
+            "seconds": 1.95,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 96000,
+            "seconds": 2.0,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 98400,
+            "seconds": 2.05,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 100800,
+            "seconds": 2.1,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 103200,
+            "seconds": 2.15,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 105600,
+            "seconds": 2.2,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 108000,
+            "seconds": 2.25,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 110400,
+            "seconds": 2.3,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 112800,
+            "seconds": 2.35,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 115200,
+            "seconds": 2.4,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 117600,
+            "seconds": 2.45,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 120000,
+            "seconds": 2.5,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 120001,
+            "seconds": 2.500020833333333,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 122400,
+            "seconds": 2.55,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 124800,
+            "seconds": 2.6,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 127200,
+            "seconds": 2.65,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 129600,
+            "seconds": 2.7,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 132000,
+            "seconds": 2.75,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 134400,
+            "seconds": 2.8,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 136800,
+            "seconds": 2.85,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 139200,
+            "seconds": 2.9,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 141600,
+            "seconds": 2.95,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 144000,
+            "seconds": 3.0,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          },
+          {
+            "frame": 146400,
+            "seconds": 3.05,
+            "parameter": "vector.character.x",
+            "unit": "normalized",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.5,
+            "routes": [
+              {
+                "source": "macro.position",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 1.0,
+                  "unit": "normalized"
+                },
+                "contribution": {
+                  "value": 1.0,
+                  "unit": "normalized",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 1.5,
+            "final": 1.0,
+            "clamped": true
+          }
+        ]
+      },
+      {
+        "parameter": "layer.analog.gain",
+        "unit": "decibels",
+        "observations": [
+          {
+            "frame": 1,
+            "seconds": 2.0833333333333333e-05,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 2400,
+            "seconds": 0.05,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 4800,
+            "seconds": 0.1,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 7200,
+            "seconds": 0.15,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 9600,
+            "seconds": 0.2,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 12000,
+            "seconds": 0.25,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 14400,
+            "seconds": 0.3,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 16800,
+            "seconds": 0.35,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 19200,
+            "seconds": 0.4,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 21600,
+            "seconds": 0.45,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 24000,
+            "seconds": 0.5,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 24001,
+            "seconds": 0.5000208333333334,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 26400,
+            "seconds": 0.55,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 28800,
+            "seconds": 0.6,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 31200,
+            "seconds": 0.65,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 33600,
+            "seconds": 0.7,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 36000,
+            "seconds": 0.75,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 38400,
+            "seconds": 0.8,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 40800,
+            "seconds": 0.85,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 43200,
+            "seconds": 0.9,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 45600,
+            "seconds": 0.95,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 48000,
+            "seconds": 1.0,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 50400,
+            "seconds": 1.05,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 52800,
+            "seconds": 1.1,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 55200,
+            "seconds": 1.15,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 57600,
+            "seconds": 1.2,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 60000,
+            "seconds": 1.25,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 62400,
+            "seconds": 1.3,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 64800,
+            "seconds": 1.35,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 67200,
+            "seconds": 1.4,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 69600,
+            "seconds": 1.45,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 72000,
+            "seconds": 1.5,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 72001,
+            "seconds": 1.5000208333333334,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 74400,
+            "seconds": 1.55,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 76800,
+            "seconds": 1.6,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 79200,
+            "seconds": 1.65,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 81600,
+            "seconds": 1.7,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 84000,
+            "seconds": 1.75,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 86400,
+            "seconds": 1.8,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 88800,
+            "seconds": 1.85,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 91200,
+            "seconds": 1.9,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 93600,
+            "seconds": 1.95,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 96000,
+            "seconds": 2.0,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 98400,
+            "seconds": 2.05,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 100800,
+            "seconds": 2.1,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 103200,
+            "seconds": 2.15,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 105600,
+            "seconds": 2.2,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 108000,
+            "seconds": 2.25,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 110400,
+            "seconds": 2.3,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 112800,
+            "seconds": 2.35,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 115200,
+            "seconds": 2.4,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 117600,
+            "seconds": 2.45,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 120000,
+            "seconds": 2.5,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 120001,
+            "seconds": 2.500020833333333,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 122400,
+            "seconds": 2.55,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 124800,
+            "seconds": 2.6,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 127200,
+            "seconds": 2.65,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 129600,
+            "seconds": 2.7,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 132000,
+            "seconds": 2.75,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 134400,
+            "seconds": 2.8,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 136800,
+            "seconds": 2.85,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          },
+          {
+            "frame": 139200,
+            "seconds": 2.9,
+            "parameter": "layer.analog.gain",
+            "unit": "decibels",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": -2.0,
+            "routes": [],
+            "before_clamp": -2.0,
+            "final": -2.0,
+            "clamped": false
+          }
+        ]
+      }
+    ]
+  }
+}

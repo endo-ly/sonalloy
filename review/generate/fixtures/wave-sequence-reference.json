@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Wave Sequence Reference",
     "author": "Sonalloy",
     "description": "Four time-bounded sample steps with constant-power overlap"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -119,5 +120,7 @@
     }
   ],
   "voice_processors": [],
-  "global_processors": []
+  "global_processors": [],
+  "macros": [],
+  "vectors": []
 }

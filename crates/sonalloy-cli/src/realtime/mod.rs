@@ -7,7 +7,8 @@ use cpal::traits::StreamTrait;
 use crossbeam_queue::ArrayQueue;
 use midir::MidiInputConnection;
 use sonalloy_core::{
-    Diagnostic, DiagnosticCode, InstrumentProcessor, ProcessSpec, seconds_to_frames,
+    Diagnostic, DiagnosticCode, InstrumentProcessor, ParameterHandle, ProcessSpec, TimeSignature,
+    seconds_to_frames,
 };
 
 use super::{
@@ -147,8 +148,106 @@ fn validate_play_args(args: &PlayArgs) -> Result<(), CliFailure> {
             "sample rate must be greater than zero",
         ));
     }
+    if parse_time_signature(&args.time_signature).is_err() {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "time signature must use numerator/denominator notation",
+            )
+            .with_path("time_signature"),
+        );
+    }
     if diagnostics.is_empty() {
         Ok(())
+    } else {
+        Err(CliFailure {
+            code: 2,
+            diagnostics,
+        })
+    }
+}
+
+fn parse_time_signature(value: &str) -> Result<TimeSignature, &'static str> {
+    let (numerator, denominator) = value
+        .split_once('/')
+        .ok_or("time signature must contain /")?;
+    let numerator = numerator.parse::<u16>().map_err(|_| "invalid numerator")?;
+    let denominator = denominator
+        .parse::<u16>()
+        .map_err(|_| "invalid denominator")?;
+    let signature = TimeSignature {
+        numerator,
+        denominator,
+    };
+    signature
+        .is_valid()
+        .then_some(signature)
+        .ok_or("invalid time signature")
+}
+
+fn parse_macro_cc(
+    values: &[String],
+    compiled: &sonalloy_core::CompiledInstrument,
+) -> Result<[Option<ParameterHandle>; 128], CliFailure> {
+    let mut mapping = [None; 128];
+    let mut diagnostics = Vec::new();
+    for value in values {
+        let Some((macro_id, cc)) = value.split_once('=') else {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    "macro CC must use id=number",
+                )
+                .with_path("macro_cc"),
+            );
+            continue;
+        };
+        let Ok(cc) = cc.parse::<u8>() else {
+            diagnostics.push(
+                Diagnostic::error(DiagnosticCode::ValueOutOfRange, "macro CC must be 0..127")
+                    .with_path("macro_cc"),
+            );
+            continue;
+        };
+        if cc == crate::midi_common::MOD_WHEEL_CONTROLLER
+            || cc == crate::midi_common::SUSTAIN_PEDAL_CONTROLLER
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    "CC1 and CC64 are reserved for their standard MIDI meanings",
+                )
+                .with_path("macro_cc"),
+            );
+            continue;
+        }
+        let parameter_id = format!("macro.{macro_id}");
+        let Some(parameter) = compiled.parameter_handle(&parameter_id) else {
+            diagnostics.push(
+                Diagnostic::error(DiagnosticCode::ParameterIdInvalid, "macro is not defined")
+                    .with_path("macro_cc")
+                    .with_detail(parameter_id),
+            );
+            continue;
+        };
+        if mapping[usize::from(cc)].is_some() {
+            diagnostics.push(
+                Diagnostic::error(DiagnosticCode::ValueOutOfRange, "a MIDI CC is mapped twice")
+                    .with_path("macro_cc"),
+            );
+            continue;
+        }
+        if mapping.iter().flatten().any(|mapped| *mapped == parameter) {
+            diagnostics.push(
+                Diagnostic::error(DiagnosticCode::ValueOutOfRange, "a macro is mapped twice")
+                    .with_path("macro_cc"),
+            );
+            continue;
+        }
+        mapping[usize::from(cc)] = Some(parameter);
+    }
+    if diagnostics.is_empty() {
+        Ok(mapping)
     } else {
         Err(CliFailure {
             code: 2,
@@ -512,6 +611,7 @@ fn print_realtime_status(status: &audio::RealtimeStatus) {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
     let selected_audio = device::select_audio(
         args.audio_device.as_deref(),
@@ -532,6 +632,15 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
         load_and_compile(&args.definition, sample_rate, args.buffer_size)?;
     let instrument_name = compiled.metadata.name.clone();
     let reported_latency_frames = compiled.reported_latency_frames;
+    let time_signature =
+        parse_time_signature(&args.time_signature).map_err(|error| CliFailure {
+            code: 2,
+            diagnostics: vec![
+                Diagnostic::error(DiagnosticCode::ValueOutOfRange, error)
+                    .with_path("time_signature"),
+            ],
+        })?;
+    let macro_cc = parse_macro_cc(&args.macro_cc, &compiled)?;
     let sample_format = device::sample_format_name(selected_audio.config.sample_format());
     let mut runtime = compiled.instantiate();
     let process_spec =
@@ -571,15 +680,18 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
         status.clone(),
         args.buffer_size,
         args.tempo,
+        time_signature,
     )
     .map_err(|error| CliFailure {
         code: 2,
         diagnostics: vec![error.diagnostic],
     })?;
     let midi_connection =
-        midi::connect(selected_midi, events, status.clone()).map_err(|error| CliFailure {
-            code: 2,
-            diagnostics: vec![error.diagnostic],
+        midi::connect(selected_midi, events, status.clone(), &macro_cc).map_err(|error| {
+            CliFailure {
+                code: 2,
+                diagnostics: vec![error.diagnostic],
+            }
         })?;
     stream.play().map_err(|error| CliFailure {
         code: 2,
@@ -603,6 +715,7 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
     println!("Engine latency: {reported_latency_frames} frames ({latency_ms:.3} ms)");
     println!("MIDI: {midi_name} [{midi_id}]");
     println!("Tempo: {} BPM", args.tempo);
+    println!("Time signature: {}", args.time_signature);
     print_warnings(&diagnostics);
     Ok(LiveSession {
         _stream: stream,
@@ -646,6 +759,27 @@ fn print_device_inventory(report: &device::DeviceInventoryReport) {
 mod tests {
     use super::*;
 
+    fn compiled_with_macro() -> Arc<sonalloy_core::CompiledInstrument> {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata/instruments/basic-poly-synth.json");
+        let text = std::fs::read_to_string(&path).expect("fixture reads");
+        let mut definition: sonalloy_core::InstrumentDefinition =
+            serde_json::from_str(&text).expect("fixture parses");
+        definition.macros.push(sonalloy_core::MacroDefinition {
+            id: "motion".to_owned(),
+            name: "Motion".to_owned(),
+            default: 0.0,
+        });
+        let result = sonalloy_core::compile_instrument(
+            &definition,
+            &sonalloy_core::CompileContext {
+                definition_base_dir: path.parent().expect("fixture directory").to_path_buf(),
+                process_spec: ProcessSpec::new(48_000.0, 64, 2).expect("valid spec"),
+            },
+        );
+        result.instrument.expect("fixture compiles")
+    }
+
     fn args(tempo: f64, buffer_size: usize, sample_rate: Option<u32>) -> PlayArgs {
         PlayArgs {
             definition: "instrument.json".into(),
@@ -654,6 +788,8 @@ mod tests {
             sample_rate,
             buffer_size,
             tempo,
+            time_signature: "4/4".to_owned(),
+            macro_cc: Vec::new(),
         }
     }
 
@@ -663,6 +799,36 @@ mod tests {
         assert!(validate_play_args(&args(f64::NAN, DEFAULT_BUFFER_SIZE, None)).is_err());
         assert!(validate_play_args(&args(120.0, 0, None)).is_err());
         assert!(validate_play_args(&args(120.0, DEFAULT_BUFFER_SIZE, Some(0))).is_err());
+    }
+
+    #[test]
+    fn time_signature_parser_accepts_only_valid_meters() {
+        assert_eq!(
+            parse_time_signature("7/8").expect("valid meter"),
+            TimeSignature {
+                numerator: 7,
+                denominator: 8,
+            }
+        );
+        assert!(parse_time_signature("4/3").is_err());
+        assert!(parse_time_signature("0/4").is_err());
+        assert!(parse_time_signature("4/4/4").is_err());
+    }
+
+    #[test]
+    fn macro_cc_parser_resolves_mappings_and_rejects_reserved_or_duplicate_controls() {
+        let compiled = compiled_with_macro();
+        let parameter = compiled
+            .parameter_handle("macro.motion")
+            .expect("macro parameter");
+        let mapping =
+            parse_macro_cc(&["motion=20".to_owned()], &compiled).expect("macro mapping parses");
+        assert_eq!(mapping[20], Some(parameter));
+        assert!(parse_macro_cc(&["motion=1".to_owned()], &compiled).is_err());
+        assert!(
+            parse_macro_cc(&["motion=20".to_owned(), "motion=21".to_owned()], &compiled).is_err()
+        );
+        assert!(parse_macro_cc(&["missing=22".to_owned()], &compiled).is_err());
     }
 
     #[test]

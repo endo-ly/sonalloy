@@ -1,0 +1,24 @@
+{
+  "name": "Vector Hybrid Pattern",
+  "schema_version": 1,
+  "ticks_per_beat": 480,
+  "length_ticks": 1920,
+  "tempo_change_count": 2,
+  "time_signature_change_count": 2,
+  "note_count": 2,
+  "note_min": 60,
+  "note_max": 64,
+  "velocity_min": 104,
+  "velocity_max": 112,
+  "sustain_event_count": 0,
+  "pitch_bend_event_count": 0,
+  "mod_wheel_event_count": 0,
+  "aftertouch_event_count": 0,
+  "parameter_change_count": 3,
+  "distinct_parameter_ids": [
+    "macro.position",
+    "vector.character.x",
+    "vector.character.y"
+  ],
+  "musical_duration_seconds": 2.333333333333333
+}

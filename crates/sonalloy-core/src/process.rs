@@ -63,7 +63,46 @@ pub struct ProcessContext {
     pub absolute_frame: u64,
     /// Transport tempo in beats per minute. It is constant for one process call.
     pub tempo_bpm: f64,
+    /// Continuous quarter-note position at the beginning of the block.
+    pub beat_position: f64,
+    /// Continuous bar position at the beginning of the block.
+    pub bar_position: f64,
+    /// Meter active for the block.
+    pub time_signature: TimeSignature,
 }
+
+/// Musical meter used by transport-aware modulation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TimeSignature {
+    /// Number of denominator units in one bar.
+    pub numerator: u16,
+    /// Denominator, which must be a power of two from 1 through 128.
+    pub denominator: u16,
+}
+
+impl TimeSignature {
+    /// Return the bar length in quarter-note beats.
+    #[must_use]
+    pub fn beats_per_bar(self) -> f64 {
+        f64::from(self.numerator) * 4.0 / f64::from(self.denominator)
+    }
+
+    /// Validate the meter contract.
+    #[must_use]
+    pub fn is_valid(self) -> bool {
+        self.numerator > 0
+            && self.denominator.is_power_of_two()
+            && self.denominator <= 128
+            && self.beats_per_bar().is_finite()
+            && self.beats_per_bar() > 0.0
+    }
+}
+
+/// Default meter used by offline and realtime adapters.
+pub const DEFAULT_TIME_SIGNATURE: TimeSignature = TimeSignature {
+    numerator: 4,
+    denominator: 4,
+};
 
 /// Stable identity used by normalized note events.
 pub type NoteId = u64;
@@ -242,6 +281,14 @@ impl ProcessBlock<'_> {
         if !self.context.tempo_bpm.is_finite() || self.context.tempo_bpm <= 0.0 {
             return Err(ProcessError::InvalidTempo);
         }
+        if !self.context.beat_position.is_finite()
+            || self.context.beat_position < 0.0
+            || !self.context.bar_position.is_finite()
+            || self.context.bar_position < 0.0
+            || !self.context.time_signature.is_valid()
+        {
+            return Err(ProcessError::InvalidMusicalTime);
+        }
         if self.frames > spec.max_block_size {
             return Err(ProcessError::FrameCountExceedsMaximum {
                 frames: self.frames,
@@ -351,9 +398,24 @@ pub enum ProcessError {
     /// An event value is non-finite or outside its normalized range.
     #[error("event value is invalid")]
     InvalidEventValue,
+    /// A monophonic note identity was already held.
+    #[error("note id {note_id} is already held")]
+    DuplicateNoteId {
+        /// Duplicate identity.
+        note_id: NoteId,
+    },
+    /// The monophonic held-note stack is full.
+    #[error("monophonic held note limit {limit} exceeded")]
+    MonophonicHeldNoteLimitExceeded {
+        /// Maximum number of held notes.
+        limit: usize,
+    },
     /// The process context tempo is non-finite or not positive.
     #[error("tempo must be finite and greater than zero")]
     InvalidTempo,
+    /// Musical positions or the time signature are invalid.
+    #[error("musical time context is invalid")]
+    InvalidMusicalTime,
     /// A tempo-derived stretch ratio is outside the supported range.
     #[error("stretch ratio {ratio} is outside the supported range 0.5..=2.0")]
     StretchRatioOutOfRange {
@@ -533,6 +595,9 @@ mod tests {
         ProcessContext {
             absolute_frame: 0,
             tempo_bpm: 120.0,
+            beat_position: 0.0,
+            bar_position: 0.0,
+            time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
         }
     }
 
@@ -604,12 +669,53 @@ mod tests {
                 context: ProcessContext {
                     absolute_frame: 0,
                     tempo_bpm,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
                 output: &mut output,
             };
 
             assert_eq!(block.validate_for(spec), Err(ProcessError::InvalidTempo));
+        }
+    }
+
+    #[test]
+    fn process_block_rejects_invalid_musical_positions_and_meter() {
+        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        for (beat_position, bar_position, time_signature) in [
+            (f64::NAN, 0.0, DEFAULT_TIME_SIGNATURE),
+            (0.0, -1.0, DEFAULT_TIME_SIGNATURE),
+            (
+                0.0,
+                0.0,
+                TimeSignature {
+                    numerator: 4,
+                    denominator: 3,
+                },
+            ),
+        ] {
+            let mut left = [0.0_f32; 1];
+            let mut right = [0.0_f32; 1];
+            let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+            let block = ProcessBlock {
+                frames: 1,
+                context: ProcessContext {
+                    absolute_frame: 0,
+                    tempo_bpm: 120.0,
+                    beat_position,
+                    bar_position,
+                    time_signature,
+                },
+                events: &[],
+                output: &mut output,
+            };
+
+            assert_eq!(
+                block.validate_for(spec),
+                Err(ProcessError::InvalidMusicalTime)
+            );
         }
     }
 

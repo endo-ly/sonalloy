@@ -10,6 +10,8 @@
 | `generate/fixtures/` | Package生成だけが使う音源Definition。`testdata/instruments/`とは役割が違う |
 | `<package>/` | 生成済みReview Package（WAV、Definition、Metrics、`review-summary.md`） |
 
+Performance / ModulationのRuntime確認は[`performance-modulation/`](performance-modulation/)に置く。Mono、MSEG、Step、Random、Macro、Vector、Musical Timeの入力、製品CLIのInspect / Trace / Analysis、WAV、Block Size測定を一つのPackageで追跡できる。
+
 ## 運用ルール
 
 - **Packageは必ずScriptから生成する**: 手作業でWAVやMetricsを書き換えない。生成Scriptの実行結果とRepositoryの内容が一致している状態を保つ

@@ -202,16 +202,19 @@ def sample_instrument(
     trigger_event: str = "note_on",
 ) -> dict[str, object]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
             "description": "Deterministic sample mapping review fixture",
         },
         "performance": {
+            "mode": "polyphonic",
             "polyphony": polyphony,
             "voice_stealing": "quietest_releasing_then_oldest",
         },
+        "macros": [],
+        "vectors": [],
         "layers": [
             {
                 "id": "sample",

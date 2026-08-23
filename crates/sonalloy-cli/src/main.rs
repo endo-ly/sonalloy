@@ -13,13 +13,13 @@ use serde::{Deserialize, Serialize};
 use sonalloy_core::{
     AdsrDefinition, AudioAnalysis, AudioAnalysisOptions, CompileContext, CompiledInstrument,
     DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, InstrumentDefinition, InstrumentMetadata,
-    LayerDefinition, LayerTriggerDefinition, ModulationCurve, ModulationUnit, OscillatorDefinition,
-    OscillatorWaveform, ParameterHandle, ParameterOwner, ParameterScale, ParameterUnit,
-    PerformanceDefinition, ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderError,
-    RenderRequest, RenderTraceReport, ScheduledEvent, TempoMap, TraceRequest,
+    LayerDefinition, LayerTriggerDefinition, ModulationCurve, ModulationUnit, MusicalTimeMap,
+    OscillatorDefinition, OscillatorWaveform, ParameterHandle, ParameterOwner, ParameterScale,
+    ParameterUnit, PerformanceDefinition, ProcessEventKind, ProcessSpec, ProcessorDefinition,
+    RenderError, RenderRequest, RenderTraceReport, ScheduledEvent, TraceRequest,
     VoiceStealingDefinition, analyze_rendered_audio, backend_info, compile_instrument,
-    from_render_error, render_instrument_with_reset, render_instrument_with_tempo,
-    render_instrument_with_tempo_map, render_instrument_with_trace, render_sine, seconds_to_frames,
+    from_render_error, render_instrument_with_musical_time_map, render_instrument_with_reset,
+    render_instrument_with_tempo, render_instrument_with_trace, render_sine, seconds_to_frames,
 };
 
 use crate::midi::{export_pattern, import_pattern, parse_midi, read_midi};
@@ -154,6 +154,12 @@ struct PlayArgs {
     /// Constant tempo supplied to the Core process context.
     #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
     tempo: f64,
+    /// Time signature supplied to the Core process context, for example 4/4.
+    #[arg(long, default_value = "4/4")]
+    time_signature: String,
+    /// Map a macro identifier to a MIDI CC number; may be repeated.
+    #[arg(long = "macro-cc")]
+    macro_cc: Vec<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -486,14 +492,24 @@ struct InspectReport {
     status: &'static str,
     name: String,
     metadata: InspectMetadata,
-    polyphony: usize,
-    voice_stealing: &'static str,
+    mode: &'static str,
+    voice_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    polyphony: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    voice_stealing: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    legato: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    portamento_seconds: Option<f32>,
     reported_latency_frames: usize,
     layer_count: usize,
     layers: Vec<InspectLayer>,
     voice_processors: Vec<InspectProcessor>,
     global_processors: Vec<InspectProcessor>,
     parameters: Vec<InspectParameter>,
+    macros: Vec<InspectMacro>,
+    vectors: Vec<InspectVector>,
     sources: Vec<InspectSource>,
     routes: Vec<InspectRoute>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -937,7 +953,9 @@ struct InspectSource {
     #[serde(skip_serializing_if = "Option::is_none")]
     waveform: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    rate_hz: Option<f32>,
+    rate: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rate_unit: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     phase: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -950,6 +968,36 @@ struct InspectSource {
     release_samples: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     seed: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mseg_segment_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mseg_loop: Option<(usize, usize)>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    step_value_count: Option<usize>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectMacro {
+    id: String,
+    name: String,
+    parameter_id: String,
+    default: f32,
+    routes: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectVector {
+    id: String,
+    name: String,
+    r#type: &'static str,
+    layers: Vec<String>,
+    axis_parameter_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    position: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    x: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    y: Option<f32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1574,15 +1622,15 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
         Err(failure) => return finish_failure(args.json, failure),
     };
     let (mut audio, trace) = if let Some(trace_request) = trace_request.as_ref() {
-        let tempo_map = match TempoMap::constant(args.tempo) {
-            Ok(tempo_map) => tempo_map,
+        let musical_time_map = match MusicalTimeMap::constant(args.tempo) {
+            Ok(musical_time_map) => musical_time_map,
             Err(error) => return finish_failure(args.json, render_failure(&error)),
         };
         match render_instrument_with_trace(
             Arc::clone(&compiled),
             request,
             &events,
-            &tempo_map,
+            &musical_time_map,
             trace_request,
         ) {
             Ok((audio, trace)) => (audio, Some(trace)),
@@ -1664,15 +1712,15 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
-    let tempo_map = match TempoMap::constant(args.tempo) {
-        Ok(tempo_map) => tempo_map,
+    let musical_time_map = match MusicalTimeMap::constant(args.tempo) {
+        Ok(musical_time_map) => musical_time_map,
         Err(error) => return finish_failure(args.json, render_failure(&error)),
     };
     let (mut audio, trace, reset_comparison) = match render_event_audio(
         &compiled,
         request,
         &events,
-        &tempo_map,
+        &musical_time_map,
         trace_request.as_ref(),
         args.reset_check,
     ) {
@@ -1719,7 +1767,7 @@ fn render_event_audio(
     compiled: &Arc<CompiledInstrument>,
     request: RenderRequest,
     events: &[ScheduledEvent],
-    tempo_map: &TempoMap,
+    musical_time_map: &MusicalTimeMap,
     trace_request: Option<&TraceRequest>,
     reset_check: bool,
 ) -> Result<
@@ -1741,7 +1789,7 @@ fn render_event_audio(
             });
         }
         let (first, second) =
-            render_instrument_with_reset(Arc::clone(compiled), request, events, tempo_map)
+            render_instrument_with_reset(Arc::clone(compiled), request, events, musical_time_map)
                 .map_err(|error| render_failure(&error))?;
         let comparison = compare_rendered_audio(&first, &second);
         return Ok((second, None, Some(comparison)));
@@ -1751,14 +1799,19 @@ fn render_event_audio(
             Arc::clone(compiled),
             request,
             events,
-            tempo_map,
+            musical_time_map,
             trace_request,
         )
         .map_err(|error| render_failure(&error))?;
         return Ok((audio, Some(trace), None));
     }
-    let audio = render_instrument_with_tempo_map(Arc::clone(compiled), request, events, tempo_map)
-        .map_err(|error| render_failure(&error))?;
+    let audio = render_instrument_with_musical_time_map(
+        Arc::clone(compiled),
+        request,
+        events,
+        musical_time_map,
+    )
+    .map_err(|error| render_failure(&error))?;
     Ok((audio, None, None))
 }
 
@@ -1986,18 +2039,18 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
             Arc::clone(&compiled),
             request,
             &midi.events,
-            &midi.tempo_map,
+            &midi.musical_time_map,
             trace_request,
         ) {
             Ok((audio, trace)) => (audio, Some(trace)),
             Err(error) => return finish_failure(args.json, render_failure(&error)),
         }
     } else {
-        match render_instrument_with_tempo_map(
+        match render_instrument_with_musical_time_map(
             Arc::clone(&compiled),
             request,
             &midi.events,
-            &midi.tempo_map,
+            &midi.musical_time_map,
         ) {
             Ok(audio) => (audio, None),
             Err(error) => return finish_failure(args.json, render_failure(&error)),
@@ -2085,7 +2138,7 @@ fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
         &compiled,
         request,
         &compiled_pattern.events,
-        &compiled_pattern.tempo_map,
+        &compiled_pattern.musical_time_map,
         trace_request.as_ref(),
         false,
     ) {
@@ -2408,7 +2461,7 @@ fn default_definition() -> InstrumentDefinition {
             author: None,
             description: Some("A headless oscillator instrument".to_owned()),
         },
-        performance: PerformanceDefinition {
+        performance: PerformanceDefinition::Polyphonic {
             polyphony: 16,
             voice_stealing: VoiceStealingDefinition::QuietestReleasingThenOldest,
         },
@@ -2454,6 +2507,8 @@ fn default_definition() -> InstrumentDefinition {
         )],
         global_processors: Vec::new(),
         modulation: None,
+        macros: Vec::new(),
+        vectors: Vec::new(),
     }
 }
 
@@ -2686,13 +2741,17 @@ fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSo
         kind: "unknown",
         value_range: inspect_source_range("unknown"),
         waveform: None,
-        rate_hz: None,
+        rate: None,
+        rate_unit: None,
         phase: None,
         attack_samples: None,
         decay_samples: None,
         sustain_level: None,
         release_samples: None,
         seed: None,
+        mseg_segment_count: None,
+        mseg_loop: None,
+        step_value_count: None,
     };
     match &source.source {
         sonalloy_core::compiler::CompiledVoiceSource::Velocity => result.kind = "velocity",
@@ -2705,7 +2764,11 @@ fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSo
                 sonalloy_core::LfoWaveform::Sine => "sine",
                 sonalloy_core::LfoWaveform::Triangle => "triangle",
             });
-            result.rate_hz = Some(value.rate_hz);
+            result.rate = Some(value.rate);
+            result.rate_unit = Some(match value.rate_unit {
+                sonalloy_core::ModulationRateUnit::PerSecond => "per_second",
+                sonalloy_core::ModulationRateUnit::PerBeat => "per_beat",
+            });
             result.phase = Some(value.phase);
         }
         sonalloy_core::compiler::CompiledVoiceSource::Envelope(value) => {
@@ -2717,6 +2780,40 @@ fn inspect_source(source: &sonalloy_core::compiler::CompiledSource) -> InspectSo
         }
         sonalloy_core::compiler::CompiledVoiceSource::Random(value) => {
             result.kind = "random";
+            result.seed = Some(value.seed);
+        }
+        sonalloy_core::compiler::CompiledVoiceSource::Mseg(value) => {
+            result.kind = "mseg";
+            result.rate = None;
+            result.rate_unit = None;
+            result.mseg_segment_count = Some(value.segments.len());
+            result.mseg_loop = value.loop_range;
+        }
+        sonalloy_core::compiler::CompiledVoiceSource::Step(value) => {
+            result.kind = "step";
+            result.rate = Some(value.rate);
+            result.rate_unit = Some(match value.rate_unit {
+                sonalloy_core::ModulationRateUnit::PerSecond => "per_second",
+                sonalloy_core::ModulationRateUnit::PerBeat => "per_beat",
+            });
+            result.step_value_count = Some(value.values.len());
+        }
+        sonalloy_core::compiler::CompiledVoiceSource::SampleHold(value) => {
+            result.kind = "sample_hold";
+            result.rate = Some(value.rate);
+            result.rate_unit = Some(match value.rate_unit {
+                sonalloy_core::ModulationRateUnit::PerSecond => "per_second",
+                sonalloy_core::ModulationRateUnit::PerBeat => "per_beat",
+            });
+            result.seed = Some(value.seed);
+        }
+        sonalloy_core::compiler::CompiledVoiceSource::SmoothRandom(value) => {
+            result.kind = "smooth_random";
+            result.rate = Some(value.rate);
+            result.rate_unit = Some(match value.rate_unit {
+                sonalloy_core::ModulationRateUnit::PerSecond => "per_second",
+                sonalloy_core::ModulationRateUnit::PerBeat => "per_beat",
+            });
             result.seed = Some(value.seed);
         }
     }
@@ -2735,49 +2832,170 @@ fn source_id(
             .expect("compiled voice source handle must be valid")
             .id
             .clone(),
-        sonalloy_core::compiler::CompiledSourceRef::PitchBend => "pitch_bend".to_owned(),
-        sonalloy_core::compiler::CompiledSourceRef::ModWheel => "mod_wheel".to_owned(),
-        sonalloy_core::compiler::CompiledSourceRef::Aftertouch => "aftertouch".to_owned(),
+        sonalloy_core::compiler::CompiledSourceRef::Instrument(handle) => {
+            instrument_source_id(compiled, handle)
+        }
     }
 }
 
 fn external_source_name(
+    compiled: &CompiledInstrument,
     source: sonalloy_core::compiler::CompiledSourceRef,
-) -> Option<&'static str> {
+) -> Option<String> {
     match source {
-        sonalloy_core::compiler::CompiledSourceRef::PitchBend => Some("pitch_bend"),
-        sonalloy_core::compiler::CompiledSourceRef::ModWheel => Some("mod_wheel"),
-        sonalloy_core::compiler::CompiledSourceRef::Aftertouch => Some("aftertouch"),
+        sonalloy_core::compiler::CompiledSourceRef::Instrument(handle) => {
+            Some(instrument_source_id(compiled, handle))
+        }
         sonalloy_core::compiler::CompiledSourceRef::Voice(_) => None,
     }
 }
 
-fn inspect_external_source(id: &'static str) -> InspectSource {
+fn instrument_source_id(
+    compiled: &CompiledInstrument,
+    handle: sonalloy_core::compiler::InstrumentSourceHandle,
+) -> String {
+    match compiled
+        .instrument_sources
+        .get(handle.index())
+        .expect("compiled instrument source handle must be valid")
+    {
+        sonalloy_core::compiler::CompiledInstrumentSource::PitchBend => "pitch_bend".to_owned(),
+        sonalloy_core::compiler::CompiledInstrumentSource::ModWheel => "mod_wheel".to_owned(),
+        sonalloy_core::compiler::CompiledInstrumentSource::Aftertouch => "aftertouch".to_owned(),
+        sonalloy_core::compiler::CompiledInstrumentSource::Macro { parameter } => compiled
+            .parameter_descriptor(*parameter)
+            .expect("compiled macro parameter must be valid")
+            .id
+            .clone(),
+        sonalloy_core::compiler::CompiledInstrumentSource::BeatPhase => {
+            "transport_beat_phase".to_owned()
+        }
+        sonalloy_core::compiler::CompiledInstrumentSource::BarPhase => {
+            "transport_bar_phase".to_owned()
+        }
+    }
+}
+
+fn inspect_external_source(id: &str) -> InspectSource {
+    let kind = match id {
+        "transport_beat_phase" => "beat_phase",
+        "transport_bar_phase" => "bar_phase",
+        value if value.starts_with("macro.") => "macro",
+        _ => "external_control",
+    };
     InspectSource {
         id: id.to_owned(),
         scope: "instrument",
-        kind: "external_control",
+        kind,
         value_range: inspect_source_range(id),
         waveform: None,
-        rate_hz: None,
+        rate: None,
+        rate_unit: None,
         phase: None,
         attack_samples: None,
         decay_samples: None,
         sustain_level: None,
         release_samples: None,
         seed: None,
+        mseg_segment_count: None,
+        mseg_loop: None,
+        step_value_count: None,
     }
 }
 
 fn inspect_source_range(kind: &str) -> InspectSourceRange {
     let (min, max, polarity) = match kind {
-        "velocity" | "envelope" | "mod_wheel" | "aftertouch" => {
-            (0.0, 1.0, InspectPolarity::Unipolar)
+        "velocity"
+        | "envelope"
+        | "mod_wheel"
+        | "aftertouch"
+        | "sample_hold"
+        | "smooth_random"
+        | "step"
+        | "macro"
+        | "beat_phase"
+        | "bar_phase"
+        | "transport_beat_phase"
+        | "transport_bar_phase" => (0.0, 1.0, InspectPolarity::Unipolar),
+        "key_tracking" | "lfo" | "random" | "mseg" | "pitch_bend" => {
+            (-1.0, 1.0, InspectPolarity::Bipolar)
         }
-        "key_tracking" | "lfo" | "random" | "pitch_bend" => (-1.0, 1.0, InspectPolarity::Bipolar),
         _ => (0.0, 0.0, InspectPolarity::Unipolar),
     };
     InspectSourceRange { min, max, polarity }
+}
+
+fn inspect_macros(compiled: &CompiledInstrument) -> Vec<InspectMacro> {
+    compiled
+        .macro_definitions
+        .iter()
+        .map(|value| {
+            let parameter_id = format!("macro.{}", value.id);
+            let routes = compiled
+                .routes
+                .iter()
+                .filter(|route| source_id(compiled, route.source) == parameter_id)
+                .filter_map(|route| compiled.parameter_descriptor(route.target))
+                .map(|descriptor| descriptor.id.clone())
+                .collect();
+            InspectMacro {
+                id: value.id.clone(),
+                name: value.name.clone(),
+                parameter_id,
+                default: value.default,
+                routes,
+            }
+        })
+        .collect()
+}
+
+fn inspect_vectors(compiled: &CompiledInstrument) -> Vec<InspectVector> {
+    compiled
+        .vector_definitions
+        .iter()
+        .map(|vector| match vector {
+            sonalloy_core::VectorDefinition::TwoWay {
+                id,
+                name,
+                layer_a,
+                layer_b,
+                position,
+            } => InspectVector {
+                id: id.clone(),
+                name: name.clone(),
+                r#type: "two_way",
+                layers: vec![layer_a.clone(), layer_b.clone()],
+                axis_parameter_ids: vec![format!("vector.{id}.position")],
+                position: Some(*position),
+                x: None,
+                y: None,
+            },
+            sonalloy_core::VectorDefinition::FourWay {
+                id,
+                name,
+                top_left,
+                top_right,
+                bottom_left,
+                bottom_right,
+                x,
+                y,
+            } => InspectVector {
+                id: id.clone(),
+                name: name.clone(),
+                r#type: "four_way",
+                layers: vec![
+                    top_left.clone(),
+                    top_right.clone(),
+                    bottom_left.clone(),
+                    bottom_right.clone(),
+                ],
+                axis_parameter_ids: vec![format!("vector.{id}.x"), format!("vector.{id}.y")],
+                position: None,
+                x: Some(*x),
+                y: Some(*y),
+            },
+        })
+        .collect()
 }
 
 fn inspect_modulation(descriptor: &sonalloy_core::ParameterDescriptor) -> InspectModulation {
@@ -3467,10 +3685,8 @@ fn inspect_source_bounds(
                 |source| inspect_source(source).value_range,
             )
         }
-        sonalloy_core::compiler::CompiledSourceRef::PitchBend => inspect_source_range("pitch_bend"),
-        sonalloy_core::compiler::CompiledSourceRef::ModWheel => inspect_source_range("mod_wheel"),
-        sonalloy_core::compiler::CompiledSourceRef::Aftertouch => {
-            inspect_source_range("aftertouch")
+        sonalloy_core::compiler::CompiledSourceRef::Instrument(handle) => {
+            inspect_source_range(&instrument_source_id(compiled, handle))
         }
     };
     InspectSourceBounds {
@@ -3567,6 +3783,31 @@ fn make_inspect_report(
     compiled: &CompiledInstrument,
     diagnostics: Vec<Diagnostic>,
 ) -> InspectReport {
+    let (mode, polyphony, voice_stealing, legato, portamento_seconds) =
+        match compiled.performance.mode {
+            sonalloy_core::compiler::CompiledPerformanceMode::Polyphonic { voice_stealing } => (
+                "polyphonic",
+                Some(compiled.performance.voice_count),
+                Some(match voice_stealing {
+                    sonalloy_core::compiler::CompiledVoiceStealing::QuietestReleasingThenOldest => {
+                        "quietest_releasing_then_oldest"
+                    }
+                }),
+                None,
+                None,
+            ),
+            sonalloy_core::compiler::CompiledPerformanceMode::Monophonic {
+                legato,
+                portamento_frames,
+            } => (
+                "monophonic",
+                None,
+                None,
+                Some(legato),
+                portamento_frames
+                    .map(|frames| frames_to_seconds(frames, compiled.process_sample_rate)),
+            ),
+        };
     let layers = compiled
         .layers
         .iter()
@@ -3640,9 +3881,14 @@ fn make_inspect_report(
         .map(inspect_source)
         .collect::<Vec<_>>();
     for route in &compiled.routes {
-        let Some(id) = external_source_name(route.source) else {
+        let Some(id) = external_source_name(compiled, route.source) else {
             continue;
         };
+        if !sources.iter().any(|source| source.id == id) {
+            sources.push(inspect_external_source(&id));
+        }
+    }
+    for id in ["transport_beat_phase", "transport_bar_phase"] {
         if !sources.iter().any(|source| source.id == id) {
             sources.push(inspect_external_source(id));
         }
@@ -3655,12 +3901,12 @@ fn make_inspect_report(
             author: compiled.metadata.author.clone(),
             description: compiled.metadata.description.clone(),
         },
-        polyphony: compiled.performance.polyphony,
-        voice_stealing: match compiled.performance.voice_stealing {
-            sonalloy_core::compiler::CompiledVoiceStealing::QuietestReleasingThenOldest => {
-                "quietest_releasing_then_oldest"
-            }
-        },
+        mode,
+        voice_count: compiled.performance.voice_count,
+        polyphony,
+        voice_stealing,
+        legato,
+        portamento_seconds,
         reported_latency_frames: compiled.reported_latency_frames,
         layer_count: layers.len(),
         layers,
@@ -3697,10 +3943,17 @@ fn make_inspect_report(
                 }
             })
             .collect(),
+        macros: inspect_macros(compiled),
+        vectors: inspect_vectors(compiled),
         sources,
         routes,
         diagnostics,
     }
+}
+
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+fn frames_to_seconds(frames: usize, sample_rate: f64) -> f32 {
+    (frames as f64 / sample_rate) as f32
 }
 
 #[allow(clippy::too_many_lines)]
@@ -3715,12 +3968,44 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
         "metadata.description: {}",
         report.metadata.description.as_deref().unwrap_or("none")
     );
-    println!("polyphony: {}", report.polyphony);
-    println!("voice stealing: quietest_releasing_then_oldest");
+    println!("mode: {}", report.mode);
+    println!("voice count: {}", report.voice_count);
+    if let Some(polyphony) = report.polyphony {
+        println!("polyphony: {polyphony}");
+    }
+    if let Some(voice_stealing) = report.voice_stealing {
+        println!("voice stealing: {voice_stealing}");
+    }
+    if let Some(legato) = report.legato {
+        println!("legato: {legato}");
+    }
+    if let Some(portamento_seconds) = report.portamento_seconds {
+        println!("portamento: {portamento_seconds:.6} seconds");
+    }
     println!(
         "reported latency: {} frames",
         report.reported_latency_frames
     );
+    for macro_control in &report.macros {
+        println!(
+            "macro {} ({}) default {:.3}: {}",
+            macro_control.id,
+            macro_control.name,
+            macro_control.default,
+            macro_control.routes.join(", ")
+        );
+    }
+    for vector in &report.vectors {
+        let axes = vector.axis_parameter_ids.join(", ");
+        println!(
+            "vector {} ({}) {} layers [{}] axes [{}]",
+            vector.id,
+            vector.name,
+            vector.r#type,
+            vector.layers.join(", "),
+            axes
+        );
+    }
     for layer in &report.layers {
         print_generator(&layer.id, &layer.generator);
         println!(

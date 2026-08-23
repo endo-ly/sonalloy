@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Harmonic Formant Hybrid Reference",
     "author": null,
     "description": "Formant vowel spectrum layered with a harmonic additive body"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -398,15 +399,21 @@
         "type": "lfo",
         "id": "vowel_motion",
         "waveform": "sine",
-        "rate_hz": 0.18,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 0.18,
+          "unit": "per_second"
+        }
       },
       {
         "type": "lfo",
         "id": "brightness_motion",
         "waveform": "triangle",
-        "rate_hz": 0.13,
-        "phase": 0.25
+        "phase": 0.25,
+        "rate": {
+          "value": 0.13,
+          "unit": "per_second"
+        }
       },
       {
         "type": "envelope",
@@ -509,5 +516,7 @@
         "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

@@ -1,14 +1,17 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Wavetable Motion Bass",
     "author": "Sonalloy",
     "description": "Wavetable Generator review instrument"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
+  "macros": [],
+  "vectors": [],
   "layers": [
     {
       "id": "motion",
@@ -58,7 +61,10 @@
         "type": "lfo",
         "id": "motion_lfo",
         "waveform": "sine",
-        "rate_hz": 0.35,
+        "rate": {
+          "value": 0.35,
+          "unit": "per_second"
+        },
         "phase": 0.0
       }
     ],

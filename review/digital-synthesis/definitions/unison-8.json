@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Complex Oscillator Reference",
     "author": null,
     "description": "Hard sync, waveshaping, and unison oscillator reference"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -108,5 +109,7 @@
     }
   ],
   "voice_processors": [],
-  "global_processors": []
+  "global_processors": [],
+  "macros": [],
+  "vectors": []
 }

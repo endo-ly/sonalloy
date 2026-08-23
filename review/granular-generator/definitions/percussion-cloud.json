@@ -1,14 +1,17 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Percussion Cloud",
     "author": "Sonalloy",
     "description": "A deterministic granular texture source"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
+  "macros": [],
+  "vectors": [],
   "layers": [
     {
       "id": "texture",

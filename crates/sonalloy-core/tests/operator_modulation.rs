@@ -367,7 +367,10 @@ fn modulation_route_reaches_operator_index_parameter() {
         sources: vec![ModulationSourceDefinition::Lfo(LfoDefinition {
             id: "index_lfo".to_owned(),
             waveform: LfoWaveform::Sine,
-            rate_hz: 4.0,
+            rate: sonalloy_core::ModulationRateDefinition {
+                value: 4.0,
+                unit: sonalloy_core::ModulationRateUnit::PerSecond,
+            },
             phase: 0.0,
         })],
         routes: vec![ModulationRouteDefinition {
@@ -437,7 +440,10 @@ fn operator_envelope_note_off_and_voice_stealing_reset_state() {
             release_seconds: 0.01,
         };
     }
-    definition.performance.polyphony = 1;
+    definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
+        polyphony: 1,
+        voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+    };
     let events = [
         note_on(),
         note_off(512),
@@ -531,6 +537,9 @@ fn operator_runtime_reset_restarts_state() {
                 context: sonalloy_core::ProcessContext {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &events,
                 output: &mut output,

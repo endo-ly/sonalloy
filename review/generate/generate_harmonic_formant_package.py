@@ -345,7 +345,7 @@ def formant_with_lfo(source: dict[str, object]) -> dict[str, object]:
                 "type": "lfo",
                 "id": "vowel_position_lfo",
                 "waveform": "sine",
-                "rate_hz": 0.22,
+                "rate": {"value": 0.22, "unit": "per_second"},
                 "phase": 0.0,
             }
         ],

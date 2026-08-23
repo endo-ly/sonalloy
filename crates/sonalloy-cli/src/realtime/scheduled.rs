@@ -1,6 +1,8 @@
 use std::fmt;
 
-use sonalloy_core::{ProcessEvent, ProcessEventKind, ScheduledEvent, TempoMap};
+use sonalloy_core::{
+    MusicalTimeMap, ProcessContext, ProcessEvent, ProcessEventKind, ScheduledEvent,
+};
 
 use crate::pattern::{CompiledPattern, loop_note_id};
 
@@ -26,7 +28,7 @@ impl fmt::Display for ScheduledFeedError {
 
 pub(crate) struct ScheduledEventFeed {
     events: Vec<ScheduledEvent>,
-    tempo_map: TempoMap,
+    musical_time_map: MusicalTimeMap,
     pattern_length_frames: u64,
     playback_end_frame: Option<u64>,
     looping: bool,
@@ -58,7 +60,7 @@ impl ScheduledEventFeed {
         };
         Ok(Self {
             events: pattern.events,
-            tempo_map: pattern.tempo_map,
+            musical_time_map: pattern.musical_time_map,
             pattern_length_frames: pattern.length_frames,
             playback_end_frame,
             looping,
@@ -130,8 +132,8 @@ impl ScheduledEventFeed {
                 .ok_or(ScheduledFeedError::BlockStartDiscontinuity)?;
             frames = frames.min(usize::try_from(remaining).unwrap_or(usize::MAX));
         }
-        if let Some(next_tempo_frame) = self.next_tempo_frame(block_start_frame) {
-            let remaining = next_tempo_frame
+        if let Some(next_musical_time_frame) = self.next_musical_time_frame(block_start_frame) {
+            let remaining = next_musical_time_frame
                 .checked_sub(block_start_frame)
                 .ok_or(ScheduledFeedError::BlockStartDiscontinuity)?;
             frames = frames.min(usize::try_from(remaining).unwrap_or(usize::MAX));
@@ -149,26 +151,55 @@ impl ScheduledEventFeed {
         Ok(frames)
     }
 
-    pub(crate) fn tempo_at(&self, absolute_frame: u64) -> f64 {
+    pub(crate) fn context_at(&self, absolute_frame: u64, sample_rate: f64) -> ProcessContext {
         let relative_frame = if self.looping {
             absolute_frame.saturating_sub(self.iteration_start_frame)
         } else {
             absolute_frame
         };
-        let changes = self.tempo_map.changes();
-        let index = changes
-            .partition_point(|change| change.absolute_frame <= relative_frame)
-            .saturating_sub(1);
-        changes[index].tempo_bpm
+        let changes = self.musical_time_map.changes();
+        let mut current = changes[0];
+        let mut beat_position = 0.0;
+        let mut bar_position = 0.0;
+        for change in changes.iter().skip(1).copied() {
+            if change.absolute_frame > relative_frame {
+                break;
+            }
+            let frame_delta = change.absolute_frame.saturating_sub(current.absolute_frame);
+            #[allow(clippy::cast_precision_loss)]
+            let frame_delta = frame_delta as f64;
+            let beat_delta = frame_delta * current.tempo_bpm / (60.0 * sample_rate);
+            beat_position += beat_delta;
+            if current.time_signature == change.time_signature {
+                bar_position += beat_delta / current.time_signature.beats_per_bar();
+            } else {
+                bar_position =
+                    (bar_position + beat_delta / current.time_signature.beats_per_bar()).ceil();
+            }
+            current = change;
+        }
+        let frame_delta = relative_frame.saturating_sub(current.absolute_frame);
+        #[allow(clippy::cast_precision_loss)]
+        let frame_delta = frame_delta as f64;
+        let beat_delta = frame_delta * current.tempo_bpm / (60.0 * sample_rate);
+        beat_position += beat_delta;
+        bar_position += beat_delta / current.time_signature.beats_per_bar();
+        ProcessContext {
+            absolute_frame,
+            tempo_bpm: current.tempo_bpm,
+            beat_position,
+            bar_position,
+            time_signature: current.time_signature,
+        }
     }
 
-    fn next_tempo_frame(&self, absolute_frame: u64) -> Option<u64> {
+    fn next_musical_time_frame(&self, absolute_frame: u64) -> Option<u64> {
         let relative_frame = if self.looping {
             absolute_frame.saturating_sub(self.iteration_start_frame)
         } else {
             absolute_frame
         };
-        self.tempo_map
+        self.musical_time_map
             .changes()
             .iter()
             .find(|change| change.absolute_frame > relative_frame)
@@ -287,21 +318,23 @@ fn remap_loop_note_id(kind: ProcessEventKind, iteration: u32) -> ProcessEventKin
 
 #[cfg(test)]
 mod tests {
-    use sonalloy_core::{ProcessEventKind, TempoChange, TempoMap};
+    use sonalloy_core::{MusicalTimeChange, MusicalTimeMap, ProcessEventKind, TimeSignature};
 
     use super::*;
 
     fn pattern(events: Vec<ScheduledEvent>, length_frames: u64) -> CompiledPattern {
         CompiledPattern {
             events,
-            tempo_map: TempoMap::new(vec![
-                TempoChange {
+            musical_time_map: MusicalTimeMap::new(vec![
+                MusicalTimeChange {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
-                TempoChange {
+                MusicalTimeChange {
                     absolute_frame: length_frames / 2,
                     tempo_bpm: 90.0,
+                    time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
             ])
             .expect("tempo map"),
@@ -353,7 +386,47 @@ mod tests {
         let frames = feed.prepare_block(0, 2_000, &mut events).expect("block");
 
         assert_eq!(frames, 1_000);
-        assert!((feed.tempo_at(0) - 120.0).abs() < f64::EPSILON);
+        assert!((feed.context_at(0, 48_000.0).tempo_bpm - 120.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn context_positions_accumulate_tempo_and_meter_changes() {
+        let feed = ScheduledEventFeed::new(
+            CompiledPattern {
+                events: Vec::new(),
+                musical_time_map: MusicalTimeMap::new(vec![
+                    MusicalTimeChange {
+                        absolute_frame: 0,
+                        tempo_bpm: 120.0,
+                        time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                    },
+                    MusicalTimeChange {
+                        absolute_frame: 48_000,
+                        tempo_bpm: 60.0,
+                        time_signature: TimeSignature {
+                            numerator: 3,
+                            denominator: 4,
+                        },
+                    },
+                ])
+                .expect("tempo and meter map"),
+                length_frames: 96_000,
+                one_shot_duration_frames: 96_000,
+            },
+            0,
+            0,
+            false,
+        )
+        .expect("feed");
+
+        let at_change = feed.context_at(48_000, 48_000.0);
+        let later = feed.context_at(72_000, 48_000.0);
+
+        assert!((at_change.beat_position - 2.0).abs() < f64::EPSILON);
+        assert!((at_change.bar_position - 1.0).abs() < f64::EPSILON);
+        assert_eq!(at_change.time_signature.numerator, 3);
+        assert!((later.beat_position - 2.5).abs() < f64::EPSILON);
+        assert!((later.bar_position - (7.0 / 6.0)).abs() < 1.0e-12);
     }
 
     #[test]
@@ -407,7 +480,7 @@ mod tests {
     fn constant_pattern(events: Vec<ScheduledEvent>, length_frames: u64) -> CompiledPattern {
         CompiledPattern {
             events,
-            tempo_map: TempoMap::constant(120.0).expect("tempo map"),
+            musical_time_map: MusicalTimeMap::constant(120.0).expect("tempo map"),
             length_frames,
             one_shot_duration_frames: length_frames,
         }

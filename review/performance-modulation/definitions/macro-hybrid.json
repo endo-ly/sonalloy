@@ -1,0 +1,132 @@
+{
+  "schema_version": 3,
+  "metadata": {
+    "name": "Macro Hybrid",
+    "author": "Sonalloy",
+    "description": "One Macro drives Layer Gain, Filter Cutoff, and Reverb Mix"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -26.0,
+      "pan": -0.08,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.02,
+        "decay_seconds": 0.25,
+        "sustain_level": 0.7,
+        "release_seconds": 0.5
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    },
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -30.0,
+      "pan": 0.12,
+      "tuning_cents": 1200.0,
+      "envelope": {
+        "attack_seconds": 0.05,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.55,
+        "release_seconds": 0.65
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "cutoff_hz": 2600.0,
+      "resonance": 0.18
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.01,
+      "decay": 0.65,
+      "damping": 0.3,
+      "width": 0.85,
+      "mix": 0.12
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "macro.motion",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 3.0,
+          "unit": "octaves"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "macro.motion",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 8.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.motion",
+        "target": "global.processor.space.mix",
+        "depth": {
+          "value": 0.5,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "motion",
+      "name": "Motion",
+      "default": 0.2
+    }
+  ],
+  "vectors": []
+}

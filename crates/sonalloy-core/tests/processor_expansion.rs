@@ -733,6 +733,9 @@ fn processor_expansion_reset_matches_a_fresh_runtime() {
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: &event,
             output: &mut first_output,
@@ -748,6 +751,9 @@ fn processor_expansion_reset_matches_a_fresh_runtime() {
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: &event,
             output: &mut reset_output,

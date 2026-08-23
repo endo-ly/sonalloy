@@ -2,7 +2,7 @@
 
 音源定義（JSONファイル）は、手で編集して保存・管理する正本です。この文書は、音源定義を正しく書くために必要な**Fieldの制約・Range・振る舞い**をまとめます。書きたい要素の該当章を調べる使い方を想定しているため、各章はその要素について完結します。
 
-**全体構造 → Layer → Generator → 複数Generatorの組み合わせ → Processor → Modulation → コンパイル時の変換**の順で説明します。実行時の振る舞い（Voice、ADSRの進行、Sample再生、Grain生成など）は`docs/runtime-processing.md`を、CLIの使い方は`docs/cli.md`を参照してください。
+**全体構造 → Performance → Macro / Vector → Layer → Generator → 複数Generatorの組み合わせ → Processor → Modulation → コンパイル時の変換**の順で説明します。実行時の振る舞い（Voice、ADSRの進行、Sample再生、Grain生成など）は`docs/runtime-processing.md`を、CLIの使い方は`docs/cli.md`を参照してください。
 
 音声処理は音源定義を直接使わず、コンパイルして変換した値だけを使います。
 
@@ -19,21 +19,23 @@
 
 | Field | 内容 |
 |---|---|
-| `schema_version` | スキーマ版。現在は`2`。`1`はUnsupportedとして拒否 |
+| `schema_version` | スキーマ版。現在は`3`。それ以外はUnsupportedとして拒否 |
 | `metadata` | `name`、`author`、`description` |
-| `performance` | `polyphony`（1〜64）、`voice_stealing` |
+| `performance` | `mode`が`polyphonic`または`monophonic`。Modeごとに必要なFieldが異なる |
 | `layers` | 発音の単位となるLayer配列（1個以上） |
 | `voice_processors` | 全LayerのMix後に適用するProcessor Chain |
 | `global_processors` | 全Voiceの合計後に適用するProcessor Chain |
 | `modulation` | SourceとRouteの定義（省略可）。Routeは`depth.value`と`depth.unit`でTargetに直接効く量を指定 |
+| `macros` | 外部から変更できる0〜1のInstrument Parameter（省略可） |
+| `vectors` | LayerのConstant-power Mixを制御するAxis（省略可） |
 
 全体の例（Saw Oscillatorの最小構成）：
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": { "name": "Basic Poly Synth", "author": null, "description": "..." },
-  "performance": { "polyphony": 16, "voice_stealing": "quietest_releasing_then_oldest" },
+  "performance": { "mode": "polyphonic", "polyphony": 16, "voice_stealing": "quietest_releasing_then_oldest" },
   "layers": [
     {
       "id": "body",
@@ -54,7 +56,9 @@
     "routes": [
       { "source": "velocity", "target": "layer.body.gain", "depth": { "value": 8.0, "unit": "decibels" }, "curve": "linear" }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }
 ```
 
@@ -62,6 +66,80 @@
 
 - Layer / Processor / Sourceの識別子（ID）は、小文字で始まり、小文字・数字・`_`を使用します（`.`は使えません）
 - 定義されていないFieldがあるとJSON Parse Errorになります
+
+## Performance
+
+`performance`はTagged Objectです。`mode`を省略したり、別ModeのFieldを混ぜたりできません。
+
+### Polyphonic
+
+同時に保持するVoice数を`polyphony`（1〜64）で指定し、上限到達時は`voice_stealing`で既存Voiceを選びます。
+
+```json
+"performance": {
+  "mode": "polyphonic",
+  "polyphony": 16,
+  "voice_stealing": "quietest_releasing_then_oldest"
+}
+```
+
+### Monophonic
+
+常に1 Voiceを使い、Held NoteはLast-note priorityで切り替えます。`legato: true`では接続したNote OnでEnvelopeとGeneratorを再Triggerせず、`portamento`があれば音程だけを指定秒数で滑らかに移動します。`legato: false`ではNote Onごとに再Triggerします。
+
+```json
+"performance": {
+  "mode": "monophonic",
+  "legato": true,
+  "portamento": { "time_seconds": 0.08 }
+}
+```
+
+`portamento.time_seconds`は0より大きく10秒以下です。Monophonicでは`polyphony`と`voice_stealing`を指定しません。
+
+## MacroとVector
+
+### Macro
+
+Macroは0〜1の安定したInstrument Parameterです。1つのMacroを複数RouteのSourceにできます。Parameter IDは`macro.<id>`で、PatternやEventの既存`parameter_change`から変更します。Macroを別SourceのTargetにはできません。
+
+```json
+"macros": [
+  { "id": "motion", "name": "Motion", "default": 0.0 }
+],
+"modulation": {
+  "sources": [],
+  "routes": [
+    {
+      "source": "macro.motion",
+      "target": "layer.body.tuning",
+      "depth": { "value": 80.0, "unit": "cents" },
+      "curve": "smooth_step"
+    }
+  ]
+}
+```
+
+Macroは最大16個です。`default`は0〜1で、Runtimeでは5msのSmoothingを使います。
+
+### Vector
+
+VectorはLayerをConstant-powerで混ぜる専用機能です。2-WayのParameter IDは`vector.<id>.position`、4-Wayは`vector.<id>.x`と`vector.<id>.y`です。AxisはModulation Targetにできます。
+
+```json
+"vectors": [
+  {
+    "type": "two_way",
+    "id": "tone",
+    "name": "Tone",
+    "layer_a": "body",
+    "layer_b": "bright",
+    "position": 0.5
+  }
+]
+```
+
+2-WayのWeightは`A = cos(position × π/2)`、`B = sin(position × π/2)`です。4-WayはX/YそれぞれのSine/Cosineを組み合わせます。同じLayerを複数Vectorへ所属させることはできず、Vectorは最大8個です。
 
 ## Layer
 
@@ -705,7 +783,7 @@ Parameter IDの形式：
 
 ## Modulation
 
-`modulation`は省略可能です。`sources`はVoiceごとのSource定義、`routes`はSourceからDynamic Parameterへの接続です。Routeは書かれた順に同じTargetへ加算され、最後にTarget範囲へClampされます。
+`modulation`は省略可能です。`sources`はVoiceごとのSource定義、`routes`はSourceからDynamic Parameterへの接続です。Routeは書かれた順に同じTargetへ加算され、最後にTarget範囲へClampされます。MacroとTransport PhaseはInstrument Scope、LFOやEnvelopeなどの定義SourceはVoice Scopeです。
 
 **組み込みSource**（定義なしで使えます）：
 
@@ -716,21 +794,27 @@ Parameter IDの形式：
 | `pitch_bend` | -1〜1 | Bipolar | 共有External Control |
 | `mod_wheel` | 0〜1 | Unipolar | 共有External Control |
 | `aftertouch` | 0〜1 | Unipolar | 共有External Control |
+| `transport_beat_phase` | 0〜1 | Unipolar | `beat_position`の小数部 |
+| `transport_bar_phase` | 0〜1 | Unipolar | `bar_position`の小数部 |
 
 **追加できるSource**：
 
 | `type` | Field | 動作 |
 |---|---|---|
-| `lfo` | `waveform`、`rate_hz`（0.01〜40 Hz）、`phase`（0以上1未満） | Bipolarの周期信号 |
+| `lfo` | `waveform`、`rate`（`per_second`または`per_beat`）、`phase`（0以上1未満） | Bipolarの周期信号 |
 | `envelope` | ADSR（各時間の範囲はLayer ADSRと同じ） | Note Lifecycleに追従 |
 | `random` | `seed` | SeedとNote IDから決まる、Voiceごとの固定値 |
+| `mseg` | `initial_value`、`segments`、`loop_range` | Segmentを順に進むBipolarのMotion |
+| `step` | `values`、`rate` | 値を保持するBipolarのStep列 |
+| `sample_hold` | `seed`、`rate` | Rateごとに更新する決定的Bipolar値 |
+| `smooth_random` | `seed`、`rate` | 決定的Bipolar値をRateに合わせて補間 |
 
-追加SourceのPolarityは、LFOとRandomがBipolar（-1〜1）、EnvelopeがUnipolar（0〜1）です。Depthの符号は方向を決め、Bipolar Sourceでは正負両方向へ作用します。
+追加SourceのPolarityは、LFO、Random、MSEG、Step、Sample Hold、Smooth RandomがBipolar（-1〜1）、EnvelopeがUnipolar（0〜1）です。Depthの符号は方向を決め、Bipolar Sourceでは正負両方向へ作用します。
 
 ```json
 "modulation": {
   "sources": [
-    { "type": "lfo", "id": "vibrato", "waveform": "sine", "rate_hz": 5.0, "phase": 0.0 },
+    { "type": "lfo", "id": "vibrato", "waveform": "sine", "rate": { "value": 5.0, "unit": "per_second" }, "phase": 0.0 },
     { "type": "envelope", "id": "filter_env", "attack_seconds": 0.01, "decay_seconds": 0.2, "sustain_level": 0.3, "release_seconds": 0.25 },
     { "type": "random", "id": "random_pan", "seed": 42 }
   ],
@@ -739,6 +823,23 @@ Parameter IDの形式：
     { "source": "filter_env", "target": "voice.processor.tone.cutoff", "depth": { "value": 2.0, "unit": "octaves" }, "curve": "smooth_step" },
     { "source": "random_pan", "target": "layer.body.pan", "depth": { "value": 0.5, "unit": "pan" }, "curve": "linear" }
   ]
+}
+```
+
+Rateの`per_beat`はQuarter-note beat単位で、Tempo変更後も拍基準の速度を保ちます。`per_second`の範囲は0.01〜40、`per_beat`の範囲は1/64〜16です。
+
+MSEGのSegment `duration`は`seconds`または`beats`で、`target`は-1〜1、Curveは`linear`または`smooth_step`です。Segmentは1〜64個、Loopの終端はExclusive Indexです。ReleaseではLoopを抜けて終端へ進みます。Stepは`values`を順に保持し、Sample HoldはRateごとに決定的な値を保持し、Smooth Randomは同じ決定性を保ったまま値を補間します。これらの変化Frameは処理境界になります。
+
+```json
+{
+  "id": "motion_env",
+  "type": "mseg",
+  "initial_value": 0.0,
+  "segments": [
+    { "duration": { "value": 1.0, "unit": "beats" }, "target": 1.0, "curve": "smooth_step" },
+    { "duration": { "value": 0.5, "unit": "beats" }, "target": -0.5, "curve": "linear" }
+  ],
+  "loop_range": { "start_segment": 0, "end_segment": 2 }
 }
 ```
 

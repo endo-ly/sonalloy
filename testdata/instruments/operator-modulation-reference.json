@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Operator Modulation Reference",
     "author": "Sonalloy",
     "description": "A four-operator phase modulation instrument"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -105,5 +106,7 @@
   ],
   "voice_processors": [],
   "global_processors": [],
-  "modulation": null
+  "modulation": null,
+  "macros": [],
+  "vectors": []
 }

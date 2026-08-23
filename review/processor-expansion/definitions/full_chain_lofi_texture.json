@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Lo-fi Texture",
     "author": "Sonalloy",
     "description": "Granular and noise texture through bit reduction, EQ, modulation, and space"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -121,5 +122,7 @@
       "mix": 0.22
     }
   ],
-  "modulation": null
+  "modulation": null,
+  "macros": [],
+  "vectors": []
 }

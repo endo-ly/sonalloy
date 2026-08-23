@@ -4,11 +4,12 @@ use std::sync::Arc;
 use approx::assert_relative_eq;
 use sonalloy_core::{
     AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, GeneratorDefinition,
-    InstrumentDefinition, InstrumentProcessor, ProcessBlock, ProcessContext, ProcessEvent,
-    ProcessEventKind, ProcessSpec, RenderRequest, SamplePlaybackDirection, SampleRegionDefinition,
-    ScheduledEvent, TempoChange, TempoMap, WaveSequenceDefinition, WaveSequenceDirection,
-    WaveSequenceDurationDefinition, WaveSequenceStepDefinition, WaveSequenceStepPlayback,
-    compile_instrument, render_instrument, render_instrument_with_tempo_map,
+    InstrumentDefinition, InstrumentProcessor, MusicalTimeChange, MusicalTimeMap, ProcessBlock,
+    ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec, RenderRequest,
+    SamplePlaybackDirection, SampleRegionDefinition, ScheduledEvent, WaveSequenceDefinition,
+    WaveSequenceDirection, WaveSequenceDurationDefinition, WaveSequenceStepDefinition,
+    WaveSequenceStepPlayback, compile_instrument, render_instrument,
+    render_instrument_with_musical_time_map,
 };
 use tempfile::TempDir;
 
@@ -534,18 +535,20 @@ fn wave_sequence_beats_follow_tempo_changes_without_restarting_the_step() {
         0.0,
     );
     let compiled = compile(&definition, directory.path(), 257);
-    let tempo_map = TempoMap::new(vec![
-        TempoChange {
+    let musical_time_map = MusicalTimeMap::new(vec![
+        MusicalTimeChange {
             absolute_frame: 0,
             tempo_bpm: 120.0,
+            time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
         },
-        TempoChange {
+        MusicalTimeChange {
             absolute_frame: 12_000,
             tempo_bpm: 60.0,
+            time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
         },
     ])
     .expect("tempo map");
-    let audio = render_instrument_with_tempo_map(
+    let audio = render_instrument_with_musical_time_map(
         compiled,
         RenderRequest {
             sample_rate: 48_000.0,
@@ -561,7 +564,7 @@ fn wave_sequence_beats_follow_tempo_changes_without_restarting_the_step() {
                 velocity: 100,
             },
         }],
-        &tempo_map,
+        &musical_time_map,
     )
     .expect("tempo-aware sequence render");
     assert_relative_eq!(audio.channels[0][35_000], 0.13, epsilon = 0.02);
@@ -614,6 +617,9 @@ fn wave_sequence_reset_restarts_the_same_runtime_state() {
                 context: ProcessContext {
                     absolute_frame,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &event,
                 output: &mut output,

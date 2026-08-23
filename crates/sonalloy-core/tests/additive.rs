@@ -200,6 +200,9 @@ fn process_runtime(
             context: ProcessContext {
                 absolute_frame,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
             output: &mut output,
@@ -637,7 +640,10 @@ fn additive_partial_envelopes_note_off_reset_and_voice_stealing_are_deterministi
     );
 
     let mut stealing_definition = definition;
-    stealing_definition.performance.polyphony = 1;
+    stealing_definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
+        polyphony: 1,
+        voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+    };
     let stealing = compile(&stealing_definition, 48_000.0, 257);
     let mut stealing_runtime = stealing.instantiate();
     stealing_runtime

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crossbeam_queue::ArrayQueue;
 use midir::MidiInputConnection;
 use midly::{MidiMessage, live::LiveEvent};
-use sonalloy_core::ProcessEventKind;
+use sonalloy_core::{ParameterHandle, ProcessEventKind};
 
 use super::audio::{FatalStatus, QueuedEvent, RealtimeStatus};
 use super::device::{DeviceError, SelectedMidiDevice};
@@ -18,16 +18,22 @@ pub(crate) struct LiveMidiState {
     status: Arc<RealtimeStatus>,
     active_notes: HashMap<(u8, u8), VecDeque<u64>>,
     serials: HashMap<(u8, u8), u32>,
+    macro_parameters: [Option<ParameterHandle>; 128],
     next_sequence: u64,
 }
 
 impl LiveMidiState {
-    fn new(events: Arc<ArrayQueue<QueuedEvent>>, status: Arc<RealtimeStatus>) -> Self {
+    fn new(
+        events: Arc<ArrayQueue<QueuedEvent>>,
+        status: Arc<RealtimeStatus>,
+        macro_parameters: &[Option<ParameterHandle>; 128],
+    ) -> Self {
         Self {
             events,
             status,
             active_notes: HashMap::new(),
             serials: HashMap::new(),
+            macro_parameters: *macro_parameters,
             next_sequence: 0,
         }
     }
@@ -37,8 +43,9 @@ pub(crate) fn connect(
     selected: SelectedMidiDevice,
     events: Arc<ArrayQueue<QueuedEvent>>,
     status: Arc<RealtimeStatus>,
+    macro_parameters: &[Option<ParameterHandle>; 128],
 ) -> Result<MidiInputConnection<LiveMidiState>, DeviceError> {
-    let state = LiveMidiState::new(events, status);
+    let state = LiveMidiState::new(events, status, macro_parameters);
     selected
         .input
         .connect(&selected.port, "sonalloy", handle_message, state)
@@ -135,9 +142,19 @@ fn handle_message(timestamp_us: u64, message: &[u8], state: &mut LiveMidiState) 
                 },
             );
         }
-        MidiMessage::Aftertouch { .. }
-        | MidiMessage::Controller { .. }
-        | MidiMessage::ProgramChange { .. } => {}
+        MidiMessage::Controller { controller, value } => {
+            if let Some(parameter) = state.macro_parameters[usize::from(controller.as_int())] {
+                enqueue(
+                    state,
+                    timestamp_us,
+                    ProcessEventKind::ParameterChange {
+                        parameter,
+                        normalized: normalize_control(value.as_int()),
+                    },
+                );
+            }
+        }
+        MidiMessage::Aftertouch { .. } | MidiMessage::ProgramChange { .. } => {}
     }
 }
 
@@ -187,7 +204,7 @@ mod tests {
         ));
         let status = Arc::new(RealtimeStatus::new());
         (
-            LiveMidiState::new(events.clone(), status.clone()),
+            LiveMidiState::new(events.clone(), status.clone(), &[None; 128]),
             events,
             status,
         )
@@ -264,6 +281,49 @@ mod tests {
     }
 
     #[test]
+    fn mapped_macro_controller_becomes_a_parameter_change() {
+        let events = Arc::new(ArrayQueue::new(
+            super::super::audio::REALTIME_EVENT_QUEUE_CAPACITY,
+        ));
+        let status = Arc::new(RealtimeStatus::new());
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata/instruments/basic-poly-synth.json");
+        let text = std::fs::read_to_string(&path).expect("fixture reads");
+        let mut definition: sonalloy_core::InstrumentDefinition =
+            serde_json::from_str(&text).expect("fixture parses");
+        definition.macros.push(sonalloy_core::MacroDefinition {
+            id: "motion".to_owned(),
+            name: "Motion".to_owned(),
+            default: 0.0,
+        });
+        let result = sonalloy_core::compile_instrument(
+            &definition,
+            &sonalloy_core::CompileContext {
+                definition_base_dir: path.parent().expect("fixture directory").to_path_buf(),
+                process_spec: sonalloy_core::ProcessSpec::new(48_000.0, 64, 2).expect("valid spec"),
+            },
+        );
+        let compiled = result.instrument.expect("fixture compiles");
+        let parameter = compiled
+            .parameter_handle("macro.motion")
+            .expect("macro parameter");
+        let mut macro_parameters = [None; 128];
+        macro_parameters[20] = Some(parameter);
+        let mut state = LiveMidiState::new(events.clone(), status.clone(), &macro_parameters);
+
+        handle_message(10, &[0xB0, 20, 127], &mut state);
+
+        assert_eq!(
+            events.pop().expect("macro event").kind,
+            ProcessEventKind::ParameterChange {
+                parameter,
+                normalized: 1.0,
+            }
+        );
+        assert_eq!(status.fatal(), FatalStatus::None);
+    }
+
+    #[test]
     fn malformed_live_message_stops_midi_input() {
         let (mut state, _events, status) = state();
 
@@ -276,7 +336,7 @@ mod tests {
     fn queue_overflow_keeps_existing_events_and_sets_fatal_status() {
         let events = Arc::new(ArrayQueue::new(1));
         let status = Arc::new(RealtimeStatus::new());
-        let mut state = LiveMidiState::new(events.clone(), status.clone());
+        let mut state = LiveMidiState::new(events.clone(), status.clone(), &[None; 128]);
 
         handle_message(10, &[0x90, 60, 100], &mut state);
         handle_message(20, &[0x90, 61, 100], &mut state);

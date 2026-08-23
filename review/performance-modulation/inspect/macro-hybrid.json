@@ -1,0 +1,598 @@
+{
+  "status": "ok",
+  "name": "Macro Hybrid",
+  "metadata": {
+    "name": "Macro Hybrid",
+    "author": "Sonalloy",
+    "description": "One Macro drives Layer Gain, Filter Cutoff, and Reverb Mix"
+  },
+  "mode": "polyphonic",
+  "voice_count": 8,
+  "polyphony": 8,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "reported_latency_frames": 0,
+  "layer_count": 2,
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "oscillator",
+        "waveform": "saw",
+        "phase_reset": true,
+        "phase": 0.0,
+        "output_mode": "mono",
+        "backend": "basic",
+        "hard_sync": false,
+        "waveshaping": false,
+        "phase_distortion": false,
+        "wavefold": false,
+        "oscillator_feedback": false,
+        "dc_blocker": false,
+        "signal_order": "oscillator -> unison_mix -> waveshaping",
+        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
+        "unison_voices": 1,
+        "phase_spread": 0.0,
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "not_applicable (oscillator-only instrument)",
+      "gain_db": -26.0,
+      "gain_linear": 0.05011873,
+      "pan": -0.08,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 960,
+        "decay_samples": 12000,
+        "sustain_level": 0.7,
+        "release_samples": 24000
+      },
+      "processors": []
+    },
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "oscillator",
+        "waveform": "sine",
+        "phase_reset": true,
+        "phase": 0.0,
+        "output_mode": "mono",
+        "backend": "basic",
+        "hard_sync": false,
+        "waveshaping": false,
+        "phase_distortion": false,
+        "wavefold": false,
+        "oscillator_feedback": false,
+        "dc_blocker": false,
+        "signal_order": "oscillator -> unison_mix -> waveshaping",
+        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
+        "unison_voices": 1,
+        "phase_spread": 0.0,
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "not_applicable (oscillator-only instrument)",
+      "gain_db": -30.0,
+      "gain_linear": 0.031622775,
+      "pan": 0.12,
+      "tuning_cents": 1200.0,
+      "tuning_ratio": 2.0,
+      "envelope": {
+        "attack_samples": 2400,
+        "decay_samples": 14400,
+        "sustain_level": 0.55,
+        "release_samples": 31200
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "placement": "voice",
+      "chain_index": 0,
+      "id": "tone",
+      "kind": "filter",
+      "mode": "low_pass",
+      "static_fields": [
+        {
+          "id": "effective_max_cutoff_hz",
+          "value": 20000.0
+        }
+      ],
+      "parameters": [
+        {
+          "id": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "min": 20.0,
+          "max": 20000.0,
+          "default": 2600.0,
+          "scale": "log2",
+          "smoothing_seconds": 0.01,
+          "modulation": {
+            "unit": "octaves",
+            "max_abs_depth": 9.965784
+          }
+        },
+        {
+          "id": "voice.processor.tone.resonance",
+          "unit": "normalized",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.18,
+          "scale": "linear",
+          "smoothing_seconds": 0.01,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
+        }
+      ]
+    }
+  ],
+  "global_processors": [
+    {
+      "placement": "global",
+      "chain_index": 0,
+      "id": "space",
+      "kind": "reverb",
+      "static_fields": [
+        {
+          "id": "pre_delay_frames",
+          "value": 480.0
+        }
+      ],
+      "parameters": [
+        {
+          "id": "global.processor.space.decay",
+          "unit": "normalized",
+          "min": 0.0,
+          "max": 0.98,
+          "default": 0.65,
+          "scale": "linear",
+          "smoothing_seconds": 0.02,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 0.98
+          }
+        },
+        {
+          "id": "global.processor.space.damping",
+          "unit": "normalized",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.3,
+          "scale": "linear",
+          "smoothing_seconds": 0.02,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
+        },
+        {
+          "id": "global.processor.space.width",
+          "unit": "normalized",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.85,
+          "scale": "linear",
+          "smoothing_seconds": 0.02,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
+        },
+        {
+          "id": "global.processor.space.mix",
+          "unit": "normalized",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.12,
+          "scale": "linear",
+          "smoothing_seconds": 0.02,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
+        }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "id": "layer.body.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -26.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      },
+      "modulated_range_from_default": {
+        "unclamped_min": -26.0,
+        "unclamped_max": -26.0,
+        "effective_min": -26.0,
+        "effective_max": -26.0,
+        "may_clamp": false
+      }
+    },
+    {
+      "id": "layer.body.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": -0.08,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
+    },
+    {
+      "id": "layer.body.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
+    },
+    {
+      "id": "layer.air.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -30.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
+    },
+    {
+      "id": "layer.air.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.12,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
+    },
+    {
+      "id": "layer.air.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 1200.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
+    },
+    {
+      "id": "voice.processor.tone.cutoff",
+      "owner": {
+        "voice_processor": {
+          "processor_index": 0
+        }
+      },
+      "unit": "hertz",
+      "min": 20.0,
+      "max": 20000.0,
+      "default": 2600.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 9.965784
+      },
+      "modulated_range_from_default": {
+        "unclamped_min": 2600.0,
+        "unclamped_max": 2600.0,
+        "effective_min": 2600.0,
+        "effective_max": 2600.0,
+        "may_clamp": false
+      }
+    },
+    {
+      "id": "voice.processor.tone.resonance",
+      "owner": {
+        "voice_processor": {
+          "processor_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.18,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    },
+    {
+      "id": "global.processor.space.decay",
+      "owner": {
+        "global_processor": {
+          "processor_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 0.98,
+      "default": 0.65,
+      "scale": "linear",
+      "smoothing_seconds": 0.02,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 0.98
+      }
+    },
+    {
+      "id": "global.processor.space.damping",
+      "owner": {
+        "global_processor": {
+          "processor_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.3,
+      "scale": "linear",
+      "smoothing_seconds": 0.02,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    },
+    {
+      "id": "global.processor.space.width",
+      "owner": {
+        "global_processor": {
+          "processor_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.85,
+      "scale": "linear",
+      "smoothing_seconds": 0.02,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    },
+    {
+      "id": "global.processor.space.mix",
+      "owner": {
+        "global_processor": {
+          "processor_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.12,
+      "scale": "linear",
+      "smoothing_seconds": 0.02,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      },
+      "modulated_range_from_default": {
+        "unclamped_min": 0.12,
+        "unclamped_max": 0.12,
+        "effective_min": 0.12,
+        "effective_max": 0.12,
+        "may_clamp": false
+      }
+    },
+    {
+      "id": "macro.motion",
+      "owner": {
+        "macro": {
+          "macro_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.2,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    }
+  ],
+  "macros": [
+    {
+      "id": "motion",
+      "name": "Motion",
+      "parameter_id": "macro.motion",
+      "default": 0.2,
+      "routes": [
+        "layer.body.gain",
+        "voice.processor.tone.cutoff",
+        "global.processor.space.mix"
+      ]
+    }
+  ],
+  "vectors": [],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      }
+    },
+    {
+      "id": "macro.motion",
+      "scope": "instrument",
+      "kind": "macro",
+      "value_range": {
+        "min": 0.0,
+        "max": 0.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "transport_beat_phase",
+      "scope": "instrument",
+      "kind": "beat_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "transport_bar_phase",
+      "scope": "instrument",
+      "kind": "bar_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "source": "macro.motion",
+      "target": "layer.body.gain",
+      "depth": {
+        "value": 8.0,
+        "unit": "decibels"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": 0.0,
+        "max": 0.0
+      },
+      "effect": {
+        "kind": "additive",
+        "unit": "decibels",
+        "min_delta": 0.0,
+        "max_delta": 0.0
+      }
+    },
+    {
+      "source": "macro.motion",
+      "target": "voice.processor.tone.cutoff",
+      "depth": {
+        "value": 3.0,
+        "unit": "octaves"
+      },
+      "curve": "smooth_step",
+      "source_range": {
+        "min": 0.0,
+        "max": 0.0
+      },
+      "effect": {
+        "kind": "multiplicative",
+        "unit": "octaves",
+        "min_octaves": 0.0,
+        "max_octaves": 0.0,
+        "min_factor": 1.0,
+        "max_factor": 1.0
+      }
+    },
+    {
+      "source": "macro.motion",
+      "target": "global.processor.space.mix",
+      "depth": {
+        "value": 0.5,
+        "unit": "normalized"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": 0.0,
+        "max": 0.0
+      },
+      "effect": {
+        "kind": "additive",
+        "unit": "normalized",
+        "min_delta": 0.0,
+        "max_delta": 0.0
+      }
+    }
+  ]
+}
