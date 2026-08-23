@@ -77,7 +77,7 @@ impl PlateReverbRuntime {
                 });
             }
 
-            let mono = 0.5 * (dry_left + dry_right);
+            let mono = f32::midpoint(dry_left, dry_right);
             let pre_delayed = if self.pre_delay_frames == 0 {
                 mono
             } else {
@@ -115,7 +115,7 @@ impl PlateReverbRuntime {
                 sum_output_taps(&self.left_output_taps, &self.left_tank, &self.right_tank)?;
             let wet_right =
                 sum_output_taps(&self.right_output_taps, &self.left_tank, &self.right_tank)?;
-            let wet_mid = 0.5 * (wet_left + wet_right);
+            let wet_mid = f32::midpoint(wet_left, wet_right);
             let wet_left = wet_mid * (1.0 - width) + wet_left * width;
             let wet_right = wet_mid * (1.0 - width) + wet_right * width;
             left[index] = dry_left + (wet_left - dry_left) * mix;
@@ -174,7 +174,7 @@ fn reverb_feedback(decay: f32) -> f32 {
 }
 
 fn modulation_offset(phase: f32, excursion: f32) -> f32 {
-    (1.0 + phase.sin()) * 0.5 * excursion
+    f32::midpoint(1.0, phase.sin()) * excursion
 }
 
 struct Tank {

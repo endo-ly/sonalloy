@@ -14,7 +14,7 @@ Sonalloyは、JSONで書いた音源定義からリアルタイム演奏とオ�
 - **エフェクトとモジュレーション**:
   - エフェクト: Filter、Drive、EQ、Resonator、Bitcrusher、Chorus、Flanger、Phaser、Delay、Reverb、Compressor、Limiter
   - モジュレーション: Velocity、LFO、Envelope等でパラメータを動かす
-- **演奏と検証を同じCoreで実行**: `device list`でAudio / MIDI Deviceを確認し、`play`でMIDI演奏、単音・Event Sequence・MIDI Fileをオフラインで再現できる
+- **演奏と検証を同じCoreで実行**: `device list`でAudio / MIDI Deviceを確認し、`play`でMIDI演奏、PatternをMIDI Keyboardなしで試聴し、単音・Event Sequence・MIDI Fileをオフラインで再現できる
 
 ## インストール
 
@@ -50,6 +50,18 @@ sonalloy render note my-synth.json --output my-synth.wav
 
 生成された `my-synth.wav` を再生して音を確認します。以降は、`my-synth.json` を編集して「検証 → Inspect → レンダリング（必要ならAnalysis / Trace） → 試聴」を繰り返して音を作り込みます。定義ファイルの書き方は[音源定義](docs/instrument-definition.md)、コマンドの詳細は[CLI](docs/cli.md)、手順全体は[音源の作り方](.agents/skills/create-instrument/SKILL.md)を参照してください。
 
+MIDI Keyboardがない場合は、1つのInstrumentを試奏するPatternを作成してAudio Deviceへ直接送れます。
+
+```bash
+sonalloy pattern init phrase.json
+sonalloy pattern validate phrase.json
+sonalloy audition pattern my-synth.json phrase.json --loop
+sonalloy render pattern my-synth.json phrase.json --output phrase.wav
+sonalloy pattern export-midi phrase.json --output phrase.mid
+```
+
+PatternのSchemaとMIDI Interchangeは[Audition Pattern](docs/pattern.md)を参照してください。複数InstrumentのTrackやArrangementはHost / DAWの責務です。
+
 MIDI Keyboardで演奏する場合は、Deviceを確認してから次を実行します。
 
 ```bash
@@ -64,9 +76,17 @@ sonalloy play my-synth.json --midi-device <id>
 | `sonalloy instrument init <path>` | 音源定義のひな形を生成する |
 | `sonalloy instrument validate <definition>` | 定義を検証する（JSON構文・制約・Assetの準備） |
 | `sonalloy instrument inspect <definition>` | コンパイル後の実行値を表示する |
+| `sonalloy pattern init <path>` | 1 Instrument用の試奏Patternを生成する |
+| `sonalloy pattern validate <pattern>` | Patternの構造を検証する |
+| `sonalloy pattern inspect <pattern>` | Patternの音楽的な長さとEvent概要を表示する |
+| `sonalloy pattern import-midi <midi> --output <pattern>` | MIDIの1 ChannelをPatternへ変換する |
+| `sonalloy pattern export-midi <pattern> --output <midi>` | PatternをSingle Track MIDIへ変換する |
 | `sonalloy render note <definition> --output <wav>` | 1音をレンダリングする |
 | `sonalloy render events <definition> <events.json> --output <wav>` | Event Sequenceをレンダリングする（Pitch BendやParameter変更をFrame単位で制御） |
 | `sonalloy render midi <definition> <midi-file> --output <wav>` | MIDI Fileをレンダリングする |
+| `sonalloy render pattern <definition> <pattern> --output <wav>` | Musical-time Patternをレンダリングする |
+| `sonalloy audition pattern <definition> <pattern>` | PatternをAudio Deviceで試聴する（MIDI Keyboard不要） |
+| `sonalloy audition midi <definition> <midi-file>` | MIDI Fileを1 Channel選択してAudio Deviceで試聴する |
 | `sonalloy device list [--json]` | Audio OutputとMIDI Inputを列挙する |
 | `sonalloy play <definition>` | MIDI InputからAudio Outputへリアルタイム演奏する |
 
@@ -106,6 +126,7 @@ cargo fmt --all -- --check
 |---|---|
 | [`docs/cli.md`](docs/cli.md) | CLI仕様：Command・Option・Exit Code |
 | [`docs/instrument-definition.md`](docs/instrument-definition.md) | 音源定義のデータ仕様・制約・Compile |
+| [`docs/pattern.md`](docs/pattern.md) | 1 Instrument用Audition PatternとMIDI Interchange |
 | [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源の作り方（手順書） |
 | [`docs/runtime-processing.md`](docs/runtime-processing.md) | 実行時仕様：Process Contract・Lifecycle・Error規則 |
 | [`docs/testing-and-sound-review.md`](docs/testing-and-sound-review.md) | 検証とReviewの手順 |

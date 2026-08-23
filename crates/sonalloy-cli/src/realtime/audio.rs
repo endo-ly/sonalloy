@@ -12,6 +12,7 @@ use sonalloy_core::{
 };
 
 use super::device::{DeviceError, SelectedAudioDevice};
+use super::scheduled::ScheduledEventFeed;
 
 pub(crate) const REALTIME_EVENT_QUEUE_CAPACITY: usize = 4_096;
 
@@ -81,6 +82,7 @@ pub(crate) struct CallbackFrameStats {
 pub(crate) struct RealtimeStatus {
     fatal: AtomicU8,
     realtime_denied: AtomicBool,
+    finished: AtomicBool,
     xrun_count: AtomicU64,
     callback_count: AtomicU64,
     callback_frames_min: AtomicU64,
@@ -92,6 +94,7 @@ impl RealtimeStatus {
         Self {
             fatal: AtomicU8::new(FatalStatus::None as u8),
             realtime_denied: AtomicBool::new(false),
+            finished: AtomicBool::new(false),
             xrun_count: AtomicU64::new(0),
             callback_count: AtomicU64::new(0),
             callback_frames_min: AtomicU64::new(u64::MAX),
@@ -118,6 +121,14 @@ impl RealtimeStatus {
 
     pub(crate) fn realtime_denied(&self) -> bool {
         self.realtime_denied.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn mark_finished(&self) {
+        self.finished.store(true, Ordering::Release);
+    }
+
+    pub(crate) fn finished(&self) -> bool {
+        self.finished.load(Ordering::Acquire)
     }
 
     pub(crate) fn increment_xruns(&self) {
@@ -147,9 +158,15 @@ impl RealtimeStatus {
     }
 }
 
+enum RealtimeEventFeed {
+    Live,
+    Scheduled(ScheduledEventFeed),
+}
+
 pub(crate) struct AudioEngine {
     runtime: InstrumentRuntime,
     events: Arc<ArrayQueue<QueuedEvent>>,
+    feed: RealtimeEventFeed,
     status: Arc<RealtimeStatus>,
     max_block_size: usize,
     tempo_bpm: f64,
@@ -172,6 +189,7 @@ impl AudioEngine {
         Self {
             runtime,
             events,
+            feed: RealtimeEventFeed::Live,
             status,
             max_block_size,
             tempo_bpm,
@@ -180,6 +198,29 @@ impl AudioEngine {
             right: vec![0.0; max_block_size],
             queued_events: Vec::with_capacity(REALTIME_EVENT_QUEUE_CAPACITY),
             process_events: Vec::with_capacity(REALTIME_EVENT_QUEUE_CAPACITY),
+        }
+    }
+
+    pub(crate) fn new_scheduled(
+        runtime: InstrumentRuntime,
+        feed: ScheduledEventFeed,
+        status: Arc<RealtimeStatus>,
+        max_block_size: usize,
+        channels: usize,
+    ) -> Self {
+        let process_event_capacity = feed.max_events_per_block();
+        Self {
+            runtime,
+            events: Arc::new(ArrayQueue::new(1)),
+            feed: RealtimeEventFeed::Scheduled(feed),
+            status,
+            max_block_size,
+            tempo_bpm: 120.0,
+            channels,
+            left: vec![0.0; max_block_size],
+            right: vec![0.0; max_block_size],
+            queued_events: Vec::with_capacity(1),
+            process_events: Vec::with_capacity(process_event_capacity),
         }
     }
 
@@ -208,10 +249,15 @@ impl AudioEngine {
         let mut frame_start = 0;
         while frame_start < frames {
             let block_frames = (frames - frame_start).min(self.max_block_size);
-            self.drain_events();
-            if self.status.fatal() != FatalStatus::None {
-                return;
-            }
+            let absolute_frame = self.runtime.absolute_frame();
+            let (block_frames, tempo_bpm) = match self.prepare_block(block_frames) {
+                Ok(Some(block)) => block,
+                Ok(None) => return,
+                Err(()) => {
+                    self.status.set_fatal(FatalStatus::Process);
+                    return;
+                }
+            };
             self.left[..block_frames].fill(0.0);
             self.right[..block_frames].fill(0.0);
             let mut output = [
@@ -221,8 +267,8 @@ impl AudioEngine {
             let result = self.runtime.process(ProcessBlock {
                 frames: block_frames,
                 context: ProcessContext {
-                    absolute_frame: self.runtime.absolute_frame(),
-                    tempo_bpm: self.tempo_bpm,
+                    absolute_frame,
+                    tempo_bpm,
                 },
                 events: &self.process_events,
                 output: &mut output,
@@ -237,6 +283,40 @@ impl AudioEngine {
                 data[offset + 1] = T::from_sample_(self.right[frame]);
             }
             frame_start += block_frames;
+            if self.scheduled_finished() {
+                self.status.mark_finished();
+                return;
+            }
+        }
+    }
+
+    fn prepare_block(&mut self, requested_frames: usize) -> Result<Option<(usize, f64)>, ()> {
+        match &mut self.feed {
+            RealtimeEventFeed::Live => {
+                self.drain_events();
+                if self.status.fatal() != FatalStatus::None {
+                    return Ok(None);
+                }
+                Ok(Some((requested_frames, self.tempo_bpm)))
+            }
+            RealtimeEventFeed::Scheduled(feed) => {
+                let absolute_frame = self.runtime.absolute_frame();
+                let frames = feed
+                    .prepare_block(absolute_frame, requested_frames, &mut self.process_events)
+                    .map_err(|_| ())?;
+                if frames == 0 {
+                    self.status.mark_finished();
+                    return Ok(None);
+                }
+                Ok(Some((frames, feed.tempo_at(absolute_frame))))
+            }
+        }
+    }
+
+    fn scheduled_finished(&self) -> bool {
+        match &self.feed {
+            RealtimeEventFeed::Live => false,
+            RealtimeEventFeed::Scheduled(feed) => feed.is_finished(),
         }
     }
 
@@ -297,6 +377,43 @@ pub(crate) fn build_stream(
         tempo_bpm,
         channels,
     );
+    build_stream_with_engine(selected, engine, status)
+}
+
+pub(crate) fn build_scheduled_stream(
+    selected: &SelectedAudioDevice,
+    runtime: InstrumentRuntime,
+    feed: ScheduledEventFeed,
+    status: Arc<RealtimeStatus>,
+    max_block_size: usize,
+) -> Result<Stream, DeviceError> {
+    let channels = usize::from(selected.config.channels());
+    if channels < 2 {
+        return Err(DeviceError {
+            diagnostic: sonalloy_core::Diagnostic::error(
+                sonalloy_core::DiagnosticCode::AudioDeviceError,
+                "the audio output must provide at least two channels",
+            ),
+        });
+    }
+    if max_block_size == 0 {
+        return Err(DeviceError {
+            diagnostic: sonalloy_core::Diagnostic::error(
+                sonalloy_core::DiagnosticCode::AudioDeviceError,
+                "the realtime block size must be positive",
+            ),
+        });
+    }
+    let engine =
+        AudioEngine::new_scheduled(runtime, feed, status.clone(), max_block_size, channels);
+    build_stream_with_engine(selected, engine, status)
+}
+
+fn build_stream_with_engine(
+    selected: &SelectedAudioDevice,
+    engine: AudioEngine,
+    status: Arc<RealtimeStatus>,
+) -> Result<Stream, DeviceError> {
     let config = selected.stream_config;
     let stream = match selected.config.sample_format() {
         SampleFormat::F32 => build_typed_stream::<f32>(&selected.device, config, engine, status),
@@ -358,7 +475,9 @@ fn handle_stream_error(status: &RealtimeStatus, kind: ErrorKind) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sonalloy_core::{CompileContext, InstrumentProcessor, ProcessSpec, VoiceState};
+    use sonalloy_core::{
+        CompileContext, InstrumentProcessor, ProcessSpec, ScheduledEvent, TempoMap, VoiceState,
+    };
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::cell::Cell;
     use std::path::PathBuf;
@@ -424,7 +543,7 @@ mod tests {
         })
     }
 
-    fn prepared_engine(channels: usize) -> AudioEngine {
+    fn prepared_runtime() -> InstrumentRuntime {
         let spec = ProcessSpec::new(48_000.0, 256, 2).expect("valid process spec");
         let definition = crate::default_definition();
         let result = sonalloy_core::compile_instrument(
@@ -437,13 +556,46 @@ mod tests {
         let compiled = result.instrument.expect("default compiles");
         let mut runtime = compiled.instantiate();
         runtime.prepare(spec).expect("runtime prepares");
+        runtime
+    }
+
+    fn prepared_engine(channels: usize) -> AudioEngine {
         AudioEngine::new(
-            runtime,
+            prepared_runtime(),
             Arc::new(ArrayQueue::new(REALTIME_EVENT_QUEUE_CAPACITY)),
             Arc::new(RealtimeStatus::new()),
             256,
             120.0,
             channels,
+        )
+    }
+
+    fn prepared_scheduled_engine() -> AudioEngine {
+        let feed = ScheduledEventFeed::new(
+            crate::pattern::CompiledPattern {
+                events: vec![ScheduledEvent {
+                    absolute_frame: 0,
+                    kind: ProcessEventKind::NoteOn {
+                        note_id: 0,
+                        note_number: 60,
+                        velocity: 100,
+                    },
+                }],
+                tempo_map: TempoMap::constant(120.0).expect("tempo map"),
+                length_frames: 48_000,
+                one_shot_duration_frames: 48_000,
+            },
+            0,
+            0,
+            false,
+        )
+        .expect("scheduled feed");
+        AudioEngine::new_scheduled(
+            prepared_runtime(),
+            feed,
+            Arc::new(RealtimeStatus::new()),
+            256,
+            2,
         )
     }
 
@@ -846,5 +998,19 @@ mod tests {
             data.chunks_exact(4)
                 .all(|frame| frame[2] == 0.0 && frame[3] == 0.0)
         );
+    }
+
+    #[test]
+    fn scheduled_callback_handles_events_without_allocating() {
+        let mut engine = prepared_scheduled_engine();
+        let process_capacity = engine.process_events.capacity();
+        let mut data = vec![0.0_f32; 641 * 2];
+
+        let allocations = count_allocations(|| engine.process_callback(&mut data));
+
+        assert_eq!(allocations, 0);
+        assert_eq!(engine.process_events.capacity(), process_capacity);
+        assert_eq!(engine.status.fatal(), FatalStatus::None);
+        assert!(data.iter().any(|sample| *sample != 0.0));
     }
 }

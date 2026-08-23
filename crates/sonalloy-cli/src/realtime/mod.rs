@@ -6,13 +6,19 @@ use std::time::Duration;
 use cpal::traits::StreamTrait;
 use crossbeam_queue::ArrayQueue;
 use midir::MidiInputConnection;
-use sonalloy_core::{Diagnostic, DiagnosticCode, InstrumentProcessor, ProcessSpec};
+use sonalloy_core::{
+    Diagnostic, DiagnosticCode, InstrumentProcessor, ProcessSpec, seconds_to_frames,
+};
 
-use super::{CliFailure, PlayArgs, finish_failure, load_and_compile, print_warnings};
+use super::{
+    AuditionMidiArgs, AuditionPatternArgs, CliFailure, PlayArgs, finish_failure, load_and_compile,
+    load_pattern, print_warnings,
+};
 
 mod audio;
 mod device;
 mod midi;
+mod scheduled;
 
 pub(crate) const DEFAULT_BUFFER_SIZE: usize = 256;
 
@@ -148,6 +154,361 @@ fn validate_play_args(args: &PlayArgs) -> Result<(), CliFailure> {
             code: 2,
             diagnostics,
         })
+    }
+}
+
+pub(crate) fn run_audition_pattern(args: &AuditionPatternArgs) -> ExitCode {
+    if let Err(failure) = validate_audition_args(args.sample_rate, args.buffer_size, args.tail) {
+        return finish_failure(false, failure);
+    }
+    let pattern = match load_pattern(&args.pattern) {
+        Ok(pattern) => pattern,
+        Err(failure) => return finish_failure(false, failure),
+    };
+    let pattern_diagnostics = crate::pattern::validate(&pattern);
+    if !pattern_diagnostics.is_empty() {
+        return finish_failure(
+            false,
+            CliFailure {
+                code: 2,
+                diagnostics: pattern_diagnostics,
+            },
+        );
+    }
+    run_scheduled_audition(
+        &pattern,
+        Vec::new(),
+        &ScheduledAuditionOptions {
+            definition_path: &args.definition,
+            audio_device: args.audio_device.as_deref(),
+            requested_sample_rate: args.sample_rate,
+            buffer_size: args.buffer_size,
+            tail: args.tail,
+            looping: args.r#loop,
+        },
+    )
+}
+
+pub(crate) fn run_audition_midi(args: &AuditionMidiArgs) -> ExitCode {
+    if let Err(failure) = validate_audition_args(args.sample_rate, args.buffer_size, args.tail) {
+        return finish_failure(false, failure);
+    }
+    let parsed = match crate::midi::parse_midi(&args.midi) {
+        Ok(parsed) => parsed,
+        Err(diagnostics) => {
+            return finish_failure(
+                false,
+                CliFailure {
+                    code: 2,
+                    diagnostics,
+                },
+            );
+        }
+    };
+    let (pattern, diagnostics) =
+        match crate::midi::import_pattern(parsed, args.channel.map(|channel| channel - 1)) {
+            Ok(result) => result,
+            Err(diagnostics) => {
+                return finish_failure(
+                    false,
+                    CliFailure {
+                        code: 2,
+                        diagnostics,
+                    },
+                );
+            }
+        };
+    run_scheduled_audition(
+        &pattern,
+        diagnostics,
+        &ScheduledAuditionOptions {
+            definition_path: &args.definition,
+            audio_device: args.audio_device.as_deref(),
+            requested_sample_rate: args.sample_rate,
+            buffer_size: args.buffer_size,
+            tail: args.tail,
+            looping: false,
+        },
+    )
+}
+
+fn validate_audition_args(
+    sample_rate: Option<u32>,
+    buffer_size: usize,
+    tail: f64,
+) -> Result<(), CliFailure> {
+    let mut diagnostics = Vec::new();
+    if sample_rate == Some(0) {
+        diagnostics.push(Diagnostic::error(
+            DiagnosticCode::ValueOutOfRange,
+            "sample rate must be greater than zero",
+        ));
+    }
+    if buffer_size == 0 {
+        diagnostics.push(Diagnostic::error(
+            DiagnosticCode::ValueOutOfRange,
+            "buffer size must be greater than zero",
+        ));
+    }
+    if !tail.is_finite() || tail < 0.0 {
+        diagnostics.push(Diagnostic::error(
+            DiagnosticCode::ValueOutOfRange,
+            "tail must be finite and non-negative",
+        ));
+    }
+    if diagnostics.is_empty() {
+        Ok(())
+    } else {
+        Err(CliFailure {
+            code: 2,
+            diagnostics,
+        })
+    }
+}
+
+struct ScheduledAuditionOptions<'a> {
+    definition_path: &'a std::path::Path,
+    audio_device: Option<&'a str>,
+    requested_sample_rate: Option<u32>,
+    buffer_size: usize,
+    tail: f64,
+    looping: bool,
+}
+
+#[allow(clippy::too_many_lines)]
+fn run_scheduled_audition(
+    pattern: &crate::pattern::PatternDefinition,
+    mut diagnostics: Vec<Diagnostic>,
+    options: &ScheduledAuditionOptions<'_>,
+) -> ExitCode {
+    let selected_audio = match device::select_audio(
+        options.audio_device,
+        options.requested_sample_rate,
+        options.buffer_size,
+    ) {
+        Ok(device) => device,
+        Err(error) => {
+            return finish_failure(
+                false,
+                CliFailure {
+                    code: 2,
+                    diagnostics: vec![error.diagnostic],
+                },
+            );
+        }
+    };
+    let sample_rate = selected_audio.config.sample_rate();
+    let (compiled, compile_diagnostics) =
+        match load_and_compile(options.definition_path, sample_rate, options.buffer_size) {
+            Ok(result) => result,
+            Err(failure) => return finish_failure(false, failure),
+        };
+    diagnostics.extend(compile_diagnostics);
+    let compiled_pattern = match crate::pattern::compile(pattern, &compiled, f64::from(sample_rate))
+    {
+        Ok(pattern) => pattern,
+        Err(diagnostics) => {
+            return finish_failure(
+                false,
+                CliFailure {
+                    code: 2,
+                    diagnostics,
+                },
+            );
+        }
+    };
+    let tail_frames = match seconds_to_frames(options.tail, f64::from(sample_rate)) {
+        Ok(frames) => frames,
+        Err(error) => {
+            return finish_failure(
+                false,
+                CliFailure {
+                    code: 2,
+                    diagnostics: vec![Diagnostic::error(
+                        DiagnosticCode::ValueOutOfRange,
+                        error.to_string(),
+                    )],
+                },
+            );
+        }
+    };
+    let reported_latency_frames = compiled.reported_latency_frames;
+    let feed = match scheduled::ScheduledEventFeed::new(
+        compiled_pattern,
+        tail_frames,
+        reported_latency_frames,
+        options.looping,
+    ) {
+        Ok(feed) => feed,
+        Err(error) => {
+            return finish_failure(
+                false,
+                CliFailure {
+                    code: 2,
+                    diagnostics: vec![
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "could not prepare scheduled pattern playback",
+                        )
+                        .with_detail(error.to_string()),
+                    ],
+                },
+            );
+        }
+    };
+    let process_spec = match ProcessSpec::new(f64::from(sample_rate), options.buffer_size, 2) {
+        Ok(spec) => spec,
+        Err(error) => {
+            return finish_failure(
+                false,
+                CliFailure {
+                    code: 2,
+                    diagnostics: vec![
+                        Diagnostic::error(
+                            DiagnosticCode::ProcessError,
+                            "could not prepare the realtime processor",
+                        )
+                        .with_detail(error.to_string()),
+                    ],
+                },
+            );
+        }
+    };
+    let mut runtime = compiled.instantiate();
+    if let Err(error) = runtime.prepare(process_spec) {
+        return finish_failure(
+            false,
+            CliFailure {
+                code: 2,
+                diagnostics: vec![
+                    Diagnostic::error(
+                        DiagnosticCode::ProcessError,
+                        "could not prepare the realtime processor",
+                    )
+                    .with_detail(error.to_string()),
+                ],
+            },
+        );
+    }
+    let status = Arc::new(audio::RealtimeStatus::new());
+    let stream = match audio::build_scheduled_stream(
+        &selected_audio,
+        runtime,
+        feed,
+        status.clone(),
+        options.buffer_size,
+    ) {
+        Ok(stream) => stream,
+        Err(error) => {
+            return finish_failure(
+                false,
+                CliFailure {
+                    code: 2,
+                    diagnostics: vec![error.diagnostic],
+                },
+            );
+        }
+    };
+    if let Err(error) = stream.play() {
+        return finish_failure(
+            false,
+            CliFailure {
+                code: 2,
+                diagnostics: vec![
+                    Diagnostic::error(
+                        DiagnosticCode::AudioDeviceError,
+                        "could not start the audio output stream",
+                    )
+                    .with_detail(error.to_string()),
+                ],
+            },
+        );
+    }
+    println!("Audition: {}", compiled.metadata.name);
+    println!("Audio: {} [{}]", selected_audio.name, selected_audio.id);
+    println!("Sample rate: {sample_rate} Hz");
+    println!("Device channels: {}", selected_audio.config.channels());
+    println!("Requested buffer: {} frames", options.buffer_size);
+    println!("Engine latency: {reported_latency_frames} frames");
+    if options.looping {
+        println!("press Enter to stop");
+    } else {
+        println!("playing one-shot pattern");
+    }
+    print_warnings(&diagnostics);
+
+    let session = ScheduledSession { _stream: stream };
+    let fatal = if options.looping {
+        wait_for_enter(&status);
+        status.fatal()
+    } else {
+        while !status.finished() && status.fatal() == audio::FatalStatus::None {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        status.fatal()
+    };
+    drop(session);
+    print_realtime_status(&status);
+    if fatal == audio::FatalStatus::None {
+        ExitCode::SUCCESS
+    } else {
+        let diagnostic = fatal
+            .diagnostic()
+            .expect("a non-none fatal status has a diagnostic");
+        finish_failure(
+            false,
+            CliFailure {
+                code: 3,
+                diagnostics: vec![diagnostic],
+            },
+        )
+    }
+}
+
+struct ScheduledSession {
+    _stream: cpal::Stream,
+}
+
+fn wait_for_enter(status: &audio::RealtimeStatus) {
+    let (stop_sender, stop_receiver) = mpsc::channel();
+    let stop_thread = std::thread::spawn(move || {
+        let mut input = String::new();
+        let result = std::io::stdin().read_line(&mut input);
+        let _ = stop_sender.send(result.is_ok());
+    });
+    while status.fatal() == audio::FatalStatus::None {
+        match stop_receiver.recv_timeout(Duration::from_millis(50)) {
+            Ok(_) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+        }
+    }
+    drop(stop_thread);
+}
+
+fn print_realtime_status(status: &audio::RealtimeStatus) {
+    let xruns = status.xrun_count();
+    if status.realtime_denied() {
+        eprintln!("warning: realtime scheduling was denied by the audio backend");
+    }
+    if xruns > 0 {
+        eprintln!("warning: audio xruns: {xruns}");
+    }
+    let callback_frames = status.callback_frame_stats();
+    println!("XRuns: {xruns}");
+    println!(
+        "Realtime priority warning: {}",
+        if status.realtime_denied() {
+            "denied"
+        } else {
+            "none"
+        }
+    );
+    match (callback_frames.min, callback_frames.max) {
+        (Some(min), Some(max)) => println!(
+            "Callback frames: {min}..={max} ({} callbacks)",
+            callback_frames.count
+        ),
+        _ => println!("Callback frames: none"),
     }
 }
 

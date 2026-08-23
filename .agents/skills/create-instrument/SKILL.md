@@ -1,6 +1,6 @@
 ---
 name: create-instrument
-description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add an Additive, Formant, Sample, Wavetable, Spectral, Operator Modulation, Granular, Physical String, or Modal layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi.
+description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add an Additive, Formant, Sample, Wavetable, Spectral, Operator Modulation, Granular, Physical String, or Modal layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi / pattern.
 ---
 
 # Create Instrument
@@ -11,15 +11,15 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 ## 全体フロー
 
 ```text
-init → edit → validate → inspect → render/analyze/trace → optional realtime trial → refine
+init → edit → validate → inspect → pattern trial / render / analyze / trace → optional realtime trial → refine
 ```
 
 1. **init**：新規Definitionのひな形を生成（既存を編集する場合は省略）
 2. **edit**：Generator、ADSR、Processor、Modulationを編集
 3. **validate**：`instrument validate`でJSON、制約、Asset準備を検証
 4. **inspect**：`instrument inspect --json`でCompile後のUnit、Source Polarity、Route Effect、Clamp範囲を確認
-5. **render/analyze/trace**：`render note` / `render events` / `render midi`でWAVを生成し、必要な事実を`--analyze`と`--trace`で取得
-6. **realtime trial**：Deviceが利用できる場合は`device list`で確認し、同じDefinitionを`play`でMIDI演奏する
+5. **pattern trial / render / analyze / trace**：単音だけで判断できない場合は用途に合うAudition Patternを作り、`render pattern`または`render note` / `render events` / `render midi`でWAVを生成する。必要な事実を`--analyze`と`--trace`で取得
+6. **realtime trial**：Deviceが利用できる場合は`device list`で確認し、MIDI Keyboardがある場合は`play`、ない場合は`audition pattern`で同じDefinitionを演奏する
 7. **refine**：数値・音色・`metadata`を整理し、再度InspectとRenderを実行
 
 ## Definitionを編集する
@@ -632,6 +632,44 @@ sonalloy render midi <definition> <midi-file> \
   --sample-rate 48000 --block-size 257 --tail 1.0 \
   --output out/<name>/phrase.wav
 ```
+
+## Patternで用途を試奏する
+
+単音だけでは音色の判断が難しい場合は、1つのInstrumentへ送る演奏条件をAudition Patternへ記述します。Patternは曲全体や複数InstrumentのArrangementではなく、音源の用途を確認するためのNote、Chord、Phrase、Drum Pattern、Performance Control、Parameter Changeの入力です。SchemaとMIDI Interchangeの詳細は`docs/pattern.md`を参照してください。
+
+```bash
+sonalloy pattern init out/<name>/audition.json
+sonalloy pattern validate out/<name>/audition.json
+sonalloy pattern inspect out/<name>/audition.json
+sonalloy render pattern <definition> out/<name>/audition.json \
+  --sample-rate 48000 --block-size 257 --tail 1.0 \
+  --analyze --output out/<name>/audition.wav
+```
+
+音源の用途に応じて、次のような最小Patternを用意します。
+
+| 音源の用途 | 試奏条件 |
+|---|---|
+| Bass | 短いBass Phrase。低音域とVelocity差を含める |
+| Pad | 同じTickのChord。長いGateとReleaseを含める |
+| Lead | PhraseとPitch Bend、AftertouchまたはMod Wheel |
+| Drum Kit | Kick、Snare、Closed / Open Hi-Hatに対応するKeyのPattern |
+
+Audio Deviceが使える場合は、MIDI Keyboardなしでも次で試奏できます。
+
+```bash
+sonalloy audition pattern <definition> out/<name>/audition.json --loop
+```
+
+MIDI Fileを既存Phraseとして使う場合は、Note Channelを1つ選んでPatternへ保存できます。
+
+```bash
+sonalloy pattern import-midi <phrase.mid> --channel 1 \
+  --output out/<name>/phrase.json
+sonalloy audition midi <definition> <phrase.mid> --channel 1
+```
+
+`ParameterChange`を含むPatternは`render pattern`や`audition pattern`ではInstrument固有Parameterとして解決されますが、Standard MIDIへExportできません。複数InstrumentのTrackやArrangementを作る場合はHost / DAWの責務です。
 
 ## Deviceが利用できる場合のRealtime試聴
 

@@ -414,7 +414,7 @@ fn downmix(samples: &[f32], channels: usize) -> Option<Vec<f32>> {
         return Some(
             samples
                 .chunks_exact(2)
-                .map(|frame| (frame[0] + frame[1]) * 0.5)
+                .map(|frame| f32::midpoint(frame[0], frame[1]))
                 .collect(),
         );
     }

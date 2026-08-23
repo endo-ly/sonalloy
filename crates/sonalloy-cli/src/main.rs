@@ -1,5 +1,7 @@
 mod midi;
 mod midi_common;
+mod musical_time;
+mod pattern;
 mod realtime;
 
 use std::path::{Path, PathBuf};
@@ -20,7 +22,11 @@ use sonalloy_core::{
     render_instrument_with_tempo_map, render_instrument_with_trace, render_sine, seconds_to_frames,
 };
 
-use crate::midi::read_midi;
+use crate::midi::{export_pattern, import_pattern, parse_midi, read_midi};
+use crate::pattern::{
+    PatternDefinition, PatternInspection, compile as compile_pattern, default_pattern,
+    inspect as inspect_pattern, validate as validate_pattern,
+};
 
 const DEFAULT_SAMPLE_RATE: u32 = 48_000;
 const DEFAULT_BLOCK_SIZE: usize = 257;
@@ -43,10 +49,20 @@ enum Command {
         #[command(subcommand)]
         command: InstrumentCommand,
     },
+    /// Work with one-instrument audition patterns.
+    Pattern {
+        #[command(subcommand)]
+        command: PatternCommand,
+    },
     /// Render an instrument offline.
     Render {
         #[command(subcommand)]
         command: RenderCommand,
+    },
+    /// Audition a pattern or MIDI file through an audio output.
+    Audition {
+        #[command(subcommand)]
+        command: AuditionCommand,
     },
     /// Inspect realtime audio and MIDI devices.
     Device {
@@ -80,6 +96,30 @@ enum RenderCommand {
     Events(RenderEventsArgs),
     /// Render events from a Standard MIDI File.
     Midi(RenderMidiArgs),
+    /// Render a musical-time audition pattern.
+    Pattern(RenderPatternArgs),
+}
+
+#[derive(Debug, Subcommand)]
+enum PatternCommand {
+    /// Create a valid one-bar pattern.
+    Init(PatternInitArgs),
+    /// Validate a pattern without an Instrument.
+    Validate(PatternPathArgs),
+    /// Display pattern contents and musical duration.
+    Inspect(PatternPathArgs),
+    /// Convert one MIDI channel into a pattern.
+    ImportMidi(PatternImportMidiArgs),
+    /// Convert a pattern into a Standard MIDI File.
+    ExportMidi(PatternExportMidiArgs),
+}
+
+#[derive(Debug, Subcommand)]
+enum AuditionCommand {
+    /// Play a pattern through an audio output.
+    Pattern(AuditionPatternArgs),
+    /// Convert and play one MIDI channel through an audio output.
+    Midi(AuditionMidiArgs),
 }
 
 #[derive(Debug, Subcommand)]
@@ -209,6 +249,129 @@ struct RenderMidiArgs {
     /// Interval between trace observations in frames.
     #[arg(long = "trace-every-frames")]
     trace_every_frames: Option<usize>,
+}
+
+#[derive(Debug, Args)]
+struct RenderPatternArgs {
+    /// Definition JSON path.
+    definition: PathBuf,
+    /// Musical-time pattern JSON path.
+    pattern: PathBuf,
+    /// Additional render tail in seconds.
+    #[arg(long, default_value_t = 1.0)]
+    tail: f64,
+    /// Sample rate in Hz.
+    #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
+    sample_rate: u32,
+    /// Maximum process block size.
+    #[arg(long, default_value_t = DEFAULT_BLOCK_SIZE)]
+    block_size: usize,
+    /// Destination WAV path.
+    #[arg(long)]
+    output: PathBuf,
+    /// Emit machine-readable JSON.
+    #[arg(long)]
+    json: bool,
+    /// Analyze the corrected output audio.
+    #[arg(long)]
+    analyze: bool,
+    /// Trace a compiled Dynamic Parameter; may be repeated.
+    #[arg(long = "trace")]
+    trace: Vec<String>,
+    /// Interval between trace observations in frames.
+    #[arg(long = "trace-every-frames")]
+    trace_every_frames: Option<usize>,
+}
+
+#[derive(Debug, Args)]
+struct PatternInitArgs {
+    /// Destination pattern path.
+    path: PathBuf,
+}
+
+#[derive(Debug, Args)]
+struct PatternPathArgs {
+    /// Pattern JSON path.
+    pattern: PathBuf,
+    /// Emit machine-readable JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
+struct PatternImportMidiArgs {
+    /// Standard MIDI File path.
+    midi: PathBuf,
+    /// Destination pattern JSON path.
+    #[arg(long)]
+    output: PathBuf,
+    /// MIDI channel number from 1 to 16.
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=16))]
+    channel: Option<u8>,
+    /// Emit machine-readable JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
+struct PatternExportMidiArgs {
+    /// Pattern JSON path.
+    pattern: PathBuf,
+    /// Destination Standard MIDI File path.
+    #[arg(long)]
+    output: PathBuf,
+    /// MIDI channel number from 1 to 16.
+    #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=16))]
+    channel: u8,
+    /// Emit machine-readable JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
+struct AuditionPatternArgs {
+    /// Definition JSON path.
+    definition: PathBuf,
+    /// Musical-time pattern JSON path.
+    pattern: PathBuf,
+    /// CPAL output device ID. The OS default is used when omitted.
+    #[arg(long)]
+    audio_device: Option<String>,
+    /// Requested output sample rate. The device default is used when omitted.
+    #[arg(long)]
+    sample_rate: Option<u32>,
+    /// Requested callback buffer size in frames.
+    #[arg(long, default_value_t = realtime::DEFAULT_BUFFER_SIZE)]
+    buffer_size: usize,
+    /// Additional tail in seconds for one-shot playback.
+    #[arg(long, default_value_t = 1.0)]
+    tail: f64,
+    /// Repeat the pattern until Enter is pressed.
+    #[arg(long)]
+    r#loop: bool,
+}
+
+#[derive(Debug, Args)]
+struct AuditionMidiArgs {
+    /// Definition JSON path.
+    definition: PathBuf,
+    /// Standard MIDI File path.
+    midi: PathBuf,
+    /// MIDI channel number from 1 to 16.
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=16))]
+    channel: Option<u8>,
+    /// CPAL output device ID. The OS default is used when omitted.
+    #[arg(long)]
+    audio_device: Option<String>,
+    /// Requested output sample rate. The device default is used when omitted.
+    #[arg(long)]
+    sample_rate: Option<u32>,
+    /// Requested callback buffer size in frames.
+    #[arg(long, default_value_t = realtime::DEFAULT_BUFFER_SIZE)]
+    buffer_size: usize,
+    /// Additional tail in seconds for one-shot playback.
+    #[arg(long, default_value_t = 1.0)]
+    tail: f64,
 }
 
 #[derive(Debug, Args)]
@@ -856,10 +1019,16 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     match cli.command {
         Command::Instrument { command } => run_instrument(command),
+        Command::Pattern { command } => run_pattern(command),
         Command::Render { command } => match command {
             RenderCommand::Note(args) => run_render_note(&args),
             RenderCommand::Events(args) => run_render_events(&args),
             RenderCommand::Midi(args) => run_render_midi(&args),
+            RenderCommand::Pattern(args) => run_render_pattern(&args),
+        },
+        Command::Audition { command } => match command {
+            AuditionCommand::Pattern(args) => realtime::run_audition_pattern(&args),
+            AuditionCommand::Midi(args) => realtime::run_audition_midi(&args),
         },
         Command::Device { command } => match command {
             DeviceCommand::List(args) => realtime::run_device_list(args.json),
@@ -876,6 +1045,331 @@ fn run_instrument(command: InstrumentCommand) -> ExitCode {
         InstrumentCommand::Init(args) => run_init(&args),
         InstrumentCommand::Validate(args) => run_validate(&args),
         InstrumentCommand::Inspect(args) => run_inspect(&args),
+    }
+}
+
+fn run_pattern(command: PatternCommand) -> ExitCode {
+    match command {
+        PatternCommand::Init(args) => run_pattern_init(&args),
+        PatternCommand::Validate(args) => run_pattern_validate(&args),
+        PatternCommand::Inspect(args) => run_pattern_inspect(&args),
+        PatternCommand::ImportMidi(args) => run_pattern_import_midi(&args),
+        PatternCommand::ExportMidi(args) => run_pattern_export_midi(&args),
+    }
+}
+
+fn run_pattern_init(args: &PatternInitArgs) -> ExitCode {
+    if args.path.exists() {
+        return finish_failure(
+            false,
+            CliFailure {
+                code: 2,
+                diagnostics: vec![
+                    Diagnostic::error(
+                        DiagnosticCode::DefinitionError,
+                        "destination already exists",
+                    )
+                    .with_path(args.path.to_string_lossy()),
+                ],
+            },
+        );
+    }
+    let json = match serde_json::to_string_pretty(&default_pattern()) {
+        Ok(json) => json,
+        Err(error) => {
+            return finish_failure(
+                false,
+                CliFailure {
+                    code: 4,
+                    diagnostics: vec![
+                        Diagnostic::error(
+                            DiagnosticCode::DefinitionError,
+                            "could not serialize default pattern",
+                        )
+                        .with_detail(error.to_string()),
+                    ],
+                },
+            );
+        }
+    };
+    if let Err(error) = std::fs::write(&args.path, format!("{json}\n")) {
+        return finish_failure(
+            false,
+            CliFailure {
+                code: 4,
+                diagnostics: vec![
+                    Diagnostic::error(DiagnosticCode::WavOutputError, "could not write pattern")
+                        .with_path(args.path.to_string_lossy())
+                        .with_detail(error.to_string()),
+                ],
+            },
+        );
+    }
+    println!("created {}", args.path.display());
+    ExitCode::SUCCESS
+}
+
+fn run_pattern_validate(args: &PatternPathArgs) -> ExitCode {
+    let pattern = match load_pattern(&args.pattern) {
+        Ok(pattern) => pattern,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    let diagnostics = validate_pattern(&pattern);
+    if diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.severity == sonalloy_core::DiagnosticSeverity::Error)
+    {
+        return finish_failure(
+            args.json,
+            CliFailure {
+                code: 2,
+                diagnostics,
+            },
+        );
+    }
+    let report = StatusReport {
+        status: "ok",
+        command: "pattern validate",
+        diagnostics,
+    };
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string(&report).expect("status report is serializable")
+        );
+    } else {
+        println!("valid {}", args.pattern.display());
+        print_warnings(&report.diagnostics);
+    }
+    ExitCode::SUCCESS
+}
+
+fn run_pattern_inspect(args: &PatternPathArgs) -> ExitCode {
+    let pattern = match load_pattern(&args.pattern) {
+        Ok(pattern) => pattern,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    let inspection = match inspect_pattern(&pattern) {
+        Ok(inspection) => inspection,
+        Err(diagnostics) => {
+            return finish_failure(
+                args.json,
+                CliFailure {
+                    code: 2,
+                    diagnostics,
+                },
+            );
+        }
+    };
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string(&inspection).expect("pattern inspection is serializable")
+        );
+    } else {
+        print_pattern_inspection(&inspection);
+    }
+    ExitCode::SUCCESS
+}
+
+fn run_pattern_import_midi(args: &PatternImportMidiArgs) -> ExitCode {
+    if let Some(failure) = destination_exists_failure(&args.output) {
+        return finish_failure(args.json, failure);
+    }
+    let parsed = match parse_midi(&args.midi) {
+        Ok(parsed) => parsed,
+        Err(diagnostics) => {
+            return finish_failure(
+                args.json,
+                CliFailure {
+                    code: 2,
+                    diagnostics,
+                },
+            );
+        }
+    };
+    let (pattern, diagnostics) =
+        match import_pattern(parsed, args.channel.map(|channel| channel - 1)) {
+            Ok(result) => result,
+            Err(diagnostics) => {
+                return finish_failure(
+                    args.json,
+                    CliFailure {
+                        code: 2,
+                        diagnostics,
+                    },
+                );
+            }
+        };
+    let json = match serde_json::to_string_pretty(&pattern) {
+        Ok(json) => json,
+        Err(error) => {
+            return finish_failure(
+                args.json,
+                CliFailure {
+                    code: 4,
+                    diagnostics: vec![
+                        Diagnostic::error(
+                            DiagnosticCode::DefinitionError,
+                            "could not serialize imported pattern",
+                        )
+                        .with_detail(error.to_string()),
+                    ],
+                },
+            );
+        }
+    };
+    if let Err(error) = std::fs::write(&args.output, format!("{json}\n")) {
+        return finish_failure(
+            args.json,
+            CliFailure {
+                code: 4,
+                diagnostics: vec![
+                    Diagnostic::error(DiagnosticCode::WavOutputError, "could not write pattern")
+                        .with_path(args.output.to_string_lossy())
+                        .with_detail(error.to_string()),
+                ],
+            },
+        );
+    }
+    let report = PatternSuccessReport {
+        status: "ok",
+        command: "pattern import-midi",
+        output: args.output.to_string_lossy().into_owned(),
+        diagnostics,
+    };
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string(&report).expect("pattern report is serializable")
+        );
+    } else {
+        println!("created {}", args.output.display());
+        print_warnings(&report.diagnostics);
+    }
+    ExitCode::SUCCESS
+}
+
+fn run_pattern_export_midi(args: &PatternExportMidiArgs) -> ExitCode {
+    if let Some(failure) = destination_exists_failure(&args.output) {
+        return finish_failure(args.json, failure);
+    }
+    let pattern = match load_pattern(&args.pattern) {
+        Ok(pattern) => pattern,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    if let Err(diagnostics) = export_pattern(&args.output, &pattern, args.channel - 1) {
+        return finish_failure(
+            args.json,
+            CliFailure {
+                code: 2,
+                diagnostics,
+            },
+        );
+    }
+    let report = PatternSuccessReport {
+        status: "ok",
+        command: "pattern export-midi",
+        output: args.output.to_string_lossy().into_owned(),
+        diagnostics: Vec::new(),
+    };
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string(&report).expect("pattern report is serializable")
+        );
+    } else {
+        println!("created {}", args.output.display());
+    }
+    ExitCode::SUCCESS
+}
+
+#[derive(Debug, Serialize)]
+struct PatternSuccessReport {
+    status: &'static str,
+    command: &'static str,
+    output: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    diagnostics: Vec<Diagnostic>,
+}
+
+fn load_pattern(path: &Path) -> Result<PatternDefinition, CliFailure> {
+    let text = std::fs::read_to_string(path).map_err(|error| CliFailure {
+        code: 2,
+        diagnostics: vec![
+            Diagnostic::error(
+                DiagnosticCode::DefinitionError,
+                "could not read pattern input",
+            )
+            .with_path(path.to_string_lossy())
+            .with_detail(error.to_string()),
+        ],
+    })?;
+    serde_json::from_str(&text).map_err(|error| CliFailure {
+        code: 1,
+        diagnostics: vec![
+            Diagnostic::error(DiagnosticCode::JsonInvalid, "could not parse pattern JSON")
+                .with_path(path.to_string_lossy())
+                .with_detail(format!(
+                    "line {}, column {}: {error}",
+                    error.line(),
+                    error.column()
+                )),
+        ],
+    })
+}
+
+fn destination_exists_failure(path: &Path) -> Option<CliFailure> {
+    path.exists().then(|| CliFailure {
+        code: 2,
+        diagnostics: vec![
+            Diagnostic::error(
+                DiagnosticCode::DefinitionError,
+                "destination already exists",
+            )
+            .with_path(path.to_string_lossy()),
+        ],
+    })
+}
+
+fn print_pattern_inspection(inspection: &PatternInspection) {
+    println!("Name: {}", inspection.name.as_deref().unwrap_or("none"));
+    println!("Schema Version: {}", inspection.schema_version);
+    println!("Ticks Per Beat: {}", inspection.ticks_per_beat);
+    println!("Length Ticks: {}", inspection.length_ticks);
+    println!("Tempo Changes: {}", inspection.tempo_change_count);
+    println!(
+        "Time Signature Changes: {}",
+        inspection.time_signature_change_count
+    );
+    println!("Notes: {}", inspection.note_count);
+    println!(
+        "Note Range: {}",
+        format_range(inspection.note_min, inspection.note_max)
+    );
+    println!(
+        "Velocity Range: {}",
+        format_range(inspection.velocity_min, inspection.velocity_max)
+    );
+    println!("Sustain Events: {}", inspection.sustain_event_count);
+    println!("Pitch Bend Events: {}", inspection.pitch_bend_event_count);
+    println!("Mod Wheel Events: {}", inspection.mod_wheel_event_count);
+    println!("Aftertouch Events: {}", inspection.aftertouch_event_count);
+    println!("Parameter Changes: {}", inspection.parameter_change_count);
+    println!(
+        "Distinct Parameter IDs: {}",
+        inspection.distinct_parameter_ids.len()
+    );
+    println!(
+        "Musical Duration: {:.6} seconds",
+        inspection.musical_duration_seconds
+    );
+}
+
+fn format_range<T: std::fmt::Display>(min: Option<T>, max: Option<T>) -> String {
+    match (min, max) {
+        (Some(min), Some(max)) => format!("{min}..={max}"),
+        _ => "none".to_owned(),
     }
 }
 
@@ -1538,6 +2032,95 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
             output: args.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics,
+            analysis,
+            trace,
+            reset_comparison: None,
+        },
+    )
+}
+
+fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
+    let sample_rate = f64::from(args.sample_rate);
+    let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
+        Ok(frames) => frames,
+        Err(error) => return finish_failure(args.json, input_failure(&error)),
+    };
+    let (compiled, mut diagnostics) =
+        match load_and_compile(&args.definition, args.sample_rate, args.block_size) {
+            Ok(result) => result,
+            Err(failure) => return finish_failure(args.json, failure),
+        };
+    let pattern = match load_pattern(&args.pattern) {
+        Ok(pattern) => pattern,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    let compiled_pattern = match compile_pattern(&pattern, &compiled, sample_rate) {
+        Ok(compiled_pattern) => compiled_pattern,
+        Err(diagnostics) => {
+            return finish_failure(
+                args.json,
+                CliFailure {
+                    code: 2,
+                    diagnostics,
+                },
+            );
+        }
+    };
+    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
+    {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    let request = RenderRequest {
+        sample_rate,
+        block_size: args.block_size,
+        duration_frames: compiled_pattern.one_shot_duration_frames,
+        tail_frames,
+    };
+    let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
+        Ok(request) => request,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    let (mut audio, trace, _) = match render_event_audio(
+        &compiled,
+        request,
+        &compiled_pattern.events,
+        &compiled_pattern.tempo_map,
+        trace_request.as_ref(),
+        false,
+    ) {
+        Ok(rendered) => rendered,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
+    correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
+    let analysis = if args.analyze {
+        match analyze_audio(&audio, None) {
+            Ok(analysis) => Some(analysis),
+            Err(failure) => return finish_failure(args.json, failure),
+        }
+    } else {
+        None
+    };
+    if let Err(error) = write_wav(&args.output, &audio) {
+        return finish_failure(
+            args.json,
+            CliFailure {
+                code: 4,
+                diagnostics: vec![error],
+            },
+        );
+    }
+    print_success(
+        args.json,
+        SuccessReport {
+            status: "ok",
+            sample_rate: audio.sample_rate,
+            channels: audio.channels.len(),
+            frames: audio.frames(),
+            reported_latency_frames: compiled.reported_latency_frames,
+            output: args.output.to_string_lossy().into_owned(),
+            backend: backend_info().version,
+            diagnostics: std::mem::take(&mut diagnostics),
             analysis,
             trace,
             reset_comparison: None,
