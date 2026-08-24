@@ -20,7 +20,7 @@ use super::modulation::{
 };
 use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
-use super::source::ceil_positive_frames;
+use super::source::ceil_boundary_frames;
 use super::voice::{NoteRequest, PreparedLayerSelection, VoiceRuntime, VoiceState};
 
 const CONTROL_SMOOTHING_SECONDS: f64 = 0.005;
@@ -31,6 +31,23 @@ const MAX_MONOPHONIC_HELD_NOTES: usize = 128;
 #[allow(clippy::cast_possible_truncation)]
 fn phase_fraction(position: f64) -> f32 {
     position.fract() as f32
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn phase_endpoint_fraction(position: f64) -> f32 {
+    let nearest_integer = position.round();
+    if position > 0.0 && (position - nearest_integer).abs() <= 1.0e-9 {
+        1.0
+    } else {
+        position.fract() as f32
+    }
+}
+
+fn phase_span(start: f64, end: f64) -> ValueSpan {
+    ValueSpan {
+        start: phase_fraction(start),
+        end: phase_endpoint_fraction(end),
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -162,7 +179,10 @@ impl InstrumentRuntime {
             if layer_owned && layer_index.is_none() {
                 continue;
             }
-            if matches!(descriptor.owner, ParameterOwner::GlobalProcessor { .. }) {
+            if matches!(
+                descriptor.owner,
+                ParameterOwner::GlobalProcessor { .. } | ParameterOwner::Macro { .. }
+            ) {
                 observations.push((
                     handle,
                     self.trace_observation(handle, frame, sample_rate, context, None, None)?,
@@ -279,6 +299,7 @@ impl InstrumentRuntime {
             })
             .map(VoiceRuntime::portamento_offset_cents)
             .filter(|offset| offset.total_cmp(&0.0).is_ne());
+        let effective_value = portamento_offset_cents.map(|offset| evaluated.final_value + offset);
         Ok(TraceObservation {
             frame,
             seconds,
@@ -291,6 +312,7 @@ impl InstrumentRuntime {
             final_value: evaluated.final_value,
             clamped: evaluated.clamped,
             portamento_offset_cents,
+            effective_value,
         })
     }
 
@@ -824,20 +846,23 @@ impl InstrumentRuntime {
         let beat_position = context.beat_position + offset * beats_per_second;
         let bar_position = context.bar_position
             + offset * beats_per_second / context.time_signature.beats_per_bar();
+        let beats_per_bar = context.time_signature.beats_per_bar();
         let mut boundary = remaining;
         for source in &*self.compiled.instrument_sources {
-            let position = match source {
-                CompiledInstrumentSource::BeatPhase => beat_position,
-                CompiledInstrumentSource::BarPhase => bar_position,
+            let (position, units_per_frame) = match source {
+                CompiledInstrumentSource::BeatPhase => (beat_position, beats_per_second),
+                CompiledInstrumentSource::BarPhase => {
+                    (bar_position, beats_per_second / beats_per_bar)
+                }
                 CompiledInstrumentSource::PitchBend
                 | CompiledInstrumentSource::ModWheel
                 | CompiledInstrumentSource::Aftertouch
                 | CompiledInstrumentSource::Macro { .. } => continue,
             };
             let next = position.floor() + 1.0;
-            let frames = ((next - position) / beats_per_second).ceil();
+            let frames = (next - position) / units_per_frame;
             if frames.is_finite() && frames >= 1.0 {
-                boundary = boundary.min(ceil_positive_frames(frames));
+                boundary = boundary.min(ceil_boundary_frames(frames));
             }
         }
         Some(boundary.max(1).min(remaining))
@@ -907,14 +932,8 @@ impl InstrumentRuntime {
                         end: value.end,
                     }
                 }
-                CompiledInstrumentSource::BeatPhase => ValueSpan {
-                    start: start_beats.fract() as f32,
-                    end: end_beats.fract() as f32,
-                },
-                CompiledInstrumentSource::BarPhase => ValueSpan {
-                    start: start_bar.fract() as f32,
-                    end: end_bar.fract() as f32,
-                },
+                CompiledInstrumentSource::BeatPhase => phase_span(start_beats, end_beats),
+                CompiledInstrumentSource::BarPhase => phase_span(start_bar, end_bar),
             };
             *span = ParameterSpanValue {
                 start: value.start,
@@ -1786,52 +1805,82 @@ mod tests {
     }
 
     #[test]
-    fn transport_phase_spans_stop_at_wrap_boundaries() {
-        let mut definition = definition();
-        definition.modulation = Some(crate::definition::ModulationDefinition {
-            sources: Vec::new(),
-            routes: vec![crate::definition::ModulationRouteDefinition {
-                source: "transport_beat_phase".to_owned(),
-                target: "layer.body.tuning".to_owned(),
-                depth: crate::definition::ModulationDepthDefinition {
-                    value: 120.0,
-                    unit: crate::parameter::ModulationUnit::Cents,
-                },
-                curve: crate::definition::ModulationCurve::Linear,
-            }],
-        });
-        let mut runtime = runtime_with(&definition);
-        prepare(&mut runtime);
-        let mut left = vec![0.0; 256];
-        let mut right = vec![0.0; 256];
-        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
-        let events = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 100,
-            },
-        }];
+    fn transport_phase_wrap_and_bar_boundaries_use_their_own_units() {
+        let definition_for = |source: &str| {
+            let mut definition = definition();
+            definition.modulation = Some(crate::definition::ModulationDefinition {
+                sources: Vec::new(),
+                routes: vec![crate::definition::ModulationRouteDefinition {
+                    source: source.to_owned(),
+                    target: "layer.body.tuning".to_owned(),
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 120.0,
+                        unit: crate::parameter::ModulationUnit::Cents,
+                    },
+                    curve: crate::definition::ModulationCurve::Linear,
+                }],
+            });
+            definition
+        };
+        let beat_context = ProcessContext {
+            absolute_frame: 0,
+            tempo_bpm: 120.0,
+            beat_position: 0.99,
+            bar_position: 0.2475,
+            time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+        };
+        let mut beat_runtime = runtime_with(&definition_for("transport_beat_phase"));
+        prepare(&mut beat_runtime);
+        assert_eq!(
+            beat_runtime.transport_boundary_remaining(beat_context, 0, 48_000.0, 256),
+            Some(240)
+        );
+        beat_runtime
+            .advance_shared(240, beat_context, 0, 48_000.0)
+            .expect("beat phase span");
+        let beat_span = beat_runtime.scratch.instrument_source_spans[0];
+        assert!((beat_span.start - 0.99).abs() < 1.0e-6);
+        assert!((beat_span.end - 1.0).abs() < 1.0e-6);
 
-        runtime
-            .process(ProcessBlock {
-                frames: 256,
-                context: ProcessContext {
-                    absolute_frame: 0,
-                    tempo_bpm: 120.0,
-                    beat_position: 0.99,
-                    bar_position: 0.2475,
-                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+        let mut bar_runtime = runtime_with(&definition_for("transport_bar_phase"));
+        prepare(&mut bar_runtime);
+        let bar_context = ProcessContext {
+            beat_position: 0.0,
+            bar_position: 0.999,
+            ..beat_context
+        };
+        for (time_signature, expected_frames) in [
+            (crate::process::DEFAULT_TIME_SIGNATURE, 96),
+            (
+                crate::process::TimeSignature {
+                    numerator: 7,
+                    denominator: 8,
                 },
-                events: &events,
-                output: &mut output,
-            })
-            .expect("transport render");
-
-        let span = runtime.scratch.instrument_source_spans[0];
-        assert!(span.start < 0.1);
-        assert!(span.end > span.start);
+                84,
+            ),
+            (
+                crate::process::TimeSignature {
+                    numerator: 1,
+                    denominator: 8,
+                },
+                12,
+            ),
+        ] {
+            let context = ProcessContext {
+                time_signature,
+                ..bar_context
+            };
+            assert_eq!(
+                bar_runtime.transport_boundary_remaining(context, 0, 48_000.0, 256),
+                Some(expected_frames)
+            );
+        }
+        bar_runtime
+            .advance_shared(96, bar_context, 0, 48_000.0)
+            .expect("bar phase span");
+        let bar_span = bar_runtime.scratch.instrument_source_spans[0];
+        assert!((bar_span.start - 0.999).abs() < 1.0e-6);
+        assert!((bar_span.end - 1.0).abs() < 1.0e-6);
     }
 
     fn process_with_stack_output(

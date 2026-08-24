@@ -26,23 +26,23 @@ Block Size差分の最大値は次のとおりです。値は基準Block Size 25
 
 | Reference | 最大絶対差分 |
 |---|---:|
-| Mono Portamento Lead | 0.00210116 |
-| MSEG Motion Pad | 0.000000417 |
+| Mono Portamento Lead | 0.00208536 |
+| MSEG Motion Pad | 0.0000000894 |
 | Random Comparison | 0.000000715 |
 | Macro Hybrid | 0.000063546 |
 | Vector Hybrid | 0.000392884 |
-| Tempo Step Bass | 0 |
+| Tempo Step Bass | 0.0000000745 |
 | Vector Hybrid Pattern | 0.0000394583 |
 
-Step / Sample & Holdの離散境界はBlock Sizeに依存せず、Tempo Step Bassは全比較で差分0です。Portamentoと連続的な音高・Source変化を含む音色では、既存のBlock内Span補間による差分を記録しています。Sample Rate比較では各Referenceの時間長、Finite性、非無音、Full Scale内を確認しています。
+Step / Sample & Holdの離散境界はBlock Sizeに依存しません。Tempo Step BassはStepに加えてBeat Phase / Bar PhaseをFilterへRouteし、Tempo / Meter変更を含む条件で比較しています。Portamentoと連続的な音高・Source変化を含む音色では、既存のBlock内Span補間による差分を記録しています。Sample Rate比較では各Referenceの時間長、Finite性、非無音、Full Scale内を確認しています。
 
 ## 音声一覧
 
 | WAV | 確認内容 |
 |---|---|
-| `audio/mono-portamento-lead.wav` | Last-note、Legato、Portamento、Pitch Bend |
-| `audio/mseg-motion-pad.wav` | MSEGの複数Segment、Loop、Filter変化 |
-| `audio/tempo-step-bass.wav` | Per-beat Step、Tempo変更、Meter変更 |
+| `audio/mono-portamento-lead.wav` | Last-note、Legato、Portamento、Pitch Bend、Sustain |
+| `audio/mseg-motion-pad.wav` | MSEGのLoop、Loop途中のNote Off、Release Segment、Filter変化 |
+| `audio/tempo-step-bass.wav` | Per-beat Step、Beat Phase、Bar Phase、Tempo変更、Meter変更 |
 | `audio/random-comparison.wav` | Sample & HoldとSmooth Randomの決定性・連続性 |
 | `audio/macro-hybrid.wav` | MacroによるFilter、Layer Gain、Reverb Mixの同時変化 |
 | `audio/vector-hybrid.wav` | 4-Way Vector、Axis変化、4 LayerのConstant-power Weight |

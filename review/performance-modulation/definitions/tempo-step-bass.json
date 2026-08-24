@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Tempo Step Bass",
     "author": "Sonalloy",
-    "description": "A tempo-synchronous step bass with cutoff and gain movement"
+    "description": "A tempo-synchronous step bass with cutoff, beat phase, and bar phase movement"
   },
   "performance": {
     "mode": "polyphonic",
@@ -83,6 +83,24 @@
         "depth": {
           "value": 4.0,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "transport_beat_phase",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "transport_bar_phase",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.35,
+          "unit": "octaves"
         },
         "curve": "linear"
       }

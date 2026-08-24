@@ -13,8 +13,8 @@
     "over_full_scale": false
   },
   "dc": [
-    -1.43409015e-05,
-    -1.43409015e-05
+    -1.4340879e-05,
+    -1.4340879e-05
   ],
   "activity": {
     "threshold_dbfs": -80.0,
@@ -34,7 +34,7 @@
   "spectrum": {
     "fft_size": 4096,
     "hop_size": 2048,
-    "spectral_centroid_hz": 803.8185,
+    "spectral_centroid_hz": 803.8184,
     "peaks": [
       {
         "frequency_hz": 269.53125,
@@ -42,31 +42,31 @@
       },
       {
         "frequency_hz": 339.84375,
-        "relative_power": 0.5411324
+        "relative_power": 0.54113245
       },
       {
         "frequency_hz": 398.4375,
-        "relative_power": 0.33089823
+        "relative_power": 0.3308983
       },
       {
         "frequency_hz": 539.0625,
-        "relative_power": 0.1826109
+        "relative_power": 0.18261091
       },
       {
         "frequency_hz": 796.875,
-        "relative_power": 0.12129408
+        "relative_power": 0.1212941
       },
       {
         "frequency_hz": 667.96875,
-        "relative_power": 0.08330314
+        "relative_power": 0.08330313
       },
       {
         "frequency_hz": 691.40625,
-        "relative_power": 0.076690875
+        "relative_power": 0.0766909
       },
       {
         "frequency_hz": 1031.25,
-        "relative_power": 0.031946234
+        "relative_power": 0.031946264
       }
     ],
     "reference_frequency_hz": null,

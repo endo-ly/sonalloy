@@ -712,7 +712,7 @@ sonalloy play <definition> --midi-device <id>
 - `render events`ではNote Eventと同じ絶対Frame位置にParameter Change（`native_value`）/ Pitch Bend / Mod Wheel / Aftertouch / Sustain Pedal（`down`）を記述できる。`render midi`ではMIDI Pitch Bend / CC1 / Channel Aftertouch / CC64が同じ実行時Eventへ変換される
 - Time Stretchを含む場合は報告Latencyが`inspect`と成功JSONへ表示され、CLIが前置きLatencyを除去して演奏タイムラインのFrame 0からWAVを生成する
 
-`--analyze`は無音信号（ゼロ）のdBFSを`null`で返し、Activityの閾値は-80 dBFS、ContinuityのLarge Delta閾値は0.25です。`--trace`はFrame 0、既定480 Frame間隔、Event後、最終FrameをLatency補正後のTimelineで記録します。`final`はRoute加算とClamp後のNative値です。
+`--analyze`は無音信号（ゼロ）のdBFSを`null`で返し、Activityの閾値は-80 dBFS、ContinuityのLarge Delta閾値は0.25です。`--trace`はFrame 0、既定480 Frame間隔、Event後、最終FrameをLatency補正後のTimelineで記録します。`final`はRoute加算とClamp後のNative値です。Portamento中のLayer Tuningには`portamento_offset_cents`と、Offset適用後のNative値`effective_value`も記録されます。MacroはInstrument単位で観測されます。
 
 人間の確認項目は`docs/testing-and-sound-review.md`にまとめています。RealtimeではNote、Pitch Bend、Mod Wheel、Channel Aftertouch、Sustainを含む入力、256 / 128 FrameのBuffer、10分以上の連続演奏、Xrun・Fatal Fault・Stuck Note・Queue Overflowを確認します。
 

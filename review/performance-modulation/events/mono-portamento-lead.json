@@ -27,6 +27,11 @@
       "note_id": 3
     },
     {
+      "absolute_frame": 90000,
+      "type": "sustain_pedal",
+      "down": true
+    },
+    {
       "absolute_frame": 96000,
       "type": "note_off",
       "note_id": 3
@@ -37,9 +42,14 @@
       "note_id": 2
     },
     {
-      "absolute_frame": 144000,
+      "absolute_frame": 132000,
       "type": "note_off",
       "note_id": 1
+    },
+    {
+      "absolute_frame": 144000,
+      "type": "sustain_pedal",
+      "down": false
     }
   ]
 }

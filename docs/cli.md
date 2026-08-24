@@ -347,7 +347,7 @@ Analysisの主なFieldは次のとおりです。
 
 測定できない項目（無音時のLevel / Activityなど）は`null`になり、NaNとInfinityはJSONへ出力しません。`render note`だけは指定MIDI Noteの標準音高をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
 
-Trace対象は既存CatalogのDynamic Parameter IDだけです。Reportには各時点のTarget値（Base、Routeごとの寄与、Clamp前後の値）が記録され、Voice所属Parameterなら所属Voiceの情報も付きます。Layer TuningをTraceした場合、Portamento中はRouteとは別の`portamento_offset_cents`が記録されます。Layer Targetは発音中のVoiceだけを報告します。
+Trace対象は既存CatalogのDynamic Parameter IDだけです。Reportには各時点のTarget値（Base、Routeごとの寄与、Clamp前後の値）が記録され、Voice所属Parameterなら所属Voiceの情報も付きます。Layer TuningをTraceした場合、Portamento中はRouteとは別の`portamento_offset_cents`と、Offsetを加えた実際の値を示す`effective_value`が記録されます。MacroはInstrument単位のため、Voice情報なしで一度だけ観測されます。Layer Targetは発音中のVoiceだけを報告します。
 
 Traceの時刻はLatency補正後の出力WAVと同じTimelineです。Renderと同じMusical Time Mapを通るため、Tempo / Meter変更位置では処理Blockが分かれます。`--trace`は繰り返し指定でき、観測総数には100,000件の上限があります。
 
@@ -359,7 +359,7 @@ sonalloy render note presets/basic.json --analyze \
   --trace-every-frames 480 --json --output out/note.wav
 ```
 
-`trace.parameters[].observations[]`の`final`が、全Route加算とClamp後の実効値です。
+`trace.parameters[].observations[]`の`final`が、全Route加算とClamp後の値です。Portamento中のLayer Tuningだけは、その後段の音高Offsetを`portamento_offset_cents`へ分け、実際にGeneratorへ渡る値を`effective_value`へ記録します。
 
 `--reset-check`は同じRuntimeをResetして同じEvent列を再実行し、前後のAudio差分をReportへ記録します。すべてのStateが初期化されていれば差分は0になります。`--reset-check`は`trace`と併用できません。
 

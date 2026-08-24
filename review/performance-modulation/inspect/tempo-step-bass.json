@@ -4,7 +4,7 @@
   "metadata": {
     "name": "Tempo Step Bass",
     "author": "Sonalloy",
-    "description": "A tempo-synchronous step bass with cutoff and gain movement"
+    "description": "A tempo-synchronous step bass with cutoff, beat phase, and bar phase movement"
   },
   "mode": "polyphonic",
   "voice_count": 4,
@@ -182,9 +182,9 @@
       },
       "modulated_range_from_default": {
         "unclamped_min": 900.0,
-        "unclamped_max": 5091.169,
+        "unclamped_max": 9176.836,
         "effective_min": 900.0,
-        "effective_max": 5091.169,
+        "effective_max": 9176.836,
         "may_clamp": false
       }
     },
@@ -303,6 +303,48 @@
         "max_octaves": 2.5,
         "min_factor": 1.0,
         "max_factor": 5.656854
+      }
+    },
+    {
+      "source": "transport_beat_phase",
+      "target": "voice.processor.tone.cutoff",
+      "depth": {
+        "value": 0.5,
+        "unit": "octaves"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "effect": {
+        "kind": "multiplicative",
+        "unit": "octaves",
+        "min_octaves": 0.0,
+        "max_octaves": 0.5,
+        "min_factor": 1.0,
+        "max_factor": 1.4142135
+      }
+    },
+    {
+      "source": "transport_bar_phase",
+      "target": "voice.processor.tone.cutoff",
+      "depth": {
+        "value": 0.35,
+        "unit": "octaves"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "effect": {
+        "kind": "multiplicative",
+        "unit": "octaves",
+        "min_octaves": 0.0,
+        "max_octaves": 0.35,
+        "min_factor": 1.0,
+        "max_factor": 1.2745606
       }
     }
   ]

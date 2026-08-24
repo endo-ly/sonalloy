@@ -1,6 +1,6 @@
 # Performance and Modulation Review
 
-Performance Mode、演奏中の音高遷移、Voice Source、Macro、Vector、Musical Timeを同じCore Runtimeで確認するReview Packageです。
+Performance Mode、演奏中の音高遷移、Voice Source、Macro、Vector、Transport Phase、Musical Timeを同じCore Runtimeで確認するReview Packageです。
 
 ## 再生成
 
@@ -14,8 +14,8 @@ python3 review/generate/generate_performance_modulation_package.py
 
 | Directory / File | 内容 |
 |---|---|
-| `definitions/` | Mono Portamento、MSEG、Step、Random、Macro、VectorのInstrument Definition |
-| `events/` | Offline Event列 |
+| `definitions/` | Mono Portamento、MSEG、Step、Random、Macro、Vector、Transport PhaseのInstrument Definition |
+| `events/` | Offline Event列。MonoのSustain、MSEGのLoop途中Note Offを含む |
 | `patterns/` | Tempo / Meter変更とMacro / Vector Axis変更を含むPattern |
 | `validation/` | InstrumentとPatternの製品CLI Validate結果 |
 | `inspect/` | InstrumentとPatternの製品CLI Inspect結果 |

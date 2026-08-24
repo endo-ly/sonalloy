@@ -1,7 +1,7 @@
 use std::fmt;
 
 use sonalloy_core::{
-    MusicalTimeMap, ProcessContext, ProcessEvent, ProcessEventKind, ScheduledEvent,
+    PreparedMusicalTimeMap, ProcessContext, ProcessEvent, ProcessEventKind, ScheduledEvent,
 };
 
 use crate::pattern::{CompiledPattern, loop_note_id};
@@ -12,6 +12,7 @@ pub(crate) enum ScheduledFeedError {
     FrameOverflow,
     EventCapacityExceeded,
     IterationOverflow,
+    InvalidSampleRate,
 }
 
 impl fmt::Display for ScheduledFeedError {
@@ -21,6 +22,7 @@ impl fmt::Display for ScheduledFeedError {
             Self::FrameOverflow => "scheduled frame counter overflow",
             Self::EventCapacityExceeded => "scheduled event scratch capacity is insufficient",
             Self::IterationOverflow => "scheduled loop iteration counter overflow",
+            Self::InvalidSampleRate => "scheduled musical-time sample rate is invalid",
         };
         formatter.write_str(message)
     }
@@ -28,7 +30,7 @@ impl fmt::Display for ScheduledFeedError {
 
 pub(crate) struct ScheduledEventFeed {
     events: Vec<ScheduledEvent>,
-    musical_time_map: MusicalTimeMap,
+    prepared_musical_time_map: PreparedMusicalTimeMap,
     pattern_length_frames: u64,
     playback_end_frame: Option<u64>,
     looping: bool,
@@ -44,7 +46,12 @@ impl ScheduledEventFeed {
         tail_frames: u64,
         latency_frames: usize,
         looping: bool,
+        sample_rate: f64,
     ) -> Result<Self, ScheduledFeedError> {
+        let prepared_musical_time_map = pattern
+            .musical_time_map
+            .prepare(sample_rate)
+            .map_err(|_| ScheduledFeedError::InvalidSampleRate)?;
         let playback_end_frame = if looping {
             None
         } else {
@@ -60,7 +67,7 @@ impl ScheduledEventFeed {
         };
         Ok(Self {
             events: pattern.events,
-            musical_time_map: pattern.musical_time_map,
+            prepared_musical_time_map,
             pattern_length_frames: pattern.length_frames,
             playback_end_frame,
             looping,
@@ -151,46 +158,15 @@ impl ScheduledEventFeed {
         Ok(frames)
     }
 
-    pub(crate) fn context_at(&self, absolute_frame: u64, sample_rate: f64) -> ProcessContext {
+    pub(crate) fn context_at(&self, absolute_frame: u64) -> ProcessContext {
         let relative_frame = if self.looping {
             absolute_frame.saturating_sub(self.iteration_start_frame)
         } else {
             absolute_frame
         };
-        let changes = self.musical_time_map.changes();
-        let mut current = changes[0];
-        let mut beat_position = 0.0;
-        let mut bar_position = 0.0;
-        for change in changes.iter().skip(1).copied() {
-            if change.absolute_frame > relative_frame {
-                break;
-            }
-            let frame_delta = change.absolute_frame.saturating_sub(current.absolute_frame);
-            #[allow(clippy::cast_precision_loss)]
-            let frame_delta = frame_delta as f64;
-            let beat_delta = frame_delta * current.tempo_bpm / (60.0 * sample_rate);
-            beat_position += beat_delta;
-            if current.time_signature == change.time_signature {
-                bar_position += beat_delta / current.time_signature.beats_per_bar();
-            } else {
-                bar_position =
-                    (bar_position + beat_delta / current.time_signature.beats_per_bar()).ceil();
-            }
-            current = change;
-        }
-        let frame_delta = relative_frame.saturating_sub(current.absolute_frame);
-        #[allow(clippy::cast_precision_loss)]
-        let frame_delta = frame_delta as f64;
-        let beat_delta = frame_delta * current.tempo_bpm / (60.0 * sample_rate);
-        beat_position += beat_delta;
-        bar_position += beat_delta / current.time_signature.beats_per_bar();
-        ProcessContext {
-            absolute_frame,
-            tempo_bpm: current.tempo_bpm,
-            beat_position,
-            bar_position,
-            time_signature: current.time_signature,
-        }
+        let mut context = self.prepared_musical_time_map.context_at(relative_frame);
+        context.absolute_frame = absolute_frame;
+        context
     }
 
     fn next_musical_time_frame(&self, absolute_frame: u64) -> Option<u64> {
@@ -199,14 +175,9 @@ impl ScheduledEventFeed {
         } else {
             absolute_frame
         };
-        self.musical_time_map
-            .changes()
-            .iter()
-            .find(|change| change.absolute_frame > relative_frame)
-            .and_then(|change| {
-                self.iteration_start_frame
-                    .checked_add(change.absolute_frame)
-            })
+        self.prepared_musical_time_map
+            .next_change_after(relative_frame)
+            .and_then(|change_frame| self.iteration_start_frame.checked_add(change_frame))
     }
 
     fn advance_boundaries(
@@ -366,6 +337,7 @@ mod tests {
             0,
             0,
             false,
+            48_000.0,
         )
         .expect("feed");
         let mut events = Vec::with_capacity(2);
@@ -379,14 +351,14 @@ mod tests {
 
     #[test]
     fn tempo_boundaries_limit_the_process_block() {
-        let mut feed =
-            ScheduledEventFeed::new(pattern(Vec::new(), 2_000), 0, 0, false).expect("feed");
+        let mut feed = ScheduledEventFeed::new(pattern(Vec::new(), 2_000), 0, 0, false, 48_000.0)
+            .expect("feed");
         let mut events = Vec::with_capacity(1);
 
         let frames = feed.prepare_block(0, 2_000, &mut events).expect("block");
 
         assert_eq!(frames, 1_000);
-        assert!((feed.context_at(0, 48_000.0).tempo_bpm - 120.0).abs() < f64::EPSILON);
+        assert!((feed.context_at(0).tempo_bpm - 120.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -416,11 +388,12 @@ mod tests {
             0,
             0,
             false,
+            48_000.0,
         )
         .expect("feed");
 
-        let at_change = feed.context_at(48_000, 48_000.0);
-        let later = feed.context_at(72_000, 48_000.0);
+        let at_change = feed.context_at(48_000);
+        let later = feed.context_at(72_000);
 
         assert!((at_change.beat_position - 2.0).abs() < f64::EPSILON);
         assert!((at_change.bar_position - 1.0).abs() < f64::EPSILON);
@@ -452,6 +425,7 @@ mod tests {
             0,
             0,
             true,
+            48_000.0,
         )
         .expect("feed");
         let mut events = Vec::with_capacity(4);

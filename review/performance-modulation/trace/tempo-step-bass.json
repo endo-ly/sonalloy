@@ -32,10 +32,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 4.1666666e-05,
+              "shaped": 4.1666666e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 2.0833333e-05,
+                "unit": "octaves",
+                "factor": 1.0000144
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 1.0416667e-05,
+              "shaped": 1.0416667e-05,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 3.6458332e-06,
+                "unit": "octaves",
+                "factor": 1.0000025
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 159.10172,
+          "final": 159.10172,
           "clamped": false
         },
         {
@@ -65,10 +93,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.05,
+                "unit": "octaves",
+                "factor": 1.035265
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.025,
+              "shaped": 0.025,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.00875,
+                "unit": "octaves",
+                "factor": 1.0060835
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 165.71164,
+          "final": 165.71164,
           "clamped": false
         },
         {
@@ -98,10 +154,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1,
+                "unit": "octaves",
+                "factor": 1.0717734
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.05,
+              "shaped": 0.05,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0175,
+                "unit": "octaves",
+                "factor": 1.0122039
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 172.5991,
+          "final": 172.5991,
           "clamped": false
         },
         {
@@ -131,10 +215,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.075,
+              "shaped": 0.075,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.026250001,
+                "unit": "octaves",
+                "factor": 1.0183617
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2418.7256,
+          "final": 2418.7256,
           "clamped": false
         },
         {
@@ -164,10 +276,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2,
+                "unit": "octaves",
+                "factor": 1.1486983
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.035,
+                "unit": "octaves",
+                "factor": 1.0245569
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2519.2546,
+          "final": 2519.2546,
           "clamped": false
         },
         {
@@ -197,10 +337,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.5,
+              "shaped": 0.5,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.25,
+                "unit": "octaves",
+                "factor": 1.1892071
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.125,
+              "shaped": 0.125,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.04375,
+                "unit": "octaves",
+                "factor": 1.0307897
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 715.3628,
+          "final": 715.3628,
           "clamped": false
         },
         {
@@ -230,10 +398,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.6,
+              "shaped": 0.6,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3,
+                "unit": "octaves",
+                "factor": 1.2311444
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.15,
+              "shaped": 0.15,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.052500002,
+                "unit": "octaves",
+                "factor": 1.0370605
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 745.0954,
+          "final": 745.0954,
           "clamped": false
         },
         {
@@ -263,10 +459,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.7,
+              "shaped": 0.7,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.35,
+                "unit": "octaves",
+                "factor": 1.2745606
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.175,
+              "shaped": 0.175,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.061249997,
+                "unit": "octaves",
+                "factor": 1.0433694
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 776.0637,
+          "final": 776.0637,
           "clamped": false
         },
         {
@@ -296,10 +520,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.8,
+              "shaped": 0.8,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4,
+                "unit": "octaves",
+                "factor": 1.319508
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.07,
+                "unit": "octaves",
+                "factor": 1.0497167
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7051.8267,
+          "final": 7051.8267,
           "clamped": false
         },
         {
@@ -329,10 +581,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.9,
+              "shaped": 0.9,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.45,
+                "unit": "octaves",
+                "factor": 1.3660402
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.225,
+              "shaped": 0.225,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.07875,
+                "unit": "octaves",
+                "factor": 1.0561026
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7344.9204,
+          "final": 7344.9204,
           "clamped": false
         },
         {
@@ -362,10 +642,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.0,
+              "shaped": 0.0,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0,
+                "unit": "octaves",
+                "factor": 1.0
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.25,
+              "shaped": 0.25,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0875,
+                "unit": "octaves",
+                "factor": 1.0625274
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 169.04709,
+          "final": 169.04709,
           "clamped": false
         },
         {
@@ -395,10 +703,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 4.1666666e-05,
+              "shaped": 4.1666666e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 2.0833333e-05,
+                "unit": "octaves",
+                "factor": 1.0000144
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.25001043,
+              "shaped": 0.25001043,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.08750365,
+                "unit": "octaves",
+                "factor": 1.06253
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 169.04994,
+          "final": 169.04994,
           "clamped": false
         },
         {
@@ -428,10 +764,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 4.1666666e-05,
+              "shaped": 4.1666666e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 2.0833333e-05,
+                "unit": "octaves",
+                "factor": 1.0000144
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.25001043,
+              "shaped": 0.25001043,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.08750365,
+                "unit": "octaves",
+                "factor": 1.06253
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 169.04994,
+          "final": 169.04994,
           "clamped": false
         },
         {
@@ -461,10 +825,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.05,
+                "unit": "octaves",
+                "factor": 1.035265
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.275,
+              "shaped": 0.275,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.09625,
+                "unit": "octaves",
+                "factor": 1.0689912
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 176.07317,
+          "final": 176.07317,
           "clamped": false
         },
         {
@@ -494,10 +886,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.05,
+                "unit": "octaves",
+                "factor": 1.035265
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.275,
+              "shaped": 0.275,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.09625,
+                "unit": "octaves",
+                "factor": 1.0689912
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 176.07317,
+          "final": 176.07317,
           "clamped": false
         },
         {
@@ -527,10 +947,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1,
+                "unit": "octaves",
+                "factor": 1.0717734
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.105000004,
+                "unit": "octaves",
+                "factor": 1.0754944
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 183.39128,
+          "final": 183.39128,
           "clamped": false
         },
         {
@@ -560,10 +1008,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1,
+                "unit": "octaves",
+                "factor": 1.0717734
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.105000004,
+                "unit": "octaves",
+                "factor": 1.0754944
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 183.39128,
+          "final": 183.39128,
           "clamped": false
         },
         {
@@ -593,10 +1069,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.325,
+              "shaped": 0.325,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.113749996,
+                "unit": "octaves",
+                "factor": 1.0820371
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2569.962,
+          "final": 2569.962,
           "clamped": false
         },
         {
@@ -626,10 +1130,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.325,
+              "shaped": 0.325,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.113749996,
+                "unit": "octaves",
+                "factor": 1.0820371
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2569.962,
+          "final": 2569.962,
           "clamped": false
         },
         {
@@ -659,10 +1191,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2,
+                "unit": "octaves",
+                "factor": 1.1486983
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.35,
+              "shaped": 0.35,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.122499995,
+                "unit": "octaves",
+                "factor": 1.0886197
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2676.7769,
+          "final": 2676.7769,
           "clamped": false
         },
         {
@@ -692,10 +1252,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2,
+                "unit": "octaves",
+                "factor": 1.1486983
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.35,
+              "shaped": 0.35,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.122499995,
+                "unit": "octaves",
+                "factor": 1.0886197
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2676.7769,
+          "final": 2676.7769,
           "clamped": false
         },
         {
@@ -725,10 +1313,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.5,
+              "shaped": 0.5,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.25,
+                "unit": "octaves",
+                "factor": 1.1892071
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.375,
+              "shaped": 0.375,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.13125,
+                "unit": "octaves",
+                "factor": 1.0952423
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 760.0925,
+          "final": 760.0925,
           "clamped": false
         },
         {
@@ -758,10 +1374,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.6,
+              "shaped": 0.6,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3,
+                "unit": "octaves",
+                "factor": 1.2311444
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.14,
+                "unit": "octaves",
+                "factor": 1.1019051
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 791.68427,
+          "final": 791.68427,
           "clamped": false
         },
         {
@@ -791,10 +1435,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.7,
+              "shaped": 0.7,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.35,
+                "unit": "octaves",
+                "factor": 1.2745606
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.425,
+              "shaped": 0.425,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.14875,
+                "unit": "octaves",
+                "factor": 1.1086085
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 824.5889,
+          "final": 824.5889,
           "clamped": false
         },
         {
@@ -824,10 +1496,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.8,
+              "shaped": 0.8,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4,
+                "unit": "octaves",
+                "factor": 1.319508
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.45,
+              "shaped": 0.45,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1575,
+                "unit": "octaves",
+                "factor": 1.1153527
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7492.76,
+          "final": 7492.76,
           "clamped": false
         },
         {
@@ -857,10 +1557,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.9,
+              "shaped": 0.9,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.45,
+                "unit": "octaves",
+                "factor": 1.3660402
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.475,
+              "shaped": 0.475,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.16624999,
+                "unit": "octaves",
+                "factor": 1.1221379
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7804.1797,
+          "final": 7804.1797,
           "clamped": false
         },
         {
@@ -890,10 +1618,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.0,
+              "shaped": 0.0,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0,
+                "unit": "octaves",
+                "factor": 1.0
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.5,
+              "shaped": 0.5,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.175,
+                "unit": "octaves",
+                "factor": 1.1289644
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 179.61714,
+          "final": 179.61714,
           "clamped": false
         },
         {
@@ -923,10 +1679,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 4.1666666e-05,
+              "shaped": 4.1666666e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 2.0833333e-05,
+                "unit": "octaves",
+                "factor": 1.0000144
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.50001043,
+              "shaped": 0.50001043,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.17500365,
+                "unit": "octaves",
+                "factor": 1.1289673
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 179.6202,
+          "final": 179.6202,
           "clamped": false
         },
         {
@@ -956,10 +1740,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 4.1666666e-05,
+              "shaped": 4.1666666e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 2.0833333e-05,
+                "unit": "octaves",
+                "factor": 1.0000144
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.50001043,
+              "shaped": 0.50001043,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.17500365,
+                "unit": "octaves",
+                "factor": 1.1289673
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 179.6202,
+          "final": 179.6202,
           "clamped": false
         },
         {
@@ -989,10 +1801,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.05,
+                "unit": "octaves",
+                "factor": 1.035265
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.525,
+              "shaped": 0.525,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.18374999,
+                "unit": "octaves",
+                "factor": 1.1358324
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 187.08255,
+          "final": 187.08255,
           "clamped": false
         },
         {
@@ -1022,10 +1862,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.05,
+                "unit": "octaves",
+                "factor": 1.035265
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.525,
+              "shaped": 0.525,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.18374999,
+                "unit": "octaves",
+                "factor": 1.1358324
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 187.08255,
+          "final": 187.08255,
           "clamped": false
         },
         {
@@ -1055,10 +1923,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1,
+                "unit": "octaves",
+                "factor": 1.0717734
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.55,
+              "shaped": 0.55,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1925,
+                "unit": "octaves",
+                "factor": 1.1427423
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 194.85826,
+          "final": 194.85826,
           "clamped": false
         },
         {
@@ -1088,10 +1984,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1,
+                "unit": "octaves",
+                "factor": 1.0717734
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.55,
+              "shaped": 0.55,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1925,
+                "unit": "octaves",
+                "factor": 1.1427423
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 194.85826,
+          "final": 194.85826,
           "clamped": false
         },
         {
@@ -1121,10 +2045,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.575,
+              "shaped": 0.575,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.20124999,
+                "unit": "octaves",
+                "factor": 1.1496941
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2730.6548,
+          "final": 2730.6548,
           "clamped": false
         },
         {
@@ -1154,10 +2106,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.575,
+              "shaped": 0.575,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.20124999,
+                "unit": "octaves",
+                "factor": 1.1496941
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2730.6548,
+          "final": 2730.6548,
           "clamped": false
         },
         {
@@ -1187,10 +2167,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2,
+                "unit": "octaves",
+                "factor": 1.1486983
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.6,
+              "shaped": 0.6,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.21000001,
+                "unit": "octaves",
+                "factor": 1.1566882
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2844.1492,
+          "final": 2844.1492,
           "clamped": false
         },
         {
@@ -1220,10 +2228,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2,
+                "unit": "octaves",
+                "factor": 1.1486983
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.6,
+              "shaped": 0.6,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.21000001,
+                "unit": "octaves",
+                "factor": 1.1566882
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2844.1492,
+          "final": 2844.1492,
           "clamped": false
         },
         {
@@ -1253,10 +2289,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.5,
+              "shaped": 0.5,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.25,
+                "unit": "octaves",
+                "factor": 1.1892071
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.625,
+              "shaped": 0.625,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.21875,
+                "unit": "octaves",
+                "factor": 1.1637249
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 807.61914,
+          "final": 807.61914,
           "clamped": false
         },
         {
@@ -1286,10 +2350,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.6,
+              "shaped": 0.6,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3,
+                "unit": "octaves",
+                "factor": 1.2311444
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.65,
+              "shaped": 0.65,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.22749999,
+                "unit": "octaves",
+                "factor": 1.1708044
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 841.18616,
+          "final": 841.18616,
           "clamped": false
         },
         {
@@ -1319,10 +2411,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.7,
+              "shaped": 0.7,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.35,
+                "unit": "octaves",
+                "factor": 1.2745606
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.675,
+              "shaped": 0.675,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.23625,
+                "unit": "octaves",
+                "factor": 1.1779269
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 876.1483,
+          "final": 876.1483,
           "clamped": false
         },
         {
@@ -1352,10 +2472,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.8,
+              "shaped": 0.8,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4,
+                "unit": "octaves",
+                "factor": 1.319508
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.7,
+              "shaped": 0.7,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.24499999,
+                "unit": "octaves",
+                "factor": 1.1850928
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7961.261,
+          "final": 7961.261,
           "clamped": false
         },
         {
@@ -1385,10 +2533,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.9,
+              "shaped": 0.9,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.45,
+                "unit": "octaves",
+                "factor": 1.3660402
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.725,
+              "shaped": 0.725,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.25375,
+                "unit": "octaves",
+                "factor": 1.1923022
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 8292.155,
+          "final": 8292.155,
           "clamped": false
         },
         {
@@ -1418,10 +2594,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.0,
+              "shaped": 0.0,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0,
+                "unit": "octaves",
+                "factor": 1.0
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.75,
+              "shaped": 0.75,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2625,
+                "unit": "octaves",
+                "factor": 1.1995555
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 190.84814,
+          "final": 190.84814,
           "clamped": false
         },
         {
@@ -1451,10 +2655,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 4.1666666e-05,
+              "shaped": 4.1666666e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 2.0833333e-05,
+                "unit": "octaves",
+                "factor": 1.0000144
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.75001043,
+              "shaped": 0.75001043,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.26250365,
+                "unit": "octaves",
+                "factor": 1.1995586
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 190.85136,
+          "final": 190.85136,
           "clamped": false
         },
         {
@@ -1484,10 +2716,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 4.1666666e-05,
+              "shaped": 4.1666666e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 2.0833333e-05,
+                "unit": "octaves",
+                "factor": 1.0000144
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.75001043,
+              "shaped": 0.75001043,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.26250365,
+                "unit": "octaves",
+                "factor": 1.1995586
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 190.85136,
+          "final": 190.85136,
           "clamped": false
         },
         {
@@ -1517,10 +2777,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.05,
+                "unit": "octaves",
+                "factor": 1.035265
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.775,
+              "shaped": 0.775,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.27124998,
+                "unit": "octaves",
+                "factor": 1.206853
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 198.78033,
+          "final": 198.78033,
           "clamped": false
         },
         {
@@ -1550,10 +2838,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.05,
+                "unit": "octaves",
+                "factor": 1.035265
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.775,
+              "shaped": 0.775,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.27124998,
+                "unit": "octaves",
+                "factor": 1.206853
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 198.78033,
+          "final": 198.78033,
           "clamped": false
         },
         {
@@ -1583,10 +2899,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1,
+                "unit": "octaves",
+                "factor": 1.0717734
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.8,
+              "shaped": 0.8,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.28,
+                "unit": "octaves",
+                "factor": 1.2141949
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 207.04222,
+          "final": 207.04222,
           "clamped": false
         },
         {
@@ -1616,10 +2960,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1,
+                "unit": "octaves",
+                "factor": 1.0717734
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.8,
+              "shaped": 0.8,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.28,
+                "unit": "octaves",
+                "factor": 1.2141949
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 207.04222,
+          "final": 207.04222,
           "clamped": false
         },
         {
@@ -1649,10 +3021,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.825,
+              "shaped": 0.825,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.28875,
+                "unit": "octaves",
+                "factor": 1.2215813
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2901.3958,
+          "final": 2901.3958,
           "clamped": false
         },
         {
@@ -1682,10 +3082,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.825,
+              "shaped": 0.825,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.28875,
+                "unit": "octaves",
+                "factor": 1.2215813
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2901.3958,
+          "final": 2901.3958,
           "clamped": false
         },
         {
@@ -1715,10 +3143,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2,
+                "unit": "octaves",
+                "factor": 1.1486983
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.85,
+              "shaped": 0.85,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2975,
+                "unit": "octaves",
+                "factor": 1.2290128
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 3021.986,
+          "final": 3021.986,
           "clamped": false
         },
         {
@@ -1748,10 +3204,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2,
+                "unit": "octaves",
+                "factor": 1.1486983
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.85,
+              "shaped": 0.85,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2975,
+                "unit": "octaves",
+                "factor": 1.2290128
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 3021.986,
+          "final": 3021.986,
           "clamped": false
         },
         {
@@ -1781,10 +3265,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.5,
+              "shaped": 0.5,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.25,
+                "unit": "octaves",
+                "factor": 1.1892071
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.875,
+              "shaped": 0.875,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.30625,
+                "unit": "octaves",
+                "factor": 1.2364895
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 858.11743,
+          "final": 858.11743,
           "clamped": false
         },
         {
@@ -1814,10 +3326,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.6,
+              "shaped": 0.6,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3,
+                "unit": "octaves",
+                "factor": 1.2311444
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.9,
+              "shaped": 0.9,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.315,
+                "unit": "octaves",
+                "factor": 1.2440116
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 893.78326,
+          "final": 893.78326,
           "clamped": false
         },
         {
@@ -1847,10 +3387,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.7,
+              "shaped": 0.7,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.35,
+                "unit": "octaves",
+                "factor": 1.2745606
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.925,
+              "shaped": 0.925,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.32375,
+                "unit": "octaves",
+                "factor": 1.2515795
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 930.9315,
+          "final": 930.9315,
           "clamped": false
         },
         {
@@ -1880,10 +3448,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.8,
+              "shaped": 0.8,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4,
+                "unit": "octaves",
+                "factor": 1.319508
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.95,
+              "shaped": 0.95,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.33249998,
+                "unit": "octaves",
+                "factor": 1.2591935
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 8459.059,
+          "final": 8459.059,
           "clamped": false
         },
         {
@@ -1913,10 +3509,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.9,
+              "shaped": 0.9,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.45,
+                "unit": "octaves",
+                "factor": 1.3660402
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.975,
+              "shaped": 0.975,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.34125,
+                "unit": "octaves",
+                "factor": 1.2668538
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 8810.641,
+          "final": 8810.641,
           "clamped": false
         },
         {
@@ -1946,6 +3570,34 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.0,
+              "shaped": 0.0,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0,
+                "unit": "octaves",
+                "factor": 1.0
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.0,
+              "shaped": 0.0,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0,
+                "unit": "octaves",
+                "factor": 1.0
+              }
             }
           ],
           "before_clamp": 159.09903,
@@ -1979,10 +3631,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 3.125e-05,
+              "shaped": 3.125e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.5625e-05,
+                "unit": "octaves",
+                "factor": 1.0000108
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 1.0416667e-05,
+              "shaped": 1.0416667e-05,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 3.6458332e-06,
+                "unit": "octaves",
+                "factor": 1.0000025
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 159.10117,
+          "final": 159.10117,
           "clamped": false
         },
         {
@@ -2012,10 +3692,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 3.125e-05,
+              "shaped": 3.125e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.5625e-05,
+                "unit": "octaves",
+                "factor": 1.0000108
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 1.0416667e-05,
+              "shaped": 1.0416667e-05,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 3.6458332e-06,
+                "unit": "octaves",
+                "factor": 1.0000025
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 159.10117,
+          "final": 159.10117,
           "clamped": false
         },
         {
@@ -2045,10 +3753,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.075,
+              "shaped": 0.075,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0375,
+                "unit": "octaves",
+                "factor": 1.0263338
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.025,
+              "shaped": 0.025,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.00875,
+                "unit": "octaves",
+                "factor": 1.0060835
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 164.28207,
+          "final": 164.28207,
           "clamped": false
         },
         {
@@ -2078,10 +3814,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.075,
+              "shaped": 0.075,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0375,
+                "unit": "octaves",
+                "factor": 1.0263338
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.025,
+              "shaped": 0.025,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.00875,
+                "unit": "octaves",
+                "factor": 1.0060835
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 164.28207,
+          "final": 164.28207,
           "clamped": false
         },
         {
@@ -2111,10 +3875,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.15,
+              "shaped": 0.15,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.075,
+                "unit": "octaves",
+                "factor": 1.053361
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.05,
+              "shaped": 0.05,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0175,
+                "unit": "octaves",
+                "factor": 1.0122039
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 169.63396,
+          "final": 169.63396,
           "clamped": false
         },
         {
@@ -2144,10 +3936,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.15,
+              "shaped": 0.15,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.075,
+                "unit": "octaves",
+                "factor": 1.053361
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.05,
+              "shaped": 0.05,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0175,
+                "unit": "octaves",
+                "factor": 1.0122039
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 169.63396,
+          "final": 169.63396,
           "clamped": false
         },
         {
@@ -2177,10 +3997,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.225,
+              "shaped": 0.225,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1125,
+                "unit": "octaves",
+                "factor": 1.0811
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.075,
+              "shaped": 0.075,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.026250001,
+                "unit": "octaves",
+                "factor": 1.0183617
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 175.1602,
+          "final": 175.1602,
           "clamped": false
         },
         {
@@ -2210,10 +4058,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.225,
+              "shaped": 0.225,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1125,
+                "unit": "octaves",
+                "factor": 1.0811
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.075,
+              "shaped": 0.075,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.026250001,
+                "unit": "octaves",
+                "factor": 1.0183617
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 175.1602,
+          "final": 175.1602,
           "clamped": false
         },
         {
@@ -2243,10 +4119,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.035,
+                "unit": "octaves",
+                "factor": 1.0245569
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2433.4397,
+          "final": 2433.4397,
           "clamped": false
         },
         {
@@ -2276,10 +4180,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.035,
+                "unit": "octaves",
+                "factor": 1.0245569
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2433.4397,
+          "final": 2433.4397,
           "clamped": false
         },
         {
@@ -2309,10 +4241,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.375,
+              "shaped": 0.375,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1875,
+                "unit": "octaves",
+                "factor": 1.1387886
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.125,
+              "shaped": 0.125,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.04375,
+                "unit": "octaves",
+                "factor": 1.0307897
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2512.715,
+          "final": 2512.715,
           "clamped": false
         },
         {
@@ -2342,10 +4302,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.45,
+              "shaped": 0.45,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.225,
+                "unit": "octaves",
+                "factor": 1.1687772
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.15,
+              "shaped": 0.15,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.052500002,
+                "unit": "octaves",
+                "factor": 1.0370605
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2594.5728,
+          "final": 2594.5728,
           "clamped": false
         },
         {
@@ -2375,10 +4363,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.525,
+              "shaped": 0.525,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2625,
+                "unit": "octaves",
+                "factor": 1.1995555
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.175,
+              "shaped": 0.175,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.061249997,
+                "unit": "octaves",
+                "factor": 1.0433694
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 730.3941,
+          "final": 730.3941,
           "clamped": false
         },
         {
@@ -2408,10 +4424,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.6,
+              "shaped": 0.6,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3,
+                "unit": "octaves",
+                "factor": 1.2311444
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.07,
+                "unit": "octaves",
+                "factor": 1.0497167
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 754.1885,
+          "final": 754.1885,
           "clamped": false
         },
         {
@@ -2441,10 +4485,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.675,
+              "shaped": 0.675,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3375,
+                "unit": "octaves",
+                "factor": 1.2635651
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.225,
+              "shaped": 0.225,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.07875,
+                "unit": "octaves",
+                "factor": 1.0561026
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 778.75806,
+          "final": 778.75806,
           "clamped": false
         },
         {
@@ -2474,10 +4546,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.75,
+              "shaped": 0.75,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.375,
+                "unit": "octaves",
+                "factor": 1.2968396
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.25,
+              "shaped": 0.25,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0875,
+                "unit": "octaves",
+                "factor": 1.0625274
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7015.262,
+          "final": 7015.262,
           "clamped": false
         },
         {
@@ -2507,10 +4607,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.825,
+              "shaped": 0.825,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4125,
+                "unit": "octaves",
+                "factor": 1.3309902
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.275,
+              "shaped": 0.275,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.09625,
+                "unit": "octaves",
+                "factor": 1.0689912
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7243.802,
+          "final": 7243.802,
           "clamped": false
         },
         {
@@ -2540,10 +4668,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.9,
+              "shaped": 0.9,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.45,
+                "unit": "octaves",
+                "factor": 1.3660402
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.105000004,
+                "unit": "octaves",
+                "factor": 1.0754944
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7479.786,
+          "final": 7479.786,
           "clamped": false
         },
         {
@@ -2573,10 +4729,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.975,
+              "shaped": 0.975,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4875,
+                "unit": "octaves",
+                "factor": 1.4020133
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.325,
+              "shaped": 0.325,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.113749996,
+                "unit": "octaves",
+                "factor": 1.0820371
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7723.458,
+          "final": 7723.458,
           "clamped": false
         },
         {
@@ -2606,10 +4790,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 3.125e-05,
+              "shaped": 3.125e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.5625e-05,
+                "unit": "octaves",
+                "factor": 1.0000108
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.33334374,
+              "shaped": 0.33334374,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.11667031,
+                "unit": "octaves",
+                "factor": 1.0842296
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 172.50179,
+          "final": 172.50179,
           "clamped": false
         },
         {
@@ -2639,10 +4851,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 3.125e-05,
+              "shaped": 3.125e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.5625e-05,
+                "unit": "octaves",
+                "factor": 1.0000108
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.33334374,
+              "shaped": 0.33334374,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.11667031,
+                "unit": "octaves",
+                "factor": 1.0842296
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 172.50179,
+          "final": 172.50179,
           "clamped": false
         },
         {
@@ -2672,10 +4912,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.05,
+              "shaped": 0.05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.025,
+                "unit": "octaves",
+                "factor": 1.0174797
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.35,
+              "shaped": 0.35,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.122499995,
+                "unit": "octaves",
+                "factor": 1.0886197
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 176.2258,
+          "final": 176.2258,
           "clamped": false
         },
         {
@@ -2705,10 +4973,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.05,
+              "shaped": 0.05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.025,
+                "unit": "octaves",
+                "factor": 1.0174797
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.35,
+              "shaped": 0.35,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.122499995,
+                "unit": "octaves",
+                "factor": 1.0886197
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 176.2258,
+          "final": 176.2258,
           "clamped": false
         },
         {
@@ -2738,10 +5034,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.125,
+              "shaped": 0.125,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0625,
+                "unit": "octaves",
+                "factor": 1.0442737
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.375,
+              "shaped": 0.375,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.13125,
+                "unit": "octaves",
+                "factor": 1.0952423
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 181.96677,
+          "final": 181.96677,
           "clamped": false
         },
         {
@@ -2771,10 +5095,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.125,
+              "shaped": 0.125,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0625,
+                "unit": "octaves",
+                "factor": 1.0442737
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.375,
+              "shaped": 0.375,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.13125,
+                "unit": "octaves",
+                "factor": 1.0952423
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 181.96677,
+          "final": 181.96677,
           "clamped": false
         },
         {
@@ -2804,10 +5156,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1,
+                "unit": "octaves",
+                "factor": 1.0717734
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.14,
+                "unit": "octaves",
+                "factor": 1.1019051
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 187.89479,
+          "final": 187.89479,
           "clamped": false
         },
         {
@@ -2837,10 +5217,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1,
+                "unit": "octaves",
+                "factor": 1.0717734
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.14,
+                "unit": "octaves",
+                "factor": 1.1019051
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 187.89479,
+          "final": 187.89479,
           "clamped": false
         },
         {
@@ -2870,10 +5278,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.275,
+              "shaped": 0.275,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1375,
+                "unit": "octaves",
+                "factor": 1.0999973
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.425,
+              "shaped": 0.425,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.14875,
+                "unit": "octaves",
+                "factor": 1.1086085
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2610.357,
+          "final": 2610.357,
           "clamped": false
         },
         {
@@ -2903,10 +5339,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.275,
+              "shaped": 0.275,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1375,
+                "unit": "octaves",
+                "factor": 1.0999973
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.425,
+              "shaped": 0.425,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.14875,
+                "unit": "octaves",
+                "factor": 1.1086085
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2610.357,
+          "final": 2610.357,
           "clamped": false
         },
         {
@@ -2936,10 +5400,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.35,
+              "shaped": 0.35,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.175,
+                "unit": "octaves",
+                "factor": 1.1289644
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.45,
+              "shaped": 0.45,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1575,
+                "unit": "octaves",
+                "factor": 1.1153527
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2695.3955,
+          "final": 2695.3955,
           "clamped": false
         },
         {
@@ -2969,10 +5461,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.35,
+              "shaped": 0.35,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.175,
+                "unit": "octaves",
+                "factor": 1.1289644
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.45,
+              "shaped": 0.45,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1575,
+                "unit": "octaves",
+                "factor": 1.1153527
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2695.3955,
+          "final": 2695.3955,
           "clamped": false
         },
         {
@@ -3002,10 +5522,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.425,
+              "shaped": 0.425,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2125,
+                "unit": "octaves",
+                "factor": 1.1586943
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.475,
+              "shaped": 0.475,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.16624999,
+                "unit": "octaves",
+                "factor": 1.1221379
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2783.2046,
+          "final": 2783.2046,
           "clamped": false
         },
         {
@@ -3035,10 +5583,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.5,
+              "shaped": 0.5,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.25,
+                "unit": "octaves",
+                "factor": 1.1892071
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.5,
+              "shaped": 0.5,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.175,
+                "unit": "octaves",
+                "factor": 1.1289644
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 783.49554,
+          "final": 783.49554,
           "clamped": false
         },
         {
@@ -3068,10 +5644,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.575,
+              "shaped": 0.575,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2875,
+                "unit": "octaves",
+                "factor": 1.2205235
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.525,
+              "shaped": 0.525,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.18374999,
+                "unit": "octaves",
+                "factor": 1.1358324
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 809.01984,
+          "final": 809.01984,
           "clamped": false
         },
         {
@@ -3101,10 +5705,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.65,
+              "shaped": 0.65,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.325,
+                "unit": "octaves",
+                "factor": 1.2526644
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.55,
+              "shaped": 0.55,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1925,
+                "unit": "octaves",
+                "factor": 1.1427423
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 835.3757,
+          "final": 835.3757,
           "clamped": false
         },
         {
@@ -3134,10 +5766,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.725,
+              "shaped": 0.725,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3625,
+                "unit": "octaves",
+                "factor": 1.2856518
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.575,
+              "shaped": 0.575,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.20124999,
+                "unit": "octaves",
+                "factor": 1.1496941
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 862.59,
+          "final": 862.59,
           "clamped": false
         },
         {
@@ -3167,10 +5827,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.8,
+              "shaped": 0.8,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4,
+                "unit": "octaves",
+                "factor": 1.319508
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.6,
+              "shaped": 0.6,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.21000001,
+                "unit": "octaves",
+                "factor": 1.1566882
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7770.4443,
+          "final": 7770.4443,
           "clamped": false
         },
         {
@@ -3200,10 +5888,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.875,
+              "shaped": 0.875,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4375,
+                "unit": "octaves",
+                "factor": 1.3542556
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.625,
+              "shaped": 0.625,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.21875,
+                "unit": "octaves",
+                "factor": 1.1637249
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 8023.5854,
+          "final": 8023.5854,
           "clamped": false
         },
         {
@@ -3233,10 +5949,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.95,
+              "shaped": 0.95,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.475,
+                "unit": "octaves",
+                "factor": 1.3899182
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.65,
+              "shaped": 0.65,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.22749999,
+                "unit": "octaves",
+                "factor": 1.1708044
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 8284.973,
+          "final": 8284.973,
           "clamped": false
         },
         {
@@ -3266,10 +6010,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 3.125e-05,
+              "shaped": 3.125e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.5625e-05,
+                "unit": "octaves",
+                "factor": 1.0000108
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.66667706,
+              "shaped": 0.66667706,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.23333697,
+                "unit": "octaves",
+                "factor": 1.1755508
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 187.03105,
+          "final": 187.03105,
           "clamped": false
         },
         {
@@ -3299,10 +6071,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 3.125e-05,
+              "shaped": 3.125e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.5625e-05,
+                "unit": "octaves",
+                "factor": 1.0000108
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.66667706,
+              "shaped": 0.66667706,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.23333697,
+                "unit": "octaves",
+                "factor": 1.1755508
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 187.03105,
+          "final": 187.03105,
           "clamped": false
         },
         {
@@ -3332,10 +6132,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.025,
+              "shaped": 0.025,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0125,
+                "unit": "octaves",
+                "factor": 1.008702
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.675,
+              "shaped": 0.675,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.23625,
+                "unit": "octaves",
+                "factor": 1.1779269
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 189.03784,
+          "final": 189.03784,
           "clamped": false
         },
         {
@@ -3365,10 +6193,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.025,
+              "shaped": 0.025,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0125,
+                "unit": "octaves",
+                "factor": 1.008702
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.675,
+              "shaped": 0.675,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.23625,
+                "unit": "octaves",
+                "factor": 1.1779269
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 189.03784,
+          "final": 189.03784,
           "clamped": false
         },
         {
@@ -3398,10 +6254,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.05,
+                "unit": "octaves",
+                "factor": 1.035265
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.7,
+              "shaped": 0.7,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.24499999,
+                "unit": "octaves",
+                "factor": 1.1850928
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 195.1962,
+          "final": 195.1962,
           "clamped": false
         },
         {
@@ -3431,10 +6315,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.05,
+                "unit": "octaves",
+                "factor": 1.035265
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.7,
+              "shaped": 0.7,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.24499999,
+                "unit": "octaves",
+                "factor": 1.1850928
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 195.1962,
+          "final": 195.1962,
           "clamped": false
         },
         {
@@ -3464,10 +6376,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.175,
+              "shaped": 0.175,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0875,
+                "unit": "octaves",
+                "factor": 1.0625274
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.725,
+              "shaped": 0.725,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.25375,
+                "unit": "octaves",
+                "factor": 1.1923022
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 201.55524,
+          "final": 201.55524,
           "clamped": false
         },
         {
@@ -3497,10 +6437,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.175,
+              "shaped": 0.175,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0875,
+                "unit": "octaves",
+                "factor": 1.0625274
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.725,
+              "shaped": 0.725,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.25375,
+                "unit": "octaves",
+                "factor": 1.1923022
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 201.55524,
+          "final": 201.55524,
           "clamped": false
         },
         {
@@ -3530,10 +6498,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.25,
+              "shaped": 0.25,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.125,
+                "unit": "octaves",
+                "factor": 1.0905077
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.75,
+              "shaped": 0.75,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2625,
+                "unit": "octaves",
+                "factor": 1.1995555
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2800.1362,
+          "final": 2800.1362,
           "clamped": false
         },
         {
@@ -3563,10 +6559,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.25,
+              "shaped": 0.25,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.125,
+                "unit": "octaves",
+                "factor": 1.0905077
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.75,
+              "shaped": 0.75,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2625,
+                "unit": "octaves",
+                "factor": 1.1995555
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2800.1362,
+          "final": 2800.1362,
           "clamped": false
         },
         {
@@ -3596,10 +6620,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.325,
+              "shaped": 0.325,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1625,
+                "unit": "octaves",
+                "factor": 1.1192249
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.775,
+              "shaped": 0.775,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.27124998,
+                "unit": "octaves",
+                "factor": 1.206853
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2891.3577,
+          "final": 2891.3577,
           "clamped": false
         },
         {
@@ -3629,10 +6681,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.325,
+              "shaped": 0.325,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1625,
+                "unit": "octaves",
+                "factor": 1.1192249
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.775,
+              "shaped": 0.775,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.27124998,
+                "unit": "octaves",
+                "factor": 1.206853
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2891.3577,
+          "final": 2891.3577,
           "clamped": false
         },
         {
@@ -3662,10 +6742,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2,
+                "unit": "octaves",
+                "factor": 1.1486983
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.8,
+              "shaped": 0.8,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.28,
+                "unit": "octaves",
+                "factor": 1.2141949
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2985.5505,
+          "final": 2985.5505,
           "clamped": false
         },
         {
@@ -3695,10 +6803,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.475,
+              "shaped": 0.475,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2375,
+                "unit": "octaves",
+                "factor": 1.1789479
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.825,
+              "shaped": 0.825,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.28875,
+                "unit": "octaves",
+                "factor": 1.2215813
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 3082.812,
+          "final": 3082.812,
           "clamped": false
         },
         {
@@ -3728,10 +6864,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.55,
+              "shaped": 0.55,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.275,
+                "unit": "octaves",
+                "factor": 1.2099941
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.85,
+              "shaped": 0.85,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2975,
+                "unit": "octaves",
+                "factor": 1.2290128
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 867.83765,
+          "final": 867.83765,
           "clamped": false
         },
         {
@@ -3761,10 +6925,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.625,
+              "shaped": 0.625,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3125,
+                "unit": "octaves",
+                "factor": 1.2418578
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.875,
+              "shaped": 0.875,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.30625,
+                "unit": "octaves",
+                "factor": 1.2364895
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 896.10956,
+          "final": 896.10956,
           "clamped": false
         },
         {
@@ -3794,10 +6986,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.7,
+              "shaped": 0.7,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.35,
+                "unit": "octaves",
+                "factor": 1.2745606
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.9,
+              "shaped": 0.9,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.315,
+                "unit": "octaves",
+                "factor": 1.2440116
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 925.3025,
+          "final": 925.3025,
           "clamped": false
         },
         {
@@ -3827,10 +7047,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.775,
+              "shaped": 0.775,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3875,
+                "unit": "octaves",
+                "factor": 1.3081247
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.925,
+              "shaped": 0.925,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.32375,
+                "unit": "octaves",
+                "factor": 1.2515795
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 8335.375,
+          "final": 8335.375,
           "clamped": false
         },
         {
@@ -3860,10 +7108,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.85,
+              "shaped": 0.85,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.425,
+                "unit": "octaves",
+                "factor": 1.3425726
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.95,
+              "shaped": 0.95,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.33249998,
+                "unit": "octaves",
+                "factor": 1.2591935
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 8606.919,
+          "final": 8606.919,
           "clamped": false
         },
         {
@@ -3893,10 +7169,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.925,
+              "shaped": 0.925,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4625,
+                "unit": "octaves",
+                "factor": 1.3779275
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.975,
+              "shaped": 0.975,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.34125,
+                "unit": "octaves",
+                "factor": 1.2668538
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 8887.312,
+          "final": 8887.312,
           "clamped": false
         },
         {
@@ -3926,6 +7230,34 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.0,
+              "shaped": 0.0,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0,
+                "unit": "octaves",
+                "factor": 1.0
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.0,
+              "shaped": 0.0,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0,
+                "unit": "octaves",
+                "factor": 1.0
+              }
             }
           ],
           "before_clamp": 159.09903,
@@ -3959,10 +7291,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 3.125e-05,
+              "shaped": 3.125e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.5625e-05,
+                "unit": "octaves",
+                "factor": 1.0000108
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 1.0416667e-05,
+              "shaped": 1.0416667e-05,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 3.6458332e-06,
+                "unit": "octaves",
+                "factor": 1.0000025
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 159.10117,
+          "final": 159.10117,
           "clamped": false
         },
         {
@@ -3992,10 +7352,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 3.125e-05,
+              "shaped": 3.125e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.5625e-05,
+                "unit": "octaves",
+                "factor": 1.0000108
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 1.0416667e-05,
+              "shaped": 1.0416667e-05,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 3.6458332e-06,
+                "unit": "octaves",
+                "factor": 1.0000025
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 159.10117,
+          "final": 159.10117,
           "clamped": false
         },
         {
@@ -4025,10 +7413,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.075,
+              "shaped": 0.075,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0375,
+                "unit": "octaves",
+                "factor": 1.0263338
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.025,
+              "shaped": 0.025,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.00875,
+                "unit": "octaves",
+                "factor": 1.0060835
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 164.28207,
+          "final": 164.28207,
           "clamped": false
         },
         {
@@ -4058,10 +7474,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.075,
+              "shaped": 0.075,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0375,
+                "unit": "octaves",
+                "factor": 1.0263338
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.025,
+              "shaped": 0.025,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.00875,
+                "unit": "octaves",
+                "factor": 1.0060835
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 164.28207,
+          "final": 164.28207,
           "clamped": false
         },
         {
@@ -4091,10 +7535,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.15,
+              "shaped": 0.15,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.075,
+                "unit": "octaves",
+                "factor": 1.053361
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.05,
+              "shaped": 0.05,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0175,
+                "unit": "octaves",
+                "factor": 1.0122039
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 169.63396,
+          "final": 169.63396,
           "clamped": false
         },
         {
@@ -4124,10 +7596,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.15,
+              "shaped": 0.15,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.075,
+                "unit": "octaves",
+                "factor": 1.053361
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.05,
+              "shaped": 0.05,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0175,
+                "unit": "octaves",
+                "factor": 1.0122039
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 169.63396,
+          "final": 169.63396,
           "clamped": false
         },
         {
@@ -4157,10 +7657,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.225,
+              "shaped": 0.225,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1125,
+                "unit": "octaves",
+                "factor": 1.0811
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.075,
+              "shaped": 0.075,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.026250001,
+                "unit": "octaves",
+                "factor": 1.0183617
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 175.1602,
+          "final": 175.1602,
           "clamped": false
         },
         {
@@ -4190,10 +7718,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.225,
+              "shaped": 0.225,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1125,
+                "unit": "octaves",
+                "factor": 1.0811
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.075,
+              "shaped": 0.075,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.026250001,
+                "unit": "octaves",
+                "factor": 1.0183617
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 175.1602,
+          "final": 175.1602,
           "clamped": false
         },
         {
@@ -4223,10 +7779,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.035,
+                "unit": "octaves",
+                "factor": 1.0245569
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2433.4397,
+          "final": 2433.4397,
           "clamped": false
         },
         {
@@ -4256,10 +7840,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.15,
+                "unit": "octaves",
+                "factor": 1.1095694
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.1,
+              "shaped": 0.1,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.035,
+                "unit": "octaves",
+                "factor": 1.0245569
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2433.4397,
+          "final": 2433.4397,
           "clamped": false
         },
         {
@@ -4289,10 +7901,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.375,
+              "shaped": 0.375,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1875,
+                "unit": "octaves",
+                "factor": 1.1387886
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.125,
+              "shaped": 0.125,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.04375,
+                "unit": "octaves",
+                "factor": 1.0307897
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2512.715,
+          "final": 2512.715,
           "clamped": false
         },
         {
@@ -4322,10 +7962,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.45,
+              "shaped": 0.45,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.225,
+                "unit": "octaves",
+                "factor": 1.1687772
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.15,
+              "shaped": 0.15,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.052500002,
+                "unit": "octaves",
+                "factor": 1.0370605
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2594.5728,
+          "final": 2594.5728,
           "clamped": false
         },
         {
@@ -4355,10 +8023,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.525,
+              "shaped": 0.525,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.2625,
+                "unit": "octaves",
+                "factor": 1.1995555
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.175,
+              "shaped": 0.175,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.061249997,
+                "unit": "octaves",
+                "factor": 1.0433694
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 730.3941,
+          "final": 730.3941,
           "clamped": false
         },
         {
@@ -4388,10 +8084,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.6,
+              "shaped": 0.6,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3,
+                "unit": "octaves",
+                "factor": 1.2311444
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.07,
+                "unit": "octaves",
+                "factor": 1.0497167
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 754.1885,
+          "final": 754.1885,
           "clamped": false
         },
         {
@@ -4421,10 +8145,38 @@
                 "unit": "octaves",
                 "factor": 0.6484198
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.675,
+              "shaped": 0.675,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.3375,
+                "unit": "octaves",
+                "factor": 1.2635651
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.225,
+              "shaped": 0.225,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.07875,
+                "unit": "octaves",
+                "factor": 1.0561026
+              }
             }
           ],
-          "before_clamp": 583.5779,
-          "final": 583.5779,
+          "before_clamp": 778.75806,
+          "final": 778.75806,
           "clamped": false
         },
         {
@@ -4454,10 +8206,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.75,
+              "shaped": 0.75,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.375,
+                "unit": "octaves",
+                "factor": 1.2968396
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.25,
+              "shaped": 0.25,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0875,
+                "unit": "octaves",
+                "factor": 1.0625274
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7015.262,
+          "final": 7015.262,
           "clamped": false
         },
         {
@@ -4487,10 +8267,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.825,
+              "shaped": 0.825,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4125,
+                "unit": "octaves",
+                "factor": 1.3309902
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.275,
+              "shaped": 0.275,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.09625,
+                "unit": "octaves",
+                "factor": 1.0689912
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7243.802,
+          "final": 7243.802,
           "clamped": false
         },
         {
@@ -4520,10 +8328,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.9,
+              "shaped": 0.9,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.45,
+                "unit": "octaves",
+                "factor": 1.3660402
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.105000004,
+                "unit": "octaves",
+                "factor": 1.0754944
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7479.786,
+          "final": 7479.786,
           "clamped": false
         },
         {
@@ -4553,10 +8389,38 @@
                 "unit": "octaves",
                 "factor": 5.656854
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.975,
+              "shaped": 0.975,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.4875,
+                "unit": "octaves",
+                "factor": 1.4020133
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.325,
+              "shaped": 0.325,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.113749996,
+                "unit": "octaves",
+                "factor": 1.0820371
+              }
             }
           ],
-          "before_clamp": 5091.169,
-          "final": 5091.169,
+          "before_clamp": 7723.458,
+          "final": 7723.458,
           "clamped": false
         },
         {
@@ -4586,10 +8450,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 3.125e-05,
+              "shaped": 3.125e-05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.5625e-05,
+                "unit": "octaves",
+                "factor": 1.0000108
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.33334374,
+              "shaped": 0.33334374,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.11667031,
+                "unit": "octaves",
+                "factor": 1.0842296
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 172.50179,
+          "final": 172.50179,
           "clamped": false
         },
         {
@@ -4619,10 +8511,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.05,
+              "shaped": 0.05,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.025,
+                "unit": "octaves",
+                "factor": 1.0174797
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.35,
+              "shaped": 0.35,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.122499995,
+                "unit": "octaves",
+                "factor": 1.0886197
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 176.2258,
+          "final": 176.2258,
           "clamped": false
         },
         {
@@ -4652,10 +8572,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.125,
+              "shaped": 0.125,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0625,
+                "unit": "octaves",
+                "factor": 1.0442737
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.375,
+              "shaped": 0.375,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.13125,
+                "unit": "octaves",
+                "factor": 1.0952423
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 181.96677,
+          "final": 181.96677,
           "clamped": false
         },
         {
@@ -4685,10 +8633,38 @@
                 "unit": "octaves",
                 "factor": 0.17677669
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.2,
+              "shaped": 0.2,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1,
+                "unit": "octaves",
+                "factor": 1.0717734
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.4,
+              "shaped": 0.4,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.14,
+                "unit": "octaves",
+                "factor": 1.1019051
+              }
             }
           ],
-          "before_clamp": 159.09903,
-          "final": 159.09903,
+          "before_clamp": 187.89479,
+          "final": 187.89479,
           "clamped": false
         },
         {
@@ -4718,10 +8694,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.275,
+              "shaped": 0.275,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1375,
+                "unit": "octaves",
+                "factor": 1.0999973
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.425,
+              "shaped": 0.425,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.14875,
+                "unit": "octaves",
+                "factor": 1.1086085
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2610.357,
+          "final": 2610.357,
           "clamped": false
         },
         {
@@ -4751,10 +8755,38 @@
                 "unit": "octaves",
                 "factor": 2.3784142
               }
+            },
+            {
+              "source": "transport_beat_phase",
+              "raw": 0.35,
+              "shaped": 0.35,
+              "depth": {
+                "value": 0.5,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.175,
+                "unit": "octaves",
+                "factor": 1.1289644
+              }
+            },
+            {
+              "source": "transport_bar_phase",
+              "raw": 0.45,
+              "shaped": 0.45,
+              "depth": {
+                "value": 0.35,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.1575,
+                "unit": "octaves",
+                "factor": 1.1153527
+              }
             }
           ],
-          "before_clamp": 2140.573,
-          "final": 2140.573,
+          "before_clamp": 2695.3955,
+          "final": 2695.3955,
           "clamped": false
         }
       ]

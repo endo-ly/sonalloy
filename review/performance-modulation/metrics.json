@@ -103,7 +103,7 @@
       "finite": true,
       "peak": 0.3132798,
       "rms": 0.079635836,
-      "dc": -1.43409015e-05,
+      "dc": -1.4340879e-05,
       "positive_zero_crossings_left": 1010,
       "zero_crossing_frequency_hz": 252.5,
       "estimated_frequency_hz": 252.5,
@@ -133,8 +133,8 @@
           "over_full_scale": false
         },
         "dc": [
-          -1.43409015e-05,
-          -1.43409015e-05
+          -1.4340879e-05,
+          -1.4340879e-05
         ],
         "activity": {
           "threshold_dbfs": -80.0,
@@ -154,7 +154,7 @@
         "spectrum": {
           "fft_size": 4096,
           "hop_size": 2048,
-          "spectral_centroid_hz": 803.8185,
+          "spectral_centroid_hz": 803.8184,
           "peaks": [
             {
               "frequency_hz": 269.53125,
@@ -162,31 +162,31 @@
             },
             {
               "frequency_hz": 339.84375,
-              "relative_power": 0.5411324
+              "relative_power": 0.54113245
             },
             {
               "frequency_hz": 398.4375,
-              "relative_power": 0.33089823
+              "relative_power": 0.3308983
             },
             {
               "frequency_hz": 539.0625,
-              "relative_power": 0.1826109
+              "relative_power": 0.18261091
             },
             {
               "frequency_hz": 796.875,
-              "relative_power": 0.12129408
+              "relative_power": 0.1212941
             },
             {
               "frequency_hz": 667.96875,
-              "relative_power": 0.08330314
+              "relative_power": 0.08330313
             },
             {
               "frequency_hz": 691.40625,
-              "relative_power": 0.076690875
+              "relative_power": 0.0766909
             },
             {
               "frequency_hz": 1031.25,
-              "relative_power": 0.031946234
+              "relative_power": 0.031946264
             }
           ],
           "reference_frequency_hz": null,
@@ -227,17 +227,17 @@
           "frames": 192000,
           "comparison_to_base": {
             "compatible": true,
-            "max_abs_difference": 0.0012844651937484741,
-            "rms_difference": 7.092800623431655e-05,
-            "different_sample_count": 310166
+            "max_abs_difference": 0.0013128239661455154,
+            "rms_difference": 7.224556723165657e-05,
+            "different_sample_count": 310286
           }
         },
         "64": {
           "frames": 192000,
           "comparison_to_base": {
             "compatible": true,
-            "max_abs_difference": 0.0009087584912776947,
-            "rms_difference": 5.529600541055865e-05,
+            "max_abs_difference": 0.0008982568979263306,
+            "rms_difference": 5.488501285309569e-05,
             "different_sample_count": 308446
           }
         },
@@ -245,9 +245,9 @@
           "frames": 192000,
           "comparison_to_base": {
             "compatible": true,
-            "max_abs_difference": 0.0021011605858802795,
-            "rms_difference": 0.00010737753576233906,
-            "different_sample_count": 308532
+            "max_abs_difference": 0.0020853597670793533,
+            "rms_difference": 0.00010660384497891028,
+            "different_sample_count": 308530
           }
         },
         "257": {
@@ -268,11 +268,11 @@
       "duration_seconds": 4.0,
       "finite": true,
       "peak": 0.22173914,
-      "rms": 0.0891023,
-      "dc": -5.04330065e-06,
-      "positive_zero_crossings_left": 1067,
-      "zero_crossing_frequency_hz": 266.75,
-      "estimated_frequency_hz": 266.75,
+      "rms": 0.033314325,
+      "dc": 2.6093495e-07,
+      "positive_zero_crossings_left": 456,
+      "zero_crossing_frequency_hz": 114.0,
+      "estimated_frequency_hz": 114.0,
       "fundamental_frequency_source": "zero_crossing",
       "max_adjacent_frame_delta": 0.011093527,
       "large_discontinuity_threshold": 0.25,
@@ -293,20 +293,20 @@
         "level": {
           "peak": 0.22173914,
           "peak_dbfs": -13.083153,
-          "rms": 0.0891023,
-          "rms_dbfs": -21.00222,
-          "crest_factor_db": 7.9190674,
+          "rms": 0.033314325,
+          "rms_dbfs": -29.547379,
+          "crest_factor_db": 16.464226,
           "over_full_scale": false
         },
         "dc": [
-          -8.522622e-06,
-          -1.5639793e-06
+          3.114721e-07,
+          2.103978e-07
         ],
         "activity": {
           "threshold_dbfs": -80.0,
           "first_frame": 19,
           "peak_frame": 7673,
-          "last_frame": 185060
+          "last_frame": 53965
         },
         "continuity": {
           "large_delta_threshold": 0.25,
@@ -315,12 +315,12 @@
           "first_large_delta_frames": []
         },
         "stereo": {
-          "correlation": 0.91460085
+          "correlation": 0.97868085
         },
         "spectrum": {
           "fft_size": 4096,
           "hop_size": 2048,
-          "spectral_centroid_hz": 286.6098,
+          "spectral_centroid_hz": 303.6898,
           "peaks": [
             {
               "frequency_hz": 257.8125,
@@ -328,31 +328,31 @@
             },
             {
               "frequency_hz": 527.34375,
-              "relative_power": 0.095332295
+              "relative_power": 0.16908102
             },
             {
               "frequency_hz": 1570.3125,
-              "relative_power": 0.0012102766
+              "relative_power": 0.0026988615
             },
             {
               "frequency_hz": 2613.2812,
-              "relative_power": 0.0001334381
+              "relative_power": 0.00036241877
             },
             {
               "frequency_hz": 3667.9688,
-              "relative_power": 2.8276068e-05
+              "relative_power": 9.07684e-05
             },
             {
               "frequency_hz": 4710.9375,
-              "relative_power": 1.1411484e-05
+              "relative_power": 3.4980374e-05
             },
             {
               "frequency_hz": 5753.9062,
-              "relative_power": 4.306492e-06
+              "relative_power": 1.17001155e-05
             },
             {
-              "frequency_hz": 6796.875,
-              "relative_power": 1.4587303e-06
+              "frequency_hz": 6808.5938,
+              "relative_power": 3.8859007e-06
             }
           ],
           "reference_frequency_hz": null,
@@ -367,7 +367,7 @@
           "non_silent": true,
           "over_full_scale": false,
           "peak": 0.22183093,
-          "rms": 0.09265502
+          "rms": 0.034208
         },
         "48000": {
           "frames": 192000,
@@ -376,7 +376,7 @@
           "non_silent": true,
           "over_full_scale": false,
           "peak": 0.22173914,
-          "rms": 0.0891023
+          "rms": 0.033314325
         },
         "96000": {
           "frames": 384000,
@@ -384,8 +384,8 @@
           "finite": true,
           "non_silent": true,
           "over_full_scale": false,
-          "peak": 0.22112224,
-          "rms": 0.06471818
+          "peak": 0.21780932,
+          "rms": 0.02589517
         }
       },
       "block_size_comparison": {
@@ -393,27 +393,27 @@
           "frames": 192000,
           "comparison_to_base": {
             "compatible": true,
-            "max_abs_difference": 4.172325134277344e-07,
-            "rms_difference": 1.3958098128412344e-08,
-            "different_sample_count": 50832
+            "max_abs_difference": 8.940696716308594e-08,
+            "rms_difference": 1.88136626261369e-09,
+            "different_sample_count": 11487
           }
         },
         "64": {
           "frames": 192000,
           "comparison_to_base": {
             "compatible": true,
-            "max_abs_difference": 4.172325134277344e-07,
-            "rms_difference": 1.3953533413255479e-08,
-            "different_sample_count": 50234
+            "max_abs_difference": 8.940696716308594e-08,
+            "rms_difference": 1.7577920284482594e-09,
+            "different_sample_count": 10065
           }
         },
         "128": {
           "frames": 192000,
           "comparison_to_base": {
             "compatible": true,
-            "max_abs_difference": 4.172325134277344e-07,
-            "rms_difference": 1.395022692467312e-08,
-            "different_sample_count": 49656
+            "max_abs_difference": 8.940696716308594e-08,
+            "rms_difference": 1.6942608466032241e-09,
+            "different_sample_count": 8925
           }
         },
         "257": {
@@ -965,14 +965,14 @@
       "frames": 248001,
       "duration_seconds": 5.1666875,
       "finite": true,
-      "peak": 0.28630865,
-      "rms": 0.1301765,
-      "dc": 6.99867e-05,
+      "peak": 0.27650118,
+      "rms": 0.12955767,
+      "dc": 9.880819e-05,
       "positive_zero_crossings_left": 377,
       "zero_crossing_frequency_hz": 72.96744771190438,
       "estimated_frequency_hz": 72.96744771190438,
       "fundamental_frequency_source": "zero_crossing",
-      "max_adjacent_frame_delta": 0.1502976,
+      "max_adjacent_frame_delta": 0.23685753,
       "large_discontinuity_threshold": 0.25,
       "large_discontinuity_count": 0,
       "large_discontinuity_frames": [],
@@ -989,26 +989,26 @@
         "duration_seconds": 5.1666875,
         "finite": true,
         "level": {
-          "peak": 0.28630865,
-          "peak_dbfs": -10.863312,
-          "rms": 0.1301765,
-          "rms_dbfs": -17.709349,
-          "crest_factor_db": 6.846037,
+          "peak": 0.27650118,
+          "peak_dbfs": -11.166061,
+          "rms": 0.12955767,
+          "rms_dbfs": -17.750738,
+          "crest_factor_db": 6.5846767,
           "over_full_scale": false
         },
         "dc": [
-          6.99867e-05,
-          6.99867e-05
+          9.880819e-05,
+          9.880819e-05
         ],
         "activity": {
           "threshold_dbfs": -80.0,
           "first_frame": 24,
-          "peak_frame": 153020,
-          "last_frame": 235770
+          "peak_frame": 20185,
+          "last_frame": 235769
         },
         "continuity": {
           "large_delta_threshold": 0.25,
-          "max_adjacent_frame_delta": 0.1502976,
+          "max_adjacent_frame_delta": 0.23685753,
           "large_delta_count": 0,
           "first_large_delta_frames": []
         },
@@ -1018,7 +1018,7 @@
         "spectrum": {
           "fft_size": 4096,
           "hop_size": 2048,
-          "spectral_centroid_hz": 175.0606,
+          "spectral_centroid_hz": 182.42099,
           "peaks": [
             {
               "frequency_hz": 70.3125,
@@ -1026,31 +1026,31 @@
             },
             {
               "frequency_hz": 93.75,
-              "relative_power": 0.64409745
+              "relative_power": 0.63793814
             },
             {
               "frequency_hz": 199.21875,
-              "relative_power": 0.11805695
+              "relative_power": 0.12406134
             },
             {
               "frequency_hz": 292.96875,
-              "relative_power": 0.05068263
+              "relative_power": 0.04947765
             },
             {
               "frequency_hz": 328.125,
-              "relative_power": 0.045721598
-            },
-            {
-              "frequency_hz": 457.03125,
-              "relative_power": 0.025698174
+              "relative_power": 0.04406198
             },
             {
               "frequency_hz": 257.8125,
-              "relative_power": 0.025227232
+              "relative_power": 0.02501718
+            },
+            {
+              "frequency_hz": 457.03125,
+              "relative_power": 0.023860764
             },
             {
               "frequency_hz": 492.1875,
-              "relative_power": 0.01978488
+              "relative_power": 0.018073441
             }
           ],
           "reference_frequency_hz": null,
@@ -1064,8 +1064,8 @@
           "finite": true,
           "non_silent": true,
           "over_full_scale": false,
-          "peak": 0.28427568,
-          "rms": 0.1302185
+          "peak": 0.27238488,
+          "rms": 0.12958293
         },
         "48000": {
           "frames": 248001,
@@ -1073,8 +1073,8 @@
           "finite": true,
           "non_silent": true,
           "over_full_scale": false,
-          "peak": 0.28630865,
-          "rms": 0.1301765
+          "peak": 0.27650118,
+          "rms": 0.12955767
         },
         "96000": {
           "frames": 496001,
@@ -1082,8 +1082,8 @@
           "finite": true,
           "non_silent": true,
           "over_full_scale": false,
-          "peak": 0.29286116,
-          "rms": 0.1298733
+          "peak": 0.29102078,
+          "rms": 0.12939605
         }
       },
       "block_size_comparison": {
@@ -1091,27 +1091,27 @@
           "frames": 248001,
           "comparison_to_base": {
             "compatible": true,
-            "max_abs_difference": 0.0,
-            "rms_difference": 0.0,
-            "different_sample_count": 0
+            "max_abs_difference": 6.705522537231445e-08,
+            "rms_difference": 4.604516619446063e-09,
+            "different_sample_count": 50438
           }
         },
         "64": {
           "frames": 248001,
           "comparison_to_base": {
             "compatible": true,
-            "max_abs_difference": 0.0,
-            "rms_difference": 0.0,
-            "different_sample_count": 0
+            "max_abs_difference": 7.450580596923828e-08,
+            "rms_difference": 4.290404719712568e-09,
+            "different_sample_count": 47186
           }
         },
         "128": {
           "frames": 248001,
           "comparison_to_base": {
             "compatible": true,
-            "max_abs_difference": 0.0,
-            "rms_difference": 0.0,
-            "different_sample_count": 0
+            "max_abs_difference": 5.960464477539063e-08,
+            "rms_difference": 3.9979829074997165e-09,
+            "different_sample_count": 44270
           }
         },
         "257": {

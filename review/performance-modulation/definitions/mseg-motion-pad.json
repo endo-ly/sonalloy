@@ -101,6 +101,14 @@
             },
             "target": -1.0,
             "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 1.0,
+              "unit": "beats"
+            },
+            "target": 0.0,
+            "curve": "linear"
           }
         ],
         "loop_range": {

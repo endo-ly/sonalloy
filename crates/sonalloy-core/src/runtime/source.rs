@@ -382,11 +382,11 @@ impl MsegRuntime {
         self.start_value = self.value;
         self.position = 0.0;
         let next = self.segment.saturating_add(1);
-        if !self.released && source.loop_range.is_some_and(|(_, end)| next >= end) {
-            self.segment = source.loop_range.map_or(next, |(start, _)| start);
-        } else {
-            self.segment = next;
-        }
+        self.segment = match source.loop_range {
+            Some((start, end)) if !self.released && next >= end => start,
+            Some((start, end)) if self.released && next >= start && next < end => end,
+            _ => next,
+        };
     }
 }
 
@@ -493,7 +493,7 @@ pub(super) fn ceil_positive_frames(value: f64) -> usize {
 }
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn ceil_boundary_frames(value: f64) -> usize {
+pub(super) fn ceil_boundary_frames(value: f64) -> usize {
     if !value.is_finite() {
         return usize::MAX;
     }
@@ -647,7 +647,7 @@ mod tests {
     }
 
     #[test]
-    fn mseg_loops_until_note_off_then_finishes() {
+    fn mseg_release_exits_loop_after_the_current_segment() {
         let source = CompiledVoiceSource::Mseg(CompiledMseg {
             initial_value: 0.0,
             segments: vec![
@@ -655,6 +655,12 @@ mod tests {
                     duration: 1.0,
                     duration_unit: ModulationDurationUnit::Seconds,
                     target: 1.0,
+                    curve: ModulationSegmentCurve::Linear,
+                },
+                CompiledMsegSegment {
+                    duration: 1.0,
+                    duration_unit: ModulationDurationUnit::Seconds,
+                    target: 0.25,
                     curve: ModulationSegmentCurve::Linear,
                 },
                 CompiledMsegSegment {
@@ -671,19 +677,18 @@ mod tests {
         runtime.note_on(&source, 1, 60, 100);
 
         runtime
-            .advance(&source, 10, 10.0, 120.0, 1)
-            .expect("first segment");
-        assert_eq!(runtime.current_value(&source), Some(1.0));
-        runtime
-            .advance(&source, 10, 10.0, 120.0, 1)
-            .expect("second segment");
-        assert_eq!(runtime.current_value(&source), Some(-1.0));
-
+            .advance(&source, 5, 10.0, 120.0, 1)
+            .expect("first segment midpoint");
+        assert_eq!(runtime.current_value(&source), Some(0.5));
         runtime.note_off();
         runtime
-            .advance(&source, 20, 10.0, 120.0, 1)
+            .advance(&source, 5, 10.0, 120.0, 1)
+            .expect("finish current segment");
+        assert_eq!(runtime.current_value(&source), Some(1.0));
+        runtime
+            .advance(&source, 5, 10.0, 120.0, 1)
             .expect("release path");
-        assert_eq!(runtime.current_value(&source), Some(-1.0));
+        assert_eq!(runtime.current_value(&source), Some(0.0));
     }
 
     #[test]

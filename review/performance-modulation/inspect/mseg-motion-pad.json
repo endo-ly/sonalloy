@@ -336,7 +336,7 @@
         "max": 1.0,
         "polarity": "bipolar"
       },
-      "mseg_segment_count": 2,
+      "mseg_segment_count": 3,
       "mseg_loop": [
         0,
         2

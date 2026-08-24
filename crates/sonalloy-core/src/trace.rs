@@ -63,6 +63,9 @@ pub struct TraceObservation {
     /// Runtime pitch glide offset added after Layer Tuning route evaluation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub portamento_offset_cents: Option<f32>,
+    /// Native value after adding the Portamento offset, when Portamento is active.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effective_value: Option<f32>,
 }
 
 /// Identity and state of a voice at one trace point.

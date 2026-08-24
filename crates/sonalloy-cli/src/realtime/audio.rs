@@ -217,7 +217,7 @@ impl AudioEngine {
         channels: usize,
     ) -> Self {
         let process_event_capacity = feed.max_events_per_block();
-        let time_signature = feed.context_at(0, sample_rate).time_signature;
+        let time_signature = feed.context_at(0).time_signature;
         Self {
             runtime,
             events: Arc::new(ArrayQueue::new(1)),
@@ -331,10 +331,7 @@ impl AudioEngine {
                     self.status.mark_finished();
                     return Ok(None);
                 }
-                Ok(Some((
-                    frames,
-                    feed.context_at(absolute_frame, self.sample_rate),
-                )))
+                Ok(Some((frames, feed.context_at(absolute_frame))))
             }
         }
     }
@@ -631,6 +628,7 @@ mod tests {
             0,
             0,
             false,
+            48_000.0,
         )
         .expect("scheduled feed");
         AudioEngine::new_scheduled(

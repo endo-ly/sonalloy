@@ -209,6 +209,13 @@ fn parse_macro_cc(
             );
             continue;
         };
+        if cc > 127 {
+            diagnostics.push(
+                Diagnostic::error(DiagnosticCode::ValueOutOfRange, "macro CC must be 0..127")
+                    .with_path("macro_cc"),
+            );
+            continue;
+        }
         if cc == crate::midi_common::MOD_WHEEL_CONTROLLER
             || cc == crate::midi_common::SUSTAIN_PEDAL_CONTROLLER
         {
@@ -437,6 +444,7 @@ fn run_scheduled_audition(
         tail_frames,
         reported_latency_frames,
         options.looping,
+        f64::from(sample_rate),
     ) {
         Ok(feed) => feed,
         Err(error) => {
@@ -824,6 +832,9 @@ mod tests {
         let mapping =
             parse_macro_cc(&["motion=20".to_owned()], &compiled).expect("macro mapping parses");
         assert_eq!(mapping[20], Some(parameter));
+        assert!(parse_macro_cc(&["motion=127".to_owned()], &compiled).is_ok());
+        assert!(parse_macro_cc(&["motion=128".to_owned()], &compiled).is_err());
+        assert!(parse_macro_cc(&["motion=255".to_owned()], &compiled).is_err());
         assert!(parse_macro_cc(&["motion=1".to_owned()], &compiled).is_err());
         assert!(
             parse_macro_cc(&["motion=20".to_owned(), "motion=21".to_owned()], &compiled).is_err()

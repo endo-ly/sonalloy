@@ -214,14 +214,18 @@ impl PreparedMusicalTimeMap {
         self.segments[index]
     }
 
-    fn next_change_after(&self, absolute_frame: u64) -> Option<u64> {
-        self.segments
-            .iter()
-            .find(|segment| segment.start_frame > absolute_frame)
-            .map(|segment| segment.start_frame)
+    /// Return the next musical-time change after an absolute frame.
+    #[must_use]
+    pub fn next_change_after(&self, absolute_frame: u64) -> Option<u64> {
+        let index = self
+            .segments
+            .partition_point(|segment| segment.start_frame <= absolute_frame);
+        self.segments.get(index).map(|segment| segment.start_frame)
     }
 
-    fn context_at(&self, absolute_frame: u64) -> ProcessContext {
+    /// Return the musical process context at an absolute frame.
+    #[must_use]
+    pub fn context_at(&self, absolute_frame: u64) -> ProcessContext {
         let segment = self.segment_at(absolute_frame);
         #[allow(clippy::cast_precision_loss)]
         let frame_delta = absolute_frame.saturating_sub(segment.start_frame) as f64;
