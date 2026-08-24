@@ -348,10 +348,6 @@ impl MsegRuntime {
         let mut remaining_seconds = frames_as_f64(frames) / sample_rate;
         while remaining_seconds > 0.0 {
             let Some(segment) = source.segments.get(self.segment) else {
-                self.value = source
-                    .segments
-                    .last()
-                    .map_or(self.value, |item| item.target);
                 return self.value;
             };
             let unit_seconds = match segment.duration_unit {
@@ -384,7 +380,7 @@ impl MsegRuntime {
         let next = self.segment.saturating_add(1);
         self.segment = match source.loop_range {
             Some((start, end)) if !self.released && next >= end => start,
-            Some((start, end)) if self.released && next >= start && next < end => end,
+            Some((_, end)) if self.released && self.segment < end => end,
             _ => next,
         };
     }
@@ -689,6 +685,102 @@ mod tests {
             .advance(&source, 5, 10.0, 120.0, 1)
             .expect("release path");
         assert_eq!(runtime.current_value(&source), Some(0.0));
+    }
+
+    #[test]
+    fn mseg_release_skips_to_end_segment_when_note_off_precedes_loop() {
+        let source = CompiledVoiceSource::Mseg(CompiledMseg {
+            initial_value: 0.0,
+            segments: vec![
+                CompiledMsegSegment {
+                    duration: 1.0,
+                    duration_unit: ModulationDurationUnit::Seconds,
+                    target: 0.5,
+                    curve: ModulationSegmentCurve::Linear,
+                },
+                CompiledMsegSegment {
+                    duration: 1.0,
+                    duration_unit: ModulationDurationUnit::Seconds,
+                    target: -1.0,
+                    curve: ModulationSegmentCurve::Linear,
+                },
+                CompiledMsegSegment {
+                    duration: 1.0,
+                    duration_unit: ModulationDurationUnit::Seconds,
+                    target: 1.0,
+                    curve: ModulationSegmentCurve::Linear,
+                },
+                CompiledMsegSegment {
+                    duration: 1.0,
+                    duration_unit: ModulationDurationUnit::Seconds,
+                    target: 0.25,
+                    curve: ModulationSegmentCurve::Linear,
+                },
+                CompiledMsegSegment {
+                    duration: 1.0,
+                    duration_unit: ModulationDurationUnit::Seconds,
+                    target: -0.5,
+                    curve: ModulationSegmentCurve::Linear,
+                },
+            ]
+            .into_boxed_slice(),
+            loop_range: Some((2, 4)),
+        });
+        let mut runtime = VoiceSourceRuntime::new(&source);
+        runtime.note_on(&source, 1, 60, 100);
+
+        runtime
+            .advance(&source, 5, 10.0, 120.0, 1)
+            .expect("intro segment midpoint");
+        runtime.note_off();
+        runtime
+            .advance(&source, 5, 10.0, 120.0, 1)
+            .expect("finish intro segment");
+        assert_eq!(runtime.current_value(&source), Some(0.5));
+        runtime
+            .advance(&source, 5, 10.0, 120.0, 1)
+            .expect("release segment");
+        assert!((runtime.current_value(&source).expect("release value") - 0.0).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn mseg_release_holds_value_when_loop_end_is_sequence_end() {
+        let source = CompiledVoiceSource::Mseg(CompiledMseg {
+            initial_value: 0.0,
+            segments: vec![
+                CompiledMsegSegment {
+                    duration: 1.0,
+                    duration_unit: ModulationDurationUnit::Seconds,
+                    target: 1.0,
+                    curve: ModulationSegmentCurve::Linear,
+                },
+                CompiledMsegSegment {
+                    duration: 1.0,
+                    duration_unit: ModulationDurationUnit::Seconds,
+                    target: -1.0,
+                    curve: ModulationSegmentCurve::Linear,
+                },
+            ]
+            .into_boxed_slice(),
+            loop_range: Some((0, 2)),
+        });
+        let mut runtime = VoiceSourceRuntime::new(&source);
+        runtime.note_on(&source, 1, 60, 100);
+
+        runtime
+            .advance(&source, 5, 10.0, 120.0, 1)
+            .expect("loop segment midpoint");
+        runtime.note_off();
+        runtime
+            .advance(&source, 5, 10.0, 120.0, 1)
+            .expect("finish loop segment");
+        assert_eq!(runtime.current_value(&source), Some(1.0));
+        let span = runtime
+            .advance(&source, 5, 10.0, 120.0, 1)
+            .expect("sequence end");
+        assert!((span.start - 1.0).abs() < 1.0e-6);
+        assert!((span.end - 1.0).abs() < 1.0e-6);
+        assert_eq!(runtime.current_value(&source), Some(1.0));
     }
 
     #[test]
