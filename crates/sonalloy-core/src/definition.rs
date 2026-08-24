@@ -20,7 +20,13 @@ use crate::generator_parameters::{
 use crate::parameter::{BUILTIN_SOURCE_IDS, ModulationUnit, is_component_id, is_parameter_id};
 
 /// The Definition schema accepted by the compiler.
-pub const CURRENT_SCHEMA_VERSION: u32 = 2;
+pub const CURRENT_SCHEMA_VERSION: u32 = 3;
+
+const MAX_VOICE_MODULATION_SOURCES: usize = 64;
+const MAX_MSEG_SOURCES: usize = 16;
+const MAX_STEP_SOURCES: usize = 16;
+const MAX_SAMPLE_HOLD_SOURCES: usize = 16;
+const MAX_SMOOTH_RANDOM_SOURCES: usize = 16;
 
 /// Stable identifier assigned to a layer.
 pub type LayerId = String;
@@ -46,6 +52,12 @@ pub struct InstrumentDefinition {
     /// Optional modulation sources and routes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modulation: Option<ModulationDefinition>,
+    /// Stable instrument-level macro controls.
+    #[serde(default)]
+    pub macros: Vec<MacroDefinition>,
+    /// Constant-power layer vector controls.
+    #[serde(default)]
+    pub vectors: Vec<VectorDefinition>,
 }
 
 /// Human-readable instrument information.
@@ -63,13 +75,32 @@ pub struct InstrumentMetadata {
 }
 
 /// Performance settings owned by the runtime.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PerformanceDefinition {
+    /// Polyphonic voice allocation and stealing policy.
+    Polyphonic {
+        /// Maximum number of simultaneous voices.
+        polyphony: u16,
+        /// Voice stealing policy.
+        voice_stealing: VoiceStealingDefinition,
+    },
+    /// A single last-note-priority voice.
+    Monophonic {
+        /// Whether connected notes reuse the current voice state.
+        legato: bool,
+        /// Optional connected-note pitch glide.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        portamento: Option<PortamentoDefinition>,
+    },
+}
+
+/// Monophonic portamento settings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PerformanceDefinition {
-    /// Maximum number of simultaneous voices.
-    pub polyphony: u16,
-    /// Voice stealing policy.
-    pub voice_stealing: VoiceStealingDefinition,
+pub struct PortamentoDefinition {
+    /// Glide duration in seconds.
+    pub time_seconds: f32,
 }
 
 /// Voice stealing policies supported by the runtime.
@@ -1182,6 +1213,14 @@ pub enum ModulationSourceDefinition {
     Envelope(ModEnvelopeDefinition),
     /// Deterministic note-scoped sample-and-hold source.
     Random(RandomDefinition),
+    /// Multi-segment envelope source.
+    Mseg(MsegDefinition),
+    /// Held step sequence source.
+    Step(StepModulatorDefinition),
+    /// Deterministic stepped random source.
+    SampleHold(SampleHoldDefinition),
+    /// Deterministic interpolated random source.
+    SmoothRandom(SmoothRandomDefinition),
 }
 
 /// LFO source settings.
@@ -1192,10 +1231,183 @@ pub struct LfoDefinition {
     pub id: String,
     /// LFO waveform.
     pub waveform: LfoWaveform,
-    /// Frequency in hertz.
-    pub rate_hz: f32,
+    /// Oscillation rate.
+    pub rate: ModulationRateDefinition,
     /// Initial phase in the half-open zero-to-one range.
     pub phase: f32,
+}
+
+/// Rate unit used by periodic and stepped modulation sources.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModulationRateUnit {
+    /// Cycles, steps, or transitions per second.
+    PerSecond,
+    /// Cycles, steps, or transitions per quarter-note beat.
+    PerBeat,
+}
+
+/// Rate used by periodic and stepped modulation sources.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModulationRateDefinition {
+    /// Rate value.
+    pub value: f32,
+    /// Rate unit.
+    pub unit: ModulationRateUnit,
+}
+
+/// Duration unit used by MSEG segments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModulationDurationUnit {
+    /// Duration in seconds.
+    Seconds,
+    /// Duration in quarter-note beats.
+    Beats,
+}
+
+/// Duration used by an MSEG segment.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModulationDurationDefinition {
+    /// Duration value.
+    pub value: f32,
+    /// Duration unit.
+    pub unit: ModulationDurationUnit,
+}
+
+/// MSEG segment curve.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModulationSegmentCurve {
+    /// Linear interpolation.
+    Linear,
+    /// Smooth-step interpolation.
+    SmoothStep,
+}
+
+/// One MSEG segment.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MsegSegmentDefinition {
+    /// Segment duration.
+    pub duration: ModulationDurationDefinition,
+    /// Segment target in the bipolar source range.
+    pub target: f32,
+    /// Segment interpolation curve.
+    pub curve: ModulationSegmentCurve,
+}
+
+/// Optional MSEG loop range. The end index is exclusive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MsegLoopDefinition {
+    /// First segment in the loop.
+    pub start_segment: usize,
+    /// Exclusive end segment in the loop.
+    pub end_segment: usize,
+}
+
+/// Multi-segment voice modulation source.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MsegDefinition {
+    /// Stable source identifier.
+    pub id: String,
+    /// Initial source value.
+    pub initial_value: f32,
+    /// Ordered segments.
+    pub segments: Vec<MsegSegmentDefinition>,
+    /// Optional loop range.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loop_range: Option<MsegLoopDefinition>,
+}
+
+/// Held step sequence modulation source.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StepModulatorDefinition {
+    /// Stable source identifier.
+    pub id: String,
+    /// Bipolar values held for each step.
+    pub values: Vec<f32>,
+    /// Step rate.
+    pub rate: ModulationRateDefinition,
+}
+
+/// Deterministic sample-and-hold modulation source.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SampleHoldDefinition {
+    /// Stable source identifier.
+    pub id: String,
+    /// Explicit deterministic seed.
+    pub seed: u64,
+    /// Update rate.
+    pub rate: ModulationRateDefinition,
+}
+
+/// Deterministic smooth-random modulation source.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SmoothRandomDefinition {
+    /// Stable source identifier.
+    pub id: String,
+    /// Explicit deterministic seed.
+    pub seed: u64,
+    /// Transition rate.
+    pub rate: ModulationRateDefinition,
+}
+
+/// A named normalized instrument control.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MacroDefinition {
+    /// Stable macro identifier.
+    pub id: String,
+    /// Human-readable macro name.
+    pub name: String,
+    /// Initial normalized value.
+    pub default: f32,
+}
+
+/// A constant-power layer vector.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum VectorDefinition {
+    /// Two-layer constant-power crossfade.
+    TwoWay {
+        /// Stable vector identifier.
+        id: String,
+        /// Human-readable vector name.
+        name: String,
+        /// Layer at position zero.
+        layer_a: LayerId,
+        /// Layer at position one.
+        layer_b: LayerId,
+        /// Initial position.
+        position: f32,
+    },
+    /// Four-layer constant-power XY mixer.
+    FourWay {
+        /// Stable vector identifier.
+        id: String,
+        /// Human-readable vector name.
+        name: String,
+        /// Top-left layer.
+        top_left: LayerId,
+        /// Top-right layer.
+        top_right: LayerId,
+        /// Bottom-left layer.
+        bottom_left: LayerId,
+        /// Bottom-right layer.
+        bottom_right: LayerId,
+        /// Initial horizontal position.
+        x: f32,
+        /// Initial vertical position.
+        y: f32,
+    },
 }
 
 /// LFO waveform.
@@ -1292,14 +1504,29 @@ impl InstrumentDefinition {
                     .with_path("metadata.name"),
             );
         }
-        if !(1..=64).contains(&self.performance.polyphony) {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "polyphony must be between 1 and 64",
-                )
-                .with_path("performance.polyphony"),
-            );
+        match &self.performance {
+            PerformanceDefinition::Polyphonic { polyphony, .. } => {
+                if !(1..=64).contains(polyphony) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "polyphony must be between 1 and 64",
+                        )
+                        .with_path("performance.polyphony"),
+                    );
+                }
+            }
+            PerformanceDefinition::Monophonic { portamento, .. } => {
+                if let Some(portamento) = portamento {
+                    validate_range(
+                        &mut diagnostics,
+                        "performance.portamento.time_seconds".to_owned(),
+                        portamento.time_seconds,
+                        f32::EPSILON..=10.0,
+                        "portamento time_seconds must be finite and greater than zero and at most 10 seconds",
+                    );
+                }
+            }
         }
         if self.layers.is_empty() {
             diagnostics.push(
@@ -1421,6 +1648,8 @@ impl InstrumentDefinition {
         if let Some(modulation) = &self.modulation {
             validate_modulation(&mut diagnostics, modulation);
         }
+        validate_macros(&mut diagnostics, &self.macros);
+        validate_vectors(&mut diagnostics, &self.vectors, &self.layers);
         diagnostics
     }
 }
@@ -1977,49 +2206,38 @@ fn validate_chorus_values(
 }
 
 fn validate_modulation(diagnostics: &mut Vec<Diagnostic>, modulation: &ModulationDefinition) {
+    validate_modulation_sources(diagnostics, modulation);
+    validate_modulation_routes(diagnostics, modulation);
+}
+
+fn validate_modulation_sources(
+    diagnostics: &mut Vec<Diagnostic>,
+    modulation: &ModulationDefinition,
+) {
+    let mut mseg_count = 0;
+    let mut step_count = 0;
+    let mut sample_hold_count = 0;
+    let mut smooth_random_count = 0;
+    if modulation.sources.len() > MAX_VOICE_MODULATION_SOURCES {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                format!(
+                    "modulation sources must contain at most {MAX_VOICE_MODULATION_SOURCES} entries"
+                ),
+            )
+            .with_path("modulation.sources"),
+        );
+    }
     let mut source_ids = HashSet::new();
     for (index, source) in modulation.sources.iter().enumerate() {
-        let id = match source {
-            ModulationSourceDefinition::Lfo(value) => &value.id,
-            ModulationSourceDefinition::Envelope(value) => &value.id,
-            ModulationSourceDefinition::Random(value) => &value.id,
-        };
-        let path = format!("modulation.sources[{index}].id");
-        if !is_component_id(id) {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::SourceIdInvalid,
-                    "source id has invalid format",
-                )
-                .with_path(path.clone()),
-            );
-        }
-        if BUILTIN_SOURCE_IDS.contains(&id.as_str()) {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::SourceIdDuplicated,
-                    "user source id conflicts with a built-in source",
-                )
-                .with_path(path.clone()),
-            );
-        }
-        if !source_ids.insert(id) {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::SourceIdDuplicated,
-                    "source id must be unique",
-                )
-                .with_path(path),
-            );
-        }
+        validate_modulation_source_id(diagnostics, &mut source_ids, index, source_id(source));
         match source {
             ModulationSourceDefinition::Lfo(value) => {
-                validate_range(
+                validate_rate(
                     diagnostics,
-                    format!("modulation.sources[{index}].rate_hz"),
-                    value.rate_hz,
-                    0.01..=40.0,
-                    "lfo rate must be finite and between 0.01 and 40 Hz",
+                    &format!("modulation.sources[{index}].rate"),
+                    value.rate,
                 );
                 if !value.phase.is_finite() || !(0.0..1.0).contains(&value.phase) {
                     diagnostics.push(
@@ -2035,10 +2253,146 @@ fn validate_modulation(diagnostics: &mut Vec<Diagnostic>, modulation: &Modulatio
                 validate_modulation_envelope(diagnostics, index, value);
             }
             ModulationSourceDefinition::Random(_) => {}
+            ModulationSourceDefinition::Mseg(value) => {
+                mseg_count += 1;
+                validate_mseg(diagnostics, index, value);
+            }
+            ModulationSourceDefinition::Step(value) => {
+                step_count += 1;
+                if value.values.is_empty() || value.values.len() > 64 {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "step values must contain between 1 and 64 entries",
+                        )
+                        .with_path(format!("modulation.sources[{index}].values")),
+                    );
+                }
+                for (value_index, value) in value.values.iter().enumerate() {
+                    validate_range(
+                        diagnostics,
+                        format!("modulation.sources[{index}].values[{value_index}]"),
+                        *value,
+                        -1.0..=1.0,
+                        "step value must be finite and between -1 and 1",
+                    );
+                }
+                validate_rate(
+                    diagnostics,
+                    &format!("modulation.sources[{index}].rate"),
+                    value.rate,
+                );
+            }
+            ModulationSourceDefinition::SampleHold(value) => {
+                sample_hold_count += 1;
+                validate_rate(
+                    diagnostics,
+                    &format!("modulation.sources[{index}].rate"),
+                    value.rate,
+                );
+            }
+            ModulationSourceDefinition::SmoothRandom(value) => {
+                smooth_random_count += 1;
+                validate_rate(
+                    diagnostics,
+                    &format!("modulation.sources[{index}].rate"),
+                    value.rate,
+                );
+            }
         }
     }
+    validate_modulation_source_limits(
+        diagnostics,
+        mseg_count,
+        step_count,
+        sample_hold_count,
+        smooth_random_count,
+    );
+}
+
+fn validate_modulation_source_limits(
+    diagnostics: &mut Vec<Diagnostic>,
+    mseg_count: usize,
+    step_count: usize,
+    sample_hold_count: usize,
+    smooth_random_count: usize,
+) {
+    for (count, limit, name) in [
+        (mseg_count, MAX_MSEG_SOURCES, "mseg"),
+        (step_count, MAX_STEP_SOURCES, "step"),
+        (sample_hold_count, MAX_SAMPLE_HOLD_SOURCES, "sample_hold"),
+        (
+            smooth_random_count,
+            MAX_SMOOTH_RANDOM_SOURCES,
+            "smooth_random",
+        ),
+    ] {
+        if count > limit {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::ValueOutOfRange,
+                    format!("{name} sources must contain at most {limit} entries"),
+                )
+                .with_path("modulation.sources"),
+            );
+        }
+    }
+}
+
+fn validate_modulation_source_id<'a>(
+    diagnostics: &mut Vec<Diagnostic>,
+    source_ids: &mut HashSet<&'a str>,
+    index: usize,
+    id: &'a str,
+) {
+    let path = format!("modulation.sources[{index}].id");
+    if !is_component_id(id) {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::SourceIdInvalid,
+                "source id has invalid format",
+            )
+            .with_path(path.clone()),
+        );
+    }
+    if BUILTIN_SOURCE_IDS.contains(&id) {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::SourceIdDuplicated,
+                "user source id conflicts with a built-in source",
+            )
+            .with_path(path.clone()),
+        );
+    }
+    if !source_ids.insert(id) {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::SourceIdDuplicated,
+                "source id must be unique",
+            )
+            .with_path(path),
+        );
+    }
+}
+
+fn source_id(source: &ModulationSourceDefinition) -> &str {
+    match source {
+        ModulationSourceDefinition::Lfo(value) => &value.id,
+        ModulationSourceDefinition::Envelope(value) => &value.id,
+        ModulationSourceDefinition::Random(value) => &value.id,
+        ModulationSourceDefinition::Mseg(value) => &value.id,
+        ModulationSourceDefinition::Step(value) => &value.id,
+        ModulationSourceDefinition::SampleHold(value) => &value.id,
+        ModulationSourceDefinition::SmoothRandom(value) => &value.id,
+    }
+}
+
+fn validate_modulation_routes(
+    diagnostics: &mut Vec<Diagnostic>,
+    modulation: &ModulationDefinition,
+) {
     for (index, route) in modulation.routes.iter().enumerate() {
-        if !is_component_id(&route.source) {
+        if !is_source_id(&route.source) {
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::SourceIdInvalid,
@@ -2062,6 +2416,217 @@ fn validate_modulation(diagnostics: &mut Vec<Diagnostic>, modulation: &Modulatio
             route.depth.value,
             "route depth value must be finite",
         );
+    }
+}
+
+fn is_source_id(value: &str) -> bool {
+    if is_component_id(value) {
+        return true;
+    }
+    let parts: Vec<_> = value.split('.').collect();
+    matches!(parts.as_slice(), ["macro", macro_id] if is_component_id(macro_id))
+}
+
+fn validate_rate(diagnostics: &mut Vec<Diagnostic>, path: &str, rate: ModulationRateDefinition) {
+    let range = match rate.unit {
+        ModulationRateUnit::PerSecond => 0.01..=40.0,
+        ModulationRateUnit::PerBeat => (1.0 / 64.0)..=16.0,
+    };
+    validate_range(
+        diagnostics,
+        format!("{path}.value"),
+        rate.value,
+        range,
+        "modulation rate must be finite and within its unit range",
+    );
+}
+
+fn validate_mseg(diagnostics: &mut Vec<Diagnostic>, index: usize, mseg: &MsegDefinition) {
+    let path = format!("modulation.sources[{index}]");
+    validate_range(
+        diagnostics,
+        format!("{path}.initial_value"),
+        mseg.initial_value,
+        -1.0..=1.0,
+        "mseg initial_value must be finite and between -1 and 1",
+    );
+    if mseg.segments.is_empty() || mseg.segments.len() > 64 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "mseg segments must contain between 1 and 64 entries",
+            )
+            .with_path(format!("{path}.segments")),
+        );
+    }
+    for (segment_index, segment) in mseg.segments.iter().enumerate() {
+        validate_range(
+            diagnostics,
+            format!("{path}.segments[{segment_index}].target"),
+            segment.target,
+            -1.0..=1.0,
+            "mseg target must be finite and between -1 and 1",
+        );
+        let duration_range = match segment.duration.unit {
+            ModulationDurationUnit::Seconds => f32::EPSILON..=100.0,
+            ModulationDurationUnit::Beats => (1.0 / 128.0)..=64.0,
+        };
+        validate_range(
+            diagnostics,
+            format!("{path}.segments[{segment_index}].duration.value"),
+            segment.duration.value,
+            duration_range,
+            "mseg duration must be finite and within its unit range",
+        );
+    }
+    if let Some(loop_range) = mseg.loop_range
+        && (loop_range.start_segment >= loop_range.end_segment
+            || loop_range.end_segment > mseg.segments.len())
+    {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "mseg loop range must be within the segment list and non-empty",
+            )
+            .with_path(format!("{path}.loop_range")),
+        );
+    }
+}
+
+fn validate_macros(diagnostics: &mut Vec<Diagnostic>, macros: &[MacroDefinition]) {
+    if macros.len() > 16 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "macros must contain at most 16 entries",
+            )
+            .with_path("macros"),
+        );
+    }
+    let mut ids = HashSet::new();
+    for (index, value) in macros.iter().enumerate() {
+        let path = format!("macros[{index}]");
+        if !is_component_id(&value.id) {
+            diagnostics.push(
+                Diagnostic::error(DiagnosticCode::ParameterIdInvalid, "macro id is invalid")
+                    .with_path(format!("{path}.id")),
+            );
+        }
+        if !ids.insert(&value.id) {
+            diagnostics.push(
+                Diagnostic::error(DiagnosticCode::IdDuplicated, "macro id must be unique")
+                    .with_path(format!("{path}.id")),
+            );
+        }
+        validate_range(
+            diagnostics,
+            format!("{path}.default"),
+            value.default,
+            0.0..=1.0,
+            "macro default must be finite and between 0 and 1",
+        );
+    }
+}
+
+fn validate_vectors(
+    diagnostics: &mut Vec<Diagnostic>,
+    vectors: &[VectorDefinition],
+    layers: &[LayerDefinition],
+) {
+    if vectors.len() > 8 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "vectors must contain at most 8 entries",
+            )
+            .with_path("vectors"),
+        );
+    }
+    let mut vector_ids = HashSet::new();
+    let mut assigned_layers = HashSet::new();
+    for (index, vector) in vectors.iter().enumerate() {
+        let path = format!("vectors[{index}]");
+        let (id, layer_ids_for_vector, axes) = match vector {
+            VectorDefinition::TwoWay {
+                id,
+                layer_a,
+                layer_b,
+                position,
+                ..
+            } => (id, vec![layer_a, layer_b], vec![("position", *position)]),
+            VectorDefinition::FourWay {
+                id,
+                top_left,
+                top_right,
+                bottom_left,
+                bottom_right,
+                x,
+                y,
+                ..
+            } => (
+                id,
+                vec![top_left, top_right, bottom_left, bottom_right],
+                vec![("x", *x), ("y", *y)],
+            ),
+        };
+        if !is_component_id(id) {
+            diagnostics.push(
+                Diagnostic::error(DiagnosticCode::ParameterIdInvalid, "vector id is invalid")
+                    .with_path(format!("{path}.id")),
+            );
+        }
+        if !vector_ids.insert(id) {
+            diagnostics.push(
+                Diagnostic::error(DiagnosticCode::IdDuplicated, "vector id must be unique")
+                    .with_path(format!("{path}.id")),
+            );
+        }
+        let mut local_layers = HashSet::new();
+        for (layer_index, layer_id) in layer_ids_for_vector.iter().enumerate() {
+            let Some(layer) = layers.iter().find(|layer| layer.id == **layer_id) else {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ParameterNotFound,
+                        "vector layer does not exist",
+                    )
+                    .with_path(format!("{path}.layer_{layer_index}")),
+                );
+                continue;
+            };
+            if !layer.enabled {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ValueOutOfRange,
+                        "vector layer must be enabled",
+                    )
+                    .with_path(format!("{path}.layer_{layer_index}")),
+                );
+            }
+            if !local_layers.insert(*layer_id) {
+                diagnostics.push(
+                    Diagnostic::error(DiagnosticCode::IdDuplicated, "vector layers must be unique")
+                        .with_path(format!("{path}.layer_{layer_index}")),
+                );
+            }
+            if !assigned_layers.insert(*layer_id) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::IdDuplicated,
+                        "a layer may belong to only one vector",
+                    )
+                    .with_path(format!("{path}.layer_{layer_index}")),
+                );
+            }
+        }
+        for (axis, value) in axes {
+            validate_range(
+                diagnostics,
+                format!("{path}.{axis}"),
+                value,
+                0.0..=1.0,
+                "vector axis must be finite and between 0 and 1",
+            );
+        }
     }
 }
 
@@ -3584,7 +4149,7 @@ pub(crate) mod tests {
                 author: None,
                 description: None,
             },
-            performance: PerformanceDefinition {
+            performance: PerformanceDefinition::Polyphonic {
                 polyphony: 4,
                 voice_stealing: VoiceStealingDefinition::QuietestReleasingThenOldest,
             },
@@ -3623,6 +4188,8 @@ pub(crate) mod tests {
             voice_processors: Vec::new(),
             global_processors: Vec::new(),
             modulation: None,
+            macros: Vec::new(),
+            vectors: Vec::new(),
         }
     }
 
@@ -3830,7 +4397,201 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn v2_routes_require_depth_and_reject_legacy_amount_fields() {
+    fn performance_modulation_and_vector_schema_round_trip() {
+        let mut source = definition();
+        let mut bright = source.layers[0].clone();
+        bright.id = "bright".to_owned();
+        source.layers.push(bright);
+        source.performance = PerformanceDefinition::Monophonic {
+            legato: true,
+            portamento: Some(PortamentoDefinition { time_seconds: 0.1 }),
+        };
+        source.macros.push(MacroDefinition {
+            id: "motion".to_owned(),
+            name: "Motion".to_owned(),
+            default: 0.25,
+        });
+        source.vectors.push(VectorDefinition::TwoWay {
+            id: "tone".to_owned(),
+            name: "Tone".to_owned(),
+            layer_a: "body".to_owned(),
+            layer_b: "bright".to_owned(),
+            position: 0.5,
+        });
+        source.modulation = Some(ModulationDefinition {
+            sources: vec![
+                ModulationSourceDefinition::Lfo(LfoDefinition {
+                    id: "tempo_lfo".to_owned(),
+                    waveform: LfoWaveform::Triangle,
+                    rate: ModulationRateDefinition {
+                        value: 1.0,
+                        unit: ModulationRateUnit::PerBeat,
+                    },
+                    phase: 0.25,
+                }),
+                ModulationSourceDefinition::Mseg(MsegDefinition {
+                    id: "motion_env".to_owned(),
+                    initial_value: -1.0,
+                    segments: vec![
+                        MsegSegmentDefinition {
+                            duration: ModulationDurationDefinition {
+                                value: 0.25,
+                                unit: ModulationDurationUnit::Beats,
+                            },
+                            target: 1.0,
+                            curve: ModulationSegmentCurve::SmoothStep,
+                        },
+                        MsegSegmentDefinition {
+                            duration: ModulationDurationDefinition {
+                                value: 0.1,
+                                unit: ModulationDurationUnit::Seconds,
+                            },
+                            target: 0.0,
+                            curve: ModulationSegmentCurve::Linear,
+                        },
+                    ],
+                    loop_range: Some(MsegLoopDefinition {
+                        start_segment: 0,
+                        end_segment: 2,
+                    }),
+                }),
+                ModulationSourceDefinition::Step(StepModulatorDefinition {
+                    id: "steps".to_owned(),
+                    values: vec![-1.0, 0.0, 1.0],
+                    rate: ModulationRateDefinition {
+                        value: 2.0,
+                        unit: ModulationRateUnit::PerSecond,
+                    },
+                }),
+                ModulationSourceDefinition::SampleHold(SampleHoldDefinition {
+                    id: "sample_hold".to_owned(),
+                    seed: 7,
+                    rate: ModulationRateDefinition {
+                        value: 2.0,
+                        unit: ModulationRateUnit::PerSecond,
+                    },
+                }),
+                ModulationSourceDefinition::SmoothRandom(SmoothRandomDefinition {
+                    id: "smooth_random".to_owned(),
+                    seed: 11,
+                    rate: ModulationRateDefinition {
+                        value: 1.0,
+                        unit: ModulationRateUnit::PerBeat,
+                    },
+                }),
+            ],
+            routes: vec![ModulationRouteDefinition {
+                source: "macro.motion".to_owned(),
+                target: "vector.tone.position".to_owned(),
+                depth: ModulationDepthDefinition {
+                    value: 1.0,
+                    unit: ModulationUnit::Normalized,
+                },
+                curve: ModulationCurve::Linear,
+            }],
+        });
+
+        assert!(source.validate().is_empty());
+        let json = serde_json::to_string(&source).expect("definition serializes");
+        let restored: InstrumentDefinition =
+            serde_json::from_str(&json).expect("definition parses");
+        assert_eq!(source, restored);
+    }
+
+    #[test]
+    fn performance_modulation_and_vector_ranges_report_field_paths() {
+        let mut source = definition();
+        source.performance = PerformanceDefinition::Monophonic {
+            legato: false,
+            portamento: Some(PortamentoDefinition { time_seconds: 0.0 }),
+        };
+        source.macros = vec![
+            MacroDefinition {
+                id: "motion".to_owned(),
+                name: "Motion".to_owned(),
+                default: 1.5,
+            },
+            MacroDefinition {
+                id: "motion".to_owned(),
+                name: "Duplicate".to_owned(),
+                default: 0.0,
+            },
+        ];
+        source.vectors.push(VectorDefinition::TwoWay {
+            id: "tone".to_owned(),
+            name: "Tone".to_owned(),
+            layer_a: "missing".to_owned(),
+            layer_b: "body".to_owned(),
+            position: 0.5,
+        });
+        source.modulation = Some(ModulationDefinition {
+            sources: vec![ModulationSourceDefinition::Step(StepModulatorDefinition {
+                id: "steps".to_owned(),
+                values: Vec::new(),
+                rate: ModulationRateDefinition {
+                    value: 0.0,
+                    unit: ModulationRateUnit::PerSecond,
+                },
+            })],
+            routes: Vec::new(),
+        });
+
+        let diagnostics = source.validate();
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("performance.portamento.time_seconds")
+        }));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.path.as_deref() == Some("macros[0].default"))
+        );
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("macros[1].id")
+                && diagnostic.code == DiagnosticCode::IdDuplicated
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("vectors[0].layer_0")
+                && diagnostic.code == DiagnosticCode::ParameterNotFound
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("modulation.sources[0].values")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("modulation.sources[0].rate.value")
+        }));
+    }
+
+    #[test]
+    fn modulation_source_resource_limits_are_validated() {
+        let mut source = definition();
+        source.modulation = Some(ModulationDefinition {
+            sources: (0..65)
+                .map(|index| {
+                    ModulationSourceDefinition::Lfo(LfoDefinition {
+                        id: format!("lfo_{index}"),
+                        waveform: LfoWaveform::Sine,
+                        rate: ModulationRateDefinition {
+                            value: 1.0,
+                            unit: ModulationRateUnit::PerSecond,
+                        },
+                        phase: 0.0,
+                    })
+                })
+                .collect(),
+            routes: Vec::new(),
+        });
+
+        let diagnostics = source.validate();
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("modulation.sources")
+                && diagnostic.code == DiagnosticCode::ValueOutOfRange
+        }));
+    }
+
+    #[test]
+    fn routes_require_depth_and_reject_legacy_amount_fields() {
         let mut legacy = serde_json::to_value(definition()).expect("definition serializes");
         legacy["modulation"] = serde_json::json!({
             "sources": [],

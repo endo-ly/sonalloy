@@ -6,9 +6,9 @@ use sonalloy_core::{
     AdsrDefinition, AssetReference, CompileContext, DiagnosticCode, GeneratorDefinition,
     GeneratorOutputMode, InstrumentDefinition, InstrumentProcessor, LfoDefinition, LfoWaveform,
     ModulationCurve, ModulationDefinition, ModulationDepthDefinition, ModulationRouteDefinition,
-    ModulationSourceDefinition, ParameterUnit, ProcessBlock, ProcessContext, ProcessEvent,
-    ProcessEventKind, ProcessSpec, RenderRequest, RenderTraceReport, ScheduledEvent,
-    SpectralDefinition, TempoMap, TraceRequest, compile_instrument, render_instrument,
+    ModulationSourceDefinition, MusicalTimeMap, ParameterUnit, ProcessBlock, ProcessContext,
+    ProcessEvent, ProcessEventKind, ProcessSpec, RenderRequest, RenderTraceReport, ScheduledEvent,
+    SpectralDefinition, TraceRequest, compile_instrument, render_instrument,
     render_instrument_with_trace,
 };
 use tempfile::TempDir;
@@ -1176,6 +1176,9 @@ fn render_runtime_note(
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: std::slice::from_ref(&event),
             output: &mut output,
@@ -1193,7 +1196,7 @@ fn spectral_reference_definition_exposes_stereo_ab_and_transform_controls() {
         path.parent().expect("instrument directory"),
         257,
     );
-    assert_eq!(compiled.performance.polyphony, 16);
+    assert_eq!(compiled.performance.voice_count, 16);
     assert_eq!(compiled.layers.len(), 1);
     assert_eq!(
         compiled.layers[0].generator.output_mode(),
@@ -1263,7 +1266,10 @@ fn spectral_hybrid_supports_sixteen_voices_voice_stealing_and_reset_determinism(
     assert_stereo_finite_and_non_silent(&audio);
 
     let mut stealing_definition = definition.clone();
-    stealing_definition.performance.polyphony = 1;
+    stealing_definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
+        polyphony: 1,
+        voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+    };
     let stealing_compiled = compile(&stealing_definition, base_dir, 257);
     let stolen_audio = render_instrument(
         stealing_compiled,
@@ -1362,7 +1368,7 @@ fn trace_uses_public_frames_for_latency_compensated_spectral_render() {
                 kind: ProcessEventKind::NoteOff { note_id: 1 },
             },
         ],
-        &TempoMap::constant(120.0).expect("tempo map"),
+        &MusicalTimeMap::constant(120.0).expect("tempo map"),
         &TraceRequest {
             parameters: vec![gain],
             every_frames: 480,
@@ -1387,7 +1393,10 @@ fn trace_lfo_modulation() -> ModulationDefinition {
         sources: vec![ModulationSourceDefinition::Lfo(LfoDefinition {
             id: "trace_lfo".to_owned(),
             waveform: LfoWaveform::Sine,
-            rate_hz: 2.0,
+            rate: sonalloy_core::ModulationRateDefinition {
+                value: 2.0,
+                unit: sonalloy_core::ModulationRateUnit::PerSecond,
+            },
             phase: 0.0,
         })],
         routes: vec![ModulationRouteDefinition {
@@ -1469,7 +1478,7 @@ fn render_trace_report(
             tail_frames: 0,
         },
         events,
-        &TempoMap::constant(120.0).expect("tempo map"),
+        &MusicalTimeMap::constant(120.0).expect("tempo map"),
         &TraceRequest {
             parameters: vec![handle],
             every_frames: 480,

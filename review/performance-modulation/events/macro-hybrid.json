@@ -1,0 +1,28 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note": 60,
+      "velocity": 112,
+      "note_id": 1
+    },
+    {
+      "absolute_frame": 24000,
+      "type": "parameter_change",
+      "parameter": "macro.motion",
+      "native_value": 0.85
+    },
+    {
+      "absolute_frame": 72000,
+      "type": "parameter_change",
+      "parameter": "macro.motion",
+      "native_value": 0.15
+    },
+    {
+      "absolute_frame": 120000,
+      "type": "note_off",
+      "note_id": 1
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "schema_version": 3,
+  "metadata": {
+    "name": "MSEG Motion Pad",
+    "author": "Sonalloy",
+    "description": "A sustained two-layer pad driven by a looping MSEG"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "pad",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": -0.18,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.18,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.75,
+        "release_seconds": 0.8
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    },
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.18,
+      "tuning_cents": 1200.0,
+      "envelope": {
+        "attack_seconds": 0.3,
+        "decay_seconds": 0.4,
+        "sustain_level": 0.5,
+        "release_seconds": 0.9
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0.25
+        }
+      }
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "cutoff_hz": 3200.0,
+      "resonance": 0.12
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "type": "mseg",
+        "id": "pad_motion",
+        "initial_value": 0.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 1.0,
+              "unit": "beats"
+            },
+            "target": 1.0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 1.0,
+              "unit": "beats"
+            },
+            "target": -1.0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 1.0,
+              "unit": "beats"
+            },
+            "target": 0.0,
+            "curve": "linear"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 0,
+          "end_segment": 2
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "pad_motion",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 2.0,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pad_motion",
+        "target": "layer.pad.pan",
+        "depth": {
+          "value": 0.35,
+          "unit": "pan"
+        },
+        "curve": "smooth_step"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

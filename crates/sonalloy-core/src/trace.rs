@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::parameter::{ModulationUnit, ParameterHandle, ParameterUnit};
-use crate::process::ProcessError;
+use crate::process::{ProcessContext, ProcessError};
 use crate::runtime::InstrumentRuntime;
 
 /// Maximum number of observations retained by one offline trace.
@@ -60,6 +60,12 @@ pub struct TraceObservation {
     pub final_value: f32,
     /// Whether the target clamp changed the value.
     pub clamped: bool,
+    /// Runtime pitch glide offset added after Layer Tuning route evaluation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub portamento_offset_cents: Option<f32>,
+    /// Native value after adding the Portamento offset, when Portamento is active.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effective_value: Option<f32>,
 }
 
 /// Identity and state of a voice at one trace point.
@@ -178,12 +184,13 @@ impl TraceCollector {
         &mut self,
         runtime: &InstrumentRuntime,
         frame: u64,
+        context: ProcessContext,
     ) -> Result<(), TraceCollectError> {
         if self.last_public_frame == Some(frame) {
             return Ok(());
         }
         let observations =
-            runtime.trace_snapshots(&self.target_handles, frame, self.sample_rate)?;
+            runtime.trace_snapshots(&self.target_handles, frame, self.sample_rate, context)?;
         let Some(observation_count) = self.observation_count.checked_add(observations.len()) else {
             return Err(TraceCollectError::LimitExceeded {
                 observed: usize::MAX,

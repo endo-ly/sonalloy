@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Metallic Pluck",
     "author": "Sonalloy",
     "description": "Operator modulation and sample attack with resonant and time-based processing"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -193,5 +194,7 @@
       "input_gain_db": 2.0
     }
   ],
-  "modulation": null
+  "modulation": null,
+  "macros": [],
+  "vectors": []
 }

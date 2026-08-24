@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Spectral Hybrid Reference",
     "author": "Sonalloy",
     "description": "Spectral body with additive, sample attack, noise, processors, and modulation"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -250,8 +251,11 @@
         "type": "lfo",
         "id": "spectral_motion",
         "waveform": "sine",
-        "rate_hz": 0.21,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 0.21,
+          "unit": "per_second"
+        }
       },
       {
         "type": "envelope",
@@ -345,5 +349,7 @@
         "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

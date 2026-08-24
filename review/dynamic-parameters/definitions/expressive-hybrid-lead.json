@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Expressive Hybrid Lead",
     "author": "Sonalloy",
     "description": "A hybrid lead controlled by pitch bend, mod wheel, and aftertouch"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -167,5 +168,7 @@
         "curve": "smooth_step"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Basic Generators Reference",
     "author": null,
     "description": "Basic oscillators, pulse width modulation, and colored noise generators"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -194,15 +195,21 @@
         "type": "lfo",
         "id": "pwm_lfo",
         "waveform": "sine",
-        "rate_hz": 1.0,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 1.0,
+          "unit": "per_second"
+        }
       },
       {
         "type": "lfo",
         "id": "correlation_lfo",
         "waveform": "triangle",
-        "rate_hz": 0.25,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 0.25,
+          "unit": "per_second"
+        }
       }
     ],
     "routes": [
@@ -225,5 +232,7 @@
         "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

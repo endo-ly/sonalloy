@@ -109,16 +109,19 @@ def sequence_definition(
     steps: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
             "description": "A deterministic time-ordered material sequence",
         },
         "performance": {
+            "mode": "polyphonic",
             "polyphony": 8,
             "voice_stealing": "quietest_releasing_then_oldest",
         },
+        "macros": [],
+        "vectors": [],
         "layers": [
             {
                 "id": "sequence",
@@ -166,16 +169,19 @@ def sample_zone(assets: dict[str, str], direction: str, start: float, end: float
 
 def hybrid_definition(assets: dict[str, str]) -> dict[str, object]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "metadata": {
             "name": "Wave Sequence Hybrid Reference",
             "author": "Sonalloy",
             "description": "Wavetable, granular, sequence, attack, and release layers",
         },
         "performance": {
+            "mode": "polyphonic",
             "polyphony": 8,
             "voice_stealing": "quietest_releasing_then_oldest",
         },
+        "macros": [],
+        "vectors": [],
         "layers": [
             {
                 "id": "motion",
@@ -316,7 +322,7 @@ def hybrid_definition(assets: dict[str, str]) -> dict[str, object]:
                     "type": "lfo",
                     "id": "texture_motion",
                     "waveform": "sine",
-                    "rate_hz": 0.18,
+                    "rate": {"value": 0.18, "unit": "per_second"},
                     "phase": 0.0,
                 }
             ],

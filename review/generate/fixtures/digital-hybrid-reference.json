@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Digital Hybrid Reference",
     "author": "Sonalloy",
     "description": "Wavetable, four-operator modulation, and sample layers"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -190,5 +191,7 @@
   ],
   "voice_processors": [],
   "global_processors": [],
-  "modulation": null
+  "modulation": null,
+  "macros": [],
+  "vectors": []
 }

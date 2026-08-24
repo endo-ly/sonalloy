@@ -1,0 +1,803 @@
+{
+  "every_frames": 2400,
+  "parameters": [
+    {
+      "parameter": "voice.processor.tone.cutoff",
+      "unit": "hertz",
+      "observations": [
+        {
+          "frame": 1,
+          "seconds": 2.0833333333333333e-05,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "active"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 5.208188e-09,
+              "shaped": 5.208188e-09,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.0416376e-08,
+                "unit": "octaves",
+                "factor": 1.0
+              }
+            }
+          ],
+          "before_clamp": 3199.9988,
+          "final": 3199.9988,
+          "clamped": false
+        },
+        {
+          "frame": 2400,
+          "seconds": 0.05,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "active"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.028,
+              "shaped": 0.028,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.056,
+                "unit": "octaves",
+                "factor": 1.0395794
+              }
+            }
+          ],
+          "before_clamp": 3326.6528,
+          "final": 3326.6528,
+          "clamped": false
+        },
+        {
+          "frame": 4800,
+          "seconds": 0.1,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "active"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.104,
+              "shaped": 0.104,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.208,
+                "unit": "octaves",
+                "factor": 1.1550858
+              }
+            }
+          ],
+          "before_clamp": 3696.2732,
+          "final": 3696.2732,
+          "clamped": false
+        },
+        {
+          "frame": 7200,
+          "seconds": 0.15,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "active"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.21600002,
+              "shaped": 0.21600002,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.43200004,
+                "unit": "octaves",
+                "factor": 1.3491026
+              }
+            }
+          ],
+          "before_clamp": 4317.127,
+          "final": 4317.127,
+          "clamped": false
+        },
+        {
+          "frame": 9600,
+          "seconds": 0.2,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "active"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.35200003,
+              "shaped": 0.35200003,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.70400006,
+                "unit": "octaves",
+                "factor": 1.6290152
+              }
+            }
+          ],
+          "before_clamp": 5212.8467,
+          "final": 5212.8467,
+          "clamped": false
+        },
+        {
+          "frame": 12000,
+          "seconds": 0.25,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "active"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.5,
+              "shaped": 0.5,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.0,
+                "unit": "octaves",
+                "factor": 2.0
+              }
+            }
+          ],
+          "before_clamp": 6399.9976,
+          "final": 6399.9976,
+          "clamped": false
+        },
+        {
+          "frame": 12001,
+          "seconds": 0.25002083333333336,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.50006247,
+              "shaped": 0.50006247,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.0001249,
+                "unit": "octaves",
+                "factor": 2.000173
+              }
+            }
+          ],
+          "before_clamp": 6400.5513,
+          "final": 6400.5513,
+          "clamped": false
+        },
+        {
+          "frame": 14400,
+          "seconds": 0.3,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.648,
+              "shaped": 0.648,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.296,
+                "unit": "octaves",
+                "factor": 2.4554713
+              }
+            }
+          ],
+          "before_clamp": 7857.505,
+          "final": 7857.505,
+          "clamped": false
+        },
+        {
+          "frame": 16800,
+          "seconds": 0.35,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.784,
+              "shaped": 0.784,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.568,
+                "unit": "octaves",
+                "factor": 2.9649339
+              }
+            }
+          ],
+          "before_clamp": 9487.785,
+          "final": 9487.785,
+          "clamped": false
+        },
+        {
+          "frame": 19200,
+          "seconds": 0.4,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.896,
+              "shaped": 0.896,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.792,
+                "unit": "octaves",
+                "factor": 3.4629464
+              }
+            }
+          ],
+          "before_clamp": 11081.424,
+          "final": 11081.424,
+          "clamped": false
+        },
+        {
+          "frame": 21600,
+          "seconds": 0.45,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.97199994,
+              "shaped": 0.97199994,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.9439999,
+                "unit": "octaves",
+                "factor": 3.8477094
+              }
+            }
+          ],
+          "before_clamp": 12312.665,
+          "final": 12312.665,
+          "clamped": false
+        },
+        {
+          "frame": 24000,
+          "seconds": 0.5,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 1.0,
+              "shaped": 1.0,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 2.0,
+                "unit": "octaves",
+                "factor": 4.0
+              }
+            }
+          ],
+          "before_clamp": 12799.995,
+          "final": 12799.995,
+          "clamped": false
+        },
+        {
+          "frame": 26400,
+          "seconds": 0.55,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.9,
+              "shaped": 0.9,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.8,
+                "unit": "octaves",
+                "factor": 3.482202
+              }
+            }
+          ],
+          "before_clamp": 11143.042,
+          "final": 11143.042,
+          "clamped": false
+        },
+        {
+          "frame": 28800,
+          "seconds": 0.6,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.8,
+              "shaped": 0.8,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.6,
+                "unit": "octaves",
+                "factor": 3.031433
+              }
+            }
+          ],
+          "before_clamp": 9700.582,
+          "final": 9700.582,
+          "clamped": false
+        },
+        {
+          "frame": 31200,
+          "seconds": 0.65,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.7,
+              "shaped": 0.7,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.4,
+                "unit": "octaves",
+                "factor": 2.6390157
+              }
+            }
+          ],
+          "before_clamp": 8444.847,
+          "final": 8444.847,
+          "clamped": false
+        },
+        {
+          "frame": 33600,
+          "seconds": 0.7,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.6,
+              "shaped": 0.6,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.2,
+                "unit": "octaves",
+                "factor": 2.297397
+              }
+            }
+          ],
+          "before_clamp": 7351.6675,
+          "final": 7351.6675,
+          "clamped": false
+        },
+        {
+          "frame": 36000,
+          "seconds": 0.75,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.5,
+              "shaped": 0.5,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 1.0,
+                "unit": "octaves",
+                "factor": 2.0
+              }
+            }
+          ],
+          "before_clamp": 6399.9976,
+          "final": 6399.9976,
+          "clamped": false
+        },
+        {
+          "frame": 38400,
+          "seconds": 0.8,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.39999998,
+              "shaped": 0.39999998,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.79999995,
+                "unit": "octaves",
+                "factor": 1.741101
+              }
+            }
+          ],
+          "before_clamp": 5571.521,
+          "final": 5571.521,
+          "clamped": false
+        },
+        {
+          "frame": 40800,
+          "seconds": 0.85,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.3,
+              "shaped": 0.3,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.6,
+                "unit": "octaves",
+                "factor": 1.5157166
+              }
+            }
+          ],
+          "before_clamp": 4850.291,
+          "final": 4850.291,
+          "clamped": false
+        },
+        {
+          "frame": 43200,
+          "seconds": 0.9,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.19999999,
+              "shaped": 0.19999999,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.39999998,
+                "unit": "octaves",
+                "factor": 1.3195078
+              }
+            }
+          ],
+          "before_clamp": 4222.4233,
+          "final": 4222.4233,
+          "clamped": false
+        },
+        {
+          "frame": 45600,
+          "seconds": 0.95,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.100000024,
+              "shaped": 0.100000024,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.20000005,
+                "unit": "octaves",
+                "factor": 1.1486984
+              }
+            }
+          ],
+          "before_clamp": 3675.8337,
+          "final": 3675.8337,
+          "clamped": false
+        },
+        {
+          "frame": 48000,
+          "seconds": 1.0,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.0,
+              "shaped": 0.0,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0,
+                "unit": "octaves",
+                "factor": 1.0
+              }
+            }
+          ],
+          "before_clamp": 3199.9988,
+          "final": 3199.9988,
+          "clamped": false
+        },
+        {
+          "frame": 50400,
+          "seconds": 1.05,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.0,
+              "shaped": 0.0,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0,
+                "unit": "octaves",
+                "factor": 1.0
+              }
+            }
+          ],
+          "before_clamp": 3199.9988,
+          "final": 3199.9988,
+          "clamped": false
+        },
+        {
+          "frame": 52800,
+          "seconds": 1.1,
+          "parameter": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "voice": {
+            "index": 0,
+            "note_id": 1,
+            "note_number": 60,
+            "velocity": 108,
+            "state": "releasing"
+          },
+          "base": 3199.9988,
+          "routes": [
+            {
+              "source": "pad_motion",
+              "raw": 0.0,
+              "shaped": 0.0,
+              "depth": {
+                "value": 2.0,
+                "unit": "octaves"
+              },
+              "contribution": {
+                "value": 0.0,
+                "unit": "octaves",
+                "factor": 1.0
+              }
+            }
+          ],
+          "before_clamp": 3199.9988,
+          "final": 3199.9988,
+          "clamped": false
+        }
+      ]
+    }
+  ]
+}

@@ -13,7 +13,9 @@ Sonalloyは、JSONで書いた音源定義からリアルタイム演奏とオ�
   - スペクトル再構成: 周波数分解した音の再構成（Spectral）
 - **エフェクトとモジュレーション**:
   - エフェクト: Filter、Drive、EQ、Resonator、Bitcrusher、Chorus、Flanger、Phaser、Delay、Reverb、Compressor、Limiter
-  - モジュレーション: Velocity、LFO、Envelope等でパラメータを動かす
+  - モジュレーション: Velocity、LFO、Envelope、MSEG、Step、Sample & Hold、Smooth Random、Tempo同期Sourceでパラメータを動かす
+- **演奏表現を定義できる**: Polyphonicに加えてMonophonic、Last-note Priority、Legato、Portamento、Sustainを扱う
+- **Instrument Controlをまとめて設計できる**: Macroで複数Parameterを操作し、2-Way / 4-Way VectorでLayerをConstant-powerに混ぜる
 - **演奏と検証を同じCoreで実行**: `device list`でAudio / MIDI Deviceを確認し、`play`でMIDI演奏、PatternをMIDI Keyboardなしで試聴し、単音・Event Sequence・MIDI Fileをオフラインで再現できる
 
 ## インストール

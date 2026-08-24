@@ -1,0 +1,111 @@
+{
+  "schema_version": 3,
+  "metadata": {
+    "name": "Random Comparison",
+    "author": "Sonalloy",
+    "description": "A deterministic Random, Sample and Hold, and Smooth Random comparison"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.7,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "cutoff_hz": 4200.0,
+      "resonance": 0.16
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "type": "random",
+        "id": "note_random",
+        "seed": 17
+      },
+      {
+        "type": "sample_hold",
+        "id": "stepped_random",
+        "seed": 23,
+        "rate": {
+          "value": 3.0,
+          "unit": "per_second"
+        }
+      },
+      {
+        "type": "smooth_random",
+        "id": "smooth_random",
+        "seed": 29,
+        "rate": {
+          "value": 3.0,
+          "unit": "per_second"
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "note_random",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 90.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "stepped_random",
+        "target": "layer.body.pan",
+        "depth": {
+          "value": 0.55,
+          "unit": "pan"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "smooth_random",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.4,
+          "unit": "octaves"
+        },
+        "curve": "smooth_step"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

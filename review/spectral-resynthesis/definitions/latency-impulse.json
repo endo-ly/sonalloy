@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Spectral Generator Reference",
     "author": "Sonalloy",
     "description": "Stereo spectral resynthesis with position, freeze, blur, shift, and morph control"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 1,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -51,5 +52,7 @@
   ],
   "voice_processors": [],
   "global_processors": [],
-  "modulation": null
+  "modulation": null,
+  "macros": [],
+  "vectors": []
 }

@@ -80,16 +80,19 @@ def granular_definition(
     modulation: dict[str, object] | None = None,
 ) -> dict[str, object]:
     value: dict[str, object] = {
-        "schema_version": 2,
+        "schema_version": 3,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
             "description": "A deterministic granular texture source",
         },
         "performance": {
+            "mode": "polyphonic",
             "polyphony": 8,
             "voice_stealing": "quietest_releasing_then_oldest",
         },
+        "macros": [],
+        "vectors": [],
         "layers": [
             {
                 "id": "texture",
@@ -223,7 +226,7 @@ def main() -> None:
                         "type": "lfo",
                         "id": "position_lfo",
                         "waveform": "sine",
-                        "rate_hz": 0.18,
+                        "rate": {"value": 0.18, "unit": "per_second"},
                         "phase": 0.0,
                     }
                 ],

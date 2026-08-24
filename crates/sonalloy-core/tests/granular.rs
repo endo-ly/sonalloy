@@ -135,6 +135,9 @@ fn process_runtime(
             context: ProcessContext {
                 absolute_frame,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
             output: &mut output,
@@ -335,7 +338,10 @@ fn granular_voice_stealing_restarts_grain_state() {
     write_stereo_fixture(&path);
     let base_dir = directory.path();
     let mut definition = definition(path.file_name().unwrap().to_string_lossy().into_owned());
-    definition.performance.polyphony = 1;
+    definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
+        polyphony: 1,
+        voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+    };
     let compiled = compile(&definition, base_dir, 257);
     let mut stolen = compiled.instantiate();
     let mut direct = compiled.instantiate();

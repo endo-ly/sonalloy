@@ -1,0 +1,91 @@
+{
+  "schema_version": 3,
+  "metadata": {
+    "name": "Mono Portamento Lead",
+    "author": "Sonalloy",
+    "description": "Last-note monophonic lead with legato, portamento, and pitch bend"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": true,
+    "portamento": {
+      "time_seconds": 0.08
+    }
+  },
+  "layers": [
+    {
+      "id": "lead",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.7,
+        "release_seconds": 0.25
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "cutoff_hz": 5000.0,
+      "resonance": 0.15
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "type": "lfo",
+        "id": "lead_vibrato",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.5,
+          "unit": "per_second"
+        },
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "lead_vibrato",
+        "target": "layer.lead.tuning",
+        "depth": {
+          "value": 35.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.lead.tuning",
+        "depth": {
+          "value": 100.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

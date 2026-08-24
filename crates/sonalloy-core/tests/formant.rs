@@ -213,6 +213,9 @@ fn process_runtime(
             context: ProcessContext {
                 absolute_frame,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
             output: &mut output,
@@ -518,7 +521,10 @@ fn formant_shift_throat_and_tilt_change_the_spectrum_without_changing_note_pitch
 #[test]
 fn formant_reset_voice_stealing_and_block_sizes_are_deterministic() {
     let mut definition = formant_definition(vec![profile("a", 250.0), profile("i", 400.0)]);
-    definition.performance.polyphony = 1;
+    definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
+        polyphony: 1,
+        voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+    };
     let compiled = compile(&definition, 48_000.0, 1_024);
     let spec = ProcessSpec::new(48_000.0, 1_024, 2).expect("valid spec");
     let event = [ProcessEvent {

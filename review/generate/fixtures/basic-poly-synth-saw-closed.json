@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Saw Registers Closed",
     "author": null,
     "description": "Saw register review with the voice tone filter closed"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -58,7 +59,8 @@
         "depth": {
           "value": 5.76000023,
           "unit": "decibels"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "velocity",
@@ -66,8 +68,11 @@
         "depth": {
           "value": 0.797262728,
           "unit": "octaves"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

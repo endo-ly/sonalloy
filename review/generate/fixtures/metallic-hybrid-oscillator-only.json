@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Metallic Hybrid Body",
     "author": "Sonalloy",
     "description": "The oscillator body used by Metallic Hybrid"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -58,7 +59,8 @@
         "depth": {
           "value": 4.32000017,
           "unit": "decibels"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "velocity",
@@ -66,8 +68,11 @@
         "depth": {
           "value": 0.597947061,
           "unit": "octaves"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

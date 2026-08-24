@@ -6,14 +6,14 @@ use midly::{
     num::{u4, u7, u15, u24, u28},
 };
 use sonalloy_core::{
-    DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, ProcessEventKind, ScheduledEvent, TempoMap,
+    DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, MusicalTimeMap, ProcessEventKind, ScheduledEvent,
 };
 
 use crate::midi_common::{
     MOD_WHEEL_CONTROLLER, SUSTAIN_PEDAL_CONTROLLER, denormalize_control, denormalize_pitch_bend,
     normalize_control, normalize_pitch_bend, note_id, tempo_to_microseconds_per_beat,
 };
-use crate::musical_time::{TempoPoint, build_tempo_map, tick_to_frame};
+use crate::musical_time::{TempoPoint, TimeSignaturePoint, build_musical_time_map, tick_to_frame};
 use crate::pattern::{
     PATTERN_SCHEMA_VERSION, PatternDefinition, PatternEvent, PatternMidiEventKind,
     PatternTempoChange, PatternTimeSignatureChange, midi_events, time_signature_denominator_power,
@@ -22,7 +22,7 @@ use crate::pattern::{
 pub(crate) struct MidiRender {
     pub(crate) events: Vec<ScheduledEvent>,
     pub(crate) duration_frames: u64,
-    pub(crate) tempo_map: TempoMap,
+    pub(crate) musical_time_map: MusicalTimeMap,
     pub(crate) diagnostics: Vec<Diagnostic>,
 }
 
@@ -335,14 +335,28 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
     let parsed = parse_midi(path)?;
     let mut diagnostics = parsed.diagnostics;
     let tempo_points = midi_tempo_points(&parsed.tempo_changes);
-    let tempo_map =
-        build_tempo_map(parsed.ticks_per_beat, &tempo_points, sample_rate).map_err(|error| {
-            vec![
-                Diagnostic::error(DiagnosticCode::MidiError, "MIDI tempo map is invalid")
-                    .with_path(path.to_string_lossy())
-                    .with_detail(error.to_string()),
-            ]
-        })?;
+    let signature_changes = imported_time_signature_changes(&parsed.time_signature_changes)?;
+    let signature_points = signature_changes
+        .iter()
+        .map(|change| TimeSignaturePoint {
+            tick: change.tick,
+            numerator: u16::from(change.numerator),
+            denominator: u16::from(change.denominator),
+        })
+        .collect::<Vec<_>>();
+    let musical_time_map = build_musical_time_map(
+        parsed.ticks_per_beat,
+        &tempo_points,
+        &signature_points,
+        sample_rate,
+    )
+    .map_err(|error| {
+        vec![
+            Diagnostic::error(DiagnosticCode::MidiError, "MIDI tempo map is invalid")
+                .with_path(path.to_string_lossy())
+                .with_detail(error.to_string()),
+        ]
+    })?;
 
     let mut active_notes: HashMap<(u8, u8), VecDeque<PendingRenderNote>> = HashMap::new();
     let mut serials: HashMap<(u8, u8), u32> = HashMap::new();
@@ -528,7 +542,7 @@ pub(crate) fn read_midi(path: &Path, sample_rate: f64) -> Result<MidiRender, Vec
             })
             .collect(),
         duration_frames,
-        tempo_map,
+        musical_time_map,
         diagnostics,
     })
 }
@@ -1264,8 +1278,8 @@ mod tests {
         ]);
 
         let render = read_midi(&path, 48_000.0).expect("valid MIDI");
-        assert_eq!(render.tempo_map.changes().len(), 2);
-        assert_eq!(render.tempo_map.changes()[1].absolute_frame, 24_000);
+        assert_eq!(render.musical_time_map.changes().len(), 2);
+        assert_eq!(render.musical_time_map.changes()[1].absolute_frame, 24_000);
         assert_eq!(render.events[0].absolute_frame, 0);
         assert_eq!(render.events[1].absolute_frame, 72_000);
     }

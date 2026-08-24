@@ -6,6 +6,8 @@
     "author": "Sonalloy",
     "description": "A deterministic granular texture source"
   },
+  "mode": "polyphonic",
+  "voice_count": 8,
   "polyphony": 8,
   "voice_stealing": "quietest_releasing_then_oldest",
   "reported_latency_frames": 0,
@@ -228,6 +230,8 @@
       }
     }
   ],
+  "macros": [],
+  "vectors": [],
   "sources": [
     {
       "id": "velocity",
@@ -247,6 +251,26 @@
         "min": -1.0,
         "max": 1.0,
         "polarity": "bipolar"
+      }
+    },
+    {
+      "id": "transport_beat_phase",
+      "scope": "instrument",
+      "kind": "beat_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "transport_bar_phase",
+      "scope": "instrument",
+      "kind": "bar_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
       }
     }
   ],

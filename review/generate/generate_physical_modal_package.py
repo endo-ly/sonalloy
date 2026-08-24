@@ -99,16 +99,19 @@ def instrument(
     modulation: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
             "description": "Physical String and Modal synthesis review definition",
         },
         "performance": {
+            "mode": "polyphonic",
             "polyphony": 8,
             "voice_stealing": "quietest_releasing_then_oldest",
         },
+        "macros": [],
+        "vectors": [],
         "layers": layers,
         "voice_processors": voice_processors or [],
         "global_processors": global_processors or [],

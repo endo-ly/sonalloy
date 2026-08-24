@@ -169,9 +169,7 @@ pub(crate) struct ParameterSpanValue {
 #[derive(Clone, Copy)]
 pub(crate) struct SharedParameterSpan<'a> {
     values: &'a [ParameterSpanValue],
-    pitch_bend: ValueSpan,
-    mod_wheel: ValueSpan,
-    aftertouch: ValueSpan,
+    instrument_sources: &'a [ParameterSpanValue],
     offset: usize,
     length: usize,
     total_length: usize,
@@ -180,16 +178,12 @@ pub(crate) struct SharedParameterSpan<'a> {
 impl<'a> SharedParameterSpan<'a> {
     pub(crate) fn new(
         values: &'a [ParameterSpanValue],
-        pitch_bend: ValueSpan,
-        mod_wheel: ValueSpan,
-        aftertouch: ValueSpan,
+        instrument_sources: &'a [ParameterSpanValue],
         length: usize,
     ) -> Self {
         Self {
             values,
-            pitch_bend,
-            mod_wheel,
-            aftertouch,
+            instrument_sources,
             offset: 0,
             length,
             total_length: length,
@@ -215,34 +209,18 @@ impl<'a> SharedParameterSpan<'a> {
         ))
     }
 
-    pub(crate) fn pitch_bend(self) -> ValueSpan {
-        interpolate(
-            self.pitch_bend.start,
-            self.pitch_bend.end,
+    pub(crate) fn instrument_source(
+        self,
+        handle: crate::compiler::InstrumentSourceHandle,
+    ) -> Option<ValueSpan> {
+        let value = *self.instrument_sources.get(handle.index())?;
+        Some(interpolate(
+            value.start,
+            value.end,
             self.offset,
             self.length,
             self.total_length,
-        )
-    }
-
-    pub(crate) fn mod_wheel(self) -> ValueSpan {
-        interpolate(
-            self.mod_wheel.start,
-            self.mod_wheel.end,
-            self.offset,
-            self.length,
-            self.total_length,
-        )
-    }
-
-    pub(crate) fn aftertouch(self) -> ValueSpan {
-        interpolate(
-            self.aftertouch.start,
-            self.aftertouch.end,
-            self.offset,
-            self.length,
-            self.total_length,
-        )
+        ))
     }
 }
 
@@ -262,6 +240,7 @@ fn interpolate(start: f32, end: f32, offset: usize, length: usize, total: usize)
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct LayerTargetSpan {
     pub(crate) gain: ValueSpan,
+    pub(crate) gain_weight: ValueSpan,
     pub(crate) pan: ValueSpan,
     pub(crate) tuning: ValueSpan,
     pub(crate) generator: LayerGeneratorTargetSpan,
@@ -444,6 +423,10 @@ impl VoiceTargetScratch {
                 .iter()
                 .map(|layer| LayerTargetSpan {
                     gain: zero,
+                    gain_weight: ValueSpan {
+                        start: 1.0,
+                        end: 1.0,
+                    },
                     pan: zero,
                     tuning: zero,
                     generator: layer.generator.zero_target_span(),

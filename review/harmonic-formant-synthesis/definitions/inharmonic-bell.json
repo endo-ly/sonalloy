@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Additive Generator Reference",
     "author": null,
     "description": "Harmonic and inharmonic partial synthesis with spectrum morphing"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -100,5 +101,7 @@
   ],
   "voice_processors": [],
   "global_processors": [],
-  "modulation": null
+  "modulation": null,
+  "macros": [],
+  "vectors": []
 }

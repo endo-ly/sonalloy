@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Wave Sequence Hybrid Reference",
     "author": "Sonalloy",
     "description": "Wavetable, granular texture, sequenced material, and release sample layers"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -340,8 +341,11 @@
         "type": "lfo",
         "id": "texture_motion",
         "waveform": "sine",
-        "rate_hz": 0.18,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 0.18,
+          "unit": "per_second"
+        }
       }
     ],
     "routes": [
@@ -351,7 +355,8 @@
         "depth": {
           "value": 0.349999994,
           "unit": "normalized"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "mod_wheel",
@@ -359,7 +364,8 @@
         "depth": {
           "value": 2.32534957,
           "unit": "octaves"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "mod_wheel",
@@ -367,8 +373,11 @@
         "depth": {
           "value": 1.99315691,
           "unit": "octaves"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

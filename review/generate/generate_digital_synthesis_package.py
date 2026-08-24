@@ -616,16 +616,19 @@ def definition(
     if extra_layers:
         layers.extend(copy.deepcopy(extra_layers))
     value: dict[str, object] = {
-        "schema_version": 2,
+        "schema_version": 3,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
             "description": "Wavetable Generator review instrument",
         },
         "performance": {
+            "mode": "polyphonic",
             "polyphony": 16,
             "voice_stealing": "quietest_releasing_then_oldest",
         },
+        "macros": [],
+        "vectors": [],
         "layers": layers,
         "voice_processors": [],
         "global_processors": [],
@@ -689,16 +692,19 @@ def operator_definition(
             }
         )
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
             "description": "Four-operator modulation review instrument",
         },
         "performance": {
+            "mode": "polyphonic",
             "polyphony": polyphony,
             "voice_stealing": "quietest_releasing_then_oldest",
         },
+        "macros": [],
+        "vectors": [],
         "layers": [
             {
                 "id": "operator",
@@ -912,7 +918,7 @@ def main() -> None:
             "type": "lfo",
             "id": "motion_lfo",
             "waveform": "sine",
-            "rate_hz": 0.35,
+            "rate": {"value": 0.35, "unit": "per_second"},
             "phase": 0.0,
         },
         {

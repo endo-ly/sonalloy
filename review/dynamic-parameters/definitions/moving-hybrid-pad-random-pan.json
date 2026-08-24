@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Moving Hybrid Pad",
     "author": "Sonalloy",
     "description": "A hybrid pad with internal modulation across layers and filter"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -137,5 +138,7 @@
         "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

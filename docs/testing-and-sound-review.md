@@ -45,7 +45,9 @@ Dynamic Parameterを追加・変更した場合は、次の観点をUnit Testま
 - Parameter IDの重複、未知のTarget / Source、Range違反がCompile時に診断される
 - Parameter Change、Pitch Bend、Mod Wheel、Aftertouchが絶対Frame位置へ反映され、Coreは同一Offsetを入力順に処理し、Offline AdapterはCanonical順へ正規化する
 - Layer Gain / Pan / Tuning、Layer / Voice / Global Processor ParameterがTargetのUnitとRangeへ変換され、Route加算後にClampされる
-- LFO、Modulation Envelope、Random、Velocity、Key TrackingのSourceが同じDefinitionとEventから決定的に再現される
+- LFO、Modulation Envelope、Random、MSEG、Step、Sample & Hold、Smooth Random、Velocity、Key TrackingのSourceが同じDefinitionとEventから決定的に再現される。Per-second / Per-beatの時間単位もTempoへ追従する
+- MonophonicのLast-note Priority、Legato、Non-legato Retrigger、Portamento、Held Noteへの復帰、Sustain境界が同じEvent列から決定的に再現される
+- Macro Parameter Change、Vector Axis、Beat Phase、Bar PhaseがCatalog / Route / Traceへ一貫して反映される
 - Block Sizeを変更してもSourceの時間軸、Event位置、出力のFinite性が変わらない
 - Reset後の出力が初回Renderと一致し、Voice Stealing後も新旧VoiceのParameter Stateが混ざらない
 - MIDIのControl Channel統合WarningとNote Event必須条件がCLI経路で検証される
@@ -62,6 +64,7 @@ Realtime Adapterの自動検証は物理Deviceを使用せず、CoreとDevice非
 | Callback分割 | Host Callbackの1、63、64、255、256、257、511、641、1024 FrameをCore最大Block以下へ分割し、絶対Frameを連続させる |
 | Channel / Format | StereoのLeft / Right、3ch以上の余剰Channel無音、PCMの符号付き・符号なし・24-bitを含むSample Format変換 |
 | Queue / 順序 | Emptyから4096 Event、Timestamp + Sequence順、同一Timestampの入力順、Note On / Note Off / Sustainの時系列回帰、4097個目のPushで既存Eventを保持したままFatal化 |
+| Performance / Control | `--tempo` / `--time-signature`、Macro CCのHandle解決、CC1 / CC64予約、Macro CCから既存Parameter Changeへの変換、Monoの重ね押しとPortamento |
 | Fault / Status | Process Error・Audio Error・MIDI Error・Queue Overflowの無音化と原因別Diagnostic、RealtimeDeniedのWarning、XrunのCounter、Device lossのFatal化 |
 | Callback安全性 | Eventあり・なし、Host Callback分割、Multi-channelを含むAudio Callback本体のAllocation 0 |
 
@@ -126,3 +129,4 @@ flowchart LR
 | Essential Sampling | Key Zone、Velocity Layer、Round Robin、Stereo、Forward / Reverse、Loop、Crossfade、Release Trigger、Fixed Stretch、Tempo Sync | Key / Velocity境界、Pitch Mapping、Round Robin順、Stereo Image、Reverse方向感、Loop周期とClick、Crossfade連続性、Release発音タイミング、Stretch Pitch保持、Tempo SyncのBPM変化 |
 | Granular | Granular Pad、Vocal Freeze、Percussion Cloud、Position Scrub、Stereo Source、Polyphony | Grain開始・終了のClick、Density密度、Grain Size質感、Pitch、Randomness広がり、Pan Spread、Scrub追従、Freeze持続、Vocal明瞭さ、Percussion Transient |
 | Wave Sequence | Single Step、Direction（Forward / Reverse / Ping Pong）、Loop、One-shot / Loop Step、Duration Type、Tempo Change、Crossfade、Step Pitch / Gain、Missing Step、Stereo / Mono混在 | Direction順序と端Step重複、One-shot終端無音、Loop境界、定電力Crossfade、Step Pitch / Gain、Missing Step無音区間、Mono / Stereo定位、Tempo Change、Reset同一性 |
+| Performance / Modulation | Monophonic Lead、MSEG Pad、Tempo Step / Transport、Random / Sample & Hold / Smooth Random、Macro Hybrid、4-Way Vector | Last-note Priority、Legato、Portamento、Sustain、Held Note復帰、MSEGのLoop途中Note OffとRelease、Beat / Bar Phase、Tempo追従、Randomの決定性、MacroのInstrument単位Trace、VectorのConstant-power境界 |

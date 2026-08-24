@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Complex Oscillator Reference",
     "author": null,
     "description": "Hard sync, waveshaping, and unison oscillator reference"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -115,15 +116,21 @@
         "type": "lfo",
         "id": "sync_sweep",
         "waveform": "triangle",
-        "rate_hz": 0.2,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 0.2,
+          "unit": "per_second"
+        }
       },
       {
         "type": "lfo",
         "id": "body_motion",
         "waveform": "sine",
-        "rate_hz": 0.35,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 0.35,
+          "unit": "per_second"
+        }
       }
     ],
     "routes": [
@@ -155,5 +162,7 @@
         "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

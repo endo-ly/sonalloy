@@ -38,13 +38,19 @@ Saw Oscillatorの最小Definition（同時発音数16、ADSR `0.005 / 0.18 / 0.6
 
 | Field | 内容 | 主な制約 |
 |---|---|---|
-| `schema_version` | スキーマ版 | `2`。`1`はUnsupported。未知FieldはJSON Parse Error |
+| `schema_version` | スキーマ版 | `3`。それ以外はUnsupported。未知FieldはJSON Parse Error |
 | `metadata` | `name`、`author`、`description` | `author`と`description`は省略可 |
-| `performance` | `polyphony`、`voice_stealing` | `polyphony`は1〜64。`voice_stealing`のDefaultは`quietest_releasing_then_oldest` |
+| `performance` | `mode`ごとの演奏設定 | `polyphonic`は`polyphony` 1〜64。`monophonic`は`legato`と任意の`portamento` |
 | `layers` | 発音の単位となるLayer配列 | [Layerの構造](#layerの構造)参照 |
 | `voice_processors` | 全LayerのMix後に直列適用するProcessor Chain | — |
 | `global_processors` | 全Voiceの合計後に直列適用するProcessor Chain（Delay / ReverbはTailを保持） | — |
 | `modulation` | SourceとRouteの定義 | [ProcessorとModulation](#processorとmodulation)参照 |
+| `macros` | 外部から変更できる0〜1のMacro | 最大16。Parameter IDは`macro.<id>` |
+| `vectors` | LayerのConstant-power Mixを制御するVector | 最大8。Axisは`vector.<id>.position`または`vector.<id>.x/y` |
+
+`performance`のPolyphonic例は`{"mode":"polyphonic","polyphony":16,"voice_stealing":"quietest_releasing_then_oldest"}`です。Monophonicでは`{"mode":"monophonic","legato":true,"portamento":{"time_seconds":0.08}}`のように指定し、Held NoteはLast-note priorityで切り替えます。
+
+Monophonic Leadでは、鍵盤を重ねて滑らかに音程を移したいときに`legato: true`と`portamento`を使います。AttackやSourceをNoteごとに再開したい場合は`legato: false`にします。単独Noteの開始とSustainだけで保持された音からの新しいNoteは、PortamentoなしのFresh Startです。
 
 ### Layerの構造
 
@@ -111,7 +117,7 @@ Level
 ### ProcessorとModulation
 
 - **Processor**：Layer / Voice / Globalの3段階で直列適用します。置ける種類は配置ごとに決まっており、LayerはFilter / Drive / EQ / Resonator / Bitcrusher、VoiceはそれにCompressor / Limiterを加えたもの、GlobalはさらにChorus / Flanger / Phaser / Delay / Reverbを使えます。`cutoff_hz`、`resonance`、`amount`、`mix`などのDynamic Parameterを持ちます
-- **Modulation**：Velocity、Key Tracking、LFO、Envelope、RandomなどのSourceをDynamic Parameterへ接続します
+- **Modulation**：Velocity、Key Tracking、LFO、Envelope、Random、MSEG、Step、Sample Hold、Smooth Random、Macro、Transport PhaseなどのSourceをDynamic Parameterへ接続します
 
 ```json
 "modulation": {
@@ -120,12 +126,14 @@ Level
     { "source": "lfo", "target": "voice.processor.tone.cutoff", "depth": { "value": 1.5, "unit": "octaves" }, "curve": "linear" }
   ],
   "sources": [
-    { "id": "lfo", "type": "lfo", "waveform": "sine", "rate_hz": 0.5, "phase": 0.0 }
+    { "id": "lfo", "type": "lfo", "waveform": "sine", "rate": { "value": 0.5, "unit": "per_second" }, "phase": 0.0 }
   ]
 }
 ```
 
-VelocityとKey Trackingは組み込みSourceのため、Source定義なしで`routes`から参照できます。Target ID・Range・Curveの正本は`docs/instrument-definition.md`です。
+VelocityとKey Trackingは組み込みSourceのため、Source定義なしで`routes`から参照できます。LFO、Step、Sample Hold、Smooth Randomは`rate.unit`を`per_second`または`per_beat`から選びます。MSEGのSegment `duration`も`seconds`または`beats`です。Target ID・Range・Curveの正本は`docs/instrument-definition.md`です。
+
+Sourceの使い分けは、Note全体で固定する`Random`、一定間隔で値が切り替わる`Sample Hold`、切替間を補間する`Smooth Random`、段階値を順番に保持する`Step`、複数Segmentを進む`MSEG`です。Tempoへ追従させる周期・更新間隔には`per_beat` / `beats`を使い、時間で固定したい場合は`per_second` / `seconds`を使います。Macroは複数Targetをまとめて操作する0〜1のSource、VectorはLayerのConstant-power Mixを操作するTargetです。
 
 Routeの`depth.value`はTargetに意味のあるUnitで書きます。Linear TargetはNative Domainへ加算し、Log2 TargetはOctave Domainへ加算します。たとえばTuningの`20 cents`、Filter Cutoffの`2 octaves`、Gainの`-9 decibels`のように、旧来の全Rangeに対する割合へ換算しません。
 
@@ -609,7 +617,7 @@ sonalloy instrument inspect <definition> --json    # 実行値を機械可読で
 ```
 
 - `validate`の成功は`valid <path>`。Warningは`print_warnings`で表示されるため必ず確認する
-- `inspect`でPolyphony、Layer Trigger、Generator詳細、Gain / Pan / Tuning、Envelope、Processor Chain、ParameterのNative / Modulation Unit、Source Polarity、Route Effect、Reachable Range、Warningを確認する
+- `inspect`でMode、Voice Count、Layer Trigger、Generator詳細、Gain / Pan / Tuning、Envelope、Processor Chain、Macro / Vector、ParameterのNative / Modulation Unit、Source Polarity、Route Effect、Reachable Range、Warningを確認する
 - Errorには`layers[0].envelope.attack_seconds`のようなField Pathが付くため、そのまま該当箇所へ反映できる
 - Warningが残る場合、Sonalloyは「他LayerでRenderを継続する」設計のため、意図しない無効化がないかを確認する
 
@@ -688,6 +696,8 @@ sonalloy play <definition> --midi-device <id>
 | `--gate` | Note OnからNote Offまでの時間（秒） | `0.5` |
 | `--tail` | 最後のNote Off後の追加時間（秒） | `render note`: `0.5` / ほかのrender: `1.0` |
 | `--tempo` | 処理Tempo（BPM）。Tempo Sync Sampleへ適用 | `120` |
+| `--time-signature` | Realtimeの拍子（`numerator/denominator`） | `4/4` |
+| `--macro-cc <id=cc>` | MacroをMIDI CCへ割り当てる。Repeatable | なし |
 | `--sample-rate` | Sample Rate（Hz） | `48000` |
 | `--block-size` | 処理最大Block Size（Frame） | `257` |
 | `--output` | Stereo WAV出力先（必須） | — |
@@ -702,7 +712,7 @@ sonalloy play <definition> --midi-device <id>
 - `render events`ではNote Eventと同じ絶対Frame位置にParameter Change（`native_value`）/ Pitch Bend / Mod Wheel / Aftertouch / Sustain Pedal（`down`）を記述できる。`render midi`ではMIDI Pitch Bend / CC1 / Channel Aftertouch / CC64が同じ実行時Eventへ変換される
 - Time Stretchを含む場合は報告Latencyが`inspect`と成功JSONへ表示され、CLIが前置きLatencyを除去して演奏タイムラインのFrame 0からWAVを生成する
 
-`--analyze`は無音信号（ゼロ）のdBFSを`null`で返し、Activityの閾値は-80 dBFS、ContinuityのLarge Delta閾値は0.25です。`--trace`はFrame 0、既定480 Frame間隔、Event後、最終FrameをLatency補正後のTimelineで記録します。`final`はRoute加算とClamp後のNative値です。
+`--analyze`は無音信号（ゼロ）のdBFSを`null`で返し、Activityの閾値は-80 dBFS、ContinuityのLarge Delta閾値は0.25です。`--trace`はFrame 0、既定480 Frame間隔、Event後、最終FrameをLatency補正後のTimelineで記録します。`final`はRoute加算とClamp後のNative値です。Portamento中のLayer Tuningには`portamento_offset_cents`と、Offset適用後のNative値`effective_value`も記録されます。MacroはInstrument単位で観測されます。
 
 人間の確認項目は`docs/testing-and-sound-review.md`にまとめています。RealtimeではNote、Pitch Bend、Mod Wheel、Channel Aftertouch、Sustainを含む入力、256 / 128 FrameのBuffer、10分以上の連続演奏、Xrun・Fatal Fault・Stuck Note・Queue Overflowを確認します。
 

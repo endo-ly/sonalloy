@@ -2,7 +2,6 @@ use crate::compiler::{
     CompiledGenerator, CompiledInstrument, CompiledLayer, CompiledProcessorKind, CompiledSourceRef,
     CompiledVoiceSource, GeneratorOutputMode, SourceHandle, db_to_linear,
 };
-use crate::definition::LfoWaveform;
 use crate::process::{NoteId, ProcessError, ProcessSpec};
 
 use super::adsr::AdsrRuntime;
@@ -13,8 +12,8 @@ use super::modulation::{
     apply_domain_sum_with_maximum, route_domain_delta,
 };
 use super::processor::{LayerProcessorChain, ProcessorTargetSpan, StereoProcessorChain};
-use super::random::{bipolar_f32, splitmix64_finalizer};
 use super::smoothing::{Smoother, rounded_frame_count};
+use super::source::VoiceSourceRuntime;
 
 const GAIN_SMOOTHING_SECONDS: f64 = 0.005;
 
@@ -45,6 +44,8 @@ struct PendingNote {
     key_down: bool,
     sustain_held: bool,
 }
+
+const MONOPHONIC_PORTAMENTO_DEFAULT_FRAMES: usize = 0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PreparedLayerSelection {
@@ -266,14 +267,6 @@ impl LayerRuntime {
     }
 }
 
-enum VoiceSourceRuntime {
-    Velocity(f32),
-    KeyTracking(f32),
-    Lfo { phase: f32 },
-    Envelope(AdsrRuntime),
-    Random(f32),
-}
-
 /// One prepared voice and its owned DSP and source state.
 pub(crate) struct VoiceRuntime {
     state: VoiceState,
@@ -295,6 +288,8 @@ pub(crate) struct VoiceRuntime {
     pending_layer_selection: Vec<PreparedLayerSelection>,
     steal_fade_total: usize,
     steal_fade_remaining: usize,
+    pitch_glide: Smoother,
+    pitch_glide_span: ValueSpan,
 }
 
 impl VoiceRuntime {
@@ -315,15 +310,7 @@ impl VoiceRuntime {
             .collect::<Vec<_>>();
         let source_states = source_definitions
             .iter()
-            .map(|source| match source {
-                CompiledVoiceSource::Velocity => VoiceSourceRuntime::Velocity(0.0),
-                CompiledVoiceSource::KeyTracking => VoiceSourceRuntime::KeyTracking(-1.0),
-                CompiledVoiceSource::Lfo(value) => VoiceSourceRuntime::Lfo { phase: value.phase },
-                CompiledVoiceSource::Envelope(value) => {
-                    VoiceSourceRuntime::Envelope(AdsrRuntime::new(value.envelope))
-                }
-                CompiledVoiceSource::Random(_) => VoiceSourceRuntime::Random(0.0),
-            })
+            .map(VoiceSourceRuntime::new)
             .collect::<Vec<_>>();
         let source_spans = vec![
             ValueSpan {
@@ -360,6 +347,11 @@ impl VoiceRuntime {
             pending_layer_selection: vec![PreparedLayerSelection::Inactive; compiled.layers.len()],
             steal_fade_total: 0,
             steal_fade_remaining: 0,
+            pitch_glide: Smoother::new(0.0),
+            pitch_glide_span: ValueSpan {
+                start: 0.0,
+                end: 0.0,
+            },
         })
     }
 
@@ -380,6 +372,10 @@ impl VoiceRuntime {
             .map(|note_id| (note_id, self.note_number, self.velocity, self.state))
     }
 
+    pub(crate) fn portamento_offset_cents(&self) -> f32 {
+        self.pitch_glide.current()
+    }
+
     pub(crate) fn trace_layer_active(&self, index: usize) -> bool {
         self.layers.get(index).is_some_and(|layer| layer.active)
     }
@@ -391,13 +387,7 @@ impl VoiceRuntime {
             (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value))
             | (CompiledVoiceSource::KeyTracking, VoiceSourceRuntime::KeyTracking(value))
             | (CompiledVoiceSource::Random(_), VoiceSourceRuntime::Random(value)) => Some(*value),
-            (CompiledVoiceSource::Lfo(value), VoiceSourceRuntime::Lfo { phase }) => {
-                Some(lfo_value(value.waveform, *phase))
-            }
-            (CompiledVoiceSource::Envelope(_), VoiceSourceRuntime::Envelope(envelope)) => {
-                Some(envelope.current_value())
-            }
-            _ => None,
+            _ => state.current_value(definition),
         }
     }
 
@@ -435,6 +425,61 @@ impl VoiceRuntime {
         if fade_frames == 0 {
             self.complete_steal(compiled)?;
         }
+        Ok(())
+    }
+
+    pub(crate) fn transition_legato(
+        &mut self,
+        request: NoteRequest,
+        portamento_frames: Option<usize>,
+    ) -> Result<(), ProcessError> {
+        if self.state != VoiceState::Active || self.note_id.is_none() {
+            return Err(invalid_state());
+        }
+        let current_pitch = f32::from(self.note_number) * 100.0 + self.pitch_glide.current();
+        let target_offset = current_pitch - f32::from(request.note_number) * 100.0;
+        self.note_id = Some(request.note_id);
+        self.note_number = request.note_number;
+        self.velocity = request.velocity;
+        self.started_at_frame = request.started_at_frame;
+        self.key_down = true;
+        self.sustain_held = false;
+        self.pitch_glide.reset(target_offset);
+        self.pitch_glide.set_target(
+            0.0,
+            portamento_frames.unwrap_or(MONOPHONIC_PORTAMENTO_DEFAULT_FRAMES),
+        );
+        for (definition, state) in self.source_definitions.iter().zip(&mut self.source_states) {
+            state.transition_note(
+                definition,
+                request.note_id,
+                request.note_number,
+                request.velocity,
+            );
+        }
+        Ok(())
+    }
+
+    pub(crate) fn retrigger_monophonic(
+        &mut self,
+        compiled: &CompiledInstrument,
+        request: NoteRequest,
+        layer_selection: &[PreparedLayerSelection],
+        portamento_frames: Option<usize>,
+    ) -> Result<(), ProcessError> {
+        let current_pitch = if self.note_id.is_some() {
+            f32::from(self.note_number) * 100.0 + self.pitch_glide.current()
+        } else {
+            f32::from(request.note_number) * 100.0
+        };
+        self.reset_note_state()?;
+        self.activate_note(compiled, request, layer_selection, true, false)?;
+        let target_offset = current_pitch - f32::from(request.note_number) * 100.0;
+        self.pitch_glide.reset(target_offset);
+        self.pitch_glide.set_target(
+            0.0,
+            portamento_frames.unwrap_or(MONOPHONIC_PORTAMENTO_DEFAULT_FRAMES),
+        );
         Ok(())
     }
 
@@ -507,9 +552,7 @@ impl VoiceRuntime {
             }
         }
         for state in &mut self.source_states {
-            if let VoiceSourceRuntime::Envelope(envelope) = state {
-                envelope.note_off();
-            }
+            state.note_off();
         }
         self.key_down = false;
         self.sustain_held = false;
@@ -569,7 +612,7 @@ impl VoiceRuntime {
             if self.state == VoiceState::Idle {
                 break;
             }
-            let mut chunk = self.next_voice_boundary(frames - offset, sample_rate);
+            let mut chunk = self.next_voice_boundary(frames - offset, sample_rate, tempo_bpm);
             if self.state == VoiceState::StealFading {
                 chunk = chunk.min(self.steal_fade_remaining);
             }
@@ -581,7 +624,12 @@ impl VoiceRuntime {
                 chunk = 1.min(frames - offset);
             }
             let subspan = shared.subspan(offset, chunk);
-            self.advance_source_spans(chunk, sample_rate);
+            self.advance_source_spans(chunk, sample_rate, tempo_bpm)?;
+            let (pitch_start, pitch_end) = self.pitch_glide.span(chunk);
+            self.pitch_glide_span = ValueSpan {
+                start: pitch_start,
+                end: pitch_end,
+            };
             self.evaluate_targets(compiled, subspan)?;
             self.render_active_segment(
                 chunk,
@@ -753,8 +801,8 @@ impl VoiceRuntime {
                 let finished = layer.render_source(
                     frames,
                     self.note_number,
-                    target.tuning.start,
-                    target.tuning.end,
+                    target.tuning.start + self.pitch_glide_span.start,
+                    target.tuning.end + self.pitch_glide_span.end,
                     sample_rate,
                     tempo_bpm,
                     target.generator,
@@ -777,10 +825,7 @@ impl VoiceRuntime {
             } else {
                 true
             };
-            let gain = ValueSpan {
-                start: db_to_linear(target.gain.start),
-                end: db_to_linear(target.gain.end),
-            };
+            let gain = linear_gain_span(target.gain, target.gain_weight);
             let (mono_left_start, mono_right_start) = constant_power_pan(target.pan.start);
             let (mono_left_end, mono_right_end) = constant_power_pan(target.pan.end);
             let mono_left = ValueSpan {
@@ -863,6 +908,11 @@ impl VoiceRuntime {
         self.pending = None;
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
+        self.pitch_glide.reset(0.0);
+        self.pitch_glide_span = ValueSpan {
+            start: 0.0,
+            end: 0.0,
+        };
         self.reset_source_state();
     }
 
@@ -871,7 +921,15 @@ impl VoiceRuntime {
             layer.reset_state()?;
         }
         self.processors.reset()?;
+        self.pending = None;
+        self.steal_fade_total = 0;
+        self.steal_fade_remaining = 0;
         self.reset_source_state();
+        self.pitch_glide.reset(0.0);
+        self.pitch_glide_span = ValueSpan {
+            start: 0.0,
+            end: 0.0,
+        };
         Ok(())
     }
 
@@ -885,51 +943,23 @@ impl VoiceRuntime {
             if !self.source_used[index] {
                 continue;
             }
-            match (definition, state) {
-                (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value)) => {
-                    *value = f32::from(note.velocity) / 127.0;
-                }
-                (CompiledVoiceSource::KeyTracking, VoiceSourceRuntime::KeyTracking(value)) => {
-                    *value = f32::from(note.note_number) / 127.0 * 2.0 - 1.0;
-                }
-                (CompiledVoiceSource::Lfo(value), VoiceSourceRuntime::Lfo { phase }) => {
-                    *phase = value.phase;
-                }
-                (CompiledVoiceSource::Envelope(_), VoiceSourceRuntime::Envelope(envelope)) => {
-                    envelope.note_on();
-                }
-                (CompiledVoiceSource::Random(value), VoiceSourceRuntime::Random(random)) => {
-                    *random = deterministic_random(value.seed, note.note_id, value.source_hash);
-                }
-                _ => {}
-            }
+            state.note_on(definition, note.note_id, note.note_number, note.velocity);
         }
     }
 
     fn reset_source_state(&mut self) {
         for (definition, state) in self.source_definitions.iter().zip(&mut self.source_states) {
-            match (definition, state) {
-                (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value)) => {
-                    *value = 0.0;
-                }
-                (CompiledVoiceSource::KeyTracking, VoiceSourceRuntime::KeyTracking(value)) => {
-                    *value = -1.0;
-                }
-                (CompiledVoiceSource::Lfo(value), VoiceSourceRuntime::Lfo { phase }) => {
-                    *phase = value.phase;
-                }
-                (CompiledVoiceSource::Envelope(_), VoiceSourceRuntime::Envelope(envelope)) => {
-                    envelope.reset();
-                }
-                (CompiledVoiceSource::Random(_), VoiceSourceRuntime::Random(random)) => {
-                    *random = 0.0;
-                }
-                _ => {}
-            }
+            state.reset(definition);
         }
     }
 
-    fn advance_source_spans(&mut self, frames: usize, sample_rate: f64) {
+    fn advance_source_spans(
+        &mut self,
+        frames: usize,
+        sample_rate: f64,
+        tempo_bpm: f64,
+    ) -> Result<(), ProcessError> {
+        let note_id = self.note_id.unwrap_or_default();
         for (((definition, state), span), used) in self
             .source_definitions
             .iter()
@@ -944,39 +974,9 @@ impl VoiceRuntime {
                 };
                 continue;
             }
-            match (definition, state) {
-                (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value))
-                | (CompiledVoiceSource::KeyTracking, VoiceSourceRuntime::KeyTracking(value))
-                | (CompiledVoiceSource::Random(_), VoiceSourceRuntime::Random(value)) => {
-                    *span = ValueSpan {
-                        start: *value,
-                        end: *value,
-                    };
-                }
-                (CompiledVoiceSource::Lfo(value), VoiceSourceRuntime::Lfo { phase }) => {
-                    let start_phase = *phase;
-                    #[allow(clippy::cast_precision_loss)]
-                    let increment = f64::from(value.rate_hz) / sample_rate * frames as f64;
-                    #[allow(clippy::cast_possible_truncation)]
-                    let end_phase = (f64::from(start_phase) + increment).fract() as f32;
-                    *phase = end_phase;
-                    *span = ValueSpan {
-                        start: lfo_value(value.waveform, start_phase),
-                        end: lfo_value(value.waveform, end_phase),
-                    };
-                }
-                (CompiledVoiceSource::Envelope(_), VoiceSourceRuntime::Envelope(envelope)) => {
-                    let (start, end) = envelope.span(frames);
-                    *span = ValueSpan { start, end };
-                }
-                _ => {
-                    *span = ValueSpan {
-                        start: 0.0,
-                        end: 0.0,
-                    }
-                }
-            }
+            *span = state.advance(definition, frames, sample_rate, tempo_bpm, note_id)?;
         }
+        Ok(())
     }
 
     #[allow(clippy::too_many_lines)]
@@ -1094,6 +1094,10 @@ impl VoiceRuntime {
             };
             self.targets.layers[index] = LayerTargetSpan {
                 gain: self.evaluate_target(compiled, layer.parameters.gain, shared)?,
+                gain_weight: ValueSpan {
+                    start: 1.0,
+                    end: 1.0,
+                },
                 pan,
                 tuning: self.evaluate_target(compiled, layer.parameters.tuning, shared)?,
                 generator,
@@ -1106,6 +1110,41 @@ impl VoiceRuntime {
         for (processor_index, processor) in compiled.voice_processors.iter().enumerate() {
             self.targets.voice_processors[processor_index] =
                 self.evaluate_processor_target(compiled, processor, shared)?;
+        }
+        for vector in &compiled.vectors {
+            match *vector {
+                crate::compiler::CompiledVector::TwoWay { position, layers } => {
+                    let position = self.evaluate_target(compiled, position, shared)?;
+                    let left = map_span(position, |value| {
+                        (value * std::f32::consts::FRAC_PI_2).cos()
+                    });
+                    let right = map_span(position, |value| {
+                        (value * std::f32::consts::FRAC_PI_2).sin()
+                    });
+                    self.targets.layers[layers[0]].gain_weight =
+                        multiply_span(self.targets.layers[layers[0]].gain_weight, left);
+                    self.targets.layers[layers[1]].gain_weight =
+                        multiply_span(self.targets.layers[layers[1]].gain_weight, right);
+                }
+                crate::compiler::CompiledVector::FourWay { x, y, layers } => {
+                    let x = self.evaluate_target(compiled, x, shared)?;
+                    let y = self.evaluate_target(compiled, y, shared)?;
+                    let x_cos = map_span(x, |value| (value * std::f32::consts::FRAC_PI_2).cos());
+                    let x_sin = map_span(x, |value| (value * std::f32::consts::FRAC_PI_2).sin());
+                    let y_cos = map_span(y, |value| (value * std::f32::consts::FRAC_PI_2).cos());
+                    let y_sin = map_span(y, |value| (value * std::f32::consts::FRAC_PI_2).sin());
+                    let weights = [
+                        multiply_span(x_cos, y_cos),
+                        multiply_span(x_sin, y_cos),
+                        multiply_span(x_cos, y_sin),
+                        multiply_span(x_sin, y_sin),
+                    ];
+                    for (layer, weight) in layers.into_iter().zip(weights) {
+                        self.targets.layers[layer].gain_weight =
+                            multiply_span(self.targets.layers[layer].gain_weight, weight);
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -1375,9 +1414,9 @@ impl VoiceRuntime {
                     .get(handle.index())
                     .copied()
                     .ok_or_else(invalid_state)?,
-                CompiledSourceRef::PitchBend => shared.pitch_bend(),
-                CompiledSourceRef::ModWheel => shared.mod_wheel(),
-                CompiledSourceRef::Aftertouch => shared.aftertouch(),
+                CompiledSourceRef::Instrument(handle) => {
+                    shared.instrument_source(handle).ok_or_else(invalid_state)?
+                }
             };
             start_domain_sum += route_domain_delta(source.start, route.depth, route.curve);
             end_domain_sum += route_domain_delta(source.end, route.depth, route.curve);
@@ -1398,7 +1437,7 @@ impl VoiceRuntime {
         Ok(ValueSpan { start, end })
     }
 
-    fn next_voice_boundary(&self, remaining: usize, sample_rate: f64) -> usize {
+    fn next_voice_boundary(&self, remaining: usize, sample_rate: f64, tempo_bpm: f64) -> usize {
         let mut boundary = remaining;
         for layer in &self.layers {
             if !layer.active {
@@ -1410,6 +1449,9 @@ impl VoiceRuntime {
                 }
             }
         }
+        if let Some(frames) = self.pitch_glide.frames_until_target() {
+            boundary = boundary.min(frames);
+        }
         for ((definition, state), used) in self
             .source_definitions
             .iter()
@@ -1419,30 +1461,13 @@ impl VoiceRuntime {
             if !*used {
                 continue;
             }
-            if let (CompiledVoiceSource::Lfo(value), VoiceSourceRuntime::Lfo { phase }) =
-                (definition, state)
+            if let Some(frames) =
+                state.frames_until_boundary(definition, sample_rate, tempo_bpm, remaining)
             {
-                if value.waveform == LfoWaveform::Triangle {
-                    boundary =
-                        boundary.min(lfo_boundary(*phase, value.rate_hz, sample_rate, remaining));
-                }
-            }
-            if let VoiceSourceRuntime::Envelope(envelope) = state {
-                if let Some(frames) = envelope.frames_until_segment_end() {
-                    if frames > 0 {
-                        boundary = boundary.min(frames);
-                    }
-                }
+                boundary = boundary.min(frames);
             }
         }
         boundary.max(1).min(remaining)
-    }
-}
-
-fn lfo_value(waveform: LfoWaveform, phase: f32) -> f32 {
-    match waveform {
-        LfoWaveform::Sine => (std::f32::consts::TAU * phase).sin(),
-        LfoWaveform::Triangle => 1.0 - 4.0 * (phase - 0.5).abs(),
     }
 }
 
@@ -1452,22 +1477,28 @@ fn invalid_state() -> ProcessError {
     }
 }
 
-fn lfo_boundary(phase: f32, rate_hz: f32, sample_rate: f64, remaining: usize) -> usize {
-    #[allow(clippy::cast_precision_loss)]
-    let increment = f64::from(rate_hz) / sample_rate;
-    if increment <= 0.0 || !increment.is_finite() {
-        return remaining;
+fn map_span(span: ValueSpan, map: impl Fn(f32) -> f32) -> ValueSpan {
+    ValueSpan {
+        start: map(span.start),
+        end: map(span.end),
     }
-    let phase = f64::from(phase.fract());
-    let next = if phase < 0.5 { 0.5 } else { 1.0 };
-    let distance = (next - phase) / increment;
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let frames = distance.ceil() as usize;
-    frames.max(1).min(remaining)
 }
 
-fn deterministic_random(seed: u64, note_id: NoteId, source_hash: u64) -> f32 {
-    bipolar_f32(splitmix64_finalizer(seed ^ note_id ^ source_hash))
+fn multiply_span(left: ValueSpan, right: ValueSpan) -> ValueSpan {
+    ValueSpan {
+        start: left.start * right.start,
+        end: left.end * right.end,
+    }
+}
+
+fn linear_gain_span(gain_db: ValueSpan, weight: ValueSpan) -> ValueSpan {
+    multiply_span(
+        ValueSpan {
+            start: db_to_linear(gain_db.start),
+            end: db_to_linear(gain_db.end),
+        },
+        weight,
+    )
 }
 
 #[cfg(test)]
@@ -1476,20 +1507,90 @@ mod tests {
     use crate::runtime::modulation::curve_value;
 
     #[test]
+    fn vector_weight_scales_linear_gain_after_db_conversion() {
+        let gain = linear_gain_span(
+            ValueSpan {
+                start: -20.0,
+                end: -20.0,
+            },
+            ValueSpan {
+                start: 0.5,
+                end: 0.5,
+            },
+        );
+
+        assert!((gain.start - 0.05).abs() < 1.0e-6);
+        assert!((gain.end - 0.05).abs() < 1.0e-6);
+    }
+
+    #[test]
     fn lfo_waveforms_match_the_definition() {
-        assert!((lfo_value(LfoWaveform::Sine, 0.0)).abs() < 1.0e-6);
-        assert!((lfo_value(LfoWaveform::Sine, 0.25) - 1.0).abs() < 1.0e-6);
-        assert!((lfo_value(LfoWaveform::Sine, 0.5)).abs() < 1.0e-6);
-        assert!((lfo_value(LfoWaveform::Triangle, 0.0) + 1.0).abs() < 1.0e-6);
-        assert!(lfo_value(LfoWaveform::Triangle, 0.5) - 1.0 < 1.0e-6);
-        assert!((lfo_value(LfoWaveform::Triangle, 1.0) + 1.0).abs() < 1.0e-6);
+        assert!(
+            (crate::runtime::source::lfo_value(crate::definition::LfoWaveform::Sine, 0.0)).abs()
+                < 1.0e-6
+        );
+        assert!(
+            (crate::runtime::source::lfo_value(crate::definition::LfoWaveform::Sine, 0.25) - 1.0)
+                .abs()
+                < 1.0e-6
+        );
+        assert!(
+            (crate::runtime::source::lfo_value(crate::definition::LfoWaveform::Sine, 0.5)).abs()
+                < 1.0e-6
+        );
+        assert!(
+            (crate::runtime::source::lfo_value(crate::definition::LfoWaveform::Triangle, 0.0)
+                + 1.0)
+                .abs()
+                < 1.0e-6
+        );
+        assert!(
+            crate::runtime::source::lfo_value(crate::definition::LfoWaveform::Triangle, 0.5) - 1.0
+                < 1.0e-6
+        );
+        assert!(
+            (crate::runtime::source::lfo_value(crate::definition::LfoWaveform::Triangle, 1.0)
+                + 1.0)
+                .abs()
+                < 1.0e-6
+        );
     }
 
     #[test]
     fn triangle_boundary_is_sample_accurate() {
-        assert_eq!(lfo_boundary(0.0, 1.0, 48_000.0, 30_000), 24_000);
-        assert_eq!(lfo_boundary(0.5, 1.0, 48_000.0, 128), 128);
-        assert_eq!(lfo_boundary(0.9, 1.0, 48_000.0, 128), 128);
+        assert_eq!(
+            crate::runtime::source::triangle_boundary(
+                0.0,
+                1.0,
+                crate::definition::ModulationRateUnit::PerSecond,
+                48_000.0,
+                120.0,
+                30_000
+            ),
+            Some(24_000)
+        );
+        assert_eq!(
+            crate::runtime::source::triangle_boundary(
+                0.5,
+                1.0,
+                crate::definition::ModulationRateUnit::PerSecond,
+                48_000.0,
+                120.0,
+                128
+            ),
+            Some(128)
+        );
+        assert_eq!(
+            crate::runtime::source::triangle_boundary(
+                0.9,
+                1.0,
+                crate::definition::ModulationRateUnit::PerSecond,
+                48_000.0,
+                120.0,
+                128
+            ),
+            Some(128)
+        );
     }
 
     #[test]
@@ -1510,15 +1611,30 @@ mod tests {
     #[test]
     fn random_mix_is_stable_and_bipolar() {
         let source_hash = crate::compiler::source_id_hash("voice_pan");
-        let value = deterministic_random(8128, 60, source_hash);
+        let value = crate::runtime::source::deterministic_random(8128, 60, source_hash, 0);
         assert!((value - 0.094_552_636).abs() < 1.0e-6);
         assert!((-1.0..=1.0).contains(&value));
-        assert!((value - deterministic_random(8128, 60, source_hash)).abs() < f32::EPSILON);
-        assert!((value - deterministic_random(8129, 60, source_hash)).abs() > f32::EPSILON);
-        assert!((value - deterministic_random(8128, 61, source_hash)).abs() > f32::EPSILON);
         assert!(
-            (value - deterministic_random(8128, 60, crate::compiler::source_id_hash("other_pan"),))
-                .abs()
+            (value - crate::runtime::source::deterministic_random(8128, 60, source_hash, 0)).abs()
+                < f32::EPSILON
+        );
+        assert!(
+            (value - crate::runtime::source::deterministic_random(8129, 60, source_hash, 0)).abs()
+                > f32::EPSILON
+        );
+        assert!(
+            (value - crate::runtime::source::deterministic_random(8128, 61, source_hash, 0)).abs()
+                > f32::EPSILON
+        );
+        assert!(
+            (value
+                - crate::runtime::source::deterministic_random(
+                    8128,
+                    60,
+                    crate::compiler::source_id_hash("other_pan"),
+                    0
+                ))
+            .abs()
                 > f32::EPSILON
         );
     }

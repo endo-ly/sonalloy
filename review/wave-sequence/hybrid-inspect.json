@@ -6,6 +6,8 @@
     "author": "Sonalloy",
     "description": "Wavetable, granular, sequence, attack, and release layers"
   },
+  "mode": "polyphonic",
+  "voice_count": 8,
   "polyphony": 8,
   "voice_stealing": "quietest_releasing_then_oldest",
   "reported_latency_frames": 0,
@@ -1147,6 +1149,8 @@
       }
     }
   ],
+  "macros": [],
+  "vectors": [],
   "sources": [
     {
       "id": "velocity",
@@ -1178,13 +1182,34 @@
         "polarity": "bipolar"
       },
       "waveform": "sine",
-      "rate_hz": 0.18,
+      "rate": 0.18,
+      "rate_unit": "per_second",
       "phase": 0.0
     },
     {
       "id": "mod_wheel",
       "scope": "instrument",
       "kind": "external_control",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "transport_beat_phase",
+      "scope": "instrument",
+      "kind": "beat_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "transport_bar_phase",
+      "scope": "instrument",
+      "kind": "bar_phase",
       "value_range": {
         "min": 0.0,
         "max": 1.0,

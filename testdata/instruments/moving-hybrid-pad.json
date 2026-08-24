@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Moving Hybrid Pad",
     "author": "Sonalloy",
     "description": "A hybrid pad with internal modulation across layers and filter"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -106,8 +107,11 @@
         "type": "lfo",
         "id": "filter_motion",
         "waveform": "sine",
-        "rate_hz": 0.25,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 0.25,
+          "unit": "per_second"
+        }
       },
       {
         "type": "envelope",
@@ -130,7 +134,8 @@
         "depth": {
           "value": 5.76000023,
           "unit": "decibels"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "velocity",
@@ -138,7 +143,8 @@
         "depth": {
           "value": 5.76000023,
           "unit": "decibels"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "filter_motion",
@@ -146,7 +152,8 @@
         "depth": {
           "value": 1.79384112,
           "unit": "octaves"
-        },        "curve": "smooth_step"
+        },
+        "curve": "smooth_step"
       },
       {
         "source": "filter_motion",
@@ -154,7 +161,8 @@
         "depth": {
           "value": 0.159999996,
           "unit": "pan"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "key_tracking",
@@ -162,7 +170,8 @@
         "depth": {
           "value": 0.797262728,
           "unit": "octaves"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "mod_wheel",
@@ -170,7 +179,8 @@
         "depth": {
           "value": 1.19589412,
           "unit": "octaves"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "pitch_motion",
@@ -178,7 +188,8 @@
         "depth": {
           "value": 96,
           "unit": "cents"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "voice_pan",
@@ -186,8 +197,11 @@
         "depth": {
           "value": 0.200000003,
           "unit": "pan"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

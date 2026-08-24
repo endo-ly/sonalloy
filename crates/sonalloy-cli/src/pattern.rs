@@ -2,11 +2,13 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 use sonalloy_core::{
-    CompiledInstrument, Diagnostic, DiagnosticCode, ProcessEventKind, ScheduledEvent, TempoMap,
+    CompiledInstrument, Diagnostic, DiagnosticCode, MusicalTimeMap, ProcessEventKind,
+    ScheduledEvent,
 };
 
 use crate::musical_time::{
-    MusicalTimeError, TempoPoint, build_tempo_map, musical_duration_seconds, tick_to_frame,
+    MusicalTimeError, TempoPoint, TimeSignaturePoint, build_musical_time_map,
+    musical_duration_seconds, tick_to_frame,
 };
 
 pub(crate) const PATTERN_SCHEMA_VERSION: u32 = 1;
@@ -80,7 +82,7 @@ impl PatternEvent {
 #[derive(Debug, Clone)]
 pub(crate) struct CompiledPattern {
     pub(crate) events: Vec<ScheduledEvent>,
-    pub(crate) tempo_map: TempoMap,
+    pub(crate) musical_time_map: MusicalTimeMap,
     pub(crate) length_frames: u64,
     pub(crate) one_shot_duration_frames: u64,
 }
@@ -582,7 +584,13 @@ pub(crate) fn compile(
             0
         }
     };
-    let tempo_map = match build_tempo_map(pattern.ticks_per_beat, &tempo_changes, sample_rate) {
+    let time_signature_changes = time_signature_points(pattern);
+    let musical_time_map = match build_musical_time_map(
+        pattern.ticks_per_beat,
+        &tempo_changes,
+        &time_signature_changes,
+        sample_rate,
+    ) {
         Ok(map) => Some(map),
         Err(error) => {
             diagnostics.push(time_error(error, "tempo_changes"));
@@ -786,7 +794,7 @@ pub(crate) fn compile(
             "pattern duration overflows the frame counter",
         )]);
     };
-    let Some(tempo_map) = tempo_map else {
+    let Some(musical_time_map) = musical_time_map else {
         return Err(vec![Diagnostic::error(
             DiagnosticCode::ValueOutOfRange,
             "pattern tempo map is invalid",
@@ -800,7 +808,7 @@ pub(crate) fn compile(
                 kind: event.kind,
             })
             .collect(),
-        tempo_map,
+        musical_time_map,
         length_frames,
         one_shot_duration_frames,
     })
@@ -964,6 +972,18 @@ pub(crate) fn tempo_points(pattern: &PatternDefinition) -> Vec<TempoPoint> {
         .map(|change| TempoPoint {
             tick: change.tick,
             bpm: change.bpm,
+        })
+        .collect()
+}
+
+pub(crate) fn time_signature_points(pattern: &PatternDefinition) -> Vec<TimeSignaturePoint> {
+    pattern
+        .time_signature_changes
+        .iter()
+        .map(|change| TimeSignaturePoint {
+            tick: change.tick,
+            numerator: u16::from(change.numerator),
+            denominator: u16::from(change.denominator),
         })
         .collect()
 }

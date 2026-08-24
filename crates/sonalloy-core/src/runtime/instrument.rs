@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use crate::compiler::{
-    CompiledGenerator, CompiledInstrument, CompiledProcessor, CompiledProcessorKind,
-    CompiledSampleZone, CompiledSourceRef,
+    CompiledGenerator, CompiledInstrument, CompiledInstrumentSource, CompiledPerformanceMode,
+    CompiledProcessor, CompiledProcessorKind, CompiledSampleZone, CompiledSourceRef,
 };
 use crate::definition::LayerTriggerEvent;
 use crate::parameter::{ParameterHandle, ParameterOwner, ParameterScale};
 use crate::process::{
-    InstrumentProcessor, ProcessBlock, ProcessError, ProcessEventKind, ProcessSpec, clear_output,
+    InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessEventKind, ProcessSpec,
+    clear_output,
 };
 use crate::trace::{
     TraceContribution, TraceDepth, TraceObservation, TraceRoute, TraceVoice, TraceVoiceState,
@@ -19,11 +20,42 @@ use super::modulation::{
 };
 use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
+use super::source::ceil_boundary_frames;
 use super::voice::{NoteRequest, PreparedLayerSelection, VoiceRuntime, VoiceState};
 
 const CONTROL_SMOOTHING_SECONDS: f64 = 0.005;
 const STEAL_FADE_SECONDS: f64 = 0.005;
 const QUANTUM_FRAMES: usize = 32;
+const MAX_MONOPHONIC_HELD_NOTES: usize = 128;
+
+#[allow(clippy::cast_possible_truncation)]
+fn phase_fraction(position: f64) -> f32 {
+    position.fract() as f32
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn phase_endpoint_fraction(position: f64) -> f32 {
+    let nearest_integer = position.round();
+    if position > 0.0 && (position - nearest_integer).abs() <= 1.0e-9 {
+        1.0
+    } else {
+        position.fract() as f32
+    }
+}
+
+fn phase_span(start: f64, end: f64) -> ValueSpan {
+    ValueSpan {
+        start: phase_fraction(start),
+        end: phase_endpoint_fraction(end),
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HeldNote {
+    note_id: crate::process::NoteId,
+    note_number: u8,
+    velocity: u8,
+}
 
 struct RuntimeScratch {
     layer_mono: Vec<f32>,
@@ -32,6 +64,7 @@ struct RuntimeScratch {
     voice_left: Vec<f32>,
     voice_right: Vec<f32>,
     parameter_spans: Vec<ParameterSpanValue>,
+    instrument_source_spans: Vec<ParameterSpanValue>,
 }
 
 /// Prepared polyphonic runtime for one immutable compiled instrument.
@@ -45,6 +78,7 @@ pub struct InstrumentRuntime {
     mod_wheel: Smoother,
     aftertouch: Smoother,
     sustain_down: bool,
+    held_notes: Vec<HeldNote>,
     global_processors: Option<StereoProcessorChain>,
     global_targets: Vec<ProcessorTargetSpan>,
     round_robin_counters: Vec<Vec<u64>>,
@@ -66,6 +100,7 @@ impl InstrumentRuntime {
                 voice_left: Vec::new(),
                 voice_right: Vec::new(),
                 parameter_spans: Vec::new(),
+                instrument_source_spans: Vec::new(),
             },
             note_layer_selection: Vec::new(),
             parameter_states: Vec::new(),
@@ -73,6 +108,7 @@ impl InstrumentRuntime {
             mod_wheel: Smoother::new(0.0),
             aftertouch: Smoother::new(0.0),
             sustain_down: false,
+            held_notes: Vec::new(),
             global_processors: None,
             global_targets: Vec::new(),
             round_robin_counters: Vec::new(),
@@ -110,6 +146,7 @@ impl InstrumentRuntime {
         handles: &[ParameterHandle],
         frame: u64,
         sample_rate: f64,
+        context: ProcessContext,
     ) -> Result<Vec<(ParameterHandle, TraceObservation)>, ProcessError> {
         let mut observations = Vec::new();
         for &handle in handles {
@@ -134,17 +171,21 @@ impl InstrumentRuntime {
                     .layers
                     .iter()
                     .position(|layer| layer.definition_index == definition_index),
-                ParameterOwner::VoiceProcessor { .. } | ParameterOwner::GlobalProcessor { .. } => {
-                    None
-                }
+                ParameterOwner::VoiceProcessor { .. }
+                | ParameterOwner::GlobalProcessor { .. }
+                | ParameterOwner::Macro { .. }
+                | ParameterOwner::VectorAxis { .. } => None,
             };
             if layer_owned && layer_index.is_none() {
                 continue;
             }
-            if matches!(descriptor.owner, ParameterOwner::GlobalProcessor { .. }) {
+            if matches!(
+                descriptor.owner,
+                ParameterOwner::GlobalProcessor { .. } | ParameterOwner::Macro { .. }
+            ) {
                 observations.push((
                     handle,
-                    self.trace_observation(handle, frame, sample_rate, None, None)?,
+                    self.trace_observation(handle, frame, sample_rate, context, None, None)?,
                 ));
                 continue;
             }
@@ -176,6 +217,7 @@ impl InstrumentRuntime {
                         handle,
                         frame,
                         sample_rate,
+                        context,
                         Some(voice_info),
                         Some(voice),
                     )?,
@@ -190,6 +232,7 @@ impl InstrumentRuntime {
         handle: ParameterHandle,
         frame: u64,
         sample_rate: f64,
+        context: ProcessContext,
         voice_info: Option<TraceVoice>,
         voice: Option<&VoiceRuntime>,
     ) -> Result<TraceObservation, ProcessError> {
@@ -214,9 +257,9 @@ impl InstrumentRuntime {
                 CompiledSourceRef::Voice(source) => voice
                     .and_then(|voice| voice.trace_source_value(source))
                     .ok_or_else(invalid_state)?,
-                CompiledSourceRef::PitchBend => self.pitch_bend.current(),
-                CompiledSourceRef::ModWheel => self.mod_wheel.current(),
-                CompiledSourceRef::Aftertouch => self.aftertouch.current(),
+                CompiledSourceRef::Instrument(source) => {
+                    self.trace_instrument_source(source, context)?
+                }
             };
             let shaped = super::modulation::curve_value(raw, route.curve);
             let contribution = super::modulation::route_domain_delta(raw, route.depth, route.curve);
@@ -249,6 +292,14 @@ impl InstrumentRuntime {
         )?;
         #[allow(clippy::cast_precision_loss)]
         let seconds = frame as f64 / sample_rate;
+        let portamento_offset_cents = voice
+            .filter(|_| {
+                matches!(descriptor.owner, ParameterOwner::Layer { .. })
+                    && descriptor.id.ends_with(".tuning")
+            })
+            .map(VoiceRuntime::portamento_offset_cents)
+            .filter(|offset| offset.total_cmp(&0.0).is_ne());
+        let effective_value = portamento_offset_cents.map(|offset| evaluated.final_value + offset);
         Ok(TraceObservation {
             frame,
             seconds,
@@ -260,6 +311,32 @@ impl InstrumentRuntime {
             before_clamp: evaluated.unclamped,
             final_value: evaluated.final_value,
             clamped: evaluated.clamped,
+            portamento_offset_cents,
+            effective_value,
+        })
+    }
+
+    fn trace_instrument_source(
+        &self,
+        handle: crate::compiler::InstrumentSourceHandle,
+        context: ProcessContext,
+    ) -> Result<f32, ProcessError> {
+        let source = self
+            .compiled
+            .instrument_sources
+            .get(handle.index())
+            .ok_or_else(invalid_state)?;
+        Ok(match source {
+            CompiledInstrumentSource::PitchBend => self.pitch_bend.current(),
+            CompiledInstrumentSource::ModWheel => self.mod_wheel.current(),
+            CompiledInstrumentSource::Aftertouch => self.aftertouch.current(),
+            CompiledInstrumentSource::Macro { parameter } => self
+                .parameter_states
+                .get(parameter.index())
+                .ok_or_else(invalid_state)?
+                .current(),
+            CompiledInstrumentSource::BeatPhase => phase_fraction(context.beat_position),
+            CompiledInstrumentSource::BarPhase => phase_fraction(context.bar_position),
         })
     }
 
@@ -332,24 +409,39 @@ impl InstrumentRuntime {
                 velocity,
             } => {
                 let request = NoteRequest::new(note_id, note_number, velocity, absolute_frame);
-                if !self.prepare_note_request(request)? {
-                    return Ok(());
+                match self.compiled.performance.mode {
+                    CompiledPerformanceMode::Polyphonic { .. } => {
+                        if !self.prepare_note_request(request)? {
+                            return Ok(());
+                        }
+                        let voice_index = self.select_voice();
+                        let fade_frames =
+                            rounded_frame_count(spec.sample_rate * STEAL_FADE_SECONDS);
+                        self.voices
+                            .get_mut(voice_index)
+                            .ok_or_else(invalid_state)?
+                            .request_note(
+                                &self.compiled,
+                                request,
+                                &self.note_layer_selection,
+                                fade_frames,
+                            )?;
+                    }
+                    CompiledPerformanceMode::Monophonic { .. } => {
+                        self.apply_monophonic_note_on(request)?;
+                    }
                 }
-                let voice_index = self.select_voice();
-                let fade_frames = rounded_frame_count(spec.sample_rate * STEAL_FADE_SECONDS);
-                self.voices
-                    .get_mut(voice_index)
-                    .ok_or_else(invalid_state)?
-                    .request_note(
-                        &self.compiled,
-                        request,
-                        &self.note_layer_selection,
-                        fade_frames,
-                    )?;
             }
             ProcessEventKind::NoteOff { note_id } => {
-                for voice in &mut self.voices {
-                    voice.release_note(&self.compiled, note_id, self.sustain_down)?;
+                if matches!(
+                    self.compiled.performance.mode,
+                    CompiledPerformanceMode::Monophonic { .. }
+                ) {
+                    self.apply_monophonic_note_off(note_id)?;
+                } else {
+                    for voice in &mut self.voices {
+                        voice.release_note(&self.compiled, note_id, self.sustain_down)?;
+                    }
                 }
             }
             ProcessEventKind::SustainPedal { down } => {
@@ -394,6 +486,142 @@ impl InstrumentRuntime {
             }
         }
         Ok(())
+    }
+
+    fn apply_monophonic_note_on(&mut self, request: NoteRequest) -> Result<(), ProcessError> {
+        if self
+            .held_notes
+            .iter()
+            .any(|note| note.note_id == request.note_id)
+        {
+            return Err(ProcessError::DuplicateNoteId {
+                note_id: request.note_id,
+            });
+        }
+        if self.held_notes.len() >= MAX_MONOPHONIC_HELD_NOTES {
+            return Err(ProcessError::MonophonicHeldNoteLimitExceeded {
+                limit: MAX_MONOPHONIC_HELD_NOTES,
+            });
+        }
+        let connected = !self.held_notes.is_empty();
+        self.held_notes.push(HeldNote {
+            note_id: request.note_id,
+            note_number: request.note_number,
+            velocity: request.velocity,
+        });
+        if !self.note_has_triggerable_layer(request) {
+            self.held_notes.pop();
+            return Ok(());
+        }
+        let CompiledPerformanceMode::Monophonic {
+            legato,
+            portamento_frames,
+        } = self.compiled.performance.mode
+        else {
+            return Err(invalid_state());
+        };
+        if connected
+            && legato
+            && self
+                .voices
+                .first()
+                .is_some_and(|voice| voice.state() == VoiceState::Active)
+        {
+            self.voices
+                .get_mut(0)
+                .ok_or_else(invalid_state)?
+                .transition_legato(request, portamento_frames)?;
+            return Ok(());
+        }
+        if !self.prepare_note_request(request)? {
+            return Ok(());
+        }
+        let fade_frames = rounded_frame_count(
+            self.spec.ok_or(ProcessError::NotPrepared)?.sample_rate * STEAL_FADE_SECONDS,
+        );
+        let voice = self.voices.get_mut(0).ok_or_else(invalid_state)?;
+        if connected {
+            voice.retrigger_monophonic(
+                &self.compiled,
+                request,
+                &self.note_layer_selection,
+                portamento_frames,
+            )?;
+        } else {
+            voice.request_note(
+                &self.compiled,
+                request,
+                &self.note_layer_selection,
+                fade_frames,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn apply_monophonic_note_off(
+        &mut self,
+        note_id: crate::process::NoteId,
+    ) -> Result<(), ProcessError> {
+        let Some(index) = self
+            .held_notes
+            .iter()
+            .position(|note| note.note_id == note_id)
+        else {
+            return Ok(());
+        };
+        let was_current = index + 1 == self.held_notes.len();
+        self.held_notes.remove(index);
+        if !was_current {
+            return Ok(());
+        }
+        let CompiledPerformanceMode::Monophonic {
+            legato,
+            portamento_frames,
+        } = self.compiled.performance.mode
+        else {
+            return Err(invalid_state());
+        };
+        if let Some(note) = self.held_notes.last().copied() {
+            let request = NoteRequest::new(
+                note.note_id,
+                note.note_number,
+                note.velocity,
+                self.absolute_frame,
+            );
+            if legato
+                && self
+                    .voices
+                    .first()
+                    .is_some_and(|voice| voice.state() == VoiceState::Active)
+            {
+                self.voices
+                    .get_mut(0)
+                    .ok_or_else(invalid_state)?
+                    .transition_legato(request, portamento_frames)?;
+            } else if self.prepare_note_request(request)? {
+                self.voices
+                    .get_mut(0)
+                    .ok_or_else(invalid_state)?
+                    .retrigger_monophonic(
+                        &self.compiled,
+                        request,
+                        &self.note_layer_selection,
+                        portamento_frames,
+                    )?;
+            }
+        } else {
+            self.voices
+                .get_mut(0)
+                .ok_or_else(invalid_state)?
+                .release_note(&self.compiled, note_id, self.sustain_down)?;
+        }
+        Ok(())
+    }
+
+    fn note_has_triggerable_layer(&self, note: NoteRequest) -> bool {
+        self.compiled.layers.iter().any(|layer| {
+            layer.trigger.matches(note.note_number, note.velocity) && layer.generator.is_available()
+        })
     }
 
     fn select_voice(&self) -> usize {
@@ -594,7 +822,60 @@ impl InstrumentRuntime {
         remaining
     }
 
-    fn advance_shared(&mut self, frames: usize) -> (ValueSpan, ValueSpan, ValueSpan) {
+    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+    fn transport_boundary_remaining(
+        &self,
+        context: ProcessContext,
+        offset: usize,
+        sample_rate: f64,
+        remaining: usize,
+    ) -> Option<usize> {
+        if !self.compiled.instrument_sources.iter().any(|source| {
+            matches!(
+                source,
+                CompiledInstrumentSource::BeatPhase | CompiledInstrumentSource::BarPhase
+            )
+        }) {
+            return None;
+        }
+        let beats_per_second = context.tempo_bpm / (60.0 * sample_rate);
+        if !beats_per_second.is_finite() || beats_per_second <= 0.0 {
+            return None;
+        }
+        let offset = offset as f64;
+        let beat_position = context.beat_position + offset * beats_per_second;
+        let bar_position = context.bar_position
+            + offset * beats_per_second / context.time_signature.beats_per_bar();
+        let beats_per_bar = context.time_signature.beats_per_bar();
+        let mut boundary = remaining;
+        for source in &*self.compiled.instrument_sources {
+            let (position, units_per_frame) = match source {
+                CompiledInstrumentSource::BeatPhase => (beat_position, beats_per_second),
+                CompiledInstrumentSource::BarPhase => {
+                    (bar_position, beats_per_second / beats_per_bar)
+                }
+                CompiledInstrumentSource::PitchBend
+                | CompiledInstrumentSource::ModWheel
+                | CompiledInstrumentSource::Aftertouch
+                | CompiledInstrumentSource::Macro { .. } => continue,
+            };
+            let next = position.floor() + 1.0;
+            let frames = (next - position) / units_per_frame;
+            if frames.is_finite() && frames >= 1.0 {
+                boundary = boundary.min(ceil_boundary_frames(frames));
+            }
+        }
+        Some(boundary.max(1).min(remaining))
+    }
+
+    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+    fn advance_shared(
+        &mut self,
+        frames: usize,
+        context: crate::process::ProcessContext,
+        offset: usize,
+        sample_rate: f64,
+    ) -> Result<(), ProcessError> {
         for (state, span) in self
             .parameter_states
             .iter_mut()
@@ -606,20 +887,60 @@ impl InstrumentRuntime {
         let (pitch_start, pitch_end) = self.pitch_bend.span(frames);
         let (wheel_start, wheel_end) = self.mod_wheel.span(frames);
         let (touch_start, touch_end) = self.aftertouch.span(frames);
-        (
-            ValueSpan {
-                start: pitch_start,
-                end: pitch_end,
-            },
-            ValueSpan {
-                start: wheel_start,
-                end: wheel_end,
-            },
-            ValueSpan {
-                start: touch_start,
-                end: touch_end,
-            },
-        )
+        let pitch = ValueSpan {
+            start: pitch_start,
+            end: pitch_end,
+        };
+        let wheel = ValueSpan {
+            start: wheel_start,
+            end: wheel_end,
+        };
+        let touch = ValueSpan {
+            start: touch_start,
+            end: touch_end,
+        };
+        let start_frame = context.absolute_frame.saturating_add(offset as u64);
+        let start_beats = context.beat_position
+            + (start_frame.saturating_sub(context.absolute_frame) as f64) * context.tempo_bpm
+                / (60.0 * sample_rate);
+        let end_beats = start_beats + frames as f64 * context.tempo_bpm / (60.0 * sample_rate);
+        let beats_per_bar = context.time_signature.beats_per_bar();
+        let start_bar = context.bar_position
+            + (start_frame.saturating_sub(context.absolute_frame) as f64) * context.tempo_bpm
+                / (60.0 * sample_rate * beats_per_bar);
+        let end_bar =
+            start_bar + frames as f64 * context.tempo_bpm / (60.0 * sample_rate * beats_per_bar);
+        for (source, span) in self
+            .compiled
+            .instrument_sources
+            .iter()
+            .zip(&mut self.scratch.instrument_source_spans)
+        {
+            let value = match source {
+                CompiledInstrumentSource::PitchBend => pitch,
+                CompiledInstrumentSource::ModWheel => wheel,
+                CompiledInstrumentSource::Aftertouch => touch,
+                CompiledInstrumentSource::Macro { parameter } => {
+                    let value = self
+                        .scratch
+                        .parameter_spans
+                        .get(parameter.index())
+                        .copied()
+                        .ok_or_else(invalid_state)?;
+                    ValueSpan {
+                        start: value.start,
+                        end: value.end,
+                    }
+                }
+                CompiledInstrumentSource::BeatPhase => phase_span(start_beats, end_beats),
+                CompiledInstrumentSource::BarPhase => phase_span(start_bar, end_bar),
+            };
+            *span = ParameterSpanValue {
+                start: value.start,
+                end: value.end,
+            };
+        }
+        Ok(())
     }
 
     fn evaluate_global_targets(
@@ -777,14 +1098,10 @@ impl InstrumentRuntime {
             .ok_or_else(invalid_state)?;
         for route in routes {
             let source = match route.source {
-                crate::compiler::CompiledSourceRef::PitchBend => shared.pitch_bend(),
-                crate::compiler::CompiledSourceRef::ModWheel => shared.mod_wheel(),
-                crate::compiler::CompiledSourceRef::Aftertouch => shared.aftertouch(),
-                crate::compiler::CompiledSourceRef::Voice(_) => {
-                    return Err(ProcessError::ProcessorFailure {
-                        kind: crate::process::ProcessorFailureKind::InvalidState,
-                    });
+                crate::compiler::CompiledSourceRef::Instrument(handle) => {
+                    shared.instrument_source(handle).ok_or_else(invalid_state)?
                 }
+                crate::compiler::CompiledSourceRef::Voice(_) => return Err(invalid_state()),
             };
             start_domain_sum += route_domain_delta(source.start, route.depth, route.curve);
             end_domain_sum += route_domain_delta(source.end, route.depth, route.curve);
@@ -807,7 +1124,7 @@ impl InstrumentRuntime {
 }
 
 impl InstrumentRuntime {
-    fn prepare_inner(&mut self, spec: ProcessSpec) -> Result<(), ProcessError> {
+    fn reset_for_prepare(&mut self) {
         self.spec = None;
         self.voices.clear();
         self.scratch.layer_mono.clear();
@@ -816,16 +1133,26 @@ impl InstrumentRuntime {
         self.scratch.voice_left.clear();
         self.scratch.voice_right.clear();
         self.scratch.parameter_spans.clear();
+        self.scratch.instrument_source_spans.clear();
         self.note_layer_selection.clear();
         self.parameter_states.clear();
         self.pitch_bend.reset(0.0);
         self.mod_wheel.reset(0.0);
         self.aftertouch.reset(0.0);
         self.sustain_down = false;
+        self.held_notes.clear();
+        if self.held_notes.capacity() < MAX_MONOPHONIC_HELD_NOTES {
+            self.held_notes
+                .reserve(MAX_MONOPHONIC_HELD_NOTES - self.held_notes.capacity());
+        }
         self.global_processors = None;
         self.global_targets.clear();
         self.round_robin_counters.clear();
         self.absolute_frame = 0;
+    }
+
+    fn prepare_inner(&mut self, spec: ProcessSpec) -> Result<(), ProcessError> {
+        self.reset_for_prepare();
 
         spec.validate()?;
         if spec
@@ -845,6 +1172,13 @@ impl InstrumentRuntime {
         self.scratch.voice_right.resize(spec.max_block_size, 0.0);
         self.scratch.parameter_spans.resize(
             self.compiled.parameters().len(),
+            ParameterSpanValue {
+                start: 0.0,
+                end: 0.0,
+            },
+        );
+        self.scratch.instrument_source_spans.resize(
+            self.compiled.instrument_sources.len(),
             ParameterSpanValue {
                 start: 0.0,
                 end: 0.0,
@@ -882,8 +1216,8 @@ impl InstrumentRuntime {
                 | CompiledGenerator::OperatorModulation(_) => Vec::new(),
             })
             .collect();
-        let mut voices = Vec::with_capacity(self.compiled.performance.polyphony);
-        for _ in 0..self.compiled.performance.polyphony {
+        let mut voices = Vec::with_capacity(self.compiled.performance.voice_count);
+        for _ in 0..self.compiled.performance.voice_count {
             voices.push(VoiceRuntime::new(&self.compiled, spec)?);
         }
         let global_processors = StereoProcessorChain::new(&self.compiled.global_processors, spec)?;
@@ -951,12 +1285,25 @@ impl InstrumentRuntime {
             if let Some(remaining) = self.shared_target_remaining() {
                 end = end.min(cursor + remaining);
             }
+            if let Some(remaining) = self.transport_boundary_remaining(
+                block.context,
+                cursor,
+                spec.sample_rate,
+                block.frames - cursor,
+            ) {
+                end = end.min(cursor + remaining);
+            }
             if end <= cursor {
                 end = cursor + 1;
             }
 
             let frames = end - cursor;
-            let (pitch_bend, mod_wheel, aftertouch) = self.advance_shared(frames);
+            if let Err(error) = self.advance_shared(frames, block.context, cursor, spec.sample_rate)
+            {
+                clear_output(&mut *block.output, block.frames);
+                self.spec = None;
+                return Err(error);
+            }
             let RuntimeScratch {
                 layer_mono,
                 layer_left,
@@ -964,14 +1311,10 @@ impl InstrumentRuntime {
                 voice_left,
                 voice_right,
                 parameter_spans,
+                instrument_source_spans,
             } = &mut self.scratch;
-            let shared = SharedParameterSpan::new(
-                &*parameter_spans,
-                pitch_bend,
-                mod_wheel,
-                aftertouch,
-                frames,
-            );
+            let shared =
+                SharedParameterSpan::new(&*parameter_spans, &*instrument_source_spans, frames);
             if let Err(error) = Self::render_range(
                 &mut self.voices,
                 &self.compiled,
@@ -1076,6 +1419,7 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.mod_wheel.reset(0.0);
         self.aftertouch.reset(0.0);
         self.sustain_down = false;
+        self.held_notes.clear();
         self.scratch.layer_mono.fill(0.0);
         self.scratch.layer_left.fill(0.0);
         self.scratch.layer_right.fill(0.0);
@@ -1085,6 +1429,12 @@ impl InstrumentProcessor for InstrumentRuntime {
             start: 0.0,
             end: 0.0,
         });
+        self.scratch
+            .instrument_source_spans
+            .fill(ParameterSpanValue {
+                start: 0.0,
+                end: 0.0,
+            });
         for target in &mut self.global_targets {
             target.clear();
         }
@@ -1118,9 +1468,21 @@ fn trace_source_id(compiled: &CompiledInstrument, source: CompiledSourceRef) -> 
             .sources
             .get(handle.index())
             .map_or_else(|| "unknown".to_owned(), |source| source.id.clone()),
-        CompiledSourceRef::PitchBend => "pitch_bend".to_owned(),
-        CompiledSourceRef::ModWheel => "mod_wheel".to_owned(),
-        CompiledSourceRef::Aftertouch => "aftertouch".to_owned(),
+        CompiledSourceRef::Instrument(handle) => {
+            compiled.instrument_sources.get(handle.index()).map_or_else(
+                || "unknown".to_owned(),
+                |source| match source {
+                    CompiledInstrumentSource::PitchBend => "pitch_bend".to_owned(),
+                    CompiledInstrumentSource::ModWheel => "mod_wheel".to_owned(),
+                    CompiledInstrumentSource::Aftertouch => "aftertouch".to_owned(),
+                    CompiledInstrumentSource::Macro { parameter } => compiled
+                        .parameter_descriptor(*parameter)
+                        .map_or_else(|| "unknown".to_owned(), |descriptor| descriptor.id.clone()),
+                    CompiledInstrumentSource::BeatPhase => "transport_beat_phase".to_owned(),
+                    CompiledInstrumentSource::BarPhase => "transport_bar_phase".to_owned(),
+                },
+            )
+        }
     }
 }
 
@@ -1136,7 +1498,10 @@ mod tests {
 
     fn compiled(polyphony: u16) -> Arc<CompiledInstrument> {
         let mut definition = definition();
-        definition.performance.polyphony = polyphony;
+        definition.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         compile_instrument(
             &definition,
             &CompileContext {
@@ -1163,6 +1528,19 @@ mod tests {
         runtime_with(&definition())
     }
 
+    fn monophonic_definition(
+        legato: bool,
+        portamento_seconds: Option<f32>,
+    ) -> crate::definition::InstrumentDefinition {
+        let mut value = definition();
+        value.performance = crate::definition::PerformanceDefinition::Monophonic {
+            legato,
+            portamento: portamento_seconds
+                .map(|time_seconds| crate::definition::PortamentoDefinition { time_seconds }),
+        };
+        value
+    }
+
     fn prepare(runtime: &mut InstrumentRuntime) {
         runtime
             .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"))
@@ -1184,12 +1562,325 @@ mod tests {
                 context: crate::process::ProcessContext {
                     absolute_frame,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events,
                 output: &mut output,
             })
             .expect("process succeeds");
         vec![left, right]
+    }
+
+    fn traced_source_value(runtime: &InstrumentRuntime, frame: u64) -> f32 {
+        let handle = runtime
+            .compiled
+            .parameter_handle("layer.body.tuning")
+            .expect("tuning parameter");
+        let context = ProcessContext {
+            absolute_frame: frame,
+            tempo_bpm: 120.0,
+            beat_position: 0.0,
+            bar_position: 0.0,
+            time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+        };
+        let (_, observation) = runtime
+            .trace_snapshots(&[handle], frame, 48_000.0, context)
+            .expect("trace source")
+            .into_iter()
+            .next()
+            .expect("voice observation");
+        observation.routes.first().expect("source route").raw
+    }
+
+    #[test]
+    fn monophonic_uses_last_note_priority_and_returns_to_held_notes() {
+        let definition = monophonic_definition(true, None);
+        let mut runtime = runtime_with(&definition);
+        prepare(&mut runtime);
+
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let second_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 64,
+                velocity: 90,
+            },
+        }];
+        let second_off = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 2 },
+        }];
+        let first_off = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        }];
+
+        process(&mut runtime, 64, 0, &first_note);
+        assert_eq!(
+            runtime.voices[0].trace_identity().map(|value| value.0),
+            Some(1)
+        );
+        process(&mut runtime, 64, 64, &second_note);
+        assert_eq!(
+            runtime.voices[0].trace_identity().map(|value| value.0),
+            Some(2)
+        );
+        process(&mut runtime, 64, 128, &second_off);
+        assert_eq!(
+            runtime.voices[0].trace_identity().map(|value| value.0),
+            Some(1)
+        );
+        process(&mut runtime, 64, 192, &first_off);
+        assert_eq!(runtime.voices[0].state(), VoiceState::Releasing);
+    }
+
+    #[test]
+    fn monophonic_legato_ignores_notes_outside_the_layer_trigger() {
+        let mut definition = monophonic_definition(true, Some(0.1));
+        definition.layers[0].trigger.key_max = 60;
+        let mut runtime = runtime_with(&definition);
+        prepare(&mut runtime);
+
+        process(
+            &mut runtime,
+            64,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            }],
+        );
+        process(
+            &mut runtime,
+            64,
+            64,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 72,
+                    velocity: 100,
+                },
+            }],
+        );
+
+        assert_eq!(
+            runtime.voices[0].trace_identity().map(|value| value.0),
+            Some(1)
+        );
+        process(
+            &mut runtime,
+            64,
+            128,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            }],
+        );
+        assert_eq!(runtime.voices[0].state(), VoiceState::Releasing);
+    }
+
+    #[test]
+    fn legato_preserves_source_phase_and_applies_portamento() {
+        let mut definition = monophonic_definition(true, Some(0.1));
+        definition.modulation = Some(crate::definition::ModulationDefinition {
+            sources: vec![crate::definition::ModulationSourceDefinition::Lfo(
+                crate::definition::LfoDefinition {
+                    id: "legato_lfo".to_owned(),
+                    waveform: crate::definition::LfoWaveform::Sine,
+                    rate: crate::definition::ModulationRateDefinition {
+                        value: 0.5,
+                        unit: crate::definition::ModulationRateUnit::PerSecond,
+                    },
+                    phase: 0.0,
+                },
+            )],
+            routes: vec![crate::definition::ModulationRouteDefinition {
+                source: "legato_lfo".to_owned(),
+                target: "layer.body.tuning".to_owned(),
+                depth: crate::definition::ModulationDepthDefinition {
+                    value: 120.0,
+                    unit: crate::parameter::ModulationUnit::Cents,
+                },
+                curve: crate::definition::ModulationCurve::Linear,
+            }],
+        });
+        let mut runtime = runtime_with(&definition);
+        prepare(&mut runtime);
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let second_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 67,
+                velocity: 100,
+            },
+        }];
+
+        process(&mut runtime, 64, 0, &first_note);
+        let first_phase = traced_source_value(&runtime, 64);
+        process(&mut runtime, 64, 64, &second_note);
+        let second_phase = traced_source_value(&runtime, 128);
+
+        assert!((second_phase - first_phase).abs() > 1e-5);
+        assert_eq!(
+            runtime.voices[0].trace_identity().map(|value| value.0),
+            Some(2)
+        );
+        assert!(runtime.voices[0].portamento_offset_cents() < -650.0);
+        assert!(runtime.voices[0].portamento_offset_cents() > -700.0);
+    }
+
+    #[test]
+    fn non_legato_restarts_voice_source_phase() {
+        let mut definition = monophonic_definition(false, None);
+        definition.modulation = Some(crate::definition::ModulationDefinition {
+            sources: vec![crate::definition::ModulationSourceDefinition::Lfo(
+                crate::definition::LfoDefinition {
+                    id: "retrigger_lfo".to_owned(),
+                    waveform: crate::definition::LfoWaveform::Sine,
+                    rate: crate::definition::ModulationRateDefinition {
+                        value: 0.5,
+                        unit: crate::definition::ModulationRateUnit::PerSecond,
+                    },
+                    phase: 0.0,
+                },
+            )],
+            routes: vec![crate::definition::ModulationRouteDefinition {
+                source: "retrigger_lfo".to_owned(),
+                target: "layer.body.tuning".to_owned(),
+                depth: crate::definition::ModulationDepthDefinition {
+                    value: 120.0,
+                    unit: crate::parameter::ModulationUnit::Cents,
+                },
+                curve: crate::definition::ModulationCurve::Linear,
+            }],
+        });
+        let mut runtime = runtime_with(&definition);
+        prepare(&mut runtime);
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        let second_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 67,
+                velocity: 100,
+            },
+        }];
+
+        process(&mut runtime, 64, 0, &first_note);
+        let first_phase = traced_source_value(&runtime, 64);
+        process(&mut runtime, 64, 64, &second_note);
+        let second_phase = traced_source_value(&runtime, 128);
+
+        assert!((second_phase - first_phase).abs() < 1e-6);
+    }
+
+    #[test]
+    fn transport_phase_wrap_and_bar_boundaries_use_their_own_units() {
+        let definition_for = |source: &str| {
+            let mut definition = definition();
+            definition.modulation = Some(crate::definition::ModulationDefinition {
+                sources: Vec::new(),
+                routes: vec![crate::definition::ModulationRouteDefinition {
+                    source: source.to_owned(),
+                    target: "layer.body.tuning".to_owned(),
+                    depth: crate::definition::ModulationDepthDefinition {
+                        value: 120.0,
+                        unit: crate::parameter::ModulationUnit::Cents,
+                    },
+                    curve: crate::definition::ModulationCurve::Linear,
+                }],
+            });
+            definition
+        };
+        let beat_context = ProcessContext {
+            absolute_frame: 0,
+            tempo_bpm: 120.0,
+            beat_position: 0.99,
+            bar_position: 0.2475,
+            time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+        };
+        let mut beat_runtime = runtime_with(&definition_for("transport_beat_phase"));
+        prepare(&mut beat_runtime);
+        assert_eq!(
+            beat_runtime.transport_boundary_remaining(beat_context, 0, 48_000.0, 256),
+            Some(240)
+        );
+        beat_runtime
+            .advance_shared(240, beat_context, 0, 48_000.0)
+            .expect("beat phase span");
+        let beat_span = beat_runtime.scratch.instrument_source_spans[0];
+        assert!((beat_span.start - 0.99).abs() < 1.0e-6);
+        assert!((beat_span.end - 1.0).abs() < 1.0e-6);
+
+        let mut bar_runtime = runtime_with(&definition_for("transport_bar_phase"));
+        prepare(&mut bar_runtime);
+        let bar_context = ProcessContext {
+            beat_position: 0.0,
+            bar_position: 0.999,
+            ..beat_context
+        };
+        for (time_signature, expected_frames) in [
+            (crate::process::DEFAULT_TIME_SIGNATURE, 96),
+            (
+                crate::process::TimeSignature {
+                    numerator: 7,
+                    denominator: 8,
+                },
+                84,
+            ),
+            (
+                crate::process::TimeSignature {
+                    numerator: 1,
+                    denominator: 8,
+                },
+                12,
+            ),
+        ] {
+            let context = ProcessContext {
+                time_signature,
+                ..bar_context
+            };
+            assert_eq!(
+                bar_runtime.transport_boundary_remaining(context, 0, 48_000.0, 256),
+                Some(expected_frames)
+            );
+        }
+        bar_runtime
+            .advance_shared(96, bar_context, 0, 48_000.0)
+            .expect("bar phase span");
+        let bar_span = bar_runtime.scratch.instrument_source_spans[0];
+        assert!((bar_span.start - 0.999).abs() < 1.0e-6);
+        assert!((bar_span.end - 1.0).abs() < 1.0e-6);
     }
 
     fn process_with_stack_output(
@@ -1207,6 +1898,9 @@ mod tests {
                 context: crate::process::ProcessContext {
                     absolute_frame,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events,
                 output: &mut output,
@@ -1250,7 +1944,10 @@ mod tests {
         path: &std::path::Path,
     ) -> crate::definition::InstrumentDefinition {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].generator =
             crate::definition::GeneratorDefinition::Sample(crate::definition::SampleDefinition {
                 interpolation: crate::definition::SampleInterpolation::Cubic,
@@ -1455,7 +2152,10 @@ mod tests {
     #[test]
     fn note_on_reuses_prepared_layer_selection_storage() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
         let note_layer_capacity = runtime.note_layer_selection.capacity();
@@ -1491,7 +2191,10 @@ mod tests {
     #[test]
     fn idle_note_on_does_not_allocate_after_prepare() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
         let event = [
@@ -1531,7 +2234,10 @@ mod tests {
     #[allow(clippy::too_many_lines)]
     fn processor_expansion_render_does_not_allocate_after_prepare() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].processors = vec![
             crate::definition::ProcessorDefinition::Eq(crate::definition::EqProcessorDefinition {
                 id: "layer_eq".to_owned(),
@@ -1673,7 +2379,10 @@ mod tests {
     fn wavetable_render_does_not_allocate_after_prepare() {
         let (_directory, path) = write_pcm_fixture();
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].generator = crate::definition::GeneratorDefinition::Wavetable(
             crate::definition::WavetableDefinition {
                 asset: crate::definition::AssetReference {
@@ -1734,7 +2443,10 @@ mod tests {
     #[test]
     fn operator_render_does_not_allocate_after_prepare() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         let envelope = crate::definition::AdsrDefinition {
             attack_seconds: 0.0,
             decay_seconds: 0.1,
@@ -1810,7 +2522,10 @@ mod tests {
     #[test]
     fn complex_oscillator_render_does_not_allocate_after_prepare() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].generator = crate::definition::GeneratorDefinition::Oscillator(
             crate::definition::OscillatorDefinition {
                 waveform: crate::definition::OscillatorWaveform::Sine,
@@ -1849,7 +2564,10 @@ mod tests {
     #[test]
     fn additive_sixteen_voice_render_does_not_allocate_after_prepare() {
         let mut source = definition();
-        source.performance.polyphony = 16;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 16,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].generator = crate::definition::GeneratorDefinition::Additive(
             crate::definition::AdditiveDefinition {
                 phase_reset: true,
@@ -1906,7 +2624,10 @@ mod tests {
     #[allow(clippy::too_many_lines)]
     fn formant_sixteen_voice_render_does_not_allocate_after_prepare() {
         let mut source = definition();
-        source.performance.polyphony = 16;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 16,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].generator =
             crate::definition::GeneratorDefinition::Formant(crate::definition::FormantDefinition {
                 phase_reset: true,
@@ -2036,7 +2757,10 @@ mod tests {
                 .into_owned(),
             sha256: None,
         });
-        source.performance.polyphony = 16;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 16,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
         let first_events: Vec<ProcessEvent> = (0usize..16)
@@ -2072,7 +2796,10 @@ mod tests {
     #[test]
     fn voice_stealing_note_on_does_not_allocate_after_prepare() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
         let first_event = [ProcessEvent {
@@ -2189,6 +2916,9 @@ mod tests {
                 context: crate::process::ProcessContext {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
                 output: &mut output,
@@ -2231,6 +2961,9 @@ mod tests {
                 context: crate::process::ProcessContext {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
                 output: &mut output,
@@ -2412,7 +3145,10 @@ mod tests {
     #[test]
     fn steal_starts_pending_note_when_release_finishes_before_fade() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].envelope = crate::definition::AdsrDefinition {
             attack_seconds: 0.0,
             decay_seconds: 0.0,
@@ -2460,7 +3196,10 @@ mod tests {
     #[test]
     fn steal_fade_completes_across_multiple_blocks() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
@@ -2503,7 +3242,10 @@ mod tests {
     #[test]
     fn pending_note_off_cancels_note_before_steal_completion() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
@@ -2551,7 +3293,10 @@ mod tests {
     #[test]
     fn pending_note_off_is_held_by_sustain_until_steal_completes() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
@@ -2610,7 +3355,10 @@ mod tests {
     #[test]
     fn reset_discards_pending_note_during_steal() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
@@ -2650,7 +3398,10 @@ mod tests {
     #[test]
     fn out_of_range_key_does_not_steal_a_full_voice() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].trigger.key_min = 60;
         source.layers[0].trigger.key_max = 72;
         let mut runtime = runtime_with(&source);
@@ -2687,7 +3438,10 @@ mod tests {
     #[test]
     fn out_of_range_velocity_does_not_steal_a_full_voice() {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].trigger.velocity_min = 64;
         source.layers[0].trigger.velocity_max = 127;
         let mut runtime = runtime_with(&source);
@@ -2765,7 +3519,10 @@ mod tests {
         waveform: crate::definition::OscillatorWaveform,
     ) -> InstrumentRuntime {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
@@ -2798,7 +3555,10 @@ mod tests {
 
     fn modulated_steal_definition() -> crate::definition::InstrumentDefinition {
         let mut source = definition();
-        source.performance.polyphony = 1;
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 1,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
@@ -2819,7 +3579,10 @@ mod tests {
                     crate::definition::LfoDefinition {
                         id: "steal_lfo".to_owned(),
                         waveform: crate::definition::LfoWaveform::Triangle,
-                        rate_hz: 37.0,
+                        rate: crate::definition::ModulationRateDefinition {
+                            value: 37.0,
+                            unit: crate::definition::ModulationRateUnit::PerSecond,
+                        },
                         phase: 0.0,
                     },
                 ),
@@ -3277,6 +4040,9 @@ mod tests {
                 context: crate::process::ProcessContext {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[ProcessEvent {
                     sample_offset: 0,
@@ -3317,6 +4083,9 @@ mod tests {
             context: crate::process::ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
             },
             events: &[note_on, invalid],
             output: &mut output,

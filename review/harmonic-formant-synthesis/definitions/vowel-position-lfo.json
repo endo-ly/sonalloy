@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Formant Generator Reference",
     "author": null,
     "description": "Harmonic formant synthesis with five-profile vowel morphing"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -202,7 +203,10 @@
         "type": "lfo",
         "id": "vowel_position_lfo",
         "waveform": "sine",
-        "rate_hz": 0.22,
+        "rate": {
+          "value": 0.22,
+          "unit": "per_second"
+        },
         "phase": 0.0
       }
     ],
@@ -217,5 +221,7 @@
         "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

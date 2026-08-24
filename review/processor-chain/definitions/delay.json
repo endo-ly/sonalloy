@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Processed Hybrid",
     "author": "Sonalloy",
     "description": "A sample attack and saw body through layered core effects"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -73,5 +74,7 @@
       "mix": 0.18
     }
   ],
-  "modulation": null
+  "modulation": null,
+  "macros": [],
+  "vectors": []
 }

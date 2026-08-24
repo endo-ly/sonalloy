@@ -7187,7 +7187,7 @@
           "partial_count": 1,
           "voice_count": 1,
           "work_units": 1,
-          "elapsed_seconds": 0.023393120616674423,
+          "elapsed_seconds": 0.01936740055680275,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7195,8 +7195,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.011696560308337212,
-          "cli_realtime_factor": 85.49522027319505,
+          "realtime_ratio": 0.009683700278401375,
+          "cli_realtime_factor": 103.2663105270214,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7211,7 +7211,7 @@
           "partial_count": 1,
           "voice_count": 4,
           "work_units": 4,
-          "elapsed_seconds": 0.042208392173051834,
+          "elapsed_seconds": 0.03169165551662445,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7219,8 +7219,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.021104196086525917,
-          "cli_realtime_factor": 47.38394184265825,
+          "realtime_ratio": 0.015845827758312225,
+          "cli_realtime_factor": 63.10809477753103,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7235,7 +7235,7 @@
           "partial_count": 1,
           "voice_count": 8,
           "work_units": 8,
-          "elapsed_seconds": 0.05643571354448795,
+          "elapsed_seconds": 0.047497041523456573,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7243,8 +7243,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.028217856772243977,
-          "cli_realtime_factor": 35.438552547464674,
+          "realtime_ratio": 0.023748520761728287,
+          "cli_realtime_factor": 42.107885793524495,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7259,7 +7259,7 @@
           "partial_count": 1,
           "voice_count": 16,
           "work_units": 16,
-          "elapsed_seconds": 0.08654936030507088,
+          "elapsed_seconds": 0.08245800249278545,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7267,8 +7267,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.04327468015253544,
-          "cli_realtime_factor": 23.108200834187116,
+          "realtime_ratio": 0.04122900124639273,
+          "cli_realtime_factor": 24.254771393170568,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7283,7 +7283,7 @@
           "partial_count": 16,
           "voice_count": 1,
           "work_units": 16,
-          "elapsed_seconds": 0.05541007220745087,
+          "elapsed_seconds": 0.04012753255665302,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7291,8 +7291,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.027705036103725433,
-          "cli_realtime_factor": 36.09452073103533,
+          "realtime_ratio": 0.02006376627832651,
+          "cli_realtime_factor": 49.84109095609982,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7307,7 +7307,7 @@
           "partial_count": 16,
           "voice_count": 4,
           "work_units": 64,
-          "elapsed_seconds": 0.14563289284706116,
+          "elapsed_seconds": 0.11582270823419094,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7315,8 +7315,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.07281644642353058,
-          "cli_realtime_factor": 13.73316124469445,
+          "realtime_ratio": 0.05791135411709547,
+          "cli_realtime_factor": 17.267770979383805,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7331,7 +7331,7 @@
           "partial_count": 16,
           "voice_count": 8,
           "work_units": 128,
-          "elapsed_seconds": 0.23912538588047028,
+          "elapsed_seconds": 0.2232833169400692,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7339,8 +7339,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.11956269294023514,
-          "cli_realtime_factor": 8.363812953760268,
+          "realtime_ratio": 0.1116416584700346,
+          "cli_realtime_factor": 8.95722988805659,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7355,7 +7355,7 @@
           "partial_count": 16,
           "voice_count": 16,
           "work_units": 256,
-          "elapsed_seconds": 0.47130061499774456,
+          "elapsed_seconds": 0.42471301183104515,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7363,8 +7363,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.23565030749887228,
-          "cli_realtime_factor": 4.243576045428184,
+          "realtime_ratio": 0.21235650591552258,
+          "cli_realtime_factor": 4.709062223870878,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7379,7 +7379,7 @@
           "partial_count": 32,
           "voice_count": 1,
           "work_units": 32,
-          "elapsed_seconds": 0.06683457642793655,
+          "elapsed_seconds": 0.06286598742008209,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7387,8 +7387,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.03341728821396828,
-          "cli_realtime_factor": 29.92463043670924,
+          "realtime_ratio": 0.031432993710041046,
+          "cli_realtime_factor": 31.81370534492097,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7403,7 +7403,7 @@
           "partial_count": 32,
           "voice_count": 4,
           "work_units": 128,
-          "elapsed_seconds": 0.22525138780474663,
+          "elapsed_seconds": 0.2052417453378439,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7411,8 +7411,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.11262569390237331,
-          "cli_realtime_factor": 8.878968602553732,
+          "realtime_ratio": 0.10262087266892195,
+          "cli_realtime_factor": 9.744606277382042,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7427,7 +7427,7 @@
           "partial_count": 32,
           "voice_count": 8,
           "work_units": 256,
-          "elapsed_seconds": 0.4173719007521868,
+          "elapsed_seconds": 0.40672092884778976,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7435,8 +7435,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.2086859503760934,
-          "cli_realtime_factor": 4.791889430974161,
+          "realtime_ratio": 0.20336046442389488,
+          "cli_realtime_factor": 4.917376653485356,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7451,7 +7451,7 @@
           "partial_count": 32,
           "voice_count": 16,
           "work_units": 512,
-          "elapsed_seconds": 0.8764314390718937,
+          "elapsed_seconds": 0.7991316989064217,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7459,8 +7459,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.43821571953594685,
-          "cli_realtime_factor": 2.281981123495434,
+          "realtime_ratio": 0.39956584945321083,
+          "cli_realtime_factor": 2.5027163892220976,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7475,7 +7475,7 @@
           "partial_count": 64,
           "voice_count": 1,
           "work_units": 64,
-          "elapsed_seconds": 0.12633270770311356,
+          "elapsed_seconds": 0.10926834680140018,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7483,8 +7483,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.06316635385155678,
-          "cli_realtime_factor": 15.831212964263162,
+          "realtime_ratio": 0.05463417340070009,
+          "cli_realtime_factor": 18.303562363170773,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7499,7 +7499,7 @@
           "partial_count": 64,
           "voice_count": 4,
           "work_units": 256,
-          "elapsed_seconds": 0.4291863515973091,
+          "elapsed_seconds": 0.39474802650511265,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7507,8 +7507,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.21459317579865456,
-          "cli_realtime_factor": 4.659980431708909,
+          "realtime_ratio": 0.19737401325255632,
+          "cli_realtime_factor": 5.066523112748473,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7523,7 +7523,7 @@
           "partial_count": 64,
           "voice_count": 8,
           "work_units": 512,
-          "elapsed_seconds": 0.8291181437671185,
+          "elapsed_seconds": 0.7824337482452393,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7531,8 +7531,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.4145590718835592,
-          "cli_realtime_factor": 2.4122014637298266,
+          "realtime_ratio": 0.39121687412261963,
+          "cli_realtime_factor": 2.5561269621682237,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7547,7 +7547,7 @@
           "partial_count": 64,
           "voice_count": 16,
           "work_units": 1024,
-          "elapsed_seconds": 1.6520529724657536,
+          "elapsed_seconds": 1.5972472000867128,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7555,8 +7555,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.8260264862328768,
-          "cli_realtime_factor": 1.2106149338631205,
+          "realtime_ratio": 0.7986236000433564,
+          "cli_realtime_factor": 1.2521543314594148,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7571,53 +7571,53 @@
       "partial_scaling_by_voice": {
         "1": {
           "1": 1.0,
-          "16": 2.3686481643648274,
-          "32": 2.857018416786062,
-          "64": 5.400421336393428
+          "16": 2.071911118839246,
+          "32": 3.2459692892550094,
+          "64": 5.641869515783829
         },
         "4": {
           "1": 1.0,
-          "16": 3.4503302625216135,
-          "32": 5.336649329859088,
-          "64": 10.168270561874786
+          "16": 3.654675224316823,
+          "32": 6.4762077585432705,
+          "64": 12.455897934963991
         },
         "8": {
           "1": 1.0,
-          "16": 4.237128776478906,
-          "32": 7.39552801832079,
-          "64": 14.691373452973698
+          "16": 4.700994204655883,
+          "32": 8.563079210879467,
+          "64": 16.473315456054916
         },
         "16": {
           "1": 1.0,
-          "16": 5.445454632321891,
-          "32": 10.126376855734474,
-          "64": 19.087985938227213
+          "16": 5.150658504833474,
+          "32": 9.691378335005636,
+          "64": 19.370432848242494
         }
       },
       "voice_scaling_by_partial": {
         "1": {
           "1": 1.0,
-          "4": 1.804307893106234,
-          "8": 2.4124918803804674,
-          "16": 3.6997783118930787
+          "4": 1.6363401698475657,
+          "8": 2.4524221195380482,
+          "16": 4.2575668454289435
         },
         "16": {
           "1": 1.0,
-          "4": 2.628274734994448,
-          "8": 4.315558098989729,
-          "16": 8.505684909292896
+          "4": 2.886365067941061,
+          "8": 5.564342054294826,
+          "16": 10.584079926455109
         },
         "32": {
           "1": 1.0,
-          "4": 3.3702822677064583,
-          "8": 6.244849942338038,
-          "16": 13.113443458669835
+          "4": 3.2647502053277364,
+          "8": 6.469649893988075,
+          "16": 12.711670200397501
         },
         "64": {
           "1": 1.0,
-          "4": 3.3972702667460637,
-          "8": 6.562972953255907,
-          "16": 13.077001217674665
+          "4": 3.6126475604374595,
+          "8": 7.160662453028099,
+          "16": 14.617656868093528
         }
       }
     },
@@ -7628,7 +7628,7 @@
           "profile_count": 1,
           "voice_count": 1,
           "work_units": 32,
-          "elapsed_seconds": 0.11465940251946449,
+          "elapsed_seconds": 0.1092470120638609,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7636,8 +7636,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.057329701259732246,
-          "cli_realtime_factor": 17.442965479089093,
+          "realtime_ratio": 0.05462350603193045,
+          "cli_realtime_factor": 18.30713684719258,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7653,7 +7653,7 @@
           "profile_count": 5,
           "voice_count": 1,
           "work_units": 160,
-          "elapsed_seconds": 0.11193779110908508,
+          "elapsed_seconds": 0.1077053602784872,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7661,8 +7661,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.05596889555454254,
-          "cli_realtime_factor": 17.86706687870024,
+          "realtime_ratio": 0.0538526801392436,
+          "cli_realtime_factor": 18.569177939043346,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7678,7 +7678,7 @@
           "profile_count": 8,
           "voice_count": 1,
           "work_units": 256,
-          "elapsed_seconds": 0.11466925218701363,
+          "elapsed_seconds": 0.10810558684170246,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7686,8 +7686,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.05733462609350681,
-          "cli_realtime_factor": 17.441467192427556,
+          "realtime_ratio": 0.05405279342085123,
+          "cli_realtime_factor": 18.500431461776095,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7703,7 +7703,7 @@
           "profile_count": 1,
           "voice_count": 1,
           "work_units": 64,
-          "elapsed_seconds": 0.2102716602385044,
+          "elapsed_seconds": 0.20913941599428654,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7711,8 +7711,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.1051358301192522,
-          "cli_realtime_factor": 9.511505248645795,
+          "realtime_ratio": 0.10456970799714327,
+          "cli_realtime_factor": 9.562998875614332,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7728,7 +7728,7 @@
           "profile_count": 5,
           "voice_count": 1,
           "work_units": 320,
-          "elapsed_seconds": 0.20955313742160797,
+          "elapsed_seconds": 0.2020645383745432,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7736,8 +7736,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.10477656871080399,
-          "cli_realtime_factor": 9.544118616444877,
+          "realtime_ratio": 0.1010322691872716,
+          "cli_realtime_factor": 9.89782777368306,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7753,7 +7753,7 @@
           "profile_count": 8,
           "voice_count": 1,
           "work_units": 512,
-          "elapsed_seconds": 0.22057319059967995,
+          "elapsed_seconds": 0.2032318040728569,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7761,8 +7761,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 0.11028659529983997,
-          "cli_realtime_factor": 9.067285079218063,
+          "realtime_ratio": 0.10161590203642845,
+          "cli_realtime_factor": 9.840979413256681,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7778,7 +7778,7 @@
           "profile_count": 5,
           "voice_count": 16,
           "work_units": 5120,
-          "elapsed_seconds": 3.000813975930214,
+          "elapsed_seconds": 2.9104954693466425,
           "frames": 96000,
           "channels": 2,
           "duration_frames": 96000,
@@ -7786,8 +7786,8 @@
           "block_size": 257,
           "build": "release",
           "audio_duration_seconds": 2.0,
-          "realtime_ratio": 1.500406987965107,
-          "cli_realtime_factor": 0.6664858321915892,
+          "realtime_ratio": 1.4552477346733212,
+          "cli_realtime_factor": 0.6871682230960375,
           "audio": {
             "sample_rate": 48000,
             "channels": 2,
@@ -7802,32 +7802,32 @@
       "partial_scaling_by_profile": {
         "1": {
           "32": 1.0,
-          "64": 1.8338806553854914
+          "64": 1.91437195437467
         },
         "5": {
           "32": 1.0,
-          "64": 1.8720499604766656
+          "64": 1.8760861841237724
         },
         "8": {
           "32": 1.0,
-          "64": 1.923560033686694
+          "64": 1.8799380310514984
         }
       },
       "profile_scaling_by_partial": {
         "32": {
           "1": 1.0,
-          "5": 0.9762635130606285,
-          "8": 1.00008590370552
+          "5": 0.9858883848972225,
+          "8": 0.9895518861285542
         },
         "64": {
           "1": 1.0,
-          "5": 0.9965828832279089,
-          "8": 1.0489915300497026
+          "5": 0.9661714766386427,
+          "8": 0.9717527569189013
         }
       },
       "voice_scaling_at_64_partials_5_profiles": {
-        "1": 0.10477656871080399,
-        "16": 1.500406987965107
+        "1": 0.1010322691872716,
+        "16": 1.4552477346733212
       }
     }
   }

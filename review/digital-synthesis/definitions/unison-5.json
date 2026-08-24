@@ -1,14 +1,17 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Unison 5 Stereo",
     "author": "Sonalloy",
     "description": "Wavetable Generator review instrument"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
+  "macros": [],
+  "vectors": [],
   "layers": [
     {
       "id": "motion",

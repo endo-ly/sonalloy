@@ -1,0 +1,3542 @@
+{
+  "status": "ok",
+  "sample_rate": 48000,
+  "channels": 2,
+  "frames": 192000,
+  "reported_latency_frames": 0,
+  "output": "/root/workspace/sonalloy/review/performance-modulation/audio/mono-portamento-lead.wav",
+  "backend": "DaisySP V1.0.0 (a0494a3adb67f549e18dfd71a35fa656f65b38b6)",
+  "analysis": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 192000,
+    "duration_seconds": 4.0,
+    "finite": true,
+    "level": {
+      "peak": 0.3132798,
+      "peak_dbfs": -10.081352,
+      "rms": 0.079635836,
+      "rms_dbfs": -21.977829,
+      "crest_factor_db": 11.896477,
+      "over_full_scale": false
+    },
+    "dc": [
+      -1.4340879e-05,
+      -1.4340879e-05
+    ],
+    "activity": {
+      "threshold_dbfs": -80.0,
+      "first_frame": 5,
+      "peak_frame": 555,
+      "last_frame": 155763
+    },
+    "continuity": {
+      "large_delta_threshold": 0.25,
+      "max_adjacent_frame_delta": 0.16477212,
+      "large_delta_count": 0,
+      "first_large_delta_frames": []
+    },
+    "stereo": {
+      "correlation": 1.0
+    },
+    "spectrum": {
+      "fft_size": 4096,
+      "hop_size": 2048,
+      "spectral_centroid_hz": 803.8184,
+      "peaks": [
+        {
+          "frequency_hz": 269.53125,
+          "relative_power": 1.0
+        },
+        {
+          "frequency_hz": 339.84375,
+          "relative_power": 0.54113245
+        },
+        {
+          "frequency_hz": 398.4375,
+          "relative_power": 0.3308983
+        },
+        {
+          "frequency_hz": 539.0625,
+          "relative_power": 0.18261091
+        },
+        {
+          "frequency_hz": 796.875,
+          "relative_power": 0.1212941
+        },
+        {
+          "frequency_hz": 667.96875,
+          "relative_power": 0.08330313
+        },
+        {
+          "frequency_hz": 691.40625,
+          "relative_power": 0.0766909
+        },
+        {
+          "frequency_hz": 1031.25,
+          "relative_power": 0.031946264
+        }
+      ],
+      "reference_frequency_hz": null,
+      "harmonic_energy_ratio": null
+    }
+  },
+  "trace": {
+    "every_frames": 2400,
+    "parameters": [
+      {
+        "parameter": "layer.lead.tuning",
+        "unit": "cents",
+        "observations": [
+          {
+            "frame": 1,
+            "seconds": 2.0833333333333333e-05,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 6.544985e-05,
+                "shaped": 6.544985e-05,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0022907448,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 0.0022907448,
+            "final": 0.0022907448,
+            "clamped": false
+          },
+          {
+            "frame": 2400,
+            "seconds": 0.05,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.15643449,
+                "shaped": 0.15643449,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 5.4752073,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 5.4752073,
+            "final": 5.4752073,
+            "clamped": false
+          },
+          {
+            "frame": 4800,
+            "seconds": 0.1,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.3090165,
+                "shaped": 0.3090165,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 10.8155775,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 10.8155775,
+            "final": 10.8155775,
+            "clamped": false
+          },
+          {
+            "frame": 7200,
+            "seconds": 0.15,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.45398945,
+                "shaped": 0.45398945,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 15.88963,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 15.88963,
+            "final": 15.88963,
+            "clamped": false
+          },
+          {
+            "frame": 9600,
+            "seconds": 0.2,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.5877837,
+                "shaped": 0.5877837,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 20.57243,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 20.57243,
+            "final": 20.57243,
+            "clamped": false
+          },
+          {
+            "frame": 12000,
+            "seconds": 0.25,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.7071049,
+                "shaped": 0.7071049,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 24.748672,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 24.748672,
+            "final": 24.748672,
+            "clamped": false
+          },
+          {
+            "frame": 14400,
+            "seconds": 0.3,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.80901664,
+                "shaped": 0.80901664,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 28.315582,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 28.315582,
+            "final": 28.315582,
+            "clamped": false
+          },
+          {
+            "frame": 16800,
+            "seconds": 0.35,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.8910072,
+                "shaped": 0.8910072,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 31.185251,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 31.185251,
+            "final": 31.185251,
+            "clamped": false
+          },
+          {
+            "frame": 19200,
+            "seconds": 0.4,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.95105755,
+                "shaped": 0.95105755,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 33.287014,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 33.287014,
+            "final": 33.287014,
+            "clamped": false
+          },
+          {
+            "frame": 21600,
+            "seconds": 0.45,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.9876892,
+                "shaped": 0.9876892,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 34.569122,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 34.569122,
+            "final": 34.569122,
+            "clamped": false
+          },
+          {
+            "frame": 24000,
+            "seconds": 0.5,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 35.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 35.0,
+            "final": 35.0,
+            "clamped": false
+          },
+          {
+            "frame": 26400,
+            "seconds": 0.55,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.98768675,
+                "shaped": 0.98768675,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 34.569035,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 34.569035,
+            "final": 34.569035,
+            "clamped": false
+          },
+          {
+            "frame": 28800,
+            "seconds": 0.6,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.9510526,
+                "shaped": 0.9510526,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 33.286842,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0,
+                "shaped": 0.0,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 33.286842,
+            "final": 33.286842,
+            "clamped": false
+          },
+          {
+            "frame": 30001,
+            "seconds": 0.6250208333333334,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.9238491,
+                "shaped": 0.9238491,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 32.334717,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.0020833334,
+                "shaped": 0.0020833334,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.20833334,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 32.54305,
+            "final": 32.54305,
+            "clamped": false
+          },
+          {
+            "frame": 31200,
+            "seconds": 0.65,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.8909997,
+                "shaped": 0.8909997,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 31.184988,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 81.18499,
+            "final": 81.18499,
+            "clamped": false
+          },
+          {
+            "frame": 33600,
+            "seconds": 0.7,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.8090065,
+                "shaped": 0.8090065,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 28.315228,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 78.31523,
+            "final": 78.31523,
+            "clamped": false
+          },
+          {
+            "frame": 36000,
+            "seconds": 0.75,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.7070923,
+                "shaped": 0.7070923,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 24.74823,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 74.74823,
+            "final": 74.74823,
+            "clamped": false
+          },
+          {
+            "frame": 38400,
+            "seconds": 0.8,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.58776647,
+                "shaped": 0.58776647,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 20.571827,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 70.57182,
+            "final": 70.57182,
+            "clamped": false
+          },
+          {
+            "frame": 40800,
+            "seconds": 0.85,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.45396742,
+                "shaped": 0.45396742,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 15.88886,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 65.88886,
+            "final": 65.88886,
+            "clamped": false
+          },
+          {
+            "frame": 43200,
+            "seconds": 0.9,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.30898982,
+                "shaped": 0.30898982,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 10.814644,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 60.814644,
+            "final": 60.814644,
+            "clamped": false
+          },
+          {
+            "frame": 45600,
+            "seconds": 0.95,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.15640382,
+                "shaped": 0.15640382,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 5.474134,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 55.474133,
+            "final": 55.474133,
+            "clamped": false
+          },
+          {
+            "frame": 48000,
+            "seconds": 1.0,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -3.3704444e-05,
+                "shaped": -3.3704444e-05,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -0.0011796555,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 49.99882,
+            "final": 49.99882,
+            "clamped": false
+          },
+          {
+            "frame": 48001,
+            "seconds": 1.0000208333333334,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -9.926955e-05,
+                "shaped": -9.926955e-05,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -0.0034744341,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 49.996525,
+            "final": 49.996525,
+            "clamped": false,
+            "portamento_offset_cents": -399.89584,
+            "effective_value": -349.89932
+          },
+          {
+            "frame": 50400,
+            "seconds": 1.05,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.15645887,
+                "shaped": -0.15645887,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -5.4760604,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 44.52394,
+            "final": 44.52394,
+            "clamped": false,
+            "portamento_offset_cents": -150.0,
+            "effective_value": -105.47606
+          },
+          {
+            "frame": 52800,
+            "seconds": 1.1,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.3090315,
+                "shaped": -0.3090315,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -10.816102,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 39.1839,
+            "final": 39.1839,
+            "clamped": false
+          },
+          {
+            "frame": 55200,
+            "seconds": 1.15,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.4539954,
+                "shaped": -0.4539954,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -15.889839,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 34.11016,
+            "final": 34.11016,
+            "clamped": false
+          },
+          {
+            "frame": 57600,
+            "seconds": 1.2,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.5877821,
+                "shaped": -0.5877821,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -20.572372,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 29.427628,
+            "final": 29.427628,
+            "clamped": false
+          },
+          {
+            "frame": 60000,
+            "seconds": 1.25,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.7070973,
+                "shaped": -0.7070973,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -24.748405,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 25.251595,
+            "final": 25.251595,
+            "clamped": false
+          },
+          {
+            "frame": 62400,
+            "seconds": 1.3,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.80900365,
+                "shaped": -0.80900365,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -28.315128,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 21.684872,
+            "final": 21.684872,
+            "clamped": false
+          },
+          {
+            "frame": 64800,
+            "seconds": 1.35,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.89099175,
+                "shaped": -0.89099175,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -31.184711,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 18.815289,
+            "final": 18.815289,
+            "clamped": false
+          },
+          {
+            "frame": 67200,
+            "seconds": 1.4,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.9510435,
+                "shaped": -0.9510435,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -33.286522,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 16.713478,
+            "final": 16.713478,
+            "clamped": false
+          },
+          {
+            "frame": 69600,
+            "seconds": 1.45,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.98768026,
+                "shaped": -0.98768026,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -34.56881,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 15.4311905,
+            "final": 15.4311905,
+            "clamped": false
+          },
+          {
+            "frame": 72000,
+            "seconds": 1.5,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -1.0,
+                "shaped": -1.0,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -35.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 15.0,
+            "final": 15.0,
+            "clamped": false
+          },
+          {
+            "frame": 72001,
+            "seconds": 1.5000208333333334,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -1.0,
+                "shaped": -1.0,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -35.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 15.0,
+            "final": 15.0,
+            "clamped": false,
+            "portamento_offset_cents": -299.92188,
+            "effective_value": -284.92188
+          },
+          {
+            "frame": 74400,
+            "seconds": 1.55,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.9876993,
+                "shaped": -0.9876993,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -34.569473,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 15.430527,
+            "final": 15.430527,
+            "clamped": false,
+            "portamento_offset_cents": -112.5,
+            "effective_value": -97.06947
+          },
+          {
+            "frame": 76800,
+            "seconds": 1.6,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.9510811,
+                "shaped": -0.9510811,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -33.287838,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 16.712162,
+            "final": 16.712162,
+            "clamped": false
+          },
+          {
+            "frame": 79200,
+            "seconds": 1.65,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.8910469,
+                "shaped": -0.8910469,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -31.186642,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 18.813358,
+            "final": 18.813358,
+            "clamped": false
+          },
+          {
+            "frame": 81600,
+            "seconds": 1.7,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.8090749,
+                "shaped": -0.8090749,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -28.317621,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 21.682379,
+            "final": 21.682379,
+            "clamped": false
+          },
+          {
+            "frame": 84000,
+            "seconds": 1.75,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.70718306,
+                "shaped": -0.70718306,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -24.751408,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 25.248592,
+            "final": 25.248592,
+            "clamped": false
+          },
+          {
+            "frame": 86400,
+            "seconds": 1.8,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.5878802,
+                "shaped": -0.5878802,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -20.575808,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 29.424192,
+            "final": 29.424192,
+            "clamped": false
+          },
+          {
+            "frame": 88800,
+            "seconds": 1.85,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.45410395,
+                "shaped": -0.45410395,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -15.893639,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 34.10636,
+            "final": 34.10636,
+            "clamped": false
+          },
+          {
+            "frame": 90001,
+            "seconds": 1.8750208333333334,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.38274464,
+                "shaped": -0.38274464,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -13.396063,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 36.603935,
+            "final": 36.603935,
+            "clamped": false
+          },
+          {
+            "frame": 91200,
+            "seconds": 1.9,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.30914757,
+                "shaped": -0.30914757,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -10.820165,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 39.179836,
+            "final": 39.179836,
+            "clamped": false
+          },
+          {
+            "frame": 93600,
+            "seconds": 1.95,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.1565794,
+                "shaped": -0.1565794,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -5.480279,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 44.519722,
+            "final": 44.519722,
+            "clamped": false
+          },
+          {
+            "frame": 96000,
+            "seconds": 2.0,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 3,
+              "note_number": 67,
+              "velocity": 108,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.00015622775,
+                "shaped": -0.00015622775,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -0.0054679713,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 49.994534,
+            "final": 49.994534,
+            "clamped": false
+          },
+          {
+            "frame": 96001,
+            "seconds": 2.000020833333333,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -9.090105e-05,
+                "shaped": -9.090105e-05,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -0.0031815367,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 49.99682,
+            "final": 49.99682,
+            "clamped": false,
+            "portamento_offset_cents": 299.92188,
+            "effective_value": 349.9187
+          },
+          {
+            "frame": 98400,
+            "seconds": 2.05,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.15627997,
+                "shaped": 0.15627997,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 5.469799,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 55.4698,
+            "final": 55.4698,
+            "clamped": false,
+            "portamento_offset_cents": 112.5,
+            "effective_value": 167.9698
+          },
+          {
+            "frame": 100800,
+            "seconds": 2.1,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.3088677,
+                "shaped": 0.3088677,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 10.8103695,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 60.81037,
+            "final": 60.81037,
+            "clamped": false
+          },
+          {
+            "frame": 103200,
+            "seconds": 2.15,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.45385003,
+                "shaped": 0.45385003,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 15.884751,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 65.88475,
+            "final": 65.88475,
+            "clamped": false
+          },
+          {
+            "frame": 105600,
+            "seconds": 2.2,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.58765715,
+                "shaped": 0.58765715,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 20.568,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 70.568,
+            "final": 70.568,
+            "clamped": false
+          },
+          {
+            "frame": 108000,
+            "seconds": 2.25,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.7069943,
+                "shaped": 0.7069943,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 24.7448,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 74.7448,
+            "final": 74.7448,
+            "clamped": false
+          },
+          {
+            "frame": 110400,
+            "seconds": 2.3,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.8089247,
+                "shaped": 0.8089247,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 28.312363,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 78.31236,
+            "final": 78.31236,
+            "clamped": false
+          },
+          {
+            "frame": 112800,
+            "seconds": 2.35,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.89093614,
+                "shaped": 0.89093614,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 31.182764,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 81.18276,
+            "final": 81.18276,
+            "clamped": false
+          },
+          {
+            "frame": 115200,
+            "seconds": 2.4,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.9510092,
+                "shaped": 0.9510092,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 33.285324,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 83.285324,
+            "final": 83.285324,
+            "clamped": false
+          },
+          {
+            "frame": 117600,
+            "seconds": 2.45,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.9876647,
+                "shaped": 0.9876647,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 34.568264,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 84.56827,
+            "final": 84.56827,
+            "clamped": false
+          },
+          {
+            "frame": 120000,
+            "seconds": 2.5,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 2,
+              "note_number": 64,
+              "velocity": 104,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 35.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 85.0,
+            "final": 85.0,
+            "clamped": false
+          },
+          {
+            "frame": 120001,
+            "seconds": 2.500020833333333,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 1.0,
+                "shaped": 1.0,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 35.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 85.0,
+            "final": 85.0,
+            "clamped": false,
+            "portamento_offset_cents": 399.89584,
+            "effective_value": 484.89584
+          },
+          {
+            "frame": 122400,
+            "seconds": 2.55,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.98771125,
+                "shaped": 0.98771125,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 34.569893,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 84.56989,
+            "final": 84.56989,
+            "clamped": false,
+            "portamento_offset_cents": 150.0,
+            "effective_value": 234.56989
+          },
+          {
+            "frame": 124800,
+            "seconds": 2.6,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.95110095,
+                "shaped": 0.95110095,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 33.288532,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 83.28853,
+            "final": 83.28853,
+            "clamped": false
+          },
+          {
+            "frame": 127200,
+            "seconds": 2.65,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.89107054,
+                "shaped": 0.89107054,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 31.18747,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 81.18747,
+            "final": 81.18747,
+            "clamped": false
+          },
+          {
+            "frame": 129600,
+            "seconds": 2.7,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.8090983,
+                "shaped": 0.8090983,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 28.318441,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 78.31844,
+            "final": 78.31844,
+            "clamped": false
+          },
+          {
+            "frame": 132000,
+            "seconds": 2.75,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.7072027,
+                "shaped": 0.7072027,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 24.752094,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 74.75209,
+            "final": 74.75209,
+            "clamped": false
+          },
+          {
+            "frame": 132001,
+            "seconds": 2.750020833333333,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.70715636,
+                "shaped": 0.70715636,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 24.750473,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 74.75047,
+            "final": 74.75047,
+            "clamped": false
+          },
+          {
+            "frame": 134400,
+            "seconds": 2.8,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.58789283,
+                "shaped": 0.58789283,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 20.576248,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 70.57625,
+            "final": 70.57625,
+            "clamped": false
+          },
+          {
+            "frame": 136800,
+            "seconds": 2.85,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.45410657,
+                "shaped": 0.45410657,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 15.89373,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 65.89373,
+            "final": 65.89373,
+            "clamped": false
+          },
+          {
+            "frame": 139200,
+            "seconds": 2.9,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.30913833,
+                "shaped": 0.30913833,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 10.819841,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 60.81984,
+            "final": 60.81984,
+            "clamped": false
+          },
+          {
+            "frame": 141600,
+            "seconds": 2.95,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.15655807,
+                "shaped": 0.15655807,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 5.4795322,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 55.47953,
+            "final": 55.47953,
+            "clamped": false
+          },
+          {
+            "frame": 144000,
+            "seconds": 3.0,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "active"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 0.00012245972,
+                "shaped": 0.00012245972,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0042860904,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 50.004288,
+            "final": 50.004288,
+            "clamped": false
+          },
+          {
+            "frame": 144001,
+            "seconds": 3.000020833333333,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": 5.6894616e-05,
+                "shaped": 5.6894616e-05,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 0.0019913116,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 50.00199,
+            "final": 50.00199,
+            "clamped": false
+          },
+          {
+            "frame": 146400,
+            "seconds": 3.05,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.15630463,
+                "shaped": -0.15630463,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -5.470662,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 44.52934,
+            "final": 44.52934,
+            "clamped": false
+          },
+          {
+            "frame": 148800,
+            "seconds": 3.1,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.30888295,
+                "shaped": -0.30888295,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -10.810904,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 39.189095,
+            "final": 39.189095,
+            "clamped": false
+          },
+          {
+            "frame": 151200,
+            "seconds": 3.15,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.45385626,
+                "shaped": -0.45385626,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -15.884969,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 34.115032,
+            "final": 34.115032,
+            "clamped": false
+          },
+          {
+            "frame": 153600,
+            "seconds": 3.2,
+            "parameter": "layer.lead.tuning",
+            "unit": "cents",
+            "voice": {
+              "index": 0,
+              "note_id": 1,
+              "note_number": 60,
+              "velocity": 112,
+              "state": "releasing"
+            },
+            "base": 0.0,
+            "routes": [
+              {
+                "source": "lead_vibrato",
+                "raw": -0.5876557,
+                "shaped": -0.5876557,
+                "depth": {
+                  "value": 35.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": -20.567951,
+                  "unit": "cents",
+                  "factor": null
+                }
+              },
+              {
+                "source": "pitch_bend",
+                "raw": 0.5,
+                "shaped": 0.5,
+                "depth": {
+                  "value": 100.0,
+                  "unit": "cents"
+                },
+                "contribution": {
+                  "value": 50.0,
+                  "unit": "cents",
+                  "factor": null
+                }
+              }
+            ],
+            "before_clamp": 29.432049,
+            "final": 29.432049,
+            "clamped": false
+          }
+        ]
+      }
+    ]
+  }
+}

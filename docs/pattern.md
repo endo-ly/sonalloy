@@ -59,7 +59,7 @@ Schema VersionはInstrument Definitionとは独立して管理しており、現
 
 ## Eventの種類
 
-書けるEventはこの章の3種類だけです。Polyphonic Aftertouch、Program Change、SysExといったMIDI機能は扱いません。
+書けるEventはNote、演奏操作、Parameter Changeの3分類です。Polyphonic Aftertouch、Program Change、SysExといったMIDI機能は扱いません。
 
 ### Note
 
@@ -108,6 +108,27 @@ Sustain Pedal、Pitch Bend、Mod Wheel、AftertouchをTick位置で切り替え�
 - `parameter`は空でないこと、`native_value`は有限の数であることを検証します
 - 音源に存在するIDかどうかと値の範囲は、音源を指定する`render pattern`または`audition pattern`のCompile時にCatalogへ照合します。存在しないIDは`PARAMETER_NOT_FOUND`、範囲外の値は`VALUE_OUT_OF_RANGE`になります
 
+MacroとVector Axisも通常のParameterとして指定できます。
+
+```json
+[
+  {
+    "type": "parameter_change",
+    "tick": 960,
+    "parameter": "macro.motion",
+    "native_value": 0.75
+  },
+  {
+    "type": "parameter_change",
+    "tick": 1440,
+    "parameter": "vector.character.x",
+    "native_value": 0.25
+  }
+]
+```
+
+Monophonic、Legato、Portamentoの意味はPatternではなくInstrument Definitionが所有します。同じPatternでも、Polyphonic InstrumentとMonophonic InstrumentではNoteの重なり方が変わります。
+
 ## 時間の扱い
 
 PatternはTickのまま保持され、Compile時に処理Frameへ変換されます。
@@ -122,6 +143,7 @@ ProcessBlock内のsample_offset
 
 - 小数のFrame位置をTempo変更の区間ごとに積算し、最後に最も近い整数Frameへ丸めます。途中で整数へ丸めないため、長いPatternでも丸め誤差が累積しません。異なるTickが同じFrameへ丸め込まれる場合はCompile Errorです
 - 同じFrameに複数のEventが重なった場合は、元のTick、Eventの種類、Pattern内での定義順に基づいて処理します。種類ごとの適用順序は`docs/runtime-processing.md`を参照してください
+- Tempoと拍子から作られたMusical Time Mapは、CoreのBeat / Bar PositionとTempo同期Sourceへ同じ値を渡します。Pattern側でBeat位置を別に保持しません
 - 変換は演奏開始前に完了するため、Realtime試聴中にTick計算を行いません
 
 ## ループ

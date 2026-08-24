@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Mapped Sample Instrument",
     "author": "Sonalloy",
     "description": "Key zones, velocity layers, round robin, and explicit sample regions"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -164,5 +165,7 @@
   "modulation": {
     "sources": [],
     "routes": []
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

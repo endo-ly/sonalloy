@@ -9,6 +9,7 @@ pub(crate) mod processor;
 mod random;
 pub(crate) mod sample;
 pub(crate) mod smoothing;
+pub(crate) mod source;
 mod voice;
 
 pub use instrument::InstrumentRuntime;
@@ -165,6 +166,9 @@ mod tests {
                     context: ProcessContext {
                         absolute_frame: offset as u64,
                         tempo_bpm: 120.0,
+                        beat_position: 0.0,
+                        bar_position: 0.0,
+                        time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                     },
                     events: &[],
                     output: &mut output,
@@ -208,6 +212,9 @@ mod tests {
                 context: ProcessContext {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
                 output: &mut output,
@@ -223,6 +230,9 @@ mod tests {
                 context: ProcessContext {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
                 output: &mut reset_output,
@@ -260,6 +270,9 @@ mod tests {
                     context: ProcessContext {
                         absolute_frame: 0,
                         tempo_bpm: 120.0,
+                        beat_position: 0.0,
+                        bar_position: 0.0,
+                        time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                     },
                     events: &[],
                     output: &mut output,
@@ -281,6 +294,9 @@ mod tests {
                     context: ProcessContext {
                         absolute_frame: 0,
                         tempo_bpm: 120.0,
+                        beat_position: 0.0,
+                        bar_position: 0.0,
+                        time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                     },
                     events: &[],
                     output: &mut output,
@@ -302,6 +318,9 @@ mod tests {
             context: ProcessContext {
                 absolute_frame: 1,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
             },
             events: &[],
             output: &mut output,
@@ -335,6 +354,9 @@ mod tests {
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
             },
             events: &[event],
             output: &mut output,
@@ -362,6 +384,9 @@ mod tests {
                 context: ProcessContext {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
                 output: &mut output,
@@ -388,6 +413,9 @@ mod tests {
                 context: ProcessContext {
                     absolute_frame: 0,
                     tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
                 output: &mut output,
@@ -419,6 +447,9 @@ mod tests {
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
             },
             events: &[],
             output: &mut output,
@@ -438,6 +469,9 @@ mod tests {
             context: ProcessContext {
                 absolute_frame: 0,
                 tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
             },
             events: &[],
             output: &mut short_output,

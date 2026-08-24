@@ -4149,7 +4149,7 @@
     "repeat_sha256": "5d1c8344e1b7e380b9038ece0f3d63c0565cfbec71c4eeefa02058299b755e2b"
   },
   "release_render": {
-    "elapsed_seconds": 0.03769577108323574,
+    "elapsed_seconds": 0.03673449158668518,
     "frames": 48000,
     "channels": 2,
     "duration_frames": 48000,
@@ -4157,7 +4157,7 @@
     "block_size": 257,
     "build": "release",
     "audio_duration_seconds": 1.0,
-    "realtime_ratio": 0.03769577108323574,
-    "cli_realtime_factor": 26.528174680175866
+    "realtime_ratio": 0.03673449158668518,
+    "cli_realtime_factor": 27.222372130569
   }
 }

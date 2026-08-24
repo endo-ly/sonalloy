@@ -1,0 +1,351 @@
+{
+  "status": "ok",
+  "name": "Tempo Step Bass",
+  "metadata": {
+    "name": "Tempo Step Bass",
+    "author": "Sonalloy",
+    "description": "A tempo-synchronous step bass with cutoff, beat phase, and bar phase movement"
+  },
+  "mode": "polyphonic",
+  "voice_count": 4,
+  "polyphony": 4,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "reported_latency_frames": 0,
+  "layer_count": 1,
+  "layers": [
+    {
+      "id": "bass",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "oscillator",
+        "waveform": "square",
+        "phase_reset": true,
+        "phase": 0.0,
+        "output_mode": "mono",
+        "backend": "basic",
+        "hard_sync": false,
+        "waveshaping": false,
+        "phase_distortion": false,
+        "wavefold": false,
+        "oscillator_feedback": false,
+        "dc_blocker": false,
+        "signal_order": "oscillator -> unison_mix -> waveshaping",
+        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
+        "unison_voices": 1,
+        "phase_spread": 0.0,
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "not_applicable (oscillator-only instrument)",
+      "gain_db": -9.0,
+      "gain_linear": 0.3548134,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 240,
+        "decay_samples": 7200,
+        "sustain_level": 0.65,
+        "release_samples": 12000
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "placement": "voice",
+      "chain_index": 0,
+      "id": "tone",
+      "kind": "filter",
+      "mode": "low_pass",
+      "static_fields": [
+        {
+          "id": "effective_max_cutoff_hz",
+          "value": 20000.0
+        }
+      ],
+      "parameters": [
+        {
+          "id": "voice.processor.tone.cutoff",
+          "unit": "hertz",
+          "min": 20.0,
+          "max": 20000.0,
+          "default": 900.0,
+          "scale": "log2",
+          "smoothing_seconds": 0.01,
+          "modulation": {
+            "unit": "octaves",
+            "max_abs_depth": 9.965784
+          }
+        },
+        {
+          "id": "voice.processor.tone.resonance",
+          "unit": "normalized",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.2,
+          "scale": "linear",
+          "smoothing_seconds": 0.01,
+          "modulation": {
+            "unit": "normalized",
+            "max_abs_depth": 1.0
+          }
+        }
+      ]
+    }
+  ],
+  "global_processors": [],
+  "parameters": [
+    {
+      "id": "layer.bass.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -9.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      },
+      "modulated_range_from_default": {
+        "unclamped_min": -9.0,
+        "unclamped_max": -5.0,
+        "effective_min": -9.0,
+        "effective_max": -5.0,
+        "may_clamp": false
+      }
+    },
+    {
+      "id": "layer.bass.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
+    },
+    {
+      "id": "layer.bass.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
+    },
+    {
+      "id": "voice.processor.tone.cutoff",
+      "owner": {
+        "voice_processor": {
+          "processor_index": 0
+        }
+      },
+      "unit": "hertz",
+      "min": 20.0,
+      "max": 20000.0,
+      "default": 900.0,
+      "scale": "log2",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "octaves",
+        "max_abs_depth": 9.965784
+      },
+      "modulated_range_from_default": {
+        "unclamped_min": 900.0,
+        "unclamped_max": 9176.836,
+        "effective_min": 900.0,
+        "effective_max": 9176.836,
+        "may_clamp": false
+      }
+    },
+    {
+      "id": "voice.processor.tone.resonance",
+      "owner": {
+        "voice_processor": {
+          "processor_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.2,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    }
+  ],
+  "macros": [],
+  "vectors": [],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      }
+    },
+    {
+      "id": "bass_step",
+      "scope": "voice",
+      "kind": "step",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      },
+      "rate": 4.0,
+      "rate_unit": "per_beat",
+      "step_value_count": 4
+    },
+    {
+      "id": "transport_beat_phase",
+      "scope": "instrument",
+      "kind": "beat_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "transport_bar_phase",
+      "scope": "instrument",
+      "kind": "bar_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "source": "bass_step",
+      "target": "layer.bass.gain",
+      "depth": {
+        "value": 4.0,
+        "unit": "decibels"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "effect": {
+        "kind": "additive",
+        "unit": "decibels",
+        "min_delta": 0.0,
+        "max_delta": 4.0
+      }
+    },
+    {
+      "source": "bass_step",
+      "target": "voice.processor.tone.cutoff",
+      "depth": {
+        "value": 2.5,
+        "unit": "octaves"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "effect": {
+        "kind": "multiplicative",
+        "unit": "octaves",
+        "min_octaves": 0.0,
+        "max_octaves": 2.5,
+        "min_factor": 1.0,
+        "max_factor": 5.656854
+      }
+    },
+    {
+      "source": "transport_beat_phase",
+      "target": "voice.processor.tone.cutoff",
+      "depth": {
+        "value": 0.5,
+        "unit": "octaves"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "effect": {
+        "kind": "multiplicative",
+        "unit": "octaves",
+        "min_octaves": 0.0,
+        "max_octaves": 0.5,
+        "min_factor": 1.0,
+        "max_factor": 1.4142135
+      }
+    },
+    {
+      "source": "transport_bar_phase",
+      "target": "voice.processor.tone.cutoff",
+      "depth": {
+        "value": 0.35,
+        "unit": "octaves"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": 0.0,
+        "max": 1.0
+      },
+      "effect": {
+        "kind": "multiplicative",
+        "unit": "octaves",
+        "min_octaves": 0.0,
+        "max_octaves": 0.35,
+        "min_factor": 1.0,
+        "max_factor": 1.2745606
+      }
+    }
+  ]
+}

@@ -60,15 +60,16 @@ sonalloy instrument inspect <definition> --json
 
 | 項目 | 内容 |
 |---|---|
-| Performance | 同時発音数、Voice Stealingの方式、報告Latency |
+| Performance | `mode`、Voice Count、PolyphonicのVoice Stealing、MonophonicのLegato / Portamento、報告Latency |
 | Layer | 発音条件、Generator、Gain、Pan、Tuning、ADSR |
 | Generator | 各Generatorの構成値（波形、Asset、Parameter、Algorithmなど）。Physical StringはExciterとLoop Parameter、ModalはExciter・Mode Count・共鳴Parameter・実効周波数上限を表示 |
 | Parameter | Parameter ID、Owner、Native Unit、Native範囲、Default、Scale、Smoothing、Modulation Unit、最大Depth |
 | Modulation | Sourceの範囲とPolarity、RouteごとのDepthとCurve、Static Effect、Default値からModulationで到達しうる範囲とClampの有無 |
+| Macro / Vector | MacroのParameter ID・Default・Route、VectorのAxis ID・所属Layer・初期値 |
 | Processor | Layer / Voice / Globalの各Processor Chain |
 | Warning | コンパイル時の警告（Asset欠落など） |
 
-`--json`は、Generatorごとの構造をFieldとして返します。返るFieldはGeneratorの種類ごとに異なり、Parameter IDの形式は`docs/instrument-definition.md`を参照してください。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。
+`--json`は、Generatorごとの構造をFieldとして返します。返るFieldはGeneratorの種類ごとに異なり、Parameter IDの形式は`docs/instrument-definition.md`を参照してください。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。`sources[]`にはScope、RateとRate Unit、MSEG / Step / Randomの構造が含まれ、`macros[]`と`vectors[]`には外部から操作するIDを含めます。
 
 例（抜粋）：
 
@@ -179,7 +180,8 @@ JSONでは次のFieldを返します。対応Buffer範囲が不明なDeviceで�
 ```bash
 sonalloy play <definition>
 sonalloy play <definition> --midi-device <id>
-sonalloy play <definition> --audio-device <id> --sample-rate 48000 --buffer-size 256 --tempo 120
+sonalloy play <definition> --audio-device <id> --sample-rate 48000 --buffer-size 256 \
+  --tempo 120 --time-signature 4/4 --macro-cc motion=74
 ```
 
 | Option | Default | 内容 |
@@ -189,10 +191,12 @@ sonalloy play <definition> --audio-device <id> --sample-rate 48000 --buffer-size
 | `--sample-rate <hz>` | Device Default | Deviceが対応するRateだけを選択し、そのRateでCompile |
 | `--buffer-size <frames>` | 256 | CPALへ要求するFrame数。0やDeviceの対応範囲外はError |
 | `--tempo <bpm>` | 120 | `ProcessContext.tempo_bpm`へ渡す一定Tempo |
+| `--time-signature <n/d>` | 4/4 | `ProcessContext.time_signature`へ渡す一定拍子。分母は1〜128の2の冪 |
+| `--macro-cc <id=cc>` | なし | Macro ParameterをMIDI CCへ割り当てる。複数指定可。CC1 / CC64は標準Controlとして予約 |
 
 `play`は標準入力のEnterで停止する長時間実行コマンドで、次の情報を表示します。
 
-- 起動時: Definition名、Audio / MIDI Device名とID、Sample Rate、Channel数、Sample Format、要求Buffer Size、Engine Latency、Tempo
+- 起動時: Definition名、Audio / MIDI Device名とID、Sample Rate、Channel数、Sample Format、要求Buffer Size、Engine Latency、Tempo、Time Signature、Macro CC Mapping
 - 終了時: 観測した最小 / 最大Frame数とCallback回数（Host Callbackの実Frame数は要求値と異なることがあるため）
 
 Deviceを機械可読で確認するときは`device list --json`を使います。
@@ -204,7 +208,7 @@ Deviceを機械可読で確認するときは`device list --json`を使います
 - Realtime Schedulingの拒否はWarningを表示して継続し、Xrunは回数を終了時に表示します
 - Audio Device Error / MIDI Error / Process Error・Queue Overflowは、出力を無音化してから`AUDIO_DEVICE_ERROR` / `MIDI_ERROR` / `PROCESS_ERROR`としてSessionを終了します
 
-MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64（Sustain Pedal）は、Offline経路と同じCore Eventへ変換されます。
+MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64（Sustain Pedal）は、Offline経路と同じCore Eventへ変換されます。`--macro-cc`で割り当てたCCはMacroの`parameter_change`へ変換されます。1つのCCを複数Macroへ割り当てたり、予約済みCCを割り当てたりする指定は起動時に拒否します。
 
 ### `audition pattern` — PatternのRealtime試聴
 
@@ -260,7 +264,7 @@ sonalloy render note <definition> \
 | `--velocity` | 100 | 強さ（1〜127） |
 | `--gate` | 0.5 | Note OnからNote Offまでの秒数 |
 | `--tail` | 0.5 | Note Off後の余韻の秒数 |
-| `--tempo` | 120 | Tempo Sync Sampleの基準BPM |
+| `--tempo` | 120 | Tempo Sync SampleとTempo同期Sourceの基準BPM |
 | `--sample-rate` | 48000 | 出力Sample Rate |
 | `--block-size` | 257 | 処理の最大Block Size |
 | `--output` | — | 出力先（必須） |
@@ -310,11 +314,13 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 - Eventを時系列へ処理するため、`absolute_frame`の昇順へ整列します。同じFrameに複数Eventがある場合の適用順序は`docs/runtime-processing.md`を参照してください
 - 次のいずれかはErrorになり、WAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、Native範囲外の値
 
+`render note`と`render events`は指定Tempoの4/4から始まります。`render midi`はTempo Meta EventとTime Signature Meta Eventを`MusicalTimeMap`へ変換し、Time Signatureがない場合は4/4を使います。`render pattern`もPatternの`tempo_changes`と`time_signature_changes`から同じMapを作ります。Tempo / Meterの変更位置でProcess Blockを分割し、`beat_position`と`bar_position`をProcessContextへ渡します。
+
 | Option | Default | 内容 |
 |---|---|---|
 | `--duration-frames` | — | レンダリング長（Frame、必須）。Eventの`absolute_frame`はこの値未満にします |
 | `--tail` | 1.0 | レンダリング後の余韻の秒数 |
-| `--tempo` | 120 | Tempo Sync Sampleの基準BPM |
+| `--tempo` | 120 | Tempo Sync SampleとTempo同期Sourceの基準BPM |
 | `--sample-rate` | 48000 | 出力Sample Rate |
 | `--block-size` | 257 | 処理の最大Block Size |
 | `--output` | — | 出力先（必須） |
@@ -341,9 +347,9 @@ Analysisの主なFieldは次のとおりです。
 
 測定できない項目（無音時のLevel / Activityなど）は`null`になり、NaNとInfinityはJSONへ出力しません。`render note`だけは指定MIDI Noteの標準音高をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
 
-Trace対象は既存CatalogのDynamic Parameter IDだけです。Reportには各時点のTarget値（Base、Routeごとの寄与、Clamp前後の値）が記録され、Voice所属Parameterなら所属Voiceの情報も付きます。Layer Targetは発音中のVoiceだけを報告します。
+Trace対象は既存CatalogのDynamic Parameter IDだけです。Reportには各時点のTarget値（Base、Routeごとの寄与、Clamp前後の値）が記録され、Voice所属Parameterなら所属Voiceの情報も付きます。Layer TuningをTraceした場合、Portamento中はRouteとは別の`portamento_offset_cents`と、Offsetを加えた実際の値を示す`effective_value`が記録されます。MacroはInstrument単位のため、Voice情報なしで一度だけ観測されます。Layer Targetは発音中のVoiceだけを報告します。
 
-Traceの時刻はLatency補正後の出力WAVと同じTimelineです。`--trace`は繰り返し指定でき、観測総数には100,000件の上限があります。
+Traceの時刻はLatency補正後の出力WAVと同じTimelineです。Renderと同じMusical Time Mapを通るため、Tempo / Meter変更位置では処理Blockが分かれます。`--trace`は繰り返し指定でき、観測総数には100,000件の上限があります。
 
 例：
 
@@ -353,7 +359,7 @@ sonalloy render note presets/basic.json --analyze \
   --trace-every-frames 480 --json --output out/note.wav
 ```
 
-`trace.parameters[].observations[]`の`final`が、全Route加算とClamp後の実効値です。
+`trace.parameters[].observations[]`の`final`が、全Route加算とClamp後の値です。Portamento中のLayer Tuningだけは、その後段の音高Offsetを`portamento_offset_cents`へ分け、実際にGeneratorへ渡る値を`effective_value`へ記録します。
 
 `--reset-check`は同じRuntimeをResetして同じEvent列を再実行し、前後のAudio差分をReportへ記録します。すべてのStateが初期化されていれば差分は0になります。`--reset-check`は`trace`と併用できません。
 

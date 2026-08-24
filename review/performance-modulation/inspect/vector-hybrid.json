@@ -1,0 +1,615 @@
+{
+  "status": "ok",
+  "name": "Vector Hybrid",
+  "metadata": {
+    "name": "Vector Hybrid",
+    "author": "Sonalloy",
+    "description": "Four oscillator layers arranged on a constant-power XY Vector"
+  },
+  "mode": "polyphonic",
+  "voice_count": 8,
+  "polyphony": 8,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "reported_latency_frames": 0,
+  "layer_count": 4,
+  "layers": [
+    {
+      "id": "analog",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "oscillator",
+        "waveform": "saw",
+        "phase_reset": true,
+        "phase": 0.0,
+        "output_mode": "mono",
+        "backend": "basic",
+        "hard_sync": false,
+        "waveshaping": false,
+        "phase_distortion": false,
+        "wavefold": false,
+        "oscillator_feedback": false,
+        "dc_blocker": false,
+        "signal_order": "oscillator -> unison_mix -> waveshaping",
+        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
+        "unison_voices": 1,
+        "phase_spread": 0.0,
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "not_applicable (oscillator-only instrument)",
+      "gain_db": -2.0,
+      "gain_linear": 0.7943282,
+      "pan": -0.25,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 960,
+        "decay_samples": 9600,
+        "sustain_level": 0.7,
+        "release_samples": 21600
+      },
+      "processors": []
+    },
+    {
+      "id": "bright",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "oscillator",
+        "waveform": "square",
+        "phase_reset": true,
+        "phase": 0.0,
+        "output_mode": "mono",
+        "backend": "basic",
+        "hard_sync": false,
+        "waveshaping": false,
+        "phase_distortion": false,
+        "wavefold": false,
+        "oscillator_feedback": false,
+        "dc_blocker": false,
+        "signal_order": "oscillator -> unison_mix -> waveshaping",
+        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
+        "unison_voices": 1,
+        "phase_spread": 0.0,
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "not_applicable (oscillator-only instrument)",
+      "gain_db": -2.0,
+      "gain_linear": 0.7943282,
+      "pan": 0.25,
+      "tuning_cents": 1200.0,
+      "tuning_ratio": 2.0,
+      "envelope": {
+        "attack_samples": 960,
+        "decay_samples": 10560,
+        "sustain_level": 0.65,
+        "release_samples": 21600
+      },
+      "processors": []
+    },
+    {
+      "id": "texture",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "oscillator",
+        "waveform": "triangle",
+        "phase_reset": true,
+        "phase": 0.0,
+        "output_mode": "mono",
+        "backend": "basic",
+        "hard_sync": false,
+        "waveshaping": false,
+        "phase_distortion": false,
+        "wavefold": false,
+        "oscillator_feedback": false,
+        "dc_blocker": false,
+        "signal_order": "oscillator -> unison_mix -> waveshaping",
+        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
+        "unison_voices": 1,
+        "phase_spread": 0.0,
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "not_applicable (oscillator-only instrument)",
+      "gain_db": -6.0,
+      "gain_linear": 0.5011872,
+      "pan": -0.15,
+      "tuning_cents": -1200.0,
+      "tuning_ratio": 0.5,
+      "envelope": {
+        "attack_samples": 1920,
+        "decay_samples": 14400,
+        "sustain_level": 0.55,
+        "release_samples": 24000
+      },
+      "processors": []
+    },
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "oscillator",
+        "waveform": "sine",
+        "phase_reset": true,
+        "phase": 0.0,
+        "output_mode": "mono",
+        "backend": "basic",
+        "hard_sync": false,
+        "waveshaping": false,
+        "phase_distortion": false,
+        "wavefold": false,
+        "oscillator_feedback": false,
+        "dc_blocker": false,
+        "signal_order": "oscillator -> unison_mix -> waveshaping",
+        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
+        "unison_voices": 1,
+        "phase_spread": 0.0,
+        "effective_max_frequency_hz": 21600.0
+      },
+      "asset_status": "not_applicable (oscillator-only instrument)",
+      "gain_db": -10.0,
+      "gain_linear": 0.31622776,
+      "pan": 0.15,
+      "tuning_cents": 700.0,
+      "tuning_ratio": 1.4983071,
+      "envelope": {
+        "attack_samples": 3840,
+        "decay_samples": 16800,
+        "sustain_level": 0.5,
+        "release_samples": 28800
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "parameters": [
+    {
+      "id": "layer.analog.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -2.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
+    },
+    {
+      "id": "layer.analog.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": -0.25,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
+    },
+    {
+      "id": "layer.analog.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
+    },
+    {
+      "id": "layer.bright.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -2.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
+    },
+    {
+      "id": "layer.bright.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.25,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
+    },
+    {
+      "id": "layer.bright.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 1
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 1200.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
+    },
+    {
+      "id": "layer.texture.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 2
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -6.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
+    },
+    {
+      "id": "layer.texture.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 2
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": -0.15,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
+    },
+    {
+      "id": "layer.texture.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 2
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": -1200.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
+    },
+    {
+      "id": "layer.air.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 3
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -10.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
+    },
+    {
+      "id": "layer.air.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 3
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.15,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
+    },
+    {
+      "id": "layer.air.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 3
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 700.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
+    },
+    {
+      "id": "macro.position",
+      "owner": {
+        "macro": {
+          "macro_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    },
+    {
+      "id": "vector.character.x",
+      "owner": {
+        "vector_axis": {
+          "vector_index": 0,
+          "axis": "x"
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      },
+      "modulated_range_from_default": {
+        "unclamped_min": 0.5,
+        "unclamped_max": 0.5,
+        "effective_min": 0.5,
+        "effective_max": 0.5,
+        "may_clamp": false
+      }
+    },
+    {
+      "id": "vector.character.y",
+      "owner": {
+        "vector_axis": {
+          "vector_index": 0,
+          "axis": "y"
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      },
+      "modulated_range_from_default": {
+        "unclamped_min": 0.0,
+        "unclamped_max": 1.0,
+        "effective_min": 0.0,
+        "effective_max": 1.0,
+        "may_clamp": false
+      }
+    }
+  ],
+  "macros": [
+    {
+      "id": "position",
+      "name": "Position",
+      "parameter_id": "macro.position",
+      "default": 0.5,
+      "routes": [
+        "vector.character.x"
+      ]
+    }
+  ],
+  "vectors": [
+    {
+      "id": "character",
+      "name": "Character",
+      "type": "four_way",
+      "layers": [
+        "analog",
+        "bright",
+        "texture",
+        "air"
+      ],
+      "axis_parameter_ids": [
+        "vector.character.x",
+        "vector.character.y"
+      ],
+      "x": 0.5,
+      "y": 0.5
+    }
+  ],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      }
+    },
+    {
+      "id": "vector_sweep",
+      "scope": "voice",
+      "kind": "lfo",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      },
+      "waveform": "sine",
+      "rate": 0.25,
+      "rate_unit": "per_second",
+      "phase": 0.0
+    },
+    {
+      "id": "macro.position",
+      "scope": "instrument",
+      "kind": "macro",
+      "value_range": {
+        "min": 0.0,
+        "max": 0.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "transport_beat_phase",
+      "scope": "instrument",
+      "kind": "beat_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "transport_bar_phase",
+      "scope": "instrument",
+      "kind": "bar_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "source": "macro.position",
+      "target": "vector.character.x",
+      "depth": {
+        "value": 1.0,
+        "unit": "normalized"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": 0.0,
+        "max": 0.0
+      },
+      "effect": {
+        "kind": "additive",
+        "unit": "normalized",
+        "min_delta": 0.0,
+        "max_delta": 0.0
+      }
+    },
+    {
+      "source": "vector_sweep",
+      "target": "vector.character.y",
+      "depth": {
+        "value": 0.5,
+        "unit": "normalized"
+      },
+      "curve": "linear",
+      "source_range": {
+        "min": -1.0,
+        "max": 1.0
+      },
+      "effect": {
+        "kind": "additive",
+        "unit": "normalized",
+        "min_delta": -0.5,
+        "max_delta": 0.5
+      }
+    }
+  ]
+}

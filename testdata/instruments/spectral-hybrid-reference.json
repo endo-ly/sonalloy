@@ -1,11 +1,12 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "metadata": {
     "name": "Spectral Hybrid Reference",
     "author": "Sonalloy",
     "description": "Spectral body with additive, sample attack, noise, processors, and modulation"
   },
   "performance": {
+    "mode": "polyphonic",
     "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
@@ -84,10 +85,34 @@
           "spectrum_tilt_db_per_octave": -4.0,
           "inharmonicity": 0.05,
           "partials": [
-            { "id": "fundamental", "ratio": 1.0, "amplitude_a": 1.0, "amplitude_b": 0.9, "phase": 0.0 },
-            { "id": "second", "ratio": 2.0, "amplitude_a": 0.42, "amplitude_b": 0.5, "phase": 0.0 },
-            { "id": "third", "ratio": 3.0, "amplitude_a": 0.24, "amplitude_b": 0.32, "phase": 0.0 },
-            { "id": "fifth", "ratio": 5.0, "amplitude_a": 0.15, "amplitude_b": 0.22, "phase": 0.0 }
+            {
+              "id": "fundamental",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 0.9,
+              "phase": 0.0
+            },
+            {
+              "id": "second",
+              "ratio": 2.0,
+              "amplitude_a": 0.42,
+              "amplitude_b": 0.5,
+              "phase": 0.0
+            },
+            {
+              "id": "third",
+              "ratio": 3.0,
+              "amplitude_a": 0.24,
+              "amplitude_b": 0.32,
+              "phase": 0.0
+            },
+            {
+              "id": "fifth",
+              "ratio": 5.0,
+              "amplitude_a": 0.15,
+              "amplitude_b": 0.22,
+              "phase": 0.0
+            }
           ]
         }
       },
@@ -226,8 +251,11 @@
         "type": "lfo",
         "id": "spectral_motion",
         "waveform": "sine",
-        "rate_hz": 0.21,
-        "phase": 0.0
+        "phase": 0.0,
+        "rate": {
+          "value": 0.21,
+          "unit": "per_second"
+        }
       },
       {
         "type": "envelope",
@@ -245,7 +273,8 @@
         "depth": {
           "value": 0.349999994,
           "unit": "normalized"
-        },        "curve": "smooth_step"
+        },
+        "curve": "smooth_step"
       },
       {
         "source": "spectral_breath",
@@ -253,7 +282,8 @@
         "depth": {
           "value": 0.25,
           "unit": "seconds"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "mod_wheel",
@@ -261,7 +291,8 @@
         "depth": {
           "value": 4800,
           "unit": "hertz"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "spectral_motion",
@@ -269,7 +300,8 @@
         "depth": {
           "value": 0.550000012,
           "unit": "normalized"
-        },        "curve": "smooth_step"
+        },
+        "curve": "smooth_step"
       },
       {
         "source": "velocity",
@@ -277,7 +309,8 @@
         "depth": {
           "value": 2.88000011,
           "unit": "decibels"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "spectral_motion",
@@ -285,7 +318,8 @@
         "depth": {
           "value": 0.996578455,
           "unit": "octaves"
-        },        "curve": "smooth_step"
+        },
+        "curve": "smooth_step"
       },
       {
         "source": "spectral_motion",
@@ -293,7 +327,8 @@
         "depth": {
           "value": 0.797262728,
           "unit": "octaves"
-        },        "curve": "smooth_step"
+        },
+        "curve": "smooth_step"
       },
       {
         "source": "mod_wheel",
@@ -301,7 +336,8 @@
         "depth": {
           "value": 0.200000003,
           "unit": "normalized"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       },
       {
         "source": "mod_wheel",
@@ -309,8 +345,11 @@
         "depth": {
           "value": 0.200000003,
           "unit": "normalized"
-        },        "curve": "linear"
+        },
+        "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

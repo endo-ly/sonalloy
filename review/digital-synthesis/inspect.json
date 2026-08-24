@@ -6,6 +6,8 @@
     "author": "Sonalloy",
     "description": "Wavetable Generator review instrument"
   },
+  "mode": "polyphonic",
+  "voice_count": 16,
   "polyphony": 16,
   "voice_stealing": "quietest_releasing_then_oldest",
   "reported_latency_frames": 0,
@@ -185,6 +187,8 @@
       }
     }
   ],
+  "macros": [],
+  "vectors": [],
   "sources": [
     {
       "id": "velocity",
@@ -216,8 +220,29 @@
         "polarity": "bipolar"
       },
       "waveform": "sine",
-      "rate_hz": 0.35,
+      "rate": 0.35,
+      "rate_unit": "per_second",
       "phase": 0.0
+    },
+    {
+      "id": "transport_beat_phase",
+      "scope": "instrument",
+      "kind": "beat_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "transport_bar_phase",
+      "scope": "instrument",
+      "kind": "bar_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
     }
   ],
   "routes": [
