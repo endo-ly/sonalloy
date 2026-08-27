@@ -1,0 +1,57 @@
+{
+  "schema_version": 4,
+  "metadata": {
+    "name": "Transient Drum",
+    "author": "Sonalloy",
+    "description": "Deterministic review fixture for the extended processor set"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.25,
+        "sustain_level": 0.7,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "transient_shaper",
+      "id": "drum_punch",
+      "attack": 0.55,
+      "sustain": -0.35,
+      "mix": 1.0
+    }
+  ],
+  "global_processors": [],
+  "modulation": null,
+  "macros": [],
+  "vectors": []
+}
