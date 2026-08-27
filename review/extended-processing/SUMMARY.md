@@ -6,7 +6,7 @@
 
 - 全9 DefinitionのSchema 4 Validate結果
 - 全9 DefinitionのCompile後Inspect結果
-- 48,000 Hz、Block Size 257の試聴用WAVとAnalysis JSON
+- 48,000 Hz、Block Size 257の試聴用WAVとAnalysis JSON。LadderはCutoff LFO、FormantはVowel Position MSEG、Frequency ShifterはModal Bellと`-420 → 0 → +420 Hz`のParameter Change、ConvolutionはModal impulse、Gateは左右独立のNoiseを使う
 - Full HybridのParameter Change Event、Trace、Analysis
 - Mono / Stereo IRの決定的生成結果とSHA-256参照
 - Layer Alignment LatencyとReported Latencyを含むInspect結果
@@ -18,12 +18,12 @@ Processor RuntimeのFinite、Reset、任意Block分割、Latency、Tempo変換�
 
 | Asset / Runtime | 内容 | 概算メモリ |
 |---|---|---:|
-| `body-short.wav` | 0.18秒、Mono、34 partitions | Prepared IR 139,264 bytes / Stereo Runtime 294,912 bytes |
-| `room-medium.wav` | 1.00秒、Stereo、188 partitions | Prepared IR 1,540,096 bytes / Stereo Runtime 1,556,480 bytes |
+| `body-short.wav` | 0.18秒、Mono、34 partitions | Prepared IR 139,264 bytes / Stereo Runtime 303,104 bytes |
+| `room-medium.wav` | 1.00秒、Stereo、188 partitions | Prepared IR 1,540,096 bytes / Stereo Runtime 1,564,672 bytes |
 | Delay 1個 | 48,000 Hz、16秒上限、Stereo | 6,144,032 bytes |
 | Delay 4個 | 96,000 Hz、16秒上限、Stereo | 49,152,128 bytes |
 
-ConvolutionのPrepared IRは256-frame partitionと512-point FFTの複素float32配列、Runtimeは左右各自の周波数領域履歴とFFT作業領域を基準に算出しています。Delayの上限はProcessorごとに16秒で、DefinitionのGlobal Delayは最大4個です。
+ConvolutionのPrepared IRは256-frame partitionと512-point FFTの複素float32配列、Runtimeは左右各自の周波数領域履歴、FFT作業領域、再利用scratchを基準に算出しています。Delayの上限はProcessorごとに16秒で、DefinitionのGlobal Delayは最大4個です。
 
 ## 試聴記録
 

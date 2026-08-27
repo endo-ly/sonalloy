@@ -14,7 +14,7 @@ IRだけを再生成する場合は次を実行します。
 python3 review/extended-processing/scripts/generate_ir.py
 ```
 
-生成Scriptは製品CLIで全DefinitionをValidate / Inspectし、48,000 Hz・Block Size 257・4秒のbounded tailを含むWAVとAnalysis JSONを作成します。Full HybridはParameter Change EventとTraceも生成します。44,100 / 48,000 / 96,000 Hz、Block Size 32 / 64 / 128 / 257での比較は、同じDefinitionを使って再生成できます。
+生成Scriptは製品CLIで全DefinitionをValidate / Inspectし、48,000 Hz・Block Size 257・4秒のbounded tailを含むWAVとAnalysis JSONを作成します。Full HybridはParameter Change EventとTraceを生成し、Frequency Shift Bellは`-420 → 0 → +420 Hz`のイベントで符号付き移動を確認します。44,100 / 48,000 / 96,000 Hz、Block Size 32 / 64 / 128 / 257での比較は、同じDefinitionを使って再生成できます。
 
 ## Fixture
 

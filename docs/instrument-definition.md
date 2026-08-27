@@ -774,7 +774,7 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
 | Delay（Globalのみ） | `time.value`: Secondsは0.001〜8秒、Beatsは0.015625〜2 beats、`feedback`: 0〜0.95、`taps`: 最大8個、`mix`: 0〜1 | `feedback`、`mix` | `time`、`feedback_mode`、`taps`。最大4個、Runtime bufferは16秒まで |
 | Reverb（Globalのみ） | `pre_delay_seconds`: 0〜0.2秒、`decay`: 0〜0.98（大きいほど残響が長い）、`damping` / `width` / `mix`: 0〜1 | `decay`、`damping`、`width`、`mix` | `pre_delay_seconds` |
 | Convolution（Globalのみ） | `ir`: Mono / Stereo WAV、`gain_db`: -24〜24 dB、`mix`: 0〜1 | `gain_db`、`mix` | IR、256 framesの固定Latency。IRは最大10秒、最大2個 |
-| Gate（Voice / Global） | `threshold_db`: -80〜0 dB、`hysteresis_db`: 0〜12 dB、`attack_ms`: 0.1〜100 ms、`hold_ms`: 0〜500 ms、`release_ms`: 5〜2000 ms、`range_db`: -96〜0 dB | `threshold_db`、`range_db` | `hysteresis_db`、各Time Field |
+| Gate（Voice / Global） | `threshold_db`: -80〜0 dB、`hysteresis_db`: 0〜12 dB、`attack_ms`: 0.1〜100 ms、`hold_ms`: 0〜500 ms、`release_ms`: 5〜2000 ms、`range_db`: -96〜0 dB（0 dBではGate閉時もUnity） | `threshold_db`、`range_db` | `hysteresis_db`、各Time Field |
 | Transient Shaper（Voice / Global） | `attack` / `sustain`: -1〜1、`mix`: 0〜1 | `attack`、`sustain`、`mix` | Fast / Slow EnvelopeのTime Constant |
 | Compressor | `threshold_db`: -60〜0 dB、`ratio`: 1〜20、`attack_ms`: 0.1〜200、`release_ms`: 5〜2000、`knee_db`: 0〜24、`makeup_gain_db`: -12〜24 dB、`mix`: 0〜1 | `threshold_db`、`ratio`、`makeup_gain_db`、`mix` | `attack_ms`、`release_ms`、`knee_db` |
 | Limiter | `ceiling_db`: -12〜0 dBFS、`release_ms`: 5〜1000、`input_gain_db`: -24〜24 dB | `ceiling_db`、`input_gain_db` | `release_ms` |
