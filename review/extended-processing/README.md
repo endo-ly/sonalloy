@@ -14,13 +14,13 @@ IRだけを再生成する場合は次を実行します。
 python3 review/extended-processing/scripts/generate_ir.py
 ```
 
-生成Scriptは製品CLIで全DefinitionをValidate / Inspectし、48,000 Hz・Block Size 257・4秒のbounded tailを含むWAVとAnalysis JSONを作成します。Full HybridはParameter Change EventとTraceを生成し、Frequency Shift Bellは`-420 → 0 → +420 Hz`のイベントで符号付き移動を確認します。44,100 / 48,000 / 96,000 Hz、Block Size 32 / 64 / 128 / 257での比較は、同じDefinitionを使って再生成できます。
+生成Scriptは製品CLIで全DefinitionをValidate / Inspectし、48,000 Hz・Block Size 257・通常4秒（Formantは1秒）のbounded tailを含むWAVとAnalysis JSONを作成します。Formant Filter Sweepは3秒のNoteでVowel Position MSEGの`0 → 1 → 0`を通過させ、Frequency Shift Bellは長いModal Bellを`-420 → 0 → +420 Hz`へ移動します。Full HybridはParameter Change EventとTraceを生成します。44,100 / 48,000 / 96,000 Hz、Block Size 32 / 64 / 128 / 257での比較は、同じDefinitionを使って再生成できます。
 
 ## Fixture
 
 | Fixture | 主な確認対象 |
 |---|---|
-| `ladder-acid-bass` | Ladder Filter、Drive、MacroからのCutoff modulation |
+| `ladder-acid-bass` | Ladder Filter、Drive、Cutoff LFO modulation |
 | `formant-filter-sweep` | Formant Processor、Profile interpolation、Vowel position |
 | `frequency-shift-bell` | Frequency Shifter、negative / positive shift、127-frame latency |
 | `convolution-body` | Mono IR、FFT partition、256-frame latency、tail |

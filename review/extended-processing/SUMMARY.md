@@ -6,7 +6,8 @@
 
 - 全9 DefinitionのSchema 4 Validate結果
 - 全9 DefinitionのCompile後Inspect結果
-- 48,000 Hz、Block Size 257の試聴用WAVとAnalysis JSON。LadderはCutoff LFO、FormantはVowel Position MSEG、Frequency ShifterはModal Bellと`-420 → 0 → +420 Hz`のParameter Change、ConvolutionはModal impulse、Gateは左右独立のNoiseを使う
+- 48,000 Hz、Block Size 257の試聴用WAVとAnalysis JSON。LadderはCutoff LFO、Formantは3秒のNoteでVowel Position MSEGの`0 → 1 → 0`、Frequency Shifterは長いModal Bellと`-420 → 0 → +420 Hz`のParameter Change、Convolutionは適正な出力レベルのModal impulse、Gateは左右独立のNoiseを使う
+- FormantはNote Offを144,000 frameに置き、WAVの活動区間は160,029 frameまで継続します。Frequency Shifterは活動区間が80,554 frameまで続き、Convolutionはピーク`-19.19 dBFS`、`over_full_scale=false`です
 - Full HybridのParameter Change Event、Trace、Analysis
 - Mono / Stereo IRの決定的生成結果とSHA-256参照
 - Layer Alignment LatencyとReported Latencyを含むInspect結果
