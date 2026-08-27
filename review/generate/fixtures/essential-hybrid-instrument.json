@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "metadata": {
     "name": "Essential Hybrid Instrument",
     "author": "Sonalloy",
@@ -279,8 +279,10 @@
     {
       "type": "delay",
       "id": "echo",
-      "time_seconds": 0.22,
+      "time": { "value": 0.22, "unit": "seconds" },
+      "feedback_mode": "stereo",
       "feedback": 0.3,
+      "taps": [],
       "mix": 0.16
     },
     {

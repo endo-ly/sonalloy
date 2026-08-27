@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "metadata": {
     "name": "Spectral Hybrid Reference",
     "author": "Sonalloy",
@@ -231,8 +231,10 @@
     {
       "type": "delay",
       "id": "echo",
-      "time_seconds": 0.18,
+      "time": { "value": 0.18, "unit": "seconds" },
+      "feedback_mode": "stereo",
       "feedback": 0.24,
+      "taps": [],
       "mix": 0.12
     },
     {

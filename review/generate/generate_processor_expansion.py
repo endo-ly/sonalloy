@@ -470,7 +470,15 @@ def full_chain_variants(asset_dir: Path) -> dict[str, dict[str, object]]:
             width=0.8,
             mix=0.3,
         ),
-        processor("delay", "pluck_delay", time_seconds=0.16, feedback=0.28, mix=0.16),
+        processor(
+            "delay",
+            "pluck_delay",
+            time={"value": 0.16, "unit": "seconds"},
+            feedback_mode="stereo",
+            feedback=0.28,
+            taps=[],
+            mix=0.16,
+        ),
         processor("limiter", "pluck_limiter", ceiling_db=-2.0, release_ms=70.0, input_gain_db=2.0),
     ]
     metallic["modulation"] = None

@@ -616,7 +616,7 @@ def definition(
     if extra_layers:
         layers.extend(copy.deepcopy(extra_layers))
     value: dict[str, object] = {
-        "schema_version": 3,
+        "schema_version": 4,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
@@ -692,7 +692,7 @@ def operator_definition(
             }
         )
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
