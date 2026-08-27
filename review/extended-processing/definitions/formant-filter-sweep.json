@@ -115,7 +115,48 @@
   ],
   "voice_processors": [],
   "global_processors": [],
-  "modulation": null,
+  "modulation": {
+    "sources": [
+      {
+        "type": "mseg",
+        "id": "vowel_motion",
+        "initial_value": 0.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 1.5,
+              "unit": "seconds"
+            },
+            "target": 1.0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 1.5,
+              "unit": "seconds"
+            },
+            "target": 0.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 0,
+          "end_segment": 1
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "vowel_motion",
+        "target": "layer.body.processor.vowel_filter.vowel_position",
+        "depth": {
+          "value": 1.0,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
   "macros": [],
   "vectors": []
 }

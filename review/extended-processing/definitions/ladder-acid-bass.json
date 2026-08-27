@@ -59,25 +59,30 @@
   "voice_processors": [],
   "global_processors": [],
   "modulation": {
-    "sources": [],
+    "sources": [
+      {
+        "type": "lfo",
+        "id": "cutoff_motion",
+        "waveform": "sine",
+        "phase": 0.0,
+        "rate": {
+          "value": 0.45,
+          "unit": "per_second"
+        }
+      }
+    ],
     "routes": [
       {
-        "source": "macro.motion",
+        "source": "cutoff_motion",
         "target": "layer.body.processor.acid_filter.cutoff",
         "depth": {
-          "value": 2.0,
+          "value": 1.75,
           "unit": "octaves"
         },
         "curve": "linear"
       }
     ]
   },
-  "macros": [
-    {
-      "id": "motion",
-      "name": "Motion",
-      "default": 0.0
-    }
-  ],
+  "macros": [],
   "vectors": []
 }

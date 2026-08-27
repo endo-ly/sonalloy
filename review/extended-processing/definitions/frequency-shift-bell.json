@@ -21,22 +21,27 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -9.0,
+      "gain_db": -15.0,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.005,
-        "decay_seconds": 0.25,
-        "sustain_level": 0.7,
-        "release_seconds": 0.35
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.8
       },
       "generator": {
-        "oscillator": {
-          "waveform": {
-            "type": "saw"
+        "modal": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.012,
+            "brightness": 0.7,
+            "seed": 7401
           },
-          "phase_reset": true,
-          "phase": 0.0
+          "mode_count": 16,
+          "structure": 0.62,
+          "brightness": 0.78,
+          "decay": 0.38
         }
       }
     }

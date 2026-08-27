@@ -25,35 +25,34 @@
         "velocity_max": 127
       },
       "generator": {
-        "kind": "oscillator",
-        "waveform": "saw",
-        "phase_reset": true,
-        "phase": 0.0,
+        "kind": "modal",
         "output_mode": "mono",
-        "backend": "basic",
-        "hard_sync": false,
-        "waveshaping": false,
-        "phase_distortion": false,
-        "wavefold": false,
-        "oscillator_feedback": false,
-        "dc_blocker": false,
-        "signal_order": "oscillator -> unison_mix -> waveshaping",
-        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
-        "unison_voices": 1,
-        "phase_spread": 0.0,
+        "exciter": {
+          "kind": "noise_burst",
+          "duration_seconds": 0.012,
+          "brightness": 0.7,
+          "seed": 7401
+        },
+        "mode_count": 16,
+        "structure": 0.62,
+        "structure_parameter": "layer.body.generator.modal_structure",
+        "brightness": 0.78,
+        "brightness_parameter": "layer.body.generator.modal_brightness",
+        "decay": 0.38,
+        "decay_parameter": "layer.body.generator.modal_decay",
         "effective_max_frequency_hz": 21600.0
       },
-      "asset_status": "not_applicable (oscillator-only instrument)",
-      "gain_db": -9.0,
-      "gain_linear": 0.3548134,
+      "asset_status": "ready",
+      "gain_db": -15.0,
+      "gain_linear": 0.17782794,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "tuning_ratio": 1.0,
       "envelope": {
-        "attack_samples": 240,
-        "decay_samples": 12000,
-        "sustain_level": 0.7,
-        "release_samples": 16800
+        "attack_samples": 0,
+        "decay_samples": 0,
+        "sustain_level": 1.0,
+        "release_samples": 38400
       },
       "processors": []
     }
@@ -112,7 +111,7 @@
       "unit": "decibels",
       "min": -60.0,
       "max": 12.0,
-      "default": -9.0,
+      "default": -15.0,
       "scale": "linear",
       "smoothing_seconds": 0.005,
       "modulation": {
@@ -154,6 +153,60 @@
       "modulation": {
         "unit": "cents",
         "max_abs_depth": 2400.0
+      }
+    },
+    {
+      "id": "layer.body.generator.modal_structure",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.62,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    },
+    {
+      "id": "layer.body.generator.modal_brightness",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.78,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    },
+    {
+      "id": "layer.body.generator.modal_decay",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.38,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
       }
     },
     {

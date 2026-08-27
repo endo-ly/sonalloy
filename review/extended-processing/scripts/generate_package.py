@@ -77,14 +77,21 @@ def definitions(body: Path, room: Path) -> dict[str, dict[str, object]]:
         processor("ladder_filter", "acid_filter", cutoff_hz=850.0, resonance=0.72, drive=0.38),
         processor("drive", "edge", amount=0.18, mix=0.3),
     ]
-    ladder["macros"] = [{"id": "motion", "name": "Motion", "default": 0.0}]
     ladder["modulation"] = {
-        "sources": [],
+        "sources": [
+            {
+                "type": "lfo",
+                "id": "cutoff_motion",
+                "waveform": "sine",
+                "phase": 0.0,
+                "rate": {"value": 0.45, "unit": "per_second"},
+            }
+        ],
         "routes": [
             {
-                "source": "macro.motion",
+                "source": "cutoff_motion",
                 "target": "layer.body.processor.acid_filter.cutoff",
-                "depth": {"value": 2.0, "unit": "octaves"},
+                "depth": {"value": 1.75, "unit": "octaves"},
                 "curve": "linear",
             }
         ],
@@ -103,19 +110,85 @@ def definitions(body: Path, room: Path) -> dict[str, dict[str, object]]:
             mix=0.75,
         )
     ]
+    formant_value["modulation"] = {
+        "sources": [
+            {
+                "type": "mseg",
+                "id": "vowel_motion",
+                "initial_value": 0.0,
+                "segments": [
+                    {
+                        "duration": {"value": 1.5, "unit": "seconds"},
+                        "target": 1.0,
+                        "curve": "smooth_step",
+                    },
+                    {
+                        "duration": {"value": 1.5, "unit": "seconds"},
+                        "target": 0.0,
+                        "curve": "smooth_step",
+                    },
+                ],
+                "loop_range": {"start_segment": 0, "end_segment": 1},
+            }
+        ],
+        "routes": [
+            {
+                "source": "vowel_motion",
+                "target": "layer.body.processor.vowel_filter.vowel_position",
+                "depth": {"value": 1.0, "unit": "normalized"},
+                "curve": "linear",
+            }
+        ],
+    }
 
     shift = base()
     shift["metadata"]["name"] = "Frequency Shift Bell"
+    shift["layers"][0]["gain_db"] = -15.0
+    shift["layers"][0]["envelope"] = {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.8,
+    }
+    shift["layers"][0]["generator"] = {
+        "modal": {
+            "exciter": {"type": "noise_burst", "duration_seconds": 0.012, "brightness": 0.7, "seed": 7401},
+            "mode_count": 16,
+            "structure": 0.62,
+            "brightness": 0.78,
+            "decay": 0.38,
+        }
+    }
     shift["global_processors"] = [processor("frequency_shifter", "metal_shift", shift_hz=420.0, mix=0.8)]
 
     convolution = base()
     convolution["metadata"]["name"] = "Convolution Body"
+    convolution["layers"][0]["gain_db"] = -12.0
+    convolution["layers"][0]["envelope"] = {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.6,
+    }
+    convolution["layers"][0]["generator"] = {
+        "modal": {
+            "exciter": {"type": "impulse"},
+            "mode_count": 8,
+            "structure": 0.38,
+            "brightness": 0.55,
+            "decay": 0.48,
+        }
+    }
     convolution["global_processors"] = [
-        processor("convolution", "body_ir", ir=asset_reference(body), gain_db=-3.0, mix=0.65)
+        processor("convolution", "body_ir", ir=asset_reference(body), gain_db=-12.0, mix=0.65)
     ]
 
     gate = base()
     gate["metadata"]["name"] = "Gate Dynamics"
+    gate["layers"][0]["gain_db"] = -6.0
+    gate["layers"][0]["generator"] = {
+        "noise": {"color": "white", "seed": 8127, "stereo_correlation": 0.0}
+    }
     gate["voice_processors"] = [
         processor(
             "gate",
@@ -360,8 +433,11 @@ def main() -> None:
             channels = int(static_fields["source_channels"])
             partitions = int(static_fields["partition_count"])
             complex_bytes = 8
+            scratch_complexes = 512
             prepared_bytes = channels * partitions * 512 * complex_bytes
-            runtime_bytes = 2 * (partitions * 512 * complex_bytes + 2 * 512 * complex_bytes)
+            runtime_bytes = 2 * (
+                partitions * 512 * complex_bytes + 3 * 512 * complex_bytes
+            )
             convolution_resources.append(
                 {
                     "fixture": name,
@@ -371,33 +447,57 @@ def main() -> None:
                     "partition_count": partitions,
                     "estimated_prepared_ir_bytes": prepared_bytes,
                     "estimated_stereo_runtime_bytes": runtime_bytes,
+                    "estimated_fft_scratch_bytes_per_channel": scratch_complexes * complex_bytes,
                 }
             )
-        render = json.loads(
-            run_cli(
-                [
-                    "render",
-                    "note",
-                    str(path),
-                    "--note",
-                    "48",
-                    "--velocity",
-                    "112",
-                    "--gate",
-                    "0.12",
-                    "--tail",
-                    REVIEW_TAIL_SECONDS,
-                    "--sample-rate",
-                    "48000",
-                    "--block-size",
-                    "257",
-                    "--output",
-                    str(PACKAGE / "audio" / f"{name}.wav"),
-                    "--analyze",
-                    "--json",
+        render_arguments = [
+            "render",
+            "note",
+            str(path),
+            "--note",
+            "48",
+            "--velocity",
+            "112",
+            "--gate",
+            "0.12",
+        ]
+        if name == "frequency-shift-bell":
+            shift_events = {
+                "events": [
+                    {"absolute_frame": 0, "type": "note_on", "note": 48, "velocity": 112, "note_id": 1},
+                    {"absolute_frame": 12_000, "type": "parameter_change", "parameter": "global.processor.metal_shift.shift_hz", "native_value": -420.0},
+                    {"absolute_frame": 24_000, "type": "parameter_change", "parameter": "global.processor.metal_shift.shift_hz", "native_value": 0.0},
+                    {"absolute_frame": 36_000, "type": "parameter_change", "parameter": "global.processor.metal_shift.shift_hz", "native_value": 420.0},
+                    {"absolute_frame": 48_000, "type": "note_off", "note_id": 1},
                 ]
-            )
+            }
+            shift_event_path = PACKAGE / "events" / "frequency-shift-bell.json"
+            write_json(shift_event_path, shift_events)
+            render_arguments = [
+                "render",
+                "events",
+                str(path),
+                str(shift_event_path),
+                "--duration-frames",
+                "60000",
+                "--tempo",
+                "120",
+            ]
+        render_arguments.extend(
+            [
+                "--tail",
+                REVIEW_TAIL_SECONDS,
+                "--sample-rate",
+                "48000",
+                "--block-size",
+                "257",
+                "--output",
+                str(PACKAGE / "audio" / f"{name}.wav"),
+                "--analyze",
+                "--json",
+            ]
         )
+        render = json.loads(run_cli(render_arguments))
         analyses[name] = render.get("analysis", {})
         write_json(PACKAGE / "analysis" / f"{name}.json", analyses[name])
 

@@ -21,7 +21,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -9.0,
+      "gain_db": -6.0,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -31,12 +31,10 @@
         "release_seconds": 0.35
       },
       "generator": {
-        "oscillator": {
-          "waveform": {
-            "type": "saw"
-          },
-          "phase_reset": true,
-          "phase": 0.0
+        "noise": {
+          "color": "white",
+          "seed": 8127,
+          "stereo_correlation": 0.0
         }
       }
     }

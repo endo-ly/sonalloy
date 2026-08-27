@@ -21,22 +21,24 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -9.0,
+      "gain_db": -12.0,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.005,
-        "decay_seconds": 0.25,
-        "sustain_level": 0.7,
-        "release_seconds": 0.35
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.6
       },
       "generator": {
-        "oscillator": {
-          "waveform": {
-            "type": "saw"
+        "modal": {
+          "exciter": {
+            "type": "impulse"
           },
-          "phase_reset": true,
-          "phase": 0.0
+          "mode_count": 8,
+          "structure": 0.38,
+          "brightness": 0.55,
+          "decay": 0.48
         }
       }
     }
@@ -50,7 +52,7 @@
         "path": "../assets/body-short.wav",
         "sha256": "7eba118fe0a1ee6b11fbc5d2e1e1c05ade0afa40d7e62ad8edb8f0967e8956e9"
       },
-      "gain_db": -3.0,
+      "gain_db": -12.0,
       "mix": 0.65
     }
   ],

@@ -25,35 +25,34 @@
         "velocity_max": 127
       },
       "generator": {
-        "kind": "oscillator",
-        "waveform": "saw",
-        "phase_reset": true,
-        "phase": 0.0,
+        "kind": "modal",
         "output_mode": "mono",
-        "backend": "basic",
-        "hard_sync": false,
-        "waveshaping": false,
-        "phase_distortion": false,
-        "wavefold": false,
-        "oscillator_feedback": false,
-        "dc_blocker": false,
-        "signal_order": "oscillator -> unison_mix -> waveshaping",
-        "combination_constraints": "phase_distortion and oscillator_feedback require sine; neither combines with hard_sync",
-        "unison_voices": 1,
-        "phase_spread": 0.0,
+        "exciter": {
+          "kind": "impulse",
+          "duration_seconds": null,
+          "brightness": null,
+          "seed": null
+        },
+        "mode_count": 8,
+        "structure": 0.38,
+        "structure_parameter": "layer.body.generator.modal_structure",
+        "brightness": 0.55,
+        "brightness_parameter": "layer.body.generator.modal_brightness",
+        "decay": 0.48,
+        "decay_parameter": "layer.body.generator.modal_decay",
         "effective_max_frequency_hz": 21600.0
       },
-      "asset_status": "not_applicable (oscillator-only instrument)",
-      "gain_db": -9.0,
-      "gain_linear": 0.3548134,
+      "asset_status": "ready",
+      "gain_db": -12.0,
+      "gain_linear": 0.25118864,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "tuning_ratio": 1.0,
       "envelope": {
-        "attack_samples": 240,
-        "decay_samples": 12000,
-        "sustain_level": 0.7,
-        "release_samples": 16800
+        "attack_samples": 0,
+        "decay_samples": 0,
+        "sustain_level": 1.0,
+        "release_samples": 28800
       },
       "processors": []
     }
@@ -95,7 +94,7 @@
           "unit": "decibels",
           "min": -24.0,
           "max": 24.0,
-          "default": -3.0,
+          "default": -12.0,
           "scale": "linear",
           "smoothing_seconds": 0.01,
           "modulation": {
@@ -130,7 +129,7 @@
       "unit": "decibels",
       "min": -60.0,
       "max": 12.0,
-      "default": -9.0,
+      "default": -12.0,
       "scale": "linear",
       "smoothing_seconds": 0.005,
       "modulation": {
@@ -175,6 +174,60 @@
       }
     },
     {
+      "id": "layer.body.generator.modal_structure",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.38,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    },
+    {
+      "id": "layer.body.generator.modal_brightness",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.55,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    },
+    {
+      "id": "layer.body.generator.modal_decay",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.48,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    },
+    {
       "id": "global.processor.body_ir.gain_db",
       "owner": {
         "global_processor": {
@@ -184,7 +237,7 @@
       "unit": "decibels",
       "min": -24.0,
       "max": 24.0,
-      "default": -3.0,
+      "default": -12.0,
       "scale": "linear",
       "smoothing_seconds": 0.01,
       "modulation": {

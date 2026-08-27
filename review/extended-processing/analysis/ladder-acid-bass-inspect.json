@@ -223,10 +223,10 @@
         "max_abs_depth": 9.965784
       },
       "modulated_range_from_default": {
-        "unclamped_min": 850.0,
-        "unclamped_max": 850.0,
-        "effective_min": 850.0,
-        "effective_max": 850.0,
+        "unclamped_min": 252.7065,
+        "unclamped_max": 2859.0479,
+        "effective_min": 252.7065,
+        "effective_max": 2859.0479,
         "may_clamp": false
       }
     },
@@ -305,37 +305,9 @@
         "unit": "normalized",
         "max_abs_depth": 1.0
       }
-    },
-    {
-      "id": "macro.motion",
-      "owner": {
-        "macro": {
-          "macro_index": 0
-        }
-      },
-      "unit": "normalized",
-      "min": 0.0,
-      "max": 1.0,
-      "default": 0.0,
-      "scale": "linear",
-      "smoothing_seconds": 0.005,
-      "modulation": {
-        "unit": "normalized",
-        "max_abs_depth": 1.0
-      }
     }
   ],
-  "macros": [
-    {
-      "id": "motion",
-      "name": "Motion",
-      "parameter_id": "macro.motion",
-      "default": 0.0,
-      "routes": [
-        "layer.body.processor.acid_filter.cutoff"
-      ]
-    }
-  ],
+  "macros": [],
   "vectors": [],
   "sources": [
     {
@@ -359,14 +331,18 @@
       }
     },
     {
-      "id": "macro.motion",
-      "scope": "instrument",
-      "kind": "macro",
+      "id": "cutoff_motion",
+      "scope": "voice",
+      "kind": "lfo",
       "value_range": {
-        "min": 0.0,
-        "max": 0.0,
-        "polarity": "unipolar"
-      }
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      },
+      "waveform": "sine",
+      "rate": 0.45,
+      "rate_unit": "per_second",
+      "phase": 0.0
     },
     {
       "id": "transport_beat_phase",
@@ -391,24 +367,24 @@
   ],
   "routes": [
     {
-      "source": "macro.motion",
+      "source": "cutoff_motion",
       "target": "layer.body.processor.acid_filter.cutoff",
       "depth": {
-        "value": 2.0,
+        "value": 1.75,
         "unit": "octaves"
       },
       "curve": "linear",
       "source_range": {
-        "min": 0.0,
-        "max": 0.0
+        "min": -1.0,
+        "max": 1.0
       },
       "effect": {
         "kind": "multiplicative",
         "unit": "octaves",
-        "min_octaves": 0.0,
-        "max_octaves": 0.0,
-        "min_factor": 1.0,
-        "max_factor": 1.0
+        "min_octaves": -1.75,
+        "max_octaves": 1.75,
+        "min_factor": 0.29730177,
+        "max_factor": 3.3635857
       }
     }
   ]
