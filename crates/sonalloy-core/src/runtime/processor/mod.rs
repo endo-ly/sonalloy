@@ -34,7 +34,7 @@ pub(crate) use drive::DriveRuntime;
 pub(crate) use eq::EqRuntime;
 pub(crate) use flanger::FlangerRuntime;
 pub(crate) use formant::FormantProcessorRuntime;
-pub(crate) use frequency_shifter::FrequencyShifterRuntime;
+pub(crate) use frequency_shifter::{FrequencyShifterRuntime, build_hilbert_coefficients};
 pub(crate) use gate::GateRuntime;
 pub(crate) use ladder::LadderFilterRuntime;
 pub(crate) use limiter::LimiterRuntime;

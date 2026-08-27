@@ -7,6 +7,23 @@ use super::ValueSpan;
 pub(crate) const HILBERT_TAPS: usize = 255;
 pub(crate) const HILBERT_GROUP_DELAY: usize = (HILBERT_TAPS - 1) / 2;
 
+#[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
+pub(crate) fn build_hilbert_coefficients() -> Vec<f32> {
+    let center = (HILBERT_TAPS - 1) / 2;
+    (0..HILBERT_TAPS)
+        .map(|index| {
+            let offset = index as isize - center as isize;
+            let ideal = if offset != 0 && offset % 2 != 0 {
+                2.0 / (std::f32::consts::PI * offset as f32)
+            } else {
+                0.0
+            };
+            let phase = std::f32::consts::TAU * index as f32 / (HILBERT_TAPS - 1) as f32;
+            ideal * (0.42 - 0.5 * phase.cos() + 0.08 * (phase * 2.0).cos())
+        })
+        .collect()
+}
+
 pub(crate) struct FrequencyShifterRuntime {
     coefficients: Arc<[f32]>,
     sample_rate: f32,
@@ -75,16 +92,8 @@ impl FrequencyShifterRuntime {
             let quadrature_left = self.left.hilbert(&self.coefficients);
             let quadrature_right = self.right.hilbert(&self.coefficients);
             let (sine, cosine) = (std::f32::consts::TAU * self.phase).sin_cos();
-            let shifted_left = if shift.abs() < f32::EPSILON {
-                delayed_left
-            } else {
-                delayed_left * cosine - quadrature_left * sine
-            };
-            let shifted_right = if shift.abs() < f32::EPSILON {
-                delayed_right
-            } else {
-                delayed_right * cosine - quadrature_right * sine
-            };
+            let shifted_left = delayed_left * cosine - quadrature_left * sine;
+            let shifted_right = delayed_right * cosine - quadrature_right * sine;
             left[index] = delayed_left * (1.0 - mix) + shifted_left * mix;
             right[index] = delayed_right * (1.0 - mix) + shifted_right * mix;
             if !left[index].is_finite() || !right[index].is_finite() {
@@ -172,7 +181,7 @@ mod tests {
 
     #[test]
     fn zero_shift_keeps_dry_and_wet_time_aligned() {
-        let coefficients = Arc::from(vec![0.0; HILBERT_TAPS]);
+        let coefficients = Arc::from(build_hilbert_coefficients());
         let mut runtime = FrequencyShifterRuntime::new(coefficients, 48_000.0, 5_000.0)
             .expect("frequency shifter prepares");
         let mut left = [0.0; 256];
@@ -190,5 +199,122 @@ mod tests {
         );
         assert!((left[HILBERT_GROUP_DELAY] - 1.0).abs() < 1.0e-6);
         assert!((right[HILBERT_GROUP_DELAY] + 1.0).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn hilbert_coefficients_are_finite_and_anti_symmetric() {
+        let coefficients = build_hilbert_coefficients();
+        let center = HILBERT_GROUP_DELAY;
+
+        assert_eq!(coefficients.len(), HILBERT_TAPS);
+        assert!(
+            coefficients
+                .iter()
+                .all(|coefficient| coefficient.is_finite())
+        );
+        assert!(coefficients[center].abs() < 1.0e-7);
+        for index in 0..center {
+            assert!((coefficients[index] + coefficients[HILBERT_TAPS - 1 - index]).abs() < 1.0e-7);
+        }
+    }
+
+    #[test]
+    fn signed_shift_selects_the_expected_sideband() {
+        let positive = render_sine(400.0);
+        let negative = render_sine(-400.0);
+        let positive_desired = energy_at_frequency(&positive, 1_400.0);
+        let positive_image = energy_at_frequency(&positive, 600.0);
+        let negative_desired = energy_at_frequency(&negative, 600.0);
+        let negative_image = energy_at_frequency(&negative, 1_400.0);
+
+        assert!(
+            positive_desired > positive_image * 31.6,
+            "+400 Hz desired={positive_desired}, image={positive_image}"
+        );
+        assert!(
+            negative_desired > negative_image * 31.6,
+            "-400 Hz desired={negative_desired}, image={negative_image}"
+        );
+    }
+
+    #[test]
+    fn dynamic_shift_remains_finite_without_large_steps() {
+        let coefficients = Arc::from(build_hilbert_coefficients());
+        let mut runtime = FrequencyShifterRuntime::new(coefficients, 48_000.0, 5_000.0)
+            .expect("frequency shifter prepares");
+        let mut left = vec![0.0; 16_384];
+        let mut right = vec![0.0; 16_384];
+        for (index, sample) in left.iter_mut().enumerate() {
+            #[allow(clippy::cast_precision_loss)]
+            let phase = std::f32::consts::TAU * 1_000.0 * index as f32 / 48_000.0;
+            *sample = phase.sin();
+        }
+        right.copy_from_slice(&left);
+
+        runtime
+            .process(
+                ValueSpan {
+                    start: -500.0,
+                    end: 500.0,
+                },
+                span(1.0),
+                &mut left,
+                &mut right,
+            )
+            .expect("dynamic frequency shift processes");
+
+        let (maximum_index, maximum_step) = left
+            .get(HILBERT_GROUP_DELAY + 2_048..)
+            .expect("dynamic shift has a steady-state region")
+            .windows(2)
+            .enumerate()
+            .map(|(index, window)| (index, (window[1] - window[0]).abs()))
+            .max_by(|(_, left), (_, right)| left.total_cmp(right))
+            .expect("dynamic shift has adjacent samples");
+        assert!(left.iter().all(|sample| sample.is_finite()));
+        assert!(
+            maximum_step < 0.5,
+            "maximum sample step={maximum_step} at index {}",
+            maximum_index + HILBERT_GROUP_DELAY + 2_048
+        );
+    }
+
+    fn render_sine(shift_hz: f32) -> Vec<f32> {
+        let coefficients = Arc::from(build_hilbert_coefficients());
+        let mut runtime = FrequencyShifterRuntime::new(coefficients, 48_000.0, 5_000.0)
+            .expect("frequency shifter prepares");
+        let mut left = vec![0.0; 32_768];
+        let mut right = vec![0.0; 32_768];
+        for (index, sample) in left.iter_mut().enumerate() {
+            #[allow(clippy::cast_precision_loss)]
+            let phase = std::f32::consts::TAU * 1_000.0 * index as f32 / 48_000.0;
+            *sample = phase.sin();
+        }
+        right.copy_from_slice(&left);
+        runtime
+            .process(span(shift_hz), span(1.0), &mut left, &mut right)
+            .expect("sine frequency shift processes");
+        left
+    }
+
+    fn energy_at_frequency(samples: &[f32], frequency_hz: f32) -> f32 {
+        let start = 8_192;
+        let slice = &samples[start..];
+        let omega = std::f32::consts::TAU * frequency_hz / 48_000.0;
+        let (sin_omega, cos_omega) = omega.sin_cos();
+        let mut sine = 0.0;
+        let mut cosine = 1.0;
+        let mut real = 0.0;
+        let mut imaginary = 0.0;
+        for sample in slice {
+            real += *sample * cosine;
+            imaginary -= *sample * sine;
+            let next_cosine = cosine * cos_omega - sine * sin_omega;
+            sine = sine * cos_omega + cosine * sin_omega;
+            cosine = next_cosine;
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let length = slice.len() as f32;
+        (real * real + imaginary * imaginary).sqrt() / length
     }
 }

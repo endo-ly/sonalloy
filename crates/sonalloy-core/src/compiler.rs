@@ -42,6 +42,7 @@ use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, Pa
 use crate::process::ProcessSpec;
 use crate::runtime::InstrumentRuntime;
 use crate::runtime::generator::partial_bank::build_sine_table;
+use crate::runtime::processor::build_hilbert_coefficients;
 use crate::spectral::{
     PreparedSpectralAsset, SpectralPreparationError, SpectralSynthesisPlan, prepare_spectral_asset,
     spectral_hop_size,
@@ -3055,24 +3056,6 @@ fn duration_to_frames(seconds: f32, sample_rate: f64) -> usize {
     {
         (f64::from(seconds) * sample_rate).round().max(0.0) as usize
     }
-}
-
-#[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
-fn build_hilbert_coefficients() -> Vec<f32> {
-    const TAPS: usize = 255;
-    let center = (TAPS - 1) / 2;
-    (0..TAPS)
-        .map(|index| {
-            let offset = index as isize - center as isize;
-            let ideal = if offset != 0 && offset % 2 != 0 {
-                2.0 / (std::f32::consts::PI * offset as f32)
-            } else {
-                0.0
-            };
-            let phase = std::f32::consts::TAU * index as f32 / (TAPS - 1) as f32;
-            ideal * (0.42 - 0.5 * phase.cos() + 0.08 * (phase * 2.0).cos())
-        })
-        .collect()
 }
 
 fn compile_reverb_processor(
