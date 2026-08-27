@@ -6,6 +6,7 @@ use crate::runtime::fractional_delay::FractionalDelayLine;
 use super::ValueSpan;
 
 const DELAY_TIME_SMOOTHING_SECONDS: f32 = 0.020;
+const MAX_DELAY_TAPS: usize = 8;
 
 pub(crate) struct StereoDelayRuntime {
     left: FractionalDelayLine,
@@ -67,6 +68,10 @@ impl StereoDelayRuntime {
             self.resolved_delay_frames = target_delay;
             self.initialized = true;
         }
+        let mut tap_frames = [0.0; MAX_DELAY_TAPS];
+        for (resolved, tap) in tap_frames.iter_mut().zip(&self.taps) {
+            *resolved = self.resolve_time(tap.time, tempo_bpm)?;
+        }
         for index in 0..left.len() {
             let current_feedback = feedback.value_at(index, left.len());
             let current_mix = mix.value_at(index, left.len());
@@ -83,8 +88,7 @@ impl StereoDelayRuntime {
             let primary_right = self.right.read(self.resolved_delay_frames)?;
             let mut wet_left = primary_left;
             let mut wet_right = primary_right;
-            for tap in &self.taps {
-                let tap_frames = self.resolve_time(tap.time, tempo_bpm)?;
+            for (tap, &tap_frames) in self.taps.iter().zip(tap_frames.iter()) {
                 wet_left += self.left.read(tap_frames)? * tap.gain_linear;
                 wet_right += self.right.read(tap_frames)? * tap.gain_linear;
             }
