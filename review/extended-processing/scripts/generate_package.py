@@ -156,14 +156,14 @@ def definitions(body: Path, room: Path) -> dict[str, dict[str, object]]:
             "mode_count": 16,
             "structure": 0.62,
             "brightness": 0.78,
-            "decay": 0.38,
+            "decay": 0.9,
         }
     }
     shift["global_processors"] = [processor("frequency_shifter", "metal_shift", shift_hz=420.0, mix=0.8)]
 
     convolution = base()
     convolution["metadata"]["name"] = "Convolution Body"
-    convolution["layers"][0]["gain_db"] = -12.0
+    convolution["layers"][0]["gain_db"] = -6.0
     convolution["layers"][0]["envelope"] = {
         "attack_seconds": 0.0,
         "decay_seconds": 0.0,
@@ -180,7 +180,7 @@ def definitions(body: Path, room: Path) -> dict[str, dict[str, object]]:
         }
     }
     convolution["global_processors"] = [
-        processor("convolution", "body_ir", ir=asset_reference(body), gain_db=-12.0, mix=0.65)
+        processor("convolution", "body_ir", ir=asset_reference(body), gain_db=18.0, mix=0.65)
     ]
 
     gate = base()
@@ -450,6 +450,7 @@ def main() -> None:
                     "estimated_fft_scratch_bytes_per_channel": scratch_complexes * complex_bytes,
                 }
             )
+        tail_seconds = REVIEW_TAIL_SECONDS
         render_arguments = [
             "render",
             "note",
@@ -461,7 +462,27 @@ def main() -> None:
             "--gate",
             "0.12",
         ]
-        if name == "frequency-shift-bell":
+        if name == "formant-filter-sweep":
+            formant_events = {
+                "events": [
+                    {"absolute_frame": 0, "type": "note_on", "note": 48, "velocity": 112, "note_id": 1},
+                    {"absolute_frame": 144_000, "type": "note_off", "note_id": 1},
+                ]
+            }
+            formant_event_path = PACKAGE / "events" / "formant-filter-sweep.json"
+            write_json(formant_event_path, formant_events)
+            render_arguments = [
+                "render",
+                "events",
+                str(path),
+                str(formant_event_path),
+                "--duration-frames",
+                "144001",
+                "--tempo",
+                "120",
+            ]
+            tail_seconds = "1.0"
+        elif name == "frequency-shift-bell":
             shift_events = {
                 "events": [
                     {"absolute_frame": 0, "type": "note_on", "note": 48, "velocity": 112, "note_id": 1},
@@ -486,7 +507,7 @@ def main() -> None:
         render_arguments.extend(
             [
                 "--tail",
-                REVIEW_TAIL_SECONDS,
+                tail_seconds,
                 "--sample-rate",
                 "48000",
                 "--block-size",

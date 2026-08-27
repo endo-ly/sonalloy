@@ -5,26 +5,26 @@
   "duration_seconds": 5.25,
   "finite": true,
   "level": {
-    "peak": 0.037178293,
-    "peak_dbfs": -28.59421,
-    "rms": 0.0008109955,
-    "rms_dbfs": -61.81963,
-    "crest_factor_db": 33.225418,
+    "peak": 0.07255042,
+    "peak_dbfs": -22.7872,
+    "rms": 0.0056233164,
+    "rms_dbfs": -45.00015,
+    "crest_factor_db": 22.212948,
     "over_full_scale": false
   },
   "dc": [
-    1.3847893e-08,
-    1.3847893e-08
+    1.2256625e-06,
+    1.2256625e-06
   ],
   "activity": {
     "threshold_dbfs": -80.0,
     "first_frame": 5,
-    "peak_frame": 426,
-    "last_frame": 12187
+    "peak_frame": 2523,
+    "last_frame": 80554
   },
   "continuity": {
     "large_delta_threshold": 0.25,
-    "max_adjacent_frame_delta": 0.02252904,
+    "max_adjacent_frame_delta": 0.038987733,
     "large_delta_count": 0,
     "first_large_delta_frames": []
   },
@@ -34,39 +34,39 @@
   "spectrum": {
     "fft_size": 4096,
     "hop_size": 2048,
-    "spectral_centroid_hz": 2881.3503,
+    "spectral_centroid_hz": 3448.0046,
     "peaks": [
       {
         "frequency_hz": 3269.5312,
         "relative_power": 1.0
       },
       {
+        "frequency_hz": 4535.1562,
+        "relative_power": 0.7995504
+      },
+      {
+        "frequency_hz": 2847.6562,
+        "relative_power": 0.5790479
+      },
+      {
+        "frequency_hz": 4113.2812,
+        "relative_power": 0.41380656
+      },
+      {
+        "frequency_hz": 3691.4062,
+        "relative_power": 0.39096496
+      },
+      {
+        "frequency_hz": 2425.7812,
+        "relative_power": 0.3901898
+      },
+      {
         "frequency_hz": 1781.25,
-        "relative_power": 0.72288126
+        "relative_power": 0.3321851
       },
       {
         "frequency_hz": 2226.5625,
-        "relative_power": 0.42910698
-      },
-      {
-        "frequency_hz": 4535.1562,
-        "relative_power": 0.41456926
-      },
-      {
-        "frequency_hz": 1394.5312,
-        "relative_power": 0.2755491
-      },
-      {
-        "frequency_hz": 2718.75,
-        "relative_power": 0.21857727
-      },
-      {
-        "frequency_hz": 3878.9062,
-        "relative_power": 0.19383655
-      },
-      {
-        "frequency_hz": 1078.125,
-        "relative_power": 0.17380454
+        "relative_power": 0.24356948
       }
     ],
     "reference_frequency_hz": null,

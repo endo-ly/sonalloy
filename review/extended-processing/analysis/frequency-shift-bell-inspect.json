@@ -38,7 +38,7 @@
         "structure_parameter": "layer.body.generator.modal_structure",
         "brightness": 0.78,
         "brightness_parameter": "layer.body.generator.modal_brightness",
-        "decay": 0.38,
+        "decay": 0.9,
         "decay_parameter": "layer.body.generator.modal_decay",
         "effective_max_frequency_hz": 21600.0
       },
@@ -201,7 +201,7 @@
       "unit": "normalized",
       "min": 0.0,
       "max": 1.0,
-      "default": 0.38,
+      "default": 0.9,
       "scale": "linear",
       "smoothing_seconds": 0.01,
       "modulation": {

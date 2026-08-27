@@ -1,0 +1,16 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note": 48,
+      "velocity": 112,
+      "note_id": 1
+    },
+    {
+      "absolute_frame": 144000,
+      "type": "note_off",
+      "note_id": 1
+    }
+  ]
+}

@@ -43,8 +43,8 @@
         "effective_max_frequency_hz": 21600.0
       },
       "asset_status": "ready",
-      "gain_db": -12.0,
-      "gain_linear": 0.25118864,
+      "gain_db": -6.0,
+      "gain_linear": 0.5011872,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "tuning_ratio": 1.0,
@@ -94,7 +94,7 @@
           "unit": "decibels",
           "min": -24.0,
           "max": 24.0,
-          "default": -12.0,
+          "default": 18.0,
           "scale": "linear",
           "smoothing_seconds": 0.01,
           "modulation": {
@@ -129,7 +129,7 @@
       "unit": "decibels",
       "min": -60.0,
       "max": 12.0,
-      "default": -12.0,
+      "default": -6.0,
       "scale": "linear",
       "smoothing_seconds": 0.005,
       "modulation": {
@@ -237,7 +237,7 @@
       "unit": "decibels",
       "min": -24.0,
       "max": 24.0,
-      "default": -12.0,
+      "default": 18.0,
       "scale": "linear",
       "smoothing_seconds": 0.01,
       "modulation": {
