@@ -22,6 +22,7 @@
 | `generate_spectral_resynthesis_package.py` | Spectral Generator、Spectral Hybrid、既存Generator回帰、MIDI、Processor、Modulation、Block Size、Sample Rate、Fresh Runtime、Release PerformanceのDefinition、Event、Asset、WAV、Inspect、MetricsをReview Packageへまとめる |
 | `generate_physical_modal_package.py` | Physical String、Modal、String + Modal HybridのDefinition、Validate / Inspect、Parameter Change、WAV、Block Size、Sample Rate、Reset、Repeat、48 / 96 kHzのVoice数別Performance MatrixをReview Packageへまとめる |
 | `generate_performance_modulation_package.py` | Mono Portamento、MSEG、Step、Sample & Hold、Smooth Random、Macro、Vector、Tempo / Meter変更のDefinition、Pattern / Events、製品CLIのValidate / Inspect / Analysis / Trace、WAV、MetricsをReview Packageへまとめる |
+| `../extended-processing/scripts/generate_package.py` | Schema 4のLadder Filter、Formant Processor、Frequency Shifter、Convolution、Gate、Transient Shaper、Tempo Delay、Multi-Tap DelayのDefinition、IR、Inspect、Trace、WAV、Analysisを生成する |
 | `manifest.py` | Basic Poly Synthの固定Render条件と共通Render処理を定義する |
 | `measure_wav.py` | WAVのMetadata、Finite性、Peak、RMS、DC、周波数、境界差分を測定する |
 

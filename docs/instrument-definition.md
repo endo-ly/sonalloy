@@ -19,7 +19,7 @@
 
 | Field | 内容 |
 |---|---|
-| `schema_version` | スキーマ版。現在は`3`。それ以外はUnsupportedとして拒否 |
+| `schema_version` | スキーマ版。現在は`4`。それ以外はUnsupportedとして拒否 |
 | `metadata` | `name`、`author`、`description` |
 | `performance` | `mode`が`polyphonic`または`monophonic`。Modeごとに必要なFieldが異なる |
 | `layers` | 発音の単位となるLayer配列（1個以上） |
@@ -33,7 +33,7 @@
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "metadata": { "name": "Basic Poly Synth", "author": null, "description": "..." },
   "performance": { "mode": "polyphonic", "polyphony": 16, "voice_stealing": "quietest_releasing_then_oldest" },
   "layers": [
@@ -731,9 +731,9 @@ Processorは配列の順序で直列に適用されます。配置と種類は�
 
 | 配置 | 適用位置 | 使える種類 |
 |---|---|---|
-| Layer（`processors`） | Generatorの直後 | Filter、Drive、EQ、Resonator、Bitcrusher |
-| Voice（`voice_processors`） | 全LayerのMix後 | Filter、Drive、EQ、Resonator、Compressor、Limiter |
-| Global（`global_processors`） | 全Voiceの合計後 | Filter、Drive、EQ、Chorus、Flanger、Phaser、Delay、Reverb、Compressor、Limiter |
+| Layer（`processors`） | Generatorの直後 | Filter、Ladder Filter、Formant、Drive、EQ、Resonator、Bitcrusher |
+| Voice（`voice_processors`） | 全LayerのMix後 | Filter、Ladder Filter、Formant、Drive、EQ、Resonator、Gate、Transient Shaper、Compressor、Limiter |
+| Global（`global_processors`） | 全Voiceの合計後 | Filter、Ladder Filter、Formant、Drive、EQ、Chorus、Flanger、Phaser、Frequency Shifter、Delay、Reverb、Convolution、Gate、Transient Shaper、Compressor、Limiter |
 
 LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力Channel数に応じたStateをCompile時に確保します。VoiceとGlobalのDynamicsは左右のPeakをリンクして処理します。Chorus、Flanger、PhaserはGlobal Chainに1つのStateを持ち、Voiceごとには複製しません。
 
@@ -749,7 +749,9 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
   { "type": "chorus", "id": "width", "delay_ms": 18.0, "rate_hz": 0.3, "depth": 0.7, "feedback": 0.1, "width": 0.8, "mix": 0.25 },
   { "type": "compressor", "id": "glue", "threshold_db": -18.0, "ratio": 3.0, "attack_ms": 10.0, "release_ms": 120.0, "knee_db": 6.0, "makeup_gain_db": 2.0, "mix": 0.8 },
   { "type": "limiter", "id": "ceiling", "ceiling_db": -1.0, "release_ms": 80.0, "input_gain_db": 0.0 },
-  { "type": "delay", "id": "echo", "time_seconds": 0.28, "feedback": 0.3, "mix": 0.15 },
+  { "type": "frequency_shifter", "id": "metal_shift", "shift_hz": 420.0, "mix": 0.3 },
+  { "type": "delay", "id": "echo", "time": { "value": 0.75, "unit": "beats" }, "feedback_mode": "ping_pong", "feedback": 0.3, "taps": [], "mix": 0.15 },
+  { "type": "convolution", "id": "body", "ir": { "path": "assets/body-short.wav" }, "gain_db": -3.0, "mix": 0.25 },
   { "type": "reverb", "id": "space", "pre_delay_seconds": 0.012, "decay": 0.6, "damping": 0.35, "width": 1.0, "mix": 0.2 }
 ]
 ```
@@ -766,12 +768,20 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
 | Chorus | `delay_ms`: 5〜30、`rate_hz`: 0.01〜8、`depth` / `width` / `mix`: 0〜1、`feedback`: 0〜0.85 | `rate_hz`、`depth`、`feedback`、`width`、`mix` | `delay_ms` |
 | Flanger | `delay_ms`: 0.5〜10、`rate_hz`: 0.01〜10、`depth` / `width` / `mix`: 0〜1、`feedback`: -0.95〜0.95 | Chorusと同じ | `delay_ms` |
 | Phaser | `stages`: 2 / 4 / 6 / 8、`center_hz`: 100〜5000、`sweep_octaves`: 0.25〜6、`rate_hz`: 0.01〜8、`depth` / `width` / `mix`: 0〜1、`feedback`: -0.9〜0.9 | `rate_hz`、`depth`、`feedback`、`width`、`mix` | `stages`、`center_hz`、`sweep_octaves` |
-| Delay（Globalのみ） | `time_seconds`: 0.001〜2秒、`feedback`: 0〜0.95、`mix`: 0〜1 | `feedback`、`mix` | `time_seconds` |
+| Ladder Filter | `cutoff_hz`: 20〜20000 Hz、`resonance` / `drive`: 0〜1 | `cutoff`、`resonance`、`drive` | なし（cutoffの実効上限はSample Rate依存） |
+| Formant | `vowel_position` / `throat` / `mix`: 0〜1、`formant_shift_cents`: -2400〜2400、`profiles`: 1〜8個の5帯域Profile | `vowel_position`、`formant_shift`、`throat`、`mix` | `profiles` |
+| Frequency Shifter（Globalのみ） | `shift_hz`: -5000〜5000 Hz、`mix`: 0〜1 | `shift_hz`、`mix` | 127 framesの固定Latency |
+| Delay（Globalのみ） | `time.value`: Secondsは0.001〜8秒、Beatsは0.015625〜2 beats、`feedback`: 0〜0.95、`taps`: 最大8個、`mix`: 0〜1 | `feedback`、`mix` | `time`、`feedback_mode`、`taps`。最大4個、Runtime bufferは16秒まで |
 | Reverb（Globalのみ） | `pre_delay_seconds`: 0〜0.2秒、`decay`: 0〜0.98（大きいほど残響が長い）、`damping` / `width` / `mix`: 0〜1 | `decay`、`damping`、`width`、`mix` | `pre_delay_seconds` |
+| Convolution（Globalのみ） | `ir`: Mono / Stereo WAV、`gain_db`: -24〜24 dB、`mix`: 0〜1 | `gain_db`、`mix` | IR、256 framesの固定Latency。IRは最大10秒、最大2個 |
+| Gate（Voice / Global） | `threshold_db`: -80〜0 dB、`hysteresis_db`: 0〜12 dB、`attack_ms`: 0.1〜100 ms、`hold_ms`: 0〜500 ms、`release_ms`: 5〜2000 ms、`range_db`: -96〜0 dB | `threshold_db`、`range_db` | `hysteresis_db`、各Time Field |
+| Transient Shaper（Voice / Global） | `attack` / `sustain`: -1〜1、`mix`: 0〜1 | `attack`、`sustain`、`mix` | Fast / Slow EnvelopeのTime Constant |
 | Compressor | `threshold_db`: -60〜0 dB、`ratio`: 1〜20、`attack_ms`: 0.1〜200、`release_ms`: 5〜2000、`knee_db`: 0〜24、`makeup_gain_db`: -12〜24 dB、`mix`: 0〜1 | `threshold_db`、`ratio`、`makeup_gain_db`、`mix` | `attack_ms`、`release_ms`、`knee_db` |
 | Limiter | `ceiling_db`: -12〜0 dBFS、`release_ms`: 5〜1000、`input_gain_db`: -24〜24 dB | `ceiling_db`、`input_gain_db` | `release_ms` |
 
 `Dynamic Parameter`列はModulation RouteやParameter Changeで動かせるField、`Static Field`列はCompile時に確定するFieldです。Filterの`cutoff_hz`だけ、既存のCanonical IDとして`cutoff`をCatalog IDに用います。Processorの種類・ID・配置・順序やStatic Fieldを変えた場合は、再Compileが必要です。
+
+Delayの`time.unit`が`beats`の場合、1 beatは4分音符1つ分で、現在のProcess Tempoから秒へ変換します。`feedback_mode`は`stereo`または`ping_pong`、TapはWet出力だけへ加算されます。Frequency ShifterとConvolutionは、それぞれ127 framesと256 framesの固定Latencyを持ちます。固定Latencyの合計はInspectの`reported_latency_frames`へ反映されます。
 
 FilterのCutoffが処理できる上限（20 kHzとSample Rateから決まる値の小さい方）を超える定義は、Warningを出して上限へ制限します。
 

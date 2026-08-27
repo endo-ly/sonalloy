@@ -60,13 +60,13 @@ sonalloy instrument inspect <definition> --json
 
 | 項目 | 内容 |
 |---|---|
-| Performance | `mode`、Voice Count、PolyphonicのVoice Stealing、MonophonicのLegato / Portamento、報告Latency |
+| Performance | `mode`、Voice Count、PolyphonicのVoice Stealing、MonophonicのLegato / Portamento、Layer Alignment Latency、報告Latency |
 | Layer | 発音条件、Generator、Gain、Pan、Tuning、ADSR |
 | Generator | 各Generatorの構成値（波形、Asset、Parameter、Algorithmなど）。Physical StringはExciterとLoop Parameter、ModalはExciter・Mode Count・共鳴Parameter・実効周波数上限を表示 |
 | Parameter | Parameter ID、Owner、Native Unit、Native範囲、Default、Scale、Smoothing、Modulation Unit、最大Depth |
 | Modulation | Sourceの範囲とPolarity、RouteごとのDepthとCurve、Static Effect、Default値からModulationで到達しうる範囲とClampの有無 |
 | Macro / Vector | MacroのParameter ID・Default・Route、VectorのAxis ID・所属Layer・初期値 |
-| Processor | Layer / Voice / Globalの各Processor Chain |
+| Processor | Layer / Voice / Globalの各Processor Chain、固定Latency、DelayのTempo Unit / Feedback Mode / Tap数、ConvolutionのIR準備情報 |
 | Warning | コンパイル時の警告（Asset欠落など） |
 
 `--json`は、Generatorごとの構造をFieldとして返します。返るFieldはGeneratorの種類ごとに異なり、Parameter IDの形式は`docs/instrument-definition.md`を参照してください。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。`sources[]`にはScope、RateとRate Unit、MSEG / Step / Randomの構造が含まれ、`macros[]`と`vectors[]`には外部から操作するIDを含めます。
@@ -434,7 +434,7 @@ sonalloy dev render-sine \
 
 すべての`render`コマンドは、32-bit float・2 Channel・指定Sample RateのStereo WAVを出力します。出力先の親Directoryは事前に作成してください。
 
-Time Stretchを含む音源では、CLIが内部で報告Latency分を追加レンダリングし、先頭の無音部分を除去して、**演奏タイムラインのFrame 0**からWAVを始めます。成功時のJSONには`reported_latency_frames`が含まれます。
+固定Algorithmic Latencyを持つ音源では、CLIが内部で報告Latency分を追加レンダリングし、先頭の無音部分を除去して、**演奏タイムラインのFrame 0**からWAVを始めます。Frequency Shifterは127 frames、Convolutionは256 framesの固定Latencyを持ちます。成功時のJSONには`reported_latency_frames`が含まれます。
 
 ### Exit Code
 

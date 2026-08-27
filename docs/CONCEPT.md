@@ -319,9 +319,9 @@ Sample Start/End Position、Transient-based Slice、Tempo Sync、Pitch ShiftとT
 
 | 適用範囲 | 対象 | 使用可能なProcessor |
 |----------|------|---------------------|
-| **Layer Processing** | 特定Layerだけ | Filter、Drive、Saturation、Waveshaper、EQ、Comb、Formant、Bitcrusher、Freq Shifter |
-| **Voice Processing** | 一NoteのLayer Mix全体 | Filter、Drive、EQ、Comb/Resonator、Formant、Dynamics、Vocoder Carrier |
-| **Global Effects** | Voice Sum後のInstrument全体 | Filter、Drive、EQ、Chorus、Flanger、Phaser、Delay、Reverb、Convolution、Dynamics |
+| **Layer Processing** | 特定Layerだけ | Filter、Ladder Filter、Drive、EQ、Formant、Resonator、Bitcrusher |
+| **Voice Processing** | 一NoteのLayer Mix全体 | Filter、Ladder Filter、Drive、EQ、Formant、Resonator、Gate、Transient Shaper、Compressor、Limiter |
+| **Global Effects** | Voice Sum後のInstrument全体 | Filter、Ladder Filter、Drive、EQ、Formant、Chorus、Flanger、Phaser、Frequency Shifter、Delay、Reverb、Convolution、Gate、Transient Shaper、Compressor、Limiter |
 | **Input Processing** | 外部Audio入力 | Gain、Filter、Envelope Follower、Vocoder Analysis |
 
 Delay・Reverb・Chorus・Convolutionは発音Voice数に比例して状態を複製しないよう、基本的にGlobal Effectsとして扱います。
@@ -333,7 +333,7 @@ Filter、Nonlinear（Drive/Saturation/Distortion）、Tone（EQ）、Resonance�
 - **Nonlinear**：Clipper、Waveshaper、Wavefolderを含む
 - **Digital**：Sample-rate Reducer、Quantizerを含む
 - **Dynamics**：Compressor、Limiter、Gate、Transient Shaper
-- **Time**：Multi-tap Delayを含む
+- **Time**：Seconds / Beats、Ping-Pong、Multi-tap Delayを含む
 - **Cross Synthesis**：Envelope Transfer、制限付きSpectral Morphを含む
 
 **Vocoder構成**：
@@ -410,7 +410,7 @@ Instrument Definition + Referenced Assets
 - 実行制約：最大Voice、Unison、Grain、Partial、Spectral Frame、Latency
 
 **Compile時に解決するもの**：
-Asset参照とHash、Decode済み/Resample済みSample、Loop/Slice/Stretch準備、Wavetable Data、Spectral Analysis/Frame、IR Partition、Modal/Waveguide Data、Parameter/Modulation Target、Macro/Vector Mapping、Processor Chain、Latency、実行時Memory配置、CPU量上限値
+Asset参照とHash、Decode済み/Resample済みSample、Loop/Slice/Stretch準備、Wavetable Data、Spectral Analysis/Frame、IR Partition、Modal/Waveguide Data、Parameter/Modulation Target、Macro/Vector Mapping、Processor Chain、Layer間のAlignment Latency、最終OutputのReported Latency、実行時Memory配置、CPU量上限値
 
 **保存対象外**：
 Compiled Instrument、Runtime状態、Decode済みBuffer、FFT一時Buffer、Voice/Grain/Partial/Filter/Delay状態、Device/Plugin Handle、一時計算結果
@@ -422,6 +422,7 @@ Compiled Instrument、Runtime状態、Decode済みBuffer、FFT一時Buffer、Voi
 | 状況 | 対応 |
 |------|------|
 | Definition構造や値に矛盾 | Compile失敗。現在利用中のCompiled Instrumentを維持 |
+| ConvolutionのIRが見つからない、読めない、非対応、または長すぎる | Compile失敗。ProcessorをBypassせず、現在利用中のCompiled Instrumentを維持 |
 | 参照Assetが見つからない | Instrument全体を失敗させず、依存するZone/Layer/Processorだけ無効化 |
 | Hash不一致 | 対象Assetを無効化し、診断を返す |
 | Optional Backendがない | 対象Optional Layerだけ無効化し、他Layerを継続 |
