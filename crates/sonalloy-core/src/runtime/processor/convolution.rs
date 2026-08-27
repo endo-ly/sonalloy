@@ -30,6 +30,7 @@ struct ConvolutionChannel {
     history_position: usize,
     fft_buffer: Vec<Complex<f32>>,
     accumulated: Vec<Complex<f32>>,
+    scratch: Vec<Complex<f32>>,
 }
 
 impl ConvolutionRuntime {
@@ -100,6 +101,9 @@ impl ConvolutionRuntime {
 
 impl ConvolutionChannel {
     fn new(forward: Arc<dyn Fft<f32>>, inverse: Arc<dyn Fft<f32>>, partition_count: usize) -> Self {
+        let scratch_len = forward
+            .get_inplace_scratch_len()
+            .max(inverse.get_inplace_scratch_len());
         Self {
             forward,
             inverse,
@@ -117,6 +121,7 @@ impl ConvolutionChannel {
             history_position: 0,
             fft_buffer: vec![Complex::new(0.0, 0.0); CONVOLUTION_FFT_SIZE],
             accumulated: vec![Complex::new(0.0, 0.0); CONVOLUTION_FFT_SIZE],
+            scratch: vec![Complex::new(0.0, 0.0); scratch_len],
         }
     }
 
@@ -171,7 +176,8 @@ impl ConvolutionChannel {
         {
             target.re = sample;
         }
-        self.forward.process(&mut self.fft_buffer);
+        self.forward
+            .process_with_scratch(&mut self.fft_buffer, &mut self.scratch);
         self.history[self.history_position].copy_from_slice(&self.fft_buffer);
         self.accumulated.fill(Complex::new(0.0, 0.0));
         for (partition_index, ir_spectrum) in spectra.iter().enumerate() {
@@ -181,7 +187,8 @@ impl ConvolutionChannel {
                 self.accumulated[index] += self.history[history_index][index] * ir_spectrum[index];
             }
         }
-        self.inverse.process(&mut self.accumulated);
+        self.inverse
+            .process_with_scratch(&mut self.accumulated, &mut self.scratch);
         #[allow(clippy::cast_precision_loss)]
         let fft_scale = CONVOLUTION_FFT_SIZE as f32;
         for index in 0..CONVOLUTION_PARTITION_SIZE {
@@ -220,6 +227,7 @@ impl ConvolutionChannel {
         self.history_position = 0;
         self.fft_buffer.fill(Complex::new(0.0, 0.0));
         self.accumulated.fill(Complex::new(0.0, 0.0));
+        self.scratch.fill(Complex::new(0.0, 0.0));
     }
 }
 

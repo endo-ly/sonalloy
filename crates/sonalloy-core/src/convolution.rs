@@ -241,4 +241,34 @@ mod tests {
                 .all(|(expected, actual)| (expected - actual).abs() < 1.0e-6)
         );
     }
+
+    #[test]
+    fn realtime_processing_reuses_fft_scratch_without_allocations() {
+        let mut runtime = ConvolutionRuntime::new(impulse_response(), 48_000.0)
+            .expect("test impulse response prepares");
+        let mut left = [0.0; 512];
+        let mut right = [0.0; 512];
+        left[0] = 1.0;
+        right[0] = 1.0;
+        runtime
+            .process(
+                constant_span(0.0),
+                constant_span(1.0),
+                &mut left,
+                &mut right,
+            )
+            .expect("warm-up convolution processes");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            runtime
+                .process(
+                    constant_span(0.0),
+                    constant_span(1.0),
+                    &mut left,
+                    &mut right,
+                )
+                .expect("realtime convolution processes");
+        });
+        assert_eq!(allocations, 0);
+    }
 }
