@@ -78,19 +78,23 @@ impl GateRuntime {
             } else if self.open {
                 self.hold_remaining = self.hold_frames;
             }
-            let target = if self.open {
-                1.0
+            if range.abs() <= f32::EPSILON {
+                self.gain = 1.0;
             } else {
-                10.0_f32.powf(range.clamp(-96.0, 0.0) / 20.0)
-            };
-            let coefficient = if target > self.gain {
-                self.attack_coeff
-            } else {
-                self.release_coeff
-            };
-            self.gain = target + coefficient * (self.gain - target);
-            left[index] *= self.gain;
-            right[index] *= self.gain;
+                let target = if self.open {
+                    1.0
+                } else {
+                    10.0_f32.powf(range.clamp(-96.0, 0.0) / 20.0)
+                };
+                let coefficient = if target > self.gain {
+                    self.attack_coeff
+                } else {
+                    self.release_coeff
+                };
+                self.gain = target + coefficient * (self.gain - target);
+                left[index] *= self.gain;
+                right[index] *= self.gain;
+            }
             if !self.detector.is_finite()
                 || !self.gain.is_finite()
                 || !left[index].is_finite()
@@ -146,5 +150,48 @@ mod tests {
         assert!(left[1] > 0.9 && right[1] > 0.4);
         assert!(left[2] > 0.9);
         assert!(left.iter().all(|sample| sample.is_finite()));
+    }
+
+    #[test]
+    fn zero_range_keeps_a_closed_gate_at_unity() {
+        let mut runtime = GateRuntime::new(0.25, 0.5, 0.25, 0.5, 2, 3.0);
+        let original_left = [0.001, -0.002, 0.003, -0.004];
+        let original_right = [-0.004, 0.003, -0.002, 0.001];
+        let mut left = original_left;
+        let mut right = original_right;
+        runtime
+            .process(span(-20.0), span(0.0), &mut left, &mut right)
+            .expect("unity-range gate processes");
+
+        assert!(
+            left.iter()
+                .zip(original_left)
+                .all(|(actual, expected)| actual.to_bits() == expected.to_bits())
+        );
+        assert!(
+            right
+                .iter()
+                .zip(original_right)
+                .all(|(actual, expected)| actual.to_bits() == expected.to_bits())
+        );
+
+        runtime.reset();
+        let mut reset_left = original_left;
+        let mut reset_right = original_right;
+        runtime
+            .process(span(-20.0), span(0.0), &mut reset_left, &mut reset_right)
+            .expect("reset unity-range gate processes");
+        assert!(
+            reset_left
+                .iter()
+                .zip(original_left)
+                .all(|(actual, expected)| actual.to_bits() == expected.to_bits())
+        );
+        assert!(
+            reset_right
+                .iter()
+                .zip(original_right)
+                .all(|(actual, expected)| actual.to_bits() == expected.to_bits())
+        );
     }
 }
