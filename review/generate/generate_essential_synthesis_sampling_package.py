@@ -202,7 +202,7 @@ def sample_instrument(
     trigger_event: str = "note_on",
 ) -> dict[str, object]:
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "metadata": {
             "name": name,
             "author": "Sonalloy",

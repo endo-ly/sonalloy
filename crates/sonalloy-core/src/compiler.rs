@@ -6,21 +6,25 @@ use crate::asset::{
     AssetError, PreparedAsset, PreparedAudio, PreparedAudioChannels, prepare_asset,
     resolved_asset_path,
 };
+use crate::convolution::{PreparedConvolutionIr, prepare_convolution_ir};
 use crate::definition::{
     AdditiveDefinition, AdsrDefinition, AssetReference, BitcrusherProcessorDefinition,
-    ChorusProcessorDefinition, CompressorProcessorDefinition, DelayProcessorDefinition,
+    ChorusProcessorDefinition, CompressorProcessorDefinition, ConvolutionProcessorDefinition,
+    DelayFeedbackMode, DelayProcessorDefinition, DelayTimeDefinition, DelayTimeUnit,
     DriveProcessorDefinition, EqProcessorDefinition, FilterModeDefinition,
-    FilterProcessorDefinition, FlangerProcessorDefinition, FormantDefinition, GeneratorDefinition,
-    GranularDefinition, InstrumentDefinition, LayerTriggerEvent, LfoDefinition, LfoWaveform,
-    LimiterProcessorDefinition, ModalDefinition, ModulationCurve, ModulationDurationUnit,
-    ModulationRateUnit, ModulationSourceDefinition, MsegDefinition, NoiseColor, OperatorAlgorithm,
-    OperatorModulationDefinition, OperatorModulationMode, OscillatorDefinition, OscillatorWaveform,
-    PhaserProcessorDefinition, PhysicalExciterDefinition, PhysicalStringDefinition,
-    ProcessorDefinition, ResonatorProcessorDefinition, ReverbProcessorDefinition,
-    SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition, SpectralDefinition,
-    UnisonDefinition, VectorDefinition, VoiceStealingDefinition, WaveSequenceDefinition,
-    WaveSequenceDirection, WaveSequenceDurationDefinition, WaveSequenceStepPlayback,
-    WavetableDefinition,
+    FilterProcessorDefinition, FlangerProcessorDefinition, FormantDefinition,
+    FormantProcessorDefinition, FrequencyShifterProcessorDefinition, GateProcessorDefinition,
+    GeneratorDefinition, GranularDefinition, InstrumentDefinition, LadderFilterProcessorDefinition,
+    LayerTriggerEvent, LfoDefinition, LfoWaveform, LimiterProcessorDefinition, ModalDefinition,
+    ModulationCurve, ModulationDurationUnit, ModulationRateUnit, ModulationSourceDefinition,
+    MsegDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
+    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, PhaserProcessorDefinition,
+    PhysicalExciterDefinition, PhysicalStringDefinition, ProcessorDefinition,
+    ResonatorProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection,
+    SampleTimeDefinition, SampleZoneDefinition, SpectralDefinition,
+    TransientShaperProcessorDefinition, UnisonDefinition, VectorDefinition,
+    VoiceStealingDefinition, WaveSequenceDefinition, WaveSequenceDirection,
+    WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
@@ -38,6 +42,7 @@ use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, Pa
 use crate::process::ProcessSpec;
 use crate::runtime::InstrumentRuntime;
 use crate::runtime::generator::partial_bank::build_sine_table;
+use crate::runtime::processor::build_hilbert_coefficients;
 use crate::spectral::{
     PreparedSpectralAsset, SpectralPreparationError, SpectralSynthesisPlan, prepare_spectral_asset,
     spectral_hop_size,
@@ -45,6 +50,9 @@ use crate::spectral::{
 use crate::wavetable::{
     WavetablePreparation, WavetablePreparationError, WavetableWarning, prepare_wavetable_asset,
 };
+
+const FREQUENCY_SHIFTER_LATENCY_FRAMES: usize = 127;
+const MAX_DELAY_RUNTIME_SECONDS: f32 = 16.0;
 
 /// Input required to compile a Definition for one engine configuration.
 #[derive(Debug, Clone, PartialEq)]
@@ -69,7 +77,9 @@ pub struct CompileResult {
 pub struct CompiledInstrument {
     /// Sample rate used to compile sample and time-dependent values.
     pub process_sample_rate: f64,
-    /// Maximum intrinsic latency reported by the compiled layers.
+    /// Maximum latency used to align layer paths before voice mixing.
+    pub(crate) layer_alignment_latency_frames: usize,
+    /// Fixed latency from instrument input events to final output.
     pub reported_latency_frames: usize,
     /// Metadata copied from the Definition.
     pub metadata: CompiledMetadata,
@@ -114,6 +124,12 @@ impl CompiledInstrument {
     #[must_use]
     pub fn parameters(&self) -> &[crate::parameter::ParameterDescriptor] {
         self.parameter_catalog.parameters()
+    }
+
+    /// Return the latency used to align layer paths before voice mixing.
+    #[must_use]
+    pub fn layer_alignment_latency_frames(&self) -> usize {
+        self.layer_alignment_latency_frames
     }
 
     /// Resolve a canonical parameter identifier for control code.
@@ -1185,6 +1201,174 @@ pub struct CompiledBitcrusherProcessor {
     pub parameters: CompiledBitcrusherParameters,
 }
 
+/// Dynamic parameter handles used by a ladder filter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledLadderFilterParameters {
+    /// Cutoff handle.
+    pub cutoff: ParameterHandle,
+    /// Resonance handle.
+    pub resonance: ParameterHandle,
+    /// Drive handle.
+    pub drive: ParameterHandle,
+}
+
+/// Compiled ladder filter processor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledLadderFilterProcessor {
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledLadderFilterParameters,
+    /// Process-rate-specific safe cutoff maximum.
+    pub effective_max_cutoff_hz: f32,
+}
+
+/// Dynamic parameter handles used by a formant processor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledFormantProcessorParameters {
+    /// Vowel position handle.
+    pub vowel_position: ParameterHandle,
+    /// Formant shift handle.
+    pub formant_shift: ParameterHandle,
+    /// Throat handle.
+    pub throat: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled formant processor.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledFormantProcessor {
+    /// Interpolated profile source data.
+    pub profiles: Box<[CompiledFormantProfile]>,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledFormantProcessorParameters,
+}
+
+/// Dynamic parameter handles used by a frequency shifter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledFrequencyShifterParameters {
+    /// Frequency shift handle.
+    pub shift_hz: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled frequency shifter processor.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledFrequencyShifterProcessor {
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledFrequencyShifterParameters,
+    /// Prepared Hilbert transformer coefficients.
+    pub coefficients: Arc<[f32]>,
+    /// Fixed group delay.
+    pub latency_frames: usize,
+    /// Effective symmetric shift limit.
+    pub effective_abs_shift_hz: f32,
+}
+
+/// Dynamic parameter handles used by a convolution processor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledConvolutionParameters {
+    /// Wet gain handle.
+    pub gain_db: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled convolution processor.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledConvolutionProcessor {
+    /// Prepared immutable impulse response.
+    pub(crate) prepared_ir: Arc<PreparedConvolutionIr>,
+    /// Definition-relative or absolute asset path.
+    pub asset_path: String,
+    /// Whether the Definition supplied a SHA-256 constraint.
+    pub asset_sha256_specified: bool,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledConvolutionParameters,
+    /// Fixed partition latency.
+    pub latency_frames: usize,
+}
+
+impl CompiledConvolutionProcessor {
+    /// Return the number of channels in the prepared impulse response.
+    #[must_use]
+    pub fn source_channels(&self) -> usize {
+        self.prepared_ir.source_channels
+    }
+
+    /// Return the source frame count before partition padding.
+    #[must_use]
+    pub fn source_frames(&self) -> usize {
+        self.prepared_ir.source_frames
+    }
+
+    /// Return the number of prepared response frames.
+    #[must_use]
+    pub fn prepared_frames(&self) -> usize {
+        self.prepared_ir.prepared_frames
+    }
+
+    /// Return the number of prepared FFT partitions.
+    #[must_use]
+    pub fn partition_count(&self) -> usize {
+        self.prepared_ir.partition_count()
+    }
+}
+
+/// Dynamic parameter handles used by a gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledGateParameters {
+    /// Threshold handle.
+    pub threshold_db: ParameterHandle,
+    /// Range handle.
+    pub range_db: ParameterHandle,
+}
+
+/// Compiled gate processor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledGateProcessor {
+    /// Hysteresis in decibels.
+    pub hysteresis_db: f32,
+    /// Fixed detector attack coefficient.
+    pub detector_attack_coeff: f32,
+    /// Fixed detector release coefficient.
+    pub detector_release_coeff: f32,
+    /// Attack coefficient.
+    pub attack_coeff: f32,
+    /// Hold duration in frames.
+    pub hold_frames: usize,
+    /// Release coefficient.
+    pub release_coeff: f32,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledGateParameters,
+}
+
+/// Dynamic parameter handles used by a transient shaper.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledTransientShaperParameters {
+    /// Attack handle.
+    pub attack: ParameterHandle,
+    /// Sustain handle.
+    pub sustain: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled transient shaper processor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledTransientShaperProcessor {
+    /// Fast detector attack coefficient.
+    pub fast_attack_coeff: f32,
+    /// Fast detector release coefficient.
+    pub fast_release_coeff: f32,
+    /// Slow detector attack coefficient.
+    pub slow_attack_coeff: f32,
+    /// Slow detector release coefficient.
+    pub slow_release_coeff: f32,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledTransientShaperParameters,
+}
+
 /// Dynamic parameter handles used by a modulated delay effect.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompiledModulationDelayParameters {
@@ -1300,11 +1484,37 @@ pub struct CompiledLimiterProcessor {
     pub parameters: CompiledLimiterParameters,
 }
 
+/// A compiled delay time.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CompiledDelayTime {
+    /// Time in seconds.
+    Seconds(f64),
+    /// Time in quarter-note beats.
+    Beats(f64),
+}
+
+/// A compiled feed-forward delay tap.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledDelayTap {
+    /// Tap time.
+    pub time: CompiledDelayTime,
+    /// Linear tap gain.
+    pub gain_linear: f32,
+}
+
 /// Compiled delay processor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CompiledDelayProcessor {
-    /// Integer delay length in frames.
-    pub delay_frames: usize,
+    /// Primary delay time.
+    pub time: CompiledDelayTime,
+    /// Feedback routing mode.
+    pub feedback_mode: DelayFeedbackMode,
+    /// Feed-forward taps.
+    pub taps: Box<[CompiledDelayTap]>,
+    /// Maximum allocated delay length in frames.
+    pub max_delay_frames: usize,
+    /// Wet tap normalization.
+    pub wet_normalization: f32,
     /// Feedback handle.
     pub feedback: ParameterHandle,
     /// Mix handle.
@@ -1374,10 +1584,14 @@ pub struct CompiledReverbProcessor {
 pub enum CompiledProcessorKind {
     /// State-variable filter processor.
     Filter(CompiledFilterProcessor),
+    /// Four-pole ladder filter processor.
+    LadderFilter(CompiledLadderFilterProcessor),
     /// Soft-clipping drive processor.
     Drive(CompiledDriveProcessor),
     /// Three-band equalizer processor.
     Eq(CompiledEqProcessor),
+    /// Five-band formant processor.
+    Formant(CompiledFormantProcessor),
     /// Tuned resonator processor.
     Resonator(CompiledResonatorProcessor),
     /// Bitcrusher processor.
@@ -1388,14 +1602,49 @@ pub enum CompiledProcessorKind {
     Flanger(CompiledFlangerProcessor),
     /// Phaser processor.
     Phaser(CompiledPhaserProcessor),
+    /// Frequency shifter processor.
+    FrequencyShifter(CompiledFrequencyShifterProcessor),
     /// Stereo delay processor.
     Delay(CompiledDelayProcessor),
     /// Stereo plate reverb processor.
     Reverb(CompiledReverbProcessor),
+    /// Impulse-response convolution processor.
+    Convolution(CompiledConvolutionProcessor),
+    /// Stereo-linked gate processor.
+    Gate(CompiledGateProcessor),
+    /// Transient shaper processor.
+    TransientShaper(CompiledTransientShaperProcessor),
     /// Stereo-linked compressor processor.
     Compressor(CompiledCompressorProcessor),
     /// Zero-latency limiter processor.
     Limiter(CompiledLimiterProcessor),
+}
+
+impl CompiledProcessorKind {
+    /// Return fixed algorithmic latency introduced by this processor.
+    #[must_use]
+    pub fn intrinsic_latency_frames(&self) -> usize {
+        match self {
+            Self::FrequencyShifter(value) => value.latency_frames,
+            Self::Convolution(value) => value.latency_frames,
+            Self::Filter(_)
+            | Self::LadderFilter(_)
+            | Self::Drive(_)
+            | Self::Eq(_)
+            | Self::Formant(_)
+            | Self::Resonator(_)
+            | Self::Bitcrusher(_)
+            | Self::Chorus(_)
+            | Self::Flanger(_)
+            | Self::Phaser(_)
+            | Self::Delay(_)
+            | Self::Reverb(_)
+            | Self::Gate(_)
+            | Self::TransientShaper(_)
+            | Self::Compressor(_)
+            | Self::Limiter(_) => 0,
+        }
+    }
 }
 
 /// One processor in a Definition-ordered chain.
@@ -1702,9 +1951,13 @@ pub fn compile_instrument(
                 &format!("layers[{definition_index}].processors"),
                 &parameter_catalog,
                 context.process_spec.sample_rate,
+                &context.definition_base_dir,
+                &mut asset_cache,
                 &mut diagnostics,
             );
-            let intrinsic_latency_frames = generator.intrinsic_latency_frames();
+            let intrinsic_latency_frames = generator
+                .intrinsic_latency_frames()
+                .saturating_add(processor_chain_latency(&processors));
             CompiledLayer {
                 definition_index,
                 id: layer.id.clone(),
@@ -1726,6 +1979,8 @@ pub fn compile_instrument(
         "voice_processors",
         &parameter_catalog,
         context.process_spec.sample_rate,
+        &context.definition_base_dir,
+        &mut asset_cache,
         &mut diagnostics,
     );
     let global_processors = compile_processor_chain(
@@ -1735,6 +1990,8 @@ pub fn compile_instrument(
         "global_processors",
         &parameter_catalog,
         context.process_spec.sample_rate,
+        &context.definition_base_dir,
+        &mut asset_cache,
         &mut diagnostics,
     );
 
@@ -1752,6 +2009,13 @@ pub fn compile_instrument(
         };
     }
 
+    let layer_alignment_latency_frames = layers
+        .iter()
+        .map(|layer| layer.intrinsic_latency_frames)
+        .max()
+        .unwrap_or(0);
+    let voice_processor_latency = processor_chain_latency(&voice_processors);
+    let global_processor_latency = processor_chain_latency(&global_processors);
     let effective_parameter_maxima = effective_parameter_maxima(
         &parameter_catalog,
         &layers,
@@ -1761,11 +2025,10 @@ pub fn compile_instrument(
 
     let compiled = CompiledInstrument {
         process_sample_rate: context.process_spec.sample_rate,
-        reported_latency_frames: layers
-            .iter()
-            .map(|layer| layer.intrinsic_latency_frames)
-            .max()
-            .unwrap_or(0),
+        layer_alignment_latency_frames,
+        reported_latency_frames: layer_alignment_latency_frames
+            .saturating_add(voice_processor_latency)
+            .saturating_add(global_processor_latency),
         metadata: CompiledMetadata {
             name: definition.metadata.name.clone(),
             author: definition.metadata.author.clone(),
@@ -1795,6 +2058,12 @@ pub fn compile_instrument(
         instrument: Some(Arc::new(compiled)),
         diagnostics,
     }
+}
+
+fn processor_chain_latency(processors: &[CompiledProcessor]) -> usize {
+    processors.iter().fold(0, |total, processor| {
+        total.saturating_add(processor.processor.intrinsic_latency_frames())
+    })
 }
 
 fn compile_performance(
@@ -1928,11 +2197,23 @@ fn effective_parameter_maxima(
         .chain(voice_processors.iter())
         .chain(global_processors.iter())
     {
-        let CompiledProcessorKind::Filter(filter) = &processor.processor else {
-            continue;
-        };
-        if let Some(maximum) = maxima.get_mut(filter.parameters.cutoff.index()) {
-            *maximum = maximum.min(filter.effective_max_cutoff_hz);
+        match &processor.processor {
+            CompiledProcessorKind::Filter(filter) => {
+                if let Some(maximum) = maxima.get_mut(filter.parameters.cutoff.index()) {
+                    *maximum = maximum.min(filter.effective_max_cutoff_hz);
+                }
+            }
+            CompiledProcessorKind::LadderFilter(filter) => {
+                if let Some(maximum) = maxima.get_mut(filter.parameters.cutoff.index()) {
+                    *maximum = maximum.min(filter.effective_max_cutoff_hz);
+                }
+            }
+            CompiledProcessorKind::FrequencyShifter(shifter) => {
+                if let Some(maximum) = maxima.get_mut(shifter.parameters.shift_hz.index()) {
+                    *maximum = maximum.min(shifter.effective_abs_shift_hz);
+                }
+            }
+            _ => {}
         }
     }
     maxima.into_boxed_slice()
@@ -1945,6 +2226,7 @@ enum ProcessorPlacement {
     Global,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn compile_processor_chain(
     processors: &[ProcessorDefinition],
     placement: ProcessorPlacement,
@@ -1952,6 +2234,8 @@ fn compile_processor_chain(
     base_path: &str,
     catalog: &ParameterCatalog,
     sample_rate: f64,
+    definition_base_dir: &Path,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Box<[CompiledProcessor]> {
     processors
@@ -1965,6 +2249,8 @@ fn compile_processor_chain(
                 &format!("{base_path}[{index}]"),
                 catalog,
                 sample_rate,
+                definition_base_dir,
+                asset_cache,
                 diagnostics,
             )
         })
@@ -1972,6 +2258,7 @@ fn compile_processor_chain(
         .into_boxed_slice()
 }
 
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn compile_processor(
     processor: &ProcessorDefinition,
     placement: ProcessorPlacement,
@@ -1979,6 +2266,8 @@ fn compile_processor(
     path: &str,
     catalog: &ParameterCatalog,
     sample_rate: f64,
+    definition_base_dir: &Path,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CompiledProcessor {
     let id = processor.id().to_owned();
@@ -1992,6 +2281,9 @@ fn compile_processor(
             sample_rate,
             diagnostics,
         ),
+        ProcessorDefinition::LadderFilter(value) => {
+            compile_ladder_filter_processor(value, placement, layer_id, catalog, sample_rate)
+        }
         ProcessorDefinition::Drive(value) => {
             compile_drive_processor(value, placement, layer_id, catalog)
         }
@@ -2004,6 +2296,9 @@ fn compile_processor(
             sample_rate,
             diagnostics,
         ),
+        ProcessorDefinition::Formant(value) => {
+            compile_formant_processor(value, placement, layer_id, catalog)
+        }
         ProcessorDefinition::Resonator(value) => compile_resonator_processor(
             value,
             placement,
@@ -2043,6 +2338,15 @@ fn compile_processor(
             sample_rate,
             diagnostics,
         ),
+        ProcessorDefinition::FrequencyShifter(value) => compile_frequency_shifter_processor(
+            value,
+            placement,
+            layer_id,
+            path,
+            catalog,
+            sample_rate,
+            diagnostics,
+        ),
         ProcessorDefinition::Delay(value) => compile_delay_processor(
             value,
             placement,
@@ -2061,6 +2365,23 @@ fn compile_processor(
             sample_rate,
             diagnostics,
         ),
+        ProcessorDefinition::Convolution(value) => compile_convolution_processor(
+            value,
+            placement,
+            layer_id,
+            path,
+            catalog,
+            definition_base_dir,
+            asset_cache,
+            sample_rate,
+            diagnostics,
+        ),
+        ProcessorDefinition::Gate(value) => {
+            compile_gate_processor(value, placement, layer_id, catalog, sample_rate)
+        }
+        ProcessorDefinition::TransientShaper(value) => {
+            compile_transient_shaper_processor(value, placement, layer_id, catalog, sample_rate)
+        }
         ProcessorDefinition::Compressor(value) => {
             compile_compressor_processor(value, placement, layer_id, catalog, sample_rate)
         }
@@ -2112,6 +2433,29 @@ fn compile_filter_processor(
         mode: value.mode,
         parameters: CompiledFilterParameters { cutoff, resonance },
         effective_max_cutoff_hz,
+    })
+}
+
+fn compile_ladder_filter_processor(
+    value: &LadderFilterProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+) -> CompiledProcessorKind {
+    CompiledProcessorKind::LadderFilter(CompiledLadderFilterProcessor {
+        parameters: CompiledLadderFilterParameters {
+            cutoff: processor_parameter_handle(catalog, placement, layer_id, &value.id, "cutoff"),
+            resonance: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "resonance",
+            ),
+            drive: processor_parameter_handle(catalog, placement, layer_id, &value.id, "drive"),
+        },
+        effective_max_cutoff_hz: effective_max_cutoff(sample_rate),
     })
 }
 
@@ -2170,6 +2514,54 @@ fn compile_eq_processor(
         mid_q: value.mid_q,
         high_frequency_hz: value.high_frequency_hz,
         parameters,
+    })
+}
+
+fn compile_formant_processor(
+    value: &FormantProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+) -> CompiledProcessorKind {
+    let profiles = value
+        .profiles
+        .iter()
+        .map(|profile| CompiledFormantProfile {
+            id: profile.id.clone(),
+            formants: std::array::from_fn(|index| {
+                let band = profile
+                    .formants
+                    .get(index)
+                    .expect("validated formant processor profile contains five bands");
+                CompiledFormantBand {
+                    frequency_hz: band.frequency_hz,
+                    bandwidth_hz: band.bandwidth_hz,
+                    gain_db: band.gain_db,
+                }
+            }),
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+    CompiledProcessorKind::Formant(CompiledFormantProcessor {
+        profiles,
+        parameters: CompiledFormantProcessorParameters {
+            vowel_position: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "vowel_position",
+            ),
+            formant_shift: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "formant_shift",
+            ),
+            throat: processor_parameter_handle(catalog, placement, layer_id, &value.id, "throat"),
+            mix: processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix"),
+        },
     })
 }
 
@@ -2379,6 +2771,28 @@ fn compile_phaser_processor(
     })
 }
 
+fn compile_frequency_shifter_processor(
+    value: &FrequencyShifterProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    _path: &str,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+    _diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessorKind {
+    CompiledProcessorKind::FrequencyShifter(CompiledFrequencyShifterProcessor {
+        parameters: CompiledFrequencyShifterParameters {
+            shift_hz: processor_parameter_handle(
+                catalog, placement, layer_id, &value.id, "shift_hz",
+            ),
+            mix: processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix"),
+        },
+        coefficients: Arc::from(build_hilbert_coefficients()),
+        latency_frames: FREQUENCY_SHIFTER_LATENCY_FRAMES,
+        effective_abs_shift_hz: effective_max_frequency(sample_rate, 0.45),
+    })
+}
+
 fn compile_compressor_processor(
     value: &CompressorProcessorDefinition,
     placement: ProcessorPlacement,
@@ -2479,18 +2893,169 @@ fn compile_delay_processor(
 ) -> CompiledProcessorKind {
     let feedback = processor_parameter_handle(catalog, placement, layer_id, &value.id, "feedback");
     let mix = processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix");
-    let delay_frames = processor_seconds_to_frames(
-        value.time_seconds,
+    let time = compile_delay_time(value.time, path, diagnostics);
+    let taps = value
+        .taps
+        .iter()
+        .enumerate()
+        .map(|(index, tap)| CompiledDelayTap {
+            time: compile_delay_time(tap.time, &format!("{path}.taps[{index}]"), diagnostics),
+            gain_linear: db_to_linear(tap.gain_db),
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+    let energy = 1.0
+        + taps
+            .iter()
+            .map(|tap| tap.gain_linear * tap.gain_linear)
+            .sum::<f32>();
+    let wet_normalization = if energy.is_finite() && energy > 0.0 {
+        1.0 / energy.sqrt()
+    } else {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "delay tap normalization is not finite",
+            )
+            .with_path(format!("{path}.taps")),
+        );
+        1.0
+    };
+    let max_delay_frames = processor_seconds_to_frames(
+        MAX_DELAY_RUNTIME_SECONDS,
         sample_rate,
-        &format!("{path}.time_seconds"),
+        &format!("{path}.time.value"),
         diagnostics,
         1,
     );
     CompiledProcessorKind::Delay(CompiledDelayProcessor {
-        delay_frames,
+        time,
+        feedback_mode: value.feedback_mode,
+        taps,
+        max_delay_frames,
+        wet_normalization,
         feedback,
         mix,
     })
+}
+
+fn compile_delay_time(
+    value: DelayTimeDefinition,
+    path: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledDelayTime {
+    if !value.value.is_finite() || value.value <= 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                "delay time must be finite and positive",
+            )
+            .with_path(format!("{path}.time.value")),
+        );
+    }
+    match value.unit {
+        DelayTimeUnit::Seconds => CompiledDelayTime::Seconds(f64::from(value.value)),
+        DelayTimeUnit::Beats => CompiledDelayTime::Beats(f64::from(value.value)),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compile_convolution_processor(
+    value: &ConvolutionProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    path: &str,
+    catalog: &ParameterCatalog,
+    definition_base_dir: &Path,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+    sample_rate: f64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompiledProcessorKind {
+    let prepared_ir =
+        match prepare_cached_asset(&value.ir, definition_base_dir, sample_rate, asset_cache) {
+            Ok(asset) => match prepare_convolution_ir(&asset.audio) {
+                Ok(ir) => Arc::new(ir),
+                Err(error) => {
+                    diagnostics.push(
+                        Diagnostic::error(DiagnosticCode::CompileError, error)
+                            .with_path(format!("{path}.ir")),
+                    );
+                    Arc::new(PreparedConvolutionIr::empty(sample_rate))
+                }
+            },
+            Err(error) => {
+                let (code, message) = asset_diagnostic(&error);
+                diagnostics
+                    .push(Diagnostic::error(code, message).with_path(format!("{path}.ir.path")));
+                Arc::new(PreparedConvolutionIr::empty(sample_rate))
+            }
+        };
+    CompiledProcessorKind::Convolution(CompiledConvolutionProcessor {
+        prepared_ir,
+        asset_path: value.ir.path.clone(),
+        asset_sha256_specified: value.ir.sha256.is_some(),
+        parameters: CompiledConvolutionParameters {
+            gain_db: processor_parameter_handle(catalog, placement, layer_id, &value.id, "gain_db"),
+            mix: processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix"),
+        },
+        latency_frames: crate::convolution::CONVOLUTION_LATENCY_FRAMES,
+    })
+}
+
+fn compile_gate_processor(
+    value: &GateProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+) -> CompiledProcessorKind {
+    CompiledProcessorKind::Gate(CompiledGateProcessor {
+        hysteresis_db: value.hysteresis_db,
+        detector_attack_coeff: time_constant_coefficient(0.001, sample_rate),
+        detector_release_coeff: time_constant_coefficient(0.020, sample_rate),
+        attack_coeff: time_constant_coefficient(value.attack_ms / 1_000.0, sample_rate),
+        hold_frames: duration_to_frames(value.hold_ms / 1_000.0, sample_rate),
+        release_coeff: time_constant_coefficient(value.release_ms / 1_000.0, sample_rate),
+        parameters: CompiledGateParameters {
+            threshold_db: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "threshold_db",
+            ),
+            range_db: processor_parameter_handle(
+                catalog, placement, layer_id, &value.id, "range_db",
+            ),
+        },
+    })
+}
+
+fn compile_transient_shaper_processor(
+    value: &TransientShaperProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+) -> CompiledProcessorKind {
+    CompiledProcessorKind::TransientShaper(CompiledTransientShaperProcessor {
+        fast_attack_coeff: time_constant_coefficient(0.001, sample_rate),
+        fast_release_coeff: time_constant_coefficient(0.020, sample_rate),
+        slow_attack_coeff: time_constant_coefficient(0.020, sample_rate),
+        slow_release_coeff: time_constant_coefficient(0.200, sample_rate),
+        parameters: CompiledTransientShaperParameters {
+            attack: processor_parameter_handle(catalog, placement, layer_id, &value.id, "attack"),
+            sustain: processor_parameter_handle(catalog, placement, layer_id, &value.id, "sustain"),
+            mix: processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix"),
+        },
+    })
+}
+
+fn duration_to_frames(seconds: f32, sample_rate: f64) -> usize {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    {
+        (f64::from(seconds) * sample_rate).round().max(0.0) as usize
+    }
 }
 
 fn compile_reverb_processor(
@@ -4977,8 +5542,13 @@ mod tests {
         source.global_processors.push(ProcessorDefinition::Delay(
             crate::definition::DelayProcessorDefinition {
                 id: "echo".to_owned(),
-                time_seconds: 0.2,
+                time: crate::definition::DelayTimeDefinition {
+                    value: 0.2,
+                    unit: crate::definition::DelayTimeUnit::Seconds,
+                },
+                feedback_mode: crate::definition::DelayFeedbackMode::Stereo,
                 feedback: 0.3,
+                taps: vec![],
                 mix: 0.15,
             },
         ));
@@ -4995,6 +5565,116 @@ mod tests {
             compiled.parameters().last().expect("delay mix").id,
             "global.processor.echo.mix"
         );
+    }
+
+    #[test]
+    fn extended_processors_compile_with_parameter_handles_and_fixed_latency() {
+        let mut source = definition();
+        source.layers[0]
+            .processors
+            .push(ProcessorDefinition::LadderFilter(
+                LadderFilterProcessorDefinition {
+                    id: "ladder".to_owned(),
+                    cutoff_hz: 850.0,
+                    resonance: 0.7,
+                    drive: 0.3,
+                },
+            ));
+        source.voice_processors = vec![
+            ProcessorDefinition::Gate(GateProcessorDefinition {
+                id: "gate".to_owned(),
+                threshold_db: -35.0,
+                hysteresis_db: 4.0,
+                attack_ms: 2.0,
+                hold_ms: 35.0,
+                release_ms: 90.0,
+                range_db: -72.0,
+            }),
+            ProcessorDefinition::TransientShaper(TransientShaperProcessorDefinition {
+                id: "shape".to_owned(),
+                attack: 0.5,
+                sustain: -0.3,
+                mix: 1.0,
+            }),
+        ];
+        source.global_processors = vec![
+            ProcessorDefinition::FrequencyShifter(FrequencyShifterProcessorDefinition {
+                id: "shift".to_owned(),
+                shift_hz: 420.0,
+                mix: 0.7,
+            }),
+            ProcessorDefinition::Delay(DelayProcessorDefinition {
+                id: "echo".to_owned(),
+                time: DelayTimeDefinition {
+                    value: 0.75,
+                    unit: DelayTimeUnit::Beats,
+                },
+                feedback_mode: DelayFeedbackMode::PingPong,
+                feedback: 0.45,
+                taps: vec![],
+                mix: 0.35,
+            }),
+        ];
+
+        let result = compile_instrument(&source, &context());
+        let compiled = result.instrument.expect("extended processors compile");
+
+        assert!(result.diagnostics.is_empty());
+        assert_eq!(compiled.layer_alignment_latency_frames, 0);
+        assert_eq!(
+            compiled.reported_latency_frames,
+            FREQUENCY_SHIFTER_LATENCY_FRAMES
+        );
+        assert!(matches!(
+            compiled.layers[0].processors[0].processor,
+            CompiledProcessorKind::LadderFilter(_)
+        ));
+        assert!(matches!(
+            compiled.voice_processors[0].processor,
+            CompiledProcessorKind::Gate(_)
+        ));
+        assert!(matches!(
+            compiled.voice_processors[1].processor,
+            CompiledProcessorKind::TransientShaper(_)
+        ));
+        let CompiledProcessorKind::FrequencyShifter(shifter) =
+            &compiled.global_processors[0].processor
+        else {
+            panic!("global processor must be a frequency shifter");
+        };
+        assert_eq!(
+            compiled
+                .parameter_handle("global.processor.shift.shift_hz")
+                .expect("frequency shift handle")
+                .index(),
+            shifter.parameters.shift_hz.index()
+        );
+    }
+
+    #[test]
+    fn missing_convolution_ir_is_a_compile_error() {
+        let mut source = definition();
+        source
+            .global_processors
+            .push(ProcessorDefinition::Convolution(
+                ConvolutionProcessorDefinition {
+                    id: "body".to_owned(),
+                    ir: AssetReference {
+                        path: "missing-body.wav".to_owned(),
+                        sha256: None,
+                    },
+                    gain_db: 0.0,
+                    mix: 1.0,
+                },
+            ));
+
+        let result = compile_instrument(&source, &context());
+
+        assert!(result.instrument.is_none());
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.severity == DiagnosticSeverity::Error
+                && diagnostic.path.as_deref() == Some("global_processors[0].ir.path")
+        }));
     }
 
     #[test]

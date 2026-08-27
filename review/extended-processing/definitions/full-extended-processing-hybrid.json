@@ -1,0 +1,316 @@
+{
+  "schema_version": 4,
+  "metadata": {
+    "name": "Full Extended Processing Hybrid",
+    "author": "Sonalloy",
+    "description": "Deterministic review fixture for the extended processor set"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.25,
+        "sustain_level": 0.7,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": [
+        {
+          "type": "ladder_filter",
+          "id": "layer_ladder",
+          "cutoff_hz": 1200.0,
+          "resonance": 0.55,
+          "drive": 0.2
+        },
+        {
+          "type": "formant",
+          "id": "layer_vowel",
+          "vowel_position": 0.25,
+          "formant_shift_cents": 0.0,
+          "throat": 0.5,
+          "profiles": [
+            {
+              "id": "a",
+              "formants": [
+                {
+                  "frequency_hz": 800.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 1150.0,
+                  "bandwidth_hz": 92.0,
+                  "gain_db": -3.0
+                },
+                {
+                  "frequency_hz": 2900.0,
+                  "bandwidth_hz": 104.0,
+                  "gain_db": -6.0
+                },
+                {
+                  "frequency_hz": 3900.0,
+                  "bandwidth_hz": 116.0,
+                  "gain_db": -9.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 128.0,
+                  "gain_db": -12.0
+                }
+              ]
+            },
+            {
+              "id": "i",
+              "formants": [
+                {
+                  "frequency_hz": 350.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 1700.0,
+                  "bandwidth_hz": 92.0,
+                  "gain_db": -3.0
+                },
+                {
+                  "frequency_hz": 2700.0,
+                  "bandwidth_hz": 104.0,
+                  "gain_db": -6.0
+                },
+                {
+                  "frequency_hz": 3700.0,
+                  "bandwidth_hz": 116.0,
+                  "gain_db": -9.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 128.0,
+                  "gain_db": -12.0
+                }
+              ]
+            }
+          ],
+          "mix": 0.35
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "gate",
+      "id": "voice_gate",
+      "threshold_db": -45.0,
+      "hysteresis_db": 3.0,
+      "attack_ms": 1.0,
+      "hold_ms": 25.0,
+      "release_ms": 120.0,
+      "range_db": -48.0
+    },
+    {
+      "type": "transient_shaper",
+      "id": "voice_shape",
+      "attack": 0.35,
+      "sustain": -0.2,
+      "mix": 0.7
+    },
+    {
+      "type": "compressor",
+      "id": "voice_glue",
+      "threshold_db": -18.0,
+      "ratio": 2.0,
+      "attack_ms": 10.0,
+      "release_ms": 140.0,
+      "knee_db": 6.0,
+      "makeup_gain_db": 1.0,
+      "mix": 0.65
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "frequency_shifter",
+      "id": "shift",
+      "shift_hz": 180.0,
+      "mix": 0.25
+    },
+    {
+      "type": "delay",
+      "id": "echo",
+      "time": {
+        "value": 0.75,
+        "unit": "beats"
+      },
+      "feedback_mode": "ping_pong",
+      "feedback": 0.35,
+      "taps": [
+        {
+          "time": {
+            "value": 1.5,
+            "unit": "beats"
+          },
+          "gain_db": -9.0
+        }
+      ],
+      "mix": 0.22
+    },
+    {
+      "type": "convolution",
+      "id": "room",
+      "ir": {
+        "path": "../assets/room-medium.wav",
+        "sha256": "3906713d8e7143e2c70ad32fdea28b1d857926bd2c1db43bc985e87caec55d3d"
+      },
+      "gain_db": -6.0,
+      "mix": 0.3
+    },
+    {
+      "type": "limiter",
+      "id": "ceiling",
+      "ceiling_db": -1.0,
+      "release_ms": 80.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "type": "lfo",
+        "id": "filter_lfo",
+        "waveform": "sine",
+        "phase": 0.0,
+        "rate": {
+          "value": 0.35,
+          "unit": "per_second"
+        }
+      },
+      {
+        "type": "mseg",
+        "id": "vowel_motion",
+        "initial_value": 0.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 1.0,
+              "unit": "beats"
+            },
+            "target": 1.0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 1.0,
+              "unit": "beats"
+            },
+            "target": 0.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 0,
+          "end_segment": 1
+        }
+      },
+      {
+        "type": "envelope",
+        "id": "gate_motion",
+        "attack_seconds": 0.02,
+        "decay_seconds": 0.35,
+        "sustain_level": 0.0,
+        "release_seconds": 0.2
+      }
+    ],
+    "routes": [
+      {
+        "source": "filter_lfo",
+        "target": "layer.body.processor.layer_ladder.cutoff",
+        "depth": {
+          "value": 1.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "vowel_motion",
+        "target": "layer.body.processor.layer_vowel.vowel_position",
+        "depth": {
+          "value": 1.0,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "gate_motion",
+        "target": "voice.processor.voice_gate.threshold_db",
+        "depth": {
+          "value": 12.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.motion",
+        "target": "global.processor.shift.shift_hz",
+        "depth": {
+          "value": 800.0,
+          "unit": "hertz"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.space",
+        "target": "global.processor.room.mix",
+        "depth": {
+          "value": 0.4,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "transport_beat_phase",
+        "target": "global.processor.echo.feedback",
+        "depth": {
+          "value": 0.15,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "motion",
+      "name": "Motion",
+      "default": 0.0
+    },
+    {
+      "id": "space",
+      "name": "Space",
+      "default": 0.0
+    }
+  ],
+  "vectors": []
+}

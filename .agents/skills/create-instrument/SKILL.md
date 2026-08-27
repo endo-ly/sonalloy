@@ -38,7 +38,7 @@ Saw Oscillatorの最小Definition（同時発音数16、ADSR `0.005 / 0.18 / 0.6
 
 | Field | 内容 | 主な制約 |
 |---|---|---|
-| `schema_version` | スキーマ版 | `3`。それ以外はUnsupported。未知FieldはJSON Parse Error |
+| `schema_version` | スキーマ版 | `4`。それ以外はUnsupported。未知FieldはJSON Parse Error |
 | `metadata` | `name`、`author`、`description` | `author`と`description`は省略可 |
 | `performance` | `mode`ごとの演奏設定 | `polyphonic`は`polyphony` 1〜64。`monophonic`は`legato`と任意の`portamento` |
 | `layers` | 発音の単位となるLayer配列 | [Layerの構造](#layerの構造)参照 |
@@ -116,7 +116,8 @@ Level
 
 ### ProcessorとModulation
 
-- **Processor**：Layer / Voice / Globalの3段階で直列適用します。置ける種類は配置ごとに決まっており、LayerはFilter / Drive / EQ / Resonator / Bitcrusher、VoiceはそれにCompressor / Limiterを加えたもの、GlobalはさらにChorus / Flanger / Phaser / Delay / Reverbを使えます。`cutoff_hz`、`resonance`、`amount`、`mix`などのDynamic Parameterを持ちます
+- **Processor**：Layer / Voice / Globalの3段階で直列適用します。LayerはFilter / Ladder Filter / Formant / Drive / EQ / Resonator / Bitcrusher、VoiceはそれにGate / Transient Shaper / Compressor / Limiterを加えたもの、GlobalはFrequency Shifter / Delay / Reverb / ConvolutionとDynamicsを使えます。Frequency ShifterとConvolutionはGlobal専用で、それぞれ127 framesと256 framesの固定Latencyを持ちます。`cutoff`、`threshold_db`、`mix`などのDynamic Parameterを持ちます
+- **Delay**：Schema 4では`time: {"value": ..., "unit": "seconds"|"beats"}`、`feedback_mode`、`feedback`、`taps`、`mix`を指定します。旧`time_seconds`は使用できません。Beatsは4分音符を1 beatとし、Process Tempoに追従します
 - **Modulation**：Velocity、Key Tracking、LFO、Envelope、Random、MSEG、Step、Sample Hold、Smooth Random、Macro、Transport PhaseなどのSourceをDynamic Parameterへ接続します
 
 ```json

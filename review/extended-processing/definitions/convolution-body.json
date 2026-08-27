@@ -1,0 +1,62 @@
+{
+  "schema_version": 4,
+  "metadata": {
+    "name": "Convolution Body",
+    "author": "Sonalloy",
+    "description": "Deterministic review fixture for the extended processor set"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -6.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.6
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "impulse"
+          },
+          "mode_count": 8,
+          "structure": 0.38,
+          "brightness": 0.55,
+          "decay": 0.48
+        }
+      }
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "convolution",
+      "id": "body_ir",
+      "ir": {
+        "path": "../assets/body-short.wav",
+        "sha256": "7eba118fe0a1ee6b11fbc5d2e1e1c05ade0afa40d7e62ad8edb8f0967e8956e9"
+      },
+      "gain_db": 18.0,
+      "mix": 0.65
+    }
+  ],
+  "modulation": null,
+  "macros": [],
+  "vectors": []
+}

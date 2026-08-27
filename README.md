@@ -12,7 +12,7 @@ Sonalloyは、JSONで書いた音源定義からリアルタイム演奏とオ�
   - サンプリング系: Sample再生、Granular、Wave Sequence
   - スペクトル再構成: 周波数分解した音の再構成（Spectral）
 - **エフェクトとモジュレーション**:
-  - エフェクト: Filter、Drive、EQ、Resonator、Bitcrusher、Chorus、Flanger、Phaser、Delay、Reverb、Compressor、Limiter
+  - エフェクト: Filter、Ladder Filter、Formant、Drive、EQ、Resonator、Bitcrusher、Frequency Shifter、Chorus、Flanger、Phaser、Delay、Reverb、Convolution、Gate、Transient Shaper、Compressor、Limiter
   - モジュレーション: Velocity、LFO、Envelope、MSEG、Step、Sample & Hold、Smooth Random、Tempo同期Sourceでパラメータを動かす
 - **演奏表現を定義できる**: Polyphonicに加えてMonophonic、Last-note Priority、Legato、Portamento、Sustainを扱う
 - **Instrument Controlをまとめて設計できる**: Macroで複数Parameterを操作し、2-Way / 4-Way VectorでLayerをConstant-powerに混ぜる

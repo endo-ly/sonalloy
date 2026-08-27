@@ -1,17 +1,50 @@
+use crate::compiler::{CompiledDelayProcessor, CompiledDelayTime};
+use crate::definition::DelayFeedbackMode;
 use crate::process::{ProcessError, ProcessorFailureKind};
+use crate::runtime::fractional_delay::FractionalDelayLine;
 
 use super::ValueSpan;
 
+const DELAY_TIME_SMOOTHING_SECONDS: f32 = 0.020;
+const MAX_DELAY_TAPS: usize = 8;
+
 pub(crate) struct StereoDelayRuntime {
-    left: DelayLine,
-    right: DelayLine,
+    left: FractionalDelayLine,
+    right: FractionalDelayLine,
+    time: CompiledDelayTime,
+    feedback_mode: DelayFeedbackMode,
+    taps: Box<[CompiledDelayTapRuntime]>,
+    wet_normalization: f32,
+    sample_rate: f32,
+    resolved_delay_frames: f32,
+    initialized: bool,
+}
+
+struct CompiledDelayTapRuntime {
+    time: CompiledDelayTime,
+    gain_linear: f32,
 }
 
 impl StereoDelayRuntime {
-    pub(crate) fn new(delay_frames: usize) -> Self {
+    pub(crate) fn new(compiled: &CompiledDelayProcessor, sample_rate: f32) -> Self {
         Self {
-            left: DelayLine::new(delay_frames),
-            right: DelayLine::new(delay_frames),
+            left: FractionalDelayLine::new(compiled.max_delay_frames),
+            right: FractionalDelayLine::new(compiled.max_delay_frames),
+            time: compiled.time,
+            feedback_mode: compiled.feedback_mode,
+            taps: compiled
+                .taps
+                .iter()
+                .map(|tap| CompiledDelayTapRuntime {
+                    time: tap.time,
+                    gain_linear: tap.gain_linear,
+                })
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+            wet_normalization: compiled.wet_normalization,
+            sample_rate,
+            resolved_delay_frames: 0.0,
+            initialized: false,
         }
     }
 
@@ -19,40 +52,65 @@ impl StereoDelayRuntime {
         &mut self,
         feedback: ValueSpan,
         mix: ValueSpan,
+        tempo_bpm: f64,
         left: &mut [f32],
         right: &mut [f32],
     ) -> Result<(), ProcessError> {
-        if left.len() != right.len() {
-            return Err(ProcessError::ProcessorFailure {
-                kind: ProcessorFailureKind::InvalidState,
-            });
+        if left.len() != right.len() || !tempo_bpm.is_finite() || tempo_bpm <= 0.0 {
+            return Err(invalid_state());
+        }
+        let target_delay = self.resolve_time(self.time, tempo_bpm)?;
+        #[allow(clippy::cast_possible_truncation)]
+        let smoothing = (-1.0
+            / (f64::from(DELAY_TIME_SMOOTHING_SECONDS) * f64::from(self.sample_rate)))
+        .exp() as f32;
+        if !self.initialized {
+            self.resolved_delay_frames = target_delay;
+            self.initialized = true;
+        }
+        let mut tap_frames = [0.0; MAX_DELAY_TAPS];
+        for (resolved, tap) in tap_frames.iter_mut().zip(&self.taps) {
+            *resolved = self.resolve_time(tap.time, tempo_bpm)?;
         }
         for index in 0..left.len() {
-            let feedback = feedback.value_at(index, left.len());
-            let mix = mix.value_at(index, left.len());
-            let left_input = left[index];
-            let right_input = right[index];
-            let left_delayed = self.left.read();
-            let right_delayed = self.right.read();
-            if !left_input.is_finite()
-                || !right_input.is_finite()
-                || !left_delayed.is_finite()
-                || !right_delayed.is_finite()
-                || !feedback.is_finite()
-                || !mix.is_finite()
+            let current_feedback = feedback.value_at(index, left.len());
+            let current_mix = mix.value_at(index, left.len());
+            if !current_feedback.is_finite()
+                || !current_mix.is_finite()
+                || !left[index].is_finite()
+                || !right[index].is_finite()
             {
-                return Err(ProcessError::ProcessorFailure {
-                    kind: ProcessorFailureKind::NonFinite,
-                });
+                return Err(non_finite());
             }
-            self.left.write(left_input + left_delayed * feedback)?;
-            self.right.write(right_input + right_delayed * feedback)?;
-            left[index] = left_input * (1.0 - mix) + left_delayed * mix;
-            right[index] = right_input * (1.0 - mix) + right_delayed * mix;
+            self.resolved_delay_frames =
+                target_delay + smoothing * (self.resolved_delay_frames - target_delay);
+            let primary_left = self.left.read(self.resolved_delay_frames)?;
+            let primary_right = self.right.read(self.resolved_delay_frames)?;
+            let mut wet_left = primary_left;
+            let mut wet_right = primary_right;
+            for (tap, &tap_frames) in self.taps.iter().zip(tap_frames.iter()) {
+                wet_left += self.left.read(tap_frames)? * tap.gain_linear;
+                wet_right += self.right.read(tap_frames)? * tap.gain_linear;
+            }
+            let feedback = current_feedback.clamp(0.0, 0.95);
+            let (write_left, write_right) = match self.feedback_mode {
+                DelayFeedbackMode::Stereo => (
+                    left[index] + primary_left * feedback,
+                    right[index] + primary_right * feedback,
+                ),
+                DelayFeedbackMode::PingPong => (
+                    left[index] + primary_right * feedback,
+                    right[index] + primary_left * feedback,
+                ),
+            };
+            self.left.write(write_left)?;
+            self.right.write(write_right)?;
+            left[index] =
+                left[index] * (1.0 - current_mix) + wet_left * self.wet_normalization * current_mix;
+            right[index] = right[index] * (1.0 - current_mix)
+                + wet_right * self.wet_normalization * current_mix;
             if !left[index].is_finite() || !right[index].is_finite() {
-                return Err(ProcessError::ProcessorFailure {
-                    kind: ProcessorFailureKind::NonFinite,
-                });
+                return Err(non_finite());
             }
         }
         Ok(())
@@ -61,164 +119,97 @@ impl StereoDelayRuntime {
     pub(crate) fn reset(&mut self) {
         self.left.reset();
         self.right.reset();
+        self.resolved_delay_frames = 0.0;
+        self.initialized = false;
+    }
+
+    fn resolve_time(&self, time: CompiledDelayTime, tempo_bpm: f64) -> Result<f32, ProcessError> {
+        let seconds = match time {
+            CompiledDelayTime::Seconds(seconds) => seconds,
+            CompiledDelayTime::Beats(beats) => beats * 60.0 / tempo_bpm,
+        };
+        let capacity = self.left.capacity().saturating_sub(3);
+        #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+        let frames = (seconds * f64::from(self.sample_rate)).clamp(1.0, capacity as f64) as f32;
+        if frames.is_finite() {
+            Ok(frames)
+        } else {
+            Err(invalid_state())
+        }
     }
 }
 
-struct DelayLine {
-    buffer: Vec<f32>,
-    position: usize,
+fn invalid_state() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: ProcessorFailureKind::InvalidState,
+    }
 }
 
-impl DelayLine {
-    fn new(delay_frames: usize) -> Self {
-        Self {
-            buffer: vec![0.0; delay_frames.max(1)],
-            position: 0,
-        }
-    }
-
-    fn read(&self) -> f32 {
-        self.buffer[self.position]
-    }
-
-    fn write(&mut self, value: f32) -> Result<(), ProcessError> {
-        if !value.is_finite() {
-            return Err(ProcessError::ProcessorFailure {
-                kind: ProcessorFailureKind::NonFinite,
-            });
-        }
-        self.buffer[self.position] = value;
-        self.position += 1;
-        if self.position == self.buffer.len() {
-            self.position = 0;
-        }
-        Ok(())
-    }
-
-    fn reset(&mut self) {
-        self.buffer.fill(0.0);
-        self.position = 0;
+fn non_finite() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: ProcessorFailureKind::NonFinite,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compiler::{CompiledDelayProcessor, CompiledDelayTime};
+    use crate::definition::DelayFeedbackMode;
+    use crate::parameter::ParameterHandle;
 
-    #[test]
-    fn one_frame_delay_places_the_first_echo_at_the_next_frame() {
-        let mut runtime = StereoDelayRuntime::new(1);
-        let mut left = [1.0, 0.0, 0.0];
-        let mut right = [0.0, 0.0, 0.0];
-        let feedback = ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        };
-        let mix = ValueSpan {
-            start: 1.0,
-            end: 1.0,
-        };
-        runtime
-            .process(feedback, mix, &mut left, &mut right)
-            .expect("delay process");
-        assert!(
-            left.iter()
-                .zip([0.0, 1.0, 0.0])
-                .all(|(actual, expected)| (actual - expected).abs() < 1.0e-6)
-        );
-        assert!(
-            right
-                .iter()
-                .zip([0.0, 0.0, 0.0])
-                .all(|(actual, expected)| (actual - expected).abs() < 1.0e-6)
-        );
+    fn span(value: f32) -> ValueSpan {
+        ValueSpan {
+            start: value,
+            end: value,
+        }
+    }
+
+    fn compiled(time: CompiledDelayTime, mode: DelayFeedbackMode) -> CompiledDelayProcessor {
+        CompiledDelayProcessor {
+            time,
+            feedback_mode: mode,
+            taps: Box::new([]),
+            max_delay_frames: 1_000,
+            wet_normalization: 1.0,
+            feedback: ParameterHandle::new(0),
+            mix: ParameterHandle::new(1),
+        }
     }
 
     #[test]
-    fn reset_clears_the_tail() {
-        let mut runtime = StereoDelayRuntime::new(2);
-        let mut left = [1.0, 0.0, 0.0];
-        let mut right = [0.0, 0.0, 0.0];
-        let feedback = ValueSpan {
-            start: 0.8,
-            end: 0.8,
-        };
-        let mix = ValueSpan {
-            start: 1.0,
-            end: 1.0,
-        };
+    fn beats_resolve_from_the_process_tempo() {
+        let mut runtime = StereoDelayRuntime::new(
+            &compiled(CompiledDelayTime::Beats(1.0), DelayFeedbackMode::Stereo),
+            1_000.0,
+        );
+        let mut left = [0.0; 502];
+        let mut right = [0.0; 502];
+        left[0] = 1.0;
         runtime
-            .process(feedback, mix, &mut left, &mut right)
-            .expect("delay process");
-        runtime.reset();
-        let mut reset_left = [0.0, 0.0];
-        let mut reset_right = [0.0, 0.0];
-        runtime
-            .process(feedback, mix, &mut reset_left, &mut reset_right)
-            .expect("reset delay process");
-        assert!(reset_left.iter().all(|sample| sample.abs() < 1.0e-6));
+            .process(span(0.0), span(1.0), 120.0, &mut left, &mut right)
+            .expect("tempo delay processes");
+
+        assert!(left[..500].iter().all(|sample| sample.abs() < 1.0e-6));
+        assert!((left[500] - 1.0).abs() < 1.0e-6);
     }
 
     #[test]
-    fn ramp_and_tail_are_independent_of_span_partitioning() {
-        let mut whole_runtime = StereoDelayRuntime::new(4);
-        let mut whole_left = vec![0.0; 64];
-        let mut whole_right = vec![0.0; 64];
-        whole_left[0] = 1.0;
-        whole_runtime
-            .process(
-                ValueSpan {
-                    start: 0.2,
-                    end: 0.8,
-                },
-                ValueSpan {
-                    start: 0.7,
-                    end: 0.4,
-                },
-                &mut whole_left,
-                &mut whole_right,
-            )
-            .expect("whole delay process");
-
-        let mut split_runtime = StereoDelayRuntime::new(4);
-        let mut split_left = vec![0.0; 64];
-        let mut split_right = vec![0.0; 64];
-        split_left[0] = 1.0;
-        split_runtime
-            .process(
-                ValueSpan {
-                    start: 0.2,
-                    end: 0.2 + 0.6 / 64.0,
-                },
-                ValueSpan {
-                    start: 0.7,
-                    end: 0.7 - 0.3 / 64.0,
-                },
-                &mut split_left[..1],
-                &mut split_right[..1],
-            )
-            .expect("first split delay process");
-        split_runtime
-            .process(
-                ValueSpan {
-                    start: 0.2 + 0.6 / 64.0,
-                    end: 0.8,
-                },
-                ValueSpan {
-                    start: 0.7 - 0.3 / 64.0,
-                    end: 0.4,
-                },
-                &mut split_left[1..],
-                &mut split_right[1..],
-            )
-            .expect("second split delay process");
-
-        assert!(
-            whole_left
-                .iter()
-                .zip(&split_left)
-                .chain(whole_right.iter().zip(&split_right))
-                .all(|(left, right)| (left - right).abs() < 1.0e-6)
+    fn ping_pong_feedback_crosses_channels() {
+        let mut runtime = StereoDelayRuntime::new(
+            &compiled(
+                CompiledDelayTime::Seconds(0.003),
+                DelayFeedbackMode::PingPong,
+            ),
+            1_000.0,
         );
+        let mut left = [0.0; 8];
+        let mut right = [0.0; 8];
+        left[0] = 1.0;
+        runtime
+            .process(span(0.95), span(1.0), 120.0, &mut left, &mut right)
+            .expect("ping-pong delay processes");
+
+        assert!(right[6] > 0.8);
     }
 }

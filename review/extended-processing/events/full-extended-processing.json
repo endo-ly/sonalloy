@@ -1,0 +1,58 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note": 48,
+      "velocity": 112,
+      "note_id": 1
+    },
+    {
+      "absolute_frame": 12000,
+      "type": "parameter_change",
+      "parameter": "layer.body.processor.layer_ladder.cutoff",
+      "native_value": 620.0
+    },
+    {
+      "absolute_frame": 24000,
+      "type": "parameter_change",
+      "parameter": "layer.body.processor.layer_vowel.vowel_position",
+      "native_value": 0.75
+    },
+    {
+      "absolute_frame": 36000,
+      "type": "parameter_change",
+      "parameter": "global.processor.shift.shift_hz",
+      "native_value": -240.0
+    },
+    {
+      "absolute_frame": 48000,
+      "type": "parameter_change",
+      "parameter": "global.processor.room.mix",
+      "native_value": 0.5
+    },
+    {
+      "absolute_frame": 60000,
+      "type": "parameter_change",
+      "parameter": "voice.processor.voice_gate.threshold_db",
+      "native_value": -32.0
+    },
+    {
+      "absolute_frame": 72000,
+      "type": "parameter_change",
+      "parameter": "voice.processor.voice_shape.attack",
+      "native_value": -0.25
+    },
+    {
+      "absolute_frame": 84000,
+      "type": "parameter_change",
+      "parameter": "global.processor.echo.feedback",
+      "native_value": 0.2
+    },
+    {
+      "absolute_frame": 96000,
+      "type": "note_off",
+      "note_id": 1
+    }
+  ]
+}

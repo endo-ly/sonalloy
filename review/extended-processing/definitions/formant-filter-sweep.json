@@ -1,0 +1,162 @@
+{
+  "schema_version": 4,
+  "metadata": {
+    "name": "Formant Filter Sweep",
+    "author": "Sonalloy",
+    "description": "Deterministic review fixture for the extended processor set"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.25,
+        "sustain_level": 0.7,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": [
+        {
+          "type": "formant",
+          "id": "vowel_filter",
+          "vowel_position": 0.0,
+          "formant_shift_cents": 0.0,
+          "throat": 0.5,
+          "profiles": [
+            {
+              "id": "a",
+              "formants": [
+                {
+                  "frequency_hz": 800.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 1150.0,
+                  "bandwidth_hz": 92.0,
+                  "gain_db": -3.0
+                },
+                {
+                  "frequency_hz": 2900.0,
+                  "bandwidth_hz": 104.0,
+                  "gain_db": -6.0
+                },
+                {
+                  "frequency_hz": 3900.0,
+                  "bandwidth_hz": 116.0,
+                  "gain_db": -9.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 128.0,
+                  "gain_db": -12.0
+                }
+              ]
+            },
+            {
+              "id": "i",
+              "formants": [
+                {
+                  "frequency_hz": 350.0,
+                  "bandwidth_hz": 80.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 1700.0,
+                  "bandwidth_hz": 92.0,
+                  "gain_db": -3.0
+                },
+                {
+                  "frequency_hz": 2700.0,
+                  "bandwidth_hz": 104.0,
+                  "gain_db": -6.0
+                },
+                {
+                  "frequency_hz": 3700.0,
+                  "bandwidth_hz": 116.0,
+                  "gain_db": -9.0
+                },
+                {
+                  "frequency_hz": 4950.0,
+                  "bandwidth_hz": 128.0,
+                  "gain_db": -12.0
+                }
+              ]
+            }
+          ],
+          "mix": 0.75
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "type": "mseg",
+        "id": "vowel_motion",
+        "initial_value": 0.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 1.5,
+              "unit": "seconds"
+            },
+            "target": 1.0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 1.5,
+              "unit": "seconds"
+            },
+            "target": 0.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 0,
+          "end_segment": 1
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "vowel_motion",
+        "target": "layer.body.processor.vowel_filter.vowel_position",
+        "depth": {
+          "value": 1.0,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "metadata": {
     "name": "Metallic Pluck",
     "author": "Sonalloy",
@@ -182,8 +182,10 @@
     {
       "type": "delay",
       "id": "pluck_delay",
-      "time_seconds": 0.16,
+      "time": { "value": 0.16, "unit": "seconds" },
+      "feedback_mode": "stereo",
       "feedback": 0.28,
+      "taps": [],
       "mix": 0.16
     },
     {

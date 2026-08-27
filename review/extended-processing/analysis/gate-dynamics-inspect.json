@@ -1,0 +1,247 @@
+{
+  "status": "ok",
+  "name": "Gate Dynamics",
+  "metadata": {
+    "name": "Gate Dynamics",
+    "author": "Sonalloy",
+    "description": "Deterministic review fixture for the extended processor set"
+  },
+  "mode": "polyphonic",
+  "voice_count": 16,
+  "polyphony": 16,
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "layer_alignment_latency_frames": 0,
+  "reported_latency_frames": 0,
+  "layer_count": 1,
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "generator": {
+        "kind": "noise",
+        "output_mode": "stereo",
+        "noise_color": "white",
+        "noise_seed": 8127,
+        "noise_correlation_parameter": "layer.body.generator.noise_correlation"
+      },
+      "asset_status": "not_applicable (noise)",
+      "gain_db": -6.0,
+      "gain_linear": 0.5011872,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "tuning_ratio": 1.0,
+      "envelope": {
+        "attack_samples": 240,
+        "decay_samples": 12000,
+        "sustain_level": 0.7,
+        "release_samples": 16800
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "placement": "voice",
+      "chain_index": 0,
+      "id": "tight_gate",
+      "kind": "gate",
+      "static_fields": [
+        {
+          "id": "hysteresis_db",
+          "value": 4.0
+        }
+      ],
+      "parameters": [
+        {
+          "id": "voice.processor.tight_gate.threshold_db",
+          "unit": "decibels",
+          "min": -80.0,
+          "max": 0.0,
+          "default": -35.0,
+          "scale": "linear",
+          "smoothing_seconds": 0.01,
+          "modulation": {
+            "unit": "decibels",
+            "max_abs_depth": 80.0
+          }
+        },
+        {
+          "id": "voice.processor.tight_gate.range_db",
+          "unit": "decibels",
+          "min": -96.0,
+          "max": 0.0,
+          "default": -72.0,
+          "scale": "linear",
+          "smoothing_seconds": 0.01,
+          "modulation": {
+            "unit": "decibels",
+            "max_abs_depth": 96.0
+          }
+        }
+      ]
+    }
+  ],
+  "global_processors": [],
+  "parameters": [
+    {
+      "id": "layer.body.gain",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -60.0,
+      "max": 12.0,
+      "default": -6.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 72.0
+      }
+    },
+    {
+      "id": "layer.body.pan",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "pan",
+      "min": -1.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "pan",
+        "max_abs_depth": 2.0
+      }
+    },
+    {
+      "id": "layer.body.tuning",
+      "owner": {
+        "layer": {
+          "definition_index": 0
+        }
+      },
+      "unit": "cents",
+      "min": -1200.0,
+      "max": 1200.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.005,
+      "modulation": {
+        "unit": "cents",
+        "max_abs_depth": 2400.0
+      }
+    },
+    {
+      "id": "layer.body.generator.noise_correlation",
+      "owner": {
+        "layer_generator": {
+          "definition_index": 0
+        }
+      },
+      "unit": "normalized",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "normalized",
+        "max_abs_depth": 1.0
+      }
+    },
+    {
+      "id": "voice.processor.tight_gate.threshold_db",
+      "owner": {
+        "voice_processor": {
+          "processor_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -80.0,
+      "max": 0.0,
+      "default": -35.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 80.0
+      }
+    },
+    {
+      "id": "voice.processor.tight_gate.range_db",
+      "owner": {
+        "voice_processor": {
+          "processor_index": 0
+        }
+      },
+      "unit": "decibels",
+      "min": -96.0,
+      "max": 0.0,
+      "default": -72.0,
+      "scale": "linear",
+      "smoothing_seconds": 0.01,
+      "modulation": {
+        "unit": "decibels",
+        "max_abs_depth": 96.0
+      }
+    }
+  ],
+  "macros": [],
+  "vectors": [],
+  "sources": [
+    {
+      "id": "velocity",
+      "scope": "voice",
+      "kind": "velocity",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "key_tracking",
+      "scope": "voice",
+      "kind": "key_tracking",
+      "value_range": {
+        "min": -1.0,
+        "max": 1.0,
+        "polarity": "bipolar"
+      }
+    },
+    {
+      "id": "transport_beat_phase",
+      "scope": "instrument",
+      "kind": "beat_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    },
+    {
+      "id": "transport_bar_phase",
+      "scope": "instrument",
+      "kind": "bar_phase",
+      "value_range": {
+        "min": 0.0,
+        "max": 1.0,
+        "polarity": "unipolar"
+      }
+    }
+  ],
+  "routes": []
+}

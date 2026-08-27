@@ -1843,7 +1843,7 @@ fn processed_hybrid_inspects_and_renders_processor_chains() {
         .stdout(predicates::str::contains("body_tone"))
         .stdout(predicates::str::contains("voice.processor.tone.cutoff"))
         .stdout(predicates::str::contains("global.processor.space.mix"))
-        .stdout(predicates::str::contains("time_frames"))
+        .stdout(predicates::str::contains("\"id\":\"time\""))
         .stdout(predicates::str::contains("pre_delay_frames"));
 
     let directory = tempdir().expect("temporary directory");

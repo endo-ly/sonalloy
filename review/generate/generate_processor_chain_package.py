@@ -229,7 +229,15 @@ def main() -> None:
 
     value = impulse_value(source)
     value["global_processors"] = [
-        processor("delay", "echo", time_seconds=0.24, feedback=0.34, mix=0.18)
+        processor(
+            "delay",
+            "echo",
+            time={"value": 0.24, "unit": "seconds"},
+            feedback_mode="stereo",
+            feedback=0.34,
+            taps=[],
+            mix=0.18,
+        )
     ]
     variants["delay"] = value
 

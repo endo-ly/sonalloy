@@ -1,14 +1,21 @@
+mod biquad;
 mod bitcrusher;
 mod chorus;
 mod compressor;
+mod convolution;
 mod delay;
 mod drive;
 mod eq;
 mod flanger;
+mod formant;
+mod frequency_shifter;
+mod gate;
+mod ladder;
 mod limiter;
 mod phaser;
 mod resonator;
 mod reverb;
+mod transient_shaper;
 
 use sonalloy_dsp_sys::{DspFilter, DspFilterMode};
 
@@ -21,14 +28,20 @@ use super::modulation::ValueSpan;
 pub(crate) use bitcrusher::BitcrusherRuntime;
 pub(crate) use chorus::ChorusRuntime;
 pub(crate) use compressor::CompressorRuntime;
+pub(crate) use convolution::ConvolutionRuntime;
 pub(crate) use delay::StereoDelayRuntime;
 pub(crate) use drive::DriveRuntime;
 pub(crate) use eq::EqRuntime;
 pub(crate) use flanger::FlangerRuntime;
+pub(crate) use formant::FormantProcessorRuntime;
+pub(crate) use frequency_shifter::{FrequencyShifterRuntime, build_hilbert_coefficients};
+pub(crate) use gate::GateRuntime;
+pub(crate) use ladder::LadderFilterRuntime;
 pub(crate) use limiter::LimiterRuntime;
 pub(crate) use phaser::PhaserRuntime;
 pub(crate) use resonator::ResonatorRuntime;
 pub(crate) use reverb::PlateReverbRuntime;
+pub(crate) use transient_shaper::TransientShaperRuntime;
 
 /// Runtime values corresponding to one compiled processor in a chain.
 #[derive(Clone, Copy)]
@@ -36,6 +49,11 @@ pub(crate) enum ProcessorTargetSpan {
     Filter {
         cutoff: ValueSpan,
         resonance: ValueSpan,
+    },
+    LadderFilter {
+        cutoff: ValueSpan,
+        resonance: ValueSpan,
+        drive: ValueSpan,
     },
     Drive {
         amount: ValueSpan,
@@ -45,6 +63,12 @@ pub(crate) enum ProcessorTargetSpan {
         low_gain_db: ValueSpan,
         mid_gain_db: ValueSpan,
         high_gain_db: ValueSpan,
+    },
+    Formant {
+        vowel_position: ValueSpan,
+        formant_shift: ValueSpan,
+        throat: ValueSpan,
+        mix: ValueSpan,
     },
     Resonator {
         frequency_hz: ValueSpan,
@@ -78,6 +102,10 @@ pub(crate) enum ProcessorTargetSpan {
         width: ValueSpan,
         mix: ValueSpan,
     },
+    FrequencyShifter {
+        shift_hz: ValueSpan,
+        mix: ValueSpan,
+    },
     Delay {
         feedback: ValueSpan,
         mix: ValueSpan,
@@ -86,6 +114,19 @@ pub(crate) enum ProcessorTargetSpan {
         decay: ValueSpan,
         damping: ValueSpan,
         width: ValueSpan,
+        mix: ValueSpan,
+    },
+    Convolution {
+        gain_db: ValueSpan,
+        mix: ValueSpan,
+    },
+    Gate {
+        threshold_db: ValueSpan,
+        range_db: ValueSpan,
+    },
+    TransientShaper {
+        attack: ValueSpan,
+        sustain: ValueSpan,
         mix: ValueSpan,
     },
     Compressor {
@@ -110,8 +151,10 @@ enum LayerProcessorRuntime {
         right: Option<DspFilter>,
         mode: DspFilterMode,
     },
+    LadderFilter(LadderFilterRuntime),
     Drive,
     Eq(EqRuntime),
+    Formant(FormantProcessorRuntime),
     Resonator(ResonatorRuntime),
     Bitcrusher(BitcrusherRuntime),
 }
@@ -135,6 +178,13 @@ impl LayerProcessorChain {
                         mode: filter_mode(value.mode),
                     });
                 }
+                CompiledProcessorKind::LadderFilter(_) => {
+                    #[allow(clippy::cast_possible_truncation)]
+                    let sample_rate = spec.sample_rate as f32;
+                    runtime.push(LayerProcessorRuntime::LadderFilter(
+                        LadderFilterRuntime::new(sample_rate),
+                    ));
+                }
                 CompiledProcessorKind::Drive(_) => {
                     runtime.push(LayerProcessorRuntime::Drive);
                 }
@@ -153,6 +203,13 @@ impl LayerProcessorChain {
                         output_mode,
                     )));
                 }
+                CompiledProcessorKind::Formant(value) => {
+                    #[allow(clippy::cast_possible_truncation)]
+                    let sample_rate = spec.sample_rate as f32;
+                    runtime.push(LayerProcessorRuntime::Formant(
+                        FormantProcessorRuntime::new(&value.profiles, sample_rate)?,
+                    ));
+                }
                 CompiledProcessorKind::Bitcrusher(_) => {
                     runtime.push(LayerProcessorRuntime::Bitcrusher(BitcrusherRuntime::new(
                         output_mode,
@@ -164,7 +221,11 @@ impl LayerProcessorChain {
                 | CompiledProcessorKind::Delay(_)
                 | CompiledProcessorKind::Reverb(_)
                 | CompiledProcessorKind::Compressor(_)
-                | CompiledProcessorKind::Limiter(_) => {
+                | CompiledProcessorKind::Limiter(_)
+                | CompiledProcessorKind::FrequencyShifter(_)
+                | CompiledProcessorKind::Convolution(_)
+                | CompiledProcessorKind::Gate(_)
+                | CompiledProcessorKind::TransientShaper(_) => {
                     return Err(ProcessError::ProcessorFailure {
                         kind: ProcessorFailureKind::InvalidState,
                     });
@@ -194,6 +255,14 @@ impl LayerProcessorChain {
                     },
                     ProcessorTargetSpan::Filter { cutoff, resonance },
                 ) => process_filter(filter, *mode, cutoff, resonance, buffer)?,
+                (
+                    LayerProcessorRuntime::LadderFilter(runtime),
+                    ProcessorTargetSpan::LadderFilter {
+                        cutoff,
+                        resonance,
+                        drive,
+                    },
+                ) => runtime.process_mono(cutoff, resonance, drive, buffer)?,
                 (LayerProcessorRuntime::Drive, ProcessorTargetSpan::Drive { amount, mix }) => {
                     DriveRuntime::process_mono(amount, mix, buffer)?;
                 }
@@ -205,6 +274,15 @@ impl LayerProcessorChain {
                         high_gain_db,
                     },
                 ) => runtime.process_mono(low_gain_db, mid_gain_db, high_gain_db, buffer)?,
+                (
+                    LayerProcessorRuntime::Formant(runtime),
+                    ProcessorTargetSpan::Formant {
+                        vowel_position,
+                        formant_shift,
+                        throat,
+                        mix,
+                    },
+                ) => runtime.process_mono(vowel_position, formant_shift, throat, mix, buffer)?,
                 (
                     LayerProcessorRuntime::Resonator(runtime),
                     ProcessorTargetSpan::Resonator {
@@ -256,6 +334,14 @@ impl LayerProcessorChain {
                     process_filter(filter_left, *mode, cutoff, resonance, left)?;
                     process_filter(filter_right, *mode, cutoff, resonance, right)?;
                 }
+                (
+                    LayerProcessorRuntime::LadderFilter(runtime),
+                    ProcessorTargetSpan::LadderFilter {
+                        cutoff,
+                        resonance,
+                        drive,
+                    },
+                ) => runtime.process_stereo(cutoff, resonance, drive, left, right)?,
                 (LayerProcessorRuntime::Drive, ProcessorTargetSpan::Drive { amount, mix }) => {
                     DriveRuntime::process_stereo(amount, mix, left, right)?;
                 }
@@ -267,6 +353,22 @@ impl LayerProcessorChain {
                         high_gain_db,
                     },
                 ) => runtime.process_stereo(low_gain_db, mid_gain_db, high_gain_db, left, right)?,
+                (
+                    LayerProcessorRuntime::Formant(runtime),
+                    ProcessorTargetSpan::Formant {
+                        vowel_position,
+                        formant_shift,
+                        throat,
+                        mix,
+                    },
+                ) => runtime.process_stereo(
+                    vowel_position,
+                    formant_shift,
+                    throat,
+                    mix,
+                    left,
+                    right,
+                )?,
                 (
                     LayerProcessorRuntime::Resonator(runtime),
                     ProcessorTargetSpan::Resonator {
@@ -310,8 +412,10 @@ impl LayerProcessorChain {
                         right.reset().map_err(ProcessError::from_filter_error)?;
                     }
                 }
+                LayerProcessorRuntime::LadderFilter(runtime) => runtime.reset(),
                 LayerProcessorRuntime::Drive => {}
                 LayerProcessorRuntime::Eq(runtime) => runtime.reset(),
+                LayerProcessorRuntime::Formant(runtime) => runtime.reset(),
                 LayerProcessorRuntime::Resonator(runtime) => runtime.reset(),
                 LayerProcessorRuntime::Bitcrusher(runtime) => runtime.reset(),
             }
@@ -331,6 +435,11 @@ impl ProcessorTargetSpan {
                 cutoff: zero,
                 resonance: zero,
             },
+            CompiledProcessorKind::LadderFilter(_) => Self::LadderFilter {
+                cutoff: zero,
+                resonance: zero,
+                drive: zero,
+            },
             CompiledProcessorKind::Drive(_) => Self::Drive {
                 amount: zero,
                 mix: zero,
@@ -339,6 +448,12 @@ impl ProcessorTargetSpan {
                 low_gain_db: zero,
                 mid_gain_db: zero,
                 high_gain_db: zero,
+            },
+            CompiledProcessorKind::Formant(_) => Self::Formant {
+                vowel_position: zero,
+                formant_shift: zero,
+                throat: zero,
+                mix: zero,
             },
             CompiledProcessorKind::Resonator(_) => Self::Resonator {
                 frequency_hz: zero,
@@ -372,6 +487,10 @@ impl ProcessorTargetSpan {
                 width: zero,
                 mix: zero,
             },
+            CompiledProcessorKind::FrequencyShifter(_) => Self::FrequencyShifter {
+                shift_hz: zero,
+                mix: zero,
+            },
             CompiledProcessorKind::Delay(_) => Self::Delay {
                 feedback: zero,
                 mix: zero,
@@ -380,6 +499,19 @@ impl ProcessorTargetSpan {
                 decay: zero,
                 damping: zero,
                 width: zero,
+                mix: zero,
+            },
+            CompiledProcessorKind::Convolution(_) => Self::Convolution {
+                gain_db: zero,
+                mix: zero,
+            },
+            CompiledProcessorKind::Gate(_) => Self::Gate {
+                threshold_db: zero,
+                range_db: zero,
+            },
+            CompiledProcessorKind::TransientShaper(_) => Self::TransientShaper {
+                attack: zero,
+                sustain: zero,
                 mix: zero,
             },
             CompiledProcessorKind::Compressor(_) => Self::Compressor {
@@ -406,6 +538,15 @@ impl ProcessorTargetSpan {
                 *cutoff = zero;
                 *resonance = zero;
             }
+            Self::LadderFilter {
+                cutoff,
+                resonance,
+                drive,
+            } => {
+                *cutoff = zero;
+                *resonance = zero;
+                *drive = zero;
+            }
             Self::Drive { amount, mix } => {
                 *amount = zero;
                 *mix = zero;
@@ -418,6 +559,17 @@ impl ProcessorTargetSpan {
                 *low_gain_db = zero;
                 *mid_gain_db = zero;
                 *high_gain_db = zero;
+            }
+            Self::Formant {
+                vowel_position,
+                formant_shift,
+                throat,
+                mix,
+            } => {
+                *vowel_position = zero;
+                *formant_shift = zero;
+                *throat = zero;
+                *mix = zero;
             }
             Self::Resonator {
                 frequency_hz,
@@ -466,6 +618,10 @@ impl ProcessorTargetSpan {
                 *width = zero;
                 *mix = zero;
             }
+            Self::FrequencyShifter { shift_hz, mix } => {
+                *shift_hz = zero;
+                *mix = zero;
+            }
             Self::Delay { feedback, mix } => {
                 *feedback = zero;
                 *mix = zero;
@@ -479,6 +635,26 @@ impl ProcessorTargetSpan {
                 *decay = zero;
                 *damping = zero;
                 *width = zero;
+                *mix = zero;
+            }
+            Self::Convolution { gain_db, mix } => {
+                *gain_db = zero;
+                *mix = zero;
+            }
+            Self::Gate {
+                threshold_db,
+                range_db,
+            } => {
+                *threshold_db = zero;
+                *range_db = zero;
+            }
+            Self::TransientShaper {
+                attack,
+                sustain,
+                mix,
+            } => {
+                *attack = zero;
+                *sustain = zero;
                 *mix = zero;
             }
             Self::Compressor {
@@ -513,19 +689,26 @@ enum StereoProcessorRuntime {
         right: DspFilter,
         mode: DspFilterMode,
     },
+    LadderFilter(LadderFilterRuntime),
     Drive,
     Eq(EqRuntime),
+    Formant(FormantProcessorRuntime),
     Resonator(ResonatorRuntime),
     Chorus(ChorusRuntime),
     Flanger(FlangerRuntime),
     Phaser(PhaserRuntime),
+    FrequencyShifter(Box<FrequencyShifterRuntime>),
     Delay(StereoDelayRuntime),
     Reverb(Box<PlateReverbRuntime>),
+    Convolution(Box<ConvolutionRuntime>),
+    Gate(GateRuntime),
+    TransientShaper(TransientShaperRuntime),
     Compressor(CompressorRuntime),
     Limiter(LimiterRuntime),
 }
 
 impl StereoProcessorChain {
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn new(
         processors: &[CompiledProcessor],
         spec: ProcessSpec,
@@ -539,6 +722,13 @@ impl StereoProcessorChain {
                         right: prepare_filter(spec)?,
                         mode: filter_mode(value.mode),
                     });
+                }
+                CompiledProcessorKind::LadderFilter(_) => {
+                    #[allow(clippy::cast_possible_truncation)]
+                    let sample_rate = spec.sample_rate as f32;
+                    runtime.push(StereoProcessorRuntime::LadderFilter(
+                        LadderFilterRuntime::new(sample_rate),
+                    ));
                 }
                 CompiledProcessorKind::Drive(_) => {
                     runtime.push(StereoProcessorRuntime::Drive);
@@ -558,6 +748,13 @@ impl StereoProcessorChain {
                         GeneratorOutputMode::Stereo,
                     )));
                 }
+                CompiledProcessorKind::Formant(value) => {
+                    #[allow(clippy::cast_possible_truncation)]
+                    let sample_rate = spec.sample_rate as f32;
+                    runtime.push(StereoProcessorRuntime::Formant(
+                        FormantProcessorRuntime::new(&value.profiles, sample_rate)?,
+                    ));
+                }
                 CompiledProcessorKind::Chorus(value) => {
                     runtime.push(StereoProcessorRuntime::Chorus(ChorusRuntime::new(value)));
                 }
@@ -567,11 +764,52 @@ impl StereoProcessorChain {
                 CompiledProcessorKind::Phaser(value) => {
                     runtime.push(StereoProcessorRuntime::Phaser(PhaserRuntime::new(value)));
                 }
-                CompiledProcessorKind::Delay(value) => runtime.push(StereoProcessorRuntime::Delay(
-                    StereoDelayRuntime::new(value.delay_frames),
-                )),
+                CompiledProcessorKind::FrequencyShifter(value) => {
+                    #[allow(clippy::cast_possible_truncation)]
+                    let sample_rate = spec.sample_rate as f32;
+                    runtime.push(StereoProcessorRuntime::FrequencyShifter(Box::new(
+                        FrequencyShifterRuntime::new(
+                            value.coefficients.clone(),
+                            sample_rate,
+                            value.effective_abs_shift_hz,
+                        )?,
+                    )));
+                }
+                CompiledProcessorKind::Delay(value) => {
+                    #[allow(clippy::cast_possible_truncation)]
+                    let sample_rate = spec.sample_rate as f32;
+                    runtime.push(StereoProcessorRuntime::Delay(StereoDelayRuntime::new(
+                        value,
+                        sample_rate,
+                    )));
+                }
                 CompiledProcessorKind::Reverb(value) => runtime.push(
                     StereoProcessorRuntime::Reverb(Box::new(PlateReverbRuntime::new(value))),
+                ),
+                CompiledProcessorKind::Convolution(value) => {
+                    #[allow(clippy::cast_possible_truncation)]
+                    let sample_rate = spec.sample_rate as f32;
+                    runtime.push(StereoProcessorRuntime::Convolution(Box::new(
+                        ConvolutionRuntime::new(value.prepared_ir.clone(), sample_rate)?,
+                    )));
+                }
+                CompiledProcessorKind::Gate(value) => {
+                    runtime.push(StereoProcessorRuntime::Gate(GateRuntime::new(
+                        value.detector_attack_coeff,
+                        value.detector_release_coeff,
+                        value.attack_coeff,
+                        value.release_coeff,
+                        value.hold_frames,
+                        value.hysteresis_db,
+                    )));
+                }
+                CompiledProcessorKind::TransientShaper(value) => runtime.push(
+                    StereoProcessorRuntime::TransientShaper(TransientShaperRuntime::new(
+                        value.fast_attack_coeff,
+                        value.fast_release_coeff,
+                        value.slow_attack_coeff,
+                        value.slow_release_coeff,
+                    )),
                 ),
                 CompiledProcessorKind::Compressor(value) => {
                     runtime.push(StereoProcessorRuntime::Compressor(CompressorRuntime::new(
@@ -597,6 +835,7 @@ impl StereoProcessorChain {
     pub(crate) fn process(
         &mut self,
         targets: &[ProcessorTargetSpan],
+        tempo_bpm: f64,
         left: &mut [f32],
         right: &mut [f32],
     ) -> Result<(), ProcessError> {
@@ -618,6 +857,14 @@ impl StereoProcessorChain {
                     process_filter(filter_left, *mode, cutoff, resonance, left)?;
                     process_filter(filter_right, *mode, cutoff, resonance, right)?;
                 }
+                (
+                    StereoProcessorRuntime::LadderFilter(runtime),
+                    ProcessorTargetSpan::LadderFilter {
+                        cutoff,
+                        resonance,
+                        drive,
+                    },
+                ) => runtime.process_stereo(cutoff, resonance, drive, left, right)?,
                 (StereoProcessorRuntime::Drive, ProcessorTargetSpan::Drive { amount, mix }) => {
                     DriveRuntime::process_stereo(amount, mix, left, right)?;
                 }
@@ -629,6 +876,22 @@ impl StereoProcessorChain {
                         high_gain_db,
                     },
                 ) => runtime.process_stereo(low_gain_db, mid_gain_db, high_gain_db, left, right)?,
+                (
+                    StereoProcessorRuntime::Formant(runtime),
+                    ProcessorTargetSpan::Formant {
+                        vowel_position,
+                        formant_shift,
+                        throat,
+                        mix,
+                    },
+                ) => runtime.process_stereo(
+                    vowel_position,
+                    formant_shift,
+                    throat,
+                    mix,
+                    left,
+                    right,
+                )?,
                 (
                     StereoProcessorRuntime::Resonator(runtime),
                     ProcessorTargetSpan::Resonator {
@@ -676,9 +939,13 @@ impl StereoProcessorChain {
                     },
                 ) => runtime.process(rate_hz, depth, feedback, width, mix, left, right)?,
                 (
+                    StereoProcessorRuntime::FrequencyShifter(runtime),
+                    ProcessorTargetSpan::FrequencyShifter { shift_hz, mix },
+                ) => runtime.process(shift_hz, mix, left, right)?,
+                (
                     StereoProcessorRuntime::Delay(delay),
                     ProcessorTargetSpan::Delay { feedback, mix },
-                ) => delay.process(feedback, mix, left, right)?,
+                ) => delay.process(feedback, mix, tempo_bpm, left, right)?,
                 (
                     StereoProcessorRuntime::Reverb(reverb),
                     ProcessorTargetSpan::Reverb {
@@ -688,6 +955,25 @@ impl StereoProcessorChain {
                         mix,
                     },
                 ) => reverb.process(decay, damping, width, mix, left, right)?,
+                (
+                    StereoProcessorRuntime::Convolution(runtime),
+                    ProcessorTargetSpan::Convolution { gain_db, mix },
+                ) => runtime.process(gain_db, mix, left, right)?,
+                (
+                    StereoProcessorRuntime::Gate(runtime),
+                    ProcessorTargetSpan::Gate {
+                        threshold_db,
+                        range_db,
+                    },
+                ) => runtime.process(threshold_db, range_db, left, right)?,
+                (
+                    StereoProcessorRuntime::TransientShaper(runtime),
+                    ProcessorTargetSpan::TransientShaper {
+                        attack,
+                        sustain,
+                        mix,
+                    },
+                ) => runtime.process(attack, sustain, mix, left, right)?,
                 (
                     StereoProcessorRuntime::Compressor(runtime),
                     ProcessorTargetSpan::Compressor {
@@ -721,14 +1007,20 @@ impl StereoProcessorChain {
                     left.reset().map_err(ProcessError::from_filter_error)?;
                     right.reset().map_err(ProcessError::from_filter_error)?;
                 }
+                StereoProcessorRuntime::LadderFilter(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Drive => {}
                 StereoProcessorRuntime::Eq(runtime) => runtime.reset(),
+                StereoProcessorRuntime::Formant(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Resonator(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Chorus(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Flanger(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Phaser(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Delay(delay) => delay.reset(),
                 StereoProcessorRuntime::Reverb(reverb) => reverb.reset(),
+                StereoProcessorRuntime::FrequencyShifter(runtime) => runtime.reset(),
+                StereoProcessorRuntime::Convolution(runtime) => runtime.reset(),
+                StereoProcessorRuntime::Gate(runtime) => runtime.reset(),
+                StereoProcessorRuntime::TransientShaper(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Compressor(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Limiter(runtime) => runtime.reset(),
             }

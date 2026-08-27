@@ -1,0 +1,88 @@
+{
+  "schema_version": 4,
+  "metadata": {
+    "name": "Ladder Acid Bass",
+    "author": "Sonalloy",
+    "description": "Deterministic review fixture for the extended processor set"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.25,
+        "sustain_level": 0.7,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": [
+        {
+          "type": "ladder_filter",
+          "id": "acid_filter",
+          "cutoff_hz": 850.0,
+          "resonance": 0.72,
+          "drive": 0.38
+        },
+        {
+          "type": "drive",
+          "id": "edge",
+          "amount": 0.18,
+          "mix": 0.3
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "type": "lfo",
+        "id": "cutoff_motion",
+        "waveform": "sine",
+        "phase": 0.0,
+        "rate": {
+          "value": 0.45,
+          "unit": "per_second"
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "cutoff_motion",
+        "target": "layer.body.processor.acid_filter.cutoff",
+        "depth": {
+          "value": 1.75,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

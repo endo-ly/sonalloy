@@ -300,7 +300,7 @@ impl VoiceRuntime {
         let layers = compiled
             .layers
             .iter()
-            .map(|layer| LayerRuntime::new(layer, spec, compiled.reported_latency_frames))
+            .map(|layer| LayerRuntime::new(layer, spec, compiled.layer_alignment_latency_frames))
             .collect::<Result<Vec<_>, _>>()?;
         let processors = StereoProcessorChain::new(&compiled.voice_processors, spec)?;
         let source_definitions = compiled
@@ -882,6 +882,7 @@ impl VoiceRuntime {
         }
         self.processors.process(
             &targets.voice_processors,
+            tempo_bpm,
             &mut voice_left[..frames],
             &mut voice_right[..frames],
         )?;
@@ -1298,6 +1299,7 @@ impl VoiceRuntime {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     fn evaluate_processor_target(
         &self,
         compiled: &CompiledInstrument,
@@ -1316,6 +1318,11 @@ impl VoiceRuntime {
                     )?,
                 })
             }
+            CompiledProcessorKind::LadderFilter(value) => Ok(ProcessorTargetSpan::LadderFilter {
+                cutoff: self.evaluate_target(compiled, value.parameters.cutoff, shared)?,
+                resonance: self.evaluate_target(compiled, value.parameters.resonance, shared)?,
+                drive: self.evaluate_target(compiled, value.parameters.drive, shared)?,
+            }),
             CompiledProcessorKind::Drive(value) => Ok(ProcessorTargetSpan::Drive {
                 amount: self.evaluate_target(compiled, value.amount, shared)?,
                 mix: self.evaluate_target(compiled, value.mix, shared)?,
@@ -1336,6 +1343,20 @@ impl VoiceRuntime {
                     value.parameters.high_gain_db,
                     shared,
                 )?,
+            }),
+            CompiledProcessorKind::Formant(value) => Ok(ProcessorTargetSpan::Formant {
+                vowel_position: self.evaluate_target(
+                    compiled,
+                    value.parameters.vowel_position,
+                    shared,
+                )?,
+                formant_shift: self.evaluate_target(
+                    compiled,
+                    value.parameters.formant_shift,
+                    shared,
+                )?,
+                throat: self.evaluate_target(compiled, value.parameters.throat, shared)?,
+                mix: self.evaluate_target(compiled, value.parameters.mix, shared)?,
             }),
             CompiledProcessorKind::Resonator(value) => Ok(ProcessorTargetSpan::Resonator {
                 frequency_hz: self.evaluate_target(
@@ -1382,11 +1403,28 @@ impl VoiceRuntime {
                 )?,
                 mix: self.evaluate_target(compiled, value.parameters.mix, shared)?,
             }),
+            CompiledProcessorKind::Gate(value) => Ok(ProcessorTargetSpan::Gate {
+                threshold_db: self.evaluate_target(
+                    compiled,
+                    value.parameters.threshold_db,
+                    shared,
+                )?,
+                range_db: self.evaluate_target(compiled, value.parameters.range_db, shared)?,
+            }),
+            CompiledProcessorKind::TransientShaper(value) => {
+                Ok(ProcessorTargetSpan::TransientShaper {
+                    attack: self.evaluate_target(compiled, value.parameters.attack, shared)?,
+                    sustain: self.evaluate_target(compiled, value.parameters.sustain, shared)?,
+                    mix: self.evaluate_target(compiled, value.parameters.mix, shared)?,
+                })
+            }
             CompiledProcessorKind::Chorus(_)
             | CompiledProcessorKind::Flanger(_)
             | CompiledProcessorKind::Phaser(_)
+            | CompiledProcessorKind::FrequencyShifter(_)
             | CompiledProcessorKind::Delay(_)
-            | CompiledProcessorKind::Reverb(_) => Err(invalid_state()),
+            | CompiledProcessorKind::Reverb(_)
+            | CompiledProcessorKind::Convolution(_) => Err(invalid_state()),
         }
     }
 

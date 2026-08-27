@@ -502,6 +502,7 @@ struct InspectReport {
     legato: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     portamento_seconds: Option<f32>,
+    layer_alignment_latency_frames: usize,
     reported_latency_frames: usize,
     layer_count: usize,
     layers: Vec<InspectLayer>,
@@ -860,6 +861,10 @@ struct InspectProcessor {
     kind: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     mode: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    asset_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    asset_sha256_specified: Option<bool>,
     static_fields: Vec<InspectStaticField>,
     parameters: Vec<InspectProcessorParameter>,
 }
@@ -2543,6 +2548,18 @@ fn inspect_processor(
             }],
             vec![value.parameters.cutoff, value.parameters.resonance],
         ),
+        sonalloy_core::compiler::CompiledProcessorKind::LadderFilter(value) => (
+            "ladder_filter",
+            vec![InspectStaticField {
+                id: "effective_max_cutoff_hz",
+                value: value.effective_max_cutoff_hz,
+            }],
+            vec![
+                value.parameters.cutoff,
+                value.parameters.resonance,
+                value.parameters.drive,
+            ],
+        ),
         sonalloy_core::compiler::CompiledProcessorKind::Drive(value) => {
             ("drive", Vec::new(), vec![value.amount, value.mix])
         }
@@ -2570,6 +2587,20 @@ fn inspect_processor(
                 value.parameters.low_gain_db,
                 value.parameters.mid_gain_db,
                 value.parameters.high_gain_db,
+            ],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Formant(value) => (
+            "formant",
+            vec![InspectStaticField {
+                id: "profile_count",
+                #[allow(clippy::cast_precision_loss)]
+                value: value.profiles.len() as f32,
+            }],
+            vec![
+                value.parameters.vowel_position,
+                value.parameters.formant_shift,
+                value.parameters.throat,
+                value.parameters.mix,
             ],
         ),
         sonalloy_core::compiler::CompiledProcessorKind::Resonator(value) => (
@@ -2647,13 +2678,46 @@ fn inspect_processor(
                 value.parameters.mix,
             ],
         ),
+        sonalloy_core::compiler::CompiledProcessorKind::FrequencyShifter(value) => (
+            "frequency_shifter",
+            vec![InspectStaticField {
+                id: "latency_frames",
+                #[allow(clippy::cast_precision_loss)]
+                value: value.latency_frames as f32,
+            }],
+            vec![value.parameters.shift_hz, value.parameters.mix],
+        ),
         sonalloy_core::compiler::CompiledProcessorKind::Delay(value) => (
             "delay",
-            vec![InspectStaticField {
-                id: "time_frames",
-                #[allow(clippy::cast_precision_loss)]
-                value: value.delay_frames as f32,
-            }],
+            vec![
+                InspectStaticField {
+                    id: "time",
+                    value: match value.time {
+                        sonalloy_core::compiler::CompiledDelayTime::Seconds(seconds) => {
+                            #[allow(clippy::cast_possible_truncation)]
+                            {
+                                seconds as f32
+                            }
+                        }
+                        sonalloy_core::compiler::CompiledDelayTime::Beats(beats) => {
+                            #[allow(clippy::cast_possible_truncation)]
+                            {
+                                beats as f32
+                            }
+                        }
+                    },
+                },
+                InspectStaticField {
+                    id: "max_delay_frames",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.max_delay_frames as f32,
+                },
+                InspectStaticField {
+                    id: "tap_count",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.taps.len() as f32,
+                },
+            ],
             vec![value.feedback, value.mix],
         ),
         sonalloy_core::compiler::CompiledProcessorKind::Reverb(value) => (
@@ -2664,6 +2728,71 @@ fn inspect_processor(
                 value: value.pre_delay_frames as f32,
             }],
             vec![value.decay, value.damping, value.width, value.mix],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Convolution(value) => (
+            "convolution",
+            vec![
+                InspectStaticField {
+                    id: "latency_frames",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.latency_frames as f32,
+                },
+                InspectStaticField {
+                    id: "source_channels",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.source_channels() as f32,
+                },
+                InspectStaticField {
+                    id: "source_frames",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.source_frames() as f32,
+                },
+                InspectStaticField {
+                    id: "prepared_frames",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.prepared_frames() as f32,
+                },
+                InspectStaticField {
+                    id: "partition_count",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.partition_count() as f32,
+                },
+            ],
+            vec![value.parameters.gain_db, value.parameters.mix],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Gate(value) => (
+            "gate",
+            vec![InspectStaticField {
+                id: "hysteresis_db",
+                value: value.hysteresis_db,
+            }],
+            vec![value.parameters.threshold_db, value.parameters.range_db],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::TransientShaper(value) => (
+            "transient_shaper",
+            vec![
+                InspectStaticField {
+                    id: "fast_attack_coeff",
+                    value: value.fast_attack_coeff,
+                },
+                InspectStaticField {
+                    id: "fast_release_coeff",
+                    value: value.fast_release_coeff,
+                },
+                InspectStaticField {
+                    id: "slow_attack_coeff",
+                    value: value.slow_attack_coeff,
+                },
+                InspectStaticField {
+                    id: "slow_release_coeff",
+                    value: value.slow_release_coeff,
+                },
+            ],
+            vec![
+                value.parameters.attack,
+                value.parameters.sustain,
+                value.parameters.mix,
+            ],
         ),
         sonalloy_core::compiler::CompiledProcessorKind::Compressor(value) => (
             "compressor",
@@ -2704,7 +2833,20 @@ fn inspect_processor(
             sonalloy_core::FilterModeDefinition::BandPass => "band_pass",
             sonalloy_core::FilterModeDefinition::Notch => "notch",
         }),
+        sonalloy_core::compiler::CompiledProcessorKind::Delay(value) => {
+            Some(match value.feedback_mode {
+                sonalloy_core::definition::DelayFeedbackMode::Stereo => "stereo",
+                sonalloy_core::definition::DelayFeedbackMode::PingPong => "ping_pong",
+            })
+        }
         _ => None,
+    };
+    let (asset_path, asset_sha256_specified) = match &processor.processor {
+        sonalloy_core::compiler::CompiledProcessorKind::Convolution(value) => (
+            Some(value.asset_path.clone()),
+            Some(value.asset_sha256_specified),
+        ),
+        _ => (None, None),
     };
     InspectProcessor {
         placement,
@@ -2712,6 +2854,8 @@ fn inspect_processor(
         id: processor.id.clone(),
         kind,
         mode,
+        asset_path,
+        asset_sha256_specified,
         static_fields,
         parameters: handles
             .into_iter()
@@ -3907,6 +4051,7 @@ fn make_inspect_report(
         voice_stealing,
         legato,
         portamento_seconds,
+        layer_alignment_latency_frames: compiled.layer_alignment_latency_frames(),
         reported_latency_frames: compiled.reported_latency_frames,
         layer_count: layers.len(),
         layers,
@@ -3982,6 +4127,10 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     if let Some(portamento_seconds) = report.portamento_seconds {
         println!("portamento: {portamento_seconds:.6} seconds");
     }
+    println!(
+        "layer alignment latency: {} frames",
+        report.layer_alignment_latency_frames
+    );
     println!(
         "reported latency: {} frames",
         report.reported_latency_frames

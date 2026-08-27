@@ -20,13 +20,16 @@ use crate::generator_parameters::{
 use crate::parameter::{BUILTIN_SOURCE_IDS, ModulationUnit, is_component_id, is_parameter_id};
 
 /// The Definition schema accepted by the compiler.
-pub const CURRENT_SCHEMA_VERSION: u32 = 3;
+pub const CURRENT_SCHEMA_VERSION: u32 = 4;
 
 const MAX_VOICE_MODULATION_SOURCES: usize = 64;
 const MAX_MSEG_SOURCES: usize = 16;
 const MAX_STEP_SOURCES: usize = 16;
 const MAX_SAMPLE_HOLD_SOURCES: usize = 16;
 const MAX_SMOOTH_RANDOM_SOURCES: usize = 16;
+const MAX_CONVOLUTION_PROCESSORS: usize = 2;
+const MAX_DELAY_PROCESSORS: usize = 4;
+const MAX_DELAY_TAPS: usize = 8;
 
 /// Stable identifier assigned to a layer.
 pub type LayerId = String;
@@ -924,10 +927,14 @@ pub struct AdsrDefinition {
 pub enum ProcessorDefinition {
     /// State-variable filter.
     Filter(FilterProcessorDefinition),
+    /// Four-pole nonlinear low-pass ladder filter.
+    LadderFilter(LadderFilterProcessorDefinition),
     /// Soft-clipping drive.
     Drive(DriveProcessorDefinition),
     /// Fixed three-band equalizer.
     Eq(EqProcessorDefinition),
+    /// Five-band formant filter bank.
+    Formant(FormantProcessorDefinition),
     /// Tuned feedback resonator.
     Resonator(ResonatorProcessorDefinition),
     /// Sample-rate reducer and quantizer.
@@ -938,10 +945,18 @@ pub enum ProcessorDefinition {
     Flanger(FlangerProcessorDefinition),
     /// Stereo phaser.
     Phaser(PhaserProcessorDefinition),
+    /// Global frequency translation effect.
+    FrequencyShifter(FrequencyShifterProcessorDefinition),
     /// Stereo feedback delay.
     Delay(DelayProcessorDefinition),
     /// Stereo plate reverb.
     Reverb(ReverbProcessorDefinition),
+    /// Global impulse-response convolution effect.
+    Convolution(ConvolutionProcessorDefinition),
+    /// Stereo-linked self-keyed gate.
+    Gate(GateProcessorDefinition),
+    /// Stereo-linked transient and sustain shaper.
+    TransientShaper(TransientShaperProcessorDefinition),
     /// Stereo-linked compressor.
     Compressor(CompressorProcessorDefinition),
     /// Zero-latency stereo-linked limiter.
@@ -952,15 +967,21 @@ impl ProcessorDefinition {
     pub(crate) fn id(&self) -> &str {
         match self {
             Self::Filter(value) => &value.id,
+            Self::LadderFilter(value) => &value.id,
             Self::Drive(value) => &value.id,
             Self::Eq(value) => &value.id,
+            Self::Formant(value) => &value.id,
             Self::Resonator(value) => &value.id,
             Self::Bitcrusher(value) => &value.id,
             Self::Chorus(value) => &value.id,
             Self::Flanger(value) => &value.id,
             Self::Phaser(value) => &value.id,
+            Self::FrequencyShifter(value) => &value.id,
             Self::Delay(value) => &value.id,
             Self::Reverb(value) => &value.id,
+            Self::Convolution(value) => &value.id,
+            Self::Gate(value) => &value.id,
+            Self::TransientShaper(value) => &value.id,
             Self::Compressor(value) => &value.id,
             Self::Limiter(value) => &value.id,
         }
@@ -997,6 +1018,20 @@ pub struct FilterProcessorDefinition {
     pub resonance: f32,
 }
 
+/// Four-pole nonlinear low-pass ladder filter settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LadderFilterProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Cutoff frequency in Hz.
+    pub cutoff_hz: f32,
+    /// Normalized resonance.
+    pub resonance: f32,
+    /// Normalized input drive.
+    pub drive: f32,
+}
+
 /// Soft-clipping drive processor settings.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1029,6 +1064,24 @@ pub struct EqProcessorDefinition {
     pub high_frequency_hz: f32,
     /// High-shelf gain in dB.
     pub high_gain_db: f32,
+}
+
+/// Five-band formant filter bank settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FormantProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Position between the first and last formant profiles.
+    pub vowel_position: f32,
+    /// Frequency shift applied to formant centers and bandwidths in cents.
+    pub formant_shift_cents: f32,
+    /// Formant bandwidth control.
+    pub throat: f32,
+    /// Ordered formant profiles.
+    pub profiles: Vec<FormantProfileDefinition>,
+    /// Dry/wet mix.
+    pub mix: f32,
 }
 
 /// Tuned feedback resonator processor settings.
@@ -1125,16 +1178,120 @@ pub struct PhaserProcessorDefinition {
     pub mix: f32,
 }
 
+/// Frequency shifter settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FrequencyShifterProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Constant frequency offset in Hz.
+    pub shift_hz: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Convolution processor settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConvolutionProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Impulse-response asset.
+    pub ir: AssetReference,
+    /// Wet gain in decibels.
+    pub gain_db: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
 /// Stereo delay processor settings.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DelayProcessorDefinition {
     /// Stable processor identifier.
     pub id: String,
-    /// Static delay time in seconds.
-    pub time_seconds: f32,
+    /// Primary delay time.
+    pub time: DelayTimeDefinition,
+    /// Feedback routing mode.
+    pub feedback_mode: DelayFeedbackMode,
     /// Feedback amount.
     pub feedback: f32,
+    /// Additional feed-forward taps.
+    pub taps: Vec<DelayTapDefinition>,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Unit used by a delay time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DelayTimeUnit {
+    /// Wall-clock seconds.
+    Seconds,
+    /// Quarter-note beats.
+    Beats,
+}
+
+/// Delay time written in seconds or quarter-note beats.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DelayTimeDefinition {
+    /// Time value in the selected unit.
+    pub value: f32,
+    /// Time unit.
+    pub unit: DelayTimeUnit,
+}
+
+/// Feedback routing mode for a stereo delay.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DelayFeedbackMode {
+    /// Feed each channel back into itself.
+    Stereo,
+    /// Cross-feed the delayed channels.
+    PingPong,
+}
+
+/// One feed-forward delay tap.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DelayTapDefinition {
+    /// Tap time.
+    pub time: DelayTimeDefinition,
+    /// Tap gain in decibels.
+    pub gain_db: f32,
+}
+
+/// Self-keyed stereo gate settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GateProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Opening threshold in decibels.
+    pub threshold_db: f32,
+    /// Opening/closing hysteresis in decibels.
+    pub hysteresis_db: f32,
+    /// Opening attack in milliseconds.
+    pub attack_ms: f32,
+    /// Hold time in milliseconds.
+    pub hold_ms: f32,
+    /// Closing release in milliseconds.
+    pub release_ms: f32,
+    /// Closed-state attenuation in decibels.
+    pub range_db: f32,
+}
+
+/// Transient and sustain shaping settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TransientShaperProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Attack emphasis or reduction.
+    pub attack: f32,
+    /// Sustain emphasis or reduction.
+    pub sustain: f32,
     /// Dry/wet mix.
     pub mix: f32,
 }
@@ -1645,6 +1802,7 @@ impl InstrumentDefinition {
             &self.global_processors,
             ProcessorPlacement::Global,
         );
+        validate_processor_resource_limits(&mut diagnostics, &self.global_processors);
         if let Some(modulation) = &self.modulation {
             validate_modulation(&mut diagnostics, modulation);
         }
@@ -1711,30 +1869,42 @@ fn processor_allowed_at(processor: &ProcessorDefinition, placement: ProcessorPla
         ProcessorPlacement::Layer => matches!(
             processor,
             ProcessorDefinition::Filter(_)
+                | ProcessorDefinition::LadderFilter(_)
                 | ProcessorDefinition::Drive(_)
                 | ProcessorDefinition::Eq(_)
+                | ProcessorDefinition::Formant(_)
                 | ProcessorDefinition::Resonator(_)
                 | ProcessorDefinition::Bitcrusher(_)
         ),
         ProcessorPlacement::Voice => matches!(
             processor,
             ProcessorDefinition::Filter(_)
+                | ProcessorDefinition::LadderFilter(_)
                 | ProcessorDefinition::Drive(_)
                 | ProcessorDefinition::Eq(_)
+                | ProcessorDefinition::Formant(_)
                 | ProcessorDefinition::Resonator(_)
+                | ProcessorDefinition::Gate(_)
+                | ProcessorDefinition::TransientShaper(_)
                 | ProcessorDefinition::Compressor(_)
                 | ProcessorDefinition::Limiter(_)
         ),
         ProcessorPlacement::Global => matches!(
             processor,
             ProcessorDefinition::Filter(_)
+                | ProcessorDefinition::LadderFilter(_)
                 | ProcessorDefinition::Drive(_)
                 | ProcessorDefinition::Eq(_)
+                | ProcessorDefinition::Formant(_)
                 | ProcessorDefinition::Chorus(_)
                 | ProcessorDefinition::Flanger(_)
                 | ProcessorDefinition::Phaser(_)
+                | ProcessorDefinition::FrequencyShifter(_)
                 | ProcessorDefinition::Delay(_)
                 | ProcessorDefinition::Reverb(_)
+                | ProcessorDefinition::Convolution(_)
+                | ProcessorDefinition::Gate(_)
+                | ProcessorDefinition::TransientShaper(_)
                 | ProcessorDefinition::Compressor(_)
                 | ProcessorDefinition::Limiter(_)
         ),
@@ -1752,17 +1922,57 @@ fn placement_name(placement: ProcessorPlacement) -> &'static str {
 fn processor_type_name(processor: &ProcessorDefinition) -> &'static str {
     match processor {
         ProcessorDefinition::Filter(_) => "filter",
+        ProcessorDefinition::LadderFilter(_) => "ladder_filter",
         ProcessorDefinition::Drive(_) => "drive",
         ProcessorDefinition::Eq(_) => "eq",
+        ProcessorDefinition::Formant(_) => "formant",
         ProcessorDefinition::Resonator(_) => "resonator",
         ProcessorDefinition::Bitcrusher(_) => "bitcrusher",
         ProcessorDefinition::Chorus(_) => "chorus",
         ProcessorDefinition::Flanger(_) => "flanger",
         ProcessorDefinition::Phaser(_) => "phaser",
+        ProcessorDefinition::FrequencyShifter(_) => "frequency_shifter",
         ProcessorDefinition::Delay(_) => "delay",
         ProcessorDefinition::Reverb(_) => "reverb",
+        ProcessorDefinition::Convolution(_) => "convolution",
+        ProcessorDefinition::Gate(_) => "gate",
+        ProcessorDefinition::TransientShaper(_) => "transient_shaper",
         ProcessorDefinition::Compressor(_) => "compressor",
         ProcessorDefinition::Limiter(_) => "limiter",
+    }
+}
+
+fn validate_processor_resource_limits(
+    diagnostics: &mut Vec<Diagnostic>,
+    processors: &[ProcessorDefinition],
+) {
+    let convolution_count = processors
+        .iter()
+        .filter(|processor| matches!(processor, ProcessorDefinition::Convolution(_)))
+        .count();
+    if convolution_count > MAX_CONVOLUTION_PROCESSORS {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::GeneratorResourceLimitExceeded,
+                format!("global processors may contain at most {MAX_CONVOLUTION_PROCESSORS} convolution processors"),
+            )
+            .with_path("global_processors"),
+        );
+    }
+    let delay_count = processors
+        .iter()
+        .filter(|processor| matches!(processor, ProcessorDefinition::Delay(_)))
+        .count();
+    if delay_count > MAX_DELAY_PROCESSORS {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::GeneratorResourceLimitExceeded,
+                format!(
+                    "global processors may contain at most {MAX_DELAY_PROCESSORS} delay processors"
+                ),
+            )
+            .with_path("global_processors"),
+        );
     }
 }
 
@@ -1787,6 +1997,29 @@ fn validate_processor_values(
                 value.resonance,
                 0.0..=1.0,
                 "resonance must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::LadderFilter(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.cutoff_hz"),
+                value.cutoff_hz,
+                20.0..=20_000.0,
+                "cutoff_hz must be finite and between 20 and 20000 Hz",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.resonance"),
+                value.resonance,
+                0.0..=1.0,
+                "resonance must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.drive"),
+                value.drive,
+                0.0..=1.0,
+                "drive must be finite and between 0 and 1",
             );
         }
         ProcessorDefinition::Drive(value) => {
@@ -1866,6 +2099,37 @@ fn validate_processor_values(
                     .with_path(path),
                 );
             }
+        }
+        ProcessorDefinition::Formant(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.vowel_position"),
+                value.vowel_position,
+                FORMANT_VOWEL_POSITION.min..=FORMANT_VOWEL_POSITION.max,
+                "vowel_position must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.formant_shift_cents"),
+                value.formant_shift_cents,
+                FORMANT_SHIFT.min..=FORMANT_SHIFT.max,
+                "formant_shift_cents must be finite and between -2400 and 2400",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.throat"),
+                value.throat,
+                FORMANT_THROAT.min..=FORMANT_THROAT.max,
+                "throat must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+            validate_formant_profiles(diagnostics, &format!("{path}.profiles"), &value.profiles);
         }
         ProcessorDefinition::Resonator(value) => {
             validate_range(
@@ -2010,13 +2274,32 @@ fn validate_processor_values(
                 "mix must be finite and between 0 and 1",
             );
         }
+        ProcessorDefinition::FrequencyShifter(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.shift_hz"),
+                value.shift_hz,
+                -5_000.0..=5_000.0,
+                "shift_hz must be finite and between -5000 and 5000 Hz",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
         ProcessorDefinition::Delay(value) => {
             validate_range(
                 diagnostics,
-                format!("{path}.time_seconds"),
-                value.time_seconds,
-                0.001..=2.0,
-                "time_seconds must be finite and between 0.001 and 2 seconds",
+                format!("{path}.time.value"),
+                value.time.value,
+                match value.time.unit {
+                    DelayTimeUnit::Seconds => 0.001..=8.0,
+                    DelayTimeUnit::Beats => 0.015_625..=2.0,
+                },
+                "delay time must be finite and within the supported range",
             );
             validate_range(
                 diagnostics,
@@ -2032,6 +2315,34 @@ fn validate_processor_values(
                 0.0..=1.0,
                 "mix must be finite and between 0 and 1",
             );
+            if value.taps.len() > MAX_DELAY_TAPS {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::GeneratorResourceLimitExceeded,
+                        format!("delay taps must contain at most {MAX_DELAY_TAPS} entries"),
+                    )
+                    .with_path(format!("{path}.taps")),
+                );
+            }
+            for (index, tap) in value.taps.iter().enumerate() {
+                validate_range(
+                    diagnostics,
+                    format!("{path}.taps[{index}].time.value"),
+                    tap.time.value,
+                    match tap.time.unit {
+                        DelayTimeUnit::Seconds => 0.001..=8.0,
+                        DelayTimeUnit::Beats => 0.015_625..=2.0,
+                    },
+                    "delay tap time must be finite and within the supported range",
+                );
+                validate_range(
+                    diagnostics,
+                    format!("{path}.taps[{index}].gain_db"),
+                    tap.gain_db,
+                    -24.0..=0.0,
+                    "delay tap gain must be finite and between -24 and 0 dB",
+                );
+            }
         }
         ProcessorDefinition::Reverb(value) => {
             validate_range(
@@ -2061,6 +2372,98 @@ fn validate_processor_values(
                 value.width,
                 0.0..=1.0,
                 "width must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::Convolution(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.gain_db"),
+                value.gain_db,
+                -24.0..=24.0,
+                "gain_db must be finite and between -24 and 24 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+            if value.ir.path.trim().is_empty() {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::RequiredFieldMissing,
+                        "convolution IR path must not be empty",
+                    )
+                    .with_path(format!("{path}.ir.path")),
+                );
+            }
+        }
+        ProcessorDefinition::Gate(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.threshold_db"),
+                value.threshold_db,
+                -80.0..=0.0,
+                "threshold_db must be finite and between -80 and 0 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.hysteresis_db"),
+                value.hysteresis_db,
+                0.0..=12.0,
+                "hysteresis_db must be finite and between 0 and 12 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.attack_ms"),
+                value.attack_ms,
+                0.1..=100.0,
+                "attack_ms must be finite and between 0.1 and 100 ms",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.hold_ms"),
+                value.hold_ms,
+                0.0..=500.0,
+                "hold_ms must be finite and between 0 and 500 ms",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.release_ms"),
+                value.release_ms,
+                5.0..=2_000.0,
+                "release_ms must be finite and between 5 and 2000 ms",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.range_db"),
+                value.range_db,
+                -96.0..=0.0,
+                "range_db must be finite and between -96 and 0 dB",
+            );
+        }
+        ProcessorDefinition::TransientShaper(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.attack"),
+                value.attack,
+                -1.0..=1.0,
+                "attack must be finite and between -1 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.sustain"),
+                value.sustain,
+                -1.0..=1.0,
+                "sustain must be finite and between -1 and 1",
             );
             validate_range(
                 diagnostics,
@@ -3981,9 +4384,21 @@ fn validate_formant(diagnostics: &mut Vec<Diagnostic>, path: &str, formant: &For
         "formant spectral tilt must be finite and between -24 and 12 dB per octave",
     );
 
+    validate_formant_profiles(
+        diagnostics,
+        &format!("{formant_path}.profiles"),
+        &formant.profiles,
+    );
+}
+
+fn validate_formant_profiles(
+    diagnostics: &mut Vec<Diagnostic>,
+    profiles_path: &str,
+    profiles: &[FormantProfileDefinition],
+) {
     let mut ids = HashSet::new();
-    for (profile_index, profile) in formant.profiles.iter().enumerate() {
-        let profile_path = format!("{formant_path}.profiles[{profile_index}]");
+    for (profile_index, profile) in profiles.iter().enumerate() {
+        let profile_path = format!("{profiles_path}[{profile_index}]");
         if profile.id.trim().is_empty() {
             diagnostics.push(
                 Diagnostic::error(
@@ -4261,6 +4676,14 @@ pub(crate) mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.code == DiagnosticCode::IdDuplicated)
         );
+
+        let mut old = definition();
+        old.schema_version = CURRENT_SCHEMA_VERSION - 1;
+        assert!(
+            old.validate()
+                .iter()
+                .any(|diagnostic| diagnostic.code == DiagnosticCode::SchemaUnsupported)
+        );
     }
 
     #[test]
@@ -4312,8 +4735,13 @@ pub(crate) mod tests {
             }),
             ProcessorDefinition::Delay(DelayProcessorDefinition {
                 id: "echo".to_owned(),
-                time_seconds: 0.2,
+                time: DelayTimeDefinition {
+                    value: 0.2,
+                    unit: DelayTimeUnit::Seconds,
+                },
+                feedback_mode: DelayFeedbackMode::Stereo,
                 feedback: 0.3,
+                taps: vec![],
                 mix: 0.2,
             }),
         ];
@@ -4369,6 +4797,227 @@ pub(crate) mod tests {
             diagnostic.code == DiagnosticCode::ValueOutOfRange
                 && diagnostic.path.as_deref() == Some("global_processors[0].decay")
         }));
+    }
+
+    fn extended_formant_profile() -> FormantProfileDefinition {
+        FormantProfileDefinition {
+            id: "a".to_owned(),
+            formants: [800.0, 1_200.0, 2_400.0, 3_600.0, 4_800.0]
+                .into_iter()
+                .map(|frequency_hz| FormantBandDefinition {
+                    frequency_hz,
+                    bandwidth_hz: 80.0,
+                    gain_db: 0.0,
+                })
+                .collect(),
+        }
+    }
+
+    fn extended_definition() -> InstrumentDefinition {
+        let mut value = definition();
+        value.layers[0].processors = vec![
+            ProcessorDefinition::LadderFilter(LadderFilterProcessorDefinition {
+                id: "ladder".to_owned(),
+                cutoff_hz: 850.0,
+                resonance: 0.7,
+                drive: 0.3,
+            }),
+            ProcessorDefinition::Formant(FormantProcessorDefinition {
+                id: "vowel".to_owned(),
+                vowel_position: 0.25,
+                formant_shift_cents: -120.0,
+                throat: 0.55,
+                profiles: vec![extended_formant_profile()],
+                mix: 0.65,
+            }),
+        ];
+        value.voice_processors = vec![
+            ProcessorDefinition::Gate(GateProcessorDefinition {
+                id: "gate".to_owned(),
+                threshold_db: -35.0,
+                hysteresis_db: 4.0,
+                attack_ms: 2.0,
+                hold_ms: 35.0,
+                release_ms: 90.0,
+                range_db: -72.0,
+            }),
+            ProcessorDefinition::TransientShaper(TransientShaperProcessorDefinition {
+                id: "shape".to_owned(),
+                attack: 0.5,
+                sustain: -0.3,
+                mix: 1.0,
+            }),
+        ];
+        value.global_processors = vec![
+            ProcessorDefinition::FrequencyShifter(FrequencyShifterProcessorDefinition {
+                id: "shift".to_owned(),
+                shift_hz: 420.0,
+                mix: 0.7,
+            }),
+            ProcessorDefinition::Convolution(ConvolutionProcessorDefinition {
+                id: "body".to_owned(),
+                ir: AssetReference {
+                    path: "assets/body.wav".to_owned(),
+                    sha256: None,
+                },
+                gain_db: -3.0,
+                mix: 0.45,
+            }),
+            ProcessorDefinition::Delay(DelayProcessorDefinition {
+                id: "echo".to_owned(),
+                time: DelayTimeDefinition {
+                    value: 0.75,
+                    unit: DelayTimeUnit::Beats,
+                },
+                feedback_mode: DelayFeedbackMode::PingPong,
+                feedback: 0.45,
+                taps: vec![DelayTapDefinition {
+                    time: DelayTimeDefinition {
+                        value: 1.5,
+                        unit: DelayTimeUnit::Beats,
+                    },
+                    gain_db: -7.0,
+                }],
+                mix: 0.35,
+            }),
+        ];
+
+        value
+    }
+
+    fn seconds_delay(id: &str) -> ProcessorDefinition {
+        ProcessorDefinition::Delay(DelayProcessorDefinition {
+            id: id.to_owned(),
+            time: DelayTimeDefinition {
+                value: 0.25,
+                unit: DelayTimeUnit::Seconds,
+            },
+            feedback_mode: DelayFeedbackMode::Stereo,
+            feedback: 0.25,
+            taps: Vec::new(),
+            mix: 0.25,
+        })
+    }
+
+    fn convolution_processor(id: &str) -> ProcessorDefinition {
+        ProcessorDefinition::Convolution(ConvolutionProcessorDefinition {
+            id: id.to_owned(),
+            ir: AssetReference {
+                path: "assets/body.wav".to_owned(),
+                sha256: None,
+            },
+            gain_db: 0.0,
+            mix: 0.5,
+        })
+    }
+
+    #[test]
+    fn extended_processors_use_the_declared_placement_matrix() {
+        let value = extended_definition();
+        assert!(value.validate().is_empty());
+
+        let mut invalid_layer = value.clone();
+        invalid_layer.layers[0]
+            .processors
+            .push(ProcessorDefinition::FrequencyShifter(
+                FrequencyShifterProcessorDefinition {
+                    id: "invalid_shift".to_owned(),
+                    shift_hz: 100.0,
+                    mix: 0.5,
+                },
+            ));
+        let diagnostics = invalid_layer.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::ProcessorPlacementInvalid
+                && diagnostic.path.as_deref() == Some("layers[0].processors[2]")
+        }));
+
+        let mut invalid_voice = value;
+        invalid_voice
+            .voice_processors
+            .push(ProcessorDefinition::Convolution(
+                ConvolutionProcessorDefinition {
+                    id: "invalid_body".to_owned(),
+                    ir: AssetReference {
+                        path: "assets/body.wav".to_owned(),
+                        sha256: None,
+                    },
+                    gain_db: 0.0,
+                    mix: 0.5,
+                },
+            ));
+        let diagnostics = invalid_voice.validate();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::ProcessorPlacementInvalid
+                && diagnostic.path.as_deref() == Some("voice_processors[2]")
+        }));
+    }
+
+    #[test]
+    fn processor_resource_limits_are_validation_errors() {
+        let mut delays = definition();
+        delays.global_processors = (0..5)
+            .map(|index| seconds_delay(&format!("delay_{index}")))
+            .collect();
+        assert!(delays.validate().iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::GeneratorResourceLimitExceeded
+                && diagnostic.path.as_deref() == Some("global_processors")
+        }));
+
+        let mut taps = definition();
+        let ProcessorDefinition::Delay(delay) = seconds_delay("taps") else {
+            unreachable!("test helper returns a delay");
+        };
+        taps.global_processors = vec![ProcessorDefinition::Delay(DelayProcessorDefinition {
+            taps: [
+                (0.1, 0.0),
+                (0.11, -1.0),
+                (0.12, -2.0),
+                (0.13, -3.0),
+                (0.14, -4.0),
+                (0.15, -5.0),
+                (0.16, -6.0),
+                (0.17, -7.0),
+                (0.18, -8.0),
+            ]
+            .into_iter()
+            .map(|(value, gain_db)| DelayTapDefinition {
+                time: DelayTimeDefinition {
+                    value,
+                    unit: DelayTimeUnit::Seconds,
+                },
+                gain_db,
+            })
+            .collect(),
+            ..delay
+        })];
+        assert!(taps.validate().iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::GeneratorResourceLimitExceeded
+                && diagnostic.path.as_deref() == Some("global_processors[0].taps")
+        }));
+
+        let mut convolutions = definition();
+        convolutions.global_processors = (0..3)
+            .map(|index| convolution_processor(&format!("body_{index}")))
+            .collect();
+        assert!(convolutions.validate().iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::GeneratorResourceLimitExceeded
+                && diagnostic.path.as_deref() == Some("global_processors")
+        }));
+    }
+
+    #[test]
+    fn schema_four_rejects_the_old_delay_shape() {
+        let mut value = serde_json::to_value(definition()).expect("definition serializes");
+        value["global_processors"] = serde_json::json!([{
+            "type": "delay",
+            "id": "echo",
+            "time_seconds": 0.3,
+            "feedback": 0.4,
+            "mix": 0.3,
+        }]);
+
+        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
     }
 
     #[test]

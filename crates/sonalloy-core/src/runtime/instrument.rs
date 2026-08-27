@@ -972,6 +972,15 @@ impl InstrumentRuntime {
                     shared,
                 )?,
             }),
+            CompiledProcessorKind::LadderFilter(value) => Ok(ProcessorTargetSpan::LadderFilter {
+                cutoff: Self::evaluate_global_target(compiled, value.parameters.cutoff, shared)?,
+                resonance: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.resonance,
+                    shared,
+                )?,
+                drive: Self::evaluate_global_target(compiled, value.parameters.drive, shared)?,
+            }),
             CompiledProcessorKind::Drive(value) => Ok(ProcessorTargetSpan::Drive {
                 amount: Self::evaluate_global_target(compiled, value.amount, shared)?,
                 mix: Self::evaluate_global_target(compiled, value.mix, shared)?,
@@ -992,6 +1001,20 @@ impl InstrumentRuntime {
                     value.parameters.high_gain_db,
                     shared,
                 )?,
+            }),
+            CompiledProcessorKind::Formant(value) => Ok(ProcessorTargetSpan::Formant {
+                vowel_position: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.vowel_position,
+                    shared,
+                )?,
+                formant_shift: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.formant_shift,
+                    shared,
+                )?,
+                throat: Self::evaluate_global_target(compiled, value.parameters.throat, shared)?,
+                mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
             }),
             CompiledProcessorKind::Resonator(value) => Ok(ProcessorTargetSpan::Resonator {
                 frequency_hz: Self::evaluate_global_target(
@@ -1044,12 +1067,53 @@ impl InstrumentRuntime {
                 feedback: Self::evaluate_global_target(compiled, value.feedback, shared)?,
                 mix: Self::evaluate_global_target(compiled, value.mix, shared)?,
             }),
+            CompiledProcessorKind::FrequencyShifter(value) => {
+                Ok(ProcessorTargetSpan::FrequencyShifter {
+                    shift_hz: Self::evaluate_global_target(
+                        compiled,
+                        value.parameters.shift_hz,
+                        shared,
+                    )?,
+                    mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
+                })
+            }
             CompiledProcessorKind::Reverb(value) => Ok(ProcessorTargetSpan::Reverb {
                 decay: Self::evaluate_global_target(compiled, value.decay, shared)?,
                 damping: Self::evaluate_global_target(compiled, value.damping, shared)?,
                 width: Self::evaluate_global_target(compiled, value.width, shared)?,
                 mix: Self::evaluate_global_target(compiled, value.mix, shared)?,
             }),
+            CompiledProcessorKind::Convolution(value) => Ok(ProcessorTargetSpan::Convolution {
+                gain_db: Self::evaluate_global_target(compiled, value.parameters.gain_db, shared)?,
+                mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
+            }),
+            CompiledProcessorKind::Gate(value) => Ok(ProcessorTargetSpan::Gate {
+                threshold_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.threshold_db,
+                    shared,
+                )?,
+                range_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.range_db,
+                    shared,
+                )?,
+            }),
+            CompiledProcessorKind::TransientShaper(value) => {
+                Ok(ProcessorTargetSpan::TransientShaper {
+                    attack: Self::evaluate_global_target(
+                        compiled,
+                        value.parameters.attack,
+                        shared,
+                    )?,
+                    sustain: Self::evaluate_global_target(
+                        compiled,
+                        value.parameters.sustain,
+                        shared,
+                    )?,
+                    mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
+                })
+            }
             CompiledProcessorKind::Compressor(value) => Ok(ProcessorTargetSpan::Compressor {
                 threshold_db: Self::evaluate_global_target(
                     compiled,
@@ -1358,7 +1422,12 @@ impl InstrumentRuntime {
                             .as_mut()
                             .ok_or(ProcessError::NotPrepared)
                             .and_then(|processors| {
-                                processors.process(&self.global_targets, left, right)
+                                processors.process(
+                                    &self.global_targets,
+                                    block.context.tempo_bpm,
+                                    left,
+                                    right,
+                                )
                             }),
                         _ => Err(invalid_state()),
                     }
@@ -4151,8 +4220,13 @@ mod tests {
             crate::definition::ProcessorDefinition::Delay(
                 crate::definition::DelayProcessorDefinition {
                     id: "echo".to_owned(),
-                    time_seconds: 0.25,
+                    time: crate::definition::DelayTimeDefinition {
+                        value: 0.25,
+                        unit: crate::definition::DelayTimeUnit::Seconds,
+                    },
+                    feedback_mode: crate::definition::DelayFeedbackMode::Stereo,
                     feedback: 0.5,
+                    taps: vec![],
                     mix: 0.5,
                 },
             ),

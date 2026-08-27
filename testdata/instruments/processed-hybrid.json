@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "metadata": {
     "name": "Processed Hybrid",
     "author": "Sonalloy",
@@ -138,8 +138,10 @@
     {
       "type": "delay",
       "id": "echo",
-      "time_seconds": 0.24,
+      "time": { "value": 0.24, "unit": "seconds" },
+      "feedback_mode": "stereo",
       "feedback": 0.34,
+      "taps": [],
       "mix": 0.18
     },
     {

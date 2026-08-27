@@ -1,0 +1,62 @@
+{
+  "schema_version": 4,
+  "metadata": {
+    "name": "Tempo Ping-Pong Delay",
+    "author": "Sonalloy",
+    "description": "Deterministic review fixture for the extended processor set"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.25,
+        "sustain_level": 0.7,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      }
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "delay",
+      "id": "tempo_echo",
+      "time": {
+        "value": 0.75,
+        "unit": "beats"
+      },
+      "feedback_mode": "ping_pong",
+      "feedback": 0.45,
+      "taps": [],
+      "mix": 0.35
+    }
+  ],
+  "modulation": null,
+  "macros": [],
+  "vectors": []
+}

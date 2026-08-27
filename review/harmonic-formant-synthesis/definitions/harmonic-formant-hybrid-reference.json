@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "metadata": {
     "name": "Harmonic Formant Hybrid Reference",
     "author": null,
@@ -379,8 +379,10 @@
     {
       "type": "delay",
       "id": "echo",
-      "time_seconds": 0.24,
+      "time": { "value": 0.24, "unit": "seconds" },
+      "feedback_mode": "stereo",
       "feedback": 0.28,
+      "taps": [],
       "mix": 0.16
     },
     {
