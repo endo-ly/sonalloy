@@ -870,6 +870,35 @@ fn push_processor_descriptors(
                 smoothing_seconds: 0.010,
             });
         }
+        ProcessorDefinition::LadderFilter(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.cutoff"),
+                owner,
+                ParameterUnit::Hertz,
+                ParameterScale::Log2,
+                20.0,
+                20_000.0,
+                value.cutoff_hz,
+                0.010,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.resonance"),
+                owner,
+                value.resonance,
+                0.010,
+                1.0,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.drive"),
+                owner,
+                value.drive,
+                0.005,
+                1.0,
+            );
+        }
         ProcessorDefinition::Drive(value) => {
             push_normalized_descriptor(
                 descriptors,
@@ -921,6 +950,43 @@ fn push_processor_descriptors(
                 24.0,
                 value.high_gain_db,
                 0.005,
+            );
+        }
+        ProcessorDefinition::Formant(value) => {
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.vowel_position"),
+                owner,
+                value.vowel_position,
+                0.010,
+                1.0,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.formant_shift"),
+                owner,
+                ParameterUnit::Cents,
+                ParameterScale::Linear,
+                -2400.0,
+                2400.0,
+                value.formant_shift_cents,
+                0.010,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.throat"),
+                owner,
+                value.throat,
+                0.010,
+                1.0,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.010,
+                1.0,
             );
         }
         ProcessorDefinition::Resonator(value) => {
@@ -1049,6 +1115,27 @@ fn push_processor_descriptors(
                 value.mix,
             );
         }
+        ProcessorDefinition::FrequencyShifter(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.shift_hz"),
+                owner,
+                ParameterUnit::Hertz,
+                ParameterScale::Linear,
+                -5000.0,
+                5000.0,
+                value.shift_hz,
+                0.010,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.010,
+                1.0,
+            );
+        }
         ProcessorDefinition::Delay(value) => {
             push_normalized_descriptor(
                 descriptors,
@@ -1098,6 +1185,83 @@ fn push_processor_descriptors(
                 owner,
                 value.mix,
                 0.020,
+                1.0,
+            );
+        }
+        ProcessorDefinition::Convolution(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.gain_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -24.0,
+                24.0,
+                value.gain_db,
+                0.010,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.020,
+                1.0,
+            );
+        }
+        ProcessorDefinition::Gate(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.threshold_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -80.0,
+                0.0,
+                value.threshold_db,
+                0.010,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.range_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -96.0,
+                0.0,
+                value.range_db,
+                0.010,
+            );
+        }
+        ProcessorDefinition::TransientShaper(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.attack"),
+                owner,
+                ParameterUnit::Index,
+                ParameterScale::Linear,
+                -1.0,
+                1.0,
+                value.attack,
+                0.010,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.sustain"),
+                owner,
+                ParameterUnit::Index,
+                ParameterScale::Linear,
+                -1.0,
+                1.0,
+                value.sustain,
+                0.010,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.010,
                 1.0,
             );
         }
@@ -1361,6 +1525,7 @@ fn is_processor_parameter(value: &str) -> bool {
         value,
         "cutoff"
             | "resonance"
+            | "drive"
             | "amount"
             | "mix"
             | "feedback"
@@ -1371,12 +1536,20 @@ fn is_processor_parameter(value: &str) -> bool {
             | "mid_gain_db"
             | "high_gain_db"
             | "frequency_hz"
+            | "shift_hz"
+            | "gain_db"
             | "decay_seconds"
             | "bit_depth"
             | "sample_rate_ratio"
             | "rate_hz"
             | "depth"
             | "threshold_db"
+            | "range_db"
+            | "vowel_position"
+            | "formant_shift"
+            | "throat"
+            | "attack"
+            | "sustain"
             | "ratio"
             | "makeup_gain_db"
             | "ceiling_db"
@@ -1768,8 +1941,13 @@ mod tests {
         source.global_processors = vec![
             ProcessorDefinition::Delay(crate::definition::DelayProcessorDefinition {
                 id: "echo".to_owned(),
-                time_seconds: 0.25,
+                time: crate::definition::DelayTimeDefinition {
+                    value: 0.25,
+                    unit: crate::definition::DelayTimeUnit::Seconds,
+                },
+                feedback_mode: crate::definition::DelayFeedbackMode::Stereo,
                 feedback: 0.5,
+                taps: vec![],
                 mix: 0.5,
             }),
             ProcessorDefinition::Reverb(crate::definition::ReverbProcessorDefinition {

@@ -60,6 +60,10 @@ impl FractionalDelayLine {
         self.buffer.fill(0.0);
         self.write_position = 0;
     }
+
+    pub(crate) fn capacity(&self) -> usize {
+        self.buffer.len()
+    }
 }
 
 #[cfg(test)]

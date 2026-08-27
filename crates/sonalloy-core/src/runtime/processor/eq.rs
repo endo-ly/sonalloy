@@ -2,21 +2,7 @@ use crate::compiler::{CompiledEqProcessor, GeneratorOutputMode};
 use crate::process::{ProcessError, ProcessorFailureKind};
 
 use super::ValueSpan;
-
-#[derive(Clone, Copy, Default)]
-struct BiquadState {
-    z1: f32,
-    z2: f32,
-}
-
-#[derive(Clone, Copy)]
-struct BiquadCoefficients {
-    b0: f32,
-    b1: f32,
-    b2: f32,
-    a1: f32,
-    a2: f32,
-}
+use super::biquad::{BiquadCoefficients, BiquadState};
 
 #[derive(Clone, Copy)]
 struct FrequencyTerms {
@@ -154,22 +140,19 @@ fn process_channel(
             Some(coefficients) => coefficients,
             None => low_shelf(low_terms, low_gain_db.value_at(index, buffer.len()))?,
         };
-        let previous = states[0];
-        value = process_biquad(previous, low, value, &mut states[0]);
+        value = states[0].process(low, value)?;
 
         let mid = match mid_static {
             Some(coefficients) => coefficients,
             None => peaking(mid_terms, mid_gain_db.value_at(index, buffer.len()))?,
         };
-        let previous = states[1];
-        value = process_biquad(previous, mid, value, &mut states[1]);
+        value = states[1].process(mid, value)?;
 
         let high = match high_static {
             Some(coefficients) => coefficients,
             None => high_shelf(high_terms, high_gain_db.value_at(index, buffer.len()))?,
         };
-        let previous = states[2];
-        value = process_biquad(previous, high, value, &mut states[2]);
+        value = states[2].process(high, value)?;
 
         if !value.is_finite() {
             return Err(ProcessError::ProcessorFailure {
@@ -179,18 +162,6 @@ fn process_channel(
         buffer[index] = value;
     }
     Ok(())
-}
-
-fn process_biquad(
-    previous: BiquadState,
-    coefficients: BiquadCoefficients,
-    input: f32,
-    state: &mut BiquadState,
-) -> f32 {
-    let output = coefficients.b0 * input + previous.z1;
-    state.z1 = coefficients.b1 * input - coefficients.a1 * output + previous.z2;
-    state.z2 = coefficients.b2 * input - coefficients.a2 * output;
-    output
 }
 
 fn low_shelf(terms: FrequencyTerms, gain_db: f32) -> Result<BiquadCoefficients, ProcessError> {

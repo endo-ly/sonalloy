@@ -1,4 +1,5 @@
 use crate::compiler::{CompiledFormant, CompiledFormantBand, CompiledFormantProfile};
+use crate::formant::{geometric_lerp, profile_pair};
 use crate::generator_parameters::{
     FORMANT_SHIFT, FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, MAX_PARTIALS,
 };
@@ -194,30 +195,6 @@ impl FormantRuntime {
         self.bank
             .update_targets(&self.target_gains, &self.target_ratios)
     }
-}
-
-fn profile_pair(
-    profiles: &[CompiledFormantProfile],
-    position: f32,
-) -> Result<(&CompiledFormantProfile, &CompiledFormantProfile, f32), ProcessError> {
-    if profiles.is_empty() || !position.is_finite() || !(0.0..=1.0).contains(&position) {
-        return Err(invalid_state());
-    }
-    if profiles.len() == 1 {
-        return Ok((&profiles[0], &profiles[0], 0.0));
-    }
-    #[allow(clippy::cast_precision_loss)]
-    let scaled = position * (profiles.len() - 1) as f32;
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let index = scaled.floor() as usize;
-    let index = index.min(profiles.len() - 2);
-    #[allow(clippy::cast_precision_loss)]
-    let mix = scaled - index as f32;
-    Ok((&profiles[index], &profiles[index + 1], mix))
-}
-
-fn geometric_lerp(first: f32, second: f32, mix: f32) -> f32 {
-    (first.ln() + (second.ln() - first.ln()) * mix).exp()
 }
 
 #[cfg(test)]
