@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -3579,7 +3579,10 @@ fn compile_modulation(
     });
     let mut source_lookup = HashMap::new();
     for (index, source) in sources.iter().enumerate() {
-        source_lookup.insert(source.id.clone(), SourceHandle(index));
+        source_lookup.insert(
+            source.id.clone(),
+            CompiledSourceRef::Voice(SourceHandle(index)),
+        );
     }
     if let Some(modulation) = &definition.modulation {
         for (source_index, source) in modulation.sources.iter().enumerate() {
@@ -3641,7 +3644,10 @@ fn compile_modulation(
                 ModulationSourceDefinition::EnvelopeFollower(_) => continue,
             };
             let handle = SourceHandle(sources.len());
-            source_lookup.insert(source_id(source).to_owned(), handle);
+            source_lookup.insert(
+                source_id(source).to_owned(),
+                CompiledSourceRef::Voice(handle),
+            );
             sources.push(CompiledSource {
                 id: source_id(source).to_owned(),
                 source: compiled,
@@ -3649,8 +3655,74 @@ fn compile_modulation(
         }
     }
 
+    let required_source_ids = definition
+        .modulation
+        .as_ref()
+        .map(|modulation| {
+            modulation
+                .routes
+                .iter()
+                .map(|route| route.source.as_str())
+                .collect::<HashSet<_>>()
+        })
+        .unwrap_or_default();
     let mut instrument_sources = Vec::new();
-    let mut instrument_lookup = HashMap::new();
+    for (id, source) in [
+        ("pitch_bend", CompiledInstrumentSourceKind::PitchBend),
+        ("mod_wheel", CompiledInstrumentSourceKind::ModWheel),
+        ("aftertouch", CompiledInstrumentSourceKind::Aftertouch),
+        (
+            "transport_beat_phase",
+            CompiledInstrumentSourceKind::BeatPhase,
+        ),
+        (
+            "transport_bar_phase",
+            CompiledInstrumentSourceKind::BarPhase,
+        ),
+    ] {
+        if !required_source_ids.contains(id) {
+            continue;
+        }
+        insert_instrument_source(id, source, &mut instrument_sources, &mut source_lookup);
+    }
+    for macro_definition in &definition.macros {
+        let id = format!("macro.{}", macro_definition.id);
+        if !required_source_ids.contains(id.as_str()) {
+            continue;
+        }
+        let parameter = catalog
+            .parameter_handle(&id)
+            .expect("macro parameter catalog entry exists");
+        insert_instrument_source(
+            &id,
+            CompiledInstrumentSourceKind::Macro { parameter },
+            &mut instrument_sources,
+            &mut source_lookup,
+        );
+    }
+    if let Some(modulation) = &definition.modulation {
+        for source in &modulation.sources {
+            let ModulationSourceDefinition::EnvelopeFollower(value) = source else {
+                continue;
+            };
+            if !required_source_ids.contains(value.id.as_str()) {
+                continue;
+            }
+            insert_instrument_source(
+                &value.id,
+                CompiledInstrumentSourceKind::EnvelopeFollower(CompiledEnvelopeFollower {
+                    attack_coeff: time_constant_coefficient(value.attack_ms / 1_000.0, sample_rate),
+                    release_coeff: time_constant_coefficient(
+                        value.release_ms / 1_000.0,
+                        sample_rate,
+                    ),
+                    input_gain_linear: db_to_linear(value.input_gain_db),
+                }),
+                &mut instrument_sources,
+                &mut source_lookup,
+            );
+        }
+    }
     let mut unresolved_routes = Vec::new();
     if let Some(modulation) = &definition.modulation {
         for (index, route) in modulation.routes.iter().enumerate() {
@@ -3664,20 +3736,7 @@ fn compile_modulation(
                 );
                 continue;
             };
-            let source = if let Some(handle) = source_lookup.get(&route.source).copied() {
-                Some(CompiledSourceRef::Voice(handle))
-            } else {
-                instrument_source_ref(
-                    &route.source,
-                    definition,
-                    catalog,
-                    &mut instrument_sources,
-                    &mut instrument_lookup,
-                    index,
-                    sample_rate,
-                    diagnostics,
-                )
-            };
+            let source = source_lookup.get(&route.source).copied();
             let Some(source) = source else {
                 diagnostics.push(
                     Diagnostic::error(
@@ -3831,86 +3890,19 @@ fn compile_mseg(value: &MsegDefinition) -> CompiledMseg {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn instrument_source_ref(
+fn insert_instrument_source(
     id: &str,
-    definition: &InstrumentDefinition,
-    catalog: &ParameterCatalog,
+    source: CompiledInstrumentSourceKind,
     sources: &mut Vec<CompiledInstrumentSource>,
-    lookup: &mut HashMap<String, InstrumentSourceHandle>,
-    route_index: usize,
-    sample_rate: f64,
-    diagnostics: &mut Vec<Diagnostic>,
-) -> Option<CompiledSourceRef> {
-    if let Some(handle) = lookup.get(id).copied() {
-        return Some(CompiledSourceRef::Instrument(handle));
-    }
-    let source = match id {
-        "pitch_bend" => CompiledInstrumentSourceKind::PitchBend,
-        "mod_wheel" => CompiledInstrumentSourceKind::ModWheel,
-        "aftertouch" => CompiledInstrumentSourceKind::Aftertouch,
-        "transport_beat_phase" => CompiledInstrumentSourceKind::BeatPhase,
-        "transport_bar_phase" => CompiledInstrumentSourceKind::BarPhase,
-        _ => {
-            let follower = definition.modulation.as_ref().and_then(|modulation| {
-                modulation.sources.iter().find_map(|source| match source {
-                    ModulationSourceDefinition::EnvelopeFollower(value) if value.id == id => {
-                        Some(value)
-                    }
-                    _ => None,
-                })
-            });
-            if let Some(value) = follower {
-                CompiledInstrumentSourceKind::EnvelopeFollower(CompiledEnvelopeFollower {
-                    attack_coeff: time_constant_coefficient(value.attack_ms / 1_000.0, sample_rate),
-                    release_coeff: time_constant_coefficient(
-                        value.release_ms / 1_000.0,
-                        sample_rate,
-                    ),
-                    input_gain_linear: db_to_linear(value.input_gain_db),
-                })
-            } else {
-                let Some(macro_id) = id.strip_prefix("macro.") else {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::SourceNotFound,
-                            "instrument source is not defined",
-                        )
-                        .with_path(format!("modulation.routes[{route_index}].source")),
-                    );
-                    return None;
-                };
-                let Some(parameter) = catalog.parameter_handle(id) else {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::SourceNotFound,
-                            "instrument source is not defined",
-                        )
-                        .with_path(format!("modulation.routes[{route_index}].source")),
-                    );
-                    return None;
-                };
-                if !definition.macros.iter().any(|value| value.id == macro_id) {
-                    diagnostics.push(
-                        Diagnostic::error(
-                            DiagnosticCode::SourceNotFound,
-                            "macro source is not defined",
-                        )
-                        .with_path(format!("modulation.routes[{route_index}].source")),
-                    );
-                    return None;
-                }
-                CompiledInstrumentSourceKind::Macro { parameter }
-            }
-        }
-    };
+    lookup: &mut HashMap<String, CompiledSourceRef>,
+) {
     let handle = InstrumentSourceHandle(sources.len());
-    lookup.insert(id.to_owned(), handle);
+    let previous = lookup.insert(id.to_owned(), CompiledSourceRef::Instrument(handle));
+    debug_assert!(previous.is_none(), "source identifier was already compiled");
     sources.push(CompiledInstrumentSource {
         id: id.to_owned(),
         source,
     });
-    Some(CompiledSourceRef::Instrument(handle))
 }
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]

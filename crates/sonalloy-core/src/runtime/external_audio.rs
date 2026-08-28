@@ -25,6 +25,7 @@ impl<'a> ExternalAudioBlock<'a> {
 
 /// Fixed-size delay used to align external input with a processor carrier.
 pub(crate) struct ExternalInputDelay {
+    delay_frames: usize,
     left: Vec<f32>,
     right: Vec<f32>,
     position: usize,
@@ -32,17 +33,17 @@ pub(crate) struct ExternalInputDelay {
 
 impl ExternalInputDelay {
     pub(crate) fn new(delay_frames: usize) -> Self {
-        let length = delay_frames.max(1);
         Self {
-            left: vec![0.0; length],
-            right: vec![0.0; length],
+            delay_frames,
+            left: vec![0.0; delay_frames],
+            right: vec![0.0; delay_frames],
             position: 0,
         }
     }
 
     pub(crate) fn next(&mut self, external: ExternalAudioBlock<'_>, index: usize) -> (f32, f32) {
         let (left, right) = external.stereo_sample(index);
-        if self.left.len() == 1 {
+        if self.delay_frames == 0 {
             return (left, right);
         }
         let aligned = (self.left[self.position], self.right[self.position]);
@@ -114,6 +115,15 @@ mod tests {
         assert_eq!(
             direct_output,
             vec![(1.0, -1.0), (2.0, -2.0), (3.0, -3.0), (4.0, -4.0)]
+        );
+
+        let mut one_frame_delayed = ExternalInputDelay::new(1);
+        let one_frame_output = (0..left.len())
+            .map(|index| one_frame_delayed.next(external, index))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            one_frame_output,
+            vec![(0.0, 0.0), (1.0, -1.0), (2.0, -2.0), (3.0, -3.0)]
         );
 
         let mut delayed = ExternalInputDelay::new(2);

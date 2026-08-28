@@ -928,11 +928,11 @@ impl InstrumentRuntime {
             .zip(&mut self.scratch.instrument_source_spans)
         {
             if let Some(state) = state {
-                let start = state.next(external, 0);
-                let mut end = start;
-                for index in 1..frames {
-                    end = state.next(external, index);
+                let start = state.value();
+                for index in 0..frames {
+                    state.next(external, index);
                 }
+                let end = state.value();
                 *span = ParameterSpanValue { start, end };
             }
         }

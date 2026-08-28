@@ -12,6 +12,8 @@ use crate::spectral::{build_analysis_window, build_synthesis_window};
 
 use super::ValueSpan;
 
+const INITIAL_ANALYSIS_START: i64 = -3 * 256;
+
 pub(crate) struct SpectralMorphRuntime {
     forward: Arc<dyn RealToComplex<f32>>,
     inverse: Arc<dyn ComplexToReal<f32>>,
@@ -34,7 +36,7 @@ pub(crate) struct SpectralMorphRuntime {
     external_input: ExternalInputDelay,
     write_position: usize,
     frames_seen: usize,
-    next_analysis_start: usize,
+    next_analysis_start: i64,
 }
 
 impl SpectralMorphRuntime {
@@ -68,7 +70,7 @@ impl SpectralMorphRuntime {
             external_input: ExternalInputDelay::new(compiled.external_input_alignment_frames),
             write_position: 0,
             frames_seen: 0,
-            next_analysis_start: 0,
+            next_analysis_start: INITIAL_ANALYSIS_START,
         }
     }
 
@@ -87,20 +89,26 @@ impl SpectralMorphRuntime {
             let (external_left, external_right) = self.external_input.next(external, index);
             self.carrier_history[self.write_position] = left[index];
             self.carrier_history_right[self.write_position] = right[index];
-            self.external_history[self.write_position] = (external_left + external_right) * 0.5;
+            self.external_history[self.write_position] =
+                f32::midpoint(external_left, external_right);
             let analysis_end = self
                 .next_analysis_start
-                .checked_add(SPECTRAL_MORPH_FFT_SIZE)
+                .checked_add(
+                    i64::try_from(SPECTRAL_MORPH_FFT_SIZE)
+                        .map_err(|_| ProcessError::FrameOverflow)?,
+                )
                 .ok_or(ProcessError::FrameOverflow)?;
-            if self
-                .frames_seen
-                .checked_add(1)
-                .is_some_and(|end| end >= analysis_end)
-            {
+            let available_frames = i64::try_from(self.frames_seen.saturating_add(1))
+                .map_err(|_| ProcessError::FrameOverflow)?;
+            if available_frames >= analysis_end {
                 self.analyze_frame(self.next_analysis_start, morph.value_at(index, left.len()))?;
                 self.next_analysis_start = self
                     .next_analysis_start
-                    .saturating_add(SPECTRAL_MORPH_HOP_SIZE);
+                    .checked_add(
+                        i64::try_from(SPECTRAL_MORPH_HOP_SIZE)
+                            .map_err(|_| ProcessError::FrameOverflow)?,
+                    )
+                    .ok_or(ProcessError::FrameOverflow)?;
             }
             let output_index = self.frames_seen % self.ola_left.len();
             let gain = db_to_linear(output_gain_db.value_at(index, left.len()));
@@ -117,7 +125,7 @@ impl SpectralMorphRuntime {
         Ok(())
     }
 
-    fn analyze_frame(&mut self, start: usize, morph: f32) -> Result<(), ProcessError> {
+    fn analyze_frame(&mut self, start: i64, morph: f32) -> Result<(), ProcessError> {
         Self::forward_frame(
             &*self.forward,
             &mut self.forward_input,
@@ -161,7 +169,15 @@ impl SpectralMorphRuntime {
                 morph_spectrum_value(*carrier, *external, morph, carrier_energy, external_energy);
             clear_real_fft_imaginary_bin(output, index, bin_count);
         }
-        let output_start = start.saturating_add(SPECTRAL_MORPH_FFT_SIZE);
+        let output_start = usize::try_from(
+            start
+                .checked_add(
+                    i64::try_from(SPECTRAL_MORPH_FFT_SIZE)
+                        .map_err(|_| ProcessError::FrameOverflow)?,
+                )
+                .ok_or(ProcessError::FrameOverflow)?,
+        )
+        .map_err(|_| ProcessError::FrameOverflow)?;
         Self::inverse_frame(
             &*self.inverse,
             &mut self.inverse_spectrum,
@@ -205,12 +221,17 @@ impl SpectralMorphRuntime {
         scratch: &mut [Complex<f32>],
         window: &[f32],
         history: &[f32],
-        start: usize,
+        start: i64,
         spectrum: &mut [Complex<f32>],
     ) -> Result<(), ProcessError> {
         for index in 0..SPECTRAL_MORPH_FFT_SIZE {
-            let position = (start + index) % SPECTRAL_MORPH_FFT_SIZE;
-            input[index] = history[position] * window[index];
+            let source_frame = start
+                .checked_add(i64::try_from(index).map_err(|_| ProcessError::FrameOverflow)?)
+                .ok_or(ProcessError::FrameOverflow)?;
+            input[index] = usize::try_from(source_frame)
+                .ok()
+                .map_or(0.0, |position| history[position % SPECTRAL_MORPH_FFT_SIZE])
+                * window[index];
         }
         forward
             .process_with_scratch(input, spectrum, scratch)
@@ -256,7 +277,7 @@ impl SpectralMorphRuntime {
         self.external_input.reset();
         self.write_position = 0;
         self.frames_seen = 0;
-        self.next_analysis_start = 0;
+        self.next_analysis_start = INITIAL_ANALYSIS_START;
     }
 }
 

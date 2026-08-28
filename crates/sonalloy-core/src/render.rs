@@ -812,7 +812,7 @@ where
                 });
                 match input_channels {
                     0 => {}
-                    1 => input_left_scratch[index] = (left + right) * 0.5,
+                    1 => input_left_scratch[index] = f32::midpoint(left, right),
                     2 => {
                         input_left_scratch[index] = left;
                         input_right_scratch[index] = right;
