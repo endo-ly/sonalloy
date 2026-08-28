@@ -38,6 +38,14 @@ flowchart LR
 
 Parameter Changeの値はCatalogと同じ単位（TuningはCents、Filter CutoffはHz、GainはdB）で受け取ります。入力時に検証してから内部表現へ変換するため、音声処理が不正な値を受け取ることはありません。
 
+### 外部Audioの処理
+
+`ProcessBlock`は、出力とは別に定義が要求する0〜2個のRead-only Input Bufferを受け取ります。外部Audioを宣言しない音源はInputを持たず、Mono定義は1 Channel、Stereo定義は2 Channelを必ず渡します。Channel数、各BufferのFrame数、処理対象Sampleの有限性はProcess開始前に検証されます。
+
+外部AudioのConsumerは固定されたGlobal経路へ接続されます。Envelope FollowerとDynamicsのExternal Sidechainは入力の振幅を左右リンクで解析し、Vocoderは左右別の24帯域Envelope、Envelope Transferは左右リンク振幅、Spectral Morphは左右別のSpectrumを使います。各ConsumerはCarrierと外部入力の処理遅延をCompile時に整列し、Spectral Morphは1024 framesのLatencyを報告します。
+
+Envelope Followerの値はInstrument ScopeのSourceとしてRouteへ供給されます。Global Processorは全Voiceの合計へ適用されるため、外部入力をOutputへ直接MixせずにSidechainや振幅・Spectrumの制御へ利用できます。外部入力を使うProcessorとFollowerの状態はResetで初期値へ戻ります。
+
 ## Noteの一生
 
 1つのNoteは、発音から消音まで1つのVoiceに割り当てられます。Note Onから順に追います。
@@ -147,7 +155,7 @@ RealtimeでもOfflineでも、Coreは次の契約に従います。ここがCore
 | フェーズ | 内容 |
 |---|---|
 | Prepare | 同時発音数分のVoiceを作り、Scratch Buffer・Physical String Delay・Native Modal Handle・Time Stretch Latency・Grain Pool・Wave Sequence Slot・Layer遅延補償Bufferを確保します。Sample RateがCompile時と異なる場合は失敗します（Block Sizeの変更だけは許可） |
-| Reset | 全Voice・位相・ADSR・Noise Stream・Physical StringのDelay / Filter / Dispersion・Modal Resonator・Sample Cursor・Grain Pool・Wave Sequence Slot・Processor・Base Parameter・External Control・絶対位置を、初期状態へ戻します |
+| Reset | 全Voice・位相・ADSR・Noise Stream・Physical StringのDelay / Filter / Dispersion・Modal Resonator・Sample Cursor・Grain Pool・Wave Sequence Slot・Processor・External Audio Delay / Follower・Base Parameter・External Control・絶対位置を、初期状態へ戻します |
 | Prepare失敗 | それまでの状態を破棄し、利用不可状態へ移行します |
 | Process / Reset中のNative DSP失敗 | 出力を無音化してErrorを返し、未準備状態へ移行します。再利用にはPrepareが必要です |
 
@@ -188,13 +196,15 @@ Host Callbackに渡されるFrame数は要求値と異なることがあるた�
 
 **Callback内での動き**
 
-Callbackで行うのはQueueからの取り出しと`process`の呼び出しだけです。前章の禁止操作に加え、Device Queryも行いません。Device選択、DefinitionのCompile、RuntimeのPrepareはCallback開始前に完了させておきます。
+Callbackで行うのはInput Queueからの固定Frame取り出し、Event Queueからの取り出し、`process`の呼び出しだけです。前章の禁止操作に加え、Device Queryも行いません。Device選択、DefinitionのCompile、RuntimeのPrepare、Input Streamの起動はCallback開始前に完了させておきます。
+
+Audio Input CallbackはCPALのNative Sample Formatを`f32`のFrameへ変換して固定容量Queueへ書き込みます。Queueが空いたままOutput Callbackが進んだFrameは0で埋めてUnderflowを記録し、Queueが満杯のときは新しいInput Frameを破棄してOverflowを記録します。Input StreamのDevice Errorは致命的なAudio Input Errorです。Input Queueは固定容量で、Callback内のAllocationやBlockする待ち合わせを行いません。
 
 `play`のTempoと拍子はSession開始時に固定されます。Audio CallbackのAbsolute FrameからBeat / Bar位置を求めて各Process Contextへ渡すため、Callbackの分割数が変わってもTempo同期Sourceの位置は変わりません。Macro CCは開始前にParameter Handleへ解決され、MIDI Callbackでは既存のParameter Changeへ変換されます。
 
 **エラー時の扱い**
 
-- Process Error、Audio Device Error、MIDI Error、Queue Overflowは出力を無音にして致命的状態へ遷移し、終了時に原因に対応する`PROCESS_ERROR` / `AUDIO_DEVICE_ERROR` / `MIDI_ERROR`を報告します
+- Process Error、Audio Device Error、MIDI Error、Event Queue Overflowは出力を無音にして致命的状態へ遷移し、終了時に原因に対応する`PROCESS_ERROR` / `AUDIO_DEVICE_ERROR` / `MIDI_ERROR`を報告します。Input Underflow / OverflowはCounterを表示してSessionを継続します
 - Realtime Schedulingの拒否はWarning、Xrunは回数として記録し、Sessionを継続します
 
 ## Offline Render

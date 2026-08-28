@@ -22,8 +22,8 @@ Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み
 | `render pattern` | 演奏パターン（Pattern）をレンダリングする |
 | `audition pattern` | PatternをAudio Deviceで試聴する |
 | `audition midi` | MIDI Fileを1 Channel選択して試聴する |
-| `device list` | Audio OutputとMIDI Inputを列挙する |
-| `play` | MIDI InputからAudio Outputへリアルタイム演奏する |
+| `device list` | Audio Input / OutputとMIDI Inputを列挙する |
+| `play` | MIDI InputからAudio Outputへリアルタイム演奏する。外部Audio定義ではAudio Inputも接続する |
 | `dev render-sine` | 動作確認用のSineをレンダリングする |
 
 ## 音源定義を作る
@@ -66,7 +66,8 @@ sonalloy instrument inspect <definition> --json
 | Parameter | Parameter ID、Owner、Native Unit、Native範囲、Default、Scale、Smoothing、Modulation Unit、最大Depth |
 | Modulation | Sourceの範囲とPolarity、RouteごとのDepthとCurve、Static Effect、Default値からModulationで到達しうる範囲とClampの有無 |
 | Macro / Vector | MacroのParameter ID・Default・Route、VectorのAxis ID・所属Layer・初期値 |
-| Processor | Layer / Voice / Globalの各Processor Chain、固定Latency、DelayのTempo Unit / Feedback Mode / Tap数、ConvolutionのIR準備情報 |
+| Processor | Layer / Voice / Globalの各Processor Chain、固定Latency、DelayのTempo Unit / Feedback Mode / Tap数、ConvolutionのIR準備情報、外部Detector / Cross Synthesisの入力整列 |
+| External Audio | `channels`、要求Input Channel数、使用するProcessorと入力整列Frame |
 | Warning | コンパイル時の警告（Asset欠落など） |
 
 `--json`は、Generatorごとの構造をFieldとして返します。返るFieldはGeneratorの種類ごとに異なり、Parameter IDの形式は`docs/instrument-definition.md`を参照してください。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。`sources[]`にはScope、RateとRate Unit、MSEG / Step / Randomの構造が含まれ、`macros[]`と`vectors[]`には外部から操作するIDを含めます。
@@ -159,7 +160,7 @@ sonalloy pattern export-midi drums.json --channel 10 --output drums.mid
 
 ### `device list` — Deviceの列挙
 
-Audio OutputとMIDI Inputを列挙します。Audio Inputは対象外です。IDには、表示順やIndexではなくCPAL / Midirが返す文字列をそのまま指定します。
+Audio Input / OutputとMIDI Inputを列挙します。外部Audioを使う音源では、表示されたAudio InputのIDを`--audio-input-device`へ指定できます。IDには、表示順やIndexではなくCPAL / Midirが返す文字列をそのまま指定します。
 
 ```bash
 sonalloy device list
@@ -173,6 +174,9 @@ JSONでは次のFieldを返します。対応Buffer範囲が不明なDeviceで�
 | `audio_outputs[].id` | CPALのAudio Device ID |
 | `audio_outputs[].default` | OS Default Outputかどうか |
 | `audio_outputs[].default_config` | Device DefaultのSample Rate、Channel、Sample Format、Buffer範囲 |
+| `audio_inputs[].id` | CPALのAudio Device ID |
+| `audio_inputs[].default` | OS Default Inputかどうか |
+| `audio_inputs[].default_config` | Device DefaultのSample Rate、Channel、Sample Format、Buffer範囲 |
 | `midi_inputs[].id` | MidirのMIDI Port ID |
 
 ### `play` — MIDIからAudioへ演奏
@@ -187,6 +191,7 @@ sonalloy play <definition> --audio-device <id> --sample-rate 48000 --buffer-size
 | Option | Default | 内容 |
 |---|---:|---|
 | `--audio-device <id>` | OS Default | CPAL Stable Device ID。指定IDが存在しない場合はError |
+| `--audio-input-device <id>` | OS Default | 外部Audioを使う定義で選ぶCPAL Input Device ID。Sample RateとChannel数が定義の要求に一致するDeviceだけを選択 |
 | `--midi-device <id>` | 条件付き自動選択 | Midir Stable Port ID。0件はError、1件は自動選択、2件以上はID必須 |
 | `--sample-rate <hz>` | Device Default | Deviceが対応するRateだけを選択し、そのRateでCompile |
 | `--buffer-size <frames>` | 256 | CPALへ要求するFrame数。0やDeviceの対応範囲外はError |
@@ -206,7 +211,8 @@ Deviceを機械可読で確認するときは`device list --json`を使います
 - CoreのPlanar `f32` Stereo出力をDeviceのSample Formatへ変換します。2chより多いDeviceではch 0 / 1へLeft / Rightを出力し、残りを無音にします
 - Mono Device、PCM以外のFormat、対応範囲外のBuffer Sizeは起動Errorになります
 - Realtime Schedulingの拒否はWarningを表示して継続し、Xrunは回数を終了時に表示します
-- Audio Device Error / MIDI Error / Process Error・Queue Overflowは、出力を無音化してから`AUDIO_DEVICE_ERROR` / `MIDI_ERROR` / `PROCESS_ERROR`としてSessionを終了します
+- Audio InputのFrame不足は無音Frameとして補い、Underflow Counterを記録してSessionを継続します。Input Queueが満杯になった場合は新しいFrameを破棄し、Overflow Counterを記録します
+- Audio InputのDevice Error、Audio Output Error、MIDI Error、Process Error・Event Queue Overflowは、出力を無音化してから対応するErrorとしてSessionを終了します
 
 MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64（Sustain Pedal）は、Offline経路と同じCore Eventへ変換されます。`--macro-cc`で割り当てたCCはMacroの`parameter_change`へ変換されます。1つのCCを複数Macroへ割り当てたり、予約済みCCを割り当てたりする指定は起動時に拒否します。
 
@@ -222,6 +228,7 @@ Audio Outputだけを使うため、MIDI Input DeviceやMIDI Keyboardは不要�
 | Option | Default | 内容 |
 |---|---:|---|
 | `--audio-device <id>` | OS Default | CPAL Stable Device ID |
+| `--audio-input-device <id>` | OS Default | 外部Audioを使う定義で選ぶCPAL Input Device ID |
 | `--sample-rate <hz>` | Device Default | PatternをCompileするSample Rate |
 | `--buffer-size <frames>` | 256 | CPALへ要求するFrame数 |
 | `--tail <seconds>` | 1.0 | One-shot終了時に追加するTail |
@@ -234,11 +241,13 @@ sonalloy audition midi <definition> <midi-file>
 sonalloy audition midi <definition> <midi-file> --channel 2
 ```
 
-MIDI FileをTickベースで読み込み、1つのChannelをPatternへ変換してから、`audition pattern`と同じ仕組みで再生します。複数Note Channelを含む場合は`--channel 1..16`が必要です。MIDI Input Deviceは使いません。Loop再生が必要なときは、`pattern import-midi`でPatternへ変換してから`audition pattern --loop`を使います。
+MIDI FileをTickベースで読み込み、1つのChannelをPatternへ変換してから、`audition pattern`と同じ仕組みで再生します。複数Note Channelを含む場合は`--channel 1..16`が必要です。MIDI Input Deviceは使いません。外部Audioを使う定義では`--audio-input-device <id>`でCPAL Inputを選べます。Loop再生が必要なときは、`pattern import-midi`でPatternへ変換してから`audition pattern --loop`を使います。
 
 ## 音を鳴らす
 
 `render`コマンドはいずれもWAVを生成します。確認したい内容に合わせて使い分けます。
+
+外部Audioを使う定義では、すべての`render`サブコマンドに`--audio-input <wav>`を追加できます。WAVはCompile時のSample Rateへ準備され、Monoは左右へ複製、Stereoは左右を保持します。入力の終端後は無音を渡します。外部Audioを要求する定義で指定を省略した場合、または外部Audioを使わない定義へ指定した場合はErrorになります。
 
 | コマンド | 向いている用途 |
 |---|---|
@@ -267,6 +276,7 @@ sonalloy render note <definition> \
 | `--tempo` | 120 | Tempo Sync SampleとTempo同期Sourceの基準BPM |
 | `--sample-rate` | 48000 | 出力Sample Rate |
 | `--block-size` | 257 | 処理の最大Block Size |
+| `--audio-input <wav>` | なし | Definitionへ接続するMono / Stereoの外部Audio WAV |
 | `--output` | — | 出力先（必須） |
 | `--analyze` | Off | 補正後WAVのLevel、DC、Activity、Continuity、Stereo、Spectrumを計算 |
 | `--trace <id>` | なし | 選択したDynamic ParameterをTrace（複数指定可） |
@@ -434,7 +444,7 @@ sonalloy dev render-sine \
 
 すべての`render`コマンドは、32-bit float・2 Channel・指定Sample RateのStereo WAVを出力します。出力先の親Directoryは事前に作成してください。
 
-固定Algorithmic Latencyを持つ音源では、CLIが内部で報告Latency分を追加レンダリングし、先頭の無音部分を除去して、**演奏タイムラインのFrame 0**からWAVを始めます。Frequency Shifterは127 frames、Convolutionは256 framesの固定Latencyを持ちます。成功時のJSONには`reported_latency_frames`が含まれます。
+固定Algorithmic Latencyを持つ音源では、CLIが内部で報告Latency分を追加レンダリングし、先頭の無音部分を除去して、**演奏タイムラインのFrame 0**からWAVを始めます。Frequency Shifterは127 frames、Convolutionは256 frames、Spectral Morphは1024 framesの固定Latencyを持ちます。成功時のJSONには`reported_latency_frames`が含まれます。
 
 ### Exit Code
 

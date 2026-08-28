@@ -49,6 +49,8 @@ Dynamic Parameterを追加・変更した場合は、次の観点をUnit Testま
 - MonophonicのLast-note Priority、Legato、Non-legato Retrigger、Portamento、Held Noteへの復帰、Sustain境界が同じEvent列から決定的に再現される
 - Macro Parameter Change、Vector Axis、Beat Phase、Bar PhaseがCatalog / Route / Traceへ一貫して反映される
 - Block Sizeを変更してもSourceの時間軸、Event位置、出力のFinite性が変わらない
+- External AudioのMono / Stereo Channel契約、未指定・余分な入力の診断、入力終端後の無音補完、Sample Rate / Block Size行列を検証する
+- Envelope Follower、External Sidechain、Vocoder、Envelope Transfer、Spectral Morphの入力整列、Reset再現性、固定Latency、左右独立性を検証する
 - Reset後の出力が初回Renderと一致し、Voice Stealing後も新旧VoiceのParameter Stateが混ざらない
 - MIDIのControl Channel統合WarningとNote Event必須条件がCLI経路で検証される
 - NativeのOscillator / Filter Rampが有効なBuffer境界を守り、故障時に無音化とError伝播を行う
@@ -65,7 +67,8 @@ Realtime Adapterの自動検証は物理Deviceを使用せず、CoreとDevice非
 | Channel / Format | StereoのLeft / Right、3ch以上の余剰Channel無音、PCMの符号付き・符号なし・24-bitを含むSample Format変換 |
 | Queue / 順序 | Emptyから4096 Event、Timestamp + Sequence順、同一Timestampの入力順、Note On / Note Off / Sustainの時系列回帰、4097個目のPushで既存Eventを保持したままFatal化 |
 | Performance / Control | `--tempo` / `--time-signature`、Macro CCのHandle解決、CC1 / CC64予約、Macro CCから既存Parameter Changeへの変換、Monoの重ね押しとPortamento |
-| Fault / Status | Process Error・Audio Error・MIDI Error・Queue Overflowの無音化と原因別Diagnostic、RealtimeDeniedのWarning、XrunのCounter、Device lossのFatal化 |
+| Fault / Status | Process Error・Audio Error・MIDI Error・Queue Overflowの無音化と原因別Diagnostic、Input Underflow / Overflow Counter、RealtimeDeniedのWarning、XrunのCounter、Device lossのFatal化 |
+| External Audio | Input StreamのMono / Stereo変換、固定容量Queue、Underflowの0補完、Overflow時の新しいFrame破棄、外部Consumerの入力整列 |
 | Callback安全性 | Eventあり・なし、Host Callback分割、Multi-channelを含むAudio Callback本体のAllocation 0 |
 
 物理Deviceを使うReviewでは、Release BuildでWindowsとLinuxを確認します。最初に`sonalloy device list`でAudio Output / MIDI Inputの名前とOpaque IDを確認し、`sonalloy device list --json`で機械可読ReportのFieldと`buffer_size: null`を含む未知値の表現を確認します。
@@ -106,7 +109,7 @@ flowchart LR
 | 項目 | 内容 |
 |---|---|
 | 保存先 | `review/<package>/`（`audio/technical` / `definitions` / `events` / `midi` / `assets` / `inspect` JSON / `metrics.json` / `review-summary.md`、対象により構成が異なる） |
-| 生成 | 各Packageの`review/generate/generate_*.py`を実行する |
+| 生成 | 各Packageの`review/generate/generate_*.py`を実行する。External Audio Packageは`review/external-audio-cross-synthesis/scripts/generate_package.py`を実行する |
 | 基本Metrics | Finite性、Peak / RMS / DC、Sample Rate 44.1 / 48 / 96 kHz、Block Size 32 / 64 / 257 / 1024での比較、Fresh Runtime再現性 |
 | 自動確認 | Definition Validate、Inspect JSON、Resource Limit、Parameter Lifecycle等をTestで検証する |
 | 音声の扱い | 技術確認用の生出力（`audio/technical/`）をMetricsと試聴で共用する。試聴専用の正規化コピーは保存せず、音量は再生側で調整する |
@@ -130,3 +133,4 @@ flowchart LR
 | Granular | Granular Pad、Vocal Freeze、Percussion Cloud、Position Scrub、Stereo Source、Polyphony | Grain開始・終了のClick、Density密度、Grain Size質感、Pitch、Randomness広がり、Pan Spread、Scrub追従、Freeze持続、Vocal明瞭さ、Percussion Transient |
 | Wave Sequence | Single Step、Direction（Forward / Reverse / Ping Pong）、Loop、One-shot / Loop Step、Duration Type、Tempo Change、Crossfade、Step Pitch / Gain、Missing Step、Stereo / Mono混在 | Direction順序と端Step重複、One-shot終端無音、Loop境界、定電力Crossfade、Step Pitch / Gain、Missing Step無音区間、Mono / Stereo定位、Tempo Change、Reset同一性 |
 | Performance / Modulation | Monophonic Lead、MSEG Pad、Tempo Step / Transport、Random / Sample & Hold / Smooth Random、Macro Hybrid、4-Way Vector | Last-note Priority、Legato、Portamento、Sustain、Held Note復帰、MSEGのLoop途中Note OffとRelease、Beat / Bar Phase、Tempo追従、Randomの決定性、MacroのInstrument単位Trace、VectorのConstant-power境界 |
+| External Audio / Cross Synthesis | Envelope Follower、External Sidechain、Vocoder、Envelope Transfer、Spectral Morph | 入力Channel、入力との時間整合、Sidechainの非可聴動作、Speech-like articulation、Stereo差、Morph段階、固定Latency、Reset、入力終端後の挙動 |

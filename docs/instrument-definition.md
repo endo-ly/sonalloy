@@ -19,7 +19,8 @@
 
 | Field | 内容 |
 |---|---|
-| `schema_version` | スキーマ版。現在は`4`。それ以外はUnsupportedとして拒否 |
+| `schema_version` | スキーマ版。現在は`5`。それ以外はUnsupportedとして拒否 |
+| `external_audio` | 外部Audio入力のChannel構成（省略可）。使用する場合はMonoまたはStereoを指定 |
 | `metadata` | `name`、`author`、`description` |
 | `performance` | `mode`が`polyphonic`または`monophonic`。Modeごとに必要なFieldが異なる |
 | `layers` | 発音の単位となるLayer配列（1個以上） |
@@ -33,8 +34,9 @@
 
 ```json
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "metadata": { "name": "Basic Poly Synth", "author": null, "description": "..." },
+  "external_audio": null,
   "performance": { "mode": "polyphonic", "polyphony": 16, "voice_stealing": "quietest_releasing_then_oldest" },
   "layers": [
     {
@@ -725,6 +727,39 @@ Wave Sequence固有のDynamic Parameterはありません。Step構造はコン�
 
 各GeneratorのDynamic Parameterは、単体のGeneratorと同じ方法でModulation RouteやParameter Changeから制御できます。Layer間の時間位置の調整（遅延補償）の規則は`docs/runtime-processing.md`を参照してください。
 
+## External Audio
+
+外部Audioは、音源定義の`external_audio`で入力Channel数を固定し、定義の外部Audio Consumerへ共有する入力Busです。Mono入力は左右へ同じ値を渡し、Stereo入力は左右を独立して扱います。入力Busを使う定義は、Compile時のProcess仕様にも同じChannel数を要求します。
+
+```json
+{
+  "external_audio": { "channels": "stereo" },
+  "global_processors": [
+    {
+      "type": "vocoder",
+      "id": "voice",
+      "attack_ms": 8.0,
+      "release_ms": 80.0,
+      "modulator_gain_db": 0.0,
+      "output_gain_db": -3.0,
+      "mix": 1.0
+    }
+  ]
+}
+```
+
+外部AudioのConsumerはGlobal Processorへ置きます。Envelope FollowerはInstrument単位のModulation Sourceで、FilterなどのTargetへRouteできます。Gate / Compressorは`detector: "external_audio"`をGlobal Chainで指定すると外部Sidechainとして動作し、それ以外のDetectorは`"self_signal"`です。Vocoderは固定24帯域、Envelope Transferは外部振幅によるGain制御、Spectral Morphは外部SpectrumとのMagnitude Morphを行います。
+
+| Consumer | 入力 | Dynamic Parameter | 固定Latency |
+|---|---|---|---:|
+| Envelope Follower | 外部Audioのリンクした振幅 | `attack_ms`、`release_ms`、`input_gain_db`は定義値 | 0 frames |
+| External Sidechain | Global Gate / CompressorのDetector | `threshold_db`など既存Dynamics Parameter | 0 frames |
+| Vocoder | 外部Audioの左右別24帯域Envelope | `modulator_gain_db`、`output_gain_db`、`mix` | 0 frames |
+| Envelope Transfer | 外部Audioのリンクした振幅 | `input_gain_db`、`floor_db`、`mix` | 0 frames |
+| Spectral Morph | 外部Audioの左右別Spectrum | `morph`、`output_gain_db` | 1024 frames |
+
+入力を要求するConsumerがある場合は`external_audio`を省略できません。入力Busを宣言してもConsumerがない定義、複数のVocoderまたはSpectral Morph、Voice / Layerへ置いたCross Synthesis ProcessorはValidation Errorになります。外部入力の終端後に渡す値や、Offline Renderでの指定方法は`docs/cli.md`を参照してください。
+
 ## Processor
 
 Processorは配列の順序で直列に適用されます。配置と種類は固定で、Processor間の接続先をDefinitionから指定することはできません。
@@ -732,8 +767,8 @@ Processorは配列の順序で直列に適用されます。配置と種類は�
 | 配置 | 適用位置 | 使える種類 |
 |---|---|---|
 | Layer（`processors`） | Generatorの直後 | Filter、Ladder Filter、Formant、Drive、EQ、Resonator、Bitcrusher |
-| Voice（`voice_processors`） | 全LayerのMix後 | Filter、Ladder Filter、Formant、Drive、EQ、Resonator、Gate、Transient Shaper、Compressor、Limiter |
-| Global（`global_processors`） | 全Voiceの合計後 | Filter、Ladder Filter、Formant、Drive、EQ、Chorus、Flanger、Phaser、Frequency Shifter、Delay、Reverb、Convolution、Gate、Transient Shaper、Compressor、Limiter |
+| Voice（`voice_processors`） | 全LayerのMix後 | Filter、Ladder Filter、Formant、Drive、EQ、Resonator、Gate、Transient Shaper、Compressor、Limiter（Gate / CompressorはSelf Signalのみ） |
+| Global（`global_processors`） | 全Voiceの合計後 | Filter、Ladder Filter、Formant、Drive、EQ、Chorus、Flanger、Phaser、Frequency Shifter、Delay、Reverb、Convolution、Gate、Transient Shaper、Compressor、Limiter、Vocoder、Envelope Transfer、Spectral Morph |
 
 LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力Channel数に応じたStateをCompile時に確保します。VoiceとGlobalのDynamicsは左右のPeakをリンクして処理します。Chorus、Flanger、PhaserはGlobal Chainに1つのStateを持ち、Voiceごとには複製しません。
 
@@ -774,14 +809,17 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
 | Delay（Globalのみ） | `time.value`: Secondsは0.001〜8秒、Beatsは0.015625〜2 beats、`feedback`: 0〜0.95、`taps`: 最大8個、`mix`: 0〜1 | `feedback`、`mix` | `time`、`feedback_mode`、`taps`。最大4個、Runtime bufferは16秒まで |
 | Reverb（Globalのみ） | `pre_delay_seconds`: 0〜0.2秒、`decay`: 0〜0.98（大きいほど残響が長い）、`damping` / `width` / `mix`: 0〜1 | `decay`、`damping`、`width`、`mix` | `pre_delay_seconds` |
 | Convolution（Globalのみ） | `ir`: Mono / Stereo WAV、`gain_db`: -24〜24 dB、`mix`: 0〜1 | `gain_db`、`mix` | IR、256 framesの固定Latency。IRは最大10秒、最大2個 |
-| Gate（Voice / Global） | `threshold_db`: -80〜0 dB、`hysteresis_db`: 0〜12 dB、`attack_ms`: 0.1〜100 ms、`hold_ms`: 0〜500 ms、`release_ms`: 5〜2000 ms、`range_db`: -96〜0 dB（0 dBではGate閉時もUnity） | `threshold_db`、`range_db` | `hysteresis_db`、各Time Field |
+| Gate（Voice / Global） | `threshold_db`: -80〜0 dB、`hysteresis_db`: 0〜12 dB、`attack_ms`: 0.1〜100 ms、`hold_ms`: 0〜500 ms、`release_ms`: 5〜2000 ms、`range_db`: -96〜0 dB（0 dBではGate閉時もUnity） | `threshold_db`、`range_db` | `detector`、`hysteresis_db`、各Time Field。Globalの`external_audio`は入力整列後に検出 |
 | Transient Shaper（Voice / Global） | `attack` / `sustain`: -1〜1、`mix`: 0〜1 | `attack`、`sustain`、`mix` | Fast / Slow EnvelopeのTime Constant |
-| Compressor | `threshold_db`: -60〜0 dB、`ratio`: 1〜20、`attack_ms`: 0.1〜200、`release_ms`: 5〜2000、`knee_db`: 0〜24、`makeup_gain_db`: -12〜24 dB、`mix`: 0〜1 | `threshold_db`、`ratio`、`makeup_gain_db`、`mix` | `attack_ms`、`release_ms`、`knee_db` |
+| Compressor（Voice / Global） | `threshold_db`: -60〜0 dB、`ratio`: 1〜20、`attack_ms`: 0.1〜200、`release_ms`: 5〜2000、`knee_db`: 0〜24、`makeup_gain_db`: -12〜24 dB、`mix`: 0〜1 | `threshold_db`、`ratio`、`makeup_gain_db`、`mix` | `detector`、`attack_ms`、`release_ms`、`knee_db`。Globalの`external_audio`は入力整列後に検出 |
+| Vocoder（Globalのみ） | `attack_ms`: 0.1〜100 ms、`release_ms`: 5〜1000 ms、`modulator_gain_db` / `output_gain_db`: -24〜24 dB、`mix`: 0〜1 | `modulator_gain_db`、`output_gain_db`、`mix` | 24帯域、0 frames |
+| Envelope Transfer（Globalのみ） | `attack_ms`: 0.1〜200 ms、`release_ms`: 1〜2000 ms、`input_gain_db`: -24〜24 dB、`floor_db`: -96〜0 dB、`mix`: 0〜1 | `input_gain_db`、`floor_db`、`mix` | 0 frames |
+| Spectral Morph（Globalのみ） | `morph`: 0〜1、`output_gain_db`: -24〜24 dB | `morph`、`output_gain_db` | FFT 1024 / Hop 256、1024 frames |
 | Limiter | `ceiling_db`: -12〜0 dBFS、`release_ms`: 5〜1000、`input_gain_db`: -24〜24 dB | `ceiling_db`、`input_gain_db` | `release_ms` |
 
 `Dynamic Parameter`列はModulation RouteやParameter Changeで動かせるField、`Static Field`列はCompile時に確定するFieldです。Filterの`cutoff_hz`だけ、既存のCanonical IDとして`cutoff`をCatalog IDに用います。Processorの種類・ID・配置・順序やStatic Fieldを変えた場合は、再Compileが必要です。
 
-Delayの`time.unit`が`beats`の場合、1 beatは4分音符1つ分で、現在のProcess Tempoから秒へ変換します。`feedback_mode`は`stereo`または`ping_pong`、TapはWet出力だけへ加算されます。Frequency ShifterとConvolutionは、それぞれ127 framesと256 framesの固定Latencyを持ちます。固定Latencyの合計はInspectの`reported_latency_frames`へ反映されます。
+Delayの`time.unit`が`beats`の場合、1 beatは4分音符1つ分で、現在のProcess Tempoから秒へ変換します。`feedback_mode`は`stereo`または`ping_pong`、TapはWet出力だけへ加算されます。Frequency ShifterとConvolutionは、それぞれ127 framesと256 frames、Spectral Morphは1024 framesの固定Latencyを持ちます。固定Latencyの合計はInspectの`reported_latency_frames`へ反映されます。
 
 FilterのCutoffが処理できる上限（20 kHzとSample Rateから決まる値の小さい方）を超える定義は、Warningを出して上限へ制限します。
 
@@ -818,6 +856,7 @@ Parameter IDの形式：
 | `step` | `values`、`rate` | 値を保持するBipolarのStep列 |
 | `sample_hold` | `seed`、`rate` | Rateごとに更新する決定的Bipolar値 |
 | `smooth_random` | `seed`、`rate` | 決定的Bipolar値をRateに合わせて補間 |
+| `envelope_follower` | `attack_ms`、`release_ms`、`input_gain_db` | 外部Audioの左右リンク振幅を0〜1へ追従するInstrument Source |
 
 追加SourceのPolarityは、LFO、Random、MSEG、Step、Sample Hold、Smooth RandomがBipolar（-1〜1）、EnvelopeがUnipolar（0〜1）です。Depthの符号は方向を決め、Bipolar Sourceでは正負両方向へ作用します。
 

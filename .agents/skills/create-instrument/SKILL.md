@@ -38,7 +38,8 @@ Saw Oscillatorの最小Definition（同時発音数16、ADSR `0.005 / 0.18 / 0.6
 
 | Field | 内容 | 主な制約 |
 |---|---|---|
-| `schema_version` | スキーマ版 | `4`。それ以外はUnsupported。未知FieldはJSON Parse Error |
+| `schema_version` | スキーマ版 | `5`。それ以外はUnsupported。未知FieldはJSON Parse Error |
+| `external_audio` | 外部Audio入力 | `channels`へ`mono`または`stereo`を指定。外部Consumerを使う定義だけに置く |
 | `metadata` | `name`、`author`、`description` | `author`と`description`は省略可 |
 | `performance` | `mode`ごとの演奏設定 | `polyphonic`は`polyphony` 1〜64。`monophonic`は`legato`と任意の`portamento` |
 | `layers` | 発音の単位となるLayer配列 | [Layerの構造](#layerの構造)参照 |
@@ -116,9 +117,9 @@ Level
 
 ### ProcessorとModulation
 
-- **Processor**：Layer / Voice / Globalの3段階で直列適用します。LayerはFilter / Ladder Filter / Formant / Drive / EQ / Resonator / Bitcrusher、VoiceはそれにGate / Transient Shaper / Compressor / Limiterを加えたもの、GlobalはFrequency Shifter / Delay / Reverb / ConvolutionとDynamicsを使えます。Frequency ShifterとConvolutionはGlobal専用で、それぞれ127 framesと256 framesの固定Latencyを持ちます。`cutoff`、`threshold_db`、`mix`などのDynamic Parameterを持ちます
-- **Delay**：Schema 4では`time: {"value": ..., "unit": "seconds"|"beats"}`、`feedback_mode`、`feedback`、`taps`、`mix`を指定します。旧`time_seconds`は使用できません。Beatsは4分音符を1 beatとし、Process Tempoに追従します
-- **Modulation**：Velocity、Key Tracking、LFO、Envelope、Random、MSEG、Step、Sample Hold、Smooth Random、Macro、Transport PhaseなどのSourceをDynamic Parameterへ接続します
+- **Processor**：Layer / Voice / Globalの3段階で直列適用します。LayerはFilter / Ladder Filter / Formant / Drive / EQ / Resonator / Bitcrusher、VoiceはそれにGate / Transient Shaper / Compressor / Limiterを加えたもの、GlobalはFrequency Shifter / Delay / Reverb / Convolution、Dynamics、Vocoder、Envelope Transfer、Spectral Morphを使えます。Vocoder、Envelope Transfer、Spectral MorphはGlobal専用で、Spectral Morphは1024 framesの固定Latencyを持ちます。`cutoff`、`threshold_db`、`mix`などのDynamic Parameterを持ちます
+- **Dynamics**：Gate / Compressorは`detector: "self_signal"`またはGlobal専用の`"external_audio"`を指定します。外部Detectorを使うときは`external_audio`を宣言します
+- **Modulation**：Velocity、Key Tracking、LFO、Envelope、Random、MSEG、Step、Sample Hold、Smooth Random、Envelope Follower、Macro、Transport PhaseなどのSourceをDynamic Parameterへ接続します
 
 ```json
 "modulation": {
@@ -688,7 +689,7 @@ sonalloy device list --json
 sonalloy play <definition> --midi-device <id>
 ```
 
-`play`は同じDefinitionをCoreのRealtime経路で演奏します。起動前に`device list`でAudio OutputとMIDI InputのIDを確認し、複数のMIDI Inputがある場合は`--midi-device`を必ず指定します。標準入力のEnterで停止します。Realtime試聴はOffline Render、Analysis、Traceを置き換えません。Optionの正本は`docs/cli.md`です。
+`play`は同じDefinitionをCoreのRealtime経路で演奏します。起動前に`device list`でAudio Input / OutputとMIDI InputのIDを確認し、外部Audioを使うDefinitionでは必要なChannel数とSample Rateに対応するInputを`--audio-input-device`で選びます。複数のMIDI Inputがある場合は`--midi-device`を必ず指定します。標準入力のEnterで停止します。Realtime試聴はOffline Render、Analysis、Traceを置き換えません。Optionの正本は`docs/cli.md`です。
 
 | Option | 意味 | 既定値 |
 |---|---|---|
