@@ -4,7 +4,7 @@ use sonalloy_core::{
     CompileContext, CompiledInstrument, EnvelopeTransferProcessorDefinition, ExternalAudioChannels,
     ExternalAudioInputDefinition, InstrumentDefinition, InstrumentProcessor, PreparedAudio,
     PreparedAudioChannels, ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderError,
-    RenderRequest, SampleMetadata, ScheduledEvent, compile_instrument,
+    RenderRequest, SampleMetadata, ScheduledEvent, compile_instrument, render_instrument,
     render_instrument_with_input, render_instrument_with_input_and_reset,
 };
 
@@ -66,6 +66,27 @@ fn audio_at(sample_rate: f64, frames: usize, left: f32, right: f32) -> PreparedA
         channels: PreparedAudioChannels::Stereo {
             left: vec![left; frames].into(),
             right: vec![right; frames].into(),
+        },
+    }
+}
+
+fn pulse_audio(frames: usize, frame: usize) -> PreparedAudio {
+    let mut left = vec![0.0; frames];
+    let mut right = vec![0.0; frames];
+    left[frame] = 1.0;
+    right[frame] = 1.0;
+    PreparedAudio {
+        sample_rate: 48_000.0,
+        frames,
+        source_metadata: SampleMetadata {
+            source_sample_rate: 48_000,
+            source_channels: 2,
+            bits_per_sample: Some(32),
+            source_frames: frames,
+        },
+        channels: PreparedAudioChannels::Stereo {
+            left: left.into(),
+            right: right.into(),
         },
     }
 }
@@ -210,6 +231,155 @@ fn external_cross_synthesis_processors_are_finite_and_resettable() {
                 .all(|sample| sample.is_finite())
         );
         assert_eq!(first, second);
+    }
+}
+
+#[test]
+fn spectral_morph_zero_preserves_startup_latency_and_carrier_identity() {
+    let carrier_definition = definition();
+    let definition = external_definition(ProcessorDefinition::SpectralMorph(
+        sonalloy_core::SpectralMorphProcessorDefinition {
+            id: "morph".to_owned(),
+            morph: 0.0,
+            output_gain_db: 0.0,
+        },
+    ));
+    let carrier = compile_instrument(
+        &carrier_definition,
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
+        },
+    )
+    .instrument
+    .expect("carrier definition compiles");
+    let time_map = sonalloy_core::MusicalTimeMap::constant(120.0).expect("tempo map");
+    let baseline =
+        render_instrument(carrier, request(4_096), &events()).expect("carrier render succeeds");
+    let external = audio(4_096, 0.0, 0.0);
+
+    for block_size in [32, 64, 128, 257] {
+        let instrument = compiled_at(&definition, 48_000.0, block_size);
+        let rendered = render_instrument_with_input(
+            instrument,
+            request_at(48_000.0, block_size, 4_096),
+            &events(),
+            &time_map,
+            Some(&external),
+        )
+        .expect("spectral morph render succeeds");
+        assert!(
+            rendered
+                .channels
+                .iter()
+                .all(|channel| channel[..1_024].iter().all(|sample| sample.abs() <= 1.0e-7))
+        );
+        let maximum_difference = rendered.channels[0][1_024..]
+            .iter()
+            .zip(&baseline.channels[0][..3_072])
+            .chain(
+                rendered.channels[1][1_024..]
+                    .iter()
+                    .zip(&baseline.channels[1][..3_072]),
+            )
+            .map(|(actual, expected)| (actual - expected).abs())
+            .fold(0.0_f32, f32::max);
+        assert!(
+            maximum_difference <= 1.0e-5,
+            "block size {block_size} changed startup identity by {maximum_difference}"
+        );
+    }
+}
+
+#[test]
+fn external_consumer_alignment_follows_preceding_fixed_latency() {
+    let compressor = || {
+        ProcessorDefinition::Compressor(sonalloy_core::CompressorProcessorDefinition {
+            id: "duck".to_owned(),
+            threshold_db: -60.0,
+            ratio: 20.0,
+            attack_ms: 0.1,
+            release_ms: 500.0,
+            knee_db: 0.0,
+            makeup_gain_db: 0.0,
+            mix: 1.0,
+            detector: sonalloy_core::DynamicsDetectorDefinition::ExternalAudio,
+        })
+    };
+    let cases = [
+        (
+            vec![
+                ProcessorDefinition::FrequencyShifter(
+                    sonalloy_core::FrequencyShifterProcessorDefinition {
+                        id: "shift".to_owned(),
+                        shift_hz: 0.0,
+                        mix: 0.0,
+                    },
+                ),
+                compressor(),
+            ],
+            127,
+        ),
+        (
+            vec![
+                ProcessorDefinition::SpectralMorph(
+                    sonalloy_core::SpectralMorphProcessorDefinition {
+                        id: "morph".to_owned(),
+                        morph: 0.0,
+                        output_gain_db: 0.0,
+                    },
+                ),
+                compressor(),
+            ],
+            1_024,
+        ),
+    ];
+    let time_map = sonalloy_core::MusicalTimeMap::constant(120.0).expect("tempo map");
+    let silent_input = audio(2_048, 0.0, 0.0);
+    let pulse_input = pulse_audio(2_048, 200);
+
+    for (processors, delay_frames) in cases {
+        let mut definition = definition();
+        definition.external_audio = Some(ExternalAudioInputDefinition {
+            channels: ExternalAudioChannels::Stereo,
+        });
+        definition.global_processors = processors;
+        let instrument = compiled(&definition);
+        let baseline = render_instrument_with_input(
+            Arc::clone(&instrument),
+            request(2_048),
+            &events(),
+            &time_map,
+            Some(&silent_input),
+        )
+        .expect("silent external render succeeds");
+        let pulsed = render_instrument_with_input(
+            instrument,
+            request(2_048),
+            &events(),
+            &time_map,
+            Some(&pulse_input),
+        )
+        .expect("pulsed external render succeeds");
+        let onset = 200 + delay_frames;
+        let early_difference = baseline.channels[0][200..onset]
+            .iter()
+            .zip(&pulsed.channels[0][200..onset])
+            .map(|(baseline, pulsed)| (baseline - pulsed).abs())
+            .fold(0.0_f32, f32::max);
+        let late_difference = baseline.channels[0][onset..onset + 256]
+            .iter()
+            .zip(&pulsed.channels[0][onset..onset + 256])
+            .map(|(baseline, pulsed)| (baseline - pulsed).abs())
+            .fold(0.0_f32, f32::max);
+        assert!(
+            early_difference <= 1.0e-7,
+            "alignment reacted before {onset}"
+        );
+        assert!(
+            late_difference > 1.0e-6,
+            "alignment did not react at {onset}"
+        );
     }
 }
 
