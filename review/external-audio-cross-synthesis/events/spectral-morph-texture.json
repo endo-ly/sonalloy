@@ -1,0 +1,34 @@
+{
+  "events": [
+    {
+      "absolute_frame": 0,
+      "type": "note_on",
+      "note_id": 1,
+      "note": 60,
+      "velocity": 112
+    },
+    {
+      "absolute_frame": 32000,
+      "type": "parameter_change",
+      "parameter": "global.processor.morph.morph",
+      "native_value": 0.0
+    },
+    {
+      "absolute_frame": 48000,
+      "type": "parameter_change",
+      "parameter": "global.processor.morph.morph",
+      "native_value": 0.5
+    },
+    {
+      "absolute_frame": 64000,
+      "type": "parameter_change",
+      "parameter": "global.processor.morph.morph",
+      "native_value": 1.0
+    },
+    {
+      "absolute_frame": 72000,
+      "type": "note_off",
+      "note_id": 1
+    }
+  ]
+}

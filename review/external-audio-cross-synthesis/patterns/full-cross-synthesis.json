@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "name": "Full Cross Synthesis",
+  "ticks_per_beat": 480,
+  "length_ticks": 1920,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120.0
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "duration_ticks": 1440,
+      "note": 60,
+      "velocity": 112
+    }
+  ]
+}

@@ -26,6 +26,8 @@ jobs:
         run: cargo run -p sonalloy-cli -- instrument validate testdata/instruments/spectral-generator-reference.json --json
       - name: Spectral hybrid MIDI smoke
         run: cargo run -p sonalloy-cli -- render midi testdata/instruments/spectral-hybrid-reference.json testdata/midi/basic-poly-synth-phrase.mid --sample-rate 48000 --block-size 257 --tail 0.1 --output ci-spectral-hybrid.wav --json
+      - name: External audio CLI smoke
+        run: cargo run -p sonalloy-cli -- render events review/external-audio-cross-synthesis/definitions/sidechain-ducking.json review/external-audio-cross-synthesis/events/sidechain-ducking.json --audio-input review/external-audio-cross-synthesis/assets/sidechain-kick.wav --duration-frames 4800 --sample-rate 48000 --block-size 257 --tail 0 --output ci-external-audio.wav --analyze --json
 
   linux:
     runs-on: ubuntu-latest
@@ -50,6 +52,8 @@ jobs:
         run: cargo run -p sonalloy-cli -- instrument validate testdata/instruments/spectral-generator-reference.json --json
       - name: Spectral hybrid MIDI smoke
         run: cargo run -p sonalloy-cli -- render midi testdata/instruments/spectral-hybrid-reference.json testdata/midi/basic-poly-synth-phrase.mid --sample-rate 48000 --block-size 257 --tail 0.1 --output ci-spectral-hybrid.wav --json
+      - name: External audio CLI smoke
+        run: cargo run -p sonalloy-cli -- render events review/external-audio-cross-synthesis/definitions/sidechain-ducking.json review/external-audio-cross-synthesis/events/sidechain-ducking.json --audio-input review/external-audio-cross-synthesis/assets/sidechain-kick.wav --duration-frames 4800 --sample-rate 48000 --block-size 257 --tail 0 --output ci-external-audio.wav --analyze --json
 
   macos:
     runs-on: macos-14
@@ -72,6 +76,8 @@ jobs:
         run: cargo run -p sonalloy-cli -- instrument validate testdata/instruments/spectral-generator-reference.json --json
       - name: Spectral hybrid MIDI smoke
         run: cargo run -p sonalloy-cli -- render midi testdata/instruments/spectral-hybrid-reference.json testdata/midi/basic-poly-synth-phrase.mid --sample-rate 48000 --block-size 257 --tail 0.1 --output ci-spectral-hybrid.wav --json
+      - name: External audio CLI smoke
+        run: cargo run -p sonalloy-cli -- render events review/external-audio-cross-synthesis/definitions/sidechain-ducking.json review/external-audio-cross-synthesis/events/sidechain-ducking.json --audio-input review/external-audio-cross-synthesis/assets/sidechain-kick.wav --duration-frames 4800 --sample-rate 48000 --block-size 257 --tail 0 --output ci-external-audio.wav --analyze --json
 
   audit:
     runs-on: ubuntu-latest
