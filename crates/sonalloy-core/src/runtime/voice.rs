@@ -184,7 +184,7 @@ impl LayerRuntime {
         self.delay.reset();
         self.delay.set_delay_frames(
             self.instrument_latency_frames
-                .saturating_sub(self.generator.intrinsic_latency_frames()),
+                .saturating_sub(self.generator.active_intrinsic_latency_frames()),
         );
         self.armed = false;
         self.armed_sample_zone = None;
@@ -282,8 +282,6 @@ pub(crate) struct VoiceRuntime {
     processors: StereoProcessorChain,
     source_states: Vec<VoiceSourceRuntime>,
     source_spans: Vec<ValueSpan>,
-    source_definitions: Vec<CompiledVoiceSource>,
-    source_used: Vec<bool>,
     targets: VoiceTargetScratch,
     pending: Option<PendingNote>,
     pending_layer_selection: Vec<PreparedLayerSelection>,
@@ -304,30 +302,18 @@ impl VoiceRuntime {
             .map(|layer| LayerRuntime::new(layer, spec, compiled.layer_alignment_latency_frames))
             .collect::<Result<Vec<_>, _>>()?;
         let processors = StereoProcessorChain::new(&compiled.voice_processors, spec)?;
-        let source_definitions = compiled
+        let source_states = compiled
             .sources
             .iter()
-            .map(|source| source.source.clone())
-            .collect::<Vec<_>>();
-        let source_states = source_definitions
-            .iter()
-            .map(VoiceSourceRuntime::new)
+            .map(|source| VoiceSourceRuntime::new(&source.source))
             .collect::<Vec<_>>();
         let source_spans = vec![
             ValueSpan {
                 start: 0.0,
                 end: 0.0
             };
-            source_definitions.len()
+            compiled.sources.len()
         ];
-        let mut source_used = vec![false; source_definitions.len()];
-        for route in &compiled.routes {
-            if let CompiledSourceRef::Voice(handle) = route.source {
-                if let Some(used) = source_used.get_mut(handle.index()) {
-                    *used = true;
-                }
-            }
-        }
         Ok(Self {
             state: VoiceState::Idle,
             note_id: None,
@@ -341,8 +327,6 @@ impl VoiceRuntime {
             processors,
             source_states,
             source_spans,
-            source_definitions,
-            source_used,
             targets: VoiceTargetScratch::new(&compiled.layers, &compiled.voice_processors),
             pending: None,
             pending_layer_selection: vec![PreparedLayerSelection::Inactive; compiled.layers.len()],
@@ -381,8 +365,12 @@ impl VoiceRuntime {
         self.layers.get(index).is_some_and(|layer| layer.active)
     }
 
-    pub(crate) fn trace_source_value(&self, handle: SourceHandle) -> Option<f32> {
-        let definition = self.source_definitions.get(handle.index())?;
+    pub(crate) fn trace_source_value(
+        &self,
+        compiled: &CompiledInstrument,
+        handle: SourceHandle,
+    ) -> Option<f32> {
+        let definition = &compiled.sources.get(handle.index())?.source;
         let state = self.source_states.get(handle.index())?;
         match (definition, state) {
             (CompiledVoiceSource::Velocity, VoiceSourceRuntime::Velocity(value))
@@ -431,6 +419,7 @@ impl VoiceRuntime {
 
     pub(crate) fn transition_legato(
         &mut self,
+        compiled: &CompiledInstrument,
         request: NoteRequest,
         portamento_frames: Option<usize>,
     ) -> Result<(), ProcessError> {
@@ -450,9 +439,9 @@ impl VoiceRuntime {
             0.0,
             portamento_frames.unwrap_or(MONOPHONIC_PORTAMENTO_DEFAULT_FRAMES),
         );
-        for (definition, state) in self.source_definitions.iter().zip(&mut self.source_states) {
+        for (source, state) in compiled.sources.iter().zip(&mut self.source_states) {
             state.transition_note(
-                definition,
+                &source.source,
                 request.note_id,
                 request.note_number,
                 request.velocity,
@@ -473,7 +462,7 @@ impl VoiceRuntime {
         } else {
             f32::from(request.note_number) * 100.0
         };
-        self.reset_note_state()?;
+        self.reset_note_state(compiled)?;
         self.activate_note(compiled, request, layer_selection, true, false)?;
         let target_offset = current_pitch - f32::from(request.note_number) * 100.0;
         self.pitch_glide.reset(target_offset);
@@ -582,9 +571,8 @@ impl VoiceRuntime {
             || self.targets.layers.len() != compiled.layers.len()
             || self.targets.layer_processors.len() != compiled.layers.len()
             || self.targets.voice_processors.len() != compiled.voice_processors.len()
-            || self.source_states.len() != self.source_definitions.len()
-            || self.source_spans.len() != self.source_definitions.len()
-            || self.source_used.len() != self.source_definitions.len()
+            || self.source_states.len() != compiled.sources.len()
+            || self.source_spans.len() != compiled.sources.len()
             || layer_mono.len() < frames
             || layer_left.len() < frames
             || layer_right.len() < frames
@@ -613,7 +601,8 @@ impl VoiceRuntime {
             if self.state == VoiceState::Idle {
                 break;
             }
-            let mut chunk = self.next_voice_boundary(frames - offset, sample_rate, tempo_bpm);
+            let mut chunk =
+                self.next_voice_boundary(compiled, frames - offset, sample_rate, tempo_bpm);
             if self.state == VoiceState::StealFading {
                 chunk = chunk.min(self.steal_fade_remaining);
             }
@@ -625,7 +614,7 @@ impl VoiceRuntime {
                 chunk = 1.min(frames - offset);
             }
             let subspan = shared.subspan(offset, chunk);
-            self.advance_source_spans(chunk, sample_rate, tempo_bpm)?;
+            self.advance_source_spans(compiled, chunk, sample_rate, tempo_bpm)?;
             let (pitch_start, pitch_end) = self.pitch_glide.span(chunk);
             self.pitch_glide_span = ValueSpan {
                 start: pitch_start,
@@ -667,7 +656,7 @@ impl VoiceRuntime {
                 if self.state == VoiceState::StealFading {
                     self.complete_steal(compiled)?;
                 } else {
-                    self.reset_to_idle()?;
+                    self.reset_to_idle(compiled)?;
                 }
             } else if self.state == VoiceState::StealFading && self.steal_fade_remaining == 0 {
                 self.complete_steal(compiled)?;
@@ -677,12 +666,12 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    pub(crate) fn reset(&mut self) -> Result<(), ProcessError> {
+    pub(crate) fn reset(&mut self, compiled: &CompiledInstrument) -> Result<(), ProcessError> {
         for layer in &mut self.layers {
             layer.reset()?;
         }
         self.processors.reset()?;
-        self.clear_assignment_state();
+        self.clear_assignment_state(compiled);
         Ok(())
     }
 
@@ -698,7 +687,7 @@ impl VoiceRuntime {
         request: NoteRequest,
         layer_selection: &[PreparedLayerSelection],
     ) -> Result<(), ProcessError> {
-        self.reset_note_state()?;
+        self.reset_note_state(compiled)?;
         self.activate_note(compiled, request, layer_selection, true, false)
     }
 
@@ -729,9 +718,9 @@ impl VoiceRuntime {
                 PreparedLayerSelection::Inactive => {}
             }
         }
-        self.initialize_source_state(note);
+        self.initialize_source_state(compiled, note);
         if !self.has_active_layer() {
-            self.reset_to_idle()?;
+            self.reset_to_idle(compiled)?;
             return Ok(());
         }
         self.state = VoiceState::Active;
@@ -748,7 +737,7 @@ impl VoiceRuntime {
         if let Some(pending) = pending {
             self.activate_pending_note(compiled, pending)?;
         } else {
-            self.reset_to_idle()?;
+            self.reset_to_idle(compiled)?;
         }
         Ok(())
     }
@@ -760,7 +749,7 @@ impl VoiceRuntime {
     ) -> Result<(), ProcessError> {
         let pending_layer_selection = std::mem::take(&mut self.pending_layer_selection);
         let result = (|| {
-            self.reset_note_state()?;
+            self.reset_note_state(compiled)?;
             self.activate_note(
                 compiled,
                 pending.request,
@@ -891,16 +880,16 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    fn reset_to_idle(&mut self) -> Result<(), ProcessError> {
+    fn reset_to_idle(&mut self, compiled: &CompiledInstrument) -> Result<(), ProcessError> {
         for layer in &mut self.layers {
             layer.reset_state()?;
         }
         self.processors.reset()?;
-        self.clear_assignment_state();
+        self.clear_assignment_state(compiled);
         Ok(())
     }
 
-    fn clear_assignment_state(&mut self) {
+    fn clear_assignment_state(&mut self, compiled: &CompiledInstrument) {
         self.state = VoiceState::Idle;
         self.note_id = None;
         self.note_number = 0;
@@ -916,10 +905,10 @@ impl VoiceRuntime {
             start: 0.0,
             end: 0.0,
         };
-        self.reset_source_state();
+        self.reset_source_state(compiled);
     }
 
-    fn reset_note_state(&mut self) -> Result<(), ProcessError> {
+    fn reset_note_state(&mut self, compiled: &CompiledInstrument) -> Result<(), ProcessError> {
         for layer in &mut self.layers {
             layer.reset_state()?;
         }
@@ -927,7 +916,7 @@ impl VoiceRuntime {
         self.pending = None;
         self.steal_fade_total = 0;
         self.steal_fade_remaining = 0;
-        self.reset_source_state();
+        self.reset_source_state(compiled);
         self.pitch_glide.reset(0.0);
         self.pitch_glide_span = ValueSpan {
             start: 0.0,
@@ -936,39 +925,45 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    fn initialize_source_state(&mut self, note: NoteRequest) {
-        for (index, (definition, state)) in self
-            .source_definitions
+    fn initialize_source_state(&mut self, compiled: &CompiledInstrument, note: NoteRequest) {
+        for ((source, state), used) in compiled
+            .sources
             .iter()
             .zip(&mut self.source_states)
-            .enumerate()
+            .zip(&compiled.used_voice_sources)
         {
-            if !self.source_used[index] {
+            if !*used {
                 continue;
             }
-            state.note_on(definition, note.note_id, note.note_number, note.velocity);
+            state.note_on(
+                &source.source,
+                note.note_id,
+                note.note_number,
+                note.velocity,
+            );
         }
     }
 
-    fn reset_source_state(&mut self) {
-        for (definition, state) in self.source_definitions.iter().zip(&mut self.source_states) {
-            state.reset(definition);
+    fn reset_source_state(&mut self, compiled: &CompiledInstrument) {
+        for (source, state) in compiled.sources.iter().zip(&mut self.source_states) {
+            state.reset(&source.source);
         }
     }
 
     fn advance_source_spans(
         &mut self,
+        compiled: &CompiledInstrument,
         frames: usize,
         sample_rate: f64,
         tempo_bpm: f64,
     ) -> Result<(), ProcessError> {
         let note_id = self.note_id.unwrap_or_default();
-        for (((definition, state), span), used) in self
-            .source_definitions
+        for (((source, state), span), used) in compiled
+            .sources
             .iter()
             .zip(&mut self.source_states)
             .zip(&mut self.source_spans)
-            .zip(&self.source_used)
+            .zip(&compiled.used_voice_sources)
         {
             if !*used {
                 *span = ValueSpan {
@@ -977,7 +972,7 @@ impl VoiceRuntime {
                 };
                 continue;
             }
-            *span = state.advance(definition, frames, sample_rate, tempo_bpm, note_id)?;
+            *span = state.advance(&source.source, frames, sample_rate, tempo_bpm, note_id)?;
         }
         Ok(())
     }
@@ -1509,7 +1504,13 @@ impl VoiceRuntime {
         Ok(ValueSpan { start, end })
     }
 
-    fn next_voice_boundary(&self, remaining: usize, sample_rate: f64, tempo_bpm: f64) -> usize {
+    fn next_voice_boundary(
+        &self,
+        compiled: &CompiledInstrument,
+        remaining: usize,
+        sample_rate: f64,
+        tempo_bpm: f64,
+    ) -> usize {
         let mut boundary = remaining;
         for layer in &self.layers {
             if !layer.active {
@@ -1524,17 +1525,17 @@ impl VoiceRuntime {
         if let Some(frames) = self.pitch_glide.frames_until_target() {
             boundary = boundary.min(frames);
         }
-        for ((definition, state), used) in self
-            .source_definitions
+        for ((source, state), used) in compiled
+            .sources
             .iter()
             .zip(&self.source_states)
-            .zip(&self.source_used)
+            .zip(&compiled.used_voice_sources)
         {
             if !*used {
                 continue;
             }
             if let Some(frames) =
-                state.frames_until_boundary(definition, sample_rate, tempo_bpm, remaining)
+                state.frames_until_boundary(&source.source, sample_rate, tempo_bpm, remaining)
             {
                 boundary = boundary.min(frames);
             }

@@ -210,10 +210,10 @@ impl GeneratorRuntime {
         }
     }
 
-    pub(crate) fn intrinsic_latency_frames(&self) -> usize {
+    pub(crate) fn active_intrinsic_latency_frames(&self) -> usize {
         match self {
-            Self::Sample { sample } => sample.intrinsic_latency_frames(),
-            Self::Spectral(spectral) => spectral.intrinsic_latency_frames(),
+            Self::Sample { sample } => sample.active_intrinsic_latency_frames(),
+            Self::Spectral(spectral) => spectral.active_intrinsic_latency_frames(),
             Self::Oscillator(_)
             | Self::Noise(_)
             | Self::PhysicalString(_)
