@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use thiserror::Error;
 
+use crate::asset::{PreparedAudio, PreparedAudioChannels};
 use crate::compiler::CompiledInstrument;
 use crate::process::{
     DEFAULT_TIME_SIGNATURE, InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError,
@@ -51,9 +52,14 @@ impl RenderRequest {
             .ok_or(RenderError::FrameCountOverflow)
     }
 
-    fn process_spec(self) -> Result<ProcessSpec, RenderError> {
+    fn process_spec(self, input_channels: usize) -> Result<ProcessSpec, RenderError> {
         let _ = self.total_frames()?;
-        Ok(ProcessSpec::new(self.sample_rate, self.block_size, 2)?)
+        Ok(ProcessSpec::new(
+            self.sample_rate,
+            self.block_size,
+            input_channels,
+            2,
+        )?)
     }
 }
 
@@ -263,6 +269,15 @@ pub enum RenderError {
     /// The sample rate is unsupported by the output contract.
     #[error("sample rate must be a positive integer representable by wav")]
     InvalidSampleRate,
+    /// External audio was required but no input was provided.
+    #[error("external audio input is required")]
+    ExternalInputMissing,
+    /// External audio was supplied to an instrument that does not use it.
+    #[error("external audio input is not used by this instrument")]
+    ExternalInputUnused,
+    /// External audio does not use the compiled instrument sample rate.
+    #[error("external audio sample rate does not match the render sample rate")]
+    ExternalInputSampleRateMismatch,
     /// The process block size must be positive.
     #[error("block size must be greater than zero")]
     InvalidBlockSize,
@@ -383,9 +398,37 @@ pub fn render_instrument_with_tempo(
     events: &[ScheduledEvent],
     tempo_bpm: f64,
 ) -> Result<RenderedAudio, RenderError> {
-    let mut runtime = InstrumentRuntime::new(compiled);
     let musical_time_map = MusicalTimeMap::constant(tempo_bpm)?;
-    render_processor_with_musical_time_map(&mut runtime, request, events, &musical_time_map)
+    render_instrument_with_input(compiled, request, events, &musical_time_map, None)
+}
+
+/// Render a compiled instrument with an optional external audio input.
+///
+/// # Errors
+///
+/// Returns an error when the input is missing, unused, or has an incompatible sample rate, or
+/// when rendering rejects the process request.
+#[allow(clippy::needless_pass_by_value)]
+pub fn render_instrument_with_input(
+    compiled: Arc<CompiledInstrument>,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+    musical_time_map: &MusicalTimeMap,
+    external_audio: Option<&PreparedAudio>,
+) -> Result<RenderedAudio, RenderError> {
+    validate_external_audio(&compiled, request.sample_rate, external_audio)?;
+    let input_channels = compiled.required_input_channels();
+    let mut runtime = InstrumentRuntime::new(Arc::clone(&compiled));
+    render_processor_with_musical_time_map_observed(
+        &mut runtime,
+        request,
+        events,
+        musical_time_map,
+        &[],
+        &mut |_frame, _runtime, _context| Ok(()),
+        input_channels,
+        external_audio,
+    )
 }
 
 /// Render a compiled instrument with an absolute-frame tempo map.
@@ -400,8 +443,7 @@ pub fn render_instrument_with_musical_time_map(
     events: &[ScheduledEvent],
     musical_time_map: &MusicalTimeMap,
 ) -> Result<RenderedAudio, RenderError> {
-    let mut runtime = InstrumentRuntime::new(compiled);
-    render_processor_with_musical_time_map(&mut runtime, request, events, musical_time_map)
+    render_instrument_with_input(compiled, request, events, musical_time_map, None)
 }
 
 /// Render an instrument, reset the same prepared runtime, and render the same events again.
@@ -419,9 +461,27 @@ pub fn render_instrument_with_reset(
     events: &[ScheduledEvent],
     musical_time_map: &MusicalTimeMap,
 ) -> Result<(RenderedAudio, RenderedAudio), RenderError> {
+    render_instrument_with_input_and_reset(compiled, request, events, musical_time_map, None)
+}
+
+/// Render a compiled instrument twice with an optional external input, resetting between runs.
+///
+/// # Errors
+///
+/// Returns an error when input validation, preparation, reset, or either render fails.
+#[allow(clippy::needless_pass_by_value)]
+pub fn render_instrument_with_input_and_reset(
+    compiled: Arc<CompiledInstrument>,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+    musical_time_map: &MusicalTimeMap,
+    external_audio: Option<&PreparedAudio>,
+) -> Result<(RenderedAudio, RenderedAudio), RenderError> {
     let total_frames_usize = validate_render_inputs(request, events)?;
-    let spec = request.process_spec()?;
-    let mut runtime = InstrumentRuntime::new(compiled);
+    validate_external_audio(&compiled, request.sample_rate, external_audio)?;
+    let input_channels = compiled.required_input_channels();
+    let spec = request.process_spec(input_channels)?;
+    let mut runtime = InstrumentRuntime::new(Arc::clone(&compiled));
     runtime.prepare(spec)?;
     let mut observe =
         |_frame: u64, _runtime: &mut InstrumentRuntime, _context: ProcessContext| Ok(());
@@ -433,6 +493,8 @@ pub fn render_instrument_with_reset(
         &[],
         &mut observe,
         total_frames_usize,
+        input_channels,
+        external_audio,
     )?;
     runtime.reset()?;
     let second = render_prepared_processor_with_musical_time_map_observed(
@@ -443,6 +505,8 @@ pub fn render_instrument_with_reset(
         &[],
         &mut observe,
         total_frames_usize,
+        input_channels,
+        external_audio,
     )?;
     Ok((first, second))
 }
@@ -465,6 +529,32 @@ pub fn render_instrument_with_trace(
     musical_time_map: &MusicalTimeMap,
     trace_request: &TraceRequest,
 ) -> Result<(RenderedAudio, RenderTraceReport), RenderError> {
+    render_instrument_with_input_and_trace(
+        compiled,
+        request,
+        events,
+        musical_time_map,
+        trace_request,
+        None,
+    )
+}
+
+/// Render a compiled instrument and collect trace observations with optional external audio.
+///
+/// # Errors
+///
+/// Returns an error when input validation, trace selection, or rendering fails.
+#[allow(clippy::needless_pass_by_value)]
+pub fn render_instrument_with_input_and_trace(
+    compiled: Arc<CompiledInstrument>,
+    request: RenderRequest,
+    events: &[ScheduledEvent],
+    musical_time_map: &MusicalTimeMap,
+    trace_request: &TraceRequest,
+    external_audio: Option<&PreparedAudio>,
+) -> Result<(RenderedAudio, RenderTraceReport), RenderError> {
+    validate_external_audio(&compiled, request.sample_rate, external_audio)?;
+    let input_channels = compiled.required_input_channels();
     if trace_request.every_frames == 0 {
         return Err(RenderError::TraceIntervalInvalid);
     }
@@ -478,11 +568,15 @@ pub fn render_instrument_with_trace(
     let total_frames = request.total_frames()?;
     if trace_request.parameters.is_empty() {
         let mut runtime = InstrumentRuntime::new(Arc::clone(&compiled));
-        let audio = render_processor_with_musical_time_map(
+        let audio = render_processor_with_musical_time_map_observed(
             &mut runtime,
             request,
             events,
             musical_time_map,
+            &[],
+            &mut |_frame, _runtime, _context| Ok(()),
+            input_channels,
+            external_audio,
         )?;
         return Ok((
             audio,
@@ -550,6 +644,8 @@ pub fn render_instrument_with_trace(
         musical_time_map,
         &boundaries,
         &mut observe,
+        input_channels,
+        external_audio,
     )?;
     Ok((audio, collector.finish()))
 }
@@ -604,9 +700,12 @@ fn render_processor_with_musical_time_map<P: InstrumentProcessor>(
         musical_time_map,
         &[],
         &mut observe,
+        0,
+        None,
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_processor_with_musical_time_map_observed<P, F>(
     processor: &mut P,
     request: RenderRequest,
@@ -614,13 +713,15 @@ fn render_processor_with_musical_time_map_observed<P, F>(
     musical_time_map: &MusicalTimeMap,
     observation_boundaries: &[u64],
     observe: &mut F,
+    input_channels: usize,
+    external_audio: Option<&PreparedAudio>,
 ) -> Result<RenderedAudio, RenderError>
 where
     P: InstrumentProcessor,
     F: FnMut(u64, &mut P, ProcessContext) -> Result<(), RenderError>,
 {
     let total_frames_usize = validate_render_inputs(request, events)?;
-    let spec = request.process_spec()?;
+    let spec = request.process_spec(input_channels)?;
     processor.prepare(spec)?;
     render_prepared_processor_with_musical_time_map_observed(
         processor,
@@ -630,9 +731,12 @@ where
         observation_boundaries,
         observe,
         total_frames_usize,
+        input_channels,
+        external_audio,
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_prepared_processor_with_musical_time_map_observed<P, F>(
     processor: &mut P,
     request: RenderRequest,
@@ -641,6 +745,8 @@ fn render_prepared_processor_with_musical_time_map_observed<P, F>(
     observation_boundaries: &[u64],
     observe: &mut F,
     total_frames_usize: usize,
+    input_channels: usize,
+    external_audio: Option<&PreparedAudio>,
 ) -> Result<RenderedAudio, RenderError>
 where
     P: InstrumentProcessor,
@@ -662,6 +768,8 @@ where
     let mut offset = 0_usize;
     let mut event_index = 0_usize;
     let mut block_events = Vec::with_capacity(events.len());
+    let mut input_left_scratch = vec![0.0_f32; request.block_size];
+    let mut input_right_scratch = vec![0.0_f32; request.block_size];
     while offset < total_frames_usize {
         let next_observation = observation_boundaries.get(observation_index).copied();
         let next_tempo_frame = timeline
@@ -697,6 +805,30 @@ where
             event_index += 1;
         }
         {
+            for index in 0..frames {
+                let source_frame = offset + index;
+                let (left, right) = external_audio.map_or((0.0, 0.0), |audio| {
+                    prepared_audio_stereo_sample(audio, source_frame)
+                });
+                match input_channels {
+                    0 => {}
+                    1 => input_left_scratch[index] = (left + right) * 0.5,
+                    2 => {
+                        input_left_scratch[index] = left;
+                        input_right_scratch[index] = right;
+                    }
+                    actual => {
+                        return Err(RenderError::Process(ProcessError::InvalidInputChannels {
+                            actual,
+                        }));
+                    }
+                }
+            }
+            let input_channels_storage: [&[f32]; 2] = [
+                &input_left_scratch[..frames],
+                &input_right_scratch[..frames],
+            ];
+            let input = &input_channels_storage[..input_channels];
             let (left_channel, right_channel) = audio.channels.split_at_mut(1);
             let mut output: [&mut [f32]; 2] = [
                 &mut left_channel[0][offset..end],
@@ -708,6 +840,7 @@ where
                 frames,
                 context,
                 events: &block_events,
+                input,
                 output: &mut output,
             };
             processor.process(block)?;
@@ -742,6 +875,43 @@ fn validate_render_inputs(
         });
     }
     Ok(total_frames_usize)
+}
+
+fn validate_external_audio(
+    compiled: &CompiledInstrument,
+    sample_rate: f64,
+    external_audio: Option<&PreparedAudio>,
+) -> Result<(), RenderError> {
+    let required = compiled.required_input_channels();
+    match (required, external_audio) {
+        (0, None) => Ok(()),
+        (0, Some(_)) => Err(RenderError::ExternalInputUnused),
+        (_, None) => Err(RenderError::ExternalInputMissing),
+        (_, Some(audio))
+            if audio.sample_rate.total_cmp(&sample_rate) != std::cmp::Ordering::Equal =>
+        {
+            Err(RenderError::ExternalInputSampleRateMismatch)
+        }
+        (_, Some(audio)) if !matches!(audio.channel_count(), 1 | 2) => {
+            Err(RenderError::Process(ProcessError::InvalidInputChannels {
+                actual: audio.channel_count(),
+            }))
+        }
+        (_, Some(_)) => Ok(()),
+    }
+}
+
+fn prepared_audio_stereo_sample(audio: &PreparedAudio, frame: usize) -> (f32, f32) {
+    match &audio.channels {
+        PreparedAudioChannels::Mono { samples } => {
+            let sample = samples.get(frame).copied().unwrap_or(0.0);
+            (sample, sample)
+        }
+        PreparedAudioChannels::Stereo { left, right } => (
+            left.get(frame).copied().unwrap_or(0.0),
+            right.get(frame).copied().unwrap_or(0.0),
+        ),
+    }
 }
 
 #[cfg(test)]

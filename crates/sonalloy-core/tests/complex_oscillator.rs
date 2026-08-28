@@ -59,7 +59,7 @@ fn render(
         definition,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result.instrument.expect("complex oscillator compiles");
@@ -126,7 +126,7 @@ fn wavefold_keeps_existing_backends_and_amounts_use_the_normalized_range() {
         &value,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec"),
         },
     )
     .instrument
@@ -161,7 +161,7 @@ fn wavefold_keeps_existing_backends_and_amounts_use_the_normalized_range() {
         &hard_sync,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec"),
         },
     )
     .instrument
@@ -231,7 +231,7 @@ fn compile_binds_complex_parameters_and_phase_domain_limits() {
         &value,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result.instrument.expect("complex oscillator compiles");
@@ -286,7 +286,7 @@ fn complex_runtime_is_finite_stereo_and_parameter_sweeps_render() {
         &value,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     )
     .instrument
@@ -430,11 +430,11 @@ fn reset_matches_a_fresh_complex_runtime() {
         &value,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result.instrument.expect("complex oscillator compiles");
-    let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec");
+    let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec");
     let mut runtime = Arc::clone(&instrument).instantiate();
     runtime.prepare(spec).expect("runtime preparation");
     let mut first_left = [0.0_f32; 257];
@@ -454,6 +454,7 @@ fn reset_matches_a_fresh_complex_runtime() {
                 sample_offset: 0,
                 kind: note_on().kind,
             }],
+            input: &[],
             output: &mut output,
         })
         .expect("first process");
@@ -475,6 +476,7 @@ fn reset_matches_a_fresh_complex_runtime() {
                 sample_offset: 0,
                 kind: note_on().kind,
             }],
+            input: &[],
             output: &mut reset_output,
         })
         .expect("reset process");

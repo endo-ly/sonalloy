@@ -20,7 +20,7 @@ use crate::generator_parameters::{
 use crate::parameter::{BUILTIN_SOURCE_IDS, ModulationUnit, is_component_id, is_parameter_id};
 
 /// The Definition schema accepted by the compiler.
-pub const CURRENT_SCHEMA_VERSION: u32 = 4;
+pub const CURRENT_SCHEMA_VERSION: u32 = 5;
 
 const MAX_VOICE_MODULATION_SOURCES: usize = 64;
 const MAX_MSEG_SOURCES: usize = 16;
@@ -40,6 +40,9 @@ pub type LayerId = String;
 pub struct InstrumentDefinition {
     /// Definition schema version.
     pub schema_version: u32,
+    /// External audio bus requirement, when a consumer is configured.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_audio: Option<ExternalAudioInputDefinition>,
     /// Human-readable instrument information.
     pub metadata: InstrumentMetadata,
     /// Polyphony and allocation policy.
@@ -61,6 +64,35 @@ pub struct InstrumentDefinition {
     /// Constant-power layer vector controls.
     #[serde(default)]
     pub vectors: Vec<VectorDefinition>,
+}
+
+/// External audio channel layout required by an instrument.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExternalAudioInputDefinition {
+    /// Required external input channel layout.
+    pub channels: ExternalAudioChannels,
+}
+
+/// Supported external audio channel layouts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExternalAudioChannels {
+    /// One external input channel.
+    Mono,
+    /// Two independent external input channels.
+    Stereo,
+}
+
+impl ExternalAudioChannels {
+    /// Return the number of planar samples required by this layout.
+    #[must_use]
+    pub const fn channel_count(self) -> usize {
+        match self {
+            Self::Mono => 1,
+            Self::Stereo => 2,
+        }
+    }
 }
 
 /// Human-readable instrument information.
@@ -955,6 +987,12 @@ pub enum ProcessorDefinition {
     Convolution(ConvolutionProcessorDefinition),
     /// Stereo-linked self-keyed gate.
     Gate(GateProcessorDefinition),
+    /// Global filter-bank vocoder driven by external audio.
+    Vocoder(VocoderProcessorDefinition),
+    /// Global amplitude-envelope transfer driven by external audio.
+    EnvelopeTransfer(EnvelopeTransferProcessorDefinition),
+    /// Global streaming spectral magnitude morph driven by external audio.
+    SpectralMorph(SpectralMorphProcessorDefinition),
     /// Stereo-linked transient and sustain shaper.
     TransientShaper(TransientShaperProcessorDefinition),
     /// Stereo-linked compressor.
@@ -981,6 +1019,9 @@ impl ProcessorDefinition {
             Self::Reverb(value) => &value.id,
             Self::Convolution(value) => &value.id,
             Self::Gate(value) => &value.id,
+            Self::Vocoder(value) => &value.id,
+            Self::EnvelopeTransfer(value) => &value.id,
+            Self::SpectralMorph(value) => &value.id,
             Self::TransientShaper(value) => &value.id,
             Self::Compressor(value) => &value.id,
             Self::Limiter(value) => &value.id,
@@ -1280,6 +1321,18 @@ pub struct GateProcessorDefinition {
     pub release_ms: f32,
     /// Closed-state attenuation in decibels.
     pub range_db: f32,
+    /// Signal used by the detector.
+    pub detector: DynamicsDetectorDefinition,
+}
+
+/// Signal source used by a dynamics detector.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DynamicsDetectorDefinition {
+    /// Detect the signal currently passing through the processor.
+    SelfSignal,
+    /// Detect the aligned external audio bus.
+    ExternalAudio,
 }
 
 /// Transient and sustain shaping settings.
@@ -1334,6 +1387,56 @@ pub struct CompressorProcessorDefinition {
     pub makeup_gain_db: f32,
     /// Dry/wet mix.
     pub mix: f32,
+    /// Signal used by the detector.
+    pub detector: DynamicsDetectorDefinition,
+}
+
+/// Global fixed-band vocoder settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VocoderProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Analyzer attack time in milliseconds.
+    pub attack_ms: f32,
+    /// Analyzer release time in milliseconds.
+    pub release_ms: f32,
+    /// External modulator gain in decibels.
+    pub modulator_gain_db: f32,
+    /// Wet output gain in decibels.
+    pub output_gain_db: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Global amplitude-envelope transfer settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnvelopeTransferProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Envelope attack time in milliseconds.
+    pub attack_ms: f32,
+    /// Envelope release time in milliseconds.
+    pub release_ms: f32,
+    /// External input gain in decibels.
+    pub input_gain_db: f32,
+    /// Minimum wet gain in decibels.
+    pub floor_db: f32,
+    /// Dry/wet mix.
+    pub mix: f32,
+}
+
+/// Global fixed-size streaming spectral magnitude morph settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpectralMorphProcessorDefinition {
+    /// Stable processor identifier.
+    pub id: String,
+    /// Magnitude interpolation from carrier to external audio.
+    pub morph: f32,
+    /// Output gain in decibels.
+    pub output_gain_db: f32,
 }
 
 /// Stereo-linked limiter processor settings.
@@ -1378,6 +1481,22 @@ pub enum ModulationSourceDefinition {
     SampleHold(SampleHoldDefinition),
     /// Deterministic interpolated random source.
     SmoothRandom(SmoothRandomDefinition),
+    /// Instrument-scoped amplitude envelope of the external audio bus.
+    EnvelopeFollower(EnvelopeFollowerDefinition),
+}
+
+/// External audio envelope follower settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnvelopeFollowerDefinition {
+    /// Stable source identifier.
+    pub id: String,
+    /// Envelope attack time in milliseconds.
+    pub attack_ms: f32,
+    /// Envelope release time in milliseconds.
+    pub release_ms: f32,
+    /// External input gain in decibels.
+    pub input_gain_db: f32,
 }
 
 /// LFO source settings.
@@ -1806,9 +1925,100 @@ impl InstrumentDefinition {
         if let Some(modulation) = &self.modulation {
             validate_modulation(&mut diagnostics, modulation);
         }
+        validate_external_audio_usage(&mut diagnostics, self);
         validate_macros(&mut diagnostics, &self.macros);
         validate_vectors(&mut diagnostics, &self.vectors, &self.layers);
         diagnostics
+    }
+}
+
+#[derive(Default)]
+struct ExternalAudioUsage {
+    followers: usize,
+    vocoders: usize,
+    envelope_transfers: usize,
+    spectral_morphs: usize,
+    external_detectors: usize,
+}
+
+impl ExternalAudioUsage {
+    fn consumer_count(&self) -> usize {
+        self.followers
+            + self.vocoders
+            + self.envelope_transfers
+            + self.spectral_morphs
+            + self.external_detectors
+    }
+}
+
+fn validate_external_audio_usage(
+    diagnostics: &mut Vec<Diagnostic>,
+    definition: &InstrumentDefinition,
+) {
+    let mut usage = ExternalAudioUsage::default();
+    if let Some(modulation) = &definition.modulation {
+        usage.followers = modulation
+            .sources
+            .iter()
+            .filter(|source| matches!(source, ModulationSourceDefinition::EnvelopeFollower(_)))
+            .count();
+    }
+    for processor in definition
+        .voice_processors
+        .iter()
+        .chain(definition.global_processors.iter())
+    {
+        match processor {
+            ProcessorDefinition::Vocoder(_) => usage.vocoders += 1,
+            ProcessorDefinition::EnvelopeTransfer(_) => usage.envelope_transfers += 1,
+            ProcessorDefinition::SpectralMorph(_) => usage.spectral_morphs += 1,
+            ProcessorDefinition::Gate(value)
+                if matches!(value.detector, DynamicsDetectorDefinition::ExternalAudio) =>
+            {
+                usage.external_detectors += 1;
+            }
+            ProcessorDefinition::Compressor(value)
+                if matches!(value.detector, DynamicsDetectorDefinition::ExternalAudio) =>
+            {
+                usage.external_detectors += 1;
+            }
+            _ => {}
+        }
+    }
+    if usage.vocoders > 1 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::GeneratorResourceLimitExceeded,
+                "global processors may contain at most one vocoder processor",
+            )
+            .with_path("global_processors"),
+        );
+    }
+    if usage.spectral_morphs > 1 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::GeneratorResourceLimitExceeded,
+                "global processors may contain at most one spectral_morph processor",
+            )
+            .with_path("global_processors"),
+        );
+    }
+    match (definition.external_audio.is_some(), usage.consumer_count()) {
+        (false, count) if count > 0 => diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::RequiredFieldMissing,
+                "external_audio is required by an external audio consumer",
+            )
+            .with_path("external_audio"),
+        ),
+        (true, 0) => diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::DefinitionError,
+                "external_audio must be used by an external audio consumer",
+            )
+            .with_path("external_audio"),
+        ),
+        _ => {}
     }
 }
 
@@ -1884,9 +2094,15 @@ fn processor_allowed_at(processor: &ProcessorDefinition, placement: ProcessorPla
                 | ProcessorDefinition::Eq(_)
                 | ProcessorDefinition::Formant(_)
                 | ProcessorDefinition::Resonator(_)
-                | ProcessorDefinition::Gate(_)
+                | ProcessorDefinition::Gate(GateProcessorDefinition {
+                    detector: DynamicsDetectorDefinition::SelfSignal,
+                    ..
+                })
                 | ProcessorDefinition::TransientShaper(_)
-                | ProcessorDefinition::Compressor(_)
+                | ProcessorDefinition::Compressor(CompressorProcessorDefinition {
+                    detector: DynamicsDetectorDefinition::SelfSignal,
+                    ..
+                })
                 | ProcessorDefinition::Limiter(_)
         ),
         ProcessorPlacement::Global => matches!(
@@ -1907,6 +2123,9 @@ fn processor_allowed_at(processor: &ProcessorDefinition, placement: ProcessorPla
                 | ProcessorDefinition::TransientShaper(_)
                 | ProcessorDefinition::Compressor(_)
                 | ProcessorDefinition::Limiter(_)
+                | ProcessorDefinition::Vocoder(_)
+                | ProcessorDefinition::EnvelopeTransfer(_)
+                | ProcessorDefinition::SpectralMorph(_)
         ),
     }
 }
@@ -1936,6 +2155,9 @@ fn processor_type_name(processor: &ProcessorDefinition) -> &'static str {
         ProcessorDefinition::Reverb(_) => "reverb",
         ProcessorDefinition::Convolution(_) => "convolution",
         ProcessorDefinition::Gate(_) => "gate",
+        ProcessorDefinition::Vocoder(_) => "vocoder",
+        ProcessorDefinition::EnvelopeTransfer(_) => "envelope_transfer",
+        ProcessorDefinition::SpectralMorph(_) => "spectral_morph",
         ProcessorDefinition::TransientShaper(_) => "transient_shaper",
         ProcessorDefinition::Compressor(_) => "compressor",
         ProcessorDefinition::Limiter(_) => "limiter",
@@ -2450,6 +2672,96 @@ fn validate_processor_values(
                 "range_db must be finite and between -96 and 0 dB",
             );
         }
+        ProcessorDefinition::Vocoder(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.attack_ms"),
+                value.attack_ms,
+                0.1..=100.0,
+                "attack_ms must be finite and between 0.1 and 100 ms",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.release_ms"),
+                value.release_ms,
+                5.0..=1_000.0,
+                "release_ms must be finite and between 5 and 1000 ms",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.modulator_gain_db"),
+                value.modulator_gain_db,
+                -24.0..=24.0,
+                "modulator_gain_db must be finite and between -24 and 24 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.output_gain_db"),
+                value.output_gain_db,
+                -24.0..=24.0,
+                "output_gain_db must be finite and between -24 and 24 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::EnvelopeTransfer(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.attack_ms"),
+                value.attack_ms,
+                0.1..=200.0,
+                "attack_ms must be finite and between 0.1 and 200 ms",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.release_ms"),
+                value.release_ms,
+                1.0..=2_000.0,
+                "release_ms must be finite and between 1 and 2000 ms",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.input_gain_db"),
+                value.input_gain_db,
+                -24.0..=24.0,
+                "input_gain_db must be finite and between -24 and 24 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.floor_db"),
+                value.floor_db,
+                -96.0..=0.0,
+                "floor_db must be finite and between -96 and 0 dB",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.mix"),
+                value.mix,
+                0.0..=1.0,
+                "mix must be finite and between 0 and 1",
+            );
+        }
+        ProcessorDefinition::SpectralMorph(value) => {
+            validate_range(
+                diagnostics,
+                format!("{path}.morph"),
+                value.morph,
+                0.0..=1.0,
+                "morph must be finite and between 0 and 1",
+            );
+            validate_range(
+                diagnostics,
+                format!("{path}.output_gain_db"),
+                value.output_gain_db,
+                -24.0..=24.0,
+                "output_gain_db must be finite and between -24 and 24 dB",
+            );
+        }
         ProcessorDefinition::TransientShaper(value) => {
             validate_range(
                 diagnostics,
@@ -2613,6 +2925,7 @@ fn validate_modulation(diagnostics: &mut Vec<Diagnostic>, modulation: &Modulatio
     validate_modulation_routes(diagnostics, modulation);
 }
 
+#[allow(clippy::too_many_lines)]
 fn validate_modulation_sources(
     diagnostics: &mut Vec<Diagnostic>,
     modulation: &ModulationDefinition,
@@ -2702,6 +3015,29 @@ fn validate_modulation_sources(
                     value.rate,
                 );
             }
+            ModulationSourceDefinition::EnvelopeFollower(value) => {
+                validate_range(
+                    diagnostics,
+                    format!("modulation.sources[{index}].attack_ms"),
+                    value.attack_ms,
+                    0.1..=200.0,
+                    "envelope follower attack_ms must be finite and between 0.1 and 200 ms",
+                );
+                validate_range(
+                    diagnostics,
+                    format!("modulation.sources[{index}].release_ms"),
+                    value.release_ms,
+                    1.0..=2_000.0,
+                    "envelope follower release_ms must be finite and between 1 and 2000 ms",
+                );
+                validate_range(
+                    diagnostics,
+                    format!("modulation.sources[{index}].input_gain_db"),
+                    value.input_gain_db,
+                    -24.0..=24.0,
+                    "envelope follower input_gain_db must be finite and between -24 and 24 dB",
+                );
+            }
         }
     }
     validate_modulation_source_limits(
@@ -2787,6 +3123,7 @@ fn source_id(source: &ModulationSourceDefinition) -> &str {
         ModulationSourceDefinition::Step(value) => &value.id,
         ModulationSourceDefinition::SampleHold(value) => &value.id,
         ModulationSourceDefinition::SmoothRandom(value) => &value.id,
+        ModulationSourceDefinition::EnvelopeFollower(value) => &value.id,
     }
 }
 
@@ -4559,6 +4896,7 @@ pub(crate) mod tests {
     pub(crate) fn definition() -> InstrumentDefinition {
         InstrumentDefinition {
             schema_version: CURRENT_SCHEMA_VERSION,
+            external_audio: None,
             metadata: InstrumentMetadata {
                 name: "Test".to_owned(),
                 author: None,
@@ -4840,6 +5178,7 @@ pub(crate) mod tests {
                 hold_ms: 35.0,
                 release_ms: 90.0,
                 range_db: -72.0,
+                detector: crate::definition::DynamicsDetectorDefinition::SelfSignal,
             }),
             ProcessorDefinition::TransientShaper(TransientShaperProcessorDefinition {
                 id: "shape".to_owned(),
@@ -5007,7 +5346,39 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn schema_four_rejects_the_old_delay_shape() {
+    fn external_audio_requires_a_declared_and_used_bus() {
+        let transfer = ProcessorDefinition::EnvelopeTransfer(EnvelopeTransferProcessorDefinition {
+            id: "transfer".to_owned(),
+            attack_ms: 2.0,
+            release_ms: 120.0,
+            input_gain_db: 0.0,
+            floor_db: -72.0,
+            mix: 1.0,
+        });
+
+        let mut missing_bus = definition();
+        missing_bus.global_processors = vec![transfer.clone()];
+        assert!(missing_bus.validate().iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::RequiredFieldMissing
+                && diagnostic.path.as_deref() == Some("external_audio")
+        }));
+
+        let mut unused_bus = definition();
+        unused_bus.external_audio = Some(ExternalAudioInputDefinition {
+            channels: ExternalAudioChannels::Mono,
+        });
+        assert!(unused_bus.validate().iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::DefinitionError
+                && diagnostic.path.as_deref() == Some("external_audio")
+        }));
+
+        let mut used_bus = unused_bus;
+        used_bus.global_processors = vec![transfer];
+        assert!(used_bus.validate().is_empty());
+    }
+
+    #[test]
+    fn schema_rejects_the_old_delay_shape() {
         let mut value = serde_json::to_value(definition()).expect("definition serializes");
         value["global_processors"] = serde_json::json!([{
             "type": "delay",

@@ -1209,6 +1209,91 @@ fn push_processor_descriptors(
                 1.0,
             );
         }
+        ProcessorDefinition::Vocoder(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.modulator_gain_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -24.0,
+                24.0,
+                value.modulator_gain_db,
+                0.010,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.output_gain_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -24.0,
+                24.0,
+                value.output_gain_db,
+                0.010,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.010,
+                1.0,
+            );
+        }
+        ProcessorDefinition::EnvelopeTransfer(value) => {
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.input_gain_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -24.0,
+                24.0,
+                value.input_gain_db,
+                0.010,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.floor_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -96.0,
+                0.0,
+                value.floor_db,
+                0.010,
+            );
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.mix"),
+                owner,
+                value.mix,
+                0.010,
+                1.0,
+            );
+        }
+        ProcessorDefinition::SpectralMorph(value) => {
+            push_normalized_descriptor(
+                descriptors,
+                format!("{base}.morph"),
+                owner,
+                value.morph,
+                0.020,
+                1.0,
+            );
+            push_processor_descriptor(
+                descriptors,
+                format!("{base}.output_gain_db"),
+                owner,
+                ParameterUnit::Decibels,
+                ParameterScale::Linear,
+                -24.0,
+                24.0,
+                value.output_gain_db,
+                0.010,
+            );
+        }
         ProcessorDefinition::Gate(value) => {
             push_processor_descriptor(
                 descriptors,
@@ -1554,6 +1639,10 @@ fn is_processor_parameter(value: &str) -> bool {
             | "makeup_gain_db"
             | "ceiling_db"
             | "input_gain_db"
+            | "modulator_gain_db"
+            | "output_gain_db"
+            | "floor_db"
+            | "morph"
     )
 }
 

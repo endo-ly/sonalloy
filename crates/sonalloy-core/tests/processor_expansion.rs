@@ -40,7 +40,7 @@ fn compile(
         definition,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(sample_rate, block_size, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(sample_rate, block_size, 0, 2).expect("valid spec"),
         },
     );
     assert!(
@@ -162,7 +162,7 @@ fn processor_definitions_round_trip_and_reject_unknown_fields() {
         serde_json::json!({
             "type": "compressor", "id": "compressor", "threshold_db": -18.0,
             "ratio": 4.0, "attack_ms": 15.0, "release_ms": 180.0, "knee_db": 6.0,
-            "makeup_gain_db": 2.0, "mix": 1.0
+            "makeup_gain_db": 2.0, "mix": 1.0, "detector": "self_signal"
         }),
         serde_json::json!({
             "type": "limiter", "id": "limiter", "ceiling_db": -1.0,
@@ -281,6 +281,7 @@ fn all_processor_scopes_compile_with_stable_parameter_ids() {
             knee_db: 6.0,
             makeup_gain_db: 2.0,
             mix: 1.0,
+            detector: sonalloy_core::DynamicsDetectorDefinition::SelfSignal,
         }),
         ProcessorDefinition::Limiter(LimiterProcessorDefinition {
             id: "voice_ceiling".to_owned(),
@@ -338,6 +339,7 @@ fn all_processor_scopes_compile_with_stable_parameter_ids() {
             knee_db: 6.0,
             makeup_gain_db: 2.0,
             mix: 1.0,
+            detector: sonalloy_core::DynamicsDetectorDefinition::SelfSignal,
         }),
         ProcessorDefinition::Limiter(LimiterProcessorDefinition {
             id: "ceiling".to_owned(),
@@ -536,6 +538,7 @@ fn processor_parameter_changes_and_global_modulation_are_block_size_independent(
             knee_db: 6.0,
             makeup_gain_db: 0.0,
             mix: 1.0,
+            detector: sonalloy_core::DynamicsDetectorDefinition::SelfSignal,
         },
     )];
     definition.global_processors = vec![ProcessorDefinition::Chorus(ChorusProcessorDefinition {
@@ -704,6 +707,7 @@ fn processor_expansion_reset_matches_a_fresh_runtime() {
             knee_db: 6.0,
             makeup_gain_db: 2.0,
             mix: 1.0,
+            detector: sonalloy_core::DynamicsDetectorDefinition::SelfSignal,
         }),
         ProcessorDefinition::Limiter(LimiterProcessorDefinition {
             id: "limiter".to_owned(),
@@ -713,7 +717,7 @@ fn processor_expansion_reset_matches_a_fresh_runtime() {
         }),
     ];
     let compiled = compile(&definition, 48_000.0, 257);
-    let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid spec");
+    let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec");
     let event = [sonalloy_core::ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {
@@ -738,6 +742,7 @@ fn processor_expansion_reset_matches_a_fresh_runtime() {
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: &event,
+            input: &[],
             output: &mut first_output,
         })
         .expect("first process");
@@ -756,6 +761,7 @@ fn processor_expansion_reset_matches_a_fresh_runtime() {
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: &event,
+            input: &[],
             output: &mut reset_output,
         })
         .expect("reset process");

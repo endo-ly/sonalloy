@@ -99,7 +99,7 @@ def instrument(
     modulation: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "metadata": {
             "name": name,
             "author": "Sonalloy",

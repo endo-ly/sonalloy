@@ -88,7 +88,7 @@ fn compile(
         definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec"),
         },
     );
     result.instrument.expect("Granular Definition compiles")
@@ -140,6 +140,7 @@ fn process_runtime(
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
+            input: &[],
             output: &mut output,
         })
         .expect("Granular process succeeds");
@@ -255,7 +256,7 @@ fn granular_region_outside_prepared_asset_is_rejected_at_compile() {
         &definition,
         &sonalloy_core::CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     assert!(result.instrument.is_none());
@@ -282,7 +283,7 @@ fn granular_missing_asset_does_not_disable_other_layers() {
     let compiled = compile(&definition, base_dir, 257);
     let mut runtime = compiled.instantiate();
     runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("unavailable Granular layer does not prevent prepare");
     let audio = process_runtime(
         &mut runtime,
@@ -310,7 +311,7 @@ fn granular_reset_restarts_the_same_render() {
     let compiled = compile(&definition, base_dir, 257);
     let mut runtime = compiled.instantiate();
     runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("Granular runtime prepares");
     let event = [ProcessEvent {
         sample_offset: 0,
@@ -345,7 +346,7 @@ fn granular_voice_stealing_restarts_grain_state() {
     let compiled = compile(&definition, base_dir, 257);
     let mut stolen = compiled.instantiate();
     let mut direct = compiled.instantiate();
-    let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec");
+    let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec");
     stolen.prepare(spec).expect("stolen runtime prepares");
     direct.prepare(spec).expect("direct runtime prepares");
     let first_note = [ProcessEvent {

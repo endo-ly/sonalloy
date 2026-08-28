@@ -109,7 +109,7 @@ def sequence_definition(
     steps: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "metadata": {
             "name": name,
             "author": "Sonalloy",
@@ -169,7 +169,7 @@ def sample_zone(assets: dict[str, str], direction: str, start: float, end: float
 
 def hybrid_definition(assets: dict[str, str]) -> dict[str, object]:
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "metadata": {
             "name": "Wave Sequence Hybrid Reference",
             "author": "Sonalloy",

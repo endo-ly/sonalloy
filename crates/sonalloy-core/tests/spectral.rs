@@ -157,7 +157,8 @@ fn compile_at_sample_rate(
         definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(sample_rate, block_size, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(sample_rate, block_size, 0, 2)
+                .expect("valid process spec"),
         },
     );
     result.instrument.expect("Spectral Definition compiles")
@@ -789,7 +790,7 @@ fn spectral_mismatched_asset_b_channels_are_rejected() {
         &definition,
         &CompileContext {
             definition_base_dir: directory.path().to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     assert!(result.instrument.is_none());
@@ -1181,6 +1182,7 @@ fn render_runtime_note(
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: std::slice::from_ref(&event),
+            input: &[],
             output: &mut output,
         })
         .expect("runtime block renders");
@@ -1285,7 +1287,7 @@ fn spectral_hybrid_supports_sixteen_voices_voice_stealing_and_reset_determinism(
     assert_stereo_finite_and_non_silent(&stolen_audio);
 
     let mut runtime = compiled.instantiate();
-    let spec = ProcessSpec::new(48_000.0, 4_096, 2).expect("valid process spec");
+    let spec = ProcessSpec::new(48_000.0, 4_096, 0, 2).expect("valid process spec");
     runtime.prepare(spec).expect("runtime prepares");
     let event = ProcessEvent {
         sample_offset: 0,
@@ -1439,7 +1441,7 @@ fn compile_trace_definition(
         definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     )
     .instrument

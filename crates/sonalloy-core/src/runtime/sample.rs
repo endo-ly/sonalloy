@@ -889,7 +889,7 @@ mod tests {
         tempo_bpm: f64,
     ) -> Vec<f32> {
         let spec =
-            crate::process::ProcessSpec::new(48_000.0, 1_024, 2).expect("valid process spec");
+            crate::process::ProcessSpec::new(48_000.0, 1_024, 0, 2).expect("valid process spec");
         let mut runtime = SampleRuntime::prepared(compiled, spec).expect("stretch runtime");
         runtime
             .start(compiled.zones.first())
@@ -1188,7 +1188,7 @@ mod tests {
         });
         let mut runtime = SampleRuntime::prepared(
             &compiled,
-            crate::process::ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec"),
+            crate::process::ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec"),
         )
         .expect("stretch runtime prepares");
         runtime
@@ -1226,7 +1226,7 @@ mod tests {
         let render_length = |tempo_bpm| {
             let mut runtime = SampleRuntime::prepared(
                 &compiled,
-                crate::process::ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec"),
+                crate::process::ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec"),
             )
             .expect("stretch runtime prepares");
             runtime

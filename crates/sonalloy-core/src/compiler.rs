@@ -11,20 +11,21 @@ use crate::definition::{
     AdditiveDefinition, AdsrDefinition, AssetReference, BitcrusherProcessorDefinition,
     ChorusProcessorDefinition, CompressorProcessorDefinition, ConvolutionProcessorDefinition,
     DelayFeedbackMode, DelayProcessorDefinition, DelayTimeDefinition, DelayTimeUnit,
-    DriveProcessorDefinition, EqProcessorDefinition, FilterModeDefinition,
-    FilterProcessorDefinition, FlangerProcessorDefinition, FormantDefinition,
-    FormantProcessorDefinition, FrequencyShifterProcessorDefinition, GateProcessorDefinition,
-    GeneratorDefinition, GranularDefinition, InstrumentDefinition, LadderFilterProcessorDefinition,
-    LayerTriggerEvent, LfoDefinition, LfoWaveform, LimiterProcessorDefinition, ModalDefinition,
-    ModulationCurve, ModulationDurationUnit, ModulationRateUnit, ModulationSourceDefinition,
-    MsegDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
-    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, PhaserProcessorDefinition,
-    PhysicalExciterDefinition, PhysicalStringDefinition, ProcessorDefinition,
-    ResonatorProcessorDefinition, ReverbProcessorDefinition, SamplePlaybackDirection,
-    SampleTimeDefinition, SampleZoneDefinition, SpectralDefinition,
-    TransientShaperProcessorDefinition, UnisonDefinition, VectorDefinition,
-    VoiceStealingDefinition, WaveSequenceDefinition, WaveSequenceDirection,
-    WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
+    DriveProcessorDefinition, DynamicsDetectorDefinition, EnvelopeTransferProcessorDefinition,
+    EqProcessorDefinition, ExternalAudioChannels, FilterModeDefinition, FilterProcessorDefinition,
+    FlangerProcessorDefinition, FormantDefinition, FormantProcessorDefinition,
+    FrequencyShifterProcessorDefinition, GateProcessorDefinition, GeneratorDefinition,
+    GranularDefinition, InstrumentDefinition, LadderFilterProcessorDefinition, LayerTriggerEvent,
+    LfoDefinition, LfoWaveform, LimiterProcessorDefinition, ModalDefinition, ModulationCurve,
+    ModulationDurationUnit, ModulationRateUnit, ModulationSourceDefinition, MsegDefinition,
+    NoiseColor, OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode,
+    OscillatorDefinition, OscillatorWaveform, PhaserProcessorDefinition, PhysicalExciterDefinition,
+    PhysicalStringDefinition, ProcessorDefinition, ResonatorProcessorDefinition,
+    ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition,
+    SpectralDefinition, SpectralMorphProcessorDefinition, TransientShaperProcessorDefinition,
+    UnisonDefinition, VectorDefinition, VocoderProcessorDefinition, VoiceStealingDefinition,
+    WaveSequenceDefinition, WaveSequenceDirection, WaveSequenceDurationDefinition,
+    WaveSequenceStepPlayback, WavetableDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::generator_parameters::{
@@ -53,6 +54,10 @@ use crate::wavetable::{
 
 const FREQUENCY_SHIFTER_LATENCY_FRAMES: usize = 127;
 const MAX_DELAY_RUNTIME_SECONDS: f32 = 16.0;
+pub const VOCODER_BANDS: usize = 24;
+pub const SPECTRAL_MORPH_FFT_SIZE: usize = 1024;
+pub const SPECTRAL_MORPH_HOP_SIZE: usize = 256;
+pub const SPECTRAL_MORPH_LATENCY_FRAMES: usize = 1024;
 
 /// Input required to compile a Definition for one engine configuration.
 #[derive(Debug, Clone, PartialEq)]
@@ -81,6 +86,8 @@ pub struct CompiledInstrument {
     pub(crate) layer_alignment_latency_frames: usize,
     /// Fixed latency from instrument input events to final output.
     pub reported_latency_frames: usize,
+    /// External audio bus requirement, when present.
+    pub external_audio: Option<CompiledExternalAudioInput>,
     /// Metadata copied from the Definition.
     pub metadata: CompiledMetadata,
     /// Compiled performance settings.
@@ -168,6 +175,20 @@ impl CompiledInstrument {
         let end = range.start.checked_add(range.len)?;
         self.routes.get(range.start..end)
     }
+
+    /// Return the number of external input channels required by this instrument.
+    #[must_use]
+    pub fn required_input_channels(&self) -> usize {
+        self.external_audio
+            .map_or(0, |input| input.channels.channel_count())
+    }
+}
+
+/// Compiled external input channel requirement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledExternalAudioInput {
+    /// Required input layout.
+    pub channels: ExternalAudioChannels,
 }
 
 /// Compiled metadata.
@@ -1339,8 +1360,87 @@ pub struct CompiledGateProcessor {
     pub hold_frames: usize,
     /// Release coefficient.
     pub release_coeff: f32,
+    /// Detector source.
+    pub detector: CompiledDynamicsDetector,
+    /// External input delay required to match the carrier timeline.
+    pub external_input_alignment_frames: usize,
     /// Dynamic parameter bindings.
     pub parameters: CompiledGateParameters,
+}
+
+/// Compiled signal source used by a dynamics detector.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompiledDynamicsDetector {
+    /// Detect the processor carrier.
+    SelfSignal,
+    /// Detect aligned external audio.
+    ExternalAudio,
+}
+
+/// Dynamic parameters used by a vocoder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledVocoderParameters {
+    /// Modulator gain handle.
+    pub modulator_gain_db: ParameterHandle,
+    /// Wet output gain handle.
+    pub output_gain_db: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled fixed-band vocoder.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledVocoderProcessor {
+    /// Analyzer attack coefficient.
+    pub attack_coeff: f32,
+    /// Analyzer release coefficient.
+    pub release_coeff: f32,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledVocoderParameters,
+    /// External input delay required to match the carrier timeline.
+    pub external_input_alignment_frames: usize,
+}
+
+/// Dynamic parameters used by envelope transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledEnvelopeTransferParameters {
+    /// External input gain handle.
+    pub input_gain_db: ParameterHandle,
+    /// Minimum gain handle.
+    pub floor_db: ParameterHandle,
+    /// Dry/wet mix handle.
+    pub mix: ParameterHandle,
+}
+
+/// Compiled amplitude-envelope transfer.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledEnvelopeTransferProcessor {
+    /// Detector attack coefficient.
+    pub attack_coeff: f32,
+    /// Detector release coefficient.
+    pub release_coeff: f32,
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledEnvelopeTransferParameters,
+    /// External input delay required to match the carrier timeline.
+    pub external_input_alignment_frames: usize,
+}
+
+/// Dynamic parameters used by spectral morph.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledSpectralMorphParameters {
+    /// Magnitude morph handle.
+    pub morph: ParameterHandle,
+    /// Output gain handle.
+    pub output_gain_db: ParameterHandle,
+}
+
+/// Compiled streaming spectral magnitude morph.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledSpectralMorphProcessor {
+    /// Dynamic parameter bindings.
+    pub parameters: CompiledSpectralMorphParameters,
+    /// External input delay required to match the carrier timeline.
+    pub external_input_alignment_frames: usize,
 }
 
 /// Dynamic parameter handles used by a transient shaper.
@@ -1462,6 +1562,10 @@ pub struct CompiledCompressorProcessor {
     pub release_coeff: f32,
     /// Soft-knee width.
     pub knee_db: f32,
+    /// Detector source.
+    pub detector: CompiledDynamicsDetector,
+    /// External input delay required to match the carrier timeline.
+    pub external_input_alignment_frames: usize,
     /// Dynamic parameter bindings.
     pub parameters: CompiledCompressorParameters,
 }
@@ -1612,6 +1716,12 @@ pub enum CompiledProcessorKind {
     Convolution(CompiledConvolutionProcessor),
     /// Stereo-linked gate processor.
     Gate(CompiledGateProcessor),
+    /// Fixed-band external-audio vocoder.
+    Vocoder(CompiledVocoderProcessor),
+    /// External amplitude-envelope transfer.
+    EnvelopeTransfer(CompiledEnvelopeTransferProcessor),
+    /// Streaming external spectral morph.
+    SpectralMorph(CompiledSpectralMorphProcessor),
     /// Transient shaper processor.
     TransientShaper(CompiledTransientShaperProcessor),
     /// Stereo-linked compressor processor.
@@ -1627,6 +1737,7 @@ impl CompiledProcessorKind {
         match self {
             Self::FrequencyShifter(value) => value.latency_frames,
             Self::Convolution(value) => value.latency_frames,
+            Self::SpectralMorph(_) => SPECTRAL_MORPH_LATENCY_FRAMES,
             Self::Filter(_)
             | Self::LadderFilter(_)
             | Self::Drive(_)
@@ -1640,6 +1751,8 @@ impl CompiledProcessorKind {
             | Self::Delay(_)
             | Self::Reverb(_)
             | Self::Gate(_)
+            | Self::Vocoder(_)
+            | Self::EnvelopeTransfer(_)
             | Self::TransientShaper(_)
             | Self::Compressor(_)
             | Self::Limiter(_) => 0,
@@ -1803,8 +1916,17 @@ pub struct CompiledSmoothRandom {
 }
 
 /// Compiled instrument-scoped source.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CompiledInstrumentSource {
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompiledInstrumentSource {
+    /// Stable source identifier.
+    pub id: String,
+    /// Compiled source behavior.
+    pub source: CompiledInstrumentSourceKind,
+}
+
+/// Compiled instrument-scoped source behavior.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CompiledInstrumentSourceKind {
     /// Shared pitch bend.
     PitchBend,
     /// Shared modulation wheel.
@@ -1817,6 +1939,19 @@ pub enum CompiledInstrumentSource {
     BeatPhase,
     /// Transport bar phase.
     BarPhase,
+    /// Shared external amplitude envelope.
+    EnvelopeFollower(CompiledEnvelopeFollower),
+}
+
+/// Sample-rate-specific envelope follower settings.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CompiledEnvelopeFollower {
+    /// Attack coefficient.
+    pub attack_coeff: f32,
+    /// Release coefficient.
+    pub release_coeff: f32,
+    /// Input gain in linear amplitude.
+    pub input_gain_linear: f32,
 }
 
 /// A source reference in a compiled route.
@@ -1889,6 +2024,20 @@ pub fn compile_instrument(
         diagnostics.push(
             Diagnostic::error(DiagnosticCode::CompileError, error.to_string())
                 .with_path("process_spec"),
+        );
+    }
+    let required_input_channels = definition
+        .external_audio
+        .map_or(0, |external_audio| external_audio.channels.channel_count());
+    if context.process_spec.input_channels != required_input_channels {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::CompileError,
+                format!(
+                    "process spec input channel count must be {required_input_channels} for this instrument"
+                ),
+            )
+            .with_path("process_spec.input_channels"),
         );
     }
     if has_errors(&diagnostics) {
@@ -1983,7 +2132,7 @@ pub fn compile_instrument(
         &mut asset_cache,
         &mut diagnostics,
     );
-    let global_processors = compile_processor_chain(
+    let mut global_processors = compile_processor_chain(
         &definition.global_processors,
         ProcessorPlacement::Global,
         None,
@@ -2015,6 +2164,10 @@ pub fn compile_instrument(
         .max()
         .unwrap_or(0);
     let voice_processor_latency = processor_chain_latency(&voice_processors);
+    assign_external_input_alignment(
+        &mut global_processors,
+        layer_alignment_latency_frames.saturating_add(voice_processor_latency),
+    );
     let global_processor_latency = processor_chain_latency(&global_processors);
     let effective_parameter_maxima = effective_parameter_maxima(
         &parameter_catalog,
@@ -2029,6 +2182,11 @@ pub fn compile_instrument(
         reported_latency_frames: layer_alignment_latency_frames
             .saturating_add(voice_processor_latency)
             .saturating_add(global_processor_latency),
+        external_audio: definition.external_audio.map(|external_audio| {
+            CompiledExternalAudioInput {
+                channels: external_audio.channels,
+            }
+        }),
         metadata: CompiledMetadata {
             name: definition.metadata.name.clone(),
             author: definition.metadata.author.clone(),
@@ -2064,6 +2222,38 @@ fn processor_chain_latency(processors: &[CompiledProcessor]) -> usize {
     processors.iter().fold(0, |total, processor| {
         total.saturating_add(processor.processor.intrinsic_latency_frames())
     })
+}
+
+fn assign_external_input_alignment(
+    processors: &mut [CompiledProcessor],
+    mut preceding_latency_frames: usize,
+) {
+    for processor in processors {
+        match &mut processor.processor {
+            CompiledProcessorKind::Gate(value)
+                if value.detector == CompiledDynamicsDetector::ExternalAudio =>
+            {
+                value.external_input_alignment_frames = preceding_latency_frames;
+            }
+            CompiledProcessorKind::Compressor(value)
+                if value.detector == CompiledDynamicsDetector::ExternalAudio =>
+            {
+                value.external_input_alignment_frames = preceding_latency_frames;
+            }
+            CompiledProcessorKind::Vocoder(value) => {
+                value.external_input_alignment_frames = preceding_latency_frames;
+            }
+            CompiledProcessorKind::EnvelopeTransfer(value) => {
+                value.external_input_alignment_frames = preceding_latency_frames;
+            }
+            CompiledProcessorKind::SpectralMorph(value) => {
+                value.external_input_alignment_frames = preceding_latency_frames;
+            }
+            _ => {}
+        }
+        preceding_latency_frames =
+            preceding_latency_frames.saturating_add(processor.processor.intrinsic_latency_frames());
+    }
 }
 
 fn compile_performance(
@@ -2378,6 +2568,15 @@ fn compile_processor(
         ),
         ProcessorDefinition::Gate(value) => {
             compile_gate_processor(value, placement, layer_id, catalog, sample_rate)
+        }
+        ProcessorDefinition::Vocoder(value) => {
+            compile_vocoder_processor(value, placement, layer_id, catalog, sample_rate)
+        }
+        ProcessorDefinition::EnvelopeTransfer(value) => {
+            compile_envelope_transfer_processor(value, placement, layer_id, catalog, sample_rate)
+        }
+        ProcessorDefinition::SpectralMorph(value) => {
+            compile_spectral_morph_processor(value, placement, layer_id, catalog)
         }
         ProcessorDefinition::TransientShaper(value) => {
             compile_transient_shaper_processor(value, placement, layer_id, catalog, sample_rate)
@@ -2806,6 +3005,8 @@ fn compile_compressor_processor(
         attack_coeff: time_constant_coefficient(attack_seconds, sample_rate),
         release_coeff: time_constant_coefficient(release_seconds, sample_rate),
         knee_db: value.knee_db,
+        detector: compile_detector(value.detector),
+        external_input_alignment_frames: 0,
         parameters: CompiledCompressorParameters {
             threshold_db: processor_parameter_handle(
                 catalog,
@@ -3016,6 +3217,8 @@ fn compile_gate_processor(
         attack_coeff: time_constant_coefficient(value.attack_ms / 1_000.0, sample_rate),
         hold_frames: duration_to_frames(value.hold_ms / 1_000.0, sample_rate),
         release_coeff: time_constant_coefficient(value.release_ms / 1_000.0, sample_rate),
+        detector: compile_detector(value.detector),
+        external_input_alignment_frames: 0,
         parameters: CompiledGateParameters {
             threshold_db: processor_parameter_handle(
                 catalog,
@@ -3028,6 +3231,92 @@ fn compile_gate_processor(
                 catalog, placement, layer_id, &value.id, "range_db",
             ),
         },
+    })
+}
+
+fn compile_detector(detector: DynamicsDetectorDefinition) -> CompiledDynamicsDetector {
+    match detector {
+        DynamicsDetectorDefinition::SelfSignal => CompiledDynamicsDetector::SelfSignal,
+        DynamicsDetectorDefinition::ExternalAudio => CompiledDynamicsDetector::ExternalAudio,
+    }
+}
+
+fn compile_vocoder_processor(
+    value: &VocoderProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+) -> CompiledProcessorKind {
+    CompiledProcessorKind::Vocoder(CompiledVocoderProcessor {
+        attack_coeff: time_constant_coefficient(value.attack_ms / 1_000.0, sample_rate),
+        release_coeff: time_constant_coefficient(value.release_ms / 1_000.0, sample_rate),
+        parameters: CompiledVocoderParameters {
+            modulator_gain_db: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "modulator_gain_db",
+            ),
+            output_gain_db: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "output_gain_db",
+            ),
+            mix: processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix"),
+        },
+        external_input_alignment_frames: 0,
+    })
+}
+
+fn compile_envelope_transfer_processor(
+    value: &EnvelopeTransferProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+    sample_rate: f64,
+) -> CompiledProcessorKind {
+    CompiledProcessorKind::EnvelopeTransfer(CompiledEnvelopeTransferProcessor {
+        attack_coeff: time_constant_coefficient(value.attack_ms / 1_000.0, sample_rate),
+        release_coeff: time_constant_coefficient(value.release_ms / 1_000.0, sample_rate),
+        parameters: CompiledEnvelopeTransferParameters {
+            input_gain_db: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "input_gain_db",
+            ),
+            floor_db: processor_parameter_handle(
+                catalog, placement, layer_id, &value.id, "floor_db",
+            ),
+            mix: processor_parameter_handle(catalog, placement, layer_id, &value.id, "mix"),
+        },
+        external_input_alignment_frames: 0,
+    })
+}
+
+fn compile_spectral_morph_processor(
+    value: &SpectralMorphProcessorDefinition,
+    placement: ProcessorPlacement,
+    layer_id: Option<&str>,
+    catalog: &ParameterCatalog,
+) -> CompiledProcessorKind {
+    CompiledProcessorKind::SpectralMorph(CompiledSpectralMorphProcessor {
+        parameters: CompiledSpectralMorphParameters {
+            morph: processor_parameter_handle(catalog, placement, layer_id, &value.id, "morph"),
+            output_gain_db: processor_parameter_handle(
+                catalog,
+                placement,
+                layer_id,
+                &value.id,
+                "output_gain_db",
+            ),
+        },
+        external_input_alignment_frames: 0,
     })
 }
 
@@ -3294,6 +3583,9 @@ fn compile_modulation(
     }
     if let Some(modulation) = &definition.modulation {
         for (source_index, source) in modulation.sources.iter().enumerate() {
+            if matches!(source, ModulationSourceDefinition::EnvelopeFollower(_)) {
+                continue;
+            }
             let compiled = match source {
                 ModulationSourceDefinition::Lfo(value) => {
                     CompiledVoiceSource::Lfo(compile_lfo(value))
@@ -3346,6 +3638,7 @@ fn compile_modulation(
                         rate_unit: value.rate.unit,
                     })
                 }
+                ModulationSourceDefinition::EnvelopeFollower(_) => continue,
             };
             let handle = SourceHandle(sources.len());
             source_lookup.insert(source_id(source).to_owned(), handle);
@@ -3381,6 +3674,7 @@ fn compile_modulation(
                     &mut instrument_sources,
                     &mut instrument_lookup,
                     index,
+                    sample_rate,
                     diagnostics,
                 )
             };
@@ -3495,6 +3789,7 @@ fn source_id(source: &ModulationSourceDefinition) -> &str {
         ModulationSourceDefinition::Step(value) => &value.id,
         ModulationSourceDefinition::SampleHold(value) => &value.id,
         ModulationSourceDefinition::SmoothRandom(value) => &value.id,
+        ModulationSourceDefinition::EnvelopeFollower(value) => &value.id,
     }
 }
 
@@ -3536,6 +3831,7 @@ fn compile_mseg(value: &MsegDefinition) -> CompiledMseg {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn instrument_source_ref(
     id: &str,
     definition: &InstrumentDefinition,
@@ -3543,45 +3839,77 @@ fn instrument_source_ref(
     sources: &mut Vec<CompiledInstrumentSource>,
     lookup: &mut HashMap<String, InstrumentSourceHandle>,
     route_index: usize,
+    sample_rate: f64,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<CompiledSourceRef> {
     if let Some(handle) = lookup.get(id).copied() {
         return Some(CompiledSourceRef::Instrument(handle));
     }
     let source = match id {
-        "pitch_bend" => CompiledInstrumentSource::PitchBend,
-        "mod_wheel" => CompiledInstrumentSource::ModWheel,
-        "aftertouch" => CompiledInstrumentSource::Aftertouch,
-        "transport_beat_phase" => CompiledInstrumentSource::BeatPhase,
-        "transport_bar_phase" => CompiledInstrumentSource::BarPhase,
+        "pitch_bend" => CompiledInstrumentSourceKind::PitchBend,
+        "mod_wheel" => CompiledInstrumentSourceKind::ModWheel,
+        "aftertouch" => CompiledInstrumentSourceKind::Aftertouch,
+        "transport_beat_phase" => CompiledInstrumentSourceKind::BeatPhase,
+        "transport_bar_phase" => CompiledInstrumentSourceKind::BarPhase,
         _ => {
-            let macro_id = id.strip_prefix("macro.")?;
-            let Some(parameter) = catalog.parameter_handle(id) else {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::SourceNotFound,
-                        "instrument source is not defined",
-                    )
-                    .with_path(format!("modulation.routes[{route_index}].source")),
-                );
-                return None;
-            };
-            if !definition.macros.iter().any(|value| value.id == macro_id) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::SourceNotFound,
-                        "macro source is not defined",
-                    )
-                    .with_path(format!("modulation.routes[{route_index}].source")),
-                );
-                return None;
+            let follower = definition.modulation.as_ref().and_then(|modulation| {
+                modulation.sources.iter().find_map(|source| match source {
+                    ModulationSourceDefinition::EnvelopeFollower(value) if value.id == id => {
+                        Some(value)
+                    }
+                    _ => None,
+                })
+            });
+            if let Some(value) = follower {
+                CompiledInstrumentSourceKind::EnvelopeFollower(CompiledEnvelopeFollower {
+                    attack_coeff: time_constant_coefficient(value.attack_ms / 1_000.0, sample_rate),
+                    release_coeff: time_constant_coefficient(
+                        value.release_ms / 1_000.0,
+                        sample_rate,
+                    ),
+                    input_gain_linear: db_to_linear(value.input_gain_db),
+                })
+            } else {
+                let Some(macro_id) = id.strip_prefix("macro.") else {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::SourceNotFound,
+                            "instrument source is not defined",
+                        )
+                        .with_path(format!("modulation.routes[{route_index}].source")),
+                    );
+                    return None;
+                };
+                let Some(parameter) = catalog.parameter_handle(id) else {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::SourceNotFound,
+                            "instrument source is not defined",
+                        )
+                        .with_path(format!("modulation.routes[{route_index}].source")),
+                    );
+                    return None;
+                };
+                if !definition.macros.iter().any(|value| value.id == macro_id) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::SourceNotFound,
+                            "macro source is not defined",
+                        )
+                        .with_path(format!("modulation.routes[{route_index}].source")),
+                    );
+                    return None;
+                }
+                CompiledInstrumentSourceKind::Macro { parameter }
             }
-            CompiledInstrumentSource::Macro { parameter }
         }
     };
     let handle = InstrumentSourceHandle(sources.len());
     lookup.insert(id.to_owned(), handle);
-    sources.push(source);
+    sources.push(CompiledInstrumentSource {
+        id: id.to_owned(),
+        source,
+    });
     Some(CompiledSourceRef::Instrument(handle))
 }
 
@@ -5353,7 +5681,7 @@ mod tests {
     fn context() -> CompileContext {
         CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
         }
     }
 
@@ -5481,7 +5809,7 @@ mod tests {
             },
         ));
         let low_rate = CompileContext {
-            process_spec: ProcessSpec::new(22_050.0, 257, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(22_050.0, 257, 0, 2).expect("valid spec"),
             ..context()
         };
         let result = compile_instrument(&source, &low_rate);
@@ -5589,6 +5917,7 @@ mod tests {
                 hold_ms: 35.0,
                 release_ms: 90.0,
                 range_db: -72.0,
+                detector: crate::definition::DynamicsDetectorDefinition::SelfSignal,
             }),
             ProcessorDefinition::TransientShaper(TransientShaperProcessorDefinition {
                 id: "shape".to_owned(),
@@ -5692,7 +6021,7 @@ mod tests {
                 mix: 0.3,
             }));
         let context = CompileContext {
-            process_spec: ProcessSpec::new(29_761.0, 257, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(29_761.0, 257, 0, 2).expect("valid spec"),
             ..context()
         };
 
@@ -6123,12 +6452,13 @@ mod tests {
             compiled
                 .instrument_sources
                 .iter()
-                .any(|source| matches!(source, CompiledInstrumentSource::Macro { .. }))
+                .any(|source| matches!(&source.source, CompiledInstrumentSourceKind::Macro { .. }))
         );
         assert!(
             compiled
                 .instrument_sources
-                .contains(&CompiledInstrumentSource::BeatPhase)
+                .iter()
+                .any(|source| matches!(&source.source, CompiledInstrumentSourceKind::BeatPhase))
         );
         assert_eq!(compiled.routes.len(), 2);
     }

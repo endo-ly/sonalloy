@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn modal_is_finite_and_reset_repeats() {
-        let spec = ProcessSpec::new(48_000.0, 257, 2).expect("spec");
+        let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("spec");
         let mut runtime = ModalRuntime::new(&compiled(), spec).expect("runtime");
         runtime.start(3).expect("start");
         let targets = LayerGeneratorTargetSpan::Modal {
@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn modal_rejects_frequency_outside_the_physical_contract() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("spec");
         let mut runtime = ModalRuntime::new(&compiled(), spec).expect("runtime");
         runtime.start(3).expect("start");
         let targets = LayerGeneratorTargetSpan::Modal {

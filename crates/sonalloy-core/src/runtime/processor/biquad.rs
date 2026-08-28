@@ -1,22 +1,22 @@
 use crate::process::{ProcessError, ProcessorFailureKind};
 
 #[derive(Clone, Copy)]
-pub(super) struct BiquadCoefficients {
-    pub(super) b0: f32,
-    pub(super) b1: f32,
-    pub(super) b2: f32,
-    pub(super) a1: f32,
-    pub(super) a2: f32,
+pub(crate) struct BiquadCoefficients {
+    pub(crate) b0: f32,
+    pub(crate) b1: f32,
+    pub(crate) b2: f32,
+    pub(crate) a1: f32,
+    pub(crate) a2: f32,
 }
 
 #[derive(Clone, Copy, Default)]
-pub(super) struct BiquadState {
+pub(crate) struct BiquadState {
     z1: f32,
     z2: f32,
 }
 
 impl BiquadCoefficients {
-    pub(super) fn band_pass(
+    pub(crate) fn band_pass(
         sample_rate: f32,
         frequency: f32,
         bandwidth: f32,
@@ -39,7 +39,7 @@ impl BiquadCoefficients {
         }
     }
 
-    pub(super) fn is_finite(self) -> bool {
+    pub(crate) fn is_finite(self) -> bool {
         [self.b0, self.b1, self.b2, self.a1, self.a2]
             .into_iter()
             .all(f32::is_finite)
@@ -47,7 +47,7 @@ impl BiquadCoefficients {
 }
 
 impl BiquadState {
-    pub(super) fn process(
+    pub(crate) fn process(
         &mut self,
         coefficients: BiquadCoefficients,
         input: f32,
@@ -65,7 +65,7 @@ impl BiquadState {
         }
     }
 
-    pub(super) fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         *self = Self::default();
     }
 }
