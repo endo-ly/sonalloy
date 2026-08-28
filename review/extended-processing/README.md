@@ -1,6 +1,6 @@
 # Extended Processing Review
 
-Schema 4のProcessor Chainと、固定Latency・Tempo Sync・Asset準備を確認するReview Packageです。Definitionは`definitions/`、演奏Eventは`events/`、Musical Time Patternは`patterns/`、決定的なIRは`assets/`に置きます。
+Schema 5のProcessor Chainと、固定Latency・Tempo Sync・Asset準備を確認するReview Packageです。Definitionは`definitions/`、演奏Eventは`events/`、Musical Time Patternは`patterns/`、決定的なIRは`assets/`に置きます。
 
 ## 生成
 

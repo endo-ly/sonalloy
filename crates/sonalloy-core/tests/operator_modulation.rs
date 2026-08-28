@@ -97,7 +97,7 @@ fn compile(
         definition,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec"),
         },
     );
     assert!(
@@ -517,7 +517,7 @@ fn operator_runtime_reset_restarts_state() {
     let compiled = compile(&definition, 257);
     let mut runtime = compiled.instantiate();
     runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("runtime prepares");
     let events = [ProcessEvent {
         sample_offset: 0,
@@ -542,6 +542,7 @@ fn operator_runtime_reset_restarts_state() {
                     time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &events,
+                input: &[],
                 output: &mut output,
             })
             .expect("process succeeds");
@@ -553,7 +554,7 @@ fn operator_runtime_reset_restarts_state() {
 
     let mut fresh_runtime = compiled.instantiate();
     fresh_runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("fresh runtime prepares");
     let fresh = process_once(&mut fresh_runtime);
 

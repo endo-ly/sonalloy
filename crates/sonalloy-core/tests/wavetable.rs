@@ -108,7 +108,7 @@ fn compile(
         definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec"),
         },
     );
     result.instrument.expect("Wavetable compiles")
@@ -157,7 +157,7 @@ fn wavetable_compiles_band_tables_and_renders_at_the_correct_pitch() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let compiled = result.instrument.expect("Wavetable compiles");
@@ -359,7 +359,7 @@ fn wavetable_frame_warnings_keep_audible_assets_available() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     assert!(result.instrument.is_some());
@@ -416,7 +416,7 @@ fn wavetable_layout_errors_are_compile_errors() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     assert!(result.instrument.is_none());
@@ -442,7 +442,7 @@ fn wavetable_output_is_stable_across_block_sizes_and_reset() {
     }
     let compiled = compile(&definition, base_dir, 257);
     let mut runtime = compiled.instantiate();
-    let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec");
+    let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec");
     runtime.prepare(spec).expect("runtime prepares");
     let mut first_left = vec![0.0; 256];
     let mut first_right = vec![0.0; 256];
@@ -465,6 +465,7 @@ fn wavetable_output_is_stable_across_block_sizes_and_reset() {
                     velocity: 110,
                 },
             }],
+            input: &[],
             output: &mut output,
         })
         .expect("first block renders");
@@ -490,6 +491,7 @@ fn wavetable_output_is_stable_across_block_sizes_and_reset() {
                     velocity: 110,
                 },
             }],
+            input: &[],
             output: &mut reset_output,
         })
         .expect("reset block renders");
@@ -523,7 +525,7 @@ fn missing_wavetable_asset_leaves_other_layers_available() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let compiled = result

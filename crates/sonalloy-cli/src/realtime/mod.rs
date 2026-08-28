@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::sync::mpsc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use cpal::traits::StreamTrait;
 use crossbeam_queue::ArrayQueue;
@@ -22,9 +22,11 @@ mod midi;
 mod scheduled;
 
 pub(crate) const DEFAULT_BUFFER_SIZE: usize = 256;
+const INPUT_STARTUP_DEADLINE: Duration = Duration::from_secs(1);
 
 struct LiveSession {
     _stream: cpal::Stream,
+    _input_stream: Option<cpal::Stream>,
     _midi: MidiInputConnection<midi::LiveMidiState>,
     status: Arc<audio::RealtimeStatus>,
 }
@@ -89,12 +91,22 @@ pub(crate) fn run_play(args: &PlayArgs) -> ExitCode {
         eprintln!("warning: realtime scheduling was denied by the audio backend");
     }
     let xruns = status.xrun_count();
+    let input_underflows = status.input_underflow_count();
+    let input_overflows = status.input_overflow_count();
     if xruns > 0 {
         eprintln!("warning: audio xruns: {xruns}");
+    }
+    if input_underflows > 0 {
+        eprintln!("warning: audio input underruns: {input_underflows}");
+    }
+    if input_overflows > 0 {
+        eprintln!("warning: audio input overflows: {input_overflows}");
     }
     let callback_frames = status.callback_frame_stats();
     println!("Stopped.");
     println!("XRuns: {xruns}");
+    println!("Audio input underruns: {input_underflows}");
+    println!("Audio input overflows: {input_overflows}");
     println!(
         "Realtime priority warning: {}",
         if status.realtime_denied() {
@@ -287,6 +299,7 @@ pub(crate) fn run_audition_pattern(args: &AuditionPatternArgs) -> ExitCode {
         &ScheduledAuditionOptions {
             definition_path: &args.definition,
             audio_device: args.audio_device.as_deref(),
+            audio_input_device: args.audio_input_device.as_deref(),
             requested_sample_rate: args.sample_rate,
             buffer_size: args.buffer_size,
             tail: args.tail,
@@ -330,6 +343,7 @@ pub(crate) fn run_audition_midi(args: &AuditionMidiArgs) -> ExitCode {
         &ScheduledAuditionOptions {
             definition_path: &args.definition,
             audio_device: args.audio_device.as_deref(),
+            audio_input_device: args.audio_input_device.as_deref(),
             requested_sample_rate: args.sample_rate,
             buffer_size: args.buffer_size,
             tail: args.tail,
@@ -372,9 +386,36 @@ fn validate_audition_args(
     }
 }
 
+fn select_audio_input(
+    requested_id: Option<&str>,
+    required_channels: usize,
+    sample_rate: u32,
+    buffer_size: usize,
+) -> Result<Option<device::SelectedAudioInputDevice>, CliFailure> {
+    if required_channels == 0 {
+        if requested_id.is_some() {
+            return Err(CliFailure {
+                code: 2,
+                diagnostics: vec![Diagnostic::error(
+                    DiagnosticCode::AudioDeviceError,
+                    "the instrument does not use external audio input",
+                )],
+            });
+        }
+        return Ok(None);
+    }
+    device::select_audio_input(requested_id, sample_rate, buffer_size, required_channels)
+        .map(Some)
+        .map_err(|error| CliFailure {
+            code: 2,
+            diagnostics: vec![error.diagnostic],
+        })
+}
+
 struct ScheduledAuditionOptions<'a> {
     definition_path: &'a std::path::Path,
     audio_device: Option<&'a str>,
+    audio_input_device: Option<&'a str>,
     requested_sample_rate: Option<u32>,
     buffer_size: usize,
     tail: f64,
@@ -410,6 +451,16 @@ fn run_scheduled_audition(
             Err(failure) => return finish_failure(false, failure),
         };
     diagnostics.extend(compile_diagnostics);
+    let input_channels = compiled.required_input_channels();
+    let selected_input = match select_audio_input(
+        options.audio_input_device,
+        input_channels,
+        sample_rate,
+        options.buffer_size,
+    ) {
+        Ok(input) => input,
+        Err(failure) => return finish_failure(false, failure),
+    };
     let compiled_pattern = match crate::pattern::compile(pattern, &compiled, f64::from(sample_rate))
     {
         Ok(pattern) => pattern,
@@ -463,7 +514,12 @@ fn run_scheduled_audition(
             );
         }
     };
-    let process_spec = match ProcessSpec::new(f64::from(sample_rate), options.buffer_size, 2) {
+    let process_spec = match ProcessSpec::new(
+        f64::from(sample_rate),
+        options.buffer_size,
+        input_channels,
+        2,
+    ) {
         Ok(spec) => spec,
         Err(error) => {
             return finish_failure(
@@ -498,11 +554,13 @@ fn run_scheduled_audition(
         );
     }
     let status = Arc::new(audio::RealtimeStatus::new());
-    let stream = match audio::build_scheduled_stream(
+    let streams = match audio::build_scheduled_stream(
         &selected_audio,
+        selected_input.as_ref(),
+        input_channels,
         runtime,
         feed,
-        status.clone(),
+        &status,
         options.buffer_size,
     ) {
         Ok(stream) => stream,
@@ -516,7 +574,10 @@ fn run_scheduled_audition(
             );
         }
     };
-    if let Err(error) = stream.play() {
+    if let Err(failure) = start_input_stream(streams.input.as_ref(), &status, options.buffer_size) {
+        return finish_failure(false, failure);
+    }
+    if let Err(error) = streams.output.play() {
         return finish_failure(
             false,
             CliFailure {
@@ -533,6 +594,9 @@ fn run_scheduled_audition(
     }
     println!("Audition: {}", compiled.metadata.name);
     println!("Audio: {} [{}]", selected_audio.name, selected_audio.id);
+    if let Some(input) = selected_input.as_ref() {
+        println!("Audio input: {} [{}]", input.name, input.id);
+    }
     println!("Sample rate: {sample_rate} Hz");
     println!("Device channels: {}", selected_audio.config.channels());
     println!("Requested buffer: {} frames", options.buffer_size);
@@ -544,7 +608,10 @@ fn run_scheduled_audition(
     }
     print_warnings(&diagnostics);
 
-    let session = ScheduledSession { _stream: stream };
+    let session = ScheduledSession {
+        _stream: streams.output,
+        _input_stream: streams.input,
+    };
     let fatal = if options.looping {
         wait_for_enter(&status);
         status.fatal()
@@ -574,6 +641,7 @@ fn run_scheduled_audition(
 
 struct ScheduledSession {
     _stream: cpal::Stream,
+    _input_stream: Option<cpal::Stream>,
 }
 
 fn wait_for_enter(status: &audio::RealtimeStatus) {
@@ -594,14 +662,24 @@ fn wait_for_enter(status: &audio::RealtimeStatus) {
 
 fn print_realtime_status(status: &audio::RealtimeStatus) {
     let xruns = status.xrun_count();
+    let input_underflows = status.input_underflow_count();
+    let input_overflows = status.input_overflow_count();
     if status.realtime_denied() {
         eprintln!("warning: realtime scheduling was denied by the audio backend");
     }
     if xruns > 0 {
         eprintln!("warning: audio xruns: {xruns}");
     }
+    if input_underflows > 0 {
+        eprintln!("warning: audio input underruns: {input_underflows}");
+    }
+    if input_overflows > 0 {
+        eprintln!("warning: audio input overflows: {input_overflows}");
+    }
     let callback_frames = status.callback_frame_stats();
     println!("XRuns: {xruns}");
+    println!("Audio input underruns: {input_underflows}");
+    println!("Audio input overflows: {input_overflows}");
     println!(
         "Realtime priority warning: {}",
         if status.realtime_denied() {
@@ -638,6 +716,13 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
     let sample_rate = selected_audio.config.sample_rate();
     let (compiled, diagnostics) =
         load_and_compile(&args.definition, sample_rate, args.buffer_size)?;
+    let input_channels = compiled.required_input_channels();
+    let selected_input = select_audio_input(
+        args.audio_input_device.as_deref(),
+        input_channels,
+        sample_rate,
+        args.buffer_size,
+    )?;
     let instrument_name = compiled.metadata.name.clone();
     let reported_latency_frames = compiled.reported_latency_frames;
     let time_signature =
@@ -652,8 +737,8 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
     let sample_format = device::sample_format_name(selected_audio.config.sample_format());
     let mut runtime = compiled.instantiate();
     let process_spec =
-        ProcessSpec::new(f64::from(sample_rate), args.buffer_size, 2).map_err(|error| {
-            CliFailure {
+        ProcessSpec::new(f64::from(sample_rate), args.buffer_size, input_channels, 2).map_err(
+            |error| CliFailure {
                 code: 2,
                 diagnostics: vec![
                     Diagnostic::error(
@@ -662,8 +747,8 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
                     )
                     .with_detail(error.to_string()),
                 ],
-            }
-        })?;
+            },
+        )?;
     runtime.prepare(process_spec).map_err(|error| CliFailure {
         code: 2,
         diagnostics: vec![
@@ -681,11 +766,13 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
     let audio_id = selected_audio.id.clone();
     let midi_name = selected_midi.name.clone();
     let midi_id = selected_midi.id.clone();
-    let stream = audio::build_stream(
+    let streams = audio::build_stream(
         &selected_audio,
+        selected_input.as_ref(),
+        input_channels,
         runtime,
         events.clone(),
-        status.clone(),
+        &status,
         args.buffer_size,
         args.tempo,
         time_signature,
@@ -694,6 +781,7 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
         code: 2,
         diagnostics: vec![error.diagnostic],
     })?;
+    start_input_stream(streams.input.as_ref(), &status, args.buffer_size)?;
     let midi_connection =
         midi::connect(selected_midi, events, status.clone(), &macro_cc).map_err(|error| {
             CliFailure {
@@ -701,7 +789,7 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
                 diagnostics: vec![error.diagnostic],
             }
         })?;
-    stream.play().map_err(|error| CliFailure {
+    streams.output.play().map_err(|error| CliFailure {
         code: 2,
         diagnostics: vec![
             Diagnostic::error(
@@ -713,6 +801,9 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
     })?;
     println!("Instrument: {instrument_name}");
     println!("Audio: {audio_name} [{audio_id}]");
+    if let Some(input) = selected_input.as_ref() {
+        println!("Audio input: {} [{}]", input.name, input.id);
+    }
     println!("Sample rate: {sample_rate} Hz");
     println!("Device channels: {}", selected_audio.config.channels());
     println!("Sample format: {sample_format}");
@@ -726,13 +817,30 @@ fn start_play(args: &PlayArgs) -> Result<LiveSession, CliFailure> {
     println!("Time signature: {}", args.time_signature);
     print_warnings(&diagnostics);
     Ok(LiveSession {
-        _stream: stream,
+        _stream: streams.output,
+        _input_stream: streams.input,
         _midi: midi_connection,
         status,
     })
 }
 
 fn print_device_inventory(report: &device::DeviceInventoryReport) {
+    println!("Audio inputs");
+    if report.audio_inputs.is_empty() {
+        println!("  none");
+    } else {
+        for audio in &report.audio_inputs {
+            let marker = if audio.is_default { " (default)" } else { "" };
+            println!("  {}{marker}", audio.name);
+            println!("    id: {}", audio.id);
+            if let Some(config) = &audio.default_config {
+                println!(
+                    "    default: {} Hz, {} channels, {}",
+                    config.sample_rate, config.channels, config.sample_format
+                );
+            }
+        }
+    }
     println!("Audio outputs");
     if report.audio_outputs.is_empty() {
         println!("  none");
@@ -763,6 +871,55 @@ fn print_device_inventory(report: &device::DeviceInventoryReport) {
     }
 }
 
+fn start_input_stream(
+    stream: Option<&cpal::Stream>,
+    status: &Arc<audio::RealtimeStatus>,
+    startup_frames: usize,
+) -> Result<(), CliFailure> {
+    let Some(stream) = stream else {
+        return Ok(());
+    };
+    stream.play().map_err(|error| CliFailure {
+        code: 2,
+        diagnostics: vec![
+            Diagnostic::error(
+                DiagnosticCode::AudioDeviceError,
+                "could not start the audio input stream",
+            )
+            .with_detail(error.to_string()),
+        ],
+    })?;
+    let deadline = Instant::now() + INPUT_STARTUP_DEADLINE;
+    while !status.input_ready() && status.fatal() == audio::FatalStatus::None {
+        if Instant::now() >= deadline {
+            status.set_fatal(audio::FatalStatus::Input);
+            return Err(CliFailure {
+                code: 2,
+                diagnostics: vec![Diagnostic::error(
+                    DiagnosticCode::AudioDeviceError,
+                    format!(
+                        "audio input did not provide {startup_frames} frames before the startup deadline"
+                    ),
+                )],
+            });
+        }
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    if status.fatal() == audio::FatalStatus::None {
+        Ok(())
+    } else {
+        Err(CliFailure {
+            code: 3,
+            diagnostics: vec![
+                status
+                    .fatal()
+                    .diagnostic()
+                    .expect("fatal status has a diagnostic"),
+            ],
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -782,7 +939,7 @@ mod tests {
             &definition,
             &sonalloy_core::CompileContext {
                 definition_base_dir: path.parent().expect("fixture directory").to_path_buf(),
-                process_spec: ProcessSpec::new(48_000.0, 64, 2).expect("valid spec"),
+                process_spec: ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid spec"),
             },
         );
         result.instrument.expect("fixture compiles")
@@ -792,6 +949,7 @@ mod tests {
         PlayArgs {
             definition: "instrument.json".into(),
             audio_device: None,
+            audio_input_device: None,
             midi_device: None,
             sample_rate,
             buffer_size,
@@ -845,6 +1003,7 @@ mod tests {
     #[test]
     fn device_report_serialization_preserves_opaque_ids_and_unknown_buffer_size() {
         let report = device::DeviceInventoryReport {
+            audio_inputs: Vec::new(),
             audio_outputs: vec![device::AudioDeviceReport {
                 id: "host:opaque-output".to_owned(),
                 name: "Output".to_owned(),

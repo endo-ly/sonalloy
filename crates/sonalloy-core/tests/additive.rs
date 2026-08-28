@@ -69,7 +69,7 @@ fn compile(
         definition,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(sample_rate, block_size, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(sample_rate, block_size, 0, 2).expect("valid spec"),
         },
     );
     assert!(
@@ -205,6 +205,7 @@ fn process_runtime(
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
+            input: &[],
             output: &mut output,
         })
         .expect("additive process succeeds");
@@ -613,7 +614,7 @@ fn additive_partial_envelopes_note_off_reset_and_voice_stealing_are_deterministi
     assert!(rms(&rendered.channels[0][6_000..7_000]) < 0.01);
 
     let mut runtime = compiled.instantiate();
-    let spec = ProcessSpec::new(48_000.0, 1_024, 2).expect("valid spec");
+    let spec = ProcessSpec::new(48_000.0, 1_024, 0, 2).expect("valid spec");
     runtime.prepare(spec).expect("runtime preparation");
     let event = [ProcessEvent {
         sample_offset: 0,

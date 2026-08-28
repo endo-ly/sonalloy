@@ -1,4 +1,5 @@
 pub(crate) mod adsr;
+pub(crate) mod external_audio;
 pub(crate) mod fractional_delay;
 pub(crate) mod generator;
 mod instrument;
@@ -14,6 +15,15 @@ mod voice;
 
 pub use instrument::InstrumentRuntime;
 pub use voice::VoiceState;
+
+/// Return the bytes allocated by Spectral Morph's runtime-owned buffers.
+///
+/// The result includes the fixed FFT, history, overlap-add, window, and scratch buffers, plus the
+/// stereo external-input alignment delay requested by `alignment_frames`.
+#[must_use]
+pub fn spectral_morph_runtime_buffer_bytes(alignment_frames: usize) -> usize {
+    processor::spectral_morph_runtime_buffer_bytes(alignment_frames)
+}
 
 use sonalloy_dsp_sys::{DspOscillator, DspOscillatorWaveform};
 
@@ -148,7 +158,7 @@ mod tests {
     use super::*;
 
     fn render_blocks(block_size: usize) -> Vec<Vec<f32>> {
-        let spec = ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
 
@@ -171,6 +181,7 @@ mod tests {
                         time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                     },
                     events: &[],
+                    input: &[],
                     output: &mut output,
                 })
                 .expect("runtime process");
@@ -198,7 +209,7 @@ mod tests {
 
     #[test]
     fn reset_restores_the_initial_signal_and_frame() {
-        let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
         let mut first_left = [0.0_f32; 128];
@@ -217,6 +228,7 @@ mod tests {
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
+                input: &[],
                 output: &mut output,
             })
             .expect("first process");
@@ -235,6 +247,7 @@ mod tests {
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
+                input: &[],
                 output: &mut reset_output,
             })
             .expect("second process");
@@ -248,9 +261,9 @@ mod tests {
 
     #[test]
     fn failed_prepare_makes_runtime_unprepared() {
-        let valid_spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let valid_spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let invalid_frequency_spec =
-            ProcessSpec::new(600.0, 64, 2).expect("valid process spec with low sample rate");
+            ProcessSpec::new(600.0, 64, 0, 2).expect("valid process spec with low sample rate");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime
             .prepare(valid_spec)
@@ -275,6 +288,7 @@ mod tests {
                         time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                     },
                     events: &[],
+                    input: &[],
                     output: &mut output,
                 }),
                 Err(ProcessError::NotPrepared)
@@ -299,6 +313,7 @@ mod tests {
                         time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                     },
                     events: &[],
+                    input: &[],
                     output: &mut output,
                 })
                 .is_ok()
@@ -307,7 +322,7 @@ mod tests {
 
     #[test]
     fn process_errors_clear_valid_output_ranges() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
         let mut left = vec![1.0_f32; 64];
@@ -323,6 +338,7 @@ mod tests {
                 time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
             },
             events: &[],
+            input: &[],
             output: &mut output,
         });
         assert!(matches!(
@@ -335,7 +351,7 @@ mod tests {
 
     #[test]
     fn unsupported_events_clear_valid_output_ranges() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
         let event = ProcessEvent {
@@ -359,6 +375,7 @@ mod tests {
                 time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
             },
             events: &[event],
+            input: &[],
             output: &mut output,
         });
         assert_eq!(error, Err(ProcessError::EventsUnsupported));
@@ -368,7 +385,7 @@ mod tests {
 
     #[test]
     fn process_does_not_write_guard_frames() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
         let mut left = vec![0.0_f32; 66];
@@ -389,6 +406,7 @@ mod tests {
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
+                input: &[],
                 output: &mut output,
             })
             .expect("runtime process");
@@ -401,7 +419,7 @@ mod tests {
 
     #[test]
     fn zero_frame_process_is_a_noop() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
         let mut left = [1.0_f32; 4];
@@ -418,6 +436,7 @@ mod tests {
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
+                input: &[],
                 output: &mut output,
             })
             .expect("zero-frame process");
@@ -435,7 +454,7 @@ mod tests {
 
     #[test]
     fn invalid_shapes_are_silenced_within_available_buffers() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
 
@@ -452,6 +471,7 @@ mod tests {
                 time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
             },
             events: &[],
+            input: &[],
             output: &mut output,
         });
         assert!(matches!(
@@ -474,6 +494,7 @@ mod tests {
                 time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
             },
             events: &[],
+            input: &[],
             output: &mut short_output,
         });
         assert!(matches!(

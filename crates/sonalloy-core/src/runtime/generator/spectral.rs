@@ -762,7 +762,7 @@ mod tests {
                 synthesis_plan,
                 latency_frames: fft_size - fft_size / 4,
             },
-            ProcessSpec::new(48_000.0, 64, 2).expect("process spec"),
+            ProcessSpec::new(48_000.0, 64, 0, 2).expect("process spec"),
         )
         .expect("spectral runtime")
     }

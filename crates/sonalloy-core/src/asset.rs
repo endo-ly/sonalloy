@@ -60,6 +60,14 @@ pub struct PreparedAudio {
     pub channels: PreparedAudioChannels,
 }
 
+/// Failure while decoding or preparing an external audio file.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum AudioFileError {
+    /// The file could not be decoded or resampled.
+    #[error("audio file preparation failed: {0}")]
+    Preparation(String),
+}
+
 impl PreparedAudio {
     /// Return the number of prepared channels.
     #[must_use]
@@ -69,6 +77,27 @@ impl PreparedAudio {
             PreparedAudioChannels::Stereo { .. } => 2,
         }
     }
+}
+
+/// Decode and prepare an external WAV file for one engine sample rate.
+///
+/// External render inputs do not use Definition asset hash semantics.
+///
+/// # Errors
+///
+/// Returns an error when the file cannot be decoded, has unsupported channels, or cannot be
+/// resampled to the requested sample rate.
+pub fn prepare_audio_file(
+    path: &Path,
+    target_sample_rate: f64,
+) -> Result<PreparedAudio, AudioFileError> {
+    let reference = AssetReference {
+        path: path.to_string_lossy().into_owned(),
+        sha256: None,
+    };
+    let prepared = prepare_asset(&reference, Path::new(""), target_sample_rate)
+        .map_err(|error| AudioFileError::Preparation(error.to_string()))?;
+    Ok((*prepared.audio).clone())
 }
 
 /// Result of resolving and preparing one asset.

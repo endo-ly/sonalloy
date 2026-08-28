@@ -29,7 +29,7 @@ flowchart TD
 
 | クレート | 役割 | 依存しないもの |
 |---|---|---|
-| `sonalloy-cli` | 引数解釈、Offline MIDI→Event変換、WAV出力、Realtime Session、診断表示、終了コード | DaisySPのFFIを直接呼ぶこと |
+| `sonalloy-cli` | 引数解釈、Offline MIDI→Event変換、WAV出力、Realtime Session、Audio Input Queue、診断表示、終了コード | DaisySPのFFIを直接呼ぶこと |
 | `sonalloy-core` | 処理契約、Definitionの読込と検証、Compile、Runtime、Render | CLIフレームワーク（clap）、WAV / MIDI入出力（hound / midly）、オーディオAPI（cpal / midir / crossbeam-queue）、C++ヘッダー |
 | `sonalloy-dsp-sys` | 内部C ABIの宣言と、生ポインタを隠蔽するSafe Rustラッパー | — |
 
@@ -44,9 +44,10 @@ Realtime Sessionは、次の要素で構成されます。
 | 要素 | 責務 |
 |---|---|
 | Main Thread | Device選択、DefinitionのCompile、RuntimeのPrepare、Streamの起動 |
-| Audio Callback | 準備済みRuntimeとNative DSP Handleを排他的に所有し、Planar Stereo出力をDevice形式へ変換する |
+| Audio Output Callback | 準備済みRuntimeとNative DSP Handleを排他的に所有し、固定容量Input Queueから外部Audioを受け取り、Planar Stereo出力をDevice形式へ変換する |
+| Audio Input Callback | CPAL入力を`f32`のMono / Stereo Frameへ変換し、固定容量Queueへ書き込む。Queue満杯時は新しいFrameを破棄してCounterへ記録する |
 | MIDI Callback | Live MessageをProcess Eventへ変換し、固定容量Queueへ送る |
-| Status | Queue Overflow・Process Error・Device ErrorをSessionへ伝える |
+| Status | Queue Overflow・Input Underflow / Overflow・Process Error・Device ErrorをSessionへ伝える |
 
 CoreはDevice名、Port ID、CPAL / Midir型を参照しません。Queueの整列規則などRealtimeの動作の詳細は`docs/runtime-processing.md`を参照してください。
 
@@ -64,6 +65,7 @@ CoreはDevice名、Port ID、CPAL / Midir型を参照しません。Queueの整�
 | `spectral` | STFTによるSpectral Assetの準備 |
 | `wavetable` | Wavetable AssetのFrame分割とBand Table生成 |
 | `runtime` | Voice、Source、Route、ADSR、Layer、各Generator、Processor Chain |
+| `runtime/external_audio` | 外部AudioのRead-only Block、入力遅延補償、Envelope Followerの状態 |
 | `render` | オフラインレンダリングループ、Event、Tempo Mapの供給 |
 | `diagnostics` | 表示に依存しないエラーコード、重要度、メッセージ |
 
@@ -104,6 +106,6 @@ Rust側はネイティブのC++ Objectを不透明ハンドルとして所有し
 | Compile | 変更不能な`CompiledInstrument`（Metadata、Performance、有効Layer、Processor Chain、Parameter Catalog、Source、Route、Asset Warning）。`sonalloy-core`が所有し、Parameter IDをDense Handleへ解決する |
 | Prepare | `InstrumentRuntime`の可変状態。Scratch Buffer、Generator State、同時発音数分のVoiceを実行前に確保する |
 | Process / Reset | Prepareで確保した状態を再利用する。Resetは準備時と同じ初期状態を復元する |
-| Realtime Session | `sonalloy-cli`がCPAL Stream、Midir Connection、固定容量Event Queue、Statusを所有する |
+| Realtime Session | `sonalloy-cli`がCPALのOutput / optional Input Stream、Midir Connection、固定容量Event / Input Queue、Statusを所有する |
 
 `CompiledInstrument`は変更不能で、Runtimeが持つ可変状態（Base Smoother、External Control、Voice Source、Generator Cursor、Processor State）を書き戻す先はありません。Voice Stealingでは、Layer・Generator・Processor・Modulation Sourceをまとめて1つのVoice Stateとして切り替えます。

@@ -73,7 +73,7 @@ fn compile(
         definition,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(sample_rate, block_size, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(sample_rate, block_size, 0, 2).expect("valid spec"),
         },
     );
     assert!(
@@ -218,6 +218,7 @@ fn process_runtime(
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
+            input: &[],
             output: &mut output,
         })
         .expect("formant process succeeds");
@@ -526,7 +527,7 @@ fn formant_reset_voice_stealing_and_block_sizes_are_deterministic() {
         voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
     };
     let compiled = compile(&definition, 48_000.0, 1_024);
-    let spec = ProcessSpec::new(48_000.0, 1_024, 2).expect("valid spec");
+    let spec = ProcessSpec::new(48_000.0, 1_024, 0, 2).expect("valid spec");
     let event = [ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {

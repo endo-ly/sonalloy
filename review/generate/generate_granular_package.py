@@ -80,7 +80,7 @@ def granular_definition(
     modulation: dict[str, object] | None = None,
 ) -> dict[str, object]:
     value: dict[str, object] = {
-        "schema_version": 4,
+        "schema_version": 5,
         "metadata": {
             "name": name,
             "author": "Sonalloy",

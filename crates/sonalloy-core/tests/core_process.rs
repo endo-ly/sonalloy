@@ -15,7 +15,7 @@ use sonalloy_core::{
 };
 
 fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
-    let spec = ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec");
+    let spec = ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec");
     let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
     runtime.prepare(spec).expect("runtime preparation");
 
@@ -37,6 +37,7 @@ fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
                     time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
+                input: &[],
                 output: &mut output,
             })
             .expect("runtime process");
@@ -64,7 +65,7 @@ fn sine_runtime_is_stable_across_block_sizes() {
 
 #[test]
 fn sine_runtime_reset_restarts_signal() {
-    let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec");
+    let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec");
     let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
     runtime.prepare(spec).expect("runtime preparation");
     let mut first_left = [0.0_f32; 128];
@@ -83,6 +84,7 @@ fn sine_runtime_reset_restarts_signal() {
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: &[],
+            input: &[],
             output: &mut output,
         })
         .expect("first process");
@@ -99,6 +101,7 @@ fn sine_runtime_reset_restarts_signal() {
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events: &[],
+            input: &[],
             output: &mut reset_output,
         })
         .expect("second process");
@@ -137,6 +140,7 @@ fn process_runtime(
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
+            input: &[],
             output: &mut output,
         })
         .expect("runtime process succeeds");
@@ -149,7 +153,7 @@ fn render_instrument_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
         &definition,
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid spec"),
         },
     );
     let instrument = result.instrument.expect("reference Definition compiles");
@@ -186,7 +190,7 @@ fn render_sustain_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
         &definition,
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result.instrument.expect("sustain definition compiles");
@@ -320,7 +324,7 @@ fn render_basic_generator_at_note(
         definition,
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec"),
         },
     )
     .instrument
@@ -385,7 +389,7 @@ fn complex_oscillator_compiles_backend_parameters_and_distributions() {
         &definition,
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
         },
     );
     let instrument = result.instrument.expect("complex oscillator compiles");
@@ -462,7 +466,7 @@ fn basic_unison_compiles_phase_distribution() {
         &definition,
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
         },
     );
     let instrument = result.instrument.expect("basic unison compiles");
@@ -613,7 +617,7 @@ fn complex_oscillator_parameter_changes_are_block_size_independent() {
         &definition,
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
         },
     )
     .instrument
@@ -707,7 +711,7 @@ fn trace_enabled_render_matches_audio_and_reports_selected_routes() {
         &definition,
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     )
     .instrument
@@ -789,7 +793,7 @@ fn macro_trace_is_instrument_scoped() {
         &definition,
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     )
     .instrument
@@ -848,7 +852,7 @@ fn trace_limit_is_checked_before_building_periodic_boundaries() {
         &definition(),
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     )
     .instrument
@@ -915,7 +919,7 @@ fn trace_final_matches_the_filter_effective_cutoff_limit() {
         &definition,
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(20_000.0, 64, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(20_000.0, 64, 0, 2).expect("valid process spec"),
         },
     );
     assert!(
@@ -1105,7 +1109,7 @@ fn moving_hybrid_routes_cover_the_reference_signal_paths() {
         &CompileContext {
             definition_base_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join("../../testdata/instruments"),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     assert!(result.instrument.is_some(), "moving hybrid should compile");
@@ -1188,7 +1192,7 @@ fn render_harmonic_formant_hybrid(
         definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid spec"),
         },
     );
     let instrument = result.instrument.expect("hybrid compiles");
@@ -1276,6 +1280,7 @@ fn process_harmonic_formant_hybrid(
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
+            input: &[],
             output: &mut output,
         })
         .expect("hybrid process succeeds");
@@ -1321,12 +1326,12 @@ fn harmonic_formant_hybrid_integrates_generators_processors_and_modulation() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
         },
     )
     .instrument
     .expect("hybrid compiles for reset");
-    let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid spec");
+    let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec");
     let event = [ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {
@@ -1362,7 +1367,7 @@ fn expressive_reference_renders_at_supported_sample_rates() {
     let definition_base_dir =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
     for sample_rate in [44_100.0, 48_000.0, 96_000.0] {
-        let process_spec = ProcessSpec::new(sample_rate, 257, 2).expect("valid process spec");
+        let process_spec = ProcessSpec::new(sample_rate, 257, 0, 2).expect("valid process spec");
         let instrument = compile_instrument(
             &definition,
             &CompileContext {
@@ -1442,7 +1447,7 @@ fn render_expressive_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
         &definition,
         &CompileContext {
             definition_base_dir,
-            process_spec: ProcessSpec::new(48_000.0, block_size, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid spec"),
         },
     )
     .instrument
@@ -1532,7 +1537,7 @@ fn parameter_change_updates_the_compiled_target_after_smoothing() {
         &definition(),
         &CompileContext {
             definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
         },
     )
     .instrument
@@ -1603,7 +1608,7 @@ fn deterministic_random_route_repeats_across_runtime_instances() {
     });
     let context = CompileContext {
         definition_base_dir: ".".into(),
-        process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+        process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
     };
     let compiled = compile_instrument(&source, &context)
         .instrument
@@ -1708,7 +1713,7 @@ fn processed_hybrid_compiles_all_processor_scopes_and_keeps_a_global_tail() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result.instrument.expect("processed hybrid compiles");
@@ -1776,7 +1781,7 @@ fn hybrid_compiles_two_layers_and_prepares_the_sample() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result.instrument.expect("hybrid compiles");
@@ -1828,14 +1833,14 @@ fn release_sample_layer_waits_for_actual_release_with_sustain() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 512, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, 512, 0, 2).expect("valid spec"),
         },
     )
     .instrument
     .expect("release sample compiles");
     let mut runtime = instrument.instantiate();
     runtime
-        .prepare(ProcessSpec::new(48_000.0, 512, 2).expect("valid spec"))
+        .prepare(ProcessSpec::new(48_000.0, 512, 0, 2).expect("valid spec"))
         .expect("release sample prepares");
 
     let note_on = [ProcessEvent {
@@ -1914,7 +1919,7 @@ fn sample_zone_mapping_and_asset_cache_select_by_key_and_share_preparation() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result.instrument.expect("mapped sample compiles");
@@ -2011,7 +2016,7 @@ fn round_robin_selection_is_definition_ordered_and_block_independent() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let compiled = compiled_result.instrument.unwrap_or_else(|| {
@@ -2136,7 +2141,7 @@ fn pending_round_robin_selection_is_captured_before_voice_stealing() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir.clone(),
-            process_spec: ProcessSpec::new(48_000.0, 32, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 32, 0, 2).expect("valid process spec"),
         },
     )
     .instrument
@@ -2189,7 +2194,7 @@ fn pending_round_robin_selection_is_captured_before_voice_stealing() {
         &direct,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 32, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 32, 0, 2).expect("valid process spec"),
         },
     )
     .instrument
@@ -2253,7 +2258,7 @@ fn missing_round_robin_member_is_skipped_without_disabling_valid_zone() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     assert!(
@@ -2298,7 +2303,7 @@ fn hybrid_layers_share_one_voice_and_render_finite_audio() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result.instrument.expect("hybrid compiles");
@@ -2356,7 +2361,7 @@ fn missing_sample_keeps_the_oscillator_available() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result.instrument.expect("missing asset is recoverable");
@@ -2419,7 +2424,7 @@ fn sample_without_hash_is_enabled_with_a_warning() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result.instrument.expect("sample without hash compiles");
@@ -2480,7 +2485,7 @@ fn absolute_sample_path_is_enabled_with_a_warning() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
         },
     );
     assert!(result.instrument.is_some());
@@ -2518,7 +2523,7 @@ fn mismatched_sample_hash_disables_only_the_sample_layer() {
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     let instrument = result

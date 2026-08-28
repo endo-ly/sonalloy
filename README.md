@@ -13,7 +13,8 @@ Sonalloyは、JSONで書いた音源定義からリアルタイム演奏とオ�
   - スペクトル再構成: 周波数分解した音の再構成（Spectral）
 - **エフェクトとモジュレーション**:
   - エフェクト: Filter、Ladder Filter、Formant、Drive、EQ、Resonator、Bitcrusher、Frequency Shifter、Chorus、Flanger、Phaser、Delay、Reverb、Convolution、Gate、Transient Shaper、Compressor、Limiter
-  - モジュレーション: Velocity、LFO、Envelope、MSEG、Step、Sample & Hold、Smooth Random、Tempo同期Sourceでパラメータを動かす
+  - モジュレーション: Velocity、LFO、Envelope、MSEG、Step、Sample & Hold、Smooth Random、Envelope Follower、Tempo同期Sourceでパラメータを動かす
+- **外部AudioとのCross Synthesis**: Mono / Stereoの外部AudioをEnvelope Follower、External Sidechain、Vocoder、Envelope Transfer、Spectral Morphへ接続できる
 - **演奏表現を定義できる**: Polyphonicに加えてMonophonic、Last-note Priority、Legato、Portamento、Sustainを扱う
 - **Instrument Controlをまとめて設計できる**: Macroで複数Parameterを操作し、2-Way / 4-Way VectorでLayerをConstant-powerに混ぜる
 - **演奏と検証を同じCoreで実行**: `device list`でAudio / MIDI Deviceを確認し、`play`でMIDI演奏、PatternをMIDI Keyboardなしで試聴し、単音・Event Sequence・MIDI Fileをオフラインで再現できる
@@ -89,10 +90,10 @@ sonalloy play my-synth.json --midi-device <id>
 | `sonalloy render pattern <definition> <pattern> --output <wav>` | 演奏パターン（Pattern）をレンダリングする |
 | `sonalloy audition pattern <definition> <pattern>` | PatternをAudio Deviceで試聴する（MIDI Keyboard不要） |
 | `sonalloy audition midi <definition> <midi-file>` | MIDI Fileを1 Channel選択してAudio Deviceで試聴する |
-| `sonalloy device list [--json]` | Audio OutputとMIDI Inputを列挙する |
-| `sonalloy play <definition>` | MIDI InputからAudio Outputへリアルタイム演奏する |
+| `sonalloy device list [--json]` | Audio Input / OutputとMIDI Inputを列挙する |
+| `sonalloy play <definition>` | MIDI InputからAudio Outputへリアルタイム演奏する。外部Audio定義ではAudio Inputも接続する |
 
-`render`コマンドは32-bit float・StereoのWAVを出力します。`play`はDeviceのNative Sample Formatへ変換して出力します。各コマンドのオプションは[CLI](docs/cli.md)を参照してください。
+`render`コマンドは32-bit float・StereoのWAVを出力します。外部Audioを使う定義では、`--audio-input`に指定したWAVを定義のSample Rateへ準備し、短い入力は無音で補います。`play`はDeviceのNative Sample Formatへ変換して出力します。各コマンドのオプションは[CLI](docs/cli.md)を参照してください。
 
 ## 技術スタック
 

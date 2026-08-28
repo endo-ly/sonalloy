@@ -132,7 +132,8 @@ fn compile_at_sample_rate(
         definition,
         &CompileContext {
             definition_base_dir: base_dir.to_path_buf(),
-            process_spec: ProcessSpec::new(sample_rate, block_size, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(sample_rate, block_size, 0, 2)
+                .expect("valid process spec"),
         },
     );
     result
@@ -597,7 +598,7 @@ fn wave_sequence_reset_restarts_the_same_runtime_state() {
     let compiled = compile(&definition, directory.path(), 257);
     let mut runtime = compiled.instantiate();
     runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("runtime prepares");
     let event = [ProcessEvent {
         sample_offset: 0,
@@ -622,6 +623,7 @@ fn wave_sequence_reset_restarts_the_same_runtime_state() {
                     time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &event,
+                input: &[],
                 output: &mut output,
             })
             .expect("runtime process");
@@ -696,7 +698,7 @@ fn wave_sequence_all_missing_is_unavailable_but_compile_is_recoverable() {
         &definition,
         &CompileContext {
             definition_base_dir: directory.path().to_path_buf(),
-            process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
     assert!(result.instrument.is_some());

@@ -300,7 +300,8 @@ mod tests {
             &definition,
             &sonalloy_core::CompileContext {
                 definition_base_dir: path.parent().expect("fixture directory").to_path_buf(),
-                process_spec: sonalloy_core::ProcessSpec::new(48_000.0, 64, 2).expect("valid spec"),
+                process_spec: sonalloy_core::ProcessSpec::new(48_000.0, 64, 0, 2)
+                    .expect("valid spec"),
             },
         );
         let compiled = result.instrument.expect("fixture compiles");

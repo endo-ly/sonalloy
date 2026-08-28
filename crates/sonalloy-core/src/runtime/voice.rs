@@ -5,6 +5,7 @@ use crate::compiler::{
 use crate::process::{NoteId, ProcessError, ProcessSpec};
 
 use super::adsr::AdsrRuntime;
+use super::external_audio::ExternalAudioBlock;
 use super::generator::GeneratorRuntime;
 use super::mix::constant_power_pan;
 use super::modulation::{
@@ -883,6 +884,7 @@ impl VoiceRuntime {
         self.processors.process(
             &targets.voice_processors,
             tempo_bpm,
+            ExternalAudioBlock::new(&[]),
             &mut voice_left[..frames],
             &mut voice_right[..frames],
         )?;
@@ -1385,6 +1387,38 @@ impl VoiceRuntime {
                     shared,
                 )?,
                 mix: self.evaluate_target(compiled, value.parameters.mix, shared)?,
+            }),
+            CompiledProcessorKind::Vocoder(value) => Ok(ProcessorTargetSpan::Vocoder {
+                modulator_gain_db: self.evaluate_target(
+                    compiled,
+                    value.parameters.modulator_gain_db,
+                    shared,
+                )?,
+                output_gain_db: self.evaluate_target(
+                    compiled,
+                    value.parameters.output_gain_db,
+                    shared,
+                )?,
+                mix: self.evaluate_target(compiled, value.parameters.mix, shared)?,
+            }),
+            CompiledProcessorKind::EnvelopeTransfer(value) => {
+                Ok(ProcessorTargetSpan::EnvelopeTransfer {
+                    input_gain_db: self.evaluate_target(
+                        compiled,
+                        value.parameters.input_gain_db,
+                        shared,
+                    )?,
+                    floor_db: self.evaluate_target(compiled, value.parameters.floor_db, shared)?,
+                    mix: self.evaluate_target(compiled, value.parameters.mix, shared)?,
+                })
+            }
+            CompiledProcessorKind::SpectralMorph(value) => Ok(ProcessorTargetSpan::SpectralMorph {
+                morph: self.evaluate_target(compiled, value.parameters.morph, shared)?,
+                output_gain_db: self.evaluate_target(
+                    compiled,
+                    value.parameters.output_gain_db,
+                    shared,
+                )?,
             }),
             CompiledProcessorKind::Limiter(value) => Ok(ProcessorTargetSpan::Limiter {
                 ceiling_db: self.evaluate_target(compiled, value.parameters.ceiling_db, shared)?,

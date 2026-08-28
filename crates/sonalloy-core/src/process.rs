@@ -9,6 +9,8 @@ pub struct ProcessSpec {
     pub sample_rate: f64,
     /// Maximum number of frames accepted by one process call.
     pub max_block_size: usize,
+    /// Number of planar external input channels.
+    pub input_channels: usize,
     /// Number of planar output channels. The runtime requires stereo.
     pub output_channels: usize,
 }
@@ -23,11 +25,13 @@ impl ProcessSpec {
     pub fn new(
         sample_rate: f64,
         max_block_size: usize,
+        input_channels: usize,
         output_channels: usize,
     ) -> Result<Self, ProcessError> {
         let spec = Self {
             sample_rate,
             max_block_size,
+            input_channels,
             output_channels,
         };
         spec.validate()?;
@@ -46,6 +50,11 @@ impl ProcessSpec {
         }
         if self.max_block_size == 0 {
             return Err(ProcessError::InvalidMaxBlockSize);
+        }
+        if self.input_channels > 2 {
+            return Err(ProcessError::InvalidInputChannels {
+                actual: self.input_channels,
+            });
         }
         if self.output_channels != 2 {
             return Err(ProcessError::InvalidOutputChannels {
@@ -258,7 +267,7 @@ impl std::fmt::Display for DspFailureKind {
     }
 }
 
-/// Planar output buffers and the context for one process call.
+/// Planar input/output buffers and the context for one process call.
 pub struct ProcessBlock<'a> {
     /// Number of frames to process.
     pub frames: usize,
@@ -266,6 +275,8 @@ pub struct ProcessBlock<'a> {
     pub context: ProcessContext,
     /// Normalized events in this block.
     pub events: &'a [ProcessEvent],
+    /// Read-only channel-separated external input buffers.
+    pub input: &'a [&'a [f32]],
     /// Channel-separated output buffers.
     pub output: &'a mut [&'a mut [f32]],
 }
@@ -294,6 +305,25 @@ impl ProcessBlock<'_> {
                 frames: self.frames,
                 max_block_size: spec.max_block_size,
             });
+        }
+        if self.input.len() != spec.input_channels {
+            return Err(ProcessError::InvalidInputChannels {
+                actual: self.input.len(),
+            });
+        }
+        for (channel, buffer) in self.input.iter().enumerate() {
+            if buffer.len() < self.frames {
+                return Err(ProcessError::InputBufferTooShort {
+                    channel,
+                    available: buffer.len(),
+                    required: self.frames,
+                });
+            }
+            for (frame, sample) in buffer[..self.frames].iter().enumerate() {
+                if !sample.is_finite() {
+                    return Err(ProcessError::InputSampleNonFinite { channel, frame });
+                }
+            }
         }
         if self.output.len() != spec.output_channels {
             return Err(ProcessError::InvalidOutputChannels {
@@ -349,6 +379,16 @@ pub enum ProcessError {
         /// Sample rate requested by the runtime host.
         requested: f64,
     },
+    /// The runtime input channel count does not match the compiled instrument requirement.
+    #[error(
+        "compiled instrument requires {compiled} external input channels, requested {requested}"
+    )]
+    InputChannelRequirementMismatch {
+        /// Channel count captured during compilation.
+        compiled: usize,
+        /// Channel count requested by the runtime host.
+        requested: usize,
+    },
     /// The maximum block size must be positive.
     #[error("maximum block size must be greater than zero")]
     InvalidMaxBlockSize,
@@ -357,6 +397,31 @@ pub enum ProcessError {
     InvalidOutputChannels {
         /// Received channel count.
         actual: usize,
+    },
+    /// The external input channel count is outside the supported range or does not match the
+    /// prepared specification.
+    #[error("external input requires a different channel count, got {actual}")]
+    InvalidInputChannels {
+        /// Received channel count.
+        actual: usize,
+    },
+    /// An input channel does not have enough readable frames.
+    #[error("input channel {channel} has {available} frames, {required} required")]
+    InputBufferTooShort {
+        /// Channel index.
+        channel: usize,
+        /// Available readable frames.
+        available: usize,
+        /// Required readable frames.
+        required: usize,
+    },
+    /// An external input sample is not finite.
+    #[error("input channel {channel} frame {frame} is non-finite")]
+    InputSampleNonFinite {
+        /// Channel index.
+        channel: usize,
+        /// Frame index within the block.
+        frame: usize,
     },
     /// The block is larger than the prepared maximum.
     #[error("frame count {frames} exceeds maximum block size {max_block_size}")]
@@ -604,34 +669,38 @@ mod tests {
     #[test]
     fn process_spec_rejects_invalid_settings() {
         assert_eq!(
-            ProcessSpec::new(0.0, 1024, 2),
+            ProcessSpec::new(0.0, 1024, 0, 2),
             Err(ProcessError::InvalidSampleRate)
         );
         assert_eq!(
-            ProcessSpec::new(f64::NAN, 1024, 2),
+            ProcessSpec::new(f64::NAN, 1024, 0, 2),
             Err(ProcessError::InvalidSampleRate)
         );
         assert_eq!(
-            ProcessSpec::new(f64::INFINITY, 1024, 2),
+            ProcessSpec::new(f64::INFINITY, 1024, 0, 2),
             Err(ProcessError::InvalidSampleRate)
         );
         assert_eq!(
-            ProcessSpec::new(48_000.0, 0, 2),
+            ProcessSpec::new(48_000.0, 0, 0, 2),
             Err(ProcessError::InvalidMaxBlockSize)
         );
         assert_eq!(
-            ProcessSpec::new(48_000.0, 1024, 1),
+            ProcessSpec::new(48_000.0, 1024, 0, 1),
             Err(ProcessError::InvalidOutputChannels { actual: 1 })
         );
         assert_eq!(
-            ProcessSpec::new(48_000.0, 1024, 3),
+            ProcessSpec::new(48_000.0, 1024, 0, 3),
             Err(ProcessError::InvalidOutputChannels { actual: 3 })
+        );
+        assert_eq!(
+            ProcessSpec::new(48_000.0, 1024, 3, 2),
+            Err(ProcessError::InvalidInputChannels { actual: 3 })
         );
     }
 
     #[test]
     fn process_block_accepts_zero_and_maximum_frames() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
 
         let mut zero_left = [0.0_f32; 4];
         let mut zero_right = [0.0_f32; 4];
@@ -640,6 +709,7 @@ mod tests {
             frames: 0,
             context: context(),
             events: &[],
+            input: &[],
             output: &mut zero_output,
         };
         assert!(zero_block.validate_for(spec).is_ok());
@@ -651,6 +721,7 @@ mod tests {
             frames: 64,
             context: context(),
             events: &[],
+            input: &[],
             output: &mut max_output,
         };
         assert!(max_block.validate_for(spec).is_ok());
@@ -658,7 +729,7 @@ mod tests {
 
     #[test]
     fn process_block_rejects_invalid_tempo() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
 
         for tempo_bpm in [0.0, -1.0, f64::NAN, f64::INFINITY] {
             let mut left = [0.0_f32; 1];
@@ -674,6 +745,7 @@ mod tests {
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
+                input: &[],
                 output: &mut output,
             };
 
@@ -683,7 +755,7 @@ mod tests {
 
     #[test]
     fn process_block_rejects_invalid_musical_positions_and_meter() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         for (beat_position, bar_position, time_signature) in [
             (f64::NAN, 0.0, DEFAULT_TIME_SIGNATURE),
             (0.0, -1.0, DEFAULT_TIME_SIGNATURE),
@@ -709,6 +781,7 @@ mod tests {
                     time_signature,
                 },
                 events: &[],
+                input: &[],
                 output: &mut output,
             };
 
@@ -721,7 +794,7 @@ mod tests {
 
     #[test]
     fn process_block_rejects_invalid_shapes_and_offsets() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
 
         let mut large_left = [0.0_f32; 65];
         let mut large_right = [0.0_f32; 65];
@@ -730,6 +803,7 @@ mod tests {
             frames: 65,
             context: context(),
             events: &[],
+            input: &[],
             output: &mut large_output,
         };
         assert!(matches!(
@@ -744,6 +818,7 @@ mod tests {
             frames: 8,
             context: context(),
             events: &[],
+            input: &[],
             output: &mut short_output,
         };
         assert!(matches!(
@@ -757,6 +832,7 @@ mod tests {
             frames: 8,
             context: context(),
             events: &[],
+            input: &[],
             output: &mut one_output,
         };
         assert_eq!(
@@ -777,8 +853,54 @@ mod tests {
     }
 
     #[test]
+    fn process_block_rejects_short_and_non_finite_external_input() {
+        let spec = ProcessSpec::new(48_000.0, 64, 1, 2).expect("valid process spec");
+        let short_input = [[0.0_f32; 2]; 1];
+        let mut left = [0.0_f32; 4];
+        let mut right = [0.0_f32; 4];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        let short_input_channels: [&[f32]; 1] = [&short_input[0]];
+        {
+            let block = ProcessBlock {
+                frames: 4,
+                context: context(),
+                events: &[],
+                input: &short_input_channels,
+                output: &mut output,
+            };
+            assert_eq!(
+                block.validate_for(spec),
+                Err(ProcessError::InputBufferTooShort {
+                    channel: 0,
+                    available: 2,
+                    required: 4,
+                })
+            );
+        }
+
+        let non_finite_input = [f32::NAN; 4];
+        let mut non_finite_left = [0.0_f32; 4];
+        let mut non_finite_right = [0.0_f32; 4];
+        let mut non_finite_output: [&mut [f32]; 2] = [&mut non_finite_left, &mut non_finite_right];
+        let block = ProcessBlock {
+            frames: 4,
+            context: context(),
+            events: &[],
+            input: &[&non_finite_input],
+            output: &mut non_finite_output,
+        };
+        assert_eq!(
+            block.validate_for(spec),
+            Err(ProcessError::InputSampleNonFinite {
+                channel: 0,
+                frame: 0,
+            })
+        );
+    }
+
+    #[test]
     fn same_offset_events_follow_the_input_order() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let events = [
             ProcessEvent {
                 sample_offset: 4,
@@ -812,6 +934,7 @@ mod tests {
             frames: 64,
             context: context(),
             events: &events,
+            input: &[],
             output: &mut output,
         };
         assert_eq!(block.validate_for(spec), Ok(()));
@@ -833,6 +956,7 @@ mod tests {
             frames,
             context: context(),
             events: &[event],
+            input: &[],
             output: &mut output,
         }
         .validate_for(spec)

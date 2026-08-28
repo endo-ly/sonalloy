@@ -1,5 +1,6 @@
-use crate::compiler::CompiledCompressorProcessor;
+use crate::compiler::{CompiledCompressorProcessor, CompiledDynamicsDetector};
 use crate::process::{ProcessError, ProcessorFailureKind};
+use crate::runtime::external_audio::{ExternalAudioBlock, ExternalInputDelay};
 
 use super::ValueSpan;
 
@@ -8,6 +9,7 @@ pub(crate) struct CompressorRuntime {
     release_coeff: f32,
     knee_db: f32,
     reduction_db: f32,
+    external_input: Option<ExternalInputDelay>,
 }
 
 impl CompressorRuntime {
@@ -17,15 +19,19 @@ impl CompressorRuntime {
             release_coeff: compiled.release_coeff,
             knee_db: compiled.knee_db,
             reduction_db: 0.0,
+            external_input: (compiled.detector == CompiledDynamicsDetector::ExternalAudio)
+                .then(|| ExternalInputDelay::new(compiled.external_input_alignment_frames)),
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn process(
         &mut self,
         threshold_db: ValueSpan,
         ratio: ValueSpan,
         makeup_gain_db: ValueSpan,
         mix: ValueSpan,
+        external: ExternalAudioBlock<'_>,
         left: &mut [f32],
         right: &mut [f32],
     ) -> Result<(), ProcessError> {
@@ -52,7 +58,16 @@ impl CompressorRuntime {
                     kind: ProcessorFailureKind::NonFinite,
                 });
             }
-            let level = input_left.abs().max(input_right.abs()).max(f32::EPSILON);
+            let (detector_left, detector_right) =
+                if let Some(external_input) = self.external_input.as_mut() {
+                    external_input.next(external, index)
+                } else {
+                    (input_left, input_right)
+                };
+            let level = detector_left
+                .abs()
+                .max(detector_right.abs())
+                .max(f32::EPSILON);
             let level_db = 20.0 * level.log10();
             let target = compression_reduction(level_db, threshold, ratio, self.knee_db);
             let coefficient = if target < self.reduction_db {
@@ -77,6 +92,9 @@ impl CompressorRuntime {
 
     pub(crate) fn reset(&mut self) {
         self.reduction_db = 0.0;
+        if let Some(external_input) = self.external_input.as_mut() {
+            external_input.reset();
+        }
     }
 }
 
@@ -110,6 +128,8 @@ mod tests {
             attack_coeff,
             release_coeff,
             knee_db: 0.0,
+            detector: CompiledDynamicsDetector::SelfSignal,
+            external_input_alignment_frames: 0,
             parameters: CompiledCompressorParameters {
                 threshold_db: ParameterHandle::new(0),
                 ratio: ParameterHandle::new(1),
@@ -132,6 +152,7 @@ mod tests {
                 span(1.0),
                 span(0.0),
                 span(1.0),
+                ExternalAudioBlock::new(&[]),
                 &mut left,
                 &mut right,
             )
@@ -160,6 +181,7 @@ mod tests {
                 span(4.0),
                 span(0.0),
                 span(1.0),
+                ExternalAudioBlock::new(&[]),
                 &mut left,
                 &mut right,
             )
@@ -182,6 +204,7 @@ mod tests {
                 span(4.0),
                 span(0.0),
                 span(1.0),
+                ExternalAudioBlock::new(&[]),
                 &mut left,
                 &mut right,
             )

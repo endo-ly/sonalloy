@@ -1099,7 +1099,7 @@ mod tests {
             (48_000, 48_000.0),
             (96_000, 96_000.0),
         ] {
-            let process_spec = ProcessSpec::new(sample_rate, 257, 2).expect("process spec");
+            let process_spec = ProcessSpec::new(sample_rate, 257, 0, 2).expect("process spec");
             let compiled_instrument = compile_instrument(
                 &definition,
                 &CompileContext {

@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "metadata": {
     "name": "Processor Expansion Source",
     "author": "Sonalloy",
@@ -53,7 +53,8 @@
       "release_ms": 70.0,
       "knee_db": 3.0,
       "makeup_gain_db": 5.0,
-      "mix": 1.0
+      "mix": 1.0,
+      "detector": "self_signal"
     }
   ],
   "modulation": null,

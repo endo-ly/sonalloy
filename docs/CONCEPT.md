@@ -250,7 +250,7 @@ Instrument
 **設計判断**：
 - **Subtractive Synthesis**：独立Generatorを設けず、Oscillator/Noise + Layer/Voice ProcessingのFilter・Amplifierで表現
 - **Vector Synthesis**：複数Layer GainをXY Vector SourceでConstant-power Crossfade
-- **Vocoder**：外部Audioを必要とするInput/Voice/Global Processorとして扱う
+- **External Audio**：Mono / StereoのInput BusをCompile時に固定し、Global Consumerへ共有する。外部Audioを使わない音源はInput Bufferを持たない
 - **Audio-rate相互作用**：通常Modulation Matrixには載せず、専用Generator内部へ閉じる
 
 ### 3.3 Voice Management
@@ -321,8 +321,8 @@ Sample Start/End Position、Transient-based Slice、Tempo Sync、Pitch ShiftとT
 |----------|------|---------------------|
 | **Layer Processing** | 特定Layerだけ | Filter、Ladder Filter、Drive、EQ、Formant、Resonator、Bitcrusher |
 | **Voice Processing** | 一NoteのLayer Mix全体 | Filter、Ladder Filter、Drive、EQ、Formant、Resonator、Gate、Transient Shaper、Compressor、Limiter |
-| **Global Effects** | Voice Sum後のInstrument全体 | Filter、Ladder Filter、Drive、EQ、Formant、Chorus、Flanger、Phaser、Frequency Shifter、Delay、Reverb、Convolution、Gate、Transient Shaper、Compressor、Limiter |
-| **Input Processing** | 外部Audio入力 | Gain、Filter、Envelope Follower、Vocoder Analysis |
+| **Global Effects** | Voice Sum後のInstrument全体 | Filter、Ladder Filter、Drive、EQ、Formant、Chorus、Flanger、Phaser、Frequency Shifter、Delay、Reverb、Convolution、Gate、Transient Shaper、Compressor、Limiter、Vocoder、Envelope Transfer、Spectral Morph |
+| **Input Processing** | 外部Audio入力 | Envelope Follower、External Sidechain、Vocoder Analysis、Envelope Transfer、Spectral Morph |
 
 Delay・Reverb・Chorus・Convolutionは発音Voice数に比例して状態を複製しないよう、基本的にGlobal Effectsとして扱います。
 
@@ -334,7 +334,7 @@ Filter、Nonlinear（Drive/Saturation/Distortion）、Tone（EQ）、Resonance�
 - **Digital**：Sample-rate Reducer、Quantizerを含む
 - **Dynamics**：Compressor、Limiter、Gate、Transient Shaper
 - **Time**：Seconds / Beats、Ping-Pong、Multi-tap Delayを含む
-- **Cross Synthesis**：Envelope Transfer、制限付きSpectral Morphを含む
+- **Cross Synthesis**：External Audioを使うVocoder、Envelope Transfer、制限付きSpectral Morphを含む
 
 **Vocoder構成**：
 ```
@@ -427,7 +427,7 @@ Compiled Instrument、Runtime状態、Decode済みBuffer、FFT一時Buffer、Voi
 | Hash不一致 | 対象Assetを無効化し、診断を返す |
 | Optional Backendがない | 対象Optional Layerだけ無効化し、他Layerを継続 |
 | CPU/Memory上限超過 | Compile Errorとして拒否 |
-| External Inputがない | Input必須Processorを無音化またはBypassし、Frontendへ診断を返す |
+| External Inputがない | Input必須ProcessorをCompile Errorとして診断し、未準備のCompiled Instrumentを公開しない |
 | 事前解析に失敗 | 対象Generator/Processorを無効化し、再解析可能な診断を返す |
 
 **変更時の反映規則**：
@@ -524,7 +524,8 @@ Process
 - 一ProcessのFrame数は最大Block Size以下で、呼び出しごとに変化可能
 - Audio Sample Formatは `f32`、Planar Buffer
 - 少なくともMono/Stereo Outputを扱う
-- Input BufferはInstrumentが要求する場合だけ使用
+- Input BufferはInstrumentが要求する場合だけ使用し、要求Channel数は0〜2の範囲でPrepare時に固定する
+- Input BufferのChannel数、Frame数、有限性をProcess開始前に検証する
 - EventはSample Offset昇順。同一OffsetではAdapterが確定した順序を維持し、CoreはEvent列の順番で処理する。OfflineのEvent JSON / MIDI File Adapterは同一NoteのNote OffとNote Onが同時の場合を含め、`priority()`でCanonical順へ正規化する。Realtime MIDI AdapterはMIDI Callbackの入力Sequenceを維持する
 - Audio CallbackからPanic/例外を漏らさない
 - Process中の新規Asset解析・Graph構築・Heap拡張を禁止

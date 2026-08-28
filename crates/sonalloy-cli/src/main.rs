@@ -18,8 +18,9 @@ use sonalloy_core::{
     ParameterUnit, PerformanceDefinition, ProcessEventKind, ProcessSpec, ProcessorDefinition,
     RenderError, RenderRequest, RenderTraceReport, ScheduledEvent, TraceRequest,
     VoiceStealingDefinition, analyze_rendered_audio, backend_info, compile_instrument,
-    from_render_error, render_instrument_with_musical_time_map, render_instrument_with_reset,
-    render_instrument_with_tempo, render_instrument_with_trace, render_sine, seconds_to_frames,
+    from_render_error, prepare_audio_file, render_instrument_with_input,
+    render_instrument_with_input_and_reset, render_instrument_with_input_and_trace, render_sine,
+    seconds_to_frames,
 };
 
 use crate::midi::{export_pattern, import_pattern, parse_midi, read_midi};
@@ -142,6 +143,9 @@ struct PlayArgs {
     /// CPAL output device ID. The OS default is used when omitted.
     #[arg(long)]
     audio_device: Option<String>,
+    /// CPAL input device ID. The OS default is used when external audio is required.
+    #[arg(long)]
+    audio_input_device: Option<String>,
     /// Midir input port ID. A single available port is selected automatically.
     #[arg(long)]
     midi_device: Option<String>,
@@ -187,6 +191,9 @@ struct DefinitionArgs {
 struct RenderNoteArgs {
     /// Definition JSON path.
     definition: PathBuf,
+    /// External audio input WAV path.
+    #[arg(long)]
+    audio_input: Option<PathBuf>,
     /// MIDI note number.
     #[arg(long, default_value_t = 60)]
     note: u8,
@@ -229,6 +236,9 @@ struct RenderNoteArgs {
 struct RenderMidiArgs {
     /// Definition JSON path.
     definition: PathBuf,
+    /// External audio input WAV path.
+    #[arg(long)]
+    audio_input: Option<PathBuf>,
     /// Standard MIDI File path.
     midi: PathBuf,
     /// Additional render tail in seconds.
@@ -261,6 +271,9 @@ struct RenderMidiArgs {
 struct RenderPatternArgs {
     /// Definition JSON path.
     definition: PathBuf,
+    /// External audio input WAV path.
+    #[arg(long)]
+    audio_input: Option<PathBuf>,
     /// Musical-time pattern JSON path.
     pattern: PathBuf,
     /// Additional render tail in seconds.
@@ -343,6 +356,9 @@ struct AuditionPatternArgs {
     /// CPAL output device ID. The OS default is used when omitted.
     #[arg(long)]
     audio_device: Option<String>,
+    /// CPAL input device ID. The OS default is used when external audio is required.
+    #[arg(long)]
+    audio_input_device: Option<String>,
     /// Requested output sample rate. The device default is used when omitted.
     #[arg(long)]
     sample_rate: Option<u32>,
@@ -369,6 +385,9 @@ struct AuditionMidiArgs {
     /// CPAL output device ID. The OS default is used when omitted.
     #[arg(long)]
     audio_device: Option<String>,
+    /// CPAL input device ID. The OS default is used when external audio is required.
+    #[arg(long)]
+    audio_input_device: Option<String>,
     /// Requested output sample rate. The device default is used when omitted.
     #[arg(long)]
     sample_rate: Option<u32>,
@@ -384,6 +403,9 @@ struct AuditionMidiArgs {
 struct RenderEventsArgs {
     /// Definition JSON path.
     definition: PathBuf,
+    /// External audio input WAV path.
+    #[arg(long)]
+    audio_input: Option<PathBuf>,
     /// Absolute-frame event sequence JSON path.
     events: PathBuf,
     /// Main render duration in frames.
@@ -504,6 +526,8 @@ struct InspectReport {
     portamento_seconds: Option<f32>,
     layer_alignment_latency_frames: usize,
     reported_latency_frames: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    external_audio: Option<InspectExternalAudio>,
     layer_count: usize,
     layers: Vec<InspectLayer>,
     voice_processors: Vec<InspectProcessor>,
@@ -522,6 +546,21 @@ struct InspectMetadata {
     name: String,
     author: Option<String>,
     description: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectExternalAudio {
+    channels: &'static str,
+    required_input_channels: usize,
+    consumers: Vec<InspectExternalConsumer>,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectExternalConsumer {
+    placement: &'static str,
+    id: String,
+    kind: &'static str,
+    alignment_frames: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -865,6 +904,10 @@ struct InspectProcessor {
     asset_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     asset_sha256_specified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detector: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resource: Option<&'static str>,
     static_fields: Vec<InspectStaticField>,
     parameters: Vec<InspectProcessorParameter>,
 }
@@ -1602,6 +1645,10 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
+    let external_audio = match load_external_audio(args.audio_input.as_deref(), args.sample_rate) {
+        Ok(audio) => audio,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
     let events = [
         ScheduledEvent {
             absolute_frame: 0,
@@ -1631,18 +1678,29 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
             Ok(musical_time_map) => musical_time_map,
             Err(error) => return finish_failure(args.json, render_failure(&error)),
         };
-        match render_instrument_with_trace(
+        match render_instrument_with_input_and_trace(
             Arc::clone(&compiled),
             request,
             &events,
             &musical_time_map,
             trace_request,
+            external_audio.as_ref(),
         ) {
             Ok((audio, trace)) => (audio, Some(trace)),
             Err(error) => return finish_failure(args.json, render_failure(&error)),
         }
     } else {
-        match render_instrument_with_tempo(Arc::clone(&compiled), request, &events, args.tempo) {
+        let musical_time_map = match MusicalTimeMap::constant(args.tempo) {
+            Ok(musical_time_map) => musical_time_map,
+            Err(error) => return finish_failure(args.json, render_failure(&error)),
+        };
+        match render_instrument_with_input(
+            Arc::clone(&compiled),
+            request,
+            &events,
+            &musical_time_map,
+            external_audio.as_ref(),
+        ) {
             Ok(audio) => (audio, None),
             Err(error) => return finish_failure(args.json, render_failure(&error)),
         }
@@ -1694,6 +1752,10 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
             Ok(result) => result,
             Err(failure) => return finish_failure(args.json, failure),
         };
+    let external_audio = match load_external_audio(args.audio_input.as_deref(), args.sample_rate) {
+        Ok(audio) => audio,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
     let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
     {
         Ok(request) => request,
@@ -1728,6 +1790,7 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
         &musical_time_map,
         trace_request.as_ref(),
         args.reset_check,
+        external_audio.as_ref(),
     ) {
         Ok(rendered) => rendered,
         Err(failure) => return finish_failure(args.json, failure),
@@ -1775,6 +1838,7 @@ fn render_event_audio(
     musical_time_map: &MusicalTimeMap,
     trace_request: Option<&TraceRequest>,
     reset_check: bool,
+    external_audio: Option<&sonalloy_core::PreparedAudio>,
 ) -> Result<
     (
         sonalloy_core::RenderedAudio,
@@ -1793,28 +1857,35 @@ fn render_event_audio(
                 )],
             });
         }
-        let (first, second) =
-            render_instrument_with_reset(Arc::clone(compiled), request, events, musical_time_map)
-                .map_err(|error| render_failure(&error))?;
+        let (first, second) = render_instrument_with_input_and_reset(
+            Arc::clone(compiled),
+            request,
+            events,
+            musical_time_map,
+            external_audio,
+        )
+        .map_err(|error| render_failure(&error))?;
         let comparison = compare_rendered_audio(&first, &second);
         return Ok((second, None, Some(comparison)));
     }
     if let Some(trace_request) = trace_request {
-        let (audio, trace) = render_instrument_with_trace(
+        let (audio, trace) = render_instrument_with_input_and_trace(
             Arc::clone(compiled),
             request,
             events,
             musical_time_map,
             trace_request,
+            external_audio,
         )
         .map_err(|error| render_failure(&error))?;
         return Ok((audio, Some(trace), None));
     }
-    let audio = render_instrument_with_musical_time_map(
+    let audio = render_instrument_with_input(
         Arc::clone(compiled),
         request,
         events,
         musical_time_map,
+        external_audio,
     )
     .map_err(|error| render_failure(&error))?;
     Ok((audio, None, None))
@@ -2016,6 +2087,10 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
+    let external_audio = match load_external_audio(args.audio_input.as_deref(), args.sample_rate) {
+        Ok(audio) => audio,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
     let midi = match read_midi(&args.midi, sample_rate) {
         Ok(midi) => midi,
         Err(midi_diagnostics) => {
@@ -2040,22 +2115,24 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
         Err(failure) => return finish_failure(args.json, failure),
     };
     let (mut audio, trace) = if let Some(trace_request) = trace_request.as_ref() {
-        match render_instrument_with_trace(
+        match render_instrument_with_input_and_trace(
             Arc::clone(&compiled),
             request,
             &midi.events,
             &midi.musical_time_map,
             trace_request,
+            external_audio.as_ref(),
         ) {
             Ok((audio, trace)) => (audio, Some(trace)),
             Err(error) => return finish_failure(args.json, render_failure(&error)),
         }
     } else {
-        match render_instrument_with_musical_time_map(
+        match render_instrument_with_input(
             Arc::clone(&compiled),
             request,
             &midi.events,
             &midi.musical_time_map,
+            external_audio.as_ref(),
         ) {
             Ok(audio) => (audio, None),
             Err(error) => return finish_failure(args.json, render_failure(&error)),
@@ -2129,6 +2206,10 @@ fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
         Ok(request) => request,
         Err(failure) => return finish_failure(args.json, failure),
     };
+    let external_audio = match load_external_audio(args.audio_input.as_deref(), args.sample_rate) {
+        Ok(audio) => audio,
+        Err(failure) => return finish_failure(args.json, failure),
+    };
     let request = RenderRequest {
         sample_rate,
         block_size: args.block_size,
@@ -2146,6 +2227,7 @@ fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
         &compiled_pattern.musical_time_map,
         trace_request.as_ref(),
         false,
+        external_audio.as_ref(),
     ) {
         Ok(rendered) => rendered,
         Err(failure) => return finish_failure(args.json, failure),
@@ -2394,6 +2476,28 @@ fn correct_rendered_audio(audio: &mut sonalloy_core::RenderedAudio, latency_fram
     }
 }
 
+fn load_external_audio(
+    path: Option<&Path>,
+    sample_rate: u32,
+) -> Result<Option<sonalloy_core::PreparedAudio>, CliFailure> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    prepare_audio_file(path, f64::from(sample_rate))
+        .map(Some)
+        .map_err(|error| CliFailure {
+            code: 2,
+            diagnostics: vec![
+                Diagnostic::error(
+                    DiagnosticCode::AssetDecodeFailed,
+                    "could not prepare external audio input",
+                )
+                .with_path(path.to_string_lossy())
+                .with_detail(error.to_string()),
+            ],
+        })
+}
+
 fn load_and_compile(
     path: &Path,
     sample_rate: u32,
@@ -2430,8 +2534,11 @@ fn load_and_compile(
                 )),
             ],
         })?;
-    let process_spec =
-        ProcessSpec::new(f64::from(sample_rate), block_size, 2).map_err(|error| CliFailure {
+    let input_channels = definition
+        .external_audio
+        .map_or(0, |external_audio| external_audio.channels.channel_count());
+    let process_spec = ProcessSpec::new(f64::from(sample_rate), block_size, input_channels, 2)
+        .map_err(|error| CliFailure {
             code: 2,
             diagnostics: vec![
                 Diagnostic::error(DiagnosticCode::ValueOutOfRange, error.to_string())
@@ -2461,6 +2568,7 @@ fn load_and_compile(
 fn default_definition() -> InstrumentDefinition {
     InstrumentDefinition {
         schema_version: sonalloy_core::CURRENT_SCHEMA_VERSION,
+        external_audio: None,
         metadata: InstrumentMetadata {
             name: "Basic Poly Synth".to_owned(),
             author: None,
@@ -2532,7 +2640,7 @@ fn parameter_descriptor_id(compiled: &CompiledInstrument, handle: ParameterHandl
         .clone()
 }
 
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
 fn inspect_processor(
     compiled: &CompiledInstrument,
     processor: &sonalloy_core::compiler::CompiledProcessor,
@@ -2762,11 +2870,80 @@ fn inspect_processor(
         ),
         sonalloy_core::compiler::CompiledProcessorKind::Gate(value) => (
             "gate",
-            vec![InspectStaticField {
-                id: "hysteresis_db",
-                value: value.hysteresis_db,
-            }],
+            vec![
+                InspectStaticField {
+                    id: "hysteresis_db",
+                    value: value.hysteresis_db,
+                },
+                InspectStaticField {
+                    id: "external_input_alignment_frames",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.external_input_alignment_frames as f32,
+                },
+            ],
             vec![value.parameters.threshold_db, value.parameters.range_db],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::Vocoder(value) => (
+            "vocoder",
+            vec![
+                InspectStaticField {
+                    id: "bands",
+                    value: sonalloy_core::compiler::VOCODER_BANDS as f32,
+                },
+                InspectStaticField {
+                    id: "external_input_alignment_frames",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.external_input_alignment_frames as f32,
+                },
+            ],
+            vec![
+                value.parameters.modulator_gain_db,
+                value.parameters.output_gain_db,
+                value.parameters.mix,
+            ],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::EnvelopeTransfer(value) => (
+            "envelope_transfer",
+            vec![InspectStaticField {
+                id: "external_input_alignment_frames",
+                #[allow(clippy::cast_precision_loss)]
+                value: value.external_input_alignment_frames as f32,
+            }],
+            vec![
+                value.parameters.input_gain_db,
+                value.parameters.floor_db,
+                value.parameters.mix,
+            ],
+        ),
+        sonalloy_core::compiler::CompiledProcessorKind::SpectralMorph(value) => (
+            "spectral_morph",
+            vec![
+                InspectStaticField {
+                    id: "fft_size",
+                    value: sonalloy_core::compiler::SPECTRAL_MORPH_FFT_SIZE as f32,
+                },
+                InspectStaticField {
+                    id: "hop_size",
+                    value: sonalloy_core::compiler::SPECTRAL_MORPH_HOP_SIZE as f32,
+                },
+                InspectStaticField {
+                    id: "latency_frames",
+                    value: sonalloy_core::compiler::SPECTRAL_MORPH_LATENCY_FRAMES as f32,
+                },
+                InspectStaticField {
+                    id: "external_input_alignment_frames",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.external_input_alignment_frames as f32,
+                },
+                InspectStaticField {
+                    id: "runtime_buffer_bytes",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: sonalloy_core::runtime::spectral_morph_runtime_buffer_bytes(
+                        value.external_input_alignment_frames,
+                    ) as f32,
+                },
+            ],
+            vec![value.parameters.morph, value.parameters.output_gain_db],
         ),
         sonalloy_core::compiler::CompiledProcessorKind::TransientShaper(value) => (
             "transient_shaper",
@@ -2809,6 +2986,11 @@ fn inspect_processor(
                     id: "knee_db",
                     value: value.knee_db,
                 },
+                InspectStaticField {
+                    id: "external_input_alignment_frames",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: value.external_input_alignment_frames as f32,
+                },
             ],
             vec![
                 value.parameters.threshold_db,
@@ -2848,6 +3030,30 @@ fn inspect_processor(
         ),
         _ => (None, None),
     };
+    let detector = match &processor.processor {
+        sonalloy_core::compiler::CompiledProcessorKind::Gate(value) => Some(match value.detector {
+            sonalloy_core::compiler::CompiledDynamicsDetector::SelfSignal => "self_signal",
+            sonalloy_core::compiler::CompiledDynamicsDetector::ExternalAudio => "external_audio",
+        }),
+        sonalloy_core::compiler::CompiledProcessorKind::Compressor(value) => {
+            Some(match value.detector {
+                sonalloy_core::compiler::CompiledDynamicsDetector::SelfSignal => "self_signal",
+                sonalloy_core::compiler::CompiledDynamicsDetector::ExternalAudio => {
+                    "external_audio"
+                }
+            })
+        }
+        _ => None,
+    };
+    let resource = match &processor.processor {
+        sonalloy_core::compiler::CompiledProcessorKind::Vocoder(_) => {
+            Some("fixed_24_band_filter_bank")
+        }
+        sonalloy_core::compiler::CompiledProcessorKind::SpectralMorph(_) => {
+            Some("fft_1024_hop_256_ola")
+        }
+        _ => None,
+    };
     InspectProcessor {
         placement,
         chain_index,
@@ -2856,6 +3062,8 @@ fn inspect_processor(
         mode,
         asset_path,
         asset_sha256_specified,
+        detector,
+        resource,
         static_fields,
         parameters: handles
             .into_iter()
@@ -2998,24 +3206,29 @@ fn instrument_source_id(
     compiled: &CompiledInstrument,
     handle: sonalloy_core::compiler::InstrumentSourceHandle,
 ) -> String {
-    match compiled
+    let source = compiled
         .instrument_sources
         .get(handle.index())
-        .expect("compiled instrument source handle must be valid")
-    {
-        sonalloy_core::compiler::CompiledInstrumentSource::PitchBend => "pitch_bend".to_owned(),
-        sonalloy_core::compiler::CompiledInstrumentSource::ModWheel => "mod_wheel".to_owned(),
-        sonalloy_core::compiler::CompiledInstrumentSource::Aftertouch => "aftertouch".to_owned(),
-        sonalloy_core::compiler::CompiledInstrumentSource::Macro { parameter } => compiled
+        .expect("compiled instrument source handle must be valid");
+    match &source.source {
+        sonalloy_core::compiler::CompiledInstrumentSourceKind::PitchBend => "pitch_bend".to_owned(),
+        sonalloy_core::compiler::CompiledInstrumentSourceKind::ModWheel => "mod_wheel".to_owned(),
+        sonalloy_core::compiler::CompiledInstrumentSourceKind::Aftertouch => {
+            "aftertouch".to_owned()
+        }
+        sonalloy_core::compiler::CompiledInstrumentSourceKind::Macro { parameter } => compiled
             .parameter_descriptor(*parameter)
             .expect("compiled macro parameter must be valid")
             .id
             .clone(),
-        sonalloy_core::compiler::CompiledInstrumentSource::BeatPhase => {
+        sonalloy_core::compiler::CompiledInstrumentSourceKind::BeatPhase => {
             "transport_beat_phase".to_owned()
         }
-        sonalloy_core::compiler::CompiledInstrumentSource::BarPhase => {
+        sonalloy_core::compiler::CompiledInstrumentSourceKind::BarPhase => {
             "transport_bar_phase".to_owned()
+        }
+        sonalloy_core::compiler::CompiledInstrumentSourceKind::EnvelopeFollower(_) => {
+            source.id.clone()
         }
     }
 }
@@ -3047,6 +3260,59 @@ fn inspect_external_source(id: &str) -> InspectSource {
     }
 }
 
+fn inspect_instrument_source(
+    source: &sonalloy_core::compiler::CompiledInstrumentSource,
+) -> InspectSource {
+    let mut result = inspect_external_source(&source.id);
+    if matches!(
+        source.source,
+        sonalloy_core::compiler::CompiledInstrumentSourceKind::EnvelopeFollower(_)
+    ) {
+        result.kind = "envelope_follower";
+    }
+    result.value_range = inspect_source_range(result.kind);
+    result
+}
+
+fn inspect_external_consumer(
+    processor: &sonalloy_core::compiler::CompiledProcessor,
+) -> Option<InspectExternalConsumer> {
+    let (kind, alignment_frames) = match &processor.processor {
+        sonalloy_core::compiler::CompiledProcessorKind::Gate(value)
+            if matches!(
+                value.detector,
+                sonalloy_core::compiler::CompiledDynamicsDetector::ExternalAudio
+            ) =>
+        {
+            ("gate", value.external_input_alignment_frames)
+        }
+        sonalloy_core::compiler::CompiledProcessorKind::Compressor(value)
+            if matches!(
+                value.detector,
+                sonalloy_core::compiler::CompiledDynamicsDetector::ExternalAudio
+            ) =>
+        {
+            ("compressor", value.external_input_alignment_frames)
+        }
+        sonalloy_core::compiler::CompiledProcessorKind::Vocoder(value) => {
+            ("vocoder", value.external_input_alignment_frames)
+        }
+        sonalloy_core::compiler::CompiledProcessorKind::EnvelopeTransfer(value) => {
+            ("envelope_transfer", value.external_input_alignment_frames)
+        }
+        sonalloy_core::compiler::CompiledProcessorKind::SpectralMorph(value) => {
+            ("spectral_morph", value.external_input_alignment_frames)
+        }
+        _ => return None,
+    };
+    Some(InspectExternalConsumer {
+        placement: "global",
+        id: processor.id.clone(),
+        kind,
+        alignment_frames,
+    })
+}
+
 fn inspect_source_range(kind: &str) -> InspectSourceRange {
     let (min, max, polarity) = match kind {
         "velocity"
@@ -3060,7 +3326,8 @@ fn inspect_source_range(kind: &str) -> InspectSourceRange {
         | "beat_phase"
         | "bar_phase"
         | "transport_beat_phase"
-        | "transport_bar_phase" => (0.0, 1.0, InspectPolarity::Unipolar),
+        | "transport_bar_phase"
+        | "envelope_follower" => (0.0, 1.0, InspectPolarity::Unipolar),
         "key_tracking" | "lfo" | "random" | "mseg" | "pitch_bend" => {
             (-1.0, 1.0, InspectPolarity::Bipolar)
         }
@@ -4024,6 +4291,11 @@ fn make_inspect_report(
         .iter()
         .map(inspect_source)
         .collect::<Vec<_>>();
+    for source in &compiled.instrument_sources {
+        if !sources.iter().any(|item| item.id == source.id) {
+            sources.push(inspect_instrument_source(source));
+        }
+    }
     for route in &compiled.routes {
         let Some(id) = external_source_name(compiled, route.source) else {
             continue;
@@ -4053,6 +4325,18 @@ fn make_inspect_report(
         portamento_seconds,
         layer_alignment_latency_frames: compiled.layer_alignment_latency_frames(),
         reported_latency_frames: compiled.reported_latency_frames,
+        external_audio: compiled.external_audio.map(|input| InspectExternalAudio {
+            channels: match input.channels {
+                sonalloy_core::ExternalAudioChannels::Mono => "mono",
+                sonalloy_core::ExternalAudioChannels::Stereo => "stereo",
+            },
+            required_input_channels: compiled.required_input_channels(),
+            consumers: compiled
+                .global_processors
+                .iter()
+                .filter_map(inspect_external_consumer)
+                .collect(),
+        }),
         layer_count: layers.len(),
         layers,
         voice_processors: compiled
@@ -4135,6 +4419,20 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
         "reported latency: {} frames",
         report.reported_latency_frames
     );
+    if let Some(external_audio) = &report.external_audio {
+        println!(
+            "external audio: {} ({} input channels)",
+            external_audio.channels, external_audio.required_input_channels
+        );
+        for consumer in &external_audio.consumers {
+            println!(
+                "  consumer {} {} alignment {} frames",
+                consumer.id, consumer.kind, consumer.alignment_frames
+            );
+        }
+    } else {
+        println!("external audio: none");
+    }
     for macro_control in &report.macros {
         println!(
             "macro {} ({}) default {:.3}: {}",
@@ -4819,6 +5117,12 @@ fn print_processor_reports(processors: &[InspectProcessor], placement: &'static 
         if let Some(mode) = report.mode {
             println!("    mode: {mode}");
         }
+        if let Some(detector) = report.detector {
+            println!("    detector: {detector}");
+        }
+        if let Some(resource) = report.resource {
+            println!("    resource: {resource}");
+        }
         for field in &report.static_fields {
             println!("    {}: {:.3}", field.id, field.value);
         }
@@ -5053,7 +5357,7 @@ mod tests {
             &CompileContext {
                 definition_base_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                     .join("../../testdata/instruments"),
-                process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+                process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
             },
         );
         let sonalloy_core::CompileResult {

@@ -71,7 +71,8 @@ fn compile(
         definition,
         &CompileContext {
             definition_base_dir: PathBuf::from("."),
-            process_spec: ProcessSpec::new(sample_rate, block_size, 2).expect("valid process spec"),
+            process_spec: ProcessSpec::new(sample_rate, block_size, 0, 2)
+                .expect("valid process spec"),
         },
     )
     .instrument
@@ -129,6 +130,7 @@ fn process_runtime(
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
             },
             events,
+            input: &[],
             output: &mut output,
         })
         .expect("runtime process succeeds");
@@ -410,7 +412,7 @@ fn reset_then_same_note_matches_fresh_runtime() {
     let instrument = compile(&definition, 48_000.0, 257);
     let mut runtime = instrument.instantiate();
     runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("runtime prepares");
     let events = [ProcessEvent {
         sample_offset: 0,
@@ -422,7 +424,7 @@ fn reset_then_same_note_matches_fresh_runtime() {
     let after_reset = process_runtime(&mut runtime, 257, 0, &events);
     let mut fresh_runtime = instrument.instantiate();
     fresh_runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("fresh runtime prepares");
     let fresh = process_runtime(&mut fresh_runtime, 257, 0, &events);
 
@@ -466,7 +468,7 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
         .expect("modal decay handle");
     let mut runtime = instrument.instantiate();
     runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid process spec"))
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("runtime prepares");
     let mut left = vec![0.0; 257];
     let mut right = vec![0.0; 257];
@@ -517,6 +519,7 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
                     time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &parameter_events,
+                input: &[],
                 output: &mut output,
             })
             .expect("parameter event renders");
@@ -550,6 +553,7 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
                     time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &note_off_events,
+                input: &[],
                 output: &mut output,
             })
             .expect("note off renders release");
@@ -590,6 +594,7 @@ fn physical_modal_generators_survive_the_existing_processor_chain() {
             knee_db: 6.0,
             makeup_gain_db: 1.0,
             mix: 0.7,
+            detector: sonalloy_core::DynamicsDetectorDefinition::SelfSignal,
         }),
     ];
     definition.global_processors = vec![

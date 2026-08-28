@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::compiler::{
-    CompiledGenerator, CompiledInstrument, CompiledInstrumentSource, CompiledPerformanceMode,
+    CompiledGenerator, CompiledInstrument, CompiledInstrumentSourceKind, CompiledPerformanceMode,
     CompiledProcessor, CompiledProcessorKind, CompiledSampleZone, CompiledSourceRef,
 };
 use crate::definition::LayerTriggerEvent;
@@ -14,6 +14,8 @@ use crate::trace::{
     TraceContribution, TraceDepth, TraceObservation, TraceRoute, TraceVoice, TraceVoiceState,
 };
 
+use super::external_audio::EnvelopeFollowerRuntime;
+use super::external_audio::ExternalAudioBlock;
 use super::modulation::{
     ParameterSpanValue, SharedParameterSpan, ValueSpan, apply_domain_sum_with_maximum,
     route_domain_delta,
@@ -84,6 +86,7 @@ pub struct InstrumentRuntime {
     round_robin_counters: Vec<Vec<u64>>,
     spec: Option<ProcessSpec>,
     absolute_frame: u64,
+    instrument_source_states: Vec<Option<EnvelopeFollowerRuntime>>,
 }
 
 impl InstrumentRuntime {
@@ -114,6 +117,7 @@ impl InstrumentRuntime {
             round_robin_counters: Vec::new(),
             spec: None,
             absolute_frame: 0,
+            instrument_source_states: Vec::new(),
         }
     }
 
@@ -326,17 +330,23 @@ impl InstrumentRuntime {
             .instrument_sources
             .get(handle.index())
             .ok_or_else(invalid_state)?;
-        Ok(match source {
-            CompiledInstrumentSource::PitchBend => self.pitch_bend.current(),
-            CompiledInstrumentSource::ModWheel => self.mod_wheel.current(),
-            CompiledInstrumentSource::Aftertouch => self.aftertouch.current(),
-            CompiledInstrumentSource::Macro { parameter } => self
+        Ok(match &source.source {
+            CompiledInstrumentSourceKind::PitchBend => self.pitch_bend.current(),
+            CompiledInstrumentSourceKind::ModWheel => self.mod_wheel.current(),
+            CompiledInstrumentSourceKind::Aftertouch => self.aftertouch.current(),
+            CompiledInstrumentSourceKind::Macro { parameter } => self
                 .parameter_states
                 .get(parameter.index())
                 .ok_or_else(invalid_state)?
                 .current(),
-            CompiledInstrumentSource::BeatPhase => phase_fraction(context.beat_position),
-            CompiledInstrumentSource::BarPhase => phase_fraction(context.bar_position),
+            CompiledInstrumentSourceKind::BeatPhase => phase_fraction(context.beat_position),
+            CompiledInstrumentSourceKind::BarPhase => phase_fraction(context.bar_position),
+            CompiledInstrumentSourceKind::EnvelopeFollower(_) => self
+                .instrument_source_states
+                .get(handle.index())
+                .and_then(Option::as_ref)
+                .ok_or_else(invalid_state)?
+                .value(),
         })
     }
 
@@ -832,8 +842,8 @@ impl InstrumentRuntime {
     ) -> Option<usize> {
         if !self.compiled.instrument_sources.iter().any(|source| {
             matches!(
-                source,
-                CompiledInstrumentSource::BeatPhase | CompiledInstrumentSource::BarPhase
+                &source.source,
+                CompiledInstrumentSourceKind::BeatPhase | CompiledInstrumentSourceKind::BarPhase
             )
         }) {
             return None;
@@ -849,15 +859,16 @@ impl InstrumentRuntime {
         let beats_per_bar = context.time_signature.beats_per_bar();
         let mut boundary = remaining;
         for source in &*self.compiled.instrument_sources {
-            let (position, units_per_frame) = match source {
-                CompiledInstrumentSource::BeatPhase => (beat_position, beats_per_second),
-                CompiledInstrumentSource::BarPhase => {
+            let (position, units_per_frame) = match &source.source {
+                CompiledInstrumentSourceKind::BeatPhase => (beat_position, beats_per_second),
+                CompiledInstrumentSourceKind::BarPhase => {
                     (bar_position, beats_per_second / beats_per_bar)
                 }
-                CompiledInstrumentSource::PitchBend
-                | CompiledInstrumentSource::ModWheel
-                | CompiledInstrumentSource::Aftertouch
-                | CompiledInstrumentSource::Macro { .. } => continue,
+                CompiledInstrumentSourceKind::PitchBend
+                | CompiledInstrumentSourceKind::ModWheel
+                | CompiledInstrumentSourceKind::Aftertouch
+                | CompiledInstrumentSourceKind::Macro { .. }
+                | CompiledInstrumentSourceKind::EnvelopeFollower(_) => continue,
             };
             let next = position.floor() + 1.0;
             let frames = (next - position) / units_per_frame;
@@ -875,6 +886,7 @@ impl InstrumentRuntime {
         context: crate::process::ProcessContext,
         offset: usize,
         sample_rate: f64,
+        external: ExternalAudioBlock<'_>,
     ) -> Result<(), ProcessError> {
         for (state, span) in self
             .parameter_states
@@ -910,17 +922,31 @@ impl InstrumentRuntime {
                 / (60.0 * sample_rate * beats_per_bar);
         let end_bar =
             start_bar + frames as f64 * context.tempo_bpm / (60.0 * sample_rate * beats_per_bar);
+        for (state, span) in self
+            .instrument_source_states
+            .iter_mut()
+            .zip(&mut self.scratch.instrument_source_spans)
+        {
+            if let Some(state) = state {
+                let start = state.value();
+                for index in 0..frames {
+                    state.next(external, index);
+                }
+                let end = state.value();
+                *span = ParameterSpanValue { start, end };
+            }
+        }
         for (source, span) in self
             .compiled
             .instrument_sources
             .iter()
             .zip(&mut self.scratch.instrument_source_spans)
         {
-            let value = match source {
-                CompiledInstrumentSource::PitchBend => pitch,
-                CompiledInstrumentSource::ModWheel => wheel,
-                CompiledInstrumentSource::Aftertouch => touch,
-                CompiledInstrumentSource::Macro { parameter } => {
+            let value = match &source.source {
+                CompiledInstrumentSourceKind::PitchBend => pitch,
+                CompiledInstrumentSourceKind::ModWheel => wheel,
+                CompiledInstrumentSourceKind::Aftertouch => touch,
+                CompiledInstrumentSourceKind::Macro { parameter } => {
                     let value = self
                         .scratch
                         .parameter_spans
@@ -932,8 +958,12 @@ impl InstrumentRuntime {
                         end: value.end,
                     }
                 }
-                CompiledInstrumentSource::BeatPhase => phase_span(start_beats, end_beats),
-                CompiledInstrumentSource::BarPhase => phase_span(start_bar, end_bar),
+                CompiledInstrumentSourceKind::BeatPhase => phase_span(start_beats, end_beats),
+                CompiledInstrumentSourceKind::BarPhase => phase_span(start_bar, end_bar),
+                CompiledInstrumentSourceKind::EnvelopeFollower(_) => ValueSpan {
+                    start: span.start,
+                    end: span.end,
+                },
             };
             *span = ParameterSpanValue {
                 start: value.start,
@@ -1128,6 +1158,42 @@ impl InstrumentRuntime {
                 )?,
                 mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
             }),
+            CompiledProcessorKind::Vocoder(value) => Ok(ProcessorTargetSpan::Vocoder {
+                modulator_gain_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.modulator_gain_db,
+                    shared,
+                )?,
+                output_gain_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.output_gain_db,
+                    shared,
+                )?,
+                mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
+            }),
+            CompiledProcessorKind::EnvelopeTransfer(value) => {
+                Ok(ProcessorTargetSpan::EnvelopeTransfer {
+                    input_gain_db: Self::evaluate_global_target(
+                        compiled,
+                        value.parameters.input_gain_db,
+                        shared,
+                    )?,
+                    floor_db: Self::evaluate_global_target(
+                        compiled,
+                        value.parameters.floor_db,
+                        shared,
+                    )?,
+                    mix: Self::evaluate_global_target(compiled, value.parameters.mix, shared)?,
+                })
+            }
+            CompiledProcessorKind::SpectralMorph(value) => Ok(ProcessorTargetSpan::SpectralMorph {
+                morph: Self::evaluate_global_target(compiled, value.parameters.morph, shared)?,
+                output_gain_db: Self::evaluate_global_target(
+                    compiled,
+                    value.parameters.output_gain_db,
+                    shared,
+                )?,
+            }),
             CompiledProcessorKind::Limiter(value) => Ok(ProcessorTargetSpan::Limiter {
                 ceiling_db: Self::evaluate_global_target(
                     compiled,
@@ -1213,6 +1279,7 @@ impl InstrumentRuntime {
         self.global_targets.clear();
         self.round_robin_counters.clear();
         self.absolute_frame = 0;
+        self.instrument_source_states.clear();
     }
 
     fn prepare_inner(&mut self, spec: ProcessSpec) -> Result<(), ProcessError> {
@@ -1227,6 +1294,13 @@ impl InstrumentRuntime {
             return Err(ProcessError::SampleRateMismatch {
                 compiled: self.compiled.process_sample_rate,
                 requested: spec.sample_rate,
+            });
+        }
+        let required_input_channels = self.compiled.required_input_channels();
+        if spec.input_channels != required_input_channels {
+            return Err(ProcessError::InputChannelRequirementMismatch {
+                compiled: required_input_channels,
+                requested: spec.input_channels,
             });
         }
         self.scratch.layer_mono.resize(spec.max_block_size, 0.0);
@@ -1261,6 +1335,17 @@ impl InstrumentRuntime {
                     .map_err(|_| ProcessError::InvalidCompiledParameterDefault)
             })
             .collect::<Result<Vec<_>, _>>()?;
+        self.instrument_source_states = self
+            .compiled
+            .instrument_sources
+            .iter()
+            .map(|source| match &source.source {
+                CompiledInstrumentSourceKind::EnvelopeFollower(compiled) => {
+                    Some(EnvelopeFollowerRuntime::new(*compiled))
+                }
+                _ => None,
+            })
+            .collect();
         self.round_robin_counters = self
             .compiled
             .layers
@@ -1362,7 +1447,23 @@ impl InstrumentRuntime {
             }
 
             let frames = end - cursor;
-            if let Err(error) = self.advance_shared(frames, block.context, cursor, spec.sample_rate)
+            let external_channels = [
+                block
+                    .input
+                    .first()
+                    .and_then(|channel| channel.get(cursor..end))
+                    .unwrap_or(&[]),
+                block
+                    .input
+                    .get(1)
+                    .and_then(|channel| channel.get(cursor..end))
+                    .unwrap_or(&[]),
+            ];
+            let external = ExternalAudioBlock::new(
+                &external_channels[..block.input.len().min(external_channels.len())],
+            );
+            if let Err(error) =
+                self.advance_shared(frames, block.context, cursor, spec.sample_rate, external)
             {
                 clear_output(&mut *block.output, block.frames);
                 self.spec = None;
@@ -1425,6 +1526,7 @@ impl InstrumentRuntime {
                                 processors.process(
                                     &self.global_targets,
                                     block.context.tempo_bpm,
+                                    external,
                                     left,
                                     right,
                                 )
@@ -1484,6 +1586,9 @@ impl InstrumentProcessor for InstrumentRuntime {
                 })?;
             state.reset(normalized);
         }
+        for state in self.instrument_source_states.iter_mut().flatten() {
+            state.reset();
+        }
         self.pitch_bend.reset(0.0);
         self.mod_wheel.reset(0.0);
         self.aftertouch.reset(0.0);
@@ -1540,15 +1645,16 @@ fn trace_source_id(compiled: &CompiledInstrument, source: CompiledSourceRef) -> 
         CompiledSourceRef::Instrument(handle) => {
             compiled.instrument_sources.get(handle.index()).map_or_else(
                 || "unknown".to_owned(),
-                |source| match source {
-                    CompiledInstrumentSource::PitchBend => "pitch_bend".to_owned(),
-                    CompiledInstrumentSource::ModWheel => "mod_wheel".to_owned(),
-                    CompiledInstrumentSource::Aftertouch => "aftertouch".to_owned(),
-                    CompiledInstrumentSource::Macro { parameter } => compiled
+                |source| match &source.source {
+                    CompiledInstrumentSourceKind::PitchBend => "pitch_bend".to_owned(),
+                    CompiledInstrumentSourceKind::ModWheel => "mod_wheel".to_owned(),
+                    CompiledInstrumentSourceKind::Aftertouch => "aftertouch".to_owned(),
+                    CompiledInstrumentSourceKind::Macro { parameter } => compiled
                         .parameter_descriptor(*parameter)
                         .map_or_else(|| "unknown".to_owned(), |descriptor| descriptor.id.clone()),
-                    CompiledInstrumentSource::BeatPhase => "transport_beat_phase".to_owned(),
-                    CompiledInstrumentSource::BarPhase => "transport_bar_phase".to_owned(),
+                    CompiledInstrumentSourceKind::BeatPhase => "transport_beat_phase".to_owned(),
+                    CompiledInstrumentSourceKind::BarPhase => "transport_bar_phase".to_owned(),
+                    CompiledInstrumentSourceKind::EnvelopeFollower(_) => source.id.clone(),
                 },
             )
         }
@@ -1575,7 +1681,7 @@ mod tests {
             &definition,
             &CompileContext {
                 definition_base_dir: ".".into(),
-                process_spec: ProcessSpec::new(48_000.0, 64, 2).expect("valid spec"),
+                process_spec: ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid spec"),
             },
         )
         .instrument
@@ -1587,7 +1693,20 @@ mod tests {
             definition,
             &CompileContext {
                 definition_base_dir: ".".into(),
-                process_spec: ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"),
+                process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
+            },
+        );
+        result.instrument.expect("compiled").instantiate()
+    }
+
+    fn external_runtime_with(
+        definition: &crate::definition::InstrumentDefinition,
+    ) -> InstrumentRuntime {
+        let result = compile_instrument(
+            definition,
+            &CompileContext {
+                definition_base_dir: ".".into(),
+                process_spec: ProcessSpec::new(48_000.0, 64, 2, 2).expect("valid spec"),
             },
         );
         result.instrument.expect("compiled").instantiate()
@@ -1612,7 +1731,7 @@ mod tests {
 
     fn prepare(runtime: &mut InstrumentRuntime) {
         runtime
-            .prepare(ProcessSpec::new(48_000.0, 257, 2).expect("valid spec"))
+            .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"))
             .expect("prepare");
     }
 
@@ -1636,6 +1755,7 @@ mod tests {
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events,
+                input: &[],
                 output: &mut output,
             })
             .expect("process succeeds");
@@ -1905,7 +2025,7 @@ mod tests {
             Some(240)
         );
         beat_runtime
-            .advance_shared(240, beat_context, 0, 48_000.0)
+            .advance_shared(240, beat_context, 0, 48_000.0, ExternalAudioBlock::new(&[]))
             .expect("beat phase span");
         let beat_span = beat_runtime.scratch.instrument_source_spans[0];
         assert!((beat_span.start - 0.99).abs() < 1.0e-6);
@@ -1945,7 +2065,7 @@ mod tests {
             );
         }
         bar_runtime
-            .advance_shared(96, bar_context, 0, 48_000.0)
+            .advance_shared(96, bar_context, 0, 48_000.0, ExternalAudioBlock::new(&[]))
             .expect("bar phase span");
         let bar_span = bar_runtime.scratch.instrument_source_spans[0];
         assert!((bar_span.start - 0.999).abs() < 1.0e-6);
@@ -1972,6 +2092,36 @@ mod tests {
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events,
+                input: &[],
+                output: &mut output,
+            })
+            .expect("process succeeds");
+    }
+
+    fn process_with_external_stack_output(
+        runtime: &mut InstrumentRuntime,
+        absolute_frame: u64,
+        events: &[ProcessEvent],
+    ) {
+        const FRAMES: usize = 64;
+        let mut left = [0.0_f32; FRAMES];
+        let mut right = [0.0_f32; FRAMES];
+        let external_left = [0.5_f32; FRAMES];
+        let external_right = [-0.25_f32; FRAMES];
+        let input: [&[f32]; 2] = [&external_left, &external_right];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        runtime
+            .process(ProcessBlock {
+                frames: FRAMES,
+                context: crate::process::ProcessContext {
+                    absolute_frame,
+                    tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                },
+                events,
+                input: &input,
                 output: &mut output,
             })
             .expect("process succeeds");
@@ -2366,6 +2516,7 @@ mod tests {
                     knee_db: 6.0,
                     makeup_gain_db: 2.0,
                     mix: 1.0,
+                    detector: crate::definition::DynamicsDetectorDefinition::SelfSignal,
                 },
             ),
             crate::definition::ProcessorDefinition::Limiter(
@@ -2439,6 +2590,124 @@ mod tests {
 
         let allocations = crate::test_allocator::count_allocations(|| {
             process_with_stack_output(&mut runtime, 0, &event);
+        });
+
+        assert_eq!(allocations, 0);
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn external_cross_synthesis_render_does_not_allocate_after_prepare() {
+        let mut source = definition();
+        source.external_audio = Some(crate::definition::ExternalAudioInputDefinition {
+            channels: crate::definition::ExternalAudioChannels::Stereo,
+        });
+        source.voice_processors = vec![crate::definition::ProcessorDefinition::Filter(
+            crate::definition::FilterProcessorDefinition {
+                id: "tone".to_owned(),
+                mode: crate::definition::FilterModeDefinition::LowPass,
+                cutoff_hz: 12_000.0,
+                resonance: 0.12,
+            },
+        )];
+        source.modulation = Some(crate::definition::ModulationDefinition {
+            sources: vec![
+                crate::definition::ModulationSourceDefinition::EnvelopeFollower(
+                    crate::definition::EnvelopeFollowerDefinition {
+                        id: "input_env".to_owned(),
+                        attack_ms: 2.0,
+                        release_ms: 120.0,
+                        input_gain_db: 0.0,
+                    },
+                ),
+            ],
+            routes: vec![crate::definition::ModulationRouteDefinition {
+                source: "input_env".to_owned(),
+                target: "voice.processor.tone.cutoff".to_owned(),
+                depth: crate::definition::ModulationDepthDefinition {
+                    value: 2.2,
+                    unit: crate::parameter::ModulationUnit::Octaves,
+                },
+                curve: crate::definition::ModulationCurve::SmoothStep,
+            }],
+        });
+        source.global_processors = vec![
+            crate::definition::ProcessorDefinition::Vocoder(
+                crate::definition::VocoderProcessorDefinition {
+                    id: "vocoder".to_owned(),
+                    attack_ms: 8.0,
+                    release_ms: 80.0,
+                    modulator_gain_db: 0.0,
+                    output_gain_db: -3.0,
+                    mix: 1.0,
+                },
+            ),
+            crate::definition::ProcessorDefinition::SpectralMorph(
+                crate::definition::SpectralMorphProcessorDefinition {
+                    id: "morph".to_owned(),
+                    morph: 0.5,
+                    output_gain_db: -3.0,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Compressor(
+                crate::definition::CompressorProcessorDefinition {
+                    id: "post_morph_duck".to_owned(),
+                    threshold_db: -24.0,
+                    ratio: 6.0,
+                    attack_ms: 8.0,
+                    release_ms: 180.0,
+                    knee_db: 6.0,
+                    makeup_gain_db: 0.0,
+                    mix: 1.0,
+                    detector: crate::definition::DynamicsDetectorDefinition::ExternalAudio,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Delay(
+                crate::definition::DelayProcessorDefinition {
+                    id: "space".to_owned(),
+                    time: crate::definition::DelayTimeDefinition {
+                        value: 0.18,
+                        unit: crate::definition::DelayTimeUnit::Seconds,
+                    },
+                    feedback_mode: crate::definition::DelayFeedbackMode::Stereo,
+                    feedback: 0.18,
+                    taps: vec![],
+                    mix: 0.12,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Limiter(
+                crate::definition::LimiterProcessorDefinition {
+                    id: "ceiling".to_owned(),
+                    ceiling_db: -1.0,
+                    release_ms: 80.0,
+                    input_gain_db: -3.0,
+                },
+            ),
+        ];
+        let mut runtime = external_runtime_with(&source);
+        runtime
+            .prepare(ProcessSpec::new(48_000.0, 64, 2, 2).expect("valid spec"))
+            .expect("prepare");
+        let event = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 100,
+            },
+        }];
+        process_with_external_stack_output(&mut runtime, 0, &event);
+        runtime.reset().expect("reset");
+        let no_events: [ProcessEvent; 0] = [];
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            for block in 0..20 {
+                process_with_external_stack_output(
+                    &mut runtime,
+                    u64::try_from(block).expect("block index fits") * 64,
+                    if block == 0 { &event } else { &no_events },
+                );
+            }
         });
 
         assert_eq!(allocations, 0);
@@ -2938,7 +3207,7 @@ mod tests {
     fn prepare_requires_the_compiled_sample_rate_but_allows_block_size_changes() {
         let mut runtime = runtime();
         runtime
-            .prepare(ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec"))
+            .prepare(ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec"))
             .expect("matching sample rate and changed block size are valid");
     }
 
@@ -2946,7 +3215,7 @@ mod tests {
     fn prepare_rejects_a_sample_rate_different_from_compile_time() {
         let mut runtime = runtime();
         let error = runtime
-            .prepare(ProcessSpec::new(44_100.0, 257, 2).expect("valid process spec"))
+            .prepare(ProcessSpec::new(44_100.0, 257, 0, 2).expect("valid process spec"))
             .expect_err("a compiled instrument cannot be prepared at another sample rate");
         assert_eq!(
             error,
@@ -2960,14 +3229,14 @@ mod tests {
     #[test]
     fn failed_sample_rate_prepare_invalidates_previous_runtime_and_allows_reprepare() {
         let mut runtime = runtime();
-        let valid_spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let valid_spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         runtime
             .prepare(valid_spec)
             .expect("initial runtime preparation");
         assert!(runtime.voice_count() > 0);
 
         assert_eq!(
-            runtime.prepare(ProcessSpec::new(44_100.0, 64, 2).expect("valid process spec")),
+            runtime.prepare(ProcessSpec::new(44_100.0, 64, 0, 2).expect("valid process spec")),
             Err(ProcessError::SampleRateMismatch {
                 compiled: 48_000.0,
                 requested: 44_100.0,
@@ -2990,6 +3259,7 @@ mod tests {
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
+                input: &[],
                 output: &mut output,
             }),
             Err(ProcessError::NotPrepared)
@@ -3004,7 +3274,7 @@ mod tests {
     #[test]
     fn invalid_prepare_invalidates_previous_runtime_and_allows_reprepare() {
         let mut runtime = runtime();
-        let valid_spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid process spec");
+        let valid_spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         runtime
             .prepare(valid_spec)
             .expect("initial runtime preparation");
@@ -3012,6 +3282,7 @@ mod tests {
         let invalid_spec = ProcessSpec {
             sample_rate: 48_000.0,
             max_block_size: 0,
+            input_channels: 0,
             output_channels: 2,
         };
         assert_eq!(
@@ -3035,6 +3306,7 @@ mod tests {
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
                 },
                 events: &[],
+                input: &[],
                 output: &mut output,
             }),
             Err(ProcessError::NotPrepared)
@@ -3052,7 +3324,7 @@ mod tests {
             &definition(),
             &CompileContext {
                 definition_base_dir: ".".into(),
-                process_spec: ProcessSpec::new(44_100.0, 257, 2).expect("valid spec"),
+                process_spec: ProcessSpec::new(44_100.0, 257, 0, 2).expect("valid spec"),
             },
         );
         let mut runtime = result
@@ -3060,7 +3332,7 @@ mod tests {
             .expect("compiled instrument")
             .instantiate();
         runtime
-            .prepare(ProcessSpec::new(44_100.0, 257, 2).expect("valid spec"))
+            .prepare(ProcessSpec::new(44_100.0, 257, 0, 2).expect("valid spec"))
             .expect("matching 44.1 kHz sample rate is valid");
     }
 
@@ -3068,7 +3340,7 @@ mod tests {
     fn note_timing_is_independent_of_block_size() {
         let mut first = runtime();
         let mut second = runtime();
-        let spec = ProcessSpec::new(48_000.0, 257, 2).expect("valid spec");
+        let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec");
         first.prepare(spec).expect("prepare");
         second.prepare(spec).expect("prepare");
         let on = [ProcessEvent {
@@ -4117,6 +4389,7 @@ mod tests {
                     sample_offset: 0,
                     kind: event,
                 }],
+                input: &[],
                 output: &mut output,
             })
             .expect("parameter event process");
@@ -4127,7 +4400,7 @@ mod tests {
         let instrument = compiled(2);
         let mut runtime = instrument.instantiate();
         runtime
-            .prepare(ProcessSpec::new(48_000.0, 64, 2).expect("valid spec"))
+            .prepare(ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid spec"))
             .expect("runtime preparation");
         let invalid = ProcessEvent {
             sample_offset: 8,
@@ -4157,6 +4430,7 @@ mod tests {
                 time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
             },
             events: &[note_on, invalid],
+            input: &[],
             output: &mut output,
         });
         assert_eq!(
@@ -4180,7 +4454,7 @@ mod tests {
     fn shared_parameter_state_advances_once_for_any_voice_count() {
         let mut one_voice = compiled(1).instantiate();
         let mut eight_voices = compiled(8).instantiate();
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("valid spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid spec");
         one_voice.prepare(spec).expect("one voice preparation");
         eight_voices.prepare(spec).expect("eight voice preparation");
         let parameter = one_voice.compiled().parameters()[0].id.clone();

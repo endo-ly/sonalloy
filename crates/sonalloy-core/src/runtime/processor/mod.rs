@@ -5,6 +5,7 @@ mod compressor;
 mod convolution;
 mod delay;
 mod drive;
+mod envelope_transfer;
 mod eq;
 mod flanger;
 mod formant;
@@ -15,13 +16,16 @@ mod limiter;
 mod phaser;
 mod resonator;
 mod reverb;
+mod spectral_morph;
 mod transient_shaper;
+mod vocoder;
 
 use sonalloy_dsp_sys::{DspFilter, DspFilterMode};
 
 use crate::compiler::{CompiledProcessor, CompiledProcessorKind, GeneratorOutputMode};
 use crate::definition::FilterModeDefinition;
 use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
+use crate::runtime::external_audio::ExternalAudioBlock;
 
 use super::modulation::ValueSpan;
 
@@ -31,6 +35,7 @@ pub(crate) use compressor::CompressorRuntime;
 pub(crate) use convolution::ConvolutionRuntime;
 pub(crate) use delay::StereoDelayRuntime;
 pub(crate) use drive::DriveRuntime;
+pub(crate) use envelope_transfer::EnvelopeTransferRuntime;
 pub(crate) use eq::EqRuntime;
 pub(crate) use flanger::FlangerRuntime;
 pub(crate) use formant::FormantProcessorRuntime;
@@ -41,7 +46,13 @@ pub(crate) use limiter::LimiterRuntime;
 pub(crate) use phaser::PhaserRuntime;
 pub(crate) use resonator::ResonatorRuntime;
 pub(crate) use reverb::PlateReverbRuntime;
+pub(crate) use spectral_morph::SpectralMorphRuntime;
 pub(crate) use transient_shaper::TransientShaperRuntime;
+pub(crate) use vocoder::VocoderRuntime;
+
+pub(crate) fn spectral_morph_runtime_buffer_bytes(alignment_frames: usize) -> usize {
+    spectral_morph::SpectralMorphRuntime::runtime_buffer_bytes_for_alignment(alignment_frames)
+}
 
 /// Runtime values corresponding to one compiled processor in a chain.
 #[derive(Clone, Copy)]
@@ -123,6 +134,20 @@ pub(crate) enum ProcessorTargetSpan {
     Gate {
         threshold_db: ValueSpan,
         range_db: ValueSpan,
+    },
+    Vocoder {
+        modulator_gain_db: ValueSpan,
+        output_gain_db: ValueSpan,
+        mix: ValueSpan,
+    },
+    EnvelopeTransfer {
+        input_gain_db: ValueSpan,
+        floor_db: ValueSpan,
+        mix: ValueSpan,
+    },
+    SpectralMorph {
+        morph: ValueSpan,
+        output_gain_db: ValueSpan,
     },
     TransientShaper {
         attack: ValueSpan,
@@ -225,6 +250,9 @@ impl LayerProcessorChain {
                 | CompiledProcessorKind::FrequencyShifter(_)
                 | CompiledProcessorKind::Convolution(_)
                 | CompiledProcessorKind::Gate(_)
+                | CompiledProcessorKind::Vocoder(_)
+                | CompiledProcessorKind::EnvelopeTransfer(_)
+                | CompiledProcessorKind::SpectralMorph(_)
                 | CompiledProcessorKind::TransientShaper(_) => {
                     return Err(ProcessError::ProcessorFailure {
                         kind: ProcessorFailureKind::InvalidState,
@@ -425,6 +453,7 @@ impl LayerProcessorChain {
 }
 
 impl ProcessorTargetSpan {
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn zero_for(processor: &CompiledProcessorKind) -> Self {
         let zero = ValueSpan {
             start: 0.0,
@@ -508,6 +537,20 @@ impl ProcessorTargetSpan {
             CompiledProcessorKind::Gate(_) => Self::Gate {
                 threshold_db: zero,
                 range_db: zero,
+            },
+            CompiledProcessorKind::Vocoder(_) => Self::Vocoder {
+                modulator_gain_db: zero,
+                output_gain_db: zero,
+                mix: zero,
+            },
+            CompiledProcessorKind::EnvelopeTransfer(_) => Self::EnvelopeTransfer {
+                input_gain_db: zero,
+                floor_db: zero,
+                mix: zero,
+            },
+            CompiledProcessorKind::SpectralMorph(_) => Self::SpectralMorph {
+                morph: zero,
+                output_gain_db: zero,
             },
             CompiledProcessorKind::TransientShaper(_) => Self::TransientShaper {
                 attack: zero,
@@ -648,6 +691,31 @@ impl ProcessorTargetSpan {
                 *threshold_db = zero;
                 *range_db = zero;
             }
+            Self::Vocoder {
+                modulator_gain_db,
+                output_gain_db,
+                mix,
+            } => {
+                *modulator_gain_db = zero;
+                *output_gain_db = zero;
+                *mix = zero;
+            }
+            Self::EnvelopeTransfer {
+                input_gain_db,
+                floor_db,
+                mix,
+            } => {
+                *input_gain_db = zero;
+                *floor_db = zero;
+                *mix = zero;
+            }
+            Self::SpectralMorph {
+                morph,
+                output_gain_db,
+            } => {
+                *morph = zero;
+                *output_gain_db = zero;
+            }
             Self::TransientShaper {
                 attack,
                 sustain,
@@ -702,6 +770,9 @@ enum StereoProcessorRuntime {
     Reverb(Box<PlateReverbRuntime>),
     Convolution(Box<ConvolutionRuntime>),
     Gate(GateRuntime),
+    Vocoder(Box<VocoderRuntime>),
+    EnvelopeTransfer(EnvelopeTransferRuntime),
+    SpectralMorph(Box<SpectralMorphRuntime>),
     TransientShaper(TransientShaperRuntime),
     Compressor(CompressorRuntime),
     Limiter(LimiterRuntime),
@@ -794,13 +865,21 @@ impl StereoProcessorChain {
                     )));
                 }
                 CompiledProcessorKind::Gate(value) => {
-                    runtime.push(StereoProcessorRuntime::Gate(GateRuntime::new(
-                        value.detector_attack_coeff,
-                        value.detector_release_coeff,
-                        value.attack_coeff,
-                        value.release_coeff,
-                        value.hold_frames,
-                        value.hysteresis_db,
+                    runtime.push(StereoProcessorRuntime::Gate(GateRuntime::new(value)));
+                }
+                CompiledProcessorKind::Vocoder(value) => {
+                    runtime.push(StereoProcessorRuntime::Vocoder(Box::new(
+                        VocoderRuntime::new(value, spec)?,
+                    )));
+                }
+                CompiledProcessorKind::EnvelopeTransfer(value) => {
+                    runtime.push(StereoProcessorRuntime::EnvelopeTransfer(
+                        EnvelopeTransferRuntime::new(value),
+                    ));
+                }
+                CompiledProcessorKind::SpectralMorph(value) => {
+                    runtime.push(StereoProcessorRuntime::SpectralMorph(Box::new(
+                        SpectralMorphRuntime::new(value, spec),
                     )));
                 }
                 CompiledProcessorKind::TransientShaper(value) => runtime.push(
@@ -836,6 +915,7 @@ impl StereoProcessorChain {
         &mut self,
         targets: &[ProcessorTargetSpan],
         tempo_bpm: f64,
+        external: ExternalAudioBlock<'_>,
         left: &mut [f32],
         right: &mut [f32],
     ) -> Result<(), ProcessError> {
@@ -965,7 +1045,37 @@ impl StereoProcessorChain {
                         threshold_db,
                         range_db,
                     },
-                ) => runtime.process(threshold_db, range_db, left, right)?,
+                ) => runtime.process(threshold_db, range_db, external, left, right)?,
+                (
+                    StereoProcessorRuntime::Vocoder(runtime),
+                    ProcessorTargetSpan::Vocoder {
+                        modulator_gain_db,
+                        output_gain_db,
+                        mix,
+                    },
+                ) => runtime.process(
+                    modulator_gain_db,
+                    output_gain_db,
+                    mix,
+                    external,
+                    left,
+                    right,
+                )?,
+                (
+                    StereoProcessorRuntime::EnvelopeTransfer(runtime),
+                    ProcessorTargetSpan::EnvelopeTransfer {
+                        input_gain_db,
+                        floor_db,
+                        mix,
+                    },
+                ) => runtime.process(input_gain_db, floor_db, mix, external, left, right)?,
+                (
+                    StereoProcessorRuntime::SpectralMorph(runtime),
+                    ProcessorTargetSpan::SpectralMorph {
+                        morph,
+                        output_gain_db,
+                    },
+                ) => runtime.process(morph, output_gain_db, external, left, right)?,
                 (
                     StereoProcessorRuntime::TransientShaper(runtime),
                     ProcessorTargetSpan::TransientShaper {
@@ -982,7 +1092,15 @@ impl StereoProcessorChain {
                         makeup_gain_db,
                         mix,
                     },
-                ) => runtime.process(threshold_db, ratio, makeup_gain_db, mix, left, right)?,
+                ) => runtime.process(
+                    threshold_db,
+                    ratio,
+                    makeup_gain_db,
+                    mix,
+                    external,
+                    left,
+                    right,
+                )?,
                 (
                     StereoProcessorRuntime::Limiter(runtime),
                     ProcessorTargetSpan::Limiter {
@@ -1020,6 +1138,9 @@ impl StereoProcessorChain {
                 StereoProcessorRuntime::FrequencyShifter(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Convolution(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Gate(runtime) => runtime.reset(),
+                StereoProcessorRuntime::Vocoder(runtime) => runtime.reset(),
+                StereoProcessorRuntime::EnvelopeTransfer(runtime) => runtime.reset(),
+                StereoProcessorRuntime::SpectralMorph(runtime) => runtime.reset(),
                 StereoProcessorRuntime::TransientShaper(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Compressor(runtime) => runtime.reset(),
                 StereoProcessorRuntime::Limiter(runtime) => runtime.reset(),

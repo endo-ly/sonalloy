@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn string_is_finite_and_reset_repeats() {
-        let spec = ProcessSpec::new(48_000.0, 257, 2).expect("spec");
+        let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("spec");
         let mut runtime = PhysicalStringRuntime::new(&compiled(), spec).expect("runtime");
         runtime.start(3);
         let targets = LayerGeneratorTargetSpan::PhysicalString {
@@ -391,7 +391,7 @@ mod tests {
 
     #[test]
     fn frequency_limit_is_enforced() {
-        let spec = ProcessSpec::new(48_000.0, 64, 2).expect("spec");
+        let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("spec");
         let mut runtime = PhysicalStringRuntime::new(&compiled(), spec).expect("runtime");
         runtime.start(3);
         let targets = LayerGeneratorTargetSpan::PhysicalString {
@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn stiffness_preserves_fundamental_pitch_within_twenty_cents() {
-        let spec = ProcessSpec::new(48_000.0, 8_192, 2).expect("spec");
+        let spec = ProcessSpec::new(48_000.0, 8_192, 0, 2).expect("spec");
         let expected_frequency = 440.0_f64;
         for stiffness in [0.0, 0.5, 1.0] {
             let mut runtime = PhysicalStringRuntime::new(&compiled(), spec).expect("runtime");
@@ -488,7 +488,7 @@ mod tests {
 
     #[test]
     fn long_decay_keeps_more_feedback_tail_energy() {
-        let spec = ProcessSpec::new(48_000.0, 8_192, 2).expect("spec");
+        let spec = ProcessSpec::new(48_000.0, 8_192, 0, 2).expect("spec");
         let render = |decay_seconds: f32| {
             let mut runtime = PhysicalStringRuntime::new(&compiled(), spec).expect("runtime");
             runtime.start(3);
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn brightness_changes_feedback_tail_energy() {
-        let spec = ProcessSpec::new(48_000.0, 4_096, 2).expect("spec");
+        let spec = ProcessSpec::new(48_000.0, 4_096, 0, 2).expect("spec");
         let render = |brightness: f32| {
             let mut runtime = PhysicalStringRuntime::new(&compiled(), spec).expect("runtime");
             runtime.start(3);

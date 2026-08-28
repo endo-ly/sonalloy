@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "metadata": {
     "name": "Gate Dynamics",
     "author": "Sonalloy",
@@ -48,7 +48,8 @@
       "attack_ms": 2.0,
       "hold_ms": 35.0,
       "release_ms": 90.0,
-      "range_db": -72.0
+      "range_db": -72.0,
+      "detector": "self_signal"
     }
   ],
   "global_processors": [],
