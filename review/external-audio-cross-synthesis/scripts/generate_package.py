@@ -7,6 +7,7 @@ import copy
 import json
 import math
 import struct
+import tempfile
 import sys
 import wave
 from pathlib import Path
@@ -224,6 +225,7 @@ def processor(kind: str, identifier: str) -> dict[str, object]:
 def event_sequence(
     parameter_changes: list[dict[str, object]] | None = None,
     sample_rate: int = SAMPLE_RATE,
+    note_off_frame: int | None = None,
 ) -> list[dict[str, object]]:
     events: list[dict[str, object]] = [
         {
@@ -237,7 +239,15 @@ def event_sequence(
     if parameter_changes:
         events.extend(parameter_changes)
     events.append(
-        {"absolute_frame": sample_rate + sample_rate // 2, "type": "note_off", "note_id": 1}
+        {
+            "absolute_frame": (
+                sample_rate + sample_rate // 2
+                if note_off_frame is None
+                else note_off_frame
+            ),
+            "type": "note_off",
+            "note_id": 1,
+        }
     )
     return events
 
@@ -311,6 +321,35 @@ def render_external(
     return json.loads(run_cli(command))
 
 
+def render_internal(
+    definition: Path,
+    events: Path,
+    output: Path,
+    *,
+    block_size: int = BASE_BLOCK_SIZE,
+    sample_rate: int = SAMPLE_RATE,
+    frame_count: int = FRAME_COUNT,
+) -> dict[str, object]:
+    command = ["render", "events", str(definition), str(events)]
+    command.extend(
+        [
+            "--sample-rate",
+            str(sample_rate),
+            "--block-size",
+            str(block_size),
+            "--tail",
+            "0",
+            "--output",
+            str(output),
+            "--analyze",
+            "--json",
+            "--duration-frames",
+            str(frame_count),
+        ]
+    )
+    return json.loads(run_cli(command))
+
+
 def inspect_definition(path: Path) -> dict[str, object]:
     return json.loads(run_cli(["instrument", "inspect", str(path), "--json"]))
 
@@ -377,6 +416,147 @@ def envelope_correlation(input_path: Path, output_path: Path, window: int = 480)
     output_variance = sum((value - output_mean) ** 2 for value in output_values)
     denominator = math.sqrt(input_variance * output_variance)
     return covariance / denominator if denominator else 0.0
+
+
+def max_abs_difference(
+    reference: tuple[int, int, list[float]],
+    candidate: tuple[int, int, list[float]],
+    start_frame: int = 0,
+    end_frame: int | None = None,
+) -> float:
+    reference_rate, reference_channels, reference_samples = reference
+    candidate_rate, candidate_channels, candidate_samples = candidate
+    if (
+        reference_rate != candidate_rate
+        or reference_channels != candidate_channels
+        or len(reference_samples) != len(candidate_samples)
+    ):
+        raise ValueError("WAVs are incompatible for comparison")
+    frames = len(reference_samples) // reference_channels
+    end_frame = frames if end_frame is None else end_frame
+    start = start_frame * reference_channels
+    end = end_frame * reference_channels
+    return max(
+        (abs(left - right) for left, right in zip(
+            reference_samples[start:end], candidate_samples[start:end]
+        )),
+        default=0.0,
+    )
+
+
+def spectral_morph_checks(asset: Path) -> dict[str, object]:
+    frame_count = 8_192
+    startup_latency = 1_024
+    with tempfile.TemporaryDirectory(prefix="sonalloy-spectral-morph-") as directory:
+        temporary = Path(directory)
+        carrier_definition = base_definition("Spectral Morph Carrier")
+        carrier_definition.pop("external_audio", None)
+        morph_definition = base_definition("Spectral Morph Timing")
+        morph_processor = processor("spectral_morph", "morph")
+        morph_processor["morph"] = 0.0
+        morph_processor["output_gain_db"] = 0.0
+        morph_definition["global_processors"] = [morph_processor]
+        carrier_path = temporary / "carrier.json"
+        morph_path = temporary / "morph.json"
+        events_path = temporary / "events.json"
+        write_definition(carrier_path, carrier_definition)
+        write_definition(morph_path, morph_definition)
+        write_events(
+            events_path,
+            event_sequence(note_off_frame=frame_count - 1),
+        )
+        silence_path = temporary / "silence.wav"
+        write_pcm16(
+            silence_path,
+            [[0.0] * frame_count, [0.0] * frame_count],
+            SAMPLE_RATE,
+        )
+        carrier_output = temporary / "carrier.wav"
+        identity_output = temporary / "identity.wav"
+        transfer_output = temporary / "transfer.wav"
+        render_internal(
+            carrier_path,
+            events_path,
+            carrier_output,
+            frame_count=frame_count,
+        )
+        identity_report = render_external(
+            morph_path,
+            events_path,
+            silence_path,
+            identity_output,
+            frame_count=frame_count,
+        )
+        morph_processor["morph"] = 1.0
+        write_definition(morph_path, morph_definition)
+        render_external(
+            morph_path,
+            events_path,
+            asset,
+            transfer_output,
+            frame_count=frame_count,
+        )
+
+        carrier = read_float_wav(carrier_output)
+        identity = read_float_wav(identity_output)
+        transfer = read_float_wav(transfer_output)
+        reported_latency = int(identity_report["reported_latency_frames"])
+        identity_max_abs = max_abs_difference(carrier, identity)
+        ola_wrap_max_abs = max_abs_difference(carrier, identity, 4_096, 8_192)
+        transfer_max_abs = max_abs_difference(identity, transfer)
+        if reported_latency != startup_latency:
+            raise RuntimeError(
+                f"Spectral Morph latency is {reported_latency}, expected {startup_latency}"
+            )
+        if identity_max_abs > 1.0e-5:
+            raise RuntimeError(f"Spectral Morph identity differs: {identity_max_abs}")
+        if ola_wrap_max_abs > 1.0e-5:
+            raise RuntimeError(f"Spectral Morph OLA wrap differs: {ola_wrap_max_abs}")
+        if transfer_max_abs <= 1.0e-6:
+            raise RuntimeError("Spectral Morph morph=1 did not transfer external audio")
+
+        morph_processor["morph"] = 0.0
+        write_definition(morph_path, morph_definition)
+        block_comparison: dict[str, object] = {}
+        for block_size in (32, 64, 128, 257):
+            candidate_path = temporary / f"identity-{block_size}.wav"
+            if block_size == 257:
+                candidate = identity
+            else:
+                render_external(
+                    morph_path,
+                    events_path,
+                    silence_path,
+                    candidate_path,
+                    block_size=block_size,
+                    frame_count=frame_count,
+                )
+                candidate = read_float_wav(candidate_path)
+            difference = max_abs_difference(identity, candidate)
+            if difference > 1.0e-5:
+                raise RuntimeError(
+                    f"Spectral Morph block size {block_size} differs: {difference}"
+                )
+            block_comparison[str(block_size)] = {
+                "compatible": True,
+                "max_abs_difference_after_cli_correction": difference,
+            }
+
+        return {
+            "fft_size": 1_024,
+            "hop_size": 256,
+            "startup_latency_frames": reported_latency,
+            "virtual_leading_frame_starts": [-768, -512, -256],
+            "raw_runtime_startup_contract": {
+                "silence_frames": startup_latency,
+                "max_abs_threshold": 1.0e-7,
+                "covered_by": "sonalloy-core spectral_morph_zero_preserves_startup_latency_and_carrier_identity",
+            },
+            "latency_corrected_cli_identity_max_abs": identity_max_abs,
+            "ola_wrap_max_abs_difference": ola_wrap_max_abs,
+            "morph_one_external_transfer_max_abs_difference": transfer_max_abs,
+            "block_size_comparison": block_comparison,
+        }
 
 
 def main() -> None:
@@ -593,6 +773,10 @@ def main() -> None:
             ),
         }
 
+    metrics["spectral_morph"] = spectral_morph_checks(
+        assets["stereo-spectral-motion"]
+    )
+
     alignment_cases = {
         "sidechain-ducking": ("duck", 127),
         "full-cross-synthesis": ("post_morph_duck", 1_024),
@@ -666,7 +850,7 @@ def main() -> None:
 
 - 7 fixture definitions were validated and rendered through the CLI external-audio path.
 - Generated inputs are deterministic PCM16 WAV files at 48 kHz and 96 kHz. Their frame counts and SHA-256 values are recorded in metrics.json.
-- The package records product Analysis and Inspect JSON, Envelope Follower Trace JSON, Full Cross Synthesis block-size differences, Reset comparison data, External alignment, and runtime resource metrics.
+- The package records product Analysis and Inspect JSON, Envelope Follower Trace JSON, Spectral Morph latency/identity/OLA/block-size checks, Full Cross Synthesis block-size differences, Reset comparison data, External alignment, and runtime resource metrics. Raw Spectral Morph startup silence is covered by the Core integration test because CLI WAV output is latency-corrected.
 - The automated checks cover Envelope Follower, External Sidechain, Vocoder mono/stereo behavior, Envelope Transfer, Spectral Morph startup and parameter stages, a combined chain, and a 96 kHz Full Cross Synthesis render.
 
 ## Human Review
@@ -682,7 +866,7 @@ def main() -> None:
 
     python3 review/external-audio-cross-synthesis/scripts/generate_package.py
 
-生成Scriptはreview/generate/common.pyのCLI実行・WAV測定・Block比較を利用します。入力WAVは録音素材ではなく、固定された数式から生成します。analysis/にはCLIのAnalysisとInspect、metrics.jsonには入力整列と固定長Bufferの測定結果を記録します。
+生成Scriptはreview/generate/common.pyのCLI実行・WAV測定・Block比較を利用します。入力WAVは録音素材ではなく、固定された数式から生成します。analysis/にはCLIのAnalysisとInspect、metrics.jsonにはSpectral Morphの境界条件、入力整列、固定長Bufferの測定結果を記録します。
 """,
     )
 

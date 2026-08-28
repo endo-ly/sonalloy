@@ -1228,6 +1228,42 @@
       "test": "external_cross_synthesis_render_does_not_allocate_after_prepare"
     }
   },
+  "spectral_morph": {
+    "fft_size": 1024,
+    "hop_size": 256,
+    "startup_latency_frames": 1024,
+    "virtual_leading_frame_starts": [
+      -768,
+      -512,
+      -256
+    ],
+    "raw_runtime_startup_contract": {
+      "silence_frames": 1024,
+      "max_abs_threshold": 1e-07,
+      "covered_by": "sonalloy-core spectral_morph_zero_preserves_startup_latency_and_carrier_identity"
+    },
+    "latency_corrected_cli_identity_max_abs": 7.450580596923828e-08,
+    "ola_wrap_max_abs_difference": 5.960464477539063e-08,
+    "morph_one_external_transfer_max_abs_difference": 0.25567430490627885,
+    "block_size_comparison": {
+      "32": {
+        "compatible": true,
+        "max_abs_difference_after_cli_correction": 0.0
+      },
+      "64": {
+        "compatible": true,
+        "max_abs_difference_after_cli_correction": 0.0
+      },
+      "128": {
+        "compatible": true,
+        "max_abs_difference_after_cli_correction": 0.0
+      },
+      "257": {
+        "compatible": true,
+        "max_abs_difference_after_cli_correction": 0.0
+      }
+    }
+  },
   "reset_comparison": {
     "compatible": true,
     "max_abs_difference": 0.0,
