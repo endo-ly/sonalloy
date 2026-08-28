@@ -11,10 +11,17 @@ use sonalloy_core::{
     ProcessContext, ProcessEvent, ProcessEventKind, TimeSignature,
 };
 
-use super::device::{DeviceError, SelectedAudioDevice};
+use super::device::{DeviceError, SelectedAudioDevice, SelectedAudioInputDevice};
 use super::scheduled::ScheduledEventFeed;
 
 pub(crate) const REALTIME_EVENT_QUEUE_CAPACITY: usize = 4_096;
+pub(crate) const REALTIME_INPUT_QUEUE_CAPACITY: usize = 16_384;
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct InputFrame {
+    pub(crate) left: f32,
+    pub(crate) right: f32,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct QueuedEvent {
@@ -31,6 +38,7 @@ pub(crate) enum FatalStatus {
     Output = 2,
     Midi = 3,
     EventQueue = 4,
+    Input = 5,
 }
 
 impl FatalStatus {
@@ -40,6 +48,7 @@ impl FatalStatus {
             2 => Self::Output,
             3 => Self::Midi,
             4 => Self::EventQueue,
+            5 => Self::Input,
             _ => Self::None,
         }
     }
@@ -51,6 +60,7 @@ impl FatalStatus {
             Self::Output => "audio output failure",
             Self::Midi => "MIDI input failure",
             Self::EventQueue => "event queue overflow",
+            Self::Input => "audio input failure",
         }
     }
 
@@ -66,6 +76,10 @@ impl FatalStatus {
             Self::EventQueue => (
                 DiagnosticCode::ProcessError,
                 "realtime event queue overflow",
+            ),
+            Self::Input => (
+                DiagnosticCode::AudioDeviceError,
+                "realtime audio input stopped",
             ),
         };
         Some(Diagnostic::error(code, message).with_detail(self.label()))
@@ -83,10 +97,13 @@ pub(crate) struct RealtimeStatus {
     fatal: AtomicU8,
     realtime_denied: AtomicBool,
     finished: AtomicBool,
+    input_ready: AtomicBool,
     xrun_count: AtomicU64,
     callback_count: AtomicU64,
     callback_frames_min: AtomicU64,
     callback_frames_max: AtomicU64,
+    input_underflow_count: AtomicU64,
+    input_overflow_count: AtomicU64,
 }
 
 impl RealtimeStatus {
@@ -95,10 +112,13 @@ impl RealtimeStatus {
             fatal: AtomicU8::new(FatalStatus::None as u8),
             realtime_denied: AtomicBool::new(false),
             finished: AtomicBool::new(false),
+            input_ready: AtomicBool::new(false),
             xrun_count: AtomicU64::new(0),
             callback_count: AtomicU64::new(0),
             callback_frames_min: AtomicU64::new(u64::MAX),
             callback_frames_max: AtomicU64::new(0),
+            input_underflow_count: AtomicU64::new(0),
+            input_overflow_count: AtomicU64::new(0),
         }
     }
 
@@ -131,6 +151,14 @@ impl RealtimeStatus {
         self.finished.load(Ordering::Acquire)
     }
 
+    pub(crate) fn mark_input_ready(&self) {
+        self.input_ready.store(true, Ordering::Release);
+    }
+
+    pub(crate) fn input_ready(&self) -> bool {
+        self.input_ready.load(Ordering::Acquire)
+    }
+
     pub(crate) fn increment_xruns(&self) {
         self.xrun_count.fetch_add(1, Ordering::Relaxed);
     }
@@ -156,6 +184,22 @@ impl RealtimeStatus {
             max: (count > 0).then(|| self.callback_frames_max.load(Ordering::Relaxed)),
         }
     }
+
+    pub(crate) fn increment_input_underflows(&self) {
+        self.input_underflow_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn increment_input_overflows(&self) {
+        self.input_overflow_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn input_underflow_count(&self) -> u64 {
+        self.input_underflow_count.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn input_overflow_count(&self) -> u64 {
+        self.input_overflow_count.load(Ordering::Relaxed)
+    }
 }
 
 enum RealtimeEventFeed {
@@ -173,10 +217,19 @@ pub(crate) struct AudioEngine {
     tempo_bpm: f64,
     time_signature: TimeSignature,
     channels: usize,
+    input_channels: usize,
+    input_queue: Option<Arc<ArrayQueue<InputFrame>>>,
     left: Vec<f32>,
     right: Vec<f32>,
+    input_left: Vec<f32>,
+    input_right: Vec<f32>,
     queued_events: Vec<QueuedEvent>,
     process_events: Vec<ProcessEvent>,
+}
+
+pub(crate) struct BuiltAudioStreams {
+    pub(crate) output: Stream,
+    pub(crate) input: Option<Stream>,
 }
 
 impl AudioEngine {
@@ -190,6 +243,8 @@ impl AudioEngine {
         tempo_bpm: f64,
         time_signature: TimeSignature,
         channels: usize,
+        input_channels: usize,
+        input_queue: Option<Arc<ArrayQueue<InputFrame>>>,
     ) -> Self {
         Self {
             runtime,
@@ -201,13 +256,18 @@ impl AudioEngine {
             tempo_bpm,
             time_signature,
             channels,
+            input_channels,
+            input_queue,
             left: vec![0.0; max_block_size],
             right: vec![0.0; max_block_size],
+            input_left: vec![0.0; max_block_size],
+            input_right: vec![0.0; max_block_size],
             queued_events: Vec::with_capacity(REALTIME_EVENT_QUEUE_CAPACITY),
             process_events: Vec::with_capacity(REALTIME_EVENT_QUEUE_CAPACITY),
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_scheduled(
         runtime: InstrumentRuntime,
         feed: ScheduledEventFeed,
@@ -215,6 +275,8 @@ impl AudioEngine {
         max_block_size: usize,
         sample_rate: f64,
         channels: usize,
+        input_channels: usize,
+        input_queue: Option<Arc<ArrayQueue<InputFrame>>>,
     ) -> Self {
         let process_event_capacity = feed.max_events_per_block();
         let time_signature = feed.context_at(0).time_signature;
@@ -228,8 +290,12 @@ impl AudioEngine {
             tempo_bpm: 120.0,
             time_signature,
             channels,
+            input_channels,
+            input_queue,
             left: vec![0.0; max_block_size],
             right: vec![0.0; max_block_size],
+            input_left: vec![0.0; max_block_size],
+            input_right: vec![0.0; max_block_size],
             queued_events: Vec::with_capacity(1),
             process_events: Vec::with_capacity(process_event_capacity),
         }
@@ -245,6 +311,12 @@ impl AudioEngine {
         }
         if self.channels < 2 || self.max_block_size == 0 {
             self.status.set_fatal(FatalStatus::Output);
+            return;
+        }
+        if !(0..=2).contains(&self.input_channels)
+            || (self.input_channels > 0 && self.input_queue.is_none())
+        {
+            self.status.set_fatal(FatalStatus::Input);
             return;
         }
         let Some(frames) = data.len().checked_div(self.channels) else {
@@ -271,6 +343,28 @@ impl AudioEngine {
             };
             self.left[..block_frames].fill(0.0);
             self.right[..block_frames].fill(0.0);
+            let mut input = [&[][..], &[][..]];
+            if self.input_channels > 0 {
+                let Some(queue) = self.input_queue.as_ref() else {
+                    self.status.set_fatal(FatalStatus::Input);
+                    return;
+                };
+                for frame in 0..block_frames {
+                    let value = queue.pop().unwrap_or_else(|| {
+                        self.status.increment_input_underflows();
+                        InputFrame {
+                            left: 0.0,
+                            right: 0.0,
+                        }
+                    });
+                    self.input_left[frame] = value.left;
+                    self.input_right[frame] = value.right;
+                }
+                input[0] = &self.input_left[..block_frames];
+                if self.input_channels == 2 {
+                    input[1] = &self.input_right[..block_frames];
+                }
+            }
             let mut output = [
                 &mut self.left[..block_frames],
                 &mut self.right[..block_frames],
@@ -279,6 +373,7 @@ impl AudioEngine {
                 frames: block_frames,
                 context,
                 events: &self.process_events,
+                input: &input[..self.input_channels],
                 output: &mut output,
             });
             if result.is_err() {
@@ -372,15 +467,18 @@ fn absolute_frame_as_f64(frame: u64) -> f64 {
     frame as f64
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn build_stream(
     selected: &SelectedAudioDevice,
+    selected_input: Option<&SelectedAudioInputDevice>,
+    input_channels: usize,
     runtime: InstrumentRuntime,
     events: Arc<ArrayQueue<QueuedEvent>>,
-    status: Arc<RealtimeStatus>,
+    status: &Arc<RealtimeStatus>,
     max_block_size: usize,
     tempo_bpm: f64,
     time_signature: TimeSignature,
-) -> Result<Stream, DeviceError> {
+) -> Result<BuiltAudioStreams, DeviceError> {
     let channels = usize::from(selected.config.channels());
     if channels < 2 {
         return Err(DeviceError {
@@ -398,6 +496,8 @@ pub(crate) fn build_stream(
             ),
         });
     }
+    let input_queue =
+        selected_input.map(|_| Arc::new(ArrayQueue::new(REALTIME_INPUT_QUEUE_CAPACITY)));
     let engine = AudioEngine::new(
         runtime,
         events,
@@ -407,17 +507,29 @@ pub(crate) fn build_stream(
         tempo_bpm,
         time_signature,
         channels,
+        input_channels,
+        input_queue.clone(),
     );
-    build_stream_with_engine(selected, engine, status)
+    let output = build_stream_with_engine(selected, engine, status.clone())?;
+    let input = selected_input
+        .zip(input_queue)
+        .map(|(selected, queue)| {
+            build_input_stream(selected, queue, status.clone(), max_block_size)
+        })
+        .transpose()?;
+    Ok(BuiltAudioStreams { output, input })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn build_scheduled_stream(
     selected: &SelectedAudioDevice,
+    selected_input: Option<&SelectedAudioInputDevice>,
+    input_channels: usize,
     runtime: InstrumentRuntime,
     feed: ScheduledEventFeed,
-    status: Arc<RealtimeStatus>,
+    status: &Arc<RealtimeStatus>,
     max_block_size: usize,
-) -> Result<Stream, DeviceError> {
+) -> Result<BuiltAudioStreams, DeviceError> {
     let channels = usize::from(selected.config.channels());
     if channels < 2 {
         return Err(DeviceError {
@@ -435,6 +547,8 @@ pub(crate) fn build_scheduled_stream(
             ),
         });
     }
+    let input_queue =
+        selected_input.map(|_| Arc::new(ArrayQueue::new(REALTIME_INPUT_QUEUE_CAPACITY)));
     let engine = AudioEngine::new_scheduled(
         runtime,
         feed,
@@ -442,8 +556,17 @@ pub(crate) fn build_scheduled_stream(
         max_block_size,
         f64::from(selected.config.sample_rate()),
         channels,
+        input_channels,
+        input_queue.clone(),
     );
-    build_stream_with_engine(selected, engine, status)
+    let output = build_stream_with_engine(selected, engine, status.clone())?;
+    let input = selected_input
+        .zip(input_queue)
+        .map(|(selected, queue)| {
+            build_input_stream(selected, queue, status.clone(), max_block_size)
+        })
+        .transpose()?;
+    Ok(BuiltAudioStreams { output, input })
 }
 
 fn build_stream_with_engine(
@@ -501,11 +624,196 @@ where
     )
 }
 
+#[allow(clippy::too_many_lines)]
+fn build_input_stream(
+    selected: &SelectedAudioInputDevice,
+    queue: Arc<ArrayQueue<InputFrame>>,
+    status: Arc<RealtimeStatus>,
+    startup_frames: usize,
+) -> Result<Stream, DeviceError> {
+    let channels = usize::from(selected.config.channels());
+    let config = selected.stream_config;
+    let stream = match selected.config.sample_format() {
+        SampleFormat::F32 => build_typed_input_stream::<f32>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::F64 => build_typed_input_stream::<f64>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::I8 => build_typed_input_stream::<i8>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::I16 => build_typed_input_stream::<i16>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::I24 => build_typed_input_stream::<I24>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::I32 => build_typed_input_stream::<i32>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::I64 => build_typed_input_stream::<i64>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::U8 => build_typed_input_stream::<u8>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::U16 => build_typed_input_stream::<u16>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::U24 => build_typed_input_stream::<U24>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::U32 => build_typed_input_stream::<u32>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        SampleFormat::U64 => build_typed_input_stream::<u64>(
+            &selected.device,
+            config,
+            channels,
+            queue,
+            status,
+            startup_frames,
+        ),
+        _ => {
+            return Err(DeviceError {
+                diagnostic: Diagnostic::error(
+                    DiagnosticCode::AudioDeviceError,
+                    "the selected audio input sample format is not supported",
+                ),
+            });
+        }
+    };
+    stream.map_err(|error| DeviceError {
+        diagnostic: Diagnostic::error(
+            DiagnosticCode::AudioDeviceError,
+            "could not create the audio input stream",
+        )
+        .with_detail(error.to_string()),
+    })
+}
+
+fn build_typed_input_stream<T>(
+    device: &cpal::Device,
+    config: StreamConfig,
+    channels: usize,
+    queue: Arc<ArrayQueue<InputFrame>>,
+    status: Arc<RealtimeStatus>,
+    startup_frames: usize,
+) -> Result<Stream, cpal::Error>
+where
+    T: SizedSample,
+    f32: FromSample<T>,
+{
+    let error_status = status.clone();
+    device.build_input_stream(
+        config,
+        move |data: &[T], _| {
+            if data.len() % channels != 0 {
+                status.set_fatal(FatalStatus::Input);
+                return;
+            }
+            for frame in data.chunks_exact(channels) {
+                let left = f32::from_sample_(frame[0]);
+                let right = if channels > 1 {
+                    f32::from_sample_(frame[1])
+                } else {
+                    left
+                };
+                if !left.is_finite() || !right.is_finite() {
+                    status.set_fatal(FatalStatus::Input);
+                    return;
+                }
+                enqueue_input_frame(&queue, &status, InputFrame { left, right }, startup_frames);
+            }
+        },
+        move |error| handle_input_stream_error(&error_status, error.kind()),
+        None,
+    )
+}
+
+fn enqueue_input_frame(
+    queue: &ArrayQueue<InputFrame>,
+    status: &RealtimeStatus,
+    frame: InputFrame,
+    startup_frames: usize,
+) {
+    if queue.push(frame).is_err() {
+        status.increment_input_overflows();
+    }
+    if queue.len() >= startup_frames {
+        status.mark_input_ready();
+    }
+}
+
 fn handle_stream_error(status: &RealtimeStatus, kind: ErrorKind) {
     match kind {
         ErrorKind::RealtimeDenied => status.mark_realtime_denied(),
         ErrorKind::Xrun => status.increment_xruns(),
         _ => status.set_fatal(FatalStatus::Output),
+    }
+}
+
+fn handle_input_stream_error(status: &RealtimeStatus, kind: ErrorKind) {
+    match kind {
+        ErrorKind::RealtimeDenied => status.mark_realtime_denied(),
+        ErrorKind::Xrun => status.increment_xruns(),
+        _ => status.set_fatal(FatalStatus::Input),
     }
 }
 
@@ -582,7 +890,7 @@ mod tests {
     }
 
     fn prepared_runtime() -> InstrumentRuntime {
-        let spec = ProcessSpec::new(48_000.0, 256, 2).expect("valid process spec");
+        let spec = ProcessSpec::new(48_000.0, 256, 0, 2).expect("valid process spec");
         let definition = crate::default_definition();
         let result = sonalloy_core::compile_instrument(
             &definition,
@@ -607,7 +915,57 @@ mod tests {
             120.0,
             sonalloy_core::DEFAULT_TIME_SIGNATURE,
             channels,
+            0,
+            None,
         )
+    }
+
+    fn prepared_external_engine() -> (
+        AudioEngine,
+        Arc<ArrayQueue<InputFrame>>,
+        Arc<RealtimeStatus>,
+    ) {
+        let mut definition = crate::default_definition();
+        definition.external_audio = Some(sonalloy_core::ExternalAudioInputDefinition {
+            channels: sonalloy_core::ExternalAudioChannels::Stereo,
+        });
+        definition.global_processors = vec![sonalloy_core::ProcessorDefinition::EnvelopeTransfer(
+            sonalloy_core::EnvelopeTransferProcessorDefinition {
+                id: "transfer".to_owned(),
+                attack_ms: 2.0,
+                release_ms: 120.0,
+                input_gain_db: 0.0,
+                floor_db: -72.0,
+                mix: 1.0,
+            },
+        )];
+        let spec = ProcessSpec::new(48_000.0, 256, 2, 2).expect("valid process spec");
+        let compiled = sonalloy_core::compile_instrument(
+            &definition,
+            &CompileContext {
+                definition_base_dir: PathBuf::from("."),
+                process_spec: spec,
+            },
+        )
+        .instrument
+        .expect("external definition compiles");
+        let mut runtime = compiled.instantiate();
+        runtime.prepare(spec).expect("runtime prepares");
+        let queue = Arc::new(ArrayQueue::new(REALTIME_INPUT_QUEUE_CAPACITY));
+        let status = Arc::new(RealtimeStatus::new());
+        let engine = AudioEngine::new(
+            runtime,
+            Arc::new(ArrayQueue::new(REALTIME_EVENT_QUEUE_CAPACITY)),
+            status.clone(),
+            256,
+            48_000.0,
+            120.0,
+            sonalloy_core::DEFAULT_TIME_SIGNATURE,
+            2,
+            2,
+            Some(queue.clone()),
+        );
+        (engine, queue, status)
     }
 
     fn prepared_scheduled_engine() -> AudioEngine {
@@ -638,6 +996,8 @@ mod tests {
             256,
             48_000.0,
             2,
+            0,
+            None,
         )
     }
 
@@ -661,6 +1021,68 @@ mod tests {
         handle_stream_error(&status, ErrorKind::DeviceNotAvailable);
 
         assert_eq!(status.fatal(), FatalStatus::Output);
+    }
+
+    #[test]
+    fn input_stream_errors_are_fatal_but_xruns_and_denials_are_reported() {
+        let status = RealtimeStatus::new();
+
+        handle_input_stream_error(&status, ErrorKind::RealtimeDenied);
+        handle_input_stream_error(&status, ErrorKind::Xrun);
+        assert!(status.realtime_denied());
+        assert_eq!(status.xrun_count(), 1);
+        assert_eq!(status.fatal(), FatalStatus::None);
+
+        handle_input_stream_error(&status, ErrorKind::DeviceNotAvailable);
+        assert_eq!(status.fatal(), FatalStatus::Input);
+    }
+
+    #[test]
+    fn input_queue_overflow_drops_newest_frame_without_failing() {
+        let queue = ArrayQueue::new(1);
+        let status = RealtimeStatus::new();
+
+        enqueue_input_frame(
+            &queue,
+            &status,
+            InputFrame {
+                left: 1.0,
+                right: -1.0,
+            },
+            1,
+        );
+        enqueue_input_frame(
+            &queue,
+            &status,
+            InputFrame {
+                left: 2.0,
+                right: -2.0,
+            },
+            1,
+        );
+
+        assert_eq!(status.input_overflow_count(), 1);
+        assert_eq!(status.fatal(), FatalStatus::None);
+        assert!((queue.pop().expect("first frame remains").left - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn input_underflow_is_zero_filled_without_failing() {
+        let (mut engine, queue, status) = prepared_external_engine();
+        queue
+            .push(InputFrame {
+                left: 0.5,
+                right: -0.25,
+            })
+            .expect("queue has capacity");
+        let mut data = vec![0.0_f32; 8 * 2];
+
+        engine.process_callback(&mut data);
+
+        assert_eq!(status.fatal(), FatalStatus::None);
+        assert_eq!(status.input_underflow_count(), 7);
+        assert!(data.iter().all(|sample| sample.is_finite()));
+        assert!(queue.is_empty());
     }
 
     #[test]
@@ -701,6 +1123,13 @@ mod tests {
                 .expect("MIDI diagnostic")
                 .code,
             DiagnosticCode::MidiError
+        );
+        assert_eq!(
+            FatalStatus::Input
+                .diagnostic()
+                .expect("input diagnostic")
+                .code,
+            DiagnosticCode::AudioDeviceError
         );
         assert!(FatalStatus::None.diagnostic().is_none());
     }
