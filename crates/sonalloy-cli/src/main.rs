@@ -2935,6 +2935,13 @@ fn inspect_processor(
                     #[allow(clippy::cast_precision_loss)]
                     value: value.external_input_alignment_frames as f32,
                 },
+                InspectStaticField {
+                    id: "runtime_buffer_bytes",
+                    #[allow(clippy::cast_precision_loss)]
+                    value: sonalloy_core::runtime::spectral_morph_runtime_buffer_bytes(
+                        value.external_input_alignment_frames,
+                    ) as f32,
+                },
             ],
             vec![value.parameters.morph, value.parameters.output_gain_db],
         ),

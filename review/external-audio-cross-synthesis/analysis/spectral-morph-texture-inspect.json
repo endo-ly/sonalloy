@@ -136,6 +136,10 @@
         {
           "id": "external_input_alignment_frames",
           "value": 0.0
+        },
+        {
+          "id": "runtime_buffer_bytes",
+          "value": 81960.0
         }
       ],
       "parameters": [

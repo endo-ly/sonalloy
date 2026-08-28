@@ -367,10 +367,25 @@ def external_consumer(inspect: dict[str, object], identifier: str) -> dict[str, 
     raise ValueError(f"external consumer is missing: {identifier}")
 
 
-def spectral_morph_runtime_buffer_bytes(alignment_frames: int) -> int:
-    float_count = 3 * 1_024 + 2 * 4_096 + 2 * 1_024
-    complex_count = 5 * (1_024 // 2 + 1)
-    return float_count * 4 + complex_count * 8 + alignment_frames * 2 * 4
+def spectral_morph_runtime_buffer_bytes(inspect: dict[str, object]) -> int:
+    for placement in ("voice_processors", "global_processors"):
+        processors = inspect.get(placement)
+        if not isinstance(processors, list):
+            continue
+        for processor in processors:
+            if not isinstance(processor, dict) or processor.get("kind") != "spectral_morph":
+                continue
+            static_fields = processor.get("static_fields")
+            if not isinstance(static_fields, list):
+                break
+            for field in static_fields:
+                if not isinstance(field, dict) or field.get("id") != "runtime_buffer_bytes":
+                    continue
+                value = field.get("value")
+                if isinstance(value, (int, float)) and float(value).is_integer():
+                    return int(value)
+            break
+    raise ValueError("spectral morph runtime buffer metric is missing from Inspect")
 
 
 def envelope_correlation(input_path: Path, output_path: Path, window: int = 480) -> float:
@@ -798,7 +813,7 @@ def main() -> None:
 
     metrics["resources"] = {
         "spectral_morph_runtime_buffer_bytes": spectral_morph_runtime_buffer_bytes(
-            0
+            inspect_reports["full-cross-synthesis"]
         ),
         "full_chain_alignment_delay_bytes": metrics["alignment"][
             "full-cross-synthesis"

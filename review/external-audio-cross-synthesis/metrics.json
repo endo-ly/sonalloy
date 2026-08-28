@@ -1220,7 +1220,7 @@
     }
   },
   "resources": {
-    "spectral_morph_runtime_buffer_bytes": 73768,
+    "spectral_morph_runtime_buffer_bytes": 81960,
     "full_chain_alignment_delay_bytes": 8192,
     "full_chain_audio_thread_allocations_after_prepare": 0,
     "full_chain_allocation_check": {

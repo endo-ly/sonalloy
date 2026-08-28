@@ -2596,6 +2596,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn external_cross_synthesis_render_does_not_allocate_after_prepare() {
         let mut source = definition();
         source.external_audio = Some(crate::definition::ExternalAudioInputDefinition {
@@ -2703,7 +2704,7 @@ mod tests {
             for block in 0..20 {
                 process_with_external_stack_output(
                     &mut runtime,
-                    (block * 64) as u64,
+                    u64::try_from(block).expect("block index fits") * 64,
                     if block == 0 { &event } else { &no_events },
                 );
             }

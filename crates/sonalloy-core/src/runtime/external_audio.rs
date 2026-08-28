@@ -58,6 +58,10 @@ impl ExternalInputDelay {
         self.right.fill(0.0);
         self.position = 0;
     }
+
+    pub(crate) fn buffer_bytes(&self) -> usize {
+        (self.left.capacity() + self.right.capacity()) * std::mem::size_of::<f32>()
+    }
 }
 
 /// One sample of a shared external amplitude follower.

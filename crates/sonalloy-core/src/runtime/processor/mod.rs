@@ -50,6 +50,10 @@ pub(crate) use spectral_morph::SpectralMorphRuntime;
 pub(crate) use transient_shaper::TransientShaperRuntime;
 pub(crate) use vocoder::VocoderRuntime;
 
+pub(crate) fn spectral_morph_runtime_buffer_bytes(alignment_frames: usize) -> usize {
+    spectral_morph::SpectralMorphRuntime::runtime_buffer_bytes_for_alignment(alignment_frames)
+}
+
 /// Runtime values corresponding to one compiled processor in a chain.
 #[derive(Clone, Copy)]
 pub(crate) enum ProcessorTargetSpan {

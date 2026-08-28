@@ -44,10 +44,18 @@ impl SpectralMorphRuntime {
         let mut planner = RealFftPlanner::<f32>::new();
         let forward = planner.plan_fft_forward(SPECTRAL_MORPH_FFT_SIZE);
         let inverse = planner.plan_fft_inverse(SPECTRAL_MORPH_FFT_SIZE);
+        Self::with_plans(&forward, &inverse, compiled.external_input_alignment_frames)
+    }
+
+    fn with_plans(
+        forward: &Arc<dyn RealToComplex<f32>>,
+        inverse: &Arc<dyn ComplexToReal<f32>>,
+        external_input_alignment_frames: usize,
+    ) -> Self {
         let bin_count = SPECTRAL_MORPH_FFT_SIZE / 2 + 1;
         Self {
-            forward: Arc::clone(&forward),
-            inverse: Arc::clone(&inverse),
+            forward: Arc::clone(forward),
+            inverse: Arc::clone(inverse),
             analysis_window: build_analysis_window(SPECTRAL_MORPH_FFT_SIZE),
             synthesis_window: build_synthesis_window(
                 SPECTRAL_MORPH_FFT_SIZE,
@@ -67,11 +75,48 @@ impl SpectralMorphRuntime {
             inverse_output: inverse.make_output_vec(),
             forward_scratch: forward.make_scratch_vec(),
             inverse_scratch: inverse.make_scratch_vec(),
-            external_input: ExternalInputDelay::new(compiled.external_input_alignment_frames),
+            external_input: ExternalInputDelay::new(external_input_alignment_frames),
             write_position: 0,
             frames_seen: 0,
             next_analysis_start: INITIAL_ANALYSIS_START,
         }
+    }
+
+    pub(crate) fn runtime_buffer_bytes_for_alignment(alignment_frames: usize) -> usize {
+        let mut planner = RealFftPlanner::<f32>::new();
+        let forward = planner.plan_fft_forward(SPECTRAL_MORPH_FFT_SIZE);
+        let inverse = planner.plan_fft_inverse(SPECTRAL_MORPH_FFT_SIZE);
+        Self::with_plans(&forward, &inverse, alignment_frames).runtime_buffer_bytes()
+    }
+
+    fn runtime_buffer_bytes(&self) -> usize {
+        let float_bytes = [
+            &self.analysis_window,
+            &self.synthesis_window,
+            &self.carrier_history,
+            &self.carrier_history_right,
+            &self.external_history,
+            &self.ola_left,
+            &self.ola_right,
+            &self.forward_input,
+            &self.inverse_output,
+        ]
+        .into_iter()
+        .map(|buffer| buffer.capacity() * std::mem::size_of::<f32>())
+        .sum::<usize>();
+        let complex_bytes = [
+            &self.carrier_spectrum,
+            &self.carrier_spectrum_right,
+            &self.external_spectrum,
+            &self.inverse_spectrum,
+            &self.inverse_spectrum_right,
+            &self.forward_scratch,
+            &self.inverse_scratch,
+        ]
+        .into_iter()
+        .map(|buffer| buffer.capacity() * std::mem::size_of::<Complex<f32>>())
+        .sum::<usize>();
+        float_bytes + complex_bytes + self.external_input.buffer_bytes()
     }
 
     pub(crate) fn process(

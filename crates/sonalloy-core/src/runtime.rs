@@ -16,6 +16,15 @@ mod voice;
 pub use instrument::InstrumentRuntime;
 pub use voice::VoiceState;
 
+/// Return the bytes allocated by Spectral Morph's runtime-owned buffers.
+///
+/// The result includes the fixed FFT, history, overlap-add, window, and scratch buffers, plus the
+/// stereo external-input alignment delay requested by `alignment_frames`.
+#[must_use]
+pub fn spectral_morph_runtime_buffer_bytes(alignment_frames: usize) -> usize {
+    processor::spectral_morph_runtime_buffer_bytes(alignment_frames)
+}
+
 use sonalloy_dsp_sys::{DspOscillator, DspOscillatorWaveform};
 
 use crate::process::{InstrumentProcessor, ProcessBlock, ProcessError, ProcessSpec, clear_output};
