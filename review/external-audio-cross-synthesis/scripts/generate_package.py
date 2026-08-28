@@ -37,9 +37,11 @@ PATTERN_DIR = PACKAGE / "patterns"
 ANALYSIS_DIR = PACKAGE / "analysis"
 TRACE_DIR = PACKAGE / "trace"
 FRAME_COUNT = SAMPLE_RATE * 2
+SAMPLE_RATE_96K = 96_000
+FRAME_COUNT_96K = SAMPLE_RATE_96K * 2
 
 
-def write_pcm16(path: Path, channels: list[list[float]]) -> None:
+def write_pcm16(path: Path, channels: list[list[float]], sample_rate: int) -> None:
     if not channels or any(len(channel) != len(channels[0]) for channel in channels):
         raise ValueError("all WAV channels must have the same non-zero length")
     interleaved = bytearray()
@@ -51,11 +53,18 @@ def write_pcm16(path: Path, channels: list[list[float]]) -> None:
     with wave.open(str(path), "wb") as output:
         output.setnchannels(len(channels))
         output.setsampwidth(2)
-        output.setframerate(SAMPLE_RATE)
+        output.setframerate(sample_rate)
         output.writeframes(interleaved)
 
 
-def write_assets() -> dict[str, Path]:
+def write_assets(
+    *,
+    destination: Path = ASSET_DIR,
+    sample_rate: int = SAMPLE_RATE,
+    frame_count: int = FRAME_COUNT,
+    suffix: str = "",
+    selected: set[str] | None = None,
+) -> dict[str, Path]:
     rhythmic_left: list[float] = []
     sidechain_left: list[float] = []
     speech_left: list[float] = []
@@ -63,8 +72,8 @@ def write_assets() -> dict[str, Path]:
     spectral_left: list[float] = []
     spectral_right: list[float] = []
 
-    for frame in range(FRAME_COUNT):
-        time = frame / SAMPLE_RATE
+    for frame in range(frame_count):
+        time = frame / sample_rate
         pulse_phase = time % 0.5
         pulse = math.exp(-pulse_phase * 38.0) if pulse_phase < 0.12 else 0.0
         rhythmic = 0.76 * pulse * math.sin(2.0 * math.pi * 150.0 * time)
@@ -117,9 +126,12 @@ def write_assets() -> dict[str, Path]:
     }
     paths: dict[str, Path] = {}
     for name, channels in assets.items():
-        path = ASSET_DIR / f"{name}.wav"
-        write_pcm16(path, list(channels))
-        paths[name] = path
+        if selected is not None and name not in selected:
+            continue
+        asset_name = f"{name}{suffix}"
+        path = destination / f"{asset_name}.wav"
+        write_pcm16(path, list(channels), sample_rate)
+        paths[asset_name] = path
     return paths
 
 
@@ -172,6 +184,13 @@ def processor(kind: str, identifier: str) -> dict[str, object]:
             "mix": 1.0,
             "detector": "external_audio",
         }
+    if kind == "frequency_shifter":
+        return {
+            "type": kind,
+            "id": identifier,
+            "shift_hz": 180.0,
+            "mix": 1.0,
+        }
     if kind == "vocoder":
         return {
             "type": kind,
@@ -204,6 +223,7 @@ def processor(kind: str, identifier: str) -> dict[str, object]:
 
 def event_sequence(
     parameter_changes: list[dict[str, object]] | None = None,
+    sample_rate: int = SAMPLE_RATE,
 ) -> list[dict[str, object]]:
     events: list[dict[str, object]] = [
         {
@@ -217,7 +237,7 @@ def event_sequence(
     if parameter_changes:
         events.extend(parameter_changes)
     events.append(
-        {"absolute_frame": SAMPLE_RATE + SAMPLE_RATE // 2, "type": "note_off", "note_id": 1}
+        {"absolute_frame": sample_rate + sample_rate // 2, "type": "note_off", "note_id": 1}
     )
     return events
 
@@ -262,6 +282,8 @@ def render_external(
     trace: bool = False,
     reset_check: bool = False,
     block_size: int = BASE_BLOCK_SIZE,
+    sample_rate: int = SAMPLE_RATE,
+    frame_count: int = FRAME_COUNT,
 ) -> dict[str, object]:
     command = ["render", "pattern" if pattern else "events", str(definition), str(event_or_pattern)]
     command.extend(
@@ -269,7 +291,7 @@ def render_external(
             "--audio-input",
             str(asset),
             "--sample-rate",
-            str(SAMPLE_RATE),
+            str(sample_rate),
             "--block-size",
             str(block_size),
             "--tail",
@@ -281,12 +303,35 @@ def render_external(
         ]
     )
     if not pattern:
-        command.extend(["--duration-frames", str(FRAME_COUNT)])
+        command.extend(["--duration-frames", str(frame_count)])
     if trace:
         command.extend(["--trace", "voice.processor.tone.cutoff", "--trace-every-frames", "480"])
     if reset_check:
         command.append("--reset-check")
     return json.loads(run_cli(command))
+
+
+def inspect_definition(path: Path) -> dict[str, object]:
+    return json.loads(run_cli(["instrument", "inspect", str(path), "--json"]))
+
+
+def external_consumer(inspect: dict[str, object], identifier: str) -> dict[str, object]:
+    external_audio = inspect.get("external_audio")
+    if not isinstance(external_audio, dict):
+        raise ValueError("definition does not expose external audio inspection")
+    consumers = external_audio.get("consumers")
+    if not isinstance(consumers, list):
+        raise ValueError("external audio inspection does not expose consumers")
+    for consumer in consumers:
+        if isinstance(consumer, dict) and consumer.get("id") == identifier:
+            return consumer
+    raise ValueError(f"external consumer is missing: {identifier}")
+
+
+def spectral_morph_runtime_buffer_bytes(alignment_frames: int) -> int:
+    float_count = 3 * 1_024 + 2 * 4_096 + 2 * 1_024
+    complex_count = 5 * (1_024 // 2 + 1)
+    return float_count * 4 + complex_count * 8 + alignment_frames * 2 * 4
 
 
 def envelope_correlation(input_path: Path, output_path: Path, window: int = 480) -> float:
@@ -347,6 +392,14 @@ def main() -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
     assets = write_assets()
+    assets.update(
+        write_assets(
+            sample_rate=SAMPLE_RATE_96K,
+            frame_count=FRAME_COUNT_96K,
+            suffix="-96k",
+            selected={"synthetic-speech"},
+        )
+    )
     definitions = {
         "envelope-follower-motion": base_definition("Envelope Follower Motion"),
         "sidechain-ducking": base_definition("Sidechain Ducking"),
@@ -357,7 +410,10 @@ def main() -> None:
         "full-cross-synthesis": base_definition("Full Cross Synthesis"),
     }
     follower_source(definitions["envelope-follower-motion"])
-    definitions["sidechain-ducking"]["global_processors"] = [processor("compressor", "duck")]
+    definitions["sidechain-ducking"]["global_processors"] = [
+        processor("frequency_shifter", "shift"),
+        processor("compressor", "duck"),
+    ]
     definitions["vocoder-speech"]["global_processors"] = [processor("vocoder", "speech")]
     definitions["vocoder-stereo"]["global_processors"] = [processor("vocoder", "stereo")]
     definitions["envelope-transfer-rhythm"]["global_processors"] = [
@@ -370,6 +426,7 @@ def main() -> None:
     definitions["full-cross-synthesis"]["global_processors"] = [
         processor("vocoder", "vocoder"),
         processor("spectral_morph", "morph"),
+        processor("compressor", "post_morph_duck"),
         {
             "type": "delay",
             "id": "space",
@@ -431,6 +488,8 @@ def main() -> None:
         event_paths[name] = path
     pattern_path = PATTERN_DIR / "full-cross-synthesis.json"
     write_pattern(pattern_path)
+    full_cross_96k_events = EVENT_DIR / "full-cross-synthesis-96k.json"
+    write_events(full_cross_96k_events, event_sequence(sample_rate=SAMPLE_RATE_96K))
 
     render_jobs = {
         "envelope-follower-motion": ("rhythmic-pulse", False, True, False),
@@ -460,6 +519,34 @@ def main() -> None:
             json.dumps(reports[name].get("analysis"), ensure_ascii=False, indent=2) + "\n",
         )
 
+    full_cross_96k_output = AUDIO_DIR / "full-cross-synthesis-96k.wav"
+    reports["full-cross-synthesis-96k"] = render_external(
+        definition_paths["full-cross-synthesis"],
+        full_cross_96k_events,
+        assets["synthetic-speech-96k"],
+        full_cross_96k_output,
+        sample_rate=SAMPLE_RATE_96K,
+        frame_count=FRAME_COUNT_96K,
+    )
+    output_paths["full-cross-synthesis-96k"] = full_cross_96k_output
+    write_utf8(
+        ANALYSIS_DIR / "full-cross-synthesis-96k.json",
+        json.dumps(
+            reports["full-cross-synthesis-96k"].get("analysis"),
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+    )
+
+    inspect_reports: dict[str, dict[str, object]] = {}
+    for name, path in definition_paths.items():
+        inspect_reports[name] = inspect_definition(path)
+        write_utf8(
+            ANALYSIS_DIR / f"{name}-inspect.json",
+            json.dumps(inspect_reports[name], ensure_ascii=False, indent=2) + "\n",
+        )
+
     write_utf8(
         TRACE_DIR / "envelope-follower.json",
         json.dumps(reports["envelope-follower-motion"].get("trace"), ensure_ascii=False, indent=2)
@@ -469,10 +556,13 @@ def main() -> None:
     metrics: dict[str, object] = {
         "package": "external-audio-cross-synthesis",
         "sample_rate": SAMPLE_RATE,
+        "sample_rates": [SAMPLE_RATE, SAMPLE_RATE_96K],
         "assets": {},
         "outputs": {},
         "cross_synthesis": {},
         "block_comparison": {},
+        "alignment": {},
+        "resources": {},
     }
     for name, path in assets.items():
         rate, channels, samples = read_float_wav(path)
@@ -502,6 +592,39 @@ def main() -> None:
                 assets[asset_name], output_paths[name]
             ),
         }
+
+    alignment_cases = {
+        "sidechain-ducking": ("duck", 127),
+        "full-cross-synthesis": ("post_morph_duck", 1_024),
+    }
+    for name, (consumer_id, expected_frames) in alignment_cases.items():
+        consumer = external_consumer(inspect_reports[name], consumer_id)
+        actual_frames = int(consumer["alignment_frames"])
+        if actual_frames != expected_frames:
+            raise RuntimeError(
+                f"{name} alignment is {actual_frames}, expected {expected_frames}"
+            )
+        alignment_bytes = actual_frames * 2 * 4
+        metrics["alignment"][name] = {
+            "consumer": consumer_id,
+            "preceding_latency_frames": expected_frames,
+            "actual_alignment_frames": actual_frames,
+            "stereo_delay_buffer_bytes": alignment_bytes,
+        }
+
+    metrics["resources"] = {
+        "spectral_morph_runtime_buffer_bytes": spectral_morph_runtime_buffer_bytes(
+            0
+        ),
+        "full_chain_alignment_delay_bytes": metrics["alignment"][
+            "full-cross-synthesis"
+        ]["stereo_delay_buffer_bytes"],
+        "full_chain_audio_thread_allocations_after_prepare": 0,
+        "full_chain_allocation_check": {
+            "covered_by": "sonalloy-core runtime allocation test",
+            "test": "external_cross_synthesis_render_does_not_allocate_after_prepare",
+        },
+    }
 
     comparison_directory = PACKAGE / ".generated-block-comparison"
     comparison_directory.mkdir(parents=True, exist_ok=True)
@@ -542,9 +665,9 @@ def main() -> None:
 ## Automated Review
 
 - 7 fixture definitions were validated and rendered through the CLI external-audio path.
-- Generated inputs are deterministic PCM16 WAV files at 48 kHz. Their frame counts and SHA-256 values are recorded in metrics.json.
-- The package records product Analysis JSON, Envelope Follower Trace JSON, Full Cross Synthesis block-size differences, and Reset comparison data.
-- The automated checks cover Envelope Follower, External Sidechain, Vocoder mono/stereo behavior, Envelope Transfer, Spectral Morph parameter stages, and a combined chain.
+- Generated inputs are deterministic PCM16 WAV files at 48 kHz and 96 kHz. Their frame counts and SHA-256 values are recorded in metrics.json.
+- The package records product Analysis and Inspect JSON, Envelope Follower Trace JSON, Full Cross Synthesis block-size differences, Reset comparison data, External alignment, and runtime resource metrics.
+- The automated checks cover Envelope Follower, External Sidechain, Vocoder mono/stereo behavior, Envelope Transfer, Spectral Morph startup and parameter stages, a combined chain, and a 96 kHz Full Cross Synthesis render.
 
 ## Human Review
 
@@ -555,11 +678,11 @@ def main() -> None:
         PACKAGE / "README.md",
         """# External Audio Cross Synthesis
 
-このReview Packageは、外部Audioを使う7つの固定条件をCLIから再生成します。assets/は入力、audio/は出力として分離しています。
+このReview Packageは、外部Audioを使う7つの固定条件をCLIから再生成します。assets/は入力、audio/は出力として分離しています。Full Cross Synthesisは48 kHzと96 kHzで生成します。
 
     python3 review/external-audio-cross-synthesis/scripts/generate_package.py
 
-生成Scriptはreview/generate/common.pyのCLI実行・WAV測定・Block比較を利用します。入力WAVは録音素材ではなく、固定された数式から生成します。
+生成Scriptはreview/generate/common.pyのCLI実行・WAV測定・Block比較を利用します。入力WAVは録音素材ではなく、固定された数式から生成します。analysis/にはCLIのAnalysisとInspect、metrics.jsonには入力整列と固定長Bufferの測定結果を記録します。
 """,
     )
 

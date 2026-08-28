@@ -51,6 +51,12 @@
   ],
   "global_processors": [
     {
+      "type": "frequency_shifter",
+      "id": "shift",
+      "shift_hz": 180.0,
+      "mix": 1.0
+    },
+    {
       "type": "compressor",
       "id": "duck",
       "threshold_db": -24.0,
