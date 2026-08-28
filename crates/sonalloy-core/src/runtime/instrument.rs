@@ -2601,6 +2601,35 @@ mod tests {
         source.external_audio = Some(crate::definition::ExternalAudioInputDefinition {
             channels: crate::definition::ExternalAudioChannels::Stereo,
         });
+        source.voice_processors = vec![crate::definition::ProcessorDefinition::Filter(
+            crate::definition::FilterProcessorDefinition {
+                id: "tone".to_owned(),
+                mode: crate::definition::FilterModeDefinition::LowPass,
+                cutoff_hz: 12_000.0,
+                resonance: 0.12,
+            },
+        )];
+        source.modulation = Some(crate::definition::ModulationDefinition {
+            sources: vec![
+                crate::definition::ModulationSourceDefinition::EnvelopeFollower(
+                    crate::definition::EnvelopeFollowerDefinition {
+                        id: "input_env".to_owned(),
+                        attack_ms: 2.0,
+                        release_ms: 120.0,
+                        input_gain_db: 0.0,
+                    },
+                ),
+            ],
+            routes: vec![crate::definition::ModulationRouteDefinition {
+                source: "input_env".to_owned(),
+                target: "voice.processor.tone.cutoff".to_owned(),
+                depth: crate::definition::ModulationDepthDefinition {
+                    value: 2.2,
+                    unit: crate::parameter::ModulationUnit::Octaves,
+                },
+                curve: crate::definition::ModulationCurve::SmoothStep,
+            }],
+        });
         source.global_processors = vec![
             crate::definition::ProcessorDefinition::Vocoder(
                 crate::definition::VocoderProcessorDefinition {
@@ -2608,25 +2637,49 @@ mod tests {
                     attack_ms: 8.0,
                     release_ms: 80.0,
                     modulator_gain_db: 0.0,
-                    output_gain_db: 0.0,
+                    output_gain_db: -3.0,
                     mix: 1.0,
-                },
-            ),
-            crate::definition::ProcessorDefinition::EnvelopeTransfer(
-                crate::definition::EnvelopeTransferProcessorDefinition {
-                    id: "transfer".to_owned(),
-                    attack_ms: 2.0,
-                    release_ms: 120.0,
-                    input_gain_db: 0.0,
-                    floor_db: -72.0,
-                    mix: 0.5,
                 },
             ),
             crate::definition::ProcessorDefinition::SpectralMorph(
                 crate::definition::SpectralMorphProcessorDefinition {
                     id: "morph".to_owned(),
                     morph: 0.5,
-                    output_gain_db: 0.0,
+                    output_gain_db: -3.0,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Compressor(
+                crate::definition::CompressorProcessorDefinition {
+                    id: "post_morph_duck".to_owned(),
+                    threshold_db: -24.0,
+                    ratio: 6.0,
+                    attack_ms: 8.0,
+                    release_ms: 180.0,
+                    knee_db: 6.0,
+                    makeup_gain_db: 0.0,
+                    mix: 1.0,
+                    detector: crate::definition::DynamicsDetectorDefinition::ExternalAudio,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Delay(
+                crate::definition::DelayProcessorDefinition {
+                    id: "space".to_owned(),
+                    time: crate::definition::DelayTimeDefinition {
+                        value: 0.18,
+                        unit: crate::definition::DelayTimeUnit::Seconds,
+                    },
+                    feedback_mode: crate::definition::DelayFeedbackMode::Stereo,
+                    feedback: 0.18,
+                    taps: vec![],
+                    mix: 0.12,
+                },
+            ),
+            crate::definition::ProcessorDefinition::Limiter(
+                crate::definition::LimiterProcessorDefinition {
+                    id: "ceiling".to_owned(),
+                    ceiling_db: -1.0,
+                    release_ms: 80.0,
+                    input_gain_db: -3.0,
                 },
             ),
         ];
@@ -2644,9 +2697,16 @@ mod tests {
         }];
         process_with_external_stack_output(&mut runtime, 0, &event);
         runtime.reset().expect("reset");
+        let no_events: [ProcessEvent; 0] = [];
 
         let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_external_stack_output(&mut runtime, 0, &event);
+            for block in 0..20 {
+                process_with_external_stack_output(
+                    &mut runtime,
+                    (block * 64) as u64,
+                    if block == 0 { &event } else { &no_events },
+                );
+            }
         });
 
         assert_eq!(allocations, 0);
