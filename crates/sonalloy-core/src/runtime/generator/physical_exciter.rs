@@ -1,5 +1,5 @@
 use crate::compiler::CompiledPhysicalExciter;
-use crate::generator_parameters::PHYSICAL_FREQUENCY_LIMIT_RATIO;
+use crate::parameter::generator::PHYSICAL_FREQUENCY_LIMIT_RATIO;
 use crate::process::{ProcessError, ProcessorFailureKind};
 
 use super::super::random::{bipolar_f32, splitmix64_finalizer};

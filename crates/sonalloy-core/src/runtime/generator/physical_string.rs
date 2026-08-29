@@ -1,5 +1,5 @@
 use crate::compiler::CompiledPhysicalString;
-use crate::generator_parameters::{
+use crate::parameter::generator::{
     PHYSICAL_STRING_BRIGHTNESS, PHYSICAL_STRING_DECAY_SECONDS, PHYSICAL_STRING_STIFFNESS,
 };
 use crate::process::{ProcessError, ProcessSpec};

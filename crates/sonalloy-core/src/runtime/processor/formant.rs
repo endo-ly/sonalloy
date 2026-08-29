@@ -1,6 +1,6 @@
 use crate::compiler::CompiledFormantProfile;
-use crate::formant::{geometric_lerp, profile_pair};
 use crate::process::{ProcessError, ProcessorFailureKind};
+use crate::runtime::formant::{geometric_lerp, profile_pair};
 
 use super::ValueSpan;
 use super::biquad::{BiquadCoefficients, BiquadState};

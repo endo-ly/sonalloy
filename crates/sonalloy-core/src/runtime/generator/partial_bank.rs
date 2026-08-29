@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::generator_parameters::MAX_PARTIALS;
+use crate::parameter::generator::MAX_PARTIALS;
 use crate::process::{ProcessError, ProcessorFailureKind};
 
 pub(crate) const SINE_TABLE_LENGTH: usize = 4096;

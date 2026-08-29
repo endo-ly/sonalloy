@@ -3,12 +3,12 @@ use std::sync::Arc;
 
 use realfft::num_complex::Complex;
 
+use crate::compiler::spectral::PreparedSpectralAsset;
 use crate::compiler::{CompiledSpectral, cents_to_ratio, midi_note_frequency};
-use crate::generator_parameters::{
+use crate::parameter::generator::{
     SPECTRAL_BLUR, SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT,
 };
 use crate::process::{ProcessError, ProcessSpec};
-use crate::spectral::PreparedSpectralAsset;
 
 use super::super::modulation::{LayerGeneratorTargetSpan, ValueSpan};
 use super::{ensure_finite, invalid_state, validate_generator_span};
@@ -36,7 +36,7 @@ pub(crate) struct SpectralRuntime {
     source: Option<Arc<PreparedSpectralAsset>>,
     source_b: Option<Arc<PreparedSpectralAsset>>,
     asset_b_required: bool,
-    synthesis_plan: Arc<crate::spectral::SpectralSynthesisPlan>,
+    synthesis_plan: Arc<crate::compiler::spectral::SpectralSynthesisPlan>,
     root_note: u8,
     phase_reset: bool,
     phase_accumulators: Vec<f32>,
@@ -668,9 +668,9 @@ mod tests {
     use super::*;
     use crate::asset::{PreparedAudio, PreparedAudioChannels, SampleMetadata};
     use crate::compiler::CompiledSpectralParameters;
+    use crate::compiler::spectral::prepare_spectral_asset;
     use crate::parameter::ParameterHandle;
     use crate::runtime::modulation::ValueSpan;
-    use crate::spectral::prepare_spectral_asset;
 
     fn test_runtime(phase_reset: bool) -> SpectralRuntime {
         test_runtime_with(phase_reset, 1024, false, false)
@@ -738,8 +738,9 @@ mod tests {
                 prepare_spectral_asset(&make_audio(left, right), fft_size).expect("morph source"),
             )
         });
-        let synthesis_plan =
-            Arc::new(crate::spectral::SpectralSynthesisPlan::new(fft_size).expect("spectral plan"));
+        let synthesis_plan = Arc::new(
+            crate::compiler::spectral::SpectralSynthesisPlan::new(fft_size).expect("spectral plan"),
+        );
         SpectralRuntime::new(
             &CompiledSpectral {
                 source: Some(source),

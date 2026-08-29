@@ -8,7 +8,7 @@ use sonalloy_core::{ParameterHandle, ProcessEventKind};
 
 use super::audio::{FatalStatus, QueuedEvent, RealtimeStatus};
 use super::device::{DeviceError, SelectedMidiDevice};
-use crate::midi_common::{
+use crate::midi::{
     MOD_WHEEL_CONTROLLER, SUSTAIN_PEDAL_CONTROLLER, normalize_control, normalize_pitch_bend,
     note_id,
 };

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::compiler::{CompiledOperatorModulation, CompiledOperatorTopology, CompiledUnison};
 use crate::definition::OperatorModulationMode;
-use crate::generator_parameters::{
+use crate::parameter::generator::{
     OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX,
     OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX,
     OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,

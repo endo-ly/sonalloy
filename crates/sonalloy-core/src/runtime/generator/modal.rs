@@ -1,7 +1,7 @@
 use sonalloy_dsp_sys::DspModalResonator;
 
 use crate::compiler::CompiledModal;
-use crate::generator_parameters::{MODAL_BRIGHTNESS, MODAL_DECAY, MODAL_STRUCTURE};
+use crate::parameter::generator::{MODAL_BRIGHTNESS, MODAL_DECAY, MODAL_STRUCTURE};
 use crate::process::{ProcessError, ProcessSpec};
 
 use super::super::modulation::LayerGeneratorTargetSpan;

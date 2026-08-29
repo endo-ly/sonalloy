@@ -1,3 +1,11 @@
+mod parse;
+mod pattern;
+mod render;
+
+pub(crate) use parse::parse_midi;
+pub(crate) use pattern::{export_pattern, import_pattern};
+pub(crate) use render::read_midi;
+
 pub(crate) const MOD_WHEEL_CONTROLLER: u8 = 1;
 pub(crate) const SUSTAIN_PEDAL_CONTROLLER: u8 = 64;
 

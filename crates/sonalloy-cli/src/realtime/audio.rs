@@ -889,9 +889,18 @@ mod tests {
         })
     }
 
+    fn default_definition() -> sonalloy_core::InstrumentDefinition {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata/instruments/basic-poly-synth.json");
+        serde_json::from_str(
+            &std::fs::read_to_string(path).expect("default definition fixture reads"),
+        )
+        .expect("default definition fixture parses")
+    }
+
     fn prepared_runtime() -> InstrumentRuntime {
         let spec = ProcessSpec::new(48_000.0, 256, 0, 2).expect("valid process spec");
-        let definition = crate::default_definition();
+        let definition = default_definition();
         let result = sonalloy_core::compile_instrument(
             &definition,
             &CompileContext {
@@ -925,7 +934,7 @@ mod tests {
         Arc<ArrayQueue<InputFrame>>,
         Arc<RealtimeStatus>,
     ) {
-        let mut definition = crate::default_definition();
+        let mut definition = default_definition();
         definition.external_audio = Some(sonalloy_core::ExternalAudioInputDefinition {
             channels: sonalloy_core::ExternalAudioChannels::Stereo,
         });

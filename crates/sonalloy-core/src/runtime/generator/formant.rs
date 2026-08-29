@@ -1,9 +1,9 @@
 use crate::compiler::{CompiledFormant, CompiledFormantBand, CompiledFormantProfile};
-use crate::formant::{geometric_lerp, profile_pair};
-use crate::generator_parameters::{
+use crate::parameter::generator::{
     FORMANT_SHIFT, FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, MAX_PARTIALS,
 };
 use crate::process::{ProcessError, ProcessSpec};
+use crate::runtime::formant::{geometric_lerp, profile_pair};
 
 use super::super::modulation::{LayerGeneratorTargetSpan, ValueSpan};
 use super::partial_bank::{PartialBankRuntime, alias_fade};

@@ -6,7 +6,7 @@ use sonalloy_dsp_sys::{
 
 use crate::compiler::{CompiledOscillator, CompiledOscillatorBackend, CompiledUnison};
 use crate::definition::OscillatorWaveform;
-use crate::generator_parameters::{
+use crate::parameter::generator::{
     OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PULSE_WIDTH, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD,
     WAVEFOLD, WAVESHAPE,
 };

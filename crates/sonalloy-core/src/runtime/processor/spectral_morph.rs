@@ -3,12 +3,12 @@ use std::sync::Arc;
 use realfft::num_complex::Complex;
 use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 
+use crate::compiler::spectral::{build_analysis_window, build_synthesis_window};
 use crate::compiler::{
     CompiledSpectralMorphProcessor, SPECTRAL_MORPH_FFT_SIZE, SPECTRAL_MORPH_HOP_SIZE,
 };
 use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
 use crate::runtime::external_audio::{ExternalAudioBlock, ExternalInputDelay};
-use crate::spectral::{build_analysis_window, build_synthesis_window};
 
 use super::ValueSpan;
 

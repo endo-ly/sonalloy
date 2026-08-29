@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::compiler::{CompiledWavetable, PreparedWavetable};
-use crate::generator_parameters::{UNISON_DETUNE, UNISON_SPREAD, WAVETABLE_POSITION};
+use crate::parameter::generator::{UNISON_DETUNE, UNISON_SPREAD, WAVETABLE_POSITION};
 use crate::process::{ProcessError, ProcessSpec};
 
 use super::super::interpolation::cubic_interpolate;

@@ -1,5 +1,5 @@
 use crate::compiler::CompiledAdditive;
-use crate::generator_parameters::{
+use crate::parameter::generator::{
     ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, MAX_PARTIALS,
 };
 use crate::process::{ProcessError, ProcessSpec};

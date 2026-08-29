@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::asset::{PreparedAudio, PreparedAudioChannels};
 use crate::compiler::CompiledGranular;
-use crate::generator_parameters::{
+use crate::parameter::generator::{
     GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE,
     GRANULAR_GRAIN_POOL_LIMIT, GRANULAR_POSITION,
 };

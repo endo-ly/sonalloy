@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rustfft::{Fft, FftPlanner, num_complex::Complex};
 
-use crate::convolution::{
+use crate::compiler::convolution::{
     CONVOLUTION_FFT_SIZE, CONVOLUTION_PARTITION_SIZE, PreparedConvolutionIr,
     PreparedConvolutionSpectra,
 };
