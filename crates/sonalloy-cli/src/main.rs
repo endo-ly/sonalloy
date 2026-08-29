@@ -1,4 +1,4 @@
-pub(crate) mod command;
+mod command;
 mod midi;
 mod musical_time;
 mod output;

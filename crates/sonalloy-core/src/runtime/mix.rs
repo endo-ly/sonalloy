@@ -90,7 +90,7 @@ pub(crate) fn mix_component_sample(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{constant_power_pan, stereo_balance};
 
     #[test]
     fn constant_power_pan_has_equal_center_power() {

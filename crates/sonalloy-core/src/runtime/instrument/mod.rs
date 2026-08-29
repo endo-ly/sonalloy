@@ -1,18 +1,14 @@
 use std::sync::Arc;
 
 use crate::compiler::{
-    CompiledGenerator, CompiledInstrument, CompiledInstrumentSourceKind, CompiledPerformanceMode,
-    CompiledProcessor, CompiledProcessorKind, CompiledSampleZone, CompiledSourceRef,
+    CompiledGenerator, CompiledInstrument, CompiledInstrumentSourceKind, CompiledProcessor,
+    CompiledProcessorKind,
 };
-use crate::definition::LayerTriggerEvent;
-use crate::parameter::{ParameterHandle, ParameterOwner, ParameterScale};
+use crate::parameter::{ParameterHandle, ParameterOwner};
 use crate::process::{
-    InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessEventKind, ProcessSpec,
-    clear_output,
+    InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessSpec, clear_output,
 };
-use crate::trace::{
-    TraceContribution, TraceDepth, TraceObservation, TraceRoute, TraceVoice, TraceVoiceState,
-};
+use crate::trace::{TraceObservation, TraceVoice, TraceVoiceState};
 
 use super::external_audio::EnvelopeFollowerRuntime;
 use super::external_audio::ExternalAudioBlock;
@@ -23,7 +19,7 @@ use super::modulation::{
 use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
 use super::source::ceil_boundary_frames;
-use super::voice::{NoteRequest, PreparedLayerSelection, VoiceRuntime, VoiceState};
+use super::voice::{PreparedLayerSelection, VoiceRuntime, VoiceState};
 
 mod event;
 mod trace;
@@ -1114,10 +1110,17 @@ fn invalid_state() -> ProcessError {
 pub(crate) mod tests {
     use approx::assert_relative_eq;
 
-    use super::*;
-    use crate::compiler::{CompileContext, compile_instrument};
+    use std::sync::Arc;
+
+    use super::InstrumentRuntime;
+    use crate::compiler::{CompileContext, CompiledInstrument, compile_instrument};
     use crate::definition::tests::definition;
-    use crate::process::ProcessEvent;
+    use crate::process::{
+        InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessEvent,
+        ProcessEventKind, ProcessSpec,
+    };
+    use crate::runtime::external_audio::ExternalAudioBlock;
+    use crate::runtime::processor::ProcessorTargetSpan;
 
     pub(crate) fn compiled(polyphony: u16) -> Arc<CompiledInstrument> {
         let mut definition = definition();

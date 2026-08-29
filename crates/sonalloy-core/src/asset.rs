@@ -514,7 +514,12 @@ fn linear_resample(samples: &[f32], source_sample_rate: f64, target_sample_rate:
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::path::Path;
+
+    use super::{
+        AssetError, PreparedAudioChannels, downmix, linear_resample, prepare_asset, resample,
+    };
+    use crate::definition::AssetReference;
 
     fn write_pcm16_wav(path: &Path, channels: u16, sample_rate: u32, samples: &[i16]) {
         let payload_len = u32::try_from(samples.len() * 2).expect("test WAV fits RIFF");

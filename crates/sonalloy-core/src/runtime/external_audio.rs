@@ -103,7 +103,8 @@ impl EnvelopeFollowerRuntime {
 mod tests {
     use approx::assert_relative_eq;
 
-    use super::*;
+    use super::{EnvelopeFollowerRuntime, ExternalAudioBlock, ExternalInputDelay};
+    use crate::compiler::CompiledEnvelopeFollower;
 
     #[test]
     fn external_input_delay_preserves_zero_and_positive_delays() {

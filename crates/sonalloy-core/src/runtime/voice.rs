@@ -1576,7 +1576,7 @@ fn linear_gain_span(gain_db: ValueSpan, weight: ValueSpan) -> ValueSpan {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{LayerDelayCompensation, ValueSpan, linear_gain_span};
     use crate::runtime::modulation::curve_value;
 
     #[test]

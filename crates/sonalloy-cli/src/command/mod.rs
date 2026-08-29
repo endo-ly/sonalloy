@@ -1,34 +1,19 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use clap::Args;
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
 use sonalloy_core::{
-    AdsrDefinition, AudioAnalysis, AudioAnalysisOptions, CompileContext, CompiledInstrument,
-    DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, InstrumentDefinition, InstrumentMetadata,
-    LayerDefinition, LayerTriggerDefinition, ModulationCurve, ModulationUnit, MusicalTimeMap,
-    OscillatorDefinition, OscillatorWaveform, ParameterHandle, ParameterOwner, ParameterScale,
-    ParameterUnit, PerformanceDefinition, ProcessEventKind, ProcessSpec, ProcessorDefinition,
-    RenderRequest, RenderTraceReport, ScheduledEvent, TraceRequest, VoiceStealingDefinition,
-    analyze_rendered_audio, backend_info, compile_instrument, prepare_audio_file,
-    render_instrument_with_input, render_instrument_with_input_and_reset,
-    render_instrument_with_input_and_trace, render_sine, seconds_to_frames,
-};
-
-use crate::midi::{export_pattern, import_pattern, parse_midi, read_midi};
-use crate::pattern::{
-    PatternDefinition, PatternInspection, compile as compile_pattern, default_pattern,
-    inspect as inspect_pattern, validate as validate_pattern,
+    CompileContext, CompiledInstrument, Diagnostic, DiagnosticCode, InstrumentDefinition,
+    ProcessSpec, compile_instrument,
 };
 
 use crate::output::CliFailure;
 
 mod dev;
-pub(crate) mod instrument;
-pub(crate) mod pattern;
-pub(crate) mod realtime;
+mod instrument;
+mod pattern;
+mod realtime;
 mod render;
 
 const DEFAULT_SAMPLE_RATE: u32 = 48_000;
@@ -40,7 +25,7 @@ const DEFAULT_BLOCK_SIZE: usize = 257;
     version,
     about = "Sonalloy realtime and offline instrument engine"
 )]
-pub(crate) struct Cli {
+pub(super) struct Cli {
     #[command(subcommand)]
     command: Command,
 }
@@ -81,7 +66,7 @@ enum Command {
     },
 }
 
-pub(crate) fn run(cli: Cli) -> ExitCode {
+pub(super) fn run(cli: Cli) -> ExitCode {
     match cli.command {
         Command::Instrument { command } => instrument::run(command),
         Command::Pattern { command } => pattern::run(command),
@@ -93,7 +78,7 @@ pub(crate) fn run(cli: Cli) -> ExitCode {
     }
 }
 
-pub(crate) fn load_and_compile(
+fn load_and_compile(
     path: &Path,
     sample_rate: u32,
     block_size: usize,

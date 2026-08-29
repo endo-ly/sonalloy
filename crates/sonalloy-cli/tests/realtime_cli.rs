@@ -1,7 +1,7 @@
 mod support;
 
 use assert_cmd::Command;
-use support::*;
+use support::fixture_path;
 use tempfile::tempdir;
 
 #[test]

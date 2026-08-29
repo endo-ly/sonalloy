@@ -1,6 +1,7 @@
 use crate::compiler::{CompiledFormant, CompiledFormantBand, CompiledFormantProfile};
+use crate::definition::MAX_PARTIALS;
 use crate::parameter::generator::{
-    FORMANT_SHIFT, FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, MAX_PARTIALS,
+    FORMANT_SHIFT, FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION,
 };
 use crate::process::{ProcessError, ProcessSpec};
 use crate::runtime::formant::{geometric_lerp, profile_pair};
@@ -199,7 +200,8 @@ impl FormantRuntime {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{FORMANT_COUNT, geometric_lerp, profile_pair};
+    use crate::compiler::{CompiledFormantBand, CompiledFormantProfile};
 
     #[test]
     fn profile_position_uses_adjacent_profiles_and_clamps_only_the_final_segment() {

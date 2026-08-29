@@ -490,7 +490,7 @@ fn largest_power_of_two(frames: usize) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{AudioAnalysisOptions, RenderedAudio, analyze_rendered_audio};
 
     fn audio(left: Vec<f32>, right: Vec<f32>) -> RenderedAudio {
         RenderedAudio {

@@ -255,11 +255,11 @@ mod tests {
     use std::path::PathBuf;
 
     use midly::{
-        Format, Header, MidiMessage, Timing, TrackEvent, TrackEventKind,
+        Format, Header, MidiMessage, Smf, Timing, TrackEvent, TrackEventKind,
         num::{u4, u7, u15, u24},
     };
 
-    use super::*;
+    use super::parse_midi;
 
     fn midi_file(events: Vec<TrackEvent<'static>>) -> (tempfile::TempDir, PathBuf) {
         midi_file_with_ticks_per_beat(480, events)

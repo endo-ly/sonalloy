@@ -289,9 +289,12 @@ fn remap_loop_note_id(kind: ProcessEventKind, iteration: u32) -> ProcessEventKin
 
 #[cfg(test)]
 mod tests {
-    use sonalloy_core::{MusicalTimeChange, MusicalTimeMap, ProcessEventKind, TimeSignature};
+    use sonalloy_core::{
+        MusicalTimeChange, MusicalTimeMap, ProcessEventKind, ScheduledEvent, TimeSignature,
+    };
 
-    use super::*;
+    use super::ScheduledEventFeed;
+    use crate::pattern::{CompiledPattern, loop_note_id};
 
     fn pattern(events: Vec<ScheduledEvent>, length_frames: u64) -> CompiledPattern {
         CompiledPattern {

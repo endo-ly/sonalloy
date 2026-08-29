@@ -242,3 +242,136 @@ fn non_finite() -> ProcessError {
         kind: ProcessorFailureKind::NonFinite,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::ConvolutionRuntime;
+    use crate::compiler::convolution::{
+        CONVOLUTION_FFT_SIZE, CONVOLUTION_LATENCY_FRAMES, CONVOLUTION_PARTITION_SIZE,
+        PreparedConvolutionIr, PreparedConvolutionSpectra, partition_spectra,
+    };
+    use crate::runtime::modulation::ValueSpan;
+
+    fn impulse_response() -> Arc<PreparedConvolutionIr> {
+        Arc::new(PreparedConvolutionIr {
+            sample_rate: 48_000.0,
+            source_channels: 1,
+            source_frames: 2,
+            prepared_frames: 2,
+            partition_size: CONVOLUTION_PARTITION_SIZE,
+            fft_size: CONVOLUTION_FFT_SIZE,
+            spectra: PreparedConvolutionSpectra::Mono(partition_spectra(&[1.0, 0.5])),
+        })
+    }
+
+    fn constant_span(value: f32) -> ValueSpan {
+        ValueSpan {
+            start: value,
+            end: value,
+        }
+    }
+
+    #[test]
+    fn partitioned_convolution_preserves_latency_and_overlap_add() {
+        let mut runtime = ConvolutionRuntime::new(impulse_response(), 48_000.0)
+            .expect("test impulse response prepares");
+        let mut left = [0.0; 512];
+        let mut right = [0.0; 512];
+        left[0] = 1.0;
+        right[0] = 1.0;
+
+        runtime
+            .process(
+                constant_span(0.0),
+                constant_span(1.0),
+                &mut left,
+                &mut right,
+            )
+            .expect("convolution processes");
+
+        assert!(
+            left[..CONVOLUTION_LATENCY_FRAMES]
+                .iter()
+                .all(|sample| sample.abs() < 1.0e-6)
+        );
+        assert!((left[CONVOLUTION_LATENCY_FRAMES] - 1.0).abs() < 1.0e-5);
+        assert!((left[CONVOLUTION_LATENCY_FRAMES + 1] - 0.5).abs() < 1.0e-5);
+        assert!(
+            left.iter()
+                .zip(right)
+                .all(|(left, right)| left.to_bits() == right.to_bits())
+        );
+    }
+
+    #[test]
+    fn partitioned_convolution_is_independent_of_process_block_splits() {
+        let mut whole_runtime =
+            ConvolutionRuntime::new(impulse_response(), 48_000.0).expect("whole runtime prepares");
+        let mut split_runtime =
+            ConvolutionRuntime::new(impulse_response(), 48_000.0).expect("split runtime prepares");
+        let mut whole = [0.0; 768];
+        let mut split = [0.0; 768];
+        whole[0] = 1.0;
+        split[0] = 1.0;
+        let mut whole_right = whole;
+        let mut split_right = split;
+
+        whole_runtime
+            .process(
+                constant_span(0.0),
+                constant_span(1.0),
+                &mut whole,
+                &mut whole_right,
+            )
+            .expect("whole block processes");
+        for (left_chunk, right_chunk) in split.chunks_mut(37).zip(split_right.chunks_mut(37)) {
+            split_runtime
+                .process(
+                    constant_span(0.0),
+                    constant_span(1.0),
+                    left_chunk,
+                    right_chunk,
+                )
+                .expect("split block processes");
+        }
+
+        assert!(
+            whole
+                .iter()
+                .zip(split)
+                .all(|(expected, actual)| (expected - actual).abs() < 1.0e-6)
+        );
+    }
+
+    #[test]
+    fn realtime_processing_reuses_fft_scratch_without_allocations() {
+        let mut runtime = ConvolutionRuntime::new(impulse_response(), 48_000.0)
+            .expect("test impulse response prepares");
+        let mut left = [0.0; 512];
+        let mut right = [0.0; 512];
+        left[0] = 1.0;
+        right[0] = 1.0;
+        runtime
+            .process(
+                constant_span(0.0),
+                constant_span(1.0),
+                &mut left,
+                &mut right,
+            )
+            .expect("warm-up convolution processes");
+
+        let allocations = crate::test_allocator::count_allocations(|| {
+            runtime
+                .process(
+                    constant_span(0.0),
+                    constant_span(1.0),
+                    &mut left,
+                    &mut right,
+                )
+                .expect("realtime convolution processes");
+        });
+        assert_eq!(allocations, 0);
+    }
+}

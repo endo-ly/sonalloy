@@ -135,7 +135,10 @@ fn non_finite() -> ProcessError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::GateRuntime;
+    use crate::compiler::{CompiledDynamicsDetector, CompiledGateProcessor};
+    use crate::runtime::external_audio::ExternalAudioBlock;
+    use crate::runtime::modulation::ValueSpan;
 
     fn compiled(
         detector_attack_coeff: f32,

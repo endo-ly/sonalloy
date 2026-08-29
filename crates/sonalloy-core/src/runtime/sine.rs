@@ -126,9 +126,12 @@ impl InstrumentProcessor for SineRuntime {
 mod tests {
     use approx::assert_relative_eq;
 
-    use crate::process::{ProcessContext, ProcessEvent, ProcessEventKind};
+    use crate::process::{
+        InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessEvent,
+        ProcessEventKind, ProcessSpec,
+    };
 
-    use super::*;
+    use super::SineRuntime;
 
     fn render_blocks(block_size: usize) -> Vec<Vec<f32>> {
         let spec = ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec");

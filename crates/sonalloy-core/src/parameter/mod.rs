@@ -6,24 +6,7 @@ pub use catalog::ParameterCatalog;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use self::generator::{
-    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SHIFT,
-    FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY, GRAIN_PAN_SPREAD,
-    GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION, GeneratorParameterSpec,
-    MODAL_BRIGHTNESS, MODAL_DECAY, MODAL_STRUCTURE, NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX,
-    OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX,
-    OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
-    OPERATOR_PARAMETER_SMOOTHING_SECONDS, OPERATOR_PARAMETER_SUFFIXES,
-    OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_RATIO_MAX,
-    OPERATOR_RATIO_MIN, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PHYSICAL_STRING_BRIGHTNESS,
-    PHYSICAL_STRING_DECAY_SECONDS, PHYSICAL_STRING_STIFFNESS, PULSE_WIDTH, SPECTRAL_BLUR,
-    SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE,
-    UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
-};
-use crate::definition::{
-    GeneratorDefinition, InstrumentDefinition, OperatorModulationMode, OscillatorWaveform,
-    ProcessorDefinition,
-};
+use self::generator::OPERATOR_PARAMETER_SUFFIXES;
 
 /// Dense reference to a parameter in one compiled instrument.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
@@ -424,8 +407,13 @@ pub const BUILTIN_SOURCE_IDS: &[&str] = &[
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        ModulationUnit, ParameterCatalog, ParameterDescriptor, ParameterOwner, ParameterScale,
+        ParameterUnit,
+    };
+    use crate::definition::ProcessorDefinition;
     use crate::definition::tests::definition;
+    use crate::parameter::{is_component_id, is_parameter_id};
 
     #[test]
     fn linear_and_logarithmic_mappings_round_trip() {

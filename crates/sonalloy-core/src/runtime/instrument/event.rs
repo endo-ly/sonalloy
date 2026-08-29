@@ -1,5 +1,14 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use std::sync::Arc;
+
+use super::super::smoothing::rounded_frame_count;
+use super::super::voice::{NoteRequest, PreparedLayerSelection, VoiceState};
+use super::{
+    HeldNote, InstrumentRuntime, MAX_MONOPHONIC_HELD_NOTES, STEAL_FADE_SECONDS,
+    control_smoothing_frames, invalid_state,
+};
+use crate::compiler::{CompiledGenerator, CompiledPerformanceMode, CompiledSampleZone};
+use crate::definition::LayerTriggerEvent;
+use crate::process::{ProcessError, ProcessEventKind};
 
 impl InstrumentRuntime {
     pub(super) fn apply_event(
@@ -421,10 +430,17 @@ mod tests {
     use approx::assert_relative_eq;
 
     use crate::definition::tests::definition;
+    use crate::parameter::ParameterHandle;
+    use crate::process::ProcessError;
     use crate::process::ProcessEvent;
+    use crate::process::{InstrumentProcessor, ProcessBlock, ProcessEventKind, ProcessSpec};
+    use crate::runtime::voice::VoiceState;
 
-    use super::super::tests::*;
-    use super::*;
+    use super::super::tests::{
+        compiled, modulated_steal_definition, monophonic_definition, phase_runtime,
+        phase_runtime_with_waveform, prepare, process, process_parameter_event, runtime,
+        runtime_with, traced_source_value,
+    };
 
     #[test]
     fn monophonic_uses_last_note_priority_and_returns_to_held_notes() {

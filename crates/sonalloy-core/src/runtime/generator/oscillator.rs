@@ -781,7 +781,7 @@ fn same_value(left: f32, right: f32) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{DcBlocker, phase_distortion_phase};
 
     #[test]
     fn phase_distortion_amount_zero_is_identity() {

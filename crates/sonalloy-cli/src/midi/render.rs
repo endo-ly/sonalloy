@@ -398,12 +398,14 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::midi::{MOD_WHEEL_CONTROLLER, SUSTAIN_PEDAL_CONTROLLER};
+    use crate::midi::{normalize_control, normalize_pitch_bend, note_id};
     use midly::{
         Format, Header, MidiMessage, Smf, Timing, TrackEvent, TrackEventKind,
         num::{u4, u7, u15, u24},
     };
+    use sonalloy_core::ProcessEventKind;
 
-    use super::*;
+    use super::read_midi;
 
     fn midi_file(events: Vec<TrackEvent<'static>>) -> (tempfile::TempDir, PathBuf) {
         midi_file_with_ticks_per_beat(480, events)

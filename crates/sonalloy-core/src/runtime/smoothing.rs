@@ -99,7 +99,7 @@ impl Smoother {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::Smoother;
 
     #[test]
     fn smoother_reaches_target_without_overshoot() {

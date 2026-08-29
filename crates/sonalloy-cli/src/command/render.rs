@@ -1,10 +1,25 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+use std::sync::Arc;
+
+use clap::{Args, Subcommand};
+use serde::Deserialize;
+use sonalloy_core::{
+    AudioAnalysis, AudioAnalysisOptions, CompiledInstrument, DEFAULT_TEMPO_BPM, Diagnostic,
+    DiagnosticCode, MusicalTimeMap, ProcessEventKind, RenderRequest, RenderTraceReport,
+    ScheduledEvent, TraceRequest, analyze_rendered_audio, backend_info, prepare_audio_file,
+    render_instrument_with_input, render_instrument_with_input_and_reset,
+    render_instrument_with_input_and_trace, seconds_to_frames,
+};
+
+use super::{DEFAULT_BLOCK_SIZE, DEFAULT_SAMPLE_RATE, load_and_compile};
 use crate::command::pattern::load_pattern;
+use crate::midi::read_midi;
 use crate::output::{
     CliFailure, ResetComparison, SuccessReport, finish_failure, input_failure, print_success,
     render_failure, write_wav,
 };
+use crate::pattern::compile as compile_pattern;
 
 #[derive(Debug, Subcommand)]
 pub(super) enum RenderCommand {

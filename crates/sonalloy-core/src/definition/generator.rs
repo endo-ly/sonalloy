@@ -1,5 +1,38 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use std::collections::{HashMap, HashSet};
+
+use serde::{Deserialize, Deserializer, Serialize};
+
+use super::range_message;
+use super::{LayerTriggerDefinition, validate_range};
+use crate::diagnostics::{Diagnostic, DiagnosticCode};
+use crate::parameter::generator::{
+    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SHIFT,
+    FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY, GRAIN_PAN_SPREAD,
+    GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION, MODAL_BRIGHTNESS, MODAL_DECAY,
+    MODAL_STRUCTURE, NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION,
+    PHYSICAL_STRING_BRIGHTNESS, PHYSICAL_STRING_DECAY_SECONDS, PHYSICAL_STRING_STIFFNESS,
+    PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT,
+    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+};
+use crate::parameter::is_component_id;
+
+pub(crate) const MAX_PARTIALS: usize = 64;
+pub(crate) const PHYSICAL_EXCITER_DURATION_SECONDS_MIN: f32 = 0.0005;
+pub(crate) const PHYSICAL_EXCITER_DURATION_SECONDS_MAX: f32 = 0.100;
+pub(crate) const OPERATOR_RATIO_MIN: f32 = 0.25;
+pub(crate) const OPERATOR_RATIO_MAX: f32 = 32.0;
+pub(crate) const OPERATOR_DETUNE_MIN: f32 = -100.0;
+pub(crate) const OPERATOR_DETUNE_MAX: f32 = 100.0;
+pub(crate) const OPERATOR_LEVEL_MIN: f32 = 0.0;
+pub(crate) const OPERATOR_LEVEL_MAX: f32 = 1.0;
+pub(crate) const OPERATOR_PHASE_MIN: f32 = 0.0;
+pub(crate) const OPERATOR_PHASE_MAX: f32 = 1.0;
+pub(crate) const OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN: f32 = 0.0;
+pub(crate) const OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX: f32 = 8.0;
+pub(crate) const OPERATOR_AM_RING_AMOUNT_MIN: f32 = 0.0;
+pub(crate) const OPERATOR_AM_RING_AMOUNT_MAX: f32 = 1.0;
+pub(crate) const OPERATOR_FEEDBACK_MIN: f32 = 0.0;
+pub(crate) const OPERATOR_FEEDBACK_MAX: f32 = 1.0;
 
 /// Generator variants in the Definition model.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2260,11 +2293,117 @@ pub(super) fn validate_adsr(
 #[cfg(test)]
 mod tests {
     use crate::definition::tests::definition;
-
-    use super::super::tests::{
-        operator_definition, sample_definition, sample_zone, set_sample_zone_midi_field,
+    use crate::definition::{
+        AdsrDefinition, AssetReference, GeneratorDefinition, InstrumentDefinition,
+        LayerTriggerDefinition, LayerTriggerEvent, NoiseColor, NoiseDefinition, OperatorAlgorithm,
+        OperatorDefinition, OperatorModulationDefinition, OperatorModulationMode,
+        OscillatorDefinition, OscillatorWaveform, SampleDefinition, SampleInterpolation,
+        SampleLoopDefinition, SamplePlaybackDirection, SampleRegionDefinition,
+        SampleTimeDefinition, SampleZoneDefinition, SampleZonePlaybackDefinition, UnisonDefinition,
+        WavetableDefinition,
     };
-    use super::*;
+    use crate::diagnostics::DiagnosticCode;
+
+    fn sample_zone(
+        id: &str,
+        key_min: u8,
+        key_max: u8,
+        velocity_min: u8,
+        velocity_max: u8,
+        round_robin_group: Option<&str>,
+        playback: SampleZonePlaybackDefinition,
+    ) -> SampleZoneDefinition {
+        SampleZoneDefinition {
+            id: id.to_owned(),
+            asset: AssetReference {
+                path: "test.wav".to_owned(),
+                sha256: None,
+            },
+            root_note: 60,
+            key_min,
+            key_max,
+            velocity_min,
+            velocity_max,
+            round_robin_group: round_robin_group.map(str::to_owned),
+            playback,
+        }
+    }
+
+    fn set_sample_zone_midi_field(zone: &mut SampleZoneDefinition, field: &str, value: u8) {
+        match field {
+            "root_note" => zone.root_note = value,
+            "key_min" => zone.key_min = value,
+            "key_max" => zone.key_max = value,
+            "velocity_min" => zone.velocity_min = value,
+            "velocity_max" => zone.velocity_max = value,
+            _ => panic!("unknown sample zone MIDI field: {field}"),
+        }
+    }
+
+    fn sample_definition(zones: Vec<SampleZoneDefinition>) -> InstrumentDefinition {
+        let mut value = definition();
+        value.layers[0].generator = GeneratorDefinition::Sample(SampleDefinition {
+            interpolation: SampleInterpolation::Cubic,
+            zones,
+        });
+        value
+    }
+
+    fn operator_definition(
+        mode: OperatorModulationMode,
+        algorithm: OperatorAlgorithm,
+    ) -> OperatorModulationDefinition {
+        let envelope = AdsrDefinition {
+            attack_seconds: 0.001,
+            decay_seconds: 0.2,
+            sustain_level: 0.4,
+            release_seconds: 0.1,
+        };
+        OperatorModulationDefinition {
+            mode,
+            algorithm,
+            operators: vec![
+                OperatorDefinition {
+                    ratio: 1.0,
+                    detune_cents: 0.0,
+                    level: 0.9,
+                    modulation_amount: 0.0,
+                    feedback: 0.0,
+                    phase: 0.0,
+                    envelope,
+                },
+                OperatorDefinition {
+                    ratio: 2.0,
+                    detune_cents: 0.0,
+                    level: 0.0,
+                    modulation_amount: 2.0,
+                    feedback: 0.0,
+                    phase: 0.0,
+                    envelope,
+                },
+                OperatorDefinition {
+                    ratio: 3.0,
+                    detune_cents: 0.0,
+                    level: 0.0,
+                    modulation_amount: 1.0,
+                    feedback: 0.0,
+                    phase: 0.0,
+                    envelope,
+                },
+                OperatorDefinition {
+                    ratio: 5.0,
+                    detune_cents: 0.0,
+                    level: 0.0,
+                    modulation_amount: 0.5,
+                    feedback: 0.2,
+                    phase: 0.0,
+                    envelope,
+                },
+            ],
+            phase_reset: true,
+            unison: None,
+        }
+    }
 
     #[test]
     fn sample_playback_and_trigger_event_serde_preserve_the_new_shape() {

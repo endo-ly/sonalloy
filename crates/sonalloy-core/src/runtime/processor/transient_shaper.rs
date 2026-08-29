@@ -114,7 +114,8 @@ fn non_finite() -> ProcessError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::TransientShaperRuntime;
+    use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
         ValueSpan {

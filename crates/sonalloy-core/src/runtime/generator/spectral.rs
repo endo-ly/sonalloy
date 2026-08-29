@@ -665,11 +665,14 @@ fn wrap_phase(value: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
+    use super::{LayerGeneratorTargetSpan, SpectralRuntime};
     use crate::asset::{PreparedAudio, PreparedAudioChannels, SampleMetadata};
-    use crate::compiler::CompiledSpectralParameters;
     use crate::compiler::spectral::prepare_spectral_asset;
+    use crate::compiler::{CompiledSpectral, CompiledSpectralParameters};
     use crate::parameter::ParameterHandle;
+    use crate::process::ProcessSpec;
     use crate::runtime::modulation::ValueSpan;
 
     fn test_runtime(phase_reset: bool) -> SpectralRuntime {

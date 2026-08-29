@@ -201,9 +201,9 @@ fn non_finite() -> ProcessError {
 
 #[cfg(test)]
 mod tests {
-    use crate::compiler::CompiledFormantBand;
-
-    use super::*;
+    use super::FormantProcessorRuntime;
+    use crate::compiler::{CompiledFormantBand, CompiledFormantProfile};
+    use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
         ValueSpan {

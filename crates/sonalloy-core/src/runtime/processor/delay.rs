@@ -5,8 +5,9 @@ use crate::runtime::fractional_delay::FractionalDelayLine;
 
 use super::ValueSpan;
 
+use crate::definition::MAX_DELAY_TAPS;
+
 const DELAY_TIME_SMOOTHING_SECONDS: f32 = 0.020;
-const MAX_DELAY_TAPS: usize = 8;
 
 pub(crate) struct StereoDelayRuntime {
     left: FractionalDelayLine,
@@ -153,10 +154,11 @@ fn non_finite() -> ProcessError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::StereoDelayRuntime;
     use crate::compiler::{CompiledDelayProcessor, CompiledDelayTime};
     use crate::definition::DelayFeedbackMode;
     use crate::parameter::ParameterHandle;
+    use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
         ValueSpan {

@@ -1,5 +1,52 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
+
+use super::convolution::{PreparedConvolutionIr, prepare_convolution_ir};
+use super::generator::prepare_cached_asset;
+use super::generator::{
+    AssetCacheKey, BASIC_FREQUENCY_LIMIT_RATIO, CompiledFormantBand, CompiledFormantProfile,
+    effective_max_frequency,
+};
+use super::{SPECTRAL_MORPH_LATENCY_FRAMES, asset_diagnostic, db_to_linear, effective_max_cutoff};
+use crate::asset::{AssetError, PreparedAsset};
+use crate::definition::{
+    BitcrusherProcessorDefinition, ChorusProcessorDefinition, CompressorProcessorDefinition,
+    ConvolutionProcessorDefinition, DelayFeedbackMode, DelayProcessorDefinition,
+    DelayTimeDefinition, DelayTimeUnit, DriveProcessorDefinition, DynamicsDetectorDefinition,
+    EnvelopeTransferProcessorDefinition, EqProcessorDefinition, FilterModeDefinition,
+    FilterProcessorDefinition, FlangerProcessorDefinition, FormantProcessorDefinition,
+    FrequencyShifterProcessorDefinition, GateProcessorDefinition, LadderFilterProcessorDefinition,
+    LimiterProcessorDefinition, PhaserProcessorDefinition, ProcessorDefinition,
+    ResonatorProcessorDefinition, ReverbProcessorDefinition, SpectralMorphProcessorDefinition,
+    TransientShaperProcessorDefinition, VocoderProcessorDefinition,
+};
+use crate::diagnostics::{Diagnostic, DiagnosticCode};
+use crate::parameter::{
+    ParameterCatalog, ParameterHandle, global_processor_parameter_id, layer_processor_parameter_id,
+    voice_processor_parameter_id,
+};
+
+const FREQUENCY_SHIFTER_LATENCY_FRAMES: usize = 127;
+const MAX_DELAY_RUNTIME_SECONDS: f32 = 16.0;
+const HILBERT_TAPS: usize = 255;
+
+#[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
+fn build_hilbert_coefficients() -> Vec<f32> {
+    let center = (HILBERT_TAPS - 1) / 2;
+    (0..HILBERT_TAPS)
+        .map(|index| {
+            let offset = index as isize - center as isize;
+            let ideal = if offset != 0 && offset % 2 != 0 {
+                2.0 / (std::f32::consts::PI * offset as f32)
+            } else {
+                0.0
+            };
+            let phase = std::f32::consts::TAU * index as f32 / (HILBERT_TAPS - 1) as f32;
+            ideal * (0.42 - 0.5 * phase.cos() + 0.08 * (phase * 2.0).cos())
+        })
+        .collect()
+}
 
 /// Parameter handles used by a filter processor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -211,7 +258,6 @@ impl CompiledConvolutionProcessor {
         self.prepared_ir.partition_count()
     }
 }
-
 /// Dynamic parameter handles used by a gate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompiledGateParameters {
@@ -1232,7 +1278,7 @@ fn compile_frequency_shifter_processor(
         },
         coefficients: Arc::from(build_hilbert_coefficients()),
         latency_frames: FREQUENCY_SHIFTER_LATENCY_FRAMES,
-        effective_abs_shift_hz: effective_max_frequency(sample_rate, 0.45),
+        effective_abs_shift_hz: effective_max_frequency(sample_rate, BASIC_FREQUENCY_LIMIT_RATIO),
     })
 }
 
@@ -1785,7 +1831,36 @@ fn scale_reverb_excursion(
 #[cfg(test)]
 mod tests {
     use super::super::tests::{context, definition};
-    use super::*;
+    use super::{
+        CompiledProcessorKind, FREQUENCY_SHIFTER_LATENCY_FRAMES, HILBERT_TAPS, ProcessorDefinition,
+        build_hilbert_coefficients,
+    };
+    use super::{ReverbOutputTap, ReverbTapSource};
+    use crate::definition::{
+        AssetReference, ConvolutionProcessorDefinition, DelayFeedbackMode,
+        DelayProcessorDefinition, DelayTimeDefinition, DelayTimeUnit,
+        FrequencyShifterProcessorDefinition, GateProcessorDefinition,
+        LadderFilterProcessorDefinition, ModulationCurve, ReverbProcessorDefinition,
+        TransientShaperProcessorDefinition,
+    };
+    use crate::diagnostics::DiagnosticCode;
+    use crate::{CompileContext, DiagnosticSeverity, ProcessSpec, compile_instrument};
+
+    #[test]
+    fn hilbert_coefficients_are_finite_and_anti_symmetric() {
+        let coefficients = build_hilbert_coefficients();
+
+        assert_eq!(coefficients.len(), HILBERT_TAPS);
+        assert!(
+            coefficients
+                .iter()
+                .all(|coefficient| coefficient.is_finite())
+        );
+        assert!(coefficients[HILBERT_TAPS / 2].abs() < 1.0e-7);
+        for index in 0..HILBERT_TAPS / 2 {
+            assert!((coefficients[index] + coefficients[HILBERT_TAPS - 1 - index]).abs() < 1.0e-7);
+        }
+    }
 
     #[test]
     fn processor_chains_compile_in_definition_order() {

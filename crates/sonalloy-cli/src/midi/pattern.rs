@@ -534,7 +534,7 @@ pub(crate) fn export_pattern(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{PatternDefinition, PatternEvent, PatternMidiEventKind, midi_events};
     use crate::pattern::default_pattern;
 
     #[test]

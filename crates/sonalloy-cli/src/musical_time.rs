@@ -239,7 +239,10 @@ fn round_frame(frames: f64) -> Result<u64, MusicalTimeError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        MusicalTimeError, TempoPoint, TimeSignaturePoint, build_musical_time_map,
+        musical_duration_seconds, tick_to_frame,
+    };
 
     fn tempo_changes() -> [TempoPoint; 2] {
         [

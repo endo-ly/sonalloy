@@ -124,9 +124,10 @@ impl ModalRuntime {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{CompiledModal, LayerGeneratorTargetSpan, ModalRuntime};
     use crate::compiler::{CompiledModalParameters, CompiledPhysicalExciter};
     use crate::parameter::ParameterHandle;
+    use crate::process::{ProcessError, ProcessSpec};
     use crate::runtime::modulation::ValueSpan;
 
     fn compiled() -> CompiledModal {

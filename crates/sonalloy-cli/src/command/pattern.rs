@@ -1,5 +1,16 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+
+use clap::{Args, Subcommand};
+use serde::Serialize;
+use sonalloy_core::{Diagnostic, DiagnosticCode};
+
+use crate::midi::{export_pattern, import_pattern, parse_midi};
+use crate::pattern::{
+    PatternDefinition, PatternInspection, default_pattern, inspect as inspect_pattern,
+    validate as validate_pattern,
+};
+
 use crate::output::{CliFailure, StatusReport, finish_failure, print_warnings};
 
 #[derive(Debug, Subcommand)]
@@ -305,7 +316,7 @@ struct PatternSuccessReport {
     diagnostics: Vec<Diagnostic>,
 }
 
-pub(crate) fn load_pattern(path: &Path) -> Result<PatternDefinition, CliFailure> {
+pub(super) fn load_pattern(path: &Path) -> Result<PatternDefinition, CliFailure> {
     let text = std::fs::read_to_string(path).map_err(|error| CliFailure {
         code: 2,
         diagnostics: vec![

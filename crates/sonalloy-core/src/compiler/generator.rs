@@ -1,5 +1,63 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use super::modulation::source_id_hash;
+use super::spectral::{
+    PreparedSpectralAsset, SpectralPreparationError, SpectralSynthesisPlan, prepare_spectral_asset,
+    spectral_hop_size,
+};
+use super::wavetable::{
+    WavetablePreparation, WavetablePreparationError, WavetableWarning, prepare_wavetable_asset,
+};
+use super::{asset_diagnostic, brown_noise_coefficient, compile_adsr, db_to_linear};
+use crate::asset::{
+    AssetError, PreparedAsset, PreparedAudio, PreparedAudioChannels, prepare_asset,
+    resolved_asset_path,
+};
+use crate::definition::{
+    AdditiveDefinition, AssetReference, FormantDefinition, GeneratorDefinition, GranularDefinition,
+    ModalDefinition, NoiseColor, OperatorAlgorithm, OperatorModulationDefinition,
+    OperatorModulationMode, OscillatorDefinition, OscillatorWaveform, PhysicalExciterDefinition,
+    PhysicalStringDefinition, SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition,
+    SpectralDefinition, UnisonDefinition, WaveSequenceDefinition, WaveSequenceDirection,
+    WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
+};
+use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
+use crate::parameter::generator::{
+    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SHIFT,
+    FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY, GRAIN_PAN_SPREAD,
+    GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION, GeneratorParameterSpec,
+    MODAL_BRIGHTNESS, MODAL_DECAY, MODAL_STRUCTURE, NOISE_CORRELATION, OSCILLATOR_FEEDBACK,
+    PHASE_DISTORTION, PHYSICAL_STRING_BRIGHTNESS, PHYSICAL_STRING_DECAY_SECONDS,
+    PHYSICAL_STRING_STIFFNESS, PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE, SPECTRAL_MORPH,
+    SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD,
+    WAVESHAPE, WAVETABLE_POSITION,
+};
+use crate::parameter::{ParameterCatalog, ParameterHandle, layer_generator_parameter_id};
+
+pub(crate) const GRANULAR_GRAIN_POOL_LIMIT: usize = 64;
+pub(crate) const BASIC_FREQUENCY_LIMIT_RATIO: f64 = 0.45;
+pub(crate) const PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO: f64 = 0.24;
+pub(crate) const PHYSICAL_FREQUENCY_LIMIT_RATIO: f64 = BASIC_FREQUENCY_LIMIT_RATIO;
+
+pub(crate) fn effective_max_frequency(sample_rate: f64, ratio: f64) -> f32 {
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        (sample_rate * ratio) as f32
+    }
+}
+
+fn build_sine_table() -> Arc<[f32]> {
+    const SINE_TABLE_LENGTH: usize = 4096;
+    let mut table = Vec::with_capacity(SINE_TABLE_LENGTH + 1);
+    #[allow(clippy::cast_precision_loss)]
+    for index in 0..=SINE_TABLE_LENGTH {
+        let phase = index as f32 / SINE_TABLE_LENGTH as f32;
+        table.push((std::f32::consts::TAU * phase).sin());
+    }
+    Arc::from(table.into_boxed_slice())
+}
 
 /// Compiled generator variants.
 #[derive(Debug, Clone, PartialEq)]
@@ -2464,7 +2522,23 @@ fn compile_unison(unison: Option<UnisonDefinition>) -> CompiledUnison {
 #[cfg(test)]
 mod tests {
     use super::super::tests::{context, definition};
-    use super::*;
+    use super::{CompiledGenerator, GeneratorOutputMode, build_sine_table};
+    use crate::compile_instrument;
+    use crate::definition::{
+        GeneratorDefinition, NoiseColor, OscillatorDefinition, OscillatorWaveform,
+    };
+
+    #[test]
+    fn sine_table_has_the_expected_periodic_samples() {
+        let table = build_sine_table();
+
+        assert_eq!(table.len(), 4_097);
+        assert_eq!(table[0].to_bits(), 0.0_f32.to_bits());
+        assert!((table[1_024] - 1.0).abs() < 1.0e-6);
+        assert!(table[2_048].abs() < 1.0e-6);
+        assert!((table[3_072] + 1.0).abs() < 1.0e-6);
+        assert!(table[4_096].abs() < 1.0e-6);
+    }
 
     #[test]
     fn basic_generators_compile_with_parameter_handles_and_output_modes() {

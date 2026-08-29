@@ -439,9 +439,10 @@ impl DelayLine {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{DelayLine, PlateReverbRuntime, Tank, modulation_offset, sum_output_taps};
     use crate::compiler::{CompiledReverbProcessor, ReverbOutputTap, ReverbTapSource};
     use crate::parameter::ParameterHandle;
+    use crate::runtime::modulation::ValueSpan;
 
     fn compiled() -> CompiledReverbProcessor {
         CompiledReverbProcessor {

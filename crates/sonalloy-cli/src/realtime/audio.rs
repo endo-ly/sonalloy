@@ -819,14 +819,22 @@ fn handle_input_stream_error(status: &RealtimeStatus, kind: ErrorKind) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::super::scheduled::ScheduledEventFeed;
+    use super::{
+        AudioEngine, CallbackFrameStats, FatalStatus, InputFrame, QueuedEvent,
+        REALTIME_EVENT_QUEUE_CAPACITY, REALTIME_INPUT_QUEUE_CAPACITY, RealtimeStatus,
+        enqueue_input_frame, handle_input_stream_error, handle_stream_error,
+    };
+    use cpal::{ErrorKind, FromSample, I24, SizedSample, U24};
+    use crossbeam_queue::ArrayQueue;
     use sonalloy_core::{
-        CompileContext, InstrumentProcessor, MusicalTimeMap, ProcessSpec, ScheduledEvent,
-        VoiceState,
+        CompileContext, DiagnosticCode, InstrumentProcessor, InstrumentRuntime, MusicalTimeMap,
+        ProcessEventKind, ProcessSpec, ScheduledEvent, VoiceState,
     };
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::cell::Cell;
     use std::path::PathBuf;
+    use std::sync::Arc;
 
     thread_local! {
         static ALLOCATION_COUNT: Cell<Option<usize>> = const { Cell::new(None) };

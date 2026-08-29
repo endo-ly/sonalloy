@@ -163,7 +163,9 @@ impl Drop for DspModalResonator {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{DspModalResonator, DspModalResonatorError};
+    #[cfg(sonalloy_test_hooks)]
+    use crate::ffi;
 
     #[cfg(sonalloy_test_hooks)]
     unsafe extern "C" {

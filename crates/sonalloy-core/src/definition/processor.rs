@@ -1,6 +1,17 @@
 use super::generator::validate_formant_profiles;
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use super::{AssetReference, FormantProfileDefinition, validate_range};
+
+use serde::{Deserialize, Serialize};
+
+use std::collections::HashSet;
+
+use crate::diagnostics::{Diagnostic, DiagnosticCode};
+use crate::parameter::generator::{FORMANT_SHIFT, FORMANT_THROAT, FORMANT_VOWEL_POSITION};
+use crate::parameter::is_component_id;
+
+const MAX_CONVOLUTION_PROCESSORS: usize = 2;
+const MAX_DELAY_PROCESSORS: usize = 4;
+pub(crate) const MAX_DELAY_TAPS: usize = 8;
 
 /// Processor definitions supported by the fixed signal pipeline.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1403,9 +1414,131 @@ fn validate_chorus_values(
 #[cfg(test)]
 mod tests {
     use crate::definition::tests::definition;
+    use crate::definition::{
+        FormantBandDefinition, FormantProcessorDefinition, FormantProfileDefinition,
+        GateProcessorDefinition, InstrumentDefinition, LadderFilterProcessorDefinition,
+        TransientShaperProcessorDefinition,
+    };
+    use crate::diagnostics::DiagnosticCode;
 
-    use super::super::tests::{convolution_processor, extended_definition, seconds_delay};
-    use super::*;
+    fn extended_formant_profile() -> FormantProfileDefinition {
+        FormantProfileDefinition {
+            id: "a".to_owned(),
+            formants: [800.0, 1_200.0, 2_400.0, 3_600.0, 4_800.0]
+                .into_iter()
+                .map(|frequency_hz| FormantBandDefinition {
+                    frequency_hz,
+                    bandwidth_hz: 80.0,
+                    gain_db: 0.0,
+                })
+                .collect(),
+        }
+    }
+
+    fn extended_definition() -> InstrumentDefinition {
+        let mut value = definition();
+        value.layers[0].processors = vec![
+            ProcessorDefinition::LadderFilter(LadderFilterProcessorDefinition {
+                id: "ladder".to_owned(),
+                cutoff_hz: 850.0,
+                resonance: 0.7,
+                drive: 0.3,
+            }),
+            ProcessorDefinition::Formant(FormantProcessorDefinition {
+                id: "vowel".to_owned(),
+                vowel_position: 0.25,
+                formant_shift_cents: -120.0,
+                throat: 0.55,
+                profiles: vec![extended_formant_profile()],
+                mix: 0.65,
+            }),
+        ];
+        value.voice_processors = vec![
+            ProcessorDefinition::Gate(GateProcessorDefinition {
+                id: "gate".to_owned(),
+                threshold_db: -35.0,
+                hysteresis_db: 4.0,
+                attack_ms: 2.0,
+                hold_ms: 35.0,
+                release_ms: 90.0,
+                range_db: -72.0,
+                detector: crate::definition::DynamicsDetectorDefinition::SelfSignal,
+            }),
+            ProcessorDefinition::TransientShaper(TransientShaperProcessorDefinition {
+                id: "shape".to_owned(),
+                attack: 0.5,
+                sustain: -0.3,
+                mix: 1.0,
+            }),
+        ];
+        value.global_processors = vec![
+            ProcessorDefinition::FrequencyShifter(FrequencyShifterProcessorDefinition {
+                id: "shift".to_owned(),
+                shift_hz: 420.0,
+                mix: 0.7,
+            }),
+            ProcessorDefinition::Convolution(ConvolutionProcessorDefinition {
+                id: "body".to_owned(),
+                ir: AssetReference {
+                    path: "assets/body.wav".to_owned(),
+                    sha256: None,
+                },
+                gain_db: -3.0,
+                mix: 0.45,
+            }),
+            ProcessorDefinition::Delay(DelayProcessorDefinition {
+                id: "echo".to_owned(),
+                time: DelayTimeDefinition {
+                    value: 0.75,
+                    unit: DelayTimeUnit::Beats,
+                },
+                feedback_mode: DelayFeedbackMode::PingPong,
+                feedback: 0.45,
+                taps: vec![DelayTapDefinition {
+                    time: DelayTimeDefinition {
+                        value: 1.5,
+                        unit: DelayTimeUnit::Beats,
+                    },
+                    gain_db: -7.0,
+                }],
+                mix: 0.35,
+            }),
+        ];
+
+        value
+    }
+
+    fn seconds_delay(id: &str) -> ProcessorDefinition {
+        ProcessorDefinition::Delay(DelayProcessorDefinition {
+            id: id.to_owned(),
+            time: DelayTimeDefinition {
+                value: 0.25,
+                unit: DelayTimeUnit::Seconds,
+            },
+            feedback_mode: DelayFeedbackMode::Stereo,
+            feedback: 0.25,
+            taps: Vec::new(),
+            mix: 0.25,
+        })
+    }
+
+    fn convolution_processor(id: &str) -> ProcessorDefinition {
+        ProcessorDefinition::Convolution(ConvolutionProcessorDefinition {
+            id: id.to_owned(),
+            ir: AssetReference {
+                path: "assets/body.wav".to_owned(),
+                sha256: None,
+            },
+            gain_db: 0.0,
+            mix: 0.5,
+        })
+    }
+    use super::{
+        AssetReference, ConvolutionProcessorDefinition, DelayFeedbackMode,
+        DelayProcessorDefinition, DelayTapDefinition, DelayTimeDefinition, DelayTimeUnit,
+        DriveProcessorDefinition, FilterModeDefinition, FilterProcessorDefinition,
+        FrequencyShifterProcessorDefinition, ProcessorDefinition, ReverbProcessorDefinition,
+    };
 
     #[test]
     fn processor_validation_rejects_duplicate_ids_and_invalid_placement() {

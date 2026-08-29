@@ -25,8 +25,8 @@ pub(crate) struct EvaluatedParameterValue {
 
 #[cfg(test)]
 mod contract_tests {
-    use super::*;
-    use crate::parameter::{ParameterOwner, ParameterUnit};
+    use super::apply_domain_sum_with_maximum;
+    use crate::parameter::{ParameterDescriptor, ParameterOwner, ParameterScale, ParameterUnit};
 
     fn descriptor(
         unit: ParameterUnit,
@@ -452,7 +452,7 @@ impl VoiceTargetScratch {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::ValueSpan;
 
     #[test]
     fn value_span_uses_one_shared_ramp_formula() {

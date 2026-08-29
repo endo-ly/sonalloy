@@ -513,7 +513,10 @@ pub(crate) fn sample_format_name(sample_format: SampleFormat) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{buffer_is_supported, config_score, is_supported_range};
+    use cpal::{
+        SampleFormat, SupportedBufferSize, SupportedStreamConfig, SupportedStreamConfigRange,
+    };
 
     #[test]
     fn config_selection_prefers_stereo_float_at_48_khz() {

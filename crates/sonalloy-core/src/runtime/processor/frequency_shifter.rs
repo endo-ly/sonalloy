@@ -4,25 +4,8 @@ use crate::process::{ProcessError, ProcessorFailureKind};
 
 use super::ValueSpan;
 
-pub(crate) const HILBERT_TAPS: usize = 255;
+const HILBERT_TAPS: usize = 255;
 pub(crate) const HILBERT_GROUP_DELAY: usize = (HILBERT_TAPS - 1) / 2;
-
-#[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
-pub(crate) fn build_hilbert_coefficients() -> Vec<f32> {
-    let center = (HILBERT_TAPS - 1) / 2;
-    (0..HILBERT_TAPS)
-        .map(|index| {
-            let offset = index as isize - center as isize;
-            let ideal = if offset != 0 && offset % 2 != 0 {
-                2.0 / (std::f32::consts::PI * offset as f32)
-            } else {
-                0.0
-            };
-            let phase = std::f32::consts::TAU * index as f32 / (HILBERT_TAPS - 1) as f32;
-            ideal * (0.42 - 0.5 * phase.cos() + 0.08 * (phase * 2.0).cos())
-        })
-        .collect()
-}
 
 pub(crate) struct FrequencyShifterRuntime {
     coefficients: Arc<[f32]>,
@@ -170,7 +153,25 @@ fn non_finite() -> ProcessError {
 mod tests {
     use std::sync::Arc;
 
-    use super::*;
+    use super::{FrequencyShifterRuntime, HILBERT_GROUP_DELAY, HILBERT_TAPS};
+    use crate::runtime::modulation::ValueSpan;
+
+    #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
+    fn coefficients() -> Vec<f32> {
+        let center = (HILBERT_TAPS - 1) / 2;
+        (0..HILBERT_TAPS)
+            .map(|index| {
+                let offset = index as isize - center as isize;
+                let ideal = if offset != 0 && offset % 2 != 0 {
+                    2.0 / (std::f32::consts::PI * offset as f32)
+                } else {
+                    0.0
+                };
+                let phase = std::f32::consts::TAU * index as f32 / (HILBERT_TAPS - 1) as f32;
+                ideal * (0.42 - 0.5 * phase.cos() + 0.08 * (phase * 2.0).cos())
+            })
+            .collect()
+    }
 
     fn span(value: f32) -> ValueSpan {
         ValueSpan {
@@ -181,7 +182,7 @@ mod tests {
 
     #[test]
     fn zero_shift_keeps_dry_and_wet_time_aligned() {
-        let coefficients = Arc::from(build_hilbert_coefficients());
+        let coefficients = Arc::from(coefficients());
         let mut runtime = FrequencyShifterRuntime::new(coefficients, 48_000.0, 5_000.0)
             .expect("frequency shifter prepares");
         let mut left = [0.0; 256];
@@ -199,23 +200,6 @@ mod tests {
         );
         assert!((left[HILBERT_GROUP_DELAY] - 1.0).abs() < 1.0e-6);
         assert!((right[HILBERT_GROUP_DELAY] + 1.0).abs() < 1.0e-6);
-    }
-
-    #[test]
-    fn hilbert_coefficients_are_finite_and_anti_symmetric() {
-        let coefficients = build_hilbert_coefficients();
-        let center = HILBERT_GROUP_DELAY;
-
-        assert_eq!(coefficients.len(), HILBERT_TAPS);
-        assert!(
-            coefficients
-                .iter()
-                .all(|coefficient| coefficient.is_finite())
-        );
-        assert!(coefficients[center].abs() < 1.0e-7);
-        for index in 0..center {
-            assert!((coefficients[index] + coefficients[HILBERT_TAPS - 1 - index]).abs() < 1.0e-7);
-        }
     }
 
     #[test]
@@ -239,7 +223,7 @@ mod tests {
 
     #[test]
     fn dynamic_shift_remains_finite_without_large_steps() {
-        let coefficients = Arc::from(build_hilbert_coefficients());
+        let coefficients = Arc::from(coefficients());
         let mut runtime = FrequencyShifterRuntime::new(coefficients, 48_000.0, 5_000.0)
             .expect("frequency shifter prepares");
         let mut left = vec![0.0; 16_384];
@@ -280,7 +264,7 @@ mod tests {
     }
 
     fn render_sine(shift_hz: f32) -> Vec<f32> {
-        let coefficients = Arc::from(build_hilbert_coefficients());
+        let coefficients = Arc::from(coefficients());
         let mut runtime = FrequencyShifterRuntime::new(coefficients, 48_000.0, 5_000.0)
             .expect("frequency shifter prepares");
         let mut left = vec![0.0; 32_768];

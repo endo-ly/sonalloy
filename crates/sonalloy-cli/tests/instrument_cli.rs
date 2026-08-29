@@ -2,7 +2,7 @@ mod support;
 
 use assert_cmd::Command;
 use serde_json::json;
-use support::*;
+use support::fixture_path;
 use tempfile::tempdir;
 
 fn write_spectral_definition(directory: &std::path::Path) -> std::path::PathBuf {

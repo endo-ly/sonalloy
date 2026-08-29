@@ -191,8 +191,15 @@ fn enqueue(state: &mut LiveMidiState, timestamp_us: u64, kind: ProcessEventKind)
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
+    use crossbeam_queue::ArrayQueue;
     use sonalloy_core::ProcessEventKind;
+
+    use super::{FatalStatus, LiveMidiState, QueuedEvent, RealtimeStatus, handle_message};
+    use crate::midi::{
+        MOD_WHEEL_CONTROLLER, SUSTAIN_PEDAL_CONTROLLER, normalize_control, normalize_pitch_bend,
+    };
 
     fn state() -> (
         LiveMidiState,

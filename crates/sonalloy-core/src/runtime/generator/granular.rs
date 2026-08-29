@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use crate::asset::{PreparedAudio, PreparedAudioChannels};
-use crate::compiler::CompiledGranular;
+use crate::compiler::{CompiledGranular, GRANULAR_GRAIN_POOL_LIMIT};
 use crate::parameter::generator::{
-    GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE,
-    GRANULAR_GRAIN_POOL_LIMIT, GRANULAR_POSITION,
+    GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION,
 };
 use crate::process::ProcessError;
 
@@ -435,8 +434,15 @@ fn sample_at(source: &[f32], index: isize, start_frame: usize, end_frame: usize)
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
+    use super::{
+        GranularRuntime, LayerGeneratorTargetSpan, POSITION_STREAM, ValueSpan, hann_window,
+        random_value,
+    };
     use crate::asset::SampleMetadata;
+    use crate::asset::{PreparedAudio, PreparedAudioChannels};
+    use crate::compiler::{CompiledGranular, GRANULAR_GRAIN_POOL_LIMIT};
 
     fn source(values: &[f32]) -> Arc<PreparedAudio> {
         Arc::new(PreparedAudio {

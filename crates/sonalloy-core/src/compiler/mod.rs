@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 pub(crate) mod convolution;
@@ -10,66 +10,18 @@ pub(crate) mod spectral;
 pub(crate) mod wavetable;
 
 pub use generator::*;
-pub(crate) use generator::{AssetCacheKey, prepare_cached_asset};
-pub(crate) use modulation::source_id_hash;
 pub use modulation::*;
 pub use processor::*;
 
-use self::convolution::{PreparedConvolutionIr, prepare_convolution_ir};
-use self::spectral::{
-    SpectralPreparationError, SpectralSynthesisPlan, prepare_spectral_asset, spectral_hop_size,
-};
-use self::wavetable::{
-    WavetablePreparation, WavetablePreparationError, WavetableWarning, prepare_wavetable_asset,
-};
-use crate::asset::{
-    AssetError, PreparedAsset, PreparedAudio, PreparedAudioChannels, prepare_asset,
-    resolved_asset_path,
-};
+use crate::asset::AssetError;
 use crate::definition::{
-    AdditiveDefinition, AdsrDefinition, AssetReference, BitcrusherProcessorDefinition,
-    ChorusProcessorDefinition, CompressorProcessorDefinition, ConvolutionProcessorDefinition,
-    DelayFeedbackMode, DelayProcessorDefinition, DelayTimeDefinition, DelayTimeUnit,
-    DriveProcessorDefinition, DynamicsDetectorDefinition, EnvelopeTransferProcessorDefinition,
-    EqProcessorDefinition, ExternalAudioChannels, FilterModeDefinition, FilterProcessorDefinition,
-    FlangerProcessorDefinition, FormantDefinition, FormantProcessorDefinition,
-    FrequencyShifterProcessorDefinition, GateProcessorDefinition, GeneratorDefinition,
-    GranularDefinition, InstrumentDefinition, LadderFilterProcessorDefinition, LayerTriggerEvent,
-    LfoDefinition, LfoWaveform, LimiterProcessorDefinition, ModalDefinition, ModulationCurve,
-    ModulationDurationUnit, ModulationRateUnit, ModulationSourceDefinition, MsegDefinition,
-    NoiseColor, OperatorAlgorithm, OperatorModulationDefinition, OperatorModulationMode,
-    OscillatorDefinition, OscillatorWaveform, PhaserProcessorDefinition, PhysicalExciterDefinition,
-    PhysicalStringDefinition, ProcessorDefinition, ResonatorProcessorDefinition,
-    ReverbProcessorDefinition, SamplePlaybackDirection, SampleTimeDefinition, SampleZoneDefinition,
-    SpectralDefinition, SpectralMorphProcessorDefinition, TransientShaperProcessorDefinition,
-    UnisonDefinition, VectorDefinition, VocoderProcessorDefinition, VoiceStealingDefinition,
-    WaveSequenceDefinition, WaveSequenceDirection, WaveSequenceDurationDefinition,
-    WaveSequenceStepPlayback, WavetableDefinition,
+    AdsrDefinition, ExternalAudioChannels, InstrumentDefinition, LayerTriggerEvent,
+    VectorDefinition, VoiceStealingDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
-use crate::parameter::generator::{
-    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, BASIC_FREQUENCY_LIMIT_RATIO,
-    FORMANT_SHIFT, FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY,
-    GRAIN_PAN_SPREAD, GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_GRAIN_POOL_LIMIT,
-    GRANULAR_POSITION, GeneratorParameterSpec, MODAL_BRIGHTNESS, MODAL_DECAY, MODAL_STRUCTURE,
-    NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO,
-    PHYSICAL_FREQUENCY_LIMIT_RATIO, PHYSICAL_STRING_BRIGHTNESS, PHYSICAL_STRING_DECAY_SECONDS,
-    PHYSICAL_STRING_STIFFNESS, PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE, SPECTRAL_MORPH,
-    SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD,
-    WAVESHAPE, WAVETABLE_POSITION, effective_max_frequency,
-};
-use crate::parameter::{
-    BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner,
-    global_processor_parameter_id, layer_generator_parameter_id, layer_parameter_id,
-    layer_processor_parameter_id, voice_processor_parameter_id,
-};
+use crate::parameter::{ParameterCatalog, ParameterHandle, layer_parameter_id};
 use crate::process::ProcessSpec;
 use crate::runtime::InstrumentRuntime;
-use crate::runtime::generator::partial_bank::build_sine_table;
-use crate::runtime::processor::build_hilbert_coefficients;
-
-const FREQUENCY_SHIFTER_LATENCY_FRAMES: usize = 127;
-const MAX_DELAY_RUNTIME_SECONDS: f32 = 16.0;
 pub const VOCODER_BANDS: usize = 24;
 pub const SPECTRAL_MORPH_FFT_SIZE: usize = 1024;
 pub const SPECTRAL_MORPH_HOP_SIZE: usize = 256;
@@ -848,8 +800,17 @@ pub fn midi_note_frequency(note_number: u8, tuning_ratio: f32) -> f32 {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::*;
+    use std::path::PathBuf;
+
+    use super::{
+        CompileContext, CompiledOscillatorBackend, CompiledProcessorKind, cents_to_ratio,
+        compile_instrument, db_to_linear, midi_note_frequency,
+    };
+    use crate::ProcessSpec;
     pub(crate) use crate::definition::tests::definition;
+    use crate::definition::{ModulationCurve, ProcessorDefinition};
+    use crate::diagnostics::{DiagnosticCode, DiagnosticSeverity};
+    use crate::parameter::ParameterHandle;
 
     pub(crate) fn context() -> CompileContext {
         CompileContext {

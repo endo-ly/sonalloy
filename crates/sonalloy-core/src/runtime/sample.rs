@@ -8,9 +8,6 @@ use crate::compiler::{
 use crate::process::ProcessError;
 use sonalloy_dsp_sys::DspStretch;
 
-#[cfg(test)]
-use crate::compiler::{CompiledSamplePlayback, CompiledStretchLatency};
-
 use super::smoothing::rounded_frame_count;
 
 const END_FADE_SECONDS: f64 = 0.005;
@@ -808,8 +805,16 @@ fn sample_at(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::asset::{PreparedAudioChannels, SampleMetadata};
+    use std::sync::Arc;
+
+    use sonalloy_dsp_sys::DspStretch;
+
+    use super::{SampleRuntime, cubic_sample, playback_ratio};
+    use crate::asset::{PreparedAudio, PreparedAudioChannels, SampleMetadata};
+    use crate::compiler::{
+        CompiledSample, CompiledSampleDirection, CompiledSampleLoop, CompiledSamplePlayback,
+        CompiledSampleTime, CompiledSampleZone, CompiledStretchLatency,
+    };
 
     fn next_sample(runtime: &mut SampleRuntime, playback_ratio: f64) -> f32 {
         let (left, right) = runtime.next_frame_with_ratio(playback_ratio);

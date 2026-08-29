@@ -1,15 +1,18 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use std::path::PathBuf;
+use std::process::ExitCode;
 use std::sync::mpsc;
 use std::time::Duration;
+
+use clap::{Args, Subcommand};
+use sonalloy_core::{
+    DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, ParameterHandle, TimeSignature,
+};
 
 use crate::command::pattern::load_pattern;
 use crate::output::{CliFailure, finish_failure, print_warnings};
 use crate::realtime::{PlayOptions, ScheduledAuditionOptions};
-use sonalloy_core::TimeSignature;
-
 #[derive(Debug, Subcommand)]
-pub(crate) enum AuditionCommand {
+pub(super) enum AuditionCommand {
     /// Play a pattern through an audio output.
     Pattern(AuditionPatternArgs),
     /// Convert and play one MIDI channel through an audio output.
@@ -17,20 +20,20 @@ pub(crate) enum AuditionCommand {
 }
 
 #[derive(Debug, Subcommand)]
-pub(crate) enum DeviceCommand {
+pub(super) enum DeviceCommand {
     /// List available audio outputs and MIDI inputs.
     List(DeviceListArgs),
 }
 
 #[derive(Debug, Args)]
-pub(crate) struct DeviceListArgs {
+pub(super) struct DeviceListArgs {
     /// Emit machine-readable JSON.
     #[arg(long)]
     pub(crate) json: bool,
 }
 
 #[derive(Debug, Args)]
-pub(crate) struct PlayArgs {
+pub(super) struct PlayArgs {
     /// Definition JSON path.
     pub(crate) definition: PathBuf,
     /// CPAL output device ID. The OS default is used when omitted.
@@ -60,7 +63,7 @@ pub(crate) struct PlayArgs {
 }
 
 #[derive(Debug, Args)]
-pub(crate) struct AuditionPatternArgs {
+pub(super) struct AuditionPatternArgs {
     /// Definition JSON path.
     pub(crate) definition: PathBuf,
     /// Musical-time pattern JSON path.
@@ -86,7 +89,7 @@ pub(crate) struct AuditionPatternArgs {
 }
 
 #[derive(Debug, Args)]
-pub(crate) struct AuditionMidiArgs {
+pub(super) struct AuditionMidiArgs {
     /// Definition JSON path.
     pub(crate) definition: PathBuf,
     /// Standard MIDI File path.
@@ -173,7 +176,7 @@ fn validate_play_args(args: &PlayArgs) -> Result<(), CliFailure> {
     }
 }
 
-pub(crate) fn parse_time_signature(value: &str) -> Result<TimeSignature, &'static str> {
+fn parse_time_signature(value: &str) -> Result<TimeSignature, &'static str> {
     let (numerator, denominator) = value
         .split_once('/')
         .ok_or("time signature must contain /")?;
@@ -191,7 +194,7 @@ pub(crate) fn parse_time_signature(value: &str) -> Result<TimeSignature, &'stati
         .ok_or("invalid time signature")
 }
 
-pub(crate) fn parse_macro_cc(
+fn parse_macro_cc(
     values: &[String],
     compiled: &sonalloy_core::CompiledInstrument,
 ) -> Result<[Option<ParameterHandle>; 128], CliFailure> {

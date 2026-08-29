@@ -2,7 +2,7 @@ mod support;
 
 use assert_cmd::Command;
 use midly::{Format, Header, MidiMessage, PitchBend, Smf, Timing, TrackEvent, TrackEventKind};
-use support::*;
+use support::fixture_path;
 use tempfile::tempdir;
 
 fn write_control_only_midi(directory: &std::path::Path) -> std::path::PathBuf {

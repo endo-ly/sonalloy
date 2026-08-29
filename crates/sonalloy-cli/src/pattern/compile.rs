@@ -1,11 +1,12 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
 use crate::musical_time::{
     MusicalTimeError, TempoPoint, TimeSignaturePoint, build_musical_time_map, tick_to_frame,
 };
 use sonalloy_core::{
-    CompiledInstrument, Diagnostic, MusicalTimeMap, ProcessEventKind, ScheduledEvent,
+    CompiledInstrument, Diagnostic, DiagnosticCode, MusicalTimeMap, ProcessEventKind,
+    ScheduledEvent,
 };
+
+use super::{PatternDefinition, PatternEvent, validate};
 
 #[derive(Debug, Clone)]
 pub(crate) struct CompiledPattern {
@@ -356,13 +357,20 @@ pub(super) fn time_error(error: MusicalTimeError, path: impl Into<String>) -> Di
 mod tests {
     use std::path::PathBuf;
 
-    use sonalloy_core::{CompileContext, ProcessSpec, compile_instrument};
+    use sonalloy_core::{
+        CompileContext, InstrumentDefinition, ProcessEventKind, ProcessSpec, ScheduledEvent,
+        compile_instrument,
+    };
 
-    use super::*;
+    use super::compile;
+    use crate::pattern::default_pattern;
 
     #[test]
     fn pattern_compile_preserves_musical_positions_across_sample_rates() {
-        let definition = crate::command::instrument::default_definition();
+        let definition: InstrumentDefinition = serde_json::from_str(include_str!(
+            "../../../../testdata/instruments/basic-poly-synth.json"
+        ))
+        .expect("reference Definition parses");
         let pattern = default_pattern();
         for (sample_rate_hz, sample_rate) in [
             (44_100_u32, 44_100.0),

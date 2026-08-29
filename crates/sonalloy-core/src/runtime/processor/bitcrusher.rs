@@ -137,7 +137,9 @@ impl BitcrusherRuntime {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::BitcrusherRuntime;
+    use crate::compiler::GeneratorOutputMode;
+    use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
         ValueSpan {

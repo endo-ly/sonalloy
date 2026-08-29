@@ -169,9 +169,12 @@ fn process_channel(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::compiler::{CompiledResonatorParameters, CompiledResonatorProcessor};
+    use super::ResonatorRuntime;
+    use crate::compiler::{
+        CompiledResonatorParameters, CompiledResonatorProcessor, GeneratorOutputMode,
+    };
     use crate::parameter::ParameterHandle;
+    use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
         ValueSpan {

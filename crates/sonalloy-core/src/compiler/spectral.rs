@@ -415,8 +415,17 @@ fn wrap_phase(value: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::f32::consts::TAU;
+    use std::sync::Arc;
+
     use approx::assert_relative_eq;
+    use realfft::RealFftPlanner;
+
+    use super::{
+        SpectralPreparationError, build_analysis_window, build_synthesis_window,
+        prepare_spectral_asset, spectral_hop_size,
+    };
+    use crate::asset::{PreparedAudio, PreparedAudioChannels, SampleMetadata};
 
     #[test]
     fn supported_fft_sizes_use_quarter_hops() {

@@ -1,5 +1,16 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use std::collections::HashSet;
+
+use serde::{Deserialize, Serialize};
+
+use super::{LayerDefinition, LayerId, validate_finite, validate_range};
+use crate::diagnostics::{Diagnostic, DiagnosticCode};
+use crate::parameter::{BUILTIN_SOURCE_IDS, ModulationUnit, is_component_id, is_parameter_id};
+
+const MAX_VOICE_MODULATION_SOURCES: usize = 64;
+const MAX_MSEG_SOURCES: usize = 16;
+const MAX_STEP_SOURCES: usize = 16;
+const MAX_SAMPLE_HOLD_SOURCES: usize = 16;
+const MAX_SMOOTH_RANDOM_SOURCES: usize = 16;
 
 /// Modulation sources and routes stored in a Definition.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -787,7 +798,17 @@ fn validate_modulation_envelope(
 #[cfg(test)]
 mod tests {
     use super::super::tests::definition;
-    use super::*;
+    use super::{ModulationDefinition, ModulationRouteDefinition};
+    use crate::definition::{
+        InstrumentDefinition, LfoDefinition, LfoWaveform, MacroDefinition, ModulationCurve,
+        ModulationDepthDefinition, ModulationDurationDefinition, ModulationDurationUnit,
+        ModulationRateDefinition, ModulationRateUnit, ModulationSegmentCurve,
+        ModulationSourceDefinition, MsegDefinition, MsegLoopDefinition, MsegSegmentDefinition,
+        PerformanceDefinition, PortamentoDefinition, SampleHoldDefinition, SmoothRandomDefinition,
+        StepModulatorDefinition, VectorDefinition,
+    };
+    use crate::diagnostics::DiagnosticCode;
+    use crate::parameter::ModulationUnit;
 
     #[test]
     fn performance_modulation_and_vector_schema_round_trip() {

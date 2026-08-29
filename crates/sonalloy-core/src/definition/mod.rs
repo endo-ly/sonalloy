@@ -1,28 +1,15 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
-use crate::parameter::generator::{
-    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SHIFT,
-    FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY, GRAIN_PAN_SPREAD,
-    GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION, MAX_PARTIALS, MODAL_BRIGHTNESS,
-    MODAL_DECAY, MODAL_STRUCTURE, NOISE_CORRELATION, OPERATOR_AM_RING_AMOUNT_MAX,
-    OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX,
-    OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
-    OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_PHASE_MAX,
-    OPERATOR_PHASE_MIN, OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN, OSCILLATOR_FEEDBACK,
-    PHASE_DISTORTION, PHYSICAL_EXCITER_DURATION_SECONDS_MAX, PHYSICAL_EXCITER_DURATION_SECONDS_MIN,
-    PHYSICAL_STRING_BRIGHTNESS, PHYSICAL_STRING_DECAY_SECONDS, PHYSICAL_STRING_STIFFNESS,
-    PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT,
-    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
-};
-use crate::parameter::{BUILTIN_SOURCE_IDS, ModulationUnit, is_component_id, is_parameter_id};
+use crate::parameter::is_component_id;
 
 mod generator;
 mod modulation;
 mod processor;
 
+pub(crate) use generator::MAX_PARTIALS;
 pub use generator::*;
 use generator::{
     validate_additive, validate_adsr, validate_formant, validate_granular, validate_modal,
@@ -32,20 +19,12 @@ use generator::{
 };
 pub use modulation::*;
 use modulation::{validate_macros, validate_modulation, validate_vectors};
+pub(crate) use processor::MAX_DELAY_TAPS;
 pub use processor::*;
 use processor::{ProcessorPlacement, validate_processor_chain, validate_processor_resource_limits};
 
 /// The Definition schema accepted by the compiler.
 pub const CURRENT_SCHEMA_VERSION: u32 = 5;
-
-const MAX_VOICE_MODULATION_SOURCES: usize = 64;
-const MAX_MSEG_SOURCES: usize = 16;
-const MAX_STEP_SOURCES: usize = 16;
-const MAX_SAMPLE_HOLD_SOURCES: usize = 16;
-const MAX_SMOOTH_RANDOM_SOURCES: usize = 16;
-const MAX_CONVOLUTION_PROCESSORS: usize = 2;
-const MAX_DELAY_PROCESSORS: usize = 4;
-const MAX_DELAY_TAPS: usize = 8;
 
 /// Stable identifier assigned to a layer.
 pub type LayerId = String;
@@ -505,7 +484,14 @@ fn range_message(field: &str, min: f32, max: f32) -> String {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::*;
+    use crate::definition::{
+        AdsrDefinition, CURRENT_SCHEMA_VERSION, EnvelopeTransferProcessorDefinition,
+        ExternalAudioChannels, ExternalAudioInputDefinition, GeneratorDefinition,
+        InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition,
+        LayerTriggerEvent, OscillatorDefinition, OscillatorWaveform, PerformanceDefinition,
+        ProcessorDefinition, VoiceStealingDefinition,
+    };
+    use crate::diagnostics::DiagnosticCode;
 
     pub(crate) fn definition() -> InstrumentDefinition {
         InstrumentDefinition {
@@ -558,55 +544,6 @@ pub(crate) mod tests {
             macros: Vec::new(),
             vectors: Vec::new(),
         }
-    }
-
-    pub(crate) fn sample_zone(
-        id: &str,
-        key_min: u8,
-        key_max: u8,
-        velocity_min: u8,
-        velocity_max: u8,
-        round_robin_group: Option<&str>,
-        playback: SampleZonePlaybackDefinition,
-    ) -> SampleZoneDefinition {
-        SampleZoneDefinition {
-            id: id.to_owned(),
-            asset: AssetReference {
-                path: "test.wav".to_owned(),
-                sha256: None,
-            },
-            root_note: 60,
-            key_min,
-            key_max,
-            velocity_min,
-            velocity_max,
-            round_robin_group: round_robin_group.map(str::to_owned),
-            playback,
-        }
-    }
-
-    pub(crate) fn set_sample_zone_midi_field(
-        zone: &mut SampleZoneDefinition,
-        field: &str,
-        value: u8,
-    ) {
-        match field {
-            "root_note" => zone.root_note = value,
-            "key_min" => zone.key_min = value,
-            "key_max" => zone.key_max = value,
-            "velocity_min" => zone.velocity_min = value,
-            "velocity_max" => zone.velocity_max = value,
-            _ => panic!("unknown sample zone MIDI field: {field}"),
-        }
-    }
-
-    pub(crate) fn sample_definition(zones: Vec<SampleZoneDefinition>) -> InstrumentDefinition {
-        let mut value = definition();
-        value.layers[0].generator = GeneratorDefinition::Sample(SampleDefinition {
-            interpolation: SampleInterpolation::Cubic,
-            zones,
-        });
-        value
     }
 
     #[test]
@@ -680,119 +617,6 @@ pub(crate) mod tests {
         assert!(value.validate().is_empty());
     }
 
-    pub(crate) fn extended_formant_profile() -> FormantProfileDefinition {
-        FormantProfileDefinition {
-            id: "a".to_owned(),
-            formants: [800.0, 1_200.0, 2_400.0, 3_600.0, 4_800.0]
-                .into_iter()
-                .map(|frequency_hz| FormantBandDefinition {
-                    frequency_hz,
-                    bandwidth_hz: 80.0,
-                    gain_db: 0.0,
-                })
-                .collect(),
-        }
-    }
-
-    pub(crate) fn extended_definition() -> InstrumentDefinition {
-        let mut value = definition();
-        value.layers[0].processors = vec![
-            ProcessorDefinition::LadderFilter(LadderFilterProcessorDefinition {
-                id: "ladder".to_owned(),
-                cutoff_hz: 850.0,
-                resonance: 0.7,
-                drive: 0.3,
-            }),
-            ProcessorDefinition::Formant(FormantProcessorDefinition {
-                id: "vowel".to_owned(),
-                vowel_position: 0.25,
-                formant_shift_cents: -120.0,
-                throat: 0.55,
-                profiles: vec![extended_formant_profile()],
-                mix: 0.65,
-            }),
-        ];
-        value.voice_processors = vec![
-            ProcessorDefinition::Gate(GateProcessorDefinition {
-                id: "gate".to_owned(),
-                threshold_db: -35.0,
-                hysteresis_db: 4.0,
-                attack_ms: 2.0,
-                hold_ms: 35.0,
-                release_ms: 90.0,
-                range_db: -72.0,
-                detector: crate::definition::DynamicsDetectorDefinition::SelfSignal,
-            }),
-            ProcessorDefinition::TransientShaper(TransientShaperProcessorDefinition {
-                id: "shape".to_owned(),
-                attack: 0.5,
-                sustain: -0.3,
-                mix: 1.0,
-            }),
-        ];
-        value.global_processors = vec![
-            ProcessorDefinition::FrequencyShifter(FrequencyShifterProcessorDefinition {
-                id: "shift".to_owned(),
-                shift_hz: 420.0,
-                mix: 0.7,
-            }),
-            ProcessorDefinition::Convolution(ConvolutionProcessorDefinition {
-                id: "body".to_owned(),
-                ir: AssetReference {
-                    path: "assets/body.wav".to_owned(),
-                    sha256: None,
-                },
-                gain_db: -3.0,
-                mix: 0.45,
-            }),
-            ProcessorDefinition::Delay(DelayProcessorDefinition {
-                id: "echo".to_owned(),
-                time: DelayTimeDefinition {
-                    value: 0.75,
-                    unit: DelayTimeUnit::Beats,
-                },
-                feedback_mode: DelayFeedbackMode::PingPong,
-                feedback: 0.45,
-                taps: vec![DelayTapDefinition {
-                    time: DelayTimeDefinition {
-                        value: 1.5,
-                        unit: DelayTimeUnit::Beats,
-                    },
-                    gain_db: -7.0,
-                }],
-                mix: 0.35,
-            }),
-        ];
-
-        value
-    }
-
-    pub(crate) fn seconds_delay(id: &str) -> ProcessorDefinition {
-        ProcessorDefinition::Delay(DelayProcessorDefinition {
-            id: id.to_owned(),
-            time: DelayTimeDefinition {
-                value: 0.25,
-                unit: DelayTimeUnit::Seconds,
-            },
-            feedback_mode: DelayFeedbackMode::Stereo,
-            feedback: 0.25,
-            taps: Vec::new(),
-            mix: 0.25,
-        })
-    }
-
-    pub(crate) fn convolution_processor(id: &str) -> ProcessorDefinition {
-        ProcessorDefinition::Convolution(ConvolutionProcessorDefinition {
-            id: id.to_owned(),
-            ir: AssetReference {
-                path: "assets/body.wav".to_owned(),
-                sha256: None,
-            },
-            gain_db: 0.0,
-            mix: 0.5,
-        })
-    }
-
     #[test]
     fn external_audio_requires_a_declared_and_used_bus() {
         let transfer = ProcessorDefinition::EnvelopeTransfer(EnvelopeTransferProcessorDefinition {
@@ -832,61 +656,5 @@ pub(crate) mod tests {
         let restored: InstrumentDefinition =
             serde_json::from_str(&json).expect("definition parses");
         assert_eq!(source, restored);
-    }
-
-    pub(crate) fn operator_definition(
-        mode: OperatorModulationMode,
-        algorithm: OperatorAlgorithm,
-    ) -> OperatorModulationDefinition {
-        let envelope = AdsrDefinition {
-            attack_seconds: 0.001,
-            decay_seconds: 0.2,
-            sustain_level: 0.4,
-            release_seconds: 0.1,
-        };
-        OperatorModulationDefinition {
-            mode,
-            algorithm,
-            operators: vec![
-                OperatorDefinition {
-                    ratio: 1.0,
-                    detune_cents: 0.0,
-                    level: 0.9,
-                    modulation_amount: 0.0,
-                    feedback: 0.0,
-                    phase: 0.0,
-                    envelope,
-                },
-                OperatorDefinition {
-                    ratio: 2.0,
-                    detune_cents: 0.0,
-                    level: 0.0,
-                    modulation_amount: 2.0,
-                    feedback: 0.0,
-                    phase: 0.0,
-                    envelope,
-                },
-                OperatorDefinition {
-                    ratio: 3.0,
-                    detune_cents: 0.0,
-                    level: 0.0,
-                    modulation_amount: 1.0,
-                    feedback: 0.0,
-                    phase: 0.0,
-                    envelope,
-                },
-                OperatorDefinition {
-                    ratio: 5.0,
-                    detune_cents: 0.0,
-                    level: 0.0,
-                    modulation_amount: 0.5,
-                    feedback: 0.2,
-                    phase: 0.0,
-                    envelope,
-                },
-            ],
-            phase_reset: true,
-            unison: None,
-        }
     }
 }

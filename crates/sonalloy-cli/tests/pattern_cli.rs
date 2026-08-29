@@ -4,7 +4,7 @@ use assert_cmd::Command;
 use midly::{Format, Smf, Timing};
 use midly::{Header, MidiMessage, TrackEvent, TrackEventKind};
 use serde_json::json;
-use support::*;
+use support::fixture_path;
 use tempfile::tempdir;
 
 fn init_pattern(path: &std::path::Path) {

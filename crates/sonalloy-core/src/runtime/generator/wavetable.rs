@@ -434,7 +434,8 @@ fn component_frequency(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{select_band, select_frame};
+    use crate::compiler::PreparedWavetable;
 
     #[test]
     fn frame_position_selects_the_last_frame_at_one() {

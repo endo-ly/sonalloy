@@ -1,5 +1,12 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use std::path::PathBuf;
+use std::process::ExitCode;
+
+use clap::{Args, Subcommand};
+use sonalloy_core::{
+    Diagnostic, DiagnosticCode, RenderRequest, backend_info, render_sine, seconds_to_frames,
+};
+
+use super::{DEFAULT_BLOCK_SIZE, DEFAULT_SAMPLE_RATE};
 use crate::output::{
     CliFailure, SuccessReport, finish_failure, input_failure, print_success, render_failure,
     write_wav,

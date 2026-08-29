@@ -1,7 +1,26 @@
 use std::collections::HashMap;
 
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use super::generator::{
+    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SHIFT,
+    FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY, GRAIN_PAN_SPREAD,
+    GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION, GeneratorParameterSpec,
+    MODAL_BRIGHTNESS, MODAL_DECAY, MODAL_STRUCTURE, NOISE_CORRELATION,
+    OPERATOR_PARAMETER_SMOOTHING_SECONDS, OSCILLATOR_FEEDBACK, PHASE_DISTORTION,
+    PHYSICAL_STRING_BRIGHTNESS, PHYSICAL_STRING_DECAY_SECONDS, PHYSICAL_STRING_STIFFNESS,
+    PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT,
+    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+};
+use crate::definition::{
+    GeneratorDefinition, InstrumentDefinition, OPERATOR_AM_RING_AMOUNT_MAX,
+    OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX, OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX,
+    OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
+    OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_RATIO_MAX,
+    OPERATOR_RATIO_MIN, OperatorModulationMode, OscillatorWaveform, ProcessorDefinition,
+};
+use crate::parameter::{
+    ParameterDescriptor, ParameterHandle, ParameterOwner, ParameterScale, ParameterUnit,
+    VectorAxis, layer_parameter_id,
+};
 
 /// Compiled catalog used by control code and runtime bindings.
 #[derive(Debug, Clone, PartialEq)]
@@ -1247,8 +1266,12 @@ fn push_normalized_descriptor(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::definition::tests::definition;
+    use super::{
+        GeneratorDefinition, OscillatorWaveform, ParameterCatalog, ParameterOwner, ParameterScale,
+        ParameterUnit,
+    };
+    use crate::definition::{ProcessorDefinition, tests::definition};
+    use crate::parameter::{is_parameter_id, layer_generator_parameter_id};
 
     #[test]
     fn catalog_order_is_definition_order_then_processor_scope() {

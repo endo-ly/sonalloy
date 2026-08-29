@@ -1,7 +1,6 @@
 use crate::compiler::CompiledAdditive;
-use crate::parameter::generator::{
-    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, MAX_PARTIALS,
-};
+use crate::definition::MAX_PARTIALS;
+use crate::parameter::generator::{ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT};
 use crate::process::{ProcessError, ProcessSpec};
 
 use super::super::adsr::AdsrRuntime;
@@ -204,7 +203,7 @@ fn effective_ratio(ratio: f32, b: f32) -> Result<f32, ProcessError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{INHARMONICITY_MAX, alias_fade, effective_ratio};
 
     #[test]
     fn inharmonicity_keeps_the_fundamental_at_one() {

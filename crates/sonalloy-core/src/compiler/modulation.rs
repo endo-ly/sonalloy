@@ -1,5 +1,12 @@
-#[allow(clippy::wildcard_imports)]
-use super::*;
+use std::collections::{HashMap, HashSet};
+
+use super::{CompiledAdsr, compile_adsr, db_to_linear};
+use crate::definition::{
+    AdsrDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
+    ModulationDurationUnit, ModulationRateUnit, ModulationSourceDefinition, MsegDefinition,
+};
+use crate::diagnostics::{Diagnostic, DiagnosticCode};
+use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
 
 /// Dense source handle for voice-scoped sources.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -595,7 +602,9 @@ fn insert_instrument_source(
 #[cfg(test)]
 mod tests {
     use super::super::tests::{context, definition};
-    use super::*;
+    use super::{CompiledInstrumentSourceKind, ModulationCurve};
+    use crate::compile_instrument;
+    use crate::diagnostics::DiagnosticCode;
 
     #[test]
     fn routes_resolve_to_dense_targets_and_preserve_same_target_order() {

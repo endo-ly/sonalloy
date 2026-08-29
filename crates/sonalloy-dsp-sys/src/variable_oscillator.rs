@@ -162,7 +162,9 @@ impl Drop for DspVariableOscillator {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{DspError, DspOscillatorWaveform, DspVariableOscillator};
+    #[cfg(sonalloy_test_hooks)]
+    use crate::ffi;
 
     #[cfg(sonalloy_test_hooks)]
     unsafe extern "C" {

@@ -437,7 +437,7 @@ fn start_input_stream(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::device;
 
     #[test]
     fn device_report_serialization_preserves_opaque_ids_and_unknown_buffer_size() {
