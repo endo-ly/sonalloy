@@ -39,7 +39,11 @@ use crate::generator_parameters::{
     SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD,
     WAVESHAPE, WAVETABLE_POSITION, effective_max_frequency,
 };
-use crate::parameter::{BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner};
+use crate::parameter::{
+    BUILTIN_SOURCE_IDS, ParameterCatalog, ParameterHandle, ParameterOwner,
+    global_processor_parameter_id, layer_generator_parameter_id, layer_parameter_id,
+    layer_processor_parameter_id, voice_processor_parameter_id,
+};
 use crate::process::ProcessSpec;
 use crate::runtime::InstrumentRuntime;
 use crate::runtime::generator::partial_bank::build_sine_table;
@@ -104,6 +108,8 @@ pub struct CompiledInstrument {
     pub(crate) effective_parameter_maxima: Box<[f32]>,
     /// Voice-scoped source table.
     pub sources: Box<[CompiledSource]>,
+    /// Voice sources referenced by at least one compiled route.
+    pub(crate) used_voice_sources: Box<[bool]>,
     /// Instrument-scoped source table.
     pub instrument_sources: Box<[CompiledInstrumentSource]>,
     /// Compiled vector bindings.
@@ -161,13 +167,7 @@ impl CompiledInstrument {
     /// Return the route slice for one target handle.
     #[must_use]
     pub fn routes_for(&self, handle: ParameterHandle) -> &[CompiledRoute] {
-        let Some(range) = self.route_ranges.get(handle.index()) else {
-            return &[];
-        };
-        let Some(end) = range.start.checked_add(range.len) else {
-            return &[];
-        };
-        self.routes.get(range.start..end).unwrap_or(&[])
+        self.routes_for_checked(handle).unwrap_or(&[])
     }
 
     pub(crate) fn routes_for_checked(&self, handle: ParameterHandle) -> Option<&[CompiledRoute]> {
@@ -261,8 +261,8 @@ pub struct CompiledLayer {
     pub envelope: CompiledAdsr,
     /// Compiled generator.
     pub generator: CompiledGenerator,
-    /// Latency introduced by the layer's generator.
-    pub intrinsic_latency_frames: usize,
+    /// Maximum latency along the layer's generator and processor path.
+    pub max_path_latency_frames: usize,
     /// Processors applied after the generator.
     pub processors: Box<[CompiledProcessor]>,
 }
@@ -333,40 +333,22 @@ impl CompiledGenerator {
     #[must_use]
     pub fn output_mode(&self) -> GeneratorOutputMode {
         match self {
-            Self::Oscillator(value) => {
-                if value.unison.position_distribution.len() == 1 {
-                    GeneratorOutputMode::Mono
-                } else {
-                    GeneratorOutputMode::Stereo
-                }
-            }
+            Self::Oscillator(value) => value.unison.output_mode(),
             Self::Noise(_) | Self::Granular(_) => GeneratorOutputMode::Stereo,
             Self::Additive(_) | Self::Formant(_) | Self::PhysicalString(_) | Self::Modal(_) => {
                 GeneratorOutputMode::Mono
             }
             Self::WaveSequence(value) => value.output_mode(),
             Self::Sample(value) => value.output_mode(),
-            Self::Wavetable(value) => {
-                if value.unison.position_distribution.len() == 1 {
-                    GeneratorOutputMode::Mono
-                } else {
-                    GeneratorOutputMode::Stereo
-                }
-            }
+            Self::Wavetable(value) => value.unison.output_mode(),
             Self::Spectral(value) => value.output_mode(),
-            Self::OperatorModulation(value) => {
-                if value.unison.position_distribution.len() == 1 {
-                    GeneratorOutputMode::Mono
-                } else {
-                    GeneratorOutputMode::Stereo
-                }
-            }
+            Self::OperatorModulation(value) => value.unison.output_mode(),
         }
     }
 
-    /// Return the intrinsic latency introduced by this generator.
+    /// Return the maximum latency prepared for this generator.
     #[must_use]
-    pub fn intrinsic_latency_frames(&self) -> usize {
+    pub fn max_intrinsic_latency_frames(&self) -> usize {
         match self {
             Self::Sample(value) => value
                 .stretch_latency
@@ -463,6 +445,16 @@ pub struct CompiledUnison {
     pub phase_spread: f32,
     /// Normalization applied to the component sum.
     pub normalization: f32,
+}
+
+impl CompiledUnison {
+    fn output_mode(&self) -> GeneratorOutputMode {
+        if self.position_distribution.len() == 1 {
+            GeneratorOutputMode::Mono
+        } else {
+            GeneratorOutputMode::Stereo
+        }
+    }
 }
 
 /// Compiled oscillator settings.
@@ -2084,13 +2076,13 @@ pub fn compile_instrument(
             );
             let parameters = CompiledLayerParameters {
                 gain: parameter_catalog
-                    .parameter_handle(&format!("layer.{}.gain", layer.id))
+                    .parameter_handle(&layer_parameter_id(&layer.id, "gain"))
                     .expect("layer gain catalog entry exists"),
                 pan: parameter_catalog
-                    .parameter_handle(&format!("layer.{}.pan", layer.id))
+                    .parameter_handle(&layer_parameter_id(&layer.id, "pan"))
                     .expect("layer pan catalog entry exists"),
                 tuning: parameter_catalog
-                    .parameter_handle(&format!("layer.{}.tuning", layer.id))
+                    .parameter_handle(&layer_parameter_id(&layer.id, "tuning"))
                     .expect("layer tuning catalog entry exists"),
             };
             let processors = compile_processor_chain(
@@ -2104,8 +2096,8 @@ pub fn compile_instrument(
                 &mut asset_cache,
                 &mut diagnostics,
             );
-            let intrinsic_latency_frames = generator
-                .intrinsic_latency_frames()
+            let max_path_latency_frames = generator
+                .max_intrinsic_latency_frames()
                 .saturating_add(processor_chain_latency(&processors));
             CompiledLayer {
                 definition_index,
@@ -2114,7 +2106,7 @@ pub fn compile_instrument(
                 parameters,
                 envelope,
                 generator,
-                intrinsic_latency_frames,
+                max_path_latency_frames,
                 processors,
             }
         })
@@ -2150,6 +2142,7 @@ pub fn compile_instrument(
         context.process_spec.sample_rate,
         &mut diagnostics,
     );
+    let used_voice_sources = compile_used_voice_sources(&routes, sources.len());
     let vectors = compile_vectors(definition, &layers, &parameter_catalog, &mut diagnostics);
     if has_errors(&diagnostics) {
         return CompileResult {
@@ -2160,7 +2153,7 @@ pub fn compile_instrument(
 
     let layer_alignment_latency_frames = layers
         .iter()
-        .map(|layer| layer.intrinsic_latency_frames)
+        .map(|layer| layer.max_path_latency_frames)
         .max()
         .unwrap_or(0);
     let voice_processor_latency = processor_chain_latency(&voice_processors);
@@ -2199,6 +2192,7 @@ pub fn compile_instrument(
         parameter_catalog,
         effective_parameter_maxima,
         sources,
+        used_voice_sources,
         routes,
         route_ranges,
         instrument_sources,
@@ -2222,6 +2216,18 @@ fn processor_chain_latency(processors: &[CompiledProcessor]) -> usize {
     processors.iter().fold(0, |total, processor| {
         total.saturating_add(processor.processor.intrinsic_latency_frames())
     })
+}
+
+fn compile_used_voice_sources(routes: &[CompiledRoute], source_count: usize) -> Box<[bool]> {
+    let mut used = vec![false; source_count];
+    for route in routes {
+        if let CompiledSourceRef::Voice(handle) = route.source
+            && let Some(value) = used.get_mut(handle.index())
+        {
+            *value = true;
+        }
+    }
+    used.into_boxed_slice()
 }
 
 fn assign_external_input_alignment(
@@ -2598,7 +2604,15 @@ fn processor_parameter_handle(
     processor_id: &str,
     parameter: &str,
 ) -> ParameterHandle {
-    let id = processor_parameter_id(placement, layer_id, processor_id, parameter);
+    let id = match placement {
+        ProcessorPlacement::Layer => layer_processor_parameter_id(
+            layer_id.expect("layer processor has a layer id"),
+            processor_id,
+            parameter,
+        ),
+        ProcessorPlacement::Voice => voice_processor_parameter_id(processor_id, parameter),
+        ProcessorPlacement::Global => global_processor_parameter_id(processor_id, parameter),
+    };
     catalog
         .parameter_handle(&id)
         .expect("processor parameter catalog entry exists")
@@ -3437,22 +3451,6 @@ fn compile_reverb_processor(
     })
 }
 
-fn processor_parameter_id(
-    placement: ProcessorPlacement,
-    layer_id: Option<&str>,
-    processor_id: &str,
-    parameter: &str,
-) -> String {
-    match placement {
-        ProcessorPlacement::Layer => format!(
-            "layer.{}.processor.{processor_id}.{parameter}",
-            layer_id.expect("layer processor has a layer id")
-        ),
-        ProcessorPlacement::Voice => format!("voice.processor.{processor_id}.{parameter}"),
-        ProcessorPlacement::Global => format!("global.processor.{processor_id}.{parameter}"),
-    }
-}
-
 fn processor_seconds_to_frames(
     seconds: f32,
     sample_rate: f64,
@@ -4145,10 +4143,7 @@ fn generator_parameter_handle(
     spec: GeneratorParameterSpec,
 ) -> ParameterHandle {
     catalog
-        .parameter_handle(&crate::parameter::layer_generator_parameter_id(
-            layer_id,
-            spec.suffix,
-        ))
+        .parameter_handle(&layer_generator_parameter_id(layer_id, spec.suffix))
         .expect("generator parameter catalog entry exists")
 }
 

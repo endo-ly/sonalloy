@@ -259,7 +259,7 @@ impl InstrumentRuntime {
         {
             let raw = match route.source {
                 CompiledSourceRef::Voice(source) => voice
-                    .and_then(|voice| voice.trace_source_value(source))
+                    .and_then(|voice| voice.trace_source_value(&self.compiled, source))
                     .ok_or_else(invalid_state)?,
                 CompiledSourceRef::Instrument(source) => {
                     self.trace_instrument_source(source, context)?
@@ -540,7 +540,7 @@ impl InstrumentRuntime {
             self.voices
                 .get_mut(0)
                 .ok_or_else(invalid_state)?
-                .transition_legato(request, portamento_frames)?;
+                .transition_legato(&self.compiled, request, portamento_frames)?;
             return Ok(());
         }
         if !self.prepare_note_request(request)? {
@@ -607,7 +607,7 @@ impl InstrumentRuntime {
                 self.voices
                     .get_mut(0)
                     .ok_or_else(invalid_state)?
-                    .transition_legato(request, portamento_frames)?;
+                    .transition_legato(&self.compiled, request, portamento_frames)?;
             } else if self.prepare_note_request(request)? {
                 self.voices
                     .get_mut(0)
@@ -1562,7 +1562,7 @@ impl InstrumentProcessor for InstrumentRuntime {
             return Err(ProcessError::NotPrepared);
         }
         for voice in &mut self.voices {
-            if let Err(error) = voice.reset() {
+            if let Err(error) = voice.reset(&self.compiled) {
                 self.spec = None;
                 return Err(error);
             }

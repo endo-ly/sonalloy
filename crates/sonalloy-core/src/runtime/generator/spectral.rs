@@ -135,7 +135,7 @@ impl SpectralRuntime {
         Ok(())
     }
 
-    pub(super) fn intrinsic_latency_frames(&self) -> usize {
+    pub(super) fn active_intrinsic_latency_frames(&self) -> usize {
         self.source
             .as_ref()
             .map_or(0, |source| source.latency_frames)

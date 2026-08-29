@@ -188,12 +188,39 @@ struct DefinitionArgs {
 }
 
 #[derive(Debug, Args)]
-struct RenderNoteArgs {
+struct OfflineRenderCommonArgs {
     /// Definition JSON path.
     definition: PathBuf,
     /// External audio input WAV path.
     #[arg(long)]
     audio_input: Option<PathBuf>,
+    /// Sample rate in Hz.
+    #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
+    sample_rate: u32,
+    /// Maximum process block size.
+    #[arg(long, default_value_t = DEFAULT_BLOCK_SIZE)]
+    block_size: usize,
+    /// Destination WAV path.
+    #[arg(long)]
+    output: PathBuf,
+    /// Emit machine-readable JSON.
+    #[arg(long)]
+    json: bool,
+    /// Analyze the corrected output audio.
+    #[arg(long)]
+    analyze: bool,
+    /// Trace a compiled Dynamic Parameter; may be repeated.
+    #[arg(long = "trace")]
+    trace: Vec<String>,
+    /// Interval between trace observations in frames.
+    #[arg(long = "trace-every-frames")]
+    trace_every_frames: Option<usize>,
+}
+
+#[derive(Debug, Args)]
+struct RenderNoteArgs {
+    #[command(flatten)]
+    common: OfflineRenderCommonArgs,
     /// MIDI note number.
     #[arg(long, default_value_t = 60)]
     note: u8,
@@ -209,97 +236,28 @@ struct RenderNoteArgs {
     /// Processing tempo in beats per minute.
     #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
     tempo: f64,
-    /// Sample rate in Hz.
-    #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
-    sample_rate: u32,
-    /// Maximum process block size.
-    #[arg(long, default_value_t = DEFAULT_BLOCK_SIZE)]
-    block_size: usize,
-    /// Destination WAV path.
-    #[arg(long)]
-    output: PathBuf,
-    /// Emit machine-readable JSON.
-    #[arg(long)]
-    json: bool,
-    /// Analyze the corrected output audio.
-    #[arg(long)]
-    analyze: bool,
-    /// Trace a compiled Dynamic Parameter; may be repeated.
-    #[arg(long = "trace")]
-    trace: Vec<String>,
-    /// Interval between trace observations in frames.
-    #[arg(long = "trace-every-frames")]
-    trace_every_frames: Option<usize>,
 }
 
 #[derive(Debug, Args)]
 struct RenderMidiArgs {
-    /// Definition JSON path.
-    definition: PathBuf,
-    /// External audio input WAV path.
-    #[arg(long)]
-    audio_input: Option<PathBuf>,
+    #[command(flatten)]
+    common: OfflineRenderCommonArgs,
     /// Standard MIDI File path.
     midi: PathBuf,
     /// Additional render tail in seconds.
     #[arg(long, default_value_t = 1.0)]
     tail: f64,
-    /// Sample rate in Hz.
-    #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
-    sample_rate: u32,
-    /// Maximum process block size.
-    #[arg(long, default_value_t = DEFAULT_BLOCK_SIZE)]
-    block_size: usize,
-    /// Destination WAV path.
-    #[arg(long)]
-    output: PathBuf,
-    /// Emit machine-readable JSON.
-    #[arg(long)]
-    json: bool,
-    /// Analyze the corrected output audio.
-    #[arg(long)]
-    analyze: bool,
-    /// Trace a compiled Dynamic Parameter; may be repeated.
-    #[arg(long = "trace")]
-    trace: Vec<String>,
-    /// Interval between trace observations in frames.
-    #[arg(long = "trace-every-frames")]
-    trace_every_frames: Option<usize>,
 }
 
 #[derive(Debug, Args)]
 struct RenderPatternArgs {
-    /// Definition JSON path.
-    definition: PathBuf,
-    /// External audio input WAV path.
-    #[arg(long)]
-    audio_input: Option<PathBuf>,
+    #[command(flatten)]
+    common: OfflineRenderCommonArgs,
     /// Musical-time pattern JSON path.
     pattern: PathBuf,
     /// Additional render tail in seconds.
     #[arg(long, default_value_t = 1.0)]
     tail: f64,
-    /// Sample rate in Hz.
-    #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
-    sample_rate: u32,
-    /// Maximum process block size.
-    #[arg(long, default_value_t = DEFAULT_BLOCK_SIZE)]
-    block_size: usize,
-    /// Destination WAV path.
-    #[arg(long)]
-    output: PathBuf,
-    /// Emit machine-readable JSON.
-    #[arg(long)]
-    json: bool,
-    /// Analyze the corrected output audio.
-    #[arg(long)]
-    analyze: bool,
-    /// Trace a compiled Dynamic Parameter; may be repeated.
-    #[arg(long = "trace")]
-    trace: Vec<String>,
-    /// Interval between trace observations in frames.
-    #[arg(long = "trace-every-frames")]
-    trace_every_frames: Option<usize>,
 }
 
 #[derive(Debug, Args)]
@@ -401,11 +359,8 @@ struct AuditionMidiArgs {
 
 #[derive(Debug, Args)]
 struct RenderEventsArgs {
-    /// Definition JSON path.
-    definition: PathBuf,
-    /// External audio input WAV path.
-    #[arg(long)]
-    audio_input: Option<PathBuf>,
+    #[command(flatten)]
+    common: OfflineRenderCommonArgs,
     /// Absolute-frame event sequence JSON path.
     events: PathBuf,
     /// Main render duration in frames.
@@ -417,27 +372,6 @@ struct RenderEventsArgs {
     /// Processing tempo in beats per minute.
     #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
     tempo: f64,
-    /// Sample rate in Hz.
-    #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
-    sample_rate: u32,
-    /// Maximum process block size.
-    #[arg(long, default_value_t = DEFAULT_BLOCK_SIZE)]
-    block_size: usize,
-    /// Destination WAV path.
-    #[arg(long)]
-    output: PathBuf,
-    /// Emit machine-readable JSON.
-    #[arg(long)]
-    json: bool,
-    /// Analyze the corrected output audio.
-    #[arg(long)]
-    analyze: bool,
-    /// Trace a compiled Dynamic Parameter; may be repeated.
-    #[arg(long = "trace")]
-    trace: Vec<String>,
-    /// Interval between trace observations in frames.
-    #[arg(long = "trace-every-frames")]
-    trace_every_frames: Option<usize>,
     /// Render the same event sequence again after resetting the prepared runtime.
     #[arg(long)]
     reset_check: bool,
@@ -1572,83 +1506,28 @@ fn run_inspect(args: &DefinitionArgs) -> ExitCode {
     }
 }
 
-#[allow(clippy::too_many_lines)]
 fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
-    if args.note > 127 {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 2,
-                diagnostics: vec![Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "note must be between 0 and 127",
-                )],
-            },
-        );
-    }
-    if args.velocity == 0 || args.velocity > 127 {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 2,
-                diagnostics: vec![Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "velocity must be between 1 and 127",
-                )],
-            },
-        );
-    }
-    if args.gate <= 0.0 {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 2,
-                diagnostics: vec![Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "gate must be greater than zero",
-                )],
-            },
-        );
-    }
-    let sample_rate = f64::from(args.sample_rate);
-    let gate_frames = match seconds_to_frames(args.gate, sample_rate) {
-        Ok(frames) => frames,
-        Err(error) => {
-            return finish_failure(args.json, input_failure(&error));
-        }
+    let common = &args.common;
+    let sample_rate = f64::from(common.sample_rate);
+    let (gate_frames, tail_frames, duration_frames) = match note_render_timing(args, sample_rate) {
+        Ok(timing) => timing,
+        Err(failure) => return finish_failure(common.json, failure),
     };
-    let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
-        Ok(frames) => frames,
-        Err(error) => {
-            return finish_failure(args.json, input_failure(&error));
-        }
-    };
-    let Some(duration_frames) = gate_frames.checked_add(1) else {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 2,
-                diagnostics: vec![Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "render duration overflows the frame counter",
-                )],
-            },
-        );
-    };
-    let (compiled, mut diagnostics) =
-        match load_and_compile(&args.definition, args.sample_rate, args.block_size) {
+    let (compiled, diagnostics) =
+        match load_and_compile(&common.definition, common.sample_rate, common.block_size) {
             Ok(result) => result,
-            Err(failure) => return finish_failure(args.json, failure),
+            Err(failure) => return finish_failure(common.json, failure),
         };
-    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
-    {
-        Ok(request) => request,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
-    let external_audio = match load_external_audio(args.audio_input.as_deref(), args.sample_rate) {
-        Ok(audio) => audio,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
+    let trace_request =
+        match resolve_trace_request(&compiled, &common.trace, common.trace_every_frames) {
+            Ok(request) => request,
+            Err(failure) => return finish_failure(common.json, failure),
+        };
+    let external_audio =
+        match load_external_audio(common.audio_input.as_deref(), common.sample_rate) {
+            Ok(audio) => audio,
+            Err(failure) => return finish_failure(common.json, failure),
+        };
     let events = [
         ScheduledEvent {
             absolute_frame: 0,
@@ -1665,125 +1544,129 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
     ];
     let request = RenderRequest {
         sample_rate,
-        block_size: args.block_size,
+        block_size: common.block_size,
         duration_frames,
         tail_frames,
     };
     let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
         Ok(request) => request,
-        Err(failure) => return finish_failure(args.json, failure),
+        Err(failure) => return finish_failure(common.json, failure),
     };
-    let (mut audio, trace) = if let Some(trace_request) = trace_request.as_ref() {
-        let musical_time_map = match MusicalTimeMap::constant(args.tempo) {
-            Ok(musical_time_map) => musical_time_map,
-            Err(error) => return finish_failure(args.json, render_failure(&error)),
-        };
-        match render_instrument_with_input_and_trace(
-            Arc::clone(&compiled),
-            request,
-            &events,
-            &musical_time_map,
-            trace_request,
-            external_audio.as_ref(),
-        ) {
-            Ok((audio, trace)) => (audio, Some(trace)),
-            Err(error) => return finish_failure(args.json, render_failure(&error)),
-        }
-    } else {
-        let musical_time_map = match MusicalTimeMap::constant(args.tempo) {
-            Ok(musical_time_map) => musical_time_map,
-            Err(error) => return finish_failure(args.json, render_failure(&error)),
-        };
-        match render_instrument_with_input(
-            Arc::clone(&compiled),
-            request,
-            &events,
-            &musical_time_map,
-            external_audio.as_ref(),
-        ) {
-            Ok(audio) => (audio, None),
-            Err(error) => return finish_failure(args.json, render_failure(&error)),
-        }
+    let musical_time_map = match MusicalTimeMap::constant(args.tempo) {
+        Ok(musical_time_map) => musical_time_map,
+        Err(error) => return finish_failure(common.json, render_failure(&error)),
     };
-    correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
-    let analysis = if args.analyze {
-        match analyze_audio(&audio, Some(note_frequency_hz(args.note))) {
-            Ok(analysis) => Some(analysis),
-            Err(failure) => return finish_failure(args.json, failure),
-        }
-    } else {
-        None
+    let rendered = match render_offline_audio(
+        &compiled,
+        request,
+        &events,
+        &musical_time_map,
+        trace_request.as_ref(),
+        false,
+        external_audio.as_ref(),
+    ) {
+        Ok(rendered) => rendered,
+        Err(failure) => return finish_failure(common.json, failure),
     };
-    if let Err(error) = write_wav(&args.output, &audio) {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 4,
-                diagnostics: vec![error],
-            },
-        );
-    }
-    print_success(
-        args.json,
-        SuccessReport {
-            status: "ok",
-            sample_rate: audio.sample_rate,
-            channels: audio.channels.len(),
-            frames: audio.frames(),
-            reported_latency_frames: compiled.reported_latency_frames,
-            output: args.output.to_string_lossy().into_owned(),
-            backend: backend_info().version,
-            diagnostics: std::mem::take(&mut diagnostics),
-            analysis,
-            trace,
-            reset_comparison: None,
-        },
+    write_offline_render(
+        common,
+        &compiled,
+        diagnostics,
+        rendered,
+        Some(note_frequency_hz(args.note)),
     )
 }
 
+fn note_render_timing(
+    args: &RenderNoteArgs,
+    sample_rate: f64,
+) -> Result<(u64, u64, u64), CliFailure> {
+    if args.note > 127 {
+        return Err(CliFailure {
+            code: 2,
+            diagnostics: vec![Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "note must be between 0 and 127",
+            )],
+        });
+    }
+    if args.velocity == 0 || args.velocity > 127 {
+        return Err(CliFailure {
+            code: 2,
+            diagnostics: vec![Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "velocity must be between 1 and 127",
+            )],
+        });
+    }
+    if args.gate <= 0.0 {
+        return Err(CliFailure {
+            code: 2,
+            diagnostics: vec![Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "gate must be greater than zero",
+            )],
+        });
+    }
+    let gate_frames =
+        seconds_to_frames(args.gate, sample_rate).map_err(|error| input_failure(&error))?;
+    let tail_frames =
+        seconds_to_frames(args.tail, sample_rate).map_err(|error| input_failure(&error))?;
+    let duration_frames = gate_frames.checked_add(1).ok_or_else(|| CliFailure {
+        code: 2,
+        diagnostics: vec![Diagnostic::error(
+            DiagnosticCode::ValueOutOfRange,
+            "render duration overflows the frame counter",
+        )],
+    })?;
+    Ok((gate_frames, tail_frames, duration_frames))
+}
+
 fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
-    let sample_rate = f64::from(args.sample_rate);
+    let common = &args.common;
+    let sample_rate = f64::from(common.sample_rate);
     let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
         Ok(frames) => frames,
-        Err(error) => return finish_failure(args.json, input_failure(&error)),
+        Err(error) => return finish_failure(common.json, input_failure(&error)),
     };
     let (compiled, diagnostics) =
-        match load_and_compile(&args.definition, args.sample_rate, args.block_size) {
+        match load_and_compile(&common.definition, common.sample_rate, common.block_size) {
             Ok(result) => result,
-            Err(failure) => return finish_failure(args.json, failure),
+            Err(failure) => return finish_failure(common.json, failure),
         };
-    let external_audio = match load_external_audio(args.audio_input.as_deref(), args.sample_rate) {
-        Ok(audio) => audio,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
-    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
-    {
-        Ok(request) => request,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
+    let external_audio =
+        match load_external_audio(common.audio_input.as_deref(), common.sample_rate) {
+            Ok(audio) => audio,
+            Err(failure) => return finish_failure(common.json, failure),
+        };
+    let trace_request =
+        match resolve_trace_request(&compiled, &common.trace, common.trace_every_frames) {
+            Ok(request) => request,
+            Err(failure) => return finish_failure(common.json, failure),
+        };
     let sequence = match load_event_sequence(&args.events) {
         Ok(sequence) => sequence,
-        Err(failure) => return finish_failure(args.json, failure),
+        Err(failure) => return finish_failure(common.json, failure),
     };
     let events = match compile_event_sequence(&sequence, &compiled, args.duration_frames) {
         Ok(events) => events,
-        Err(failure) => return finish_failure(args.json, failure),
+        Err(failure) => return finish_failure(common.json, failure),
     };
     let request = RenderRequest {
         sample_rate,
-        block_size: args.block_size,
+        block_size: common.block_size,
         duration_frames: args.duration_frames,
         tail_frames,
     };
     let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
         Ok(request) => request,
-        Err(failure) => return finish_failure(args.json, failure),
+        Err(failure) => return finish_failure(common.json, failure),
     };
     let musical_time_map = match MusicalTimeMap::constant(args.tempo) {
         Ok(musical_time_map) => musical_time_map,
-        Err(error) => return finish_failure(args.json, render_failure(&error)),
+        Err(error) => return finish_failure(common.json, render_failure(&error)),
     };
-    let (mut audio, trace, reset_comparison) = match render_event_audio(
+    let rendered = match render_offline_audio(
         &compiled,
         request,
         &events,
@@ -1793,20 +1676,35 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
         external_audio.as_ref(),
     ) {
         Ok(rendered) => rendered,
-        Err(failure) => return finish_failure(args.json, failure),
+        Err(failure) => return finish_failure(common.json, failure),
     };
+    write_offline_render(common, &compiled, diagnostics, rendered, None)
+}
+
+fn write_offline_render(
+    common: &OfflineRenderCommonArgs,
+    compiled: &CompiledInstrument,
+    diagnostics: Vec<Diagnostic>,
+    rendered: (
+        sonalloy_core::RenderedAudio,
+        Option<RenderTraceReport>,
+        Option<ResetComparison>,
+    ),
+    reference_frequency_hz: Option<f32>,
+) -> ExitCode {
+    let (mut audio, trace, reset_comparison) = rendered;
     correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
-    let analysis = if args.analyze {
-        match analyze_audio(&audio, None) {
+    let analysis = if common.analyze {
+        match analyze_audio(&audio, reference_frequency_hz) {
             Ok(analysis) => Some(analysis),
-            Err(failure) => return finish_failure(args.json, failure),
+            Err(failure) => return finish_failure(common.json, failure),
         }
     } else {
         None
     };
-    if let Err(error) = write_wav(&args.output, &audio) {
+    if let Err(error) = write_wav(&common.output, &audio) {
         return finish_failure(
-            args.json,
+            common.json,
             CliFailure {
                 code: 4,
                 diagnostics: vec![error],
@@ -1814,14 +1712,14 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
         );
     }
     print_success(
-        args.json,
+        common.json,
         SuccessReport {
             status: "ok",
             sample_rate: audio.sample_rate,
             channels: audio.channels.len(),
             frames: audio.frames(),
             reported_latency_frames: compiled.reported_latency_frames,
-            output: args.output.to_string_lossy().into_owned(),
+            output: common.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics,
             analysis,
@@ -1831,7 +1729,7 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
     )
 }
 
-fn render_event_audio(
+fn render_offline_audio(
     compiled: &Arc<CompiledInstrument>,
     request: RenderRequest,
     events: &[ScheduledEvent],
@@ -2072,30 +1970,32 @@ fn compile_event_sequence(
 }
 
 fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
-    let sample_rate = f64::from(args.sample_rate);
+    let common = &args.common;
+    let sample_rate = f64::from(common.sample_rate);
     let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
         Ok(frames) => frames,
-        Err(error) => return finish_failure(args.json, input_failure(&error)),
+        Err(error) => return finish_failure(common.json, input_failure(&error)),
     };
     let (compiled, mut diagnostics) =
-        match load_and_compile(&args.definition, args.sample_rate, args.block_size) {
+        match load_and_compile(&common.definition, common.sample_rate, common.block_size) {
             Ok(result) => result,
-            Err(failure) => return finish_failure(args.json, failure),
+            Err(failure) => return finish_failure(common.json, failure),
         };
-    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
-    {
-        Ok(request) => request,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
-    let external_audio = match load_external_audio(args.audio_input.as_deref(), args.sample_rate) {
-        Ok(audio) => audio,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
+    let trace_request =
+        match resolve_trace_request(&compiled, &common.trace, common.trace_every_frames) {
+            Ok(request) => request,
+            Err(failure) => return finish_failure(common.json, failure),
+        };
+    let external_audio =
+        match load_external_audio(common.audio_input.as_deref(), common.sample_rate) {
+            Ok(audio) => audio,
+            Err(failure) => return finish_failure(common.json, failure),
+        };
     let midi = match read_midi(&args.midi, sample_rate) {
         Ok(midi) => midi,
         Err(midi_diagnostics) => {
             return finish_failure(
-                args.json,
+                common.json,
                 CliFailure {
                     code: 2,
                     diagnostics: midi_diagnostics,
@@ -2106,94 +2006,50 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
     diagnostics.extend(midi.diagnostics);
     let request = RenderRequest {
         sample_rate,
-        block_size: args.block_size,
+        block_size: common.block_size,
         duration_frames: midi.duration_frames,
         tail_frames,
     };
     let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
         Ok(request) => request,
-        Err(failure) => return finish_failure(args.json, failure),
+        Err(failure) => return finish_failure(common.json, failure),
     };
-    let (mut audio, trace) = if let Some(trace_request) = trace_request.as_ref() {
-        match render_instrument_with_input_and_trace(
-            Arc::clone(&compiled),
-            request,
-            &midi.events,
-            &midi.musical_time_map,
-            trace_request,
-            external_audio.as_ref(),
-        ) {
-            Ok((audio, trace)) => (audio, Some(trace)),
-            Err(error) => return finish_failure(args.json, render_failure(&error)),
-        }
-    } else {
-        match render_instrument_with_input(
-            Arc::clone(&compiled),
-            request,
-            &midi.events,
-            &midi.musical_time_map,
-            external_audio.as_ref(),
-        ) {
-            Ok(audio) => (audio, None),
-            Err(error) => return finish_failure(args.json, render_failure(&error)),
-        }
+    let rendered = match render_offline_audio(
+        &compiled,
+        request,
+        &midi.events,
+        &midi.musical_time_map,
+        trace_request.as_ref(),
+        false,
+        external_audio.as_ref(),
+    ) {
+        Ok(rendered) => rendered,
+        Err(failure) => return finish_failure(common.json, failure),
     };
-    correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
-    let analysis = if args.analyze {
-        match analyze_audio(&audio, None) {
-            Ok(analysis) => Some(analysis),
-            Err(failure) => return finish_failure(args.json, failure),
-        }
-    } else {
-        None
-    };
-    if let Err(error) = write_wav(&args.output, &audio) {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 4,
-                diagnostics: vec![error],
-            },
-        );
-    }
-    print_success(
-        args.json,
-        SuccessReport {
-            status: "ok",
-            sample_rate: audio.sample_rate,
-            channels: audio.channels.len(),
-            frames: audio.frames(),
-            reported_latency_frames: compiled.reported_latency_frames,
-            output: args.output.to_string_lossy().into_owned(),
-            backend: backend_info().version,
-            diagnostics,
-            analysis,
-            trace,
-            reset_comparison: None,
-        },
-    )
+    write_offline_render(common, &compiled, diagnostics, rendered, None)
 }
 
 fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
-    let sample_rate = f64::from(args.sample_rate);
+    let common = &args.common;
+    let sample_rate = f64::from(common.sample_rate);
     let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
         Ok(frames) => frames,
-        Err(error) => return finish_failure(args.json, input_failure(&error)),
+        Err(error) => return finish_failure(common.json, input_failure(&error)),
     };
-    let (compiled, mut diagnostics) =
-        match load_and_compile(&args.definition, args.sample_rate, args.block_size) {
+    let (compiled, diagnostics) =
+        match load_and_compile(&common.definition, common.sample_rate, common.block_size) {
             Ok(result) => result,
-            Err(failure) => return finish_failure(args.json, failure),
+            Err(failure) => return finish_failure(common.json, failure),
         };
     let pattern = match load_pattern(&args.pattern) {
         Ok(pattern) => pattern,
-        Err(failure) => return finish_failure(args.json, failure),
+        Err(failure) => return finish_failure(common.json, failure),
     };
     let compiled_pattern = match compile_pattern(&pattern, &compiled, sample_rate) {
         Ok(compiled_pattern) => compiled_pattern,
         Err(diagnostics) => {
             return finish_failure(
-                args.json,
+                common.json,
                 CliFailure {
                     code: 2,
                     diagnostics,
@@ -2201,26 +2057,27 @@ fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
             );
         }
     };
-    let trace_request = match resolve_trace_request(&compiled, &args.trace, args.trace_every_frames)
-    {
-        Ok(request) => request,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
-    let external_audio = match load_external_audio(args.audio_input.as_deref(), args.sample_rate) {
-        Ok(audio) => audio,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
+    let trace_request =
+        match resolve_trace_request(&compiled, &common.trace, common.trace_every_frames) {
+            Ok(request) => request,
+            Err(failure) => return finish_failure(common.json, failure),
+        };
+    let external_audio =
+        match load_external_audio(common.audio_input.as_deref(), common.sample_rate) {
+            Ok(audio) => audio,
+            Err(failure) => return finish_failure(common.json, failure),
+        };
     let request = RenderRequest {
         sample_rate,
-        block_size: args.block_size,
+        block_size: common.block_size,
         duration_frames: compiled_pattern.one_shot_duration_frames,
         tail_frames,
     };
     let request = match extend_request_for_latency(request, compiled.reported_latency_frames) {
         Ok(request) => request,
-        Err(failure) => return finish_failure(args.json, failure),
+        Err(failure) => return finish_failure(common.json, failure),
     };
-    let (mut audio, trace, _) = match render_event_audio(
+    let rendered = match render_offline_audio(
         &compiled,
         request,
         &compiled_pattern.events,
@@ -2230,42 +2087,9 @@ fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
         external_audio.as_ref(),
     ) {
         Ok(rendered) => rendered,
-        Err(failure) => return finish_failure(args.json, failure),
+        Err(failure) => return finish_failure(common.json, failure),
     };
-    correct_rendered_audio(&mut audio, compiled.reported_latency_frames);
-    let analysis = if args.analyze {
-        match analyze_audio(&audio, None) {
-            Ok(analysis) => Some(analysis),
-            Err(failure) => return finish_failure(args.json, failure),
-        }
-    } else {
-        None
-    };
-    if let Err(error) = write_wav(&args.output, &audio) {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 4,
-                diagnostics: vec![error],
-            },
-        );
-    }
-    print_success(
-        args.json,
-        SuccessReport {
-            status: "ok",
-            sample_rate: audio.sample_rate,
-            channels: audio.channels.len(),
-            frames: audio.frames(),
-            reported_latency_frames: compiled.reported_latency_frames,
-            output: args.output.to_string_lossy().into_owned(),
-            backend: backend_info().version,
-            diagnostics: std::mem::take(&mut diagnostics),
-            analysis,
-            trace,
-            reset_comparison: None,
-        },
-    )
+    write_offline_render(common, &compiled, diagnostics, rendered, None)
 }
 
 fn run_render_sine(args: &RenderSineArgs) -> ExitCode {

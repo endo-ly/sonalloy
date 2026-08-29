@@ -188,7 +188,7 @@ impl SampleRuntime {
         self.time.uses_stretch()
     }
 
-    pub(crate) fn intrinsic_latency_frames(&self) -> usize {
+    pub(crate) fn active_intrinsic_latency_frames(&self) -> usize {
         if self.uses_stretch() {
             self.stretch_latency_frames
         } else {
