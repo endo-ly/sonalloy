@@ -13,7 +13,7 @@ mod wave_sequence;
 mod wavetable;
 
 use crate::compiler::CompiledGenerator;
-use crate::generator_parameters::GeneratorParameterSpec;
+use crate::parameter::generator::GeneratorParameterSpec;
 use crate::process::{NoteId, ProcessError, ProcessSpec, ProcessorFailureKind};
 
 use super::modulation::{LayerGeneratorTargetSpan, ValueSpan};

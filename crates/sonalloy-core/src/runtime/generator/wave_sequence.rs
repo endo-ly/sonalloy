@@ -537,9 +537,16 @@ fn sample_at(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
+    use super::{WaveSequenceRuntime, duration_seconds};
     use crate::asset::SampleMetadata;
-    use crate::compiler::{CompiledWaveSequenceDuration, CompiledWaveSequenceStepPlayback};
+    use crate::asset::{PreparedAudio, PreparedAudioChannels};
+    use crate::compiler::{
+        CompiledSampleDirection, CompiledWaveSequence, CompiledWaveSequenceDuration,
+        CompiledWaveSequenceStep, CompiledWaveSequenceStepPlayback,
+    };
+    use crate::definition::WaveSequenceDirection;
 
     fn sequence(direction: WaveSequenceDirection, loop_sequence: bool) -> CompiledWaveSequence {
         let source = Arc::new(PreparedAudio {

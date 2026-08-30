@@ -266,7 +266,8 @@ impl AdsrRuntime {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::AdsrRuntime;
+    use crate::compiler::CompiledAdsr;
 
     fn envelope(attack: usize, decay: usize, sustain: f32, release: usize) -> AdsrRuntime {
         AdsrRuntime::new(CompiledAdsr {

@@ -367,7 +367,8 @@ pub fn backend_version() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{DspStretch, DspStretchError, backend_version};
+    use crate::ffi;
 
     #[cfg(sonalloy_test_hooks)]
     unsafe extern "C" {

@@ -11,9 +11,6 @@ pub(crate) struct GeneratorParameterSpec {
     pub(crate) smoothing_seconds: f32,
 }
 
-pub(crate) const GRANULAR_GRAIN_POOL_LIMIT: usize = 64;
-pub(crate) const MAX_PARTIALS: usize = 64;
-
 pub(crate) const ADDITIVE_MORPH: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "additive_morph",
     unit: ParameterUnit::Normalized,
@@ -212,10 +209,6 @@ pub(crate) const NOISE_CORRELATION: GeneratorParameterSpec = GeneratorParameterS
     smoothing_seconds: 0.010,
 };
 
-pub(crate) const PHYSICAL_EXCITER_DURATION_SECONDS_MIN: f32 = 0.0005;
-pub(crate) const PHYSICAL_EXCITER_DURATION_SECONDS_MAX: f32 = 0.100;
-pub(crate) const PHYSICAL_FREQUENCY_LIMIT_RATIO: f64 = BASIC_FREQUENCY_LIMIT_RATIO;
-
 pub(crate) const PHYSICAL_STRING_DECAY_SECONDS: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "physical_string_decay_seconds",
     unit: ParameterUnit::Seconds,
@@ -324,33 +317,9 @@ pub(crate) const GRAIN_PAN_SPREAD: GeneratorParameterSpec = GeneratorParameterSp
     smoothing_seconds: 0.010,
 };
 
-pub(crate) const OPERATOR_RATIO_MIN: f32 = 0.25;
-pub(crate) const OPERATOR_RATIO_MAX: f32 = 32.0;
-pub(crate) const OPERATOR_DETUNE_MIN: f32 = -100.0;
-pub(crate) const OPERATOR_DETUNE_MAX: f32 = 100.0;
-pub(crate) const OPERATOR_LEVEL_MIN: f32 = 0.0;
-pub(crate) const OPERATOR_LEVEL_MAX: f32 = 1.0;
-pub(crate) const OPERATOR_PHASE_MIN: f32 = 0.0;
-pub(crate) const OPERATOR_PHASE_MAX: f32 = 1.0;
-pub(crate) const OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN: f32 = 0.0;
-pub(crate) const OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX: f32 = 8.0;
-pub(crate) const OPERATOR_AM_RING_AMOUNT_MIN: f32 = 0.0;
-pub(crate) const OPERATOR_AM_RING_AMOUNT_MAX: f32 = 1.0;
-pub(crate) const OPERATOR_FEEDBACK_MIN: f32 = 0.0;
-pub(crate) const OPERATOR_FEEDBACK_MAX: f32 = 1.0;
 pub(crate) const OPERATOR_PARAMETER_SMOOTHING_SECONDS: f32 = 0.005;
 pub(crate) const OPERATOR_PARAMETER_SUFFIXES: [&str; 5] =
     ["ratio", "detune", "level", "modulation_amount", "feedback"];
-
-pub(crate) const BASIC_FREQUENCY_LIMIT_RATIO: f64 = 0.45;
-pub(crate) const PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO: f64 = 0.24;
-
-pub(crate) fn effective_max_frequency(sample_rate: f64, ratio: f64) -> f32 {
-    #[allow(clippy::cast_possible_truncation)]
-    {
-        (sample_rate * ratio) as f32
-    }
-}
 
 pub(crate) fn is_suffix(value: &str) -> bool {
     [

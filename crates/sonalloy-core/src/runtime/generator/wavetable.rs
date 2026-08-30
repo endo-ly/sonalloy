@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::compiler::{CompiledWavetable, PreparedWavetable};
-use crate::generator_parameters::{UNISON_DETUNE, UNISON_SPREAD, WAVETABLE_POSITION};
+use crate::parameter::generator::{UNISON_DETUNE, UNISON_SPREAD, WAVETABLE_POSITION};
 use crate::process::{ProcessError, ProcessSpec};
 
 use super::super::interpolation::cubic_interpolate;
@@ -434,7 +434,8 @@ fn component_frequency(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{select_band, select_frame};
+    use crate::compiler::PreparedWavetable;
 
     #[test]
     fn frame_position_selects_the_last_frame_at_one() {

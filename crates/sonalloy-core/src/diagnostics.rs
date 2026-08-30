@@ -262,7 +262,9 @@ pub fn from_render_error(error: &RenderError) -> Diagnostic {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{DiagnosticCode, from_process_error, from_render_error};
+    use crate::process::ProcessError;
+    use crate::render::RenderError;
 
     #[test]
     fn runtime_stretch_range_errors_use_the_stretch_code() {

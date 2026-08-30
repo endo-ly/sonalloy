@@ -300,9 +300,13 @@ fn normalize(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::compiler::CompiledEqParameters;
+    use super::{
+        BiquadCoefficients, EqRuntime, high_shelf, low_shelf, peaking, peaking_frequency_terms,
+        shelf_frequency_terms,
+    };
+    use crate::compiler::{CompiledEqParameters, CompiledEqProcessor, GeneratorOutputMode};
     use crate::parameter::ParameterHandle;
+    use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
         ValueSpan {

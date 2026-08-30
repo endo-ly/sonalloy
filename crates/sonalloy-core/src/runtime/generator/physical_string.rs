@@ -1,5 +1,5 @@
 use crate::compiler::CompiledPhysicalString;
-use crate::generator_parameters::{
+use crate::parameter::generator::{
     PHYSICAL_STRING_BRIGHTNESS, PHYSICAL_STRING_DECAY_SECONDS, PHYSICAL_STRING_STIFFNESS,
 };
 use crate::process::{ProcessError, ProcessSpec};
@@ -338,9 +338,12 @@ fn calculate_lowpass(sample_rate: f32, frequency: f32, brightness: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::compiler::{CompiledPhysicalExciter, CompiledPhysicalStringParameters};
+    use super::{LayerGeneratorTargetSpan, PhysicalStringRuntime};
+    use crate::compiler::{
+        CompiledPhysicalExciter, CompiledPhysicalString, CompiledPhysicalStringParameters,
+    };
     use crate::parameter::ParameterHandle;
+    use crate::process::{ProcessError, ProcessSpec};
     use crate::runtime::modulation::ValueSpan;
 
     fn compiled() -> CompiledPhysicalString {

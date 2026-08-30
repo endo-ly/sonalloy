@@ -916,8 +916,13 @@ fn prepared_audio_stereo_sample(audio: &PreparedAudio, frame: usize) -> (f32, f3
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        InstrumentProcessor, MusicalTimeChange, MusicalTimeMap, ProcessBlock, ProcessError,
+        ProcessSpec, RenderError, RenderRequest, render_processor,
+        render_processor_with_musical_time_map, render_sine, seconds_to_frames,
+    };
     use crate::diagnostics::{DiagnosticCode, DiagnosticSeverity, from_render_error};
+    use crate::process::{DEFAULT_TIME_SIGNATURE, TimeSignature};
 
     struct FailingProcessor {
         calls: usize,

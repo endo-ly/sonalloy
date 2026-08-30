@@ -1,5 +1,4 @@
-use crate::compiler::CompiledPhysicalExciter;
-use crate::generator_parameters::PHYSICAL_FREQUENCY_LIMIT_RATIO;
+use crate::compiler::{CompiledPhysicalExciter, PHYSICAL_FREQUENCY_LIMIT_RATIO};
 use crate::process::{ProcessError, ProcessorFailureKind};
 
 use super::super::random::{bipolar_f32, splitmix64_finalizer};
@@ -149,7 +148,9 @@ impl PhysicalExciterRuntime {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::PHYSICAL_EXCITER_GAIN;
+    use super::PhysicalExciterRuntime;
+    use crate::compiler::CompiledPhysicalExciter;
 
     #[test]
     fn impulse_is_note_deterministic_and_one_sample_long() {

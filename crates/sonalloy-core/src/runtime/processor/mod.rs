@@ -39,7 +39,7 @@ pub(crate) use envelope_transfer::EnvelopeTransferRuntime;
 pub(crate) use eq::EqRuntime;
 pub(crate) use flanger::FlangerRuntime;
 pub(crate) use formant::FormantProcessorRuntime;
-pub(crate) use frequency_shifter::{FrequencyShifterRuntime, build_hilbert_coefficients};
+pub(crate) use frequency_shifter::FrequencyShifterRuntime;
 pub(crate) use gate::GateRuntime;
 pub(crate) use ladder::LadderFilterRuntime;
 pub(crate) use limiter::LimiterRuntime;
@@ -841,6 +841,7 @@ impl StereoProcessorChain {
                     runtime.push(StereoProcessorRuntime::FrequencyShifter(Box::new(
                         FrequencyShifterRuntime::new(
                             value.coefficients.clone(),
+                            value.latency_frames,
                             sample_rate,
                             value.effective_abs_shift_hz,
                         )?,

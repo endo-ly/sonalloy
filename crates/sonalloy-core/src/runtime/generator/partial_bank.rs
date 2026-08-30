@@ -1,21 +1,10 @@
 use std::sync::Arc;
 
-use crate::generator_parameters::MAX_PARTIALS;
+use crate::definition::MAX_PARTIALS;
 use crate::process::{ProcessError, ProcessorFailureKind};
 
-pub(crate) const SINE_TABLE_LENGTH: usize = 4096;
 const ALIAS_FADE_START_RATIO: f64 = 0.40;
 const ALIAS_FADE_END_RATIO: f64 = 0.45;
-
-pub(crate) fn build_sine_table() -> Arc<[f32]> {
-    let mut table = Vec::with_capacity(SINE_TABLE_LENGTH + 1);
-    #[allow(clippy::cast_precision_loss)]
-    for index in 0..=SINE_TABLE_LENGTH {
-        let phase = index as f32 / SINE_TABLE_LENGTH as f32;
-        table.push((std::f32::consts::TAU * phase).sin());
-    }
-    Arc::from(table.into_boxed_slice())
-}
 
 pub(super) fn alias_fade(frequency: f64, sample_rate: f64) -> f32 {
     let normalized = frequency / sample_rate;
@@ -57,7 +46,7 @@ impl PartialBankRuntime {
         if !(1..=MAX_PARTIALS).contains(&active_count)
             || !sample_rate.is_finite()
             || sample_rate <= 0.0
-            || sine_table.len() != SINE_TABLE_LENGTH + 1
+            || sine_table.len() < 2
             || initial_phases[..active_count]
                 .iter()
                 .any(|phase| !phase.is_finite() || !(0.0..=1.0).contains(phase))
@@ -191,12 +180,13 @@ impl PartialBankRuntime {
 
 fn lookup_sine(table: &[f32], phase: f32) -> f32 {
     let phase = phase.rem_euclid(1.0);
+    let table_length = table.len() - 1;
     #[allow(
         clippy::cast_possible_truncation,
         clippy::cast_precision_loss,
         clippy::cast_sign_loss
     )]
-    let position = phase * SINE_TABLE_LENGTH as f32;
+    let position = phase * table_length as f32;
     #[allow(
         clippy::cast_possible_truncation,
         clippy::cast_precision_loss,
@@ -234,15 +224,30 @@ fn non_finite() -> ProcessError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
+    use super::{PartialBankRuntime, lookup_sine, spectral_control_interval};
+    use crate::definition::MAX_PARTIALS;
+
+    const TEST_SINE_TABLE_LENGTH: usize = 4096;
+
+    fn sine_table() -> Arc<[f32]> {
+        let mut table = Vec::with_capacity(TEST_SINE_TABLE_LENGTH + 1);
+        #[allow(clippy::cast_precision_loss)]
+        for index in 0..=TEST_SINE_TABLE_LENGTH {
+            let phase = index as f32 / TEST_SINE_TABLE_LENGTH as f32;
+            table.push((std::f32::consts::TAU * phase).sin());
+        }
+        Arc::from(table.into_boxed_slice())
+    }
 
     #[test]
     fn lookup_table_stays_within_the_requested_error() {
-        let table = build_sine_table();
+        let table = sine_table();
         let mut maximum_error = 0.0_f32;
-        for index in 0..=(SINE_TABLE_LENGTH * 16) {
+        for index in 0..=(TEST_SINE_TABLE_LENGTH * 16) {
             #[allow(clippy::cast_precision_loss)]
-            let phase = index as f32 / (SINE_TABLE_LENGTH * 16) as f32;
+            let phase = index as f32 / (TEST_SINE_TABLE_LENGTH * 16) as f32;
             maximum_error = maximum_error
                 .max((lookup_sine(&table, phase) - (std::f32::consts::TAU * phase).sin()).abs());
         }
@@ -251,7 +256,7 @@ mod tests {
 
     #[test]
     fn phase_lookup_wraps_at_the_table_end() {
-        let table = build_sine_table();
+        let table = sine_table();
         assert!((lookup_sine(&table, 1.0) - lookup_sine(&table, 0.0)).abs() < 1.0e-7);
         assert!((lookup_sine(&table, -0.25) + 1.0).abs() < 1.0e-5);
     }
@@ -267,7 +272,7 @@ mod tests {
     fn phase_reset_and_control_ramps_use_fixed_storage() {
         let mut initial_phases = [0.0_f32; MAX_PARTIALS];
         initial_phases[0] = 0.25;
-        let mut bank = PartialBankRuntime::new(initial_phases, 1, 48_000.0, build_sine_table())
+        let mut bank = PartialBankRuntime::new(initial_phases, 1, 48_000.0, sine_table())
             .expect("one partial bank is valid");
         let mut gains = [0.0_f32; MAX_PARTIALS];
         let ratios = [1.0_f32; MAX_PARTIALS];
@@ -300,7 +305,7 @@ mod tests {
     #[test]
     fn partial_bank_accepts_the_capacity_limit_and_rejects_invalid_counts() {
         let phases = [0.0_f32; MAX_PARTIALS];
-        let table = build_sine_table();
+        let table = sine_table();
         assert!(
             PartialBankRuntime::new(phases, MAX_PARTIALS, 48_000.0, Arc::clone(&table)).is_ok()
         );

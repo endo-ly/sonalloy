@@ -654,7 +654,10 @@ pub fn clear_output(output: &mut [&mut [f32]], frames: usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        DEFAULT_TIME_SIGNATURE, ProcessBlock, ProcessContext, ProcessError, ProcessEvent,
+        ProcessEventKind, ProcessSpec, TimeSignature, clear_output,
+    };
 
     fn context() -> ProcessContext {
         ProcessContext {

@@ -183,7 +183,8 @@ impl Drop for DspWavefolder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{DspWavefolder, DspWavefolderError};
+    use crate::ffi;
 
     #[cfg(sonalloy_test_hooks)]
     unsafe extern "C" {

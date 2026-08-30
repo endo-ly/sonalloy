@@ -1,18 +1,13 @@
 pub mod analysis;
 pub mod asset;
 pub mod compiler;
-mod convolution;
 pub mod definition;
 pub mod diagnostics;
-mod formant;
-mod generator_parameters;
 pub mod parameter;
 pub mod process;
 pub mod render;
 pub mod runtime;
-mod spectral;
 pub mod trace;
-mod wavetable;
 
 pub use analysis::{
     ActivityAnalysis, AudioAnalysis, AudioAnalysisError, AudioAnalysisOptions, ContinuityAnalysis,
@@ -47,9 +42,9 @@ pub use compiler::{
     CompiledVocoderProcessor, CompiledVoiceSource, CompiledVoiceStealing, CompiledWaveSequence,
     CompiledWaveSequenceDuration, CompiledWaveSequenceStep, CompiledWaveSequenceStepPlayback,
     CompiledWavetable, CompiledWavetableParameters, GeneratorOutputMode, InstrumentSourceHandle,
-    PreparedWavetable, PreparedWavetableBand, PreparedWavetableFrame, SPECTRAL_MORPH_FFT_SIZE,
-    SPECTRAL_MORPH_HOP_SIZE, SPECTRAL_MORPH_LATENCY_FRAMES, SourceHandle, VOCODER_BANDS,
-    WavetableSourceMetadata, compile_instrument,
+    PreparedSpectralAsset, PreparedWavetable, PreparedWavetableBand, PreparedWavetableFrame,
+    SPECTRAL_MORPH_FFT_SIZE, SPECTRAL_MORPH_HOP_SIZE, SPECTRAL_MORPH_LATENCY_FRAMES, SourceHandle,
+    VOCODER_BANDS, WavetableSourceMetadata, compile_instrument,
 };
 pub use definition::{
     AdditiveDefinition, AdditivePartialDefinition, AdsrDefinition, AssetReference,
@@ -104,7 +99,6 @@ pub use render::{
     render_instrument_with_tempo, render_instrument_with_trace, render_sine, seconds_to_frames,
 };
 pub use runtime::{InstrumentRuntime, SineRuntime, VoiceState};
-pub use spectral::PreparedSpectralAsset;
 pub use trace::{
     MAX_TRACE_OBSERVATIONS, RenderTraceReport, TraceContribution, TraceDepth, TraceObservation,
     TraceParameterReport, TraceRequest, TraceRoute, TraceVoice, TraceVoiceState,

@@ -1,30 +1,3 @@
-pub(crate) mod adsr;
-pub(crate) mod external_audio;
-pub(crate) mod fractional_delay;
-pub(crate) mod generator;
-mod instrument;
-pub(crate) mod interpolation;
-pub(crate) mod mix;
-pub mod modulation;
-pub(crate) mod processor;
-mod random;
-pub(crate) mod sample;
-pub(crate) mod smoothing;
-pub(crate) mod source;
-mod voice;
-
-pub use instrument::InstrumentRuntime;
-pub use voice::VoiceState;
-
-/// Return the bytes allocated by Spectral Morph's runtime-owned buffers.
-///
-/// The result includes the fixed FFT, history, overlap-add, window, and scratch buffers, plus the
-/// stereo external-input alignment delay requested by `alignment_frames`.
-#[must_use]
-pub fn spectral_morph_runtime_buffer_bytes(alignment_frames: usize) -> usize {
-    processor::spectral_morph_runtime_buffer_bytes(alignment_frames)
-}
-
 use sonalloy_dsp_sys::{DspOscillator, DspOscillatorWaveform};
 
 use crate::process::{InstrumentProcessor, ProcessBlock, ProcessError, ProcessSpec, clear_output};
@@ -153,9 +126,12 @@ impl InstrumentProcessor for SineRuntime {
 mod tests {
     use approx::assert_relative_eq;
 
-    use crate::process::{ProcessContext, ProcessEvent, ProcessEventKind};
+    use crate::process::{
+        InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessEvent,
+        ProcessEventKind, ProcessSpec,
+    };
 
-    use super::*;
+    use super::SineRuntime;
 
     fn render_blocks(block_size: usize) -> Vec<Vec<f32>> {
         let spec = ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec");

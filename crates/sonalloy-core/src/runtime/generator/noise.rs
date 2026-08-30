@@ -1,6 +1,6 @@
 use crate::compiler::CompiledNoise;
 use crate::definition::NoiseColor;
-use crate::generator_parameters::NOISE_CORRELATION;
+use crate::parameter::generator::NOISE_CORRELATION;
 use crate::process::{ProcessError, ProcessorFailureKind};
 
 use super::super::modulation::ValueSpan;
@@ -182,9 +182,13 @@ fn stream_seed(seed: u64, layer_hash: u64, note_id: u64, stream: u64) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        BROWN_ZERO_THRESHOLD, NoiseRuntime, NoiseStream, STREAM_LEFT, STREAM_SHARED, stream_seed,
+    };
     use crate::compiler::CompiledNoise;
+    use crate::definition::NoiseColor;
     use crate::parameter::ParameterHandle;
+    use crate::runtime::modulation::ValueSpan;
 
     fn compiled_noise(color: NoiseColor, seed: u64) -> CompiledNoise {
         CompiledNoise {

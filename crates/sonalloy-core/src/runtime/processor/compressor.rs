@@ -112,9 +112,13 @@ fn compression_reduction(level_db: f32, threshold_db: f32, ratio: f32, knee_db: 
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::compiler::{CompiledCompressorParameters, CompiledCompressorProcessor};
+    use super::CompressorRuntime;
+    use crate::compiler::{
+        CompiledCompressorParameters, CompiledCompressorProcessor, CompiledDynamicsDetector,
+    };
     use crate::parameter::ParameterHandle;
+    use crate::runtime::external_audio::ExternalAudioBlock;
+    use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
         ValueSpan {

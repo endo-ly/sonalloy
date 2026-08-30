@@ -563,11 +563,14 @@ pub(super) fn deterministic_random(seed: u64, note_id: NoteId, source_hash: u64,
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{VoiceSourceRuntime, deterministic_random};
     use crate::compiler::{
-        CompiledLfo, CompiledMsegSegment, CompiledSampleHold, CompiledSmoothRandom, CompiledStep,
+        CompiledLfo, CompiledMseg, CompiledMsegSegment, CompiledSampleHold, CompiledSmoothRandom,
+        CompiledStep, CompiledVoiceSource,
     };
-    use crate::definition::{LfoWaveform, ModulationRateUnit};
+    use crate::definition::{
+        LfoWaveform, ModulationDurationUnit, ModulationRateUnit, ModulationSegmentCurve,
+    };
 
     #[test]
     fn step_source_holds_values_until_its_boundary() {

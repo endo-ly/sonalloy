@@ -68,7 +68,7 @@ fn process_sample(input: f32, amount: f32, mix: f32) -> Result<f32, ProcessError
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::DriveRuntime;
 
     #[test]
     fn amount_zero_is_identity() {

@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use crate::compiler::{CompiledOperatorModulation, CompiledOperatorTopology, CompiledUnison};
-use crate::definition::OperatorModulationMode;
-use crate::generator_parameters::{
+use crate::definition::{
     OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX,
     OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX,
     OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,
-    OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN, UNISON_DETUNE, UNISON_SPREAD,
+    OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN, OperatorModulationMode,
 };
+use crate::parameter::generator::{UNISON_DETUNE, UNISON_SPREAD};
 use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
 
 use super::super::adsr::AdsrRuntime;
@@ -499,7 +499,7 @@ fn feedback_offset(previous_output: f32, amount: f32) -> Result<f32, ProcessErro
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::operator_frequency;
 
     #[test]
     fn operator_frequency_applies_ratio_and_detune_before_clamping() {

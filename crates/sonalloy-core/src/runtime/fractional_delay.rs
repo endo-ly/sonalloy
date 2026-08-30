@@ -68,7 +68,7 @@ impl FractionalDelayLine {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::FractionalDelayLine;
 
     #[test]
     fn integer_delay_reads_the_written_impulse() {
