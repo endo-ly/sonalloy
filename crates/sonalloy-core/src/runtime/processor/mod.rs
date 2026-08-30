@@ -841,6 +841,7 @@ impl StereoProcessorChain {
                     runtime.push(StereoProcessorRuntime::FrequencyShifter(Box::new(
                         FrequencyShifterRuntime::new(
                             value.coefficients.clone(),
+                            value.latency_frames,
                             sample_rate,
                             value.effective_abs_shift_hz,
                         )?,

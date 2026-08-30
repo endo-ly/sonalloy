@@ -1,3 +1,7 @@
+use std::sync::Arc;
+
+use crate::compiler::CompiledInstrument;
+
 pub(crate) mod adsr;
 pub(crate) mod external_audio;
 pub(crate) mod formant;
@@ -17,6 +21,14 @@ mod voice;
 pub use instrument::InstrumentRuntime;
 pub use sine::SineRuntime;
 pub use voice::VoiceState;
+
+impl CompiledInstrument {
+    /// Create a fresh runtime instance that owns no active audio state yet.
+    #[must_use]
+    pub fn instantiate(self: &Arc<Self>) -> InstrumentRuntime {
+        InstrumentRuntime::new(Arc::clone(self))
+    }
+}
 
 /// Return the bytes allocated by Spectral Morph's runtime-owned buffers.
 ///

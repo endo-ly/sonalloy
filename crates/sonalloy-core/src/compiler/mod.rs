@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub(crate) mod convolution;
@@ -13,15 +13,64 @@ pub use generator::*;
 pub use modulation::*;
 pub use processor::*;
 
-use crate::asset::AssetError;
+use crate::asset::{AssetError, PreparedAsset, prepare_asset, resolved_asset_path};
 use crate::definition::{
-    AdsrDefinition, ExternalAudioChannels, InstrumentDefinition, LayerTriggerEvent,
+    AdsrDefinition, AssetReference, ExternalAudioChannels, InstrumentDefinition, LayerTriggerEvent,
     VectorDefinition, VoiceStealingDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use crate::parameter::{ParameterCatalog, ParameterHandle, layer_parameter_id};
 use crate::process::ProcessSpec;
-use crate::runtime::InstrumentRuntime;
+
+pub(crate) const BASIC_FREQUENCY_LIMIT_RATIO: f64 = 0.45;
+pub(crate) const PHYSICAL_FREQUENCY_LIMIT_RATIO: f64 = BASIC_FREQUENCY_LIMIT_RATIO;
+
+pub(crate) fn effective_max_frequency(sample_rate: f64, ratio: f64) -> f32 {
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        (sample_rate * ratio) as f32
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct AssetCacheKey {
+    path: PathBuf,
+    sha256: Option<String>,
+    sample_rate_bits: u64,
+}
+
+pub(crate) fn prepare_cached_asset(
+    reference: &AssetReference,
+    definition_base_dir: &Path,
+    sample_rate: f64,
+    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
+) -> Result<PreparedAsset, AssetError> {
+    let resolved = resolved_asset_path(definition_base_dir, &reference.path);
+    let path = std::fs::canonicalize(&resolved).unwrap_or(resolved);
+    let key = AssetCacheKey {
+        path,
+        sha256: reference
+            .sha256
+            .as_ref()
+            .map(|value| value.to_ascii_lowercase()),
+        sample_rate_bits: sample_rate.to_bits(),
+    };
+    if let Some(result) = asset_cache.get(&key) {
+        return result.clone();
+    }
+    let result = prepare_asset(reference, definition_base_dir, sample_rate);
+    asset_cache.insert(key, result.clone());
+    result
+}
+
+pub(crate) fn source_id_hash(source_id: &str) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in source_id.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
+}
 pub const VOCODER_BANDS: usize = 24;
 pub const SPECTRAL_MORPH_FFT_SIZE: usize = 1024;
 pub const SPECTRAL_MORPH_HOP_SIZE: usize = 256;
@@ -93,12 +142,6 @@ pub struct CompiledInstrument {
 }
 
 impl CompiledInstrument {
-    /// Create a fresh runtime instance that owns no active audio state yet.
-    #[must_use]
-    pub fn instantiate(self: &Arc<Self>) -> InstrumentRuntime {
-        InstrumentRuntime::new(Arc::clone(self))
-    }
-
     /// Return parameter descriptors in stable Definition order.
     #[must_use]
     pub fn parameters(&self) -> &[crate::parameter::ParameterDescriptor] {

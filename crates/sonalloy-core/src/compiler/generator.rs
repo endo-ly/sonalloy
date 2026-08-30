@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use super::modulation::source_id_hash;
 use super::spectral::{
     PreparedSpectralAsset, SpectralPreparationError, SpectralSynthesisPlan, prepare_spectral_asset,
     spectral_hop_size,
@@ -10,10 +9,13 @@ use super::spectral::{
 use super::wavetable::{
     WavetablePreparation, WavetablePreparationError, WavetableWarning, prepare_wavetable_asset,
 };
-use super::{asset_diagnostic, brown_noise_coefficient, compile_adsr, db_to_linear};
+use super::{
+    AssetCacheKey, BASIC_FREQUENCY_LIMIT_RATIO, PHYSICAL_FREQUENCY_LIMIT_RATIO, asset_diagnostic,
+    brown_noise_coefficient, compile_adsr, db_to_linear, effective_max_frequency,
+    prepare_cached_asset, source_id_hash,
+};
 use crate::asset::{
-    AssetError, PreparedAsset, PreparedAudio, PreparedAudioChannels, prepare_asset,
-    resolved_asset_path,
+    AssetError, PreparedAsset, PreparedAudio, PreparedAudioChannels, resolved_asset_path,
 };
 use crate::definition::{
     AdditiveDefinition, AssetReference, FormantDefinition, GeneratorDefinition, GranularDefinition,
@@ -37,16 +39,7 @@ use crate::parameter::generator::{
 use crate::parameter::{ParameterCatalog, ParameterHandle, layer_generator_parameter_id};
 
 pub(crate) const GRANULAR_GRAIN_POOL_LIMIT: usize = 64;
-pub(crate) const BASIC_FREQUENCY_LIMIT_RATIO: f64 = 0.45;
 pub(crate) const PHASE_DOMAIN_FREQUENCY_LIMIT_RATIO: f64 = 0.24;
-pub(crate) const PHYSICAL_FREQUENCY_LIMIT_RATIO: f64 = BASIC_FREQUENCY_LIMIT_RATIO;
-
-pub(crate) fn effective_max_frequency(sample_rate: f64, ratio: f64) -> f32 {
-    #[allow(clippy::cast_possible_truncation)]
-    {
-        (sample_rate * ratio) as f32
-    }
-}
 
 fn build_sine_table() -> Arc<[f32]> {
     const SINE_TABLE_LENGTH: usize = 4096;
@@ -1211,13 +1204,6 @@ fn compile_formant(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct AssetCacheKey {
-    path: PathBuf,
-    sha256: Option<String>,
-    sample_rate_bits: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct WavetableAssetCacheKey {
     path: PathBuf,
     sha256: Option<String>,
@@ -1230,30 +1216,6 @@ pub(crate) struct SpectralAssetCacheKey {
     sha256: Option<String>,
     sample_rate_bits: u64,
     fft_size: usize,
-}
-
-pub(crate) fn prepare_cached_asset(
-    reference: &crate::definition::AssetReference,
-    definition_base_dir: &Path,
-    sample_rate: f64,
-    asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
-) -> Result<PreparedAsset, AssetError> {
-    let resolved = resolved_asset_path(definition_base_dir, &reference.path);
-    let path = std::fs::canonicalize(&resolved).unwrap_or(resolved);
-    let key = AssetCacheKey {
-        path,
-        sha256: reference
-            .sha256
-            .as_ref()
-            .map(|value| value.to_ascii_lowercase()),
-        sample_rate_bits: sample_rate.to_bits(),
-    };
-    if let Some(result) = asset_cache.get(&key) {
-        return result.clone();
-    }
-    let result = prepare_asset(reference, definition_base_dir, sample_rate);
-    asset_cache.insert(key, result.clone());
-    result
 }
 
 fn prepare_cached_wavetable(

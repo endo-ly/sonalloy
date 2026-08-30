@@ -4,9 +4,6 @@ use crate::process::{ProcessError, ProcessorFailureKind};
 
 use super::ValueSpan;
 
-const HILBERT_TAPS: usize = 255;
-pub(crate) const HILBERT_GROUP_DELAY: usize = (HILBERT_TAPS - 1) / 2;
-
 pub(crate) struct FrequencyShifterRuntime {
     coefficients: Arc<[f32]>,
     sample_rate: f32,
@@ -26,10 +23,11 @@ struct FrequencyShifterChannel {
 impl FrequencyShifterRuntime {
     pub(crate) fn new(
         coefficients: Arc<[f32]>,
+        latency_frames: usize,
         sample_rate: f32,
         effective_abs_shift_hz: f32,
     ) -> Result<Self, ProcessError> {
-        if coefficients.len() != HILBERT_TAPS
+        if coefficients.is_empty()
             || coefficients
                 .iter()
                 .any(|coefficient| !coefficient.is_finite())
@@ -40,12 +38,13 @@ impl FrequencyShifterRuntime {
         {
             return Err(invalid_state());
         }
+        let tap_count = coefficients.len();
         Ok(Self {
             coefficients,
             sample_rate,
             effective_abs_shift_hz,
-            left: FrequencyShifterChannel::new(),
-            right: FrequencyShifterChannel::new(),
+            left: FrequencyShifterChannel::new(tap_count, latency_frames),
+            right: FrequencyShifterChannel::new(tap_count, latency_frames),
             phase: 0.0,
         })
     }
@@ -95,11 +94,11 @@ impl FrequencyShifterRuntime {
 }
 
 impl FrequencyShifterChannel {
-    fn new() -> Self {
+    fn new(tap_count: usize, latency_frames: usize) -> Self {
         Self {
-            input: vec![0.0; HILBERT_TAPS],
+            input: vec![0.0; tap_count],
             input_position: 0,
-            dry: vec![0.0; HILBERT_GROUP_DELAY.max(1)],
+            dry: vec![0.0; latency_frames.max(1)],
             dry_position: 0,
         }
     }
@@ -120,12 +119,13 @@ impl FrequencyShifterChannel {
     }
 
     fn hilbert(&mut self, coefficients: &[f32]) -> f32 {
+        let tap_count = coefficients.len();
         let mut output = 0.0;
         for (index, coefficient) in coefficients.iter().enumerate() {
-            let position = (self.input_position + HILBERT_TAPS - index) % HILBERT_TAPS;
+            let position = (self.input_position + tap_count - index) % tap_count;
             output += *coefficient * self.input[position];
         }
-        self.input_position = (self.input_position + 1) % HILBERT_TAPS;
+        self.input_position = (self.input_position + 1) % tap_count;
         output
     }
 
@@ -153,13 +153,16 @@ fn non_finite() -> ProcessError {
 mod tests {
     use std::sync::Arc;
 
-    use super::{FrequencyShifterRuntime, HILBERT_GROUP_DELAY, HILBERT_TAPS};
+    use super::FrequencyShifterRuntime;
     use crate::runtime::modulation::ValueSpan;
+
+    const TEST_HILBERT_TAPS: usize = 255;
+    const TEST_HILBERT_GROUP_DELAY: usize = (TEST_HILBERT_TAPS - 1) / 2;
 
     #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
     fn coefficients() -> Vec<f32> {
-        let center = (HILBERT_TAPS - 1) / 2;
-        (0..HILBERT_TAPS)
+        let center = (TEST_HILBERT_TAPS - 1) / 2;
+        (0..TEST_HILBERT_TAPS)
             .map(|index| {
                 let offset = index as isize - center as isize;
                 let ideal = if offset != 0 && offset % 2 != 0 {
@@ -167,7 +170,7 @@ mod tests {
                 } else {
                     0.0
                 };
-                let phase = std::f32::consts::TAU * index as f32 / (HILBERT_TAPS - 1) as f32;
+                let phase = std::f32::consts::TAU * index as f32 / (TEST_HILBERT_TAPS - 1) as f32;
                 ideal * (0.42 - 0.5 * phase.cos() + 0.08 * (phase * 2.0).cos())
             })
             .collect()
@@ -183,8 +186,9 @@ mod tests {
     #[test]
     fn zero_shift_keeps_dry_and_wet_time_aligned() {
         let coefficients = Arc::from(coefficients());
-        let mut runtime = FrequencyShifterRuntime::new(coefficients, 48_000.0, 5_000.0)
-            .expect("frequency shifter prepares");
+        let mut runtime =
+            FrequencyShifterRuntime::new(coefficients, TEST_HILBERT_GROUP_DELAY, 48_000.0, 5_000.0)
+                .expect("frequency shifter prepares");
         let mut left = [0.0; 256];
         let mut right = [0.0; 256];
         left[0] = 1.0;
@@ -194,12 +198,12 @@ mod tests {
             .expect("frequency shifter processes");
 
         assert!(
-            left[..HILBERT_GROUP_DELAY]
+            left[..TEST_HILBERT_GROUP_DELAY]
                 .iter()
                 .all(|sample| sample.abs() < 1.0e-6)
         );
-        assert!((left[HILBERT_GROUP_DELAY] - 1.0).abs() < 1.0e-6);
-        assert!((right[HILBERT_GROUP_DELAY] + 1.0).abs() < 1.0e-6);
+        assert!((left[TEST_HILBERT_GROUP_DELAY] - 1.0).abs() < 1.0e-6);
+        assert!((right[TEST_HILBERT_GROUP_DELAY] + 1.0).abs() < 1.0e-6);
     }
 
     #[test]
@@ -224,8 +228,9 @@ mod tests {
     #[test]
     fn dynamic_shift_remains_finite_without_large_steps() {
         let coefficients = Arc::from(coefficients());
-        let mut runtime = FrequencyShifterRuntime::new(coefficients, 48_000.0, 5_000.0)
-            .expect("frequency shifter prepares");
+        let mut runtime =
+            FrequencyShifterRuntime::new(coefficients, TEST_HILBERT_GROUP_DELAY, 48_000.0, 5_000.0)
+                .expect("frequency shifter prepares");
         let mut left = vec![0.0; 16_384];
         let mut right = vec![0.0; 16_384];
         for (index, sample) in left.iter_mut().enumerate() {
@@ -248,7 +253,7 @@ mod tests {
             .expect("dynamic frequency shift processes");
 
         let (maximum_index, maximum_step) = left
-            .get(HILBERT_GROUP_DELAY + 2_048..)
+            .get(TEST_HILBERT_GROUP_DELAY + 2_048..)
             .expect("dynamic shift has a steady-state region")
             .windows(2)
             .enumerate()
@@ -259,14 +264,15 @@ mod tests {
         assert!(
             maximum_step < 0.5,
             "maximum sample step={maximum_step} at index {}",
-            maximum_index + HILBERT_GROUP_DELAY + 2_048
+            maximum_index + TEST_HILBERT_GROUP_DELAY + 2_048
         );
     }
 
     fn render_sine(shift_hz: f32) -> Vec<f32> {
         let coefficients = Arc::from(coefficients());
-        let mut runtime = FrequencyShifterRuntime::new(coefficients, 48_000.0, 5_000.0)
-            .expect("frequency shifter prepares");
+        let mut runtime =
+            FrequencyShifterRuntime::new(coefficients, TEST_HILBERT_GROUP_DELAY, 48_000.0, 5_000.0)
+                .expect("frequency shifter prepares");
         let mut left = vec![0.0; 32_768];
         let mut right = vec![0.0; 32_768];
         for (index, sample) in left.iter_mut().enumerate() {

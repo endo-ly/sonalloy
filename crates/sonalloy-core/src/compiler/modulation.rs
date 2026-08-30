@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use super::{CompiledAdsr, compile_adsr, db_to_linear};
+use super::{CompiledAdsr, compile_adsr, db_to_linear, source_id_hash};
 use crate::definition::{
     AdsrDefinition, InstrumentDefinition, LfoDefinition, LfoWaveform, ModulationCurve,
     ModulationDurationUnit, ModulationRateUnit, ModulationSourceDefinition, MsegDefinition,
@@ -544,15 +544,6 @@ fn source_id(source: &ModulationSourceDefinition) -> &str {
         ModulationSourceDefinition::SmoothRandom(value) => &value.id,
         ModulationSourceDefinition::EnvelopeFollower(value) => &value.id,
     }
-}
-
-pub(crate) fn source_id_hash(source_id: &str) -> u64 {
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for byte in source_id.bytes() {
-        hash ^= u64::from(byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    hash
 }
 
 fn compile_lfo(value: &LfoDefinition) -> CompiledLfo {
