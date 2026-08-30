@@ -26,9 +26,9 @@ use crate::parameter::{
     voice_processor_parameter_id,
 };
 
-const FREQUENCY_SHIFTER_LATENCY_FRAMES: usize = 127;
 const MAX_DELAY_RUNTIME_SECONDS: f32 = 16.0;
 const HILBERT_TAPS: usize = 255;
+const FREQUENCY_SHIFTER_LATENCY_FRAMES: usize = (HILBERT_TAPS - 1) / 2;
 
 #[allow(clippy::cast_possible_wrap, clippy::cast_precision_loss)]
 fn build_hilbert_coefficients() -> Vec<f32> {
