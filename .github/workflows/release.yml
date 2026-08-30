@@ -1,65 +1,94 @@
 name: Release
 
-# Release runs when a semver tag (vX.Y.Z) is pushed. The tag must point at a
-# commit whose CI run on `main` already passed, and must match the version in
-# the workspace Cargo.toml (compute-version verifies this).
+# Releases are driven by the version in Cargo.toml. After a CI run on `main`
+# succeeds, the workflow compares Cargo.toml's version against the latest
+# release tag. If the version changed, it builds and publishes a new release
+# (tag v<version>); otherwise nothing happens. Merging a version bump is the
+# release action, so merges without a bump never release.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
 
-# Releases run sequentially so that concurrent tag pushes never publish
-# artifacts out of order.
+# Release workflows must run sequentially so each run compares against the
+# latest published release.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-main
   cancel-in-progress: false
+  queue: max
 
 jobs:
   compute-version:
     name: Compute Release Version
+
+    # Only release commits whose CI run actually succeeded.
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+
     outputs:
+      skip: ${{ steps.version.outputs.skip }}
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
+      head_sha: ${{ steps.version.outputs.head_sha }}
 
     steps:
-      - name: Checkout
+      - name: Resolve CI head SHA
+        id: sha
+        run: echo "head_sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout CI SHA
         uses: actions/checkout@v4
         with:
+          ref: ${{ steps.sha.outputs.head_sha }}
           persist-credentials: false
 
-      - name: Validate tag against Cargo.toml
+      - name: Compute release tag or skip
         id: version
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          TAG="${GITHUB_REF_NAME}"
-          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Tag '${TAG}' is not a semver tag (expected vX.Y.Z)"
-            exit 1
-          fi
-
-          CARGO_VERSION=$(
+          HEAD_SHA="${{ steps.sha.outputs.head_sha }}"
+          VERSION=$(
             grep -m1 '^version' Cargo.toml |
               sed 's/version = "//;s/"//'
           )
-          if [ "${CARGO_VERSION}" != "${TAG#v}" ]; then
-            echo "::error::Cargo.toml version ${CARGO_VERSION} does not match tag ${TAG}"
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Cargo.toml version '${VERSION}' must be MAJOR.MINOR.PATCH"
             exit 1
           fi
 
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          RELEASED_TAG=$(
+            gh api "repos/${GITHUB_REPOSITORY}/releases/latest" \
+              --jq '.tag_name' 2>/dev/null || true
+          )
+
+          if [ "v${VERSION}" = "${RELEASED_TAG}" ]; then
+            echo "Version ${VERSION} already released as ${RELEASED_TAG}; skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Releasing v${VERSION} (previous: ${RELEASED_TAG:-none})"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "head_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+          fi
 
   build-assets:
     name: Build ${{ matrix.target.label }}
     runs-on: ${{ matrix.target.os }}
     needs: [compute-version]
+    if: ${{ needs.compute-version.outputs.skip != 'true' && needs.compute-version.outputs.tag != '' }}
 
     strategy:
       fail-fast: false
@@ -90,9 +119,10 @@ jobs:
             asset_triple: x86_64-pc-windows-msvc
 
     steps:
-      - name: Checkout
+      - name: Checkout CI SHA
         uses: actions/checkout@v4
         with:
+          ref: ${{ needs.compute-version.outputs.head_sha }}
           persist-credentials: false
 
       - name: Set up Rust
@@ -138,12 +168,14 @@ jobs:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
     needs: [compute-version, build-assets]
+    if: ${{ needs.compute-version.outputs.skip != 'true' && needs.compute-version.outputs.tag != '' }}
 
     permissions:
       contents: write
 
     env:
       RELEASE_TAG: ${{ needs.compute-version.outputs.tag }}
+      HEAD_SHA: ${{ needs.compute-version.outputs.head_sha }}
 
     steps:
       - name: Download artifacts
@@ -162,9 +194,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${RELEASE_TAG}" \
+          if gh release view "${RELEASE_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_TAG} already exists; re-uploading assets"
+          else
+            gh release create "${RELEASE_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${RELEASE_TAG}" \
+              --generate-notes \
+              --target "${HEAD_SHA}"
+          fi
+
+          gh release upload "${RELEASE_TAG}" \
             --repo "${GITHUB_REPOSITORY}" \
-            --title "${RELEASE_TAG}" \
-            --generate-notes \
             dist/*.tar.gz \
-            dist/SHA256SUMS.txt
+            dist/SHA256SUMS.txt \
+            --clobber
