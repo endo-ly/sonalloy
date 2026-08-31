@@ -114,7 +114,7 @@ if (result == SONALLOY_OK) {
 
 ## Reclaim
 
-旧Generationと旧Global ProcessorはAudio Callbackで破棄せず、`sonalloy_runtime_take_reclaimable`で取得します。取得したHandleはResourceの所有権を持つ独立したHandleとしてControl Threadへ渡し、`sonalloy_reclaimable_destroy`で破棄します。Reclaimable Handleの破棄とRuntimeによる次の取得は安全な所有権移動として扱われます。Runtimeを破棄する前に、取得済みのReclaimable Handleを全て破棄してください。Runtimeは取得済みHandleが残っている間も生存させます。
+旧Generationと旧Global ProcessorはAudio Callbackで破棄せず、`sonalloy_runtime_take_reclaimable`で取得します。Handleの記憶領域はRuntimeが事前確保した固定Poolにあり、Runtimeの生存中は移動しません。取得したHandleはResourceの所有権を持つものとしてControl Threadへ渡し、`sonalloy_reclaimable_destroy`で破棄します。Audio Threadは空いたPool slotだけを再利用し、Resourceの書き込みと破棄はAtomicな所有権移動で同期されます。Runtimeを破棄する前に、取得済みのReclaimable Handleを全て破棄してください。Runtimeは取得済みHandleが残っている間も生存させます。
 
 ## Thread Ownership
 

@@ -202,6 +202,7 @@ SonalloyResult sonalloy_runtime_publish(
 SonalloyResult sonalloy_runtime_take_reclaimable(
     SonalloyRuntime* runtime,
     SonalloyReclaimable** out_reclaimable);
+/* The runtime must outlive every reclaimable handle returned from it. */
 void sonalloy_reclaimable_destroy(SonalloyReclaimable* reclaimable);
 uint32_t sonalloy_runtime_state(const SonalloyRuntime* runtime);
 uint64_t sonalloy_runtime_generation_id(const SonalloyRuntime* runtime);
