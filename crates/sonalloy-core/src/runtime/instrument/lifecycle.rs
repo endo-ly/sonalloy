@@ -520,9 +520,7 @@ impl InstrumentRuntime {
         for (event_index, event) in events.iter().enumerate() {
             match event.kind {
                 ProcessEventKind::ParameterChange {
-                    catalog_revision,
-                    parameter: _,
-                    ..
+                    catalog_revision, ..
                 } if catalog_revision != revision => {
                     self.stale_parameter_events = self.stale_parameter_events.saturating_add(1);
                 }
