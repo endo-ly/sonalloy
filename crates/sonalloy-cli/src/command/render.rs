@@ -578,6 +578,7 @@ fn compile_event_sequence(
                     }
                 };
                 ProcessEventKind::ParameterChange {
+                    catalog_revision: compiled.parameter_catalog_revision(),
                     parameter: handle,
                     normalized,
                 }

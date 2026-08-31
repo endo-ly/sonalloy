@@ -5,9 +5,7 @@ use std::time::{Duration, Instant};
 use cpal::traits::StreamTrait;
 use crossbeam_queue::ArrayQueue;
 use midir::MidiInputConnection;
-use sonalloy_core::{
-    Diagnostic, DiagnosticCode, InstrumentProcessor, ProcessSpec, seconds_to_frames,
-};
+use sonalloy_core::{Diagnostic, DiagnosticCode, ProcessSpec, seconds_to_frames};
 
 mod audio;
 mod device;
@@ -217,6 +215,18 @@ pub(crate) fn start_scheduled_audition(
             ],
         ));
     }
+    if let Err(error) = runtime.activate() {
+        return Err((
+            2,
+            vec![
+                Diagnostic::error(
+                    DiagnosticCode::ProcessError,
+                    "could not activate the realtime processor",
+                )
+                .with_detail(error.to_string()),
+            ],
+        ));
+    }
     let status = Arc::new(audio::RealtimeStatus::new());
     let streams = match audio::build_scheduled_stream(
         &selected_audio,
@@ -330,6 +340,18 @@ pub(crate) fn start_play(
             ],
         )
     })?;
+    runtime.activate().map_err(|error| {
+        (
+            2,
+            vec![
+                Diagnostic::error(
+                    DiagnosticCode::ProcessError,
+                    "could not activate the realtime processor",
+                )
+                .with_detail(error.to_string()),
+            ],
+        )
+    })?;
 
     let events = Arc::new(ArrayQueue::new(audio::REALTIME_EVENT_QUEUE_CAPACITY));
     let status = Arc::new(audio::RealtimeStatus::new());
@@ -348,8 +370,14 @@ pub(crate) fn start_play(
     )
     .map_err(|error| (2, vec![error.diagnostic]))?;
     start_input_stream(streams.input.as_ref(), &status, options.buffer_size)?;
-    let midi_connection = midi::connect(selected_midi, events, status.clone(), &macro_cc)
-        .map_err(|error| (2, vec![error.diagnostic]))?;
+    let midi_connection = midi::connect(
+        selected_midi,
+        events,
+        status.clone(),
+        &macro_cc,
+        compiled.parameter_catalog_revision(),
+    )
+    .map_err(|error| (2, vec![error.diagnostic]))?;
     streams.output.play().map_err(|error| {
         (
             2,

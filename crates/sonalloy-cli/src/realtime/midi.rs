@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crossbeam_queue::ArrayQueue;
 use midir::MidiInputConnection;
 use midly::{MidiMessage, live::LiveEvent};
-use sonalloy_core::{ParameterHandle, ProcessEventKind};
+use sonalloy_core::{ParameterCatalogRevision, ParameterHandle, ProcessEventKind};
 
 use super::audio::{FatalStatus, QueuedEvent, RealtimeStatus};
 use super::device::{DeviceError, SelectedMidiDevice};
@@ -19,6 +19,7 @@ pub(crate) struct LiveMidiState {
     active_notes: HashMap<(u8, u8), VecDeque<u64>>,
     serials: HashMap<(u8, u8), u32>,
     macro_parameters: [Option<ParameterHandle>; 128],
+    catalog_revision: ParameterCatalogRevision,
     next_sequence: u64,
 }
 
@@ -27,6 +28,7 @@ impl LiveMidiState {
         events: Arc<ArrayQueue<QueuedEvent>>,
         status: Arc<RealtimeStatus>,
         macro_parameters: &[Option<ParameterHandle>; 128],
+        catalog_revision: ParameterCatalogRevision,
     ) -> Self {
         Self {
             events,
@@ -34,6 +36,7 @@ impl LiveMidiState {
             active_notes: HashMap::new(),
             serials: HashMap::new(),
             macro_parameters: *macro_parameters,
+            catalog_revision,
             next_sequence: 0,
         }
     }
@@ -44,8 +47,9 @@ pub(crate) fn connect(
     events: Arc<ArrayQueue<QueuedEvent>>,
     status: Arc<RealtimeStatus>,
     macro_parameters: &[Option<ParameterHandle>; 128],
+    catalog_revision: ParameterCatalogRevision,
 ) -> Result<MidiInputConnection<LiveMidiState>, DeviceError> {
-    let state = LiveMidiState::new(events, status, macro_parameters);
+    let state = LiveMidiState::new(events, status, macro_parameters, catalog_revision);
     selected
         .input
         .connect(&selected.port, "sonalloy", handle_message, state)
@@ -148,6 +152,7 @@ fn handle_message(timestamp_us: u64, message: &[u8], state: &mut LiveMidiState) 
                     state,
                     timestamp_us,
                     ProcessEventKind::ParameterChange {
+                        catalog_revision: state.catalog_revision,
                         parameter,
                         normalized: normalize_control(value.as_int()),
                     },
@@ -211,7 +216,7 @@ mod tests {
         ));
         let status = Arc::new(RealtimeStatus::new());
         (
-            LiveMidiState::new(events.clone(), status.clone(), &[None; 128]),
+            LiveMidiState::new(events.clone(), status.clone(), &[None; 128], 0),
             events,
             status,
         )
@@ -317,13 +322,19 @@ mod tests {
             .expect("macro parameter");
         let mut macro_parameters = [None; 128];
         macro_parameters[20] = Some(parameter);
-        let mut state = LiveMidiState::new(events.clone(), status.clone(), &macro_parameters);
+        let mut state = LiveMidiState::new(
+            events.clone(),
+            status.clone(),
+            &macro_parameters,
+            compiled.parameter_catalog_revision(),
+        );
 
         handle_message(10, &[0xB0, 20, 127], &mut state);
 
         assert_eq!(
             events.pop().expect("macro event").kind,
             ProcessEventKind::ParameterChange {
+                catalog_revision: state.catalog_revision,
                 parameter,
                 normalized: 1.0,
             }
@@ -344,7 +355,7 @@ mod tests {
     fn queue_overflow_keeps_existing_events_and_sets_fatal_status() {
         let events = Arc::new(ArrayQueue::new(1));
         let status = Arc::new(RealtimeStatus::new());
-        let mut state = LiveMidiState::new(events.clone(), status.clone(), &[None; 128]);
+        let mut state = LiveMidiState::new(events.clone(), status.clone(), &[None; 128], 0);
 
         handle_message(10, &[0x90, 60, 100], &mut state);
         handle_message(20, &[0x90, 61, 100], &mut state);

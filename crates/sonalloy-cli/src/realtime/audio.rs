@@ -414,6 +414,7 @@ impl AudioEngine {
                         bar_position: absolute_frame_as_f64(absolute_frame) * self.tempo_bpm
                             / (60.0 * self.sample_rate * self.time_signature.beats_per_bar()),
                         time_signature: self.time_signature,
+                        transport_state: sonalloy_core::TransportState::Playing,
                     },
                 )))
             }
@@ -458,6 +459,14 @@ impl AudioEngine {
                 sample_offset: 0,
                 kind: event.kind,
             });
+        }
+    }
+}
+
+impl Drop for AudioEngine {
+    fn drop(&mut self) {
+        if self.runtime.state() == sonalloy_core::RuntimeState::Active {
+            let _ = self.runtime.deactivate();
         }
     }
 }
@@ -828,8 +837,8 @@ mod tests {
     use cpal::{ErrorKind, FromSample, I24, SizedSample, U24};
     use crossbeam_queue::ArrayQueue;
     use sonalloy_core::{
-        CompileContext, DiagnosticCode, InstrumentProcessor, InstrumentRuntime, MusicalTimeMap,
-        ProcessEventKind, ProcessSpec, ScheduledEvent, VoiceState,
+        CompileContext, DiagnosticCode, InstrumentRuntime, MusicalTimeMap, ProcessEventKind,
+        ProcessSpec, ScheduledEvent, VoiceState,
     };
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::cell::Cell;
@@ -919,6 +928,7 @@ mod tests {
         let compiled = result.instrument.expect("default compiles");
         let mut runtime = compiled.instantiate();
         runtime.prepare(spec).expect("runtime prepares");
+        runtime.activate().expect("runtime activates");
         runtime
     }
 
@@ -968,6 +978,7 @@ mod tests {
         .expect("external definition compiles");
         let mut runtime = compiled.instantiate();
         runtime.prepare(spec).expect("runtime prepares");
+        runtime.activate().expect("runtime activates");
         let queue = Arc::new(ArrayQueue::new(REALTIME_INPUT_QUEUE_CAPACITY));
         let status = Arc::new(RealtimeStatus::new());
         let engine = AudioEngine::new(
