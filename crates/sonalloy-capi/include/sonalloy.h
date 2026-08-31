@@ -177,6 +177,10 @@ SonalloyResult sonalloy_runtime_prepare(
 SonalloyResult sonalloy_runtime_activate(SonalloyRuntime* runtime);
 SonalloyResult sonalloy_runtime_reset(SonalloyRuntime* runtime);
 SonalloyResult sonalloy_runtime_deactivate(SonalloyRuntime* runtime);
+/*
+ * Input channel ranges may alias each other. Output channels must not overlap
+ * each other, and input channel ranges must not overlap output channel ranges.
+ */
 SonalloyResult sonalloy_runtime_process(
     SonalloyRuntime* runtime,
     const SonalloyProcessContext* context,

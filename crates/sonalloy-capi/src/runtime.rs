@@ -90,6 +90,77 @@ fn output_buffers<'a>(
     Ok(result)
 }
 
+#[derive(Clone, Copy)]
+struct BufferRange {
+    start: usize,
+    end: usize,
+}
+
+fn buffer_range(pointer: *const f32, frames: usize) -> Result<Option<BufferRange>, SonalloyResult> {
+    if frames == 0 && pointer.is_null() {
+        return Ok(None);
+    }
+    if pointer.is_null() {
+        return Err(SonalloyResult::InvalidArgument);
+    }
+    let byte_length = frames
+        .checked_mul(std::mem::size_of::<f32>())
+        .ok_or(SonalloyResult::InvalidArgument)?;
+    let start = pointer as usize;
+    let end = start
+        .checked_add(byte_length)
+        .ok_or(SonalloyResult::InvalidArgument)?;
+    Ok(Some(BufferRange { start, end }))
+}
+
+fn ranges_overlap(left: BufferRange, right: BufferRange) -> bool {
+    left.start < right.end && right.start < left.end
+}
+
+fn validate_buffer_aliases(
+    input_channels: *const *const f32,
+    input_channel_count: usize,
+    output_channels: *mut *mut f32,
+    output_channel_count: usize,
+    frames: usize,
+) -> Result<(), SonalloyResult> {
+    if input_channel_count > 2 || output_channel_count != 2 {
+        return Err(SonalloyResult::InvalidArgument);
+    }
+    validate_channel_pointer_array(input_channels, input_channel_count)?;
+    if output_channels.is_null() {
+        return Err(SonalloyResult::InvalidArgument);
+    }
+    let inputs = if input_channel_count == 0 {
+        &[][..]
+    } else {
+        unsafe { slice::from_raw_parts(input_channels, input_channel_count) }
+    };
+    let outputs = unsafe { slice::from_raw_parts(output_channels, output_channel_count) };
+    let output_ranges = [
+        buffer_range(outputs[0], frames)?,
+        buffer_range(outputs[1], frames)?,
+    ];
+    if let (Some(left), Some(right)) = (output_ranges[0], output_ranges[1])
+        && ranges_overlap(left, right)
+    {
+        return Err(SonalloyResult::InvalidArgument);
+    }
+    for input in inputs.iter().copied() {
+        let Some(input_range) = buffer_range(input, frames)? else {
+            continue;
+        };
+        if output_ranges
+            .into_iter()
+            .flatten()
+            .any(|output| ranges_overlap(input_range, output))
+        {
+            return Err(SonalloyResult::InvalidArgument);
+        }
+    }
+    Ok(())
+}
+
 /// Create a runtime from a compiled instrument.
 #[unsafe(no_mangle)]
 pub extern "C" fn sonalloy_runtime_create(
@@ -114,11 +185,10 @@ pub extern "C" fn sonalloy_runtime_create(
                 value_b: 0,
             },
             reclaimable_slots: Vec::with_capacity(16),
+            max_block_size: 0,
         });
         for _ in 0..16 {
-            runtime
-                .reclaimable_slots
-                .push(SonalloyReclaimable { inner: None });
+            runtime.reclaimable_slots.push(SonalloyReclaimable::new());
         }
         unsafe {
             *out_runtime = Box::into_raw(runtime);
@@ -147,7 +217,10 @@ pub extern "C" fn sonalloy_runtime_prepare(
                     _ => SonalloyResult::PrepareFailed,
                 })
             },
-            |()| Ok(()),
+            |()| {
+                runtime.max_block_size = spec.max_block_size;
+                Ok(())
+            },
         )
     })
 }
@@ -215,6 +288,14 @@ pub extern "C" fn sonalloy_runtime_process(
             return Err(SonalloyResult::InvalidArgument);
         }
         let runtime = unsafe { &mut *runtime };
+        if runtime.inner.state() != RuntimeState::Active {
+            let error = if runtime.max_block_size == 0 {
+                ProcessError::NotPrepared
+            } else {
+                ProcessError::NotActive
+            };
+            return Err(process_error(runtime, &error));
+        }
         let event_count =
             usize::try_from(event_count).map_err(|_| SonalloyResult::InvalidArgument)?;
         if event_count > MAX_EVENTS_PER_BLOCK {
@@ -228,7 +309,17 @@ pub extern "C" fn sonalloy_runtime_process(
         let output_channel_count =
             usize::try_from(output_channel_count).map_err(|_| SonalloyResult::InvalidArgument)?;
         let frames = usize::try_from(frames).map_err(|_| SonalloyResult::InvalidArgument)?;
+        if frames > runtime.max_block_size {
+            return Err(SonalloyResult::InvalidArgument);
+        }
         let core_context = unsafe { *context }.to_core()?;
+        validate_buffer_aliases(
+            input_channels,
+            input_channel_count,
+            output_channels,
+            output_channel_count,
+            frames,
+        )?;
         let input = input_buffers(input_channels, input_channel_count, frames)?;
         let mut output = output_buffers(output_channels, output_channel_count, frames)?;
         runtime.event_scratch.clear();
@@ -337,17 +428,18 @@ pub extern "C" fn sonalloy_runtime_take_reclaimable(
         let runtime = unsafe { &mut *runtime };
         let Some(slot) = runtime
             .reclaimable_slots
-            .iter_mut()
-            .find(|slot| slot.inner.is_none())
+            .iter()
+            .find(|slot| slot.try_claim_for_audio())
         else {
             return SonalloyResult::Ok;
         };
         let Some(resource) = runtime.inner.take_reclaimable() else {
+            slot.release_audio_claim();
             return SonalloyResult::Ok;
         };
-        slot.inner = Some(resource);
+        slot.publish_from_audio(resource);
         unsafe {
-            *out_reclaimable = ptr::from_mut(slot);
+            *out_reclaimable = ptr::from_ref(slot).cast_mut();
         }
         SonalloyResult::Ok
     })
@@ -360,8 +452,8 @@ pub extern "C" fn sonalloy_reclaimable_destroy(reclaimable: *mut SonalloyReclaim
         if reclaimable.is_null() {
             return SonalloyResult::Ok;
         }
-        let reclaimable = unsafe { &mut *reclaimable };
-        let _ = reclaimable.inner.take();
+        let reclaimable = unsafe { &*reclaimable };
+        reclaimable.destroy_from_control();
         SonalloyResult::Ok
     });
 }

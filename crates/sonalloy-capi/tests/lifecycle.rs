@@ -105,6 +105,64 @@ fn c_api_lifecycle_process_update_and_reclaim() {
     );
     assert_eq!(sonalloy_runtime_activate(runtime), SonalloyResult::Ok);
     assert_eq!(sonalloy_runtime_state(runtime), 2);
+    let mut aliased_output = [left.as_mut_ptr(), left.as_mut_ptr()];
+    assert_eq!(
+        sonalloy_runtime_process(
+            runtime,
+            &raw const context_zero,
+            ptr::null(),
+            0,
+            ptr::null(),
+            0,
+            aliased_output.as_mut_ptr(),
+            2,
+            64,
+        ),
+        SonalloyResult::InvalidArgument
+    );
+    let input_alias = [left.as_ptr()];
+    assert_eq!(
+        sonalloy_runtime_process(
+            runtime,
+            &raw const context_zero,
+            ptr::null(),
+            0,
+            input_alias.as_ptr(),
+            1,
+            output.as_mut_ptr(),
+            2,
+            64,
+        ),
+        SonalloyResult::InvalidArgument
+    );
+    assert_eq!(
+        sonalloy_runtime_process(
+            runtime,
+            &raw const context_zero,
+            ptr::null(),
+            0,
+            ptr::null(),
+            0,
+            output.as_mut_ptr(),
+            2,
+            65,
+        ),
+        SonalloyResult::InvalidArgument
+    );
+    assert_eq!(
+        sonalloy_runtime_process(
+            runtime,
+            &raw const context_zero,
+            ptr::null(),
+            0,
+            ptr::null(),
+            1,
+            output.as_mut_ptr(),
+            2,
+            64,
+        ),
+        SonalloyResult::InvalidArgument
+    );
     let invalid_event = SonalloyEvent {
         event_type: 99,
         ..note_on
@@ -210,6 +268,7 @@ fn c_api_lifecycle_process_update_and_reclaim() {
         SonalloyResult::Ok
     );
     assert!(!reclaimable.is_null());
+    sonalloy_reclaimable_destroy(reclaimable);
     sonalloy_reclaimable_destroy(reclaimable);
     assert_eq!(sonalloy_runtime_deactivate(runtime), SonalloyResult::Ok);
     assert_eq!(sonalloy_runtime_state(runtime), 1);

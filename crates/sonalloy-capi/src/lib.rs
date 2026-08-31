@@ -35,7 +35,9 @@ pub use types::{
     SonalloyRuntimeErrorInfo, SonalloyStringView, SonalloyTransportState,
 };
 
+use std::cell::UnsafeCell;
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use crate::types::SONALLOY_INTERNAL_PANIC;
 
@@ -66,6 +68,7 @@ pub struct SonalloyRuntime {
     pub(crate) event_scratch: Vec<sonalloy_core::ProcessEvent>,
     pub(crate) last_error: SonalloyRuntimeErrorInfo,
     pub(crate) reclaimable_slots: Vec<SonalloyReclaimable>,
+    pub(crate) max_block_size: usize,
 }
 
 /// Opaque prepared update handle.
@@ -83,12 +86,84 @@ pub struct SonalloyDiagnostics {
 /// Opaque deferred-resource handle.
 #[repr(C)]
 pub struct SonalloyReclaimable {
-    pub(crate) inner: Option<sonalloy_core::ReclaimableRuntimeResource>,
+    state: AtomicU8,
+    inner: UnsafeCell<Option<sonalloy_core::ReclaimableRuntimeResource>>,
 }
+
+const RECLAIMABLE_FREE: u8 = 0;
+const RECLAIMABLE_AUDIO_WRITING: u8 = 1;
+const RECLAIMABLE_CONTROL_OWNED: u8 = 2;
+const RECLAIMABLE_CONTROL_DROPPING: u8 = 3;
+
+impl SonalloyReclaimable {
+    pub(crate) const fn new() -> Self {
+        Self {
+            state: AtomicU8::new(RECLAIMABLE_FREE),
+            inner: UnsafeCell::new(None),
+        }
+    }
+
+    pub(crate) fn try_claim_for_audio(&self) -> bool {
+        self.state
+            .compare_exchange(
+                RECLAIMABLE_FREE,
+                RECLAIMABLE_AUDIO_WRITING,
+                Ordering::Acquire,
+                Ordering::Relaxed,
+            )
+            .is_ok()
+    }
+
+    pub(crate) fn publish_from_audio(&self, resource: sonalloy_core::ReclaimableRuntimeResource) {
+        unsafe {
+            *self.inner.get() = Some(resource);
+        }
+        self.state
+            .store(RECLAIMABLE_CONTROL_OWNED, Ordering::Release);
+    }
+
+    pub(crate) fn release_audio_claim(&self) {
+        debug_assert_eq!(
+            self.state.load(Ordering::Relaxed),
+            RECLAIMABLE_AUDIO_WRITING
+        );
+        self.state.store(RECLAIMABLE_FREE, Ordering::Release);
+    }
+
+    pub(crate) fn destroy_from_control(&self) {
+        if self
+            .state
+            .compare_exchange(
+                RECLAIMABLE_CONTROL_OWNED,
+                RECLAIMABLE_CONTROL_DROPPING,
+                Ordering::Acquire,
+                Ordering::Relaxed,
+            )
+            .is_err()
+        {
+            return;
+        }
+        unsafe {
+            let _ = (*self.inner.get()).take();
+        }
+        self.state.store(RECLAIMABLE_FREE, Ordering::Release);
+    }
+}
+
+// SAFETY: The AtomicU8 state gives exclusive access to `inner`: audio writes only while holding
+// AUDIO_WRITING, and control drops only after acquiring CONTROL_OWNED.
+unsafe impl Send for SonalloyReclaimable {}
+// SAFETY: Shared references only access `inner` after the same atomic ownership handoff.
+unsafe impl Sync for SonalloyReclaimable {}
 
 #[cfg(test)]
 mod tests {
     use super::{SonalloyResult, guard, guard_result};
+
+    #[unsafe(no_mangle)]
+    extern "C" fn sonalloy_test_panic_entry() -> SonalloyResult {
+        guard(|| panic!("test panic from extern entry"))
+    }
 
     #[test]
     fn panic_is_contained_at_both_guard_entry_points() {
@@ -100,5 +175,10 @@ mod tests {
             guard_result(|| panic!("test panic")),
             SonalloyResult::InternalPanic
         );
+    }
+
+    #[test]
+    fn panic_is_contained_when_called_through_an_extern_entry() {
+        assert_eq!(sonalloy_test_panic_entry(), SonalloyResult::InternalPanic);
     }
 }
