@@ -122,6 +122,10 @@ impl RuntimeGeneration {
         self.global_processors.take()
     }
 
+    pub(crate) fn swap_global_processors(&mut self, other: &mut Self) {
+        std::mem::swap(&mut self.global_processors, &mut other.global_processors);
+    }
+
     /// Create an unprepared runtime from a compiled instrument.
     #[must_use]
     pub fn new(compiled: Arc<CompiledInstrument>) -> Self {

@@ -494,11 +494,14 @@ impl InstrumentRuntime {
             .generation
             .take()
             .ok_or(PublishError::UpdateConsumed)?;
-        let active = self.active.take().ok_or(PublishError::InvalidState)?;
+        let mut active = self.active.take().ok_or(PublishError::InvalidState)?;
         let candidate_compiled = Arc::clone(candidate.compiled());
         candidate.id = generation_id;
         candidate.absolute_frame = self.absolute_frame;
         candidate.inherit_performance_controls(&active);
+        if !global_changed {
+            candidate.swap_global_processors(&mut active);
+        }
         let old_generation_id = active.id;
         self.retired.push(active);
         self.active = Some(candidate);

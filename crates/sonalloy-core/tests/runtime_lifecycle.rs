@@ -517,6 +517,52 @@ fn global_processor_update_crossfades_and_blocks_overlapping_publish() {
 }
 
 #[test]
+fn unchanged_global_processor_keeps_state_across_generation_update() {
+    let first = compile(&global_filter_definition("saw", -14.0));
+    let second = compile(&global_filter_definition("sine", -14.0));
+    assert_eq!(
+        first.global_processors, second.global_processors,
+        "the update must only change the voice definition"
+    );
+    let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
+    let mut reference = active_runtime(Arc::clone(&first), spec);
+    let mut updated = active_runtime(Arc::clone(&first), spec);
+    let note_on = [ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 1,
+            note_number: 60,
+            velocity: 110,
+        },
+    }];
+    let _ = process(&mut reference, 0, &note_on);
+    let _ = process(&mut updated, 0, &note_on);
+    for frame in [64, 128, 192] {
+        let reference_audio = process(&mut reference, frame, &[]);
+        let updated_audio = process(&mut updated, frame, &[]);
+        for (actual, expected) in updated_audio[0].iter().zip(&reference_audio[0]) {
+            assert!((actual - expected).abs() < 1.0e-7);
+        }
+    }
+
+    let mut update = InstrumentRuntime::prepare_update(Arc::clone(&second), spec)
+        .expect("unchanged global update prepares");
+    updated
+        .publish_prepared(&mut update)
+        .expect("unchanged global update publishes");
+    let reference_audio = process(&mut reference, 256, &[]);
+    let updated_audio = process(&mut updated, 256, &[]);
+    assert!(
+        reference_audio[0]
+            .iter()
+            .any(|sample| sample.abs() > 1.0e-6)
+    );
+    for (actual, expected) in updated_audio[0].iter().zip(&reference_audio[0]) {
+        assert!((actual - expected).abs() < 1.0e-7);
+    }
+}
+
+#[test]
 fn sustain_and_note_off_reach_the_retired_generation() {
     let mut first_definition = definition_json("saw", -14.0);
     first_definition.layers[0].envelope.release_seconds = 0.0;
