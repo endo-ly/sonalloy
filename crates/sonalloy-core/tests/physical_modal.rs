@@ -128,6 +128,7 @@ fn process_runtime(
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events,
             input: &[],
@@ -359,6 +360,7 @@ fn parameter_changes_are_stable_across_required_block_sizes() {
             ScheduledEvent {
                 absolute_frame: 64,
                 kind: ProcessEventKind::ParameterChange {
+                    catalog_revision: instrument.parameter_catalog_revision(),
                     parameter: brightness,
                     normalized: 0.15,
                 },
@@ -366,6 +368,7 @@ fn parameter_changes_are_stable_across_required_block_sizes() {
             ScheduledEvent {
                 absolute_frame: 128,
                 kind: ProcessEventKind::ParameterChange {
+                    catalog_revision: instrument.parameter_catalog_revision(),
                     parameter: stiffness,
                     normalized: 0.9,
                 },
@@ -373,6 +376,7 @@ fn parameter_changes_are_stable_across_required_block_sizes() {
             ScheduledEvent {
                 absolute_frame: 192,
                 kind: ProcessEventKind::ParameterChange {
+                    catalog_revision: instrument.parameter_catalog_revision(),
                     parameter: structure,
                     normalized: 0.2,
                 },
@@ -414,6 +418,7 @@ fn reset_then_same_note_matches_fresh_runtime() {
     runtime
         .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("runtime prepares");
+    runtime.activate().expect("runtime activates");
     let events = [ProcessEvent {
         sample_offset: 0,
         kind: note_on().kind,
@@ -426,6 +431,7 @@ fn reset_then_same_note_matches_fresh_runtime() {
     fresh_runtime
         .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("fresh runtime prepares");
+    fresh_runtime.activate().expect("fresh runtime activates");
     let fresh = process_runtime(&mut fresh_runtime, 257, 0, &events);
 
     assert_eq!(first, after_reset);
@@ -470,6 +476,7 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
     runtime
         .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("runtime prepares");
+    runtime.activate().expect("runtime activates");
     let mut left = vec![0.0; 257];
     let mut right = vec![0.0; 257];
     let parameter_events = [
@@ -480,6 +487,7 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
         ProcessEvent {
             sample_offset: 64,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: instrument.parameter_catalog_revision(),
                 parameter: brightness,
                 normalized: 0.9,
             },
@@ -487,6 +495,7 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
         ProcessEvent {
             sample_offset: 96,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: instrument.parameter_catalog_revision(),
                 parameter: stiffness,
                 normalized: 0.85,
             },
@@ -494,6 +503,7 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
         ProcessEvent {
             sample_offset: 128,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: instrument.parameter_catalog_revision(),
                 parameter: structure,
                 normalized: 0.2,
             },
@@ -501,6 +511,7 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
         ProcessEvent {
             sample_offset: 160,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: instrument.parameter_catalog_revision(),
                 parameter: decay,
                 normalized: 0.9,
             },
@@ -517,6 +528,7 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                    transport_state: sonalloy_core::TransportState::Playing,
                 },
                 events: &parameter_events,
                 input: &[],
@@ -551,6 +563,7 @@ fn parameter_change_and_note_off_keep_both_layers_active() {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                    transport_state: sonalloy_core::TransportState::Playing,
                 },
                 events: &note_off_events,
                 input: &[],

@@ -18,6 +18,7 @@ fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
     let spec = ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec");
     let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
     runtime.prepare(spec).expect("runtime preparation");
+    runtime.activate().expect("runtime activation");
 
     let mut channels = vec![vec![0.0_f32; 48_000], vec![0.0_f32; 48_000]];
     let mut offset = 0_usize;
@@ -35,6 +36,7 @@ fn render_sine_blocks(block_size: usize) -> Vec<Vec<f32>> {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                    transport_state: sonalloy_core::TransportState::Playing,
                 },
                 events: &[],
                 input: &[],
@@ -68,6 +70,7 @@ fn sine_runtime_reset_restarts_signal() {
     let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec");
     let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
     runtime.prepare(spec).expect("runtime preparation");
+    runtime.activate().expect("runtime activation");
     let mut first_left = [0.0_f32; 128];
     let mut first_right = [0.0_f32; 128];
     let mut second_left = [0.0_f32; 128];
@@ -82,6 +85,7 @@ fn sine_runtime_reset_restarts_signal() {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events: &[],
             input: &[],
@@ -99,6 +103,7 @@ fn sine_runtime_reset_restarts_signal() {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events: &[],
             input: &[],
@@ -138,6 +143,7 @@ fn process_runtime(
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events,
             input: &[],
@@ -637,6 +643,7 @@ fn complex_oscillator_parameter_changes_are_block_size_independent() {
         ScheduledEvent {
             absolute_frame: 512,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: instrument.parameter_catalog_revision(),
                 parameter: ratio,
                 normalized: 1.0,
             },
@@ -1196,6 +1203,7 @@ fn render_harmonic_formant_hybrid(
         },
     );
     let instrument = result.instrument.expect("hybrid compiles");
+    let catalog_revision = instrument.parameter_catalog_revision();
     assert!(
         result
             .diagnostics
@@ -1241,6 +1249,7 @@ fn render_harmonic_formant_hybrid(
             ScheduledEvent {
                 absolute_frame: 2_048,
                 kind: ProcessEventKind::ParameterChange {
+                    catalog_revision,
                     parameter: formant_shift,
                     normalized: 0.75,
                 },
@@ -1278,6 +1287,7 @@ fn process_harmonic_formant_hybrid(
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events,
             input: &[],
@@ -1342,6 +1352,7 @@ fn harmonic_formant_hybrid_integrates_generators_processors_and_modulation() {
     }];
     let mut runtime = compiled.instantiate();
     runtime.prepare(spec).expect("hybrid runtime prepares");
+    runtime.activate().expect("hybrid runtime activates");
     let first = process_harmonic_formant_hybrid(&mut runtime, &event);
     runtime.reset().expect("hybrid runtime resets");
     let reset = process_harmonic_formant_hybrid(&mut runtime, &event);
@@ -1350,6 +1361,9 @@ fn harmonic_formant_hybrid_integrates_generators_processors_and_modulation() {
     fresh_runtime
         .prepare(spec)
         .expect("fresh hybrid runtime prepares");
+    fresh_runtime
+        .activate()
+        .expect("fresh hybrid runtime activates");
     assert_eq!(
         reset,
         process_harmonic_formant_hybrid(&mut fresh_runtime, &event)
@@ -1464,6 +1478,7 @@ fn render_expressive_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
         ScheduledEvent {
             absolute_frame: 12_000,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: instrument.parameter_catalog_revision(),
                 parameter: instrument
                     .parameter_handle("voice.processor.tone.cutoff")
                     .expect("filter cutoff parameter exists"),
@@ -1557,6 +1572,7 @@ fn parameter_change_updates_the_compiled_target_after_smoothing() {
         ScheduledEvent {
             absolute_frame: 128,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: instrument.parameter_catalog_revision(),
                 parameter: gain,
                 normalized: 1.0,
             },
@@ -1842,6 +1858,7 @@ fn release_sample_layer_waits_for_actual_release_with_sustain() {
     runtime
         .prepare(ProcessSpec::new(48_000.0, 512, 0, 2).expect("valid spec"))
         .expect("release sample prepares");
+    runtime.activate().expect("release sample activates");
 
     let note_on = [ProcessEvent {
         sample_offset: 0,

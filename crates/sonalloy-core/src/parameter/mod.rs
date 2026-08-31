@@ -3,6 +3,9 @@ pub(crate) mod generator;
 
 pub use catalog::ParameterCatalog;
 
+/// Deterministic identity for a compiled parameter catalog.
+pub type ParameterCatalogRevision = u64;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -17,6 +20,12 @@ impl ParameterHandle {
         Self(index)
     }
 
+    /// Construct a handle from its dense catalog index.
+    #[must_use]
+    pub const fn from_index(index: usize) -> Self {
+        Self(index)
+    }
+
     /// Return the dense catalog index.
     #[must_use]
     pub const fn index(self) -> usize {
@@ -25,7 +34,7 @@ impl ParameterHandle {
 }
 
 /// Owner of a parameter in the Definition structure.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ParameterOwner {
     /// A shared value belonging to a Definition layer.
@@ -64,7 +73,7 @@ pub enum ParameterOwner {
 }
 
 /// Axis represented by a vector parameter.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VectorAxis {
     /// Two-way position axis.
@@ -76,7 +85,7 @@ pub enum VectorAxis {
 }
 
 /// Native unit exposed by the parameter contract.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ParameterUnit {
     /// Gain in decibels.
@@ -102,7 +111,7 @@ pub enum ParameterUnit {
 }
 
 /// Mapping used by normalized control values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ParameterScale {
     /// Uniform spacing in native units.

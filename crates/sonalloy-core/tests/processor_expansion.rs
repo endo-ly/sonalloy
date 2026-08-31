@@ -578,6 +578,7 @@ fn processor_parameter_changes_and_global_modulation_are_block_size_independent(
         ScheduledEvent {
             absolute_frame: 512,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: compiled.parameter_catalog_revision(),
                 parameter: frequency,
                 normalized: 1.0,
             },
@@ -585,6 +586,7 @@ fn processor_parameter_changes_and_global_modulation_are_block_size_independent(
         ScheduledEvent {
             absolute_frame: 1_024,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: compiled.parameter_catalog_revision(),
                 parameter: threshold,
                 normalized: 0.0,
             },
@@ -592,6 +594,7 @@ fn processor_parameter_changes_and_global_modulation_are_block_size_independent(
         ScheduledEvent {
             absolute_frame: 1_536,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: compiled.parameter_catalog_revision(),
                 parameter: depth,
                 normalized: 1.0,
             },
@@ -728,6 +731,7 @@ fn processor_expansion_reset_matches_a_fresh_runtime() {
     }];
     let mut runtime = compiled.instantiate();
     runtime.prepare(spec).expect("runtime prepares");
+    runtime.activate().expect("runtime activates");
     let mut first_left = vec![0.0; 257];
     let mut first_right = vec![0.0; 257];
     let mut first_output: [&mut [f32]; 2] = [&mut first_left, &mut first_right];
@@ -740,6 +744,7 @@ fn processor_expansion_reset_matches_a_fresh_runtime() {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events: &event,
             input: &[],
@@ -759,6 +764,7 @@ fn processor_expansion_reset_matches_a_fresh_runtime() {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events: &event,
             input: &[],

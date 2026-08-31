@@ -1,6 +1,7 @@
 use sonalloy_dsp_sys::{DspOscillator, DspOscillatorWaveform};
 
 use crate::process::{InstrumentProcessor, ProcessBlock, ProcessError, ProcessSpec, clear_output};
+use crate::runtime::RuntimeState;
 
 /// The sine runtime: one `DaisySP` oscillator rendered to stereo.
 pub struct SineRuntime {
@@ -9,6 +10,7 @@ pub struct SineRuntime {
     spec: Option<ProcessSpec>,
     scratch: Vec<f32>,
     absolute_frame: u64,
+    state: RuntimeState,
 }
 
 impl SineRuntime {
@@ -28,6 +30,7 @@ impl SineRuntime {
             spec: None,
             scratch: Vec::new(),
             absolute_frame: 0,
+            state: RuntimeState::Unprepared,
         })
     }
 
@@ -46,6 +49,10 @@ impl SineRuntime {
 
 impl InstrumentProcessor for SineRuntime {
     fn prepare(&mut self, spec: ProcessSpec) -> Result<(), ProcessError> {
+        if self.state == RuntimeState::Active {
+            return Err(ProcessError::NotActive);
+        }
+        self.state = RuntimeState::Unprepared;
         self.spec = None;
         self.scratch.clear();
         self.absolute_frame = 0;
@@ -62,12 +69,27 @@ impl InstrumentProcessor for SineRuntime {
         self.scratch.resize(spec.max_block_size, 0.0);
         self.spec = Some(spec);
         self.absolute_frame = 0;
+        self.state = RuntimeState::Prepared;
+        Ok(())
+    }
+
+    fn activate(&mut self) -> Result<(), ProcessError> {
+        if self.spec.is_none() {
+            return Err(ProcessError::NotPrepared);
+        }
+        if self.state != RuntimeState::Prepared {
+            return Err(ProcessError::NotActive);
+        }
+        self.state = RuntimeState::Active;
         Ok(())
     }
 
     fn process(&mut self, block: ProcessBlock<'_>) -> Result<(), ProcessError> {
         clear_output(&mut *block.output, block.frames);
         let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
+        if self.state != RuntimeState::Active {
+            return Err(ProcessError::NotActive);
+        }
         block.validate_for(spec)?;
 
         let next_frame = self
@@ -120,6 +142,14 @@ impl InstrumentProcessor for SineRuntime {
         self.absolute_frame = 0;
         Ok(())
     }
+
+    fn deactivate(&mut self) -> Result<(), ProcessError> {
+        if self.state != RuntimeState::Active {
+            return Err(ProcessError::NotActive);
+        }
+        self.state = RuntimeState::Prepared;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -137,6 +167,7 @@ mod tests {
         let spec = ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
+        runtime.activate().expect("runtime activation");
 
         let mut channels = vec![vec![0.0_f32; 48_000], vec![0.0_f32; 48_000]];
         let mut offset = 0_usize;
@@ -155,6 +186,7 @@ mod tests {
                         beat_position: 0.0,
                         bar_position: 0.0,
                         time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                        transport_state: crate::process::TransportState::Playing,
                     },
                     events: &[],
                     input: &[],
@@ -188,6 +220,7 @@ mod tests {
         let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
+        runtime.activate().expect("runtime activation");
         let mut first_left = [0.0_f32; 128];
         let mut first_right = [0.0_f32; 128];
         let mut second_left = [0.0_f32; 128];
@@ -202,6 +235,7 @@ mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: crate::process::TransportState::Playing,
                 },
                 events: &[],
                 input: &[],
@@ -221,6 +255,7 @@ mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: crate::process::TransportState::Playing,
                 },
                 events: &[],
                 input: &[],
@@ -262,6 +297,7 @@ mod tests {
                         beat_position: 0.0,
                         bar_position: 0.0,
                         time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                        transport_state: crate::process::TransportState::Playing,
                     },
                     events: &[],
                     input: &[],
@@ -274,6 +310,7 @@ mod tests {
         }
 
         runtime.prepare(valid_spec).expect("runtime re-preparation");
+        runtime.activate().expect("runtime activation");
         let mut left = [0.0_f32; 2];
         let mut right = [0.0_f32; 2];
         let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
@@ -287,6 +324,7 @@ mod tests {
                         beat_position: 0.0,
                         bar_position: 0.0,
                         time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                        transport_state: crate::process::TransportState::Playing,
                     },
                     events: &[],
                     input: &[],
@@ -301,6 +339,7 @@ mod tests {
         let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
+        runtime.activate().expect("runtime activation");
         let mut left = vec![1.0_f32; 64];
         let mut right = vec![1.0_f32; 64];
         let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
@@ -312,6 +351,7 @@ mod tests {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                transport_state: crate::process::TransportState::Playing,
             },
             events: &[],
             input: &[],
@@ -330,6 +370,7 @@ mod tests {
         let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
+        runtime.activate().expect("runtime activation");
         let event = ProcessEvent {
             sample_offset: 0,
             kind: ProcessEventKind::NoteOn {
@@ -349,6 +390,7 @@ mod tests {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                transport_state: crate::process::TransportState::Playing,
             },
             events: &[event],
             input: &[],
@@ -364,6 +406,7 @@ mod tests {
         let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
+        runtime.activate().expect("runtime activation");
         let mut left = vec![0.0_f32; 66];
         let mut right = vec![0.0_f32; 66];
         left[64] = 123.0;
@@ -380,6 +423,7 @@ mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: crate::process::TransportState::Playing,
                 },
                 events: &[],
                 input: &[],
@@ -398,6 +442,7 @@ mod tests {
         let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
+        runtime.activate().expect("runtime activation");
         let mut left = [1.0_f32; 4];
         let mut right = [1.0_f32; 4];
         let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
@@ -410,6 +455,7 @@ mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: crate::process::TransportState::Playing,
                 },
                 events: &[],
                 input: &[],
@@ -433,6 +479,7 @@ mod tests {
         let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
         let mut runtime = SineRuntime::new(440.0).expect("valid sine runtime");
         runtime.prepare(spec).expect("runtime preparation");
+        runtime.activate().expect("runtime activation");
 
         let mut left = vec![1.0_f32; 65];
         let mut right = vec![1.0_f32; 65];
@@ -445,6 +492,7 @@ mod tests {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                transport_state: crate::process::TransportState::Playing,
             },
             events: &[],
             input: &[],
@@ -468,6 +516,7 @@ mod tests {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                transport_state: crate::process::TransportState::Playing,
             },
             events: &[],
             input: &[],

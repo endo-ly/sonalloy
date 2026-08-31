@@ -1,6 +1,6 @@
 use super::super::modulation::apply_domain_sum_with_maximum;
 use super::super::voice::VoiceRuntime;
-use super::{InstrumentRuntime, invalid_state, phase_fraction};
+use super::{RuntimeGeneration, invalid_state, phase_fraction};
 use crate::compiler::{CompiledInstrument, CompiledInstrumentSourceKind, CompiledSourceRef};
 use crate::parameter::{ParameterHandle, ParameterOwner, ParameterScale};
 use crate::process::{ProcessContext, ProcessError};
@@ -8,7 +8,7 @@ use crate::trace::{TraceContribution, TraceDepth, TraceObservation, TraceRoute, 
 
 use crate::runtime::modulation;
 
-impl InstrumentRuntime {
+impl RuntimeGeneration {
     pub(super) fn trace_observation(
         &self,
         handle: ParameterHandle,

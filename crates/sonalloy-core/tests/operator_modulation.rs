@@ -319,6 +319,7 @@ fn parameter_change_ratio_and_index_are_continuous_across_block_sizes() {
         ScheduledEvent {
             absolute_frame: 512,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: compiled.parameter_catalog_revision(),
                 parameter: ratio,
                 normalized: 0.4,
             },
@@ -326,6 +327,7 @@ fn parameter_change_ratio_and_index_are_continuous_across_block_sizes() {
         ScheduledEvent {
             absolute_frame: 768,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: compiled.parameter_catalog_revision(),
                 parameter: amount,
                 normalized: 0.6,
             },
@@ -519,6 +521,7 @@ fn operator_runtime_reset_restarts_state() {
     runtime
         .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("runtime prepares");
+    runtime.activate().expect("runtime activates");
     let events = [ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {
@@ -540,6 +543,7 @@ fn operator_runtime_reset_restarts_state() {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                    transport_state: sonalloy_core::TransportState::Playing,
                 },
                 events: &events,
                 input: &[],
@@ -556,6 +560,7 @@ fn operator_runtime_reset_restarts_state() {
     fresh_runtime
         .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("fresh runtime prepares");
+    fresh_runtime.activate().expect("fresh runtime activates");
     let fresh = process_once(&mut fresh_runtime);
 
     for (actual, expected) in reset

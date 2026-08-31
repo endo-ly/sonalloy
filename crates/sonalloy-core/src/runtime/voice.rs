@@ -357,6 +357,14 @@ impl VoiceRuntime {
             .map(|note_id| (note_id, self.note_number, self.velocity, self.state))
     }
 
+    pub(crate) fn contains_note_id(&self, note_id: NoteId) -> bool {
+        self.note_id == Some(note_id)
+            || self
+                .pending
+                .as_ref()
+                .is_some_and(|pending| pending.request.note_id == note_id)
+    }
+
     pub(crate) fn portamento_offset_cents(&self) -> f32 {
         self.pitch_glide.current()
     }

@@ -444,6 +444,7 @@ fn wavetable_output_is_stable_across_block_sizes_and_reset() {
     let mut runtime = compiled.instantiate();
     let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec");
     runtime.prepare(spec).expect("runtime prepares");
+    runtime.activate().expect("runtime activates");
     let mut first_left = vec![0.0; 256];
     let mut first_right = vec![0.0; 256];
     let mut output: [&mut [f32]; 2] = [&mut first_left, &mut first_right];
@@ -456,6 +457,7 @@ fn wavetable_output_is_stable_across_block_sizes_and_reset() {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events: &[sonalloy_core::ProcessEvent {
                 sample_offset: 0,
@@ -482,6 +484,7 @@ fn wavetable_output_is_stable_across_block_sizes_and_reset() {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events: &[sonalloy_core::ProcessEvent {
                 sample_offset: 0,
