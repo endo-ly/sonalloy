@@ -67,7 +67,7 @@ pub struct SonalloyRuntime {
     pub(crate) inner: sonalloy_core::InstrumentRuntime,
     pub(crate) event_scratch: Vec<sonalloy_core::ProcessEvent>,
     pub(crate) last_error: SonalloyRuntimeErrorInfo,
-    pub(crate) reclaimable_slots: Vec<SonalloyReclaimable>,
+    pub(crate) reclaimable_slots: [SonalloyReclaimable; MAX_RECLAIMABLE_SLOTS],
     pub(crate) max_block_size: usize,
 }
 
@@ -94,6 +94,7 @@ const RECLAIMABLE_FREE: u8 = 0;
 const RECLAIMABLE_AUDIO_WRITING: u8 = 1;
 const RECLAIMABLE_CONTROL_OWNED: u8 = 2;
 const RECLAIMABLE_CONTROL_DROPPING: u8 = 3;
+const MAX_RECLAIMABLE_SLOTS: usize = 16;
 
 impl SonalloyReclaimable {
     pub(crate) const fn new() -> Self {
@@ -158,7 +159,7 @@ unsafe impl Sync for SonalloyReclaimable {}
 
 #[cfg(test)]
 mod tests {
-    use super::{SonalloyResult, guard, guard_result};
+    use super::{SonalloyReclaimable, SonalloyResult, guard, guard_result};
 
     #[unsafe(no_mangle)]
     extern "C" fn sonalloy_test_panic_entry() -> SonalloyResult {
@@ -180,5 +181,41 @@ mod tests {
     #[test]
     fn panic_is_contained_when_called_through_an_extern_entry() {
         assert_eq!(sonalloy_test_panic_entry(), SonalloyResult::InternalPanic);
+    }
+
+    #[test]
+    fn reclaimable_slot_claim_is_exclusive() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let slot = Arc::new(SonalloyReclaimable::new());
+        thread::scope(|scope| {
+            let threads: Vec<_> = (0..8)
+                .map(|_| {
+                    let slot = Arc::clone(&slot);
+                    scope.spawn(move || slot.try_claim_for_audio())
+                })
+                .collect();
+            let claims = threads
+                .into_iter()
+                .map(|thread| thread.join().expect("claim thread completed"))
+                .filter(|claimed| *claimed)
+                .count();
+            assert_eq!(claims, 1);
+        });
+        slot.release_audio_claim();
+        assert!(slot.try_claim_for_audio());
+        slot.release_audio_claim();
+    }
+
+    #[test]
+    fn reclaimable_destroy_cannot_take_an_audio_owned_slot() {
+        let slot = SonalloyReclaimable::new();
+        assert!(slot.try_claim_for_audio());
+        slot.destroy_from_control();
+        assert!(!slot.try_claim_for_audio());
+        slot.release_audio_claim();
+        assert!(slot.try_claim_for_audio());
+        slot.release_audio_claim();
     }
 }

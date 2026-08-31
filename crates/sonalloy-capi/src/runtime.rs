@@ -175,7 +175,7 @@ pub extern "C" fn sonalloy_runtime_create(
             *out_runtime = ptr::null_mut();
         }
         let compiled = unsafe { &*compiled };
-        let mut runtime = Box::new(SonalloyRuntime {
+        let runtime = Box::new(SonalloyRuntime {
             inner: sonalloy_core::InstrumentRuntime::new(Arc::clone(&compiled.inner)),
             event_scratch: Vec::with_capacity(MAX_EVENTS_PER_BLOCK),
             last_error: SonalloyRuntimeErrorInfo {
@@ -184,12 +184,9 @@ pub extern "C" fn sonalloy_runtime_create(
                 value_a: 0,
                 value_b: 0,
             },
-            reclaimable_slots: Vec::with_capacity(16),
+            reclaimable_slots: std::array::from_fn(|_| SonalloyReclaimable::new()),
             max_block_size: 0,
         });
-        for _ in 0..16 {
-            runtime.reclaimable_slots.push(SonalloyReclaimable::new());
-        }
         unsafe {
             *out_runtime = Box::into_raw(runtime);
         }
