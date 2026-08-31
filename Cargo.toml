@@ -4,6 +4,7 @@ members = [
     "crates/sonalloy-core",
     "crates/sonalloy-dsp-sys",
     "crates/sonalloy-cli",
+    "crates/sonalloy-capi",
 ]
 
 [workspace.package]
