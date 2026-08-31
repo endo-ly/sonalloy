@@ -1,4 +1,6 @@
 use std::ptr;
+use std::sync::{Arc, Barrier};
+use std::thread;
 
 use sonalloy_capi::{
     SonalloyCompiledInstrument, SonalloyEvent, SonalloyProcessContext, SonalloyProcessSpec,
@@ -268,7 +270,21 @@ fn c_api_lifecycle_process_update_and_reclaim() {
         SonalloyResult::Ok
     );
     assert!(!reclaimable.is_null());
-    sonalloy_reclaimable_destroy(reclaimable);
+    let start = Arc::new(Barrier::new(2));
+    let control_start = Arc::clone(&start);
+    let reclaimable_address = reclaimable as usize;
+    let control_thread = thread::spawn(move || {
+        control_start.wait();
+        sonalloy_reclaimable_destroy(reclaimable_address as *mut _);
+    });
+    start.wait();
+    let mut next_reclaimable = ptr::null_mut();
+    assert_eq!(
+        sonalloy_runtime_take_reclaimable(runtime, &raw mut next_reclaimable),
+        SonalloyResult::Ok
+    );
+    assert!(next_reclaimable.is_null());
+    control_thread.join().expect("control reclaim completed");
     sonalloy_reclaimable_destroy(reclaimable);
     assert_eq!(sonalloy_runtime_deactivate(runtime), SonalloyResult::Ok);
     assert_eq!(sonalloy_runtime_state(runtime), 1);
