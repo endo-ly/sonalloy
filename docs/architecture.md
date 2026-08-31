@@ -13,7 +13,7 @@
 
 ## クレート構成
 
-3つのRustクレートと、C/C++のネイティブDSPライブラリから成ります。参照は一方向で、下位クレートは上位クレートを参照しません。
+4つのRustクレートと、C/C++のネイティブDSPライブラリから成ります。参照は一方向で、下位クレートは上位クレートを参照しません。
 
 ```mermaid
 flowchart TD
@@ -21,6 +21,7 @@ flowchart TD
     CLI --> Audio[CPAL Audio Adapter]
     CLI --> Midi[Midir MIDI Adapter]
     CLI --> Queue[Crossbeam Queue]
+    CAPI[sonalloy-capi] --> Core[sonalloy-core]
     Core --> Sys[sonalloy-dsp-sys]
     Sys --> ABI[Internal C ABI]
     ABI --> DSP[DaisySP]
@@ -32,6 +33,7 @@ flowchart TD
 | `sonalloy-cli` | 引数解釈、Offline MIDI→Event変換、WAV出力、Realtime Session、Audio Input Queue、診断表示、終了コード | DaisySPのFFIを直接呼ぶこと |
 | `sonalloy-core` | 処理契約、Definitionの読込と検証、Compile、Runtime、Render | CLIフレームワーク（clap）、WAV / MIDI入出力（hound / midly）、オーディオAPI（cpal / midir / crossbeam-queue）、C++ヘッダー |
 | `sonalloy-dsp-sys` | 内部C ABIの宣言と、生ポインタを隠蔽するSafe Rustラッパー | — |
+| `sonalloy-capi` | C / C++ Application向けの公開C ABI、Opaque Handle、Diagnostics、Runtime Lifecycle | CLI、CPAL / Midir、JUCE、Plugin SDK |
 
 RealtimeでもOfflineでも音声は同じ`sonalloy-core`の処理契約を通ります。そのためDeviceやQueueといった外部I/Oの依存を`sonalloy-cli`へ集約し、Coreを環境非依存に保ちます。
 
@@ -50,6 +52,17 @@ Realtime Sessionは、次の要素で構成されます。
 | Status | Queue Overflow・Input Underflow / Overflow・Process Error・Device ErrorをSessionへ伝える |
 
 CoreはDevice名、Port ID、CPAL / Midir型を参照しません。Queueの整列規則などRealtimeの動作の詳細は`docs/runtime-processing.md`を参照してください。
+
+## 公開C ABI
+
+`sonalloy-capi`は、Rustの所有権や内部DSP型をC / C++側へ公開せずに、DefinitionのCompile、Parameter Catalogの参照、RuntimeのLifecycle、Planar AudioのProcessを提供します。外部Applicationは[`sonalloy.h`](../crates/sonalloy-capi/include/sonalloy.h)に定義されたOpaque Handleだけを保持します。
+
+公開C ABIはCoreの公開契約を変換する境界です。ネイティブDSPへ接続する`sonalloy-dsp-sys`のInternal C ABIとは用途と所有者が異なります。依存方向は次のとおりです。
+
+```text
+CLI ─────────────→ Core ─────→ DSP Sys ─────→ Internal C ABI ─→ DSP
+C / C++ Application ────────→ Public C ABI ─→ Core
+```
 
 ## `sonalloy-core`
 
@@ -91,7 +104,7 @@ Assetはコンパイル時に読み込み、デコード済みのPrepared Audio�
 
 ## Native境界
 
-C ABIは`sonalloy-dsp-sys`とネイティブDSPの間の**内部境界**であり、外部製品向けの公開ABIではありません。
+`sonalloy-dsp-sys`のC ABIは、ネイティブDSPとの間の**内部境界**であり、外部製品向けの公開ABIではありません。外部Applicationが利用する公開境界は`sonalloy-capi`です。
 
 Rust側はネイティブのC++ Objectを不透明ハンドルとして所有し、生ポインタをSafe Rustラッパーの内側に隠します。ハンドルの`Send`実装は、一意所有・非共有アクセス・Thread affinityなしの条件を満たすWrapperに限定して許可します。これはAudio Callbackへの所有移動に必要な最小範囲です。
 
@@ -105,7 +118,9 @@ Rust側はネイティブのC++ Objectを不透明ハンドルとして所有し
 |---|---|
 | Compile | 変更不能な`CompiledInstrument`（Metadata、Performance、有効Layer、Processor Chain、Parameter Catalog、Source、Route、Asset Warning）。`sonalloy-core`が所有し、Parameter IDをDense Handleへ解決する |
 | Prepare | `InstrumentRuntime`の可変状態。Scratch Buffer、Generator State、同時発音数分のVoiceを実行前に確保する |
-| Process / Reset | Prepareで確保した状態を再利用する。Resetは準備時と同じ初期状態を復元する |
+| Activate | 準備済みのRuntimeをAudio Streamへ接続できる状態にする。CompileやResource確保は行わない |
+| Process / Reset / Deactivate | Prepareで確保した状態を再利用する。Resetは準備時と同じ初期状態を復元し、DeactivateはResourceを保持したままProcessを停止する |
+| Publish / Reclaim | Control側で準備した更新をBlock境界でActive Generationへ移し、旧Generationと旧Global ProcessorはControl側で破棄できるResourceとして回収する |
 | Realtime Session | `sonalloy-cli`がCPALのOutput / optional Input Stream、Midir Connection、固定容量Event / Input Queue、Statusを所有する |
 
 `CompiledInstrument`は変更不能で、Runtimeが持つ可変状態（Base Smoother、External Control、Voice Source、Generator Cursor、Processor State）を書き戻す先はありません。Voice Stealingでは、Layer・Generator・Processor・Modulation Sourceをまとめて1つのVoice Stateとして切り替えます。

@@ -18,6 +18,7 @@ Sonalloyは、JSONで書いた音源定義からリアルタイム演奏とオ�
 - **演奏表現を定義できる**: Polyphonicに加えてMonophonic、Last-note Priority、Legato、Portamento、Sustainを扱う
 - **Instrument Controlをまとめて設計できる**: Macroで複数Parameterを操作し、2-Way / 4-Way VectorでLayerをConstant-powerに混ぜる
 - **演奏と検証を同じCoreで実行**: `device list`でAudio / MIDI Deviceを確認し、`play`でMIDI演奏、PatternをMIDI Keyboardなしで試聴し、単音・Event Sequence・MIDI Fileをオフラインで再現できる
+- **外部Applicationへ組み込める**: `sonalloy-capi`と公開ヘッダ`sonalloy.h`から、C / C++ Applicationが同じCompile・Process・Runtime Lifecycleを利用できる
 
 ## インストール
 
@@ -132,6 +133,7 @@ cargo fmt --all -- --check
 | [`docs/pattern.md`](docs/pattern.md) | 1 Instrument用Audition PatternとMIDI Interchange |
 | [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源の作り方（手順書） |
 | [`docs/runtime-processing.md`](docs/runtime-processing.md) | 実行時の動作：Block処理・Noteの一生・実行上の約束事 |
+| [`docs/c-api.md`](docs/c-api.md) | 公開C ABI：Handle所有権・Compile・Process・Runtime Update |
 | [`docs/testing-and-sound-review.md`](docs/testing-and-sound-review.md) | 検証とReviewの手順 |
 | [`docs/architecture.md`](docs/architecture.md) | 静的構造：Crate・依存方向・Native境界 |
 | [`docs/release.md`](docs/release.md) | リリース手順 |
