@@ -18,6 +18,12 @@ const MAX_RETIRED_GENERATIONS: usize = MAX_LIVE_GENERATIONS - 1;
 const MAX_RECLAIMABLE_RESOURCES: usize = MAX_LIVE_GENERATIONS * 2;
 const GLOBAL_RECONFIG_FADE_SECONDS: f64 = 0.005;
 
+fn invalid_state() -> ProcessError {
+    ProcessError::ProcessorFailure {
+        kind: crate::process::ProcessorFailureKind::InvalidState,
+    }
+}
+
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn global_transition_frames(sample_rate: f64) -> usize {
     (sample_rate * GLOBAL_RECONFIG_FADE_SECONDS)
@@ -438,9 +444,6 @@ impl InstrumentRuntime {
         if self.global_transition.is_some() {
             return Err(PublishError::TransitionBusy);
         }
-        if self.spec != Some(update.spec) {
-            return Err(PublishError::ProcessSpecMismatch);
-        }
         let current_latency = active.compiled.reported_latency_frames();
         let candidate_latency = candidate.compiled.reported_latency_frames();
         if current_latency != candidate_latency {
@@ -457,6 +460,9 @@ impl InstrumentRuntime {
                 current_latency_frames: current_latency,
                 candidate_latency_frames: candidate_latency,
             });
+        }
+        if self.spec != Some(update.spec) {
+            return Err(PublishError::ProcessSpecMismatch);
         }
         if self.retired.len() >= MAX_RETIRED_GENERATIONS {
             return Err(PublishError::CapacityExceeded);
@@ -548,15 +554,14 @@ impl InstrumentRuntime {
     }
 
     fn process_inner(&mut self, block: &mut ProcessBlock<'_>) -> Result<(), ProcessError> {
-        let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
-        block.validate_for(spec)?;
-        self.validate_events(block.events)?;
-        if block.context.absolute_frame != self.absolute_frame {
-            return Err(ProcessError::ContextDiscontinuity {
-                received: block.context.absolute_frame,
-                expected: self.absolute_frame,
-            });
+        self.active
+            .as_ref()
+            .ok_or(ProcessError::NotPrepared)?
+            .validate_process_block(block, true)?;
+        for retired in &self.retired {
+            retired.validate_process_block(block, false)?;
         }
+        self.validate_events(block.events)?;
         let next_frame = self
             .absolute_frame
             .checked_add(block.frames as u64)
@@ -569,6 +574,14 @@ impl InstrumentRuntime {
             self.absolute_frame = next_frame;
             return Ok(());
         }
+        self.process_multigeneration(block, next_frame)
+    }
+
+    fn process_multigeneration(
+        &mut self,
+        block: &mut ProcessBlock<'_>,
+        next_frame: u64,
+    ) -> Result<(), ProcessError> {
         self.mix_left[..block.frames].fill(0.0);
         self.mix_right[..block.frames].fill(0.0);
         if block.frames == 0 {
@@ -576,36 +589,16 @@ impl InstrumentRuntime {
             return Ok(());
         }
 
-        let mut generation_index = 0;
-        if let Some(active) = self.active.as_mut() {
-            Self::process_generation(
-                active,
-                true,
-                block,
-                &mut self.generation_audio[generation_index],
-            )?;
-            generation_index += 1;
+        let generation_count = self.retired.len() + 1;
+        for audio in &mut self.generation_audio[..generation_count] {
+            audio.left[..block.frames].fill(0.0);
+            audio.right[..block.frames].fill(0.0);
         }
-        for retired in &mut self.retired {
-            Self::process_generation(
-                retired,
-                false,
-                block,
-                &mut self.generation_audio[generation_index],
-            )?;
-            generation_index += 1;
-        }
-        for audio in &self.generation_audio[..generation_index] {
-            for index in 0..block.frames {
-                self.mix_left[index] += audio.left[index];
-                self.mix_right[index] += audio.right[index];
-            }
-        }
-        let external = ExternalAudioBlock::new(block.input);
-        self.process_global(block, external)?;
-        for index in 0..block.frames {
-            block.output[0][index] = self.mix_left[index];
-            block.output[1][index] = self.mix_right[index];
+
+        let mut cursor = 0;
+        let mut event_index = 0;
+        while cursor < block.frames {
+            cursor = self.process_multigeneration_span(block, cursor, &mut event_index)?;
         }
         self.absolute_frame = next_frame;
         self.finish_transition(block.frames);
@@ -613,69 +606,155 @@ impl InstrumentRuntime {
         Ok(())
     }
 
-    fn process_generation(
+    fn process_multigeneration_span(
+        &mut self,
+        block: &mut ProcessBlock<'_>,
+        cursor: usize,
+        event_index: &mut usize,
+    ) -> Result<usize, ProcessError> {
+        let event_start = *event_index;
+        while *event_index < block.events.len()
+            && block.events[*event_index].sample_offset == cursor
+        {
+            *event_index += 1;
+        }
+        let events = &block.events[event_start..*event_index];
+        if !events.is_empty() {
+            let absolute_frame = block
+                .context
+                .absolute_frame
+                .checked_add(cursor as u64)
+                .ok_or(ProcessError::FrameOverflow)?;
+            self.active
+                .as_mut()
+                .ok_or(ProcessError::NotPrepared)?
+                .apply_events_at(events, absolute_frame, true, true)?;
+            for retired in &mut self.retired {
+                retired.apply_events_at(events, absolute_frame, false, false)?;
+            }
+        }
+
+        let mut end = block.frames;
+        if let Some(active) = self.active.as_ref() {
+            end = end.min(active.next_span_end(block, cursor, *event_index)?);
+        }
+        for retired in &self.retired {
+            end = end.min(retired.next_span_end(block, cursor, *event_index)?);
+        }
+        let context = block.context;
+        let input = block.input;
+        let mut generation_index = 0;
+        if let Some(active) = self.active.as_mut() {
+            Self::process_generation_span(
+                active,
+                context,
+                input,
+                cursor,
+                end,
+                &mut self.generation_audio[generation_index],
+            )?;
+            generation_index += 1;
+        }
+        for retired in &mut self.retired {
+            Self::process_generation_span(
+                retired,
+                context,
+                input,
+                cursor,
+                end,
+                &mut self.generation_audio[generation_index],
+            )?;
+            generation_index += 1;
+        }
+        for audio in &self.generation_audio[..generation_index] {
+            for index in cursor..end {
+                self.mix_left[index] += audio.left[index];
+                self.mix_right[index] += audio.right[index];
+            }
+        }
+        let external_channels = [
+            input
+                .first()
+                .and_then(|channel| channel.get(cursor..end))
+                .unwrap_or(&[]),
+            input
+                .get(1)
+                .and_then(|channel| channel.get(cursor..end))
+                .unwrap_or(&[]),
+        ];
+        let external = ExternalAudioBlock::new(&external_channels[..input.len().min(2)]);
+        self.process_global_span(context.tempo_bpm, external, cursor, end)?;
+        let (left_channels, right_channels) = block.output.split_at_mut(1);
+        let left = left_channels
+            .first_mut()
+            .and_then(|channel| channel.get_mut(cursor..end))
+            .ok_or_else(invalid_state)?;
+        let right = right_channels
+            .first_mut()
+            .and_then(|channel| channel.get_mut(cursor..end))
+            .ok_or_else(invalid_state)?;
+        left.copy_from_slice(&self.mix_left[cursor..end]);
+        right.copy_from_slice(&self.mix_right[cursor..end]);
+        Ok(end)
+    }
+
+    fn process_generation_span(
         generation: &mut RuntimeGeneration,
-        accept_new_events: bool,
-        block: &ProcessBlock<'_>,
+        context: crate::process::ProcessContext,
+        input: &[&[f32]],
+        start: usize,
+        end: usize,
         audio: &mut GenerationAudio,
     ) -> Result<(), ProcessError> {
-        let mut output = [
-            &mut audio.left[..block.frames],
-            &mut audio.right[..block.frames],
-        ];
-        let mut generation_block = ProcessBlock {
-            frames: block.frames,
-            context: block.context,
-            events: block.events,
-            input: block.input,
-            output: &mut output,
-        };
-        generation.process_inner_with_routing(
-            &mut generation_block,
-            accept_new_events,
-            accept_new_events,
-            false,
-        )
+        let mut output = [&mut audio.left[..end], &mut audio.right[..end]];
+        generation.render_voice_span(context, input, start, end, &mut output)?;
+        generation.evaluate_global_targets_for_span(end - start)
     }
 
     #[allow(clippy::cast_precision_loss)]
-    fn process_global(
+    fn process_global_span(
         &mut self,
-        block: &ProcessBlock<'_>,
+        tempo_bpm: f64,
         external: ExternalAudioBlock<'_>,
+        start: usize,
+        end: usize,
     ) -> Result<(), ProcessError> {
         let Some(active) = self.active.as_mut() else {
             return Err(ProcessError::NotPrepared);
         };
-        if let Some(transition) = &self.global_transition {
+        if let Some(transition) = self.global_transition.as_ref() {
+            let old_generation = transition.old_generation;
+            let elapsed_frames = transition.elapsed_frames;
+            let total_frames = transition.total_frames;
             let old = self
                 .retired
                 .iter_mut()
-                .find(|generation| generation.generation_id() == transition.old_generation)
+                .find(|generation| generation.generation_id() == old_generation)
                 .ok_or(PublishError::InvalidState)
                 .map_err(|_| ProcessError::ProcessorFailure {
                     kind: crate::process::ProcessorFailureKind::InvalidState,
                 })?;
-            self.old_global_left[..block.frames].copy_from_slice(&self.mix_left[..block.frames]);
-            self.old_global_right[..block.frames].copy_from_slice(&self.mix_right[..block.frames]);
-            self.new_global_left[..block.frames].copy_from_slice(&self.mix_left[..block.frames]);
-            self.new_global_right[..block.frames].copy_from_slice(&self.mix_right[..block.frames]);
+            self.old_global_left[start..end].copy_from_slice(&self.mix_left[start..end]);
+            self.old_global_right[start..end].copy_from_slice(&self.mix_right[start..end]);
+            self.new_global_left[start..end].copy_from_slice(&self.mix_left[start..end]);
+            self.new_global_right[start..end].copy_from_slice(&self.mix_right[start..end]);
             old.process_global(
-                block.context.tempo_bpm,
+                tempo_bpm,
                 external,
-                &mut self.old_global_left[..block.frames],
-                &mut self.old_global_right[..block.frames],
+                &mut self.old_global_left[start..end],
+                &mut self.old_global_right[start..end],
             )?;
             active.process_global(
-                block.context.tempo_bpm,
+                tempo_bpm,
                 external,
-                &mut self.new_global_left[..block.frames],
-                &mut self.new_global_right[..block.frames],
+                &mut self.new_global_left[start..end],
+                &mut self.new_global_right[start..end],
             )?;
-            let elapsed = transition.elapsed_frames;
-            let total = transition.total_frames;
-            for index in 0..block.frames {
-                let position = (elapsed.saturating_add(index + 1).min(total)) as f32 / total as f32;
+            for index in start..end {
+                let position = (elapsed_frames
+                    .saturating_add(index - start + 1)
+                    .min(total_frames)) as f32
+                    / total_frames as f32;
                 let old_gain = (position * FRAC_PI_2).cos();
                 let new_gain = (position * FRAC_PI_2).sin();
                 self.mix_left[index] =
@@ -685,10 +764,10 @@ impl InstrumentRuntime {
             }
         } else {
             active.process_global(
-                block.context.tempo_bpm,
+                tempo_bpm,
                 external,
-                &mut self.mix_left[..block.frames],
-                &mut self.mix_right[..block.frames],
+                &mut self.mix_left[start..end],
+                &mut self.mix_right[start..end],
             )?;
         }
         Ok(())

@@ -363,6 +363,157 @@ impl RuntimeGeneration {
         remaining
     }
 
+    pub(crate) fn validate_process_block(
+        &self,
+        block: &ProcessBlock<'_>,
+        accept_parameter_changes: bool,
+    ) -> Result<(), ProcessError> {
+        let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
+        block.validate_for(spec)?;
+        self.validate_parameter_events(block.events, accept_parameter_changes)?;
+        if block.context.absolute_frame != self.absolute_frame {
+            return Err(ProcessError::ContextDiscontinuity {
+                received: block.context.absolute_frame,
+                expected: self.absolute_frame,
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn next_span_end(
+        &self,
+        block: &ProcessBlock<'_>,
+        cursor: usize,
+        event_index: usize,
+    ) -> Result<usize, ProcessError> {
+        let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
+        let mut end = block.frames;
+        if let Some(next_event) = block.events.get(event_index) {
+            end = end.min(next_event.sample_offset);
+        }
+        let absolute = block
+            .context
+            .absolute_frame
+            .checked_add(cursor as u64)
+            .ok_or(ProcessError::FrameOverflow)?;
+        let absolute_frame = usize::try_from(absolute).map_err(|_| ProcessError::FrameOverflow)?;
+        let quantum = QUANTUM_FRAMES - (absolute_frame % QUANTUM_FRAMES);
+        end = end.min(cursor + quantum);
+        if let Some(remaining) = self.shared_target_remaining() {
+            end = end.min(cursor + remaining);
+        }
+        if let Some(remaining) = self.transport_boundary_remaining(
+            block.context,
+            cursor,
+            spec.sample_rate,
+            block.frames - cursor,
+        ) {
+            end = end.min(cursor + remaining);
+        }
+        Ok(if end <= cursor { cursor + 1 } else { end })
+    }
+
+    pub(crate) fn apply_events_at(
+        &mut self,
+        events: &[crate::process::ProcessEvent],
+        absolute_frame: u64,
+        accept_note_ons: bool,
+        accept_parameter_changes: bool,
+    ) -> Result<(), ProcessError> {
+        self.absolute_frame = absolute_frame;
+        for event in events {
+            if let Err(error) = self.apply_event(
+                event.kind,
+                absolute_frame,
+                accept_note_ons,
+                accept_parameter_changes,
+            ) {
+                self.spec = None;
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn render_voice_span(
+        &mut self,
+        context: ProcessContext,
+        input: &[&[f32]],
+        start: usize,
+        end: usize,
+        output: &mut [&mut [f32]],
+    ) -> Result<(), ProcessError> {
+        let frames = end - start;
+        let external_channels = [
+            input
+                .first()
+                .and_then(|channel| channel.get(start..end))
+                .unwrap_or(&[]),
+            input
+                .get(1)
+                .and_then(|channel| channel.get(start..end))
+                .unwrap_or(&[]),
+        ];
+        let external = ExternalAudioBlock::new(&external_channels[..input.len().min(2)]);
+        let result = (|| {
+            let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
+            self.advance_shared(frames, context, start, spec.sample_rate, external)?;
+            let RuntimeScratch {
+                layer_mono,
+                layer_left,
+                layer_right,
+                voice_left,
+                voice_right,
+                parameter_spans,
+                instrument_source_spans,
+            } = &mut self.scratch;
+            let shared =
+                SharedParameterSpan::new(&*parameter_spans, &*instrument_source_spans, frames);
+            Self::render_range(
+                &mut self.voices,
+                &self.compiled,
+                layer_mono,
+                layer_left,
+                layer_right,
+                voice_left,
+                voice_right,
+                output,
+                start,
+                end,
+                spec.sample_rate,
+                context.tempo_bpm,
+                shared,
+            )?;
+            self.absolute_frame = context
+                .absolute_frame
+                .checked_add(end as u64)
+                .ok_or(ProcessError::FrameOverflow)?;
+            Ok(())
+        })();
+        if result.is_err() {
+            self.spec = None;
+        }
+        result
+    }
+
+    pub(crate) fn evaluate_global_targets_for_span(
+        &mut self,
+        frames: usize,
+    ) -> Result<(), ProcessError> {
+        let RuntimeScratch {
+            parameter_spans,
+            instrument_source_spans,
+            ..
+        } = &self.scratch;
+        let shared = SharedParameterSpan::new(parameter_spans, instrument_source_spans, frames);
+        let result =
+            Self::evaluate_global_targets(&self.compiled, &mut self.global_targets, shared);
+        if result.is_err() {
+            self.spec = None;
+        }
+        result
+    }
+
     #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
     pub(crate) fn transport_boundary_remaining(
         &self,
@@ -941,15 +1092,7 @@ impl RuntimeGeneration {
         apply_global: bool,
     ) -> Result<(), ProcessError> {
         clear_output(&mut *block.output, block.frames);
-        let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
-        block.validate_for(spec)?;
-        self.validate_parameter_events(block.events, accept_parameter_changes)?;
-        if block.context.absolute_frame != self.absolute_frame {
-            return Err(ProcessError::ContextDiscontinuity {
-                received: block.context.absolute_frame,
-                expected: self.absolute_frame,
-            });
-        }
+        self.validate_process_block(block, accept_parameter_changes)?;
         let next_frame = self
             .absolute_frame
             .checked_add(block.frames as u64)
@@ -962,50 +1105,42 @@ impl RuntimeGeneration {
         let mut cursor = 0;
         let mut event_index = 0;
         while cursor < block.frames {
+            let event_start = event_index;
             while event_index < block.events.len()
                 && block.events[event_index].sample_offset == cursor
             {
-                let event = block.events[event_index].kind;
-                if let Err(error) = self.apply_event(
-                    event,
-                    self.absolute_frame + cursor as u64,
-                    accept_note_ons,
-                    accept_parameter_changes,
-                ) {
-                    clear_output(&mut *block.output, block.frames);
-                    self.spec = None;
-                    return Err(error);
-                }
                 event_index += 1;
             }
-
-            let mut end = block.frames;
-            if let Some(next_event) = block.events.get(event_index) {
-                end = end.min(next_event.sample_offset);
+            if event_start != event_index
+                && let Err(error) = self.apply_events_at(
+                    &block.events[event_start..event_index],
+                    block.context.absolute_frame + cursor as u64,
+                    accept_note_ons,
+                    accept_parameter_changes,
+                )
+            {
+                clear_output(&mut *block.output, block.frames);
+                return Err(error);
             }
-            let absolute = self.absolute_frame + cursor as u64;
-            let Ok(absolute_frame) = usize::try_from(absolute) else {
-                self.spec = None;
-                return Err(ProcessError::FrameOverflow);
+            let end = match self.next_span_end(block, cursor, event_index) {
+                Ok(end) => end,
+                Err(error) => {
+                    self.spec = None;
+                    clear_output(&mut *block.output, block.frames);
+                    return Err(error);
+                }
             };
-            let quantum = QUANTUM_FRAMES - (absolute_frame % QUANTUM_FRAMES);
-            end = end.min(cursor + quantum);
-            if let Some(remaining) = self.shared_target_remaining() {
-                end = end.min(cursor + remaining);
+            if let Err(error) =
+                self.render_voice_span(block.context, block.input, cursor, end, block.output)
+            {
+                clear_output(&mut *block.output, block.frames);
+                return Err(error);
             }
-            if let Some(remaining) = self.transport_boundary_remaining(
-                block.context,
-                cursor,
-                spec.sample_rate,
-                block.frames - cursor,
-            ) {
-                end = end.min(cursor + remaining);
-            }
-            if end <= cursor {
-                end = cursor + 1;
-            }
-
             let frames = end - cursor;
+            if let Err(error) = self.evaluate_global_targets_for_span(frames) {
+                clear_output(&mut *block.output, block.frames);
+                return Err(error);
+            }
             let external_channels = [
                 block
                     .input
@@ -1021,50 +1156,6 @@ impl RuntimeGeneration {
             let external = ExternalAudioBlock::new(
                 &external_channels[..block.input.len().min(external_channels.len())],
             );
-            if let Err(error) =
-                self.advance_shared(frames, block.context, cursor, spec.sample_rate, external)
-            {
-                clear_output(&mut *block.output, block.frames);
-                self.spec = None;
-                return Err(error);
-            }
-            let RuntimeScratch {
-                layer_mono,
-                layer_left,
-                layer_right,
-                voice_left,
-                voice_right,
-                parameter_spans,
-                instrument_source_spans,
-            } = &mut self.scratch;
-            let shared =
-                SharedParameterSpan::new(&*parameter_spans, &*instrument_source_spans, frames);
-            if let Err(error) = Self::render_range(
-                &mut self.voices,
-                &self.compiled,
-                layer_mono,
-                layer_left,
-                layer_right,
-                voice_left,
-                voice_right,
-                block.output,
-                cursor,
-                end,
-                spec.sample_rate,
-                block.context.tempo_bpm,
-                shared,
-            ) {
-                clear_output(&mut *block.output, block.frames);
-                self.spec = None;
-                return Err(error);
-            }
-            if let Err(error) =
-                Self::evaluate_global_targets(&self.compiled, &mut self.global_targets, shared)
-            {
-                clear_output(&mut *block.output, block.frames);
-                self.spec = None;
-                return Err(error);
-            }
             let global_result = {
                 if block.output.len() < 2 {
                     Err(invalid_state())
