@@ -2,11 +2,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use sonalloy_core::{
-    CompileContext, CompressorProcessorDefinition, DriveProcessorDefinition,
+    CompileContext, CompressorProcessorDefinition, DiagnosticCode, DriveProcessorDefinition,
     DynamicsDetectorDefinition, ExternalAudioChannels, ExternalAudioInputDefinition,
-    FrequencyShifterProcessorDefinition, InstrumentProcessor, InstrumentRuntime, ProcessBlock,
-    ProcessContext, ProcessEvent, ProcessEventKind, ProcessSpec, ProcessorDefinition, PublishError,
-    RuntimeState, TransportState, compile_instrument,
+    FrequencyShifterProcessorDefinition, InstrumentProcessor, InstrumentRuntime, ModulationCurve,
+    ModulationDefinition, ModulationDepthDefinition, ModulationRouteDefinition, ModulationUnit,
+    PerformanceDefinition, ProcessBlock, ProcessContext, ProcessEvent, ProcessEventKind,
+    ProcessSpec, ProcessorDefinition, PublishError, ReclaimableRuntimeResourceKind, RuntimeState,
+    TransportState, compile_instrument,
 };
 
 fn definition_json(waveform: &str, gain_db: f32) -> sonalloy_core::InstrumentDefinition {
@@ -46,6 +48,16 @@ fn compile_with_spec(
     instrument.unwrap_or_else(|| panic!("definition compiles: {diagnostics:?}"))
 }
 
+fn active_runtime(
+    compiled: Arc<sonalloy_core::CompiledInstrument>,
+    spec: ProcessSpec,
+) -> InstrumentRuntime {
+    let mut runtime = InstrumentRuntime::new(compiled);
+    runtime.prepare(spec).expect("runtime prepares");
+    runtime.activate().expect("runtime activates");
+    runtime
+}
+
 fn global_drive_definition(waveform: &str, gain_db: f32) -> sonalloy_core::InstrumentDefinition {
     let mut definition = definition_json(waveform, gain_db);
     definition.global_processors = vec![ProcessorDefinition::Drive(DriveProcessorDefinition {
@@ -66,6 +78,40 @@ fn global_filter_definition(waveform: &str, gain_db: f32) -> sonalloy_core::Inst
             resonance: 0.0,
         },
     )];
+    definition
+}
+
+fn performance_control_definition(
+    waveform: &str,
+    gain_db: f32,
+) -> sonalloy_core::InstrumentDefinition {
+    let mut definition = definition_json(waveform, gain_db);
+    definition.modulation = Some(ModulationDefinition {
+        sources: Vec::new(),
+        routes: ["pitch_bend", "mod_wheel", "aftertouch"]
+            .into_iter()
+            .map(|source| ModulationRouteDefinition {
+                source: source.to_owned(),
+                target: "layer.body.tuning".to_owned(),
+                depth: ModulationDepthDefinition {
+                    value: 1_200.0,
+                    unit: ModulationUnit::Cents,
+                },
+                curve: ModulationCurve::Linear,
+            })
+            .collect(),
+    });
+    definition.layers[0].envelope.release_seconds = 0.0;
+    definition
+}
+
+fn monophonic_definition(waveform: &str, gain_db: f32) -> sonalloy_core::InstrumentDefinition {
+    let mut definition = definition_json(waveform, gain_db);
+    definition.performance = PerformanceDefinition::Monophonic {
+        legato: true,
+        portamento: None,
+    };
+    definition.layers[0].envelope.release_seconds = 0.0;
     definition
 }
 
@@ -122,9 +168,13 @@ fn runtime_after_update(
 }
 
 fn process_note_switch(runtime: &mut InstrumentRuntime) -> [Vec<f32>; 2] {
+    process_note_switch_at(runtime, 64)
+}
+
+fn process_note_switch_at(runtime: &mut InstrumentRuntime, frame: u64) -> [Vec<f32>; 2] {
     process(
         runtime,
-        64,
+        frame,
         &[
             ProcessEvent {
                 sample_offset: 0,
@@ -372,9 +422,14 @@ fn update_applies_new_layers_and_voice_processors_to_new_notes() {
     two_layer_definition.layers.push(extra_layer);
     let two_layers = compile(&two_layer_definition);
     let mut one_layer_runtime = runtime_after_update(&first, &one_layer);
-    let one_layer_audio = process_note_switch(&mut one_layer_runtime);
+    let one_layer_old_audio = process(&mut one_layer_runtime, 64, &[]);
     let mut two_layer_runtime = runtime_after_update(&first, &two_layers);
-    let two_layer_audio = process_note_switch(&mut two_layer_runtime);
+    let two_layer_old_audio = process(&mut two_layer_runtime, 64, &[]);
+    for (one, two) in one_layer_old_audio[0].iter().zip(&two_layer_old_audio[0]) {
+        assert!((one - two).abs() < 1.0e-7);
+    }
+    let one_layer_audio = process_note_switch_at(&mut one_layer_runtime, 128);
+    let two_layer_audio = process_note_switch_at(&mut two_layer_runtime, 128);
     assert!(
         two_layer_audio[0]
             .iter()
@@ -390,9 +445,14 @@ fn update_applies_new_layers_and_voice_processors_to_new_notes() {
     filter.cutoff_hz = 400.0;
     let changed_voice = compile(&changed_voice_definition);
     let mut default_voice_runtime = runtime_after_update(&first, &one_layer);
-    let default_voice_audio = process_note_switch(&mut default_voice_runtime);
+    let default_old_audio = process(&mut default_voice_runtime, 64, &[]);
     let mut changed_voice_runtime = runtime_after_update(&first, &changed_voice);
-    let changed_voice_audio = process_note_switch(&mut changed_voice_runtime);
+    let changed_old_audio = process(&mut changed_voice_runtime, 64, &[]);
+    for (default, changed) in default_old_audio[0].iter().zip(&changed_old_audio[0]) {
+        assert!((default - changed).abs() < 1.0e-7);
+    }
+    let default_voice_audio = process_note_switch_at(&mut default_voice_runtime, 128);
+    let changed_voice_audio = process_note_switch_at(&mut changed_voice_runtime, 128);
     assert!(
         changed_voice_audio[0]
             .iter()
@@ -433,13 +493,441 @@ fn global_processor_update_crossfades_and_blocks_overlapping_publish() {
         runtime.publish_prepared(&mut overlapping_update),
         Err(PublishError::TransitionBusy)
     );
+    let mut transition_audio = Vec::with_capacity(256);
     for frame in [64, 128, 192, 256] {
         let audio = process(&mut runtime, frame, &[]);
         assert!(audio.iter().flatten().all(|sample| sample.is_finite()));
+        transition_audio.extend_from_slice(&audio[0]);
     }
+    assert!(transition_audio.iter().any(|sample| sample.abs() > 1.0e-6));
+    assert!(
+        transition_audio
+            .windows(2)
+            .map(|window| (window[1] - window[0]).abs())
+            .all(|jump| jump < 0.5),
+        "global transition contains a one-sample discontinuity"
+    );
+    assert_eq!(
+        runtime.take_reclaimable().map(|resource| resource.kind()),
+        Some(ReclaimableRuntimeResourceKind::GlobalProcessor)
+    );
     runtime
         .publish_prepared(&mut overlapping_update)
         .expect("publish succeeds after crossfade");
+}
+
+#[test]
+fn sustain_and_note_off_reach_the_retired_generation() {
+    let mut first_definition = definition_json("saw", -14.0);
+    first_definition.layers[0].envelope.release_seconds = 0.0;
+    let mut second_definition = definition_json("sine", -8.0);
+    second_definition.layers[0].envelope.release_seconds = 0.0;
+    let first = compile(&first_definition);
+    let second = compile(&second_definition);
+    let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
+    let mut runtime = active_runtime(Arc::clone(&first), spec);
+
+    let _ = process(
+        &mut runtime,
+        0,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 110,
+            },
+        }],
+    );
+    let sustained_audio = process(
+        &mut runtime,
+        64,
+        &[
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::SustainPedal { down: true },
+            },
+            ProcessEvent {
+                sample_offset: 1,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ],
+    );
+    assert!(
+        sustained_audio[0]
+            .iter()
+            .any(|sample| sample.abs() > 1.0e-6)
+    );
+
+    let mut update =
+        InstrumentRuntime::prepare_update(Arc::clone(&second), spec).expect("update prepares");
+    runtime
+        .publish_prepared(&mut update)
+        .expect("update publishes while sustain is down");
+    let held_audio = process(&mut runtime, 128, &[]);
+    assert!(held_audio[0].iter().any(|sample| sample.abs() > 1.0e-6));
+    assert!(runtime.take_reclaimable().is_none());
+
+    let released_audio = process(
+        &mut runtime,
+        192,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::SustainPedal { down: false },
+        }],
+    );
+    assert!(
+        released_audio
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert_eq!(
+        runtime.take_reclaimable().map(|resource| resource.kind()),
+        Some(ReclaimableRuntimeResourceKind::Generation)
+    );
+}
+
+#[test]
+fn performance_controls_reach_the_retired_generation() {
+    let first = compile(&performance_control_definition("saw", -14.0));
+    let second = compile(&performance_control_definition("saw", -8.0));
+    let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
+    let controls_before_publish = [
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::PitchBend { value: 0.2 },
+        },
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::ModWheel { value: 0.3 },
+        },
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::Aftertouch { value: 0.4 },
+        },
+    ];
+    let controls_after_publish = [
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::PitchBend { value: -0.7 },
+        },
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::ModWheel { value: 0.8 },
+        },
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::Aftertouch { value: 0.9 },
+        },
+    ];
+    let note_on = ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 1,
+            note_number: 60,
+            velocity: 110,
+        },
+    };
+
+    let mut actual = active_runtime(Arc::clone(&first), spec);
+    let mut old_reference = active_runtime(Arc::clone(&first), spec);
+    let _ = process(&mut actual, 0, &[note_on]);
+    let _ = process(&mut old_reference, 0, &[note_on]);
+    let _ = process(&mut actual, 64, &controls_before_publish);
+    let _ = process(&mut old_reference, 64, &controls_before_publish);
+
+    let mut update =
+        InstrumentRuntime::prepare_update(Arc::clone(&second), spec).expect("update prepares");
+    actual
+        .publish_prepared(&mut update)
+        .expect("update publishes");
+    let actual_old_audio = process(&mut actual, 128, &controls_after_publish);
+    let reference_old_audio = process(&mut old_reference, 128, &controls_after_publish);
+    for (actual, expected) in actual_old_audio[0].iter().zip(&reference_old_audio[0]) {
+        assert!((actual - expected).abs() < 1.0e-7);
+    }
+}
+
+#[test]
+fn performance_controls_are_inherited_by_the_new_generation() {
+    let first = compile(&performance_control_definition("saw", -14.0));
+    let second = compile(&performance_control_definition("saw", -8.0));
+    let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
+    let controls = [
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::PitchBend { value: 1.0 },
+        },
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::ModWheel { value: 1.0 },
+        },
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::Aftertouch { value: 1.0 },
+        },
+    ];
+    let note_one = ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 1,
+            note_number: 60,
+            velocity: 110,
+        },
+    };
+    let mut actual = active_runtime(Arc::clone(&first), spec);
+    let _ = process(&mut actual, 0, &[note_one]);
+    let _ = process(&mut actual, 64, &controls);
+    let mut update =
+        InstrumentRuntime::prepare_update(Arc::clone(&second), spec).expect("update prepares");
+    actual
+        .publish_prepared(&mut update)
+        .expect("update publishes");
+    let _ = process(
+        &mut actual,
+        128,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        }],
+    );
+    assert!(actual.take_reclaimable().is_some());
+    let new_note = ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 2,
+            note_number: 67,
+            velocity: 110,
+        },
+    };
+    let actual_audio = process(&mut actual, 192, &[new_note]);
+
+    let mut without_inherited_controls = active_runtime(Arc::clone(&second), spec);
+    let _ = process(&mut without_inherited_controls, 0, &[]);
+    let _ = process(&mut without_inherited_controls, 64, &[]);
+    let _ = process(&mut without_inherited_controls, 128, &[]);
+    let expected_without_controls = process(&mut without_inherited_controls, 192, &[new_note]);
+    let max_difference = actual_audio[0]
+        .iter()
+        .zip(&expected_without_controls[0])
+        .map(|(actual, expected)| (actual - expected).abs())
+        .fold(0.0, f32::max);
+    assert!(
+        max_difference > 1.0e-4,
+        "inherited performance controls did not affect the new voice"
+    );
+    assert!(actual_audio[0].iter().any(|sample| sample.abs() > 1.0e-6));
+}
+
+#[test]
+fn monophonic_update_keeps_held_notes_in_their_original_generation() {
+    let first = compile(&monophonic_definition("saw", -14.0));
+    let second = compile(&monophonic_definition("sine", -8.0));
+    let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
+    let note_one = ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 1,
+            note_number: 60,
+            velocity: 110,
+        },
+    };
+    let mut actual = active_runtime(Arc::clone(&first), spec);
+    let mut old_reference = active_runtime(Arc::clone(&first), spec);
+    let _ = process(&mut actual, 0, &[note_one]);
+    let _ = process(&mut old_reference, 0, &[note_one]);
+    let mut update =
+        InstrumentRuntime::prepare_update(Arc::clone(&second), spec).expect("update prepares");
+    actual
+        .publish_prepared(&mut update)
+        .expect("update publishes");
+
+    let actual_old_audio = process(&mut actual, 64, &[]);
+    let reference_old_audio = process(&mut old_reference, 64, &[]);
+    for (actual, expected) in actual_old_audio[0].iter().zip(&reference_old_audio[0]) {
+        assert!((actual - expected).abs() < 1.0e-7);
+    }
+
+    let _ = process(
+        &mut actual,
+        128,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        }],
+    );
+    assert_eq!(
+        actual.take_reclaimable().map(|resource| resource.kind()),
+        Some(ReclaimableRuntimeResourceKind::Generation)
+    );
+    let new_note = ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 2,
+            note_number: 67,
+            velocity: 110,
+        },
+    };
+    let actual_new_audio = process(&mut actual, 192, &[new_note]);
+
+    let mut fresh = active_runtime(Arc::clone(&second), spec);
+    let expected_new_audio = process(&mut fresh, 0, &[new_note]);
+    for (actual, expected) in actual_new_audio[0].iter().zip(&expected_new_audio[0]) {
+        assert!((actual - expected).abs() < 1.0e-7);
+    }
+    assert!(
+        actual_new_audio[0]
+            .iter()
+            .any(|sample| sample.abs() > 1.0e-6)
+    );
+}
+
+#[test]
+fn parameter_changes_only_reconfigure_the_active_generation() {
+    let mut first_definition = definition_json("saw", -14.0);
+    first_definition.layers[0].envelope.release_seconds = 0.0;
+    let mut second_definition = definition_json("saw", -14.0);
+    second_definition.layers[0].envelope.release_seconds = 0.0;
+    let first = compile(&first_definition);
+    let second = compile(&second_definition);
+    let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
+    let note_one = ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 1,
+            note_number: 60,
+            velocity: 110,
+        },
+    };
+    let mut actual = active_runtime(Arc::clone(&first), spec);
+    let mut old_reference = active_runtime(Arc::clone(&first), spec);
+    let _ = process(&mut actual, 0, &[note_one]);
+    let _ = process(&mut old_reference, 0, &[note_one]);
+    let mut update =
+        InstrumentRuntime::prepare_update(Arc::clone(&second), spec).expect("update prepares");
+    actual
+        .publish_prepared(&mut update)
+        .expect("update publishes");
+
+    let gain = second
+        .parameter_handle("layer.body.gain")
+        .expect("gain handle");
+    let actual_old_audio = process(
+        &mut actual,
+        64,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::ParameterChange {
+                catalog_revision: second.parameter_catalog_revision(),
+                parameter: gain,
+                normalized: 1.0,
+            },
+        }],
+    );
+    let reference_old_audio = process(&mut old_reference, 64, &[]);
+    for (actual, expected) in actual_old_audio[0].iter().zip(&reference_old_audio[0]) {
+        assert!((actual - expected).abs() < 1.0e-7);
+    }
+
+    let _ = process(
+        &mut actual,
+        128,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 1 },
+        }],
+    );
+    assert!(actual.take_reclaimable().is_some());
+    let actual_new_audio = process(
+        &mut actual,
+        192,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 67,
+                velocity: 110,
+            },
+        }],
+    );
+
+    let mut fresh = active_runtime(Arc::clone(&second), spec);
+    let _ = process(
+        &mut fresh,
+        0,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::ParameterChange {
+                catalog_revision: second.parameter_catalog_revision(),
+                parameter: gain,
+                normalized: 1.0,
+            },
+        }],
+    );
+    let _ = process(&mut fresh, 64, &[]);
+    let expected_new_audio = process(
+        &mut fresh,
+        128,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 67,
+                velocity: 110,
+            },
+        }],
+    );
+    for (actual, expected) in actual_new_audio[0].iter().zip(&expected_new_audio[0]) {
+        assert!((actual - expected).abs() < 1.0e-7);
+    }
+    assert!(
+        actual_new_audio[0]
+            .iter()
+            .any(|sample| sample.abs() > 1.0e-6)
+    );
+}
+
+#[test]
+fn compile_failure_keeps_the_active_runtime_unchanged() {
+    let first = compile(&definition_json("saw", -14.0));
+    let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid process spec");
+    let mut actual = active_runtime(Arc::clone(&first), spec);
+    let mut expected = active_runtime(Arc::clone(&first), spec);
+    let note_on = ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 1,
+            note_number: 60,
+            velocity: 110,
+        },
+    };
+    let _ = process(&mut actual, 0, &[note_on]);
+    let _ = process(&mut expected, 0, &[note_on]);
+
+    let mut invalid = definition_json("sine", -8.0);
+    invalid.layers.clear();
+    let result = compile_instrument(
+        &invalid,
+        &CompileContext {
+            definition_base_dir: PathBuf::from("testdata/instruments"),
+            process_spec: spec,
+        },
+    );
+    assert!(result.instrument.is_none());
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == DiagnosticCode::RequiredFieldMissing)
+    );
+    assert_eq!(actual.generation_id().get(), 1);
+
+    let actual_audio = process(&mut actual, 64, &[]);
+    let expected_audio = process(&mut expected, 64, &[]);
+    for (actual, expected) in actual_audio[0].iter().zip(&expected_audio[0]) {
+        assert!((actual - expected).abs() < 1.0e-7);
+    }
 }
 
 #[test]
@@ -449,6 +937,18 @@ fn publish_rejects_latency_and_external_input_changes_for_reactivation() {
     let mut runtime = InstrumentRuntime::new(Arc::clone(&first));
     runtime.prepare(spec).expect("runtime prepares");
     runtime.activate().expect("runtime activates");
+    let _ = process(
+        &mut runtime,
+        0,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 1,
+                note_number: 60,
+                velocity: 110,
+            },
+        }],
+    );
 
     let mut latency_definition = definition_json("saw", -14.0);
     latency_definition.global_processors = vec![ProcessorDefinition::FrequencyShifter(
@@ -470,6 +970,14 @@ fn publish_rejects_latency_and_external_input_changes_for_reactivation() {
         })
     ));
     assert!(!latency_update.is_consumed());
+    let latency_audio = process(&mut runtime, 64, &[]);
+    assert!(
+        latency_audio
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert!(latency_audio[0].iter().any(|sample| sample.abs() > 1.0e-6));
 
     let mut external_definition = definition_json("saw", -14.0);
     external_definition.external_audio = Some(ExternalAudioInputDefinition {
@@ -501,6 +1009,14 @@ fn publish_rejects_latency_and_external_input_changes_for_reactivation() {
         })
     ));
     assert!(!external_update.is_consumed());
+    let external_audio = process(&mut runtime, 128, &[]);
+    assert!(
+        external_audio
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert!(external_audio[0].iter().any(|sample| sample.abs() > 1.0e-6));
 }
 
 #[test]
@@ -544,6 +1060,21 @@ fn generation_capacity_can_be_retried_after_reclaim() {
     runtime
         .publish_prepared(&mut last_update)
         .expect("capacity update retries after reclaim");
+    assert_eq!(runtime.generation_id().get(), 9);
+    let audio = process(
+        &mut runtime,
+        0,
+        &[ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 2,
+                note_number: 67,
+                velocity: 110,
+            },
+        }],
+    );
+    assert!(audio.iter().flatten().all(|sample| sample.is_finite()));
+    assert!(audio[0].iter().any(|sample| sample.abs() > 1.0e-6));
 }
 
 #[test]
