@@ -68,7 +68,9 @@ runtime_create → runtime_prepare → runtime_activate
 
 `runtime_prepare`はVoice、Processor、Scratch、外部Audio Stateを確保します。`runtime_activate`は準備済みRuntimeをAudio Streamへ接続する状態へ移します。`runtime_deactivate`はResourceを保持したままProcessを停止します。Audio ProcessはActive状態だけで実行できます。
 
-Process ContextにはAbsolute Frame、Tempo、Beat / Bar Position、Time Signature、Transport Stateを渡します。Audio BufferはPlanar形式で、出力は2 Channelです。EventはSample Offsetの昇順で渡し、Parameter ChangeのValueは`0..=1`の正規化値です。Process中の最大Event数は1024です。
+Process ContextにはAbsolute Frame、Tempo、Beat / Bar Position、Time Signature、Transport Stateを渡します。Audio BufferはPlanar形式で、出力は2 Channelです。EventはSample Offsetの昇順で渡し、Parameter ChangeのValueは`0..=1`の正規化値です。Process中の最大Event数は1024です。1回のProcessで渡すFrame数はPrepare時の`max_block_size`以下でなければなりません。
+
+入力Channel同士は同じMemoryを参照できます。出力Channel同士の範囲は重複できず、入力Channelと出力Channelの範囲も重複できません。違反したBuffer配置は`SONALLOY_INVALID_ARGUMENT`になります。
 
 ```c
 SonalloyRuntime* runtime = NULL;
@@ -90,7 +92,7 @@ sonalloy_runtime_process(
 
 ## Runtime Update
 
-新しいDefinitionはControl ThreadでCompileし、現在のProcessSpecを使って`sonalloy_update_prepare`します。Prepared UpdateをAudio Threadへ所有権移動し、Process Blockの開始前に`sonalloy_runtime_publish`を呼びます。
+新しいDefinitionはControl ThreadでCompileし、候補Runtimeが使用するProcessSpecを使って`sonalloy_update_prepare`します。Live Publishでは現在のRuntimeと同じProcessSpecを渡し、External Input Channel数を変更する場合は変更後のProcessSpecを渡します。Prepared UpdateをAudio Threadへ所有権移動し、Process Blockの開始前に`sonalloy_runtime_publish`を呼びます。
 
 Publish後の新しいNoteは新Generationで始まり、発音中のNoteは旧Generationで継続します。Note Off、Sustain、Pitch Bend、Mod Wheel、AftertouchはLive Generationへ伝わり、Parameter ChangeはActive Generationだけが受け取ります。
 
@@ -112,7 +114,7 @@ if (result == SONALLOY_OK) {
 
 ## Reclaim
 
-旧Generationと旧Global ProcessorはAudio Callbackで破棄せず、`sonalloy_runtime_take_reclaimable`で取得します。取得したHandleはControl Threadへ渡し、`sonalloy_reclaimable_destroy`で破棄します。Runtimeを破棄する前に、取得済みのReclaimable Handleを全て破棄してください。
+旧Generationと旧Global ProcessorはAudio Callbackで破棄せず、`sonalloy_runtime_take_reclaimable`で取得します。取得したHandleはResourceの所有権を持つ独立したHandleとしてControl Threadへ渡し、`sonalloy_reclaimable_destroy`で破棄します。Reclaimable Handleの破棄とRuntimeによる次の取得は安全な所有権移動として扱われます。Runtimeを破棄する前に、取得済みのReclaimable Handleを全て破棄してください。Runtimeは取得済みHandleが残っている間も生存させます。
 
 ## Thread Ownership
 
