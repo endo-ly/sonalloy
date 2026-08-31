@@ -184,19 +184,16 @@ mod tests {
     use super::{SonalloyProcessSpec, SonalloyReclaimable, SonalloyResult, test_hooks};
 
     #[test]
-    fn panic_is_contained_by_public_guard_extern_entry() {
+    fn panic_is_contained_by_public_extern_entries() {
         test_hooks::panic_on_next_extern_call();
 
-        let result = catch_unwind(|| sonalloy_runtime_activate(ptr::null_mut()));
+        let activate_result = catch_unwind(|| sonalloy_runtime_activate(ptr::null_mut()));
 
-        assert!(matches!(result, Ok(SonalloyResult::InternalPanic)));
-    }
+        assert!(matches!(activate_result, Ok(SonalloyResult::InternalPanic)));
 
-    #[test]
-    fn panic_is_contained_by_public_guard_result_extern_entry() {
         test_hooks::panic_on_next_extern_call();
 
-        let result = catch_unwind(|| {
+        let prepare_result = catch_unwind(|| {
             sonalloy_runtime_prepare(
                 ptr::null_mut(),
                 SonalloyProcessSpec {
@@ -208,7 +205,7 @@ mod tests {
             )
         });
 
-        assert!(matches!(result, Ok(SonalloyResult::InternalPanic)));
+        assert!(matches!(prepare_result, Ok(SonalloyResult::InternalPanic)));
     }
 
     #[test]
