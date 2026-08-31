@@ -151,6 +151,49 @@ fn c_api_lifecycle_process_update_and_reclaim() {
         ),
         SonalloyResult::InvalidArgument
     );
+    let mut partially_overlapping_output_storage = [0.0_f32; 65];
+    let mut partially_overlapping_output = [
+        partially_overlapping_output_storage.as_mut_ptr(),
+        partially_overlapping_output_storage
+            .as_mut_ptr()
+            .wrapping_add(1),
+    ];
+    assert_eq!(
+        sonalloy_runtime_process(
+            runtime,
+            &raw const context_zero,
+            ptr::null(),
+            0,
+            ptr::null(),
+            0,
+            partially_overlapping_output.as_mut_ptr(),
+            2,
+            64,
+        ),
+        SonalloyResult::InvalidArgument
+    );
+    let mut partially_overlapping_input_output_storage = [0.0_f32; 65];
+    let partially_overlapping_input = [partially_overlapping_input_output_storage.as_ptr()];
+    let mut partially_overlapping_input_output = [
+        partially_overlapping_input_output_storage
+            .as_mut_ptr()
+            .wrapping_add(1),
+        right.as_mut_ptr(),
+    ];
+    assert_eq!(
+        sonalloy_runtime_process(
+            runtime,
+            &raw const context_zero,
+            ptr::null(),
+            0,
+            partially_overlapping_input.as_ptr(),
+            1,
+            partially_overlapping_input_output.as_mut_ptr(),
+            2,
+            64,
+        ),
+        SonalloyResult::InvalidArgument
+    );
     assert_eq!(
         sonalloy_runtime_process(
             runtime,
