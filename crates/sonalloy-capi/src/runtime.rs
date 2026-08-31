@@ -201,6 +201,9 @@ pub extern "C" fn sonalloy_runtime_prepare(
     spec: SonalloyProcessSpec,
 ) -> SonalloyResult {
     guard_result(|| {
+        #[cfg(test)]
+        crate::test_hooks::panic_if_requested();
+
         if runtime.is_null() {
             return Err(SonalloyResult::InvalidArgument);
         }
@@ -226,6 +229,9 @@ pub extern "C" fn sonalloy_runtime_prepare(
 #[unsafe(no_mangle)]
 pub extern "C" fn sonalloy_runtime_activate(runtime: *mut SonalloyRuntime) -> SonalloyResult {
     guard(|| {
+        #[cfg(test)]
+        crate::test_hooks::panic_if_requested();
+
         if runtime.is_null() {
             return SonalloyResult::InvalidArgument;
         }

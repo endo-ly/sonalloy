@@ -55,6 +55,24 @@ pub(crate) fn guard_result(
     }
 }
 
+#[cfg(test)]
+mod test_hooks {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    static PANIC_ON_NEXT_EXTERN_CALL: AtomicBool = AtomicBool::new(false);
+
+    pub(crate) fn panic_on_next_extern_call() {
+        PANIC_ON_NEXT_EXTERN_CALL.store(true, Ordering::Release);
+    }
+
+    pub(crate) fn panic_if_requested() {
+        assert!(
+            !PANIC_ON_NEXT_EXTERN_CALL.swap(false, Ordering::Acquire),
+            "test panic from public extern entry"
+        );
+    }
+}
+
 /// Opaque compiled instrument handle.
 #[repr(C)]
 pub struct SonalloyCompiledInstrument {
@@ -159,28 +177,38 @@ unsafe impl Sync for SonalloyReclaimable {}
 
 #[cfg(test)]
 mod tests {
-    use super::{SonalloyReclaimable, SonalloyResult, guard, guard_result};
+    use std::panic::catch_unwind;
+    use std::ptr;
 
-    #[unsafe(no_mangle)]
-    extern "C" fn sonalloy_test_panic_entry() -> SonalloyResult {
-        guard(|| panic!("test panic from extern entry"))
+    use super::runtime::{sonalloy_runtime_activate, sonalloy_runtime_prepare};
+    use super::{SonalloyProcessSpec, SonalloyReclaimable, SonalloyResult, test_hooks};
+
+    #[test]
+    fn panic_is_contained_by_public_guard_extern_entry() {
+        test_hooks::panic_on_next_extern_call();
+
+        let result = catch_unwind(|| sonalloy_runtime_activate(ptr::null_mut()));
+
+        assert!(matches!(result, Ok(SonalloyResult::InternalPanic)));
     }
 
     #[test]
-    fn panic_is_contained_at_both_guard_entry_points() {
-        assert_eq!(
-            guard(|| panic!("test panic")),
-            SonalloyResult::InternalPanic
-        );
-        assert_eq!(
-            guard_result(|| panic!("test panic")),
-            SonalloyResult::InternalPanic
-        );
-    }
+    fn panic_is_contained_by_public_guard_result_extern_entry() {
+        test_hooks::panic_on_next_extern_call();
 
-    #[test]
-    fn panic_is_contained_when_called_through_an_extern_entry() {
-        assert_eq!(sonalloy_test_panic_entry(), SonalloyResult::InternalPanic);
+        let result = catch_unwind(|| {
+            sonalloy_runtime_prepare(
+                ptr::null_mut(),
+                SonalloyProcessSpec {
+                    sample_rate: 48_000.0,
+                    max_block_size: 64,
+                    input_channels: 0,
+                    output_channels: 2,
+                },
+            )
+        });
+
+        assert!(matches!(result, Ok(SonalloyResult::InternalPanic)));
     }
 
     #[test]
