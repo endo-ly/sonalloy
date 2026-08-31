@@ -31,6 +31,14 @@ fn global_transition_frames(sample_rate: f64) -> usize {
         .max(1.0) as usize
 }
 
+#[allow(clippy::cast_precision_loss)]
+fn global_transition_position(elapsed_frames: usize, index: usize, total_frames: usize) -> f32 {
+    elapsed_frames
+        .saturating_add(index.saturating_add(1))
+        .min(total_frames) as f32
+        / total_frames as f32
+}
+
 /// Identity assigned to a prepared voice generation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GenerationId(u64);
@@ -751,10 +759,7 @@ impl InstrumentRuntime {
                 &mut self.new_global_right[start..end],
             )?;
             for index in start..end {
-                let position = (elapsed_frames
-                    .saturating_add(index - start + 1)
-                    .min(total_frames)) as f32
-                    / total_frames as f32;
+                let position = global_transition_position(elapsed_frames, index, total_frames);
                 let old_gain = (position * FRAC_PI_2).cos();
                 let new_gain = (position * FRAC_PI_2).sin();
                 self.mix_left[index] =
@@ -897,7 +902,7 @@ impl InstrumentProcessor for InstrumentRuntime {
 mod tests {
     use std::sync::Arc;
 
-    use super::InstrumentRuntime;
+    use super::{InstrumentRuntime, global_transition_position};
     use crate::process::{InstrumentProcessor, ProcessEvent, ProcessSpec};
     use crate::runtime::instrument::tests::runtime;
 
@@ -950,5 +955,26 @@ mod tests {
         assert_eq!(allocations, 0);
         assert!(reclaimed.is_some());
         drop(reclaimed);
+    }
+
+    #[test]
+    fn global_transition_position_is_continuous_across_quantum_spans() {
+        let total_frames = 240;
+        let first_span_end = global_transition_position(0, 31, total_frames);
+        let second_span_start = global_transition_position(0, 32, total_frames);
+        let second_block_start = global_transition_position(64, 0, total_frames);
+        let span_positions: Vec<_> = (0..64)
+            .map(|index| global_transition_position(0, index, total_frames))
+            .collect();
+
+        assert!((first_span_end - 32.0 / 240.0).abs() < 1.0e-7);
+        assert!((second_span_start - 33.0 / 240.0).abs() < 1.0e-7);
+        assert!(second_span_start > first_span_end);
+        assert!(
+            span_positions
+                .windows(2)
+                .all(|window| window[1] > window[0])
+        );
+        assert!(second_block_start > global_transition_position(0, 63, total_frames));
     }
 }
