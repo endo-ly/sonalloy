@@ -889,6 +889,7 @@ fn spectral_morph_sweep_changes_the_active_source() {
     let morph_handle = compiled
         .parameter_handle("layer.body.generator.spectral_morph")
         .expect("morph parameter");
+    let catalog_revision = compiled.parameter_catalog_revision();
     let audio = render_instrument(
         compiled,
         RenderRequest {
@@ -909,6 +910,7 @@ fn spectral_morph_sweep_changes_the_active_source() {
             ScheduledEvent {
                 absolute_frame: 32_768,
                 kind: ProcessEventKind::ParameterChange {
+                    catalog_revision,
                     parameter: morph_handle,
                     normalized: 1.0,
                 },
@@ -1093,6 +1095,7 @@ fn render_hybrid_controls(
     let morph = compiled
         .parameter_handle("layer.spectral.generator.spectral_morph")
         .expect("morph parameter");
+    let catalog_revision = compiled.parameter_catalog_revision();
     render_instrument(
         compiled,
         RenderRequest {
@@ -1113,6 +1116,7 @@ fn render_hybrid_controls(
             ScheduledEvent {
                 absolute_frame: 4_096,
                 kind: ProcessEventKind::ParameterChange {
+                    catalog_revision,
                     parameter: morph,
                     normalized: 0.85,
                 },
@@ -1180,6 +1184,7 @@ fn render_runtime_note(
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events: std::slice::from_ref(&event),
             input: &[],
@@ -1289,6 +1294,7 @@ fn spectral_hybrid_supports_sixteen_voices_voice_stealing_and_reset_determinism(
     let mut runtime = compiled.instantiate();
     let spec = ProcessSpec::new(48_000.0, 4_096, 0, 2).expect("valid process spec");
     runtime.prepare(spec).expect("runtime prepares");
+    runtime.activate().expect("runtime activates");
     let event = ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {

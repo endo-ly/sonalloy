@@ -600,6 +600,7 @@ fn wave_sequence_reset_restarts_the_same_runtime_state() {
     runtime
         .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("runtime prepares");
+    runtime.activate().expect("runtime activates");
     let event = [ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {
@@ -621,6 +622,7 @@ fn wave_sequence_reset_restarts_the_same_runtime_state() {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                    transport_state: sonalloy_core::TransportState::Playing,
                 },
                 events: &event,
                 input: &[],

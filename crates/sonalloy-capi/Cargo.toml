@@ -1,0 +1,19 @@
+[package]
+name = "sonalloy-capi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Public C ABI for the Sonalloy instrument runtime"
+
+[lib]
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[dependencies]
+serde_json = "1"
+sonalloy-core = { path = "../sonalloy-core" }
+
+[lints]
+workspace = true

@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 use super::generator::{
@@ -27,6 +28,7 @@ use crate::parameter::{
 pub struct ParameterCatalog {
     descriptors: Box<[ParameterDescriptor]>,
     lookup: HashMap<String, ParameterHandle>,
+    revision: super::ParameterCatalogRevision,
 }
 
 impl ParameterCatalog {
@@ -60,6 +62,7 @@ impl ParameterCatalog {
             .map(|(index, descriptor)| (descriptor.id.clone(), ParameterHandle::new(index)))
             .collect();
         Self {
+            revision: catalog_revision(&descriptors),
             descriptors,
             lookup,
         }
@@ -83,9 +86,125 @@ impl ParameterCatalog {
         self.descriptors.get(handle.index())
     }
 
+    /// Return the deterministic revision for this catalog's descriptors.
+    #[must_use]
+    pub fn revision(&self) -> super::ParameterCatalogRevision {
+        self.revision
+    }
+
     pub(crate) fn len(&self) -> usize {
         self.descriptors.len()
     }
+}
+
+fn catalog_revision(descriptors: &[ParameterDescriptor]) -> super::ParameterCatalogRevision {
+    let mut hasher = Sha256::new();
+    for descriptor in descriptors {
+        update_text(&mut hasher, &descriptor.id);
+        update_owner(&mut hasher, descriptor.owner);
+        update_unit(&mut hasher, descriptor.unit);
+        update_scale(&mut hasher, descriptor.scale);
+        update_u32(&mut hasher, descriptor.min.to_bits());
+        update_u32(&mut hasher, descriptor.max.to_bits());
+        update_u32(&mut hasher, descriptor.default.to_bits());
+        update_u32(&mut hasher, descriptor.smoothing_seconds.to_bits());
+    }
+    let digest = hasher.finalize();
+    u64::from_be_bytes(
+        digest[..8]
+            .try_into()
+            .expect("SHA-256 has eight-byte prefix"),
+    )
+}
+
+fn update_text(hasher: &mut Sha256, value: &str) {
+    update_u64(hasher, usize_field(value.len()));
+    hasher.update(value.as_bytes());
+}
+
+fn update_unit(hasher: &mut Sha256, unit: ParameterUnit) {
+    update_u32(
+        hasher,
+        match unit {
+            ParameterUnit::Decibels => 1,
+            ParameterUnit::Pan => 2,
+            ParameterUnit::Cents => 3,
+            ParameterUnit::Hertz => 4,
+            ParameterUnit::Ratio => 5,
+            ParameterUnit::Seconds => 6,
+            ParameterUnit::PerSecond => 7,
+            ParameterUnit::Index => 8,
+            ParameterUnit::DecibelsPerOctave => 9,
+            ParameterUnit::Normalized => 10,
+        },
+    );
+}
+
+fn update_scale(hasher: &mut Sha256, scale: ParameterScale) {
+    update_u32(
+        hasher,
+        match scale {
+            ParameterScale::Linear => 0,
+            ParameterScale::Log2 => 1,
+        },
+    );
+}
+
+fn update_owner(hasher: &mut Sha256, owner: ParameterOwner) {
+    match owner {
+        ParameterOwner::Layer { definition_index } => {
+            update_u32(hasher, 1);
+            update_u64(hasher, usize_field(definition_index));
+        }
+        ParameterOwner::LayerGenerator { definition_index } => {
+            update_u32(hasher, 2);
+            update_u64(hasher, usize_field(definition_index));
+        }
+        ParameterOwner::LayerProcessor {
+            definition_index,
+            processor_index,
+        } => {
+            update_u32(hasher, 3);
+            update_u64(hasher, usize_field(definition_index));
+            update_u64(hasher, usize_field(processor_index));
+        }
+        ParameterOwner::VoiceProcessor { processor_index } => {
+            update_u32(hasher, 4);
+            update_u64(hasher, usize_field(processor_index));
+        }
+        ParameterOwner::GlobalProcessor { processor_index } => {
+            update_u32(hasher, 5);
+            update_u64(hasher, usize_field(processor_index));
+        }
+        ParameterOwner::Macro { macro_index } => {
+            update_u32(hasher, 6);
+            update_u64(hasher, usize_field(macro_index));
+        }
+        ParameterOwner::VectorAxis { vector_index, axis } => {
+            update_u32(hasher, 7);
+            update_u64(hasher, usize_field(vector_index));
+            update_u32(
+                hasher,
+                match axis {
+                    VectorAxis::Position => 1,
+                    VectorAxis::X => 2,
+                    VectorAxis::Y => 3,
+                },
+            );
+        }
+    }
+}
+
+fn update_u32(hasher: &mut Sha256, value: u32) {
+    hasher.update(value.to_be_bytes());
+}
+
+fn update_u64(hasher: &mut Sha256, value: u64) {
+    hasher.update(value.to_be_bytes());
+}
+
+fn usize_field(value: usize) -> u64 {
+    u64::try_from(value).unwrap_or(u64::MAX)
 }
 
 fn push_layer_descriptors(

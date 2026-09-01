@@ -3,18 +3,20 @@ use std::sync::Arc;
 use super::super::smoothing::rounded_frame_count;
 use super::super::voice::{NoteRequest, PreparedLayerSelection, VoiceState};
 use super::{
-    HeldNote, InstrumentRuntime, MAX_MONOPHONIC_HELD_NOTES, STEAL_FADE_SECONDS,
+    HeldNote, MAX_MONOPHONIC_HELD_NOTES, RuntimeGeneration, STEAL_FADE_SECONDS,
     control_smoothing_frames, invalid_state,
 };
 use crate::compiler::{CompiledGenerator, CompiledPerformanceMode, CompiledSampleZone};
 use crate::definition::LayerTriggerEvent;
 use crate::process::{ProcessError, ProcessEventKind};
 
-impl InstrumentRuntime {
+impl RuntimeGeneration {
     pub(super) fn apply_event(
         &mut self,
         event: ProcessEventKind,
         absolute_frame: u64,
+        accept_note_ons: bool,
+        accept_parameter_changes: bool,
     ) -> Result<(), ProcessError> {
         let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
         match event {
@@ -23,6 +25,9 @@ impl InstrumentRuntime {
                 note_number,
                 velocity,
             } => {
+                if !accept_note_ons {
+                    return Ok(());
+                }
                 let request = NoteRequest::new(note_id, note_number, velocity, absolute_frame);
                 match self.compiled.performance.mode {
                     CompiledPerformanceMode::Polyphonic { .. } => {
@@ -71,9 +76,15 @@ impl InstrumentRuntime {
                 }
             }
             ProcessEventKind::ParameterChange {
+                catalog_revision,
                 parameter,
                 normalized,
             } => {
+                if !accept_parameter_changes
+                    || catalog_revision != self.compiled.parameter_catalog_revision()
+                {
+                    return Ok(());
+                }
                 let descriptor = self.compiled.parameter_descriptor(parameter).ok_or(
                     ProcessError::ParameterHandleOutOfRange {
                         handle: parameter.index(),
@@ -405,9 +416,18 @@ impl InstrumentRuntime {
     pub(super) fn validate_parameter_events(
         &self,
         events: &[crate::process::ProcessEvent],
+        accept_parameter_changes: bool,
     ) -> Result<(), ProcessError> {
+        if !accept_parameter_changes {
+            return Ok(());
+        }
         for event in events {
-            if let ProcessEventKind::ParameterChange { parameter, .. } = event.kind
+            if let ProcessEventKind::ParameterChange {
+                catalog_revision,
+                parameter,
+                ..
+            } = event.kind
+                && catalog_revision == self.compiled.parameter_catalog_revision()
                 && self.compiled.parameter_descriptor(parameter).is_none()
             {
                 return Err(ProcessError::ParameterHandleOutOfRange {
@@ -1339,6 +1359,7 @@ mod tests {
             ProcessEvent {
                 sample_offset: 32,
                 kind: ProcessEventKind::ParameterChange {
+                    catalog_revision: dynamic.compiled().parameter_catalog_revision(),
                     parameter: dynamic_gain,
                     normalized: 1.0,
                 },
@@ -1356,6 +1377,7 @@ mod tests {
             ProcessEvent {
                 sample_offset: 32,
                 kind: ProcessEventKind::ParameterChange {
+                    catalog_revision: static_runtime.compiled().parameter_catalog_revision(),
                     parameter: static_gain,
                     normalized: 1.0,
                 },
@@ -1619,9 +1641,11 @@ mod tests {
         runtime
             .prepare(ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid spec"))
             .expect("runtime preparation");
+        runtime.activate().expect("runtime activation");
         let invalid = ProcessEvent {
             sample_offset: 8,
             kind: ProcessEventKind::ParameterChange {
+                catalog_revision: instrument.parameter_catalog_revision(),
                 parameter: ParameterHandle::new(instrument.parameters().len()),
                 normalized: 0.5,
             },
@@ -1645,6 +1669,7 @@ mod tests {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                transport_state: crate::process::TransportState::Playing,
             },
             events: &[note_on, invalid],
             input: &[],
@@ -1658,10 +1683,8 @@ mod tests {
         );
         assert_eq!(runtime.absolute_frame(), 0);
         assert!(
-            runtime
-                .voices
-                .iter()
-                .all(|voice| voice.state() == VoiceState::Idle)
+            (0..runtime.voice_count())
+                .all(|index| runtime.voice_state(index) == Some(VoiceState::Idle))
         );
         assert!(left.iter().all(|sample| sample.abs() < f32::EPSILON));
         assert!(right.iter().all(|sample| sample.abs() < f32::EPSILON));
@@ -1669,8 +1692,8 @@ mod tests {
 
     #[test]
     fn shared_parameter_state_advances_once_for_any_voice_count() {
-        let mut one_voice = compiled(1).instantiate();
-        let mut eight_voices = compiled(8).instantiate();
+        let mut one_voice = super::super::RuntimeGeneration::new(compiled(1));
+        let mut eight_voices = super::super::RuntimeGeneration::new(compiled(8));
         let spec = ProcessSpec::new(48_000.0, 64, 0, 2).expect("valid spec");
         one_voice.prepare(spec).expect("one voice preparation");
         eight_voices.prepare(spec).expect("eight voice preparation");
@@ -1683,9 +1706,12 @@ mod tests {
             .compiled()
             .parameter_handle(&parameter)
             .expect("parameter handle");
+        let one_revision = one_voice.compiled.parameter_catalog_revision();
+        let eight_revision = eight_voices.compiled.parameter_catalog_revision();
         process_parameter_event(
             &mut one_voice,
             ProcessEventKind::ParameterChange {
+                catalog_revision: one_revision,
                 parameter: one_handle,
                 normalized: 1.0,
             },
@@ -1693,6 +1719,7 @@ mod tests {
         process_parameter_event(
             &mut eight_voices,
             ProcessEventKind::ParameterChange {
+                catalog_revision: eight_revision,
                 parameter: eight_handle,
                 normalized: 1.0,
             },

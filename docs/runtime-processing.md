@@ -34,9 +34,23 @@ flowchart LR
 |---|---|
 | 順序 | Eventは`sample_offset`の昇順に並べ、同じ位置では渡された順番で適用します |
 | 整列 | Event FileやMIDI FileなどOffline由来の入力は、同じFrameに重なったEventをSustain Pedal → Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note Onの順へ並べ替えてから渡します |
-| 検証 | Parameter Handle、変換済みのParameter値、External Control値をBlock開始前に全件検証します。不正があればStateを変更せず、そのBlockを無音にします |
+| 検証 | Parameter Handle、変換済みのParameter値、External Control値をBlock開始前に全件検証します。不正があれば、そのBlockを無音にしてErrorを返します。致命的なProcess ErrorではRuntimeがFaultedへ移行します |
 
-Parameter Changeの値はCatalogと同じ単位（TuningはCents、Filter CutoffはHz、GainはdB）で受け取ります。入力時に検証してから内部表現へ変換するため、音声処理が不正な値を受け取ることはありません。
+Parameter ChangeはParameter CatalogのRevisionとDense Handleを持つ正規化値（`0..=1`）で受け取ります。Native Unit（TuningはCents、Filter CutoffはHz、GainはdB）の入力は、Catalogの正規化・逆正規化を使ってEventへ変換します。
+
+## Runtime Lifecycle
+
+Runtimeは、音声処理に必要なResourceを準備する段階と、Audio Callbackから処理を受け付ける段階を分けて管理します。通常の流れは次のとおりです。
+
+```text
+Compile → Prepare → Activate → Process
+                                  ├─ Reset（初期状態へ戻る）
+                                  └─ Deactivate（準備済み状態へ戻る）
+```
+
+`prepare`ではVoice、Generator、Processor、Scratch Buffer、外部AudioのStateを確保します。`activate`は準備済みResourceを処理へ接続する操作で、追加のCompileやAllocationを行いません。`process`は`Active`状態だけで実行でき、`deactivate`後は次のStream開始まで処理を受け付けません。Process中の致命的なErrorは`Faulted`へ移行し、再利用にはPrepareが必要です。
+
+`reset`はActive GenerationのVoice、Held Note、Sustain、Performance Control、Parameter Base、Global Processor、絶対Frameを初期状態へ戻します。旧Generationや切替途中のResourceはAudio Callbackで破棄せず、Control側で回収できるResourceへ移します。
 
 ### 外部Audioの処理
 
@@ -155,9 +169,10 @@ RealtimeでもOfflineでも、Coreは次の契約に従います。ここがCore
 | フェーズ | 内容 |
 |---|---|
 | Prepare | 同時発音数分のVoiceを作り、Scratch Buffer・Physical String Delay・Native Modal Handle・Time Stretch Latency・Grain Pool・Wave Sequence Slot・Layer遅延補償Bufferを確保します。Sample RateがCompile時と異なる場合は失敗します（Block Sizeの変更だけは許可） |
+| Activate / Deactivate | Audio Streamの開始前にActivateし、停止後にDeactivateします。どちらも準備済みResourceを保持します |
 | Reset | 全Voice・位相・ADSR・Noise Stream・Physical StringのDelay / Filter / Dispersion・Modal Resonator・Sample Cursor・Grain Pool・Wave Sequence Slot・Processor・External Audio Delay / Follower・Base Parameter・External Control・絶対位置を、初期状態へ戻します |
-| Prepare失敗 | それまでの状態を破棄し、利用不可状態へ移行します |
-| Process / Reset中のNative DSP失敗 | 出力を無音化してErrorを返し、未準備状態へ移行します。再利用にはPrepareが必要です |
+| Prepare失敗 | 新しいResourceを公開せず、既存のPrepared Resourceがあればそのまま維持します |
+| Process / Reset中のNative DSP失敗 | 出力を無音化してErrorを返し、RuntimeをFaultedまたは未準備状態へ移行します。再利用にはPrepareが必要です |
 
 **Process中に禁止する操作**
 
@@ -174,6 +189,18 @@ ProcessはPrepareで確保したStateを使い回し、実行中に新しいStat
 - 不正な入力やContextの不一致はErrorとし、そのBlockの出力を無音にします
 - Native側の失敗もRust側Processorの失敗も、原因を示すErrorとして報告します
 - ErrorとExit Codeの対応は`docs/cli.md`を参照してください
+
+## Runtime Update
+
+構成を変更する場合は、Control側で新しいDefinitionをCompileし、候補Runtimeが使用するProcessSpecで`PreparedInstrumentUpdate`を完全にPrepareします。Audio Callbackへ渡されたUpdateはBlockの開始時にだけPublishされます。CompileやPrepareが失敗した場合は、現在のRuntimeと再生を維持します。
+
+Publish後は、新しいNoteがActive Generationで始まり、すでに発音中のNoteはRetired Generationで旧Definitionを保持します。Note Off、Sustain、Pitch Bend、Mod Wheel、Aftertouchは全Live Generationへ届き、Parameter ChangeはActive Generationだけが受け取ります。Parameter ChangeのCatalog Revisionが現在のRevisionと異なる場合、Eventは無視されてStale Counterだけが増えます。
+
+Retired Generationは、VoiceとHeld Noteがなくなるまで処理対象に残ります。旧Global Processorを含む不要なResourceは`take_reclaimable`でControl側へ移し、Audio CallbackでHeap Freeを発生させずに破棄します。Live Generationは最大8世代です。上限、ProcessSpec、入力Bus、または固定Latencyの条件を満たさないPublishは現行Runtimeを維持したまま失敗します。
+
+Global ProcessorはInstrument全体に1組だけ存在します。Voice Sum後の各共通Spanで、そのSpanのActive GenerationのGlobal Targetを評価してからGlobal Chainへ渡します。共通SpanはEvent境界、32 Frameの量子化境界、Parameter Smoother境界、Transport境界で決まり、Retired Generationが存在する間もこの順序を保ちます。
+
+Global Processorの構成変更は5msのEqual-power Crossfadeで切り替えます。切替中の再PublishはTransition Busyとなるため、FrontendはPrepared Updateを保持して切替完了後に再試行します。Crossfade中はOld / New Global Chainをそれぞれ同じSpanへ適用し、Span内の進行位置で混ぜます。Reported LatencyまたはExternal Input Channel数が変わるUpdateはLive Publishせず、Streamの再ActivateとHost側のLatency / Bus更新が必要です。
 
 ## Realtime Adapter
 
@@ -196,7 +223,7 @@ Host Callbackに渡されるFrame数は要求値と異なることがあるた�
 
 **Callback内での動き**
 
-Callbackで行うのはInput Queueからの固定Frame取り出し、Event Queueからの取り出し、`process`の呼び出しだけです。前章の禁止操作に加え、Device Queryも行いません。Device選択、DefinitionのCompile、RuntimeのPrepare、Input Streamの起動はCallback開始前に完了させておきます。
+Callbackで行うのはInput Queueからの固定Frame取り出し、Event Queueからの取り出し、Block境界のPrepared Update Publish、`process`の呼び出しだけです。前章の禁止操作に加え、Device Queryも行いません。Device選択、DefinitionのCompile、RuntimeのPrepare / Activate、Input Streamの起動はCallback開始前に完了させておきます。Stream停止後はRuntimeをDeactivateしてからSessionを破棄します。
 
 Audio Input CallbackはCPALのNative Sample Formatを`f32`のFrameへ変換して固定容量Queueへ書き込みます。Queueが空いたままOutput Callbackが進んだFrameは0で埋めてUnderflowを記録し、Queueが満杯のときは新しいInput Frameを破棄してOverflowを記録します。Input StreamのDevice Errorは致命的なAudio Input Errorです。Input Queueは固定容量で、Callback内のAllocationやBlockする待ち合わせを行いません。
 
@@ -214,8 +241,10 @@ Audio Input CallbackはCPALのNative Sample Formatを`f32`のFrameへ変換し�
 ```mermaid
 flowchart LR
     A[長さをFrame数へ変換] --> B[Prepare]
-    B --> C[BlockごとにProcess]
-    C --> D[RenderedAudio]
+    B --> C[Activate]
+    C --> D[BlockごとにProcess]
+    D --> E[Deactivate]
+    E --> F[RenderedAudio]
 ```
 
 - 長さは「秒 × Sample Rate」を整数へ丸め、Tail Frame数を足します

@@ -81,15 +81,16 @@ pub use definition::{
 };
 pub use diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity, from_render_error};
 pub use parameter::{
-    BUILTIN_SOURCE_IDS, ModulationUnit, ParameterCatalog, ParameterDescriptor, ParameterHandle,
-    ParameterOwner, ParameterScale, ParameterUnit, ParameterValueError, VectorAxis,
-    global_processor_parameter_id, is_component_id, is_parameter_id, layer_generator_parameter_id,
-    layer_parameter_id, layer_processor_parameter_id, voice_processor_parameter_id,
+    BUILTIN_SOURCE_IDS, ModulationUnit, ParameterCatalog, ParameterCatalogRevision,
+    ParameterDescriptor, ParameterHandle, ParameterOwner, ParameterScale, ParameterUnit,
+    ParameterValueError, VectorAxis, global_processor_parameter_id, is_component_id,
+    is_parameter_id, layer_generator_parameter_id, layer_parameter_id,
+    layer_processor_parameter_id, voice_processor_parameter_id,
 };
 pub use process::{
     DEFAULT_TIME_SIGNATURE, DspFailureKind, InstrumentProcessor, NoteId, ProcessBlock,
     ProcessContext, ProcessError, ProcessEvent, ProcessEventKind, ProcessSpec,
-    ProcessorFailureKind, ScheduledEvent, TimeSignature,
+    ProcessorFailureKind, ScheduledEvent, TimeSignature, TransportState,
 };
 pub use render::{
     DEFAULT_TEMPO_BPM, MusicalTimeChange, MusicalTimeMap, PreparedMusicalTimeMap, RenderError,
@@ -98,7 +99,12 @@ pub use render::{
     render_instrument_with_musical_time_map, render_instrument_with_reset,
     render_instrument_with_tempo, render_instrument_with_trace, render_sine, seconds_to_frames,
 };
-pub use runtime::{InstrumentRuntime, SineRuntime, VoiceState};
+pub use runtime::{
+    GenerationId, InstrumentRuntime, MAX_LIVE_GENERATIONS, PrepareUpdateError,
+    PreparedInstrumentUpdate, PublishError, PublishOutcome, ReactivationReason,
+    ReclaimableRuntimeResource, ReclaimableRuntimeResourceKind, RuntimeState, SineRuntime,
+    VoiceState,
+};
 pub use trace::{
     MAX_TRACE_OBSERVATIONS, RenderTraceReport, TraceContribution, TraceDepth, TraceObservation,
     TraceParameterReport, TraceRequest, TraceRoute, TraceVoice, TraceVoiceState,

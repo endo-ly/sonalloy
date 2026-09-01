@@ -19,7 +19,9 @@ use crate::definition::{
     VectorDefinition, VoiceStealingDefinition,
 };
 use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
-use crate::parameter::{ParameterCatalog, ParameterHandle, layer_parameter_id};
+use crate::parameter::{
+    ParameterCatalog, ParameterCatalogRevision, ParameterHandle, layer_parameter_id,
+};
 use crate::process::ProcessSpec;
 
 pub(crate) const BASIC_FREQUENCY_LIMIT_RATIO: f64 = 0.45;
@@ -152,6 +154,18 @@ impl CompiledInstrument {
     #[must_use]
     pub fn layer_alignment_latency_frames(&self) -> usize {
         self.layer_alignment_latency_frames
+    }
+
+    /// Return the fixed latency from instrument input events to output.
+    #[must_use]
+    pub fn reported_latency_frames(&self) -> usize {
+        self.reported_latency_frames
+    }
+
+    /// Return the deterministic revision of the parameter catalog.
+    #[must_use]
+    pub fn parameter_catalog_revision(&self) -> ParameterCatalogRevision {
+        self.parameter_catalog.revision()
     }
 
     /// Resolve a canonical parameter identifier for control code.

@@ -241,6 +241,7 @@ pub(crate) fn compile(
                     source_index,
                     &time,
                     ProcessEventKind::ParameterChange {
+                        catalog_revision: instrument.parameter_catalog_revision(),
                         parameter: handle,
                         normalized,
                     },

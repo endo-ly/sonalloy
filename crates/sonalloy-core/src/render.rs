@@ -243,6 +243,7 @@ impl PreparedMusicalTimeMap {
             bar_position: segment.bar_position
                 + beat_delta / segment.time_signature.beats_per_bar(),
             time_signature: segment.time_signature,
+            transport_state: crate::process::TransportState::Playing,
         }
     }
 }
@@ -483,6 +484,7 @@ pub fn render_instrument_with_input_and_reset(
     let spec = request.process_spec(input_channels)?;
     let mut runtime = InstrumentRuntime::new(Arc::clone(&compiled));
     runtime.prepare(spec)?;
+    runtime.activate()?;
     let mut observe =
         |_frame: u64, _runtime: &mut InstrumentRuntime, _context: ProcessContext| Ok(());
     let first = render_prepared_processor_with_musical_time_map_observed(
@@ -508,6 +510,7 @@ pub fn render_instrument_with_input_and_reset(
         input_channels,
         external_audio,
     )?;
+    runtime.deactivate()?;
     Ok((first, second))
 }
 
@@ -723,7 +726,8 @@ where
     let total_frames_usize = validate_render_inputs(request, events)?;
     let spec = request.process_spec(input_channels)?;
     processor.prepare(spec)?;
-    render_prepared_processor_with_musical_time_map_observed(
+    processor.activate()?;
+    let result = render_prepared_processor_with_musical_time_map_observed(
         processor,
         request,
         events,
@@ -733,7 +737,14 @@ where
         total_frames_usize,
         input_channels,
         external_audio,
-    )
+    );
+    match result {
+        Ok(audio) => {
+            processor.deactivate()?;
+            Ok(audio)
+        }
+        Err(error) => Err(error),
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -937,6 +948,10 @@ mod tests {
             Ok(())
         }
 
+        fn activate(&mut self) -> Result<(), ProcessError> {
+            Ok(())
+        }
+
         fn process(&mut self, _block: ProcessBlock<'_>) -> Result<(), ProcessError> {
             self.calls += 1;
             if self.calls == 2 {
@@ -949,10 +964,18 @@ mod tests {
         fn reset(&mut self) -> Result<(), ProcessError> {
             Ok(())
         }
+
+        fn deactivate(&mut self) -> Result<(), ProcessError> {
+            Ok(())
+        }
     }
 
     impl InstrumentProcessor for TempoRecordingProcessor {
         fn prepare(&mut self, _spec: ProcessSpec) -> Result<(), ProcessError> {
+            Ok(())
+        }
+
+        fn activate(&mut self) -> Result<(), ProcessError> {
             Ok(())
         }
 
@@ -966,6 +989,10 @@ mod tests {
         }
 
         fn reset(&mut self) -> Result<(), ProcessError> {
+            Ok(())
+        }
+
+        fn deactivate(&mut self) -> Result<(), ProcessError> {
             Ok(())
         }
     }

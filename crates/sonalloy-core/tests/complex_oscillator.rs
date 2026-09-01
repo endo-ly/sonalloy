@@ -299,6 +299,7 @@ fn complex_runtime_is_finite_stereo_and_parameter_sweeps_render() {
         ScheduledEvent {
             absolute_frame: 512,
             kind: sonalloy_core::ProcessEventKind::ParameterChange {
+                catalog_revision: compiled.parameter_catalog_revision(),
                 parameter: wavefold,
                 normalized: 0.0,
             },
@@ -306,6 +307,7 @@ fn complex_runtime_is_finite_stereo_and_parameter_sweeps_render() {
         ScheduledEvent {
             absolute_frame: 1_024,
             kind: sonalloy_core::ProcessEventKind::ParameterChange {
+                catalog_revision: compiled.parameter_catalog_revision(),
                 parameter: wavefold,
                 normalized: 1.0,
             },
@@ -437,6 +439,7 @@ fn reset_matches_a_fresh_complex_runtime() {
     let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec");
     let mut runtime = Arc::clone(&instrument).instantiate();
     runtime.prepare(spec).expect("runtime preparation");
+    runtime.activate().expect("runtime activation");
     let mut first_left = [0.0_f32; 257];
     let mut first_right = [0.0_f32; 257];
     let mut output: [&mut [f32]; 2] = [&mut first_left, &mut first_right];
@@ -449,6 +452,7 @@ fn reset_matches_a_fresh_complex_runtime() {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events: &[sonalloy_core::ProcessEvent {
                 sample_offset: 0,
@@ -471,6 +475,7 @@ fn reset_matches_a_fresh_complex_runtime() {
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events: &[sonalloy_core::ProcessEvent {
                 sample_offset: 0,

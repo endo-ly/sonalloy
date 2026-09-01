@@ -18,7 +18,11 @@ pub(crate) mod sine;
 pub(crate) mod smoothing;
 pub(crate) mod source;
 mod voice;
-pub use instrument::InstrumentRuntime;
+pub use instrument::{
+    GenerationId, InstrumentRuntime, MAX_LIVE_GENERATIONS, PrepareUpdateError,
+    PreparedInstrumentUpdate, PublishError, PublishOutcome, ReactivationReason,
+    ReclaimableRuntimeResource, ReclaimableRuntimeResourceKind, RuntimeState,
+};
 pub use sine::SineRuntime;
 pub use voice::VoiceState;
 

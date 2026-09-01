@@ -138,6 +138,7 @@ fn process_runtime(
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events,
             input: &[],
@@ -285,6 +286,7 @@ fn granular_missing_asset_does_not_disable_other_layers() {
     runtime
         .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("unavailable Granular layer does not prevent prepare");
+    runtime.activate().expect("runtime activates");
     let audio = process_runtime(
         &mut runtime,
         257,
@@ -313,6 +315,7 @@ fn granular_reset_restarts_the_same_render() {
     runtime
         .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
         .expect("Granular runtime prepares");
+    runtime.activate().expect("Granular runtime activates");
     let event = [ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {
@@ -349,6 +352,8 @@ fn granular_voice_stealing_restarts_grain_state() {
     let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec");
     stolen.prepare(spec).expect("stolen runtime prepares");
     direct.prepare(spec).expect("direct runtime prepares");
+    stolen.activate().expect("stolen runtime activates");
+    direct.activate().expect("direct runtime activates");
     let first_note = [ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {

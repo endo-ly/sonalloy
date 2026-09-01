@@ -78,6 +78,17 @@ pub struct ProcessContext {
     pub bar_position: f64,
     /// Meter active for the block.
     pub time_signature: TimeSignature,
+    /// Whether the host transport is currently running.
+    pub transport_state: TransportState,
+}
+
+/// State of the host transport for one process block.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransportState {
+    /// The transport is stopped; tempo-synchronised phases do not advance.
+    Stopped,
+    /// The transport is playing; tempo-synchronised phases advance normally.
+    Playing,
 }
 
 /// Musical meter used by transport-aware modulation.
@@ -149,6 +160,8 @@ pub enum ProcessEventKind {
     },
     /// Change a continuous parameter's normalized base value.
     ParameterChange {
+        /// Revision of the catalog used to resolve `parameter`.
+        catalog_revision: crate::parameter::ParameterCatalogRevision,
         /// Compiled parameter handle resolved by control code.
         parameter: ParameterHandle,
         /// Target value in the inclusive zero-to-one range.
@@ -499,6 +512,9 @@ pub enum ProcessError {
     /// A runtime has not been prepared.
     #[error("processor is not prepared")]
     NotPrepared,
+    /// A runtime has been prepared but is not active.
+    #[error("processor is not active")]
+    NotActive,
     /// The caller's absolute frame does not match runtime state.
     #[error("process context starts at frame {received}, expected {expected}")]
     ContextDiscontinuity {
@@ -630,6 +646,12 @@ pub trait InstrumentProcessor {
     ///
     /// Returns an error when the specification cannot be prepared.
     fn prepare(&mut self, spec: ProcessSpec) -> Result<(), ProcessError>;
+    /// Activate prepared resources for audio processing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the processor is not prepared or is already active.
+    fn activate(&mut self) -> Result<(), ProcessError>;
     /// Process one variable-sized planar block.
     ///
     /// # Errors
@@ -642,6 +664,12 @@ pub trait InstrumentProcessor {
     ///
     /// Returns an error when the processor has not been prepared or cannot reset its state.
     fn reset(&mut self) -> Result<(), ProcessError>;
+    /// Deactivate audio processing while retaining prepared resources.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the processor is not active.
+    fn deactivate(&mut self) -> Result<(), ProcessError>;
 }
 
 /// Clear the writable portion of all output channels.
@@ -654,6 +682,7 @@ pub fn clear_output(output: &mut [&mut [f32]], frames: usize) {
 
 #[cfg(test)]
 mod tests {
+    use super::TransportState;
     use super::{
         DEFAULT_TIME_SIGNATURE, ProcessBlock, ProcessContext, ProcessError, ProcessEvent,
         ProcessEventKind, ProcessSpec, TimeSignature, clear_output,
@@ -666,6 +695,7 @@ mod tests {
             beat_position: 0.0,
             bar_position: 0.0,
             time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+            transport_state: TransportState::Playing,
         }
     }
 
@@ -746,6 +776,7 @@ mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: TransportState::Playing,
                 },
                 events: &[],
                 input: &[],
@@ -782,6 +813,7 @@ mod tests {
                     beat_position,
                     bar_position,
                     time_signature,
+                    transport_state: TransportState::Playing,
                 },
                 events: &[],
                 input: &[],

@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use sonalloy_core::{
     CompileContext, CompiledInstrument, EnvelopeTransferProcessorDefinition, ExternalAudioChannels,
-    ExternalAudioInputDefinition, InstrumentDefinition, InstrumentProcessor, PreparedAudio,
-    PreparedAudioChannels, ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderError,
-    RenderRequest, SampleMetadata, ScheduledEvent, compile_instrument, render_instrument,
-    render_instrument_with_input, render_instrument_with_input_and_reset,
+    ExternalAudioInputDefinition, InstrumentDefinition, PreparedAudio, PreparedAudioChannels,
+    ProcessEventKind, ProcessSpec, ProcessorDefinition, RenderError, RenderRequest, SampleMetadata,
+    ScheduledEvent, compile_instrument, render_instrument, render_instrument_with_input,
+    render_instrument_with_input_and_reset,
 };
 
 fn definition() -> InstrumentDefinition {

@@ -6,7 +6,8 @@ use crate::compiler::{
 };
 use crate::parameter::{ParameterHandle, ParameterOwner};
 use crate::process::{
-    InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessSpec, clear_output,
+    InstrumentProcessor, ProcessBlock, ProcessContext, ProcessError, ProcessSpec, TransportState,
+    clear_output,
 };
 use crate::trace::{TraceObservation, TraceVoice, TraceVoiceState};
 
@@ -20,9 +21,15 @@ use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
 use super::source::ceil_boundary_frames;
 use super::voice::{PreparedLayerSelection, VoiceRuntime, VoiceState};
-
 mod event;
+mod lifecycle;
 mod trace;
+
+pub use lifecycle::{
+    GenerationId, InstrumentRuntime, MAX_LIVE_GENERATIONS, PrepareUpdateError,
+    PreparedInstrumentUpdate, PublishError, PublishOutcome, ReactivationReason,
+    ReclaimableRuntimeResource, ReclaimableRuntimeResourceKind, RuntimeState,
+};
 
 const CONTROL_SMOOTHING_SECONDS: f64 = 0.005;
 const STEAL_FADE_SECONDS: f64 = 0.005;
@@ -68,8 +75,9 @@ struct RuntimeScratch {
     instrument_source_spans: Vec<ParameterSpanValue>,
 }
 
-/// Prepared polyphonic runtime for one immutable compiled instrument.
-pub struct InstrumentRuntime {
+/// Voice and processor state for one immutable compiled instrument generation.
+pub(crate) struct RuntimeGeneration {
+    id: GenerationId,
     compiled: Arc<CompiledInstrument>,
     voices: Vec<VoiceRuntime>,
     scratch: RuntimeScratch,
@@ -88,11 +96,41 @@ pub struct InstrumentRuntime {
     instrument_source_states: Vec<Option<EnvelopeFollowerRuntime>>,
 }
 
-impl InstrumentRuntime {
+impl RuntimeGeneration {
+    pub(crate) fn is_idle(&self) -> bool {
+        self.held_notes.is_empty()
+            && self
+                .voices
+                .iter()
+                .all(|voice| voice.state() == VoiceState::Idle)
+    }
+
+    pub(crate) fn process_global(
+        &mut self,
+        tempo_bpm: f64,
+        external: ExternalAudioBlock<'_>,
+        left: &mut [f32],
+        right: &mut [f32],
+    ) -> Result<(), ProcessError> {
+        self.global_processors
+            .as_mut()
+            .ok_or(ProcessError::NotPrepared)?
+            .process(&self.global_targets, tempo_bpm, external, left, right)
+    }
+
+    pub(crate) fn take_global(&mut self) -> Option<StereoProcessorChain> {
+        self.global_processors.take()
+    }
+
+    pub(crate) fn swap_global_processors(&mut self, other: &mut Self) {
+        std::mem::swap(&mut self.global_processors, &mut other.global_processors);
+    }
+
     /// Create an unprepared runtime from a compiled instrument.
     #[must_use]
     pub fn new(compiled: Arc<CompiledInstrument>) -> Self {
         Self {
+            id: GenerationId::initial(),
             compiled,
             voices: Vec::new(),
             scratch: RuntimeScratch {
@@ -126,6 +164,29 @@ impl InstrumentRuntime {
         &self.compiled
     }
 
+    pub(crate) fn generation_id(&self) -> GenerationId {
+        self.id
+    }
+
+    pub(crate) fn inherit_performance_controls(&mut self, previous: &Self) {
+        self.pitch_bend = previous.pitch_bend;
+        self.mod_wheel = previous.mod_wheel;
+        self.aftertouch = previous.aftertouch;
+        self.sustain_down = previous.sustain_down;
+    }
+
+    pub(crate) fn contains_note_id(&self, note_id: crate::process::NoteId) -> bool {
+        self.held_notes.iter().any(|note| note.note_id == note_id)
+            || self
+                .voices
+                .iter()
+                .any(|voice| voice.contains_note_id(note_id))
+    }
+
+    pub(crate) fn reset_for_runtime(&mut self) -> Result<(), ProcessError> {
+        <Self as InstrumentProcessor>::reset(self)
+    }
+
     /// Return the number of prepared voices.
     #[must_use]
     pub fn voice_count(&self) -> usize {
@@ -134,6 +195,7 @@ impl InstrumentRuntime {
 
     /// Return the runtime's absolute frame position.
     #[must_use]
+    #[cfg(test)]
     pub fn absolute_frame(&self) -> u64 {
         self.absolute_frame
     }
@@ -305,6 +367,157 @@ impl InstrumentRuntime {
         remaining
     }
 
+    pub(crate) fn validate_process_block(
+        &self,
+        block: &ProcessBlock<'_>,
+        accept_parameter_changes: bool,
+    ) -> Result<(), ProcessError> {
+        let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
+        block.validate_for(spec)?;
+        self.validate_parameter_events(block.events, accept_parameter_changes)?;
+        if block.context.absolute_frame != self.absolute_frame {
+            return Err(ProcessError::ContextDiscontinuity {
+                received: block.context.absolute_frame,
+                expected: self.absolute_frame,
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn next_span_end(
+        &self,
+        block: &ProcessBlock<'_>,
+        cursor: usize,
+        event_index: usize,
+    ) -> Result<usize, ProcessError> {
+        let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
+        let mut end = block.frames;
+        if let Some(next_event) = block.events.get(event_index) {
+            end = end.min(next_event.sample_offset);
+        }
+        let absolute = block
+            .context
+            .absolute_frame
+            .checked_add(cursor as u64)
+            .ok_or(ProcessError::FrameOverflow)?;
+        let absolute_frame = usize::try_from(absolute).map_err(|_| ProcessError::FrameOverflow)?;
+        let quantum = QUANTUM_FRAMES - (absolute_frame % QUANTUM_FRAMES);
+        end = end.min(cursor + quantum);
+        if let Some(remaining) = self.shared_target_remaining() {
+            end = end.min(cursor + remaining);
+        }
+        if let Some(remaining) = self.transport_boundary_remaining(
+            block.context,
+            cursor,
+            spec.sample_rate,
+            block.frames - cursor,
+        ) {
+            end = end.min(cursor + remaining);
+        }
+        Ok(if end <= cursor { cursor + 1 } else { end })
+    }
+
+    pub(crate) fn apply_events_at(
+        &mut self,
+        events: &[crate::process::ProcessEvent],
+        absolute_frame: u64,
+        accept_note_ons: bool,
+        accept_parameter_changes: bool,
+    ) -> Result<(), ProcessError> {
+        self.absolute_frame = absolute_frame;
+        for event in events {
+            if let Err(error) = self.apply_event(
+                event.kind,
+                absolute_frame,
+                accept_note_ons,
+                accept_parameter_changes,
+            ) {
+                self.spec = None;
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn render_voice_span(
+        &mut self,
+        context: ProcessContext,
+        input: &[&[f32]],
+        start: usize,
+        end: usize,
+        output: &mut [&mut [f32]],
+    ) -> Result<(), ProcessError> {
+        let frames = end - start;
+        let external_channels = [
+            input
+                .first()
+                .and_then(|channel| channel.get(start..end))
+                .unwrap_or(&[]),
+            input
+                .get(1)
+                .and_then(|channel| channel.get(start..end))
+                .unwrap_or(&[]),
+        ];
+        let external = ExternalAudioBlock::new(&external_channels[..input.len().min(2)]);
+        let result = (|| {
+            let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
+            self.advance_shared(frames, context, start, spec.sample_rate, external)?;
+            let RuntimeScratch {
+                layer_mono,
+                layer_left,
+                layer_right,
+                voice_left,
+                voice_right,
+                parameter_spans,
+                instrument_source_spans,
+            } = &mut self.scratch;
+            let shared =
+                SharedParameterSpan::new(&*parameter_spans, &*instrument_source_spans, frames);
+            Self::render_range(
+                &mut self.voices,
+                &self.compiled,
+                layer_mono,
+                layer_left,
+                layer_right,
+                voice_left,
+                voice_right,
+                output,
+                start,
+                end,
+                spec.sample_rate,
+                context.tempo_bpm,
+                shared,
+            )?;
+            self.absolute_frame = context
+                .absolute_frame
+                .checked_add(end as u64)
+                .ok_or(ProcessError::FrameOverflow)?;
+            Ok(())
+        })();
+        if result.is_err() {
+            self.spec = None;
+        }
+        result
+    }
+
+    pub(crate) fn evaluate_global_targets_for_span(
+        &mut self,
+        frames: usize,
+    ) -> Result<(), ProcessError> {
+        let RuntimeScratch {
+            parameter_spans,
+            instrument_source_spans,
+            ..
+        } = &self.scratch;
+        let shared = SharedParameterSpan::new(parameter_spans, instrument_source_spans, frames);
+        let result =
+            Self::evaluate_global_targets(&self.compiled, &mut self.global_targets, shared);
+        if result.is_err() {
+            self.spec = None;
+        }
+        result
+    }
+
     #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
     pub(crate) fn transport_boundary_remaining(
         &self,
@@ -313,6 +526,9 @@ impl InstrumentRuntime {
         sample_rate: f64,
         remaining: usize,
     ) -> Option<usize> {
+        if context.transport_state == TransportState::Stopped {
+            return None;
+        }
         if !self.compiled.instrument_sources.iter().any(|source| {
             matches!(
                 &source.source,
@@ -385,16 +601,22 @@ impl InstrumentRuntime {
             end: touch_end,
         };
         let start_frame = context.absolute_frame.saturating_add(offset as u64);
-        let start_beats = context.beat_position
-            + (start_frame.saturating_sub(context.absolute_frame) as f64) * context.tempo_bpm
-                / (60.0 * sample_rate);
-        let end_beats = start_beats + frames as f64 * context.tempo_bpm / (60.0 * sample_rate);
+        let beat_delta = if context.transport_state == TransportState::Playing {
+            (start_frame.saturating_sub(context.absolute_frame) as f64) * context.tempo_bpm
+                / (60.0 * sample_rate)
+        } else {
+            0.0
+        };
+        let frame_delta = if context.transport_state == TransportState::Playing {
+            frames as f64 * context.tempo_bpm / (60.0 * sample_rate)
+        } else {
+            0.0
+        };
+        let start_beats = context.beat_position + beat_delta;
+        let end_beats = start_beats + frame_delta;
         let beats_per_bar = context.time_signature.beats_per_bar();
-        let start_bar = context.bar_position
-            + (start_frame.saturating_sub(context.absolute_frame) as f64) * context.tempo_bpm
-                / (60.0 * sample_rate * beats_per_bar);
-        let end_bar =
-            start_bar + frames as f64 * context.tempo_bpm / (60.0 * sample_rate * beats_per_bar);
+        let start_bar = context.bar_position + beat_delta / beats_per_bar;
+        let end_bar = start_bar + frame_delta / beats_per_bar;
         for (state, span) in self
             .instrument_source_states
             .iter_mut()
@@ -726,7 +948,7 @@ impl InstrumentRuntime {
     }
 }
 
-impl InstrumentRuntime {
+impl RuntimeGeneration {
     pub(crate) fn reset_for_prepare(&mut self) {
         self.spec = None;
         self.voices.clear();
@@ -856,22 +1078,25 @@ impl InstrumentRuntime {
     }
 }
 
-impl InstrumentRuntime {
+impl RuntimeGeneration {
     #[allow(clippy::too_many_lines)]
     pub(crate) fn process_inner(
         &mut self,
         block: &mut ProcessBlock<'_>,
     ) -> Result<(), ProcessError> {
+        self.process_inner_with_routing(block, true, true, true)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    pub(crate) fn process_inner_with_routing(
+        &mut self,
+        block: &mut ProcessBlock<'_>,
+        accept_note_ons: bool,
+        accept_parameter_changes: bool,
+        apply_global: bool,
+    ) -> Result<(), ProcessError> {
         clear_output(&mut *block.output, block.frames);
-        let spec = self.spec.ok_or(ProcessError::NotPrepared)?;
-        block.validate_for(spec)?;
-        self.validate_parameter_events(block.events)?;
-        if block.context.absolute_frame != self.absolute_frame {
-            return Err(ProcessError::ContextDiscontinuity {
-                received: block.context.absolute_frame,
-                expected: self.absolute_frame,
-            });
-        }
+        self.validate_process_block(block, accept_parameter_changes)?;
         let next_frame = self
             .absolute_frame
             .checked_add(block.frames as u64)
@@ -884,45 +1109,42 @@ impl InstrumentRuntime {
         let mut cursor = 0;
         let mut event_index = 0;
         while cursor < block.frames {
+            let event_start = event_index;
             while event_index < block.events.len()
                 && block.events[event_index].sample_offset == cursor
             {
-                let event = block.events[event_index].kind;
-                if let Err(error) = self.apply_event(event, self.absolute_frame + cursor as u64) {
-                    clear_output(&mut *block.output, block.frames);
-                    self.spec = None;
-                    return Err(error);
-                }
                 event_index += 1;
             }
-
-            let mut end = block.frames;
-            if let Some(next_event) = block.events.get(event_index) {
-                end = end.min(next_event.sample_offset);
+            if event_start != event_index
+                && let Err(error) = self.apply_events_at(
+                    &block.events[event_start..event_index],
+                    block.context.absolute_frame + cursor as u64,
+                    accept_note_ons,
+                    accept_parameter_changes,
+                )
+            {
+                clear_output(&mut *block.output, block.frames);
+                return Err(error);
             }
-            let absolute = self.absolute_frame + cursor as u64;
-            let Ok(absolute_frame) = usize::try_from(absolute) else {
-                self.spec = None;
-                return Err(ProcessError::FrameOverflow);
+            let end = match self.next_span_end(block, cursor, event_index) {
+                Ok(end) => end,
+                Err(error) => {
+                    self.spec = None;
+                    clear_output(&mut *block.output, block.frames);
+                    return Err(error);
+                }
             };
-            let quantum = QUANTUM_FRAMES - (absolute_frame % QUANTUM_FRAMES);
-            end = end.min(cursor + quantum);
-            if let Some(remaining) = self.shared_target_remaining() {
-                end = end.min(cursor + remaining);
+            if let Err(error) =
+                self.render_voice_span(block.context, block.input, cursor, end, block.output)
+            {
+                clear_output(&mut *block.output, block.frames);
+                return Err(error);
             }
-            if let Some(remaining) = self.transport_boundary_remaining(
-                block.context,
-                cursor,
-                spec.sample_rate,
-                block.frames - cursor,
-            ) {
-                end = end.min(cursor + remaining);
-            }
-            if end <= cursor {
-                end = cursor + 1;
-            }
-
             let frames = end - cursor;
+            if let Err(error) = self.evaluate_global_targets_for_span(frames) {
+                clear_output(&mut *block.output, block.frames);
+                return Err(error);
+            }
             let external_channels = [
                 block
                     .input
@@ -938,50 +1160,6 @@ impl InstrumentRuntime {
             let external = ExternalAudioBlock::new(
                 &external_channels[..block.input.len().min(external_channels.len())],
             );
-            if let Err(error) =
-                self.advance_shared(frames, block.context, cursor, spec.sample_rate, external)
-            {
-                clear_output(&mut *block.output, block.frames);
-                self.spec = None;
-                return Err(error);
-            }
-            let RuntimeScratch {
-                layer_mono,
-                layer_left,
-                layer_right,
-                voice_left,
-                voice_right,
-                parameter_spans,
-                instrument_source_spans,
-            } = &mut self.scratch;
-            let shared =
-                SharedParameterSpan::new(&*parameter_spans, &*instrument_source_spans, frames);
-            if let Err(error) = Self::render_range(
-                &mut self.voices,
-                &self.compiled,
-                layer_mono,
-                layer_left,
-                layer_right,
-                voice_left,
-                voice_right,
-                block.output,
-                cursor,
-                end,
-                spec.sample_rate,
-                block.context.tempo_bpm,
-                shared,
-            ) {
-                clear_output(&mut *block.output, block.frames);
-                self.spec = None;
-                return Err(error);
-            }
-            if let Err(error) =
-                Self::evaluate_global_targets(&self.compiled, &mut self.global_targets, shared)
-            {
-                clear_output(&mut *block.output, block.frames);
-                self.spec = None;
-                return Err(error);
-            }
             let global_result = {
                 if block.output.len() < 2 {
                     Err(invalid_state())
@@ -994,7 +1172,7 @@ impl InstrumentRuntime {
                         .first_mut()
                         .and_then(|channel| channel.get_mut(cursor..end));
                     match (left, right) {
-                        (Some(left), Some(right)) => self
+                        (Some(left), Some(right)) if apply_global => self
                             .global_processors
                             .as_mut()
                             .ok_or(ProcessError::NotPrepared)
@@ -1007,6 +1185,7 @@ impl InstrumentRuntime {
                                     right,
                                 )
                             }),
+                        (Some(_), Some(_)) => Ok(()),
                         _ => Err(invalid_state()),
                     }
                 }
@@ -1023,9 +1202,16 @@ impl InstrumentRuntime {
     }
 }
 
-impl InstrumentProcessor for InstrumentRuntime {
+impl InstrumentProcessor for RuntimeGeneration {
     fn prepare(&mut self, spec: ProcessSpec) -> Result<(), ProcessError> {
         self.prepare_inner(spec)
+    }
+
+    fn activate(&mut self) -> Result<(), ProcessError> {
+        if self.spec.is_none() {
+            return Err(ProcessError::NotPrepared);
+        }
+        Ok(())
     }
 
     fn process(&mut self, block: ProcessBlock<'_>) -> Result<(), ProcessError> {
@@ -1094,6 +1280,13 @@ impl InstrumentProcessor for InstrumentRuntime {
         self.absolute_frame = 0;
         Ok(())
     }
+
+    fn deactivate(&mut self) -> Result<(), ProcessError> {
+        if self.spec.is_none() {
+            return Err(ProcessError::NotPrepared);
+        }
+        Ok(())
+    }
 }
 
 fn control_smoothing_frames(sample_rate: f64) -> usize {
@@ -1112,7 +1305,7 @@ pub(crate) mod tests {
 
     use std::sync::Arc;
 
-    use super::InstrumentRuntime;
+    use super::RuntimeGeneration as InstrumentRuntime;
     use crate::compiler::{CompileContext, CompiledInstrument, compile_instrument};
     use crate::definition::tests::definition;
     use crate::process::{
@@ -1149,7 +1342,7 @@ pub(crate) mod tests {
                 process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
             },
         );
-        result.instrument.expect("compiled").instantiate()
+        InstrumentRuntime::new(result.instrument.expect("compiled"))
     }
 
     pub(crate) fn external_runtime_with(
@@ -1162,7 +1355,7 @@ pub(crate) mod tests {
                 process_spec: ProcessSpec::new(48_000.0, 64, 2, 2).expect("valid spec"),
             },
         );
-        result.instrument.expect("compiled").instantiate()
+        InstrumentRuntime::new(result.instrument.expect("compiled"))
     }
 
     pub(crate) fn runtime() -> InstrumentRuntime {
@@ -1206,6 +1399,7 @@ pub(crate) mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: crate::process::TransportState::Playing,
                 },
                 events,
                 input: &[],
@@ -1226,6 +1420,7 @@ pub(crate) mod tests {
             beat_position: 0.0,
             bar_position: 0.0,
             time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+            transport_state: crate::process::TransportState::Playing,
         };
         let (_, observation) = runtime
             .trace_snapshots(&[handle], frame, 48_000.0, context)
@@ -1260,6 +1455,7 @@ pub(crate) mod tests {
             beat_position: 0.99,
             bar_position: 0.2475,
             time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+            transport_state: crate::process::TransportState::Playing,
         };
         let mut beat_runtime = runtime_with(&definition_for("transport_beat_phase"));
         prepare(&mut beat_runtime);
@@ -1273,6 +1469,29 @@ pub(crate) mod tests {
         let beat_span = beat_runtime.scratch.instrument_source_spans[0];
         assert!((beat_span.start - 0.99).abs() < 1.0e-6);
         assert!((beat_span.end - 1.0).abs() < 1.0e-6);
+
+        let stopped_context = ProcessContext {
+            transport_state: crate::process::TransportState::Stopped,
+            ..beat_context
+        };
+        let mut stopped_runtime = runtime_with(&definition_for("transport_beat_phase"));
+        prepare(&mut stopped_runtime);
+        assert_eq!(
+            stopped_runtime.transport_boundary_remaining(stopped_context, 0, 48_000.0, 256),
+            None
+        );
+        stopped_runtime
+            .advance_shared(
+                240,
+                stopped_context,
+                0,
+                48_000.0,
+                ExternalAudioBlock::new(&[]),
+            )
+            .expect("stopped beat phase span");
+        let stopped_span = stopped_runtime.scratch.instrument_source_spans[0];
+        assert!((stopped_span.start - 0.99).abs() < 1.0e-6);
+        assert!((stopped_span.end - 0.99).abs() < 1.0e-6);
 
         let mut bar_runtime = runtime_with(&definition_for("transport_bar_phase"));
         prepare(&mut bar_runtime);
@@ -1333,6 +1552,7 @@ pub(crate) mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: crate::process::TransportState::Playing,
                 },
                 events,
                 input: &[],
@@ -1362,6 +1582,7 @@ pub(crate) mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: crate::process::TransportState::Playing,
                 },
                 events,
                 input: &input,
@@ -2255,6 +2476,7 @@ pub(crate) mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: crate::process::TransportState::Playing,
                 },
                 events: &[],
                 input: &[],
@@ -2302,6 +2524,7 @@ pub(crate) mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: crate::process::TransportState::Playing,
                 },
                 events: &[],
                 input: &[],
@@ -2670,6 +2893,7 @@ pub(crate) mod tests {
                     beat_position: 0.0,
                     bar_position: 0.0,
                     time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                    transport_state: crate::process::TransportState::Playing,
                 },
                 events: &[ProcessEvent {
                     sample_offset: 0,
@@ -2682,6 +2906,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn global_feedback_targets_remain_within_descriptor_limits() {
         let mut source = definition();
         source.global_processors = vec![
@@ -2747,6 +2972,7 @@ pub(crate) mod tests {
             ProcessEvent {
                 sample_offset: 0,
                 kind: ProcessEventKind::ParameterChange {
+                    catalog_revision: runtime.compiled().parameter_catalog_revision(),
                     parameter: delay_feedback,
                     normalized: 1.0,
                 },
@@ -2754,6 +2980,7 @@ pub(crate) mod tests {
             ProcessEvent {
                 sample_offset: 0,
                 kind: ProcessEventKind::ParameterChange {
+                    catalog_revision: runtime.compiled().parameter_catalog_revision(),
                     parameter: reverb_decay,
                     normalized: 1.0,
                 },

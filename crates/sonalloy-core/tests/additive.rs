@@ -130,6 +130,7 @@ fn parameter_event(
     ScheduledEvent {
         absolute_frame: frame,
         kind: ProcessEventKind::ParameterChange {
+            catalog_revision: compiled.parameter_catalog_revision(),
             parameter: compiled.parameter_handle(id).expect("parameter handle"),
             normalized,
         },
@@ -203,6 +204,7 @@ fn process_runtime(
                 beat_position: 0.0,
                 bar_position: 0.0,
                 time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                transport_state: sonalloy_core::TransportState::Playing,
             },
             events,
             input: &[],
@@ -616,6 +618,7 @@ fn additive_partial_envelopes_note_off_reset_and_voice_stealing_are_deterministi
     let mut runtime = compiled.instantiate();
     let spec = ProcessSpec::new(48_000.0, 1_024, 0, 2).expect("valid spec");
     runtime.prepare(spec).expect("runtime preparation");
+    runtime.activate().expect("runtime activation");
     let event = [ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {
@@ -634,6 +637,7 @@ fn additive_partial_envelopes_note_off_reset_and_voice_stealing_are_deterministi
 
     let mut fresh = compiled.instantiate();
     fresh.prepare(spec).expect("fresh runtime preparation");
+    fresh.activate().expect("fresh runtime activation");
     let fresh_output = process_runtime(&mut fresh, 512, 0, &event);
     assert_eq!(
         reset, fresh_output,
@@ -650,6 +654,7 @@ fn additive_partial_envelopes_note_off_reset_and_voice_stealing_are_deterministi
     stealing_runtime
         .prepare(spec)
         .expect("stealing preparation");
+    stealing_runtime.activate().expect("stealing activation");
     let first_note = [ProcessEvent {
         sample_offset: 0,
         kind: ProcessEventKind::NoteOn {
