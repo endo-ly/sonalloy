@@ -52,7 +52,7 @@ sonalloy instrument validate my-synth.json
 sonalloy render note my-synth.json --output my-synth.wav
 ```
 
-生成された `my-synth.wav` を再生して音を確認します。以降は、`my-synth.json` を編集して「検証 → Inspect → レンダリング（必要ならAnalysis / Trace） → 試聴」を繰り返して音を作り込みます。定義ファイルの書き方は[音源定義](docs/instrument-definition.md)、コマンドの詳細は[CLI](docs/cli.md)、手順全体は[音源の作り方](.agents/skills/create-instrument/SKILL.md)を参照してください。
+生成された `my-synth.wav` を再生して音を確認します。以降は、`my-synth.json` を編集して「検証 → Inspect → レンダリング（必要ならAnalysis / Trace） → 試聴」を繰り返して音を作り込みます。定義ファイルの書き方と手順全体は[音源の作り方](.agents/skills/create-instrument/SKILL.md)、コマンドの詳細は[CLI](.agents/skills/create-instrument/references/cli.md)を参照してください。
 
 MIDI Keyboardがない場合は、1つのInstrumentを試奏するPatternを作成してAudio Deviceへ直接送れます。
 
@@ -63,8 +63,6 @@ sonalloy audition pattern my-synth.json phrase.json --loop
 sonalloy render pattern my-synth.json phrase.json --output phrase.wav
 sonalloy pattern export-midi phrase.json --output phrase.mid
 ```
-
-PatternのSchemaとMIDI Interchangeは[Audition Pattern](docs/pattern.md)を参照してください。複数InstrumentのTrackやArrangementはHost / DAWの責務です。
 
 MIDI Keyboardで演奏する場合は、Deviceを確認してから次を実行します。
 
@@ -94,7 +92,7 @@ sonalloy play my-synth.json --midi-device <id>
 | `sonalloy device list [--json]` | Audio Input / OutputとMIDI Inputを列挙する |
 | `sonalloy play <definition>` | MIDI InputからAudio Outputへリアルタイム演奏する。外部Audio定義ではAudio Inputも接続する |
 
-`render`コマンドは32-bit float・StereoのWAVを出力します。外部Audioを使う定義では、`--audio-input`に指定したWAVを定義のSample Rateへ準備し、短い入力は無音で補います。`play`はDeviceのNative Sample Formatへ変換して出力します。各コマンドのオプションは[CLI](docs/cli.md)を参照してください。
+`render`コマンドは32-bit float・StereoのWAVを出力します。外部Audioを使う定義では、`--audio-input`に指定したWAVを定義のSample Rateへ準備し、短い入力は無音で補います。`play`はDeviceのNative Sample Formatへ変換して出力します。
 
 ## 技術スタック
 
@@ -126,17 +124,12 @@ cargo fmt --all -- --check
 
 ## ドキュメント
 
+音源の作成・検証・演奏など、**Sonalloyを使うための資料**は`.agents/skills/create-instrument/`配下に置きます（agentはここだけで作業を完結できる）。設計・実行時仕様など、**Sonalloyを作るための資料**は`docs/`配下に置きます。
+
 | 文書 | 内容 |
 |---|---|
-| [`docs/cli.md`](docs/cli.md) | CLI仕様：コマンド・Option・Exit Code |
-| [`docs/instrument-definition.md`](docs/instrument-definition.md) | 音源定義のデータ仕様・制約・Compile |
-| [`docs/pattern.md`](docs/pattern.md) | 1 Instrument用Audition PatternとMIDI Interchange |
-| [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源の作り方（手順書） |
+| [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源の作り方（手順書）。CLI・音源定義・Patternの仕様リファレンス（`references/`）を同梱 |
 | [`docs/runtime-processing.md`](docs/runtime-processing.md) | 実行時の動作：Block処理・Noteの一生・実行上の約束事 |
 | [`docs/c-api.md`](docs/c-api.md) | 公開C ABI：Handle所有権・Compile・Process・Runtime Update |
-| [`docs/testing-and-sound-review.md`](docs/testing-and-sound-review.md) | 検証とReviewの手順 |
 | [`docs/architecture.md`](docs/architecture.md) | 静的構造：Crate・依存方向・Native境界 |
-| [`docs/release.md`](docs/release.md) | リリース手順 |
 | [`docs/CONCEPT.md`](docs/CONCEPT.md) | 要件定義・基本設計 |
-| [`docs/plan/plan-dynamic-parameters.md`](docs/plan/plan-dynamic-parameters.md) | Dynamic Parameter / Modulationの詳細設計 |
-| [`docs/plan/plan-mvp.md`](docs/plan/plan-mvp.md) | 詳細設計・実装計画 |

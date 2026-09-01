@@ -1,13 +1,8 @@
-# Audition Pattern（演奏パターン）
+# Pattern仕様（Audition Pattern）
 
 Audition Pattern（以下、Pattern）は、1つのSonalloy音源を試奏するための演奏データ（JSON）です。Sample Rateに依存しないTickを正本の時間軸として扱うため、NoteやChord、フレーズ、ドラム、Pitch Bendのような演奏操作、Parameter Changeを同じ形式で記述・保存できます。
 
-Patternが扱うのは1つの音源への演奏条件だけです。複数InstrumentのTrackやArrangement、録音、ミキサーといった楽曲全体の構成は対象外で、RiffraなどのHost / DAW側で管理します。
-
-| 本書で扱わない内容 | 参照先 |
-|---|---|
-| コマンドの使い方・Option | `docs/cli.md` |
-| 変換後の実行時の動作 | `docs/runtime-processing.md` |
+Patternが扱うのは1つの音源への演奏条件だけです。複数InstrumentのTrackやArrangement、録音、ミキサーといった楽曲全体の構成は対象外で、Host / DAW側で管理します。雛形は`sonalloy pattern init`で生成できます。
 
 ## JSONの構造
 
@@ -131,20 +126,9 @@ Monophonic、Legato、Portamentoの意味はPatternではなくInstrument Defini
 
 ## 時間の扱い
 
-PatternはTickのまま保持され、Compile時に処理Frameへ変換されます。
+PatternはTickのまま保持され、Compile時に処理Frameへ変換されます。小数のFrame位置をTempo変更の区間ごとに積算し、最後に最も近い整数Frameへ丸めます。途中で整数へ丸めないため、長いPatternでも丸め誤差が累積しません。異なるTickが同じFrameへ丸め込まれる場合はCompile Errorです。
 
-```text
-Tick + テンポ + ticks_per_beat + Sample Rate
-        ↓
-絶対Frame
-        ↓
-ProcessBlock内のsample_offset
-```
-
-- 小数のFrame位置をTempo変更の区間ごとに積算し、最後に最も近い整数Frameへ丸めます。途中で整数へ丸めないため、長いPatternでも丸め誤差が累積しません。異なるTickが同じFrameへ丸め込まれる場合はCompile Errorです
-- 同じFrameに複数のEventが重なった場合は、元のTick、Eventの種類、Pattern内での定義順に基づいて処理します。種類ごとの適用順序は`docs/runtime-processing.md`を参照してください
-- Tempoと拍子から作られたMusical Time Mapは、CoreのBeat / Bar PositionとTempo同期Sourceへ同じ値を渡します。Pattern側でBeat位置を別に保持しません
-- 変換は演奏開始前に完了するため、Realtime試聴中にTick計算を行いません
+同じFrameに複数のEventが重なった場合は、元のTick、Eventの種類、Pattern内での定義順に基づいて処理します。Tempoと拍子から作られたMusical Time Mapは、CoreのBeat / Bar PositionとTempo同期Sourceへ同じ値を渡します。
 
 ## ループ
 
@@ -156,14 +140,14 @@ ProcessBlock内のsample_offset
 
 Standard MIDI File（SMF）とPatternは、1つの音源の演奏情報として相互に変換できます。
 
-### インポート（`pattern import-midi`）
+**インポート（`pattern import-midi`）**
 
 - MIDIの拍位置をTickとして維持し、Tempoと拍子を全体のMetadataとして取り込みます。記録がない場合は120 BPMと4/4拍子を補います
 - Noteは同じChannelとNote番号ごとに、開始した順番でNote OnとNote Offを対応付けます。Velocity 0のNote OnはNote Offとして扱います
 - PatternにはChannelの概念がないため、取り込めるNote Channelは1つだけです。複数Channelがある場合は`--channel 1..16`で選び、同じChannelの複数Trackは1つのPatternへ統合します
 - 対応するNote OnがないNote OffはWarningを出して無視し、Note OffがないNote OnはErrorになります。長さ0のNoteは取り込みません
 
-### エクスポート（`pattern export-midi`）
+**エクスポート（`pattern export-midi`）**
 
 - `ticks_per_beat`を引き継いだSingle TrackのSMFとして出力します。Tempo、拍子、Note、Pitch Bend、CC1、CC64、Channel Aftertouch、End Of Trackを含みます
 - CC1とAftertouchはMIDIの7-bit値へ丸め、Pitch Bendは-8192〜8191へ変換します

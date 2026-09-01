@@ -1,8 +1,8 @@
 # CLI
 
-Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み込み、検証・コンパイルし、リアルタイム演奏またはWAVレンダリングを行います。
+Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み込み、検証・コンパイルし、リアルタイム演奏またはWAVレンダリングを行います。本書は全コマンドのOption・出力・診断の正本です。
 
-この文書では、各コマンドを「**音源定義を作る → 検証する → Patternを用意する → 鳴らす（リアルタイム / オフライン）**」の順に説明します。実行時の挙動（Voice、ADSR、Sample再生など）は`docs/runtime-processing.md`、音源定義のJSON形式は`docs/instrument-definition.md`を参照してください。
+各コマンドは「**音源定義を作る → 検証する → Patternを用意する → 鳴らす（リアルタイム / オフライン）**」の順に説明します。
 
 ## コマンドの全体像
 
@@ -70,7 +70,7 @@ sonalloy instrument inspect <definition> --json
 | External Audio | `channels`、要求Input Channel数、使用するProcessorと入力整列Frame |
 | Warning | コンパイル時の警告（Asset欠落など） |
 
-`--json`は、Generatorごとの構造をFieldとして返します。返るFieldはGeneratorの種類ごとに異なり、Parameter IDの形式は`docs/instrument-definition.md`を参照してください。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。`sources[]`にはScope、RateとRate Unit、MSEG / Step / Randomの構造が含まれ、`macros[]`と`vectors[]`には外部から操作するIDを含めます。
+`--json`は、Generatorごとの構造をFieldとして返します。返るFieldはGeneratorの種類ごとに異なります。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。`sources[]`にはScope、RateとRate Unit、MSEG / Step / Randomの構造が含まれ、`macros[]`と`vectors[]`には外部から操作するIDを含めます。
 
 例（抜粋）：
 
@@ -97,7 +97,7 @@ sonalloy instrument inspect <definition> --json
 
 ## Audition Pattern
 
-Audition Patternは、1つのInstrumentを試奏するための演奏パターン（JSON）です。NoteやChord、フレーズ、ドラム、演奏操作、Parameter ChangeをTickベースの時間軸で書けます。Schema、Validation、Loop、MIDI Interchangeの正本は[`docs/pattern.md`](pattern.md)です。
+Audition Patternは、1つのInstrumentを試奏するための演奏パターン（JSON）です。NoteやChord、フレーズ、ドラム、演奏操作、Parameter ChangeをTickベースの時間軸で書けます。Schema、Validation、Loop、MIDI Interchangeの正本は[`patterns.md`](patterns.md)です。
 
 ### `pattern init` — 試奏Patternの生成
 
@@ -145,7 +145,7 @@ sonalloy pattern import-midi phrase.mid --output phrase.json
 sonalloy pattern import-midi song.mid --channel 10 --output drums.json
 ```
 
-Patternは1 Instrument用なので、Note Channelが複数あるMIDIは`--channel 1..16`で1つを選びます。Channelが1つだけの場合は自動選択します。Output Pathが存在する場合は失敗します。Tick対応付けやTempo・拍子の扱いなど変換の規則は[`docs/pattern.md`](pattern.md)を参照してください。
+Patternは1 Instrument用なので、Note Channelが複数あるMIDIは`--channel 1..16`で1つを選びます。Channelが1つだけの場合は自動選択します。Output Pathが存在する場合は失敗します。
 
 ### `pattern export-midi` — PatternからMIDIへ変換
 
@@ -154,7 +154,7 @@ sonalloy pattern export-midi phrase.json --output phrase.mid
 sonalloy pattern export-midi drums.json --channel 10 --output drums.mid
 ```
 
-出力されるMIDIの内容と往復変換で保たれる情報は[`docs/pattern.md`](pattern.md)を参照してください。Sonalloy固有のParameter Changeを含むPatternは`MIDI_ERROR`で失敗し、Output Pathが存在する場合も上書きしません。
+Sonalloy固有のParameter Changeを含むPatternは`MIDI_ERROR`で失敗し、Output Pathが存在する場合も上書きしません。
 
 ## リアルタイム演奏
 
@@ -321,7 +321,7 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 
 読み込み時の処理：
 
-- Eventを時系列へ処理するため、`absolute_frame`の昇順へ整列します。同じFrameに複数Eventがある場合の適用順序は`docs/runtime-processing.md`を参照してください
+- Eventを時系列へ処理するため、`absolute_frame`の昇順へ整列します
 - 次のいずれかはErrorになり、WAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、Native範囲外の値
 
 `render note`と`render events`は指定Tempoの4/4から始まります。`render midi`はTempo Meta EventとTime Signature Meta Eventを`MusicalTimeMap`へ変換し、Time Signatureがない場合は4/4を使います。`render pattern`もPatternの`tempo_changes`と`time_signature_changes`から同じMapを作ります。Tempo / Meterの変更位置でProcess Blockを分割し、`beat_position`と`bar_position`をProcessContextへ渡します。

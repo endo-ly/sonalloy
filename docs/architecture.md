@@ -7,8 +7,8 @@
 | 本書で扱わない内容 | 参照先 |
 |---|---|
 | 実行時の動作（処理契約、ライフサイクル、エラー時の扱い） | `docs/runtime-processing.md` |
-| CLIの使い方・Option・Exit Code | `docs/cli.md` |
-| 音源定義（JSON）の形式と制約 | `docs/instrument-definition.md` |
+| CLIの使い方・Option・Exit Code | create-instrument Skillの`references/cli.md` |
+| 音源定義（JSON）の形式と制約 | create-instrument Skillのリファレンス（`.agents/skills/create-instrument/references/`） |
 | テストと試聴の手順 | `docs/testing-and-sound-review.md` |
 
 ## クレート構成
@@ -51,7 +51,7 @@ Realtime Sessionは、次の要素で構成されます。
 | MIDI Callback | Live MessageをProcess Eventへ変換し、固定容量Queueへ送る |
 | Status | Queue Overflow・Input Underflow / Overflow・Process Error・Device ErrorをSessionへ伝える |
 
-CoreはDevice名、Port ID、CPAL / Midir型を参照しません。Queueの整列規則などRealtimeの動作の詳細は`docs/runtime-processing.md`を参照してください。
+CoreはDevice名、Port ID、CPAL / Midir型を参照しません。
 
 ## 公開C ABI
 
@@ -89,7 +89,7 @@ GeneratorはネイティブDSPへの依存の有無で2系統に分かれます�
 | Core Rust専用 | Additive、Formant、Spectral、Physical String | Physical Stringは共通Fractional DelayとDeterministic ExciterをRuntimeが所有 |
 | ネイティブDSP利用 | Oscillator、Filter、Wavefold、Modal、Time Stretch | Modalは`sonalloy-dsp-sys`経由のPinned DaisySP `Resonator`。他も同じNative境界を使う |
 
-Assetはコンパイル時に読み込み、デコード済みのPrepared Audioを`Arc`で共有します。Sample・Granular・Wave Sequence・SpectralはStereo Channelを保持し、WavetableだけMonoへDownmixします。コンパイル時・実行時の振る舞いの詳細は`docs/runtime-processing.md`を参照してください。
+Assetはコンパイル時に読み込み、デコード済みのPrepared Audioを`Arc`で共有します。Sample・Granular・Wave Sequence・SpectralはStereo Channelを保持し、WavetableだけMonoへDownmixします。
 
 ## `sonalloy-dsp-sys`
 
@@ -112,7 +112,7 @@ Rust側はネイティブのC++ Objectを不透明ハンドルとして所有し
 
 ## 所有関係
 
-フェーズごとに誰が何を所有するかを示します。各フェーズの動作の詳細は`docs/runtime-processing.md`を参照してください。
+フェーズごとに誰が何を所有するかを示します。
 
 | フェーズ | 所有するもの |
 |---|---|

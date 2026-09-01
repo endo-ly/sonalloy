@@ -5,8 +5,8 @@
 | 本書で扱わない内容 | 参照先 |
 |---|---|
 | 部品の構造と所有関係 | `docs/architecture.md` |
-| CLIの使い方・Option・Exit Code | `docs/cli.md` |
-| 音源定義（JSON）の形式と制約 | `docs/instrument-definition.md` |
+| CLIの使い方・Option・Exit Code | create-instrument Skillの`references/cli.md` |
+| 音源定義（JSON）の形式と制約 | create-instrument Skillのリファレンス（`.agents/skills/create-instrument/references/`） |
 
 ## Blockの処理
 
@@ -104,7 +104,7 @@ flowchart TD
 | **Gain** | Base値とRouteをdB Domainで加算してClampし、線形Gainへ変換する。Note開始Fade・ADSR・Dynamic Gainを順に乗算する |
 | **Pan** | 定電力で左右へ振り分ける |
 | **Tuning** | Base値とRouteをCentで加算し、Oscillatorの周波数またはSampleの再生速度へ変換する |
-| **Processor** | 各配置で使える種類とFieldは`docs/instrument-definition.md`の[Processor](instrument-definition.md#processor)を参照。Dynamic ParameterはBlock内で滑らかに変化する。Modulation FXはGlobal Chainに1つのStateを共有し、Dynamicsは左右のPeakをリンクして判定する。Stereo GeneratorのLayer Stateは左右独立で、Mono GeneratorではMono側だけを確保する |
+| **Processor** | 各配置で使える種類とFieldは[`references/processors.md`](../.agents/skills/create-instrument/references/processors.md)を参照。Dynamic ParameterはBlock内で滑らかに変化する。Modulation FXはGlobal Chainに1つのStateを共有し、Dynamicsは左右のPeakをリンクして判定する。Stereo GeneratorのLayer Stateは左右独立で、Mono GeneratorではMono側だけを確保する |
 | **Global Tail** | Global Delay・Reverb・Chorus・Flanger・PhaserはActive Voiceがいなくても毎Block処理する。Noteの終了やVoice Stealingで停止・初期化されない |
 
 ### Note Off、Sustain、Stealing
@@ -158,7 +158,7 @@ PortamentoはConnected TransitionとHeld Noteへの復帰にだけ適用され�
 
 連続するParameterはBlock内でStart / Endの値を受け取り、各Sampleへ補間します。Processorの種類・配置・順序、Filter Mode、EQ周波数、Delay容量などCompile時に決まる値は、Process中に変更できません。
 
-Routeの加算順とClampの位置は、BlockやVoiceへの分割に依存しません。加算の計算式は`docs/instrument-definition.md`のModulationを参照してください。
+Routeの加算順とClampの位置は、BlockやVoiceへの分割に依存しません。加算の計算式は`references/modulation.md`を参照してください。
 
 ## 実行上の約束事
 
@@ -188,7 +188,6 @@ ProcessはPrepareで確保したStateを使い回し、実行中に新しいStat
 
 - 不正な入力やContextの不一致はErrorとし、そのBlockの出力を無音にします
 - Native側の失敗もRust側Processorの失敗も、原因を示すErrorとして報告します
-- ErrorとExit Codeの対応は`docs/cli.md`を参照してください
 
 ## Runtime Update
 
@@ -264,7 +263,7 @@ LFO、Step、Sample & Hold、Smooth Randomの`per_beat`、およびMSEGの`beats
 
 ## Generatorの実行時振る舞い
 
-ここからは参照用です。ここまでのBlock処理・Noteの一生・Modulationは全Generator共通で、以下はGeneratorごとに異なる振る舞いだけを示します。Fieldの制約・Rangeは`docs/instrument-definition.md`を参照してください。
+ここからは参照用です。ここまでのBlock処理・Noteの一生・Modulationは全Generator共通で、以下はGeneratorごとに異なる振る舞いだけを示します。Fieldの制約・Rangeは`references/generators.md`を参照してください。
 
 ### Oscillator
 
