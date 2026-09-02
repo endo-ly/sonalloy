@@ -32,7 +32,7 @@ Sonalloyの音源は、つまみを並べたパネルではなく、**JSONで記
 curl -fsSL https://raw.githubusercontent.com/endo-ly/sonalloy/main/scripts/install.sh | bash
 ```
 
-`~/.local/bin`（Windowsは`C:\Users\<ユーザー名>\.local\bin`）へインストールされるため、PATHに追加してください。アップデートは同じコマンドの再実行、アンインストールはバイナリの削除だけです。
+`~/.local/bin`（Windowsは`C:\Users\<ユーザー名>\.local\bin`）へインストールされるため、PATHに追加してください。アップデートは`sonalloy update`、アンインストールはバイナリの削除だけです。
 
 3コマンドで、最初の音源が鳴ります。
 
@@ -56,6 +56,7 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 | 1音 / Event列 / MIDI / Patternをレンダリングする | `sonalloy render note` / `events` / `midi` / `pattern` |
 | 演奏パターンを試聴する（MIDI Keyboard不要） | `sonalloy pattern init` → `sonalloy audition pattern` |
 | MIDI Keyboardで演奏する | `sonalloy device list` → `sonalloy play` |
+| インストールしたCLIをアップデートする | `sonalloy update` |
 
 全コマンドのOptionと出力の詳細は[CLIリファレンス](.agents/skills/create-instrument/references/cli.md)を参照してください。
 

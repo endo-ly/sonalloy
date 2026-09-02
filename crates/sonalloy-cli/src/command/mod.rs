@@ -15,6 +15,7 @@ mod instrument;
 mod pattern;
 mod realtime;
 mod render;
+mod update;
 
 const DEFAULT_SAMPLE_RATE: u32 = 48_000;
 const DEFAULT_BLOCK_SIZE: usize = 257;
@@ -59,6 +60,8 @@ enum Command {
     },
     /// Play an instrument from a live MIDI input through an audio output.
     Play(realtime::PlayArgs),
+    /// Update the installed binary from the latest GitHub release.
+    Update,
     /// Development-only commands used to verify the audio path.
     Dev {
         #[command(subcommand)]
@@ -74,6 +77,7 @@ pub(super) fn run(cli: Cli) -> ExitCode {
         Command::Audition { command } => realtime::run_audition(command),
         Command::Device { command } => realtime::run_device(command),
         Command::Play(args) => realtime::run_play(&args),
+        Command::Update => update::run(),
         Command::Dev { command } => dev::run(command),
     }
 }

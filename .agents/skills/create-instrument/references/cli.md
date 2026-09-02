@@ -24,6 +24,7 @@ Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み
 | `audition midi` | MIDI Fileを1 Channel選択して試聴する |
 | `device list` | Audio Input / OutputとMIDI Inputを列挙する |
 | `play` | MIDI InputからAudio Outputへリアルタイム演奏する。外部Audio定義ではAudio Inputも接続する |
+| `update` | インストール済みバイナリを最新Releaseへ自己アップデートする |
 | `dev render-sine` | 動作確認用のSineをレンダリングする |
 
 ## 音源定義を作る
@@ -437,6 +438,16 @@ sonalloy dev render-sine \
 | `--tail` | 0 | レンダリング後の余韻の秒数 |
 | `--output` | — | 出力先（必須） |
 | `--json` | Off | 結果を機械可読で出力 |
+
+## アップデート
+
+### `update` — 自己アップデート
+
+GitHubの最新Releaseを取得して、実行中のバイナリを差し替えます。アーカイブは`SHA256SUMS.txt`で検証され、旧バイナリは`.sonalloy.old`として同じDirectoryに残ります。`~/.local/bin`へのユーザーローカル インストールが対象で、それ以外の場所から実行した場合はErrorになります。
+
+```bash
+sonalloy update
+```
 
 ## 出力とエラー
 
