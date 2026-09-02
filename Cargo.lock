@@ -1396,7 +1396,7 @@ checksum = "8ed6a63f02c8539c91a8685a86f4099661ba3da017932f6ebbea6de3f0fa7c90"
 
 [[package]]
 name = "sonalloy-capi"
-version = "2026.8.30"
+version = "2026.9.2"
 dependencies = [
  "serde_json",
  "sonalloy-core",
@@ -1404,7 +1404,7 @@ dependencies = [
 
 [[package]]
 name = "sonalloy-cli"
-version = "2026.8.30"
+version = "2026.9.2"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1422,7 +1422,7 @@ dependencies = [
 
 [[package]]
 name = "sonalloy-core"
-version = "2026.8.30"
+version = "2026.9.2"
 dependencies = [
  "approx",
  "realfft",
@@ -1439,7 +1439,7 @@ dependencies = [
 
 [[package]]
 name = "sonalloy-dsp-sys"
-version = "2026.8.30"
+version = "2026.9.2"
 dependencies = [
  "cmake",
  "thiserror 2.0.19",
