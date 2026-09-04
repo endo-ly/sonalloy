@@ -49,11 +49,47 @@ Polarityは、LFO、Random、MSEG、Step、Sample Hold、Smooth RandomがBipolar
 { "source": "filter_env", "target": "voice.processor.tone.cutoff", "depth": { "value": 2.0, "unit": "octaves" }, "curve": "smooth_step" }
 ```
 
-- `depth.value`はSigned値、`depth.unit`はTargetのModulation Unitです（Linear TargetはNative Unit、Log2 TargetはOctaves）。TargetごとのUnitは`instrument inspect --json`のParameter一覧で確認できます
+- `depth.value`はSigned値、`depth.unit`はTargetのModulation Unitです（Linear TargetはNative Unit、Log2 TargetはOctaves）。TargetごとのUnitは次節の表のとおりで、実効範囲（Clamp後の値域）は`instrument inspect --json`のParameter一覧で確認できます
 - `curve`は`linear`または`smooth_step`です
 - `curved_source × depth.value`をNative Domainへ加算し、Log2 TargetはOctave Domainで加算して`base × 2^sum`へ変換します
 - RouteはDefinition順に加算し、最後にTarget範囲へClampします
 - Parameter IDの解決とRouteの計算はコンパイル前に完了するため、音声処理中に文字列IDやJSONを扱いません
+
+## TargetのModulation Unit
+
+RouteのTargetに指定できるDynamic Parameterと、`depth.unit`に書くUnitの対応です。同じ名前のParameterでもGeneratorとProcessorでUnitが異なることがあるため、Target IDごとに確認します。表にないField（Static Field）はModulation対象外です。
+
+Layerの組み込みTarget:
+
+| Target | Unit |
+|---|---|
+| `layer.<id>.gain` | `decibels` |
+| `layer.<id>.pan` | `pan` |
+| `layer.<id>.tuning` | `cents` |
+
+GeneratorのParameter（Target IDは`layer.<id>.generator.<parameter>`。Operator Modulationだけ`operator.<1-4>.<parameter>`形式）:
+
+| Unit | Parameter |
+|---|---|
+| `normalized` | `waveshape`、`phase_distortion`、`wavefold`、`oscillator_feedback`、`pulse_width`、`unison_spread`、`noise_correlation`、`additive_morph`、`additive_inharmonicity`、`modal_structure`、`modal_brightness`、`modal_decay`、`physical_string_brightness`、`physical_string_stiffness`、`formant_vowel_position`、`formant_throat`、`wavetable_position`、`spectral_position`、`spectral_freeze`、`spectral_morph`（`asset_b`指定時）、`granular_position`、`grain_randomness`、`grain_pan_spread`、`operator.<1-4>.level`、`operator.<1-4>.feedback` |
+| `octaves` | `sync_ratio`、`physical_string_decay_seconds`、`grain_size`、`grain_density`、`operator.<1-4>.ratio` |
+| `cents` | `unison_detune`、`formant_shift`、`grain_pitch`、`operator.<1-4>.detune` |
+| `decibels_per_octave` | `additive_spectrum_tilt`、`formant_spectral_tilt` |
+| `seconds` | `spectral_blur` |
+| `hertz` | `spectral_shift` |
+| `index` | `operator.<1-4>.modulation_amount` |
+
+ProcessorのParameter（Target IDは配置ごとのPrefix + `<parameter>`）:
+
+| Unit | Parameter |
+|---|---|
+| `normalized` | Filter / Ladder Filterの`resonance`、Ladder Filterの`drive`、Driveの`amount` / `mix`、Formantの`vowel_position` / `throat` / `mix`、Resonatorの`damping` / `mix`、Bitcrusherの`mix`、Chorus / Flanger / Phaserの`depth` / `feedback` / `width` / `mix`、Reverbの`decay` / `damping` / `width` / `mix`、Delayの`feedback` / `mix`、Transient Shaper / Compressorの`mix`、Vocoderの`mix`、Envelope Transferの`mix` |
+| `octaves` | Filter / Ladder Filterの`cutoff`、Resonatorの`frequency_hz`、Compressorの`ratio`、Bitcrusherの`sample_rate_ratio` |
+| `decibels` | EQの`low_gain_db` / `mid_gain_db` / `high_gain_db`、Gateの`threshold_db` / `range_db`、Compressorの`threshold_db` / `makeup_gain_db`、Limiterの`ceiling_db` / `input_gain_db`、Convolutionの`gain_db`、Vocoderの`modulator_gain_db` / `output_gain_db`、Envelope Transferの`input_gain_db` / `floor_db`、Spectral Morphの`output_gain_db` |
+| `per_second` | Chorus / Flanger / Phaserの`rate_hz` |
+| `hertz` | Frequency Shifterの`shift_hz` |
+| `seconds` | Resonatorの`decay_seconds` |
+| `index` | Bitcrusherの`bit_depth`、Transient Shaperの`attack` / `sustain` |
 
 ## MSEG
 

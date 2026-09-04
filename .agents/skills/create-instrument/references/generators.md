@@ -376,7 +376,20 @@ A/BのChannel数不一致はCompile Errorです。`inspect --json`でAsset A/B�
 - FeedbackはPhase / Frequency Modeだけで使え、Amplitude / Ring Modeでは0にします
 - Unisonは最大4 Voice。ADSRを全Componentで共有します
 
-`stack_4`では4→3→2→1の順に信号が進み、Operator 1がCarrierです。`modulation_amount`はModeごとに次の意味を持ちます。
+AlgorithmごとのOperator接続は次のとおりです。`A→B`はAの出力でBを変調することを表し、出力を持つCarrier列のOperatorだけが`level`で出力音量を持ちます。Modulatorは`modulation_amount`だけを持ち、Carrier（変調を受けない単独Carrierを含む）の`modulation_amount`は0にします。
+
+| Algorithm | 信号の流れ | 出力を持つCarrier |
+|---|---|---|
+| `stack_4` | 4→3→2→1 | 1 |
+| `stack_3_plus_carrier` | 4→3→2と、変調を受けない単独Carrierの1 | 1、2 |
+| `two_stacks` | 2→1と4→3 | 1、3 |
+| `fork_to_carrier` | 4→2と4→3を経て、両方とも1を変調 | 1 |
+| `two_modulators_plus_carrier` | 3→1と4→1と、変調を受けない単独Carrierの2 | 1、2 |
+| `three_modulators` | 2→1、3→1、4→1 | 1 |
+| `shared_modulator` | 4→1、4→2、4→3 | 1、2、3 |
+| `parallel` | 変調なし。4 Operatorすべてが単独Carrier | 1、2、3、4 |
+
+`modulation_amount`はModeごとに次の意味を持ちます。
 
 | Mode | `modulation_amount`の働き |
 |---|---|

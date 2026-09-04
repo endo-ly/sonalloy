@@ -281,6 +281,7 @@ Realtimeの人間の確認項目は、Note、Pitch Bend、Mod Wheel、Channel Af
 - `metadata.name`と`metadata.description`を実際の音色に合わせる
 - `validate` / `inspect --json`のWarning、出力Mode、Parameter Unit、Route Effect、Parameter IDを最終確認する
 - `--analyze`で数値的な出力状態を確認し、`--trace`で宣言したModulationが意図した範囲を動いたか確認する
+- 最大Velocity（127）でもクリップしないことを確認する。`render note --velocity 127 --analyze`の`analysis.level.over_full_scale`が`false`であること
 - 生成したWAVを同じ音量条件で試聴する
 
 ## 失敗時の対処
