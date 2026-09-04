@@ -1,0 +1,103 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Phase Distortion Lead",
+    "author": null,
+    "description": "波形の時間方向の形を強く変形させ、鋭く独特な倍音を生むデジタル系リード。Sine基音の位相を歪ませるPhase Distortionが、通常のパルスやソウより硬く、FMほど金属的ではない中間的な質感を作る。保持中は低速のLFOが変形量を動かし、明るさだけでなく倍音の並び方そのものが連続的に変化する。80年代的なデジタル感から現代的な攻撃音まで幅広く使える。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "pd",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -8.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.15,
+        "sustain_level": 0.78,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "phase_distortion": {
+            "amount": 0.6
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 9000.0,
+      "resonance": 0.08
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "shape_lfo",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.4,
+          "unit": "per_second"
+        },
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "shape_lfo",
+        "target": "layer.pd.generator.phase_distortion",
+        "depth": {
+          "value": 0.15,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.pd.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

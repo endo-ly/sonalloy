@@ -1,0 +1,238 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Vocal Formant Pad",
+    "author": null,
+    "description": "「アー」「オー」「ウー」の母音共鳴を連想させる合成パッド。48 PartialのSine列へ母音3 ProfileのFormantを適用し、低速のLFOが母音位置をゆっくり往復させて口の形が動くような感覚を作る。柔らかなSawのBody層が全音域の土台を支え、帯域に余裕を持たせた共鳴がコードでも鋭く突出しない声質を保つ。合唱を思わせつつ、明確に電子音として聞こえる。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 1.2,
+        "decay_seconds": 0.6,
+        "sustain_level": 0.85,
+        "release_seconds": 1.8
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 10.0,
+            "stereo_spread": 0.5,
+            "phase_spread": 0.0
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "mute",
+          "mode": "low_pass",
+          "cutoff_hz": 2200.0,
+          "resonance": 0.06
+        }
+      ]
+    },
+    {
+      "id": "choir",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -8.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 1.2,
+        "decay_seconds": 0.6,
+        "sustain_level": 0.85,
+        "release_seconds": 1.8
+      },
+      "generator": {
+        "formant": {
+          "phase_reset": true,
+          "partial_count": 48,
+          "vowel_position": 0.5,
+          "formant_shift_cents": 0.0,
+          "throat": 0.65,
+          "spectral_tilt_db_per_octave": -7.0,
+          "profiles": [
+            {
+              "id": "a",
+              "formants": [
+                {
+                  "frequency_hz": 560.0,
+                  "bandwidth_hz": 130.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 855.0,
+                  "bandwidth_hz": 140.0,
+                  "gain_db": -5.0
+                },
+                {
+                  "frequency_hz": 2470.0,
+                  "bandwidth_hz": 170.0,
+                  "gain_db": -12.0
+                },
+                {
+                  "frequency_hz": 3300.0,
+                  "bandwidth_hz": 180.0,
+                  "gain_db": -18.0
+                },
+                {
+                  "frequency_hz": 4200.0,
+                  "bandwidth_hz": 190.0,
+                  "gain_db": -24.0
+                }
+              ]
+            },
+            {
+              "id": "o",
+              "formants": [
+                {
+                  "frequency_hz": 380.0,
+                  "bandwidth_hz": 110.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 740.0,
+                  "bandwidth_hz": 120.0,
+                  "gain_db": -6.0
+                },
+                {
+                  "frequency_hz": 2300.0,
+                  "bandwidth_hz": 160.0,
+                  "gain_db": -14.0
+                },
+                {
+                  "frequency_hz": 2900.0,
+                  "bandwidth_hz": 170.0,
+                  "gain_db": -20.0
+                },
+                {
+                  "frequency_hz": 3800.0,
+                  "bandwidth_hz": 180.0,
+                  "gain_db": -26.0
+                }
+              ]
+            },
+            {
+              "id": "u",
+              "formants": [
+                {
+                  "frequency_hz": 300.0,
+                  "bandwidth_hz": 100.0,
+                  "gain_db": 0.0
+                },
+                {
+                  "frequency_hz": 650.0,
+                  "bandwidth_hz": 110.0,
+                  "gain_db": -8.0
+                },
+                {
+                  "frequency_hz": 2000.0,
+                  "bandwidth_hz": 150.0,
+                  "gain_db": -16.0
+                },
+                {
+                  "frequency_hz": 2700.0,
+                  "bandwidth_hz": 160.0,
+                  "gain_db": -22.0
+                },
+                {
+                  "frequency_hz": 3500.0,
+                  "bandwidth_hz": 170.0,
+                  "gain_db": -28.0
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "vowel_drift",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.15,
+          "unit": "per_second"
+        },
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "vowel_drift",
+        "target": "layer.choir.generator.formant_vowel_position",
+        "depth": {
+          "value": 0.35,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.choir.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

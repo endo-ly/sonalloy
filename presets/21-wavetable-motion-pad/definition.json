@@ -1,0 +1,107 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Wavetable Motion Pad",
+    "author": null,
+    "description": "長いコードの中で倍音構成が別の形へ移り変わるデジタル系パッド。SineからOrgan、Hollow、Bright、Complexへと並ぶ12フレームのWavetableを、発音してから7秒ほどかけて単方向に走査する。開始時と後半で音色が明確に変わり、その間は滑らかにつながる。一定周期の揺れではなく時間方向の展開が特徴の、人工的で複雑な質感。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "motion",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.8,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.85,
+        "release_seconds": 1.2
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../assets/wavetable-motion-pad.wav",
+            "sha256": "e718b035110f9901b8253614779cba816d20be1f18f0439110f42945408ac3e1"
+          },
+          "frame_length": 2048,
+          "position": 0.05,
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": {
+            "voices": 4,
+            "detune_cents": 16.0,
+            "stereo_spread": 0.7,
+            "phase_spread": 0.6
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "glaze",
+      "mode": "low_pass",
+      "cutoff_hz": 8000.0,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "scan",
+        "type": "envelope",
+        "attack_seconds": 4.0,
+        "decay_seconds": 3.0,
+        "sustain_level": 0.75,
+        "release_seconds": 1.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "scan",
+        "target": "layer.motion.generator.wavetable_position",
+        "depth": {
+          "value": 0.85,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.motion.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

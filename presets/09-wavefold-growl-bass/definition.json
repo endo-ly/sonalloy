@@ -1,0 +1,142 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Wavefold Growl Bass",
+    "author": null,
+    "description": "低域の安定した芯の上に、折り返しによる荒い倍音を重ねた攻撃的なベース。Wavefoldを深くかけたSawが中域の唸るような質感を作り、低速のLFOが折り返し量をゆっくり動かして倍音の密度と明るさを連続的に変化させる。Sub Sineが低い音でも基音の位置を明確に保ち、短い音では硬い輪郭を持つ。Bass Music、Industrial、重いElectro系で前面に出せる。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.15,
+        "sustain_level": 0.75,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "fold",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.15,
+        "sustain_level": 0.75,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "wavefold": {
+            "amount": 0.5
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "ladder_filter",
+          "id": "tone",
+          "cutoff_hz": 2200.0,
+          "resonance": 0.15,
+          "drive": 0.25
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "growl",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.3,
+          "unit": "per_second"
+        },
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "growl",
+        "target": "layer.fold.generator.wavefold",
+        "depth": {
+          "value": 0.18,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sub.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.fold.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.fold.processor.tone.cutoff",
+        "depth": {
+          "value": 0.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,84 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "808 Bass",
+    "author": null,
+    "description": "発音直後の大きな音程下降と、その後に続く深く滑らかな低音が特徴の808系ベース。Sine基音に軽いSaturationを加え、低域中心のまま小さなスピーカーにも存在感を残す。短い音では落下感が明確に現れ、長音では下降後の音程が安定して低域を支え続ける。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -7.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.35,
+        "sustain_level": 0.75,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "waveshaping": {
+            "amount": 0.26
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drop",
+        "type": "envelope",
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.11,
+        "sustain_level": 0.0,
+        "release_seconds": 0.1
+      }
+    ],
+    "routes": [
+      {
+        "source": "drop",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 1200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

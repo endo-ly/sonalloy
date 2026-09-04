@@ -1,0 +1,120 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "FM Digital Lead",
+    "author": null,
+    "description": "FM音源らしい硬質で精密な倍音を持つデジタルリード。変調を保持中も持続させるため、発音直後から音の終わりまでデジタルらしい複雑さが続く。比率2の第2Carrierが倍音の支えを加え、金属感と明確な音程感を両立する。ベルのように自然減衰せず、鍵盤を押している間はリードとして持続する。速いフレーズでも音程と輪郭が明確。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "fm",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -5.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.8,
+        "release_seconds": 0.15
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "two_modulators_plus_carrier",
+          "operators": [
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.85,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2,
+                "sustain_level": 0.85,
+                "release_seconds": 0.15
+              }
+            },
+            {
+              "ratio": 2.0,
+              "detune_cents": 0.0,
+              "level": 0.28,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2,
+                "sustain_level": 0.85,
+                "release_seconds": 0.15
+              }
+            },
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 1.8,
+              "feedback": 0.12,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.15,
+                "sustain_level": 0.55,
+                "release_seconds": 0.12
+              }
+            },
+            {
+              "ratio": 5.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 1.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.25,
+                "sustain_level": 0.45,
+                "release_seconds": 0.1
+              }
+            }
+          ],
+          "phase_reset": true,
+          "unison": null
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.fm.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

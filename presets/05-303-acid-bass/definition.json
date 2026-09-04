@@ -1,0 +1,98 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "303 Acid Bass",
+    "author": null,
+    "description": "鋭い共鳴と大きな音色変化が特徴の、303系アシッドベース。高ResonanceのLadder Filterへ深いFilter Envelopeを与え、発音直後の鋭いピークから粘りのある暗い持続へ落ちる。VelocityがFilterを開くため、反復する短いフレーズにアクセントを付けやすい。C1〜C4付近で高い共鳴成分と低域のベース成分が一体になって響く。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "saw",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -8.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.18,
+        "sustain_level": 0.65,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "ladder_filter",
+      "id": "squelch",
+      "cutoff_hz": 320.0,
+      "resonance": 0.55,
+      "drive": 0.3
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "filter_env",
+        "type": "envelope",
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.16,
+        "sustain_level": 0.08,
+        "release_seconds": 0.12
+      }
+    ],
+    "routes": [
+      {
+        "source": "filter_env",
+        "target": "voice.processor.squelch.cutoff",
+        "depth": {
+          "value": 2.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.saw.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.squelch.cutoff",
+        "depth": {
+          "value": 0.9,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

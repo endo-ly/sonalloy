@@ -1,0 +1,73 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Reese Bass",
+    "author": null,
+    "description": "太く暗く、内部にゆっくりしたうねりを持つ持続ベース。42 centのDetuneを持つ3 Voice Unison Sawが低いビート音の唸りを作り、Sub Sineが中央の低域の芯を固定する。低速のLFOがFilterとDetune幅を揺らし、長音の内部に継続的な動きを与える。Drum & Bass、Techno、Industrial系の背景を支える密度の高い低音。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
+      "gain_db": -14.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": { "attack_seconds": 0.01, "decay_seconds": 0.25, "sustain_level": 0.9, "release_seconds": 0.25 },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "sine" },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "reese",
+      "enabled": true,
+      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
+      "gain_db": -12.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": { "attack_seconds": 0.012, "decay_seconds": 0.25, "sustain_level": 0.85, "release_seconds": 0.25 },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "saw" },
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": { "voices": 3, "detune_cents": 42.0, "stereo_spread": 0.55, "phase_spread": 0.0 }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    { "type": "ladder_filter", "id": "tone", "cutoff_hz": 550.0, "resonance": 0.12, "drive": 0.1 }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drift",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": { "value": 0.35, "unit": "per_second" },
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      { "source": "drift", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.45, "unit": "octaves" }, "curve": "linear" },
+      { "source": "drift", "target": "layer.reese.generator.unison_detune", "depth": { "value": 12.0, "unit": "cents" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.sub.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.reese.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

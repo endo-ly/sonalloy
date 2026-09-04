@@ -1,0 +1,113 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Synth Brass Stab",
+    "author": null,
+    "description": "House、Techno、Synthwaveのコードを一発で鳴らす、太く力強いシンセブラス。深いFilter Envelopeが発音直後の明るく勢いのある立ち上がりを作り、0.5秒ほどかけて丸く減衰する。Ladder FilterのDriveが金管のような芯を加えつつ、古典的なシンセサイザーらしい人工的な質感を保つ。1回のコードが明確な塊として聞こえ、パッドのようには広がり続けない。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "brass",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.015,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.55,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 12.0,
+            "stereo_spread": 0.5,
+            "phase_spread": 0.0
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "ladder_filter",
+      "id": "blast",
+      "cutoff_hz": 700.0,
+      "resonance": 0.18,
+      "drive": 0.25
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "stab_env",
+        "type": "envelope",
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.25,
+        "sustain_level": 0.25,
+        "release_seconds": 0.15
+      }
+    ],
+    "routes": [
+      {
+        "source": "stab_env",
+        "target": "voice.processor.blast.cutoff",
+        "depth": {
+          "value": 2.2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.brass.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.blast.cutoff",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

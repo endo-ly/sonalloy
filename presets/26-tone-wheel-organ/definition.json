@@ -1,0 +1,132 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Tone Wheel Organ",
+    "author": null,
+    "description": "Hammond系オルガンを連想させる、倍音が規則的に積み重なる持続鍵盤音。ドローバーに相当する0.5〜8倍のSine Partialを加算し、単音でも複数の倍音が明確に聞こえる。鍵盤を押している間はほぼ一定の音量で鳴り続け、コードでは厚い和音を形成する。軽いChorusが回転スピーカー風のうるおいを添える素のオルガン音。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "organ",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.006,
+        "decay_seconds": 0.05,
+        "sustain_level": 1.0,
+        "release_seconds": 0.15
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": 0.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "sub",
+              "ratio": 0.5,
+              "amplitude_a": 0.7,
+              "amplitude_b": 0.7,
+              "phase": 0.0
+            },
+            {
+              "id": "fund",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.0
+            },
+            {
+              "id": "h2",
+              "ratio": 2.0,
+              "amplitude_a": 0.65,
+              "amplitude_b": 0.65,
+              "phase": 0.0
+            },
+            {
+              "id": "h3",
+              "ratio": 3.0,
+              "amplitude_a": 0.5,
+              "amplitude_b": 0.5,
+              "phase": 0.0
+            },
+            {
+              "id": "h4",
+              "ratio": 4.0,
+              "amplitude_a": 0.4,
+              "amplitude_b": 0.4,
+              "phase": 0.0
+            },
+            {
+              "id": "h6",
+              "ratio": 6.0,
+              "amplitude_a": 0.25,
+              "amplitude_b": 0.25,
+              "phase": 0.0
+            },
+            {
+              "id": "h8",
+              "ratio": 8.0,
+              "amplitude_a": 0.2,
+              "amplitude_b": 0.2,
+              "phase": 0.0
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "leslie",
+      "delay_ms": 8.0,
+      "rate_hz": 6.5,
+      "depth": 0.15,
+      "width": 1.0,
+      "mix": 0.15,
+      "feedback": 0.0
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.organ.gain",
+        "depth": {
+          "value": 3.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

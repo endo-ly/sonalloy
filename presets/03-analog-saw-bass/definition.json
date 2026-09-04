@@ -1,0 +1,73 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Analog Saw Bass",
+    "author": null,
+    "description": "太いSaw倍音とSub Sineの芯を持つ、標準的なアナログ系シンセベース。Ladder FilterとFilter Envelopeにより、発音直後の適度な明るさと勢いから丸く落ち着いた持続へ移る。House、Techno、Synth Popなど幅広い楽曲のベースラインに使える汎用性を持つ。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
+      "gain_db": -13.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": { "attack_seconds": 0.004, "decay_seconds": 0.16, "sustain_level": 0.8, "release_seconds": 0.12 },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "sine" },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "saw",
+      "enabled": true,
+      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
+      "gain_db": -11.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": { "attack_seconds": 0.004, "decay_seconds": 0.16, "sustain_level": 0.8, "release_seconds": 0.12 },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "saw" },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    { "type": "ladder_filter", "id": "tone", "cutoff_hz": 850.0, "resonance": 0.12, "drive": 0.22 }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "filter_env",
+        "type": "envelope",
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.22,
+        "sustain_level": 0.25,
+        "release_seconds": 0.15
+      }
+    ],
+    "routes": [
+      { "source": "filter_env", "target": "voice.processor.tone.cutoff", "depth": { "value": 1.7, "unit": "octaves" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.sub.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.saw.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "velocity", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.4, "unit": "octaves" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,205 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Additive Drone",
+    "author": null,
+    "description": "1音を長く伸ばしている間に、倍音ごとのEnvelopeが個別に進行するドローン。12個のPartialがそれぞれ4〜12秒かけて浮かび上がったり沈んだりするため、反復周期に依存しない時間的展開が続く。低次のPartialが低中域の土台を固め、高次のPartialがゆっくり重なって細かな質感を加える。AmbientやCinematicの背景として長時間鳴らしても単調にならない。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "drone",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 2.0,
+        "decay_seconds": 0.5,
+        "sustain_level": 1.0,
+        "release_seconds": 4.0
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": -4.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "h1",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 0.9,
+              "phase": 0.0
+            },
+            {
+              "id": "h2",
+              "ratio": 2.0,
+              "amplitude_a": 0.55,
+              "amplitude_b": 0.3,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 6.0,
+                "decay_seconds": 4.0,
+                "sustain_level": 0.6,
+                "release_seconds": 2.0
+              }
+            },
+            {
+              "id": "h3",
+              "ratio": 3.0,
+              "amplitude_a": 0.4,
+              "amplitude_b": 0.35,
+              "phase": 0.0
+            },
+            {
+              "id": "h4",
+              "ratio": 4.0,
+              "amplitude_a": 0.38,
+              "amplitude_b": 0.21,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 4.0,
+                "decay_seconds": 6.0,
+                "sustain_level": 0.5,
+                "release_seconds": 2.0
+              }
+            },
+            {
+              "id": "h5",
+              "ratio": 5.0,
+              "amplitude_a": 0.34,
+              "amplitude_b": 0.19,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 8.0,
+                "decay_seconds": 4.0,
+                "sustain_level": 0.7,
+                "release_seconds": 2.0
+              }
+            },
+            {
+              "id": "h6",
+              "ratio": 6.0,
+              "amplitude_a": 0.2,
+              "amplitude_b": 0.1,
+              "phase": 0.0
+            },
+            {
+              "id": "h7",
+              "ratio": 7.0,
+              "amplitude_a": 0.3,
+              "amplitude_b": 0.17,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 5.0,
+                "decay_seconds": 5.0,
+                "sustain_level": 0.4,
+                "release_seconds": 2.0
+              }
+            },
+            {
+              "id": "h8",
+              "ratio": 8.0,
+              "amplitude_a": 0.15,
+              "amplitude_b": 0.08,
+              "phase": 0.0
+            },
+            {
+              "id": "h9",
+              "ratio": 9.0,
+              "amplitude_a": 0.24,
+              "amplitude_b": 0.13,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 9.0,
+                "decay_seconds": 3.0,
+                "sustain_level": 0.6,
+                "release_seconds": 2.0
+              }
+            },
+            {
+              "id": "h10",
+              "ratio": 10.0,
+              "amplitude_a": 0.14,
+              "amplitude_b": 0.08,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 6.0,
+                "decay_seconds": 8.0,
+                "sustain_level": 0.3,
+                "release_seconds": 2.0
+              }
+            },
+            {
+              "id": "h12",
+              "ratio": 12.0,
+              "amplitude_a": 0.14,
+              "amplitude_b": 0.08,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 10.0,
+                "decay_seconds": 2.0,
+                "sustain_level": 0.5,
+                "release_seconds": 2.0
+              }
+            },
+            {
+              "id": "h16",
+              "ratio": 16.0,
+              "amplitude_a": 0.09,
+              "amplitude_b": 0.05,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 12.0,
+                "decay_seconds": 2.0,
+                "sustain_level": 0.4,
+                "release_seconds": 2.0
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.drone.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

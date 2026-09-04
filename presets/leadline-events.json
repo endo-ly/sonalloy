@@ -1,0 +1,20 @@
+{
+  "events": [
+    { "absolute_frame": 0,     "type": "note_on", "note_id": 1, "note": 64, "velocity": 100 },
+    { "absolute_frame": 8400,  "type": "note_off", "note_id": 1 },
+    { "absolute_frame": 12000, "type": "note_on", "note_id": 2, "note": 67, "velocity": 80 },
+    { "absolute_frame": 20400, "type": "note_off", "note_id": 2 },
+    { "absolute_frame": 24000, "type": "note_on", "note_id": 3, "note": 71, "velocity": 100 },
+    { "absolute_frame": 31200, "type": "note_off", "note_id": 3 },
+    { "absolute_frame": 36000, "type": "note_on", "note_id": 4, "note": 72, "velocity": 110 },
+    { "absolute_frame": 45600, "type": "note_off", "note_id": 4 },
+    { "absolute_frame": 48000, "type": "note_on", "note_id": 5, "note": 71, "velocity": 90 },
+    { "absolute_frame": 57600, "type": "note_off", "note_id": 5 },
+    { "absolute_frame": 60000, "type": "note_on", "note_id": 6, "note": 67, "velocity": 85 },
+    { "absolute_frame": 69600, "type": "note_off", "note_id": 6 },
+    { "absolute_frame": 72000, "type": "note_on", "note_id": 7, "note": 64, "velocity": 100 },
+    { "absolute_frame": 82800, "type": "note_off", "note_id": 7 },
+    { "absolute_frame": 84000, "type": "note_on", "note_id": 8, "note": 62, "velocity": 95 },
+    { "absolute_frame": 96000, "type": "note_off", "note_id": 8 }
+  ]
+}

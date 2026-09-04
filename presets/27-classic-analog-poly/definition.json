@@ -1,0 +1,95 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Classic Analog Poly",
+    "author": null,
+    "description": "コード、伴奏、短いメロディのいずれにも使える、標準的なポリフォニックシンセ。8 centのDetuneを持つ2 Voice Unison Sawが適度な厚みを作りながら各音の音程関係を明確に残す。立ち上がりはパッドより速くスタブより長い中程度の発音で、Ladder Filterの軽いDriveが明るさと丸さのバランスを取る。特定のジャンルや奏法に依存しない汎用コード音。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "poly",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.03,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.7,
+        "release_seconds": 0.25
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": {
+            "voices": 2,
+            "detune_cents": 8.0,
+            "stereo_spread": 0.4,
+            "phase_spread": 0.0
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "ladder_filter",
+      "id": "tone",
+      "cutoff_hz": 3800.0,
+      "resonance": 0.1,
+      "drive": 0.12
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.poly.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}
