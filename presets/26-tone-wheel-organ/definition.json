@@ -41,8 +41,8 @@
             {
               "id": "sub",
               "ratio": 0.5,
-              "amplitude_a": 0.7,
-              "amplitude_b": 0.7,
+              "amplitude_a": 0.65,
+              "amplitude_b": 0.65,
               "phase": 0.0
             },
             {
@@ -55,50 +55,50 @@
             {
               "id": "quint",
               "ratio": 1.5,
-              "amplitude_a": 0.35,
-              "amplitude_b": 0.35,
+              "amplitude_a": 0.22,
+              "amplitude_b": 0.22,
               "phase": 0.0
             },
             {
               "id": "oct",
               "ratio": 2.0,
-              "amplitude_a": 0.65,
-              "amplitude_b": 0.65,
+              "amplitude_a": 0.6,
+              "amplitude_b": 0.6,
               "phase": 0.0
             },
             {
               "id": "twf",
               "ratio": 3.0,
-              "amplitude_a": 0.5,
-              "amplitude_b": 0.5,
+              "amplitude_a": 0.35,
+              "amplitude_b": 0.35,
               "phase": 0.0
             },
             {
               "id": "fft",
               "ratio": 4.0,
-              "amplitude_a": 0.4,
-              "amplitude_b": 0.4,
+              "amplitude_a": 0.28,
+              "amplitude_b": 0.28,
               "phase": 0.0
             },
             {
               "id": "snf",
               "ratio": 5.0,
-              "amplitude_a": 0.2,
-              "amplitude_b": 0.2,
+              "amplitude_a": 0.1,
+              "amplitude_b": 0.1,
               "phase": 0.0
             },
             {
               "id": "sxt",
               "ratio": 6.0,
-              "amplitude_a": 0.25,
-              "amplitude_b": 0.25,
+              "amplitude_a": 0.14,
+              "amplitude_b": 0.14,
               "phase": 0.0
             },
             {
               "id": "eth",
               "ratio": 8.0,
-              "amplitude_a": 0.2,
-              "amplitude_b": 0.2,
+              "amplitude_a": 0.1,
+              "amplitude_b": 0.1,
               "phase": 0.0
             }
           ]
