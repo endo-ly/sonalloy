@@ -1,0 +1,119 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Mono Portamento Lead",
+    "author": null,
+    "description": "単音のフレーズを滑らかにつなぐ、太く前面に出るモノフォニックリード。Legatoで音をつなぐと0.09秒のPortamentoが前の音から次の音へ連続的に移り、離して弾いた場合は各音の発音が明確になる。Unison SawとSub Sineの厚みに軽いDriveが加わり、ソロやフックで前面に出る。速い旋律でも音程の中心を失わない。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": true,
+    "portamento": {
+      "time_seconds": 0.09
+    }
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.85,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "saw",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.8,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": {
+            "voices": 4,
+            "detune_cents": 16.0,
+            "stereo_spread": 0.6,
+            "phase_spread": 0.0
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "ladder_filter",
+      "id": "front",
+      "cutoff_hz": 6500.0,
+      "resonance": 0.1,
+      "drive": 0.2
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.sub.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.saw.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

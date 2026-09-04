@@ -1,0 +1,120 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "House Chord Stab",
+    "author": null,
+    "description": "HouseやGarage系の反復コードに使いやすい、短くまとまったコード音。Square波の輪郭に速いFilter Envelopeが加わり、発音直後の中高域の筋がすぐ減衰して次のコードのための空間を残す。200HzのHigh Passが低中域の重なりを切り捨て、シンセブラスより軽く金管らしさの弱い質感を作る。4和音を短く連続させても濁らず、リズムの一部としてコードを置ける。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "stab",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.25,
+        "sustain_level": 0.25,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "square"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": {
+            "voices": 2,
+            "detune_cents": 8.0,
+            "stereo_spread": 0.45,
+            "phase_spread": 0.0
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "cut_low",
+      "mode": "high_pass",
+      "cutoff_hz": 200.0,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "shape",
+      "mode": "low_pass",
+      "cutoff_hz": 6000.0,
+      "resonance": 0.08
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "stab_env",
+        "type": "envelope",
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.05,
+        "release_seconds": 0.08
+      }
+    ],
+    "routes": [
+      {
+        "source": "stab_env",
+        "target": "voice.processor.shape.cutoff",
+        "depth": {
+          "value": 2.0,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.stab.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.shape.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,62 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Clean Sub Bass",
+    "author": null,
+    "description": "曲の最低域を安定して支える純度の高いサブベース。Sineの基音を中心に、Triangleによる控えめな低中域の補強だけで構成する。長音でも濁りや揺れがなく、短音でも輪郭がぼやけない。キックや他の低音と重ねて低域の厚みを自然に補う用途に適する。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
+      "gain_db": -8.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": { "attack_seconds": 0.004, "decay_seconds": 0.12, "sustain_level": 0.86, "release_seconds": 0.09 },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "sine" },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "upper",
+      "enabled": true,
+      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
+      "gain_db": -22.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": { "attack_seconds": 0.004, "decay_seconds": 0.12, "sustain_level": 0.86, "release_seconds": 0.09 },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "triangle" },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": [
+        { "type": "filter", "id": "low_body", "mode": "low_pass", "cutoff_hz": 600.0, "resonance": 0.05 }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      { "source": "velocity", "target": "layer.sub.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.upper.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

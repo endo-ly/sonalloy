@@ -1,0 +1,73 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Short Pluck Bass",
+    "author": null,
+    "description": "8分・16分音符の刻みに適した、短く弾むプラックベース。減衰のみで進むEnvelopeと速いFilter Envelopeが明確な輪郭を作り、連続発音しても前の音が次の音へ大きく重ならない。Sustainを持たないため長押しでも一定音量で伸びず、短い音の中にもSub Sineによる低音の芯と音程感が残る。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
+      "gain_db": -8.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": { "attack_seconds": 0.002, "decay_seconds": 0.2, "sustain_level": 0.0, "release_seconds": 0.05 },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "sine" },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "pluck",
+      "enabled": true,
+      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": { "attack_seconds": 0.002, "decay_seconds": 0.16, "sustain_level": 0.0, "release_seconds": 0.05 },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "saw" },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": [
+        { "type": "ladder_filter", "id": "tone", "cutoff_hz": 600.0, "resonance": 0.15, "drive": 0.2 }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "pluck_env",
+        "type": "envelope",
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.08,
+        "sustain_level": 0.0,
+        "release_seconds": 0.05
+      }
+    ],
+    "routes": [
+      { "source": "pluck_env", "target": "layer.pluck.processor.tone.cutoff", "depth": { "value": 2.0, "unit": "octaves" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.sub.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.pluck.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.pluck.processor.tone.cutoff", "depth": { "value": 0.5, "unit": "octaves" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

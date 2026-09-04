@@ -1,0 +1,138 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "FM Electric Piano",
+    "author": null,
+    "description": "1980年代のFM音源を代表するエレクトリックピアノ。比率1の変調が発音直後に強くかかって硬く明るい打撃感を作り、減衰とともに暖かく丸い持続音へ移る。比率14の短命な第2Carrierがタインのきらめきを加える。Velocityが変調指数を動かすため、強い打鍵では明るく硬く、弱い打鍵では丸く穏やかに響く。4〜6音のコードでも自然にまとまる。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "ep",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 1.2,
+        "sustain_level": 0.45,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "two_modulators_plus_carrier",
+          "operators": [
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.8,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.9,
+                "sustain_level": 0.5,
+                "release_seconds": 0.35
+              }
+            },
+            {
+              "ratio": 14.0,
+              "detune_cents": 0.0,
+              "level": 0.22,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.12,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1
+              }
+            },
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 1.2,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.6,
+                "sustain_level": 0.25,
+                "release_seconds": 0.2
+              }
+            },
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.05,
+                "sustain_level": 0.0,
+                "release_seconds": 0.05
+              }
+            }
+          ],
+          "phase_reset": true,
+          "unison": null
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.ep.generator.operator.3.modulation_amount",
+        "depth": {
+          "value": 1.5,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.ep.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,103 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Granular Texture Pad",
+    "author": null,
+    "description": "細かな音の粒が重なり合いながら持続する、粒状感のある広いパッド。倍音と空気を含む3秒のテクスチャSourceをGrainへ分解し、RandomnessとPan Spreadで粒を前後左右に散らす。低速のLFOが読み取り位置を漂わせ、長音の内部に絶えず細かな変化を生む。全体の音程感は保ちながら、表面は少し霞んだ広がりを持つ。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "grains",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 1.5,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.85,
+        "release_seconds": 2.5
+      },
+      "generator": {
+        "granular": {
+          "asset": {
+            "path": "../assets/granular-texture-source.wav",
+            "sha256": "4981243a53b761560b86df2d1dc251ad20d7e9be7219f4f89022140eac358c6a"
+          },
+          "root_note": 45,
+          "region": {
+            "start_seconds": 0.0,
+            "end_seconds": null
+          },
+          "position": 0.5,
+          "grain_size": 0.09,
+          "density": 26.0,
+          "pitch": 0.0,
+          "randomness": 0.45,
+          "pan_spread": 0.85,
+          "seed": 8128
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "wander",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.1,
+          "unit": "per_second"
+        },
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "wander",
+        "target": "layer.grains.generator.granular_position",
+        "depth": {
+          "value": 0.25,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.grains.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

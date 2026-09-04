@@ -1,0 +1,134 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Dark Ambient Pad",
+    "author": null,
+    "description": "暗く沈んだ雰囲気を作るアンビエントパッド。TriangleとSineだけで倍音を絞り、低いLadder Filterが明るい成分を抑える。2.5秒の立ち上がりでゆっくり存在感が現れ、長いReverbが少し遠くで鳴るような奥行きを与える。低中域を中心に深く、Ambient、Cinematic、暗い電子音楽の背景に適する。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -19.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 2.5,
+        "decay_seconds": 1.5,
+        "sustain_level": 0.85,
+        "release_seconds": 3.0
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 10.0,
+            "stereo_spread": 0.5,
+            "phase_spread": 0.0
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "depth",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -23.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 2.5,
+        "decay_seconds": 1.5,
+        "sustain_level": 0.85,
+        "release_seconds": 3.0
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "ladder_filter",
+      "id": "shadow",
+      "cutoff_hz": 900.0,
+      "resonance": 0.1,
+      "drive": 0.1
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "distance",
+      "pre_delay_seconds": 0.05,
+      "decay": 0.68,
+      "damping": 0.5,
+      "width": 1.0,
+      "mix": 0.25
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.depth.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

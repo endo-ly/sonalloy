@@ -1,0 +1,96 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Bright Wide Pad",
+    "author": null,
+    "description": "明るい高域と大きな左右方向の広がりを持つ華やかなパッド。22 centのDetuneを持つ7 Voice Unisonが、単音でも複数の音のずれを感じさせ、コードを大きく左右へ開く。0.9秒の立ち上がりはスーパーソウリードより確実に遅く、Chorusと合わせて背景へ馴染む。複数音を重ねても透明感と広がりが残る。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "wide",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.9,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.85,
+        "release_seconds": 1.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": {
+            "voices": 7,
+            "detune_cents": 22.0,
+            "stereo_spread": 0.95,
+            "phase_spread": 0.9
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "sheen",
+      "mode": "low_pass",
+      "cutoff_hz": 9500.0,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "spread",
+      "delay_ms": 14.0,
+      "rate_hz": 0.5,
+      "depth": 0.3,
+      "width": 1.0,
+      "mix": 0.22,
+      "feedback": 0.05
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.wide.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

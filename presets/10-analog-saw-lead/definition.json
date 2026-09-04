@@ -1,0 +1,46 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Analog Saw Lead",
+    "author": null,
+    "description": "メロディやソロに広く使える、標準的なシンセリード。14 centのDetuneを持つ3 Voice Unison Sawが適度な太さを作り、Ladder Filterの軽いDriveがアナログ的な暖かさを添える。高音域でも刺激が強すぎず、低音域でもベースのような重さには寄らない、汎用リードの基準となる音。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "saw",
+      "enabled": true,
+      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
+      "gain_db": -12.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": { "attack_seconds": 0.006, "decay_seconds": 0.12, "sustain_level": 0.78, "release_seconds": 0.15 },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "saw" },
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": { "voices": 3, "detune_cents": 14.0, "stereo_spread": 0.55, "phase_spread": 0.0 }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    { "type": "ladder_filter", "id": "tone", "cutoff_hz": 7500.0, "resonance": 0.1, "drive": 0.15 }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      { "source": "velocity", "target": "layer.saw.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "velocity", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.5, "unit": "octaves" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

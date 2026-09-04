@@ -1,0 +1,96 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Supersaw Lead",
+    "author": null,
+    "description": "TranceやEDMの前面を担う、厚く広がりのあるスーパーソウ系リード。30 centのDetuneを持つ7 Voice Unisonと広いStereo配置が、単音でも複数の音のずれを明確に感じさせ、コードでは大きな音の壁を作る。中央の芯を残したまま左右へ広く開き、Chorusが華やかな厚みを加える。アナログ・ソウリードより明らかに大規模な音。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "supersaw",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -6.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.008,
+        "decay_seconds": 0.15,
+        "sustain_level": 0.8,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "unison": {
+            "voices": 7,
+            "detune_cents": 30.0,
+            "stereo_spread": 0.9,
+            "phase_spread": 0.85
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 11000.0,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "width",
+      "delay_ms": 12.0,
+      "rate_hz": 0.6,
+      "depth": 0.25,
+      "width": 1.0,
+      "mix": 0.2,
+      "feedback": 0.05
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 200.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.supersaw.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

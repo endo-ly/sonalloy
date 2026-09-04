@@ -1,0 +1,123 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "Digital Motion Bass",
+    "author": null,
+    "description": "1音の途中で倍音構成が大きく変化するデジタルベース。SineからSaw、Squareへと移り変わるWavetableを、発音中に単方向へ走査することで中域から高域の質感が連続的に動く。Sub Sineが低域の基音を安定させ、走査位置の初期値を中間に置くことで短い音にもデジタル感を残す。単純な音量変化や周期的な揺れとは異なる、音形の連続的な変形が特徴。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.8,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "texture",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.8,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../assets/digital-motion-bass.wav",
+            "sha256": "a2fc6241c3df25dc67576adb3a37cb84dbbafa47b189c5dd60eca7d41a48f93b"
+          },
+          "frame_length": 2048,
+          "position": 0.3,
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "scan",
+        "type": "envelope",
+        "attack_seconds": 3.0,
+        "decay_seconds": 2.5,
+        "sustain_level": 1.0,
+        "release_seconds": 0.8
+      }
+    ],
+    "routes": [
+      {
+        "source": "scan",
+        "target": "layer.texture.generator.wavetable_position",
+        "depth": {
+          "value": 0.6,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sub.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.texture.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

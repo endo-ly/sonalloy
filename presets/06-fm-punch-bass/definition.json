@@ -1,0 +1,128 @@
+{
+  "schema_version": 5,
+  "external_audio": null,
+  "metadata": {
+    "name": "FM Punch Bass",
+    "author": null,
+    "description": "硬い立ち上がりと引き締まった低域を持つFM系ベース。基音に対する変調指標を発音直後に大きくして即座に落とすことで、デジタルらしい複雑で鋭い倍音から単純で安定した低音への移行を作る。高い倍音の比率を持つ2つ目のModulatorが極短時間の打撃感を加え、キックと並んでも発音位置が分かる。金属的な要素を含みつつ音程感は強く、短いフレーズでも存在感がある。"
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "fm",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -4.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.7,
+        "release_seconds": 0.1
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "two_modulators_plus_carrier",
+          "operators": [
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.9,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.35,
+                "sustain_level": 0.75,
+                "release_seconds": 0.12
+              }
+            },
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.05,
+                "sustain_level": 0.0,
+                "release_seconds": 0.05
+              }
+            },
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 2.4,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.07,
+                "sustain_level": 0.12,
+                "release_seconds": 0.1
+              }
+            },
+            {
+              "ratio": 14.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 1.4,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.03,
+                "sustain_level": 0.0,
+                "release_seconds": 0.05
+              }
+            }
+          ],
+          "phase_reset": true,
+          "unison": null
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tight",
+      "mode": "low_pass",
+      "cutoff_hz": 4500.0,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.fm.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}
