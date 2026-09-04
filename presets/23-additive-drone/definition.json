@@ -4,7 +4,7 @@
   "metadata": {
     "name": "Additive Drone",
     "author": null,
-    "description": "1音を長く伸ばしている間に、倍音ごとのEnvelopeが個別に進行するドローン。12個のPartialがそれぞれ4〜12秒かけて浮かび上がったり沈んだりするため、反復周期に依存しない時間的展開が続く。低次のPartialが低中域の土台を固め、高次のPartialがゆっくり重なって細かな質感を加える。AmbientやCinematicの背景として長時間鳴らしても単調にならない。"
+    "description": "1音を長く伸ばしている間に、一部の倍音が4〜12秒かけて浮かび上がったり沈んだりするドローン。12個のPartialのうち固定の4個が低中域の土台を維持し、残る8個がそれぞれ個別のEnvelopeで時間展開するため、反復周期に依存しない変化が続く。AmbientやCinematicの背景として長時間鳴らしても単調にならない。"
   },
   "performance": {
     "mode": "polyphonic",
