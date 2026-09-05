@@ -81,7 +81,7 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 ソースからビルドする場合は、次の環境が必要です。
 
 - Rust stable（`rustup`で導入）
-- CMake 3.14以上
+- CMake 3.15以上
 - Windows: Visual Studio C++ Build Tools
 - Linux: `g++`または`clang++`、`git`、`pkg-config`、`libasound2-dev`
 - macOS: Xcode Command Line Tools

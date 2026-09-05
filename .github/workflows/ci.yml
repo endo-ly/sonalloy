@@ -2,7 +2,15 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   windows:
@@ -12,14 +20,21 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+      - uses: ilammy/msvc-dev-cmd@v1
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: Debug C++ C ABI consumer link
+        shell: pwsh
+        run: ./scripts/verify-msvc-capi-consumer.ps1 -Configuration Debug
       - name: Release build
         run: cargo build --workspace --release
+      - name: Release C++ C ABI consumer link
+        shell: pwsh
+        run: ./scripts/verify-msvc-capi-consumer.ps1 -Configuration Release
       - name: CLI smoke render
         run: cargo run -p sonalloy-cli -- dev render-sine --frequency 440 --duration 0.01 --sample-rate 48000 --block-size 257 --output ci-sine.wav
       - name: Spectral reference smoke
