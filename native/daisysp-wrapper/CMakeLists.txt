@@ -1,8 +1,30 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.15)
+
+if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET} AND
+   NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "$ENV{MACOSX_DEPLOYMENT_TARGET}" CACHE STRING
+        "Minimum macOS deployment target")
+endif()
+
+if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY
+        "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
 
 project(sonalloy-daisysp-wrapper LANGUAGES CXX)
 
 option(SONALLOY_DSP_TEST_HOOKS "Build internal native fault-injection hooks" OFF)
+
+if(MSVC)
+    if(DEFINED SONALLOY_MSVC_ITERATOR_DEBUG_LEVEL)
+        add_compile_definitions("_ITERATOR_DEBUG_LEVEL=${SONALLOY_MSVC_ITERATOR_DEBUG_LEVEL}")
+    else()
+        add_compile_definitions(
+            "$<$<CONFIG:Debug>:_ITERATOR_DEBUG_LEVEL=2>"
+            "$<$<NOT:$<CONFIG:Debug>>:_ITERATOR_DEBUG_LEVEL=0>"
+        )
+    endif()
+endif()
 
 include(FetchContent)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

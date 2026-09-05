@@ -12,6 +12,20 @@ cargo build -p sonalloy-capi --release
 
 公開ヘッダは[`crates/sonalloy-capi/include/sonalloy.h`](../crates/sonalloy-capi/include/sonalloy.h)です。生成されるLibraryは環境に応じて`libsonalloy_capi.a`、`libsonalloy_capi.so`、または`libsonalloy_capi.dylib`になります。ApplicationはヘッダをIncludeし、LibraryとSonalloyが使用するNative依存Libraryをリンクします。
 
+WindowsのRust dev / test buildはRelease CRTを使用します。C++ Applicationからstatic libraryへリンクする場合は、Cargoのcrate typeをstatic libraryだけに指定してビルドします。Debug CRTを使用する場合は、Native wrapperもDebug CRTでビルドするため、次のように設定してください。
+
+```powershell
+$env:SONALLOY_DSP_MSVC_RUNTIME="debug"
+cargo rustc -p sonalloy-capi --lib --crate-type staticlib
+```
+
+Release CRTの場合は次のように`release`を指定します。
+
+```powershell
+$env:SONALLOY_DSP_MSVC_RUNTIME="release"
+cargo rustc -p sonalloy-capi --lib --release --crate-type staticlib
+```
+
 ABI Versionは`sonalloy_c_api_version()`で確認できます。HeaderとLibraryが同じVersionを返すことを、Applicationの起動時に確認してください。
 
 ## 文字列とHandle
