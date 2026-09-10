@@ -1,0 +1,238 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Marimba Mallet",
+    "author": "gpt-6-astra low",
+    "description": "木の板を柔らかなマレットで叩いたような、丸く温かい有音程打楽器。短い打撃と中低域の胴鳴りが一体になり、高い成分から速く収まる。低い音では太く、高い音では軽く、強弱を付けた反復や旋律に使いやすい。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "wood",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -23.5,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 0.25
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -1.8,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "partial_0",
+              "ratio": 1,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.85,
+                "sustain_level": 0,
+                "release_seconds": 0.3
+              }
+            },
+            {
+              "id": "partial_1",
+              "ratio": 4,
+              "amplitude_a": 0.28,
+              "amplitude_b": 0.28,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.2,
+                "sustain_level": 0,
+                "release_seconds": 0.12
+              }
+            },
+            {
+              "id": "partial_2",
+              "ratio": 10,
+              "amplitude_a": 0.075,
+              "amplitude_b": 0.075,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.06,
+                "sustain_level": 0,
+                "release_seconds": 0.04
+              }
+            },
+            {
+              "id": "partial_3",
+              "ratio": 16,
+              "amplitude_a": 0.018,
+              "amplitude_b": 0.018,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.025,
+                "sustain_level": 0,
+                "release_seconds": 0.025
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "mallet",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.5,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.012,
+        "sustain_level": 0,
+        "release_seconds": 0.015
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 3737,
+          "stereo_correlation": 1
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "body",
+          "mode": "low_pass",
+          "cutoff_hz": 1500,
+          "resonance": 0.05
+        },
+        {
+          "type": "filter",
+          "id": "air",
+          "mode": "high_pass",
+          "cutoff_hz": 350,
+          "resonance": 0.05
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "warmth",
+      "mode": "low_pass",
+      "cutoff_hz": 5000,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.016,
+      "decay": 0.34,
+      "damping": 0.75,
+      "width": 0.82,
+      "mix": 0.065
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "macros": [],
+  "vectors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.wood.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.mallet.gain",
+        "depth": {
+          "value": 16,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.wood.generator.additive_spectrum_tilt",
+        "depth": {
+          "value": 2.4,
+          "unit": "decibels_per_octave"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.wood.generator.additive_spectrum_tilt",
+        "depth": {
+          "value": -2,
+          "unit": "decibels_per_octave"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.warmth.cutoff",
+        "depth": {
+          "value": 0.9,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.wood.generator.additive_spectrum_tilt",
+        "depth": {
+          "value": 1.2,
+          "unit": "decibels_per_octave"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.wood.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

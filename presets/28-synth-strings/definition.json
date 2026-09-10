@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "Synth Strings",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "弦のアンサンブルを連想させる、滑らかで広がりのある合成コード音。16 centのDetuneを持つ5 Voice UnisonとChorusが、複数の電子音が重なった古典的なシンセストリングスらしい均一な厚みを作る。0.4秒の立ち上がりは急激すぎず、押している間は安定した厚みを保ち、離した後にも短い余韻が残る。高域は柔らかな明るさに抑え、コードの背景にも前景にも使える。"
   },
   "performance": {

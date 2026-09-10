@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "Short Pluck Bass",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "8分・16分音符の刻みに適した、短く弾むプラックベース。減衰のみで進むEnvelopeと速いFilter Envelopeが明確な輪郭を作り、連続発音しても前の音が次の音へ大きく重ならない。Sustainを持たないため長押しでも一定音量で伸びず、短い音の中にもSub Sineによる低音の芯と音程感が残る。"
   },
   "performance": {

@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "Digital Poly",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "明瞭で精密な倍音を持つ、現代的なデジタル系コード音。Wavetableの中間Positionで静止させた硬質な倍音構成に、6 centとタイトなDetuneの2 Voice Unisonを合わせ、輪郭の明るさと透明な高域を確保する。アナログポリシンセより輪郭が硬く、複数音を重ねても濁りにくい。プラックのように減衰せず鍵盤を押している間は安定して持続し、速いコード進行でも各和音の切り替わりが明確。"
   },
   "performance": {

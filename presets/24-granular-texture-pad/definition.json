@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "Granular Texture Pad",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "細かな音の粒が重なり合いながら持続する、粒状感のある広いパッド。倍音と空気を含む3秒のテクスチャSourceをGrainへ分解し、RandomnessとPan Spreadで粒を前後左右に散らす。低速のLFOが読み取り位置を漂わせ、長音の内部に絶えず細かな変化を生む。全体の音程感は保ちながら、表面は少し霞んだ広がりを持つ。"
   },
   "performance": {

@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "Phase Distortion Lead",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "波形の時間方向の形を強く変形させ、鋭く独特な倍音を生むデジタル系リード。Sine基音の位相を歪ませるPhase Distortionが、通常のパルスやソウより硬く、FMほど金属的ではない中間的な質感を作る。保持中は低速のLFOが変形量を動かし、明るさだけでなく倍音の並び方そのものが連続的に変化する。80年代的なデジタル感から現代的な攻撃音まで幅広く使える。"
   },
   "performance": {

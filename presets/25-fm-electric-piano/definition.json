@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "FM Electric Piano",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "1980年代のFM音源を代表するエレクトリックピアノ。比率1の変調が発音直後に強くかかって硬く明るい打撃感を作り、減衰とともに暖かく丸い持続音へ移る。比率14の短命な第2Carrierがタインのきらめきを加える。Velocityが変調指数を動かすため、強い打鍵では明るく硬く、弱い打鍵では丸く穏やかに響く。4〜6音のコードでも自然にまとまる。"
   },
   "performance": {

@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "name": "Pluck, Bell and Mallet",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 60,
+      "duration_ticks": 720,
+      "velocity": 45
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 60,
+      "duration_ticks": 720,
+      "velocity": 85
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 60,
+      "duration_ticks": 720,
+      "velocity": 127
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 60,
+      "duration_ticks": 180,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 64,
+      "duration_ticks": 180,
+      "velocity": 76
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 67,
+      "duration_ticks": 180,
+      "velocity": 105
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 71,
+      "duration_ticks": 180,
+      "velocity": 86
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 72,
+      "duration_ticks": 180,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 4080,
+      "note": 67,
+      "duration_ticks": 180,
+      "velocity": 78
+    },
+    {
+      "type": "note",
+      "tick": 4320,
+      "note": 64,
+      "duration_ticks": 180,
+      "velocity": 98
+    },
+    {
+      "type": "note",
+      "tick": 4560,
+      "note": 62,
+      "duration_ticks": 180,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 48,
+      "duration_ticks": 660,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 55,
+      "duration_ticks": 660,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 60,
+      "duration_ticks": 660,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 64,
+      "duration_ticks": 660,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 72,
+      "duration_ticks": 1440,
+      "velocity": 100
+    }
+  ]
+}

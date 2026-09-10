@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "Mono Portamento Lead",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "単音のフレーズを滑らかにつなぐ、太く前面に出るモノフォニックリード。Legatoで音をつなぐと0.09秒のPortamentoが前の音から次の音へ連続的に移り、離して弾いた場合は各音の発音が明確になる。Unison SawとSub Sineの厚みに軽いDriveが加わり、ソロやフックで前面に出る。速い旋律でも音程の中心を失わない。"
   },
   "performance": {

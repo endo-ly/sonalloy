@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "PWM Pad",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "長く保持すると内部の倍音が呼吸するように変化する、古典的なPWMパッド。幅の異なる2つのPulse波へ逆位相のLFOでPulse Widthを動かし、音程そのものではなく厚みと空洞感を周期的に変える。立ち上がりと余韻は長く、コードの背景として継続的に使いやすい。静止したアナログパッドより内部の動きが明確。"
   },
   "performance": {

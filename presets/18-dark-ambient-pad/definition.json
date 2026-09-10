@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "Dark Ambient Pad",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "暗く沈んだ雰囲気を作るアンビエントパッド。TriangleとSineだけで倍音を絞り、低いLadder Filterが明るい成分を抑える。2.5秒の立ち上がりでゆっくり存在感が現れ、長いReverbが少し遠くで鳴るような奥行きを与える。低中域を中心に深く、Ambient、Cinematic、暗い電子音楽の背景に適する。"
   },
   "performance": {

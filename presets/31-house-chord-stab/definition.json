@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "House Chord Stab",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "HouseやGarage系の反復コードに使いやすい、短くまとまったコード音。Square波の輪郭に速いFilter Envelopeが加わり、発音直後の中高域の筋がすぐ減衰して次のコードのための空間を残す。200HzのHigh Passが低中域の重なりを切り捨て、シンセブラスより軽く金管らしさの弱い質感を作る。4和音を短く連続させても濁らず、リズムの一部としてコードを置ける。"
   },
   "performance": {

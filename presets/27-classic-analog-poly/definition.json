@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "Classic Analog Poly",
-    "author": null,
+    "author": "glm-5.3-flash",
     "description": "コード、伴奏、短いメロディのいずれにも使える、標準的なポリフォニックシンセ。8 centのDetuneを持つ2 Voice Unison Sawが適度な厚みを作りながら各音の音程関係を明確に残す。立ち上がりはパッドより速くスタブより長い中程度の発音で、Ladder Filterの軽いDriveが明るさと丸さのバランスを取る。特定のジャンルや奏法に依存しない汎用コード音。"
   },
   "performance": {
