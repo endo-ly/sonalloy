@@ -1,6 +1,6 @@
 # Audio Assets
 
-Review・Test・Reference Instrument が参照する決定論的なAudio Assetを置く。外部録音は含まず、`digital-motion.wav` を除いてリポジトリ内のScriptから再生成できる。
+Test、CI、Reference Instrumentが参照する決定論的なAudio Assetを置く。外部録音は含まず、`digital-motion.wav` を除いてリポジトリ内のScriptから再生成できる。
 
 ## metal-hit.wav
 
@@ -34,7 +34,7 @@ spectral-reference系（48 kHz / Stereo）の再生成:
 
 ## stereo-texture.wav / mono-texture.wav
 
-Granular Review Packageの入力とする決定論的な質感Source。Stereo版はWave Sequence Hybrid Reference Instrumentにも使う。移動するHarmonic成分とL/Rで異なる倍音構成を含む（48 kHz / 96,000 Frame / PCM 16-bit）。
+Granular検証の入力とする決定論的な質感Source。Stereo版はWave Sequence Hybrid Reference Instrumentにも使う。移動するHarmonic成分とL/Rで異なる倍音構成を含む（48 kHz / 96,000 Frame / PCM 16-bit）。
 
 再生成:
 

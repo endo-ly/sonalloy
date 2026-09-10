@@ -1,6 +1,6 @@
 # Testdata Generation
 
-`testdata/`のFixture（MIDI、Audio Asset）を決定的に再生成するScriptを置く。Review Packageの生成Script（`review/generate/`）からも、まずここでFixtureを最新化してから参照する。
+`testdata/`のFixture（MIDI、Audio Asset）を決定的に再生成するScriptを置く。
 
 | Script | 生成物 |
 |---|---|
