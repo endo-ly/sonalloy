@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "name": "Drums - Hi-Hat",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 240,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "note": 46,
+      "duration_ticks": 480,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 46,
+      "duration_ticks": 480,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 1680,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "note": 46,
+      "duration_ticks": 480,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 46,
+      "duration_ticks": 480,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 4080,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 4320,
+      "note": 46,
+      "duration_ticks": 480,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 4560,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 5040,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 5280,
+      "note": 46,
+      "duration_ticks": 480,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 5520,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 6000,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 6240,
+      "note": 46,
+      "duration_ticks": 480,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 6480,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 6720,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 6960,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    },
+    {
+      "type": "note",
+      "tick": 7200,
+      "note": 46,
+      "duration_ticks": 480,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 7440,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 50
+    }
+  ]
+}

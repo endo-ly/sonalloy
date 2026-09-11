@@ -1,0 +1,97 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Deep Sub Kick",
+    "author": "glm-5.3-flash",
+    "description": "深い最低域を中心にした、丸く重量感のあるキック。立ち上がりのクリックと中高域は控えめで、穏やかな音程落下に続いて低い胴鳴りが大きく膨らむ。0.6秒近い低域の余韻がテンポに合わせて床を押すような感覚を作り、一回の打撃として収束する。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -8.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.58,
+        "sustain_level": 0.0,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "sine" },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "thump",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -24.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.006,
+        "sustain_level": 0.0,
+        "release_seconds": 0.008
+      },
+      "generator": {
+        "noise": { "color": "white", "seed": 3939, "stereo_correlation": 1.0 }
+      },
+      "processors": [
+        { "type": "filter", "id": "soften", "mode": "low_pass", "cutoff_hz": 1200.0, "resonance": 0.1 }
+      ]
+    }
+  ],
+  "voice_processors": [
+    { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 4200.0, "resonance": 0.03 }
+  ],
+  "global_processors": [
+    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drop",
+        "type": "envelope",
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.075,
+        "sustain_level": 0.0,
+        "release_seconds": 0.06
+      }
+    ],
+    "routes": [
+      { "source": "drop", "target": "layer.body.tuning", "depth": { "value": 620.0, "unit": "cents" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "layer.body.gain", "depth": { "value": 10.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "layer.thump.gain", "depth": { "value": 4.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.4, "unit": "octaves" }, "curve": "linear" },
+      { "source": "mod_wheel", "target": "voice.processor.tone.cutoff", "depth": { "value": 1.0, "unit": "octaves" }, "curve": "linear" },
+      { "source": "pitch_bend", "target": "layer.body.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

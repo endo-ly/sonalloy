@@ -1,0 +1,125 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Electronic Snare",
+    "author": "glm-5.3-flash",
+    "description": "短い有音程の胴鳴りとざらついたノイズが一体化した電子スネア。発音直後の芯をトランジェント・シェイパーが際立たせ、高域寄りのざらつきが少し長く残る。キックより高い位置で聞こえ、拍のアクセントを明確に作る。強い打鍵ほどノイズが明るく開く。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.16,
+        "sustain_level": 0.0,
+        "release_seconds": 0.1
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": -1.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "fundamental",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.001, "decay_seconds": 0.11, "sustain_level": 0.0, "release_seconds": 0.08 }
+            },
+            {
+              "id": "fifth",
+              "ratio": 1.48,
+              "amplitude_a": 0.55,
+              "amplitude_b": 0.55,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.001, "decay_seconds": 0.08, "sustain_level": 0.0, "release_seconds": 0.06 }
+            },
+            {
+              "id": "snarl",
+              "ratio": 2.86,
+              "amplitude_a": 0.4,
+              "amplitude_b": 0.4,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.001, "decay_seconds": 0.06, "sustain_level": 0.0, "release_seconds": 0.05 }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "noise",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.19,
+        "sustain_level": 0.0,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "noise": { "color": "white", "seed": 4040, "stereo_correlation": 0.55 }
+      },
+      "processors": [
+        { "type": "filter", "id": "air", "mode": "high_pass", "cutoff_hz": 950.0, "resonance": 0.05 },
+        { "type": "filter", "id": "grit", "mode": "low_pass", "cutoff_hz": 9000.0, "resonance": 0.05 }
+      ]
+    }
+  ],
+  "voice_processors": [
+    { "type": "transient_shaper", "id": "snap", "attack": 0.35, "sustain": -0.15, "mix": 0.5 }
+  ],
+  "global_processors": [
+    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drop",
+        "type": "envelope",
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.018,
+        "sustain_level": 0.0,
+        "release_seconds": 0.015
+      }
+    ],
+    "routes": [
+      { "source": "drop", "target": "layer.body.tuning", "depth": { "value": 420.0, "unit": "cents" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.body.gain", "depth": { "value": 9.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "layer.noise.gain", "depth": { "value": 12.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "layer.noise.processor.air.cutoff", "depth": { "value": 0.7, "unit": "octaves" }, "curve": "linear" },
+      { "source": "mod_wheel", "target": "layer.noise.gain", "depth": { "value": 7.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "pitch_bend", "target": "layer.body.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

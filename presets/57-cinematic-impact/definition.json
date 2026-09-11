@@ -1,0 +1,167 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Cinematic Impact",
+    "author": "glm-5.3-flash",
+    "description": "一発で大きな重量感を出す演出音。打撃の衝撃、深い低域のブーム、金属的な残りが一つの音としてつながり、広い残響が空間ごと場面転換を示す。セクションの開始やドロップのアクセント、映像的な場面の区切りに使える。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 6,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "boom",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -13.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 2.8,
+        "sustain_level": 0.0,
+        "release_seconds": 1.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "sine" },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": [
+        { "type": "drive", "id": "weight", "amount": 0.3, "mix": 0.4 }
+      ]
+    },
+    {
+      "id": "strike",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.06,
+        "sustain_level": 0.0,
+        "release_seconds": 0.05
+      },
+      "generator": {
+        "noise": { "color": "white", "seed": 5751, "stereo_correlation": 0.9 }
+      },
+      "processors": [
+        { "type": "filter", "id": "smash", "mode": "band_pass", "cutoff_hz": 1400.0, "resonance": 0.2 }
+      ]
+    },
+    {
+      "id": "debris",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -23.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.9,
+        "sustain_level": 0.0,
+        "release_seconds": 0.7
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "three_modulators",
+          "operators": [
+            {
+              "ratio": 6.3,
+              "detune_cents": 0.0,
+              "level": 0.8,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.9, "sustain_level": 0.0, "release_seconds": 0.7 }
+            },
+            {
+              "ratio": 2.37,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 2.4,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.6, "sustain_level": 0.0, "release_seconds": 0.45 }
+            },
+            {
+              "ratio": 3.41,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 2.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.5, "sustain_level": 0.0, "release_seconds": 0.4 }
+            },
+            {
+              "ratio": 4.93,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 1.7,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.4, "sustain_level": 0.0, "release_seconds": 0.3 }
+            }
+          ],
+          "phase_reset": true,
+          "unison": null
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 8500.0, "resonance": 0.04 }
+  ],
+  "global_processors": [
+    { "type": "reverb", "id": "hall", "pre_delay_seconds": 0.025, "decay": 0.55, "damping": 0.6, "width": 1.0, "mix": 0.16 },
+    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 250.0, "input_gain_db": 0.0 }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drop",
+        "type": "envelope",
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.06,
+        "sustain_level": 0.0,
+        "release_seconds": 0.05
+      }
+    ],
+    "routes": [
+      { "source": "drop", "target": "layer.boom.tuning", "depth": { "value": 700.0, "unit": "cents" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "layer.boom.gain", "depth": { "value": 7.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "layer.strike.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "layer.debris.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "mod_wheel", "target": "layer.debris.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "pitch_bend", "target": "layer.boom.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

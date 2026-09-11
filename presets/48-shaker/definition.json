@@ -1,0 +1,94 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Shaker",
+    "author": "glm-5.3-flash",
+    "description": "細かな粒が擦れ合うような、高域中心の軽いシェイカー。柔らかい立ち上がりから短い減衰へ続く二層のノイズが、一つの鋭い衝撃ではなく細かな雑音の集まりとして聞こえる。16分音符で繰り返すとリズムに継続的な動きを加え、小さい音量でも存在を認識できる。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "grain",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.016,
+        "decay_seconds": 0.075,
+        "sustain_level": 0.0,
+        "release_seconds": 0.06
+      },
+      "generator": {
+        "noise": { "color": "white", "seed": 4848, "stereo_correlation": 0.35 }
+      },
+      "processors": [
+        { "type": "filter", "id": "air", "mode": "high_pass", "cutoff_hz": 5200.0, "resonance": 0.05 },
+        { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 12500.0, "resonance": 0.04 }
+      ]
+    },
+    {
+      "id": "scrape",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.03,
+        "decay_seconds": 0.14,
+        "sustain_level": 0.0,
+        "release_seconds": 0.1
+      },
+      "generator": {
+        "noise": { "color": "white", "seed": 4849, "stereo_correlation": 0.4 }
+      },
+      "processors": [
+        { "type": "filter", "id": "hiss", "mode": "high_pass", "cutoff_hz": 3300.0, "resonance": 0.05 },
+        { "type": "filter", "id": "body", "mode": "low_pass", "cutoff_hz": 8200.0, "resonance": 0.04 }
+      ]
+    }
+  ],
+  "voice_processors": [
+    { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 12000.0, "resonance": 0.04 }
+  ],
+  "global_processors": [
+    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "grit",
+        "type": "smooth_random",
+        "seed": 4850,
+        "rate": { "value": 34.0, "unit": "per_second" }
+      }
+    ],
+    "routes": [
+      { "source": "velocity", "target": "layer.grain.gain", "depth": { "value": 9.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "layer.scrape.gain", "depth": { "value": 9.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.8, "unit": "octaves" }, "curve": "linear" },
+      { "source": "grit", "target": "layer.grain.gain", "depth": { "value": 2.5, "unit": "decibels" }, "curve": "linear" },
+      { "source": "mod_wheel", "target": "layer.scrape.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

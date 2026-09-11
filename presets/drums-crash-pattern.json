@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "name": "Drums - Crash",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 49,
+      "duration_ticks": 1920,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 49,
+      "duration_ticks": 1920,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 49,
+      "duration_ticks": 960,
+      "velocity": 55
+    },
+    {
+      "type": "note",
+      "tick": 6720,
+      "note": 49,
+      "duration_ticks": 960,
+      "velocity": 120
+    }
+  ]
+}

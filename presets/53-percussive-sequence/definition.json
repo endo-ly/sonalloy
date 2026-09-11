@@ -1,0 +1,85 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Percussive Sequence",
+    "author": "glm-5.3-flash",
+    "description": "8分音符のグリッドに沿って打撃的な有音程プラックが反復するシーケンス音。ヒットごとに明るさと強さが段階的に変わり、単独でもグルーヴを形成する。手弾きの連打より反復が安定し、保持した音をリズム素材として展開する。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "hit",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "saw" },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 2400.0, "resonance": 0.12 }
+  ],
+  "global_processors": [
+    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "hit_shape",
+        "type": "mseg",
+        "initial_value": -1.0,
+        "segments": [
+          { "duration": { "value": 0.02, "unit": "beats" }, "target": 1.0, "curve": "linear" },
+          { "duration": { "value": 0.48, "unit": "beats" }, "target": -0.85, "curve": "linear" }
+        ],
+        "loop_range": { "start_segment": 0, "end_segment": 2 }
+      },
+      {
+        "id": "tone_step",
+        "type": "step",
+        "values": [0.9, -0.4, 0.3, -0.9],
+        "rate": { "value": 1.0, "unit": "per_beat" }
+      },
+      {
+        "id": "level_step",
+        "type": "step",
+        "values": [0.8, -0.5, 0.3, -0.8],
+        "rate": { "value": 2.0, "unit": "per_beat" }
+      }
+    ],
+    "routes": [
+      { "source": "hit_shape", "target": "layer.hit.gain", "depth": { "value": 9.5, "unit": "decibels" }, "curve": "linear" },
+      { "source": "tone_step", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.75, "unit": "octaves" }, "curve": "linear" },
+      { "source": "level_step", "target": "layer.hit.gain", "depth": { "value": 2.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.hit.gain", "depth": { "value": 5.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "mod_wheel", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.6, "unit": "octaves" }, "curve": "linear" },
+      { "source": "pitch_bend", "target": "layer.hit.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

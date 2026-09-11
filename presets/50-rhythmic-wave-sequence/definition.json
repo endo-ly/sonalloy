@@ -1,0 +1,250 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Rhythmic Wave Sequence",
+    "author": "glm-5.3-flash",
+    "description": "鍵盤を保持するだけで、8種類の波形が8分音符ごとに切り替わるリズミック音。各ステップは短いブラスのように立ち上がり、基本の音程を保ったまま波形の質感だけが入れ替わる。テンポ同期のループで長く保持してもステップの境界が曖昧にならず、音色変化そのものがフレーズを作る。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "seq",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -8.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "wave_sequence": {
+          "root_note": 60,
+          "direction": "forward",
+          "loop": true,
+          "crossfade": 0.0,
+          "steps": [
+            {
+              "id": "step1_saw",
+              "asset": {
+                "path": "../assets/wave-seq-steps.wav",
+                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+              },
+              "region": {
+                "start_seconds": 0.0,
+                "end_seconds": 0.1706667
+              },
+              "duration": {
+                "mode": "beats",
+                "value": 0.5
+              },
+              "playback": "one_shot",
+              "playback_direction": "forward",
+              "gain_db": -2.5,
+              "pitch_cents": 0.0
+            },
+            {
+              "id": "step2_square",
+              "asset": {
+                "path": "../assets/wave-seq-steps.wav",
+                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+              },
+              "region": {
+                "start_seconds": 0.1706667,
+                "end_seconds": 0.3413333
+              },
+              "duration": {
+                "mode": "beats",
+                "value": 0.5
+              },
+              "playback": "one_shot",
+              "playback_direction": "forward",
+              "gain_db": 0.0,
+              "pitch_cents": 0.0
+            },
+            {
+              "id": "step3_pulse",
+              "asset": {
+                "path": "../assets/wave-seq-steps.wav",
+                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+              },
+              "region": {
+                "start_seconds": 0.3413333,
+                "end_seconds": 0.512
+              },
+              "duration": {
+                "mode": "beats",
+                "value": 0.5
+              },
+              "playback": "one_shot",
+              "playback_direction": "forward",
+              "gain_db": -5.5,
+              "pitch_cents": 0.0
+            },
+            {
+              "id": "step4_triangle",
+              "asset": {
+                "path": "../assets/wave-seq-steps.wav",
+                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+              },
+              "region": {
+                "start_seconds": 0.512,
+                "end_seconds": 0.6826667
+              },
+              "duration": {
+                "mode": "beats",
+                "value": 0.5
+              },
+              "playback": "one_shot",
+              "playback_direction": "forward",
+              "gain_db": -1.5,
+              "pitch_cents": 0.0
+            },
+            {
+              "id": "step5_hollow",
+              "asset": {
+                "path": "../assets/wave-seq-steps.wav",
+                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+              },
+              "region": {
+                "start_seconds": 0.6826667,
+                "end_seconds": 0.8533333
+              },
+              "duration": {
+                "mode": "beats",
+                "value": 0.5
+              },
+              "playback": "one_shot",
+              "playback_direction": "forward",
+              "gain_db": -4.0,
+              "pitch_cents": 0.0
+            },
+            {
+              "id": "step6_organ",
+              "asset": {
+                "path": "../assets/wave-seq-steps.wav",
+                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+              },
+              "region": {
+                "start_seconds": 0.8533333,
+                "end_seconds": 1.024
+              },
+              "duration": {
+                "mode": "beats",
+                "value": 0.5
+              },
+              "playback": "one_shot",
+              "playback_direction": "forward",
+              "gain_db": -0.5,
+              "pitch_cents": 0.0
+            },
+            {
+              "id": "step7_glassy",
+              "asset": {
+                "path": "../assets/wave-seq-steps.wav",
+                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+              },
+              "region": {
+                "start_seconds": 1.024,
+                "end_seconds": 1.1946667
+              },
+              "duration": {
+                "mode": "beats",
+                "value": 0.5
+              },
+              "playback": "one_shot",
+              "playback_direction": "forward",
+              "gain_db": -6.5,
+              "pitch_cents": 0.0
+            },
+            {
+              "id": "step8_vocal",
+              "asset": {
+                "path": "../assets/wave-seq-steps.wav",
+                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+              },
+              "region": {
+                "start_seconds": 1.1946667,
+                "end_seconds": 1.3653333
+              },
+              "duration": {
+                "mode": "beats",
+                "value": 0.5
+              },
+              "playback": "one_shot",
+              "playback_direction": "forward",
+              "gain_db": -3.0,
+              "pitch_cents": 0.0
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 11000.0,
+      "resonance": 0.04
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.014,
+      "decay": 0.3,
+      "damping": 0.7,
+      "width": 0.75,
+      "mix": 0.05
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.seq.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.seq.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

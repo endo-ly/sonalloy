@@ -1,0 +1,92 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Random Step Sequence",
+    "author": "glm-5.3-flash",
+    "description": "8分音符のグリッドは安定しながら、各ヒットの強さ・明るさ・微妙なピッチがその都度変わるシーケンス音。固定順の反復と異なり、同じ長音を保持し続けても細部が繰り返しごとに変わる。静的なコードや単音に、機械的すぎない継続的な動きを加える。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "hit",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -21.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": { "type": "pulse", "pulse_width": 0.42 },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 2600.0, "resonance": 0.12 }
+  ],
+  "global_processors": [
+    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "hit_shape",
+        "type": "mseg",
+        "initial_value": -1.0,
+        "segments": [
+          { "duration": { "value": 0.02, "unit": "beats" }, "target": 1.0, "curve": "linear" },
+          { "duration": { "value": 0.48, "unit": "beats" }, "target": -0.85, "curve": "linear" }
+        ],
+        "loop_range": { "start_segment": 0, "end_segment": 2 }
+      },
+      {
+        "id": "level_rand",
+        "type": "sample_hold",
+        "seed": 541,
+        "rate": { "value": 1.0, "unit": "per_beat" }
+      },
+      {
+        "id": "tone_rand",
+        "type": "sample_hold",
+        "seed": 542,
+        "rate": { "value": 2.0, "unit": "per_beat" }
+      },
+      {
+        "id": "pitch_drift",
+        "type": "smooth_random",
+        "seed": 543,
+        "rate": { "value": 6.0, "unit": "per_second" }
+      }
+    ],
+    "routes": [
+      { "source": "hit_shape", "target": "layer.hit.gain", "depth": { "value": 10.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "level_rand", "target": "layer.hit.gain", "depth": { "value": 4.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "tone_rand", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.95, "unit": "octaves" }, "curve": "linear" },
+      { "source": "pitch_drift", "target": "layer.hit.tuning", "depth": { "value": 18.0, "unit": "cents" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.hit.gain", "depth": { "value": 5.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "mod_wheel", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.6, "unit": "octaves" }, "curve": "linear" },
+      { "source": "pitch_bend", "target": "layer.hit.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

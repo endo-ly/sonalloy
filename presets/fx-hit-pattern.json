@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "name": "FX - Hits and Sweeps",
+  "ticks_per_beat": 480,
+  "length_ticks": 15360,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 60,
+      "duration_ticks": 7680,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 7680,
+      "note": 36,
+      "duration_ticks": 3840,
+      "velocity": 127
+    },
+    {
+      "type": "note",
+      "tick": 11520,
+      "note": 48,
+      "duration_ticks": 1920,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 13440,
+      "note": 45,
+      "duration_ticks": 960,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 14400,
+      "note": 60,
+      "duration_ticks": 480,
+      "velocity": 78
+    },
+    {
+      "type": "note",
+      "tick": 14880,
+      "note": 60,
+      "duration_ticks": 480,
+      "velocity": 105
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Noise Riser",
+    "author": "glm-5.3-flash",
+    "description": "数拍かけて音量・明るさ・広がりが一段ずつ開いていく上昇系の演出音。立ち上がりは暗く狭く、終点に近づくほど輝きと共鳴を増して緊張感を高める。音程感は弱く、さまざまな調の曲へ組み込みやすい。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "wash",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -25.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "noise": { "color": "white", "seed": 5551, "stereo_correlation": 0.5 }
+      },
+      "processors": []
+    },
+    {
+      "id": "sheen",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -29.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "three_modulators",
+          "operators": [
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.7,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.01, "decay_seconds": 0.0, "sustain_level": 1.0, "release_seconds": 0.08 }
+            },
+            {
+              "ratio": 2.63,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 2.4,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.01, "decay_seconds": 0.0, "sustain_level": 1.0, "release_seconds": 0.08 }
+            },
+            {
+              "ratio": 3.41,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 2.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.01, "decay_seconds": 0.0, "sustain_level": 1.0, "release_seconds": 0.08 }
+            },
+            {
+              "ratio": 4.93,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 1.6,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": { "attack_seconds": 0.01, "decay_seconds": 0.0, "sustain_level": 1.0, "release_seconds": 0.08 }
+            }
+          ],
+          "phase_reset": true,
+          "unison": null
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    { "type": "filter", "id": "open", "mode": "low_pass", "cutoff_hz": 900.0, "resonance": 0.15 }
+  ],
+  "global_processors": [
+    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "rise",
+        "type": "mseg",
+        "initial_value": -1.0,
+        "segments": [
+          { "duration": { "value": 8.0, "unit": "beats" }, "target": 1.0, "curve": "smooth_step" }
+        ]
+      }
+    ],
+    "routes": [
+      { "source": "rise", "target": "voice.processor.open.cutoff", "depth": { "value": 2.6, "unit": "octaves" }, "curve": "linear" },
+      { "source": "rise", "target": "voice.processor.open.resonance", "depth": { "value": 0.45, "unit": "normalized" }, "curve": "linear" },
+      { "source": "rise", "target": "layer.wash.gain", "depth": { "value": 9.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "rise", "target": "layer.sheen.gain", "depth": { "value": 8.0, "unit": "decibels" }, "curve": "linear" },
+      { "source": "rise", "target": "layer.wash.generator.noise_correlation", "depth": { "value": -0.45, "unit": "normalized" }, "curve": "linear" },
+      { "source": "rise", "target": "layer.sheen.generator.operator.4.ratio", "depth": { "value": 1.2, "unit": "octaves" }, "curve": "linear" },
+      { "source": "velocity", "target": "layer.wash.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "velocity", "target": "layer.sheen.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "smooth_step" },
+      { "source": "mod_wheel", "target": "voice.processor.open.cutoff", "depth": { "value": 1.0, "unit": "octaves" }, "curve": "linear" },
+      { "source": "pitch_bend", "target": "layer.sheen.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "name": "Drums - Clap",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 39,
+      "duration_ticks": 240,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 39,
+      "duration_ticks": 240,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 39,
+      "duration_ticks": 240,
+      "velocity": 105
+    },
+    {
+      "type": "note",
+      "tick": 6240,
+      "note": 39,
+      "duration_ticks": 200,
+      "velocity": 68
+    },
+    {
+      "type": "note",
+      "tick": 6320,
+      "note": 39,
+      "duration_ticks": 200,
+      "velocity": 78
+    },
+    {
+      "type": "note",
+      "tick": 6720,
+      "note": 39,
+      "duration_ticks": 240,
+      "velocity": 115
+    }
+  ]
+}
