@@ -2,8 +2,8 @@
   "schema_version": 5,
   "metadata": {
     "name": "Glitch Burst",
-    "author": "glm-5.3-flash",
-    "description": "短いデジタル断片が不規則に切り替わる、瞬間的で鋭い演出音。高速なオン／オフのスタッター、ビットクラッシュの飛び、明るさの乱れが一つの塊として現れ、通常のドラムやノイズヒットにはない人工的な崩れ方を作る。フィルの一部や場面転換のアクセントに使える。"
+    "author": "gpt-6-astra low",
+    "description": "長さの異なるデジタル断片が短時間に連なるグリッチ音。音の切断、粗さ、明るさ、定位が不規則に変化し、最後は短く消える。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,7 +21,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -17.5,
+      "gain_db": -38,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -32,13 +32,21 @@
       },
       "generator": {
         "oscillator": {
-          "waveform": { "type": "saw" },
+          "waveform": {
+            "type": "saw"
+          },
           "phase_reset": true,
           "phase": 0.0
         }
       },
       "processors": [
-        { "type": "bitcrusher", "id": "crush_shard", "bit_depth": 7.0, "sample_rate_ratio": 0.35, "mix": 0.8 }
+        {
+          "type": "bitcrusher",
+          "id": "crush_shard",
+          "bit_depth": 7.0,
+          "sample_rate_ratio": 0.35,
+          "mix": 0.8
+        }
       ]
     },
     {
@@ -51,7 +59,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -19.5,
+      "gain_db": -42,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -61,55 +69,291 @@
         "release_seconds": 0.1
       },
       "generator": {
-        "noise": { "color": "white", "seed": 5951, "stereo_correlation": 0.5 }
+        "noise": {
+          "color": "white",
+          "seed": 5951,
+          "stereo_correlation": 0.5
+        }
       },
       "processors": [
-        { "type": "bitcrusher", "id": "crush_dust", "bit_depth": 6.0, "sample_rate_ratio": 0.3, "mix": 0.85 }
+        {
+          "type": "bitcrusher",
+          "id": "crush_dust",
+          "bit_depth": 6.0,
+          "sample_rate_ratio": 0.3,
+          "mix": 0.85
+        }
       ]
     }
   ],
   "voice_processors": [
-    { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 5200.0, "resonance": 0.14 }
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 5200.0,
+      "resonance": 0.14
+    }
   ],
   "global_processors": [
-    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
   ],
   "modulation": {
     "sources": [
       {
         "id": "stutter",
         "type": "mseg",
-        "initial_value": 1.0,
+        "initial_value": -1,
         "segments": [
-          { "duration": { "value": 0.021, "unit": "seconds" }, "target": -1.0, "curve": "linear" },
-          { "duration": { "value": 0.024, "unit": "seconds" }, "target": 1.0, "curve": "linear" }
+          {
+            "duration": {
+              "value": 0.003,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.018,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.007,
+              "unit": "seconds"
+            },
+            "target": 0.75,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.033,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.003,
+              "unit": "seconds"
+            },
+            "target": 0.9,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.012,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.026,
+              "unit": "seconds"
+            },
+            "target": 0.45,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.006,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.004,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.044,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.012,
+              "unit": "seconds"
+            },
+            "target": 0.7,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.032,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.006,
+              "unit": "seconds"
+            },
+            "target": 0.4,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.025,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          }
         ],
-        "loop_range": { "start_segment": 0, "end_segment": 2 }
+        "loop_range": null
       },
       {
         "id": "crush_rand",
         "type": "sample_hold",
         "seed": 591,
-        "rate": { "value": 18.0, "unit": "per_second" }
+        "rate": {
+          "value": 18.0,
+          "unit": "per_second"
+        }
       },
       {
         "id": "tone_rand",
         "type": "sample_hold",
         "seed": 592,
-        "rate": { "value": 24.0, "unit": "per_second" }
+        "rate": {
+          "value": 24.0,
+          "unit": "per_second"
+        }
       }
     ],
     "routes": [
-      { "source": "stutter", "target": "layer.shard.gain", "depth": { "value": 10.0, "unit": "decibels" }, "curve": "linear" },
-      { "source": "stutter", "target": "layer.dust.gain", "depth": { "value": 10.0, "unit": "decibels" }, "curve": "linear" },
-      { "source": "crush_rand", "target": "layer.shard.processor.crush_shard.sample_rate_ratio", "depth": { "value": 1.1, "unit": "octaves" }, "curve": "linear" },
-      { "source": "crush_rand", "target": "layer.dust.processor.crush_dust.sample_rate_ratio", "depth": { "value": 1.1, "unit": "octaves" }, "curve": "linear" },
-      { "source": "tone_rand", "target": "voice.processor.tone.cutoff", "depth": { "value": 1.7, "unit": "octaves" }, "curve": "linear" },
-      { "source": "velocity", "target": "layer.shard.gain", "depth": { "value": 8.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.dust.gain", "depth": { "value": 8.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "mod_wheel", "target": "layer.shard.processor.crush_shard.mix", "depth": { "value": 0.2, "unit": "normalized" }, "curve": "linear" },
-      { "source": "mod_wheel", "target": "layer.dust.processor.crush_dust.mix", "depth": { "value": 0.2, "unit": "normalized" }, "curve": "linear" },
-      { "source": "pitch_bend", "target": "layer.shard.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+      {
+        "source": "stutter",
+        "target": "layer.shard.gain",
+        "depth": {
+          "value": 18,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "stutter",
+        "target": "layer.dust.gain",
+        "depth": {
+          "value": 18,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "crush_rand",
+        "target": "layer.shard.processor.crush_shard.sample_rate_ratio",
+        "depth": {
+          "value": 1.1,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "crush_rand",
+        "target": "layer.dust.processor.crush_dust.sample_rate_ratio",
+        "depth": {
+          "value": 1.1,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "tone_rand",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.7,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.shard.gain",
+        "depth": {
+          "value": 8.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.dust.gain",
+        "depth": {
+          "value": 8.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.shard.processor.crush_shard.mix",
+        "depth": {
+          "value": 0.2,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.dust.processor.crush_dust.mix",
+        "depth": {
+          "value": 0.2,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.shard.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "crush_rand",
+        "target": "layer.shard.processor.crush_shard.bit_depth",
+        "depth": {
+          "value": 3,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "tone_rand",
+        "target": "layer.shard.pan",
+        "depth": {
+          "value": 0.3,
+          "unit": "pan"
+        },
+        "curve": "linear"
+      }
     ]
   },
   "macros": [],

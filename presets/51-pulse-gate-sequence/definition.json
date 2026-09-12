@@ -2,8 +2,8 @@
   "schema_version": 5,
   "metadata": {
     "name": "Pulse Gate Sequence",
-    "author": "glm-5.3-flash",
-    "description": "持続した音が16分音符のゲートで細かく区切られる脈動音。音程と基本音色は共通のまま、開閉のパターンと8分ごとの明るさの段階がリズムを作る。ステップの切り替わりは正確で、コードを押さえるだけでHouseやTechnoの伴奏モーションになる。"
+    "author": "gpt-6-astra low",
+    "description": "広がりのある持続音を16分音符のパターンで区切るゲートシーケンス。音量がしっかり閉じる休符と短いアクセントがあり、コードを押さえるだけで明確な脈動を作る。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,7 +21,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -20.5,
+      "gain_db": -41,
       "pan": -0.15,
       "tuning_cents": -5.0,
       "envelope": {
@@ -32,7 +32,9 @@
       },
       "generator": {
         "oscillator": {
-          "waveform": { "type": "saw" },
+          "waveform": {
+            "type": "saw"
+          },
           "phase_reset": true,
           "phase": 0.0
         }
@@ -49,7 +51,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -20.0,
+      "gain_db": -41,
       "pan": 0.15,
       "tuning_cents": 6.0,
       "envelope": {
@@ -60,7 +62,10 @@
       },
       "generator": {
         "oscillator": {
-          "waveform": { "type": "pulse", "pulse_width": 0.35 },
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.35
+          },
           "phase_reset": true,
           "phase": 0.0
         }
@@ -69,35 +74,143 @@
     }
   ],
   "voice_processors": [
-    { "type": "filter", "id": "shape", "mode": "low_pass", "cutoff_hz": 3200.0, "resonance": 0.12 }
+    {
+      "type": "filter",
+      "id": "shape",
+      "mode": "low_pass",
+      "cutoff_hz": 3800,
+      "resonance": 0.12
+    }
   ],
   "global_processors": [
-    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
   ],
   "modulation": {
     "sources": [
       {
         "id": "gate",
         "type": "step",
-        "values": [1.0, -1.0, 0.75, -1.0, 1.0, 0.45, -1.0, 0.75, 1.0, -1.0, 0.6, -1.0, 0.85, 0.45, -1.0, -1.0],
-        "rate": { "value": 4.0, "unit": "per_beat" }
+        "values": [
+          1.0,
+          -1.0,
+          0.75,
+          -1.0,
+          1.0,
+          0.45,
+          -1.0,
+          0.75,
+          1.0,
+          -1.0,
+          0.6,
+          -1.0,
+          0.85,
+          0.45,
+          -1.0,
+          -1.0
+        ],
+        "rate": {
+          "value": 4.0,
+          "unit": "per_beat"
+        }
       },
       {
         "id": "shine",
         "type": "step",
-        "values": [0.5, -0.5, 1.0, -0.2, -0.8, 0.9, -0.5, 0.2],
-        "rate": { "value": 2.0, "unit": "per_beat" }
+        "values": [
+          0.5,
+          -0.5,
+          1.0,
+          -0.2,
+          -0.8,
+          0.9,
+          -0.5,
+          0.2
+        ],
+        "rate": {
+          "value": 2.0,
+          "unit": "per_beat"
+        }
       }
     ],
     "routes": [
-      { "source": "gate", "target": "layer.saw.gain", "depth": { "value": 10.0, "unit": "decibels" }, "curve": "linear" },
-      { "source": "gate", "target": "layer.pulse.gain", "depth": { "value": 10.0, "unit": "decibels" }, "curve": "linear" },
-      { "source": "shine", "target": "voice.processor.shape.cutoff", "depth": { "value": 0.7, "unit": "octaves" }, "curve": "linear" },
-      { "source": "velocity", "target": "layer.saw.gain", "depth": { "value": 5.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.pulse.gain", "depth": { "value": 5.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "mod_wheel", "target": "voice.processor.shape.cutoff", "depth": { "value": 0.8, "unit": "octaves" }, "curve": "linear" },
-      { "source": "pitch_bend", "target": "layer.saw.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" },
-      { "source": "pitch_bend", "target": "layer.pulse.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+      {
+        "source": "gate",
+        "target": "layer.saw.gain",
+        "depth": {
+          "value": 20,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "gate",
+        "target": "layer.pulse.gain",
+        "depth": {
+          "value": 20,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "shine",
+        "target": "voice.processor.shape.cutoff",
+        "depth": {
+          "value": 0.7,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.saw.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.pulse.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.shape.cutoff",
+        "depth": {
+          "value": 0.8,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.saw.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.pulse.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
     ]
   },
   "macros": [],

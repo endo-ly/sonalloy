@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "Drums - Hi-Hat",
+  "name": "Drums - Closed Hi-Hat",
   "ticks_per_beat": 480,
   "length_ticks": 7680,
   "tempo_changes": [
@@ -34,8 +34,8 @@
     {
       "type": "note",
       "tick": 480,
-      "note": 46,
-      "duration_ticks": 480,
+      "note": 42,
+      "duration_ticks": 60,
       "velocity": 88
     },
     {
@@ -62,8 +62,8 @@
     {
       "type": "note",
       "tick": 1440,
-      "note": 46,
-      "duration_ticks": 480,
+      "note": 42,
+      "duration_ticks": 60,
       "velocity": 88
     },
     {
@@ -90,8 +90,8 @@
     {
       "type": "note",
       "tick": 2400,
-      "note": 46,
-      "duration_ticks": 480,
+      "note": 42,
+      "duration_ticks": 60,
       "velocity": 88
     },
     {
@@ -118,8 +118,8 @@
     {
       "type": "note",
       "tick": 3360,
-      "note": 46,
-      "duration_ticks": 480,
+      "note": 42,
+      "duration_ticks": 60,
       "velocity": 88
     },
     {
@@ -146,8 +146,8 @@
     {
       "type": "note",
       "tick": 4320,
-      "note": 46,
-      "duration_ticks": 480,
+      "note": 42,
+      "duration_ticks": 60,
       "velocity": 88
     },
     {
@@ -174,8 +174,8 @@
     {
       "type": "note",
       "tick": 5280,
-      "note": 46,
-      "duration_ticks": 480,
+      "note": 42,
+      "duration_ticks": 60,
       "velocity": 88
     },
     {
@@ -202,8 +202,8 @@
     {
       "type": "note",
       "tick": 6240,
-      "note": 46,
-      "duration_ticks": 480,
+      "note": 42,
+      "duration_ticks": 60,
       "velocity": 88
     },
     {
@@ -230,8 +230,8 @@
     {
       "type": "note",
       "tick": 7200,
-      "note": 46,
-      "duration_ticks": 480,
+      "note": 42,
+      "duration_ticks": 60,
       "velocity": 88
     },
     {

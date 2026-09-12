@@ -2,8 +2,8 @@
   "schema_version": 5,
   "metadata": {
     "name": "Metallic Percussion",
-    "author": "glm-5.3-flash",
-    "description": "金属の共振体を叩いたような、短い衝撃と不規則な金属倍音を持つパーカッション。複数の共鳴モードが非整数比で響き、ベルほど明確な音程や長い余韻を持たない。ハイハットより低い中高域に成分が広がり、通常のドラムセットにはない電子的な質感をリズムへ加える。"
+    "author": "gpt-6-astra low",
+    "description": "金属片を叩いたような短い打撃と不規則な共鳴を持つパーカッション。中高域の胴鳴りに控えめな接触音が重なり、ベルより短く粗い余韻を残す。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,14 +21,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": 3.0,
+      "gain_db": 0,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.45,
-        "sustain_level": 0.0,
-        "release_seconds": 0.3
+        "attack_seconds": 0.0007,
+        "decay_seconds": 0.65,
+        "sustain_level": 0,
+        "release_seconds": 0.4
       },
       "generator": {
         "modal": {
@@ -39,9 +39,9 @@
             "seed": 4949
           },
           "mode_count": 24,
-          "structure": 0.86,
-          "brightness": 0.6,
-          "decay": 0.4
+          "structure": 0.74,
+          "brightness": 0.64,
+          "decay": 0.35
         }
       },
       "processors": []
@@ -56,38 +56,106 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -14.0,
+      "gain_db": -26,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.009,
-        "sustain_level": 0.0,
-        "release_seconds": 0.008
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.008,
+        "sustain_level": 0,
+        "release_seconds": 0.01
       },
       "generator": {
-        "noise": { "color": "white", "seed": 4950, "stereo_correlation": 0.9 }
+        "noise": {
+          "color": "white",
+          "seed": 4950,
+          "stereo_correlation": 0.9
+        }
       },
       "processors": [
-        { "type": "filter", "id": "ping", "mode": "high_pass", "cutoff_hz": 4600.0, "resonance": 0.05 }
+        {
+          "type": "filter",
+          "id": "ping",
+          "mode": "high_pass",
+          "cutoff_hz": 4600.0,
+          "resonance": 0.05
+        }
       ]
     }
   ],
   "voice_processors": [
-    { "type": "filter", "id": "cut_low", "mode": "high_pass", "cutoff_hz": 320.0, "resonance": 0.03 },
-    { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 9500.0, "resonance": 0.05 }
+    {
+      "type": "filter",
+      "id": "cut_low",
+      "mode": "high_pass",
+      "cutoff_hz": 320.0,
+      "resonance": 0.03
+    },
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 9500.0,
+      "resonance": 0.05
+    }
   ],
   "global_processors": [
-    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
   ],
   "modulation": {
     "sources": [],
     "routes": [
-      { "source": "velocity", "target": "layer.shell.gain", "depth": { "value": 9.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.click.gain", "depth": { "value": 7.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.shell.generator.modal_brightness", "depth": { "value": 0.22, "unit": "normalized" }, "curve": "linear" },
-      { "source": "mod_wheel", "target": "layer.shell.generator.modal_decay", "depth": { "value": 0.28, "unit": "normalized" }, "curve": "linear" },
-      { "source": "pitch_bend", "target": "layer.shell.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+      {
+        "source": "velocity",
+        "target": "layer.shell.gain",
+        "depth": {
+          "value": 9.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.click.gain",
+        "depth": {
+          "value": 7.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.shell.generator.modal_brightness",
+        "depth": {
+          "value": 0.15,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.shell.generator.modal_decay",
+        "depth": {
+          "value": 0.15,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.shell.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
     ]
   },
   "macros": [],

@@ -2,8 +2,8 @@
   "schema_version": 5,
   "metadata": {
     "name": "Electronic Tom",
-    "author": "glm-5.3-flash",
-    "description": "明確な音程を持つ、丸く太い電子タム。少し高い音から滑らかに落ちる感触の後に短い胴鳴りが残り、キックより高くスネアより雑音の少ない有音程打楽器として聞こえる。音程に追従するため、低・中・高のタムとして同じ性格のまま並べられる。"
+    "author": "gpt-6-astra low",
+    "description": "丸い基音と短い膜の共鳴を持つ電子タム。発音直後の控えめな音程下降に続き、高い成分から先に減衰する。低・中・高の鍵盤で一貫した打撃感を持つ。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,14 +21,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -7.5,
+      "gain_db": -17,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.38,
-        "sustain_level": 0.0,
-        "release_seconds": 0.16
+        "attack_seconds": 0.001,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 0.28
       },
       "generator": {
         "additive": {
@@ -39,27 +39,42 @@
           "partials": [
             {
               "id": "fundamental",
-              "ratio": 1.0,
-              "amplitude_a": 1.0,
-              "amplitude_b": 1.0,
+              "ratio": 1,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
               "phase": 0.0,
-              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.38, "sustain_level": 0.0, "release_seconds": 0.16 }
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.54,
+                "sustain_level": 0,
+                "release_seconds": 0.19
+              }
             },
             {
               "id": "second",
-              "ratio": 2.0,
-              "amplitude_a": 0.3,
-              "amplitude_b": 0.3,
+              "ratio": 1.59,
+              "amplitude_a": 0.25,
+              "amplitude_b": 0.25,
               "phase": 0.0,
-              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.22, "sustain_level": 0.0, "release_seconds": 0.12 }
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.22,
+                "sustain_level": 0,
+                "release_seconds": 0.19
+              }
             },
             {
               "id": "third",
-              "ratio": 2.98,
-              "amplitude_a": 0.12,
-              "amplitude_b": 0.12,
+              "ratio": 2.14,
+              "amplitude_a": 0.11,
+              "amplitude_b": 0.11,
               "phase": 0.0,
-              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.12, "sustain_level": 0.0, "release_seconds": 0.08 }
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.1,
+                "sustain_level": 0,
+                "release_seconds": 0.19
+              }
             }
           ]
         }
@@ -76,29 +91,57 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -23.0,
+      "gain_db": -25,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.028,
-        "sustain_level": 0.0,
+        "attack_seconds": 0.0006,
+        "decay_seconds": 0.022,
+        "sustain_level": 0,
         "release_seconds": 0.025
       },
       "generator": {
-        "noise": { "color": "white", "seed": 4646, "stereo_correlation": 0.8 }
+        "noise": {
+          "color": "white",
+          "seed": 4646,
+          "stereo_correlation": 0.8
+        }
       },
       "processors": [
-        { "type": "filter", "id": "skin", "mode": "high_pass", "cutoff_hz": 2600.0, "resonance": 0.05 },
-        { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 8500.0, "resonance": 0.05 }
+        {
+          "type": "filter",
+          "id": "skin",
+          "mode": "high_pass",
+          "cutoff_hz": 2600.0,
+          "resonance": 0.05
+        },
+        {
+          "type": "filter",
+          "id": "tone",
+          "mode": "low_pass",
+          "cutoff_hz": 8500.0,
+          "resonance": 0.05
+        }
       ]
     }
   ],
   "voice_processors": [
-    { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 6800.0, "resonance": 0.04 }
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 6800.0,
+      "resonance": 0.04
+    }
   ],
   "global_processors": [
-    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
   ],
   "modulation": {
     "sources": [
@@ -112,12 +155,60 @@
       }
     ],
     "routes": [
-      { "source": "drop", "target": "layer.body.tuning", "depth": { "value": 430.0, "unit": "cents" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.body.gain", "depth": { "value": 10.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.slap.gain", "depth": { "value": 5.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.5, "unit": "octaves" }, "curve": "linear" },
-      { "source": "mod_wheel", "target": "layer.slap.gain", "depth": { "value": 5.0, "unit": "decibels" }, "curve": "linear" },
-      { "source": "pitch_bend", "target": "layer.body.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+      {
+        "source": "drop",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 300,
+          "unit": "cents"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.slap.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.slap.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
     ]
   },
   "macros": [],

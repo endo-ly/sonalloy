@@ -2,8 +2,8 @@
   "schema_version": 5,
   "metadata": {
     "name": "Closed Hi-Hat",
-    "author": "glm-5.3-flash",
-    "description": "非常に短く乾いた、高域中心の電子ハイハット。複数の非整数倍の金属成分とノイズが重なり、単一の音程よりざらついた金属感が中心。低域成分は少なく、16分音符で連続しても各音が分離する。リズムの細かな刻みを作る役割に適する。"
+    "author": "gpt-6-astra low",
+    "description": "複雑な金属振動を短く切り出したクローズド・ハイハット。低域を抑えた乾いた輪郭に少量の空気感を添え、細かな刻みでも発音が分離する。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,14 +21,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -12.5,
+      "gain_db": -24,
       "pan": 0.0,
-      "tuning_cents": 0.0,
+      "tuning_cents": 0,
       "envelope": {
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.055,
-        "sustain_level": 0.0,
-        "release_seconds": 0.045
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.075,
+        "sustain_level": 0,
+        "release_seconds": 0.06
       },
       "generator": {
         "operator_modulation": {
@@ -36,40 +36,60 @@
           "algorithm": "three_modulators",
           "operators": [
             {
-              "ratio": 1.0,
+              "ratio": 17,
               "detune_cents": 0.0,
               "level": 0.85,
-              "modulation_amount": 0.0,
-              "feedback": 0.0,
+              "modulation_amount": 0,
+              "feedback": 0,
               "phase": 0.0,
-              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.055, "sustain_level": 0.0, "release_seconds": 0.045 }
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.06
+              }
             },
             {
-              "ratio": 2.37,
+              "ratio": 9.37,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 2.6,
-              "feedback": 0.0,
-              "phase": 0.0,
-              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.05, "sustain_level": 0.0, "release_seconds": 0.04 }
+              "modulation_amount": 1.15,
+              "feedback": 0,
+              "phase": 0.13,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.06
+              }
             },
             {
-              "ratio": 3.11,
+              "ratio": 13.11,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 2.2,
-              "feedback": 0.0,
-              "phase": 0.0,
-              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.042, "sustain_level": 0.0, "release_seconds": 0.035 }
+              "modulation_amount": 0.95,
+              "feedback": 0,
+              "phase": 0.26,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.06
+              }
             },
             {
-              "ratio": 4.73,
+              "ratio": 21.73,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 1.8,
-              "feedback": 0.0,
-              "phase": 0.0,
-              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.036, "sustain_level": 0.0, "release_seconds": 0.03 }
+              "modulation_amount": 0.8,
+              "feedback": 0,
+              "phase": 0.39,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.06
+              }
             }
           ],
           "phase_reset": true,
@@ -88,39 +108,106 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -10.5,
+      "gain_db": -27,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.05,
-        "sustain_level": 0.0,
-        "release_seconds": 0.04
+        "attack_seconds": 0.0008,
+        "decay_seconds": 0.065,
+        "sustain_level": 0,
+        "release_seconds": 0.06
       },
       "generator": {
-        "noise": { "color": "white", "seed": 4343, "stereo_correlation": 0.6 }
+        "noise": {
+          "color": "white",
+          "seed": 4343,
+          "stereo_correlation": 0.6
+        }
       },
       "processors": [
-        { "type": "filter", "id": "sizzle", "mode": "high_pass", "cutoff_hz": 6800.0, "resonance": 0.05 }
+        {
+          "type": "filter",
+          "id": "sizzle",
+          "mode": "high_pass",
+          "cutoff_hz": 6800.0,
+          "resonance": 0.05
+        }
       ]
     }
   ],
   "voice_processors": [
-    { "type": "filter", "id": "cut_low", "mode": "high_pass", "cutoff_hz": 420.0, "resonance": 0.04 },
-    { "type": "filter", "id": "sheen", "mode": "low_pass", "cutoff_hz": 13000.0, "resonance": 0.05 },
-    { "type": "drive", "id": "grit", "amount": 0.22, "mix": 0.45 }
+    {
+      "type": "filter",
+      "id": "cut_low",
+      "mode": "high_pass",
+      "cutoff_hz": 3500,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "sheen",
+      "mode": "low_pass",
+      "cutoff_hz": 10500,
+      "resonance": 0.05
+    }
   ],
   "global_processors": [
-    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
   ],
   "modulation": {
     "sources": [],
     "routes": [
-      { "source": "velocity", "target": "layer.metal.gain", "depth": { "value": 8.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.air.gain", "depth": { "value": 9.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "voice.processor.sheen.cutoff", "depth": { "value": 0.7, "unit": "octaves" }, "curve": "linear" },
-      { "source": "mod_wheel", "target": "layer.metal.gain", "depth": { "value": 7.0, "unit": "decibels" }, "curve": "linear" },
-      { "source": "pitch_bend", "target": "layer.metal.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+      {
+        "source": "velocity",
+        "target": "layer.metal.gain",
+        "depth": {
+          "value": 8.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.air.gain",
+        "depth": {
+          "value": 9.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.sheen.cutoff",
+        "depth": {
+          "value": 0.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.metal.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.metal.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
     ]
   },
   "macros": [],

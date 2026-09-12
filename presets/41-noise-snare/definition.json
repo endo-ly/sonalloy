@@ -2,8 +2,8 @@
   "schema_version": 5,
   "metadata": {
     "name": "Noise Snare",
-    "author": "glm-5.3-flash",
-    "description": "ノイズを中心にした、乾いて鋭い電子スネア。発音直後の短い衝撃をトランジェント・シェイパーが鋭く切り出し、高域のノイズが素早く減衰する。胴鳴りの音程感は弱く軽く抜けるため、密度の高い楽曲でも中低域を占有しにくい。単発の打撃としてまとまって聞こえる。"
+    "author": "gpt-6-astra low",
+    "description": "一つの鋭い衝撃から高域のノイズが短く収束するスネア。中域の小さな打撃が輪郭を支え、低音の胴鳴りを抑えた乾いた音。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,21 +21,37 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -15.5,
+      "gain_db": -20,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.15,
-        "sustain_level": 0.0,
-        "release_seconds": 0.09
+        "attack_seconds": 0.0008,
+        "decay_seconds": 0.16,
+        "sustain_level": 0,
+        "release_seconds": 0.11
       },
       "generator": {
-        "noise": { "color": "white", "seed": 4141, "stereo_correlation": 0.5 }
+        "noise": {
+          "color": "white",
+          "seed": 4141,
+          "stereo_correlation": 0.82
+        }
       },
       "processors": [
-        { "type": "filter", "id": "air", "mode": "high_pass", "cutoff_hz": 1350.0, "resonance": 0.06 },
-        { "type": "filter", "id": "grit", "mode": "low_pass", "cutoff_hz": 10000.0, "resonance": 0.04 }
+        {
+          "type": "filter",
+          "id": "air",
+          "mode": "high_pass",
+          "cutoff_hz": 1350.0,
+          "resonance": 0.06
+        },
+        {
+          "type": "filter",
+          "id": "grit",
+          "mode": "low_pass",
+          "cutoff_hz": 8500,
+          "resonance": 0.04
+        }
       ]
     },
     {
@@ -48,49 +64,82 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -25.0,
+      "gain_db": -19,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.045,
-        "sustain_level": 0.0,
-        "release_seconds": 0.04
+        "attack_seconds": 0.0006,
+        "decay_seconds": 0.024,
+        "sustain_level": 0,
+        "release_seconds": 0.025
       },
       "generator": {
-        "oscillator": {
-          "waveform": { "type": "sine" },
-          "phase_reset": true,
-          "phase": 0.0
+        "noise": {
+          "color": "pink",
+          "seed": 4142,
+          "stereo_correlation": 1
         }
       },
-      "processors": []
+      "processors": [
+        {
+          "type": "filter",
+          "id": "snap",
+          "mode": "band_pass",
+          "cutoff_hz": 1800,
+          "resonance": 0.16
+        }
+      ]
     }
   ],
-  "voice_processors": [
-    { "type": "transient_shaper", "id": "snap", "attack": 0.5, "sustain": -0.2, "mix": 0.6 }
-  ],
+  "voice_processors": [],
   "global_processors": [
-    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
   ],
   "modulation": {
-    "sources": [
-      {
-        "id": "drop",
-        "type": "envelope",
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.012,
-        "sustain_level": 0.0,
-        "release_seconds": 0.01
-      }
-    ],
+    "sources": [],
     "routes": [
-      { "source": "drop", "target": "layer.thump.tuning", "depth": { "value": 320.0, "unit": "cents" }, "curve": "linear" },
-      { "source": "velocity", "target": "layer.noise.gain", "depth": { "value": 11.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.thump.gain", "depth": { "value": 5.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.noise.processor.air.cutoff", "depth": { "value": 0.5, "unit": "octaves" }, "curve": "linear" },
-      { "source": "mod_wheel", "target": "layer.noise.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
-      { "source": "pitch_bend", "target": "layer.thump.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+      {
+        "source": "velocity",
+        "target": "layer.noise.gain",
+        "depth": {
+          "value": 11.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.thump.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.noise.processor.air.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.noise.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
     ]
   },
   "macros": [],

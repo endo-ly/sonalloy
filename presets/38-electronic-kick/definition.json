@@ -2,8 +2,8 @@
   "schema_version": 5,
   "metadata": {
     "name": "Electronic Kick",
-    "author": "glm-5.3-flash",
-    "description": "電子音楽の基準となる合成キック。発音直後に高い音程から低域へ急落下する打撃感があり、短いノイズのクリックが打撃位置を明示する。胴鳴りは約0.3秒で収束し、808ベースより明確に短い。軽いドライブが倍音を加え、小さな再生機器でも低域の存在感を認識できる。"
+    "author": "gpt-6-astra low",
+    "description": "短い音程下降と引き締まった低域の胴鳴りを持つ電子キック。明確な打撃の輪郭と控えめな倍音で発音位置を示し、強弱を付けた反復でも低域がまとまる。808ベースより短く、一回の打撃として収束する。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,14 +21,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -7.5,
+      "gain_db": -13,
       "pan": 0.0,
-      "tuning_cents": 0.0,
+      "tuning_cents": -100,
       "envelope": {
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.3,
-        "sustain_level": 0.0,
-        "release_seconds": 0.12
+        "attack_seconds": 0.001,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 0.23
       },
       "generator": {
         "additive": {
@@ -43,7 +43,12 @@
               "amplitude_a": 1.0,
               "amplitude_b": 1.0,
               "phase": 0.0,
-              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.3, "sustain_level": 0.0, "release_seconds": 0.12 }
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.38,
+                "sustain_level": 0,
+                "release_seconds": 0.23
+              }
             },
             {
               "id": "octave",
@@ -51,13 +56,23 @@
               "amplitude_a": 0.16,
               "amplitude_b": 0.16,
               "phase": 0.0,
-              "envelope": { "attack_seconds": 0.0, "decay_seconds": 0.18, "sustain_level": 0.0, "release_seconds": 0.1 }
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.115,
+                "sustain_level": 0,
+                "release_seconds": 0.08
+              }
             }
           ]
         }
       },
       "processors": [
-        { "type": "drive", "id": "weight", "amount": 0.42, "mix": 0.5 }
+        {
+          "type": "drive",
+          "id": "weight",
+          "amount": 0.12,
+          "mix": 0.18
+        }
       ]
     },
     {
@@ -70,47 +85,133 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -19.0,
+      "gain_db": -14,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.012,
-        "sustain_level": 0.0,
+        "attack_seconds": 0.0006,
+        "decay_seconds": 0.011,
+        "sustain_level": 0,
         "release_seconds": 0.012
       },
       "generator": {
-        "noise": { "color": "white", "seed": 3838, "stereo_correlation": 1.0 }
+        "noise": {
+          "color": "white",
+          "seed": 3838,
+          "stereo_correlation": 1.0
+        }
       },
       "processors": [
-        { "type": "filter", "id": "tap", "mode": "band_pass", "cutoff_hz": 1600.0, "resonance": 0.25 }
+        {
+          "type": "filter",
+          "id": "tap",
+          "mode": "band_pass",
+          "cutoff_hz": 1600.0,
+          "resonance": 0.25
+        }
       ]
     }
   ],
   "voice_processors": [
-    { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 9000.0, "resonance": 0.05 }
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 9000.0,
+      "resonance": 0.05
+    }
   ],
   "global_processors": [
-    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
   ],
   "modulation": {
     "sources": [
       {
         "id": "drop",
-        "type": "envelope",
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.042,
-        "sustain_level": 0.0,
-        "release_seconds": 0.04
+        "type": "mseg",
+        "initial_value": 1,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.022,
+              "unit": "seconds"
+            },
+            "target": 0.16,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.037,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
       }
     ],
     "routes": [
-      { "source": "drop", "target": "layer.body.tuning", "depth": { "value": 1200.0, "unit": "cents" }, "curve": "linear" },
-      { "source": "velocity", "target": "layer.body.gain", "depth": { "value": 9.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.click.gain", "depth": { "value": 8.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.6, "unit": "octaves" }, "curve": "linear" },
-      { "source": "mod_wheel", "target": "layer.click.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
-      { "source": "pitch_bend", "target": "layer.body.tuning", "depth": { "value": 200.0, "unit": "cents" }, "curve": "linear" }
+      {
+        "source": "drop",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 1050,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 9.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.click.gain",
+        "depth": {
+          "value": 8.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.click.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
     ]
   },
   "macros": [],

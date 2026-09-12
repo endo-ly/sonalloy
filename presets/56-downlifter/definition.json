@@ -2,8 +2,8 @@
   "schema_version": 5,
   "metadata": {
     "name": "Downlifter",
-    "author": "glm-5.3-flash",
-    "description": "開始直後の明るい衝撃から、数秒かけて暗く低い方向へ沈みながら消えていく下降系の演出音。金属的なシェーンが降りるにつれて収束し、場面が落ち着く感覚を作る。ライザーとは逆方向の明確な移動感があり、調性への影響は小さい。"
+    "author": "gpt-6-astra low",
+    "description": "明るく広い衝撃から、テンポに合わせて低く暗い方向へ沈むダウンリフター。ノイズと金属的な響きが一緒に収まり、滑らかな下降感を作る。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,17 +21,21 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -11.5,
+      "gain_db": -47,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 0.002,
-        "decay_seconds": 3.4,
-        "sustain_level": 0.0,
+        "decay_seconds": 0,
+        "sustain_level": 1,
         "release_seconds": 0.8
       },
       "generator": {
-        "noise": { "color": "white", "seed": 5651, "stereo_correlation": 0.35 }
+        "noise": {
+          "color": "white",
+          "seed": 5651,
+          "stereo_correlation": 0.35
+        }
       },
       "processors": []
     },
@@ -45,13 +49,13 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -23.5,
+      "gain_db": -53,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 0.002,
-        "decay_seconds": 3.0,
-        "sustain_level": 0.0,
+        "decay_seconds": 0,
+        "sustain_level": 1,
         "release_seconds": 0.7
       },
       "generator": {
@@ -66,7 +70,12 @@
               "modulation_amount": 0.0,
               "feedback": 0.0,
               "phase": 0.0,
-              "envelope": { "attack_seconds": 0.002, "decay_seconds": 3.0, "sustain_level": 0.0, "release_seconds": 0.7 }
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.7
+              }
             },
             {
               "ratio": 2.11,
@@ -75,7 +84,12 @@
               "modulation_amount": 2.2,
               "feedback": 0.0,
               "phase": 0.0,
-              "envelope": { "attack_seconds": 0.002, "decay_seconds": 2.2, "sustain_level": 0.0, "release_seconds": 0.5 }
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.7
+              }
             },
             {
               "ratio": 3.53,
@@ -84,7 +98,12 @@
               "modulation_amount": 1.9,
               "feedback": 0.0,
               "phase": 0.0,
-              "envelope": { "attack_seconds": 0.002, "decay_seconds": 1.8, "sustain_level": 0.0, "release_seconds": 0.4 }
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.7
+              }
             },
             {
               "ratio": 5.8,
@@ -93,7 +112,12 @@
               "modulation_amount": 1.5,
               "feedback": 0.0,
               "phase": 0.0,
-              "envelope": { "attack_seconds": 0.002, "decay_seconds": 1.4, "sustain_level": 0.0, "release_seconds": 0.3 }
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.7
+              }
             }
           ],
           "phase_reset": true,
@@ -104,10 +128,22 @@
     }
   ],
   "voice_processors": [
-    { "type": "filter", "id": "sink", "mode": "low_pass", "cutoff_hz": 7500.0, "resonance": 0.08 }
+    {
+      "type": "filter",
+      "id": "sink",
+      "mode": "low_pass",
+      "cutoff_hz": 1800,
+      "resonance": 0.08
+    }
   ],
   "global_processors": [
-    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
   ],
   "modulation": {
     "sources": [
@@ -116,17 +152,114 @@
         "type": "mseg",
         "initial_value": 1.0,
         "segments": [
-          { "duration": { "value": 6.0, "unit": "beats" }, "target": -1.0, "curve": "smooth_step" }
+          {
+            "duration": {
+              "value": 6.0,
+              "unit": "beats"
+            },
+            "target": -1.0,
+            "curve": "smooth_step"
+          }
         ]
+      },
+      {
+        "id": "fade",
+        "type": "mseg",
+        "initial_value": 1,
+        "segments": [
+          {
+            "duration": {
+              "value": 5,
+              "unit": "beats"
+            },
+            "target": 0.3,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 1,
+              "unit": "beats"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
       }
     ],
     "routes": [
-      { "source": "down", "target": "voice.processor.sink.cutoff", "depth": { "value": 3.8, "unit": "octaves" }, "curve": "linear" },
-      { "source": "down", "target": "layer.fall.generator.noise_correlation", "depth": { "value": -0.3, "unit": "normalized" }, "curve": "linear" },
-      { "source": "down", "target": "layer.shimmer.generator.operator.4.ratio", "depth": { "value": 1.6, "unit": "octaves" }, "curve": "linear" },
-      { "source": "velocity", "target": "layer.fall.gain", "depth": { "value": 8.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.shimmer.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "mod_wheel", "target": "voice.processor.sink.cutoff", "depth": { "value": 0.8, "unit": "octaves" }, "curve": "linear" }
+      {
+        "source": "down",
+        "target": "voice.processor.sink.cutoff",
+        "depth": {
+          "value": 2.8,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "down",
+        "target": "layer.fall.generator.noise_correlation",
+        "depth": {
+          "value": -0.3,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "down",
+        "target": "layer.shimmer.generator.operator.4.ratio",
+        "depth": {
+          "value": 1.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.fall.gain",
+        "depth": {
+          "value": 8.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.shimmer.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.sink.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "fade",
+        "target": "layer.fall.gain",
+        "depth": {
+          "value": 26,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "fade",
+        "target": "layer.shimmer.gain",
+        "depth": {
+          "value": 26,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
     ]
   },
   "macros": [],

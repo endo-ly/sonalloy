@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "name": "FX - Hits and Sweeps",
+  "name": "FX - Glitch Bursts",
   "ticks_per_beat": 480,
-  "length_ticks": 15360,
+  "length_ticks": 7680,
   "tempo_changes": [
     {
       "tick": 0,
@@ -21,43 +21,71 @@
       "type": "note",
       "tick": 0,
       "note": 60,
-      "duration_ticks": 7680,
-      "velocity": 112
+      "duration_ticks": 384,
+      "velocity": 76
     },
     {
       "type": "note",
-      "tick": 7680,
-      "note": 36,
-      "duration_ticks": 3840,
-      "velocity": 127
-    },
-    {
-      "type": "note",
-      "tick": 11520,
-      "note": 48,
-      "duration_ticks": 1920,
-      "velocity": 92
-    },
-    {
-      "type": "note",
-      "tick": 13440,
-      "note": 45,
-      "duration_ticks": 960,
+      "tick": 960,
+      "note": 60,
+      "duration_ticks": 384,
       "velocity": 100
     },
     {
       "type": "note",
-      "tick": 14400,
+      "tick": 1920,
       "note": 60,
-      "duration_ticks": 480,
-      "velocity": 78
+      "duration_ticks": 384,
+      "velocity": 127
     },
     {
       "type": "note",
-      "tick": 14880,
+      "tick": 2880,
       "note": 60,
-      "duration_ticks": 480,
+      "duration_ticks": 384,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 60,
+      "duration_ticks": 384,
       "velocity": 105
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 115
+    },
+    {
+      "type": "note",
+      "tick": 4560,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 85
+    },
+    {
+      "type": "note",
+      "tick": 5040,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 127
+    },
+    {
+      "type": "note",
+      "tick": 6720,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 100
     }
   ]
 }

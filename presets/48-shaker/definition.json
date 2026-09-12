@@ -2,8 +2,8 @@
   "schema_version": 5,
   "metadata": {
     "name": "Shaker",
-    "author": "glm-5.3-flash",
-    "description": "細かな粒が擦れ合うような、高域中心の軽いシェイカー。柔らかい立ち上がりから短い減衰へ続く二層のノイズが、一つの鋭い衝撃ではなく細かな雑音の集まりとして聞こえる。16分音符で繰り返すとリズムに継続的な動きを加え、小さい音量でも存在を認識できる。"
+    "author": "gpt-6-astra low",
+    "description": "細かな粒の衝突と擦れが一振りにまとまったシェイカー。柔らかな立ち上がりの中に複数の小さな音量変化があり、高域を中心とした軽いざらつきが短く収まる。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,21 +21,37 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -10.0,
+      "gain_db": -22,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.016,
-        "decay_seconds": 0.075,
-        "sustain_level": 0.0,
-        "release_seconds": 0.06
+        "attack_seconds": 0.006,
+        "decay_seconds": 0.11,
+        "sustain_level": 0,
+        "release_seconds": 0.09
       },
       "generator": {
-        "noise": { "color": "white", "seed": 4848, "stereo_correlation": 0.35 }
+        "noise": {
+          "color": "white",
+          "seed": 4848,
+          "stereo_correlation": 0.35
+        }
       },
       "processors": [
-        { "type": "filter", "id": "air", "mode": "high_pass", "cutoff_hz": 5200.0, "resonance": 0.05 },
-        { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 12500.0, "resonance": 0.04 }
+        {
+          "type": "filter",
+          "id": "air",
+          "mode": "high_pass",
+          "cutoff_hz": 5200.0,
+          "resonance": 0.05
+        },
+        {
+          "type": "filter",
+          "id": "tone",
+          "mode": "low_pass",
+          "cutoff_hz": 12500.0,
+          "resonance": 0.04
+        }
       ]
     },
     {
@@ -48,29 +64,57 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -15.0,
+      "gain_db": -28,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.03,
-        "decay_seconds": 0.14,
-        "sustain_level": 0.0,
-        "release_seconds": 0.1
+        "attack_seconds": 0.012,
+        "decay_seconds": 0.16,
+        "sustain_level": 0,
+        "release_seconds": 0.11
       },
       "generator": {
-        "noise": { "color": "white", "seed": 4849, "stereo_correlation": 0.4 }
+        "noise": {
+          "color": "white",
+          "seed": 4849,
+          "stereo_correlation": 0.4
+        }
       },
       "processors": [
-        { "type": "filter", "id": "hiss", "mode": "high_pass", "cutoff_hz": 3300.0, "resonance": 0.05 },
-        { "type": "filter", "id": "body", "mode": "low_pass", "cutoff_hz": 8200.0, "resonance": 0.04 }
+        {
+          "type": "filter",
+          "id": "hiss",
+          "mode": "high_pass",
+          "cutoff_hz": 3300.0,
+          "resonance": 0.05
+        },
+        {
+          "type": "filter",
+          "id": "body",
+          "mode": "low_pass",
+          "cutoff_hz": 8200.0,
+          "resonance": 0.04
+        }
       ]
     }
   ],
   "voice_processors": [
-    { "type": "filter", "id": "tone", "mode": "low_pass", "cutoff_hz": 12000.0, "resonance": 0.04 }
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 9500,
+      "resonance": 0.05
+    }
   ],
   "global_processors": [
-    { "type": "limiter", "id": "cap", "ceiling_db": -1.5, "release_ms": 120.0, "input_gain_db": 0.0 }
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
   ],
   "modulation": {
     "sources": [
@@ -78,15 +122,115 @@
         "id": "grit",
         "type": "smooth_random",
         "seed": 4850,
-        "rate": { "value": 34.0, "unit": "per_second" }
+        "rate": {
+          "value": 34.0,
+          "unit": "per_second"
+        }
+      },
+      {
+        "id": "shake",
+        "type": "mseg",
+        "initial_value": 0.3,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.012,
+              "unit": "seconds"
+            },
+            "target": -0.7,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.009,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.016,
+              "unit": "seconds"
+            },
+            "target": -0.8,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.008,
+              "unit": "seconds"
+            },
+            "target": 0.45,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.03,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
       }
     ],
     "routes": [
-      { "source": "velocity", "target": "layer.grain.gain", "depth": { "value": 9.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "layer.scrape.gain", "depth": { "value": 9.0, "unit": "decibels" }, "curve": "smooth_step" },
-      { "source": "velocity", "target": "voice.processor.tone.cutoff", "depth": { "value": 0.8, "unit": "octaves" }, "curve": "linear" },
-      { "source": "grit", "target": "layer.grain.gain", "depth": { "value": 2.5, "unit": "decibels" }, "curve": "linear" },
-      { "source": "mod_wheel", "target": "layer.scrape.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" }
+      {
+        "source": "velocity",
+        "target": "layer.grain.gain",
+        "depth": {
+          "value": 9.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.scrape.gain",
+        "depth": {
+          "value": 9.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "grit",
+        "target": "layer.grain.gain",
+        "depth": {
+          "value": 4,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.scrape.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "shake",
+        "target": "layer.grain.gain",
+        "depth": {
+          "value": 5,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
     ]
   },
   "macros": [],

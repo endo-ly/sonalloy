@@ -2,8 +2,8 @@
   "schema_version": 5,
   "metadata": {
     "name": "Rhythmic Wave Sequence",
-    "author": "glm-5.3-flash",
-    "description": "鍵盤を保持するだけで、8種類の波形が8分音符ごとに切り替わるリズミック音。各ステップは短いブラスのように立ち上がり、基本の音程を保ったまま波形の質感だけが入れ替わる。テンポ同期のループで長く保持してもステップの境界が曖昧にならず、音色変化そのものがフレーズを作る。"
+    "author": "gpt-6-astra low",
+    "description": "鍵盤を保持すると、同じ音程を持つ8種類の短い音色が半拍ごとに切り替わるウェーブシーケンス。柔らかな音から硬い輝きまでを巡り、音色の交代そのものがリズムになる。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,7 +21,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -8.5,
+      "gain_db": -16,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -35,17 +35,17 @@
           "root_note": 60,
           "direction": "forward",
           "loop": true,
-          "crossfade": 0.0,
+          "crossfade": 0.06,
           "steps": [
             {
               "id": "step1_saw",
               "asset": {
                 "path": "../assets/wave-seq-steps.wav",
-                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
               },
               "region": {
                 "start_seconds": 0.0,
-                "end_seconds": 0.1706667
+                "end_seconds": 0.24
               },
               "duration": {
                 "mode": "beats",
@@ -53,18 +53,18 @@
               },
               "playback": "one_shot",
               "playback_direction": "forward",
-              "gain_db": -2.5,
+              "gain_db": 0,
               "pitch_cents": 0.0
             },
             {
               "id": "step2_square",
               "asset": {
                 "path": "../assets/wave-seq-steps.wav",
-                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
               },
               "region": {
-                "start_seconds": 0.1706667,
-                "end_seconds": 0.3413333
+                "start_seconds": 0.24,
+                "end_seconds": 0.48
               },
               "duration": {
                 "mode": "beats",
@@ -72,18 +72,18 @@
               },
               "playback": "one_shot",
               "playback_direction": "forward",
-              "gain_db": 0.0,
+              "gain_db": -1,
               "pitch_cents": 0.0
             },
             {
               "id": "step3_pulse",
               "asset": {
                 "path": "../assets/wave-seq-steps.wav",
-                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
               },
               "region": {
-                "start_seconds": 0.3413333,
-                "end_seconds": 0.512
+                "start_seconds": 0.48,
+                "end_seconds": 0.72
               },
               "duration": {
                 "mode": "beats",
@@ -91,18 +91,18 @@
               },
               "playback": "one_shot",
               "playback_direction": "forward",
-              "gain_db": -5.5,
+              "gain_db": -1,
               "pitch_cents": 0.0
             },
             {
               "id": "step4_triangle",
               "asset": {
                 "path": "../assets/wave-seq-steps.wav",
-                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
               },
               "region": {
-                "start_seconds": 0.512,
-                "end_seconds": 0.6826667
+                "start_seconds": 0.72,
+                "end_seconds": 0.96
               },
               "duration": {
                 "mode": "beats",
@@ -110,18 +110,18 @@
               },
               "playback": "one_shot",
               "playback_direction": "forward",
-              "gain_db": -1.5,
+              "gain_db": 1,
               "pitch_cents": 0.0
             },
             {
               "id": "step5_hollow",
               "asset": {
                 "path": "../assets/wave-seq-steps.wav",
-                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
               },
               "region": {
-                "start_seconds": 0.6826667,
-                "end_seconds": 0.8533333
+                "start_seconds": 0.96,
+                "end_seconds": 1.2
               },
               "duration": {
                 "mode": "beats",
@@ -129,18 +129,18 @@
               },
               "playback": "one_shot",
               "playback_direction": "forward",
-              "gain_db": -4.0,
+              "gain_db": 0,
               "pitch_cents": 0.0
             },
             {
               "id": "step6_organ",
               "asset": {
                 "path": "../assets/wave-seq-steps.wav",
-                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
               },
               "region": {
-                "start_seconds": 0.8533333,
-                "end_seconds": 1.024
+                "start_seconds": 1.2,
+                "end_seconds": 1.44
               },
               "duration": {
                 "mode": "beats",
@@ -148,18 +148,18 @@
               },
               "playback": "one_shot",
               "playback_direction": "forward",
-              "gain_db": -0.5,
+              "gain_db": -1,
               "pitch_cents": 0.0
             },
             {
               "id": "step7_glassy",
               "asset": {
                 "path": "../assets/wave-seq-steps.wav",
-                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
               },
               "region": {
-                "start_seconds": 1.024,
-                "end_seconds": 1.1946667
+                "start_seconds": 1.44,
+                "end_seconds": 1.68
               },
               "duration": {
                 "mode": "beats",
@@ -167,18 +167,18 @@
               },
               "playback": "one_shot",
               "playback_direction": "forward",
-              "gain_db": -6.5,
+              "gain_db": -2,
               "pitch_cents": 0.0
             },
             {
               "id": "step8_vocal",
               "asset": {
                 "path": "../assets/wave-seq-steps.wav",
-                "sha256": "028f9ce9f56d51ede3549cd8eae3aca09ab3402c86c5e15841aecb6184604fb0"
+                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
               },
               "region": {
-                "start_seconds": 1.1946667,
-                "end_seconds": 1.3653333
+                "start_seconds": 1.68,
+                "end_seconds": 1.92
               },
               "duration": {
                 "mode": "beats",
@@ -186,7 +186,7 @@
               },
               "playback": "one_shot",
               "playback_direction": "forward",
-              "gain_db": -3.0,
+              "gain_db": 0,
               "pitch_cents": 0.0
             }
           ]
@@ -200,8 +200,8 @@
       "type": "filter",
       "id": "tone",
       "mode": "low_pass",
-      "cutoff_hz": 11000.0,
-      "resonance": 0.04
+      "cutoff_hz": 6500,
+      "resonance": 0.05
     }
   ],
   "global_processors": [
@@ -240,6 +240,15 @@
         "depth": {
           "value": 200.0,
           "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
         },
         "curve": "linear"
       }
