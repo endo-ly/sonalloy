@@ -21,7 +21,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -4.0,
+      "gain_db": -11,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -43,10 +43,10 @@
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
-                "attack_seconds": 0.0,
-                "decay_seconds": 0.35,
-                "sustain_level": 0.75,
-                "release_seconds": 0.12
+                "attack_seconds": 0.001,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.1
               }
             },
             {
@@ -67,28 +67,28 @@
               "ratio": 1.0,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 2.4,
-              "feedback": 0.0,
-              "phase": 0.0,
-              "envelope": {
-                "attack_seconds": 0.0,
-                "decay_seconds": 0.07,
-                "sustain_level": 0.12,
-                "release_seconds": 0.1
-              }
-            },
-            {
-              "ratio": 14.0,
-              "detune_cents": 0.0,
-              "level": 0.0,
               "modulation_amount": 1.4,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
-                "attack_seconds": 0.0,
-                "decay_seconds": 0.03,
-                "sustain_level": 0.0,
-                "release_seconds": 0.05
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.09,
+                "sustain_level": 0.07,
+                "release_seconds": 0.07
+              }
+            },
+            {
+              "ratio": 7,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 0.7,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0005,
+                "decay_seconds": 0.025,
+                "sustain_level": 0,
+                "release_seconds": 0.04
               }
             }
           ],
@@ -116,8 +116,35 @@
         "source": "velocity",
         "target": "layer.fm.gain",
         "depth": {
-          "value": 6.0,
+          "value": 8,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.fm.generator.operator.4.modulation_amount",
+        "depth": {
+          "value": 0.3,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.fm.generator.operator.3.modulation_amount",
+        "depth": {
+          "value": 0.5,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.fm.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
         },
         "curve": "linear"
       }

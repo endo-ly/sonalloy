@@ -23,8 +23,8 @@ sonalloy instrument inspect <preset>/definition.json --json
 
 | カテゴリ | 代表音 | Gate / Tail | 演奏データ |
 |---|---|---|---|
-| ベース | C2（MIDI Note 36） | 0.5 / 0.5 | `bassline-events.json` |
-| リード | C4（MIDI Note 60） | 0.5 / 0.5 | `leadline-events.json` |
+| ベース | C2（MIDI Note 36） | 0.5 / 0.5 | `bass-audition-pattern.json` |
+| リード | C4（MIDI Note 60） | 0.5 / 0.5 | `lead-audition-pattern.json`（11は`supersaw-chords-pattern.json`） |
 | パッド | C4（MIDI Note 60） | 2.0 / 2.0 | `padline-events.json` |
 | キー／コード | C4（MIDI Note 60） | 1.5 / 1.5 | `padline-events.json` |
 | プラック／マレット | C4（MIDI Note 60） | 1.5 / 1.5 | `pluck-bell-mallet-pattern.json` |
@@ -45,7 +45,17 @@ sonalloy render events <preset>/definition.json <Event列> \
   --output <preset>/phrase.wav
 ```
 
-`bassline-events.json`と`leadline-events.json`、`padline-events.json`は120 BPMの4/4を基準にしたEvent列で、`phrase.wav`のNote配置に使う。`render events`の絶対Frame位置はSample Rate 48000 Hzを前提とする。パッドとキー／コードの`phrase.wav`はコード進行のため、`--duration-frames 230400 --tail 2.5`で余韻まで含めて再生成する。
+ベースとリードの`phrase.wav`は、120 BPMのPatternで音域、Velocity差、短い発音、重なる音、長音を確認する。後半にはMod WheelとPitch Bendの操作を含む。11のスーパーソウは`supersaw-chords-pattern.json`を使い、単音と4音のコードを確認する。いずれも`render pattern`に`--tail 0.6`を指定して再生成する。
+
+```bash
+sonalloy render pattern <preset>/definition.json presets/<Pattern名>.json \
+  --sample-rate 48000 --block-size 257 --tail 0.6 \
+  --output <preset>/phrase.wav
+```
+
+1〜16はPitch Bendで±2半音、Mod Wheelで音色を調整できる。5のアシッドベースと15のポルタメントリードは、音を重ねると音程が滑らかにつながる。
+
+`padline-events.json`は120 BPMの4/4を基準にしたEvent列で、絶対Frame位置はSample Rate 48000 Hzを前提とする。パッドとキー／コードの`phrase.wav`は、`render events`に`--duration-frames 230400 --tail 2.5`を指定して再生成する。
 
 プラック／ベル／マレットの`phrase.wav`は、120 BPMの共通Patternで音色と減衰を比較する。同音の弱・中・強、8分音符のアルペジオ、4音の和音、長く保持する単音の順に演奏する。プラック／マレットは`--tail 2`、ベルは`--tail 4`で再生成する。
 

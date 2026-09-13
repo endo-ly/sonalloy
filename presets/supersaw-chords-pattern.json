@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "name": "Supersaw - Single Note and Chords",
+  "ticks_per_beat": 480,
+  "length_ticks": 9600,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 60,
+      "duration_ticks": 1440,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 48,
+      "duration_ticks": 1680,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 55,
+      "duration_ticks": 1680,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 60,
+      "duration_ticks": 1680,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 64,
+      "duration_ticks": 1680,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 45,
+      "duration_ticks": 1680,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 52,
+      "duration_ticks": 1680,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 57,
+      "duration_ticks": 1680,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 60,
+      "duration_ticks": 1680,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 41,
+      "duration_ticks": 1680,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 48,
+      "duration_ticks": 1680,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 53,
+      "duration_ticks": 1680,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 57,
+      "duration_ticks": 1680,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 7680,
+      "note": 43,
+      "duration_ticks": 1680,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 7680,
+      "note": 50,
+      "duration_ticks": 1680,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 7680,
+      "note": 55,
+      "duration_ticks": 1680,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 7680,
+      "note": 59,
+      "duration_ticks": 1680,
+      "velocity": 100
+    },
+    {
+      "type": "mod_wheel",
+      "tick": 8160,
+      "value": 0.8
+    },
+    {
+      "type": "mod_wheel",
+      "tick": 9120,
+      "value": 0
+    }
+  ]
+}
