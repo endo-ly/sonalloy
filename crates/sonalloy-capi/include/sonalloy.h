@@ -39,6 +39,10 @@ typedef struct SonalloyProcessSpec {
     uint32_t output_channels;
 } SonalloyProcessSpec;
 
+typedef struct SonalloyDefinitionInfo {
+    uint32_t required_input_channels;
+} SonalloyDefinitionInfo;
+
 typedef enum SonalloyTransportState {
     SONALLOY_TRANSPORT_STOPPED = 0,
     SONALLOY_TRANSPORT_PLAYING = 1
@@ -131,6 +135,11 @@ SonalloyResult sonalloy_compile_json(
     SonalloyStringView definition_base_dir,
     SonalloyProcessSpec process_spec,
     SonalloyCompiledInstrument** out_compiled,
+    SonalloyDiagnostics** out_diagnostics);
+SonalloyResult sonalloy_inspect_json(
+    SonalloyStringView definition_json,
+    SonalloyStringView definition_base_dir,
+    SonalloyDefinitionInfo* out_info,
     SonalloyDiagnostics** out_diagnostics);
 
 uint32_t sonalloy_compiled_reported_latency_frames(

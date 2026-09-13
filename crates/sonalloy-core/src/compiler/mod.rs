@@ -332,9 +332,7 @@ pub fn compile_instrument(
                 .with_path("process_spec"),
         );
     }
-    let required_input_channels = definition
-        .external_audio
-        .map_or(0, |external_audio| external_audio.channels.channel_count());
+    let required_input_channels = definition.required_input_channels();
     if context.process_spec.input_channels != required_input_channels {
         diagnostics.push(
             Diagnostic::error(
