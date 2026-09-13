@@ -1,0 +1,185 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Deep Sub Kick",
+    "author": "gpt-6-astra low",
+    "description": "最低域を中心にした丸いサブキック。柔らかな立ち上がりの後に深い胴鳴りが残り、一打ごとに自然に収まる。通常の電子キックより余韻が長く、中高域は控えめ。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14,
+      "pan": 0.0,
+      "tuning_cents": -500,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.68,
+        "sustain_level": 0,
+        "release_seconds": 0.3
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "thump",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.01,
+        "sustain_level": 0,
+        "release_seconds": 0.01
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 3939,
+          "stereo_correlation": 1.0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "soften",
+          "mode": "low_pass",
+          "cutoff_hz": 800,
+          "resonance": 0.1
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 2400,
+      "resonance": 0.03
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drop",
+        "type": "mseg",
+        "initial_value": 1,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.035,
+              "unit": "seconds"
+            },
+            "target": 0.13,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.07,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "drop",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 480,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.thump.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.0,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -3,8 +3,8 @@
   "external_audio": null,
   "metadata": {
     "name": "Digital Motion Bass",
-    "author": "glm-5.3-flash",
-    "description": "1音の途中で倍音構成が大きく変化するデジタルベース。SineからSaw、Squareへと移り変わるWavetableを、発音中に単方向へ走査することで中域から高域の質感が連続的に動く。Sub Sineが低域の基音を安定させ、走査位置の初期値を中間に置くことで短い音にもデジタル感を残す。単純な音量変化や周期的な揺れとは異なる、音形の連続的な変形が特徴。"
+    "author": "gpt-6-astra low",
+    "description": "1音の途中でWavetableの走査位置が変化し、低域の基音を保ちながら中域から高域の倍音構成が連続的に変化するデジタルベース。Sub Sineが低域の芯を支え、動く倍音の質感が短い音から長い音まで展開する。単純な音量変化や周期的な揺れとは異なる、音形の連続的な変形が特徴。"
   },
   "performance": {
     "mode": "monophonic",
@@ -21,7 +21,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -14.0,
+      "gain_db": -18,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -51,7 +51,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -10.0,
+      "gain_db": -14,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -67,12 +67,27 @@
             "sha256": "a2fc6241c3df25dc67576adb3a37cb84dbbafa47b189c5dd60eca7d41a48f93b"
           },
           "frame_length": 2048,
-          "position": 0.3,
+          "position": 0.2,
           "phase_reset": true,
           "phase": 0.0
         }
       },
-      "processors": []
+      "processors": [
+        {
+          "type": "filter",
+          "id": "body_cut",
+          "mode": "high_pass",
+          "cutoff_hz": 538.5835590540484,
+          "resonance": 0.04
+        },
+        {
+          "type": "filter",
+          "id": "tone",
+          "mode": "low_pass",
+          "cutoff_hz": 4800,
+          "resonance": 0.04
+        }
+      ]
     }
   ],
   "voice_processors": [],
@@ -81,11 +96,46 @@
     "sources": [
       {
         "id": "scan",
-        "type": "envelope",
-        "attack_seconds": 3.0,
-        "decay_seconds": 2.5,
-        "sustain_level": 1.0,
-        "release_seconds": 0.8
+        "type": "mseg",
+        "initial_value": 0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.35,
+              "unit": "seconds"
+            },
+            "target": 0.65,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 1.05,
+              "unit": "seconds"
+            },
+            "target": 0.15,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 1.7,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 1.5,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 0,
+          "end_segment": 4
+        }
       }
     ],
     "routes": [
@@ -113,6 +163,42 @@
         "depth": {
           "value": 6.0,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.texture.generator.wavetable_position",
+        "depth": {
+          "value": 0.15,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.texture.processor.body_cut.cutoff",
+        "depth": {
+          "value": 5.291666666666667,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sub.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.texture.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
         },
         "curve": "linear"
       }

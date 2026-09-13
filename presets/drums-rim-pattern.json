@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "name": "Drums - Rim",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 840,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 45
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 2280,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 40
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3720,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 45
+    },
+    {
+      "type": "note",
+      "tick": 4320,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 105
+    },
+    {
+      "type": "note",
+      "tick": 5640,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 42
+    },
+    {
+      "type": "note",
+      "tick": 6240,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 85
+    },
+    {
+      "type": "note",
+      "tick": 6840,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 45
+    },
+    {
+      "type": "note",
+      "tick": 7320,
+      "note": 37,
+      "duration_ticks": 100,
+      "velocity": 60
+    }
+  ]
+}

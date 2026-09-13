@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "name": "Sequences and Texture - Hold",
+  "ticks_per_beat": 480,
+  "length_ticks": 17280,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 60,
+      "duration_ticks": 7680,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 7680,
+      "note": 60,
+      "duration_ticks": 1920,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 9600,
+      "note": 64,
+      "duration_ticks": 1920,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 11520,
+      "note": 67,
+      "duration_ticks": 1920,
+      "velocity": 85
+    },
+    {
+      "type": "note",
+      "tick": 13440,
+      "note": 60,
+      "duration_ticks": 3840,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 13440,
+      "note": 64,
+      "duration_ticks": 3840,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 13440,
+      "note": 67,
+      "duration_ticks": 3840,
+      "velocity": 90
+    }
+  ]
+}

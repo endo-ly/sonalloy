@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "name": "FX - Glitch Bursts",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 76
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 127
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 105
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 115
+    },
+    {
+      "type": "note",
+      "tick": 4560,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 85
+    },
+    {
+      "type": "note",
+      "tick": 5040,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 127
+    },
+    {
+      "type": "note",
+      "tick": 6720,
+      "note": 60,
+      "duration_ticks": 384,
+      "velocity": 100
+    }
+  ]
+}

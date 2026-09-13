@@ -3,8 +3,8 @@
   "external_audio": null,
   "metadata": {
     "name": "FM Digital Lead",
-    "author": "glm-5.3-flash",
-    "description": "FM音源らしい硬質で精密な倍音を持つデジタルリード。変調を保持中も持続させるため、発音直後から音の終わりまでデジタルらしい複雑さが続く。比率2の第2Carrierが倍音の支えを加え、金属感と明確な音程感を両立する。ベルのように自然減衰せず、鍵盤を押している間はリードとして持続する。速いフレーズでも音程と輪郭が明確。"
+    "author": "gpt-6-astra low",
+    "description": "FM音源らしい硬質で精密な倍音を持つデジタルリード。変調を保持中も持続させるため、発音直後から音の終わりまでデジタルらしい複雑さが続く。高い比率の第2Carrierが倍音の支えを加え、金属感と明確な音程感を両立する。ベルのように自然減衰せず、鍵盤を押している間はリードとして持続する。速いフレーズでも音程と輪郭が明確。"
   },
   "performance": {
     "mode": "monophonic",
@@ -21,7 +21,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -5.0,
+      "gain_db": -13,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -38,28 +38,28 @@
             {
               "ratio": 1.0,
               "detune_cents": 0.0,
-              "level": 0.85,
+              "level": 0.82,
               "modulation_amount": 0.0,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
-                "attack_seconds": 0.0,
-                "decay_seconds": 0.2,
-                "sustain_level": 0.85,
+                "attack_seconds": 0.001,
+                "decay_seconds": 0,
+                "sustain_level": 1,
                 "release_seconds": 0.15
               }
             },
             {
               "ratio": 2.0,
               "detune_cents": 0.0,
-              "level": 0.28,
+              "level": 0.18,
               "modulation_amount": 0.0,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
-                "attack_seconds": 0.0,
-                "decay_seconds": 0.2,
-                "sustain_level": 0.85,
+                "attack_seconds": 0.001,
+                "decay_seconds": 0,
+                "sustain_level": 1,
                 "release_seconds": 0.15
               }
             },
@@ -67,28 +67,28 @@
               "ratio": 1.0,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 1.8,
-              "feedback": 0.12,
+              "modulation_amount": 0.9,
+              "feedback": 0.05,
               "phase": 0.0,
               "envelope": {
-                "attack_seconds": 0.0,
-                "decay_seconds": 0.15,
-                "sustain_level": 0.55,
-                "release_seconds": 0.12
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.18,
+                "sustain_level": 0.65,
+                "release_seconds": 0.15
               }
             },
             {
               "ratio": 5.0,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 1.0,
+              "modulation_amount": 0.7,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
-                "attack_seconds": 0.0,
-                "decay_seconds": 0.25,
-                "sustain_level": 0.45,
-                "release_seconds": 0.1
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.22,
+                "sustain_level": 0.5,
+                "release_seconds": 0.15
               }
             }
           ],
@@ -97,9 +97,47 @@
         }
       },
       "processors": []
+    },
+    {
+      "id": "core",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -27,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.8,
+        "release_seconds": 0.15
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
     }
   ],
-  "voice_processors": [],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 7437.69156630607,
+      "resonance": 0.04
+    }
+  ],
   "global_processors": [],
   "modulation": {
     "sources": [],
@@ -108,8 +146,62 @@
         "source": "velocity",
         "target": "layer.fm.gain",
         "depth": {
-          "value": 6.0,
+          "value": 8,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.fm.generator.operator.4.modulation_amount",
+        "depth": {
+          "value": 0.25,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.fm.generator.operator.3.modulation_amount",
+        "depth": {
+          "value": 0.5,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.5875000000000001,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.fm.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.core.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.core.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
         },
         "curve": "linear"
       }

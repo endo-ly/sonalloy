@@ -3,8 +3,8 @@
   "external_audio": null,
   "metadata": {
     "name": "Hard Sync Lead",
-    "author": "glm-5.3-flash",
-    "description": "古典的なシンセサイザーのハードシンクを代表する、鋭く派手なリード。Sync Ratioを発音直後に高く取り、250msかけて落とし着けることで、基音の音程は安定したまま上側の倍音が大きく移動する。通常のソウリードより攻撃的で、FMとは異なる引き裂かれるような質感。中高音域のソロで強い存在感を発揮する。"
+    "author": "gpt-6-astra low",
+    "description": "古典的なシンセサイザーのハードシンクを代表する、鋭く派手なリード。発音直後は高いSync Ratioを持ち、短い時間で落ち着くことで、基音の音程は安定したまま上側の倍音が大きく移動する。通常のソウリードより攻撃的で、FMとは異なる引き裂かれるような質感。中高音域のソロで強い存在感を発揮する。"
   },
   "performance": {
     "mode": "monophonic",
@@ -14,25 +14,51 @@
     {
       "id": "sync",
       "enabled": true,
-      "trigger": { "event": "note_on", "key_min": 0, "key_max": 127, "velocity_min": 1, "velocity_max": 127 },
-      "gain_db": -12.0,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18,
       "pan": 0.0,
       "tuning_cents": 0.0,
-      "envelope": { "attack_seconds": 0.004, "decay_seconds": 0.15, "sustain_level": 0.75, "release_seconds": 0.12 },
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.15,
+        "sustain_level": 0.75,
+        "release_seconds": 0.12
+      },
       "generator": {
         "oscillator": {
-          "waveform": { "type": "saw" },
+          "waveform": {
+            "type": "saw"
+          },
           "phase_reset": true,
           "phase": 0.0,
-          "hard_sync": { "ratio": 2.2 },
-          "unison": { "voices": 3, "detune_cents": 12.0, "stereo_spread": 0.55, "phase_spread": 0.0 }
+          "hard_sync": {
+            "ratio": 1.4
+          },
+          "unison": {
+            "voices": 3,
+            "detune_cents": 6,
+            "stereo_spread": 0.3,
+            "phase_spread": 0
+          }
         }
       },
       "processors": []
     }
   ],
   "voice_processors": [
-    { "type": "ladder_filter", "id": "bite", "cutoff_hz": 8000.0, "resonance": 0.12, "drive": 0.2 }
+    {
+      "type": "ladder_filter",
+      "id": "bite",
+      "cutoff_hz": 6311.046124375736,
+      "resonance": 0.12,
+      "drive": 0.1
+    }
   ],
   "global_processors": [],
   "modulation": {
@@ -41,15 +67,66 @@
         "id": "sync_env",
         "type": "envelope",
         "attack_seconds": 0.0,
-        "decay_seconds": 0.25,
-        "sustain_level": 0.45,
+        "decay_seconds": 0.32,
+        "sustain_level": 0.12,
         "release_seconds": 0.15
       }
     ],
     "routes": [
-      { "source": "sync_env", "target": "layer.sync.generator.sync_ratio", "depth": { "value": 1.0, "unit": "octaves" }, "curve": "linear" },
-      { "source": "velocity", "target": "layer.sync.gain", "depth": { "value": 6.0, "unit": "decibels" }, "curve": "linear" },
-      { "source": "velocity", "target": "voice.processor.bite.cutoff", "depth": { "value": 0.4, "unit": "octaves" }, "curve": "linear" }
+      {
+        "source": "sync_env",
+        "target": "layer.sync.generator.sync_ratio",
+        "depth": {
+          "value": 1.55,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sync.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.bite.cutoff",
+        "depth": {
+          "value": 0.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.sync.generator.sync_ratio",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.bite.cutoff",
+        "depth": {
+          "value": 1.3229166666666667,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sync.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
     ]
   },
   "macros": [],

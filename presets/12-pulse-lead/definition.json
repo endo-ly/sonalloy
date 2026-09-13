@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "Pulse Lead",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "description": "SquareやPulse系を連想させる、細身で明快な電子リード。Pulse波の輪郭を優先し、厚みよりも各音の芯と音程の明確さを取る。C3からC7付近まで性格が変わらず、高音域でも音の芯が残る。ゲーム音楽、Electro、Synth Popの旋律に適する。"
   },
   "performance": {
@@ -21,7 +21,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -4.0,
+      "gain_db": -12,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -48,7 +48,7 @@
       "type": "filter",
       "id": "tone",
       "mode": "low_pass",
-      "cutoff_hz": 12000.0,
+      "cutoff_hz": 6906.427882998493,
       "resonance": 0.05
     }
   ],
@@ -60,7 +60,7 @@
         "source": "velocity",
         "target": "layer.pulse.gain",
         "depth": {
-          "value": 6.0,
+          "value": 8,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -69,8 +69,35 @@
         "source": "velocity",
         "target": "voice.processor.tone.cutoff",
         "depth": {
-          "value": 0.4,
+          "value": 0.3,
           "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.pulse.generator.pulse_width",
+        "depth": {
+          "value": 0.08,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.5875000000000001,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.pulse.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
         },
         "curve": "linear"
       }
