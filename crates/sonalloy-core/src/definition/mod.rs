@@ -193,6 +193,15 @@ pub enum LayerTriggerEvent {
 }
 
 impl InstrumentDefinition {
+    /// Return the number of external input channels required by the Definition.
+    #[must_use]
+    pub fn required_input_channels(&self) -> usize {
+        match self.external_audio {
+            Some(external_audio) => external_audio.channels.channel_count(),
+            None => 0,
+        }
+    }
+
     /// Validate the Definition without resolving files or allocating runtime state.
     #[must_use]
     #[allow(clippy::too_many_lines)]

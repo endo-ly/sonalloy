@@ -5,11 +5,14 @@ use std::ptr;
 use std::sync::Arc;
 
 use sonalloy_core::{
-    CompileContext, Diagnostic, DiagnosticCode, InstrumentDefinition, compile_instrument,
+    CompileContext, Diagnostic, DiagnosticCode, DiagnosticSeverity, InstrumentDefinition,
+    compile_instrument,
 };
 
 use crate::diagnostics::boxed;
-use crate::types::{SonalloyProcessSpec, SonalloyResult, SonalloyStringView};
+use crate::types::{
+    SonalloyDefinitionInfo, SonalloyProcessSpec, SonalloyResult, SonalloyStringView,
+};
 use crate::{SonalloyCompiledInstrument, SonalloyDiagnostics, guard};
 
 /// Return the public compile result and diagnostics for a JSON Definition.
@@ -79,6 +82,65 @@ pub extern "C" fn sonalloy_compile_json(
             }));
         }
         SonalloyResult::Ok
+    })
+}
+
+/// Inspect a Definition and return its execution conditions without resolving assets.
+#[unsafe(no_mangle)]
+pub extern "C" fn sonalloy_inspect_json(
+    definition_json: SonalloyStringView,
+    definition_base_dir: SonalloyStringView,
+    out_info: *mut SonalloyDefinitionInfo,
+    out_diagnostics: *mut *mut SonalloyDiagnostics,
+) -> SonalloyResult {
+    guard(|| {
+        if out_info.is_null() || out_diagnostics.is_null() {
+            return SonalloyResult::InvalidArgument;
+        }
+        unsafe {
+            *out_info = SonalloyDefinitionInfo {
+                required_input_channels: 0,
+            };
+            *out_diagnostics = ptr::null_mut();
+        }
+        let json = match definition_json.to_owned() {
+            Ok(value) => value,
+            Err(error) => return error,
+        };
+        if let Err(error) = definition_base_dir.to_owned() {
+            return error;
+        }
+        let definition = match serde_json::from_str::<InstrumentDefinition>(&json) {
+            Ok(definition) => definition,
+            Err(error) => {
+                unsafe {
+                    *out_diagnostics = boxed(vec![
+                        Diagnostic::error(
+                            DiagnosticCode::JsonInvalid,
+                            "definition JSON is invalid",
+                        )
+                        .with_detail(error.to_string()),
+                    ]);
+                }
+                return SonalloyResult::CompileFailed;
+            }
+        };
+        let diagnostics = definition.validate();
+        let has_errors = diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error);
+        unsafe {
+            *out_info = SonalloyDefinitionInfo {
+                required_input_channels: u32::try_from(definition.required_input_channels())
+                    .unwrap_or(u32::MAX),
+            };
+            *out_diagnostics = boxed(diagnostics);
+        }
+        if has_errors {
+            SonalloyResult::CompileFailed
+        } else {
+            SonalloyResult::Ok
+        }
     })
 }
 

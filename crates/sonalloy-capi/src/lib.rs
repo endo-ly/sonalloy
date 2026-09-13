@@ -11,7 +11,7 @@ pub use capability::{sonalloy_c_api_version, sonalloy_has_capability};
 pub use compile::{
     sonalloy_compile_json, sonalloy_compiled_destroy, sonalloy_compiled_parameter_catalog_revision,
     sonalloy_compiled_parameter_count, sonalloy_compiled_reported_latency_frames,
-    sonalloy_compiled_required_input_channels,
+    sonalloy_compiled_required_input_channels, sonalloy_inspect_json,
 };
 pub use diagnostics::{
     sonalloy_diagnostics_count, sonalloy_diagnostics_destroy, sonalloy_diagnostics_get,
@@ -30,9 +30,10 @@ pub use runtime::{
 };
 
 pub use types::{
-    SonalloyDiagnosticView, SonalloyEvent, SonalloyEventType, SonalloyParameterDescriptor,
-    SonalloyProcessContext, SonalloyProcessSpec, SonalloyPublishOutcome, SonalloyResult,
-    SonalloyRuntimeErrorInfo, SonalloyStringView, SonalloyTransportState,
+    SonalloyDefinitionInfo, SonalloyDiagnosticView, SonalloyEvent, SonalloyEventType,
+    SonalloyParameterDescriptor, SonalloyProcessContext, SonalloyProcessSpec,
+    SonalloyPublishOutcome, SonalloyResult, SonalloyRuntimeErrorInfo, SonalloyStringView,
+    SonalloyTransportState,
 };
 
 use std::cell::UnsafeCell;

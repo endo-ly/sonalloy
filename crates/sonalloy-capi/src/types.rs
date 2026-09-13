@@ -74,6 +74,14 @@ pub struct SonalloyProcessSpec {
     pub output_channels: u32,
 }
 
+/// Definition execution conditions returned by inspection.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SonalloyDefinitionInfo {
+    /// Number of external input channels required by the Definition.
+    pub required_input_channels: u32,
+}
+
 impl SonalloyProcessSpec {
     pub(crate) fn to_core(self) -> Result<ProcessSpec, SonalloyResult> {
         ProcessSpec::new(

@@ -1,10 +1,11 @@
 use std::ptr;
 
 use sonalloy_capi::{
-    SonalloyCompiledInstrument, SonalloyDiagnosticView, SonalloyDiagnostics, SonalloyProcessSpec,
-    SonalloyResult, SonalloyStringView, sonalloy_c_api_version, sonalloy_compile_json,
-    sonalloy_compiled_destroy, sonalloy_diagnostics_count, sonalloy_diagnostics_destroy,
-    sonalloy_diagnostics_get, sonalloy_has_capability,
+    SonalloyCompiledInstrument, SonalloyDefinitionInfo, SonalloyDiagnosticView,
+    SonalloyDiagnostics, SonalloyProcessSpec, SonalloyResult, SonalloyStringView,
+    sonalloy_c_api_version, sonalloy_compile_json, sonalloy_compiled_destroy,
+    sonalloy_diagnostics_count, sonalloy_diagnostics_destroy, sonalloy_diagnostics_get,
+    sonalloy_has_capability, sonalloy_inspect_json,
 };
 
 fn view(value: &str) -> SonalloyStringView {
@@ -206,5 +207,79 @@ fn compile_diagnostics_and_parameter_catalog_use_borrowed_views() {
     assert!((native - descriptor.default).abs() < 1.0e-5);
 
     sonalloy_compiled_destroy(compiled);
+    sonalloy_diagnostics_destroy(diagnostics);
+}
+
+#[test]
+fn inspect_reports_required_external_input_channels_without_compiling_assets() {
+    let regular_json = include_str!("../../../testdata/instruments/basic-poly-synth.json");
+    let external_json = include_str!("../../../testdata/instruments/sidechain-ducking.json");
+
+    let mut regular_info = SonalloyDefinitionInfo {
+        required_input_channels: u32::MAX,
+    };
+    let mut regular_diagnostics = ptr::null_mut::<SonalloyDiagnostics>();
+    assert_eq!(
+        sonalloy_inspect_json(
+            view(regular_json),
+            view("../../../testdata/instruments"),
+            &raw mut regular_info,
+            &raw mut regular_diagnostics,
+        ),
+        SonalloyResult::Ok
+    );
+    assert_eq!(regular_info.required_input_channels, 0);
+    assert_eq!(sonalloy_diagnostics_count(regular_diagnostics), 0);
+    sonalloy_diagnostics_destroy(regular_diagnostics);
+
+    let mut external_info = SonalloyDefinitionInfo {
+        required_input_channels: u32::MAX,
+    };
+    let mut external_diagnostics = ptr::null_mut::<SonalloyDiagnostics>();
+    assert_eq!(
+        sonalloy_inspect_json(
+            view(external_json),
+            view("../../../testdata/instruments"),
+            &raw mut external_info,
+            &raw mut external_diagnostics,
+        ),
+        SonalloyResult::Ok
+    );
+    assert_eq!(external_info.required_input_channels, 2);
+    assert_eq!(sonalloy_diagnostics_count(external_diagnostics), 0);
+    sonalloy_diagnostics_destroy(external_diagnostics);
+
+    let mono_json = external_json.replace("\"stereo\"", "\"mono\"");
+    let mut mono_info = SonalloyDefinitionInfo {
+        required_input_channels: u32::MAX,
+    };
+    let mut mono_diagnostics = ptr::null_mut::<SonalloyDiagnostics>();
+    assert_eq!(
+        sonalloy_inspect_json(
+            view(&mono_json),
+            view("../../../testdata/instruments"),
+            &raw mut mono_info,
+            &raw mut mono_diagnostics,
+        ),
+        SonalloyResult::Ok
+    );
+    assert_eq!(mono_info.required_input_channels, 1);
+    assert_eq!(sonalloy_diagnostics_count(mono_diagnostics), 0);
+    sonalloy_diagnostics_destroy(mono_diagnostics);
+}
+
+#[test]
+fn inspect_returns_diagnostics_for_invalid_definitions() {
+    let mut info = SonalloyDefinitionInfo {
+        required_input_channels: u32::MAX,
+    };
+    let mut diagnostics = ptr::null_mut::<SonalloyDiagnostics>();
+
+    assert_eq!(
+        sonalloy_inspect_json(view("{"), view("."), &raw mut info, &raw mut diagnostics,),
+        SonalloyResult::CompileFailed
+    );
+    assert_eq!(info.required_input_channels, 0);
+    assert_eq!(sonalloy_diagnostics_count(diagnostics), 1);
     sonalloy_diagnostics_destroy(diagnostics);
 }
