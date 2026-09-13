@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Rhythmic Wave Sequence",
     "author": "gpt-6-astra low",
-    "description": "鍵盤を保持すると、同じ音程を持つ8種類の短い音色が半拍ごとに切り替わるウェーブシーケンス。柔らかな音から硬い輝きまでを巡り、音色の交代そのものがリズムになる。"
+    "description": "鍵盤を保持すると、同じ音程を持つ複数の音色がテンポに同期して順番に切り替わるウェーブシーケンス。柔らかな音から硬い響きまでを巡り、音色の交代そのものがリズムになる。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -21,7 +21,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -16,
+      "gain_db": -24,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -31,165 +31,15 @@
         "release_seconds": 0.35
       },
       "generator": {
-        "wave_sequence": {
-          "root_note": 60,
-          "direction": "forward",
-          "loop": true,
-          "crossfade": 0.06,
-          "steps": [
-            {
-              "id": "step1_saw",
-              "asset": {
-                "path": "../assets/wave-seq-steps.wav",
-                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
-              },
-              "region": {
-                "start_seconds": 0.0,
-                "end_seconds": 0.24
-              },
-              "duration": {
-                "mode": "beats",
-                "value": 0.5
-              },
-              "playback": "one_shot",
-              "playback_direction": "forward",
-              "gain_db": 0,
-              "pitch_cents": 0.0
-            },
-            {
-              "id": "step2_square",
-              "asset": {
-                "path": "../assets/wave-seq-steps.wav",
-                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
-              },
-              "region": {
-                "start_seconds": 0.24,
-                "end_seconds": 0.48
-              },
-              "duration": {
-                "mode": "beats",
-                "value": 0.5
-              },
-              "playback": "one_shot",
-              "playback_direction": "forward",
-              "gain_db": -1,
-              "pitch_cents": 0.0
-            },
-            {
-              "id": "step3_pulse",
-              "asset": {
-                "path": "../assets/wave-seq-steps.wav",
-                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
-              },
-              "region": {
-                "start_seconds": 0.48,
-                "end_seconds": 0.72
-              },
-              "duration": {
-                "mode": "beats",
-                "value": 0.5
-              },
-              "playback": "one_shot",
-              "playback_direction": "forward",
-              "gain_db": -1,
-              "pitch_cents": 0.0
-            },
-            {
-              "id": "step4_triangle",
-              "asset": {
-                "path": "../assets/wave-seq-steps.wav",
-                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
-              },
-              "region": {
-                "start_seconds": 0.72,
-                "end_seconds": 0.96
-              },
-              "duration": {
-                "mode": "beats",
-                "value": 0.5
-              },
-              "playback": "one_shot",
-              "playback_direction": "forward",
-              "gain_db": 1,
-              "pitch_cents": 0.0
-            },
-            {
-              "id": "step5_hollow",
-              "asset": {
-                "path": "../assets/wave-seq-steps.wav",
-                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
-              },
-              "region": {
-                "start_seconds": 0.96,
-                "end_seconds": 1.2
-              },
-              "duration": {
-                "mode": "beats",
-                "value": 0.5
-              },
-              "playback": "one_shot",
-              "playback_direction": "forward",
-              "gain_db": 0,
-              "pitch_cents": 0.0
-            },
-            {
-              "id": "step6_organ",
-              "asset": {
-                "path": "../assets/wave-seq-steps.wav",
-                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
-              },
-              "region": {
-                "start_seconds": 1.2,
-                "end_seconds": 1.44
-              },
-              "duration": {
-                "mode": "beats",
-                "value": 0.5
-              },
-              "playback": "one_shot",
-              "playback_direction": "forward",
-              "gain_db": -1,
-              "pitch_cents": 0.0
-            },
-            {
-              "id": "step7_glassy",
-              "asset": {
-                "path": "../assets/wave-seq-steps.wav",
-                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
-              },
-              "region": {
-                "start_seconds": 1.44,
-                "end_seconds": 1.68
-              },
-              "duration": {
-                "mode": "beats",
-                "value": 0.5
-              },
-              "playback": "one_shot",
-              "playback_direction": "forward",
-              "gain_db": -2,
-              "pitch_cents": 0.0
-            },
-            {
-              "id": "step8_vocal",
-              "asset": {
-                "path": "../assets/wave-seq-steps.wav",
-                "sha256": "7c4fa626907f59204272ed741a3dd53c91f42022217195042ff369ba8017ff97"
-              },
-              "region": {
-                "start_seconds": 1.68,
-                "end_seconds": 1.92
-              },
-              "duration": {
-                "mode": "beats",
-                "value": 0.5
-              },
-              "playback": "one_shot",
-              "playback_direction": "forward",
-              "gain_db": 0,
-              "pitch_cents": 0.0
-            }
-          ]
+        "wavetable": {
+          "asset": {
+            "path": "../assets/wave-seq-steps.wav",
+            "sha256": "9ffab11421e6af1e76ba708da592abb69a002bf1ad5c75363dba1f53fecc3180"
+          },
+          "frame_length": 2048,
+          "position": 0.5,
+          "phase_reset": true,
+          "phase": 0.0
         }
       },
       "processors": []
@@ -223,8 +73,88 @@
     }
   ],
   "modulation": {
-    "sources": [],
+    "sources": [
+      {
+        "id": "step_shape",
+        "type": "mseg",
+        "initial_value": -1.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.02,
+              "unit": "beats"
+            },
+            "target": 1.0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.12,
+              "unit": "beats"
+            },
+            "target": -0.35,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.11,
+              "unit": "beats"
+            },
+            "target": -1.0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.25,
+              "unit": "beats"
+            },
+            "target": -1.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 0,
+          "end_segment": 4
+        }
+      },
+      {
+        "id": "frame_step",
+        "type": "step",
+        "values": [
+          -1.0,
+          -0.7142857,
+          -0.4285714,
+          -0.1428571,
+          0.1428571,
+          0.4285714,
+          0.7142857,
+          1.0
+        ],
+        "rate": {
+          "value": 2.0,
+          "unit": "per_beat"
+        }
+      }
+    ],
     "routes": [
+      {
+        "source": "step_shape",
+        "target": "layer.seq.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "frame_step",
+        "target": "layer.seq.generator.wavetable_position",
+        "depth": {
+          "value": 0.5,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
       {
         "source": "velocity",
         "target": "layer.seq.gain",

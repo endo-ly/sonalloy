@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Percussive Sequence",
     "author": "gpt-6-astra low",
-    "description": "鍵盤を保持すると、半拍ごとに短い打撃が現れる有音程シーケンス。丸い芯に短い高域の倍音が重なり、ステップごとの明るさと強弱でグルーヴを作る。"
+    "description": "鍵盤を保持すると、短い打撃がテンポに沿って連続する有音程シーケンス。強弱と明るさの変化が重なってグルーヴを作り、丸い芯に短い高域の倍音が重なって音程感を保つ。"
   },
   "performance": {
     "mode": "polyphonic",

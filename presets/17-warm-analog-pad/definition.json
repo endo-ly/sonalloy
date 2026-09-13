@@ -3,7 +3,7 @@
   "external_audio": null,
   "metadata": {
     "name": "Warm Analog Pad",
-    "author": "gpt-6-astra low",
+    "author": "glm-5.3-flash",
     "description": "コードの背景を柔らかく支える、標準的なアナログ系パッド。Sawの軽いDetuneにTriangleの温かさを重ね、Ladder Filterで高域を穏やかに丸める。緩やかな立ち上がりと自然な余韻が長時間鳴らしても邪魔にならず、C2〜C6程度のコードでも各音の関係が分かる。派手な変化よりも安定感を優先した、汎用パッドの基準となる音。"
   },
   "performance": {

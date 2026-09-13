@@ -110,4 +110,4 @@ Velocityは音量、Mod Wheelは明るさやフリーズの深さ、Pitch Bend�
 
 55〜58の試奏は同じ代表音を弱・中・強で鳴らし、スイープと余韻が収まる間隔を取る。59は短いバーストを反復し、60は長音と和音で変化を確認する。
 
-50の素材WAVは`python3 presets/assets/generate-wave-seq-steps.py`で再生成できる。8種類のC4の断片を生成し、音源定義の参照範囲とSHA-256も更新する。
+50の素材WAVは`python3 presets/assets/generate-wave-seq-steps.py`で再生成できる。8フレームの単周期Wavetable素材を生成し、音源定義のAsset SHA-256も更新する。

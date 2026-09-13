@@ -4,7 +4,7 @@
   "metadata": {
     "name": "Reese Bass",
     "author": "gpt-6-astra low",
-    "description": "太く暗く、内部にゆっくりしたうねりを持つ持続ベース。42 centのDetuneを持つ3 Voice Unison Sawが低いビート音の唸りを作り、Sub Sineが中央の低域の芯を固定する。低速のLFOがFilterとDetune幅を揺らし、長音の内部に継続的な動きを与える。Drum & Bass、Techno、Industrial系の背景を支える密度の高い低音。"
+    "description": "太く暗く、内部にゆっくりしたうねりを持つ持続ベース。複数VoiceのDetuneしたSawが低いビート音の唸りを作り、Sub Sineが中央の低域の芯を固定する。低速のLFOがFilterとDetune幅を揺らし、長音の内部に継続的な動きを与える。Drum & Bass、Techno、Industrial系の背景を支える密度の高い低音。"
   },
   "performance": {
     "mode": "monophonic",
