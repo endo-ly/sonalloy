@@ -3,6 +3,7 @@
   "metadata": {
     "name": "Marimba Mallet",
     "author": "gpt-6-astra low",
+    "reference_pitch": "C4",
     "description": "木の板を柔らかなマレットで叩いたような、丸く温かい有音程打楽器。短い打撃と中低域の胴鳴りが一体になり、高い成分から速く収まる。低い音では太く、高い音では軽く、強弱を付けた反復や旋律に使いやすい。"
   },
   "performance": {

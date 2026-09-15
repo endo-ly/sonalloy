@@ -149,6 +149,7 @@ fn default_definition() -> InstrumentDefinition {
             name: "Basic Poly Synth".to_owned(),
             author: None,
             description: Some("A headless oscillator instrument".to_owned()),
+            reference_pitch: None,
         },
         performance: PerformanceDefinition::Polyphonic {
             polyphony: 16,

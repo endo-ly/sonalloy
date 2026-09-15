@@ -4,6 +4,7 @@
   "metadata": {
     "name": "Digital Motion Bass",
     "author": "glm-5.3-flash",
+    "reference_pitch": "C2",
     "description": "1音の途中で倍音構成が大きく変化するデジタルベース。SineからSaw、Squareへと移り変わるWavetableを、発音中に単方向へ走査することで中域から高域の質感が連続的に動く。Sub Sineが低域の基音を安定させ、走査位置の初期値を中間に置くことで短い音にもデジタル感を残す。単純な音量変化や周期的な揺れとは異なる、音形の連続的な変形が特徴。"
   },
   "performance": {

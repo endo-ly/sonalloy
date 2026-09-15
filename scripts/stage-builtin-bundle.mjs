@@ -49,6 +49,10 @@ function readPreset(sourceRoot, presetId) {
     typeof metadata.description === 'string' && metadata.description.trim().length > 0
       ? metadata.description.trim()
       : null;
+  const referencePitch =
+    typeof metadata.reference_pitch === 'string' && metadata.reference_pitch.trim().length > 0
+      ? metadata.reference_pitch.trim()
+      : null;
 
   return {
     definitionPath,
@@ -56,6 +60,7 @@ function readPreset(sourceRoot, presetId) {
       id: presetId,
       name,
       description,
+      ...(referencePitch ? { referencePitch } : {}),
       definitionPath: `${presetId}/definition.json`,
       resourceBasePath: presetId,
     },

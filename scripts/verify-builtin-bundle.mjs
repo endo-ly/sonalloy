@@ -52,6 +52,8 @@ function verifyBundle({ root, sourceRelease }) {
     assert.equal(typeof preset.name, 'string');
     assert.notEqual(preset.name.trim(), '');
     assert.equal(preset.description === null || typeof preset.description === 'string', true);
+    assert.equal(preset.referencePitch === undefined || typeof preset.referencePitch === 'string', true);
+    if (preset.referencePitch !== undefined) assert.notEqual(preset.referencePitch.trim(), '');
     const definitionPath = assertRelativePath(builtinRoot, preset.definitionPath, 'definitionPath');
     const resourceBasePath = assertRelativePath(builtinRoot, preset.resourceBasePath, 'resourceBasePath');
     assert.equal(statSync(definitionPath).isFile(), true);

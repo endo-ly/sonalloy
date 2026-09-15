@@ -4,6 +4,7 @@
   "metadata": {
     "name": "Hard Sync Lead",
     "author": "glm-5.3-flash",
+    "reference_pitch": "C4",
     "description": "古典的なシンセサイザーのハードシンクを代表する、鋭く派手なリード。Sync Ratioを発音直後に高く取り、250msかけて落とし着けることで、基音の音程は安定したまま上側の倍音が大きく移動する。通常のソウリードより攻撃的で、FMとは異なる引き裂かれるような質感。中高音域のソロで強い存在感を発揮する。"
   },
   "performance": {

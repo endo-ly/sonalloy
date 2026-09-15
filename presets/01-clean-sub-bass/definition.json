@@ -4,6 +4,7 @@
   "metadata": {
     "name": "Clean Sub Bass",
     "author": "glm-5.3-flash",
+    "reference_pitch": "C2",
     "description": "曲の最低域を安定して支える純度の高いサブベース。Sineの基音を中心に、Triangleによる控えめな低中域の補強だけで構成する。長音でも濁りや揺れがなく、短音でも輪郭がぼやけない。キックや他の低音と重ねて低域の厚みを自然に補う用途に適する。"
   },
   "performance": {

@@ -4,6 +4,7 @@
   "metadata": {
     "name": "Analog Saw Lead",
     "author": "glm-5.3-flash",
+    "reference_pitch": "C4",
     "description": "メロディやソロに広く使える、標準的なシンセリード。14 centのDetuneを持つ3 Voice Unison Sawが適度な太さを作り、Ladder Filterの軽いDriveがアナログ的な暖かさを添える。高音域でも刺激が強すぎず、低音域でもベースのような重さには寄らない、汎用リードの基準となる音。"
   },
   "performance": {

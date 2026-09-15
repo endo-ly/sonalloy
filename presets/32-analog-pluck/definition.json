@@ -3,6 +3,7 @@
   "metadata": {
     "name": "Analog Pluck",
     "author": "gpt-6-astra low",
+    "reference_pitch": "C4",
     "description": "明るい立ち上がりから温かく丸い音へ収まるアナログ系プラック。中央に音程の芯を保ち、わずかに広がる倍音が短い和音とアルペジオに厚みを添える。強い打鍵ほど輪郭が開き、鍵盤を保持しても自然に減衰する。"
   },
   "performance": {

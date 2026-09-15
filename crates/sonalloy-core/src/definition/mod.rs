@@ -102,6 +102,9 @@ pub struct InstrumentMetadata {
     /// Optional description.
     #[serde(default)]
     pub description: Option<String>,
+    /// Optional pitch used as the preset's catalog reference.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_pitch: Option<String>,
 }
 
 /// Performance settings owned by the runtime.
@@ -510,6 +513,7 @@ pub(crate) mod tests {
                 name: "Test".to_owned(),
                 author: None,
                 description: None,
+                reference_pitch: None,
             },
             performance: PerformanceDefinition::Polyphonic {
                 polyphony: 4,

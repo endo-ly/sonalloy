@@ -4,6 +4,7 @@
   "metadata": {
     "name": "808 Bass",
     "author": "glm-5.3-flash",
+    "reference_pitch": "C2",
     "description": "発音直後の大きな音程下降と、その後に続く深く滑らかな低音が特徴の808系ベース。Sine基音に軽いSaturationを加え、低域中心のまま小さなスピーカーにも存在感を残す。短い音では落下感が明確に現れ、長音では下降後の音程が安定して低域を支え続ける。"
   },
   "performance": {

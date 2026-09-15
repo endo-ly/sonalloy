@@ -3,6 +3,7 @@
   "metadata": {
     "name": "Digital Crystal Pluck",
     "author": "gpt-6-astra low",
+    "reference_pitch": "C4",
     "description": "細く透明な音程の芯に、小さなガラス片を弾いたような輝きが重なるプラック。高い成分ほど速く減衰し、短い余韻に澄んだ響きが残る。強い打鍵で輝きが増し、アルペジオやコードの中でも軽さを保つ。"
   },
   "performance": {

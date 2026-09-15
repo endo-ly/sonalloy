@@ -4,6 +4,7 @@
   "metadata": {
     "name": "Wavetable Motion Pad",
     "author": "glm-5.3-flash",
+    "reference_pitch": "C4",
     "description": "長いコードの中で倍音構成が別の形へ移り変わるデジタル系パッド。SineからOrgan、Hollow、Bright、Complexへと並ぶ12フレームのWavetableを、発音してから7秒ほどかけて単方向に走査する。開始時と後半で音色が明確に変わり、その間は滑らかにつながる。一定周期の揺れではなく時間方向の展開が特徴の、人工的で複雑な質感。"
   },
   "performance": {

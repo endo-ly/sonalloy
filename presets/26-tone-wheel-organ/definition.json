@@ -4,6 +4,7 @@
   "metadata": {
     "name": "Tone Wheel Organ",
     "author": "glm-5.3-flash",
+    "reference_pitch": "C4",
     "description": "Hammond系オルガンを連想させる、倍音が規則的に積み重なる持続鍵盤音。9本のドローバーに対応する0.5〜8倍のSine Partial（サブオクターブ、クイント、5倍音を含む）を加算し、単音でも複数の倍音が明確に聞こえる。鍵盤を押している間はほぼ一定の音量で鳴り続け、コードでは厚い和音を形成する。軽いChorusが回転スピーカー風のうるおいを添える素のオルガン音。"
   },
   "performance": {
