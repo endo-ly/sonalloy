@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "name": "FX - Downlifter",
+  "ticks_per_beat": 480,
+  "length_ticks": 14400,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 60,
+      "duration_ticks": 3360,
+      "velocity": 76
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 60,
+      "duration_ticks": 3360,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 9600,
+      "note": 60,
+      "duration_ticks": 3360,
+      "velocity": 127
+    }
+  ]
+}

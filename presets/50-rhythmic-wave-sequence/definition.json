@@ -1,0 +1,190 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Rhythmic Wave Sequence",
+    "author": "gpt-6-astra low",
+    "reference_pitch": "C4",
+    "description": "鍵盤を保持すると、同じ音程を持つ複数の音色がテンポに同期して順番に切り替わるウェーブシーケンス。柔らかな音から硬い響きまでを巡り、音色の交代そのものがリズムになる。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "seq",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -24,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../assets/wave-seq-steps.wav",
+            "sha256": "9ffab11421e6af1e76ba708da592abb69a002bf1ad5c75363dba1f53fecc3180"
+          },
+          "frame_length": 2048,
+          "position": 0.5,
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 6500,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.014,
+      "decay": 0.3,
+      "damping": 0.7,
+      "width": 0.75,
+      "mix": 0.05
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "step_shape",
+        "type": "mseg",
+        "initial_value": -1.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.02,
+              "unit": "beats"
+            },
+            "target": 1.0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.12,
+              "unit": "beats"
+            },
+            "target": -0.35,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.11,
+              "unit": "beats"
+            },
+            "target": -1.0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.25,
+              "unit": "beats"
+            },
+            "target": -1.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 0,
+          "end_segment": 4
+        }
+      },
+      {
+        "id": "frame_step",
+        "type": "step",
+        "values": [
+          -1.0,
+          -0.7142857,
+          -0.4285714,
+          -0.1428571,
+          0.1428571,
+          0.4285714,
+          0.7142857,
+          1.0
+        ],
+        "rate": {
+          "value": 2.0,
+          "unit": "per_beat"
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "step_shape",
+        "target": "layer.seq.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "frame_step",
+        "target": "layer.seq.generator.wavetable_position",
+        "depth": {
+          "value": 0.5,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.seq.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.seq.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

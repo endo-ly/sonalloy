@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "name": "Lead - Articulation, Legato and Controls",
+  "ticks_per_beat": 480,
+  "length_ticks": 11520,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 48,
+      "duration_ticks": 360,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "note": 60,
+      "duration_ticks": 360,
+      "velocity": 48
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 72,
+      "duration_ticks": 360,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 84,
+      "duration_ticks": 360,
+      "velocity": 127
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 64,
+      "duration_ticks": 156,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 67,
+      "duration_ticks": 156,
+      "velocity": 75
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "note": 71,
+      "duration_ticks": 156,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 72,
+      "duration_ticks": 156,
+      "velocity": 115
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 71,
+      "duration_ticks": 156,
+      "velocity": 85
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 67,
+      "duration_ticks": 156,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 64,
+      "duration_ticks": 156,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 62,
+      "duration_ticks": 156,
+      "velocity": 105
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 60,
+      "duration_ticks": 720,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 4320,
+      "note": 67,
+      "duration_ticks": 720,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 72,
+      "duration_ticks": 720,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5280,
+      "note": 64,
+      "duration_ticks": 720,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 6720,
+      "note": 64,
+      "duration_ticks": 3840,
+      "velocity": 100
+    },
+    {
+      "type": "mod_wheel",
+      "tick": 8160,
+      "value": 1
+    },
+    {
+      "type": "pitch_bend",
+      "tick": 9120,
+      "value": 0.5
+    },
+    {
+      "type": "pitch_bend",
+      "tick": 9360,
+      "value": -0.5
+    },
+    {
+      "type": "pitch_bend",
+      "tick": 9600,
+      "value": 0
+    },
+    {
+      "type": "mod_wheel",
+      "tick": 10080,
+      "value": 0
+    }
+  ]
+}

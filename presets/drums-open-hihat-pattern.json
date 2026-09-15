@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "name": "Drums - Open Hi-Hat",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 240,
+      "note": 46,
+      "duration_ticks": 600,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 46,
+      "duration_ticks": 600,
+      "velocity": 72
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 46,
+      "duration_ticks": 600,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 46,
+      "duration_ticks": 600,
+      "velocity": 85
+    },
+    {
+      "type": "note",
+      "tick": 4080,
+      "note": 46,
+      "duration_ticks": 600,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5040,
+      "note": 46,
+      "duration_ticks": 600,
+      "velocity": 72
+    },
+    {
+      "type": "note",
+      "tick": 6000,
+      "note": 46,
+      "duration_ticks": 600,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 6960,
+      "note": 46,
+      "duration_ticks": 600,
+      "velocity": 85
+    }
+  ]
+}

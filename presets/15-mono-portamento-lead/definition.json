@@ -3,9 +3,9 @@
   "external_audio": null,
   "metadata": {
     "name": "Mono Portamento Lead",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "reference_pitch": "C4",
-    "description": "単音のフレーズを滑らかにつなぐ、太く前面に出るモノフォニックリード。Legatoで音をつなぐと0.09秒のPortamentoが前の音から次の音へ連続的に移り、離して弾いた場合は各音の発音が明確になる。Unison SawとSub Sineの厚みに軽いDriveが加わり、ソロやフックで前面に出る。速い旋律でも音程の中心を失わない。"
+    "description": "単音のフレーズを滑らかにつなぐ、太く前面に出るモノフォニックリード。Legatoで音をつなぐと前の音から次の音へ滑らかに移動し、離して弾いた場合は各音の発音が明確になる。Unison SawとSub Sineの厚みに軽いDriveが加わり、ソロやフックで前面に出る。速い旋律でも音程の中心を失わない。"
   },
   "performance": {
     "mode": "monophonic",
@@ -25,14 +25,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -15.5,
+      "gain_db": -24,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 0.01,
         "decay_seconds": 0.2,
         "sustain_level": 0.85,
-        "release_seconds": 0.18
+        "release_seconds": 0.12
       },
       "generator": {
         "oscillator": {
@@ -55,14 +55,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -14.5,
+      "gain_db": -17,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 0.01,
         "decay_seconds": 0.2,
         "sustain_level": 0.8,
-        "release_seconds": 0.18
+        "release_seconds": 0.12
       },
       "generator": {
         "oscillator": {
@@ -72,10 +72,10 @@
           "phase_reset": true,
           "phase": 0.0,
           "unison": {
-            "voices": 4,
-            "detune_cents": 16.0,
-            "stereo_spread": 0.6,
-            "phase_spread": 0.0
+            "voices": 3,
+            "detune_cents": 10,
+            "stereo_spread": 0.25,
+            "phase_spread": 0.3
           }
         }
       },
@@ -86,9 +86,9 @@
     {
       "type": "ladder_filter",
       "id": "front",
-      "cutoff_hz": 6500.0,
+      "cutoff_hz": 4733.284593281803,
       "resonance": 0.1,
-      "drive": 0.2
+      "drive": 0.1
     }
   ],
   "global_processors": [],
@@ -99,7 +99,7 @@
         "source": "velocity",
         "target": "layer.sub.gain",
         "depth": {
-          "value": 6.0,
+          "value": 8,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -108,8 +108,44 @@
         "source": "velocity",
         "target": "layer.saw.gain",
         "depth": {
-          "value": 6.0,
+          "value": 8,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.front.cutoff",
+        "depth": {
+          "value": 0.9,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.front.cutoff",
+        "depth": {
+          "value": 1.3229166666666667,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sub.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.saw.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
         },
         "curve": "linear"
       }

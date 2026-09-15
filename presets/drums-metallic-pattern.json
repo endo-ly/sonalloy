@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "name": "Drums - Metallic Percussion",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 72,
+      "duration_ticks": 240,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 72,
+      "duration_ticks": 240,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 72,
+      "duration_ticks": 240,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 72,
+      "duration_ticks": 240,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 72,
+      "duration_ticks": 240,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 72,
+      "duration_ticks": 240,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 4320,
+      "note": 72,
+      "duration_ticks": 240,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 5040,
+      "note": 72,
+      "duration_ticks": 240,
+      "velocity": 68
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 72,
+      "duration_ticks": 240,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 6480,
+      "note": 72,
+      "duration_ticks": 200,
+      "velocity": 75
+    },
+    {
+      "type": "note",
+      "tick": 6600,
+      "note": 72,
+      "duration_ticks": 200,
+      "velocity": 85
+    },
+    {
+      "type": "note",
+      "tick": 6720,
+      "note": 72,
+      "duration_ticks": 240,
+      "velocity": 102
+    }
+  ]
+}

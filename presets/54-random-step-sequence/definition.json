@@ -1,0 +1,206 @@
+{
+  "schema_version": 5,
+  "metadata": {
+    "name": "Random Step Sequence",
+    "author": "gpt-6-astra low",
+    "reference_pitch": "C4",
+    "description": "鍵盤を保持すると、半拍ごとの発音を保ちながら、明るさ、音量、波形の空洞感が不規則に変わるシーケンス。基本の音程と拍は安定し、長音の中で次々に異なる表情が現れる。"
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "hit",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -38,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.0,
+        "sustain_level": 1.0,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.42
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 2600.0,
+      "resonance": 0.12
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "hit_shape",
+        "type": "mseg",
+        "initial_value": -1,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.01,
+              "unit": "beats"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.14,
+              "unit": "beats"
+            },
+            "target": -0.6,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.1,
+              "unit": "beats"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.25,
+              "unit": "beats"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 0,
+          "end_segment": 4
+        }
+      },
+      {
+        "id": "level_rand",
+        "type": "sample_hold",
+        "seed": 541,
+        "rate": {
+          "value": 2,
+          "unit": "per_beat"
+        }
+      },
+      {
+        "id": "tone_rand",
+        "type": "sample_hold",
+        "seed": 542,
+        "rate": {
+          "value": 2.0,
+          "unit": "per_beat"
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "hit_shape",
+        "target": "layer.hit.gain",
+        "depth": {
+          "value": 19,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "level_rand",
+        "target": "layer.hit.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "tone_rand",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.95,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.hit.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.hit.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "tone_rand",
+        "target": "layer.hit.generator.pulse_width",
+        "depth": {
+          "value": 0.12,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "level_rand",
+        "target": "layer.hit.pan",
+        "depth": {
+          "value": 0.22,
+          "unit": "pan"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

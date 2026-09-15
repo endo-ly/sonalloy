@@ -3,9 +3,9 @@
   "external_audio": null,
   "metadata": {
     "name": "Supersaw Lead",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "reference_pitch": "C4",
-    "description": "TranceやEDMの前面を担う、厚く広がりのあるスーパーソウ系リード。30 centのDetuneを持つ7 Voice Unisonと広いStereo配置が、単音でも複数の音のずれを明確に感じさせ、コードでは大きな音の壁を作る。中央の芯を残したまま左右へ広く開き、Chorusが華やかな厚みを加える。アナログ・ソウリードより明らかに大規模な音。"
+    "description": "TranceやEDMの前面を担う、厚く広がりのあるスーパーソウ系リード。多数のDetuneしたSawと広いStereo配置により、単音でも複数の音のずれを明確に感じさせ、コードでは大きな音の壁を作る。中央の芯を残したまま左右へ広く開き、Chorusが華やかな厚みを加える。アナログ・ソウリードより明らかに大規模な音。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -23,7 +23,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -6.0,
+      "gain_db": -20.5,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -43,7 +43,7 @@
             "voices": 7,
             "detune_cents": 30.0,
             "stereo_spread": 0.9,
-            "phase_spread": 0.85
+            "phase_spread": 0.65
           }
         }
       },
@@ -55,7 +55,7 @@
       "type": "filter",
       "id": "tone",
       "mode": "low_pass",
-      "cutoff_hz": 11000.0,
+      "cutoff_hz": 8000,
       "resonance": 0.05
     }
   ],
@@ -65,9 +65,9 @@
       "id": "width",
       "delay_ms": 12.0,
       "rate_hz": 0.6,
-      "depth": 0.25,
+      "depth": 0.15,
       "width": 1.0,
-      "mix": 0.2,
+      "mix": 0.1,
       "feedback": 0.05
     },
     {
@@ -87,6 +87,33 @@
         "depth": {
           "value": 6.0,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.supersaw.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
         },
         "curve": "linear"
       }

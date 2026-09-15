@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "name": "Bass - Rhythm, Sustain and Controls",
+  "ticks_per_beat": 480,
+  "length_ticks": 11520,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 24,
+      "duration_ticks": 360,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "note": 36,
+      "duration_ticks": 360,
+      "velocity": 48
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 36,
+      "duration_ticks": 360,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 36,
+      "duration_ticks": 360,
+      "velocity": 127
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 36,
+      "duration_ticks": 84,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 2040,
+      "note": 36,
+      "duration_ticks": 84,
+      "velocity": 65
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 43,
+      "duration_ticks": 84,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 2280,
+      "note": 36,
+      "duration_ticks": 84,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "note": 48,
+      "duration_ticks": 84,
+      "velocity": 105
+    },
+    {
+      "type": "note",
+      "tick": 2520,
+      "note": 43,
+      "duration_ticks": 84,
+      "velocity": 75
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 41,
+      "duration_ticks": 84,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 2760,
+      "note": 36,
+      "duration_ticks": 84,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 36,
+      "duration_ticks": 360,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 43,
+      "duration_ticks": 360,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 41,
+      "duration_ticks": 360,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 36,
+      "duration_ticks": 360,
+      "velocity": 95
+    },
+    {
+      "type": "note",
+      "tick": 4320,
+      "note": 36,
+      "duration_ticks": 6240,
+      "velocity": 100
+    },
+    {
+      "type": "mod_wheel",
+      "tick": 7200,
+      "value": 0.7
+    },
+    {
+      "type": "mod_wheel",
+      "tick": 9600,
+      "value": 0
+    },
+    {
+      "type": "pitch_bend",
+      "tick": 10080,
+      "value": 0.5
+    },
+    {
+      "type": "pitch_bend",
+      "tick": 10320,
+      "value": 0
+    }
+  ]
+}
