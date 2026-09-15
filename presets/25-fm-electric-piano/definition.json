@@ -3,12 +3,12 @@
   "external_audio": null,
   "metadata": {
     "name": "FM Electric Piano",
-    "author": "glm-5.3-flash",
-    "description": "1980年代のFM音源を代表するエレクトリックピアノ。比率1の変調が発音直後に強くかかって硬く明るい打撃感を作り、減衰とともに暖かく丸い持続音へ移る。比率14の短命な第2Carrierがタインのきらめきを加える。Velocityが変調指数を動かすため、強い打鍵では明るく硬く、弱い打鍵では丸く穏やかに響く。4〜6音のコードでも自然にまとまる。"
+    "author": "gpt-6-astra low",
+    "description": "1980年代のFM音源を代表するエレクトリックピアノ。比率1の変調が発音直後に強くかかって硬く明るい打撃感を作り、減衰とともに暖かく丸い響きへ移り、長押しでも自然に収束する。比率14の短命な第2Carrierがタインのきらめきを加える。Velocityが変調指数を動かすため、強い打鍵では明るく硬く、弱い打鍵では丸く穏やかに響く。4〜6音のコードでも自然にまとまる。"
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 8,
+    "polyphony": 24,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -22,14 +22,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -9.0,
+      "gain_db": -12.5,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 0.002,
-        "decay_seconds": 1.2,
-        "sustain_level": 0.45,
-        "release_seconds": 0.35
+        "decay_seconds": 0.1,
+        "sustain_level": 1,
+        "release_seconds": 0.65
       },
       "generator": {
         "operator_modulation": {
@@ -39,27 +39,27 @@
             {
               "ratio": 1.0,
               "detune_cents": 0.0,
-              "level": 0.8,
+              "level": 0.9,
               "modulation_amount": 0.0,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
-                "attack_seconds": 0.0,
-                "decay_seconds": 0.9,
-                "sustain_level": 0.5,
-                "release_seconds": 0.35
+                "attack_seconds": 0.001,
+                "decay_seconds": 5,
+                "sustain_level": 0.0,
+                "release_seconds": 0.65
               }
             },
             {
               "ratio": 14.0,
               "detune_cents": 0.0,
-              "level": 0.22,
+              "level": 0.1,
               "modulation_amount": 0.0,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
                 "attack_seconds": 0.0,
-                "decay_seconds": 0.12,
+                "decay_seconds": 0.22,
                 "sustain_level": 0.0,
                 "release_seconds": 0.1
               }
@@ -68,26 +68,26 @@
               "ratio": 1.0,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 1.2,
+              "modulation_amount": 0.65,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
                 "attack_seconds": 0.0,
-                "decay_seconds": 0.6,
-                "sustain_level": 0.25,
+                "decay_seconds": 0.85,
+                "sustain_level": 0.12,
                 "release_seconds": 0.2
               }
             },
             {
-              "ratio": 1.0,
+              "ratio": 7,
               "detune_cents": 0.0,
               "level": 0.0,
-              "modulation_amount": 0.0,
+              "modulation_amount": 0.08,
               "feedback": 0.0,
               "phase": 0.0,
               "envelope": {
-                "attack_seconds": 0.0,
-                "decay_seconds": 0.05,
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.045,
                 "sustain_level": 0.0,
                 "release_seconds": 0.05
               }
@@ -100,14 +100,41 @@
       "processors": []
     }
   ],
-  "voice_processors": [],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "silk",
+      "mode": "low_pass",
+      "cutoff_hz": 8500,
+      "resonance": 0.05
+    }
+  ],
   "global_processors": [
+    {
+      "type": "chorus",
+      "id": "stereo",
+      "delay_ms": 16,
+      "rate_hz": 0.28,
+      "depth": 0.12,
+      "feedback": 0.02,
+      "width": 0.9,
+      "mix": 0.12
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.45,
+      "damping": 0.65,
+      "width": 0.85,
+      "mix": 0.065
+    },
     {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -5
     }
   ],
   "modulation": {
@@ -117,7 +144,7 @@
         "source": "velocity",
         "target": "layer.ep.generator.operator.3.modulation_amount",
         "depth": {
-          "value": 1.5,
+          "value": 1.1,
           "unit": "index"
         },
         "curve": "linear"
@@ -126,8 +153,35 @@
         "source": "velocity",
         "target": "layer.ep.gain",
         "depth": {
-          "value": 5.0,
+          "value": 10,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.ep.generator.operator.4.modulation_amount",
+        "depth": {
+          "value": 0.25,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.stereo.depth",
+        "depth": {
+          "value": 0.16,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.ep.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
         },
         "curve": "linear"
       }

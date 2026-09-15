@@ -3,12 +3,12 @@
   "external_audio": null,
   "metadata": {
     "name": "Synth Strings",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "description": "弦のアンサンブルを連想させる、滑らかで広がりのある合成コード音。16 centのDetuneを持つ5 Voice UnisonとChorusが、複数の電子音が重なった古典的なシンセストリングスらしい均一な厚みを作る。0.4秒の立ち上がりは急激すぎず、押している間は安定した厚みを保ち、離した後にも短い余韻が残る。高域は柔らかな明るさに抑え、コードの背景にも前景にも使える。"
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 8,
+    "polyphony": 24,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -22,14 +22,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -11.5,
+      "gain_db": -15.5,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 0.4,
         "decay_seconds": 0.5,
         "sustain_level": 0.85,
-        "release_seconds": 0.6
+        "release_seconds": 0.85
       },
       "generator": {
         "oscillator": {
@@ -52,9 +52,16 @@
   "voice_processors": [
     {
       "type": "filter",
+      "id": "body",
+      "mode": "high_pass",
+      "cutoff_hz": 90,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
       "id": "bow",
       "mode": "low_pass",
-      "cutoff_hz": 4800.0,
+      "cutoff_hz": 5600,
       "resonance": 0.06
     }
   ],
@@ -63,18 +70,44 @@
       "type": "chorus",
       "id": "ensemble",
       "delay_ms": 12.0,
-      "rate_hz": 0.8,
-      "depth": 0.22,
+      "rate_hz": 0.55,
+      "depth": 0.17,
       "width": 1.0,
-      "mix": 0.18,
+      "mix": 0.2,
       "feedback": 0.0
+    },
+    {
+      "type": "chorus",
+      "id": "shimmer",
+      "delay_ms": 16,
+      "rate_hz": 4.7,
+      "depth": 0.08,
+      "feedback": 0.02,
+      "width": 0.9,
+      "mix": 0.09
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.5,
+      "damping": 0.6,
+      "width": 0.85,
+      "mix": 0.08
+    },
+    {
+      "type": "filter",
+      "id": "dc_cut",
+      "mode": "high_pass",
+      "cutoff_hz": 25,
+      "resonance": 0.05
     },
     {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -5
     }
   ],
   "modulation": {
@@ -84,8 +117,26 @@
         "source": "velocity",
         "target": "layer.strings.gain",
         "depth": {
-          "value": 4.0,
+          "value": 6,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.strings.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.bow.cutoff",
+        "depth": {
+          "value": 0.55,
+          "unit": "octaves"
         },
         "curve": "linear"
       }

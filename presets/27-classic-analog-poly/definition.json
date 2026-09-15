@@ -3,12 +3,12 @@
   "external_audio": null,
   "metadata": {
     "name": "Classic Analog Poly",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "description": "コード、伴奏、短いメロディのいずれにも使える、標準的なポリフォニックシンセ。8 centのDetuneを持つ2 Voice Unison Sawが適度な厚みを作りながら各音の音程関係を明確に残す。立ち上がりはパッドより速くスタブより長い中程度の発音で、Ladder Filterの軽いDriveが明るさと丸さのバランスを取る。特定のジャンルや奏法に依存しない汎用コード音。"
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 8,
+    "polyphony": 24,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -22,14 +22,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -15.0,
+      "gain_db": -17.5,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 0.03,
         "decay_seconds": 0.3,
         "sustain_level": 0.7,
-        "release_seconds": 0.25
+        "release_seconds": 0.4
       },
       "generator": {
         "oscillator": {
@@ -42,7 +42,7 @@
             "voices": 2,
             "detune_cents": 8.0,
             "stereo_spread": 0.4,
-            "phase_spread": 0.0
+            "phase_spread": 0.35
           }
         }
       },
@@ -53,28 +53,46 @@
     {
       "type": "ladder_filter",
       "id": "tone",
-      "cutoff_hz": 3800.0,
+      "cutoff_hz": 2000,
       "resonance": 0.1,
       "drive": 0.12
     }
   ],
   "global_processors": [
     {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.4,
+      "damping": 0.65,
+      "width": 0.85,
+      "mix": 0.055
+    },
+    {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -4
     }
   ],
   "modulation": {
-    "sources": [],
+    "sources": [
+      {
+        "id": "contour",
+        "type": "envelope",
+        "attack_seconds": 0.025,
+        "decay_seconds": 0.45,
+        "sustain_level": 0.25,
+        "release_seconds": 0.35
+      }
+    ],
     "routes": [
       {
         "source": "velocity",
         "target": "layer.poly.gain",
         "depth": {
-          "value": 5.0,
+          "value": 8,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -84,6 +102,42 @@
         "target": "voice.processor.tone.cutoff",
         "depth": {
           "value": 0.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "contour",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.9,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.poly.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.55,
           "unit": "octaves"
         },
         "curve": "linear"
