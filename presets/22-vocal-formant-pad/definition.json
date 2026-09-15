@@ -3,12 +3,12 @@
   "external_audio": null,
   "metadata": {
     "name": "Vocal Formant Pad",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "description": "「アー」「オー」「ウー」の母音共鳴を連想させる合成パッド。48 PartialのSine列へ母音3 ProfileのFormantを適用し、低速のLFOが母音位置をゆっくり往復させて口の形が動くような感覚を作る。柔らかなSawのBody層が全音域の土台を支え、帯域に余裕を持たせた共鳴がコードでも鋭く突出しない声質を保つ。合唱を思わせつつ、明確に電子音として聞こえる。"
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 8,
+    "polyphony": 24,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -22,14 +22,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -15.0,
+      "gain_db": -22.4,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 1.2,
         "decay_seconds": 0.6,
         "sustain_level": 0.85,
-        "release_seconds": 1.8
+        "release_seconds": 2.5
       },
       "generator": {
         "oscillator": {
@@ -42,7 +42,7 @@
             "voices": 3,
             "detune_cents": 10.0,
             "stereo_spread": 0.5,
-            "phase_spread": 0.0
+            "phase_spread": 0.65
           }
         }
       },
@@ -51,7 +51,7 @@
           "type": "filter",
           "id": "mute",
           "mode": "low_pass",
-          "cutoff_hz": 2200.0,
+          "cutoff_hz": 1500,
           "resonance": 0.06
         }
       ]
@@ -66,14 +66,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -8.0,
+      "gain_db": -11.4,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 1.2,
         "decay_seconds": 0.6,
         "sustain_level": 0.85,
-        "release_seconds": 1.8
+        "release_seconds": 2.5
       },
       "generator": {
         "formant": {
@@ -82,34 +82,34 @@
           "vowel_position": 0.5,
           "formant_shift_cents": 0.0,
           "throat": 0.65,
-          "spectral_tilt_db_per_octave": -7.0,
+          "spectral_tilt_db_per_octave": -4,
           "profiles": [
             {
               "id": "a",
               "formants": [
                 {
-                  "frequency_hz": 560.0,
+                  "frequency_hz": 700,
                   "bandwidth_hz": 130.0,
                   "gain_db": 0.0
                 },
                 {
-                  "frequency_hz": 855.0,
+                  "frequency_hz": 1100,
                   "bandwidth_hz": 140.0,
                   "gain_db": -5.0
                 },
                 {
                   "frequency_hz": 2470.0,
-                  "bandwidth_hz": 170.0,
+                  "bandwidth_hz": 240,
                   "gain_db": -12.0
                 },
                 {
                   "frequency_hz": 3300.0,
-                  "bandwidth_hz": 180.0,
+                  "bandwidth_hz": 300,
                   "gain_db": -18.0
                 },
                 {
                   "frequency_hz": 4200.0,
-                  "bandwidth_hz": 190.0,
+                  "bandwidth_hz": 360,
                   "gain_db": -24.0
                 }
               ]
@@ -129,17 +129,17 @@
                 },
                 {
                   "frequency_hz": 2300.0,
-                  "bandwidth_hz": 160.0,
+                  "bandwidth_hz": 240,
                   "gain_db": -14.0
                 },
                 {
                   "frequency_hz": 2900.0,
-                  "bandwidth_hz": 170.0,
+                  "bandwidth_hz": 300,
                   "gain_db": -20.0
                 },
                 {
                   "frequency_hz": 3800.0,
-                  "bandwidth_hz": 180.0,
+                  "bandwidth_hz": 360,
                   "gain_db": -26.0
                 }
               ]
@@ -159,17 +159,17 @@
                 },
                 {
                   "frequency_hz": 2000.0,
-                  "bandwidth_hz": 150.0,
+                  "bandwidth_hz": 240,
                   "gain_db": -16.0
                 },
                 {
                   "frequency_hz": 2700.0,
-                  "bandwidth_hz": 160.0,
+                  "bandwidth_hz": 300,
                   "gain_db": -22.0
                 },
                 {
                   "frequency_hz": 3500.0,
-                  "bandwidth_hz": 170.0,
+                  "bandwidth_hz": 360,
                   "gain_db": -28.0
                 }
               ]
@@ -180,14 +180,41 @@
       "processors": []
     }
   ],
-  "voice_processors": [],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "dc_cut",
+      "mode": "high_pass",
+      "cutoff_hz": 30,
+      "resonance": 0.05
+    }
+  ],
   "global_processors": [
+    {
+      "type": "chorus",
+      "id": "ensemble",
+      "delay_ms": 17,
+      "rate_hz": 0.19,
+      "depth": 0.16,
+      "feedback": 0.03,
+      "width": 0.85,
+      "mix": 0.13
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.028,
+      "decay": 0.6,
+      "damping": 0.65,
+      "width": 0.9,
+      "mix": 0.1
+    },
     {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -8
     }
   ],
   "modulation": {
@@ -197,10 +224,19 @@
         "type": "lfo",
         "waveform": "sine",
         "rate": {
-          "value": 0.15,
+          "value": 0.085,
           "unit": "per_second"
         },
         "phase": 0.0
+      },
+      {
+        "id": "inflection",
+        "type": "smooth_random",
+        "seed": 22017,
+        "rate": {
+          "value": 0.18,
+          "unit": "per_second"
+        }
       }
     ],
     "routes": [
@@ -208,7 +244,7 @@
         "source": "vowel_drift",
         "target": "layer.choir.generator.formant_vowel_position",
         "depth": {
-          "value": 0.35,
+          "value": 0.48,
           "unit": "normalized"
         },
         "curve": "linear"
@@ -217,7 +253,7 @@
         "source": "velocity",
         "target": "layer.body.gain",
         "depth": {
-          "value": 4.0,
+          "value": 7,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -226,8 +262,44 @@
         "source": "velocity",
         "target": "layer.choir.gain",
         "depth": {
-          "value": 4.0,
+          "value": 7,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.choir.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "inflection",
+        "target": "layer.choir.generator.formant_shift",
+        "depth": {
+          "value": 28,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.choir.generator.formant_spectral_tilt",
+        "depth": {
+          "value": 1.5,
+          "unit": "decibels_per_octave"
         },
         "curve": "linear"
       }

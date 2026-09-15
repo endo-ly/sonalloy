@@ -25,7 +25,7 @@ sonalloy instrument inspect <preset>/definition.json --json
 |---|---|---|---|
 | ベース | C2（MIDI Note 36） | 0.5 / 0.5 | `bass-audition-pattern.json` |
 | リード | C4（MIDI Note 60） | 0.5 / 0.5 | `lead-audition-pattern.json`（11は`supersaw-chords-pattern.json`） |
-| パッド | C4（MIDI Note 60） | 2.0 / 2.0 | `padline-events.json` |
+| パッド | C4（MIDI Note 60） | 16.0 / 7.0 | `pad-audition-pattern.json` |
 | キー／コード | C4（MIDI Note 60） | 1.5 / 1.5 | `padline-events.json` |
 | プラック／マレット | C4（MIDI Note 60） | 1.5 / 1.5 | `pluck-bell-mallet-pattern.json` |
 | ベル | C4（MIDI Note 60） | 4.0 / 4.0 | `pluck-bell-mallet-pattern.json` |
@@ -55,7 +55,9 @@ sonalloy render pattern <preset>/definition.json presets/<Pattern名>.json \
 
 1〜16はPitch Bendで±2半音、Mod Wheelで音色を調整できる。5のアシッドベースと15のポルタメントリードは、音を重ねると音程が滑らかにつながる。
 
-`padline-events.json`は120 BPMの4/4を基準にしたEvent列で、絶対Frame位置はSample Rate 48000 Hzを前提とする。パッドとキー／コードの`phrase.wav`は、`render events`に`--duration-frames 230400 --tail 2.5`を指定して再生成する。
+17〜24のパッドは、長音の中での倍音変化とコードをつないだときの余韻を試聴する。`pad-audition-pattern.json`は14秒と13秒の4音コードを1秒重ねて演奏し、後半にMod Wheelを操作する。`phrase.wav`は`render pattern`に`--tail 7`を指定して再生成する。Velocityで音量、Pitch Bendで±2半音、Mod Wheelで明るさを調整できる。
+
+`padline-events.json`はキー／コード用の120 BPMの4/4を基準にしたEvent列で、絶対Frame位置はSample Rate 48000 Hzを前提とする。キー／コードの`phrase.wav`は、`render events`に`--duration-frames 230400 --tail 2.5`を指定して再生成する。
 
 プラック／ベル／マレットの`phrase.wav`は、120 BPMの共通Patternで音色と減衰を比較する。同音の弱・中・強、8分音符のアルペジオ、4音の和音、長く保持する単音の順に演奏する。プラック／マレットは`--tail 2`、ベルは`--tail 4`で再生成する。
 
