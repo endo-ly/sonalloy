@@ -500,15 +500,20 @@ pub(crate) fn pattern_export_events(
             },
         });
     }
-    for event in pattern_events {
-        events.push(ExportEvent {
+    events.extend(midi_export_events(pattern_events));
+    Ok(events)
+}
+
+pub(crate) fn midi_export_events(pattern_events: &[PatternMidiEvent]) -> Vec<ExportEvent> {
+    pattern_events
+        .iter()
+        .map(|event| ExportEvent {
             tick: event.tick,
             priority: event.kind.priority().saturating_add(1),
             source_index: event.source_index,
             kind: ExportEventKind::Midi(event.kind),
-        });
-    }
-    Ok(events)
+        })
+        .collect()
 }
 
 pub(crate) fn build_track(

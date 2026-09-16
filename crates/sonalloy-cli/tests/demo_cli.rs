@@ -222,6 +222,16 @@ fn demo_export_midi_writes_conductor_and_part_tracks() {
             midly::TrackEventKind::Meta(midly::MetaMessage::TimeSignature(4, 2, _, _))
         )
     }));
+    assert!(smf.tracks[1..].iter().all(|track| {
+        track.iter().all(|event| {
+            !matches!(
+                event.kind,
+                midly::TrackEventKind::Meta(
+                    midly::MetaMessage::Tempo(_) | midly::MetaMessage::TimeSignature(_, _, _, _)
+                )
+            )
+        })
+    }));
     assert!(smf.tracks.iter().all(|track| track_end_tick(track) == 960));
 }
 

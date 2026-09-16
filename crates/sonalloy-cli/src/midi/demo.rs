@@ -4,7 +4,7 @@ use midly::{Format, Header, Smf, Timing, num::u15};
 use sonalloy_core::{Diagnostic, DiagnosticCode};
 
 use crate::demo::LoadedDemo;
-use crate::midi::pattern::{build_track, midi_events, pattern_export_events};
+use crate::midi::pattern::{build_track, midi_events, midi_export_events, pattern_export_events};
 
 pub(crate) fn export_demo(path: &Path, demo: &LoadedDemo) -> Result<(), Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
@@ -33,11 +33,7 @@ pub(crate) fn export_demo(path: &Path, demo: &LoadedDemo) -> Result<(), Vec<Diag
             Ok(events) => events,
             Err(diagnostics) => return Err(prefix_pattern_diagnostics(diagnostics, index)),
         };
-        let events = match pattern_export_events(&part.pattern, &events) {
-            Ok(events) => events,
-            Err(diagnostics) => return Err(prefix_pattern_diagnostics(diagnostics, index)),
-        };
-        part_events.push(events);
+        part_events.push(midi_export_events(&events));
     }
 
     let conductor_name = demo.definition.name.as_deref().map(str::as_bytes);
