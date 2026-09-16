@@ -1,9 +1,37 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Random Step Sequence",
     "author": "gpt-6-astra low",
-    "description": "鍵盤を保持すると、半拍ごとの発音を保ちながら、明るさ、音量、波形の空洞感が不規則に変わるシーケンス。基本の音程と拍は安定し、長音の中で次々に異なる表情が現れる。"
+    "description": "鍵盤を保持すると、半拍ごとの発音を保ちながら、明るさ、音量、波形の空洞感が不規則に変わるシーケンス。基本の音程と拍は安定し、長音の中で次々に異なる表情が現れる。",
+    "category": "Sequence",
+    "tags": [
+      "Random",
+      "Sequence",
+      "Motion",
+      "Rhythmic"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 72
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 3360,
+          "note": 60,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

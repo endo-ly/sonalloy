@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Bright Wide Pad",
     "author": "gpt-6-astra low",
-    "description": "明るい高域と大きな左右方向の広がりを持つ華やかなパッド。22 centのDetuneを持つ7 Voice Unisonが、単音でも複数の音のずれを感じさせ、コードを大きく左右へ開く。0.9秒の立ち上がりはスーパーソウリードより確実に遅く、Chorusと合わせて背景へ馴染む。複数音を重ねても透明感と広がりが残る。"
+    "description": "明るい高域と大きな左右方向の広がりを持つ華やかなパッド。22 centのDetuneを持つ7 Voice Unisonが、単音でも複数の音のずれを感じさせ、コードを大きく左右へ開く。0.9秒の立ち上がりはスーパーソウリードより確実に遅く、Chorusと合わせて背景へ馴染む。複数音を重ねても透明感と広がりが残る。",
+    "category": "Pad",
+    "tags": [
+      "Bright",
+      "Wide",
+      "Polyphonic",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 74,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

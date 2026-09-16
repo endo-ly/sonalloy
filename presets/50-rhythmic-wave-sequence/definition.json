@@ -1,9 +1,37 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Rhythmic Wave Sequence",
     "author": "gpt-6-astra low",
-    "description": "鍵盤を保持すると、同じ音程を持つ複数の音色がテンポに同期して順番に切り替わるウェーブシーケンス。柔らかな音から硬い響きまでを巡り、音色の交代そのものがリズムになる。"
+    "description": "鍵盤を保持すると、同じ音程を持つ複数の音色がテンポに同期して順番に切り替わるウェーブシーケンス。柔らかな音から硬い響きまでを巡り、音色の交代そのものがリズムになる。",
+    "category": "Sequence",
+    "tags": [
+      "Wavetable",
+      "Sequence",
+      "Motion",
+      "Rhythmic"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 72
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 3360,
+          "note": 60,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

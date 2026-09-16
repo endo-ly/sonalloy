@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Wavetable Motion Pad",
     "author": "gpt-6-astra low",
-    "description": "長いコードの中で倍音構成が別の形へ移り変わるデジタル系パッド。SineからOrgan、Hollow、Bright、Complexへと並ぶ12フレームのWavetableを、発音してから7秒ほどかけて単方向に走査する。開始時と後半で音色が明確に変わり、その間は滑らかにつながる。一定周期の揺れではなく時間方向の展開が特徴の、人工的で複雑な質感。"
+    "description": "長いコードの中で倍音構成が別の形へ移り変わるデジタル系パッド。SineからOrgan、Hollow、Bright、Complexへと並ぶ12フレームのWavetableを、発音してから7秒ほどかけて単方向に走査する。開始時と後半で音色が明確に変わり、その間は滑らかにつながる。一定周期の揺れではなく時間方向の展開が特徴の、人工的で複雑な質感。",
+    "category": "Pad",
+    "tags": [
+      "Wavetable",
+      "Digital",
+      "Motion",
+      "Evolving"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 72,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

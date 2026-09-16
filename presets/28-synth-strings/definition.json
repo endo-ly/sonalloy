@@ -1,10 +1,80 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Synth Strings",
     "author": "gpt-6-astra low",
-    "description": "弦のアンサンブルを連想させる、滑らかで広がりのある合成コード音。16 centのDetuneを持つ5 Voice UnisonとChorusが、複数の電子音が重なった古典的なシンセストリングスらしい均一な厚みを作る。0.4秒の立ち上がりは急激すぎず、押している間は安定した厚みを保ち、離した後にも短い余韻が残る。高域は柔らかな明るさに抑え、コードの背景にも前景にも使える。"
+    "description": "弦のアンサンブルを連想させる、滑らかで広がりのある合成コード音。16 centのDetuneを持つ5 Voice UnisonとChorusが、複数の電子音が重なった古典的なシンセストリングスらしい均一な厚みを作る。0.4秒の立ち上がりは急激すぎず、押している間は安定した厚みを保ち、離した後にも短い余韻が残る。高域は柔らかな明るさに抑え、コードの背景にも前景にも使える。",
+    "category": "Poly",
+    "tags": [
+      "Analog",
+      "Wide",
+      "Sustained",
+      "Polyphonic"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 71,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 62,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 65,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 69,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 72,
+          "velocity": 105
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

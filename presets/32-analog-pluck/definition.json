@@ -1,9 +1,55 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Analog Pluck",
     "author": "gpt-6-astra low",
-    "description": "明るい立ち上がりから温かく丸い音へ収まるアナログ系プラック。中央に音程の芯を保ち、わずかに広がる倍音が短い和音とアルペジオに厚みを添える。強い打鍵ほど輪郭が開き、鍵盤を保持しても自然に減衰する。"
+    "description": "明るい立ち上がりから温かく丸い音へ収まるアナログ系プラック。中央に音程の芯を保ち、わずかに広がる倍音が短い和音とアルペジオに厚みを添える。強い打鍵ほど輪郭が開き、鍵盤を保持しても自然に減衰する。",
+    "category": "Pluck",
+    "tags": [
+      "Analog",
+      "Plucky",
+      "Warm",
+      "Bright"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 90
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 110
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 105
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

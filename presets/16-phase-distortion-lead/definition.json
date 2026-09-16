@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Phase Distortion Lead",
     "author": "gpt-6-astra low",
-    "description": "波形の時間方向の形を強く変形させ、鋭く独特な倍音を生むデジタル系リード。Sine基音の位相を歪ませるPhase Distortionが、通常のパルスやソウより硬く、FMほど金属的ではない中間的な質感を作る。保持中は低速のLFOが変形量を動かし、明るさだけでなく倍音の並び方そのものが連続的に変化する。80年代的なデジタル感から現代的な攻撃音まで幅広く使える。"
+    "description": "波形の時間方向の形を強く変形させ、鋭く独特な倍音を生むデジタル系リード。Sine基音の位相を歪ませるPhase Distortionが、通常のパルスやソウより硬く、FMほど金属的ではない中間的な質感を作る。保持中は低速のLFOが変形量を動かし、明るさだけでなく倍音の並び方そのものが連続的に変化する。80年代的なデジタル感から現代的な攻撃音まで幅広く使える。",
+    "category": "Lead",
+    "tags": [
+      "Digital",
+      "Bright",
+      "Motion",
+      "Aggressive"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 90
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 240,
+          "note": 65,
+          "velocity": 105
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 240,
+          "note": 71,
+          "velocity": 115
+        },
+        {
+          "tick": 1080,
+          "duration_ticks": 360,
+          "note": 77,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "monophonic",

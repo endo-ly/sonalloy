@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "FM Digital Lead",
     "author": "gpt-6-astra low",
-    "description": "FM音源らしい硬質で精密な倍音を持つデジタルリード。変調を保持中も持続させるため、発音直後から音の終わりまでデジタルらしい複雑さが続く。高い比率の第2Carrierが倍音の支えを加え、金属感と明確な音程感を両立する。ベルのように自然減衰せず、鍵盤を押している間はリードとして持続する。速いフレーズでも音程と輪郭が明確。"
+    "description": "FM音源らしい硬質で精密な倍音を持つデジタルリード。変調を保持中も持続させるため、発音直後から音の終わりまでデジタルらしい複雑さが続く。高い比率の第2Carrierが倍音の支えを加え、金属感と明確な音程感を両立する。ベルのように自然減衰せず、鍵盤を押している間はリードとして持続する。速いフレーズでも音程と輪郭が明確。",
+    "category": "Lead",
+    "tags": [
+      "FM",
+      "Digital",
+      "Bright",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 90
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 105
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 115
+        },
+        {
+          "tick": 1080,
+          "duration_ticks": 360,
+          "note": 79,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "monophonic",

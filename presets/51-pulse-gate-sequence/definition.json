@@ -1,9 +1,37 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Pulse Gate Sequence",
     "author": "gpt-6-astra low",
-    "description": "広がりのある持続音を16分音符のパターンで区切るゲートシーケンス。音量がしっかり閉じる休符と短いアクセントがあり、コードを押さえるだけで明確な脈動を作る。"
+    "description": "広がりのある持続音を16分音符のパターンで区切るゲートシーケンス。音量がしっかり閉じる休符と短いアクセントがあり、コードを押さえるだけで明確な脈動を作る。",
+    "category": "Sequence",
+    "tags": [
+      "Gated",
+      "Sequence",
+      "Rhythmic",
+      "Wide"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 72
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 3360,
+          "note": 60,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

@@ -6,6 +6,7 @@ use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::parameter::is_component_id;
 
 mod generator;
+mod metadata;
 mod modulation;
 mod processor;
 
@@ -17,6 +18,8 @@ use generator::{
     validate_sample, validate_spectral, validate_trigger, validate_wave_sequence,
     validate_wavetable,
 };
+use metadata::validate_metadata;
+pub use metadata::*;
 pub use modulation::*;
 use modulation::{validate_macros, validate_modulation, validate_vectors};
 pub(crate) use processor::MAX_DELAY_TAPS;
@@ -24,7 +27,7 @@ pub use processor::*;
 use processor::{ProcessorPlacement, validate_processor_chain, validate_processor_resource_limits};
 
 /// The Definition schema accepted by the compiler.
-pub const CURRENT_SCHEMA_VERSION: u32 = 5;
+pub const CURRENT_SCHEMA_VERSION: u32 = 6;
 
 /// Stable identifier assigned to a layer.
 pub type LayerId = String;
@@ -88,20 +91,6 @@ impl ExternalAudioChannels {
             Self::Stereo => 2,
         }
     }
-}
-
-/// Human-readable instrument information.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InstrumentMetadata {
-    /// Instrument name.
-    pub name: String,
-    /// Optional author name.
-    #[serde(default)]
-    pub author: Option<String>,
-    /// Optional description.
-    #[serde(default)]
-    pub description: Option<String>,
 }
 
 /// Performance settings owned by the runtime.
@@ -225,6 +214,7 @@ impl InstrumentDefinition {
                     .with_path("metadata.name"),
             );
         }
+        validate_metadata(&mut diagnostics, &self.metadata);
         match &self.performance {
             PerformanceDefinition::Polyphonic { polyphony, .. } => {
                 if !(1..=64).contains(polyphony) {
@@ -510,6 +500,10 @@ pub(crate) mod tests {
                 name: "Test".to_owned(),
                 author: None,
                 description: None,
+                category: None,
+                tags: Vec::new(),
+                recommended_range: None,
+                preview: None,
             },
             performance: PerformanceDefinition::Polyphonic {
                 polyphony: 4,

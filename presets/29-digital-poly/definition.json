@@ -1,10 +1,80 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Digital Poly",
     "author": "gpt-6-astra low",
-    "description": "明瞭で精密な倍音を持つ、現代的なデジタル系コード音。Wavetableの中間Positionで静止させた硬質な倍音構成に、6 centとタイトなDetuneの2 Voice Unisonを合わせ、輪郭の明るさと透明な高域を確保する。アナログポリシンセより輪郭が硬く、複数音を重ねても濁りにくい。プラックのように減衰せず鍵盤を押している間は安定して持続し、速いコード進行でも各和音の切り替わりが明確。"
+    "description": "明瞭で精密な倍音を持つ、現代的なデジタル系コード音。Wavetableの中間Positionで静止させた硬質な倍音構成に、6 centとタイトなDetuneの2 Voice Unisonを合わせ、輪郭の明るさと透明な高域を確保する。アナログポリシンセより輪郭が硬く、複数音を重ねても濁りにくい。プラックのように減衰せず鍵盤を押している間は安定して持続し、速いコード進行でも各和音の切り替わりが明確。",
+    "category": "Poly",
+    "tags": [
+      "Digital",
+      "Polyphonic",
+      "Bright",
+      "Chord"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 71,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 62,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 65,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 69,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 72,
+          "velocity": 105
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

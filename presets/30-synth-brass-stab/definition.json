@@ -1,10 +1,80 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Synth Brass Stab",
     "author": "gpt-6-astra low",
-    "description": "House、Techno、Synthwaveのコードを一発で鳴らす、太く力強いシンセブラス。Sawに控えめなPulseを重ねて芯を支え、深いFilter Envelopeが発音直後の明るく勢いのある立ち上がりを作り、0.5秒ほどかけて丸く減衰する。Ladder FilterのDriveが金管のような芯を加えつつ、古典的なシンセサイザーらしい人工的な質感を保つ。1回のコードが明確な塊として聞こえ、パッドのようには広がり続けない。"
+    "description": "House、Techno、Synthwaveのコードを一発で鳴らす、太く力強いシンセブラス。Sawに控えめなPulseを重ねて芯を支え、深いFilter Envelopeが発音直後の明るく勢いのある立ち上がりを作り、0.5秒ほどかけて丸く減衰する。Ladder FilterのDriveが金管のような芯を加えつつ、古典的なシンセサイザーらしい人工的な質感を保つ。1回のコードが明確な塊として聞こえ、パッドのようには広がり続けない。",
+    "category": "Stab",
+    "tags": [
+      "Analog",
+      "Aggressive",
+      "Punchy",
+      "Chord"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 62,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 65,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 69,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 74,
+          "velocity": 115
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

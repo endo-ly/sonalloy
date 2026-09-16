@@ -10,6 +10,67 @@
 
 `assets/`はSample、Wavetableなど、定義から参照するWAV Assetの配置先である。
 
+## Library metadata
+
+各`definition.json`の`metadata`には、音源をLibraryで見つけて用途を判断し、短い演奏で試聴するための情報を設定する。一般のDefinitionではLibrary項目を省略できるが、Built-in Presetでは`category`、`tags`、`recommended_range`、`preview`をすべて設定する。
+
+### Category
+
+Categoryは1音源の主な役割を表す。分類を固定することで、検索結果のまとまりと表示順を保つ。
+
+| Category | 意味 |
+|---|---|
+| `Bass` | 低域を支える音源 |
+| `Lead` | 単音の旋律や前景を担う音源 |
+| `Pad` | 長く持続する背景・空間音 |
+| `Keys` | ピアノやオルガンのような鍵盤音 |
+| `Poly` | コードや複数音を重ねて使う汎用音 |
+| `Stab` | 短いコードを一打で鳴らす音源 |
+| `Pluck` | 発音直後の輪郭と自然な減衰を使う音源 |
+| `Mallet` | ベルやマレットのような有音程打撃音 |
+| `Drums` | キック、スネア、ハイハットなどのドラム音 |
+| `Percussion` | シェイカーや金属音などの打楽器 |
+| `Sequence` | 保持中にリズムや音色が進む音源 |
+| `FX` | 上昇、下降、衝撃、質感などの演出音 |
+
+### Tag vocabulary
+
+Tagは音色、音源方式、動き、役割を補足する。Preset間で同じ語を使うため、表記違いの同義語を増やさない。
+
+| 分類 | 使用できるTag |
+|---|---|
+| Tone / texture | `Warm`, `Bright`, `Dark`, `Clean`, `Noisy`, `Metallic`, `Glassy`, `Soft`, `Aggressive`, `Punchy`, `Wide`, `Deep` |
+| Synthesis / source | `Analog`, `Digital`, `FM`, `Wavetable`, `Wavefold`, `Additive`, `Formant`, `Granular`, `Physical`, `Spectral`, `Noise` |
+| Behavior | `Mono`, `Polyphonic`, `Motion`, `Rhythmic`, `Sustained`, `Plucky`, `Percussive`, `Evolving`, `Gated`, `Random` |
+| Character / role | `Sub`, `Acid`, `Reese`, `Supersaw`, `Drone`, `Chord`, `Bell`, `Kick`, `Snare`, `Clap`, `Hihat`, `Crash`, `Tom`, `Rim`, `Shaker`, `Riser`, `Impact`, `Sequence`, `Texture` |
+
+各Presetには2〜5個のTagを設定する。Tagは音源の実装と説明に基づいて選び、名前だけから追加しない。
+
+### Recommended Range
+
+`recommended_range`はRuntimeが発音できる範囲ではなく、その音源を実用的に使いやすいMIDI Noteの範囲である。代表Noteを必ず含め、低端・中央・高端で有効な音声を確認して設定する。固定打撃音は代表Note付近へ絞り、音程に追従する音源は用途を保てる連続範囲を設定する。
+
+### Preview
+
+`preview`はBrowserからすぐ試聴するためのNote列である。共通値は120 BPM、480 ticks/beat、4/4とし、同じTickのNoteでChordを表現する。Previewの全NoteはRecommended Range内に置く。
+
+| Category | 長さ | 構成 |
+|---|---:|---|
+| Bass | 1920 ticks | 低域の3音をtick 0 / 480 / 960へ配置 |
+| Lead | 1920 ticks | 中域の4音をtick 0 / 360 / 720 / 1080へ配置 |
+| Pad | 1920 ticks | 3〜4音のChordをtick 0から1440 ticks保持 |
+| Keys | 1920 ticks | 1回のChordと2回の単音 |
+| Poly | 1920 ticks | 4音Chordを2回 |
+| Stab | 1920 ticks | 短い3〜4音Chordを2回 |
+| Pluck | 1920 ticks | 短音4つを順番に配置 |
+| Mallet | 1920 ticks | 中短音4つを順番に配置 |
+| Drums | 1920 ticks | 代表Noteを4回、Velocity 90 / 110 / 100 / 120 |
+| Percussion | 1920 ticks | 代表Noteを8分刻みで6回 |
+| Sequence | 3840 ticks | 代表Noteをtick 0から3360 ticks保持 |
+| FX | Presetごと | 音源の役割に合わせた長さとNote列 |
+
+55〜60の個別ルールは次のとおり。55はNote 48を4.5秒、56はNote 60を3.5秒、57はNote 36を3.2秒、58はNote 45を3.2秒保持する。59はNote 60を短く3回、60はNote 60を6秒保持する。
+
 ## 定義の検証
 
 ```bash

@@ -1,9 +1,55 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Electronic Snare",
     "author": "gpt-6-astra low",
-    "description": "短い膜の胴鳴りに明るいノイズのざらつきが重なる電子スネア。低い芯が先に収まり、ノイズが少し長く残る。強い打鍵では輪郭が明るくなる。"
+    "description": "短い膜の胴鳴りに明るいノイズのざらつきが重なる電子スネア。低い芯が先に収まり、ノイズが少し長く残る。強い打鍵では輪郭が明るくなる。",
+    "category": "Drums",
+    "tags": [
+      "Snare",
+      "Percussive",
+      "Noisy",
+      "Punchy"
+    ],
+    "recommended_range": {
+      "min_midi": 38,
+      "max_midi": 38
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 120
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

@@ -1,10 +1,80 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Supersaw Lead",
     "author": "gpt-6-astra low",
-    "description": "TranceやEDMの前面を担う、厚く広がりのあるスーパーソウ系リード。多数のDetuneしたSawと広いStereo配置により、単音でも複数の音のずれを明確に感じさせ、コードでは大きな音の壁を作る。中央の芯を残したまま左右へ広く開き、Chorusが華やかな厚みを加える。アナログ・ソウリードより明らかに大規模な音。"
+    "description": "TranceやEDMの前面を担う、厚く広がりのあるスーパーソウ系リード。多数のDetuneしたSawと広いStereo配置により、単音でも複数の音のずれを明確に感じさせ、コードでは大きな音の壁を作る。中央の芯を残したまま左右へ広く開き、Chorusが華やかな厚みを加える。アナログ・ソウリードより明らかに大規模な音。",
+    "category": "Lead",
+    "tags": [
+      "Supersaw",
+      "Wide",
+      "Bright",
+      "Polyphonic"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 60,
+          "velocity": 96
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 64,
+          "velocity": 96
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 67,
+          "velocity": 96
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 72,
+          "velocity": 96
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 62,
+          "velocity": 108
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 65,
+          "velocity": 108
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 69,
+          "velocity": 108
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 74,
+          "velocity": 108
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

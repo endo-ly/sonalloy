@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Vocal Formant Pad",
     "author": "gpt-6-astra low",
-    "description": "「アー」「オー」「ウー」の母音共鳴を連想させる合成パッド。48 PartialのSine列へ母音3 ProfileのFormantを適用し、低速のLFOが母音位置をゆっくり往復させて口の形が動くような感覚を作る。柔らかなSawのBody層が全音域の土台を支え、帯域に余裕を持たせた共鳴がコードでも鋭く突出しない声質を保つ。合唱を思わせつつ、明確に電子音として聞こえる。"
+    "description": "「アー」「オー」「ウー」の母音共鳴を連想させる合成パッド。48 PartialのSine列へ母音3 ProfileのFormantを適用し、低速のLFOが母音位置をゆっくり往復させて口の形が動くような感覚を作る。柔らかなSawのBody層が全音域の土台を支え、帯域に余裕を持たせた共鳴がコードでも鋭く突出しない声質を保つ。合唱を思わせつつ、明確に電子音として聞こえる。",
+    "category": "Pad",
+    "tags": [
+      "Formant",
+      "Evolving",
+      "Wide",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 65,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 69,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 72,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

@@ -1,9 +1,55 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Digital Crystal Pluck",
     "author": "gpt-6-astra low",
-    "description": "細く透明な音程の芯に、小さなガラス片を弾いたような輝きが重なるプラック。高い成分ほど速く減衰し、短い余韻に澄んだ響きが残る。強い打鍵で輝きが増し、アルペジオやコードの中でも軽さを保つ。"
+    "description": "細く透明な音程の芯に、小さなガラス片を弾いたような輝きが重なるプラック。高い成分ほど速く減衰し、短い余韻に澄んだ響きが残る。強い打鍵で輝きが増し、アルペジオやコードの中でも軽さを保つ。",
+    "category": "Pluck",
+    "tags": [
+      "Digital",
+      "Plucky",
+      "Glassy",
+      "Bright"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 90
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 110
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 105
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

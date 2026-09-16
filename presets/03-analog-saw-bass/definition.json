@@ -1,10 +1,50 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Analog Saw Bass",
     "author": "gpt-6-astra low",
-    "description": "太いSaw倍音とSub Sineの芯を持つ、標準的なアナログ系シンセベース。Ladder FilterとFilter Envelopeにより、発音直後の適度な明るさと勢いから丸く落ち着いた持続へ移る。House、Techno、Synth Popなど幅広い楽曲のベースラインに使える汎用性を持つ。"
+    "description": "太いSaw倍音とSub Sineの芯を持つ、標準的なアナログ系シンセベース。Ladder FilterとFilter Envelopeにより、発音直後の適度な明るさと勢いから丸く落ち着いた持続へ移る。House、Techno、Synth Popなど幅広い楽曲のベースラインに使える汎用性を持つ。",
+    "category": "Bass",
+    "tags": [
+      "Analog",
+      "Warm",
+      "Sub",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 60
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 360,
+          "note": 36,
+          "velocity": 96
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 360,
+          "note": 48,
+          "velocity": 108
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 480,
+          "note": 55,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "monophonic",

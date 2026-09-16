@@ -1,9 +1,55 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Open Hi-Hat",
     "author": "gpt-6-astra low",
-    "description": "クローズド・ハイハットと共通の金属質を持ち、余韻まで複雑な振動が残るオープン・ハイハット。高域のざらつきと金属の尾が一体になって減衰する。クローズドより明らかに長く、クラッシュより短い余韻を持つ。"
+    "description": "クローズド・ハイハットと共通の金属質を持ち、余韻まで複雑な振動が残るオープン・ハイハット。高域のざらつきと金属の尾が一体になって減衰する。クローズドより明らかに長く、クラッシュより短い余韻を持つ。",
+    "category": "Drums",
+    "tags": [
+      "Hihat",
+      "Metallic",
+      "Percussive",
+      "Noisy"
+    ],
+    "recommended_range": {
+      "min_midi": 46,
+      "max_midi": 46
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 46,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 46,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 46,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 46,
+          "velocity": 120
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

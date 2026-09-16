@@ -1,9 +1,55 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Noise Snare",
     "author": "gpt-6-astra low",
-    "description": "一つの鋭い衝撃から高域のノイズが短く収束するスネア。中域の小さな打撃が輪郭を支え、低音の胴鳴りを抑えた乾いた音。"
+    "description": "一つの鋭い衝撃から高域のノイズが短く収束するスネア。中域の小さな打撃が輪郭を支え、低音の胴鳴りを抑えた乾いた音。",
+    "category": "Drums",
+    "tags": [
+      "Snare",
+      "Noise",
+      "Percussive",
+      "Bright"
+    ],
+    "recommended_range": {
+      "min_midi": 38,
+      "max_midi": 38
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 120
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

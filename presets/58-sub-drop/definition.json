@@ -1,9 +1,37 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Sub Drop",
     "author": "gpt-6-astra low",
-    "description": "中低域から数秒かけて深い低音へ滑らかに沈むサブドロップ。音程が下がる間も低音の芯を保ち、そのまま減衰して一回の演出として収束する。"
+    "description": "中低域から数秒かけて深い低音へ滑らかに沈むサブドロップ。音程が下がる間も低音の芯を保ち、そのまま減衰して一回の演出として収束する。",
+    "category": "FX",
+    "tags": [
+      "Sub",
+      "Deep",
+      "Motion",
+      "Evolving"
+    ],
+    "recommended_range": {
+      "min_midi": 33,
+      "max_midi": 57
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3360,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 3072,
+          "note": 45,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

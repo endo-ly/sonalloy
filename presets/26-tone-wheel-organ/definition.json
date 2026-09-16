@@ -1,10 +1,68 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Tone Wheel Organ",
     "author": "gpt-6-astra low",
-    "description": "Hammond系オルガンを連想させる、倍音が規則的に積み重なる持続鍵盤音。9本のドローバーに対応する0.5〜8倍のSine Partial（サブオクターブ、クイント、5倍音を含む）を加算し、単音でも複数の倍音が明確に聞こえる。鍵盤を押している間はほぼ一定の音量で鳴り続け、コードでは厚い和音を形成する。軽いChorusが回転スピーカー風のうるおいを添える素のオルガン音。"
+    "description": "Hammond系オルガンを連想させる、倍音が規則的に積み重なる持続鍵盤音。9本のドローバーに対応する0.5〜8倍のSine Partial（サブオクターブ、クイント、5倍音を含む）を加算し、単音でも複数の倍音が明確に聞こえる。鍵盤を押している間はほぼ一定の音量で鳴り続け、コードでは厚い和音を形成する。軽いChorusが回転スピーカー風のうるおいを添える素のオルガン音。",
+    "category": "Keys",
+    "tags": [
+      "Additive",
+      "Sustained",
+      "Polyphonic",
+      "Warm"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 71,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 360,
+          "note": 67,
+          "velocity": 95
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 360,
+          "note": 72,
+          "velocity": 110
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

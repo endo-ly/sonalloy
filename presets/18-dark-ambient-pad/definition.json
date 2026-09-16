@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Dark Ambient Pad",
     "author": "gpt-6-astra low",
-    "description": "暗く沈んだ雰囲気を作るアンビエントパッド。TriangleとSineだけで倍音を絞り、低いLadder Filterが明るい成分を抑える。2.5秒の立ち上がりでゆっくり存在感が現れ、長いReverbが少し遠くで鳴るような奥行きを与える。低中域を中心に深く、Ambient、Cinematic、暗い電子音楽の背景に適する。"
+    "description": "暗く沈んだ雰囲気を作るアンビエントパッド。TriangleとSineだけで倍音を絞り、低いLadder Filterが明るい成分を抑える。2.5秒の立ち上がりでゆっくり存在感が現れ、長いReverbが少し遠くで鳴るような奥行きを与える。低中域を中心に深く、Ambient、Cinematic、暗い電子音楽の背景に適する。",
+    "category": "Pad",
+    "tags": [
+      "Dark",
+      "Drone",
+      "Sustained",
+      "Soft"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 48,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 55,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 63,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

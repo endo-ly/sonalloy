@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Pulse Lead",
     "author": "gpt-6-astra low",
-    "description": "SquareやPulse系を連想させる、細身で明快な電子リード。Pulse波の輪郭を優先し、厚みよりも各音の芯と音程の明確さを取る。C3からC7付近まで性格が変わらず、高音域でも音の芯が残る。ゲーム音楽、Electro、Synth Popの旋律に適する。"
+    "description": "SquareやPulse系を連想させる、細身で明快な電子リード。Pulse波の輪郭を優先し、厚みよりも各音の芯と音程の明確さを取る。C3からC7付近まで性格が変わらず、高音域でも音の芯が残る。ゲーム音楽、Electro、Synth Popの旋律に適する。",
+    "category": "Lead",
+    "tags": [
+      "Bright",
+      "Digital",
+      "Sustained",
+      "Punchy"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 60,
+          "velocity": 90
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 180,
+          "note": 64,
+          "velocity": 105
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 180,
+          "note": 71,
+          "velocity": 115
+        },
+        {
+          "tick": 1080,
+          "duration_ticks": 360,
+          "note": 74,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "monophonic",

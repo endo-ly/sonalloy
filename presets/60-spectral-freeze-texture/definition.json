@@ -1,9 +1,37 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Spectral Freeze Texture",
     "author": "gpt-6-astra low",
-    "description": "音響の断面が空間に残り続けるスペクトラル・テクスチャ。静止した響きの中で周波数成分と位置がゆっくり変わり、持続する背景音に細かな揺らぎと奥行きを作る。"
+    "description": "音響の断面が空間に残り続けるスペクトラル・テクスチャ。静止した響きの中で周波数成分と位置がゆっくり変わり、持続する背景音に細かな揺らぎと奥行きを作る。",
+    "category": "FX",
+    "tags": [
+      "Spectral",
+      "Texture",
+      "Evolving",
+      "Wide"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 72
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 6240,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 5760,
+          "note": 60,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

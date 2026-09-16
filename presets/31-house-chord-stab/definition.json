@@ -1,10 +1,80 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "House Chord Stab",
     "author": "gpt-6-astra low",
-    "description": "HouseやGarage系の反復コードに使いやすい、短くまとまったコード音。Square波の輪郭に速いFilter Envelopeが加わり、発音直後の中高域の筋がすぐ減衰して次のコードのための空間を残す。長押しでも音量が自然に収束する。200HzのHigh Passが低中域の重なりを切り捨て、シンセブラスより軽く金管らしさの弱い質感を作る。4和音を短く連続させても濁らず、リズムの一部としてコードを置ける。"
+    "description": "HouseやGarage系の反復コードに使いやすい、短くまとまったコード音。Square波の輪郭に速いFilter Envelopeが加わり、発音直後の中高域の筋がすぐ減衰して次のコードのための空間を残す。長押しでも音量が自然に収束する。200HzのHigh Passが低中域の重なりを切り捨て、シンセブラスより軽く金管らしさの弱い質感を作る。4和音を短く連続させても濁らず、リズムの一部としてコードを置ける。",
+    "category": "Stab",
+    "tags": [
+      "Digital",
+      "Chord",
+      "Punchy",
+      "Gated"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 62,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 65,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 69,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 74,
+          "velocity": 115
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",
