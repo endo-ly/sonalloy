@@ -55,6 +55,10 @@ pub(crate) fn master(
         Some(output),
         sample_rate,
     )?;
+    let normalization_type = second_pass.normalization_type.ok_or_else(|| FfmpegError {
+        not_found: false,
+        detail: "FFmpeg loudnorm report did not contain normalization_type".to_owned(),
+    })?;
     Ok(MasterReport {
         input_i: first_pass.input_i,
         input_tp: first_pass.input_tp,
@@ -62,9 +66,7 @@ pub(crate) fn master(
         output_i: second_pass.output_i,
         output_tp: second_pass.output_tp,
         output_lra: second_pass.output_lra,
-        normalization_type: second_pass
-            .normalization_type
-            .unwrap_or_else(|| "linear".to_owned()),
+        normalization_type,
     })
 }
 
@@ -213,6 +215,7 @@ fn json_number(value: &Value) -> Option<f64> {
     value
         .as_f64()
         .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
+        .filter(|value| value.is_finite())
 }
 
 #[cfg(test)]
@@ -255,5 +258,17 @@ mod tests {
         assert_eq!(report.output_lra, Some(5.1));
         assert_eq!(report.normalization_type.as_deref(), Some("linear"));
         assert!(find_json_object("no report").is_none());
+    }
+
+    #[test]
+    fn loudnorm_report_omits_non_finite_measurements() {
+        let report = parse_loudnorm_report(
+            r#"{"input_i":"-inf","input_tp":"NaN","input_lra":"0.0","normalization_type":"dynamic"}"#,
+        )
+        .expect("loudnorm report parses");
+
+        assert_eq!(report.input_i, None);
+        assert_eq!(report.input_tp, None);
+        assert_eq!(report.input_lra, Some(0.0));
     }
 }
