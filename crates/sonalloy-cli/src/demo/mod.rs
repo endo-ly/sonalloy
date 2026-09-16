@@ -652,12 +652,16 @@ impl StereoMix {
             return Ok(());
         }
         let start = self.left.len().saturating_sub(fade_frames);
-        #[allow(clippy::cast_precision_loss)]
-        let denominator = (fade_frames.saturating_sub(1)).max(1) as f32;
         for frame in start..self.left.len() {
-            #[allow(clippy::cast_precision_loss)]
-            let progress = (frame - start) as f32 / denominator;
-            let gain = (1.0 - progress).clamp(0.0, 1.0);
+            let gain = if fade_frames == 1 {
+                0.0
+            } else {
+                #[allow(clippy::cast_precision_loss)]
+                let denominator = (fade_frames - 1) as f32;
+                #[allow(clippy::cast_precision_loss)]
+                let progress = (frame - start) as f32 / denominator;
+                (1.0 - progress).clamp(0.0, 1.0)
+            };
             self.left[frame] *= gain;
             self.right[frame] *= gain;
         }
@@ -938,6 +942,20 @@ mod tests {
         };
 
         mix.apply_fade(0.5).expect("fade applies");
+
+        assert_eq!(mix.left, vec![1.0, 1.0, 1.0, 0.0]);
+        assert_eq!(mix.right, vec![1.0, 1.0, 1.0, 0.0]);
+    }
+
+    #[test]
+    fn stereo_mix_one_frame_fade_silences_the_final_frame() {
+        let mut mix = super::StereoMix {
+            sample_rate: 4,
+            left: vec![1.0; 4],
+            right: vec![1.0; 4],
+        };
+
+        mix.apply_fade(0.25).expect("one-frame fade applies");
 
         assert_eq!(mix.left, vec![1.0, 1.0, 1.0, 0.0]);
         assert_eq!(mix.right, vec![1.0, 1.0, 1.0, 0.0]);
