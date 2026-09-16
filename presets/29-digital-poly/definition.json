@@ -8,7 +8,7 @@
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 24,
+    "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
