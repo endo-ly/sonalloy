@@ -93,6 +93,13 @@ fn json_report(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("JSON report")
 }
 
+fn track_end_tick(track: &[midly::TrackEvent<'_>]) -> u64 {
+    track
+        .iter()
+        .map(|event| u64::from(event.delta.as_int()))
+        .sum()
+}
+
 #[test]
 fn demo_validate_and_inspect_use_relative_references_and_longest_pattern() {
     let fixture = demo_fixture();
@@ -112,6 +119,16 @@ fn demo_validate_and_inspect_use_relative_references_and_longest_pattern() {
     assert_eq!(validation_report["command"], "demo validate");
     assert!(validation_report.get("diagnostics").is_none());
 
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "demo",
+            "validate",
+            fixture.demo.to_str().expect("Demo path"),
+        ])
+        .assert()
+        .success();
+
     let inspection = Command::cargo_bin("sonalloy")
         .expect("binary")
         .args([
@@ -130,6 +147,12 @@ fn demo_validate_and_inspect_use_relative_references_and_longest_pattern() {
     assert_eq!(inspection_report["parts"][0]["midi_channel"], 2);
     assert_eq!(inspection_report["parts"][1]["midi_channel"], 1);
     assert_eq!(inspection_report["ffmpeg_required"], false);
+
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["demo", "inspect", fixture.demo.to_str().expect("Demo path")])
+        .assert()
+        .success();
 }
 
 #[test]
@@ -186,6 +209,62 @@ fn demo_export_midi_writes_conductor_and_part_tracks() {
             midly::TrackEventKind::Midi { channel, .. } if channel.as_int() == 0
         )
     }));
+    assert!(smf.tracks[0].iter().any(|event| {
+        matches!(
+            event.kind,
+            midly::TrackEventKind::Meta(midly::MetaMessage::Tempo(value))
+                if value.as_int() == 500_000
+        )
+    }));
+    assert!(smf.tracks[0].iter().any(|event| {
+        matches!(
+            event.kind,
+            midly::TrackEventKind::Meta(midly::MetaMessage::TimeSignature(4, 2, _, _))
+        )
+    }));
+    assert!(smf.tracks.iter().all(|track| track_end_tick(track) == 960));
+}
+
+#[test]
+fn demo_export_midi_prefixes_parameter_change_errors_with_part_path() {
+    let fixture = demo_fixture();
+    std::fs::write(
+        &fixture.second_pattern,
+        serde_json::to_vec_pretty(&json!({
+            "schema_version": 1,
+            "ticks_per_beat": 480,
+            "length_ticks": 480,
+            "tempo_changes": [{"tick": 0, "bpm": 120.0}],
+            "time_signature_changes": [{"tick": 0, "numerator": 4, "denominator": 4}],
+            "events": [
+                {"type": "note", "tick": 0, "duration_ticks": 240, "note": 67, "velocity": 100},
+                {"type": "parameter_change", "tick": 0, "parameter": "voice.processor.tone.cutoff", "native_value": 8000.0}
+            ]
+        }))
+        .expect("parameter pattern JSON"),
+    )
+    .expect("parameter pattern");
+    let output = fixture.demo.with_file_name("parameter.mid");
+    let result = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "demo",
+            "export-midi",
+            fixture.demo.to_str().expect("Demo path"),
+            "--output",
+            output.to_str().expect("MIDI output"),
+            "--json",
+        ])
+        .output()
+        .expect("MIDI export starts");
+
+    assert_eq!(result.status.code(), Some(2));
+    let report: Value = serde_json::from_slice(&result.stdout).expect("error report");
+    assert_eq!(report["diagnostics"][0]["code"], "MIDI_ERROR");
+    assert_eq!(
+        report["diagnostics"][0]["path"],
+        "parts[1].pattern.events[1]"
+    );
 }
 
 #[test]

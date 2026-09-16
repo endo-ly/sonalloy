@@ -718,8 +718,8 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        DemoDefinition, DemoMix, DemoPart, gain_linear, resolve_midi_channels,
-        resolve_reference_path, validate_definition,
+        DemoDefinition, DemoMix, DemoPart, append_time_axis_diagnostics, gain_linear,
+        resolve_midi_channels, resolve_reference_path, time_axis, validate_definition,
     };
 
     fn part(id: &str) -> DemoPart {
@@ -757,12 +757,24 @@ mod tests {
             validate_definition(&unsupported)[0].path.as_deref(),
             Some("schema_version")
         );
+
+        let empty = definition(Vec::new());
+        assert!(
+            validate_definition(&empty)
+                .iter()
+                .any(|diagnostic| { diagnostic.path.as_deref() == Some("parts") })
+        );
+        let unknown_field = serde_json::from_str::<DemoDefinition>(
+            r#"{"schema_version":1,"parts":[],"unknown":true}"#,
+        );
+        assert!(unknown_field.is_err());
     }
 
     #[test]
     fn validation_covers_ids_channels_and_master_values() {
         let mut first = part("bad/id");
         first.midi_channel = Some(2);
+        first.gain_db = f64::NAN;
         let mut second = part("bad/id");
         second.midi_channel = Some(2);
         let mut definition = definition(vec![first, second]);
@@ -781,10 +793,28 @@ mod tests {
         assert!(
             diagnostics
                 .iter()
+                .any(|diagnostic| { diagnostic.path.as_deref() == Some("parts[1].id") })
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| { diagnostic.path.as_deref() == Some("parts[0].gain_db") })
+        );
+        assert!(
+            diagnostics
+                .iter()
                 .any(|diagnostic| { diagnostic.path.as_deref() == Some("parts[1].midi_channel") })
         );
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.path.as_deref() == Some("mix.master.integrated_lufs")
+        }));
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.path.as_deref() == Some("mix.master.true_peak_db")
+            })
+        );
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("mix.master.loudness_range_lu")
         }));
     }
 
@@ -797,6 +827,65 @@ mod tests {
         let channels = resolve_midi_channels(&[a, part("b"), c, part("d")]);
 
         assert_eq!(channels, [Some(2), Some(1), Some(5), Some(3)]);
+    }
+
+    #[test]
+    fn omitted_channels_beyond_midi_capacity_remain_unassigned() {
+        let parts = (0..17)
+            .map(|index| part(&format!("part-{index}")))
+            .collect::<Vec<_>>();
+        let channels = resolve_midi_channels(&parts);
+
+        assert_eq!(
+            channels[..16],
+            [
+                Some(1),
+                Some(2),
+                Some(3),
+                Some(4),
+                Some(5),
+                Some(6),
+                Some(7),
+                Some(8),
+                Some(9),
+                Some(10),
+                Some(11),
+                Some(12),
+                Some(13),
+                Some(14),
+                Some(15),
+                Some(16),
+            ]
+        );
+        assert_eq!(channels[16], None);
+    }
+
+    #[test]
+    fn patterns_share_time_axis_but_may_have_different_lengths() {
+        let expected = crate::pattern::default_pattern();
+        let mut shorter = expected.clone();
+        shorter.length_ticks = 960;
+        let expected_axis = time_axis(&expected);
+        let mut diagnostics = Vec::new();
+        append_time_axis_diagnostics(&mut diagnostics, &expected_axis, &time_axis(&shorter), 1);
+        assert!(diagnostics.is_empty());
+
+        shorter.ticks_per_beat = 960;
+        shorter.tempo_changes[0].bpm = 100.0;
+        shorter.time_signature_changes[0].numerator = 3;
+        append_time_axis_diagnostics(&mut diagnostics, &expected_axis, &time_axis(&shorter), 2);
+        let paths = diagnostics
+            .iter()
+            .filter_map(|diagnostic| diagnostic.path.as_deref())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            paths,
+            vec![
+                "parts[2].pattern.ticks_per_beat",
+                "parts[2].pattern.tempo_changes",
+                "parts[2].pattern.time_signature_changes",
+            ]
+        );
     }
 
     #[test]
