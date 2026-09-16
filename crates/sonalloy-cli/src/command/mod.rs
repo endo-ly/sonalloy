@@ -10,9 +10,10 @@ use sonalloy_core::{
 
 use crate::output::CliFailure;
 
+mod demo;
 mod dev;
 mod instrument;
-mod pattern;
+pub(crate) mod pattern;
 mod realtime;
 mod render;
 mod update;
@@ -42,6 +43,11 @@ enum Command {
     Pattern {
         #[command(subcommand)]
         command: pattern::PatternCommand,
+    },
+    /// Work with a multi-instrument offline Demo.
+    Demo {
+        #[command(subcommand)]
+        command: demo::DemoCommand,
     },
     /// Render an instrument offline.
     Render {
@@ -73,6 +79,7 @@ pub(super) fn run(cli: Cli) -> ExitCode {
     match cli.command {
         Command::Instrument { command } => instrument::run(command),
         Command::Pattern { command } => pattern::run(command),
+        Command::Demo { command } => demo::run(command),
         Command::Render { command } => render::run(command),
         Command::Audition { command } => realtime::run_audition(command),
         Command::Device { command } => realtime::run_device(command),
@@ -82,7 +89,7 @@ pub(super) fn run(cli: Cli) -> ExitCode {
     }
 }
 
-fn load_and_compile(
+pub(crate) fn load_and_compile(
     path: &Path,
     sample_rate: u32,
     block_size: usize,

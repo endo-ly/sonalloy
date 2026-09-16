@@ -316,7 +316,7 @@ struct PatternSuccessReport {
     diagnostics: Vec<Diagnostic>,
 }
 
-pub(super) fn load_pattern(path: &Path) -> Result<PatternDefinition, CliFailure> {
+pub(crate) fn load_pattern(path: &Path) -> Result<PatternDefinition, CliFailure> {
     let text = std::fs::read_to_string(path).map_err(|error| CliFailure {
         code: 2,
         diagnostics: vec![

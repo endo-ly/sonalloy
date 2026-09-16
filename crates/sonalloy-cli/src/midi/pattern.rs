@@ -446,6 +446,26 @@ pub(crate) fn export_pattern(
     channel: u8,
 ) -> Result<(), Vec<Diagnostic>> {
     let pattern_events = midi_events(pattern)?;
+    let events = pattern_export_events(pattern, &pattern_events)?;
+    let track = build_track(events, channel, pattern.length_ticks, None)?;
+    let mut smf = Smf::new(Header::new(
+        Format::SingleTrack,
+        Timing::Metrical(u15::new(pattern.ticks_per_beat)),
+    ));
+    smf.tracks.push(track);
+    smf.save(path).map_err(|error| {
+        vec![
+            Diagnostic::error(DiagnosticCode::MidiError, "could not write MIDI output")
+                .with_path(path.to_string_lossy())
+                .with_detail(error.to_string()),
+        ]
+    })
+}
+
+pub(crate) fn pattern_export_events(
+    pattern: &PatternDefinition,
+    pattern_events: &[PatternMidiEvent],
+) -> Result<Vec<ExportEvent>, Vec<Diagnostic>> {
     let mut events = Vec::with_capacity(
         pattern_events
             .len()
@@ -488,9 +508,23 @@ pub(crate) fn export_pattern(
             kind: ExportEventKind::Midi(event.kind),
         });
     }
-    events.sort_by_key(|event| (event.tick, event.priority, event.source_index));
+    Ok(events)
+}
 
-    let mut track = Vec::with_capacity(events.len().saturating_add(1));
+pub(crate) fn build_track(
+    mut events: Vec<ExportEvent>,
+    channel: u8,
+    end_tick: u64,
+    track_name: Option<&[u8]>,
+) -> Result<Vec<TrackEvent<'_>>, Vec<Diagnostic>> {
+    events.sort_by_key(|event| (event.tick, event.priority, event.source_index));
+    let mut track = Vec::with_capacity(events.len().saturating_add(2));
+    if let Some(track_name) = track_name {
+        track.push(TrackEvent {
+            delta: 0.into(),
+            kind: TrackEventKind::Meta(midly::MetaMessage::TrackName(track_name)),
+        });
+    }
     let mut previous_tick = 0_u64;
     for event in events {
         let delta = event.tick.checked_sub(previous_tick).ok_or_else(|| {
@@ -505,31 +539,17 @@ pub(crate) fn export_pattern(
         });
         previous_tick = event.tick;
     }
-    let end_delta = pattern
-        .length_ticks
-        .checked_sub(previous_tick)
-        .ok_or_else(|| {
-            vec![Diagnostic::error(
-                DiagnosticCode::MidiError,
-                "MIDI event lies beyond pattern length",
-            )]
-        })?;
+    let end_delta = end_tick.checked_sub(previous_tick).ok_or_else(|| {
+        vec![Diagnostic::error(
+            DiagnosticCode::MidiError,
+            "MIDI event lies beyond the requested track length",
+        )]
+    })?;
     track.push(TrackEvent {
         delta: u28_value(end_delta)?,
         kind: TrackEventKind::Meta(midly::MetaMessage::EndOfTrack),
     });
-    let mut smf = Smf::new(Header::new(
-        Format::SingleTrack,
-        Timing::Metrical(u15::new(pattern.ticks_per_beat)),
-    ));
-    smf.tracks.push(track);
-    smf.save(path).map_err(|error| {
-        vec![
-            Diagnostic::error(DiagnosticCode::MidiError, "could not write MIDI output")
-                .with_path(path.to_string_lossy())
-                .with_detail(error.to_string()),
-        ]
-    })
+    Ok(track)
 }
 
 #[cfg(test)]
@@ -599,15 +619,15 @@ mod tests {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct ExportEvent {
-    tick: u64,
-    priority: u8,
-    source_index: usize,
-    kind: ExportEventKind,
+pub(crate) struct ExportEvent {
+    pub(crate) tick: u64,
+    pub(crate) priority: u8,
+    pub(crate) source_index: usize,
+    pub(crate) kind: ExportEventKind,
 }
 
 #[derive(Debug, Clone, Copy)]
-enum ExportEventKind {
+pub(crate) enum ExportEventKind {
     Tempo(u32),
     TimeSignature {
         numerator: u8,
@@ -616,7 +636,7 @@ enum ExportEventKind {
     Midi(PatternMidiEventKind),
 }
 
-fn u28_value(value: u64) -> Result<u28, Vec<Diagnostic>> {
+pub(crate) fn u28_value(value: u64) -> Result<u28, Vec<Diagnostic>> {
     if value > 0x0fff_ffff {
         return Err(vec![Diagnostic::error(
             DiagnosticCode::MidiError,

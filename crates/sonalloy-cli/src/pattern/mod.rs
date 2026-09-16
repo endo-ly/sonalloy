@@ -1,6 +1,6 @@
 mod compile;
 
-pub(crate) use compile::{CompiledPattern, compile, loop_note_id};
+pub(crate) use compile::{CompiledPattern, compile, loop_note_id, tempo_points};
 
 use std::collections::BTreeSet;
 

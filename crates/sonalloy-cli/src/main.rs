@@ -1,4 +1,5 @@
 mod command;
+mod demo;
 mod midi;
 mod musical_time;
 mod output;
