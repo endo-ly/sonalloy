@@ -4,6 +4,60 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const usage = 'Usage: node scripts/verify-builtin-bundle.mjs --root <path> --source-release <tag>';
+const BUILTIN_TAG_VOCABULARY = new Set([
+  'Warm',
+  'Bright',
+  'Dark',
+  'Clean',
+  'Noisy',
+  'Metallic',
+  'Glassy',
+  'Soft',
+  'Aggressive',
+  'Punchy',
+  'Wide',
+  'Deep',
+  'Analog',
+  'Digital',
+  'FM',
+  'Wavetable',
+  'Wavefold',
+  'Additive',
+  'Formant',
+  'Granular',
+  'Physical',
+  'Spectral',
+  'Noise',
+  'Mono',
+  'Polyphonic',
+  'Motion',
+  'Rhythmic',
+  'Sustained',
+  'Plucky',
+  'Percussive',
+  'Evolving',
+  'Gated',
+  'Random',
+  'Sub',
+  'Acid',
+  'Reese',
+  'Supersaw',
+  'Drone',
+  'Chord',
+  'Bell',
+  'Kick',
+  'Snare',
+  'Clap',
+  'Hihat',
+  'Crash',
+  'Tom',
+  'Rim',
+  'Shaker',
+  'Riser',
+  'Impact',
+  'Sequence',
+  'Texture',
+]);
 
 function parseOptions(args) {
   if (args.length !== 4) throw new Error(usage);
@@ -82,6 +136,11 @@ function assertMetadata(preset) {
     assert.equal(tag, tag.trim(), `tags[${index}] must not have outer whitespace`);
     assert.equal([...tag].length <= 32, true, `tags[${index}] is too long`);
     assert.equal([...tag].some((character) => /\p{Cc}/u.test(character)), false);
+    assert.equal(
+      BUILTIN_TAG_VOCABULARY.has(tag),
+      true,
+      `${preset.id} tags[${index}] is not in the Built-in Tag vocabulary`,
+    );
     const normalizedTag = asciiLower(tag);
     assert.equal(normalizedTags.has(normalizedTag), false, `tags[${index}] is duplicated`);
     normalizedTags.add(normalizedTag);

@@ -15,6 +15,43 @@ const sourceVersion = readFileSync(join(sourceRoot, 'Cargo.toml'), 'utf8').match
 if (!sourceVersion) throw new Error('Cargo.toml package version is missing.');
 const sourceRelease = `v${sourceVersion}`;
 
+function normalizeOptionalText(value) {
+  if (value === undefined || value === null) return null;
+  return value.trim().length > 0 ? value.trim() : null;
+}
+
+function expectedManifestEntry(presetId, metadata) {
+  return {
+    id: presetId,
+    name: metadata.name.trim(),
+    author: normalizeOptionalText(metadata.author),
+    description: normalizeOptionalText(metadata.description),
+    category: metadata.category,
+    tags: metadata.tags,
+    recommendedRange: {
+      minMidi: metadata.recommended_range.min_midi,
+      maxMidi: metadata.recommended_range.max_midi,
+    },
+    preview: {
+      tempoBpm: metadata.preview.tempo_bpm,
+      ticksPerBeat: metadata.preview.ticks_per_beat,
+      timeSignature: {
+        numerator: metadata.preview.time_signature.numerator,
+        denominator: metadata.preview.time_signature.denominator,
+      },
+      lengthTicks: metadata.preview.length_ticks,
+      notes: metadata.preview.notes.map((note) => ({
+        tick: note.tick,
+        durationTicks: note.duration_ticks,
+        note: note.note,
+        velocity: note.velocity,
+      })),
+    },
+    definitionPath: `${presetId}/definition.json`,
+    resourceBasePath: presetId,
+  };
+}
+
 test('staged built-in bundle contains all metadata for every preset', () => {
   const temporaryRoot = mkdtempSync(join(tmpdir(), 'sonalloy-bundle-'));
   try {
@@ -28,36 +65,13 @@ test('staged built-in bundle contains all metadata for every preset', () => {
     const manifest = JSON.parse(
       readFileSync(join(destination, 'instruments', 'builtin', 'manifest.json'), 'utf8'),
     );
-    const sourceMetadata = JSON.parse(
-      readFileSync(join(sourceRoot, 'presets', '01-clean-sub-bass', 'definition.json'), 'utf8'),
-    ).metadata;
-    const entry = manifest.presets[0];
     assert.equal(manifest.presets.length, 60);
-    assert.equal(entry.id, '01-clean-sub-bass');
-    assert.equal(entry.name, sourceMetadata.name);
-    assert.equal(entry.author, sourceMetadata.author);
-    assert.equal(entry.description, sourceMetadata.description);
-    assert.equal(entry.category, sourceMetadata.category);
-    assert.deepEqual(entry.tags, sourceMetadata.tags);
-    assert.deepEqual(entry.recommendedRange, {
-      minMidi: sourceMetadata.recommended_range.min_midi,
-      maxMidi: sourceMetadata.recommended_range.max_midi,
-    });
-    assert.deepEqual(entry.preview, {
-      tempoBpm: sourceMetadata.preview.tempo_bpm,
-      ticksPerBeat: sourceMetadata.preview.ticks_per_beat,
-      timeSignature: {
-        numerator: sourceMetadata.preview.time_signature.numerator,
-        denominator: sourceMetadata.preview.time_signature.denominator,
-      },
-      lengthTicks: sourceMetadata.preview.length_ticks,
-      notes: sourceMetadata.preview.notes.map((note) => ({
-        tick: note.tick,
-        durationTicks: note.duration_ticks,
-        note: note.note,
-        velocity: note.velocity,
-      })),
-    });
+    for (const entry of manifest.presets) {
+      const sourceDefinition = JSON.parse(
+        readFileSync(join(sourceRoot, 'presets', entry.id, 'definition.json'), 'utf8'),
+      );
+      assert.deepEqual(entry, expectedManifestEntry(entry.id, sourceDefinition.metadata), entry.id);
+    }
   } finally {
     rmSync(temporaryRoot, { force: true, recursive: true });
   }
