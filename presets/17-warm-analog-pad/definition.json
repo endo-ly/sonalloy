@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Warm Analog Pad",
     "author": "gpt-6-astra low",
-    "description": "コードの背景を柔らかく支える、標準的なアナログ系パッド。Sawの軽いDetuneにTriangleの温かさを重ね、Ladder Filterで高域を穏やかに丸める。緩やかな立ち上がりと自然な余韻が長時間鳴らしても邪魔にならず、C2〜C6程度のコードでも各音の関係が分かる。派手な変化よりも安定感を優先した、汎用パッドの基準となる音。"
+    "description": "コードの背景を柔らかく支える、標準的なアナログ系パッド。Sawの軽いDetuneにTriangleの温かさを重ね、Ladder Filterで高域を穏やかに丸める。緩やかな立ち上がりと自然な余韻が長時間鳴らしても邪魔にならず、C2〜C6程度のコードでも各音の関係が分かる。派手な変化よりも安定感を優先した、汎用パッドの基準となる音。",
+    "category": "Pad",
+    "tags": [
+      "Warm",
+      "Analog",
+      "Sustained",
+      "Soft"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 72,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

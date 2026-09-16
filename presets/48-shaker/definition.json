@@ -1,9 +1,67 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Shaker",
     "author": "gpt-6-astra low",
-    "description": "細かな粒の衝突と擦れが一振りにまとまったシェイカー。柔らかな立ち上がりの中に複数の小さな音量変化があり、高域を中心とした軽いざらつきが短く収まる。"
+    "description": "細かな粒の衝突と擦れが一振りにまとまったシェイカー。柔らかな立ち上がりの中に複数の小さな音量変化があり、高域を中心とした軽いざらつきが短く収まる。",
+    "category": "Percussion",
+    "tags": [
+      "Shaker",
+      "Percussive",
+      "Noisy",
+      "Rhythmic"
+    ],
+    "recommended_range": {
+      "min_midi": 70,
+      "max_midi": 70
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 90
+        },
+        {
+          "tick": 240,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 110
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 95
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 105
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

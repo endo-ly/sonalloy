@@ -1,10 +1,80 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Classic Analog Poly",
     "author": "gpt-6-astra low",
-    "description": "コード、伴奏、短いメロディのいずれにも使える、標準的なポリフォニックシンセ。8 centのDetuneを持つ2 Voice Unison Sawが適度な厚みを作りながら各音の音程関係を明確に残す。立ち上がりはパッドより速くスタブより長い中程度の発音で、Ladder Filterの軽いDriveが明るさと丸さのバランスを取る。特定のジャンルや奏法に依存しない汎用コード音。"
+    "description": "コード、伴奏、短いメロディのいずれにも使える、標準的なポリフォニックシンセ。8 centのDetuneを持つ2 Voice Unison Sawが適度な厚みを作りながら各音の音程関係を明確に残す。立ち上がりはパッドより速くスタブより長い中程度の発音で、Ladder Filterの軽いDriveが明るさと丸さのバランスを取る。特定のジャンルや奏法に依存しない汎用コード音。",
+    "category": "Poly",
+    "tags": [
+      "Analog",
+      "Polyphonic",
+      "Warm",
+      "Chord"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 71,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 62,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 65,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 69,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 72,
+          "velocity": 105
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

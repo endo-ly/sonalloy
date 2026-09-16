@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Mono Portamento Lead",
     "author": "gpt-6-astra low",
-    "description": "単音のフレーズを滑らかにつなぐ、太く前面に出るモノフォニックリード。Legatoで音をつなぐと前の音から次の音へ滑らかに移動し、離して弾いた場合は各音の発音が明確になる。Unison SawとSub Sineの厚みに軽いDriveが加わり、ソロやフックで前面に出る。速い旋律でも音程の中心を失わない。"
+    "description": "単音のフレーズを滑らかにつなぐ、太く前面に出るモノフォニックリード。Legatoで音をつなぐと前の音から次の音へ滑らかに移動し、離して弾いた場合は各音の発音が明確になる。Unison SawとSub Sineの厚みに軽いDriveが加わり、ソロやフックで前面に出る。速い旋律でも音程の中心を失わない。",
+    "category": "Lead",
+    "tags": [
+      "Mono",
+      "Analog",
+      "Sustained",
+      "Wide"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 600,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 600,
+          "note": 64,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 600,
+          "note": 67,
+          "velocity": 110
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 360,
+          "note": 72,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "monophonic",

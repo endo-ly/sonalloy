@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Analog Saw Lead",
     "author": "gpt-6-astra low",
-    "description": "メロディやソロに広く使える、標準的なシンセリード。軽いDetuneを持つ複数VoiceのSawが適度な太さを作り、Ladder Filterの軽いDriveがアナログ的な暖かさを添える。高音域でも刺激が強すぎず、低音域でもベースのような重さには寄らない、汎用リードの基準となる音。"
+    "description": "メロディやソロに広く使える、標準的なシンセリード。軽いDetuneを持つ複数VoiceのSawが適度な太さを作り、Ladder Filterの軽いDriveがアナログ的な暖かさを添える。高音域でも刺激が強すぎず、低音域でもベースのような重さには寄らない、汎用リードの基準となる音。",
+    "category": "Lead",
+    "tags": [
+      "Analog",
+      "Bright",
+      "Aggressive",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 90
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 105
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 115
+        },
+        {
+          "tick": 1080,
+          "duration_ticks": 360,
+          "note": 72,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "monophonic",

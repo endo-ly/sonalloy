@@ -1,10 +1,50 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Clean Sub Bass",
     "author": "gpt-6-astra low",
-    "description": "曲の最低域を安定して支える純度の高いサブベース。Sineの基音を中心に、Triangleによる控えめな低中域の補強だけで構成する。長音でも濁りや揺れがなく、短音でも輪郭がぼやけない。キックや他の低音と重ねて低域の厚みを自然に補う用途に適する。"
+    "description": "曲の最低域を安定して支える純度の高いサブベース。Sineの基音を中心に、Triangleによる控えめな低中域の補強だけで構成する。長音でも濁りや揺れがなく、短音でも輪郭がぼやけない。キックや他の低音と重ねて低域の厚みを自然に補う用途に適する。",
+    "category": "Bass",
+    "tags": [
+      "Sub",
+      "Clean",
+      "Deep",
+      "Soft"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 60
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 360,
+          "note": 36,
+          "velocity": 92
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 360,
+          "note": 43,
+          "velocity": 108
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 480,
+          "note": 48,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "monophonic",

@@ -1,10 +1,68 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "FM Electric Piano",
     "author": "gpt-6-astra low",
-    "description": "1980年代のFM音源を代表するエレクトリックピアノ。比率1の変調が発音直後に強くかかって硬く明るい打撃感を作り、減衰とともに暖かく丸い響きへ移り、長押しでも自然に収束する。比率14の短命な第2Carrierがタインのきらめきを加える。Velocityが変調指数を動かすため、強い打鍵では明るく硬く、弱い打鍵では丸く穏やかに響く。4〜6音のコードでも自然にまとまる。"
+    "description": "1980年代のFM音源を代表するエレクトリックピアノ。比率1の変調が発音直後に強くかかって硬く明るい打撃感を作り、減衰とともに暖かく丸い響きへ移り、長押しでも自然に収束する。比率14の短命な第2Carrierがタインのきらめきを加える。Velocityが変調指数を動かすため、強い打鍵では明るく硬く、弱い打鍵では丸く穏やかに響く。4〜6音のコードでも自然にまとまる。",
+    "category": "Keys",
+    "tags": [
+      "FM",
+      "Bright",
+      "Percussive",
+      "Plucky"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 71,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 360,
+          "note": 67,
+          "velocity": 95
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 360,
+          "note": 72,
+          "velocity": 110
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

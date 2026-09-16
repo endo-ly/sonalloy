@@ -1,9 +1,37 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Downlifter",
     "author": "gpt-6-astra low",
-    "description": "明るく広い衝撃から、テンポに合わせて低く暗い方向へ沈むダウンリフター。ノイズと金属的な響きが一緒に収まり、滑らかな下降感を作る。"
+    "description": "明るく広い衝撃から、テンポに合わせて低く暗い方向へ沈むダウンリフター。ノイズと金属的な響きが一緒に収まり、滑らかな下降感を作る。",
+    "category": "FX",
+    "tags": [
+      "Noise",
+      "Dark",
+      "Evolving",
+      "Wide"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 72
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 3360,
+          "note": 60,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

@@ -1,9 +1,37 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Noise Riser",
     "author": "gpt-6-astra low",
-    "description": "テンポに合わせて暗いノイズから明るく広い響きへ開くライザー。上昇に合わせて密度と音量が増し、頂点の後は短く収束する。ノイズを中心にした、音程感の弱い演出音。"
+    "description": "テンポに合わせて暗いノイズから明るく広い響きへ開くライザー。上昇に合わせて密度と音量が増し、頂点の後は短く収束する。ノイズを中心にした、音程感の弱い演出音。",
+    "category": "FX",
+    "tags": [
+      "Riser",
+      "Noise",
+      "Evolving",
+      "Wide"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 60
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 4800,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 4320,
+          "note": 48,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

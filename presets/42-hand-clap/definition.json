@@ -1,9 +1,55 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Hand Clap",
     "author": "gpt-6-astra low",
-    "description": "短い手拍子が密集した立ち上がりと、軽いざらつきの尾を持つハンドクラップ。ごく短い間隔の複数の打撃が一つにまとまり、高域寄りの軽い響きを作る。"
+    "description": "短い手拍子が密集した立ち上がりと、軽いざらつきの尾を持つハンドクラップ。ごく短い間隔の複数の打撃が一つにまとまり、高域寄りの軽い響きを作る。",
+    "category": "Drums",
+    "tags": [
+      "Clap",
+      "Percussive",
+      "Noisy",
+      "Bright"
+    ],
+    "recommended_range": {
+      "min_midi": 39,
+      "max_midi": 39
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 39,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 39,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 39,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 39,
+          "velocity": 120
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

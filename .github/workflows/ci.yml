@@ -94,6 +94,16 @@ jobs:
       - name: External audio CLI smoke
         run: cargo run -p sonalloy-cli -- render events testdata/instruments/sidechain-ducking.json testdata/events/sidechain-ducking.json --audio-input testdata/assets/sidechain-kick.wav --duration-frames 72001 --sample-rate 48000 --block-size 257 --tail 0 --output ci-external-audio.wav --analyze --json
 
+  builtin-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Stage and verify built-in bundle
+        run: node --test scripts/builtin-bundle.test.mjs
+
   audit:
     runs-on: ubuntu-latest
     steps:

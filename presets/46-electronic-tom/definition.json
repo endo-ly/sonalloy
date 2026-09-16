@@ -1,9 +1,55 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Electronic Tom",
     "author": "gpt-6-astra low",
-    "description": "丸い基音と短い膜の共鳴を持つ電子タム。発音直後の控えめな音程下降に続き、高い成分から先に減衰する。低・中・高の鍵盤で一貫した打撃感を持つ。"
+    "description": "丸い基音と短い膜の共鳴を持つ電子タム。発音直後の控えめな音程下降に続き、高い成分から先に減衰する。低・中・高の鍵盤で一貫した打撃感を持つ。",
+    "category": "Drums",
+    "tags": [
+      "Tom",
+      "Percussive",
+      "Punchy",
+      "Warm"
+    ],
+    "recommended_range": {
+      "min_midi": 33,
+      "max_midi": 57
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 45,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 45,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 45,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 45,
+          "velocity": 120
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

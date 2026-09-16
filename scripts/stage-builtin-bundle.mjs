@@ -43,23 +43,100 @@ function readPreset(sourceRoot, presetId) {
   }
 
   const metadata = definition?.metadata;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    throw new Error(`Sonalloy preset '${presetId}' has no metadata object.`);
+  }
   const name = typeof metadata?.name === 'string' ? metadata.name.trim() : '';
   if (!name) throw new Error(`Sonalloy preset '${presetId}' has no metadata.name.`);
-  const description =
-    typeof metadata.description === 'string' && metadata.description.trim().length > 0
-      ? metadata.description.trim()
-      : null;
+  const author = readOptionalText(metadata.author, presetId, 'author');
+  const description = readOptionalText(metadata.description, presetId, 'description');
+  const category = readRequiredText(metadata.category, presetId, 'category');
+  const tags = readRequiredArray(metadata.tags, presetId, 'tags');
+  const recommendedRange = readRequiredRecord(
+    metadata.recommended_range,
+    presetId,
+    'recommended_range',
+  );
+  const preview = readRequiredRecord(metadata.preview, presetId, 'preview');
+  if (!Object.hasOwn(recommendedRange, 'min_midi') || !Object.hasOwn(recommendedRange, 'max_midi')) {
+    throw new Error(`Sonalloy preset '${presetId}' metadata.recommended_range is incomplete.`);
+  }
+  if (
+    !Object.hasOwn(preview, 'tempo_bpm') ||
+    !Object.hasOwn(preview, 'ticks_per_beat') ||
+    !Object.hasOwn(preview, 'time_signature') ||
+    !Object.hasOwn(preview, 'length_ticks') ||
+    !Object.hasOwn(preview, 'notes')
+  ) {
+    throw new Error(`Sonalloy preset '${presetId}' metadata.preview is incomplete.`);
+  }
+  const timeSignature = readRequiredRecord(preview.time_signature, presetId, 'preview.time_signature');
+  const notes = readRequiredArray(preview.notes, presetId, 'preview.notes');
 
   return {
     definitionPath,
     entry: {
       id: presetId,
       name,
+      author,
       description,
+      category,
+      tags,
+      recommendedRange: {
+        minMidi: recommendedRange.min_midi,
+        maxMidi: recommendedRange.max_midi,
+      },
+      preview: {
+        tempoBpm: preview.tempo_bpm,
+        ticksPerBeat: preview.ticks_per_beat,
+        timeSignature: {
+          numerator: timeSignature.numerator,
+          denominator: timeSignature.denominator,
+        },
+        lengthTicks: preview.length_ticks,
+        notes: notes.map((note) => ({
+          tick: note.tick,
+          durationTicks: note.duration_ticks,
+          note: note.note,
+          velocity: note.velocity,
+        })),
+      },
       definitionPath: `${presetId}/definition.json`,
       resourceBasePath: presetId,
     },
   };
+}
+
+function readOptionalText(value, presetId, field) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') {
+    throw new Error(`Sonalloy preset '${presetId}' metadata.${field} must be a string or null.`);
+  }
+  return value.trim().length > 0 ? value.trim() : null;
+}
+
+function readRequiredText(value, presetId, field) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`Sonalloy preset '${presetId}' has no metadata.${field}.`);
+  }
+  if (value !== value.trim()) {
+    throw new Error(`Sonalloy preset '${presetId}' metadata.${field} must not have outer whitespace.`);
+  }
+  return value;
+}
+
+function readRequiredArray(value, presetId, field) {
+  if (!Array.isArray(value)) {
+    throw new Error(`Sonalloy preset '${presetId}' has no metadata.${field} array.`);
+  }
+  return value;
+}
+
+function readRequiredRecord(value, presetId, field) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`Sonalloy preset '${presetId}' has no metadata.${field} object.`);
+  }
+  return value;
 }
 
 function collectPresets(sourceRoot) {

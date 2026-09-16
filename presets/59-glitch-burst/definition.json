@@ -1,9 +1,49 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Glitch Burst",
     "author": "gpt-6-astra low",
-    "description": "長さの異なるデジタル断片が短時間に連なるグリッチ音。音の切断、粗さ、明るさ、定位が不規則に変化し、最後は短く消える。"
+    "description": "長さの異なるデジタル断片が短時間に連なるグリッチ音。音の切断、粗さ、明るさ、定位が不規則に変化し、最後は短く消える。",
+    "category": "FX",
+    "tags": [
+      "Digital",
+      "Random",
+      "Noisy",
+      "Texture"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 72
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 120,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 240,
+          "duration_ticks": 120,
+          "note": 60,
+          "velocity": 115
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 120,
+          "note": 60,
+          "velocity": 90
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

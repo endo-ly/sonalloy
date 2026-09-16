@@ -1,9 +1,37 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Cinematic Impact",
     "author": "gpt-6-astra low",
-    "description": "短い衝撃、深い低音、広がる金属の余韻を持つシネマティック・インパクト。低域は先に収束し、空間に残る響きが場面の大きさを示す。"
+    "description": "短い衝撃、深い低音、広がる金属の余韻を持つシネマティック・インパクト。低域は先に収束し、空間に残る響きが場面の大きさを示す。",
+    "category": "FX",
+    "tags": [
+      "Impact",
+      "Percussive",
+      "Deep",
+      "Wide"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 48
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3360,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 3072,
+          "note": 36,
+          "velocity": 110
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

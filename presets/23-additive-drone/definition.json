@@ -1,10 +1,56 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "external_audio": null,
   "metadata": {
     "name": "Additive Drone",
     "author": "gpt-6-astra low",
-    "description": "1音を長く伸ばしている間に、一部の倍音が4〜12秒かけて浮かび上がったり沈んだりするドローン。12個のPartialのうち固定の4個が低中域の土台を維持し、残る8個が個別のEnvelopeで時間展開する。さらに8個の倍音バランスがゆっくり不規則に移り変わり、保持中も変化が続く。控えめな残響が奥行きを添え、AmbientやCinematicの背景に適する。"
+    "description": "1音を長く伸ばしている間に、一部の倍音が4〜12秒かけて浮かび上がったり沈んだりするドローン。12個のPartialのうち固定の4個が低中域の土台を維持し、残る8個が個別のEnvelopeで時間展開する。さらに8個の倍音バランスがゆっくり不規則に移り変わり、保持中も変化が続く。控えめな残響が奥行きを添え、AmbientやCinematicの背景に適する。",
+    "category": "Pad",
+    "tags": [
+      "Additive",
+      "Drone",
+      "Evolving",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 48,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 55,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 67,
+          "velocity": 100
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

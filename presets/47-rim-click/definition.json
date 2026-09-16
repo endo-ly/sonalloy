@@ -1,9 +1,55 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Rim Click",
     "author": "gpt-6-astra low",
-    "description": "硬い縁を叩いたような短いリム音。中高域の複数の共鳴と小さなクリックで位置を示し、低域や長い余韻を残さずリズムの隙間に収まる。"
+    "description": "硬い縁を叩いたような短いリム音。中高域の複数の共鳴と小さなクリックで位置を示し、低域や長い余韻を残さずリズムの隙間に収まる。",
+    "category": "Drums",
+    "tags": [
+      "Rim",
+      "Percussive",
+      "Bright",
+      "Punchy"
+    ],
+    "recommended_range": {
+      "min_midi": 37,
+      "max_midi": 37
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 37,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 37,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 37,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 37,
+          "velocity": 120
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",

@@ -1,9 +1,55 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "metadata": {
     "name": "Closed Hi-Hat",
     "author": "gpt-6-astra low",
-    "description": "複雑な金属振動を短く切り出したクローズド・ハイハット。低域を抑えた乾いた輪郭に少量の空気感を添え、細かな刻みでも発音が分離する。"
+    "description": "複雑な金属振動を短く切り出したクローズド・ハイハット。低域を抑えた乾いた輪郭に少量の空気感を添え、細かな刻みでも発音が分離する。",
+    "category": "Drums",
+    "tags": [
+      "Hihat",
+      "Metallic",
+      "Percussive",
+      "Bright"
+    ],
+    "recommended_range": {
+      "min_midi": 42,
+      "max_midi": 42
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 42,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 42,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 42,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 42,
+          "velocity": 120
+        }
+      ]
+    }
   },
   "performance": {
     "mode": "polyphonic",
