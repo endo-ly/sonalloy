@@ -243,8 +243,10 @@ mod tests {
         );
 
         assert_eq!(first, "loudnorm=I=-16:TP=-1:LRA=11:print_format=json");
-        assert!(second.contains("measured_I=-18"));
-        assert!(second.contains("linear=true"));
+        assert_eq!(
+            second,
+            "loudnorm=I=-16:TP=-1:LRA=11:measured_I=-18:measured_TP=-2:measured_LRA=5:measured_thresh=-28:offset=2:linear=true:print_format=json"
+        );
     }
 
     #[test]
