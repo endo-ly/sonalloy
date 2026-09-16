@@ -54,6 +54,7 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 | 定義を検証する | `sonalloy instrument validate <definition>` |
 | コンパイル後の実行値を確認する | `sonalloy instrument inspect <definition>` |
 | 1音 / Event列 / MIDI / Patternをレンダリングする | `sonalloy render note` / `events` / `midi` / `pattern` |
+| 複数音源を一曲として確認する | `sonalloy demo validate <demo>` → `sonalloy render demo <demo> --output <wav>` |
 | 演奏パターンを試聴する（MIDI Keyboard不要） | `sonalloy pattern init` → `sonalloy audition pattern` |
 | MIDI Keyboardで演奏する | `sonalloy device list` → `sonalloy play` |
 | インストールしたCLIをアップデートする | `sonalloy update` |
@@ -71,6 +72,7 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 | 文書 | 内容 |
 |---|---|
 | [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源の作り方（手順書）。CLI・音源定義・Patternの仕様リファレンス（`references/`）を同梱 |
+| [`.agents/skills/create-instrument/references/demos.md`](.agents/skills/create-instrument/references/demos.md) | 複数InstrumentをOfflineで確認するDemoの仕様 |
 | [`docs/runtime-processing.md`](docs/runtime-processing.md) | 実行時の動作：Block処理・Noteの一生・実行上の約束事 |
 | [`docs/c-api.md`](docs/c-api.md) | 公開C ABI：Handle所有権・Compile・Process・Runtime Update |
 | [`docs/architecture.md`](docs/architecture.md) | 静的構造：Crate・依存方向・Native境界 |

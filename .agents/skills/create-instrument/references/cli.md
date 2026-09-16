@@ -16,10 +16,14 @@ Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み
 | `pattern inspect` | Patternの音楽的な長さとEvent概要を表示する |
 | `pattern import-midi` | MIDIの1 ChannelをPatternへ変換する |
 | `pattern export-midi` | PatternをSingle Track MIDIへ変換する |
+| `demo validate` | 複数InstrumentとPatternからなるDemoを検証する |
+| `demo inspect` | Demoの時間軸、Part、Mix設定を表示する |
+| `demo export-midi` | DemoをType 1 Multi-track MIDIへ変換する |
 | `render note` | 1音をレンダリングする |
 | `render events` | Event Sequenceをレンダリングする |
 | `render midi` | MIDI Fileをレンダリングする |
 | `render pattern` | 演奏パターン（Pattern）をレンダリングする |
+| `render demo` | 複数InstrumentをOffline RenderしてMixする |
 | `audition pattern` | PatternをAudio Deviceで試聴する |
 | `audition midi` | MIDI Fileを1 Channel選択して試聴する |
 | `device list` | Audio Input / OutputとMIDI Inputを列挙する |
@@ -156,6 +160,73 @@ sonalloy pattern export-midi drums.json --channel 10 --output drums.mid
 ```
 
 Sonalloy固有のParameter Changeを含むPatternは`MIDI_ERROR`で失敗し、Output Pathが存在する場合も上書きしません。
+
+## Demo
+
+Demoは、複数のInstrumentと各Instrument用のAudition Patternを同じTick時間軸へ重ね、Offlineで音源群を確認するためのCLI用Definitionです。Schema、Part、Gain、共通時間軸、Mix、Master、Stemの規則は[`demos.md`](demos.md)にまとめています。
+
+### `demo validate` — Demoの検証
+
+```bash
+sonalloy demo validate demo.json
+sonalloy demo validate demo.json --json
+```
+
+Demo自身のSchema、各PartのInstrument JSONとCompile、PatternのValidation、Patternと対象InstrumentのCompile、Pattern群の共通時間軸を確認します。Instrument CompileはSample Rate `48000`、Block Size `257`で実行します。全Partを可能な範囲まで検証し、診断Pathには`parts[i].instrument`または`parts[i].pattern`のPrefixを付けます。
+
+成功時の`--json` Reportは既存のStatus Report形式です。
+
+```json
+{
+  "status": "ok",
+  "command": "demo validate",
+  "diagnostics": []
+}
+```
+
+### `demo inspect` — Demoの構成確認
+
+```bash
+sonalloy demo inspect demo.json
+sonalloy demo inspect demo.json --json
+```
+
+DemoのSchema Version、Part数、共通Tick解像度、最長Patternの`length_ticks`、Render Tailを含まない音楽的な長さ、Tempo / Time Signatureの件数、各Partの参照Path・Gain・解決済みMIDI Channel、Mix設定、FFmpegが必要かどうかを表示します。
+
+### `demo export-midi` — Type 1 MIDIの生成
+
+```bash
+sonalloy demo export-midi demo.json --output demo.mid
+sonalloy demo export-midi demo.json --output demo.mid --json
+```
+
+Conductor TrackにDemo Name（指定時）、`parts[0]`のTempo / Time Signature、Demo全体の終端を入れ、PartごとにTrack Name、解決済みChannel、Note / Sustain / Pitch Bend / Mod Wheel / Aftertouchを出力します。全TrackのEnd Of TrackはDemoの最長Patternへ揃えます。Parameter Change、同音程のNote Overlap、MIDI Channel不足は`MIDI_ERROR`で失敗します。既に存在するOutput Pathは上書きしません。
+
+### `render demo` — DemoのOffline Render
+
+```bash
+sonalloy render demo demo.json \
+  --sample-rate 48000 --block-size 257 --tail 1.0 \
+  --stems-dir out/stems --analyze --output out/demo.wav --json
+```
+
+| Option | Default | 内容 |
+|---|---:|---|
+| `<demo>` | — | Demo Definition（必須） |
+| `--output <wav>` | — | 最終Stereo WAV（必須） |
+| `--sample-rate <hz>` | `48000` | 全Partへ共通して使うSample Rate |
+| `--block-size <frames>` | `257` | 全Partへ共通して使う最大Process Block Size |
+| `--tail <seconds>` | `1.0` | 各Pattern終端後へ追加するRender Tail |
+| `--stems-dir <directory>` | なし | 指定時だけPartごとのStem WAVを保存 |
+| `--mp3-output <mp3>` | なし | 指定時だけMP3を生成 |
+| `--analyze` | Off | Master前、Fade後の最終MixをAudio Analysisへ渡す |
+| `--json` | Off | 結果を機械可読で出力 |
+
+Partは順番に既存の`render pattern`と同じRender経路で処理し、Latencyを補正してからStem保存とMix加算を行います。StemはDemo Gain、Global Fade、Masterを適用する前のStereo WAVです。MixはPartごとの固定Gainを適用してStereoへ加算し、短いPartは無音で延長します。加算後に末尾からFadeを適用し、自動Normalize、Clamp、Limiterは行いません。
+
+`--json`では、`status`、`sample_rate`、`channels`、`frames`、`output`、Partごとの`id` / `gain_db` / `frames` / `stem`を返します。`mix_analysis`は`--analyze`指定時、`master`はDemoの`mix.master`指定時、`mp3_output`と`stems_dir`は対応するOption指定時だけ含まれます。Masterの実測値と`normalization_type`も`master`へ含まれます。
+
+`mix.master`または`--mp3-output`を指定した場合だけ、CLIはPATH上のFFmpegを呼び出します。Masterは`loudnorm`の2-pass処理、MP3は`libmp3lame`の`256k`固定です。Masterが有効な場合、MP3はMaster済みWAVから生成します。FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
 
 ## リアルタイム演奏
 
@@ -497,8 +568,8 @@ sonalloy update
 | Event File | `EVENT_ORDER_INVALID` |
 | Trace | `TRACE_LIMIT_EXCEEDED` |
 | Asset | `ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`ASSET_HASH_MISSING`、`ASSET_ABSOLUTE_PATH` |
-| 実行時 | `PROCESS_ERROR`、`DSP_ERROR` |
-| Realtime I/O | `MIDI_ERROR`、`AUDIO_DEVICE_ERROR` |
+| 実行と書き出し | `PROCESS_ERROR`、`DSP_ERROR`、`RENDER_ERROR`、`WAV_OUTPUT_ERROR`、`MIDI_ERROR` |
+| Realtime I/O | `AUDIO_DEVICE_ERROR` |
 
 Generator固有の診断Codeは次のとおりです。
 
