@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "name": "sustained pad chords",
+  "ticks_per_beat": 480,
+  "length_ticks": 24960,
+  "tempo_changes": [{ "tick": 0, "bpm": 120 }],
+  "time_signature_changes": [{ "tick": 0, "numerator": 4, "denominator": 4 }],
+  "events": [
+    { "type": "note", "tick": 0, "duration_ticks": 13440, "note": 48, "velocity": 85 },
+    { "type": "note", "tick": 0, "duration_ticks": 13440, "note": 55, "velocity": 85 },
+    { "type": "note", "tick": 0, "duration_ticks": 13440, "note": 59, "velocity": 85 },
+    { "type": "note", "tick": 0, "duration_ticks": 13440, "note": 64, "velocity": 85 },
+    { "type": "note", "tick": 12480, "duration_ticks": 12480, "note": 53, "velocity": 100 },
+    { "type": "note", "tick": 12480, "duration_ticks": 12480, "note": 57, "velocity": 100 },
+    { "type": "note", "tick": 12480, "duration_ticks": 12480, "note": 60, "velocity": 100 },
+    { "type": "note", "tick": 12480, "duration_ticks": 12480, "note": 64, "velocity": 100 },
+    { "type": "mod_wheel", "tick": 20160, "value": 0.5 },
+    { "type": "mod_wheel", "tick": 23040, "value": 0 }
+  ]
+}

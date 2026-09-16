@@ -3,12 +3,12 @@
   "external_audio": null,
   "metadata": {
     "name": "Bright Wide Pad",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "description": "明るい高域と大きな左右方向の広がりを持つ華やかなパッド。22 centのDetuneを持つ7 Voice Unisonが、単音でも複数の音のずれを感じさせ、コードを大きく左右へ開く。0.9秒の立ち上がりはスーパーソウリードより確実に遅く、Chorusと合わせて背景へ馴染む。複数音を重ねても透明感と広がりが残る。"
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 8,
+    "polyphony": 24,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -22,14 +22,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -12.5,
+      "gain_db": -15.9,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 0.9,
         "decay_seconds": 0.5,
         "sustain_level": 0.85,
-        "release_seconds": 1.2
+        "release_seconds": 2.4
       },
       "generator": {
         "oscillator": {
@@ -52,9 +52,16 @@
   "voice_processors": [
     {
       "type": "filter",
+      "id": "clear",
+      "mode": "high_pass",
+      "cutoff_hz": 120,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
       "id": "sheen",
       "mode": "low_pass",
-      "cutoff_hz": 9500.0,
+      "cutoff_hz": 7200,
       "resonance": 0.05
     }
   ],
@@ -63,18 +70,27 @@
       "type": "chorus",
       "id": "spread",
       "delay_ms": 14.0,
-      "rate_hz": 0.5,
-      "depth": 0.3,
+      "rate_hz": 0.23,
+      "depth": 0.18,
       "width": 1.0,
-      "mix": 0.22,
+      "mix": 0.14,
       "feedback": 0.05
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.028,
+      "decay": 0.56,
+      "damping": 0.52,
+      "width": 0.9,
+      "mix": 0.1
     },
     {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -6
     }
   ],
   "modulation": {
@@ -84,8 +100,26 @@
         "source": "velocity",
         "target": "layer.wide.gain",
         "depth": {
-          "value": 4.0,
+          "value": 7,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.wide.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.sheen.cutoff",
+        "depth": {
+          "value": 0.7,
+          "unit": "octaves"
         },
         "curve": "linear"
       }

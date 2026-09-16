@@ -3,12 +3,12 @@
   "external_audio": null,
   "metadata": {
     "name": "Dark Ambient Pad",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "description": "暗く沈んだ雰囲気を作るアンビエントパッド。TriangleとSineだけで倍音を絞り、低いLadder Filterが明るい成分を抑える。2.5秒の立ち上がりでゆっくり存在感が現れ、長いReverbが少し遠くで鳴るような奥行きを与える。低中域を中心に深く、Ambient、Cinematic、暗い電子音楽の背景に適する。"
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 8,
+    "polyphony": 24,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -22,7 +22,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -19.0,
+      "gain_db": -21.4,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -40,9 +40,9 @@
           "phase": 0.0,
           "unison": {
             "voices": 3,
-            "detune_cents": 10.0,
+            "detune_cents": 6,
             "stereo_spread": 0.5,
-            "phase_spread": 0.0
+            "phase_spread": 0.65
           }
         }
       },
@@ -58,7 +58,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -23.0,
+      "gain_db": -28.4,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -73,7 +73,7 @@
             "type": "sine"
           },
           "phase_reset": true,
-          "phase": 0.0
+          "phase": 0.23
         }
       },
       "processors": []
@@ -83,7 +83,7 @@
     {
       "type": "ladder_filter",
       "id": "shadow",
-      "cutoff_hz": 900.0,
+      "cutoff_hz": 1100,
       "resonance": 0.1,
       "drive": 0.1
     }
@@ -92,18 +92,18 @@
     {
       "type": "reverb",
       "id": "distance",
-      "pre_delay_seconds": 0.05,
-      "decay": 0.68,
-      "damping": 0.5,
+      "pre_delay_seconds": 0.035,
+      "decay": 0.76,
+      "damping": 0.72,
       "width": 1.0,
-      "mix": 0.25
+      "mix": 0.18
     },
     {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -6
     }
   ],
   "modulation": {
@@ -113,7 +113,7 @@
         "source": "velocity",
         "target": "layer.body.gain",
         "depth": {
-          "value": 4.0,
+          "value": 7,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -122,8 +122,44 @@
         "source": "velocity",
         "target": "layer.depth.gain",
         "depth": {
-          "value": 4.0,
+          "value": 7,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.depth.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.shadow.cutoff",
+        "depth": {
+          "value": 2.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.shadow.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
         },
         "curve": "linear"
       }

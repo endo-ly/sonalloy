@@ -3,12 +3,12 @@
   "external_audio": null,
   "metadata": {
     "name": "Warm Analog Pad",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "description": "コードの背景を柔らかく支える、標準的なアナログ系パッド。Sawの軽いDetuneにTriangleの温かさを重ね、Ladder Filterで高域を穏やかに丸める。緩やかな立ち上がりと自然な余韻が長時間鳴らしても邪魔にならず、C2〜C6程度のコードでも各音の関係が分かる。派手な変化よりも安定感を優先した、汎用パッドの基準となる音。"
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 8,
+    "polyphony": 24,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -22,14 +22,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -14.5,
+      "gain_db": -16.9,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.5,
+        "attack_seconds": 0.85,
         "decay_seconds": 0.5,
         "sustain_level": 0.8,
-        "release_seconds": 1.0
+        "release_seconds": 1.8
       },
       "generator": {
         "oscillator": {
@@ -40,9 +40,9 @@
           "phase": 0.0,
           "unison": {
             "voices": 3,
-            "detune_cents": 12.0,
+            "detune_cents": 9,
             "stereo_spread": 0.5,
-            "phase_spread": 0.0
+            "phase_spread": 0.55
           }
         }
       },
@@ -58,14 +58,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -16.5,
+      "gain_db": -21.9,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.5,
+        "attack_seconds": 0.85,
         "decay_seconds": 0.5,
         "sustain_level": 0.8,
-        "release_seconds": 1.0
+        "release_seconds": 1.8
       },
       "generator": {
         "oscillator": {
@@ -73,7 +73,7 @@
             "type": "triangle"
           },
           "phase_reset": true,
-          "phase": 0.0
+          "phase": 0.19
         }
       },
       "processors": []
@@ -83,18 +83,27 @@
     {
       "type": "ladder_filter",
       "id": "soften",
-      "cutoff_hz": 3500.0,
+      "cutoff_hz": 2600,
       "resonance": 0.08,
       "drive": 0.1
     }
   ],
   "global_processors": [
     {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.028,
+      "decay": 0.48,
+      "damping": 0.7,
+      "width": 0.9,
+      "mix": 0.09
+    },
+    {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -6
     }
   ],
   "modulation": {
@@ -104,7 +113,7 @@
         "source": "velocity",
         "target": "layer.warm.gain",
         "depth": {
-          "value": 4.0,
+          "value": 7,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -113,8 +122,44 @@
         "source": "velocity",
         "target": "layer.body.gain",
         "depth": {
-          "value": 4.0,
+          "value": 7,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.warm.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.soften.cutoff",
+        "depth": {
+          "value": 0.7,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.soften.cutoff",
+        "depth": {
+          "value": 1.8,
+          "unit": "octaves"
         },
         "curve": "linear"
       }
