@@ -25,8 +25,9 @@ sonalloy instrument inspect <preset>/definition.json --json
 |---|---|---|---|
 | ベース | C2（MIDI Note 36） | 0.5 / 0.5 | `bass-audition-pattern.json` |
 | リード | C4（MIDI Note 60） | 0.5 / 0.5 | `lead-audition-pattern.json`（11は`supersaw-chords-pattern.json`） |
-| パッド | C4（MIDI Note 60） | 2.0 / 2.0 | `padline-events.json` |
-| キー／コード | C4（MIDI Note 60） | 1.5 / 1.5 | `padline-events.json` |
+| パッド | C4（MIDI Note 60） | 16.0 / 7.0 | `pad-audition-pattern.json` |
+| キー／コード（25〜29） | C4（MIDI Note 60） | 5.0 / 3.0 | `keys-audition-pattern.json` |
+| コードスタブ（30〜31） | C4（MIDI Note 60） | 1.5 / 3.0 | `chord-stab-pattern.json` |
 | プラック／マレット | C4（MIDI Note 60） | 1.5 / 1.5 | `pluck-bell-mallet-pattern.json` |
 | ベル | C4（MIDI Note 60） | 4.0 / 4.0 | `pluck-bell-mallet-pattern.json` |
 | ドラム／パーカッション | プリセットごとの代表音（下表） | 1.5 / 1.0（クラッシュは3.5 / 2.5） | `drums-<種別>-pattern.json`（下表） |
@@ -55,7 +56,11 @@ sonalloy render pattern <preset>/definition.json presets/<Pattern名>.json \
 
 1〜16はPitch Bendで±2半音、Mod Wheelで音色を調整できる。5のアシッドベースと15のポルタメントリードは、音を重ねると音程が滑らかにつながる。
 
-`padline-events.json`は120 BPMの4/4を基準にしたEvent列で、絶対Frame位置はSample Rate 48000 Hzを前提とする。パッドとキー／コードの`phrase.wav`は、`render events`に`--duration-frames 230400 --tail 2.5`を指定して再生成する。
+17〜24のパッドは、長音の中での倍音変化とコードをつないだときの余韻を試聴する。`pad-audition-pattern.json`は14秒と13秒の4音コードを1秒重ねて演奏し、後半にMod Wheelを操作する。`phrase.wav`は`render pattern`に`--tail 7`を指定して再生成する。Velocityで音量、Pitch Bendで±2半音、Mod Wheelで明るさを調整できる。
+
+25〜29の`keys-audition-pattern.json`は、同音の弱・中・強、音域をまたぐ短い旋律、4音と6音のコードを演奏する。後半にはMod Wheel、Pitch Bend、Sustain Pedalを含む。30〜31の`chord-stab-pattern.json`は短いコードを反復し、最後の長押しで減衰を確認する。どちらも`phrase.wav`は`render pattern`に`--tail 3`を指定して再生成する。
+
+25〜31はVelocityで音量、Pitch Bendで±2半音を調整できる。Mod Wheelは25のChorusの深さ、26の回転感の速さと深さ、27〜31の明るさを変える。25のエレクトリックピアノと31のハウス・コードスタブは長押しでも自然に減衰し、26〜29は保持中も持続する。30のシンセブラスは強い立ち上がりから控えめな持続へ移る。
 
 プラック／ベル／マレットの`phrase.wav`は、120 BPMの共通Patternで音色と減衰を比較する。同音の弱・中・強、8分音符のアルペジオ、4音の和音、長く保持する単音の順に演奏する。プラック／マレットは`--tail 2`、ベルは`--tail 4`で再生成する。
 

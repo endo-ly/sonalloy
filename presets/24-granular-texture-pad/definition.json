@@ -3,12 +3,12 @@
   "external_audio": null,
   "metadata": {
     "name": "Granular Texture Pad",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "description": "細かな音の粒が重なり合いながら持続する、粒状感のある広いパッド。倍音と空気を含む3秒のテクスチャSourceをGrainへ分解し、RandomnessとPan Spreadで粒を前後左右に散らす。低速のLFOが読み取り位置を漂わせ、長音の内部に絶えず細かな変化を生む。全体の音程感は保ちながら、表面は少し霞んだ広がりを持つ。"
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 8,
+    "polyphony": 24,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -22,7 +22,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -10.5,
+      "gain_db": -12.9,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
@@ -43,10 +43,10 @@
             "end_seconds": null
           },
           "position": 0.5,
-          "grain_size": 0.09,
-          "density": 26.0,
+          "grain_size": 0.12,
+          "density": 32,
           "pitch": 0.0,
-          "randomness": 0.45,
+          "randomness": 0.35,
           "pan_spread": 0.85,
           "seed": 8128
         }
@@ -54,14 +54,31 @@
       "processors": []
     }
   ],
-  "voice_processors": [],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "veil",
+      "mode": "low_pass",
+      "cutoff_hz": 6200,
+      "resonance": 0.05
+    }
+  ],
   "global_processors": [
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.028,
+      "decay": 0.62,
+      "damping": 0.65,
+      "width": 0.9,
+      "mix": 0.1
+    },
     {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -6
     }
   ],
   "modulation": {
@@ -75,6 +92,15 @@
           "unit": "per_second"
         },
         "phase": 0.0
+      },
+      {
+        "id": "scatter",
+        "type": "smooth_random",
+        "seed": 24017,
+        "rate": {
+          "value": 0.21,
+          "unit": "per_second"
+        }
       }
     ],
     "routes": [
@@ -91,8 +117,44 @@
         "source": "velocity",
         "target": "layer.grains.gain",
         "depth": {
-          "value": 4.0,
+          "value": 7,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.grains.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "scatter",
+        "target": "layer.grains.generator.grain_size",
+        "depth": {
+          "value": 0.22,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "scatter",
+        "target": "layer.grains.generator.grain_density",
+        "depth": {
+          "value": -0.22,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.veil.cutoff",
+        "depth": {
+          "value": 0.7,
+          "unit": "octaves"
         },
         "curve": "linear"
       }

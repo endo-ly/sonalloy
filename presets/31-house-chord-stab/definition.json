@@ -3,8 +3,8 @@
   "external_audio": null,
   "metadata": {
     "name": "House Chord Stab",
-    "author": "glm-5.3-flash",
-    "description": "HouseやGarage系の反復コードに使いやすい、短くまとまったコード音。Square波の輪郭に速いFilter Envelopeが加わり、発音直後の中高域の筋がすぐ減衰して次のコードのための空間を残す。200HzのHigh Passが低中域の重なりを切り捨て、シンセブラスより軽く金管らしさの弱い質感を作る。4和音を短く連続させても濁らず、リズムの一部としてコードを置ける。"
+    "author": "gpt-6-astra low",
+    "description": "HouseやGarage系の反復コードに使いやすい、短くまとまったコード音。Square波の輪郭に速いFilter Envelopeが加わり、発音直後の中高域の筋がすぐ減衰して次のコードのための空間を残す。長押しでも音量が自然に収束する。200HzのHigh Passが低中域の重なりを切り捨て、シンセブラスより軽く金管らしさの弱い質感を作る。4和音を短く連続させても濁らず、リズムの一部としてコードを置ける。"
   },
   "performance": {
     "mode": "polyphonic",
@@ -22,14 +22,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -15.5,
+      "gain_db": -16,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.005,
-        "decay_seconds": 0.25,
-        "sustain_level": 0.25,
-        "release_seconds": 0.12
+        "attack_seconds": 0.006,
+        "decay_seconds": 0.38,
+        "sustain_level": 0,
+        "release_seconds": 0.1
       },
       "generator": {
         "oscillator": {
@@ -42,7 +42,7 @@
             "voices": 2,
             "detune_cents": 8.0,
             "stereo_spread": 0.45,
-            "phase_spread": 0.0
+            "phase_spread": 0.25
           }
         }
       },
@@ -61,17 +61,26 @@
       "type": "filter",
       "id": "shape",
       "mode": "low_pass",
-      "cutoff_hz": 6000.0,
+      "cutoff_hz": 1600,
       "resonance": 0.08
     }
   ],
   "global_processors": [
     {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.28,
+      "damping": 0.7,
+      "width": 0.85,
+      "mix": 0.025
+    },
+    {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -4
     }
   ],
   "modulation": {
@@ -79,9 +88,9 @@
       {
         "id": "stab_env",
         "type": "envelope",
-        "attack_seconds": 0.0,
-        "decay_seconds": 0.12,
-        "sustain_level": 0.05,
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.22,
+        "sustain_level": 0,
         "release_seconds": 0.08
       }
     ],
@@ -90,7 +99,7 @@
         "source": "stab_env",
         "target": "voice.processor.shape.cutoff",
         "depth": {
-          "value": 2.0,
+          "value": 1.75,
           "unit": "octaves"
         },
         "curve": "linear"
@@ -99,7 +108,7 @@
         "source": "velocity",
         "target": "layer.stab.gain",
         "depth": {
-          "value": 5.0,
+          "value": 8,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -108,7 +117,25 @@
         "source": "velocity",
         "target": "voice.processor.shape.cutoff",
         "depth": {
-          "value": 0.5,
+          "value": 0.65,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.stab.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.shape.cutoff",
+        "depth": {
+          "value": 0.55,
           "unit": "octaves"
         },
         "curve": "linear"

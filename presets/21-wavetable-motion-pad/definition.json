@@ -3,12 +3,12 @@
   "external_audio": null,
   "metadata": {
     "name": "Wavetable Motion Pad",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "description": "長いコードの中で倍音構成が別の形へ移り変わるデジタル系パッド。SineからOrgan、Hollow、Bright、Complexへと並ぶ12フレームのWavetableを、発音してから7秒ほどかけて単方向に走査する。開始時と後半で音色が明確に変わり、その間は滑らかにつながる。一定周期の揺れではなく時間方向の展開が特徴の、人工的で複雑な質感。"
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 8,
+    "polyphony": 24,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -22,14 +22,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -14.0,
+      "gain_db": -16.4,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 0.8,
         "decay_seconds": 0.5,
         "sustain_level": 0.85,
-        "release_seconds": 1.2
+        "release_seconds": 2.4
       },
       "generator": {
         "wavetable": {
@@ -38,12 +38,12 @@
             "sha256": "e718b035110f9901b8253614779cba816d20be1f18f0439110f42945408ac3e1"
           },
           "frame_length": 2048,
-          "position": 0.05,
+          "position": 0.5,
           "phase_reset": true,
           "phase": 0.0,
           "unison": {
             "voices": 4,
-            "detune_cents": 16.0,
+            "detune_cents": 10,
             "stereo_spread": 0.7,
             "phase_spread": 0.6
           }
@@ -63,22 +63,39 @@
   ],
   "global_processors": [
     {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.028,
+      "decay": 0.58,
+      "damping": 0.58,
+      "width": 0.9,
+      "mix": 0.1
+    },
+    {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -6
     }
   ],
   "modulation": {
     "sources": [
       {
         "id": "scan",
-        "type": "envelope",
-        "attack_seconds": 7.0,
-        "decay_seconds": 3.0,
-        "sustain_level": 1.0,
-        "release_seconds": 12.0
+        "type": "mseg",
+        "initial_value": -1,
+        "segments": [
+          {
+            "duration": {
+              "value": 7,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
       }
     ],
     "routes": [
@@ -86,7 +103,7 @@
         "source": "scan",
         "target": "layer.motion.generator.wavetable_position",
         "depth": {
-          "value": 0.85,
+          "value": 0.5,
           "unit": "normalized"
         },
         "curve": "linear"
@@ -95,8 +112,26 @@
         "source": "velocity",
         "target": "layer.motion.gain",
         "depth": {
-          "value": 4.0,
+          "value": 7,
           "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.motion.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.glaze.cutoff",
+        "depth": {
+          "value": 0.7,
+          "unit": "octaves"
         },
         "curve": "linear"
       }

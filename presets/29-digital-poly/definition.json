@@ -3,12 +3,12 @@
   "external_audio": null,
   "metadata": {
     "name": "Digital Poly",
-    "author": "glm-5.3-flash",
+    "author": "gpt-6-astra low",
     "description": "明瞭で精密な倍音を持つ、現代的なデジタル系コード音。Wavetableの中間Positionで静止させた硬質な倍音構成に、6 centとタイトなDetuneの2 Voice Unisonを合わせ、輪郭の明るさと透明な高域を確保する。アナログポリシンセより輪郭が硬く、複数音を重ねても濁りにくい。プラックのように減衰せず鍵盤を押している間は安定して持続し、速いコード進行でも各和音の切り替わりが明確。"
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 8,
+    "polyphony": 16,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
@@ -22,14 +22,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -14.0,
+      "gain_db": -17,
       "pan": 0.0,
       "tuning_cents": 0.0,
       "envelope": {
         "attack_seconds": 0.008,
-        "decay_seconds": 0.4,
-        "sustain_level": 0.75,
-        "release_seconds": 0.3
+        "decay_seconds": 0.18,
+        "sustain_level": 0.85,
+        "release_seconds": 0.22
       },
       "generator": {
         "wavetable": {
@@ -38,14 +38,14 @@
             "sha256": "e718b035110f9901b8253614779cba816d20be1f18f0439110f42945408ac3e1"
           },
           "frame_length": 2048,
-          "position": 0.4,
+          "position": 0.62,
           "phase_reset": true,
           "phase": 0.0,
           "unison": {
             "voices": 2,
             "detune_cents": 6.0,
-            "stereo_spread": 0.35,
-            "phase_spread": 0.0
+            "stereo_spread": 0.5,
+            "phase_spread": 0.4
           }
         }
       },
@@ -63,11 +63,20 @@
   ],
   "global_processors": [
     {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.32,
+      "damping": 0.55,
+      "width": 0.85,
+      "mix": 0.035
+    },
+    {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250.0,
-      "input_gain_db": 0.0
+      "input_gain_db": -4
     }
   ],
   "modulation": {
@@ -77,7 +86,7 @@
         "source": "velocity",
         "target": "layer.digital.gain",
         "depth": {
-          "value": 5.0,
+          "value": 8,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -87,6 +96,24 @@
         "target": "voice.processor.clarity.cutoff",
         "depth": {
           "value": 0.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.digital.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.clarity.cutoff",
+        "depth": {
+          "value": 0.55,
           "unit": "octaves"
         },
         "curve": "linear"
