@@ -118,7 +118,8 @@ add_custom_command(
     OUTPUT "${SONALLOY_CLI_EXECUTABLE}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${SONALLOY_CLI_CONFIGURATION_DIRECTORY}"
     COMMAND ${CMAKE_COMMAND} -E env
-        "SONALLOY_DSP_MSVC_RUNTIME=$<IF:$<CONFIG:Debug>,debug,release>"
+        # Rust MSVC binaries use the release CRT even for the dev profile.
+        "SONALLOY_DSP_MSVC_RUNTIME=release"
         "${SONALLOY_CARGO_EXECUTABLE}"
         build
         --manifest-path "${SONALLOY_SOURCE_DIR}/crates/sonalloy-cli/Cargo.toml"
