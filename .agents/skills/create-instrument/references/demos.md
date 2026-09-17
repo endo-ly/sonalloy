@@ -49,13 +49,13 @@ Demo DefinitionのSchema Versionは`1`です。未知のFieldは受け付けま�
 
 | Field | 内容 | Default |
 |---|---|---|
-| `id` | Demo内で一意なPart名。StemのFile名とMIDI Track Nameにも使う | — |
+| `id` | Demo内でASCIIの大文字小文字を区別せず一意なPart名。StemのFile名とMIDI Track Nameにも使う | — |
 | `instrument` | Instrument DefinitionへのPath | — |
 | `pattern` | 1つのInstrumentへ送るAudition PatternへのPath | — |
 | `gain_db` | Partへ適用する固定Gain（dB） | `0.0` |
 | `midi_channel` | MIDI Export時のChannel。1〜16 | 定義順に自動割り当て |
 
-`id`は空にできません。Stem File名として安全に扱えるよう、ASCIIの英数字、`.`、`_`、`-`だけを使い、先頭は英数字、長さは1〜64文字にします。
+`id`は空にできません。Stem File名として安全に扱えるよう、ASCIIの英数字、`.`、`_`、`-`だけを使い、先頭は英数字、長さは1〜64文字にします。大文字小文字を区別しない重複を許さず、Windowsの予約デバイス名（`CON`、`PRN`、`AUX`、`NUL`、`COM1`〜`COM9`、`LPT1`〜`LPT9`）も指定できません。
 
 `gain_db`は有限値を指定します。Mix時には`10 ^ (gain_db / 20)`へ変換して各Partへ一度だけ適用します。GainはPatternのEventや時間変化を持たない固定値です。変換結果が有限値にならない値はValidation Errorです。
 
@@ -93,7 +93,9 @@ Masterの値は次の範囲で指定します。
 
 各PartのPatternはTick 0から始まります。Demo内にPartの開始TickやClip Offsetはありません。曲の途中から鳴らす場合は、Patternの先頭へ無音の区間を記述します。
 
-すべてのPatternで次の時間軸を一致させます。
+最長PatternをDemoの共通時間軸の基準にします。短いPatternでは、自身の`length_ticks`未満にある変更だけを基準Patternの同じTick位置と一致させます。最長Patternの後半だけにある変更は、短いPatternへ要求しません。
+
+共通時間軸には次の情報を使います。
 
 ```text
 ticks_per_beat
@@ -101,7 +103,7 @@ tempo_changes
 time_signature_changes
 ```
 
-基準は`parts[0].pattern`です。長さを一致させる必要はなく、Demoの`length_ticks`は全Patternの最大値です。`musical_duration_seconds`はこの長さを基準PatternのTempoで換算した値で、Render Tailを含みません。
+Demoの`length_ticks`は全Patternの最大値です。`musical_duration_seconds`とMIDIのConductor Trackは最長PatternのTempo / Time Signatureを使います。Render Tailは音楽的な長さに含みません。
 
 各Partは次の順に検証されます。
 
@@ -111,6 +113,8 @@ time_signature_changes
 4. 他Partとの共通時間軸を検証する
 
 ValidationはPartごとに可能な範囲まで進み、最初のErrorだけで処理を終了しません。参照先のDiagnosticにはPart位置を付けます。
+
+DemoのOffline Renderは外部Audio入力を受けないため、外部Audioを必要とするInstrumentはValidation Errorになります。
 
 ```text
 Pattern単体: events[4].velocity
@@ -128,7 +132,7 @@ Demo:           parts[2].instrument.layers[0].generator.foo
 
 | Track | 内容 |
 |---|---|
-| Conductor Track | DemoのName（指定時）、`parts[0]`のTempo / Time Signature、End Of Track |
+| Conductor Track | DemoのName（指定時）、最長PatternのTempo / Time Signature、End Of Track |
 | Part Track | Part ID、Note / Sustain / Pitch Bend / Mod Wheel / Aftertouch、End Of Track |
 
 各Part Trackは解決済みChannelを使い、全TrackのEnd Of TrackをDemoの`length_ticks`へ揃えます。PatternのParameter Changeと同音程のNote Overlapは、Standard MIDIで意味を保持できないため既存のPattern Export規則どおり`MIDI_ERROR`になります。
@@ -158,7 +162,7 @@ MixはStereoの`f32`です。短いPartの終端は無音として扱い、長�
 
 `mix.master`を指定した場合、または`--mp3-output`を指定した場合だけ、CLIはPATH上の`ffmpeg`を実行します。Masterでは`loudnorm`を2-passで使い、実測値と実際の`normalization_type`をRender Reportへ記録します。FFmpegの条件によってDynamic Normalizationへ切り替わる場合も、その結果を受け入れます。
 
-Master済みWAVはStereo、指定Sample Rate、`pcm_f32le`で出力します。MP3はMasterがあればMaster済みWAVから、なければ通常のMix WAVから生成し、Codecは`libmp3lame`、Bitrateは`256k`に固定します。
+Master済みWAVはWAV形式、Stereo、指定Sample Rate、`pcm_f32le`で出力します。MP3はMasterがあればMaster済みWAVから、なければ通常のMix WAVから生成し、MP3形式、Codecは`libmp3lame`、Bitrateは`256k`に固定します。
 
 FFmpegが必要な状態で見つからない場合は、次のDiagnosticで失敗します。
 

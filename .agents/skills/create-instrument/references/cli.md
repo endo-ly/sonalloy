@@ -172,7 +172,7 @@ sonalloy demo validate demo.json
 sonalloy demo validate demo.json --json
 ```
 
-Demo自身のSchema、各PartのInstrument JSONとCompile、PatternのValidation、Patternと対象InstrumentのCompile、Pattern群の共通時間軸を確認します。Instrument CompileはSample Rate `48000`、Block Size `257`で実行します。全Partを可能な範囲まで検証し、診断Pathには`parts[i].instrument`または`parts[i].pattern`のPrefixを付けます。
+Demo自身のSchema、各PartのInstrument JSONとCompile、PatternのValidation、Patternと対象InstrumentのCompile、Pattern群の共通時間軸を確認します。Instrument CompileはSample Rate `48000`、Block Size `257`で実行します。外部Audio入力を必要とするInstrumentはDemoで使用できません。全Partを可能な範囲まで検証し、診断Pathには`parts[i].instrument`または`parts[i].pattern`のPrefixを付けます。
 
 成功時の`--json` Reportは既存のStatus Report形式です。
 
@@ -200,7 +200,7 @@ sonalloy demo export-midi demo.json --output demo.mid
 sonalloy demo export-midi demo.json --output demo.mid --json
 ```
 
-Conductor TrackにDemo Name（指定時）、`parts[0]`のTempo / Time Signature、Demo全体の終端を入れ、PartごとにTrack Name、解決済みChannel、Note / Sustain / Pitch Bend / Mod Wheel / Aftertouchを出力します。全TrackのEnd Of TrackはDemoの最長Patternへ揃えます。Parameter Change、同音程のNote Overlap、MIDI Channel不足は`MIDI_ERROR`で失敗します。既に存在するOutput Pathは上書きしません。
+Conductor TrackにDemo Name（指定時）、最長PatternのTempo / Time Signature、Demo全体の終端を入れ、PartごとにTrack Name、解決済みChannel、Note / Sustain / Pitch Bend / Mod Wheel / Aftertouchを出力します。全TrackのEnd Of TrackはDemoの最長Patternへ揃えます。Parameter Change、同音程のNote Overlap、MIDI Channel不足は`MIDI_ERROR`で失敗します。既に存在するOutput Pathは上書きしません。
 
 ### `render demo` — DemoのOffline Render
 
@@ -226,7 +226,7 @@ Partは順番に既存の`render pattern`と同じRender経路で処理し、Lat
 
 `--json`では、`status`、`sample_rate`、`channels`、`frames`、`output`、Partごとの`id` / `gain_db` / `frames` / `stem`を返します。`mix_analysis`は`--analyze`指定時、`master`はDemoの`mix.master`指定時、`mp3_output`と`stems_dir`は対応するOption指定時だけ含まれます。Masterの実測値と`normalization_type`も`master`へ含まれます。
 
-`mix.master`または`--mp3-output`を指定した場合だけ、CLIはPATH上のFFmpegを呼び出します。Masterは`loudnorm`の2-pass処理、MP3は`libmp3lame`の`256k`固定です。Masterが有効な場合、MP3はMaster済みWAVから生成します。FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
+`mix.master`または`--mp3-output`を指定した場合だけ、CLIはPATH上のFFmpegを呼び出します。MasterはWAV形式の出力へ`loudnorm`を2-passで適用し、MP3はMP3形式、`libmp3lame`の`256k`固定です。Masterが有効な場合、MP3はMaster済みWAVから生成します。FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
 
 ## リアルタイム演奏
 
