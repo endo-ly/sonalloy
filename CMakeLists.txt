@@ -191,12 +191,20 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     if(BUILD_TESTING)
         add_executable(sonalloy-cmake-consumer tests/cmake_consumer.cpp)
         target_link_libraries(sonalloy-cmake-consumer PRIVATE sonalloy::capi)
+        add_dependencies(sonalloy-cmake-consumer sonalloy-cli-build)
         sonalloy_stage_builtin_bundle(
             TARGET sonalloy-builtin-bundle-stage
             DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/test-builtin-resources"
         )
         add_dependencies(sonalloy-cmake-consumer sonalloy-builtin-bundle-stage)
         add_test(NAME SonalloyCMakeConsumer COMMAND sonalloy-cmake-consumer)
+        add_test(
+            NAME SonalloyCliConsumer
+            COMMAND "${CMAKE_COMMAND}"
+                "-DSONALLOY_CLI=$<TARGET_FILE:sonalloy::cli>"
+                "-DSONALLOY_CLI_SMOKE_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/test-cli-smoke"
+                -P "${SONALLOY_SOURCE_DIR}/tests/cmake_cli_consumer.cmake"
+        )
         add_test(
             NAME SonalloyBuiltinBundle
             COMMAND "${SONALLOY_NODE_EXECUTABLE}"
