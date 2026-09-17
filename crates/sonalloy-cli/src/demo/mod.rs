@@ -130,7 +130,6 @@ struct DemoLoadContext<'a> {
     block_size: usize,
     diagnostics: &'a mut Vec<Diagnostic>,
     exit_code: &'a mut u8,
-    reference_axis: &'a mut Option<TimeAxis>,
 }
 
 pub(crate) fn load(
@@ -142,7 +141,6 @@ pub(crate) fn load(
     let mut diagnostics = validate_definition(&definition);
     let mut exit_code = 1;
     let midi_channels = resolve_midi_channels(&definition.parts);
-    let mut reference_axis = None;
     let mut loaded_parts = Vec::with_capacity(definition.parts.len());
     let mut context = DemoLoadContext {
         base_dir: &base_dir,
@@ -150,7 +148,6 @@ pub(crate) fn load(
         block_size,
         diagnostics: &mut diagnostics,
         exit_code: &mut exit_code,
-        reference_axis: &mut reference_axis,
     };
 
     for (index, (part, midi_channel)) in definition.parts.iter().zip(midi_channels).enumerate() {
@@ -175,22 +172,39 @@ pub(crate) fn load(
         });
     }
 
-    let first_pattern = &loaded_parts[0].pattern;
-    let length_ticks = loaded_parts
-        .iter()
-        .map(|part| part.pattern.length_ticks)
-        .max()
-        .expect("Demo validation requires at least one part");
-    let tempo_changes = crate::pattern::tempo_points(first_pattern);
-    let musical_duration_seconds =
-        musical_duration_seconds(length_ticks, first_pattern.ticks_per_beat, &tempo_changes)
-            .map_err(|error| CliFailure {
-                code: 1,
-                diagnostics: vec![
-                    Diagnostic::error(DiagnosticCode::ValueOutOfRange, error.to_string())
-                        .with_path("parts[0].pattern.tempo_changes"),
-                ],
-            })?;
+    let (timeline_index, timeline_part) = longest_loaded_part(&loaded_parts);
+    let reference_axis = time_axis(&timeline_part.pattern);
+    for (index, part) in loaded_parts.iter().enumerate() {
+        let actual_axis = time_axis(&part.pattern);
+        append_time_axis_diagnostics(
+            &mut diagnostics,
+            &reference_axis,
+            &actual_axis,
+            part.pattern.length_ticks,
+            index,
+        );
+    }
+    if has_errors(&diagnostics) {
+        return Err(CliFailure {
+            code: exit_code,
+            diagnostics,
+        });
+    }
+
+    let length_ticks = timeline_part.pattern.length_ticks;
+    let tempo_changes = crate::pattern::tempo_points(&timeline_part.pattern);
+    let musical_duration_seconds = musical_duration_seconds(
+        length_ticks,
+        timeline_part.pattern.ticks_per_beat,
+        &tempo_changes,
+    )
+    .map_err(|error| CliFailure {
+        code: 1,
+        diagnostics: vec![
+            Diagnostic::error(DiagnosticCode::ValueOutOfRange, error.to_string())
+                .with_path(format!("parts[{timeline_index}].pattern.tempo_changes")),
+        ],
+    })?;
     Ok(LoadedDemo {
         definition,
         parts: loaded_parts,
@@ -212,12 +226,6 @@ fn load_part(
     if has_errors(&pattern_diagnostics) {
         append_part_diagnostics(context.diagnostics, pattern_diagnostics, index, "pattern");
         return None;
-    }
-    let axis = time_axis(&pattern);
-    if let Some(expected) = context.reference_axis.as_ref() {
-        append_time_axis_diagnostics(context.diagnostics, expected, &axis, index);
-    } else {
-        *context.reference_axis = Some(axis);
     }
     let instrument = instrument?;
     let compiled_pattern =
@@ -252,6 +260,20 @@ fn load_instrument_reference(
                 "instrument",
                 &path,
             );
+            if instrument.required_input_channels() > 0 {
+                context.diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::DefinitionError,
+                        "Demo does not support instruments that require external audio input",
+                    )
+                    .with_path(format!("parts[{index}].instrument"))
+                    .with_detail(format!(
+                        "instrument requires {} external input channels",
+                        instrument.required_input_channels()
+                    )),
+                );
+                return None;
+            }
             Some(instrument)
         }
         Err(failure) => {
@@ -291,16 +313,17 @@ fn load_pattern_reference(
 }
 
 pub(crate) fn inspect(demo: &LoadedDemo) -> DemoInspection {
-    let first_pattern = &demo.parts[0].pattern;
+    let (_, timeline_part) = longest_part(demo);
+    let timeline_pattern = &timeline_part.pattern;
     DemoInspection {
         schema_version: demo.definition.schema_version,
         name: demo.definition.name.clone(),
         part_count: demo.parts.len(),
-        ticks_per_beat: first_pattern.ticks_per_beat,
+        ticks_per_beat: timeline_pattern.ticks_per_beat,
         length_ticks: demo.length_ticks,
         musical_duration_seconds: demo.musical_duration_seconds,
-        tempo_change_count: first_pattern.tempo_changes.len(),
-        time_signature_change_count: first_pattern.time_signature_changes.len(),
+        tempo_change_count: timeline_pattern.tempo_changes.len(),
+        time_signature_change_count: timeline_pattern.time_signature_changes.len(),
         parts: demo
             .parts
             .iter()
@@ -344,10 +367,13 @@ pub(crate) fn validate_definition(definition: &DemoDefinition) -> Vec<Diagnostic
     for (index, part) in definition.parts.iter().enumerate() {
         let path = format!("parts[{index}]");
         validate_part_id(&part.id, &path, &mut diagnostics);
-        if !part_ids.insert(&part.id) {
+        if !part_ids.insert(part.id.to_ascii_lowercase()) {
             diagnostics.push(
-                Diagnostic::error(DiagnosticCode::IdDuplicated, "part id must be unique")
-                    .with_path(format!("{path}.id")),
+                Diagnostic::error(
+                    DiagnosticCode::IdDuplicated,
+                    "part id must be unique ignoring ASCII case",
+                )
+                .with_path(format!("{path}.id")),
             );
         }
         if !part.gain_db.is_finite() || gain_linear(part.gain_db).is_none() {
@@ -427,15 +453,25 @@ fn validate_part_id(id: &str, part_path: &str, diagnostics: &mut Vec<Diagnostic>
         .bytes()
         .next()
         .is_some_and(|byte| byte.is_ascii_alphanumeric());
-    if !valid_length || !valid_characters || !valid_first {
+    let windows_reserved = is_windows_reserved_device_name(id);
+    if !valid_length || !valid_characters || !valid_first || windows_reserved {
         diagnostics.push(
             Diagnostic::error(
                 DiagnosticCode::ValueOutOfRange,
-                "id must be 1 to 64 ASCII characters, start with a letter or digit, and contain only letters, digits, '.', '_' or '-'",
+                "id must be 1 to 64 ASCII characters, start with a letter or digit, contain only letters, digits, '.', '_' or '-', and not be a Windows reserved device name",
             )
             .with_path(format!("{part_path}.id")),
         );
     }
+}
+
+fn is_windows_reserved_device_name(id: &str) -> bool {
+    let basename = id.split('.').next().unwrap_or(id).to_ascii_lowercase();
+    matches!(basename.as_str(), "con" | "prn" | "aux" | "nul")
+        || matches!(
+            basename.as_bytes(),
+            [b'c', b'o', b'm', b'1'..=b'9'] | [b'l', b'p', b't', b'1'..=b'9']
+        )
 }
 
 fn validate_master_value(
@@ -482,6 +518,18 @@ fn resolve_midi_channels(parts: &[DemoPart]) -> Vec<Option<u8>> {
         .collect()
 }
 
+fn longest_loaded_part(parts: &[LoadedDemoPart]) -> (usize, &LoadedDemoPart) {
+    parts
+        .iter()
+        .enumerate()
+        .max_by_key(|(_, part)| part.pattern.length_ticks)
+        .expect("Demo validation requires at least one part")
+}
+
+pub(crate) fn longest_part(demo: &LoadedDemo) -> (usize, &LoadedDemoPart) {
+    longest_loaded_part(&demo.parts)
+}
+
 fn time_axis(pattern: &PatternDefinition) -> TimeAxis {
     TimeAxis {
         ticks_per_beat: pattern.ticks_per_beat,
@@ -505,6 +553,7 @@ fn append_time_axis_diagnostics(
     diagnostics: &mut Vec<Diagnostic>,
     expected: &TimeAxis,
     actual: &TimeAxis,
+    actual_length_ticks: u64,
     part_index: usize,
 ) {
     let prefix = format!("parts[{part_index}].pattern");
@@ -517,20 +566,36 @@ fn append_time_axis_diagnostics(
             .with_path(format!("{prefix}.ticks_per_beat")),
         );
     }
-    if expected.tempo_changes != actual.tempo_changes {
+    let expected_tempo_changes = expected
+        .tempo_changes
+        .iter()
+        .filter(|change| change.tick < actual_length_ticks);
+    let actual_tempo_changes = actual
+        .tempo_changes
+        .iter()
+        .filter(|change| change.tick < actual_length_ticks);
+    if expected_tempo_changes.ne(actual_tempo_changes) {
         diagnostics.push(
             Diagnostic::error(
                 DiagnosticCode::ValueOutOfRange,
-                "all Demo patterns must use the same tempo_changes",
+                "each Pattern must match the longest Pattern's tempo_changes before its own length_ticks",
             )
             .with_path(format!("{prefix}.tempo_changes")),
         );
     }
-    if expected.time_signature_changes != actual.time_signature_changes {
+    let expected_time_signature_changes = expected
+        .time_signature_changes
+        .iter()
+        .filter(|change| change.0 < actual_length_ticks);
+    let actual_time_signature_changes = actual
+        .time_signature_changes
+        .iter()
+        .filter(|change| change.0 < actual_length_ticks);
+    if expected_time_signature_changes.ne(actual_time_signature_changes) {
         diagnostics.push(
             Diagnostic::error(
                 DiagnosticCode::ValueOutOfRange,
-                "all Demo patterns must use the same time_signature_changes",
+                "each Pattern must match the longest Pattern's time_signature_changes before its own length_ticks",
             )
             .with_path(format!("{prefix}.time_signature_changes")),
         );
@@ -823,6 +888,33 @@ mod tests {
     }
 
     #[test]
+    fn ids_are_case_insensitive_and_avoid_windows_device_names() {
+        let definition = definition(vec![
+            part("Lead"),
+            part("lead"),
+            part("CON"),
+            part("com1.wav"),
+        ]);
+
+        let diagnostics = validate_definition(&definition);
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == super::DiagnosticCode::IdDuplicated
+                && diagnostic.path.as_deref() == Some("parts[1].id")
+        }));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| { diagnostic.path.as_deref() == Some("parts[2].id") })
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| { diagnostic.path.as_deref() == Some("parts[3].id") })
+        );
+    }
+
+    #[test]
     fn omitted_channels_are_assigned_in_definition_order() {
         let mut a = part("a");
         a.midi_channel = Some(2);
@@ -867,17 +959,45 @@ mod tests {
     #[test]
     fn patterns_share_time_axis_but_may_have_different_lengths() {
         let expected = crate::pattern::default_pattern();
+        let mut expected = expected;
+        expected
+            .tempo_changes
+            .push(crate::pattern::PatternTempoChange {
+                tick: 960,
+                bpm: 90.0,
+            });
+        expected
+            .time_signature_changes
+            .push(crate::pattern::PatternTimeSignatureChange {
+                tick: 960,
+                numerator: 3,
+                denominator: 4,
+            });
         let mut shorter = expected.clone();
         shorter.length_ticks = 960;
+        shorter.tempo_changes.pop();
+        shorter.time_signature_changes.pop();
         let expected_axis = time_axis(&expected);
         let mut diagnostics = Vec::new();
-        append_time_axis_diagnostics(&mut diagnostics, &expected_axis, &time_axis(&shorter), 1);
+        append_time_axis_diagnostics(
+            &mut diagnostics,
+            &expected_axis,
+            &time_axis(&shorter),
+            shorter.length_ticks,
+            1,
+        );
         assert!(diagnostics.is_empty());
 
         shorter.ticks_per_beat = 960;
         shorter.tempo_changes[0].bpm = 100.0;
         shorter.time_signature_changes[0].numerator = 3;
-        append_time_axis_diagnostics(&mut diagnostics, &expected_axis, &time_axis(&shorter), 2);
+        append_time_axis_diagnostics(
+            &mut diagnostics,
+            &expected_axis,
+            &time_axis(&shorter),
+            shorter.length_ticks,
+            2,
+        );
         let paths = diagnostics
             .iter()
             .filter_map(|diagnostic| diagnostic.path.as_deref())

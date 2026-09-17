@@ -11,6 +11,7 @@ use tempfile::TempDir;
 struct DemoFixture {
     _directory: TempDir,
     demo: PathBuf,
+    first_pattern: PathBuf,
     second_instrument: PathBuf,
     second_pattern: PathBuf,
 }
@@ -66,12 +67,31 @@ fn demo_fixture() -> DemoFixture {
     DemoFixture {
         _directory: directory,
         demo,
+        first_pattern,
         second_instrument,
         second_pattern,
     }
 }
 
 fn write_pattern(path: &Path, length_ticks: u64, duration_ticks: u64, note: u8) {
+    write_pattern_with_axis(
+        path,
+        length_ticks,
+        duration_ticks,
+        note,
+        &json!([{"tick": 0, "bpm": 120.0}]),
+        &json!([{"tick": 0, "numerator": 4, "denominator": 4}]),
+    );
+}
+
+fn write_pattern_with_axis(
+    path: &Path,
+    length_ticks: u64,
+    duration_ticks: u64,
+    note: u8,
+    tempo_changes: &Value,
+    time_signature_changes: &Value,
+) {
     std::fs::write(
         path,
         serde_json::to_vec_pretty(&json!({
@@ -79,8 +99,8 @@ fn write_pattern(path: &Path, length_ticks: u64, duration_ticks: u64, note: u8) 
             "name": null,
             "ticks_per_beat": 480,
             "length_ticks": length_ticks,
-            "tempo_changes": [{"tick": 0, "bpm": 120.0}],
-            "time_signature_changes": [{"tick": 0, "numerator": 4, "denominator": 4}],
+            "tempo_changes": tempo_changes,
+            "time_signature_changes": time_signature_changes,
             "events": [{"type": "note", "tick": 0, "duration_ticks": duration_ticks, "note": note, "velocity": 100}]
         }))
         .expect("pattern JSON"),
@@ -349,4 +369,141 @@ fn render_demo_writes_stems_before_gain_and_reports_mix() {
         .map(|sample| sample.expect("stem sample"))
         .collect::<Vec<_>>();
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn demo_uses_longest_pattern_for_timeline_and_conductor() {
+    let fixture = demo_fixture();
+    write_pattern_with_axis(
+        &fixture.first_pattern,
+        480,
+        240,
+        60,
+        &json!([{"tick": 0, "bpm": 120.0}]),
+        &json!([{"tick": 0, "numerator": 4, "denominator": 4}]),
+    );
+    write_pattern_with_axis(
+        &fixture.second_pattern,
+        960,
+        240,
+        67,
+        &json!([
+            {"tick": 0, "bpm": 120.0},
+            {"tick": 480, "bpm": 60.0}
+        ]),
+        &json!([
+            {"tick": 0, "numerator": 4, "denominator": 4},
+            {"tick": 480, "numerator": 3, "denominator": 4}
+        ]),
+    );
+
+    let inspection = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "demo",
+            "inspect",
+            fixture.demo.to_str().expect("Demo path"),
+            "--json",
+        ])
+        .output()
+        .expect("inspection starts");
+    let inspection_report = json_report(&inspection);
+    assert_eq!(inspection_report["length_ticks"], 960);
+    assert_eq!(inspection_report["musical_duration_seconds"], 1.5);
+    assert_eq!(inspection_report["tempo_change_count"], 2);
+    assert_eq!(inspection_report["time_signature_change_count"], 2);
+
+    let output = fixture.demo.with_file_name("longest.mid");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "demo",
+            "export-midi",
+            fixture.demo.to_str().expect("Demo path"),
+            "--output",
+            output.to_str().expect("MIDI output"),
+        ])
+        .assert()
+        .success();
+    let bytes = std::fs::read(output).expect("MIDI output");
+    let smf = Smf::parse(&bytes).expect("Type 1 MIDI");
+    assert!(smf.tracks[0].iter().any(|event| {
+        matches!(
+            event.kind,
+            midly::TrackEventKind::Meta(midly::MetaMessage::Tempo(value))
+                if value.as_int() == 1_000_000
+        )
+    }));
+    assert!(smf.tracks[0].iter().any(|event| {
+        matches!(
+            event.kind,
+            midly::TrackEventKind::Meta(midly::MetaMessage::TimeSignature(3, 2, _, _))
+        )
+    }));
+    assert!(smf.tracks.iter().all(|track| track_end_tick(track) == 960));
+}
+
+#[test]
+fn demo_rejects_instruments_that_require_external_audio() {
+    let fixture = demo_fixture();
+    let mut definition: Value =
+        serde_json::from_slice(&std::fs::read(&fixture.demo).expect("Demo JSON")).expect("Demo");
+    definition["parts"][0]["instrument"] = json!(
+        fixture_path("instruments/sidechain-ducking.json")
+            .to_string_lossy()
+            .into_owned()
+    );
+    std::fs::write(
+        &fixture.demo,
+        serde_json::to_vec_pretty(&definition).expect("Demo JSON"),
+    )
+    .expect("Demo file");
+
+    let result = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "demo",
+            "validate",
+            fixture.demo.to_str().expect("Demo path"),
+            "--json",
+        ])
+        .output()
+        .expect("validation starts");
+
+    assert_eq!(result.status.code(), Some(1));
+    let report: Value = serde_json::from_slice(&result.stdout).expect("error report");
+    assert!(report["diagnostics"].as_array().is_some_and(|diagnostics| {
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic["code"] == "DEFINITION_ERROR"
+                && diagnostic["path"] == "parts[0].instrument"
+                && diagnostic["message"]
+                    == "Demo does not support instruments that require external audio input"
+        })
+    }));
+
+    let render_output = fixture.demo.with_file_name("external.wav");
+    let render = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "demo",
+            fixture.demo.to_str().expect("Demo path"),
+            "--output",
+            render_output.to_str().expect("WAV output"),
+            "--json",
+        ])
+        .output()
+        .expect("Demo render starts");
+    assert_eq!(render.status.code(), Some(1));
+    let render_report: Value = serde_json::from_slice(&render.stdout).expect("error report");
+    assert!(
+        render_report["diagnostics"]
+            .as_array()
+            .is_some_and(|diagnostics| {
+                diagnostics.iter().any(|diagnostic| {
+                    diagnostic["code"] == "DEFINITION_ERROR"
+                        && diagnostic["path"] == "parts[0].instrument"
+                })
+            })
+    );
 }

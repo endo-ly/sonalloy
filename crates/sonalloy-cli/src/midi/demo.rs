@@ -3,7 +3,7 @@ use std::path::Path;
 use midly::{Format, Header, Smf, Timing, num::u15};
 use sonalloy_core::{Diagnostic, DiagnosticCode};
 
-use crate::demo::LoadedDemo;
+use crate::demo::{LoadedDemo, longest_part};
 use crate::midi::pattern::{build_track, midi_events, midi_export_events, pattern_export_events};
 
 pub(crate) fn export_demo(path: &Path, demo: &LoadedDemo) -> Result<(), Vec<Diagnostic>> {
@@ -23,9 +23,11 @@ pub(crate) fn export_demo(path: &Path, demo: &LoadedDemo) -> Result<(), Vec<Diag
         return Err(diagnostics);
     }
 
-    let conductor_events = match pattern_export_events(&demo.parts[0].pattern, &[]) {
+    let (conductor_index, conductor_part) = longest_part(demo);
+    let conductor_pattern = &conductor_part.pattern;
+    let conductor_events = match pattern_export_events(conductor_pattern, &[]) {
         Ok(events) => events,
-        Err(diagnostics) => return Err(prefix_pattern_diagnostics(diagnostics, 0)),
+        Err(diagnostics) => return Err(prefix_pattern_diagnostics(diagnostics, conductor_index)),
     };
     let mut part_events = Vec::with_capacity(demo.parts.len());
     for (index, part) in demo.parts.iter().enumerate() {
@@ -55,7 +57,7 @@ pub(crate) fn export_demo(path: &Path, demo: &LoadedDemo) -> Result<(), Vec<Diag
 
     let mut smf = Smf::new(Header::new(
         Format::Parallel,
-        Timing::Metrical(u15::new(demo.parts[0].pattern.ticks_per_beat)),
+        Timing::Metrical(u15::new(conductor_pattern.ticks_per_beat)),
     ));
     smf.tracks = tracks;
     smf.save(path).map_err(|error| {

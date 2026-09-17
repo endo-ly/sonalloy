@@ -71,13 +71,7 @@ pub(crate) fn master(
 }
 
 pub(crate) fn encode_mp3(input: &Path, output: &Path) -> Result<(), FfmpegError> {
-    let mut command = Command::new("ffmpeg");
-    command
-        .args(["-hide_banner", "-nostdin", "-y", "-i"])
-        .arg(input)
-        .args(["-vn", "-codec:a", "libmp3lame", "-b:a", "256k"])
-        .arg(output)
-        .stdin(Stdio::null());
+    let mut command = build_mp3_command(input, output);
     let output = run_command(&mut command)?;
     ensure_success(output).map(|_| ())
 }
@@ -88,21 +82,7 @@ fn run_loudnorm(
     output: Option<&Path>,
     sample_rate: u32,
 ) -> Result<LoudnormReport, FfmpegError> {
-    let mut command = Command::new("ffmpeg");
-    command
-        .args(["-hide_banner", "-nostdin", "-y", "-i"])
-        .arg(input)
-        .args(["-af", filter]);
-    if let Some(output) = output {
-        command
-            .arg("-ar")
-            .arg(sample_rate.to_string())
-            .args(["-ac", "2", "-c:a", "pcm_f32le"])
-            .arg(output);
-    } else {
-        command.args(["-f", "null", "-"]);
-    }
-    command.stdin(Stdio::null());
+    let mut command = build_loudnorm_command(input, filter, output, sample_rate);
     let output = run_command(&mut command)?;
     ensure_success(output).and_then(|output| {
         parse_loudnorm_report(&String::from_utf8_lossy(&output.stderr)).map_err(|detail| {
@@ -112,6 +92,41 @@ fn run_loudnorm(
             }
         })
     })
+}
+
+fn build_loudnorm_command(
+    input: &Path,
+    filter: &str,
+    output: Option<&Path>,
+    sample_rate: u32,
+) -> Command {
+    let mut command = Command::new("ffmpeg");
+    command
+        .args(["-hide_banner", "-nostdin", "-y", "-i"])
+        .arg(input)
+        .args(["-af", filter]);
+    if let Some(output) = output {
+        command
+            .arg("-ar")
+            .arg(sample_rate.to_string())
+            .args(["-ac", "2", "-c:a", "pcm_f32le", "-f", "wav"])
+            .arg(output);
+    } else {
+        command.args(["-f", "null", "-"]);
+    }
+    command.stdin(Stdio::null());
+    command
+}
+
+fn build_mp3_command(input: &Path, output: &Path) -> Command {
+    let mut command = Command::new("ffmpeg");
+    command
+        .args(["-hide_banner", "-nostdin", "-y", "-i"])
+        .arg(input)
+        .args(["-vn", "-codec:a", "libmp3lame", "-b:a", "256k", "-f", "mp3"])
+        .arg(output)
+        .stdin(Stdio::null());
+    command
 }
 
 fn run_command(command: &mut Command) -> Result<Output, FfmpegError> {
@@ -220,8 +235,45 @@ fn json_number(value: &Value) -> Option<f64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{find_json_object, loudnorm_filter, parse_loudnorm_report};
+    use std::path::Path;
+
+    use super::{
+        build_loudnorm_command, build_mp3_command, find_json_object, loudnorm_filter,
+        parse_loudnorm_report,
+    };
     use crate::demo::DemoMaster;
+
+    fn command_arguments(command: &std::process::Command) -> Vec<String> {
+        command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn ffmpeg_output_containers_are_explicit() {
+        let wav_arguments = command_arguments(&build_loudnorm_command(
+            Path::new("mix.wav"),
+            "loudnorm=I=-16",
+            Some(Path::new("master")),
+            48_000,
+        ));
+        assert!(
+            wav_arguments
+                .windows(2)
+                .any(|window| window == ["-f", "wav"])
+        );
+
+        let mp3_arguments = command_arguments(&build_mp3_command(
+            Path::new("mix.wav"),
+            Path::new("preview"),
+        ));
+        assert!(
+            mp3_arguments
+                .windows(2)
+                .any(|window| window == ["-f", "mp3"])
+        );
+    }
 
     #[test]
     fn loudnorm_filter_contains_first_and_second_pass_arguments() {
