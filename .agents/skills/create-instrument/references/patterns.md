@@ -2,7 +2,7 @@
 
 Audition Pattern（以下、Pattern）は、1つのSonalloy音源を試奏するための演奏データ（JSON）です。Sample Rateに依存しないTickを正本の時間軸として扱うため、NoteやChord、フレーズ、ドラム、Pitch Bendのような演奏操作、Parameter Changeを同じ形式で記述・保存できます。
 
-Patternが扱うのは1つの音源への演奏条件だけです。複数のPatternを一つの試聴作品としてまとめる場合はDemoを使用します。Track / ClipのArrangement、録音、Automation、Routing、本格的なMixerといった楽曲制作はHost / DAW側で管理します。雛形は`sonalloy pattern init`で生成できます。
+Patternが扱うのは1つの音源への演奏条件だけです。複数のPatternを一つの試聴作品としてまとめる場合は[Demo](demos.md)を使用します。雛形は`sonalloy pattern init`で生成できます。
 
 ## JSONの構造
 
@@ -153,4 +153,4 @@ Standard MIDI File（SMF）とPatternは、1つの音源の演奏情報として
 - CC1とAftertouchはMIDIの7-bit値へ丸め、Pitch Bendは-8192〜8191へ変換します
 - Sonalloy固有のParameter ChangeはStandard MIDIで表現できないため、1件でも含むPatternは`MIDI_ERROR`で失敗し、CCやSysExへ黙って変換することはありません
 - 同じ音程のNoteが時間的に重なる場合も、MIDIのNote OffにNote IDがないため`MIDI_ERROR`で出力を中止します（Pattern自体は重なりを許可します）
-- 往復変換では、Noteの位置・長さ・音程・Velocity、拍子、Sustainが保たれます。TempoはMIDIのマイクロ秒/拍という整数制約によりわずかに差が出ることがあり、CC1・Aftertouch・Pitch BendはMIDIの分解能へ丸められます。複数InstrumentのTrackを持つMIDIや、Patternを組み合わせたOffline確認にはDemoを使用します
+- 往復変換では、Noteの位置・長さ・音程・Velocity、拍子、Sustainが保たれます。TempoはMIDIのマイクロ秒/拍という整数制約によりわずかに差が出ることがあり、CC1・Aftertouch・Pitch BendはMIDIの分解能へ丸められます

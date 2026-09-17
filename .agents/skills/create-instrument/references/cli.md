@@ -163,7 +163,7 @@ Sonalloy固有のParameter Changeを含むPatternは`MIDI_ERROR`で失敗し、O
 
 ## Demo
 
-Demoは、複数のInstrumentと各Instrument用のAudition Patternを同じTick時間軸へ重ね、Offlineで音源群を確認するためのCLI用Definitionです。Schema、Part、Gain、共通時間軸、Mix、Master、Stemの規則は[`demos.md`](demos.md)にまとめています。
+Demoの定義と出力の意味は[Demo仕様](demos.md)にまとめています。ここではDemo関連コマンドの使い方とReportを説明します。
 
 ### `demo validate` — Demoの検証
 
@@ -172,17 +172,9 @@ sonalloy demo validate demo.json
 sonalloy demo validate demo.json --json
 ```
 
-Demo自身のSchema、各PartのInstrument JSONとCompile、PatternのValidation、Patternと対象InstrumentのCompile、Pattern群の共通時間軸を確認します。Instrument CompileはSample Rate `48000`、Block Size `257`で実行します。外部Audio入力を必要とするInstrumentはDemoで使用できません。全Partを可能な範囲まで検証し、診断Pathには`parts[i].instrument`または`parts[i].pattern`のPrefixを付けます。
+Demo JSON、各Partが参照するInstrumentとPattern、PatternとInstrumentのCompile、全Partの時間軸を検証します。Instrument CompileはSample Rate `48000`、Block Size `257`で実行します。外部Audio入力を必要とするInstrumentは使用できません。検証は可能な範囲まで続き、参照先の診断Pathには`parts[i].instrument`または`parts[i].pattern`を付けます。
 
 成功時の`--json` Reportは既存のStatus Report形式です。
-
-```json
-{
-  "status": "ok",
-  "command": "demo validate",
-  "diagnostics": []
-}
-```
 
 ### `demo inspect` — Demoの構成確認
 
@@ -191,7 +183,7 @@ sonalloy demo inspect demo.json
 sonalloy demo inspect demo.json --json
 ```
 
-DemoのSchema Version、Part数、共通Tick解像度、最長Patternの`length_ticks`、Render Tailを含まない音楽的な長さ、Tempo / Time Signatureの件数、各Partの参照Path・Gain・解決済みMIDI Channel、Mix設定、FFmpegが必要かどうかを表示します。
+Schema Version、Part数、共通Tick解像度、最長Patternの`length_ticks`、音楽的な長さ、Tempo / Time Signatureの件数、各Partの参照Path・Gain・解決済みMIDI Channel、Mix設定、Master処理でFFmpegが必要かどうかを表示します。`--json`では同じ内容をReportとして出力します。
 
 ### `demo export-midi` — Type 1 MIDIの生成
 
@@ -200,7 +192,7 @@ sonalloy demo export-midi demo.json --output demo.mid
 sonalloy demo export-midi demo.json --output demo.mid --json
 ```
 
-Conductor TrackにDemo Name（指定時）、最長PatternのTempo / Time Signature、Demo全体の終端を入れ、PartごとにTrack Name、解決済みChannel、Note / Sustain / Pitch Bend / Mod Wheel / Aftertouchを出力します。全TrackのEnd Of TrackはDemoの最長Patternへ揃えます。Parameter Change、同音程のNote Overlap、MIDI Channel不足は`MIDI_ERROR`で失敗します。既に存在するOutput Pathは上書きしません。
+DemoをType 1 MIDIへ変換します。時間軸、Trackの内容、MIDIへ変換できないEventの扱いは[Demo仕様](demos.md)に従います。既に存在するOutput Pathは上書きしません。
 
 ### `render demo` — DemoのOffline Render
 
@@ -210,7 +202,7 @@ sonalloy render demo demo.json \
   --stems-dir out/stems --analyze --output out/demo.wav --json
 ```
 
-| Option | Default | 内容 |
+| Option | 初期値 | 内容 |
 |---|---:|---|
 | `<demo>` | — | Demo Definition（必須） |
 | `--output <wav>` | — | 最終Stereo WAV（必須） |
@@ -219,14 +211,14 @@ sonalloy render demo demo.json \
 | `--tail <seconds>` | `1.0` | 各Pattern終端後へ追加するRender Tail |
 | `--stems-dir <directory>` | なし | 指定時だけPartごとのStem WAVを保存 |
 | `--mp3-output <mp3>` | なし | 指定時だけMP3を生成 |
-| `--analyze` | Off | Master前、Fade後の最終MixをAudio Analysisへ渡す |
-| `--json` | Off | 結果を機械可読で出力 |
+| `--analyze` | なし | Master前、Fade後の最終MixをAudio Analysisへ渡す |
+| `--json` | なし | 結果を機械可読で出力 |
 
-Partは順番に既存の`render pattern`と同じRender経路で処理し、Latencyを補正してからStem保存とMix加算を行います。StemはDemo Gain、Global Fade、Masterを適用する前のStereo WAVです。MixはPartごとの固定Gainを適用してStereoへ加算し、短いPartは無音で延長します。加算後に末尾からFadeを適用し、自動Normalize、Clamp、Limiterは行いません。
+PartのRender、Stem、Mix、Masterの規則は[Demo仕様](demos.md)に従います。
 
 `--json`では、`status`、`sample_rate`、`channels`、`frames`、`output`、Partごとの`id` / `gain_db` / `frames` / `stem`を返します。`mix_analysis`は`--analyze`指定時、`master`はDemoの`mix.master`指定時、`mp3_output`と`stems_dir`は対応するOption指定時だけ含まれます。Masterの実測値と`normalization_type`も`master`へ含まれます。
 
-`mix.master`または`--mp3-output`を指定した場合だけ、CLIはPATH上のFFmpegを呼び出します。MasterはWAV形式の出力へ`loudnorm`を2-passで適用し、MP3はMP3形式、`libmp3lame`の`256k`固定です。Masterが有効な場合、MP3はMaster済みWAVから生成します。FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
+FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
 
 ## リアルタイム演奏
 

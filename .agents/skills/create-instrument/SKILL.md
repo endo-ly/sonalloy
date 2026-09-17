@@ -18,7 +18,7 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 | `references/processors.md` | 全ProcessorのField・Range・Dynamic Parameter・固定Latency |
 | `references/modulation.md` | Modulation Source・Routeの計算規則・MSEG |
 | `references/patterns.md` | Audition PatternのSchema・Event・MIDI Interchange |
-| `references/demos.md` | 複数InstrumentをOfflineで確認するDemoのSchema・Mix・Master・Stem |
+| `references/demos.md` | Demoの定義・時間軸・MIDI / Audio出力の仕様 |
 | `references/cli.md` | 全コマンドのOption・出力Report・診断Code |
 
 ## 全体フロー
@@ -32,7 +32,7 @@ init → edit → validate → inspect → pattern trial / render / analyze / tr
 3. **validate**：`instrument validate`でJSON、制約、Asset準備を検証
 4. **inspect**：`instrument inspect --json`でCompile後のUnit、Source Polarity、Route Effect、Clamp範囲を確認
 5. **pattern trial / render / analyze / trace**：単音だけで判断できない場合は用途に合うAudition Patternを作り、`render pattern`または`render note` / `render events` / `render midi`でWAVを生成する。必要な事実を`--analyze`と`--trace`で取得
-6. **demo trial**：複数Instrumentを一つの試聴作品として確認する場合は、各PatternとDemo Definitionを用意し、`demo validate` → `demo inspect` → `render demo`の順に実行する。必要なら`demo export-midi`でMulti-track MIDIを出力する
+6. **demo trial**：複数Instrumentをまとめて確認する場合は、各PatternとDemo Definitionを用意し、[Demo仕様](references/demos.md)の操作の流れに沿って検証・Render・MIDI Exportを行う
 7. **realtime trial**：Deviceが利用できる場合は`device list`で確認し、MIDI Keyboardがある場合は`play`、ない場合は`audition pattern`で同じDefinitionを演奏する
 8. **refine**：数値・音色・`metadata`を整理し、再度InspectとRenderを実行
 
@@ -264,22 +264,7 @@ sonalloy pattern import-midi <phrase.mid> --channel 1 \
 sonalloy audition midi <definition> <phrase.mid> --channel 1
 ```
 
-`Parameter Change`を含むPatternは`render pattern`や`audition pattern`では音源固有Parameterとして解決されますが、Standard MIDIへExportできません。複数InstrumentのTrackやArrangementを作る場合はHost / DAWの責務です。
-
-## 複数Instrumentを一曲として確認する
-
-各Instrumentに専用のPatternを用意し、Demo Definitionから同じTick時間軸へ重ねます。DemoはOffline確認用の固定Mixであり、Trackの配置やArrangementを編集する機能ではありません。
-
-```bash
-sonalloy demo validate demo.json
-sonalloy demo inspect demo.json --json
-sonalloy render demo demo.json \
-  --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --stems-dir out/stems --analyze --output out/demo.wav --json
-sonalloy demo export-midi demo.json --output out/demo.mid
-```
-
-Demoの各PartはTick 0から始まり、途中から鳴らす場合はPatternの先頭へ無音を置きます。DemoのSchema、Gain、共通時間軸、Master、Stemの規則は[`references/demos.md`](references/demos.md)を参照します。MasterまたはMP3を使う場合も、外部FFmpegを`render demo`から呼び出します。FFmpeg用のPython Scriptを製品手順へ追加しません。
+`Parameter Change`を含むPatternは`render pattern`や`audition pattern`では音源固有Parameterとして解決されますが、Standard MIDIへExportできません。Patternの構造とMIDI変換の規則は[Pattern仕様](references/patterns.md)を参照してください。
 
 ## Deviceが利用できる場合のRealtime試聴
 
