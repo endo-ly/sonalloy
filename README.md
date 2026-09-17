@@ -54,6 +54,7 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 | 定義を検証する | `sonalloy instrument validate <definition>` |
 | コンパイル後の実行値を確認する | `sonalloy instrument inspect <definition>` |
 | 1音 / Event列 / MIDI / Patternをレンダリングする | `sonalloy render note` / `events` / `midi` / `pattern` |
+| 複数音源をまとめて確認する | `sonalloy demo validate <demo>` → `sonalloy render demo <demo> --output <wav>` |
 | 演奏パターンを試聴する（MIDI Keyboard不要） | `sonalloy pattern init` → `sonalloy audition pattern` |
 | MIDI Keyboardで演奏する | `sonalloy device list` → `sonalloy play` |
 | インストールしたCLIをアップデートする | `sonalloy update` |
@@ -66,11 +67,21 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 
 ## ドキュメント
 
-音源の作成・検証・演奏など、**Sonalloyを使うための資料**は`.agents/skills/create-instrument/`配下に置きます（agentはここだけで作業を完結できる）。設計・実行時仕様など、**Sonalloyを作るための資料**は`docs/`配下に置きます。
+音源の作成・検証・試聴に必要な手順と仕様は`.agents/skills/create-instrument/`に、設計・実行時仕様は`docs/`にまとめています。
+
+### 音源を作成・試聴する
 
 | 文書 | 内容 |
 |---|---|
-| [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源の作り方（手順書）。CLI・音源定義・Patternの仕様リファレンス（`references/`）を同梱 |
+| [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源を作成・検証・試聴する手順と仕様への入口 |
+| [`.agents/skills/create-instrument/references/cli.md`](.agents/skills/create-instrument/references/cli.md) | CLIのコマンド、Option、Report、診断Code |
+| [`.agents/skills/create-instrument/references/patterns.md`](.agents/skills/create-instrument/references/patterns.md) | Audition Patternの定義、Event、MIDI変換 |
+| [`.agents/skills/create-instrument/references/demos.md`](.agents/skills/create-instrument/references/demos.md) | 複数Instrumentを同じ時間軸で確認するDemoの定義と出力 |
+
+### 設計・実装を理解する
+
+| 文書 | 内容 |
+|---|---|
 | [`docs/runtime-processing.md`](docs/runtime-processing.md) | 実行時の動作：Block処理・Noteの一生・実行上の約束事 |
 | [`docs/c-api.md`](docs/c-api.md) | 公開C ABI：Handle所有権・Compile・Process・Runtime Update |
 | [`docs/architecture.md`](docs/architecture.md) | 静的構造：Crate・依存方向・Native境界 |

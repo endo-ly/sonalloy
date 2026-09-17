@@ -18,12 +18,13 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 | `references/processors.md` | 全ProcessorのField・Range・Dynamic Parameter・固定Latency |
 | `references/modulation.md` | Modulation Source・Routeの計算規則・MSEG |
 | `references/patterns.md` | Audition PatternのSchema・Event・MIDI Interchange |
+| `references/demos.md` | Demoの定義・時間軸・MIDI / Audio出力の仕様 |
 | `references/cli.md` | 全コマンドのOption・出力Report・診断Code |
 
 ## 全体フロー
 
 ```text
-init → edit → validate → inspect → pattern trial / render / analyze / trace → optional realtime trial → refine
+init → edit → validate → inspect → pattern trial / render / analyze / trace → optional demo trial → optional realtime trial → refine
 ```
 
 1. **init**：新規Definitionのひな形を生成（既存を編集する場合は省略）
@@ -31,8 +32,9 @@ init → edit → validate → inspect → pattern trial / render / analyze / tr
 3. **validate**：`instrument validate`でJSON、制約、Asset準備を検証
 4. **inspect**：`instrument inspect --json`でCompile後のUnit、Source Polarity、Route Effect、Clamp範囲を確認
 5. **pattern trial / render / analyze / trace**：単音だけで判断できない場合は用途に合うAudition Patternを作り、`render pattern`または`render note` / `render events` / `render midi`でWAVを生成する。必要な事実を`--analyze`と`--trace`で取得
-6. **realtime trial**：Deviceが利用できる場合は`device list`で確認し、MIDI Keyboardがある場合は`play`、ない場合は`audition pattern`で同じDefinitionを演奏する
-7. **refine**：数値・音色・`metadata`を整理し、再度InspectとRenderを実行
+6. **demo trial**：複数Instrumentをまとめて確認する場合は、各PatternとDemo Definitionを用意し、[Demo仕様](references/demos.md)の操作の流れに沿って検証・Render・MIDI Exportを行う
+7. **realtime trial**：Deviceが利用できる場合は`device list`で確認し、MIDI Keyboardがある場合は`play`、ない場合は`audition pattern`で同じDefinitionを演奏する
+8. **refine**：数値・音色・`metadata`を整理し、再度InspectとRenderを実行
 
 ## Definitionを編集する
 
@@ -262,7 +264,7 @@ sonalloy pattern import-midi <phrase.mid> --channel 1 \
 sonalloy audition midi <definition> <phrase.mid> --channel 1
 ```
 
-`Parameter Change`を含むPatternは`render pattern`や`audition pattern`では音源固有Parameterとして解決されますが、Standard MIDIへExportできません。複数InstrumentのTrackやArrangementを作る場合はHost / DAWの責務です。
+`Parameter Change`を含むPatternは`render pattern`や`audition pattern`では音源固有Parameterとして解決されますが、Standard MIDIへExportできません。Patternの構造とMIDI変換の規則は[Pattern仕様](references/patterns.md)を参照してください。
 
 ## Deviceが利用できる場合のRealtime試聴
 

@@ -2,7 +2,7 @@
 
 Audition Pattern（以下、Pattern）は、1つのSonalloy音源を試奏するための演奏データ（JSON）です。Sample Rateに依存しないTickを正本の時間軸として扱うため、NoteやChord、フレーズ、ドラム、Pitch Bendのような演奏操作、Parameter Changeを同じ形式で記述・保存できます。
 
-Patternが扱うのは1つの音源への演奏条件だけです。複数InstrumentのTrackやArrangement、録音、ミキサーといった楽曲全体の構成は対象外で、Host / DAW側で管理します。雛形は`sonalloy pattern init`で生成できます。
+Patternが扱うのは1つの音源への演奏条件だけです。複数のPatternを一つの試聴作品としてまとめる場合は[Demo](demos.md)を使用します。雛形は`sonalloy pattern init`で生成できます。
 
 ## JSONの構造
 

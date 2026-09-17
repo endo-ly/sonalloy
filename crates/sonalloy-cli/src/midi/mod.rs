@@ -1,7 +1,9 @@
+mod demo;
 mod parse;
 mod pattern;
 mod render;
 
+pub(crate) use demo::export_demo;
 pub(crate) use parse::parse_midi;
 pub(crate) use pattern::{export_pattern, import_pattern};
 pub(crate) use render::read_midi;
