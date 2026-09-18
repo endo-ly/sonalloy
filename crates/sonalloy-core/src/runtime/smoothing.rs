@@ -7,6 +7,13 @@ pub(crate) struct Smoother {
     total: usize,
     elapsed: usize,
     remaining: usize,
+    curve: SmoothingCurve,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SmoothingCurve {
+    Linear,
+    SmoothStep,
 }
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -23,7 +30,14 @@ impl Smoother {
             total: 0,
             elapsed: 0,
             remaining: 0,
+            curve: SmoothingCurve::Linear,
         }
+    }
+
+    pub(crate) fn new_smoothstep(value: f32) -> Self {
+        let mut smoother = Self::new(value);
+        smoother.curve = SmoothingCurve::SmoothStep;
+        smoother
     }
 
     pub(crate) fn reset(&mut self, value: f32) {
@@ -93,7 +107,11 @@ impl Smoother {
             return self.target;
         }
         let ratio = elapsed.min(self.total) as f32 / self.total as f32;
-        self.start + (self.target - self.start) * ratio
+        let position = match self.curve {
+            SmoothingCurve::Linear => ratio,
+            SmoothingCurve::SmoothStep => ratio * ratio * (3.0 - 2.0 * ratio),
+        };
+        self.start + (self.target - self.start) * position
     }
 }
 
@@ -124,5 +142,16 @@ mod tests {
         assert!((whole_span.0 - first.0).abs() < f32::EPSILON);
         assert!((whole_span.1 - second.1).abs() < f32::EPSILON);
         assert_eq!(split.remaining, 0);
+    }
+
+    #[test]
+    fn smooth_smoother_reaches_target_with_zero_endpoint_slope() {
+        let mut smoother = Smoother::new_smoothstep(0.0);
+        smoother.set_target(1.0, 4);
+        let values: Vec<_> = (0..4).map(|_| smoother.next()).collect();
+
+        assert!(values[0] < 0.2);
+        assert!((values[3] - values[2]) < (values[2] - values[1]));
+        assert!((values[3] - 1.0).abs() < f32::EPSILON);
     }
 }

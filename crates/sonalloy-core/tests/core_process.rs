@@ -251,9 +251,13 @@ fn sustain_release_is_independent_of_block_size() {
     }
 }
 
-fn low_frequency_release_definition() -> InstrumentDefinition {
+fn low_frequency_sine_definition() -> InstrumentDefinition {
     let mut value = definition();
-    value.layers[0].gain_db = -11.0;
+    value.layers.truncate(1);
+    value.voice_processors.clear();
+    value.global_processors.clear();
+    value.modulation = None;
+    value.layers[0].gain_db = 0.0;
     value.layers[0].envelope = AdsrDefinition {
         attack_seconds: 0.004,
         decay_seconds: 0.12,
@@ -274,10 +278,10 @@ fn low_frequency_release_definition() -> InstrumentDefinition {
     value
 }
 
-fn render_low_frequency_release(block_size: usize) -> sonalloy_core::RenderedAudio {
+fn render_low_frequency_sine(block_size: usize) -> sonalloy_core::RenderedAudio {
     const NOTE_OFF_FRAME: u64 = 24_000;
     const RELEASE_FRAMES: u64 = 4_320;
-    let definition = low_frequency_release_definition();
+    let definition = low_frequency_sine_definition();
     let instrument = compile_instrument(
         &definition,
         &CompileContext {
@@ -318,21 +322,21 @@ fn second_difference(samples: &[f32], frame: usize) -> f32 {
 }
 
 #[test]
-fn low_frequency_release_onset_is_smooth_across_block_sizes() {
-    const NOTE_OFF_FRAME: usize = 24_000;
-    const MAX_ONSET_SECOND_DIFFERENCE: f32 = 1.0e-4;
-    let reference = render_low_frequency_release(32);
-    let candidate = render_low_frequency_release(257);
+fn low_frequency_note_start_fade_is_smooth_across_block_sizes() {
+    const NOTE_START_FADE_END_FRAME: usize = 239;
+    const MAX_FADE_END_SECOND_DIFFERENCE: f32 = 2.0e-4;
+    let reference = render_low_frequency_sine(32);
+    let candidate = render_low_frequency_sine(257);
 
     for (block_size, audio) in [(32, &reference), (257, &candidate)] {
-        let corner = second_difference(&audio.channels[0], NOTE_OFF_FRAME);
+        let corner = second_difference(&audio.channels[0], NOTE_START_FADE_END_FRAME);
         assert!(
-            corner.abs() < MAX_ONSET_SECOND_DIFFERENCE,
-            "block size {block_size} produced a release onset corner of {corner}"
+            corner.abs() < MAX_FADE_END_SECOND_DIFFERENCE,
+            "block size {block_size} produced a note-start fade corner of {corner}"
         );
         assert!(
-            audio.channels[0][NOTE_OFF_FRAME].abs() > 0.01,
-            "release test signal must be active at Note Off"
+            audio.channels[0][NOTE_START_FADE_END_FRAME].abs() > 0.01,
+            "fade test signal must be active at the fade endpoint"
         );
     }
 

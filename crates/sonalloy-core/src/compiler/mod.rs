@@ -774,61 +774,30 @@ fn compile_adsr(
     base_path: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CompiledAdsr {
-    let attack_samples = seconds_to_samples(
-        definition.attack_seconds,
-        sample_rate,
-        base_path,
-        "attack_seconds",
-        diagnostics,
-    );
-    let decay_samples = seconds_to_samples(
-        definition.decay_seconds,
-        sample_rate,
-        base_path,
-        "decay_seconds",
-        diagnostics,
-    );
-    let release_samples = seconds_to_samples(
-        definition.release_seconds,
-        sample_rate,
-        base_path,
-        "release_seconds",
-        diagnostics,
-    );
     CompiledAdsr {
-        attack_samples,
-        decay_samples,
+        attack_samples: seconds_to_samples(
+            definition.attack_seconds,
+            sample_rate,
+            base_path,
+            "attack_seconds",
+            diagnostics,
+        ),
+        decay_samples: seconds_to_samples(
+            definition.decay_seconds,
+            sample_rate,
+            base_path,
+            "decay_seconds",
+            diagnostics,
+        ),
         sustain_level: definition.sustain_level,
-        release_samples,
-        release_smoothing_samples: release_smoothing_samples(release_samples, sample_rate),
+        release_samples: seconds_to_samples(
+            definition.release_seconds,
+            sample_rate,
+            base_path,
+            "release_seconds",
+            diagnostics,
+        ),
     }
-}
-
-const RELEASE_SMOOTHING_RATIO: f64 = 0.005;
-const MAX_RELEASE_SMOOTHING_SECONDS: f64 = 0.001;
-const MIN_RELEASE_SMOOTHING_SAMPLES: usize = 3;
-
-fn release_smoothing_samples(release_samples: usize, sample_rate: f64) -> usize {
-    #[allow(clippy::cast_precision_loss)]
-    let proportional = (release_samples as f64 * RELEASE_SMOOTHING_RATIO).round();
-    let maximum = (sample_rate * MAX_RELEASE_SMOOTHING_SECONDS).round();
-    #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_precision_loss,
-        clippy::cast_sign_loss
-    )]
-    let maximum = maximum.min(usize::MAX as f64) as usize;
-    #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_precision_loss,
-        clippy::cast_sign_loss
-    )]
-    let proportional = proportional.max(0.0).min(usize::MAX as f64) as usize;
-
-    proportional
-        .max(MIN_RELEASE_SMOOTHING_SAMPLES)
-        .min(maximum)
-        .min(release_samples.saturating_sub(1))
 }
 
 fn seconds_to_samples(
@@ -889,9 +858,8 @@ pub(crate) mod tests {
     use std::path::PathBuf;
 
     use super::{
-        CompileContext, CompiledOscillatorBackend, CompiledProcessorKind,
-        MAX_RELEASE_SMOOTHING_SECONDS, cents_to_ratio, compile_instrument, db_to_linear,
-        midi_note_frequency, release_smoothing_samples,
+        CompileContext, CompiledOscillatorBackend, CompiledProcessorKind, cents_to_ratio,
+        compile_instrument, db_to_linear, midi_note_frequency,
     };
     use crate::ProcessSpec;
     pub(crate) use crate::definition::tests::definition;
@@ -911,23 +879,6 @@ pub(crate) mod tests {
         assert!((db_to_linear(-6.0206) - 0.5).abs() < 0.001);
         assert!((cents_to_ratio(1200.0) - 2.0).abs() < 1.0e-6);
         assert!((midi_note_frequency(69, 1.0) - 440.0).abs() < 1.0e-6);
-    }
-
-    #[test]
-    fn release_smoothing_uses_time_based_limits() {
-        let release_seconds: f64 = 0.09;
-        for sample_rate in [44_100.0, 48_000.0, 96_000.0, 192_000.0] {
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let release_samples = (release_seconds * sample_rate).round() as usize;
-            let smoothing_samples = release_smoothing_samples(release_samples, sample_rate);
-            #[allow(clippy::cast_precision_loss)]
-            let smoothing_seconds = smoothing_samples as f64 / sample_rate;
-            assert!(smoothing_seconds <= MAX_RELEASE_SMOOTHING_SECONDS);
-            assert!(smoothing_seconds > 0.0004);
-        }
-        assert_eq!(release_smoothing_samples(48, 48_000.0), 3);
-        assert_eq!(release_smoothing_samples(2, 48_000.0), 1);
-        assert_eq!(release_smoothing_samples(1, 48_000.0), 0);
     }
 
     #[test]

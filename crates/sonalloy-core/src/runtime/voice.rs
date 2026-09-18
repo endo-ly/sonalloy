@@ -166,7 +166,7 @@ impl LayerRuntime {
             active: false,
             armed: false,
             armed_sample_zone: None,
-            note_start_fade: Smoother::new(0.0),
+            note_start_fade: Smoother::new_smoothstep(0.0),
             note_start_fade_frames,
             instrument_latency_frames,
             delay: LayerDelayCompensation::new(instrument_latency_frames),

@@ -152,11 +152,10 @@ impl AdsrRuntime {
                 progress(self.elapsed, self.config.decay_samples),
             ),
             AdsrState::Sustain => self.config.sustain_level,
-            AdsrState::Release => release_level(
+            AdsrState::Release => exponential_fall(
                 self.start_level,
-                self.elapsed,
-                self.config.release_samples,
-                self.config.release_smoothing_samples,
+                0.0,
+                progress(self.elapsed, self.config.release_samples),
             ),
         }
     }
@@ -247,18 +246,6 @@ fn exponential_fall(start: f32, target: f32, progress: f32) -> f32 {
     target + (start - target) * (shape - (-5.0_f32).exp()) / (1.0 - (-5.0_f32).exp())
 }
 
-fn release_level(start: f32, elapsed: usize, duration: usize, smoothing_samples: usize) -> f32 {
-    let release_progress = progress(elapsed, duration);
-    let curve = exponential_fall(start, 0.0, release_progress);
-    if smoothing_samples == 0 || elapsed >= smoothing_samples {
-        return curve;
-    }
-
-    let smoothing = progress(elapsed, smoothing_samples);
-    let weight = smoothing * smoothing * (3.0 - 2.0 * smoothing);
-    start + (curve - start) * weight
-}
-
 impl AdsrRuntime {
     fn skip_zero_duration_segments(&mut self) {
         loop {
@@ -288,7 +275,6 @@ mod tests {
             decay_samples: decay,
             sustain_level: sustain,
             release_samples: release,
-            release_smoothing_samples: release.saturating_sub(1).min(3),
         })
     }
 
@@ -325,23 +311,6 @@ mod tests {
         assert!(release[3] > 0.0);
         assert!(adsr.is_idle());
         assert!(adsr.next_sample().abs() < 1.0e-6);
-    }
-
-    #[test]
-    fn release_starts_with_zero_slope() {
-        let mut adsr = envelope(0, 0, 1.0, 4_000);
-        adsr.note_on();
-        let _ = adsr.next_sample();
-        adsr.note_off();
-
-        let first = adsr.next_sample();
-        let second = adsr.next_sample();
-        let third = adsr.next_sample();
-
-        let first_drop = first - second;
-        let second_drop = second - third;
-        assert!(first_drop >= 0.0);
-        assert!(second_drop > first_drop);
     }
 
     #[test]
