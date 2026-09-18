@@ -258,11 +258,13 @@ fn low_frequency_sine_definition() -> InstrumentDefinition {
     value.global_processors.clear();
     value.modulation = None;
     value.layers[0].gain_db = 0.0;
+    value.layers[0].pan = -1.0;
+    value.layers[0].processors.clear();
     value.layers[0].envelope = AdsrDefinition {
-        attack_seconds: 0.004,
-        decay_seconds: 0.12,
-        sustain_level: 0.86,
-        release_seconds: 0.09,
+        attack_seconds: 0.0,
+        decay_seconds: 0.0,
+        sustain_level: 1.0,
+        release_seconds: 0.01,
     };
     value.layers[0].generator = GeneratorDefinition::Oscillator(OscillatorDefinition {
         waveform: OscillatorWaveform::Sine,
@@ -279,8 +281,6 @@ fn low_frequency_sine_definition() -> InstrumentDefinition {
 }
 
 fn render_low_frequency_sine(block_size: usize) -> sonalloy_core::RenderedAudio {
-    const NOTE_OFF_FRAME: u64 = 24_000;
-    const RELEASE_FRAMES: u64 = 4_320;
     let definition = low_frequency_sine_definition();
     let instrument = compile_instrument(
         &definition,
@@ -296,7 +296,7 @@ fn render_low_frequency_sine(block_size: usize) -> sonalloy_core::RenderedAudio 
         RenderRequest {
             sample_rate: 48_000.0,
             block_size,
-            duration_frames: NOTE_OFF_FRAME + RELEASE_FRAMES + 1,
+            duration_frames: 512,
             tail_frames: 0,
         },
         &[
@@ -309,7 +309,7 @@ fn render_low_frequency_sine(block_size: usize) -> sonalloy_core::RenderedAudio 
                 },
             },
             ScheduledEvent {
-                absolute_frame: NOTE_OFF_FRAME,
+                absolute_frame: 480,
                 kind: ProcessEventKind::NoteOff { note_id: 1 },
             },
         ],
@@ -317,28 +317,19 @@ fn render_low_frequency_sine(block_size: usize) -> sonalloy_core::RenderedAudio 
     .expect("low-frequency release render succeeds")
 }
 
-fn second_difference(samples: &[f32], frame: usize) -> f32 {
-    samples[frame + 1] - 2.0 * samples[frame] + samples[frame - 1]
-}
-
 #[test]
-fn low_frequency_note_start_fade_is_smooth_across_block_sizes() {
-    const NOTE_START_FADE_END_FRAME: usize = 239;
-    const MAX_FADE_END_SECOND_DIFFERENCE: f32 = 2.0e-4;
+fn definition_adsr_controls_note_start_without_implicit_fade() {
     let reference = render_low_frequency_sine(32);
     let candidate = render_low_frequency_sine(257);
 
-    for (block_size, audio) in [(32, &reference), (257, &candidate)] {
-        let corner = second_difference(&audio.channels[0], NOTE_START_FADE_END_FRAME);
-        assert!(
-            corner.abs() < MAX_FADE_END_SECOND_DIFFERENCE,
-            "block size {block_size} produced a note-start fade corner of {corner}"
-        );
-        assert!(
-            audio.channels[0][NOTE_START_FADE_END_FRAME].abs() > 0.01,
-            "fade test signal must be active at the fade endpoint"
-        );
-    }
+    let peak = reference.channels[0][..200]
+        .iter()
+        .map(|sample| sample.abs())
+        .fold(0.0_f32, f32::max);
+    assert!(
+        peak > 0.95,
+        "the immediate-sustain sine was unexpectedly faded"
+    );
 
     for (expected, actual) in reference.channels[0]
         .iter()
