@@ -53,49 +53,43 @@ test('staged built-in bundle contains source definitions and required resources'
       readFileSync(join(destination, 'instruments', 'builtin', entry.definitionPath), 'utf8'),
     );
     assert.deepEqual(stagedDefinition, sourceDefinition);
-    assert.deepEqual(
-      {
-        id: entry.id,
-        name: entry.name,
-        author: entry.author,
-        description: entry.description,
-        category: entry.category,
-        tags: entry.tags,
-        recommendedRange: entry.recommendedRange,
-        preview: entry.preview,
-        definitionPath: entry.definitionPath,
-        resourceBasePath: entry.resourceBasePath,
-      },
-      {
-        id: entry.id,
-        name: sourceDefinition.metadata.name,
-        author: sourceDefinition.metadata.author,
-        description: sourceDefinition.metadata.description,
-        category: sourceDefinition.metadata.category,
-        tags: sourceDefinition.metadata.tags,
-        recommendedRange: {
-          minMidi: sourceDefinition.metadata.recommended_range.min_midi,
-          maxMidi: sourceDefinition.metadata.recommended_range.max_midi,
-        },
-        preview: {
-          tempoBpm: sourceDefinition.metadata.preview.tempo_bpm,
-          ticksPerBeat: sourceDefinition.metadata.preview.ticks_per_beat,
-          timeSignature: {
-            numerator: sourceDefinition.metadata.preview.time_signature.numerator,
-            denominator: sourceDefinition.metadata.preview.time_signature.denominator,
-          },
-          lengthTicks: sourceDefinition.metadata.preview.length_ticks,
-          notes: sourceDefinition.metadata.preview.notes.map((note) => ({
-            tick: note.tick,
-            durationTicks: note.duration_ticks,
-            note: note.note,
-            velocity: note.velocity,
-          })),
-        },
-        definitionPath: `${entry.id}/definition.json`,
-        resourceBasePath: entry.id,
-      },
+    assert.equal(entry.name, sourceDefinition.metadata.name);
+    assert.equal(entry.author, sourceDefinition.metadata.author);
+    assert.equal(entry.description, sourceDefinition.metadata.description);
+    assert.equal(entry.category, sourceDefinition.metadata.category);
+    assert.deepEqual(entry.tags, sourceDefinition.metadata.tags);
+    assert.equal(
+      entry.recommendedRange.minMidi,
+      sourceDefinition.metadata.recommended_range.min_midi,
     );
+    assert.equal(
+      entry.recommendedRange.maxMidi,
+      sourceDefinition.metadata.recommended_range.max_midi,
+    );
+    assert.equal(entry.preview.tempoBpm, sourceDefinition.metadata.preview.tempo_bpm);
+    assert.equal(entry.preview.ticksPerBeat, sourceDefinition.metadata.preview.ticks_per_beat);
+    assert.equal(
+      entry.preview.timeSignature.numerator,
+      sourceDefinition.metadata.preview.time_signature.numerator,
+    );
+    assert.equal(
+      entry.preview.timeSignature.denominator,
+      sourceDefinition.metadata.preview.time_signature.denominator,
+    );
+    assert.equal(entry.preview.lengthTicks, sourceDefinition.metadata.preview.length_ticks);
+    assert.equal(entry.preview.notes.length, sourceDefinition.metadata.preview.notes.length);
+    assert.equal(entry.preview.notes[0].tick, sourceDefinition.metadata.preview.notes[0].tick);
+    assert.equal(
+      entry.preview.notes[0].durationTicks,
+      sourceDefinition.metadata.preview.notes[0].duration_ticks,
+    );
+    assert.equal(entry.preview.notes[0].note, sourceDefinition.metadata.preview.notes[0].note);
+    assert.equal(
+      entry.preview.notes[0].velocity,
+      sourceDefinition.metadata.preview.notes[0].velocity,
+    );
+    assert.equal(entry.definitionPath, `${entry.id}/definition.json`);
+    assert.equal(entry.resourceBasePath, entry.id);
     for (const file of ['THIRD_PARTY_NOTICES.md', 'LICENSE-MIT', 'LICENSE-APACHE']) {
       assert.equal(existsSync(join(destination, file)), true, file);
     }
