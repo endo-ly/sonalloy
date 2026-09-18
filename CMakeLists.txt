@@ -97,6 +97,59 @@ endif()
 
 add_library(sonalloy::capi ALIAS sonalloy_capi)
 
+file(GLOB_RECURSE SONALLOY_CLI_INPUTS CONFIGURE_DEPENDS
+    "${SONALLOY_SOURCE_DIR}/crates/sonalloy-cli/*"
+    "${SONALLOY_SOURCE_DIR}/crates/sonalloy-core/*"
+    "${SONALLOY_SOURCE_DIR}/crates/sonalloy-dsp-sys/*"
+    "${SONALLOY_SOURCE_DIR}/native/*"
+    "${SONALLOY_SOURCE_DIR}/Cargo.lock"
+    "${SONALLOY_SOURCE_DIR}/Cargo.toml"
+)
+
+set(SONALLOY_CLI_CONFIGURATION_DIRECTORY
+    "${SONALLOY_BINARY_ROOT}/sonalloy-cli/$<CONFIG>")
+set(SONALLOY_CLI_EXECUTABLE_NAME "sonalloy${CMAKE_EXECUTABLE_SUFFIX}")
+set(SONALLOY_CLI_EXECUTABLE
+    "${SONALLOY_CLI_CONFIGURATION_DIRECTORY}/${SONALLOY_CLI_EXECUTABLE_NAME}")
+set(SONALLOY_CLI_CARGO_EXECUTABLE
+    "${SONALLOY_CAPI_CARGO_CONFIGURATION_DIRECTORY}/${SONALLOY_CLI_EXECUTABLE_NAME}")
+
+add_custom_command(
+    OUTPUT "${SONALLOY_CLI_EXECUTABLE}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${SONALLOY_CLI_CONFIGURATION_DIRECTORY}"
+    COMMAND ${CMAKE_COMMAND} -E env
+        # Rust MSVC binaries use the release CRT even for the dev profile.
+        "SONALLOY_DSP_MSVC_RUNTIME=release"
+        "${SONALLOY_CARGO_EXECUTABLE}"
+        build
+        --manifest-path "${SONALLOY_SOURCE_DIR}/crates/sonalloy-cli/Cargo.toml"
+        --package sonalloy-cli
+        --bin sonalloy
+        --profile "$<IF:$<CONFIG:Debug>,dev,release>"
+        --target-dir "${SONALLOY_BINARY_ROOT}/sonalloy-cargo-target"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${SONALLOY_CLI_CARGO_EXECUTABLE}"
+        "${SONALLOY_CLI_EXECUTABLE}"
+    DEPENDS ${SONALLOY_CLI_INPUTS}
+    VERBATIM
+)
+
+add_custom_target(sonalloy-cli-build DEPENDS "${SONALLOY_CLI_EXECUTABLE}")
+add_executable(sonalloy_cli IMPORTED GLOBAL)
+set_target_properties(sonalloy_cli PROPERTIES
+    IMPORTED_CONFIGURATIONS "DEBUG;RELWITHDEBINFO;RELEASE;MINSIZEREL"
+)
+foreach(sonalloy_configuration IN ITEMS Debug RelWithDebInfo Release MinSizeRel)
+    string(TOUPPER "${sonalloy_configuration}" sonalloy_configuration_upper)
+    set_target_properties(sonalloy_cli PROPERTIES
+        "IMPORTED_LOCATION_${sonalloy_configuration_upper}"
+            "${SONALLOY_BINARY_ROOT}/sonalloy-cli/${sonalloy_configuration}/${SONALLOY_CLI_EXECUTABLE_NAME}"
+    )
+endforeach()
+add_dependencies(sonalloy_cli sonalloy-cli-build)
+
+add_executable(sonalloy::cli ALIAS sonalloy_cli)
+
 function(sonalloy_stage_builtin_bundle)
     include(CMakeParseArguments)
     set(options)
@@ -139,12 +192,20 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     if(BUILD_TESTING)
         add_executable(sonalloy-cmake-consumer tests/cmake_consumer.cpp)
         target_link_libraries(sonalloy-cmake-consumer PRIVATE sonalloy::capi)
+        add_dependencies(sonalloy-cmake-consumer sonalloy::cli)
         sonalloy_stage_builtin_bundle(
             TARGET sonalloy-builtin-bundle-stage
             DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/test-builtin-resources"
         )
         add_dependencies(sonalloy-cmake-consumer sonalloy-builtin-bundle-stage)
         add_test(NAME SonalloyCMakeConsumer COMMAND sonalloy-cmake-consumer)
+        add_test(
+            NAME SonalloyCliConsumer
+            COMMAND "${CMAKE_COMMAND}"
+                "-DSONALLOY_CLI=$<TARGET_FILE:sonalloy::cli>"
+                "-DSONALLOY_CLI_SMOKE_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/test-cli-smoke"
+                -P "${SONALLOY_SOURCE_DIR}/tests/cmake_cli_consumer.cmake"
+        )
         add_test(
             NAME SonalloyBuiltinBundle
             COMMAND "${SONALLOY_NODE_EXECUTABLE}"
