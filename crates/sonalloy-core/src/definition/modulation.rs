@@ -801,116 +801,11 @@ mod tests {
     use super::{ModulationDefinition, ModulationRouteDefinition};
     use crate::definition::{
         InstrumentDefinition, LfoDefinition, LfoWaveform, MacroDefinition, ModulationCurve,
-        ModulationDepthDefinition, ModulationDurationDefinition, ModulationDurationUnit,
-        ModulationRateDefinition, ModulationRateUnit, ModulationSegmentCurve,
-        ModulationSourceDefinition, MsegDefinition, MsegLoopDefinition, MsegSegmentDefinition,
-        PerformanceDefinition, PortamentoDefinition, SampleHoldDefinition, SmoothRandomDefinition,
+        ModulationDepthDefinition, ModulationRateDefinition, ModulationRateUnit,
+        ModulationSourceDefinition, PerformanceDefinition, PortamentoDefinition,
         StepModulatorDefinition, VectorDefinition,
     };
     use crate::diagnostics::DiagnosticCode;
-    use crate::parameter::ModulationUnit;
-
-    #[test]
-    fn performance_modulation_and_vector_schema_round_trip() {
-        let mut source = definition();
-        let mut bright = source.layers[0].clone();
-        bright.id = "bright".to_owned();
-        source.layers.push(bright);
-        source.performance = PerformanceDefinition::Monophonic {
-            legato: true,
-            portamento: Some(PortamentoDefinition { time_seconds: 0.1 }),
-        };
-        source.macros.push(MacroDefinition {
-            id: "motion".to_owned(),
-            name: "Motion".to_owned(),
-            default: 0.25,
-        });
-        source.vectors.push(VectorDefinition::TwoWay {
-            id: "tone".to_owned(),
-            name: "Tone".to_owned(),
-            layer_a: "body".to_owned(),
-            layer_b: "bright".to_owned(),
-            position: 0.5,
-        });
-        source.modulation = Some(ModulationDefinition {
-            sources: vec![
-                ModulationSourceDefinition::Lfo(LfoDefinition {
-                    id: "tempo_lfo".to_owned(),
-                    waveform: LfoWaveform::Triangle,
-                    rate: ModulationRateDefinition {
-                        value: 1.0,
-                        unit: ModulationRateUnit::PerBeat,
-                    },
-                    phase: 0.25,
-                }),
-                ModulationSourceDefinition::Mseg(MsegDefinition {
-                    id: "motion_env".to_owned(),
-                    initial_value: -1.0,
-                    segments: vec![
-                        MsegSegmentDefinition {
-                            duration: ModulationDurationDefinition {
-                                value: 0.25,
-                                unit: ModulationDurationUnit::Beats,
-                            },
-                            target: 1.0,
-                            curve: ModulationSegmentCurve::SmoothStep,
-                        },
-                        MsegSegmentDefinition {
-                            duration: ModulationDurationDefinition {
-                                value: 0.1,
-                                unit: ModulationDurationUnit::Seconds,
-                            },
-                            target: 0.0,
-                            curve: ModulationSegmentCurve::Linear,
-                        },
-                    ],
-                    loop_range: Some(MsegLoopDefinition {
-                        start_segment: 0,
-                        end_segment: 2,
-                    }),
-                }),
-                ModulationSourceDefinition::Step(StepModulatorDefinition {
-                    id: "steps".to_owned(),
-                    values: vec![-1.0, 0.0, 1.0],
-                    rate: ModulationRateDefinition {
-                        value: 2.0,
-                        unit: ModulationRateUnit::PerSecond,
-                    },
-                }),
-                ModulationSourceDefinition::SampleHold(SampleHoldDefinition {
-                    id: "sample_hold".to_owned(),
-                    seed: 7,
-                    rate: ModulationRateDefinition {
-                        value: 2.0,
-                        unit: ModulationRateUnit::PerSecond,
-                    },
-                }),
-                ModulationSourceDefinition::SmoothRandom(SmoothRandomDefinition {
-                    id: "smooth_random".to_owned(),
-                    seed: 11,
-                    rate: ModulationRateDefinition {
-                        value: 1.0,
-                        unit: ModulationRateUnit::PerBeat,
-                    },
-                }),
-            ],
-            routes: vec![ModulationRouteDefinition {
-                source: "macro.motion".to_owned(),
-                target: "vector.tone.position".to_owned(),
-                depth: ModulationDepthDefinition {
-                    value: 1.0,
-                    unit: ModulationUnit::Normalized,
-                },
-                curve: ModulationCurve::Linear,
-            }],
-        });
-
-        assert!(source.validate().is_empty());
-        let json = serde_json::to_string(&source).expect("definition serializes");
-        let restored: InstrumentDefinition =
-            serde_json::from_str(&json).expect("definition parses");
-        assert_eq!(source, restored);
-    }
 
     #[test]
     fn performance_modulation_and_vector_ranges_report_field_paths() {

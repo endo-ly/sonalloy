@@ -464,6 +464,56 @@ fn operator_envelope_note_off_and_voice_stealing_reset_state() {
     let after_release = rms(&audio.channels[0][640..1_024]);
     assert!(after_release < before_release);
     assert!(rms(&audio.channels[0][1_200..1_800]) > 1.0e-5);
+
+    let compiled = compile(&definition, 257);
+    let mut runtime = compiled.instantiate();
+    runtime
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
+        .expect("runtime prepares");
+    runtime.activate().expect("runtime activates");
+    let reset_events = [ProcessEvent {
+        sample_offset: 0,
+        kind: ProcessEventKind::NoteOn {
+            note_id: 1,
+            note_number: 60,
+            velocity: 110,
+        },
+    }];
+    let process_once = |runtime: &mut sonalloy_core::runtime::InstrumentRuntime| {
+        let mut left = [0.0_f32; 64];
+        let mut right = [0.0_f32; 64];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        runtime
+            .process(sonalloy_core::ProcessBlock {
+                frames: 64,
+                context: sonalloy_core::ProcessContext {
+                    absolute_frame: 0,
+                    tempo_bpm: 120.0,
+                    beat_position: 0.0,
+                    bar_position: 0.0,
+                    time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
+                    transport_state: sonalloy_core::TransportState::Playing,
+                },
+                events: &reset_events,
+                input: &[],
+                output: &mut output,
+            })
+            .expect("process succeeds");
+        (left, right)
+    };
+    let first = process_once(&mut runtime);
+    runtime.reset().expect("runtime resets");
+    let after_reset = process_once(&mut runtime);
+
+    let mut fresh_runtime = compiled.instantiate();
+    fresh_runtime
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
+        .expect("fresh runtime prepares");
+    fresh_runtime.activate().expect("fresh runtime activates");
+    let fresh = process_once(&mut fresh_runtime);
+
+    assert_eq!(after_reset, first);
+    assert_eq!(after_reset, fresh);
 }
 
 #[test]
@@ -507,76 +557,4 @@ fn negative_instantaneous_frequency_is_clamped_without_failure() {
     }
     let audio = render(&definition, 257, 2_048, &[note_on()]);
     assert_finite_and_audible(&audio);
-}
-
-#[test]
-fn operator_runtime_reset_restarts_state() {
-    let definition = operator_definition(
-        OperatorModulationMode::Phase,
-        OperatorAlgorithm::Stack4,
-        None,
-    );
-    let compiled = compile(&definition, 257);
-    let mut runtime = compiled.instantiate();
-    runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
-        .expect("runtime prepares");
-    runtime.activate().expect("runtime activates");
-    let events = [ProcessEvent {
-        sample_offset: 0,
-        kind: ProcessEventKind::NoteOn {
-            note_id: 1,
-            note_number: 60,
-            velocity: 110,
-        },
-    }];
-    let process_once = |runtime: &mut sonalloy_core::runtime::InstrumentRuntime| {
-        let mut left = [0.0_f32; 64];
-        let mut right = [0.0_f32; 64];
-        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
-        runtime
-            .process(sonalloy_core::ProcessBlock {
-                frames: 64,
-                context: sonalloy_core::ProcessContext {
-                    absolute_frame: 0,
-                    tempo_bpm: 120.0,
-                    beat_position: 0.0,
-                    bar_position: 0.0,
-                    time_signature: sonalloy_core::DEFAULT_TIME_SIGNATURE,
-                    transport_state: sonalloy_core::TransportState::Playing,
-                },
-                events: &events,
-                input: &[],
-                output: &mut output,
-            })
-            .expect("process succeeds");
-        (left, right)
-    };
-    let first = process_once(&mut runtime);
-    runtime.reset().expect("runtime resets");
-    let reset = process_once(&mut runtime);
-
-    let mut fresh_runtime = compiled.instantiate();
-    fresh_runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
-        .expect("fresh runtime prepares");
-    fresh_runtime.activate().expect("fresh runtime activates");
-    let fresh = process_once(&mut fresh_runtime);
-
-    for (actual, expected) in reset
-        .0
-        .iter()
-        .zip(first.0)
-        .chain(reset.1.iter().zip(first.1))
-    {
-        assert_relative_eq!(*actual, expected, epsilon = 1.0e-6);
-    }
-    for (actual, expected) in reset
-        .0
-        .iter()
-        .zip(fresh.0)
-        .chain(reset.1.iter().zip(fresh.1))
-    {
-        assert_relative_eq!(*actual, expected, epsilon = 1.0e-6);
-    }
 }

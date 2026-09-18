@@ -1063,52 +1063,34 @@ mod tests {
     }
 
     #[test]
-    fn reverse_loop_wraps_large_overshoot() {
-        let zone = zone(
-            sample(&[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
-            CompiledSamplePlayback {
-                direction: CompiledSampleDirection::Reverse,
-                start_frame: 0,
-                end_frame: 7,
-                loop_region: Some(CompiledSampleLoop {
-                    start_frame: 2,
-                    end_frame: 5,
-                    crossfade_frames: 0,
-                }),
-                time: CompiledSampleTime::Resample,
-            },
-        );
-        let mut runtime = SampleRuntime::new();
-        runtime.start(Some(&zone)).expect("sample start");
-        let _ = next_sample(&mut runtime, 4.0);
-        let value = next_sample(&mut runtime, 20.0);
-        assert!(value.is_finite());
-        assert!((runtime.position - 3.0).abs() < 1.0e-6);
-        assert!(!runtime.is_finished());
-    }
+    fn reverse_loop_wraps_overshoot_and_boundary_positions() {
+        for (name, ratio, expected_position) in [
+            ("large overshoot", 20.0_f64, 3.0_f64),
+            ("fractional loop boundary", 0.5_f64, 4.5_f64),
+        ] {
+            let zone = zone(
+                sample(&[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
+                CompiledSamplePlayback {
+                    direction: CompiledSampleDirection::Reverse,
+                    start_frame: 0,
+                    end_frame: 7,
+                    loop_region: Some(CompiledSampleLoop {
+                        start_frame: 2,
+                        end_frame: 5,
+                        crossfade_frames: 0,
+                    }),
+                    time: CompiledSampleTime::Resample,
+                },
+            );
+            let mut runtime = SampleRuntime::new();
+            runtime.start(Some(&zone)).expect("sample start");
+            let _ = next_sample(&mut runtime, 4.0);
+            let value = next_sample(&mut runtime, ratio);
 
-    #[test]
-    fn reverse_loop_wraps_fractional_positions_at_the_loop_boundary() {
-        let zone = zone(
-            sample(&[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
-            CompiledSamplePlayback {
-                direction: CompiledSampleDirection::Reverse,
-                start_frame: 0,
-                end_frame: 7,
-                loop_region: Some(CompiledSampleLoop {
-                    start_frame: 2,
-                    end_frame: 5,
-                    crossfade_frames: 0,
-                }),
-                time: CompiledSampleTime::Resample,
-            },
-        );
-        let mut runtime = SampleRuntime::new();
-        runtime.start(Some(&zone)).expect("sample start");
-        let _ = next_sample(&mut runtime, 4.0);
-        let _ = next_sample(&mut runtime, 0.5);
-        assert!((runtime.position - 4.5).abs() < 1.0e-6);
-        assert!(!runtime.is_finished());
+            assert!(value.is_finite(), "{name} produced a non-finite sample");
+            assert_eq!(runtime.position.to_bits(), expected_position.to_bits());
+            assert!(!runtime.is_finished());
+        }
     }
 
     #[test]

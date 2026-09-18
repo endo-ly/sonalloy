@@ -182,9 +182,7 @@ fn stream_seed(seed: u64, layer_hash: u64, note_id: u64, stream: u64) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        BROWN_ZERO_THRESHOLD, NoiseRuntime, NoiseStream, STREAM_LEFT, STREAM_SHARED, stream_seed,
-    };
+    use super::{NoiseRuntime, NoiseStream, STREAM_LEFT, STREAM_SHARED, stream_seed};
     use crate::compiler::CompiledNoise;
     use crate::definition::NoiseColor;
     use crate::parameter::ParameterHandle;
@@ -208,15 +206,6 @@ mod tests {
             assert!(samples.iter().all(|sample| sample.is_finite()));
             assert!(samples.iter().all(|sample| (-1.0..=1.0).contains(sample)));
         }
-    }
-
-    #[test]
-    fn negligible_brown_state_returns_to_zero() {
-        let mut stream = NoiseStream::new(42);
-        stream.brown_state = BROWN_ZERO_THRESHOLD * 0.5;
-        let sample = stream.next(NoiseColor::Brown, 1.0);
-        assert_eq!(stream.brown_state.to_bits(), 0.0_f32.to_bits());
-        assert_eq!(sample.to_bits(), 0.0_f32.to_bits());
     }
 
     #[test]

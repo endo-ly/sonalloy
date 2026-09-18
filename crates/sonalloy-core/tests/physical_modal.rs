@@ -339,6 +339,46 @@ fn constant_render_is_bit_exact_across_block_sizes_and_reset_repeats() {
                 .collect::<Vec<_>>()
         );
     }
+
+    let instrument = compile(&definition, 48_000.0, 257);
+    let mut runtime = instrument.instantiate();
+    runtime
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
+        .expect("runtime prepares");
+    runtime.activate().expect("runtime activates");
+    let events = [ProcessEvent {
+        sample_offset: 0,
+        kind: note_on().kind,
+    }];
+
+    let first = process_runtime(&mut runtime, 257, 0, &events);
+    runtime.reset().expect("runtime resets");
+    let after_reset = process_runtime(&mut runtime, 257, 0, &events);
+    let mut fresh_runtime = instrument.instantiate();
+    fresh_runtime
+        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
+        .expect("fresh runtime prepares");
+    fresh_runtime.activate().expect("fresh runtime activates");
+    let fresh = process_runtime(&mut fresh_runtime, 257, 0, &events);
+
+    assert_eq!(first, after_reset);
+    assert_eq!(first, fresh);
+
+    let (rendered_first, rendered_after_reset) = render_instrument_with_reset(
+        Arc::clone(&instrument),
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 257,
+            tail_frames: 0,
+        },
+        &[note_on()],
+        &MusicalTimeMap::constant(120.0).expect("constant tempo"),
+    )
+    .expect("prepared runtime reset render succeeds");
+    assert_eq!(rendered_first.channels, rendered_after_reset.channels);
+    assert_eq!(rendered_first.channels[0], first[0]);
+    assert_eq!(rendered_first.channels[1], first[1]);
 }
 
 #[test]
@@ -408,50 +448,6 @@ fn parameter_changes_are_stable_across_required_block_sizes() {
             );
         }
     }
-}
-
-#[test]
-fn reset_then_same_note_matches_fresh_runtime() {
-    let definition = physical_modal_definition();
-    let instrument = compile(&definition, 48_000.0, 257);
-    let mut runtime = instrument.instantiate();
-    runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
-        .expect("runtime prepares");
-    runtime.activate().expect("runtime activates");
-    let events = [ProcessEvent {
-        sample_offset: 0,
-        kind: note_on().kind,
-    }];
-
-    let first = process_runtime(&mut runtime, 257, 0, &events);
-    runtime.reset().expect("runtime resets");
-    let after_reset = process_runtime(&mut runtime, 257, 0, &events);
-    let mut fresh_runtime = instrument.instantiate();
-    fresh_runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
-        .expect("fresh runtime prepares");
-    fresh_runtime.activate().expect("fresh runtime activates");
-    let fresh = process_runtime(&mut fresh_runtime, 257, 0, &events);
-
-    assert_eq!(first, after_reset);
-    assert_eq!(first, fresh);
-
-    let (rendered_first, rendered_after_reset) = render_instrument_with_reset(
-        Arc::clone(&instrument),
-        RenderRequest {
-            sample_rate: 48_000.0,
-            block_size: 257,
-            duration_frames: 257,
-            tail_frames: 0,
-        },
-        &[note_on()],
-        &MusicalTimeMap::constant(120.0).expect("constant tempo"),
-    )
-    .expect("prepared runtime reset render succeeds");
-    assert_eq!(rendered_first.channels, rendered_after_reset.channels);
-    assert_eq!(rendered_first.channels[0], first[0]);
-    assert_eq!(rendered_first.channels[1], first[1]);
 }
 
 #[test]

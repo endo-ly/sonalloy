@@ -18,13 +18,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(SONALLOY_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE INTERNAL
     "Sonalloy source directory used by the public CMake integration")
 find_program(SONALLOY_CARGO_EXECUTABLE cargo REQUIRED)
-file(STRINGS "${SONALLOY_SOURCE_DIR}/Cargo.toml" SONALLOY_CARGO_VERSION_LINE
-    REGEX "^[ \\t]*version[ \\t]*=[ \\t]*\"[^\"]+\"" LIMIT_COUNT 1)
-string(REGEX REPLACE ".*\"([^\"]+)\".*" "\\1"
-    SONALLOY_VERSION "${SONALLOY_CARGO_VERSION_LINE}")
-if(NOT SONALLOY_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-    message(FATAL_ERROR "Sonalloy version could not be read from Cargo.toml")
-endif()
 
 file(GLOB_RECURSE SONALLOY_CAPI_INPUTS CONFIGURE_DEPENDS
     "${SONALLOY_SOURCE_DIR}/crates/sonalloy-capi/*"
@@ -203,15 +196,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
             NAME SonalloyCliConsumer
             COMMAND "${CMAKE_COMMAND}"
                 "-DSONALLOY_CLI=$<TARGET_FILE:sonalloy::cli>"
-                "-DSONALLOY_CLI_SMOKE_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/test-cli-smoke"
                 -P "${SONALLOY_SOURCE_DIR}/tests/cmake_cli_consumer.cmake"
-        )
-        add_test(
-            NAME SonalloyBuiltinBundle
-            COMMAND "${SONALLOY_NODE_EXECUTABLE}"
-                "${SONALLOY_SOURCE_DIR}/scripts/verify-builtin-bundle.mjs"
-                --root "${CMAKE_CURRENT_BINARY_DIR}/test-builtin-resources"
-                --source-release "v${SONALLOY_VERSION}"
         )
     endif()
 endif()

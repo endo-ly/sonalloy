@@ -422,7 +422,7 @@ mod tests {
     };
     use crate::definition::ProcessorDefinition;
     use crate::definition::tests::definition;
-    use crate::parameter::{is_component_id, is_parameter_id};
+    use crate::parameter::is_parameter_id;
 
     #[test]
     fn linear_and_logarithmic_mappings_round_trip() {
@@ -563,16 +563,12 @@ mod tests {
     }
 
     #[test]
-    fn component_ids_follow_the_stable_grammar() {
-        assert!(is_component_id("body_2"));
-        assert!(!is_component_id("Body"));
-        assert!(!is_component_id("body.part"));
-        assert!(!is_component_id(""));
-    }
-
-    #[test]
     fn parameter_ids_follow_the_canonical_target_grammar() {
         for value in [
+            "layer.body.generator.pulse_width",
+            "layer.body.generator.sync_ratio",
+            "layer.body.generator.operator.1.ratio",
+            "layer.body.generator.operator.4.modulation_amount",
             "layer.body.gain",
             "layer.attack_2.pan",
             "layer.body.tuning",
@@ -585,11 +581,14 @@ mod tests {
         }
         for value in [
             "",
+            "Body",
+            "body.part",
             "layer.body",
             "layer.body.gain.extra",
             "layer.Body.gain",
             "layer.body.unknown",
             "layer..gain",
+            "layer.body.generator.operator.5.ratio",
             "voice.processor",
             "voice.processor.tone.cutoff.extra",
             "voice.Filter.cutoff",

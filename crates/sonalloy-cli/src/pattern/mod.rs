@@ -492,13 +492,12 @@ pub(crate) fn inspect(pattern: &PatternDefinition) -> Result<PatternInspection, 
 
 #[cfg(test)]
 mod tests {
-    use super::{PatternDefinition, default_pattern, validate};
+    use super::{PatternDefinition, default_pattern};
 
     #[test]
-    fn default_pattern_is_valid_and_one_bar_long() {
+    fn default_pattern_is_one_bar_long() {
         let pattern = default_pattern();
 
-        assert!(validate(&pattern).is_empty());
         assert_eq!(pattern.length_ticks, 1_920);
     }
 

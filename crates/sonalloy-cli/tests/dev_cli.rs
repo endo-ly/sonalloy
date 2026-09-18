@@ -172,49 +172,35 @@ fn output_directory_used_as_file_returns_wav_error() {
 }
 
 #[test]
-fn invalid_sample_rate_returns_error() {
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("sine.wav");
-    let mut command = Command::cargo_bin("sonalloy").expect("binary");
-    command
-        .args([
-            "dev",
-            "render-sine",
-            "--duration",
-            "0.01",
+fn invalid_numeric_inputs_return_errors() {
+    for (name, option, value, expected_code, expected_output) in [
+        (
+            "sample rate",
             "--sample-rate",
             "0",
-            "--output",
-            output.to_str().expect("utf-8 path"),
-            "--json",
-        ])
-        .assert()
-        .code(2)
-        .stdout(predicates::str::contains("\"VALUE_OUT_OF_RANGE\""));
-    assert!(!output.exists());
-}
-
-#[test]
-fn invalid_frequency_is_not_reported_as_success() {
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("sine.wav");
-    let mut command = Command::cargo_bin("sonalloy").expect("binary");
-    command
-        .args([
-            "dev",
-            "render-sine",
-            "--duration",
-            "0.01",
+            2,
+            "\"VALUE_OUT_OF_RANGE\"",
+        ),
+        (
+            "frequency",
             "--frequency",
             "30000",
-            "--sample-rate",
-            "48000",
-            "--output",
-            output.to_str().expect("utf-8 path"),
-            "--json",
-        ])
-        .assert()
-        .code(3)
-        .stdout(predicates::str::contains("\"status\":\"error\""));
-    assert!(!output.exists());
+            3,
+            "\"status\":\"error\"",
+        ),
+    ] {
+        let directory = tempdir().expect("temporary directory");
+        let output = directory.path().join("sine.wav");
+        let mut command = Command::cargo_bin("sonalloy").expect("binary");
+        command.args(["dev", "render-sine", "--duration", "0.01", option, value]);
+        if option != "--sample-rate" {
+            command.args(["--sample-rate", "48000"]);
+        }
+        command
+            .args(["--output", output.to_str().expect("utf-8 path"), "--json"])
+            .assert()
+            .code(expected_code)
+            .stdout(predicates::str::contains(expected_output));
+        assert!(!output.exists(), "{name} unexpectedly created a WAV");
+    }
 }

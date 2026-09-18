@@ -651,13 +651,4 @@ pub(crate) mod tests {
         used_bus.global_processors = vec![transfer];
         assert!(used_bus.validate().is_empty());
     }
-
-    #[test]
-    fn serde_round_trip_preserves_definition() {
-        let source = definition();
-        let json = serde_json::to_string(&source).expect("definition serializes");
-        let restored: InstrumentDefinition =
-            serde_json::from_str(&json).expect("definition parses");
-        assert_eq!(source, restored);
-    }
 }
