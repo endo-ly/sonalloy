@@ -192,7 +192,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     if(BUILD_TESTING)
         add_executable(sonalloy-cmake-consumer tests/cmake_consumer.cpp)
         target_link_libraries(sonalloy-cmake-consumer PRIVATE sonalloy::capi)
-        add_dependencies(sonalloy-cmake-consumer sonalloy-cli-build)
+        add_dependencies(sonalloy-cmake-consumer sonalloy::cli)
         sonalloy_stage_builtin_bundle(
             TARGET sonalloy-builtin-bundle-stage
             DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/test-builtin-resources"
