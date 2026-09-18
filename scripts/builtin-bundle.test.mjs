@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -26,7 +34,15 @@ test('staged built-in bundle contains source definitions and required resources'
       readFileSync(join(destination, 'instruments', 'builtin', 'manifest.json'), 'utf8'),
     );
     assert.equal(manifest.sourceRelease, sourceRelease);
-    assert.ok(manifest.presets.length > 0);
+    const sourcePresetIds = readdirSync(join(sourceRoot, 'presets'), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && entry.name !== 'assets')
+      .map((entry) => entry.name)
+      .sort();
+    assert.deepEqual(
+      manifest.presets.map((preset) => preset.id).sort(),
+      sourcePresetIds,
+      'manifest contains exactly the source preset directories',
+    );
 
     const entry = manifest.presets.find((preset) => preset.id === '01-clean-sub-bass');
     assert.ok(entry, 'representative built-in preset is listed');
@@ -41,14 +57,43 @@ test('staged built-in bundle contains source definitions and required resources'
       {
         id: entry.id,
         name: entry.name,
+        author: entry.author,
+        description: entry.description,
         category: entry.category,
         tags: entry.tags,
+        recommendedRange: entry.recommendedRange,
+        preview: entry.preview,
+        definitionPath: entry.definitionPath,
+        resourceBasePath: entry.resourceBasePath,
       },
       {
         id: entry.id,
         name: sourceDefinition.metadata.name,
+        author: sourceDefinition.metadata.author,
+        description: sourceDefinition.metadata.description,
         category: sourceDefinition.metadata.category,
         tags: sourceDefinition.metadata.tags,
+        recommendedRange: {
+          minMidi: sourceDefinition.metadata.recommended_range.min_midi,
+          maxMidi: sourceDefinition.metadata.recommended_range.max_midi,
+        },
+        preview: {
+          tempoBpm: sourceDefinition.metadata.preview.tempo_bpm,
+          ticksPerBeat: sourceDefinition.metadata.preview.ticks_per_beat,
+          timeSignature: {
+            numerator: sourceDefinition.metadata.preview.time_signature.numerator,
+            denominator: sourceDefinition.metadata.preview.time_signature.denominator,
+          },
+          lengthTicks: sourceDefinition.metadata.preview.length_ticks,
+          notes: sourceDefinition.metadata.preview.notes.map((note) => ({
+            tick: note.tick,
+            durationTicks: note.duration_ticks,
+            note: note.note,
+            velocity: note.velocity,
+          })),
+        },
+        definitionPath: `${entry.id}/definition.json`,
+        resourceBasePath: entry.id,
       },
     );
     for (const file of ['THIRD_PARTY_NOTICES.md', 'LICENSE-MIT', 'LICENSE-APACHE']) {

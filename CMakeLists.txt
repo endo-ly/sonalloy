@@ -18,13 +18,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(SONALLOY_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE INTERNAL
     "Sonalloy source directory used by the public CMake integration")
 find_program(SONALLOY_CARGO_EXECUTABLE cargo REQUIRED)
-file(STRINGS "${SONALLOY_SOURCE_DIR}/Cargo.toml" SONALLOY_CARGO_VERSION_LINE
-    REGEX "^[ \\t]*version[ \\t]*=[ \\t]*\"[^\"]+\"" LIMIT_COUNT 1)
-string(REGEX REPLACE ".*\"([^\"]+)\".*" "\\1"
-    SONALLOY_VERSION "${SONALLOY_CARGO_VERSION_LINE}")
-if(NOT SONALLOY_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-    message(FATAL_ERROR "Sonalloy version could not be read from Cargo.toml")
-endif()
 
 file(GLOB_RECURSE SONALLOY_CAPI_INPUTS CONFIGURE_DEPENDS
     "${SONALLOY_SOURCE_DIR}/crates/sonalloy-capi/*"
