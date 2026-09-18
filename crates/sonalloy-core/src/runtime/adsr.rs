@@ -302,39 +302,29 @@ mod tests {
     }
 
     #[test]
-    fn release_reaches_idle_at_the_configured_duration() {
-        let mut adsr = envelope(0, 0, 1.0, 4);
-        adsr.note_on();
-        let _ = adsr.next_sample();
-        adsr.note_off();
-        let release: Vec<_> = (0..4).map(|_| adsr.next_sample()).collect();
-        assert!(release[3] > 0.0);
-        assert!(adsr.is_idle());
-        assert!(adsr.next_sample().abs() < 1.0e-6);
-    }
-
-    #[test]
-    fn attack_returns_all_configured_samples_before_decay() {
-        let mut adsr = envelope(4, 3, 0.5, 4);
+    fn segments_transition_after_the_configured_number_of_samples() {
+        let mut adsr = envelope(4, 4, 0.5, 4);
         adsr.note_on();
 
         let attack: Vec<_> = (0..4).map(|_| adsr.next_sample()).collect();
-
         assert_eq!(adsr.state, super::AdsrState::Decay);
-        assert!(attack[3] < 1.0);
-        assert!((adsr.next_sample() - 1.0).abs() < 1.0e-6);
-    }
-
-    #[test]
-    fn decay_returns_all_configured_samples_before_sustain() {
-        let mut adsr = envelope(0, 4, 0.5, 4);
-        adsr.note_on();
-
         let decay: Vec<_> = (0..4).map(|_| adsr.next_sample()).collect();
-
         assert_eq!(adsr.state, super::AdsrState::Sustain);
+        let sustain = adsr.next_sample();
+
+        adsr.note_off();
+        for _ in 0..3 {
+            let _ = adsr.next_sample();
+        }
+        assert_eq!(adsr.state, super::AdsrState::Release);
+        let _ = adsr.next_sample();
+        assert_eq!(adsr.state, super::AdsrState::Idle);
+
+        assert!(attack[3] < 1.0);
+        assert!((decay[0] - 1.0).abs() < 1.0e-6);
         assert!(decay[3] > 0.5);
-        assert!((adsr.next_sample() - 0.5).abs() < 1.0e-6);
+        assert!((sustain - 0.5).abs() < 1.0e-6);
+        assert!(adsr.next_sample().abs() < 1.0e-6);
     }
 
     #[test]
