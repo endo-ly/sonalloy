@@ -251,6 +251,99 @@ fn sustain_release_is_independent_of_block_size() {
     }
 }
 
+fn low_frequency_release_definition() -> InstrumentDefinition {
+    let mut value = definition();
+    value.layers[0].gain_db = -11.0;
+    value.layers[0].envelope = AdsrDefinition {
+        attack_seconds: 0.004,
+        decay_seconds: 0.12,
+        sustain_level: 0.86,
+        release_seconds: 0.09,
+    };
+    value.layers[0].generator = GeneratorDefinition::Oscillator(OscillatorDefinition {
+        waveform: OscillatorWaveform::Sine,
+        phase_reset: true,
+        phase: 0.0,
+        hard_sync: None,
+        waveshaping: None,
+        phase_distortion: None,
+        wavefold: None,
+        feedback: None,
+        unison: None,
+    });
+    value
+}
+
+fn render_low_frequency_release(block_size: usize) -> sonalloy_core::RenderedAudio {
+    const NOTE_OFF_FRAME: u64 = 24_000;
+    const RELEASE_FRAMES: u64 = 4_320;
+    let definition = low_frequency_release_definition();
+    let instrument = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: ".".into(),
+            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid spec"),
+        },
+    )
+    .instrument
+    .expect("low-frequency release definition compiles");
+    render_instrument(
+        instrument,
+        RenderRequest {
+            sample_rate: 48_000.0,
+            block_size,
+            duration_frames: NOTE_OFF_FRAME + RELEASE_FRAMES + 1,
+            tail_frames: 0,
+        },
+        &[
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 36,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: NOTE_OFF_FRAME,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ],
+    )
+    .expect("low-frequency release render succeeds")
+}
+
+fn second_difference(samples: &[f32], frame: usize) -> f32 {
+    samples[frame + 1] - 2.0 * samples[frame] + samples[frame - 1]
+}
+
+#[test]
+fn low_frequency_release_onset_is_smooth_across_block_sizes() {
+    const NOTE_OFF_FRAME: usize = 24_000;
+    const MAX_ONSET_SECOND_DIFFERENCE: f32 = 1.0e-4;
+    let reference = render_low_frequency_release(32);
+    let candidate = render_low_frequency_release(257);
+
+    for (block_size, audio) in [(32, &reference), (257, &candidate)] {
+        let corner = second_difference(&audio.channels[0], NOTE_OFF_FRAME);
+        assert!(
+            corner.abs() < MAX_ONSET_SECOND_DIFFERENCE,
+            "block size {block_size} produced a release onset corner of {corner}"
+        );
+        assert!(
+            audio.channels[0][NOTE_OFF_FRAME].abs() > 0.01,
+            "release test signal must be active at Note Off"
+        );
+    }
+
+    for (expected, actual) in reference.channels[0]
+        .iter()
+        .zip(candidate.channels[0].iter())
+    {
+        assert_relative_eq!(*expected, *actual, epsilon = 1.0e-6);
+    }
+}
+
 fn basic_generator_definition() -> InstrumentDefinition {
     let mut value = definition();
     value.layers[0].gain_db = 0.0;

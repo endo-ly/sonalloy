@@ -25,10 +25,6 @@ pub(crate) struct AdsrRuntime {
     elapsed: usize,
 }
 
-// Keep the transition short: about 0.5% of the release, capped at 48 frames.
-const RELEASE_SMOOTHING_DIVISOR: usize = 200;
-const MAX_RELEASE_SMOOTHING_SAMPLES: usize = 48;
-
 impl AdsrRuntime {
     pub(crate) fn new(config: CompiledAdsr) -> Self {
         Self {
@@ -156,9 +152,12 @@ impl AdsrRuntime {
                 progress(self.elapsed, self.config.decay_samples),
             ),
             AdsrState::Sustain => self.config.sustain_level,
-            AdsrState::Release => {
-                release_level(self.start_level, self.elapsed, self.config.release_samples)
-            }
+            AdsrState::Release => release_level(
+                self.start_level,
+                self.elapsed,
+                self.config.release_samples,
+                self.config.release_smoothing_samples,
+            ),
         }
     }
 
@@ -248,10 +247,9 @@ fn exponential_fall(start: f32, target: f32, progress: f32) -> f32 {
     target + (start - target) * (shape - (-5.0_f32).exp()) / (1.0 - (-5.0_f32).exp())
 }
 
-fn release_level(start: f32, elapsed: usize, duration: usize) -> f32 {
+fn release_level(start: f32, elapsed: usize, duration: usize, smoothing_samples: usize) -> f32 {
     let release_progress = progress(elapsed, duration);
     let curve = exponential_fall(start, 0.0, release_progress);
-    let smoothing_samples = release_smoothing_samples(duration);
     if smoothing_samples == 0 || elapsed >= smoothing_samples {
         return curve;
     }
@@ -259,10 +257,6 @@ fn release_level(start: f32, elapsed: usize, duration: usize) -> f32 {
     let smoothing = progress(elapsed, smoothing_samples);
     let weight = smoothing * smoothing * (3.0 - 2.0 * smoothing);
     start + (curve - start) * weight
-}
-
-fn release_smoothing_samples(duration: usize) -> usize {
-    (duration / RELEASE_SMOOTHING_DIVISOR).min(MAX_RELEASE_SMOOTHING_SAMPLES)
 }
 
 impl AdsrRuntime {
@@ -294,6 +288,7 @@ mod tests {
             decay_samples: decay,
             sustain_level: sustain,
             release_samples: release,
+            release_smoothing_samples: release.saturating_sub(1).min(3),
         })
     }
 

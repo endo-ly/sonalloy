@@ -878,6 +878,8 @@ pub struct CompiledAdsr {
     pub sustain_level: f32,
     /// Release duration in frames.
     pub release_samples: usize,
+    /// Release onset smoothing duration in frames.
+    pub release_smoothing_samples: usize,
 }
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
