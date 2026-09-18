@@ -25,6 +25,10 @@ pub(crate) struct AdsrRuntime {
     elapsed: usize,
 }
 
+// Keep the transition short: about 0.5% of the release, capped at 48 frames.
+const RELEASE_SMOOTHING_DIVISOR: usize = 200;
+const MAX_RELEASE_SMOOTHING_SAMPLES: usize = 48;
+
 impl AdsrRuntime {
     pub(crate) fn new(config: CompiledAdsr) -> Self {
         Self {
@@ -109,13 +113,13 @@ impl AdsrRuntime {
                         self.reset();
                         continue;
                     }
-                    let progress = progress(self.elapsed, self.config.release_samples);
-                    self.level = exponential_fall(self.start_level, 0.0, progress);
+                    let level = self.current_value();
+                    self.level = level;
                     self.elapsed = self.elapsed.saturating_add(1);
                     if self.elapsed >= self.config.release_samples {
                         self.reset();
                     }
-                    return self.level;
+                    return level;
                 }
             }
         }
@@ -152,11 +156,9 @@ impl AdsrRuntime {
                 progress(self.elapsed, self.config.decay_samples),
             ),
             AdsrState::Sustain => self.config.sustain_level,
-            AdsrState::Release => exponential_fall(
-                self.start_level,
-                0.0,
-                progress(self.elapsed, self.config.release_samples),
-            ),
+            AdsrState::Release => {
+                release_level(self.start_level, self.elapsed, self.config.release_samples)
+            }
         }
     }
 
@@ -246,6 +248,23 @@ fn exponential_fall(start: f32, target: f32, progress: f32) -> f32 {
     target + (start - target) * (shape - (-5.0_f32).exp()) / (1.0 - (-5.0_f32).exp())
 }
 
+fn release_level(start: f32, elapsed: usize, duration: usize) -> f32 {
+    let release_progress = progress(elapsed, duration);
+    let curve = exponential_fall(start, 0.0, release_progress);
+    let smoothing_samples = release_smoothing_samples(duration);
+    if smoothing_samples == 0 || elapsed >= smoothing_samples {
+        return curve;
+    }
+
+    let smoothing = progress(elapsed, smoothing_samples);
+    let weight = smoothing * smoothing * (3.0 - 2.0 * smoothing);
+    start + (curve - start) * weight
+}
+
+fn release_smoothing_samples(duration: usize) -> usize {
+    (duration / RELEASE_SMOOTHING_DIVISOR).min(MAX_RELEASE_SMOOTHING_SAMPLES)
+}
+
 impl AdsrRuntime {
     fn skip_zero_duration_segments(&mut self) {
         loop {
@@ -307,10 +326,27 @@ mod tests {
         adsr.note_on();
         let _ = adsr.next_sample();
         adsr.note_off();
-        for _ in 0..4 {
-            let _ = adsr.next_sample();
-        }
+        let release: Vec<_> = (0..4).map(|_| adsr.next_sample()).collect();
+        assert!(release[3] > 0.0);
         assert!(adsr.is_idle());
+        assert!(adsr.next_sample().abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn release_starts_with_zero_slope() {
+        let mut adsr = envelope(0, 0, 1.0, 4_000);
+        adsr.note_on();
+        let _ = adsr.next_sample();
+        adsr.note_off();
+
+        let first = adsr.next_sample();
+        let second = adsr.next_sample();
+        let third = adsr.next_sample();
+
+        let first_drop = first - second;
+        let second_drop = second - third;
+        assert!(first_drop >= 0.0);
+        assert!(second_drop > first_drop);
     }
 
     #[test]
