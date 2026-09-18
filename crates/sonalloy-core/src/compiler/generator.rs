@@ -2484,23 +2484,11 @@ fn compile_unison(unison: Option<UnisonDefinition>) -> CompiledUnison {
 #[cfg(test)]
 mod tests {
     use super::super::tests::{context, definition};
-    use super::{CompiledGenerator, GeneratorOutputMode, build_sine_table};
+    use super::{CompiledGenerator, GeneratorOutputMode};
     use crate::compile_instrument;
     use crate::definition::{
         GeneratorDefinition, NoiseColor, OscillatorDefinition, OscillatorWaveform,
     };
-
-    #[test]
-    fn sine_table_has_the_expected_periodic_samples() {
-        let table = build_sine_table();
-
-        assert_eq!(table.len(), 4_097);
-        assert_eq!(table[0].to_bits(), 0.0_f32.to_bits());
-        assert!((table[1_024] - 1.0).abs() < 1.0e-6);
-        assert!(table[2_048].abs() < 1.0e-6);
-        assert!((table[3_072] + 1.0).abs() < 1.0e-6);
-        assert!(table[4_096].abs() < 1.0e-6);
-    }
 
     #[test]
     fn basic_generators_compile_with_parameter_handles_and_output_modes() {

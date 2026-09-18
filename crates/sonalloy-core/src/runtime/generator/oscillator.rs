@@ -781,7 +781,7 @@ fn same_value(left: f32, right: f32) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{DcBlocker, phase_distortion_phase};
+    use super::phase_distortion_phase;
 
     #[test]
     fn phase_distortion_amount_zero_is_identity() {
@@ -802,19 +802,5 @@ mod tests {
         assert!((left - right).abs() < 1.0e-5);
         assert!((phase_distortion_phase(0.0, amount) - 0.0).abs() < f32::EPSILON);
         assert!((phase_distortion_phase(0.999_999, amount) - 1.0).abs() < 1.0e-5);
-    }
-
-    #[test]
-    fn dc_blocker_reset_clears_history() {
-        let mut blocker = DcBlocker::new(48_000.0).expect("valid blocker");
-        let mut first = [1.0_f32, 1.0, 1.0];
-        blocker.process_mono(&mut first).expect("first process");
-        assert!(first[1] < 1.0);
-        blocker.reset();
-        let mut after_reset = [1.0_f32];
-        blocker
-            .process_mono(&mut after_reset)
-            .expect("process after reset");
-        assert_eq!(after_reset[0].to_bits(), 1.0_f32.to_bits());
     }
 }

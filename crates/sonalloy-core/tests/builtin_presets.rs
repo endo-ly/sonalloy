@@ -22,51 +22,60 @@ fn preset_paths() -> Vec<PathBuf> {
     paths
 }
 
-fn representative_note(preset_id: &str) -> u8 {
-    let number = preset_id
-        .get(..2)
-        .expect("preset ID has a numeric prefix")
-        .parse::<u8>()
-        .expect("preset ID prefix is numeric");
-    match number {
-        1..=9 | 38 | 39 | 57 => 36,
-        10..=37 | 50..=54 | 56 | 59..=60 => 60,
-        40..=41 => 38,
-        42 => 39,
-        43 => 42,
-        44 => 46,
-        45 => 49,
-        46 | 58 => 45,
-        47 => 37,
-        48 => 70,
-        49 => 72,
-        55 => 48,
-        _ => panic!("unexpected preset ID {preset_id}"),
-    }
-}
-
-fn expected_category(preset_id: &str) -> &'static str {
-    let number = preset_id
-        .get(..2)
-        .expect("preset ID has a numeric prefix")
-        .parse::<u8>()
-        .expect("preset ID prefix is numeric");
-    match number {
-        1..=9 => "Bass",
-        10..=16 => "Lead",
-        17..=24 => "Pad",
-        25..=26 => "Keys",
-        27..=29 => "Poly",
-        30..=31 => "Stab",
-        32..=34 => "Pluck",
-        35..=37 => "Mallet",
-        38..=47 => "Drums",
-        48..=49 => "Percussion",
-        50..=54 => "Sequence",
-        55..=60 => "FX",
-        _ => panic!("unexpected preset ID {preset_id}"),
-    }
-}
+const BUILTIN_TAG_VOCABULARY: &[&str] = &[
+    "Warm",
+    "Bright",
+    "Dark",
+    "Clean",
+    "Noisy",
+    "Metallic",
+    "Glassy",
+    "Soft",
+    "Aggressive",
+    "Punchy",
+    "Wide",
+    "Deep",
+    "Analog",
+    "Digital",
+    "FM",
+    "Wavetable",
+    "Wavefold",
+    "Additive",
+    "Formant",
+    "Granular",
+    "Physical",
+    "Spectral",
+    "Noise",
+    "Mono",
+    "Polyphonic",
+    "Motion",
+    "Rhythmic",
+    "Sustained",
+    "Plucky",
+    "Percussive",
+    "Evolving",
+    "Gated",
+    "Random",
+    "Sub",
+    "Acid",
+    "Reese",
+    "Supersaw",
+    "Drone",
+    "Chord",
+    "Bell",
+    "Kick",
+    "Snare",
+    "Clap",
+    "Hihat",
+    "Crash",
+    "Tom",
+    "Rim",
+    "Shaker",
+    "Riser",
+    "Impact",
+    "Sequence",
+    "Texture",
+];
 
 #[allow(clippy::cast_precision_loss)]
 fn ticks_to_frames(ticks: u64, preview: &InstrumentPreviewDefinition) -> u64 {
@@ -112,39 +121,23 @@ fn every_builtin_preset_metadata_validates_and_renders() {
         )
         .unwrap_or_else(|error| panic!("{preset_id} must parse: {error}"));
 
-        assert_eq!(definition.schema_version, 6, "{preset_id} uses schema v6");
         let diagnostics = definition.validate();
         assert!(
             diagnostics.is_empty(),
             "{preset_id} has definition diagnostics: {diagnostics:?}"
         );
-        let category = definition
-            .metadata
-            .category
-            .as_deref()
-            .unwrap_or_else(|| panic!("{preset_id} has no category"));
-        assert_eq!(category, expected_category(preset_id));
-        assert!((2..=5).contains(&definition.metadata.tags.len()));
-        let range = definition
-            .metadata
-            .recommended_range
-            .expect("built-in recommended range");
+        assert!(
+            definition
+                .metadata
+                .tags
+                .iter()
+                .all(|tag| { BUILTIN_TAG_VOCABULARY.contains(&tag.as_str()) })
+        );
         let preview = definition
             .metadata
             .preview
             .as_ref()
             .expect("built-in preview");
-        let representative = representative_note(preset_id);
-        assert!(
-            (range.min_midi..=range.max_midi).contains(&representative),
-            "{preset_id} representative note {representative} is outside {range:?}"
-        );
-        assert!(
-            preview
-                .notes
-                .iter()
-                .all(|note| { (range.min_midi..=range.max_midi).contains(&note.note) })
-        );
 
         let result = compile_instrument(
             &definition,

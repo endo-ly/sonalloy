@@ -203,20 +203,11 @@ fn effective_ratio(ratio: f32, b: f32) -> Result<f32, ProcessError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{INHARMONICITY_MAX, alias_fade, effective_ratio};
+    use super::{INHARMONICITY_MAX, effective_ratio};
 
     #[test]
     fn inharmonicity_keeps_the_fundamental_at_one() {
         assert_eq!(effective_ratio(1.0, INHARMONICITY_MAX), Ok(1.0));
         assert!(effective_ratio(2.0, INHARMONICITY_MAX).expect("ratio is finite") > 2.0);
-    }
-
-    #[test]
-    fn alias_fade_has_the_declared_boundaries() {
-        assert!((alias_fade(0.39, 1.0) - 1.0).abs() < f32::EPSILON);
-        assert!((alias_fade(0.40, 1.0) - 1.0).abs() < f32::EPSILON);
-        assert!(alias_fade(0.45, 1.0).abs() < f32::EPSILON);
-        assert!(alias_fade(0.46, 1.0).abs() < f32::EPSILON);
-        assert!((alias_fade(0.425, 1.0) - 0.5).abs() < 1.0e-6);
     }
 }

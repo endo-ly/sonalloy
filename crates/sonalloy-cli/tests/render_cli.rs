@@ -257,6 +257,52 @@ fn render_events_supports_parameter_and_external_control_events() {
 }
 
 #[test]
+fn render_events_accepts_external_audio_input() {
+    let directory = tempdir().expect("temporary directory");
+    let output = directory.path().join("external-audio.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "events",
+            fixture_path("instruments/sidechain-ducking.json")
+                .to_str()
+                .expect("utf-8 definition path"),
+            fixture_path("events/sidechain-ducking.json")
+                .to_str()
+                .expect("utf-8 event path"),
+            "--audio-input",
+            fixture_path("assets/sidechain-kick.wav")
+                .to_str()
+                .expect("utf-8 audio path"),
+            "--duration-frames",
+            "72001",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--tail",
+            "0",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+            "--analyze",
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\"status\":\"ok\""));
+
+    let mut reader = hound::WavReader::open(output).expect("external audio WAV");
+    assert_eq!(reader.spec().channels, 2);
+    let samples = reader
+        .samples::<f32>()
+        .map(|sample| sample.expect("finite external audio sample"))
+        .collect::<Vec<_>>();
+    assert!(samples.iter().all(|sample| sample.is_finite()));
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
 fn render_events_accepts_sustain_pedal_events() {
     let directory = tempdir().expect("temporary directory");
     let events = directory.path().join("sustain-events.json");

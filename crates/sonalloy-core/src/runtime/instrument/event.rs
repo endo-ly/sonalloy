@@ -1202,122 +1202,118 @@ mod tests {
     }
 
     #[test]
-    fn out_of_range_key_does_not_steal_a_full_voice() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 1,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-        };
-        source.layers[0].trigger.key_min = 60;
-        source.layers[0].trigger.key_max = 72;
-        let mut runtime = runtime_with(&source);
-        prepare(&mut runtime);
-        let _ = process(
-            &mut runtime,
-            64,
-            0,
-            &[ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::NoteOn {
-                    note_id: 1,
-                    note_number: 60,
-                    velocity: 127,
-                },
-            }],
-        );
-        let _ = process(
-            &mut runtime,
-            64,
-            64,
-            &[ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::NoteOn {
-                    note_id: 2,
-                    note_number: 59,
-                    velocity: 127,
-                },
-            }],
-        );
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
-    }
+    #[allow(clippy::too_many_lines)]
+    fn out_of_range_trigger_does_not_consume_a_voice() {
+        let cases = [
+            ("key", 64, 60, 72, 1, 127, Some((60, 127)), (59, 127), None),
+            (
+                "velocity",
+                64,
+                0,
+                127,
+                64,
+                127,
+                Some((60, 64)),
+                (60, 63),
+                None,
+            ),
+            (
+                "note boundary",
+                1,
+                60,
+                60,
+                64,
+                64,
+                None,
+                (59, 64),
+                Some((60, 64)),
+            ),
+        ];
 
-    #[test]
-    fn out_of_range_velocity_does_not_steal_a_full_voice() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 1,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-        };
-        source.layers[0].trigger.velocity_min = 64;
-        source.layers[0].trigger.velocity_max = 127;
-        let mut runtime = runtime_with(&source);
-        prepare(&mut runtime);
-        let _ = process(
-            &mut runtime,
-            64,
-            0,
-            &[ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::NoteOn {
-                    note_id: 1,
-                    note_number: 60,
-                    velocity: 64,
-                },
-            }],
-        );
-        let _ = process(
-            &mut runtime,
-            64,
-            64,
-            &[ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::NoteOn {
-                    note_id: 2,
-                    note_number: 60,
-                    velocity: 63,
-                },
-            }],
-        );
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
-    }
+        for (
+            name,
+            frames,
+            key_min,
+            key_max,
+            velocity_min,
+            velocity_max,
+            initial,
+            invalid,
+            boundary,
+        ) in cases
+        {
+            let mut source = definition();
+            source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+                polyphony: 1,
+                voice_stealing:
+                    crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            };
+            source.layers[0].trigger.key_min = key_min;
+            source.layers[0].trigger.key_max = key_max;
+            source.layers[0].trigger.velocity_min = velocity_min;
+            source.layers[0].trigger.velocity_max = velocity_max;
+            let mut runtime = runtime_with(&source);
+            prepare(&mut runtime);
 
-    #[test]
-    fn out_of_range_note_does_not_start_an_idle_voice_and_boundaries_trigger() {
-        let mut source = definition();
-        source.layers[0].trigger.key_min = 60;
-        source.layers[0].trigger.key_max = 60;
-        source.layers[0].trigger.velocity_min = 64;
-        source.layers[0].trigger.velocity_max = 64;
-        let mut runtime = runtime_with(&source);
-        prepare(&mut runtime);
-        let _ = process(
-            &mut runtime,
-            1,
-            0,
-            &[ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::NoteOn {
-                    note_id: 1,
-                    note_number: 59,
-                    velocity: 64,
-                },
-            }],
-        );
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
-        let _ = process(
-            &mut runtime,
-            1,
-            1,
-            &[ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::NoteOn {
-                    note_id: 2,
-                    note_number: 60,
-                    velocity: 64,
-                },
-            }],
-        );
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+            let frame_step = u64::try_from(frames).expect("frame count fits");
+            let mut absolute_frame = 0;
+            if let Some((note_number, velocity)) = initial {
+                let _ = process(
+                    &mut runtime,
+                    frames,
+                    absolute_frame,
+                    &[ProcessEvent {
+                        sample_offset: 0,
+                        kind: ProcessEventKind::NoteOn {
+                            note_id: 1,
+                            note_number,
+                            velocity,
+                        },
+                    }],
+                );
+                absolute_frame += frame_step;
+            }
+            let _ = process(
+                &mut runtime,
+                frames,
+                absolute_frame,
+                &[ProcessEvent {
+                    sample_offset: 0,
+                    kind: ProcessEventKind::NoteOn {
+                        note_id: 2,
+                        note_number: invalid.0,
+                        velocity: invalid.1,
+                    },
+                }],
+            );
+            absolute_frame += frame_step;
+
+            if let Some((note_number, velocity)) = boundary {
+                assert_eq!(
+                    runtime.voice_state(0),
+                    Some(VoiceState::Idle),
+                    "{name} mismatch before boundary trigger"
+                );
+                let _ = process(
+                    &mut runtime,
+                    frames,
+                    absolute_frame,
+                    &[ProcessEvent {
+                        sample_offset: 0,
+                        kind: ProcessEventKind::NoteOn {
+                            note_id: 3,
+                            note_number,
+                            velocity,
+                        },
+                    }],
+                );
+            }
+            assert_eq!(
+                runtime.voice_state(0),
+                Some(VoiceState::Active),
+                "{name} mismatch after invalid trigger"
+            );
+        }
     }
 
     #[test]
@@ -1438,7 +1434,7 @@ mod tests {
     }
 
     #[test]
-    fn phase_reset_changes_retriggered_note_phase() {
+    fn oscillator_retrigger_and_phase_reset_contract() {
         let mut reset_runtime = phase_runtime(true);
         let mut continue_runtime = phase_runtime(false);
         prepare(&mut reset_runtime);
@@ -1469,10 +1465,81 @@ mod tests {
                 .zip(&continue_audio[0][240..])
                 .any(|(reset, continued)| (reset - continued).abs() > 1.0e-4)
         );
+
+        let mut triangle =
+            phase_runtime_with_waveform(true, crate::definition::OscillatorWaveform::Triangle);
+        prepare(&mut triangle);
+        let first_note = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 3,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let first = process(&mut triangle, 64, 0, &first_note);
+        let note_off = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 3 },
+        }];
+        let _ = process(&mut triangle, 64, 64, &note_off);
+        assert_eq!(triangle.voice_state(0), Some(VoiceState::Idle));
+        let second = process(
+            &mut triangle,
+            64,
+            128,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 4,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        for (first, second) in first[0].iter().zip(&second[0]) {
+            assert_relative_eq!(*first, *second, epsilon = 1.0e-6);
+        }
+
+        let mut phase_continues = phase_runtime(false);
+        prepare(&mut phase_continues);
+        let note_on = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 5,
+                note_number: 60,
+                velocity: 127,
+            },
+        }];
+        let first = process(&mut phase_continues, 64, 0, &note_on);
+        let note_off = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id: 5 },
+        }];
+        let _ = process(&mut phase_continues, 64, 64, &note_off);
+        let continued = process(
+            &mut phase_continues,
+            64,
+            128,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 6,
+                    note_number: 60,
+                    velocity: 127,
+                },
+            }],
+        );
+        assert!(
+            continued[0]
+                .iter()
+                .zip(&first[0])
+                .any(|(continued, first)| (continued - first).abs() > 1.0e-4)
+        );
     }
 
     #[test]
-    fn full_reset_restarts_phase_even_when_note_phase_reset_is_disabled() {
+    fn oscillator_full_reset_restarts_state() {
         let mut runtime = phase_runtime(false);
         prepare(&mut runtime);
         let note = [ProcessEvent {
@@ -1488,62 +1555,6 @@ mod tests {
         let second = process(&mut runtime, 64, 0, &note);
         for (left, right) in first[0].iter().zip(&second[0]) {
             assert_relative_eq!(*left, *right, epsilon = 1.0e-6);
-        }
-    }
-
-    #[test]
-    fn triangle_retrigger_after_release_matches_first_render() {
-        let mut runtime =
-            phase_runtime_with_waveform(true, crate::definition::OscillatorWaveform::Triangle);
-        prepare(&mut runtime);
-        let first_note = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 127,
-            },
-        }];
-        let first = process(&mut runtime, 64, 0, &first_note);
-        let note_off = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOff { note_id: 1 },
-        }];
-        let _ = process(&mut runtime, 64, 64, &note_off);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
-
-        let second_note = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 2,
-                note_number: 60,
-                velocity: 127,
-            },
-        }];
-        let second = process(&mut runtime, 64, 128, &second_note);
-        for (first, second) in first[0].iter().zip(&second[0]) {
-            assert_relative_eq!(*first, *second, epsilon = 1.0e-6);
-        }
-    }
-
-    #[test]
-    fn triangle_instrument_reset_matches_a_fresh_runtime() {
-        let mut runtime =
-            phase_runtime_with_waveform(false, crate::definition::OscillatorWaveform::Triangle);
-        prepare(&mut runtime);
-        let note = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 127,
-            },
-        }];
-        let first = process(&mut runtime, 64, 0, &note);
-        runtime.reset().expect("reset");
-        let second = process(&mut runtime, 64, 0, &note);
-        for (first, second) in first[0].iter().zip(&second[0]) {
-            assert_relative_eq!(*first, *second, epsilon = 1.0e-6);
         }
     }
 
@@ -1591,47 +1602,6 @@ mod tests {
         for (stolen_sample, direct_sample) in stolen_audio[0][240..].iter().zip(&direct_audio[0]) {
             assert_relative_eq!(*stolen_sample, *direct_sample, epsilon = 1.0e-6);
         }
-    }
-
-    #[test]
-    fn phase_reset_disabled_preserves_phase_after_release() {
-        let mut runtime = phase_runtime(false);
-        prepare(&mut runtime);
-        let note_on = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 127,
-            },
-        }];
-        let first = process(&mut runtime, 64, 0, &note_on);
-        let note_off = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOff { note_id: 1 },
-        }];
-        let _ = process(&mut runtime, 64, 64, &note_off);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
-
-        let continued = process(
-            &mut runtime,
-            64,
-            128,
-            &[ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::NoteOn {
-                    note_id: 2,
-                    note_number: 60,
-                    velocity: 127,
-                },
-            }],
-        );
-        assert!(
-            continued[0]
-                .iter()
-                .zip(&first[0])
-                .any(|(continued, first)| (continued - first).abs() > 1.0e-4)
-        );
     }
 
     #[test]

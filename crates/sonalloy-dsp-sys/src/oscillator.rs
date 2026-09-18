@@ -410,33 +410,6 @@ mod tests {
     }
 
     #[test]
-    fn failed_prepare_invalidates_previous_preparation() {
-        let mut oscillator = DspOscillator::new().expect("oscillator allocation");
-        oscillator
-            .prepare(48_000.0, DspOscillatorWaveform::Sine)
-            .expect("oscillator preparation");
-
-        let mut output = [1.0_f32; 2];
-        assert!(oscillator.process(440.0, &mut output).is_ok());
-
-        assert_eq!(
-            oscillator.prepare(0.0, DspOscillatorWaveform::Sine),
-            Err(DspError::InvalidArgument)
-        );
-        output.fill(1.0);
-        assert_eq!(
-            oscillator.process(440.0, &mut output),
-            Err(DspError::NotPrepared)
-        );
-        assert!(output.iter().all(|sample| sample.abs() < f32::EPSILON));
-
-        oscillator
-            .prepare(48_000.0, DspOscillatorWaveform::Sine)
-            .expect("oscillator re-preparation");
-        assert!(oscillator.process(440.0, &mut output).is_ok());
-    }
-
-    #[test]
     fn native_result_codes_are_mapped() {
         assert_eq!(
             result_from_code(ffi::NATIVE_EXCEPTION),

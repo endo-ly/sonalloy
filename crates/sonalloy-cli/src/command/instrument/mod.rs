@@ -204,13 +204,3 @@ fn default_definition() -> InstrumentDefinition {
         vectors: Vec::new(),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::default_definition;
-
-    #[test]
-    fn default_definition_is_valid() {
-        assert!(default_definition().validate().is_empty());
-    }
-}

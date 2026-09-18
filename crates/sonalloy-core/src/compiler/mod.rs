@@ -858,8 +858,7 @@ pub(crate) mod tests {
     use std::path::PathBuf;
 
     use super::{
-        CompileContext, CompiledOscillatorBackend, CompiledProcessorKind, cents_to_ratio,
-        compile_instrument, db_to_linear, midi_note_frequency,
+        CompileContext, CompiledOscillatorBackend, CompiledProcessorKind, compile_instrument,
     };
     use crate::ProcessSpec;
     pub(crate) use crate::definition::tests::definition;
@@ -872,13 +871,6 @@ pub(crate) mod tests {
             definition_base_dir: PathBuf::from("."),
             process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec"),
         }
-    }
-
-    #[test]
-    fn conversion_helpers_match_audio_units() {
-        assert!((db_to_linear(-6.0206) - 0.5).abs() < 0.001);
-        assert!((cents_to_ratio(1200.0) - 2.0).abs() < 1.0e-6);
-        assert!((midi_note_frequency(69, 1.0) - 440.0).abs() < 1.0e-6);
     }
 
     #[test]

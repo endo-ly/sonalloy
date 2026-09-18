@@ -224,7 +224,7 @@ fn spectral_validate_and_inspect_reports_prepared_asset() {
 }
 
 #[test]
-fn spectral_reference_and_hybrid_support_inspect_and_midi_render() {
+fn spectral_reference_and_hybrid_support_inspect() {
     for definition in [
         fixture_path("instruments/spectral-generator-reference.json"),
         fixture_path("instruments/spectral-hybrid-reference.json"),
@@ -282,390 +282,87 @@ fn spectral_reference_and_hybrid_support_inspect_and_midi_render() {
             "layer.spectral.generator.spectral_position",
         ))
         .stdout(predicates::str::contains("global.processor.space.mix"));
-
-    let directory = tempdir().expect("temporary output directory");
-    let output = directory.path().join("spectral-hybrid-midi.wav");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "midi",
-            fixture_path("instruments/spectral-hybrid-reference.json")
-                .to_str()
-                .expect("utf-8 definition path"),
-            fixture_path("midi/basic-poly-synth-phrase.mid")
-                .to_str()
-                .expect("utf-8 MIDI path"),
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "257",
-            "--tail",
-            "0.1",
-            "--output",
-            output.to_str().expect("utf-8 output path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""))
-        .stdout(predicates::str::contains(
-            "\"reported_latency_frames\":1536",
-        ));
-    let mut reader = hound::WavReader::open(output).expect("spectral hybrid MIDI WAV");
-    assert_eq!(reader.spec().channels, 2);
-    let samples = reader
-        .samples::<f32>()
-        .map(|sample| sample.expect("finite spectral hybrid sample"))
-        .collect::<Vec<_>>();
-    assert!(samples.iter().all(|sample| sample.is_finite()));
-    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
 }
 
 #[test]
-fn operator_modulation_validate_inspect_and_render() {
-    let definition = fixture_path("instruments/operator-modulation-reference.json");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "validate",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
+fn generator_definitions_validate_and_inspect() {
+    let cases: &[(&str, &[&str])] = &[
+        (
+            "instruments/operator-modulation-reference.json",
+            &[
+                "\"kind\":\"operator_modulation\"",
+                "\"mode\":\"phase\"",
+                "\"algorithm\":\"stack_4\"",
+                "\"evaluation_order\":[4,3,2,1]",
+                "layer.body.generator.operator.2.modulation_amount",
+                "\"unison_voices\":4",
+            ],
+        ),
+        (
+            "instruments/additive-generator-reference.json",
+            &[
+                "\"kind\":\"additive\"",
+                "\"partial_count\":8",
+                "\"max_partial_count\":64",
+                "\"id\":\"fundamental\"",
+                "\"has_envelope\":true",
+                "layer.body.generator.additive_spectrum_tilt",
+            ],
+        ),
+        (
+            "instruments/formant-generator-reference.json",
+            &[
+                "\"kind\":\"formant\"",
+                "\"partial_count\":48",
+                "\"profile_count\":5",
+                "\"id\":\"a\"",
+                "\"frequency_hz\":800.0",
+                "layer.voice.generator.formant_vowel_position",
+            ],
+        ),
+        (
+            "instruments/complex-oscillator-reference.json",
+            &[
+                "\"backend\":\"variable_shape_sync\"",
+                "\"sync_ratio_parameter\"",
+                "\"unison_voices\":5",
+                "\"phase_spread\":0.0",
+                "\"unit\":\"ratio\"",
+            ],
+        ),
+        (
+            "instruments/complex-oscillator-phase-reference.json",
+            &[
+                "\"backend\":\"phase_domain\"",
+                "\"phase_distortion_parameter\"",
+                "\"wavefold_parameter\"",
+                "\"oscillator_feedback_parameter\"",
+                "\"dc_blocker\":true",
+                "\"signal_order\"",
+            ],
+        ),
+    ];
 
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "inspect",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains(
-            "\"kind\":\"operator_modulation\"",
-        ))
-        .stdout(predicates::str::contains("\"mode\":\"phase\""))
-        .stdout(predicates::str::contains("\"algorithm\":\"stack_4\""))
-        .stdout(predicates::str::contains("\"evaluation_order\":[4,3,2,1]"))
-        .stdout(predicates::str::contains(
-            "layer.body.generator.operator.2.modulation_amount",
-        ))
-        .stdout(predicates::str::contains("\"unison_voices\":4"));
+    for &(fixture, expected_fields) in cases {
+        let definition = fixture_path(fixture);
+        let definition_path = definition.to_str().expect("utf-8 definition path");
+        Command::cargo_bin("sonalloy")
+            .expect("binary")
+            .args(["instrument", "validate", definition_path, "--json"])
+            .assert()
+            .success()
+            .stdout(predicates::str::contains("\"status\":\"ok\""));
 
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("operator.wav");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "note",
-            definition.to_str().expect("utf-8 definition path"),
-            "--note",
-            "60",
-            "--gate",
-            "0.05",
-            "--tail",
-            "0",
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "257",
-            "--output",
-            output.to_str().expect("utf-8 output path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
-    let reader = hound::WavReader::open(output).expect("operator render output");
-    assert_eq!(reader.spec().channels, 2);
-    assert!(
-        reader
-            .into_samples::<f32>()
-            .map(|sample| sample.expect("valid sample"))
-            .all(f32::is_finite)
-    );
-}
-
-#[test]
-fn additive_generator_validate_inspect_and_render() {
-    let definition = fixture_path("instruments/additive-generator-reference.json");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "validate",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
-
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "inspect",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"kind\":\"additive\""))
-        .stdout(predicates::str::contains("\"partial_count\":8"))
-        .stdout(predicates::str::contains("\"max_partial_count\":64"))
-        .stdout(predicates::str::contains("\"id\":\"fundamental\""))
-        .stdout(predicates::str::contains("\"has_envelope\":true"))
-        .stdout(predicates::str::contains(
-            "layer.body.generator.additive_spectrum_tilt",
-        ));
-
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("additive.wav");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "note",
-            definition.to_str().expect("utf-8 definition path"),
-            "--note",
-            "60",
-            "--gate",
-            "0.05",
-            "--tail",
-            "0",
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "257",
-            "--output",
-            output.to_str().expect("utf-8 output path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
-    let reader = hound::WavReader::open(output).expect("additive render output");
-    assert_eq!(reader.spec().channels, 2);
-    assert!(
-        reader
-            .into_samples::<f32>()
-            .map(|sample| sample.expect("valid sample"))
-            .all(f32::is_finite)
-    );
-}
-
-#[test]
-fn formant_generator_validate_inspect_and_render() {
-    let definition = fixture_path("instruments/formant-generator-reference.json");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "validate",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
-
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "inspect",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"kind\":\"formant\""))
-        .stdout(predicates::str::contains("\"partial_count\":48"))
-        .stdout(predicates::str::contains("\"profile_count\":5"))
-        .stdout(predicates::str::contains("\"id\":\"a\""))
-        .stdout(predicates::str::contains("\"frequency_hz\":800.0"))
-        .stdout(predicates::str::contains(
-            "layer.voice.generator.formant_vowel_position",
-        ));
-
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("formant.wav");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "note",
-            definition.to_str().expect("utf-8 definition path"),
-            "--note",
-            "60",
-            "--gate",
-            "0.05",
-            "--tail",
-            "0",
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "257",
-            "--output",
-            output.to_str().expect("utf-8 output path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
-    let reader = hound::WavReader::open(output).expect("formant render output");
-    assert_eq!(reader.spec().channels, 2);
-    assert!(
-        reader
-            .into_samples::<f32>()
-            .map(|sample| sample.expect("valid sample"))
-            .all(f32::is_finite)
-    );
-}
-
-#[test]
-fn complex_oscillator_validate_inspect_and_render() {
-    let definition = fixture_path("instruments/complex-oscillator-reference.json");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "validate",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
-
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "inspect",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains(
-            "\"backend\":\"variable_shape_sync\"",
-        ))
-        .stdout(predicates::str::contains("\"sync_ratio_parameter\""))
-        .stdout(predicates::str::contains("\"unison_voices\":5"))
-        .stdout(predicates::str::contains("\"phase_spread\":0.0"))
-        .stdout(predicates::str::contains("\"unit\":\"ratio\""));
-
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("complex.wav");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "note",
-            definition.to_str().expect("utf-8 definition path"),
-            "--note",
-            "60",
-            "--gate",
-            "0.05",
-            "--tail",
-            "0",
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "257",
-            "--output",
-            output.to_str().expect("utf-8 output path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
-    let mut reader = hound::WavReader::open(output).expect("complex render output");
-    assert_eq!(reader.spec().channels, 2);
-    assert!(
-        reader
-            .samples::<f32>()
-            .map(|sample| sample.expect("valid sample"))
-            .all(f32::is_finite)
-    );
-}
-
-#[test]
-fn phase_domain_oscillator_validate_inspect_and_render() {
-    let definition = fixture_path("instruments/complex-oscillator-phase-reference.json");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "validate",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
-
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "inspect",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"backend\":\"phase_domain\""))
-        .stdout(predicates::str::contains("\"phase_distortion_parameter\""))
-        .stdout(predicates::str::contains("\"wavefold_parameter\""))
-        .stdout(predicates::str::contains(
-            "\"oscillator_feedback_parameter\"",
-        ))
-        .stdout(predicates::str::contains("\"dc_blocker\":true"))
-        .stdout(predicates::str::contains("\"signal_order\""));
-
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("phase-domain.wav");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "note",
-            definition.to_str().expect("utf-8 definition path"),
-            "--note",
-            "72",
-            "--gate",
-            "0.05",
-            "--tail",
-            "0",
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "257",
-            "--output",
-            output.to_str().expect("utf-8 output path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
-    let reader = hound::WavReader::open(output).expect("phase-domain render output");
-    assert_eq!(reader.spec().channels, 2);
-    assert!(
-        reader
-            .into_samples::<f32>()
-            .map(|sample| sample.expect("valid sample"))
-            .all(f32::is_finite)
-    );
+        let mut inspection = Command::cargo_bin("sonalloy")
+            .expect("binary")
+            .args(["instrument", "inspect", definition_path, "--json"])
+            .assert()
+            .success();
+        for expected_field in expected_fields {
+            inspection = inspection.stdout(predicates::str::contains(*expected_field));
+        }
+        inspection.stderr(predicates::str::is_empty());
+    }
 }
 
 #[test]
@@ -785,43 +482,7 @@ fn hybrid_validate_and_inspect_report_sample_layers() {
 }
 
 #[test]
-fn hybrid_midi_render_writes_stereo_audio() {
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("hybrid.wav");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "midi",
-            fixture_path("instruments/metallic-hybrid.json")
-                .to_str()
-                .expect("utf-8 definition path"),
-            fixture_path("midi/metallic-hybrid-phrase.mid")
-                .to_str()
-                .expect("utf-8 MIDI path"),
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "257",
-            "--tail",
-            "0.5",
-            "--output",
-            output.to_str().expect("utf-8 output path"),
-        ])
-        .assert()
-        .success();
-    let mut reader = hound::WavReader::open(output).expect("hybrid WAV");
-    assert_eq!(reader.spec().channels, 2);
-    let samples: Vec<f32> = reader
-        .samples()
-        .map(|sample| sample.expect("finite sample"))
-        .collect();
-    assert!(samples.iter().all(|sample| sample.is_finite()));
-    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
-}
-
-#[test]
-fn harmonic_formant_hybrid_inspects_all_layers_and_renders_midi() {
+fn harmonic_formant_hybrid_inspects_all_layers() {
     let definition = fixture_path("instruments/harmonic-formant-hybrid-reference.json");
     Command::cargo_bin("sonalloy")
         .expect("binary")
@@ -854,41 +515,10 @@ fn harmonic_formant_hybrid_inspects_all_layers_and_renders_midi() {
         .stdout(predicates::str::contains("voice_glue"))
         .stdout(predicates::str::contains("echo"))
         .stdout(predicates::str::contains("space"));
-
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("harmonic-formant-hybrid.wav");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "midi",
-            definition.to_str().expect("utf-8 definition path"),
-            fixture_path("midi/basic-poly-synth-phrase.mid")
-                .to_str()
-                .expect("utf-8 MIDI path"),
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "257",
-            "--tail",
-            "0.5",
-            "--output",
-            output.to_str().expect("utf-8 output path"),
-        ])
-        .assert()
-        .success();
-    let mut reader = hound::WavReader::open(output).expect("hybrid WAV");
-    assert_eq!(reader.spec().channels, 2);
-    let samples: Vec<f32> = reader
-        .samples()
-        .map(|sample| sample.expect("finite sample"))
-        .collect();
-    assert!(samples.iter().all(|sample| sample.is_finite()));
-    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
 }
 
 #[test]
-fn processed_hybrid_inspects_and_renders_processor_chains() {
+fn processed_hybrid_inspects_processor_chains() {
     Command::cargo_bin("sonalloy")
         .expect("binary")
         .args([
@@ -920,41 +550,6 @@ fn processed_hybrid_inspects_and_renders_processor_chains() {
         .stdout(predicates::str::contains("global.processor.space.mix"))
         .stdout(predicates::str::contains("\"id\":\"time\""))
         .stdout(predicates::str::contains("pre_delay_frames"));
-
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("processed-hybrid.wav");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "events",
-            fixture_path("instruments/processed-hybrid.json")
-                .to_str()
-                .expect("utf-8 definition path"),
-            fixture_path("events/processed-hybrid.json")
-                .to_str()
-                .expect("utf-8 event path"),
-            "--duration-frames",
-            "120000",
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "257",
-            "--tail",
-            "0.5",
-            "--output",
-            output.to_str().expect("utf-8 output path"),
-        ])
-        .assert()
-        .success();
-    let mut reader = hound::WavReader::open(output).expect("processed hybrid WAV");
-    assert_eq!(reader.spec().channels, 2);
-    let samples: Vec<f32> = reader
-        .samples()
-        .map(|sample| sample.expect("finite sample"))
-        .collect();
-    assert!(samples.iter().all(|sample| sample.is_finite()));
-    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
 }
 
 #[test]

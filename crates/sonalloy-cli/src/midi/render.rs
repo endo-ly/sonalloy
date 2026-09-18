@@ -609,148 +609,131 @@ mod tests {
     }
 
     #[test]
-    fn control_from_a_channel_without_notes_emits_a_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            pitch_bend(1, 4096),
-            note_off_with_delta(0, 480),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
+    #[allow(clippy::too_many_lines)]
+    fn midi_channel_warnings_follow_overlapping_note_and_control_cases() {
+        let cases = [
+            (
+                "control without notes",
+                vec![
+                    note_on(0),
+                    pitch_bend(1, 4096),
+                    note_off_with_delta(0, 480),
+                    end_of_track(),
+                ],
+                Some(true),
+                None,
+            ),
+            (
+                "control after notes",
+                vec![
+                    note_on(0),
+                    note_off_with_delta(0, 480),
+                    pitch_bend_with_delta(1, 4096, 480),
+                    end_of_track(),
+                ],
+                Some(false),
+                None,
+            ),
+            (
+                "later note channel control",
+                vec![
+                    note_on(0),
+                    pitch_bend_with_delta(1, 4096, 480),
+                    note_off_with_delta(0, 480),
+                    note_on_with_delta(1, 480),
+                    note_off_with_delta(1, 480),
+                    end_of_track(),
+                ],
+                Some(true),
+                None,
+            ),
+            (
+                "same channel control",
+                vec![
+                    note_on(0),
+                    pitch_bend(0, 4096),
+                    note_off_with_delta(0, 480),
+                    end_of_track(),
+                ],
+                Some(false),
+                None,
+            ),
+            (
+                "different overlapping controls",
+                vec![
+                    note_on(0),
+                    note_on(1),
+                    pitch_bend(0, 0),
+                    pitch_bend(1, 4096),
+                    note_off_with_delta(0, 480),
+                    note_off(1),
+                    end_of_track(),
+                ],
+                Some(true),
+                None,
+            ),
+            (
+                "different non-overlapping controls",
+                vec![
+                    note_on(0),
+                    pitch_bend(0, 4096),
+                    note_off_with_delta(0, 480),
+                    note_on(1),
+                    pitch_bend(1, -4096),
+                    note_off_with_delta(1, 480),
+                    end_of_track(),
+                ],
+                Some(false),
+                None,
+            ),
+            (
+                "equal overlapping controls",
+                vec![
+                    note_on(0),
+                    note_on(1),
+                    pitch_bend(0, 4096),
+                    pitch_bend(1, 4096),
+                    note_off_with_delta(0, 480),
+                    note_off(1),
+                    end_of_track(),
+                ],
+                Some(false),
+                Some(true),
+            ),
+            (
+                "multiple note channels",
+                vec![
+                    note_on(0),
+                    note_on(1),
+                    note_off_with_delta(0, 480),
+                    note_off(1),
+                    end_of_track(),
+                ],
+                None,
+                Some(true),
+            ),
+        ];
 
-    #[test]
-    fn control_after_all_notes_end_needs_no_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            note_off_with_delta(0, 480),
-            pitch_bend_with_delta(1, 4096, 480),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(!render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn control_from_a_later_note_channel_warns_during_another_channel_note() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            pitch_bend_with_delta(1, 4096, 480),
-            note_off_with_delta(0, 480),
-            note_on_with_delta(1, 480),
-            note_off_with_delta(1, 480),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn same_channel_note_and_control_needs_no_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            pitch_bend(0, 4096),
-            note_off_with_delta(0, 480),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(!render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn differing_control_values_across_channels_emit_a_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            note_on(1),
-            pitch_bend(0, 0),
-            pitch_bend(1, 4096),
-            note_off_with_delta(0, 480),
-            note_off(1),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn differing_controls_in_non_overlapping_notes_need_no_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            pitch_bend(0, 4096),
-            note_off_with_delta(0, 480),
-            note_on(1),
-            pitch_bend(1, -4096),
-            note_off_with_delta(1, 480),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(!render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn equal_control_values_across_note_channels_need_no_control_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            note_on(1),
-            pitch_bend(0, 4096),
-            pitch_bend(1, 4096),
-            note_off_with_delta(0, 480),
-            note_off(1),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(!render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("pitch bend controls from MIDI channels")
-        }));
-        assert!(render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("notes from multiple MIDI channels")
-        }));
-    }
-
-    #[test]
-    fn notes_from_multiple_channels_emit_a_warning() {
-        let (_directory, path) = midi_file(vec![
-            note_on(0),
-            note_on(1),
-            note_off_with_delta(0, 480),
-            note_off(1),
-            end_of_track(),
-        ]);
-        let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
-        assert!(render.diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("notes from multiple MIDI channels")
-        }));
+        for (name, events, expected_control_warning, expected_channel_warning) in cases {
+            let (_directory, path) = midi_file(events);
+            let render = read_midi(&path, 48_000.0).expect("MIDI with notes is valid");
+            let has_control_warning = render.diagnostics.iter().any(|diagnostic| {
+                diagnostic
+                    .message
+                    .contains("pitch bend controls from MIDI channels")
+            });
+            let has_channel_warning = render.diagnostics.iter().any(|diagnostic| {
+                diagnostic
+                    .message
+                    .contains("notes from multiple MIDI channels")
+            });
+            if let Some(expected) = expected_control_warning {
+                assert_eq!(has_control_warning, expected, "{name}: control warning");
+            }
+            if let Some(expected) = expected_channel_warning {
+                assert_eq!(has_channel_warning, expected, "{name}: channel warning");
+            }
+        }
     }
 
     #[test]

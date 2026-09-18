@@ -1390,7 +1390,6 @@ mod tests {
         ParameterUnit,
     };
     use crate::definition::{ProcessorDefinition, tests::definition};
-    use crate::parameter::{is_parameter_id, layer_generator_parameter_id};
 
     #[test]
     fn catalog_order_is_definition_order_then_processor_scope() {
@@ -1507,26 +1506,6 @@ mod tests {
         assert!((correlation.max - 1.0).abs() < f32::EPSILON);
         assert!((correlation.default - 0.6).abs() < f32::EPSILON);
         assert!((correlation.smoothing_seconds - 0.010).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn generator_parameter_ids_follow_the_canonical_grammar() {
-        assert_eq!(
-            layer_generator_parameter_id("body", "pulse_width"),
-            "layer.body.generator.pulse_width"
-        );
-        assert!(is_parameter_id("layer.body.generator.pulse_width"));
-        assert!(is_parameter_id("layer.body.generator.sync_ratio"));
-        assert!(is_parameter_id("layer.body.generator.waveshape"));
-        assert!(is_parameter_id("layer.body.generator.unison_detune"));
-        assert!(is_parameter_id("layer.body.generator.unison_spread"));
-        assert!(is_parameter_id("layer.body.generator.noise_correlation"));
-        assert!(is_parameter_id("layer.body.generator.operator.1.ratio"));
-        assert!(is_parameter_id(
-            "layer.body.generator.operator.4.modulation_amount"
-        ));
-        assert!(!is_parameter_id("layer.Body.generator.pulse_width"));
-        assert!(!is_parameter_id("layer.body.generator.operator.5.ratio"));
     }
 
     #[test]

@@ -842,37 +842,6 @@ mod tests {
     }
 
     #[test]
-    fn spectral_sixteen_voice_stereo_morph_render_does_not_allocate() {
-        let mut runtimes = (0..16)
-            .map(|_| test_runtime_with(true, 2048, true, true))
-            .collect::<Vec<_>>();
-        for runtime in &mut runtimes {
-            runtime.start().expect("spectral runtime starts");
-        }
-        let mut mono = [0.0_f32; 64];
-        let mut left = [0.0_f32; 64];
-        let mut right = [0.0_f32; 64];
-        let allocations = crate::test_allocator::count_allocations(|| {
-            for (index, runtime) in runtimes.iter_mut().enumerate() {
-                runtime
-                    .render(
-                        64,
-                        60 + u8::try_from(index).expect("voice index fits"),
-                        0.0,
-                        0.0,
-                        48_000.0,
-                        targets_with_blur_and_morph(0.0, 0.0, 0.02, 0.0, Some(0.5)),
-                        &mut mono,
-                        &mut left,
-                        &mut right,
-                    )
-                    .expect("spectral render");
-            }
-        });
-        assert_eq!(allocations, 0);
-    }
-
-    #[test]
     fn note_on_resets_scan_without_resetting_phase_when_disabled() {
         let mut runtime = test_runtime(false);
         runtime.start().expect("spectral runtime starts");

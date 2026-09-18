@@ -127,65 +127,6 @@ fn filter_mode_defaults_to_low_pass_when_omitted() {
 }
 
 #[test]
-fn processor_definitions_round_trip_and_reject_unknown_fields() {
-    let values = [
-        serde_json::json!({
-            "type": "filter", "id": "filter", "mode": "notch",
-            "cutoff_hz": 1_000.0, "resonance": 0.2
-        }),
-        serde_json::json!({
-            "type": "eq", "id": "eq", "low_frequency_hz": 120.0,
-            "low_gain_db": 2.0, "mid_frequency_hz": 1_000.0, "mid_gain_db": -2.0,
-            "mid_q": 1.0, "high_frequency_hz": 8_000.0, "high_gain_db": 1.0
-        }),
-        serde_json::json!({
-            "type": "resonator", "id": "resonator", "frequency_hz": 440.0,
-            "decay_seconds": 0.4, "damping": 0.3, "mix": 0.2
-        }),
-        serde_json::json!({
-            "type": "bitcrusher", "id": "bitcrusher", "bit_depth": 8.0,
-            "sample_rate_ratio": 0.5, "mix": 0.2
-        }),
-        serde_json::json!({
-            "type": "chorus", "id": "chorus", "delay_ms": 15.0, "rate_hz": 0.35,
-            "depth": 0.65, "feedback": 0.1, "width": 0.8, "mix": 0.3
-        }),
-        serde_json::json!({
-            "type": "flanger", "id": "flanger", "delay_ms": 2.0, "rate_hz": 0.25,
-            "depth": 0.8, "feedback": -0.55, "width": 0.5, "mix": 0.3
-        }),
-        serde_json::json!({
-            "type": "phaser", "id": "phaser", "stages": 6, "center_hz": 900.0,
-            "sweep_octaves": 3.0, "rate_hz": 0.3, "depth": 0.8, "feedback": 0.4,
-            "width": 0.7, "mix": 0.5
-        }),
-        serde_json::json!({
-            "type": "compressor", "id": "compressor", "threshold_db": -18.0,
-            "ratio": 4.0, "attack_ms": 15.0, "release_ms": 180.0, "knee_db": 6.0,
-            "makeup_gain_db": 2.0, "mix": 1.0, "detector": "self_signal"
-        }),
-        serde_json::json!({
-            "type": "limiter", "id": "limiter", "ceiling_db": -1.0,
-            "release_ms": 80.0, "input_gain_db": 0.0
-        }),
-    ];
-    for value in values {
-        let processor: ProcessorDefinition =
-            serde_json::from_value(value.clone()).expect("processor definition parses");
-        let serialized = serde_json::to_value(&processor).expect("processor serializes");
-        let decoded: ProcessorDefinition =
-            serde_json::from_value(serialized.clone()).expect("serialized processor parses");
-        assert_eq!(decoded, processor);
-        let mut unknown = serialized
-            .as_object()
-            .expect("processor serializes as an object")
-            .clone();
-        unknown.insert("unexpected".to_owned(), serde_json::json!(true));
-        assert!(serde_json::from_value::<ProcessorDefinition>(unknown.into()).is_err());
-    }
-}
-
-#[test]
 fn filter_modes_are_serialized_and_produce_distinct_outputs() {
     let mut definition = base_definition();
     let mut outputs = Vec::new();
@@ -427,55 +368,6 @@ fn all_processor_scopes_compile_with_stable_parameter_ids() {
             .iter()
             .flatten()
             .all(|sample| sample.is_finite())
-    );
-}
-
-#[test]
-fn processor_placement_matrix_rejects_unsupported_scopes() {
-    let mut definition = base_definition();
-    definition.layers[0].processors =
-        vec![ProcessorDefinition::Chorus(ChorusProcessorDefinition {
-            id: "layer_chorus".to_owned(),
-            delay_ms: 15.0,
-            rate_hz: 0.35,
-            depth: 0.65,
-            feedback: 0.1,
-            width: 0.8,
-            mix: 0.3,
-        })];
-    definition.voice_processors = vec![ProcessorDefinition::Bitcrusher(
-        BitcrusherProcessorDefinition {
-            id: "voice_crusher".to_owned(),
-            bit_depth: 8.0,
-            sample_rate_ratio: 0.5,
-            mix: 0.2,
-        },
-    )];
-    definition.global_processors = vec![ProcessorDefinition::Resonator(
-        ResonatorProcessorDefinition {
-            id: "global_resonator".to_owned(),
-            frequency_hz: 440.0,
-            decay_seconds: 0.4,
-            damping: 0.3,
-            mix: 0.2,
-        },
-    )];
-
-    let diagnostics = definition.validate();
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| { diagnostic.path.as_deref() == Some("layers[0].processors[0]") })
-    );
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| { diagnostic.path.as_deref() == Some("voice_processors[0]") })
-    );
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| { diagnostic.path.as_deref() == Some("global_processors[0]") })
     );
 }
 

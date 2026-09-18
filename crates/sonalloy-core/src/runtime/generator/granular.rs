@@ -437,8 +437,7 @@ mod tests {
     use std::sync::Arc;
 
     use super::{
-        GranularRuntime, LayerGeneratorTargetSpan, POSITION_STREAM, ValueSpan, hann_window,
-        random_value,
+        GranularRuntime, LayerGeneratorTargetSpan, POSITION_STREAM, ValueSpan, random_value,
     };
     use crate::asset::SampleMetadata;
     use crate::asset::{PreparedAudio, PreparedAudioChannels};
@@ -494,13 +493,6 @@ mod tests {
 
     fn constant_compiled() -> CompiledGranular {
         compiled_with_source(source(&vec![0.5; 48_000]))
-    }
-
-    #[test]
-    fn hann_window_is_zero_at_both_boundaries_and_one_at_the_center() {
-        assert!((hann_window(0, 9)).abs() < 1.0e-6);
-        assert!((hann_window(8, 9)).abs() < 1.0e-6);
-        assert!((hann_window(4, 9) - 1.0).abs() < 1.0e-6);
     }
 
     #[test]

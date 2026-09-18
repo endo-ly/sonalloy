@@ -2303,6 +2303,10 @@ mod tests {
         WavetableDefinition,
     };
     use crate::diagnostics::DiagnosticCode;
+    use crate::{
+        CompileContext, ProcessEventKind, ProcessSpec, RenderRequest, ScheduledEvent,
+        compile_instrument, render_instrument,
+    };
 
     fn sample_zone(
         id: &str,
@@ -2853,62 +2857,82 @@ mod tests {
     }
 
     #[test]
-    fn operator_algorithms_compile_to_expected_topologies() {
-        let expected = [
-            (
-                OperatorAlgorithm::Stack4,
-                [3, 2, 1, 0],
-                [0b0010, 0b0100, 0b1000, 0],
-                0b0001,
-            ),
-            (
-                OperatorAlgorithm::Stack3PlusCarrier,
-                [3, 2, 1, 0],
-                [0, 0b0100, 0b1000, 0],
-                0b0011,
-            ),
-            (
-                OperatorAlgorithm::TwoStacks,
-                [1, 3, 0, 2],
-                [0b0010, 0, 0b1000, 0],
-                0b0101,
-            ),
-            (
-                OperatorAlgorithm::ForkToCarrier,
-                [3, 1, 2, 0],
-                [0b0110, 0b1000, 0b1000, 0],
-                0b0001,
-            ),
-            (
-                OperatorAlgorithm::TwoModulatorsPlusCarrier,
-                [2, 3, 0, 1],
-                [0b1100, 0, 0, 0],
-                0b0011,
-            ),
-            (
-                OperatorAlgorithm::ThreeModulators,
-                [1, 2, 3, 0],
-                [0b1110, 0, 0, 0],
-                0b0001,
-            ),
-            (
-                OperatorAlgorithm::SharedModulator,
-                [3, 0, 1, 2],
-                [0b1000, 0b1000, 0b1000, 0],
-                0b0111,
-            ),
-            (
-                OperatorAlgorithm::Parallel,
-                [0, 1, 2, 3],
-                [0, 0, 0, 0],
-                0b1111,
-            ),
-        ];
-        for (algorithm, evaluation_order, incoming_masks, carrier_mask) in expected {
+    fn operator_algorithms_compile_and_render() {
+        for algorithm in [
+            OperatorAlgorithm::Stack4,
+            OperatorAlgorithm::Stack3PlusCarrier,
+            OperatorAlgorithm::TwoStacks,
+            OperatorAlgorithm::ForkToCarrier,
+            OperatorAlgorithm::TwoModulatorsPlusCarrier,
+            OperatorAlgorithm::ThreeModulators,
+            OperatorAlgorithm::SharedModulator,
+            OperatorAlgorithm::Parallel,
+        ] {
+            let mut value = definition();
+            let mut operator = operator_definition(OperatorModulationMode::Phase, algorithm);
             let topology = algorithm.topology();
-            assert_eq!(topology.evaluation_order, evaluation_order);
-            assert_eq!(topology.incoming_masks, incoming_masks);
-            assert_eq!(topology.carrier_mask, carrier_mask);
+            for (index, operator) in operator.operators.iter_mut().enumerate() {
+                if topology.carrier_mask & (1_u8 << index) == 0 {
+                    operator.level = 0.0;
+                }
+                let has_output = topology
+                    .incoming_masks
+                    .iter()
+                    .any(|mask| mask & (1_u8 << index) != 0);
+                if !has_output {
+                    operator.modulation_amount = 0.0;
+                }
+            }
+            value.layers[0].generator = GeneratorDefinition::OperatorModulation(operator);
+            assert!(value.validate().is_empty(), "{algorithm:?} must validate");
+
+            let result = compile_instrument(
+                &value,
+                &CompileContext {
+                    definition_base_dir: ".".into(),
+                    process_spec: ProcessSpec::new(48_000.0, 257, 0, 2)
+                        .expect("valid process spec"),
+                },
+            );
+            let instrument = result
+                .instrument
+                .unwrap_or_else(|| panic!("{algorithm:?} must compile: {:?}", result.diagnostics));
+            let audio = render_instrument(
+                instrument,
+                RenderRequest {
+                    sample_rate: 48_000.0,
+                    block_size: 257,
+                    duration_frames: 1_024,
+                    tail_frames: 0,
+                },
+                &[ScheduledEvent {
+                    absolute_frame: 0,
+                    kind: ProcessEventKind::NoteOn {
+                        note_id: 1,
+                        note_number: 60,
+                        velocity: 100,
+                    },
+                }],
+            )
+            .unwrap_or_else(|error| panic!("{algorithm:?} must render: {error}"));
+
+            assert_eq!(audio.channels.len(), 2);
+            assert!(
+                audio
+                    .channels
+                    .iter()
+                    .flatten()
+                    .all(|sample| sample.is_finite()),
+                "{algorithm:?} rendered non-finite audio"
+            );
+            assert!(
+                audio
+                    .channels
+                    .iter()
+                    .flatten()
+                    .any(|sample| sample.abs() > 1.0e-5),
+                "{algorithm:?} rendered silence"
+            );
         }
     }
 

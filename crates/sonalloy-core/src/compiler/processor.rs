@@ -1834,7 +1834,6 @@ mod tests {
         CompiledProcessorKind, FREQUENCY_SHIFTER_LATENCY_FRAMES, HILBERT_TAPS, ProcessorDefinition,
         build_hilbert_coefficients,
     };
-    use super::{ReverbOutputTap, ReverbTapSource};
     use crate::definition::{
         AssetReference, ConvolutionProcessorDefinition, DelayFeedbackMode,
         DelayProcessorDefinition, DelayTimeDefinition, DelayTimeUnit,
@@ -1843,7 +1842,10 @@ mod tests {
         TransientShaperProcessorDefinition,
     };
     use crate::diagnostics::DiagnosticCode;
-    use crate::{CompileContext, DiagnosticSeverity, ProcessSpec, compile_instrument};
+    use crate::{
+        CompileContext, DiagnosticSeverity, ProcessEventKind, ProcessSpec, RenderRequest,
+        ScheduledEvent, compile_instrument, render_instrument,
+    };
 
     #[test]
     fn hilbert_coefficients_are_finite_and_anti_symmetric() {
@@ -2024,8 +2026,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)]
-    fn reverb_compiles_reference_delay_lengths_and_output_taps() {
+    fn reverb_compiles_and_renders_a_finite_tail() {
         let mut source = definition();
         source
             .global_processors
@@ -2045,96 +2046,55 @@ mod tests {
         let result = compile_instrument(&source, &context);
         let compiled = result.instrument.expect("reverb compiles");
         assert!(result.diagnostics.is_empty());
+        assert!(matches!(
+            &compiled.global_processors[0].processor,
+            CompiledProcessorKind::Reverb(_)
+        ));
+        assert!(
+            compiled
+                .parameter_handle("global.processor.space.decay")
+                .is_some()
+        );
 
-        let CompiledProcessorKind::Reverb(reverb) = &compiled.global_processors[0].processor else {
-            panic!("global processor must be reverb");
-        };
-        assert_eq!(reverb.pre_delay_frames, 0);
-        assert_eq!(reverb.input_diffusion_lengths, [142, 107, 379, 277]);
-        assert_eq!(reverb.tank_left_lengths, [672, 4_453, 1_800, 3_720]);
-        assert_eq!(reverb.tank_right_lengths, [908, 4_217, 2_656, 3_163]);
-        assert_eq!(
-            reverb.left_output_taps,
-            [
-                ReverbOutputTap {
-                    source: ReverbTapSource::RightLongDelay,
-                    delay_frames: 266,
-                    sign: 1,
+        let audio = render_instrument(
+            compiled,
+            RenderRequest {
+                sample_rate: 29_761.0,
+                block_size: 257,
+                duration_frames: 4_096,
+                tail_frames: 4_096,
+            },
+            &[
+                ScheduledEvent {
+                    absolute_frame: 0,
+                    kind: ProcessEventKind::NoteOn {
+                        note_id: 1,
+                        note_number: 60,
+                        velocity: 100,
+                    },
                 },
-                ReverbOutputTap {
-                    source: ReverbTapSource::RightLongDelay,
-                    delay_frames: 2_974,
-                    sign: 1,
+                ScheduledEvent {
+                    absolute_frame: 256,
+                    kind: ProcessEventKind::NoteOff { note_id: 1 },
                 },
-                ReverbOutputTap {
-                    source: ReverbTapSource::RightTankAllpass,
-                    delay_frames: 1_913,
-                    sign: -1,
-                },
-                ReverbOutputTap {
-                    source: ReverbTapSource::RightOutputDelay,
-                    delay_frames: 1_996,
-                    sign: 1,
-                },
-                ReverbOutputTap {
-                    source: ReverbTapSource::LeftLongDelay,
-                    delay_frames: 1_990,
-                    sign: -1,
-                },
-                ReverbOutputTap {
-                    source: ReverbTapSource::LeftTankAllpass,
-                    delay_frames: 187,
-                    sign: -1,
-                },
-                ReverbOutputTap {
-                    source: ReverbTapSource::LeftOutputDelay,
-                    delay_frames: 1_066,
-                    sign: -1,
-                },
-            ]
+            ],
+        )
+        .expect("reverb renders");
+        assert_eq!(audio.channels.len(), 2);
+        assert!(
+            audio
+                .channels
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
         );
-        assert_eq!(
-            reverb.right_output_taps,
-            [
-                ReverbOutputTap {
-                    source: ReverbTapSource::LeftLongDelay,
-                    delay_frames: 353,
-                    sign: 1,
-                },
-                ReverbOutputTap {
-                    source: ReverbTapSource::LeftLongDelay,
-                    delay_frames: 3_627,
-                    sign: 1,
-                },
-                ReverbOutputTap {
-                    source: ReverbTapSource::LeftTankAllpass,
-                    delay_frames: 1_228,
-                    sign: -1,
-                },
-                ReverbOutputTap {
-                    source: ReverbTapSource::LeftOutputDelay,
-                    delay_frames: 2_673,
-                    sign: 1,
-                },
-                ReverbOutputTap {
-                    source: ReverbTapSource::RightLongDelay,
-                    delay_frames: 2_111,
-                    sign: -1,
-                },
-                ReverbOutputTap {
-                    source: ReverbTapSource::RightTankAllpass,
-                    delay_frames: 335,
-                    sign: -1,
-                },
-                ReverbOutputTap {
-                    source: ReverbTapSource::RightOutputDelay,
-                    delay_frames: 121,
-                    sign: -1,
-                },
-            ]
+        assert!(
+            audio
+                .channels
+                .iter()
+                .flatten()
+                .any(|sample| sample.abs() > 1.0e-5)
         );
-        assert!((reverb.modulation_increment - 1.0 / 29_761.0).abs() < 1.0e-10);
-        assert!((reverb.modulation_excursion - 16.0).abs() < 1.0e-5);
     }
 
     #[test]

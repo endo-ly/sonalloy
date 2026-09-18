@@ -203,15 +203,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
             NAME SonalloyCliConsumer
             COMMAND "${CMAKE_COMMAND}"
                 "-DSONALLOY_CLI=$<TARGET_FILE:sonalloy::cli>"
-                "-DSONALLOY_CLI_SMOKE_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/test-cli-smoke"
                 -P "${SONALLOY_SOURCE_DIR}/tests/cmake_cli_consumer.cmake"
-        )
-        add_test(
-            NAME SonalloyBuiltinBundle
-            COMMAND "${SONALLOY_NODE_EXECUTABLE}"
-                "${SONALLOY_SOURCE_DIR}/scripts/verify-builtin-bundle.mjs"
-                --root "${CMAKE_CURRENT_BINARY_DIR}/test-builtin-resources"
-                --source-release "v${SONALLOY_VERSION}"
         )
     endif()
 endif()

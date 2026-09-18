@@ -3,10 +3,10 @@ use std::sync::Arc;
 
 use approx::assert_relative_eq;
 use sonalloy_core::{
-    AdsrDefinition, CompileContext, GeneratorDefinition, InstrumentDefinition, InstrumentProcessor,
-    OscillatorDefinition, OscillatorFeedbackDefinition, OscillatorWaveform,
+    AdsrDefinition, CompileContext, GeneratorDefinition, HardSyncDefinition, InstrumentDefinition,
+    InstrumentProcessor, OscillatorDefinition, OscillatorFeedbackDefinition, OscillatorWaveform,
     PhaseDistortionDefinition, ProcessSpec, RenderRequest, ScheduledEvent, UnisonDefinition,
-    WavefoldDefinition, compile_instrument, render_instrument,
+    WavefoldDefinition, WaveshapingDefinition, compile_instrument, render_instrument,
 };
 
 fn definition() -> InstrumentDefinition {
@@ -77,11 +77,15 @@ fn render(
 }
 
 fn note_on() -> ScheduledEvent {
+    note_on_at(60)
+}
+
+fn note_on_at(note_number: u8) -> ScheduledEvent {
     ScheduledEvent {
         absolute_frame: 0,
         kind: sonalloy_core::ProcessEventKind::NoteOn {
             note_id: 1,
-            note_number: 60,
+            note_number,
             velocity: 100,
         },
     }
@@ -344,6 +348,79 @@ fn complex_runtime_is_finite_stereo_and_parameter_sweeps_render() {
             .skip(1_024)
             .any(|(changed, unchanged)| (changed - unchanged).abs() > 1.0e-4),
         "parameter changes did not alter the rendered signal"
+    );
+
+    let block_size_reference = render(&value, 32, 2_048, &events);
+    for (reference, candidate) in block_size_reference.channels.iter().zip(&audio.channels) {
+        for (reference, candidate) in reference.iter().zip(candidate) {
+            assert_relative_eq!(*reference, *candidate, epsilon = 1.0e-5);
+        }
+    }
+}
+
+#[test]
+fn zero_waveshaping_is_an_exact_identity() {
+    let mut baseline = definition();
+    baseline.layers[0].generator = GeneratorDefinition::Oscillator(oscillator(
+        OscillatorWaveform::Saw,
+        None,
+        None,
+        None,
+        None,
+    ));
+    let mut identity = baseline.clone();
+    if let GeneratorDefinition::Oscillator(oscillator) = &mut identity.layers[0].generator {
+        oscillator.waveshaping = Some(WaveshapingDefinition { amount: 0.0 });
+    }
+
+    let baseline_audio = render(&baseline, 257, 2_048, &[note_on()]);
+    let identity_audio = render(&identity, 257, 2_048, &[note_on()]);
+    for (baseline, identity) in baseline_audio.channels.iter().zip(&identity_audio.channels) {
+        assert_eq!(
+            baseline
+                .iter()
+                .map(|sample| sample.to_bits())
+                .collect::<Vec<_>>(),
+            identity
+                .iter()
+                .map(|sample| sample.to_bits())
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
+fn hard_sync_high_register_is_clamped_to_finite_audio() {
+    let mut value = definition();
+    let mut oscillator = oscillator(
+        OscillatorWaveform::Saw,
+        None,
+        Some(0.45),
+        None,
+        Some(UnisonDefinition {
+            voices: 8,
+            detune_cents: 18.0,
+            stereo_spread: 0.8,
+            phase_spread: 0.0,
+        }),
+    );
+    oscillator.hard_sync = Some(HardSyncDefinition { ratio: 16.0 });
+    value.layers[0].generator = GeneratorDefinition::Oscillator(oscillator);
+
+    let audio = render(&value, 257, 4_096, &[note_on_at(127)]);
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
+    );
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .any(|sample| sample.abs() > 0.01)
     );
 }
 

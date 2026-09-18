@@ -1534,7 +1534,7 @@ pub(crate) mod tests {
         assert!((bar_span.end - 1.0).abs() < 1.0e-6);
     }
 
-    pub(crate) fn process_with_stack_output(
+    fn process_with_stack_output(
         runtime: &mut InstrumentRuntime,
         absolute_frame: u64,
         events: &[ProcessEvent],
@@ -1561,7 +1561,7 @@ pub(crate) mod tests {
             .expect("process succeeds");
     }
 
-    pub(crate) fn process_with_external_stack_output(
+    fn process_with_external_stack_output(
         runtime: &mut InstrumentRuntime,
         absolute_frame: u64,
         events: &[ProcessEvent],
@@ -1591,7 +1591,7 @@ pub(crate) mod tests {
             .expect("process succeeds");
     }
 
-    pub(crate) fn write_pcm_fixture() -> (tempfile::TempDir, std::path::PathBuf) {
+    fn write_pcm_fixture() -> (tempfile::TempDir, std::path::PathBuf) {
         let directory = tempfile::tempdir().expect("fixture directory creates");
         let path = directory.path().join("fixture.wav");
         let samples = (0..128)
@@ -1623,7 +1623,7 @@ pub(crate) mod tests {
         (directory, path)
     }
 
-    pub(crate) fn sample_stretch_definition(
+    fn sample_stretch_definition(
         path: &std::path::Path,
     ) -> crate::definition::InstrumentDefinition {
         let mut source = definition();
@@ -1660,8 +1660,64 @@ pub(crate) mod tests {
         source
     }
 
+    type AllocationProcess = fn(&mut InstrumentRuntime, u64, &[ProcessEvent]);
+
+    struct AllocationCase {
+        name: &'static str,
+        runtime: InstrumentRuntime,
+        events: Vec<ProcessEvent>,
+        process: AllocationProcess,
+        start_frame: u64,
+        measured_blocks: usize,
+        _directory: Option<tempfile::TempDir>,
+    }
+
+    fn assert_no_realtime_allocation(case: AllocationCase) {
+        let AllocationCase {
+            name,
+            mut runtime,
+            events,
+            process,
+            start_frame,
+            measured_blocks,
+            _directory,
+        } = case;
+        let allocations = crate::test_allocator::count_allocations(|| {
+            for block in 0..measured_blocks {
+                let block_events: &[ProcessEvent] = if block == 0 { &events } else { &[] };
+                process(
+                    &mut runtime,
+                    start_frame + u64::try_from(block * 64).expect("block frame fits"),
+                    block_events,
+                );
+            }
+        });
+        assert_eq!(
+            allocations, 0,
+            "{name} allocated during realtime processing"
+        );
+    }
+
     #[test]
-    pub(crate) fn idle_note_on_does_not_allocate_after_prepare() {
+    fn realtime_render_cases_do_not_allocate_after_prepare() {
+        for case in [
+            allocation_case_idle_note_on(),
+            allocation_case_processor_expansion(),
+            allocation_case_external_cross_synthesis(),
+            allocation_case_wavetable(),
+            allocation_case_stretch(),
+            allocation_case_operator(),
+            allocation_case_complex_oscillator(),
+            allocation_case_additive_sixteen_voice(),
+            allocation_case_formant_sixteen_voice(),
+            allocation_case_spectral_sixteen_voice(),
+            allocation_case_voice_stealing(),
+        ] {
+            assert_no_realtime_allocation(case);
+        }
+    }
+
+    fn allocation_case_idle_note_on() -> AllocationCase {
         let mut source = definition();
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
@@ -1695,16 +1751,19 @@ pub(crate) mod tests {
         let _ = process(&mut runtime, 64, 0, &event);
         runtime.reset().expect("reset");
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_stack_output(&mut runtime, 0, &event);
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "basic note on",
+            runtime,
+            events: event.to_vec(),
+            process: process_with_stack_output,
+            start_frame: 0,
+            measured_blocks: 1,
+            _directory: None,
+        }
     }
 
-    #[test]
     #[allow(clippy::too_many_lines)]
-    pub(crate) fn processor_expansion_render_does_not_allocate_after_prepare() {
+    fn allocation_case_processor_expansion() -> AllocationCase {
         let mut source = definition();
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
@@ -1841,16 +1900,19 @@ pub(crate) mod tests {
         process_with_stack_output(&mut runtime, 0, &event);
         runtime.reset().expect("reset");
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_stack_output(&mut runtime, 0, &event);
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "processor chain",
+            runtime,
+            events: event.to_vec(),
+            process: process_with_stack_output,
+            start_frame: 0,
+            measured_blocks: 1,
+            _directory: None,
+        }
     }
 
-    #[test]
     #[allow(clippy::too_many_lines)]
-    pub(crate) fn external_cross_synthesis_render_does_not_allocate_after_prepare() {
+    fn allocation_case_external_cross_synthesis() -> AllocationCase {
         let mut source = definition();
         source.external_audio = Some(crate::definition::ExternalAudioInputDefinition {
             channels: crate::definition::ExternalAudioChannels::Stereo,
@@ -1951,24 +2013,20 @@ pub(crate) mod tests {
         }];
         process_with_external_stack_output(&mut runtime, 0, &event);
         runtime.reset().expect("reset");
-        let no_events: [ProcessEvent; 0] = [];
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            for block in 0..20 {
-                process_with_external_stack_output(
-                    &mut runtime,
-                    u64::try_from(block).expect("block index fits") * 64,
-                    if block == 0 { &event } else { &no_events },
-                );
-            }
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "external audio",
+            runtime,
+            events: event.to_vec(),
+            process: process_with_external_stack_output,
+            start_frame: 0,
+            measured_blocks: 20,
+            _directory: None,
+        }
     }
 
-    #[test]
-    pub(crate) fn wavetable_render_does_not_allocate_after_prepare() {
-        let (_directory, path) = write_pcm_fixture();
+    fn allocation_case_wavetable() -> AllocationCase {
+        let (directory, path) = write_pcm_fixture();
         let mut source = definition();
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
@@ -2000,16 +2058,19 @@ pub(crate) mod tests {
         let _ = process(&mut runtime, 64, 0, &event);
         runtime.reset().expect("reset");
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_stack_output(&mut runtime, 0, &event);
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "wavetable",
+            runtime,
+            events: event.to_vec(),
+            process: process_with_stack_output,
+            start_frame: 0,
+            measured_blocks: 1,
+            _directory: Some(directory),
+        }
     }
 
-    #[test]
-    pub(crate) fn stretch_render_does_not_allocate_in_rust_after_prepare() {
-        let (_directory, path) = write_pcm_fixture();
+    fn allocation_case_stretch() -> AllocationCase {
+        let (directory, path) = write_pcm_fixture();
         let source = sample_stretch_definition(&path);
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
@@ -2024,15 +2085,18 @@ pub(crate) mod tests {
         let _ = process(&mut runtime, 64, 0, &event);
         runtime.reset().expect("reset");
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_stack_output(&mut runtime, 0, &event);
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "stretch",
+            runtime,
+            events: event.to_vec(),
+            process: process_with_stack_output,
+            start_frame: 0,
+            measured_blocks: 1,
+            _directory: Some(directory),
+        }
     }
 
-    #[test]
-    pub(crate) fn operator_render_does_not_allocate_after_prepare() {
+    fn allocation_case_operator() -> AllocationCase {
         let mut source = definition();
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
@@ -2103,15 +2167,18 @@ pub(crate) mod tests {
         let _ = process(&mut runtime, 64, 0, &event);
         runtime.reset().expect("reset");
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_stack_output(&mut runtime, 0, &event);
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "operator",
+            runtime,
+            events: event.to_vec(),
+            process: process_with_stack_output,
+            start_frame: 0,
+            measured_blocks: 1,
+            _directory: None,
+        }
     }
 
-    #[test]
-    pub(crate) fn complex_oscillator_render_does_not_allocate_after_prepare() {
+    fn allocation_case_complex_oscillator() -> AllocationCase {
         let mut source = definition();
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
@@ -2145,15 +2212,18 @@ pub(crate) mod tests {
         let _ = process(&mut runtime, 64, 0, &event);
         runtime.reset().expect("reset");
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_stack_output(&mut runtime, 0, &event);
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "complex oscillator",
+            runtime,
+            events: event.to_vec(),
+            process: process_with_stack_output,
+            start_frame: 0,
+            measured_blocks: 1,
+            _directory: None,
+        }
     }
 
-    #[test]
-    pub(crate) fn additive_sixteen_voice_render_does_not_allocate_after_prepare() {
+    fn allocation_case_additive_sixteen_voice() -> AllocationCase {
         let mut source = definition();
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 16,
@@ -2204,16 +2274,19 @@ pub(crate) mod tests {
         runtime.reset().expect("reset");
         process_with_stack_output(&mut runtime, 0, &first_events);
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_stack_output(&mut runtime, 64, &steal_event);
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "additive 16 voices",
+            runtime,
+            events: steal_event.to_vec(),
+            process: process_with_stack_output,
+            start_frame: 64,
+            measured_blocks: 1,
+            _directory: None,
+        }
     }
 
-    #[test]
     #[allow(clippy::too_many_lines)]
-    pub(crate) fn formant_sixteen_voice_render_does_not_allocate_after_prepare() {
+    fn allocation_case_formant_sixteen_voice() -> AllocationCase {
         let mut source = definition();
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 16,
@@ -2315,15 +2388,18 @@ pub(crate) mod tests {
         runtime.reset().expect("reset");
         process_with_stack_output(&mut runtime, 0, &first_events);
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_stack_output(&mut runtime, 64, &steal_event);
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "formant 16 voices",
+            runtime,
+            events: steal_event.to_vec(),
+            process: process_with_stack_output,
+            start_frame: 64,
+            measured_blocks: 1,
+            _directory: None,
+        }
     }
 
-    #[test]
-    pub(crate) fn spectral_sixteen_voice_stereo_morph_render_does_not_allocate_after_prepare() {
+    fn allocation_case_spectral_sixteen_voice() -> AllocationCase {
         let definition_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../testdata/instruments/spectral-generator-reference.json");
         let mut source: crate::definition::InstrumentDefinition = serde_json::from_str(
@@ -2377,15 +2453,18 @@ pub(crate) mod tests {
         runtime.reset().expect("reset");
         process_with_stack_output(&mut runtime, 0, &first_events);
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_stack_output(&mut runtime, 64, &steal_event);
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "spectral 16 voices",
+            runtime,
+            events: steal_event.to_vec(),
+            process: process_with_stack_output,
+            start_frame: 64,
+            measured_blocks: 1,
+            _directory: None,
+        }
     }
 
-    #[test]
-    pub(crate) fn voice_stealing_note_on_does_not_allocate_after_prepare() {
+    fn allocation_case_voice_stealing() -> AllocationCase {
         let mut source = definition();
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
@@ -2415,11 +2494,15 @@ pub(crate) mod tests {
         runtime.reset().expect("reset");
         let _ = process(&mut runtime, 64, 0, &first_event);
 
-        let allocations = crate::test_allocator::count_allocations(|| {
-            process_with_stack_output(&mut runtime, 64, &second_event);
-        });
-
-        assert_eq!(allocations, 0);
+        AllocationCase {
+            name: "voice stealing",
+            runtime,
+            events: second_event.to_vec(),
+            process: process_with_stack_output,
+            start_frame: 64,
+            measured_blocks: 1,
+            _directory: None,
+        }
     }
 
     #[test]

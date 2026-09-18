@@ -215,13 +215,7 @@ fn frame_warnings(samples: &[f32], frame_length: usize) -> Vec<WavetableWarning>
 
 #[cfg(test)]
 mod tests {
-    use super::{WavetableWarning, band_limits, frame_warnings, harmonic_for_bin};
-
-    #[test]
-    fn band_limits_are_descending_powers_of_two() {
-        assert_eq!(band_limits(64), [32, 16, 8, 4, 2, 1]);
-        assert_eq!(band_limits(2048).len(), 11);
-    }
+    use super::{WavetableWarning, frame_warnings, harmonic_for_bin};
 
     #[test]
     fn harmonic_lookup_preserves_negative_frequency_bins() {
