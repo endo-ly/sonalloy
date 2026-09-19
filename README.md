@@ -8,9 +8,7 @@ Sonalloyの音源は、つまみを並べたパネルではなく、**JSONで記
 - **CLIだけで回る改善ループ**: `validate`はエラーの箇所をField Path付きで返し、`inspect`はコンパイル後の実行値を機械可読で出し、`render`はWAVを生成します。AIは「書く → 検証する → 直す」を自分だけで繰り返せます
 - **エージェント向けの手順書を同梱**: `.agents/skills/create-instrument/`に手順書と仕様リファレンスを同梱しています。Claude Codeなどのcoding agentに読ませれば、音源設計の手順をまるごと任せられます
 
-## デモ
-
-Sonalloyで作成した30秒のデモです。
+以下は、すべてSonalloyで作った音源でできたデモ音楽です:
 
 https://github.com/user-attachments/assets/1d1d59bf-7274-41a5-aecb-15321d264de5
 
