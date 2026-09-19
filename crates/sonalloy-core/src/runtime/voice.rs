@@ -13,10 +13,8 @@ use super::modulation::{
     apply_domain_sum_with_maximum, route_domain_delta,
 };
 use super::processor::{LayerProcessorChain, ProcessorTargetSpan, StereoProcessorChain};
-use super::smoothing::{Smoother, rounded_frame_count};
+use super::smoothing::Smoother;
 use super::source::VoiceSourceRuntime;
-
-const GAIN_SMOOTHING_SECONDS: f64 = 0.005;
 
 /// Runtime state of one polyphonic voice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,8 +77,6 @@ struct LayerRuntime {
     active: bool,
     armed: bool,
     armed_sample_zone: Option<usize>,
-    note_start_fade: Smoother,
-    note_start_fade_frames: usize,
     instrument_latency_frames: usize,
     delay: LayerDelayCompensation,
 }
@@ -155,8 +151,6 @@ impl LayerRuntime {
     ) -> Result<Self, ProcessError> {
         let generator = GeneratorRuntime::new(&compiled.generator, spec)?;
         let output_mode = compiled.generator.output_mode();
-        let note_start_fade_frames =
-            rounded_frame_count(spec.sample_rate * GAIN_SMOOTHING_SECONDS).max(1);
         let processors = LayerProcessorChain::new(&compiled.processors, spec, output_mode)?;
         Ok(Self {
             envelope: AdsrRuntime::new(compiled.envelope),
@@ -166,8 +160,6 @@ impl LayerRuntime {
             active: false,
             armed: false,
             armed_sample_zone: None,
-            note_start_fade: Smoother::new(0.0),
-            note_start_fade_frames,
             instrument_latency_frames,
             delay: LayerDelayCompensation::new(instrument_latency_frames),
         })
@@ -189,9 +181,6 @@ impl LayerRuntime {
         self.armed = false;
         self.armed_sample_zone = None;
         self.envelope.note_on();
-        self.note_start_fade.reset(0.0);
-        self.note_start_fade
-            .set_target(1.0, self.note_start_fade_frames);
         self.active = true;
         Ok(())
     }
@@ -249,7 +238,6 @@ impl LayerRuntime {
         self.processors.reset()?;
         self.delay.reset();
         self.envelope.reset();
-        self.note_start_fade.reset(0.0);
         self.active = false;
         self.armed = false;
         self.armed_sample_zone = None;
@@ -260,7 +248,6 @@ impl LayerRuntime {
         self.processors.reset()?;
         self.delay.reset();
         self.envelope.reset();
-        self.note_start_fade.reset(0.0);
         self.active = false;
         self.armed = false;
         self.armed_sample_zone = None;
@@ -848,8 +835,7 @@ impl VoiceRuntime {
             for frame in 0..frames {
                 let (input_left, input_right) = if was_active {
                     let envelope = layer.envelope.next_sample();
-                    let fade = layer.note_start_fade.next();
-                    let amplitude = envelope * fade * gain.value_at(frame, frames);
+                    let amplitude = envelope * gain.value_at(frame, frames);
                     match layer.output_mode {
                         GeneratorOutputMode::Mono => {
                             let mono = layer_mono[frame] * amplitude;

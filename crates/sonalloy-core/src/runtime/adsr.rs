@@ -75,8 +75,8 @@ impl AdsrRuntime {
                         self.elapsed = 0;
                         continue;
                     }
-                    let progress = progress(self.elapsed, self.config.attack_samples);
-                    self.level = exponential_rise(progress);
+                    let level = self.current_value();
+                    self.level = level;
                     self.elapsed = self.elapsed.saturating_add(1);
                     if self.elapsed >= self.config.attack_samples {
                         self.state = AdsrState::Decay;
@@ -84,7 +84,7 @@ impl AdsrRuntime {
                         self.elapsed = 0;
                         self.skip_zero_duration_segments();
                     }
-                    return self.level;
+                    return level;
                 }
                 AdsrState::Decay => {
                     if self.config.decay_samples == 0 {
@@ -93,15 +93,15 @@ impl AdsrRuntime {
                         self.elapsed = 0;
                         continue;
                     }
-                    let progress = progress(self.elapsed, self.config.decay_samples);
-                    self.level = exponential_fall(1.0, self.config.sustain_level, progress);
+                    let level = self.current_value();
+                    self.level = level;
                     self.elapsed = self.elapsed.saturating_add(1);
                     if self.elapsed >= self.config.decay_samples {
                         self.state = AdsrState::Sustain;
                         self.level = self.config.sustain_level;
                         self.elapsed = 0;
                     }
-                    return self.level;
+                    return level;
                 }
                 AdsrState::Sustain => return self.config.sustain_level,
                 AdsrState::Release => {
@@ -109,13 +109,13 @@ impl AdsrRuntime {
                         self.reset();
                         continue;
                     }
-                    let progress = progress(self.elapsed, self.config.release_samples);
-                    self.level = exponential_fall(self.start_level, 0.0, progress);
+                    let level = self.current_value();
+                    self.level = level;
                     self.elapsed = self.elapsed.saturating_add(1);
                     if self.elapsed >= self.config.release_samples {
                         self.reset();
                     }
-                    return self.level;
+                    return level;
                 }
             }
         }
@@ -302,15 +302,54 @@ mod tests {
     }
 
     #[test]
-    fn release_reaches_idle_at_the_configured_duration() {
-        let mut adsr = envelope(0, 0, 1.0, 4);
+    fn segments_transition_after_the_configured_number_of_samples() {
+        let mut adsr = envelope(4, 4, 0.5, 4);
         adsr.note_on();
-        let _ = adsr.next_sample();
+
+        let attack: Vec<_> = (0..4).map(|_| adsr.next_sample()).collect();
+        assert_eq!(adsr.state, super::AdsrState::Decay);
+        let decay: Vec<_> = (0..4).map(|_| adsr.next_sample()).collect();
+        assert_eq!(adsr.state, super::AdsrState::Sustain);
+        let sustain = adsr.next_sample();
+
         adsr.note_off();
-        for _ in 0..4 {
+        for _ in 0..3 {
             let _ = adsr.next_sample();
         }
-        assert!(adsr.is_idle());
+        assert_eq!(adsr.state, super::AdsrState::Release);
+        let _ = adsr.next_sample();
+        assert_eq!(adsr.state, super::AdsrState::Idle);
+
+        assert!(attack[3] < 1.0);
+        assert!((decay[0] - 1.0).abs() < 1.0e-6);
+        assert!(decay[3] > 0.5);
+        assert!((sustain - 0.5).abs() < 1.0e-6);
+        assert!(adsr.next_sample().abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn span_and_next_sample_share_segment_boundaries() {
+        let mut per_sample = envelope(4, 4, 0.5, 4);
+        per_sample.note_on();
+        let _attack: Vec<_> = (0..4).map(|_| per_sample.next_sample()).collect();
+        let after_attack = per_sample.next_sample();
+        let _decay: Vec<_> = (0..3).map(|_| per_sample.next_sample()).collect();
+        let decay_last = per_sample.next_sample();
+        per_sample.note_off();
+        let _release: Vec<_> = (0..4).map(|_| per_sample.next_sample()).collect();
+
+        let mut span = envelope(4, 4, 0.5, 4);
+        span.note_on();
+        let (_, attack_end) = span.span(4);
+        let (_, decay_end) = span.span(4);
+        span.note_off();
+        let (_, release_end) = span.span(4);
+
+        assert!((attack_end - after_attack).abs() < 1.0e-6);
+        assert!((decay_end - decay_last).abs() < 1.0e-6);
+        assert_eq!(span.state, super::AdsrState::Idle);
+        assert!(release_end.abs() < 1.0e-6);
+        assert!(per_sample.is_idle());
     }
 
     #[test]

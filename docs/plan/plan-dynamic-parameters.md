@@ -423,7 +423,7 @@ VoiceごとにShared Parameter Smootherを複製しない。
 - Gain Smoother
 P3では固定Gain / Pan / TuningをHandle参照とEffective Spanへ置き換える。
 
-発音開始時のFadeとDynamic Gain変更は別の状態として扱う。
+発音開始時の振幅はLayerのADSRで決まり、Dynamic Gain変更は別の状態として扱う。
 ## 3.8 Velocity専用経路
 現在は`VelocityResponseDefinition`、`CompiledVelocityResponse`、`runtime::mix::velocity_gain`、`runtime::mix::velocity_cutoff`が専用経路を構成している。
 
@@ -1720,16 +1720,13 @@ linear = 10 ^ (db / 20)
 ```
 Span内はLinear Gainを線形補間する。
 
-Amplitude ADSR、Dynamic Gain、発音開始Fadeの順で乗算する。
+Amplitude ADSRとDynamic Gainの順で乗算する。
 ```text
 generator
   × amplitude_envelope
   × dynamic_gain
-  × note_start_fade
 ```
-既存の`gain_smoother`を発音開始FadeとBase Parameter Smoothingの両方へ使わない。
-
-Note Start FadeはLayer Runtime固有Stateとして残す。
+Base ParameterのSmootherは、発音時の振幅Envelopeとは別の状態として扱う。
 ## 13.2 Layer Pan
 Effective Pan Start / Endを-1〜1で得る。
 

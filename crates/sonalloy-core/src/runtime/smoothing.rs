@@ -50,19 +50,6 @@ impl Smoother {
         self.current
     }
 
-    pub(crate) fn next(&mut self) -> f32 {
-        if self.remaining == 0 {
-            return self.current;
-        }
-        self.elapsed += 1;
-        self.remaining -= 1;
-        self.current = self.value_at(self.elapsed);
-        if self.remaining == 0 {
-            self.current = self.target;
-        }
-        self.current
-    }
-
     pub(crate) fn span(&mut self, frames: usize) -> (f32, f32) {
         let start = self.current;
         if frames == 0 {
@@ -100,15 +87,6 @@ impl Smoother {
 #[cfg(test)]
 mod tests {
     use super::Smoother;
-
-    #[test]
-    fn smoother_reaches_target_without_overshoot() {
-        let mut smoother = Smoother::new(0.0);
-        smoother.set_target(1.0, 4);
-        let values: Vec<f32> = (0..4).map(|_| smoother.next()).collect();
-        assert_eq!(values.last().copied(), Some(1.0));
-        assert!(values.windows(2).all(|window| window[0] <= window[1]));
-    }
 
     #[test]
     fn smoother_span_is_independent_of_partitioning() {

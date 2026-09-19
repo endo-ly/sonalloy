@@ -101,7 +101,7 @@ flowchart TD
 | 段階 | 振る舞い |
 |---|---|
 | **ADSR** | Note OnでAttackから始まり、Decayを経てSustainで待機する。Sustain中のKey Upでは待機し、実際のRelease位置（通常のNote OffまたはPedal Up）で現在値からReleaseへ進む。長さ0の区間は飛ばす |
-| **Gain** | Base値とRouteをdB Domainで加算してClampし、線形Gainへ変換する。Note開始Fade・ADSR・Dynamic Gainを順に乗算する |
+| **Gain** | Base値とRouteをdB Domainで加算してClampし、線形Gainへ変換する。ADSRとDynamic Gainを順に乗算する |
 | **Pan** | 定電力で左右へ振り分ける |
 | **Tuning** | Base値とRouteをCentで加算し、Oscillatorの周波数またはSampleの再生速度へ変換する |
 | **Processor** | 各配置で使える種類とFieldは[`references/processors.md`](../.agents/skills/create-instrument/references/processors.md)を参照。Dynamic ParameterはBlock内で滑らかに変化する。Modulation FXはGlobal Chainに1つのStateを共有し、Dynamicsは左右のPeakをリンクして判定する。Stereo GeneratorのLayer Stateは左右独立で、Mono GeneratorではMono側だけを確保する |
