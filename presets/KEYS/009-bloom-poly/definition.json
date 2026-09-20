@@ -1,7 +1,7 @@
 {
   "schema_version": 6,
   "metadata": {
-    "name": "Pressure Bloom Poly",
+    "name": "Bloom Poly",
     "description": "Detuneした複数のSawによる広い層に、中央のPulseの芯を重ねたポリフォニックなコード音。発音直後は密度の高いアタックが立ち、フィルターと左右の広がりがゆっくり開いて明るさを増す。和音を保持している間も広がりと倍音の密度が変化し、短く切ると芯の輪郭が残る。",
     "category": "Keys",
     "tags": [

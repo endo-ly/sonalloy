@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "Pressure Bloom Poly pattern",
+  "name": "Bloom Poly pattern",
   "ticks_per_beat": 480,
   "length_ticks": 3840,
   "tempo_changes": [

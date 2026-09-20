@@ -4,7 +4,7 @@
   "metadata": {
     "name": "Synth Brass Stab",
     "author": "gpt-6-astra low",
-    "description": "SawとPulseを重ねた、太く明るいコードスタブ。Filter Envelopeが発音直後の高域を押し出し、短い減衰で丸い芯へ収束する。短い和音では一つの塊としてアタックが揃い、長く押すと余韻が自然に収まる。",
+    "description": "SawとPulseを重ねた、太く明るいシンセブラスのコードスタブ。Filter Envelopeが発音直後の高域を押し出し、短い減衰で丸い芯へ収束する。短い和音では一つの塊としてアタックが揃い、長く押すと余韻が自然に収まる。",
     "category": "Keys",
     "tags": [
       "Analog-Style",

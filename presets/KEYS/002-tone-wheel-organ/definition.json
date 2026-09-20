@@ -4,7 +4,7 @@
   "metadata": {
     "name": "Tone Wheel Organ",
     "author": "gpt-6-astra low",
-    "description": "複数のSine Partialを規則的に重ねた、明瞭な倍音を持つ持続鍵盤音。押鍵中は音量と倍音の関係が安定し、軽い揺らぎが中央の音像に厚みを加える。短い発音では倍音の芯がすぐ現れ、長い和音では密度のある持続音になる。",
+    "description": "複数のSine Partialを規則的に重ねた、明瞭な倍音を持つトーンホイール・オルガン。押鍵中は音量と倍音の関係が安定し、軽い揺らぎが中央の音像に厚みを加える。短い発音では倍音の芯がすぐ現れ、長い和音では密度のある持続音になる。",
     "category": "Keys",
     "tags": [
       "Additive",

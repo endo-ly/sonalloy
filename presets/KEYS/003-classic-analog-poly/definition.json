@@ -4,7 +4,7 @@
   "metadata": {
     "name": "Classic Analog Poly",
     "author": "gpt-6-astra low",
-    "description": "DetuneしたSawを重ねた、温かく密度のあるポリフォニック音源。立ち上がりはパッドより速く、FilterとDriveが明るさから丸い持続へ滑らかに移す。短いコードでは発音の芯が揃い、長い和音では各音の音程関係を保った厚みが続く。",
+    "description": "DetuneしたSawを重ねた、温かく密度のあるアナログ・ポリシンセ。発音直後は明るい倍音が前に出て、フィルターエンベロープの減衰とともに丸く温かい持続音へ移る。短いコードでは発音の芯が揃い、長い和音では各音の音程関係を保った厚みが続く。",
     "category": "Keys",
     "tags": [
       "Analog-Style",
