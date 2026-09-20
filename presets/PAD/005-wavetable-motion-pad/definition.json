@@ -4,7 +4,7 @@
   "metadata": {
     "name": "Wavetable Motion Pad",
     "author": "gpt-6-astra low",
-    "description": "Wavetableの走査で音色の倍音構成が時間に沿って変化するパッド。発音後は滑らかに明るさと密度が移り、一定周期ではない長い展開を作る。短い発音では変化の入口が現れ、長い和音では明るさと倍音構成がゆっくり移り変わる。",
+    "description": "Wavetableの走査で音色の倍音構成が時間に沿って変化するパッド。発音後は滑らかに明るさと密度が移り、一定周期ではない長い展開を作る。短い発音ではWavetable走査の初期部分が現れ、長い和音では明るさと倍音構成がゆっくり移り変わる。",
     "category": "Pad",
     "tags": [
       "Wavetable",
