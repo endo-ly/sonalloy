@@ -12,69 +12,79 @@ const BLOCK_SIZE: usize = 257;
 
 fn preset_paths() -> Vec<PathBuf> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../presets");
-    let mut paths = fs::read_dir(root)
+    let mut paths = Vec::new();
+    for category in fs::read_dir(root)
         .expect("presets directory")
-        .map(|entry| entry.expect("preset directory entry").path())
-        .filter(|path| path.is_dir() && path.file_name().is_some_and(|name| name != "assets"))
-        .filter(|path| path.join("definition.json").is_file())
-        .collect::<Vec<_>>();
+        .map(|entry| entry.expect("preset category entry").path())
+        .filter(|path| {
+            path.is_dir()
+                && path
+                    .file_name()
+                    .is_some_and(|name| name != "assets" && name != "common-patterns")
+        })
+    {
+        for preset in fs::read_dir(category).expect("preset category directory") {
+            let path = preset.expect("preset directory entry").path();
+            if path.is_dir() && path.join("definition.json").is_file() {
+                paths.push(path);
+            }
+        }
+    }
     paths.sort_unstable();
     paths
 }
 
 const BUILTIN_TAG_VOCABULARY: &[&str] = &[
-    "Warm",
     "Bright",
     "Dark",
+    "Warm",
+    "Mellow",
     "Clean",
-    "Noisy",
     "Metallic",
     "Glassy",
-    "Soft",
-    "Aggressive",
+    "Noisy",
+    "Hollow",
+    "Airy",
+    "Sub",
+    "Resonant",
+    "Smooth",
+    "Rough",
+    "Dense",
+    "Thin",
     "Punchy",
+    "Sharp",
+    "Soft",
     "Wide",
-    "Deep",
-    "Analog",
-    "Digital",
-    "FM",
-    "Wavetable",
-    "Wavefold",
-    "Additive",
-    "Formant",
-    "Granular",
-    "Physical",
-    "Spectral",
-    "Noise",
-    "Mono",
-    "Polyphonic",
-    "Motion",
-    "Rhythmic",
+    "Narrow",
+    "Centered",
+    "Detuned",
+    "Diffuse",
+    "Short",
     "Sustained",
     "Plucky",
     "Percussive",
+    "Swelling",
     "Evolving",
-    "Gated",
-    "Random",
-    "Sub",
-    "Acid",
-    "Reese",
-    "Supersaw",
-    "Drone",
-    "Chord",
-    "Bell",
-    "Kick",
-    "Snare",
-    "Clap",
-    "Hihat",
-    "Crash",
-    "Tom",
-    "Rim",
-    "Shaker",
-    "Riser",
-    "Impact",
-    "Sequence",
-    "Texture",
+    "Rhythmic",
+    "Stable",
+    "Long-Tail",
+    "Analog-Style",
+    "FM",
+    "PM",
+    "AM",
+    "Ring-Mod",
+    "Wavetable",
+    "Additive",
+    "Granular",
+    "Formant",
+    "Wavefold",
+    "Hard-Sync",
+    "Phase-Distortion",
+    "Physical",
+    "Modal",
+    "Sample-Based",
+    "Wave-Sequence",
+    "Spectral",
 ];
 
 #[allow(clippy::cast_precision_loss)]
@@ -107,7 +117,7 @@ fn preview_events(preview: &InstrumentPreviewDefinition) -> Vec<ScheduledEvent> 
 #[test]
 fn every_builtin_preset_metadata_validates_and_renders() {
     let paths = preset_paths();
-    assert_eq!(paths.len(), 60, "all 60 built-in presets must be present");
+    assert_eq!(paths.len(), 65, "all 65 built-in presets must be present");
 
     for path in paths {
         let preset_id = path
