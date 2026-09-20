@@ -2,13 +2,12 @@
   "schema_version": 6,
   "metadata": {
     "name": "Bloom Poly",
-    "description": "Detuneした複数のSawによる広い層に、中央のPulseの芯を重ねたポリフォニックなコード音。発音直後は密度の高いアタックが立ち、フィルターと左右の広がりがゆっくり開いて明るさを増す。和音を保持している間も広がりと倍音の密度が変化し、短く切ると芯の輪郭が残る。",
+    "description": "デチューンした複数のSaw波による広い層に、中央のPulse波の芯を重ねたポリフォニックなコード音。発音後はフィルターが緩やかに開き、密度の高い響きに明るさが加わっていく。短く切ると硬い芯が残り、長く保持すると広い音像と厚い持続音が安定して続く。",
     "category": "Keys",
     "tags": [
       "Wide",
       "Dense",
       "Detuned",
-      "Evolving",
       "Sustained"
     ],
     "recommended_range": {

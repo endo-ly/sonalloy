@@ -4,7 +4,7 @@
   "metadata": {
     "name": "Vocal Formant Pad",
     "author": "gpt-6-astra low",
-    "description": "Sineの倍音列とFormant共鳴を重ね、母音の位置がゆっくり動くパッド。中域の共鳴が時間に沿って変化し、柔らかなSawの層が広い音像の土台を保つ。短い発音では母音の入口が、長い和音では声質の移動と余韻が現れる。",
+    "description": "Sine波の倍音列とFormant共鳴を重ね、母音の位置がゆっくり動くパッド。中域の共鳴が時間に沿って変化し、柔らかなSaw波の層が広い音像の土台を保つ。短い発音でも母音らしい共鳴が現れ、長い和音では声質の移動と余韻が続く。",
     "category": "Pad",
     "tags": [
       "Formant",
