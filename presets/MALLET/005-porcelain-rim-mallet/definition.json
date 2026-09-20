@@ -1,0 +1,457 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Porcelain Rim Mallet",
+    "author": "gpt-6-astra low",
+    "description": "磁器の器を軽く叩いたような、白く硬質で滑らかな胴鳴りに、中域が抜けたリムのアクセントを重ねたマレット音。打撃の後に小さな粒がばらけて短く消え、乾いた余韻へ素早く収束する。強いベロシティではリムの輪郭と明るさが増し、短い反復でも各打撃が明確に分かれる。",
+    "category": "Mallet",
+    "tags": [
+      "Modal",
+      "Percussive",
+      "Short",
+      "Hollow"
+    ],
+    "recommended_range": {
+      "min_midi": 60,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 72,
+          "velocity": 95
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 74,
+          "velocity": 112
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 76,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 79,
+          "velocity": 120
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "cup",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -1,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.22,
+        "sustain_level": 0,
+        "release_seconds": 0.2
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.0025,
+            "brightness": 0.68,
+            "seed": 3819
+          },
+          "mode_count": 12,
+          "structure": 0.38,
+          "brightness": 0.48,
+          "decay": 0.24
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "rim",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -37,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0008,
+        "decay_seconds": 0.085,
+        "sustain_level": 0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -2,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "p0",
+              "ratio": 1,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
+              "phase": 0
+            },
+            {
+              "id": "p1",
+              "ratio": 2.71,
+              "amplitude_a": 0.48,
+              "amplitude_b": 0.48,
+              "phase": 0
+            },
+            {
+              "id": "p2",
+              "ratio": 4.13,
+              "amplitude_a": 0.26,
+              "amplitude_b": 0.26,
+              "phase": 0
+            },
+            {
+              "id": "p3",
+              "ratio": 6.37,
+              "amplitude_a": 0.12,
+              "amplitude_b": 0.12,
+              "phase": 0
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "rain",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -60,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.5,
+        "sustain_level": 0,
+        "release_seconds": 0.35
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -3,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "p0",
+              "ratio": 1.5,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
+              "phase": 0.0
+            },
+            {
+              "id": "p1",
+              "ratio": 3.83,
+              "amplitude_a": 0.3,
+              "amplitude_b": 0.3,
+              "phase": 0.17
+            },
+            {
+              "id": "p2",
+              "ratio": 5.17,
+              "amplitude_a": 0.12,
+              "amplitude_b": 0.12,
+              "phase": 0.34
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "dust",
+          "mode": "low_pass",
+          "cutoff_hz": 4400,
+          "resonance": 0.05
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "lightness",
+      "mode": "high_pass",
+      "cutoff_hz": 480,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "glaze",
+      "mode": "low_pass",
+      "cutoff_hz": 5800,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.009,
+      "decay": 0.32,
+      "damping": 0.72,
+      "width": 0.7,
+      "mix": 0.065
+    },
+    {
+      "type": "limiter",
+      "id": "ceiling",
+      "ceiling_db": -1,
+      "release_ms": 50,
+      "input_gain_db": 6
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "grains",
+        "type": "mseg",
+        "initial_value": 0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.085,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.003,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.028,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.058,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.003,
+              "unit": "seconds"
+            },
+            "target": 0.88,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.025,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.043,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.003,
+              "unit": "seconds"
+            },
+            "target": 0.77,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.025,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      },
+      {
+        "id": "scatter",
+        "type": "mseg",
+        "initial_value": -0.25,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.17,
+              "unit": "seconds"
+            },
+            "target": 0.32,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.1,
+              "unit": "seconds"
+            },
+            "target": -0.18,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.cup.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.cup.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.rim.gain",
+        "depth": {
+          "value": 22,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.rim.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.rain.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.rain.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.cup.generator.modal_brightness",
+        "depth": {
+          "value": 0.18,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "grains",
+        "target": "layer.rain.gain",
+        "depth": {
+          "value": 38,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "scatter",
+        "target": "layer.rain.pan",
+        "depth": {
+          "value": 1,
+          "unit": "pan"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.rain",
+        "target": "layer.rain.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "rain",
+      "name": "Rain",
+      "default": 0.6
+    }
+  ],
+  "vectors": []
+}

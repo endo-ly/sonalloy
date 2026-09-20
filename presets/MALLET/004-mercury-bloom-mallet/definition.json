@@ -1,0 +1,528 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Mercury Bloom Mallet",
+    "author": "gpt-6-astra low",
+    "description": "ノイズの打撃で金属的な弦を鳴らし、水銀のように冷たく滑らかな倍音の芯と、母音の共鳴が花開くようにゆっくり広がるマレット音。発音直後の打撃の輝きが丸い芯へ収まり、保持中は母音の位置がゆっくり移動して声的な広がりへ変わる。強いベロシティで打撃と共鳴が増し、長音では液体金属のような余韻が流れるように続く。",
+    "category": "Mallet",
+    "tags": [
+      "Physical",
+      "Metallic",
+      "Formant",
+      "Evolving",
+      "Percussive"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 420,
+          "note": 60,
+          "velocity": 95
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 420,
+          "note": 64,
+          "velocity": 85
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 480,
+          "note": 67,
+          "velocity": 112
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 480,
+          "note": 72,
+          "velocity": 80
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "silver",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -5,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 1.2,
+        "sustain_level": 0.12,
+        "release_seconds": 0.65
+      },
+      "generator": {
+        "physical_string": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.003,
+            "brightness": 0.86,
+            "seed": 74013
+          },
+          "decay_seconds": 2.6,
+          "brightness": 0.66,
+          "stiffness": 0.12
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "mercury",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -24,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.008,
+        "decay_seconds": 0.9,
+        "sustain_level": 0.34,
+        "release_seconds": 1.35
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -1.8,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "p1",
+              "ratio": 1,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
+              "phase": 0.0
+            },
+            {
+              "id": "p2",
+              "ratio": 2,
+              "amplitude_a": 0.24,
+              "amplitude_b": 0.36,
+              "phase": 0.137
+            },
+            {
+              "id": "p3",
+              "ratio": 3,
+              "amplitude_a": 0.38,
+              "amplitude_b": 0.13,
+              "phase": 0.274
+            },
+            {
+              "id": "p4",
+              "ratio": 4,
+              "amplitude_a": 0.1,
+              "amplitude_b": 0.06,
+              "phase": 0.41100000000000003
+            },
+            {
+              "id": "p5",
+              "ratio": 5,
+              "amplitude_a": 0.24,
+              "amplitude_b": 0.025,
+              "phase": 0.548
+            },
+            {
+              "id": "p6",
+              "ratio": 7,
+              "amplitude_a": 0.17,
+              "amplitude_b": 0.008,
+              "phase": 0.685
+            },
+            {
+              "id": "p7",
+              "ratio": 9.03,
+              "amplitude_a": 0.11,
+              "amplitude_b": 0,
+              "phase": 0.8220000000000001
+            },
+            {
+              "id": "p8",
+              "ratio": 12.08,
+              "amplitude_a": 0.07,
+              "amplitude_b": 0,
+              "phase": 0.9590000000000001
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "bloom",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -27,
+      "pan": 0.08,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.48,
+        "decay_seconds": 1.5,
+        "sustain_level": 0.58,
+        "release_seconds": 1.9
+      },
+      "generator": {
+        "formant": {
+          "phase_reset": true,
+          "partial_count": 48,
+          "vowel_position": 0.12,
+          "formant_shift_cents": -90,
+          "throat": 0.65,
+          "spectral_tilt_db_per_octave": -5,
+          "profiles": [
+            {
+              "id": "closed",
+              "formants": [
+                {
+                  "frequency_hz": 350,
+                  "bandwidth_hz": 160,
+                  "gain_db": 0
+                },
+                {
+                  "frequency_hz": 850,
+                  "bandwidth_hz": 210,
+                  "gain_db": -5
+                },
+                {
+                  "frequency_hz": 2300,
+                  "bandwidth_hz": 330,
+                  "gain_db": -15
+                },
+                {
+                  "frequency_hz": 3400,
+                  "bandwidth_hz": 440,
+                  "gain_db": -22
+                },
+                {
+                  "frequency_hz": 4600,
+                  "bandwidth_hz": 550,
+                  "gain_db": -28
+                }
+              ]
+            },
+            {
+              "id": "open",
+              "formants": [
+                {
+                  "frequency_hz": 620,
+                  "bandwidth_hz": 160,
+                  "gain_db": 0
+                },
+                {
+                  "frequency_hz": 1120,
+                  "bandwidth_hz": 210,
+                  "gain_db": -5
+                },
+                {
+                  "frequency_hz": 2650,
+                  "bandwidth_hz": 330,
+                  "gain_db": -15
+                },
+                {
+                  "frequency_hz": 3650,
+                  "bandwidth_hz": 440,
+                  "gain_db": -22
+                },
+                {
+                  "frequency_hz": 4900,
+                  "bandwidth_hz": 550,
+                  "gain_db": -28
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "silk",
+      "mode": "low_pass",
+      "cutoff_hz": 7200,
+      "resonance": 0.08
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "liquid",
+      "delay_ms": 14,
+      "rate_hz": 0.19,
+      "depth": 0.2,
+      "feedback": 0.06,
+      "width": 0.85,
+      "mix": 0.15
+    },
+    {
+      "type": "reverb",
+      "id": "halo",
+      "pre_delay_seconds": 0.027,
+      "decay": 0.69,
+      "damping": 0.58,
+      "width": 0.9,
+      "mix": 0.2
+    },
+    {
+      "type": "limiter",
+      "id": "ceiling",
+      "ceiling_db": -1,
+      "release_ms": 100,
+      "input_gain_db": -9
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "melt",
+        "type": "mseg",
+        "initial_value": 0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.85,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      },
+      {
+        "id": "drift",
+        "type": "smooth_random",
+        "seed": 8211,
+        "rate": {
+          "value": 0.38,
+          "unit": "per_second"
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.silver.gain",
+        "depth": {
+          "value": 15,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.silver.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.mercury.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.mercury.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.bloom.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.bloom.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.silver.generator.physical_string_brightness",
+        "depth": {
+          "value": 0.23,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.silver.generator.physical_string_stiffness",
+        "depth": {
+          "value": 0.12,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "melt",
+        "target": "layer.mercury.generator.additive_morph",
+        "depth": {
+          "value": 1,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "melt",
+        "target": "layer.bloom.generator.formant_vowel_position",
+        "depth": {
+          "value": 0.43,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "drift",
+        "target": "layer.bloom.generator.formant_shift",
+        "depth": {
+          "value": 45,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "drift",
+        "target": "layer.bloom.pan",
+        "depth": {
+          "value": 0.12,
+          "unit": "pan"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "aftertouch",
+        "target": "layer.bloom.generator.formant_vowel_position",
+        "depth": {
+          "value": 0.25,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "aftertouch",
+        "target": "layer.bloom.gain",
+        "depth": {
+          "value": 4,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.bloom",
+        "target": "layer.bloom.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.bloom",
+        "target": "layer.bloom.generator.formant_vowel_position",
+        "depth": {
+          "value": 0.15,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.liquid.depth",
+        "depth": {
+          "value": 0.4,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.liquid.mix",
+        "depth": {
+          "value": 0.15,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.space",
+        "target": "global.processor.halo.mix",
+        "depth": {
+          "value": 0.25,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "bloom",
+      "name": "Bloom",
+      "default": 0.4
+    },
+    {
+      "id": "space",
+      "name": "Space",
+      "default": 0.35
+    }
+  ],
+  "vectors": []
+}

@@ -1,0 +1,397 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Glass Vine Pad",
+    "author": "gpt-6-astra low",
+    "description": "透明な倍音の和音の上に、高い倍音が蔦のようにゆっくり伸びていくガラス質のパッド。発音後に倍音構成が時間をかけて開き、コーラスと残響が広く澄んだ音像を作る。短く切っても透明な芯が残り、長い和音では煌めくような広がりが持続する。",
+    "category": "Pad",
+    "tags": [
+      "Additive",
+      "Glassy",
+      "Evolving",
+      "Wide",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 48,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 55,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 67,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "stem",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -25,
+      "pan": -0.1,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.025,
+        "decay_seconds": 1.2,
+        "sustain_level": 0.48,
+        "release_seconds": 1.6
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -2,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "p0",
+              "ratio": 1,
+              "amplitude_a": 1,
+              "amplitude_b": 0.8,
+              "phase": 0.0
+            },
+            {
+              "id": "p1",
+              "ratio": 2,
+              "amplitude_a": 0.45,
+              "amplitude_b": 0.65,
+              "phase": 0.117
+            },
+            {
+              "id": "p2",
+              "ratio": 3,
+              "amplitude_a": 0.2,
+              "amplitude_b": 0.38,
+              "phase": 0.234
+            },
+            {
+              "id": "p3",
+              "ratio": 4,
+              "amplitude_a": 0.13,
+              "amplitude_b": 0.23,
+              "phase": 0.351
+            },
+            {
+              "id": "p4",
+              "ratio": 6,
+              "amplitude_a": 0.06,
+              "amplitude_b": 0.14,
+              "phase": 0.468
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "tendril",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -26,
+      "pan": 0.15,
+      "tuning_cents": 3,
+      "envelope": {
+        "attack_seconds": 0.035,
+        "decay_seconds": 1.5,
+        "sustain_level": 0.5,
+        "release_seconds": 2.0
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -1,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "p0",
+              "ratio": 2,
+              "amplitude_a": 0.22,
+              "amplitude_b": 0.6,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.09,
+                "decay_seconds": 1.2,
+                "sustain_level": 0.45,
+                "release_seconds": 1.7
+              }
+            },
+            {
+              "id": "p1",
+              "ratio": 3,
+              "amplitude_a": 0.2,
+              "amplitude_b": 0.5,
+              "phase": 0.117,
+              "envelope": {
+                "attack_seconds": 0.21,
+                "decay_seconds": 1.2,
+                "sustain_level": 0.45,
+                "release_seconds": 1.7
+              }
+            },
+            {
+              "id": "p2",
+              "ratio": 5,
+              "amplitude_a": 0.12,
+              "amplitude_b": 0.38,
+              "phase": 0.234,
+              "envelope": {
+                "attack_seconds": 0.32999999999999996,
+                "decay_seconds": 1.2,
+                "sustain_level": 0.45,
+                "release_seconds": 1.7
+              }
+            },
+            {
+              "id": "p3",
+              "ratio": 7,
+              "amplitude_a": 0.08,
+              "amplitude_b": 0.24,
+              "phase": 0.351,
+              "envelope": {
+                "attack_seconds": 0.44999999999999996,
+                "decay_seconds": 1.2,
+                "sustain_level": 0.45,
+                "release_seconds": 1.7
+              }
+            },
+            {
+              "id": "p4",
+              "ratio": 9,
+              "amplitude_a": 0.04,
+              "amplitude_b": 0.12,
+              "phase": 0.468,
+              "envelope": {
+                "attack_seconds": 0.57,
+                "decay_seconds": 1.2,
+                "sustain_level": 0.45,
+                "release_seconds": 1.7
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "clear",
+      "mode": "high_pass",
+      "cutoff_hz": 170,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "glaze",
+      "mode": "low_pass",
+      "cutoff_hz": 9200,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "canopy",
+      "delay_ms": 19,
+      "rate_hz": 0.23,
+      "depth": 0.22,
+      "feedback": 0.04,
+      "width": 0.9,
+      "mix": 0.22
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.022,
+      "decay": 0.7,
+      "damping": 0.52,
+      "width": 0.9,
+      "mix": 0.23
+    },
+    {
+      "type": "limiter",
+      "id": "ceiling",
+      "ceiling_db": -1,
+      "release_ms": 90,
+      "input_gain_db": -3
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "grow",
+        "type": "mseg",
+        "initial_value": 0,
+        "segments": [
+          {
+            "duration": {
+              "value": 1.65,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      },
+      {
+        "id": "breeze",
+        "type": "smooth_random",
+        "seed": 5489,
+        "rate": {
+          "value": 0.27,
+          "unit": "per_second"
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "grow",
+        "target": "layer.stem.generator.additive_morph",
+        "depth": {
+          "value": 0.65,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.bloom",
+        "target": "layer.stem.generator.additive_morph",
+        "depth": {
+          "value": 0.3,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.stem.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.stem.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "grow",
+        "target": "layer.tendril.generator.additive_morph",
+        "depth": {
+          "value": 0.65,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.bloom",
+        "target": "layer.tendril.generator.additive_morph",
+        "depth": {
+          "value": 0.3,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.tendril.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.tendril.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "aftertouch",
+        "target": "layer.tendril.gain",
+        "depth": {
+          "value": 5,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "breeze",
+        "target": "layer.tendril.tuning",
+        "depth": {
+          "value": 2,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "bloom",
+      "name": "Bloom",
+      "default": 0.45
+    }
+  ],
+  "vectors": []
+}

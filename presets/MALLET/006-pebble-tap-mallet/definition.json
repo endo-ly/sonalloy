@@ -1,0 +1,216 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Pebble Tap Mallet",
+    "author": "gpt-6-astra low",
+    "description": "丸い小石を軽く叩いたような短い打撃のマレット音。音程の芯を持つ丸い胴鳴りに細い縁の響きが重なり、高い音ほど軽いアクセントに聞こえる。短い減衰で余韻を残さず、連打や細かな刻みでも各打撃の輪郭が分離する。",
+    "category": "Mallet",
+    "tags": [
+      "Modal",
+      "Percussive",
+      "Short",
+      "Soft"
+    ],
+    "recommended_range": {
+      "min_midi": 60,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 72,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 76,
+          "velocity": 90
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 79,
+          "velocity": 112
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 84,
+          "velocity": 95
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "stone",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": 0,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.14,
+        "sustain_level": 0,
+        "release_seconds": 0.1
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.003,
+            "brightness": 0.72,
+            "seed": 9237
+          },
+          "mode_count": 12,
+          "structure": 0.16,
+          "brightness": 0.43,
+          "decay": 0.17
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "edge",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -29,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.045,
+        "sustain_level": 0,
+        "release_seconds": 0.04
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -3,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "p0",
+              "ratio": 1,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
+              "phase": 0.0
+            },
+            {
+              "id": "p1",
+              "ratio": 2.32,
+              "amplitude_a": 0.22,
+              "amplitude_b": 0.22,
+              "phase": 0.117
+            },
+            {
+              "id": "p2",
+              "ratio": 3.81,
+              "amplitude_a": 0.1,
+              "amplitude_b": 0.1,
+              "phase": 0.234
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "light",
+      "mode": "high_pass",
+      "cutoff_hz": 700,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "rounded",
+      "mode": "low_pass",
+      "cutoff_hz": 4800,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.022,
+      "decay": 0.26,
+      "damping": 0.52,
+      "width": 0.9,
+      "mix": 0.055
+    },
+    {
+      "type": "limiter",
+      "id": "ceiling",
+      "ceiling_db": -1,
+      "release_ms": 90,
+      "input_gain_db": 5
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.stone.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.edge.gain",
+        "depth": {
+          "value": 13,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.stone.generator.modal_brightness",
+        "depth": {
+          "value": 0.12,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

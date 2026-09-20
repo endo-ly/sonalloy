@@ -1,0 +1,270 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Bell Sparkle Keys",
+    "author": "gpt-6-astra low",
+    "description": "加算合成の丸い倍音の芯に、モーダル共鳴のきらめく打鍵を重ねたベルのような鍵盤音。発音直後の輝きが先に減衰し、基音の芯が短い余韻へ滑らかに収まる。強い打鍵で輝きが増し、和音でも各音の輪郭が濁らずに保たれる。",
+    "category": "Keys",
+    "tags": [
+      "Additive",
+      "Modal",
+      "Glassy",
+      "Bright",
+      "Percussive"
+    ],
+    "recommended_range": {
+      "min_midi": 60,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 100
+        },
+        {
+          "tick": 240,
+          "duration_ticks": 240,
+          "note": 76,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 240,
+          "note": 79,
+          "velocity": 112
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 240,
+          "note": 84,
+          "velocity": 95
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 88,
+          "velocity": 100
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 240,
+          "note": 91,
+          "velocity": 88
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 480,
+          "note": 96,
+          "velocity": 108
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "seed",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -22,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.45,
+        "sustain_level": 0.04,
+        "release_seconds": 0.22
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -1.5,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "p0",
+              "ratio": 1,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
+              "phase": 0.0
+            },
+            {
+              "id": "p1",
+              "ratio": 2,
+              "amplitude_a": 0.42,
+              "amplitude_b": 0.42,
+              "phase": 0.117
+            },
+            {
+              "id": "p2",
+              "ratio": 3,
+              "amplitude_a": 0.18,
+              "amplitude_b": 0.18,
+              "phase": 0.234,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.06333333333333334,
+                "sustain_level": 0.03,
+                "release_seconds": 0.16
+              }
+            },
+            {
+              "id": "p3",
+              "ratio": 5,
+              "amplitude_a": 0.11,
+              "amplitude_b": 0.11,
+              "phase": 0.351,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.0475,
+                "sustain_level": 0.03,
+                "release_seconds": 0.16
+              }
+            },
+            {
+              "id": "p4",
+              "ratio": 8.02,
+              "amplitude_a": 0.055,
+              "amplitude_b": 0.055,
+              "phase": 0.468,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.038,
+                "sustain_level": 0.03,
+                "release_seconds": 0.16
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "spark",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -21,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.12,
+        "sustain_level": 0,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.003,
+            "brightness": 0.72,
+            "seed": 7051
+          },
+          "mode_count": 12,
+          "structure": 0.23,
+          "brightness": 0.62,
+          "decay": 0.2
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "light",
+      "mode": "high_pass",
+      "cutoff_hz": 320,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "soft",
+      "mode": "low_pass",
+      "cutoff_hz": 7800,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "delay",
+      "id": "pollen",
+      "time": {
+        "value": 0.75,
+        "unit": "beats"
+      },
+      "feedback_mode": "ping_pong",
+      "feedback": 0.15,
+      "taps": [],
+      "mix": 0.095
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.022,
+      "decay": 0.57,
+      "damping": 0.52,
+      "width": 0.9,
+      "mix": 0.14
+    },
+    {
+      "type": "limiter",
+      "id": "ceiling",
+      "ceiling_db": -1,
+      "release_ms": 90,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.seed.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.spark.gain",
+        "depth": {
+          "value": 18,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

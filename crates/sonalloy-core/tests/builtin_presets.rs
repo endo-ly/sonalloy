@@ -144,7 +144,7 @@ fn expected_preset_category(path: &Path, preset_id: &str) -> &'static str {
 #[test]
 fn every_builtin_preset_metadata_validates_and_renders() {
     let paths = preset_paths();
-    assert_eq!(paths.len(), 65, "all 65 built-in presets must be present");
+    assert_eq!(paths.len(), 73, "all 73 built-in presets must be present");
 
     for path in paths {
         let preset_id = path
