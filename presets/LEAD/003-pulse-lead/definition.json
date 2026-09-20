@@ -1,0 +1,154 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Pulse Lead",
+    "author": "gpt-6-astra low",
+    "description": "Pulse波特有の細く明確な音像を持つリード。高域の倍音が音の輪郭を明確にし、基音の芯を保ったまま明るく安定して伸びる。短い旋律では各音が分離し、長音では細い中央の音像が崩れにくい。",
+    "category": "Lead",
+    "tags": [
+      "Bright",
+      "Sharp",
+      "Sustained",
+      "Stable"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 60,
+          "velocity": 90
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 180,
+          "note": 64,
+          "velocity": 105
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 180,
+          "note": 71,
+          "velocity": 115
+        },
+        {
+          "tick": 1080,
+          "duration_ticks": 360,
+          "note": 74,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "pulse",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.1,
+        "sustain_level": 0.7,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.4
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 6906.427882998493,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.pulse.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.pulse.generator.pulse_width",
+        "depth": {
+          "value": 0.08,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.5875000000000001,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.pulse.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

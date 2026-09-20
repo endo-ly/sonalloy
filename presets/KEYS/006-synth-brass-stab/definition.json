@@ -1,0 +1,267 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Synth Brass Stab",
+    "author": "gpt-6-astra low",
+    "description": "Saw波とPulse波を重ねた、太く明るいシンセブラスのコードスタブ。フィルターエンベロープが発音直後の高域を押し出し、短い減衰で丸い芯へ収束する。短い和音では一つの塊としてアタックが揃い、長く押すと余韻が自然に収まる。",
+    "category": "Keys",
+    "tags": [
+      "Analog-Style",
+      "Bright",
+      "Punchy",
+      "Short",
+      "Dense"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 62,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 65,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 69,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 74,
+          "velocity": 115
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "brass",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.5,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.015,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.18,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 12,
+            "stereo_spread": 0.5,
+            "phase_spread": 0.25
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -27,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.015,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.18,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.42
+          },
+          "phase_reset": true,
+          "phase": 0.17
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "dc_cut",
+      "mode": "high_pass",
+      "cutoff_hz": 30,
+      "resonance": 0.05
+    },
+    {
+      "type": "ladder_filter",
+      "id": "blast",
+      "cutoff_hz": 800,
+      "resonance": 0.18,
+      "drive": 0.25
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.38,
+      "damping": 0.65,
+      "width": 0.85,
+      "mix": 0.05
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": -5
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "stab_env",
+        "type": "envelope",
+        "attack_seconds": 0.012,
+        "decay_seconds": 0.48,
+        "sustain_level": 0.08,
+        "release_seconds": 0.15
+      }
+    ],
+    "routes": [
+      {
+        "source": "stab_env",
+        "target": "voice.processor.blast.cutoff",
+        "depth": {
+          "value": 2.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.brass.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.blast.cutoff",
+        "depth": {
+          "value": 0.7,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.brass.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.blast.cutoff",
+        "depth": {
+          "value": 0.55,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

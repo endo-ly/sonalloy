@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  copyFileSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
@@ -35,8 +36,12 @@ test('staged built-in bundle contains source definitions and required resources'
     );
     assert.equal(manifest.sourceRelease, sourceRelease);
     const sourcePresetIds = readdirSync(join(sourceRoot, 'presets'), { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name !== 'assets')
-      .map((entry) => entry.name)
+      .filter((entry) => entry.isDirectory() && /^[A-Z]+$/.test(entry.name))
+      .flatMap((category) =>
+        readdirSync(join(sourceRoot, 'presets', category.name), { withFileTypes: true })
+          .filter((entry) => entry.isDirectory() && /^\d{3}-/.test(entry.name))
+          .map((entry) => `${category.name}-${entry.name.slice(0, 3)}`),
+      )
       .sort();
     assert.deepEqual(
       manifest.presets.map((preset) => preset.id).sort(),
@@ -44,10 +49,13 @@ test('staged built-in bundle contains source definitions and required resources'
       'manifest contains exactly the source preset directories',
     );
 
-    const entry = manifest.presets.find((preset) => preset.id === '01-clean-sub-bass');
+    const entry = manifest.presets.find((preset) => preset.id === 'BASS-001');
     assert.ok(entry, 'representative built-in preset is listed');
     const sourceDefinition = JSON.parse(
-      readFileSync(join(sourceRoot, 'presets', entry.id, 'definition.json'), 'utf8'),
+      readFileSync(
+        join(sourceRoot, 'presets', ...entry.resourceBasePath.split('/'), 'definition.json'),
+        'utf8',
+      ),
     );
     const stagedDefinition = JSON.parse(
       readFileSync(join(destination, 'instruments', 'builtin', entry.definitionPath), 'utf8'),
@@ -88,8 +96,8 @@ test('staged built-in bundle contains source definitions and required resources'
       entry.preview.notes[0].velocity,
       sourceDefinition.metadata.preview.notes[0].velocity,
     );
-    assert.equal(entry.definitionPath, `${entry.id}/definition.json`);
-    assert.equal(entry.resourceBasePath, entry.id);
+    assert.equal(entry.definitionPath, `${entry.resourceBasePath}/definition.json`);
+    assert.equal(entry.resourceBasePath, 'BASS/001-clean-sub-bass');
     for (const file of ['THIRD_PARTY_NOTICES.md', 'LICENSE-MIT', 'LICENSE-APACHE']) {
       assert.equal(existsSync(join(destination, file)), true, file);
     }
@@ -106,13 +114,13 @@ test('staged built-in bundle contains source definitions and required resources'
 test('staging rejects a preset with missing required metadata', () => {
   const temporaryRoot = mkdtempSync(join(tmpdir(), 'sonalloy-bundle-invalid-'));
   try {
-    mkdirSync(join(temporaryRoot, 'presets', '01-broken'), { recursive: true });
+    mkdirSync(join(temporaryRoot, 'presets', 'BASS', '001-broken'), { recursive: true });
     for (const file of ['THIRD_PARTY_NOTICES.md', 'LICENSE-MIT', 'LICENSE-APACHE']) {
       writeFileSync(join(temporaryRoot, file), 'test\n');
     }
     writeFileSync(join(temporaryRoot, 'Cargo.toml'), '[package]\nversion = "1.0.0"\n');
     writeFileSync(
-      join(temporaryRoot, 'presets', '01-broken', 'definition.json'),
+      join(temporaryRoot, 'presets', 'BASS', '001-broken', 'definition.json'),
       JSON.stringify({ metadata: { name: 'Broken' } }),
     );
 
@@ -123,7 +131,61 @@ test('staging rejects a preset with missing required metadata', () => {
           sourceRoot: temporaryRoot,
           sourceRelease: '1.0.0',
         }),
-      /01-broken.*metadata\.category/,
+      /BASS-001.*metadata\.category/,
+    );
+    assert.equal(existsSync(join(temporaryRoot, 'bundle')), false);
+  } finally {
+    rmSync(temporaryRoot, { force: true, recursive: true });
+  }
+});
+
+test('staging rejects an unexpected preset directory instead of omitting it', () => {
+  const temporaryRoot = mkdtempSync(join(tmpdir(), 'sonalloy-bundle-layout-'));
+  try {
+    mkdirSync(join(temporaryRoot, 'presets', 'BASS', '12-broken'), { recursive: true });
+    for (const file of ['THIRD_PARTY_NOTICES.md', 'LICENSE-MIT', 'LICENSE-APACHE']) {
+      writeFileSync(join(temporaryRoot, file), 'test\n');
+    }
+    writeFileSync(join(temporaryRoot, 'Cargo.toml'), '[package]\nversion = "1.0.0"\n');
+
+    assert.throws(
+      () =>
+        stageBuiltinBundle({
+          destination: join(temporaryRoot, 'bundle'),
+          sourceRoot: temporaryRoot,
+          sourceRelease: '1.0.0',
+        }),
+      /BASS\/12-broken.*NNN-kebab-case-name/,
+    );
+    assert.equal(existsSync(join(temporaryRoot, 'bundle')), false);
+  } finally {
+    rmSync(temporaryRoot, { force: true, recursive: true });
+  }
+});
+
+test('staging rejects duplicate preset IDs', () => {
+  const temporaryRoot = mkdtempSync(join(tmpdir(), 'sonalloy-bundle-duplicate-'));
+  try {
+    for (const directory of ['001-clean-sub-bass', '001-other-bass']) {
+      mkdirSync(join(temporaryRoot, 'presets', 'BASS', directory), { recursive: true });
+      copyFileSync(
+        join(sourceRoot, 'presets', 'BASS', '001-clean-sub-bass', 'definition.json'),
+        join(temporaryRoot, 'presets', 'BASS', directory, 'definition.json'),
+      );
+    }
+    for (const file of ['THIRD_PARTY_NOTICES.md', 'LICENSE-MIT', 'LICENSE-APACHE']) {
+      writeFileSync(join(temporaryRoot, file), 'test\n');
+    }
+    writeFileSync(join(temporaryRoot, 'Cargo.toml'), '[package]\nversion = "1.0.0"\n');
+
+    assert.throws(
+      () =>
+        stageBuiltinBundle({
+          destination: join(temporaryRoot, 'bundle'),
+          sourceRoot: temporaryRoot,
+          sourceRelease: '1.0.0',
+        }),
+      /Duplicate built-in preset ID 'BASS-001'/,
     );
     assert.equal(existsSync(join(temporaryRoot, 'bundle')), false);
   } finally {

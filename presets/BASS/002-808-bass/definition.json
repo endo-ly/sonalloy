@@ -1,0 +1,158 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "808 Bass",
+    "author": "gpt-6-astra low",
+    "description": "発音直後に音程が大きく下降し、深く滑らかな低音へ収束する808ベース。Sine波を基音に軽い飽和感が加わり、低域の密度と打撃の輪郭を両立する。短い発音では下降感が明確で、長音では落ち着いた音程を保つ。",
+    "category": "Bass",
+    "tags": [
+      "Sub",
+      "Punchy",
+      "Dark",
+      "Stable"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 60
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 360,
+          "note": 36,
+          "velocity": 96
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 360,
+          "note": 43,
+          "velocity": 112
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 480,
+          "note": 48,
+          "velocity": 104
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -11,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.4,
+        "sustain_level": 0.82,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "waveshaping": {
+            "amount": 0.08
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drop",
+        "type": "mseg",
+        "initial_value": 1,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.025,
+              "unit": "seconds"
+            },
+            "target": 0.18,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.065,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "drop",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 1000,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.body.generator.waveshape",
+        "depth": {
+          "value": 0.12,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

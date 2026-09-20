@@ -1,0 +1,365 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Chrome Stab",
+    "description": "デチューンした複数のSaw波による厚い層に、短いHard Syncのエッジを重ねたコードスタブ。発音直後は明るい倍音と硬いアタックが前へ出て、短いリリースで密度を保ったまま収束する。短い和音では金属的な輪郭が際立ち、長く押すと中央の芯と薄い余韻が残る。",
+    "category": "Keys",
+    "tags": [
+      "Bright",
+      "Dense",
+      "Punchy",
+      "Short",
+      "Hard-Sync"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 79
+    },
+    "preview": {
+      "tempo_bpm": 128,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 150,
+          "note": 60,
+          "velocity": 110
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 150,
+          "note": 63,
+          "velocity": 110
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 150,
+          "note": 67,
+          "velocity": 110
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 150,
+          "note": 60,
+          "velocity": 120
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 150,
+          "note": 63,
+          "velocity": 120
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 150,
+          "note": 67,
+          "velocity": 120
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 150,
+          "note": 56,
+          "velocity": 110
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 150,
+          "note": 59,
+          "velocity": 110
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 150,
+          "note": 63,
+          "velocity": 110
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 150,
+          "note": 56,
+          "velocity": 120
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 150,
+          "note": 59,
+          "velocity": 120
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 150,
+          "note": 63,
+          "velocity": 120
+        },
+        {
+          "tick": 2640,
+          "duration_ticks": 150,
+          "note": 58,
+          "velocity": 110
+        },
+        {
+          "tick": 2640,
+          "duration_ticks": 150,
+          "note": 61,
+          "velocity": 110
+        },
+        {
+          "tick": 2640,
+          "duration_ticks": 150,
+          "note": 65,
+          "velocity": 110
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 150,
+          "note": 58,
+          "velocity": 120
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 150,
+          "note": 61,
+          "velocity": 120
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 150,
+          "note": 65,
+          "velocity": 120
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "brass",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.006,
+        "decay_seconds": 0.26,
+        "sustain_level": 0.4,
+        "release_seconds": 0.095
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 9,
+            "stereo_spread": 0.35,
+            "phase_spread": 0.35
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "drive",
+          "id": "grit",
+          "amount": 0.22,
+          "mix": 0.65
+        },
+        {
+          "type": "filter",
+          "id": "tone",
+          "mode": "low_pass",
+          "cutoff_hz": 1100,
+          "resonance": 0.08
+        }
+      ]
+    },
+    {
+      "id": "edge",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -24,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.105,
+        "sustain_level": 0,
+        "release_seconds": 0.055
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "hard_sync": {
+            "ratio": 1.4
+          },
+          "unison": {
+            "voices": 2,
+            "detune_cents": 5,
+            "stereo_spread": 0.25,
+            "phase_spread": 0
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "lowcut",
+          "mode": "high_pass",
+          "cutoff_hz": 650,
+          "resonance": 0.08
+        },
+        {
+          "type": "filter",
+          "id": "polish",
+          "mode": "low_pass",
+          "cutoff_hz": 7000,
+          "resonance": 0.08
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "compressor",
+      "id": "density",
+      "detector": "self_signal",
+      "threshold_db": -17,
+      "ratio": 3,
+      "attack_ms": 12,
+      "release_ms": 90,
+      "knee_db": 6,
+      "makeup_gain_db": 3,
+      "mix": 0.65
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.32,
+      "damping": 0.55,
+      "width": 0.85,
+      "mix": 0.08
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 100,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "snap",
+        "type": "envelope",
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.15,
+        "sustain_level": 0,
+        "release_seconds": 0.07
+      }
+    ],
+    "routes": [
+      {
+        "source": "snap",
+        "target": "layer.brass.processor.tone.cutoff",
+        "depth": {
+          "value": 2.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "snap",
+        "target": "layer.edge.generator.sync_ratio",
+        "depth": {
+          "value": 0.8,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.edge",
+        "target": "layer.edge.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.brass.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.brass.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.edge.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.edge.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "edge",
+      "name": "Edge",
+      "default": 0.45
+    }
+  ],
+  "vectors": []
+}

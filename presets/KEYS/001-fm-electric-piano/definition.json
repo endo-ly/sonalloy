@@ -1,0 +1,251 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "FM Electric Piano",
+    "author": "gpt-6-astra low",
+    "description": "硬くきらめく高域と明瞭な音程の芯を持つFMエレクトリックピアノ。発音直後は変調による明るい倍音と強い打鍵感が現れ、その後は高域から減衰して丸い響きへ移る。弱い打鍵では穏やかに、強い打鍵では硬く明るくなり、和音でも各音の輪郭を保つ。",
+    "category": "Keys",
+    "tags": [
+      "FM",
+      "Bright",
+      "Percussive",
+      "Plucky",
+      "Smooth"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 71,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 360,
+          "note": 67,
+          "velocity": 95
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 360,
+          "note": 72,
+          "velocity": 110
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "ep",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.5,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.1,
+        "sustain_level": 1,
+        "release_seconds": 0.65
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "two_modulators_plus_carrier",
+          "operators": [
+            {
+              "ratio": 1,
+              "detune_cents": 0,
+              "level": 0.9,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 5,
+                "sustain_level": 0,
+                "release_seconds": 0.65
+              }
+            },
+            {
+              "ratio": 14,
+              "detune_cents": 0,
+              "level": 0.1,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0.22,
+                "sustain_level": 0,
+                "release_seconds": 0.1
+              }
+            },
+            {
+              "ratio": 1,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.65,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0.85,
+                "sustain_level": 0.12,
+                "release_seconds": 0.2
+              }
+            },
+            {
+              "ratio": 7,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.08,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.045,
+                "sustain_level": 0,
+                "release_seconds": 0.05
+              }
+            }
+          ],
+          "phase_reset": true,
+          "unison": null
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "silk",
+      "mode": "low_pass",
+      "cutoff_hz": 8500,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "stereo",
+      "delay_ms": 16,
+      "rate_hz": 0.28,
+      "depth": 0.12,
+      "feedback": 0.02,
+      "width": 0.9,
+      "mix": 0.12
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.45,
+      "damping": 0.65,
+      "width": 0.85,
+      "mix": 0.065
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": -5
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.ep.generator.operator.3.modulation_amount",
+        "depth": {
+          "value": 1.1,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.ep.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.ep.generator.operator.4.modulation_amount",
+        "depth": {
+          "value": 0.25,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "global.processor.stereo.depth",
+        "depth": {
+          "value": 0.16,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.ep.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

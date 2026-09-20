@@ -1,0 +1,237 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "FM Pluck",
+    "author": "gpt-6-astra low",
+    "description": "FMによる硬い打撃と短い丸い芯を持つプラック。発音直後の複雑な高域が先に消え、音程の中心へ素早く収束する。短い連打では粒が分離し、ベロシティを上げるとアタックの硬さと明るさが増す。",
+    "category": "Pluck",
+    "tags": [
+      "FM",
+      "Plucky",
+      "Punchy",
+      "Bright",
+      "Short"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 90
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 110
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 105
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "pluck",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -21,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.46,
+        "sustain_level": 0,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "two_stacks",
+          "operators": [
+            {
+              "ratio": 1,
+              "detune_cents": 0,
+              "level": 0.9,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.18
+              }
+            },
+            {
+              "ratio": 2,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.55,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.09,
+                "sustain_level": 0,
+                "release_seconds": 0.07
+              }
+            },
+            {
+              "ratio": 2,
+              "detune_cents": 0,
+              "level": 0.2,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0.17,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.16,
+                "sustain_level": 0,
+                "release_seconds": 0.12
+              }
+            },
+            {
+              "ratio": 3.01,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.7,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.048,
+                "sustain_level": 0,
+                "release_seconds": 0.05
+              }
+            }
+          ],
+          "phase_reset": true,
+          "unison": null
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "silk",
+      "mode": "low_pass",
+      "cutoff_hz": 8500,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.016,
+      "decay": 0.31,
+      "damping": 0.65,
+      "width": 0.82,
+      "mix": 0.055
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "macros": [],
+  "vectors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.pluck.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.pluck.generator.operator.2.modulation_amount",
+        "depth": {
+          "value": 1.3,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.pluck.generator.operator.4.modulation_amount",
+        "depth": {
+          "value": 0.9,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.pluck.generator.operator.2.modulation_amount",
+        "depth": {
+          "value": -0.35,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.pluck.generator.operator.2.modulation_amount",
+        "depth": {
+          "value": 0.35,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.pluck.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

@@ -1,0 +1,217 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Pulse Chord Stab",
+    "author": "gpt-6-astra low",
+    "description": "短いパルス波の芯と明るい倍音を持つ、輪郭のはっきりしたコードスタブ。発音直後に中域のアタックが前へ出て、素早く減衰しながら短い残響へ移る。短い和音で最も輪郭が立ち、連続して鳴らしても音の区切りが保たれる。",
+    "category": "Keys",
+    "tags": [
+      "Bright",
+      "Punchy",
+      "Short",
+      "Stable"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 105
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 62,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 65,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 69,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 74,
+          "velocity": 115
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "stab",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.006,
+        "decay_seconds": 0.38,
+        "sustain_level": 0,
+        "release_seconds": 0.1
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "square"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 2,
+            "detune_cents": 8,
+            "stereo_spread": 0.45,
+            "phase_spread": 0.25
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "cut_low",
+      "mode": "high_pass",
+      "cutoff_hz": 200,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "shape",
+      "mode": "low_pass",
+      "cutoff_hz": 1600,
+      "resonance": 0.08
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.28,
+      "damping": 0.7,
+      "width": 0.85,
+      "mix": 0.025
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": -4
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "stab_env",
+        "type": "envelope",
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.22,
+        "sustain_level": 0,
+        "release_seconds": 0.08
+      }
+    ],
+    "routes": [
+      {
+        "source": "stab_env",
+        "target": "voice.processor.shape.cutoff",
+        "depth": {
+          "value": 1.75,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.stab.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.shape.cutoff",
+        "depth": {
+          "value": 0.65,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.stab.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.shape.cutoff",
+        "depth": {
+          "value": 0.55,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,177 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Clean Sub Bass",
+    "author": "gpt-6-astra low",
+    "description": "深く滑らかな最低域と明確な音程の芯を持つ、純度の高いサブベース。中高域の倍音は控えめで、発音から持続まで音色変化が少なく安定した低音を保つ。短い発音でも輪郭が失われにくく、長音では揺れの少ない一定した低域が続く。",
+    "category": "Bass",
+    "tags": [
+      "Sub",
+      "Clean",
+      "Smooth",
+      "Stable"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 60
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 360,
+          "note": 36,
+          "velocity": 92
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 360,
+          "note": 43,
+          "velocity": 108
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 480,
+          "note": 48,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -11,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.86,
+        "release_seconds": 0.09
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "upper",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -25,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.86,
+        "release_seconds": 0.09
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "low_body",
+          "mode": "low_pass",
+          "cutoff_hz": 600,
+          "resonance": 0.05
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.sub.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.upper.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.upper.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sub.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.upper.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

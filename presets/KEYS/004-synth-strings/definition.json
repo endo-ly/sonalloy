@@ -1,0 +1,218 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Synth Strings",
+    "author": "gpt-6-astra low",
+    "description": "複数のボイスをわずかにデチューンし、コーラスを加えて滑らかな厚みを作る、広がりのある合成弦音。やや緩やかに立ち上がりながら左右へ広がり、保持中は高域を抑えた均一な密度が続く。短い和音では柔らかな余韻が残り、長音では広い音像を安定して保つ。",
+    "category": "Keys",
+    "tags": [
+      "Analog-Style",
+      "Wide",
+      "Sustained",
+      "Dense",
+      "Smooth"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 71,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 62,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 65,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 69,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 720,
+          "note": 72,
+          "velocity": 105
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "strings",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.5,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.4,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.85,
+        "release_seconds": 0.85
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 5,
+            "detune_cents": 16,
+            "stereo_spread": 0.8,
+            "phase_spread": 0.6
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "body",
+      "mode": "high_pass",
+      "cutoff_hz": 90,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "bow",
+      "mode": "low_pass",
+      "cutoff_hz": 5600,
+      "resonance": 0.06
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "ensemble",
+      "delay_ms": 12,
+      "rate_hz": 0.55,
+      "depth": 0.17,
+      "width": 1,
+      "mix": 0.2,
+      "feedback": 0
+    },
+    {
+      "type": "chorus",
+      "id": "shimmer",
+      "delay_ms": 16,
+      "rate_hz": 4.7,
+      "depth": 0.08,
+      "feedback": 0.02,
+      "width": 0.9,
+      "mix": 0.09
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.5,
+      "damping": 0.6,
+      "width": 0.85,
+      "mix": 0.08
+    },
+    {
+      "type": "filter",
+      "id": "dc_cut",
+      "mode": "high_pass",
+      "cutoff_hz": 25,
+      "resonance": 0.05
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": -5
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.strings.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.strings.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.bow.cutoff",
+        "depth": {
+          "value": 0.55,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,264 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Percussive Sequence",
+    "author": "gpt-6-astra low",
+    "description": "短い有音程打撃がテンポに沿って連続するシーケンス。丸い芯に高域の倍音が重なり、発音ごとの強弱と明るさが内部で変化する。短く鳴らすと最初の打撃だけが現れ、長く保持すると発音ごとの強弱・明るさ・倍音密度の変化を聞き取れる。",
+    "category": "Sequence",
+    "tags": [
+      "Rhythmic",
+      "Percussive",
+      "Additive",
+      "Evolving"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 72
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 3360,
+          "note": 60,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "hit",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -36,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -2,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "body",
+              "ratio": 1,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
+              "phase": 0
+            },
+            {
+              "id": "wood",
+              "ratio": 4,
+              "amplitude_a": 0.23,
+              "amplitude_b": 0.23,
+              "phase": 0.13
+            },
+            {
+              "id": "edge",
+              "ratio": 7,
+              "amplitude_a": 0.075,
+              "amplitude_b": 0.075,
+              "phase": 0.29
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 2400,
+      "resonance": 0.12
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "hit_shape",
+        "type": "mseg",
+        "initial_value": -1,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.012,
+              "unit": "beats"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.12,
+              "unit": "beats"
+            },
+            "target": -0.4,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.118,
+              "unit": "beats"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.25,
+              "unit": "beats"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 0,
+          "end_segment": 4
+        }
+      },
+      {
+        "id": "tone_step",
+        "type": "step",
+        "values": [
+          0.9,
+          -0.4,
+          0.3,
+          -0.9
+        ],
+        "rate": {
+          "value": 1,
+          "unit": "per_beat"
+        }
+      },
+      {
+        "id": "level_step",
+        "type": "step",
+        "values": [
+          0.8,
+          -0.5,
+          0.3,
+          -0.8
+        ],
+        "rate": {
+          "value": 2,
+          "unit": "per_beat"
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "hit_shape",
+        "target": "layer.hit.gain",
+        "depth": {
+          "value": 18,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "tone_step",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.75,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "level_step",
+        "target": "layer.hit.gain",
+        "depth": {
+          "value": 2,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.hit.gain",
+        "depth": {
+          "value": 5,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.hit.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit_shape",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "tone_step",
+        "target": "layer.hit.generator.additive_spectrum_tilt",
+        "depth": {
+          "value": 2,
+          "unit": "decibels_per_octave"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

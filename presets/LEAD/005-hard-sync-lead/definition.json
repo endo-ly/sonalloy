@@ -1,0 +1,180 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Hard Sync Lead",
+    "author": "gpt-6-astra low",
+    "description": "Hard Syncで高次倍音を大きく変化させる、鋭く明るいリード。発音直後は高密度な倍音が鋭く立ち上がり、短時間で落ち着いた倍音構成へ移る。短い音では切れ味が残り、長音では安定した音程と落ち着いた倍音が続く。",
+    "category": "Lead",
+    "tags": [
+      "Hard-Sync",
+      "Bright",
+      "Sharp",
+      "Punchy"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 90
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 105
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 115
+        },
+        {
+          "tick": 1080,
+          "duration_ticks": 360,
+          "note": 79,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sync",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.15,
+        "sustain_level": 0.75,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "hard_sync": {
+            "ratio": 1.4
+          },
+          "unison": {
+            "voices": 3,
+            "detune_cents": 6,
+            "stereo_spread": 0.3,
+            "phase_spread": 0
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "ladder_filter",
+      "id": "bite",
+      "cutoff_hz": 6311.046124375736,
+      "resonance": 0.12,
+      "drive": 0.1
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "sync_env",
+        "type": "envelope",
+        "attack_seconds": 0,
+        "decay_seconds": 0.32,
+        "sustain_level": 0.12,
+        "release_seconds": 0.15
+      }
+    ],
+    "routes": [
+      {
+        "source": "sync_env",
+        "target": "layer.sync.generator.sync_ratio",
+        "depth": {
+          "value": 1.55,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sync.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.bite.cutoff",
+        "depth": {
+          "value": 0.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.sync.generator.sync_ratio",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.bite.cutoff",
+        "depth": {
+          "value": 1.3229166666666667,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sync.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

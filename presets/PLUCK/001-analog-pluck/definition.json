@@ -1,0 +1,243 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Analog Pluck",
+    "author": "gpt-6-astra low",
+    "description": "明るい立ち上がりから温かく丸い音へ収まる、アナログシンセらしい減衰を持つプラック。中央に音程の芯を保ちながら中域の倍音が少し広がり、強い打鍵ほど輪郭が開く。短いアルペジオでは発音が分離し、長く押しても滑らかな減衰へ移る。",
+    "category": "Pluck",
+    "tags": [
+      "Analog-Style",
+      "Warm",
+      "Bright",
+      "Plucky",
+      "Smooth"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 90
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 110
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 105
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "saw",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -23.5,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.52,
+        "sustain_level": 0,
+        "release_seconds": 0.16
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 2,
+            "detune_cents": 5,
+            "stereo_spread": 0.36,
+            "phase_spread": 0.18
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -28.5,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.64,
+        "sustain_level": 0,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "ladder_filter",
+      "id": "tone",
+      "cutoff_hz": 850,
+      "resonance": 0.2,
+      "drive": 0.09
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.016,
+      "decay": 0.38,
+      "damping": 0.65,
+      "width": 0.82,
+      "mix": 0.075
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "macros": [],
+  "vectors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "pluck",
+        "type": "envelope",
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.18,
+        "sustain_level": 0,
+        "release_seconds": 0.1
+      }
+    ],
+    "routes": [
+      {
+        "source": "pluck",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 2.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.65,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.saw.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.saw.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

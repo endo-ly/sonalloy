@@ -1,0 +1,237 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "FM Bell",
+    "author": "gpt-6-astra low",
+    "description": "明瞭な音程の芯と複雑な金属倍音を持つFMベル。発音直後は金属的な高域成分が先に減衰し、基音中心の丸い響きへ移って長い余韻へつながる。短い旋律では音程が明確に残り、長く鳴らすと金属質の密度がゆっくり収まる。",
+    "category": "Mallet",
+    "tags": [
+      "FM",
+      "Metallic",
+      "Bright",
+      "Percussive",
+      "Long-Tail"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 360,
+          "note": 60,
+          "velocity": 110
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 360,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 360,
+          "note": 72,
+          "velocity": 115
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 360,
+          "note": 79,
+          "velocity": 105
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "bell",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -25,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 3
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "two_stacks",
+          "operators": [
+            {
+              "ratio": 1,
+              "detune_cents": 0,
+              "level": 0.84,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 6.2,
+                "sustain_level": 0,
+                "release_seconds": 3
+              }
+            },
+            {
+              "ratio": 1.413,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.75,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 1.7,
+                "sustain_level": 0.09,
+                "release_seconds": 1
+              }
+            },
+            {
+              "ratio": 2.003,
+              "detune_cents": 0,
+              "level": 0.23,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0.19,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 2.3,
+                "sustain_level": 0,
+                "release_seconds": 1.5
+              }
+            },
+            {
+              "ratio": 3.507,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 1.15,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.62,
+                "sustain_level": 0,
+                "release_seconds": 0.5
+              }
+            }
+          ],
+          "phase_reset": true,
+          "unison": null
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "polish",
+      "mode": "low_pass",
+      "cutoff_hz": 9500,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.016,
+      "decay": 0.61,
+      "damping": 0.55,
+      "width": 0.82,
+      "mix": 0.11
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "macros": [],
+  "vectors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.bell.gain",
+        "depth": {
+          "value": 11,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.bell.generator.operator.2.modulation_amount",
+        "depth": {
+          "value": 1.3,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.bell.generator.operator.4.modulation_amount",
+        "depth": {
+          "value": 1.1,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.bell.generator.operator.2.modulation_amount",
+        "depth": {
+          "value": -0.4,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.bell.generator.operator.2.modulation_amount",
+        "depth": {
+          "value": 0.35,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.bell.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

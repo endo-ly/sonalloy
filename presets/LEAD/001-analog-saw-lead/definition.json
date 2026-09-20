@@ -1,0 +1,178 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Analog Saw Lead",
+    "author": "gpt-6-astra low",
+    "description": "複数のSaw波をわずかにデチューンし、穏やかなフィルターとドライブを加えた、温かく明るいアナログ系リード。発音直後は中高域の押し出しがあり、厚みを保ちながら高域の鋭さが徐々に丸く落ち着く。単音の短い旋律でも音程の芯が残り、長音では滑らかな持続感が続く。",
+    "category": "Lead",
+    "tags": [
+      "Warm",
+      "Bright",
+      "Detuned",
+      "Sustained",
+      "Analog-Style"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 90
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 105
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 115
+        },
+        {
+          "tick": 1080,
+          "duration_ticks": 360,
+          "note": 72,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "saw",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.006,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.78,
+        "release_seconds": 0.15
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 8,
+            "stereo_spread": 0.25,
+            "phase_spread": 0.25
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "ladder_filter",
+      "id": "tone",
+      "cutoff_hz": 3365.891266333726,
+      "resonance": 0.1,
+      "drive": 0.1
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "shape",
+        "type": "envelope",
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.35,
+        "release_seconds": 0.15
+      }
+    ],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.saw.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "shape",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.7,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.65,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.3229166666666667,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.saw.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "name": "Glass Hammer Pluck pattern",
+  "ticks_per_beat": 480,
+  "length_ticks": 3840,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 128
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "duration_ticks": 140,
+      "note": 60,
+      "velocity": 122
+    },
+    {
+      "type": "note",
+      "tick": 240,
+      "duration_ticks": 140,
+      "note": 67,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "duration_ticks": 140,
+      "note": 72,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "duration_ticks": 140,
+      "note": 63,
+      "velocity": 122
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "duration_ticks": 140,
+      "note": 70,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "duration_ticks": 140,
+      "note": 67,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "duration_ticks": 140,
+      "note": 75,
+      "velocity": 122
+    },
+    {
+      "type": "note",
+      "tick": 1680,
+      "duration_ticks": 140,
+      "note": 72,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "duration_ticks": 140,
+      "note": 60,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "duration_ticks": 140,
+      "note": 67,
+      "velocity": 122
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "duration_ticks": 140,
+      "note": 72,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "duration_ticks": 140,
+      "note": 63,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "duration_ticks": 140,
+      "note": 70,
+      "velocity": 122
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "duration_ticks": 140,
+      "note": 67,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "duration_ticks": 140,
+      "note": 75,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "duration_ticks": 140,
+      "note": 72,
+      "velocity": 122
+    }
+  ]
+}

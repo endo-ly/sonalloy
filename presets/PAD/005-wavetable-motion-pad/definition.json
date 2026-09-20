@@ -1,0 +1,189 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Wavetable Motion Pad",
+    "author": "gpt-6-astra low",
+    "description": "Wavetableの走査で音色の倍音構成が時間に沿って変化するパッド。発音後は滑らかに明るさと密度が移り、一定周期ではない長い展開を作る。短い発音ではWavetable走査の初期部分が現れ、長い和音では明るさと倍音構成がゆっくり移り変わる。",
+    "category": "Pad",
+    "tags": [
+      "Wavetable",
+      "Evolving",
+      "Wide",
+      "Sustained",
+      "Bright"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 72,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "motion",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16.4,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.8,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.85,
+        "release_seconds": 2.4
+      },
+      "generator": {
+        "wavetable": {
+          "asset": {
+            "path": "../../assets/wavetable-motion-pad.wav",
+            "sha256": "e718b035110f9901b8253614779cba816d20be1f18f0439110f42945408ac3e1"
+          },
+          "frame_length": 2048,
+          "position": 0.5,
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 4,
+            "detune_cents": 10,
+            "stereo_spread": 0.7,
+            "phase_spread": 0.6
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "glaze",
+      "mode": "low_pass",
+      "cutoff_hz": 8000,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.028,
+      "decay": 0.58,
+      "damping": 0.58,
+      "width": 0.9,
+      "mix": 0.1
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": -6
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "scan",
+        "type": "mseg",
+        "initial_value": -1,
+        "segments": [
+          {
+            "duration": {
+              "value": 7,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "scan",
+        "target": "layer.motion.generator.wavetable_position",
+        "depth": {
+          "value": 0.5,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.motion.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.motion.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.glaze.cutoff",
+        "depth": {
+          "value": 0.7,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}
