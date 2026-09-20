@@ -1,0 +1,248 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "PWM Pad",
+    "author": "gpt-6-astra low",
+    "description": "Pulse Widthを動かして倍音の空洞感と厚みを変えるパッド。保持中は明るさと中域の密度が周期的に揺れ、音程そのものは安定している。短く切ると動きの入口が聞こえ、長い和音では呼吸するような音色変化が続く、また音量を抑えた演奏でも和音の層が残り、長い保持で変化を追いやすい。",
+    "category": "Pad",
+    "tags": [
+      "Hollow",
+      "Evolving",
+      "Sustained",
+      "Analog-Style"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 55,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 67,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "pulse_a",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.4,
+      "pan": -0.55,
+      "tuning_cents": -3,
+      "envelope": {
+        "attack_seconds": 1.1,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.8,
+        "release_seconds": 2.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.45
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "pulse_b",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.4,
+      "pan": 0.55,
+      "tuning_cents": 3,
+      "envelope": {
+        "attack_seconds": 1.1,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.8,
+        "release_seconds": 2.2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.55
+          },
+          "phase_reset": true,
+          "phase": 0.23
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "dc_cut",
+      "mode": "high_pass",
+      "cutoff_hz": 30,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "smooth",
+      "mode": "low_pass",
+      "cutoff_hz": 4200,
+      "resonance": 0.06
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.028,
+      "decay": 0.52,
+      "damping": 0.65,
+      "width": 0.9,
+      "mix": 0.08
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": -6
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "breath",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.3,
+          "unit": "per_second"
+        },
+        "phase": 0
+      }
+    ],
+    "routes": [
+      {
+        "source": "breath",
+        "target": "layer.pulse_a.generator.pulse_width",
+        "depth": {
+          "value": 0.18,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "breath",
+        "target": "layer.pulse_b.generator.pulse_width",
+        "depth": {
+          "value": -0.18,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.pulse_a.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.pulse_b.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.pulse_a.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.pulse_b.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.smooth.cutoff",
+        "depth": {
+          "value": 0.7,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.smooth.cutoff",
+        "depth": {
+          "value": 1.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

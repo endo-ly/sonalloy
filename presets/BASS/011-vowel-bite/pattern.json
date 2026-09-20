@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "name": "Vowel Bite pattern",
+  "ticks_per_beat": 480,
+  "length_ticks": 3840,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 128
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "duration_ticks": 180,
+      "note": 36,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 240,
+      "duration_ticks": 120,
+      "note": 36,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "duration_ticks": 300,
+      "note": 43,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 840,
+      "duration_ticks": 100,
+      "note": 38,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "duration_ticks": 180,
+      "note": 36,
+      "velocity": 122
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "duration_ticks": 120,
+      "note": 48,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "duration_ticks": 330,
+      "note": 41,
+      "velocity": 116
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "duration_ticks": 180,
+      "note": 36,
+      "velocity": 105
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "duration_ticks": 180,
+      "note": 43,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "duration_ticks": 320,
+      "note": 46,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 2760,
+      "duration_ticks": 100,
+      "note": 43,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "duration_ticks": 200,
+      "note": 41,
+      "velocity": 124
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "duration_ticks": 160,
+      "note": 38,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "duration_ticks": 400,
+      "note": 36,
+      "velocity": 118
+    }
+  ]
+}

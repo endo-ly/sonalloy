@@ -1,0 +1,329 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Digital Crystal Pluck",
+    "author": "gpt-6-astra low",
+    "description": "細く透明な音程の芯に、ガラス片のような高域を重ねたプラック。高い成分ほど速く減衰し、短い余韻に澄んだ響きが残る。短い旋律やアルペジオでは各音が軽く分離し、強い打鍵で輝きが増す、また音量を抑えた演奏でも発音点が残り、連続する音も分離して聞こえる。",
+    "category": "Pluck",
+    "tags": [
+      "Glassy",
+      "Bright",
+      "Plucky",
+      "Short",
+      "Smooth"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 240,
+          "note": 64,
+          "velocity": 90
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 110
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 105
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "crystal",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -28,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 0.28
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -0.3,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "partial_0",
+              "ratio": 1,
+              "amplitude_a": 0.65,
+              "amplitude_b": 0.65,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.7,
+                "sustain_level": 0,
+                "release_seconds": 0.2
+              }
+            },
+            {
+              "id": "partial_1",
+              "ratio": 2,
+              "amplitude_a": 0.62,
+              "amplitude_b": 0.62,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.48,
+                "sustain_level": 0,
+                "release_seconds": 0.2
+              }
+            },
+            {
+              "id": "partial_2",
+              "ratio": 3,
+              "amplitude_a": 0.34,
+              "amplitude_b": 0.34,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.29,
+                "sustain_level": 0,
+                "release_seconds": 0.2
+              }
+            },
+            {
+              "id": "partial_3",
+              "ratio": 4.01,
+              "amplitude_a": 0.28,
+              "amplitude_b": 0.28,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.19,
+                "sustain_level": 0,
+                "release_seconds": 0.2
+              }
+            },
+            {
+              "id": "partial_4",
+              "ratio": 6.02,
+              "amplitude_a": 0.22,
+              "amplitude_b": 0.22,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.12,
+                "sustain_level": 0,
+                "release_seconds": 0.2
+              }
+            },
+            {
+              "id": "partial_5",
+              "ratio": 8.06,
+              "amplitude_a": 0.12,
+              "amplitude_b": 0.12,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.085,
+                "sustain_level": 0,
+                "release_seconds": 0.2
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "glint",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -36,
+      "pan": 0.18,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 0.15
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -1.5,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "partial_0",
+              "ratio": 3.997,
+              "amplitude_a": 0.5,
+              "amplitude_b": 0.5,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.21,
+                "sustain_level": 0,
+                "release_seconds": 0.12
+              }
+            },
+            {
+              "id": "partial_1",
+              "ratio": 6.013,
+              "amplitude_a": 0.26,
+              "amplitude_b": 0.26,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.13,
+                "sustain_level": 0,
+                "release_seconds": 0.12
+              }
+            },
+            {
+              "id": "partial_2",
+              "ratio": 9.02,
+              "amplitude_a": 0.12,
+              "amplitude_b": 0.12,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.07,
+                "sustain_level": 0,
+                "release_seconds": 0.12
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "polish",
+      "mode": "low_pass",
+      "cutoff_hz": 10000,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.016,
+      "decay": 0.48,
+      "damping": 0.48,
+      "width": 0.82,
+      "mix": 0.12
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "macros": [],
+  "vectors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.crystal.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.glint.gain",
+        "depth": {
+          "value": 18,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.glint.gain",
+        "depth": {
+          "value": -4,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.crystal.generator.additive_spectrum_tilt",
+        "depth": {
+          "value": 1,
+          "unit": "decibels_per_octave"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.crystal.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.glint.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

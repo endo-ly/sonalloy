@@ -1,0 +1,417 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Vowel Bite",
+    "description": "SineサブにDetuneした複数のSawを重ね、Formant共鳴で母音のような中域を作るベース。発音直後は低域の芯と粗いアタックが立ち、中域の共鳴が時間とともに開いてから落ち着く。短い発音では噛みつく輪郭が現れ、長音では母音の変化と低域の持続が分かれて聞こえる。",
+    "category": "Bass",
+    "tags": [
+      "Formant",
+      "Sub",
+      "Rough",
+      "Evolving"
+    ],
+    "recommended_range": {
+      "min_midi": 31,
+      "max_midi": 72
+    },
+    "preview": {
+      "tempo_bpm": 128,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 36,
+          "velocity": 110
+        },
+        {
+          "tick": 240,
+          "duration_ticks": 120,
+          "note": 36,
+          "velocity": 96
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 300,
+          "note": 43,
+          "velocity": 120
+        },
+        {
+          "tick": 840,
+          "duration_ticks": 100,
+          "note": 38,
+          "velocity": 108
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 36,
+          "velocity": 122
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 120,
+          "note": 48,
+          "velocity": 104
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 330,
+          "note": 41,
+          "velocity": 116
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 180,
+          "note": 36,
+          "velocity": 105
+        },
+        {
+          "tick": 2160,
+          "duration_ticks": 180,
+          "note": 43,
+          "velocity": 118
+        },
+        {
+          "tick": 2400,
+          "duration_ticks": 320,
+          "note": 46,
+          "velocity": 112
+        },
+        {
+          "tick": 2760,
+          "duration_ticks": 100,
+          "note": 43,
+          "velocity": 100
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 200,
+          "note": 41,
+          "velocity": 124
+        },
+        {
+          "tick": 3120,
+          "duration_ticks": 160,
+          "note": 38,
+          "velocity": 110
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 400,
+          "note": 36,
+          "velocity": 118
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -13,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.7,
+        "release_seconds": 0.09
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "mouth",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -1,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.006,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.5,
+        "release_seconds": 0.09
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 7,
+            "stereo_spread": 0.3,
+            "phase_spread": 0.35
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "drive",
+          "id": "grit",
+          "amount": 0.22,
+          "mix": 0.5
+        },
+        {
+          "type": "formant",
+          "id": "vowel",
+          "vowel_position": 0.15,
+          "formant_shift_cents": 0,
+          "throat": 0.68,
+          "mix": 0.72,
+          "profiles": [
+            {
+              "id": "u",
+              "formants": [
+                {
+                  "frequency_hz": 350,
+                  "bandwidth_hz": 120,
+                  "gain_db": 0
+                },
+                {
+                  "frequency_hz": 750,
+                  "bandwidth_hz": 150,
+                  "gain_db": -2
+                },
+                {
+                  "frequency_hz": 2400,
+                  "bandwidth_hz": 220,
+                  "gain_db": -7
+                },
+                {
+                  "frequency_hz": 3400,
+                  "bandwidth_hz": 260,
+                  "gain_db": -12
+                },
+                {
+                  "frequency_hz": 4600,
+                  "bandwidth_hz": 300,
+                  "gain_db": -18
+                }
+              ]
+            },
+            {
+              "id": "a",
+              "formants": [
+                {
+                  "frequency_hz": 800,
+                  "bandwidth_hz": 180,
+                  "gain_db": 0
+                },
+                {
+                  "frequency_hz": 1200,
+                  "bandwidth_hz": 190,
+                  "gain_db": -1
+                },
+                {
+                  "frequency_hz": 2800,
+                  "bandwidth_hz": 240,
+                  "gain_db": -5
+                },
+                {
+                  "frequency_hz": 3900,
+                  "bandwidth_hz": 280,
+                  "gain_db": -11
+                },
+                {
+                  "frequency_hz": 4900,
+                  "bandwidth_hz": 320,
+                  "gain_db": -17
+                }
+              ]
+            },
+            {
+              "id": "i",
+              "formants": [
+                {
+                  "frequency_hz": 300,
+                  "bandwidth_hz": 100,
+                  "gain_db": 0
+                },
+                {
+                  "frequency_hz": 2200,
+                  "bandwidth_hz": 180,
+                  "gain_db": -2
+                },
+                {
+                  "frequency_hz": 3000,
+                  "bandwidth_hz": 220,
+                  "gain_db": -6
+                },
+                {
+                  "frequency_hz": 4100,
+                  "bandwidth_hz": 270,
+                  "gain_db": -12
+                },
+                {
+                  "frequency_hz": 5100,
+                  "bandwidth_hz": 300,
+                  "gain_db": -18
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "filter",
+          "id": "lowcut",
+          "mode": "high_pass",
+          "cutoff_hz": 160,
+          "resonance": 0.08
+        },
+        {
+          "type": "filter",
+          "id": "polish",
+          "mode": "low_pass",
+          "cutoff_hz": 6200,
+          "resonance": 0.05
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 100,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "mouth_motion",
+        "type": "mseg",
+        "initial_value": 0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.055,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.14,
+              "unit": "seconds"
+            },
+            "target": 0.2,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "mouth_motion",
+        "target": "layer.mouth.processor.vowel.vowel_position",
+        "depth": {
+          "value": 0.32,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.mouth",
+        "target": "layer.mouth.processor.vowel.vowel_position",
+        "depth": {
+          "value": 0.25,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.mouth",
+        "target": "layer.mouth.processor.grit.amount",
+        "depth": {
+          "value": 0.2,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sub.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sub.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.mouth.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.mouth.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "mouth",
+      "name": "Mouth",
+      "default": 0.35
+    }
+  ],
+  "vectors": []
+}

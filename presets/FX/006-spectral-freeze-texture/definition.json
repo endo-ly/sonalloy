@@ -1,0 +1,191 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Spectral Freeze Texture",
+    "author": "gpt-6-astra low",
+    "description": "周波数成分を薄く引き延ばし、空間に静かに残すスペクトルテクスチャ。持続中は成分の明るさと定位がゆっくり変化し、密度を保ちながら輪郭が柔らかく移ろう。長く保持すると広い残響と細かな揺らぎが現れ、短い発音では断面の一瞬の響きが残る、また音量を抑えた演奏でも変化の入口と余韻が残り、音の終わりまで追いやすい。",
+    "category": "FX",
+    "tags": [
+      "Spectral",
+      "Diffuse",
+      "Evolving",
+      "Wide",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 72
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 6240,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 5760,
+          "note": 60,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "frost",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -8,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.65,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 2.4
+      },
+      "generator": {
+        "spectral": {
+          "asset_a": {
+            "path": "../../assets/spectral-freeze-source.wav",
+            "sha256": "055d554d9f569ffea951eedd87fd6186fd169ba3d647102073cae3a4c26e4284"
+          },
+          "asset_b": null,
+          "root_note": 60,
+          "fft_size": 2048,
+          "position": 0.4,
+          "freeze": 0.94,
+          "blur_seconds": 0.18,
+          "shift_hz": 0,
+          "morph": 0,
+          "phase_reset": true
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "air",
+      "mode": "high_pass",
+      "cutoff_hz": 180,
+      "resonance": 0.03
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drift",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.07,
+          "unit": "per_second"
+        },
+        "phase": 0
+      },
+      {
+        "id": "scan",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.045,
+          "unit": "per_second"
+        },
+        "phase": 0.35
+      },
+      {
+        "id": "breathe",
+        "type": "smooth_random",
+        "seed": 601,
+        "rate": {
+          "value": 0.15,
+          "unit": "per_second"
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "drift",
+        "target": "layer.frost.generator.spectral_shift",
+        "depth": {
+          "value": 12,
+          "unit": "hertz"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "scan",
+        "target": "layer.frost.generator.spectral_position",
+        "depth": {
+          "value": 0.18,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "breathe",
+        "target": "layer.frost.generator.spectral_freeze",
+        "depth": {
+          "value": 0.025,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.frost.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.frost.generator.spectral_freeze",
+        "depth": {
+          "value": 0.03,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.frost.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

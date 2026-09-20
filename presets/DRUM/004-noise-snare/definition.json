@@ -1,0 +1,194 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Noise Snare",
+    "author": "gpt-6-astra low",
+    "description": "鋭い衝撃に高域ノイズを重ねた、乾いた短いスネア。中域の小さな打撃が中心を支え、ノイズがすぐに収束して低い余韻を残さない。短い反復で発音が明確に分かれ、強い打鍵では輪郭の鋭さが増す、また音量を抑えた演奏でもアタックが埋もれにくく、反復しても輪郭が揃う。",
+    "category": "Drum",
+    "tags": [
+      "Noisy",
+      "Bright",
+      "Percussive",
+      "Short",
+      "Sharp"
+    ],
+    "recommended_range": {
+      "min_midi": 38,
+      "max_midi": 38
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 38,
+          "velocity": 120
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "noise",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -20,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0008,
+        "decay_seconds": 0.16,
+        "sustain_level": 0,
+        "release_seconds": 0.11
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4141,
+          "stereo_correlation": 0.82
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "air",
+          "mode": "high_pass",
+          "cutoff_hz": 1350,
+          "resonance": 0.06
+        },
+        {
+          "type": "filter",
+          "id": "grit",
+          "mode": "low_pass",
+          "cutoff_hz": 8500,
+          "resonance": 0.04
+        }
+      ]
+    },
+    {
+      "id": "thump",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -19,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0006,
+        "decay_seconds": 0.024,
+        "sustain_level": 0,
+        "release_seconds": 0.025
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 4142,
+          "stereo_correlation": 1
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "snap",
+          "mode": "band_pass",
+          "cutoff_hz": 1800,
+          "resonance": 0.16
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.noise.gain",
+        "depth": {
+          "value": 11,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.thump.gain",
+        "depth": {
+          "value": 5,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.noise.processor.air.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.noise.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

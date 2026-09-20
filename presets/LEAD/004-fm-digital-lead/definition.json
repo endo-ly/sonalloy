@@ -1,0 +1,259 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "FM Digital Lead",
+    "author": "gpt-6-astra low",
+    "description": "FMによる硬質で精密な倍音を持つデジタルリード。発音直後だけでなく保持中も複雑な成分が残り、明確な音程の芯に金属的な高域が重なる。短いフレーズでは輪郭が立ち、長音では密度の高い倍音が持続する、また音量を抑えた演奏でも旋律の芯が残り、単音の動きを追いやすい。",
+    "category": "Lead",
+    "tags": [
+      "FM",
+      "Bright",
+      "Metallic",
+      "Dense",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 60,
+          "velocity": 90
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 240,
+          "note": 67,
+          "velocity": 105
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 240,
+          "note": 72,
+          "velocity": 115
+        },
+        {
+          "tick": 1080,
+          "duration_ticks": 360,
+          "note": 79,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "fm",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -13,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.8,
+        "release_seconds": 0.15
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "two_modulators_plus_carrier",
+          "operators": [
+            {
+              "ratio": 1,
+              "detune_cents": 0,
+              "level": 0.82,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.15
+              }
+            },
+            {
+              "ratio": 2,
+              "detune_cents": 0,
+              "level": 0.18,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.15
+              }
+            },
+            {
+              "ratio": 1,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.9,
+              "feedback": 0.05,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.18,
+                "sustain_level": 0.65,
+                "release_seconds": 0.15
+              }
+            },
+            {
+              "ratio": 5,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.7,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.22,
+                "sustain_level": 0.5,
+                "release_seconds": 0.15
+              }
+            }
+          ],
+          "phase_reset": true,
+          "unison": null
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "core",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -27,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.2,
+        "sustain_level": 0.8,
+        "release_seconds": 0.15
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 7437.69156630607,
+      "resonance": 0.04
+    }
+  ],
+  "global_processors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.fm.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.fm.generator.operator.4.modulation_amount",
+        "depth": {
+          "value": 0.25,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.fm.generator.operator.3.modulation_amount",
+        "depth": {
+          "value": 0.5,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.5875000000000001,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.fm.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.core.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.core.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

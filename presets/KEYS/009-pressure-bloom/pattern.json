@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "name": "Pressure Bloom pattern",
+  "ticks_per_beat": 480,
+  "length_ticks": 3840,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 128
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "duration_ticks": 600,
+      "note": 60,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 0,
+      "duration_ticks": 600,
+      "note": 63,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 0,
+      "duration_ticks": 600,
+      "note": 67,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "duration_ticks": 600,
+      "note": 60,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "duration_ticks": 600,
+      "note": 63,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "duration_ticks": 600,
+      "note": 67,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "duration_ticks": 450,
+      "note": 56,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "duration_ticks": 450,
+      "note": 59,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "duration_ticks": 450,
+      "note": 63,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "duration_ticks": 600,
+      "note": 56,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "duration_ticks": 600,
+      "note": 59,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "duration_ticks": 600,
+      "note": 63,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "duration_ticks": 600,
+      "note": 58,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "duration_ticks": 600,
+      "note": 61,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "duration_ticks": 600,
+      "note": 65,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "duration_ticks": 450,
+      "note": 58,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "duration_ticks": 450,
+      "note": 61,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "duration_ticks": 450,
+      "note": 65,
+      "velocity": 120
+    }
+  ]
+}

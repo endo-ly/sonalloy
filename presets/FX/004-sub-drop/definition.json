@@ -1,0 +1,186 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Sub Drop",
+    "author": "gpt-6-astra low",
+    "description": "中低域から深い低音へ滑らかに沈み、ゆっくり消えていく下降音。発音中に音程と倍音の重心が連続して下がり、低域の芯を保ったまま余韻へ移る。長い発音ほど下降の過程と残響が明確になり、短い発音では沈み込みの入口が強く現れる、また音量を抑えた演奏でも変化の入口と余韻が残り、音の終わりまで追いやすい。",
+    "category": "FX",
+    "tags": [
+      "Sub",
+      "Sustained",
+      "Evolving",
+      "Swelling"
+    ],
+    "recommended_range": {
+      "min_midi": 33,
+      "max_midi": 57
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3360,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 3072,
+          "note": 45,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "drop",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 1
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": 0,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "fundamental",
+              "ratio": 0.5,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 3,
+                "sustain_level": 0,
+                "release_seconds": 1
+              }
+            },
+            {
+              "id": "octave",
+              "ratio": 1,
+              "amplitude_a": 0.09,
+              "amplitude_b": 0.09,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 1.2,
+                "sustain_level": 0,
+                "release_seconds": 0.6
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "sink",
+      "mode": "low_pass",
+      "cutoff_hz": 600,
+      "resonance": 0.04
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "sink",
+        "type": "mseg",
+        "initial_value": 1,
+        "segments": [
+          {
+            "duration": {
+              "value": 2.6,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          }
+        ]
+      }
+    ],
+    "routes": [
+      {
+        "source": "sink",
+        "target": "layer.drop.tuning",
+        "depth": {
+          "value": 1000,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "sink",
+        "target": "voice.processor.sink.cutoff",
+        "depth": {
+          "value": 1.2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.drop.gain",
+        "depth": {
+          "value": 9,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.sink.cutoff",
+        "depth": {
+          "value": 0.8,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.drop.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

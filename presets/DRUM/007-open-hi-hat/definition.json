@@ -1,0 +1,261 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Open Hi-Hat",
+    "author": "gpt-6-astra low",
+    "description": "クローズド・ハイハットより長い金属振動を持つオープン・ハイハット。高域のざらつきと金属の尾が一体になって減衰し、発音後も空気感が残る。短い連打では余韻が重なり、長めの発音では広がった高域がゆっくり収束する、また音量を抑えた演奏でもアタックが埋もれにくく、反復しても輪郭が揃う。",
+    "category": "Drum",
+    "tags": [
+      "Metallic",
+      "Noisy",
+      "Percussive",
+      "Long-Tail"
+    ],
+    "recommended_range": {
+      "min_midi": 46,
+      "max_midi": 46
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 46,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 46,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 46,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 46,
+          "velocity": 120
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "metal",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -24,
+      "pan": 0,
+      "tuning_cents": -400,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.62,
+        "sustain_level": 0,
+        "release_seconds": 0.4
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "three_modulators",
+          "operators": [
+            {
+              "ratio": 17,
+              "detune_cents": 0,
+              "level": 0.8,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.4
+              }
+            },
+            {
+              "ratio": 9.37,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 1.15,
+              "feedback": 0,
+              "phase": 0.13,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.4
+              }
+            },
+            {
+              "ratio": 13.11,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.95,
+              "feedback": 0,
+              "phase": 0.26,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.4
+              }
+            },
+            {
+              "ratio": 21.73,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.8,
+              "feedback": 0,
+              "phase": 0.39,
+              "envelope": {
+                "attack_seconds": 0,
+                "decay_seconds": 0,
+                "sustain_level": 1,
+                "release_seconds": 0.4
+              }
+            }
+          ],
+          "phase_reset": true,
+          "unison": null
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -27,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0008,
+        "decay_seconds": 0.43,
+        "sustain_level": 0,
+        "release_seconds": 0.4
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4443,
+          "stereo_correlation": 0.6
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "sizzle",
+          "mode": "high_pass",
+          "cutoff_hz": 6800,
+          "resonance": 0.05
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "cut_low",
+      "mode": "high_pass",
+      "cutoff_hz": 3500,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "sheen",
+      "mode": "low_pass",
+      "cutoff_hz": 10500,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.metal.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.air.gain",
+        "depth": {
+          "value": 9,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.sheen.cutoff",
+        "depth": {
+          "value": 0.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.metal.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.metal.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

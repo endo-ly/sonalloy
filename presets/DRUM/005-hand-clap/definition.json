@@ -1,0 +1,231 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Hand Clap",
+    "author": "gpt-6-astra low",
+    "description": "ごく短い間隔の複数の打撃が一つにまとまったハンドクラップ。高域寄りのざらついたアタックが立ち、短い尾だけを残して収束する。連続発音では密集した手拍子の輪郭が揃い、強いVelocityで明るさと押し出しが増す、また音量を抑えた演奏でもアタックが埋もれにくく、反復しても輪郭が揃う。",
+    "category": "Drum",
+    "tags": [
+      "Noisy",
+      "Bright",
+      "Percussive",
+      "Short"
+    ],
+    "recommended_range": {
+      "min_midi": 39,
+      "max_midi": 39
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 39,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 39,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 39,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 39,
+          "velocity": 120
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "bursts",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -48,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.4,
+        "sustain_level": 0,
+        "release_seconds": 0.22
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4242,
+          "stereo_correlation": 0.75
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "air",
+          "mode": "high_pass",
+          "cutoff_hz": 900,
+          "resonance": 0.05
+        },
+        {
+          "type": "filter",
+          "id": "tone",
+          "mode": "low_pass",
+          "cutoff_hz": 7500,
+          "resonance": 0.05
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.014,
+      "decay": 0.32,
+      "damping": 0.7,
+      "width": 0.7,
+      "mix": 0.06
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "clap_shape",
+        "type": "mseg",
+        "initial_value": 0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.001,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.009,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.001,
+              "unit": "seconds"
+            },
+            "target": 0.92,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.012,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.001,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.045,
+              "unit": "seconds"
+            },
+            "target": 0.65,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.12,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "clap_shape",
+        "target": "layer.bursts.gain",
+        "depth": {
+          "value": 34,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.bursts.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.bursts.processor.air.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.bursts.processor.tone.cutoff",
+        "depth": {
+          "value": 0.35,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

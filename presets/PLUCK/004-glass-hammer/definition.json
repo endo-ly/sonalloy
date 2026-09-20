@@ -1,0 +1,327 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Glass Hammer",
+    "description": "短いノイズの打撃で共鳴体を鳴らし、Triangleの胴を重ねた有音程プラック。高域の成分が先に減衰し、共鳴の明るさから透明な余韻へ滑らかに移る。短い発音では打撃の芯が前へ出て、長音や連続音では短い残響が各音の分離を保ち、音量を抑えても発音位置を追いやすい。",
+    "category": "Pluck",
+    "tags": [
+      "Physical",
+      "Glassy",
+      "Plucky",
+      "Percussive"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 88
+    },
+    "preview": {
+      "tempo_bpm": 128,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 140,
+          "note": 60,
+          "velocity": 122
+        },
+        {
+          "tick": 240,
+          "duration_ticks": 140,
+          "note": 67,
+          "velocity": 104
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 140,
+          "note": 72,
+          "velocity": 104
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 140,
+          "note": 63,
+          "velocity": 122
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 140,
+          "note": 70,
+          "velocity": 104
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 140,
+          "note": 67,
+          "velocity": 104
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 140,
+          "note": 75,
+          "velocity": 122
+        },
+        {
+          "tick": 1680,
+          "duration_ticks": 140,
+          "note": 72,
+          "velocity": 104
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 140,
+          "note": 60,
+          "velocity": 104
+        },
+        {
+          "tick": 2160,
+          "duration_ticks": 140,
+          "note": 67,
+          "velocity": 122
+        },
+        {
+          "tick": 2400,
+          "duration_ticks": 140,
+          "note": 72,
+          "velocity": 104
+        },
+        {
+          "tick": 2640,
+          "duration_ticks": 140,
+          "note": 63,
+          "velocity": 104
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 140,
+          "note": 70,
+          "velocity": 122
+        },
+        {
+          "tick": 3120,
+          "duration_ticks": 140,
+          "note": 67,
+          "velocity": 104
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 140,
+          "note": 75,
+          "velocity": 104
+        },
+        {
+          "tick": 3600,
+          "duration_ticks": 140,
+          "note": 72,
+          "velocity": 122
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "glass",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -7,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.34,
+        "sustain_level": 0,
+        "release_seconds": 0.13
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.003,
+            "brightness": 0.8,
+            "seed": 731
+          },
+          "mode_count": 16,
+          "structure": 0.28,
+          "brightness": 0.7,
+          "decay": 0.32
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "polish",
+          "mode": "low_pass",
+          "cutoff_hz": 9500,
+          "resonance": 0.08
+        }
+      ]
+    },
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -11,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.32,
+        "sustain_level": 0,
+        "release_seconds": 0.09
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "waveshaping": {
+            "amount": 0.28
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "compressor",
+      "id": "density",
+      "detector": "self_signal",
+      "threshold_db": -17,
+      "ratio": 3,
+      "attack_ms": 12,
+      "release_ms": 90,
+      "knee_db": 6,
+      "makeup_gain_db": 3,
+      "mix": 0.65
+    },
+    {
+      "type": "delay",
+      "id": "echo",
+      "time": {
+        "value": 0.75,
+        "unit": "beats"
+      },
+      "feedback": 0.23,
+      "feedback_mode": "ping_pong",
+      "taps": [],
+      "mix": 0.12
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.018,
+      "decay": 0.4,
+      "damping": 0.55,
+      "width": 0.85,
+      "mix": 0.08
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 100,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.glass.generator.modal_brightness",
+        "depth": {
+          "value": 0.18,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.glass",
+        "target": "layer.glass.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.glass",
+        "target": "layer.glass.generator.modal_brightness",
+        "depth": {
+          "value": 0.1,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.glass.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.glass.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "glass",
+      "name": "Glass",
+      "default": 0.5
+    }
+  ],
+  "vectors": []
+}

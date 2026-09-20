@@ -90,6 +90,8 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 | [`docs/c-api.md`](docs/c-api.md) | 公開C ABI：Handle所有権・Compile・Process・Runtime Update |
 | [`docs/architecture.md`](docs/architecture.md) | 静的構造：Crate・依存方向・Native境界 |
 | [`docs/CONCEPT.md`](docs/CONCEPT.md) | 要件定義・基本設計 |
+| [`presets/README.md`](presets/README.md) | プリセットのカテゴリ、ID、ディレクトリ、メタデータの整理ルール |
+| [`presets/presets-defs.md`](presets/presets-defs.md) | 収録プリセットのカタログ |
 
 ## 開発
 

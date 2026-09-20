@@ -1,0 +1,177 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Bright Wide Pad",
+    "author": "gpt-6-astra low",
+    "description": "7 Voice UnisonのDetuneした音を左右へ広げた、明るく密度の高いパッド。発音直後から高域の輝きと大きな音像が現れ、保持中も広がりを保つ。短く切ると明るい余韻が残り、長い和音では複数音が重なって厚く拡散する、また音量を抑えた演奏でも和音の層が残り、長い保持で変化を追いやすい。",
+    "category": "Pad",
+    "tags": [
+      "Bright",
+      "Wide",
+      "Detuned",
+      "Sustained",
+      "Dense"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 74,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "wide",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.9,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.9,
+        "decay_seconds": 0.5,
+        "sustain_level": 0.85,
+        "release_seconds": 2.4
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 7,
+            "detune_cents": 22,
+            "stereo_spread": 0.95,
+            "phase_spread": 0.9
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "clear",
+      "mode": "high_pass",
+      "cutoff_hz": 120,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "sheen",
+      "mode": "low_pass",
+      "cutoff_hz": 7200,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "spread",
+      "delay_ms": 14,
+      "rate_hz": 0.23,
+      "depth": 0.18,
+      "width": 1,
+      "mix": 0.14,
+      "feedback": 0.05
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.028,
+      "decay": 0.56,
+      "damping": 0.52,
+      "width": 0.9,
+      "mix": 0.1
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": -6
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.wide.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.wide.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.sheen.cutoff",
+        "depth": {
+          "value": 0.7,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

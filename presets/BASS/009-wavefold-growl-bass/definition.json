@@ -1,0 +1,226 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Wavefold Growl Bass",
+    "author": "gpt-6-astra low",
+    "description": "安定した低域の芯に、Wavefoldによる荒い中域倍音を重ねたベース。保持中は折り返し量がゆっくり変化し、唸るような密度と明るさが移り変わる。短い発音では硬い輪郭が立ち、長音では粗い倍音の動きが続く、また音量を抑えた演奏でも低域の芯が崩れず、重ねたときも音程を追いやすい。",
+    "category": "Bass",
+    "tags": [
+      "Sub",
+      "Rough",
+      "Evolving",
+      "Wavefold",
+      "Punchy"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 60
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 240,
+          "note": 36,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 240,
+          "note": 43,
+          "velocity": 115
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 360,
+          "note": 48,
+          "velocity": 105
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.15,
+        "sustain_level": 0.75,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "fold",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.15,
+        "sustain_level": 0.75,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "wavefold": {
+            "amount": 0.43
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "body_cut",
+          "mode": "high_pass",
+          "cutoff_hz": 538.5835590540484,
+          "resonance": 0.04
+        },
+        {
+          "type": "ladder_filter",
+          "id": "tone",
+          "cutoff_hz": 2200,
+          "resonance": 0.15,
+          "drive": 0.12
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "growl",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.3,
+          "unit": "per_second"
+        },
+        "phase": 0
+      }
+    ],
+    "routes": [
+      {
+        "source": "growl",
+        "target": "layer.fold.generator.wavefold",
+        "depth": {
+          "value": 0.22,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sub.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.fold.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.fold.processor.tone.cutoff",
+        "depth": {
+          "value": 0.4,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.fold.generator.wavefold",
+        "depth": {
+          "value": 0.2,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.fold.processor.body_cut.cutoff",
+        "depth": {
+          "value": 5.291666666666667,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sub.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.fold.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

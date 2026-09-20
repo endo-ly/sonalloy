@@ -1,0 +1,343 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Steel Bounce",
+    "description": "中央のSineサブに、短い金属質の変調音を重ねたベース。変調音は発音直後だけ密度の高い倍音を出し、すぐに低域の芯へ収束する。短い発音では硬い輪郭が明確に立ち、強いベロシティでアタックと変調の密度が増し、長音では低域の芯と金属質の尾が分かれて残る。",
+    "category": "Bass",
+    "tags": [
+      "Sub",
+      "FM",
+      "Metallic",
+      "Punchy"
+    ],
+    "recommended_range": {
+      "min_midi": 28,
+      "max_midi": 55
+    },
+    "preview": {
+      "tempo_bpm": 128,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 36,
+          "velocity": 110
+        },
+        {
+          "tick": 240,
+          "duration_ticks": 120,
+          "note": 36,
+          "velocity": 96
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 300,
+          "note": 43,
+          "velocity": 120
+        },
+        {
+          "tick": 840,
+          "duration_ticks": 100,
+          "note": 38,
+          "velocity": 108
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 36,
+          "velocity": 122
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 120,
+          "note": 48,
+          "velocity": 104
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 330,
+          "note": 41,
+          "velocity": 116
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 180,
+          "note": 36,
+          "velocity": 105
+        },
+        {
+          "tick": 2160,
+          "duration_ticks": 180,
+          "note": 43,
+          "velocity": 118
+        },
+        {
+          "tick": 2400,
+          "duration_ticks": 320,
+          "note": 46,
+          "velocity": 112
+        },
+        {
+          "tick": 2760,
+          "duration_ticks": 100,
+          "note": 43,
+          "velocity": 100
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 200,
+          "note": 41,
+          "velocity": 124
+        },
+        {
+          "tick": 3120,
+          "duration_ticks": 160,
+          "note": 38,
+          "velocity": 110
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 400,
+          "note": 36,
+          "velocity": 118
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": false
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.22,
+        "sustain_level": 0.8,
+        "release_seconds": 0.065
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "steel",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.26,
+        "sustain_level": 0.5,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "three_modulators",
+          "phase_reset": true,
+          "unison": null,
+          "operators": [
+            {
+              "ratio": 1,
+              "detune_cents": 0,
+              "level": 1,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.2,
+                "sustain_level": 1,
+                "release_seconds": 0.08
+              }
+            },
+            {
+              "ratio": 2,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 1.15,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.13,
+                "sustain_level": 0.13,
+                "release_seconds": 0.06
+              }
+            },
+            {
+              "ratio": 3,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.6,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.07,
+                "sustain_level": 0.03,
+                "release_seconds": 0.05
+              }
+            },
+            {
+              "ratio": 7,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 0.3,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.026,
+                "sustain_level": 0,
+                "release_seconds": 0.04
+              }
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "drive",
+          "id": "grit",
+          "amount": 0.28,
+          "mix": 0.65
+        },
+        {
+          "type": "filter",
+          "id": "lowcut",
+          "mode": "high_pass",
+          "cutoff_hz": 135,
+          "resonance": 0.08
+        },
+        {
+          "type": "filter",
+          "id": "polish",
+          "mode": "low_pass",
+          "cutoff_hz": 5200,
+          "resonance": 0.08
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 100,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.steel.generator.operator.4.modulation_amount",
+        "depth": {
+          "value": 0.4,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.bite",
+        "target": "layer.steel.generator.operator.2.modulation_amount",
+        "depth": {
+          "value": 1.2,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.bite",
+        "target": "layer.steel.processor.grit.amount",
+        "depth": {
+          "value": 0.35,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sub.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sub.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.steel.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.steel.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "bite",
+      "name": "Bite",
+      "default": 0.45
+    }
+  ],
+  "vectors": []
+}

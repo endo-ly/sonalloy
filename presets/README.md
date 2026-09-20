@@ -1,179 +1,208 @@
-# Presets
+# プリセット整理ルール
 
-`presets-defs.md`の代表60音源に対応する音源定義と試聴WAV。1音源 = 1 Directoryで、`definition.json`と試聴用WAVを置く。
+`presets/` は、音源定義とプレビュー素材をカテゴリ単位で管理する。カテゴリ、ID、ディレクトリ、メタデータの形式を統一する。
 
-| ファイル | 内容 |
-|---|---|
-| `definition.json` | 音源定義 |
-| `note-<key>.wav` | カテゴリの代表単音（Velocity 100）。ベースは`note-c2.wav`（C2）、リードは`note-c4.wav`（C4）。Attack / Sustain / Releaseの素性を確認する |
-| `phrase.wav` | Velocity差付きの試聴フレーズ。発音分離と音色の一貫性を確認する |
+音源ごとの説明は [presets-defs.md](presets-defs.md) に記載する。このREADMEには、プリセットの配置と記述ルールだけを記載する。
 
-`assets/`はSample、Wavetableなど、定義から参照するWAV Assetの配置先である。
+## カテゴリ
 
-## Library metadata
+カテゴリは音源の主な役割と鳴り方で決める。
 
-各`definition.json`の`metadata`には、音源をLibraryで見つけて用途を判断し、短い演奏で試聴するための情報を設定する。一般のDefinitionではLibrary項目を省略できるが、Built-in Presetでは`category`、`tags`、`recommended_range`、`preview`をすべて設定する。
-
-### Category
-
-Categoryは1音源の主な役割を表す。分類を固定することで、検索結果のまとまりと表示順を保つ。
-
-| Category | 意味 |
-|---|---|
-| `Bass` | 低域を支える音源 |
-| `Lead` | 単音の旋律や前景を担う音源 |
-| `Pad` | 長く持続する背景・空間音 |
-| `Keys` | ピアノやオルガンのような鍵盤音 |
-| `Poly` | コードや複数音を重ねて使う汎用音 |
-| `Stab` | 短いコードを一打で鳴らす音源 |
-| `Pluck` | 発音直後の輪郭と自然な減衰を使う音源 |
-| `Mallet` | ベルやマレットのような有音程打撃音 |
-| `Drums` | キック、スネア、ハイハットなどのドラム音 |
-| `Percussion` | シェイカーや金属音などの打楽器 |
-| `Sequence` | 保持中にリズムや音色が進む音源 |
-| `FX` | 上昇、下降、衝撃、質感などの演出音 |
-
-### Tag vocabulary
-
-Tagは音色、音源方式、動き、役割を補足する。Preset間で同じ語を使うため、表記違いの同義語を増やさない。
-
-| 分類 | 使用できるTag |
-|---|---|
-| Tone / texture | `Warm`, `Bright`, `Dark`, `Clean`, `Noisy`, `Metallic`, `Glassy`, `Soft`, `Aggressive`, `Punchy`, `Wide`, `Deep` |
-| Synthesis / source | `Analog`, `Digital`, `FM`, `Wavetable`, `Wavefold`, `Additive`, `Formant`, `Granular`, `Physical`, `Spectral`, `Noise` |
-| Behavior | `Mono`, `Polyphonic`, `Motion`, `Rhythmic`, `Sustained`, `Plucky`, `Percussive`, `Evolving`, `Gated`, `Random` |
-| Character / role | `Sub`, `Acid`, `Reese`, `Supersaw`, `Drone`, `Chord`, `Bell`, `Kick`, `Snare`, `Clap`, `Hihat`, `Crash`, `Tom`, `Rim`, `Shaker`, `Riser`, `Impact`, `Sequence`, `Texture` |
-
-各Presetには2〜5個のTagを設定する。Tagは音源の実装と説明に基づいて選び、名前だけから追加しない。
-
-### Recommended Range
-
-`recommended_range`はRuntimeが発音できる範囲ではなく、その音源を実用的に使いやすいMIDI Noteの範囲である。代表Noteを必ず含め、低端・中央・高端で有効な音声を確認して設定する。固定打撃音は代表Note付近へ絞り、音程に追従する音源は用途を保てる連続範囲を設定する。
-
-### Preview
-
-`preview`はBrowserからすぐ試聴するためのNote列である。共通値は120 BPM、480 ticks/beat、4/4とし、同じTickのNoteでChordを表現する。Previewの全NoteはRecommended Range内に置く。
-
-| Category | 長さ | 構成 |
-|---|---:|---|
-| Bass | 1920 ticks | 低域の3音をtick 0 / 480 / 960へ配置 |
-| Lead | 1920 ticks | 中域の4音をtick 0 / 360 / 720 / 1080へ配置 |
-| Pad | 1920 ticks | 3〜4音のChordをtick 0から1440 ticks保持 |
-| Keys | 1920 ticks | 1回のChordと2回の単音 |
-| Poly | 1920 ticks | 4音Chordを2回 |
-| Stab | 1920 ticks | 短い3〜4音Chordを2回 |
-| Pluck | 1920 ticks | 短音4つを順番に配置 |
-| Mallet | 1920 ticks | 中短音4つを順番に配置 |
-| Drums | 1920 ticks | 代表Noteを4回、Velocity 90 / 110 / 100 / 120 |
-| Percussion | 1920 ticks | 代表Noteを8分刻みで6回 |
-| Sequence | 3840 ticks | 代表Noteをtick 0から3360 ticks保持 |
-| FX | Presetごと | 音源の役割に合わせた長さとNote列 |
-
-55〜60の個別ルールは次のとおり。55はNote 48を4.5秒、56はNote 60を3.5秒、57はNote 36を3.2秒、58はNote 45を3.2秒保持する。59はNote 60を短く3回、60はNote 60を6秒保持する。
-
-## 定義の検証
-
-```bash
-sonalloy instrument validate <preset>/definition.json
-sonalloy instrument inspect <preset>/definition.json --json
-```
-
-## 試聴WAVの再生成
-
-代表音のMIDI Noteと演奏データ、Gate / Tailは、音源のカテゴリごとに使い分ける。
-
-| カテゴリ | 代表音 | Gate / Tail | 演奏データ |
-|---|---|---|---|
-| ベース | C2（MIDI Note 36） | 0.5 / 0.5 | `bass-audition-pattern.json` |
-| リード | C4（MIDI Note 60） | 0.5 / 0.5 | `lead-audition-pattern.json`（11は`supersaw-chords-pattern.json`） |
-| パッド | C4（MIDI Note 60） | 16.0 / 7.0 | `pad-audition-pattern.json` |
-| キー／コード（25〜29） | C4（MIDI Note 60） | 5.0 / 3.0 | `keys-audition-pattern.json` |
-| コードスタブ（30〜31） | C4（MIDI Note 60） | 1.5 / 3.0 | `chord-stab-pattern.json` |
-| プラック／マレット | C4（MIDI Note 60） | 1.5 / 1.5 | `pluck-bell-mallet-pattern.json` |
-| ベル | C4（MIDI Note 60） | 4.0 / 4.0 | `pluck-bell-mallet-pattern.json` |
-| ドラム／パーカッション | プリセットごとの代表音（下表） | 1.5 / 1.0（クラッシュは3.5 / 2.5） | `drums-<種別>-pattern.json`（下表） |
-| シーケンス／リズム音 | C4（MIDI Note 60） | 8.0 / 0.8 | `seq-hold-pattern.json` |
-| 演出音／テクスチャ | プリセットごとの代表音（下表） | 下表 | `seq-hold-pattern.json` / `fx-<種別>-pattern.json`（下表） |
-
-```bash
-sonalloy render note <preset>/definition.json \
-  --note <MIDI Note番号> --velocity 100 --gate <Gate> --tail <Tail> \
-  --sample-rate 48000 --block-size 257 \
-  --output <preset>/note-<key>.wav
-
-sonalloy render events <preset>/definition.json <Event列> \
-  --duration-frames 115200 --tail 0.6 \
-  --sample-rate 48000 --block-size 257 \
-  --output <preset>/phrase.wav
-```
-
-ベースとリードの`phrase.wav`は、120 BPMのPatternで音域、Velocity差、短い発音、重なる音、長音を確認する。後半にはMod WheelとPitch Bendの操作を含む。11のスーパーソウは`supersaw-chords-pattern.json`を使い、単音と4音のコードを確認する。いずれも`render pattern`に`--tail 0.6`を指定して再生成する。
-
-```bash
-sonalloy render pattern <preset>/definition.json presets/<Pattern名>.json \
-  --sample-rate 48000 --block-size 257 --tail 0.6 \
-  --output <preset>/phrase.wav
-```
-
-1〜16はPitch Bendで±2半音、Mod Wheelで音色を調整できる。5のアシッドベースと15のポルタメントリードは、音を重ねると音程が滑らかにつながる。
-
-17〜24のパッドは、長音の中での倍音変化とコードをつないだときの余韻を試聴する。`pad-audition-pattern.json`は14秒と13秒の4音コードを1秒重ねて演奏し、後半にMod Wheelを操作する。`phrase.wav`は`render pattern`に`--tail 7`を指定して再生成する。Velocityで音量、Pitch Bendで±2半音、Mod Wheelで明るさを調整できる。
-
-25〜29の`keys-audition-pattern.json`は、同音の弱・中・強、音域をまたぐ短い旋律、4音と6音のコードを演奏する。後半にはMod Wheel、Pitch Bend、Sustain Pedalを含む。30〜31の`chord-stab-pattern.json`は短いコードを反復し、最後の長押しで減衰を確認する。どちらも`phrase.wav`は`render pattern`に`--tail 3`を指定して再生成する。
-
-25〜31はVelocityで音量、Pitch Bendで±2半音を調整できる。Mod Wheelは25のChorusの深さ、26の回転感の速さと深さ、27〜31の明るさを変える。25のエレクトリックピアノと31のハウス・コードスタブは長押しでも自然に減衰し、26〜29は保持中も持続する。30のシンセブラスは強い立ち上がりから控えめな持続へ移る。
-
-プラック／ベル／マレットの`phrase.wav`は、120 BPMの共通Patternで音色と減衰を比較する。同音の弱・中・強、8分音符のアルペジオ、4音の和音、長く保持する単音の順に演奏する。プラック／マレットは`--tail 2`、ベルは`--tail 4`で再生成する。
-
-```bash
-sonalloy render pattern <preset>/definition.json presets/pluck-bell-mallet-pattern.json \
-  --sample-rate 48000 --block-size 257 --tail <余韻の秒数> \
-  --output <preset>/phrase.wav
-```
-
-32〜37はすべて自然に減衰する音源で、Velocityが音量と明るさを変える。Pitch Bendは±2半音、Mod Wheelは明るさの調整に使える。外部WAV Assetは不要。
-
-## ドラム／パーカッション（38〜49）
-
-打撃音は鍵盤を保持しても自然に減衰し、短く離すとReleaseの長さに応じて余韻が収まる。Velocityが音量や明るさを変える。胴鳴りや共鳴体を持つキック・スネア・タム・リム・メタリック・パーカッションは鍵盤の音程に追従するため、曲のキーへ合わせて鳴らせる。試聴WAVはGeneral MIDIのドラムマップに準じた代表音で生成する。Pitch Bendは有音程のLayerを±2半音、Mod Wheelは明るさや余韻の量を調整する。外部WAV Assetは不要。
-
-| プリセット | 代表音 | 演奏データ |
+| コード | `category` | 内容 |
 |---|---|---|
-| 38 エレクトロニック・キック | C2（36） | `drums-kick-pattern.json` |
-| 39 ディープ・サブキック | C2（36） | `drums-kick-pattern.json` |
-| 40 エレクトロニック・スネア | D2（38） | `drums-snare-pattern.json` |
-| 41 ノイズ・スネア | D2（38） | `drums-snare-pattern.json` |
-| 42 ハンドクラップ | D#2（39） | `drums-clap-pattern.json` |
-| 43 クローズド・ハイハット | F#2（42） | `drums-hihat-pattern.json` |
-| 44 オープン・ハイハット | A#2（46） | `drums-open-hihat-pattern.json` |
-| 45 エレクトロニック・クラッシュ | C#3（49） | `drums-crash-pattern.json` |
-| 46 エレクトロニック・タム | A2（45） | `drums-tom-pattern.json` |
-| 47 リム／クリック | C#2（37） | `drums-rim-pattern.json` |
-| 48 シェイカー | A#4（70） | `drums-shaker-pattern.json` |
-| 49 メタリック・パーカッション | C5（72） | `drums-metallic-pattern.json` |
+| `BASS` | `Bass` | ベースラインや最低域を担当する音 |
+| `LEAD` | `Lead` | 主旋律やソロなど前景を担当する音 |
+| `PAD` | `Pad` | 長く持続し、背景や和音を形成する音。ドローンを含む |
+| `KEYS` | `Keys` | 鍵盤的に演奏するポリ音源、コード音、スタブ |
+| `PLUCK` | `Pluck` | 発音後に自然減衰する短い有音程音 |
+| `MALLET` | `Mallet` | ベル、マリンバなど打撃由来の有音程音 |
+| `DRUM` | `Drum` | ドラム、パーカッションなどリズムを構成する打撃音 |
+| `SEQ` | `Sequence` | プリセット自身の反復や時間変化が主要な音 |
+| `FX` | `FX` | ライザー、インパクト、グリッチ、テクスチャなどの演出音 |
 
-`phrase.wav`の再生成はクラッシュのみ`--tail 4.5`、他は`--tail 0.8`で行う。
+## IDとディレクトリ
 
-## シーケンス／リズム音・演出音（50〜60）
+IDは `<CATEGORY>-<NNN>` 形式で、連番はカテゴリごとに管理する。
 
-50〜54と60は、鍵盤を押して保持している間に内部シーケンスやモーションが進む音源で、ゲートを長く取るほど展開が分かる。55〜59は場面転換向けの演出音で、テンポ同期のスイープ（55は8拍で上昇して0.3拍で収束、56は6拍で下降）と時間固定の変化（58は2.6秒、59は約0.25秒のバースト）、残響つきの一発音（57）がある。50と60は`assets/`配下のWAV Assetを参照し、SHA-256は定義に記録済みで外部準備は不要。ステップやMSEGの拍基準の Source はNote Onを基準に進むため、コードは同じタイミングで押さえると揃う。
+```text
+BASS-001
+KEYS-008
+FX-003
+```
 
-| プリセット | 代表音 | Gate / Tail | 演奏データ | phraseのTail |
-|---|---|---|---|---|
-| 50 リズミック・ウェーブシーケンス | C4（60） | 8.0 / 0.8 | `seq-hold-pattern.json` | 0.6 |
-| 51 パルス・ゲートシーケンス | C4（60） | 8.0 / 0.8 | `seq-hold-pattern.json` | 0.6 |
-| 52 モーション・ステップシーケンス | C4（60） | 8.0 / 0.8 | `seq-hold-pattern.json` | 0.6 |
-| 53 パーカッシブ・シーケンス | C4（60） | 8.0 / 0.8 | `seq-hold-pattern.json` | 0.6 |
-| 54 ランダム・ステップシーケンス | C4（60） | 8.0 / 0.8 | `seq-hold-pattern.json` | 0.6 |
-| 55 ノイズライザー | C3（48） | 4.5 / 0.5 | `fx-riser-pattern.json` | 1.0 |
-| 56 ダウンリフター | C4（60） | 3.5 / 1.0 | `fx-downlifter-pattern.json` | 1.2 |
-| 57 シネマティック・インパクト | C2（36） | 3.2 / 3.0 | `fx-impact-pattern.json` | 4.0 |
-| 58 サブドロップ | A2（45） | 3.2 / 1.2 | `fx-sub-drop-pattern.json` | 1.2 |
-| 59 グリッチ・バースト | C4（60） | 0.8 / 0.5 | `fx-hit-pattern.json` | 0.6 |
-| 60 スペクトラル・フリーズテクスチャ | C4（60） | 6.0 / 3.0 | `seq-hold-pattern.json` | 3.0 |
+新しいプリセットは対象カテゴリの末尾に追加し、既存IDは実装変更後も保持する。
 
-Velocityは音量、Mod Wheelは明るさやフリーズの深さ、Pitch Bendは音程の調整に使える。
+ディレクトリ名は次の形式にする。
 
-55〜58の試奏は同じ代表音を弱・中・強で鳴らし、スイープと余韻が収まる間隔を取る。59は短いバーストを反復し、60は長音と和音で変化を確認する。
+```text
+presets/<CATEGORY>/<NNN-kebab-case-name>/
+```
 
-50の素材WAVは`python3 presets/assets/generate-wave-seq-steps.py`で再生成できる。8フレームの単周期Wavetable素材を生成し、音源定義のAsset SHA-256も更新する。
+例:
+
+```text
+presets/BASS/001-clean-sub-bass/
+presets/KEYS/008-chrome-stab/
+```
+
+`CATEGORY` はカテゴリコード、`NNN` はカテゴリ内の3桁連番、末尾は音源名を英小文字のkebab-caseで表す。
+
+## ファイル構成
+
+```text
+presets/
+├─ BASS/
+│  └─ 001-clean-sub-bass/
+│     ├─ definition.json
+│     ├─ note-*.wav
+│     ├─ phrase.wav
+│     └─ pattern.json       # 音源固有のパターンがある場合
+├─ LEAD/
+├─ PAD/
+├─ KEYS/
+├─ PLUCK/
+├─ MALLET/
+├─ DRUM/
+├─ SEQ/
+├─ FX/
+├─ common-patterns/         # 複数音源で共有するパターン
+├─ assets/                  # 定義から参照する外部素材
+├─ presets-defs.md          # 音源カタログ
+└─ README.md
+```
+
+各プリセットディレクトリには `definition.json` を1つ置く。`note-*.wav` と `phrase.wav` は定義から生成するプレビュー音源として同じディレクトリに置く。
+
+音源固有のパターンは `pattern.json`、共有パターンは `common-patterns/<descriptive-name>-pattern.json` に置く。
+
+外部WAV素材は `assets/` にまとめ、カテゴリ配下の定義から `../../assets/<file>` で参照する。
+
+## メタデータ
+
+`definition.json` の `metadata` に、次の項目を記載する。
+
+| 項目 | 役割 |
+|---|---|
+| `name` | 音源を識別する名称 |
+| `category` | 音源の主な役割。カテゴリ表の表示名と一致させる |
+| `description` | 音そのものを説明する文章 |
+| `tags` | 音の特徴を検索するための語彙 |
+| `recommended_range` | 推奨演奏音域 |
+
+### `name`
+
+- 英語で2〜4語にする。
+- 音色や方式の特徴と、音の種類を組み合わせる。
+- `FM`、`Wavetable`、`Hard Sync`、`808`、`Reese` など、音色名として定着した語は使用できる。
+- 楽曲ジャンル、利用シーン、アーティスト名、地域名は含めない。
+
+### `description`
+
+- 原則3文、120〜220文字程度にする。情報量が少ない単純な音は短くしてよい。
+- 次の順番で記述する。
+  1. 音色の核となる帯域、倍音、質感
+  2. 発音から減衰・持続までの時間変化、広がり、余韻
+  3. 短音、長音、連打、和音、Velocityなどでの振る舞い
+- 実装値の羅列ではなく、聴感または演奏で確認できる性質を記述する。
+- FM、Granular、Formantなど、音色の理解に必要な方式は自然に言及してよい。
+- 楽曲ジャンル、アーティスト、地域、流行、特定の利用シーンで用途を限定しない。
+
+音源ごとの実際の説明は [presets-defs.md](presets-defs.md) に記載する。
+
+### `tags`
+
+3〜5個を目安に、次の語彙から選ぶ。4分類すべてから選ぶ必要はなく、音を特徴付けるものだけを付ける。
+
+#### 音色・周波数
+
+| Tag | 定義 |
+|---|---|
+| `Bright` | 高域や高次倍音が明確 |
+| `Dark` | 高域が抑えられ、低中域中心 |
+| `Warm` | 丸く穏やかな倍音構成 |
+| `Mellow` | 刺激が少なく柔らかい音色 |
+| `Clean` | 歪みやノイズが少なく純度が高い |
+| `Metallic` | 非整数倍音などによる金属的な響き |
+| `Glassy` | 透明で硬質な高域を持つ |
+| `Noisy` | ノイズ成分が主要な要素 |
+| `Hollow` | 中域が抜けたような空洞感を持つ |
+| `Airy` | 軽く開いた高域や空気感を持つ |
+| `Sub` | 最低域と基音が音色の中心 |
+| `Resonant` | 明確な共鳴ピークを持つ |
+
+#### 質感・音像
+
+| Tag | 定義 |
+|---|---|
+| `Smooth` | 倍音や時間変化が滑らか |
+| `Rough` | 粗い倍音やざらつきを持つ |
+| `Dense` | 倍音や声部の重なりが多く密度が高い |
+| `Thin` | 倍音量や音像が軽く細い |
+| `Punchy` | 発音直後の押し出しが強い |
+| `Sharp` | 輪郭や高域の立ち上がりが鋭い |
+| `Soft` | アタックや輪郭が柔らかい |
+| `Wide` | 左右方向へ大きく広がる |
+| `Narrow` | ステレオ幅が小さい |
+| `Centered` | 中央に明確な音像の芯を持つ |
+| `Detuned` | 微細な音程差による揺れや厚みが明確 |
+| `Diffuse` | 音像が広く分散し、輪郭が拡散している |
+
+#### 時間変化
+
+| Tag | 定義 |
+|---|---|
+| `Short` | 全体が短時間で収束する |
+| `Sustained` | 保持中に安定して鳴り続ける |
+| `Plucky` | 明確なアタックから自然に減衰する有音程音 |
+| `Percussive` | 打撃的なアタックが主要な特徴 |
+| `Swelling` | ゆっくり立ち上がりながら存在感が増す |
+| `Evolving` | 保持中に音色が継続的に変化する |
+| `Rhythmic` | 音源内部に周期的またはステップ的な反復がある |
+| `Stable` | 保持中の音色変化が少ない |
+| `Long-Tail` | 発音終了後も長い余韻が続く |
+
+#### 生成方式・音響処理
+
+| Tag | 定義 |
+|---|---|
+| `Analog-Style` | アナログシンセに由来する音色設計 |
+| `FM` | FMによる倍音変化が主要な特徴 |
+| `PM` | Phase Modulationが主要な特徴 |
+| `AM` | Amplitude Modulationが主要な特徴 |
+| `Ring-Mod` | Ring Modulationが主要な特徴 |
+| `Wavetable` | Wavetableの波形・走査が主要な特徴 |
+| `Additive` | Partialの加算構成が主要な特徴 |
+| `Granular` | Grainによる粒状構造が主要な特徴 |
+| `Formant` | 母音・声道的な共鳴が主要な特徴 |
+| `Wavefold` | Wavefoldによる折り返し倍音が主要な特徴 |
+| `Hard-Sync` | Hard Sync特有の倍音構造が主要な特徴 |
+| `Phase-Distortion` | Phase Distortionによる倍音変化が主要な特徴 |
+| `Physical` | 物理モデルによる発音が主要な特徴 |
+| `Modal` | 共鳴Modeの集合による響きが主要な特徴 |
+| `Sample-Based` | Sample再生が音色の主体 |
+| `Wave-Sequence` | 複数の音色・Sampleの時間的な切り替えが主体 |
+| `Spectral` | スペクトル処理・再構成が主要な特徴 |
+
+生成方式タグは、definition内部で方式を使っているだけでは付けない。音色の特徴として明確に現れる場合に使う。
+
+新しいタグを追加する場合は、既存タグと意味が異なり、音を聞いて判断でき、複数のプリセットで再利用でき、検索条件として意味を持つことを確認する。一つのプリセットだけを説明する固有語は、`name` または `description` で表現する。
+
+楽曲ジャンル、感情・世界観、利用シーン、アーティスト、地域を表すタグは追加しない。
+
+## 追加・変更手順
+
+1. カテゴリ末尾のIDでディレクトリを作り、`definition.json` を配置する。
+2. プレビューWAVと、必要なパターンを同じ構成に揃える。
+3. `presets-defs.md` のカタログを更新する。
+4. パスを参照するスクリプト、テスト、Pattern、デモを確認する。
+
+## 検証
+
+```text
+sonalloy instrument validate presets/<CATEGORY>/<NNN-name>/definition.json
+sonalloy instrument inspect presets/<CATEGORY>/<NNN-name>/definition.json --json
+sonalloy pattern validate presets/<CATEGORY>/<NNN-name>/pattern.json
+sonalloy pattern validate presets/common-patterns/<name>-pattern.json
+```
+
+音源固有の `pattern.json` と共有パターンを、それぞれの配置に応じて検証する。共有パターンを変更した場合は、参照する音源とデモも確認する。

@@ -29,8 +29,35 @@ function readSourceRelease(sourceRoot) {
   return normalizeReleaseTag(version);
 }
 
-function readPreset(sourceRoot, presetId) {
-  const definitionPath = join(sourceRoot, 'presets', presetId, 'definition.json');
+const presetCategories = new Set([
+  'BASS',
+  'LEAD',
+  'PAD',
+  'KEYS',
+  'PLUCK',
+  'MALLET',
+  'DRUM',
+  'SEQ',
+  'FX',
+]);
+const presetCategoryLabels = {
+  BASS: 'Bass',
+  LEAD: 'Lead',
+  PAD: 'Pad',
+  KEYS: 'Keys',
+  PLUCK: 'Pluck',
+  MALLET: 'Mallet',
+  DRUM: 'Drum',
+  SEQ: 'Sequence',
+  FX: 'FX',
+};
+
+function manifestPath(value) {
+  return value.split('\\').join('/');
+}
+
+function readPreset(sourceRoot, presetPath, presetId, categoryCode) {
+  const definitionPath = join(sourceRoot, 'presets', ...presetPath.split('/'), 'definition.json');
   let definition;
   try {
     definition = JSON.parse(readFileSync(definitionPath, 'utf8'));
@@ -51,6 +78,11 @@ function readPreset(sourceRoot, presetId) {
   const author = readOptionalText(metadata.author, presetId, 'author');
   const description = readOptionalText(metadata.description, presetId, 'description');
   const category = readRequiredText(metadata.category, presetId, 'category');
+  if (category !== presetCategoryLabels[categoryCode]) {
+    throw new Error(
+      `Sonalloy preset '${presetId}' metadata.category must be '${presetCategoryLabels[categoryCode]}'.`,
+    );
+  }
   const tags = readRequiredArray(metadata.tags, presetId, 'tags');
   const recommendedRange = readRequiredRecord(
     metadata.recommended_range,
@@ -101,8 +133,8 @@ function readPreset(sourceRoot, presetId) {
           velocity: note.velocity,
         })),
       },
-      definitionPath: `${presetId}/definition.json`,
-      resourceBasePath: presetId,
+      definitionPath: `${manifestPath(presetPath)}/definition.json`,
+      resourceBasePath: manifestPath(presetPath),
     },
   };
 }
@@ -143,11 +175,20 @@ function collectPresets(sourceRoot) {
   const presetsRoot = join(sourceRoot, 'presets');
   if (!existsSync(presetsRoot)) throw new Error(`Sonalloy presets directory is missing: ${presetsRoot}`);
 
-  return readdirSync(presetsRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name !== 'assets')
-    .map((entry) => entry.name)
-    .sort()
-    .map((presetId) => readPreset(sourceRoot, presetId));
+  const presets = [];
+  for (const category of readdirSync(presetsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && presetCategories.has(entry.name))
+    .sort((left, right) => left.name.localeCompare(right.name))) {
+    const categoryRoot = join(presetsRoot, category.name);
+    for (const preset of readdirSync(categoryRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^\d{3}-[a-z0-9-]+$/.test(entry.name))
+      .sort((left, right) => left.name.localeCompare(right.name))) {
+      const presetPath = `${category.name}/${preset.name}`;
+      const presetId = `${category.name}-${preset.name.slice(0, 3)}`;
+      presets.push(readPreset(sourceRoot, presetPath, presetId, category.name));
+    }
+  }
+  return presets;
 }
 
 function replaceDirectory(destination, stagedDestination) {
@@ -191,7 +232,7 @@ export function stageBuiltinBundle({ destination, sourceRoot, sourceRelease }) {
     mkdirSync(stagedBuiltinRoot, { recursive: true });
 
     for (const { definitionPath, entry } of presets) {
-      const presetDestination = join(stagedBuiltinRoot, entry.id);
+      const presetDestination = join(stagedBuiltinRoot, entry.resourceBasePath);
       mkdirSync(presetDestination, { recursive: true });
       copyFileSync(definitionPath, join(presetDestination, 'definition.json'));
     }

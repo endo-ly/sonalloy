@@ -1,0 +1,296 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Noise Shaker",
+    "author": "gpt-6-astra low",
+    "description": "細かな粒の衝突と擦れが一振りにまとまったシェイカー。高域を中心とした軽いノイズが複数の小さな音量変化を作り、短く収束する。連続発音では粒の密度がリズミカルに積み重なり、強弱でざらつきの量が変わる、また音量を抑えた演奏でもアタックが埋もれにくく、反復しても輪郭が揃う。",
+    "category": "Drum",
+    "tags": [
+      "Noisy",
+      "Percussive",
+      "Rhythmic",
+      "Short"
+    ],
+    "recommended_range": {
+      "min_midi": 70,
+      "max_midi": 70
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 90
+        },
+        {
+          "tick": 240,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 110
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 95
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 105
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 120,
+          "note": 70,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "grain",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -22,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.006,
+        "decay_seconds": 0.11,
+        "sustain_level": 0,
+        "release_seconds": 0.09
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4848,
+          "stereo_correlation": 0.35
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "air",
+          "mode": "high_pass",
+          "cutoff_hz": 5200,
+          "resonance": 0.05
+        },
+        {
+          "type": "filter",
+          "id": "tone",
+          "mode": "low_pass",
+          "cutoff_hz": 12500,
+          "resonance": 0.04
+        }
+      ]
+    },
+    {
+      "id": "scrape",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -28,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.012,
+        "decay_seconds": 0.16,
+        "sustain_level": 0,
+        "release_seconds": 0.11
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4849,
+          "stereo_correlation": 0.4
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "hiss",
+          "mode": "high_pass",
+          "cutoff_hz": 3300,
+          "resonance": 0.05
+        },
+        {
+          "type": "filter",
+          "id": "body",
+          "mode": "low_pass",
+          "cutoff_hz": 8200,
+          "resonance": 0.04
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 9500,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "grit",
+        "type": "smooth_random",
+        "seed": 4850,
+        "rate": {
+          "value": 34,
+          "unit": "per_second"
+        }
+      },
+      {
+        "id": "shake",
+        "type": "mseg",
+        "initial_value": 0.3,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.012,
+              "unit": "seconds"
+            },
+            "target": -0.7,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.009,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.016,
+              "unit": "seconds"
+            },
+            "target": -0.8,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.008,
+              "unit": "seconds"
+            },
+            "target": 0.45,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.03,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.grain.gain",
+        "depth": {
+          "value": 9,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.scrape.gain",
+        "depth": {
+          "value": 9,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "grit",
+        "target": "layer.grain.gain",
+        "depth": {
+          "value": 4,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.scrape.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "shake",
+        "target": "layer.grain.gain",
+        "depth": {
+          "value": 5,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

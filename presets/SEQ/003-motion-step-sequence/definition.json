@@ -1,0 +1,210 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Motion Step Sequence",
+    "author": "gpt-6-astra low",
+    "description": "保持中に明るさ、倍音の質感、左右の位置が段階的に切り替わるステップ音源。音程と拍を保ちながら丸い響きと硬い響きが交代し、時間に沿って音像が移動する。短い発音では一つの段階が、長音では複数の変化が聞き取れる、また音量を抑えた演奏でも各段階の変化が追いやすく、反復の周期を保てる。",
+    "category": "Sequence",
+    "tags": [
+      "Rhythmic",
+      "Evolving",
+      "Bright",
+      "Diffuse"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 72
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 3360,
+          "note": 60,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "motion",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -22,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.01,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 0.6
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "phase_distortion": {
+            "amount": 0.36
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "shape",
+      "mode": "low_pass",
+      "cutoff_hz": 3600,
+      "resonance": 0.13
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "bright",
+        "type": "step",
+        "values": [
+          0.9,
+          -0.3,
+          0.5,
+          -0.9,
+          0.2,
+          0.7,
+          -0.5,
+          -0.1
+        ],
+        "rate": {
+          "value": 1,
+          "unit": "per_beat"
+        }
+      },
+      {
+        "id": "shape",
+        "type": "step",
+        "values": [
+          -0.4,
+          0.6,
+          0.1,
+          -0.8,
+          0.5,
+          -0.2,
+          0.9,
+          -0.6
+        ],
+        "rate": {
+          "value": 2,
+          "unit": "per_beat"
+        }
+      },
+      {
+        "id": "drift_pan",
+        "type": "step",
+        "values": [
+          0.7,
+          -0.7,
+          0.2,
+          -0.5,
+          0.6,
+          -0.2,
+          0.5,
+          -0.9
+        ],
+        "rate": {
+          "value": 0.5,
+          "unit": "per_beat"
+        }
+      }
+    ],
+    "routes": [
+      {
+        "source": "bright",
+        "target": "voice.processor.shape.cutoff",
+        "depth": {
+          "value": 0.9,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "shape",
+        "target": "layer.motion.generator.phase_distortion",
+        "depth": {
+          "value": 0.25,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "drift_pan",
+        "target": "layer.motion.pan",
+        "depth": {
+          "value": 0.6,
+          "unit": "pan"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.motion.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.shape.cutoff",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.motion.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

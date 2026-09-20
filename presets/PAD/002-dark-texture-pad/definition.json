@@ -1,0 +1,216 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Dark Texture Pad",
+    "author": "gpt-6-astra low",
+    "description": "暗く落ち着いた中低域と薄い高域の揺らぎを持つ、密度のあるテクスチャパッド。発音直後は輪郭のある倍音が立ち上がり、ゆっくりしたフィルター変化と広がりが持続する。長く保持すると音色の明るさが穏やかに移り、和音の内側に滑らかな層を作る、また音量を抑えた演奏でも和音の層が残り、長い保持で変化を追いやすい。",
+    "category": "Pad",
+    "tags": [
+      "Dark",
+      "Soft",
+      "Sustained",
+      "Stable"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 48,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 55,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1440,
+          "note": 63,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -21.4,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 2.5,
+        "decay_seconds": 1.5,
+        "sustain_level": 0.85,
+        "release_seconds": 3
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 6,
+            "stereo_spread": 0.5,
+            "phase_spread": 0.65
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "depth",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -28.4,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 2.5,
+        "decay_seconds": 1.5,
+        "sustain_level": 0.85,
+        "release_seconds": 3
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.23
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "ladder_filter",
+      "id": "shadow",
+      "cutoff_hz": 1100,
+      "resonance": 0.1,
+      "drive": 0.1
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "distance",
+      "pre_delay_seconds": 0.035,
+      "decay": 0.76,
+      "damping": 0.72,
+      "width": 1,
+      "mix": 0.18
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 250,
+      "input_gain_db": -6
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.depth.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.depth.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.shadow.cutoff",
+        "depth": {
+          "value": 2.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.shadow.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,316 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Glass Bell",
+    "author": "gpt-6-astra low",
+    "description": "澄んだ立ち上がりと透明な倍音を持つグラスベル。高域の輝きが先に現れ、細い余韻へ滑らかに減衰する。短い旋律では音程の芯が軽く浮かび、長く鳴らすと高域の揺らぎと残響が静かに残る、また音量を抑えた演奏でも打音の芯が残り、余韻の消え際まで追いやすい。",
+    "category": "Mallet",
+    "tags": [
+      "Glassy",
+      "Bright",
+      "Percussive",
+      "Long-Tail",
+      "Additive"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 360,
+          "note": 60,
+          "velocity": 110
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 360,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 360,
+          "note": 72,
+          "velocity": 115
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 360,
+          "note": 79,
+          "velocity": 105
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "glass",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -28.5,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 3.4
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -1,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "partial_0",
+              "ratio": 1,
+              "amplitude_a": 0.72,
+              "amplitude_b": 0.72,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 5.8,
+                "sustain_level": 0,
+                "release_seconds": 3.3
+              }
+            },
+            {
+              "id": "partial_1",
+              "ratio": 2.002,
+              "amplitude_a": 0.58,
+              "amplitude_b": 0.58,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 4,
+                "sustain_level": 0,
+                "release_seconds": 2.3
+              }
+            },
+            {
+              "id": "partial_2",
+              "ratio": 3.997,
+              "amplitude_a": 0.28,
+              "amplitude_b": 0.28,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 2.5,
+                "sustain_level": 0,
+                "release_seconds": 1.8
+              }
+            },
+            {
+              "id": "partial_3",
+              "ratio": 6.003,
+              "amplitude_a": 0.13,
+              "amplitude_b": 0.13,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 1.1,
+                "sustain_level": 0,
+                "release_seconds": 0.8
+              }
+            },
+            {
+              "id": "partial_4",
+              "ratio": 8.011,
+              "amplitude_a": 0.065,
+              "amplitude_b": 0.065,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.46,
+                "sustain_level": 0,
+                "release_seconds": 0.35
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "halo",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -39.5,
+      "pan": -0.16,
+      "tuning_cents": 2,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 1.6
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -1.5,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "partial_0",
+              "ratio": 2,
+              "amplitude_a": 0.55,
+              "amplitude_b": 0.55,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 3.1,
+                "sustain_level": 0,
+                "release_seconds": 1.2
+              }
+            },
+            {
+              "id": "partial_1",
+              "ratio": 4.004,
+              "amplitude_a": 0.28,
+              "amplitude_b": 0.28,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 1.65,
+                "sustain_level": 0,
+                "release_seconds": 1.2
+              }
+            },
+            {
+              "id": "partial_2",
+              "ratio": 6.008,
+              "amplitude_a": 0.12,
+              "amplitude_b": 0.12,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.65,
+                "sustain_level": 0,
+                "release_seconds": 1.2
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "polish",
+      "mode": "low_pass",
+      "cutoff_hz": 10500,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.016,
+      "decay": 0.64,
+      "damping": 0.5,
+      "width": 0.82,
+      "mix": 0.13
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "macros": [],
+  "vectors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.glass.gain",
+        "depth": {
+          "value": 11,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.halo.gain",
+        "depth": {
+          "value": 16,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.halo.gain",
+        "depth": {
+          "value": -3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.glass.generator.additive_spectrum_tilt",
+        "depth": {
+          "value": 1.5,
+          "unit": "decibels_per_octave"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.glass.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.halo.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}
