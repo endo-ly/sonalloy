@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  copyFileSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
@@ -131,6 +132,60 @@ test('staging rejects a preset with missing required metadata', () => {
           sourceRelease: '1.0.0',
         }),
       /BASS-001.*metadata\.category/,
+    );
+    assert.equal(existsSync(join(temporaryRoot, 'bundle')), false);
+  } finally {
+    rmSync(temporaryRoot, { force: true, recursive: true });
+  }
+});
+
+test('staging rejects an unexpected preset directory instead of omitting it', () => {
+  const temporaryRoot = mkdtempSync(join(tmpdir(), 'sonalloy-bundle-layout-'));
+  try {
+    mkdirSync(join(temporaryRoot, 'presets', 'BASS', '12-broken'), { recursive: true });
+    for (const file of ['THIRD_PARTY_NOTICES.md', 'LICENSE-MIT', 'LICENSE-APACHE']) {
+      writeFileSync(join(temporaryRoot, file), 'test\n');
+    }
+    writeFileSync(join(temporaryRoot, 'Cargo.toml'), '[package]\nversion = "1.0.0"\n');
+
+    assert.throws(
+      () =>
+        stageBuiltinBundle({
+          destination: join(temporaryRoot, 'bundle'),
+          sourceRoot: temporaryRoot,
+          sourceRelease: '1.0.0',
+        }),
+      /BASS\/12-broken.*NNN-kebab-case-name/,
+    );
+    assert.equal(existsSync(join(temporaryRoot, 'bundle')), false);
+  } finally {
+    rmSync(temporaryRoot, { force: true, recursive: true });
+  }
+});
+
+test('staging rejects duplicate preset IDs', () => {
+  const temporaryRoot = mkdtempSync(join(tmpdir(), 'sonalloy-bundle-duplicate-'));
+  try {
+    for (const directory of ['001-clean-sub-bass', '001-other-bass']) {
+      mkdirSync(join(temporaryRoot, 'presets', 'BASS', directory), { recursive: true });
+      copyFileSync(
+        join(sourceRoot, 'presets', 'BASS', '001-clean-sub-bass', 'definition.json'),
+        join(temporaryRoot, 'presets', 'BASS', directory, 'definition.json'),
+      );
+    }
+    for (const file of ['THIRD_PARTY_NOTICES.md', 'LICENSE-MIT', 'LICENSE-APACHE']) {
+      writeFileSync(join(temporaryRoot, file), 'test\n');
+    }
+    writeFileSync(join(temporaryRoot, 'Cargo.toml'), '[package]\nversion = "1.0.0"\n');
+
+    assert.throws(
+      () =>
+        stageBuiltinBundle({
+          destination: join(temporaryRoot, 'bundle'),
+          sourceRoot: temporaryRoot,
+          sourceRelease: '1.0.0',
+        }),
+      /Duplicate built-in preset ID 'BASS-001'/,
     );
     assert.equal(existsSync(join(temporaryRoot, 'bundle')), false);
   } finally {

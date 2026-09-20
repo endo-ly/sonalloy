@@ -51,6 +51,8 @@ const presetCategoryLabels = {
   SEQ: 'Sequence',
   FX: 'FX',
 };
+const ignoredPresetDirectories = new Set(['assets', 'common-patterns']);
+const presetDirectoryPattern = /^\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function manifestPath(value) {
   return value.split('\\').join('/');
@@ -176,15 +178,34 @@ function collectPresets(sourceRoot) {
   if (!existsSync(presetsRoot)) throw new Error(`Sonalloy presets directory is missing: ${presetsRoot}`);
 
   const presets = [];
-  for (const category of readdirSync(presetsRoot, { withFileTypes: true })
+  const presetIds = new Set();
+  const rootEntries = readdirSync(presetsRoot, { withFileTypes: true });
+  for (const entry of rootEntries) {
+    if (entry.isDirectory() && !ignoredPresetDirectories.has(entry.name) && !presetCategories.has(entry.name)) {
+      throw new Error(
+        `Unexpected preset category directory '${entry.name}'. Expected one of: ${[...presetCategories].join(', ')}.`,
+      );
+    }
+  }
+
+  for (const category of rootEntries
     .filter((entry) => entry.isDirectory() && presetCategories.has(entry.name))
     .sort((left, right) => left.name.localeCompare(right.name))) {
     const categoryRoot = join(presetsRoot, category.name);
     for (const preset of readdirSync(categoryRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && /^\d{3}-[a-z0-9-]+$/.test(entry.name))
+      .filter((entry) => entry.isDirectory())
       .sort((left, right) => left.name.localeCompare(right.name))) {
+      if (!presetDirectoryPattern.test(preset.name)) {
+        throw new Error(
+          `Preset directory '${category.name}/${preset.name}' must match NNN-kebab-case-name.`,
+        );
+      }
       const presetPath = `${category.name}/${preset.name}`;
       const presetId = `${category.name}-${preset.name.slice(0, 3)}`;
+      if (presetIds.has(presetId)) {
+        throw new Error(`Duplicate built-in preset ID '${presetId}'.`);
+      }
+      presetIds.add(presetId);
       presets.push(readPreset(sourceRoot, presetPath, presetId, category.name));
     }
   }

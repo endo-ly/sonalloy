@@ -114,6 +114,33 @@ fn preview_events(preview: &InstrumentPreviewDefinition) -> Vec<ScheduledEvent> 
     events
 }
 
+fn expected_preset_category(path: &Path, preset_id: &str) -> &'static str {
+    let category_code = path
+        .parent()
+        .and_then(Path::file_name)
+        .and_then(|name| name.to_str())
+        .expect("preset category directory name is UTF-8");
+    let preset_number = preset_id
+        .get(..3)
+        .expect("preset directory must start with a three-digit number");
+    assert!(
+        preset_number.bytes().all(|byte| byte.is_ascii_digit()),
+        "{preset_id} directory must start with its three-digit ID"
+    );
+    match category_code {
+        "BASS" => "Bass",
+        "LEAD" => "Lead",
+        "PAD" => "Pad",
+        "KEYS" => "Keys",
+        "PLUCK" => "Pluck",
+        "MALLET" => "Mallet",
+        "DRUM" => "Drum",
+        "SEQ" => "Sequence",
+        "FX" => "FX",
+        other => panic!("unexpected built-in preset category: {other}"),
+    }
+}
+
 #[test]
 fn every_builtin_preset_metadata_validates_and_renders() {
     let paths = preset_paths();
@@ -125,11 +152,18 @@ fn every_builtin_preset_metadata_validates_and_renders() {
             .expect("preset directory name")
             .to_str()
             .expect("preset directory name is UTF-8");
+        let expected_category = expected_preset_category(&path, preset_id);
         let definition_path = path.join("definition.json");
         let definition: InstrumentDefinition = serde_json::from_str(
             &fs::read_to_string(&definition_path).expect("definition JSON is readable"),
         )
         .unwrap_or_else(|error| panic!("{preset_id} must parse: {error}"));
+
+        assert_eq!(
+            definition.metadata.category.as_deref(),
+            Some(expected_category),
+            "{preset_id} metadata category must match its directory category"
+        );
 
         let diagnostics = definition.validate();
         assert!(
