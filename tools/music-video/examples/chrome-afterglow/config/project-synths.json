@@ -1,0 +1,101 @@
+{
+  "id": "chrome-afterglow-synths",
+  "renderer": "instrument-score",
+  "audio": "../../../out/audio/chrome-afterglow/chrome-afterglow-balanced.wav",
+  "outputDirectory": "../../../out/demo-video/synths",
+  "outputs": {
+    "master": "sonalloy-demo-1080p.mp4",
+    "video": "sonalloy-demo-30s.mp4",
+    "poster": "poster.png"
+  },
+  "fps": 30,
+  "clip": {
+    "startSeconds": 0,
+    "durationSeconds": 30,
+    "fadeOutSeconds": 0.5
+  },
+  "presentation": {
+    "title": "Sonalloy",
+    "label": "SONALLOY / SOUND STUDY 001",
+    "subtitle": "Sound, from code.",
+    "description": "Five synth voices. One engine.",
+    "eyebrow": "JSON-DEFINED HYBRID SYNTHESIZER",
+    "detail": "CHROME AFTERGLOW — 128 BPM",
+    "credit": "GENERATED WITH SONALLOY",
+    "footer": "DEFINE → PLAY → REFINE",
+    "accent": "#88ded3"
+  },
+  "tracks": [
+    {
+      "id": "steel",
+      "name": "Steel Bounce",
+      "category": "PERCUSSIVE BASS",
+      "kind": "melody",
+      "color": "#fb9466",
+      "audio": "../../../out/audio/chrome-afterglow/stems/steel.wav",
+      "pattern": "../patterns/steel.json"
+    },
+    {
+      "id": "chrome",
+      "name": "Chrome Stab",
+      "category": "SYNTH BRASS",
+      "kind": "melody",
+      "color": "#e8ce8d",
+      "audio": "../../../out/audio/chrome-afterglow/stems/chrome.wav",
+      "pattern": "../patterns/chrome.json"
+    },
+    {
+      "id": "glass",
+      "name": "Glass Hammer",
+      "category": "MODAL PLUCK",
+      "kind": "melody",
+      "color": "#88ded3",
+      "audio": "../../../out/audio/chrome-afterglow/stems/glass.wav",
+      "pattern": "../patterns/glass.json"
+    },
+    {
+      "id": "vowel",
+      "name": "Vowel Bite",
+      "category": "FORMANT BASS",
+      "kind": "melody",
+      "color": "#a5b6ff",
+      "audio": "../../../out/audio/chrome-afterglow/stems/vowel.wav",
+      "pattern": "../patterns/vowel.json"
+    },
+    {
+      "id": "bloom",
+      "name": "Pressure Bloom",
+      "category": "UNISON CHORDS",
+      "kind": "melody",
+      "color": "#d1a8e8",
+      "audio": "../../../out/audio/chrome-afterglow/stems/bloom.wav",
+      "pattern": "../patterns/bloom.json"
+    }
+  ],
+  "sections": [
+    {
+      "at": 0,
+      "label": "GLASS / LIGHT",
+      "color": "#88ded3",
+      "emphasis": false
+    },
+    {
+      "at": 7.5,
+      "label": "BASS / PULSE",
+      "color": "#fb9466",
+      "emphasis": false
+    },
+    {
+      "at": 15,
+      "label": "VOICE / MOTION",
+      "color": "#a5b6ff",
+      "emphasis": false
+    },
+    {
+      "at": 22.5,
+      "label": "FULL / BLOOM",
+      "color": "#d1a8e8",
+      "emphasis": true
+    }
+  ]
+}

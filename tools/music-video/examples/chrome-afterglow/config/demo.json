@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "name": "Chrome Afterglow",
+  "parts": [
+    {
+      "id": "steel",
+      "instrument": "../../../../../presets/BASS/010-steel-bounce-bass/definition.json",
+      "pattern": "../patterns/steel.json",
+      "gain_db": -8
+    },
+    {
+      "id": "chrome",
+      "instrument": "../../../../../presets/KEYS/008-chrome-stab/definition.json",
+      "pattern": "../patterns/chrome.json",
+      "gain_db": -7
+    },
+    {
+      "id": "glass",
+      "instrument": "../../../../../presets/PLUCK/004-glass-hammer-pluck/definition.json",
+      "pattern": "../patterns/glass.json",
+      "gain_db": -4
+    },
+    {
+      "id": "vowel",
+      "instrument": "../../../../../presets/BASS/011-vowel-bite-bass/definition.json",
+      "pattern": "../patterns/vowel.json",
+      "gain_db": -4
+    },
+    {
+      "id": "bloom",
+      "instrument": "../../../../../presets/KEYS/009-bloom-poly/definition.json",
+      "pattern": "../patterns/bloom.json",
+      "gain_db": -10
+    },
+    {
+      "id": "kick",
+      "instrument": "../../../../../presets/DRUM/001-electronic-kick/definition.json",
+      "pattern": "../patterns/kick.json",
+      "gain_db": -5
+    },
+    {
+      "id": "clap",
+      "instrument": "../../../../../presets/DRUM/005-hand-clap/definition.json",
+      "pattern": "../patterns/clap.json",
+      "gain_db": -2
+    },
+    {
+      "id": "hat",
+      "instrument": "../../../../../presets/DRUM/006-closed-hi-hat/definition.json",
+      "pattern": "../patterns/hat.json",
+      "gain_db": -9
+    },
+    {
+      "id": "open",
+      "instrument": "../../../../../presets/DRUM/007-open-hi-hat/definition.json",
+      "pattern": "../patterns/open.json",
+      "gain_db": -12
+    }
+  ],
+  "mix": {
+    "fade_out_seconds": 1.3,
+    "master": null
+  }
+}
