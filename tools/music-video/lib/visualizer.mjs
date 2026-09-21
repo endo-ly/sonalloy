@@ -1,60 +1,26 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { bands, levels, samples, trimAudio } from "./audio.mjs";
 import { writeGallery } from "./gallery.mjs";
-import { runRemotion, toolDirectory as root } from "./remotion.mjs";
+import { runRemotion, toolDirectory } from "./remotion.mjs";
 import { prepareTracks } from "./tracks.mjs";
-const presets = JSON.parse(
-  readFileSync(path.join(root, "src/visualizers/presets.json"), "utf8"),
-);
 
 export function renderVisualizer(
+  project,
   command,
-  filename,
   selection = "all",
   stillTime = "12",
 ) {
-  if (!["prepare", "studio", "still", "render"].includes(command) || !filename)
-    throw new Error(
-      "usage: node scripts/render.mjs <command> <config.json> [variant|all] [still-seconds]",
-    );
-
-  const configPath = path.resolve(filename);
-  const config = JSON.parse(readFileSync(configPath, "utf8"));
-  const {
-    id,
-    audio,
-    durationSeconds = 30,
-    startSeconds = 0,
-    fadeOutSeconds = 0.5,
-    fps = 30,
-    width = 1080,
-    height = 1920,
-  } = config;
-  if (typeof id !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id))
-    throw new Error("id must use lowercase letters, digits and hyphens");
-  if (typeof audio !== "string" || !audio) throw new Error("audio is required");
-  for (const [key, value] of Object.entries({
-    durationSeconds,
-    fps,
-    width,
-    height,
-  }))
-    if (!Number.isFinite(value) || value <= 0)
-      throw new Error(`${key} must be positive`);
+  const { durationSeconds } = project.clip;
+  const { width, height, variants: availableVariants } = project;
+  if (!Number.isFinite(width) || !Number.isFinite(height))
+    throw new Error("visualizer width and height are required");
   if (![width, height].every((value) => Number.isInteger(value) && value % 2 === 0))
     throw new Error("width and height must be even integers");
-  if (
-    !Number.isFinite(startSeconds) ||
-    startSeconds < 0 ||
-    !Number.isFinite(fadeOutSeconds) ||
-    fadeOutSeconds < 0 ||
-    fadeOutSeconds > durationSeconds
-  )
-    throw new Error("invalid clip range or fade duration");
-
-  const variants = selection === "all" ? Object.keys(presets) : [selection];
-  if (variants.some((variant) => !Object.hasOwn(presets, variant)))
+  const variants =
+    selection === "all" ? availableVariants : [selection];
+  if (!variants.length) throw new Error("visualizer variants are required");
+  if (variants.some((variant) => !availableVariants.includes(variant)))
     throw new Error(`unknown variant: ${selection}`);
   if (command === "studio" && variants.length !== 1)
     throw new Error("select one variant for studio");
@@ -66,29 +32,26 @@ export function renderVisualizer(
   )
     throw new Error("still time must fall inside the clip");
 
-  const publicDir = path.join(root, "public", "visualizers", id);
-  const outputDir = path.join(root, "out", "visualizers", id);
-  mkdirSync(publicDir, { recursive: true });
-  mkdirSync(outputDir, { recursive: true });
+  const publicDirectory = path.join(
+    toolDirectory,
+    "public",
+    "visualizers",
+    project.id,
+  );
+  const outputDirectory = project.outputDirectory;
+  mkdirSync(publicDirectory, { recursive: true });
+  mkdirSync(outputDirectory, { recursive: true });
 
-  const clip = { startSeconds, durationSeconds, fadeOutSeconds };
-  const wav = path.join(publicDir, "mix.wav");
-  trimAudio(path.resolve(path.dirname(configPath), audio), wav, clip);
-  const pcm = samples(wav, { ...clip, startSeconds: 0 });
-  const frames = Math.ceil(durationSeconds * fps);
-  if (
-    !Array.isArray(config.tracks) ||
-    config.tracks.length < 1 ||
-    config.tracks.length > 9
-  )
-    throw new Error("provide between one and nine tracks");
-
+  const wav = path.join(publicDirectory, "mix.wav");
+  trimAudio(project.audio, wav, project.clip);
+  const pcm = samples(wav, { ...project.clip, startSeconds: 0 });
+  const frames = Math.ceil(durationSeconds * project.fps);
   const tracks = prepareTracks(
-    config.tracks,
-    path.dirname(configPath),
-    clip,
+    project.tracks,
+    project.directory,
+    project.clip,
     frames,
-    fps,
+    project.fps,
     { includeScopes: true },
   );
   const melody = tracks.filter((track) => track.kind === "melody");
@@ -104,28 +67,28 @@ export function renderVisualizer(
     throw new Error("melody tracks need notes within the selected clip");
 
   writeFileSync(
-    path.join(publicDir, "scene.json"),
+    path.join(publicDirectory, "scene.json"),
     JSON.stringify({
-      title: config.title ?? id,
-      audio: `visualizers/${id}/mix.wav`,
+      title: project.title,
+      audio: `visualizers/${project.id}/mix.wav`,
       frames,
-      fps,
+      fps: project.fps,
       width,
       height,
-      bands: bands(pcm, frames, fps),
-      energy: levels(pcm, frames, fps),
+      bands: bands(pcm, frames, project.fps),
+      energy: levels(pcm, frames, project.fps),
       tracks,
-      sections: config.sections ?? [],
+      sections: project.sections,
     }),
   );
 
   for (const variant of variants) {
-    const propsPath = path.join(outputDir, `${variant}.props.json`);
+    const propsPath = path.join(outputDirectory, `${variant}.props.json`);
     writeFileSync(
       propsPath,
       JSON.stringify(
         {
-          scenePath: `visualizers/${id}/scene.json`,
+          scenePath: `visualizers/${project.id}/scene.json`,
           variant,
         },
         null,
@@ -139,12 +102,11 @@ export function renderVisualizer(
       args.push(
         "Visualizer",
         path.join(
-          outputDir,
+          outputDirectory,
           `${variant}.${command === "still" ? `at-${seconds}s.png` : "mp4"}`,
         ),
       );
-    args.push(`--props=${propsPath}`);
-    if (command === "still") args.push(`--frame=${Math.floor(seconds * fps)}`);
+    if (command === "still") args.push(`--frame=${Math.floor(seconds * project.fps)}`);
     if (command === "render")
       args.push(
         "--codec=h264",
@@ -158,12 +120,12 @@ export function renderVisualizer(
 
   if (command === "render")
     writeGallery(
-      outputDir,
-      id,
-      Object.keys(presets).filter((name) =>
-        existsSync(path.join(outputDir, `${name}.mp4`)),
+      outputDirectory,
+      project.id,
+      availableVariants.filter((variant) =>
+        existsSync(path.join(outputDirectory, `${variant}.mp4`)),
       ),
       durationSeconds,
     );
-  console.log(`Output: ${outputDir}`);
+  console.log(`Output: ${outputDirectory}`);
 }

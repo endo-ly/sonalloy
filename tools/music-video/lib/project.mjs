@@ -224,9 +224,65 @@ function visualConfig(input, accent) {
   };
 }
 
+
+function sectionsConfig(input, duration, fps, accent, field) {
+  if (input !== undefined && !Array.isArray(input))
+    fail(field, "expected array");
+  return (input ?? []).map((section, index, all) => {
+    const sectionField = `${field}[${index}]`;
+    const at = number(
+      section.at,
+      `${sectionField}.at`,
+      0,
+      duration - 1 / fps,
+    );
+    if (
+      (index === 0 && at !== 0) ||
+      (index > 0 && at <= all[index - 1].at)
+    )
+      fail(field, "start at 0 and use increasing times");
+    if (section.emphasis !== undefined && typeof section.emphasis !== "boolean")
+      fail(`${sectionField}.emphasis`, "expected boolean");
+    const label = section.label ?? "";
+    if (typeof label !== "string")
+      fail(`${sectionField}.label`, "expected text");
+    return {
+      at,
+      label,
+      color: color(
+        section.color ?? accent,
+        `${sectionField}.color`,
+      ),
+      emphasis: section.emphasis ?? false,
+    };
+  });
+}
+
+function presentationConfig(input, accent, field, defaultTitle = "Music Video") {
+  const value = input ?? {};
+  const result = {
+    title: text(value.title, `${field}.title`, defaultTitle),
+    label: text(value.label, `${field}.label`, "MUSIC / VISUAL STUDY"),
+    subtitle: text(
+      value.subtitle,
+      `${field}.subtitle`,
+      "Sound in motion.",
+    ),
+    description: value.description ?? "",
+    eyebrow: value.eyebrow ?? "",
+    detail: value.detail ?? "",
+    credit: value.credit ?? "",
+    footer: value.footer ?? "",
+    accent: color(value.accent ?? accent, `${field}.accent`),
+  };
+  for (const [key, item] of Object.entries(result))
+    if (typeof item !== "string") fail(`${field}.${key}`, "expected text");
+  return result;
+}
+
 export function loadProject(filename) {
   const configPath = path.resolve(filename);
-  const base = path.dirname(configPath);
+  const directory = path.dirname(configPath);
   const config = JSON.parse(readFileSync(configPath, "utf8"));
   const id = text(config.id, "id");
   if (
@@ -234,6 +290,7 @@ export function loadProject(filename) {
     /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/.test(id)
   )
     fail("id", "use a portable lowercase identifier");
+
   const fps = number(config.fps ?? 30, "fps", 1, 60);
   if (!Number.isInteger(fps)) fail("fps", "expected integer");
   const duration = number(
@@ -246,8 +303,9 @@ export function loadProject(filename) {
   if (Math.abs(frames - duration * fps) > 1e-6)
     fail(
       "clip.durationSeconds",
-      "must contain a whole number of frames at the selected fps",
+      "must contain a whole number of frames",
     );
+
   const clip = {
     startSeconds: number(
       config.clip?.startSeconds ?? 0,
@@ -263,95 +321,157 @@ export function loadProject(filename) {
       duration,
     ),
   };
-  const accent = color(
-    config.presentation?.accent ?? "#88ded3",
-    "presentation.accent",
-  );
-  const p = config.presentation ?? {};
-  const presentation = {
-    title: text(p.title, "presentation.title"),
-    label: text(p.label, "presentation.label", "MUSIC / VISUAL STUDY"),
-    subtitle: text(p.subtitle, "presentation.subtitle", "Sound in motion."),
-    description: p.description ?? "",
-    eyebrow: p.eyebrow ?? "",
-    detail: p.detail ?? "",
-    credit: p.credit ?? "",
-    footer: p.footer ?? "",
-    accent,
-  };
-  for (const [key, value] of Object.entries(presentation))
-    if (typeof value !== "string") fail(`presentation.${key}`, "expected text");
-  const visual = visualConfig(config.visual, accent);
-  const ids = new Set();
-  if (config.tracks !== undefined && !Array.isArray(config.tracks))
-    fail("tracks", "expected array");
-  const tracks = (config.tracks ?? []).map((t, i) => {
-    const field = `tracks[${i}]`;
-    const trackId = text(t.id, `${field}.id`);
-    if (ids.has(trackId)) fail(`${field}.id`, "duplicate identifier");
-    ids.add(trackId);
-    const kind = t.kind ?? "melody";
+
+  const audio = file(directory, config.audio, "audio");
+  const title = text(config.title, "title", id);
+  if (!Array.isArray(config.tracks) || config.tracks.length === 0)
+    fail("tracks", "expected a non-empty array");
+
+  const trackIds = new Set();
+  const tracks = config.tracks.map((track, index) => {
+    const field = `tracks[${index}]`;
+    const trackId = text(track.id, `${field}.id`);
+    if (trackIds.has(trackId)) fail(`${field}.id`, "duplicate identifier");
+    trackIds.add(trackId);
+    const kind = track.kind ?? "melody";
     if (!["melody", "percussion"].includes(kind))
       fail(`${field}.kind`, "expected melody or percussion");
-    if (t.pattern && t.notes) fail(field, "choose pattern or notes");
-    if (!t.audio && !t.pattern && !t.notes)
-      fail(field, "provide audio, pattern or notes");
+    if (!track.audio) fail(`${field}.audio`, "is required");
+    if (!track.notes && !track.pattern)
+      fail(`${field}.notes`, "is required");
     return {
       id: trackId,
-      name: text(t.name, `${field}.name`),
-      kind,
+      name: text(track.name, `${field}.name`, trackId),
       category: text(
-        t.category,
+        track.category,
         `${field}.category`,
         kind === "percussion" ? "PERCUSSION" : "INSTRUMENT",
       ),
-      color: color(t.color ?? accent, `${field}.color`),
-      audio: t.audio ? file(base, t.audio, `${field}.audio`) : null,
-      pattern: t.pattern ? file(base, t.pattern, `${field}.pattern`) : null,
-      notes: t.notes ? file(base, t.notes, `${field}.notes`) : null,
+      kind,
+      color: color(track.color ?? "#88ded3", `${field}.color`),
+      audio: file(directory, track.audio, `${field}.audio`),
+      notes: file(
+        directory,
+        track.notes ?? track.pattern,
+        `${field}.notes`,
+      ),
     };
   });
-  for (const kind of ["melody", "percussion"])
-    if (tracks.filter((t) => t.kind === kind).length > 6)
-      fail("tracks", `at most 6 ${kind} tracks fit this template`);
-  if (config.sections !== undefined && !Array.isArray(config.sections))
-    fail("sections", "expected array");
-  const sections = (config.sections ?? []).map((s, i, all) => {
-    const at = number(s.at, `sections[${i}].at`, 0, duration - 1 / fps);
-    if ((i === 0 && at !== 0) || (i > 0 && at <= all[i - 1].at))
-      fail("sections", "start at 0 and use increasing times");
-    if (s.emphasis !== undefined && typeof s.emphasis !== "boolean")
-      fail(`sections[${i}].emphasis`, "expected boolean");
-    return {
-      at,
-      label: text(s.label, `sections[${i}].label`),
-      color: color(s.color ?? accent, `sections[${i}].color`),
-      emphasis: s.emphasis ?? false,
-    };
+
+  const accent = "#88ded3";
+  const sections = sectionsConfig(
+    config.sections,
+    duration,
+    fps,
+    accent,
+    "sections",
+  );
+  if (sections.length > 6) fail("sections", "at most 6 sections fit this template");
+
+  if (!Array.isArray(config.renders) || config.renders.length === 0)
+    fail("renders", "expected a non-empty array");
+  const renderIds = new Set();
+  const renders = config.renders.map((render, index) => {
+    const field = `renders[${index}]`;
+    const renderId = text(render.id, `${field}.id`);
+    if (renderIds.has(renderId))
+      fail(`${field}.id`, "duplicate identifier");
+    renderIds.add(renderId);
+    if (!["instrument-score", "visualizer"].includes(render.renderer))
+      fail(
+        `${field}.renderer`,
+        "expected instrument-score or visualizer",
+      );
+    if (
+      render.trackIds !== undefined &&
+      render.trackIds !== "all" &&
+      (!Array.isArray(render.trackIds) ||
+        render.trackIds.some((trackId) => !trackIds.has(trackId)))
+    )
+      fail(`${field}.trackIds`, "contains an unknown track");
+    if (
+      render.variants !== undefined &&
+      (!Array.isArray(render.variants) ||
+        render.variants.some((variant) => typeof variant !== "string"))
+    )
+      fail(`${field}.variants`, "expected an array of names");
+    return render;
   });
-  if (sections.length > 6)
-    fail("sections", "at most 6 sections fit this template");
-  const output = config.outputs ?? {};
-  const outputs = {
-    master: text(output.master, "outputs.master", "master.mp4"),
-    video: text(output.video, "outputs.video", "video.mp4"),
-    poster: text(output.poster, "outputs.poster", "poster.png"),
-  };
+
   return {
     id,
+    title,
     configPath,
+    directory,
     fps,
     frames,
     clip,
-    presentation,
-    visual,
+    audio,
     tracks,
     sections,
-    audio: file(base, config.audio, "audio"),
+    renders,
+  };
+}
+
+export function resolveRender(project, renderId) {
+  const render = project.renders.find((item) => item.id === renderId);
+  if (!render) throw new Error(`unknown render: ${renderId}`);
+  const selectedIds = render.trackIds ?? "all";
+  const tracks =
+    selectedIds === "all"
+      ? project.tracks
+      : project.tracks.filter((track) => selectedIds.includes(track.id));
+  const accent = render.presentation?.accent ?? "#88ded3";
+  const presentation = presentationConfig(
+    render.presentation,
+    accent,
+    `renders.${render.id}.presentation`,
+    project.title,
+  );
+  const sections = sectionsConfig(
+    render.sections ?? project.sections,
+    project.clip.durationSeconds,
+    project.fps,
+    accent,
+    `renders.${render.id}.sections`,
+  );
+  const visual =
+    render.renderer === "instrument-score"
+      ? visualConfig(render.visual, presentation.accent)
+      : null;
+  return {
+    ...project,
+    id: render.cacheId ?? `${project.id}-${render.id}`,
+    renderId: render.id,
+    renderer: render.renderer,
+    tracks,
+    sections,
+    presentation,
+    visual,
+    title: render.title ?? project.title,
     outputDirectory: path.resolve(
-      base,
-      text(config.outputDirectory, "outputDirectory", "out"),
+      project.directory,
+      render.outputDirectory ?? `../../out/${project.id}/${render.id}`,
     ),
-    outputs,
+    outputs: {
+      master: text(
+        render.outputs?.master,
+        `renders.${render.id}.outputs.master`,
+        "master.mp4",
+      ),
+      video: text(
+        render.outputs?.video,
+        `renders.${render.id}.outputs.video`,
+        "video.mp4",
+      ),
+      poster: text(
+        render.outputs?.poster,
+        `renders.${render.id}.outputs.poster`,
+        "poster.png",
+      ),
+    },
+    width: render.width ?? 1080,
+    height: render.height ?? 1920,
+    variants: render.variants ?? [],
   };
 }

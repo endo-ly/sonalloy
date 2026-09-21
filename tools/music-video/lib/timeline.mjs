@@ -75,8 +75,8 @@ export function clipNotes(notes, clip) {
 }
 
 export function readNotes(track, clip) {
-  const input = track.pattern ?? track.notes;
+  const input = track.notes;
   if (!input) return [];
   const json = JSON.parse(readFileSync(input, "utf8"));
-  return clipNotes(track.pattern ? patternNotes(json) : json, clip);
+  return clipNotes(Array.isArray(json) ? json : patternNotes(json), clip);
 }

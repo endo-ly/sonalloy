@@ -1,31 +1,41 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { renderInstrumentScore } from "../examples/chrome-afterglow/lib/render.mjs";
+import { renderInstrumentScore } from "../lib/instrument-score.mjs";
+import { loadProject, resolveRender } from "../lib/project.mjs";
 import { renderVisualizer } from "../lib/visualizer.mjs";
 
 const commands = new Set(["prepare", "studio", "still", "render"]);
 
-function rendererFor(filename) {
-  const config = JSON.parse(readFileSync(path.resolve(filename), "utf8"));
-  if (config.renderer === "visualizer")
-    return "visualizer";
-  if (config.renderer === "instrument-score")
-    return "instrument-score";
-  throw new Error(
-    "config.renderer must be visualizer or instrument-score",
-  );
+function usage() {
+  return "usage: node scripts/render.mjs <prepare|studio|still|render> <project.json> [render-id] [variant|still-seconds] [still-seconds]";
 }
 
 export function render(args = process.argv.slice(2)) {
-  const [command, filename, option, stillTime] = args;
-  if (!commands.has(command) || !filename)
-    throw new Error(
-      "usage: node scripts/render.mjs <prepare|studio|still|render> <config.json> [variant|all] [still-seconds]",
-    );
+  const [command, filename, renderId, option, stillTime] = args;
+  if (!commands.has(command) || !filename) throw new Error(usage());
 
-  if (rendererFor(filename) === "visualizer")
-    return renderVisualizer(command, filename, option ?? "all", stillTime ?? "12");
-  return renderInstrumentScore(command, filename, option);
+  const project = loadProject(filename);
+  if (!renderId && ["studio", "still"].includes(command))
+    throw new Error(`${command} requires a render-id`);
+  const renderIds = renderId
+    ? [renderId]
+    : project.renders.map((render) => render.id);
+
+  for (const id of renderIds) {
+    const target = resolveRender(project, id);
+    if (target.renderer === "instrument-score") {
+      renderInstrumentScore(
+        target,
+        command,
+        command === "still" ? option : undefined,
+      );
+      continue;
+    }
+    renderVisualizer(
+      target,
+      command,
+      option ?? "all",
+      command === "still" ? stillTime ?? "12" : "12",
+    );
+  }
 }
 
 try {
