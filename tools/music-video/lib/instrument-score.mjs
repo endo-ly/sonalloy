@@ -6,6 +6,14 @@ import { runRemotion, toolDirectory } from "./remotion.mjs";
 import { prepareTracks } from "./tracks.mjs";
 
 export function prepareInstrumentScore(project) {
+  if (
+    project.tracks.some(
+      (track) => !["melody", "percussion"].includes(track.kind ?? ""),
+    )
+  )
+    throw new Error(
+      "InstrumentScore requires every track to declare kind as melody or percussion",
+    );
   const { id, clip, frames, fps } = project;
   const publicDirectory = path.join(toolDirectory, "public", id);
   mkdirSync(publicDirectory, { recursive: true });
