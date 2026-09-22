@@ -1,10 +1,6 @@
 import { Sculpture } from "../visualizers/Sculpture";
-import type {
-  Scene,
-  Track,
-  VisualConfig,
-  VisualElement,
-} from "../visualizers/types";
+import type { Scene, Track } from "../model/scene";
+import type { VisualConfig, VisualElement } from "./instrument-score-types";
 import React from "react";
 import {
   AbsoluteFill,

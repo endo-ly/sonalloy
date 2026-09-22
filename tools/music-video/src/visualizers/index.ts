@@ -11,14 +11,5 @@ export const visualizers = {
   "impact-grid": ImpactGrid,
   "phase-garden": PhaseGarden,
 } as const;
-export type {
-  VisualizerInput,
-  Scene,
-  Track,
-  Note,
-  Section,
-  VisualConfig,
-  VisualElement,
-  VisualTheme,
-} from "./types";
+export type { VisualizerInput } from "./types";
 export type VisualizerName = keyof typeof visualizers;

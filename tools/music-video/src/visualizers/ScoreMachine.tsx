@@ -1,8 +1,21 @@
 import { attack, playing, VisualizerInput } from "./types";
 
 export function ScoreMachine({ data, frame }: VisualizerInput) {
+  if (
+    data.tracks.some(
+      (track) => !["melody", "percussion"].includes(track.kind ?? ""),
+    )
+  )
+    throw new Error(
+      "ScoreMachine requires every track to declare kind as melody or percussion",
+    );
   const t = frame / data.fps,
     tracks = data.tracks.filter((tr) => tr.kind === "melody");
+  const percussion = data.tracks.filter((tr) => tr.kind === "percussion");
+  if (tracks.length > 5)
+    throw new Error("ScoreMachine supports at most 5 melodic tracks");
+  if (percussion.length > 4)
+    throw new Error("ScoreMachine supports at most 4 percussion tracks");
   const notes = tracks.flatMap((tr) => tr.notes),
     low = notes.length ? Math.min(...notes.map((n) => n.pitch)) - 2 : 48,
     high = notes.length ? Math.max(...notes.map((n) => n.pitch)) + 2 : 72;

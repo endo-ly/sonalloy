@@ -1,4 +1,4 @@
-import type { Scene, Track, VisualTheme } from "./types";
+import type { Scene, Track } from "../model/scene";
 const clamp = (x: number) => Math.max(0, Math.min(1, x));
 const ease = (x: number) => {
   const t = clamp(x);
@@ -27,7 +27,7 @@ export function Sculpture({
   width: number;
   height: number;
   style: Record<string, any>;
-  theme: Pick<VisualTheme, "accent" | "background">;
+  theme: { accent: string; background: string };
 }) {
   const seconds = frame / data.fps;
   const spectrum = data.bands[frame] ?? [];

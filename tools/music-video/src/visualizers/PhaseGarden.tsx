@@ -1,8 +1,21 @@
 import { level, attack, VisualizerInput } from "./types";
 
 export function PhaseGarden({ data, frame }: VisualizerInput) {
+  if (
+    data.tracks.some(
+      (track) => !["melody", "percussion"].includes(track.kind ?? ""),
+    )
+  )
+    throw new Error(
+      "PhaseGarden requires every track to declare kind as melody or percussion",
+    );
   const t = frame / data.fps,
     voices = data.tracks.filter((tr) => tr.kind === "melody");
+  const percussion = data.tracks.filter((tr) => tr.kind === "percussion");
+  if (voices.length > 5)
+    throw new Error("PhaseGarden supports at most 5 melodic tracks");
+  if (percussion.length > 4)
+    throw new Error("PhaseGarden supports at most 4 percussion tracks");
   const kick = data.tracks.find((tr) => tr.tags?.includes("kick")),
     pulse = kick ? attack(kick, t, 12) : 0;
   return (

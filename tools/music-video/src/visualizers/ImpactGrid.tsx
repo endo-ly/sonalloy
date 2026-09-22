@@ -1,4 +1,5 @@
-import { level, playing, VisualizerInput, Track } from "./types";
+import { level, playing, VisualizerInput } from "./types";
+import type { Track } from "../model/scene";
 
 function flash(track: Track, seconds: number) {
   return track.notes.reduce((peak, note) => {
@@ -32,6 +33,8 @@ function trackHash(id: string) {
 }
 
 export function ImpactGrid({ data, frame }: VisualizerInput) {
+  if (data.tracks.length > 9)
+    throw new Error("ImpactGrid supports at most 9 tracks");
   const t = frame / data.fps;
   const section = data.sections.filter((s) => s.at <= t).length - 1;
   const orders = [

@@ -6,11 +6,9 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import {
-  visualizers,
-  VisualizerName,
-  Scene,
-} from "../visualizers";
+import { visualizers } from "../visualizers";
+import type { Scene } from "../model/scene";
+import type { VisualizerName } from "../visualizers";
 const VIEWBOX = { width: 1000, height: 1778 };
 type Props = {
   scenePath: string;

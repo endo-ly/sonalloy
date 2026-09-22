@@ -2,9 +2,21 @@ import { Sculpture } from "./Sculpture";
 import { attack, level, VisualizerInput } from "./types";
 
 export function Resonance({ data, frame }: VisualizerInput) {
+  if (
+    data.tracks.some(
+      (track) => !["melody", "percussion"].includes(track.kind ?? ""),
+    )
+  )
+    throw new Error(
+      "Resonance requires every track to declare kind as melody or percussion",
+    );
   const t = frame / data.fps;
   const melodic = data.tracks.filter((track) => track.kind === "melody");
   const drums = data.tracks.filter((track) => track.kind === "percussion");
+  if (melodic.length > 5)
+    throw new Error("Resonance supports at most 5 melodic tracks");
+  if (drums.length > 4)
+    throw new Error("Resonance supports at most 4 percussion tracks");
   return (
     <>
       <rect width="1000" height="1778" fill="#0c1018" />
