@@ -1,4 +1,10 @@
 import { Sculpture } from "../visualizers/Sculpture";
+import type {
+  Scene,
+  Track,
+  VisualConfig,
+  VisualElement,
+} from "../visualizers/types";
 import React from "react";
 import {
   AbsoluteFill,
@@ -8,62 +14,11 @@ import {
   useCurrentFrame,
 } from "remotion";
 
-type Note = {
-  start: number;
-  duration: number;
-  pitch: number;
-  velocity: number;
-};
-type Track = {
-  id: string;
-  name: string;
-  category: string;
-  kind: string;
-  color: string;
-  energy: number[] | null;
-  notes: Note[];
-};
-type ElementSpec = {
-  id: string;
-  type: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  visible: boolean;
-  bind: string | null;
-  text: string | null;
-  style: Record<string, any>;
-};
-type Scene = {
-  fps: number;
-  frames: number;
-  duration: number;
-  fadeOut: number;
-  audio: string;
+type InstrumentScene = Scene & {
   presentation: Record<string, string>;
-  sections: { at: number; label: string; color: string; emphasis: boolean }[];
-  tracks: Track[];
-  bands: number[][];
-  energy: number[];
-  visual: {
-    canvas: { width: number; height: number };
-    delivery: { width: number; height: number };
-    theme: {
-      background: string;
-      foreground: string;
-      muted: string;
-      line: string;
-      accent: string;
-      fontFamily: string;
-      monoFamily: string;
-      gridOpacity: number;
-      cornerRadius: number;
-    };
-    elements: ElementSpec[];
-  };
+  visual: VisualConfig;
 };
-type Props = { scenePath: string; data: Scene | null };
+type Props = { scenePath: string; data: InstrumentScene | null };
 
 const clamp = (x: number) => Math.max(0, Math.min(1, x));
 const ease = (x: number) => {
@@ -71,7 +26,7 @@ const ease = (x: number) => {
   return t * t * (3 - 2 * t);
 };
 const activity = (track: Track, frame: number, fps: number) =>
-  track.energy?.[frame] ??
+  track.activity?.[frame] ??
   track.notes.reduce(
     (peak, note) =>
       frame / fps >= note.start && frame / fps < note.start + note.duration
@@ -79,9 +34,9 @@ const activity = (track: Track, frame: number, fps: number) =>
         : peak,
     0,
   );
-const binding = (data: Scene, element: ElementSpec) =>
+const binding = (data: InstrumentScene, element: VisualElement) =>
   element.text ?? (element.bind ? (data.presentation[element.bind] ?? "") : "");
-const boxStyle = (element: ElementSpec): React.CSSProperties => ({
+const boxStyle = (element: VisualElement): React.CSSProperties => ({
   position: "absolute",
   left: element.x,
   top: element.y,
@@ -149,7 +104,7 @@ function Instrument({
   fps: number;
   width: number;
   height: number;
-  theme: Scene["visual"]["theme"];
+  theme: VisualConfig["theme"];
 }) {
   const seconds = frame / fps;
   const level = activity(track, frame, fps);
@@ -230,9 +185,9 @@ function Instrument({
         {track.category}
       </div>
       <div style={{ margin: "19px 16px 0" }}>
-        {!track.notes.length && track.energy ? (
+        {!track.notes.length && track.activity ? (
           <LevelTimeline
-            energy={track.energy}
+            energy={track.activity}
             frame={frame}
             color={track.color}
             width={chartWidth}
@@ -306,9 +261,9 @@ function TrackGrid({
   frame,
   element,
 }: {
-  data: Scene;
+  data: InstrumentScene;
   frame: number;
-  element: ElementSpec;
+  element: VisualElement;
 }) {
   const tracks = data.tracks.filter((track) => track.kind === "melody");
   const style = element.style;
@@ -392,9 +347,9 @@ function DrumStrip({
   frame,
   element,
 }: {
-  data: Scene;
+  data: InstrumentScene;
   frame: number;
-  element: ElementSpec;
+  element: VisualElement;
 }) {
   const tracks = data.tracks.filter((track) => track.kind === "percussion");
   if (!tracks.length) return null;
@@ -481,7 +436,7 @@ function DrumStrip({
                 style={{
                   width:
                     String(
-                      (track.energy?.[frame] ?? activity(track, frame, data.fps)) *
+                      (track.activity?.[frame] ?? activity(track, frame, data.fps)) *
                         100,
                     ) + "%",
                   height: "100%",
@@ -502,8 +457,8 @@ function TextElement({
   type,
   frame,
 }: {
-  data: Scene;
-  element: ElementSpec;
+  data: InstrumentScene;
+  element: VisualElement;
   type: string;
   frame: number;
 }) {
@@ -564,7 +519,7 @@ function TextElement({
   );
 }
 
-function Header({ data, element }: { data: Scene; element: ElementSpec }) {
+function Header({ data, element }: { data: InstrumentScene; element: VisualElement }) {
   const theme = data.visual.theme;
   return (
     <div
@@ -629,8 +584,8 @@ function Sections({
   element,
   frame,
 }: {
-  data: Scene;
-  element: ElementSpec;
+  data: InstrumentScene;
+  element: VisualElement;
   frame: number;
 }) {
   if (!data.sections.length) return null;
@@ -673,8 +628,8 @@ function Spectrum({
   element,
   frame,
 }: {
-  data: Scene;
-  element: ElementSpec;
+  data: InstrumentScene;
+  element: VisualElement;
   frame: number;
 }) {
   const spectrum = data.bands[frame] ?? [];
@@ -745,8 +700,8 @@ function Footer({
   element,
   frame,
 }: {
-  data: Scene;
-  element: ElementSpec;
+  data: InstrumentScene;
+  element: VisualElement;
   frame: number;
 }) {
   const seconds = frame / data.fps;
@@ -774,8 +729,8 @@ function ElementView({
   element,
   frame,
 }: {
-  data: Scene;
-  element: ElementSpec;
+  data: InstrumentScene;
+  element: VisualElement;
   frame: number;
 }) {
   if (!element.visible) return null;
@@ -805,6 +760,7 @@ function ElementView({
             frame={frame}
             width={element.width}
             height={element.height}
+            theme={data.visual.theme}
             style={element.style}
           />
         </div>
@@ -905,7 +861,7 @@ export function InstrumentScoreComposition() {
           signal: abortSignal,
         });
         if (!response.ok) throw new Error("Cannot load " + props.scenePath);
-        const data: Scene = await response.json();
+        const data: InstrumentScene = await response.json();
         return {
           fps: data.fps,
           durationInFrames: data.frames,

@@ -5,19 +5,16 @@ export function Resonance({ data, frame }: VisualizerInput) {
   const t = frame / data.fps;
   const melodic = data.tracks.filter((track) => track.kind === "melody");
   const drums = data.tracks.filter((track) => track.kind === "percussion");
-  const sculptureData = {
-    ...data,
-    visual: { theme: { accent: "#88ded3", background: "#0c1018" } },
-  };
   return (
     <>
       <rect width="1000" height="1778" fill="#0c1018" />
       <g transform="translate(0,180)">
         <Sculpture
-          data={sculptureData}
+          data={data}
           frame={frame}
           width={1000}
           height={800}
+          theme={{ accent: "#88ded3", background: "#0c1018" }}
           style={{
             centerX: 0.5,
             centerY: 0.48,
@@ -28,7 +25,7 @@ export function Resonance({ data, frame }: VisualizerInput) {
         />
       </g>
       <g transform="translate(65,980)">
-        {data.bands[frame].map((v, i) => (
+        {(data.bands[frame] ?? []).map((v, i) => (
           <rect
             key={i}
             x={i * 13.7}
@@ -36,7 +33,12 @@ export function Resonance({ data, frame }: VisualizerInput) {
             width="6"
             height={v * 90}
             rx="3"
-            fill={melodic[Math.floor((i / 64) * melodic.length)].color}
+            fill={
+              melodic.length
+                ? melodic[Math.floor((i / 64) * melodic.length) % melodic.length]
+                    .color
+                : "#88ded3"
+            }
             opacity={0.3 + v * 0.6}
           />
         ))}
@@ -50,8 +52,8 @@ export function Resonance({ data, frame }: VisualizerInput) {
         const y = 1090 + i * 84,
           energy = level(track, frame);
         const pitches = track.notes.map((n) => n.pitch),
-          low = Math.min(...pitches),
-          high = Math.max(...pitches);
+          low = pitches.length ? Math.min(...pitches) : 0,
+          high = pitches.length ? Math.max(...pitches) : 127;
         return (
           <g key={track.id}>
             <line x1="65" x2="935" y1={y + 67} y2={y + 67} stroke="#26303d" />

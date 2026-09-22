@@ -22,6 +22,15 @@ function blend(from: string, to: string, amount: number) {
     .join("")}`;
 }
 
+function trackHash(id: string) {
+  let hash = 2166136261;
+  for (const character of id) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
 export function ImpactGrid({ data, frame }: VisualizerInput) {
   const t = frame / data.fps;
   const section = data.sections.filter((s) => s.at <= t).length - 1;
@@ -45,6 +54,7 @@ export function ImpactGrid({ data, frame }: VisualizerInput) {
         const active = playing(tr, t),
           last = tr.notes.filter((note) => note.start <= t).at(-1),
           pitch = last?.pitch ?? 0;
+        const shape = trackHash(tr.id) % 4;
         const x = 50 + (slot % 3) * 300,
           y = 225 + Math.floor(slot / 3) * 440;
         const color = tr.color,
@@ -63,7 +73,7 @@ export function ImpactGrid({ data, frame }: VisualizerInput) {
               {String(index + 1).padStart(2, "0")}
             </text>
             <g transform="translate(143,203)" fill={ink} stroke={ink}>
-              {index % 4 === 0 ? (
+              {shape === 0 ? (
                 <>
                   {Array.from({ length: 5 }, (_, i) => (
                     <rect
@@ -76,7 +86,7 @@ export function ImpactGrid({ data, frame }: VisualizerInput) {
                     />
                   ))}
                 </>
-              ) : index % 4 === 1 ? (
+              ) : shape === 1 ? (
                 <>
                   {Array.from({ length: 4 }, (_, i) => (
                     <circle
@@ -88,7 +98,7 @@ export function ImpactGrid({ data, frame }: VisualizerInput) {
                     />
                   ))}
                 </>
-              ) : index % 4 === 2 ? (
+              ) : shape === 2 ? (
                 <g transform={`rotate(${(pitch % 12) * 15})`}>
                   {Array.from({ length: 8 }, (_, i) => (
                     <rect

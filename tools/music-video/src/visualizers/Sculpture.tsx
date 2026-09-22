@@ -1,12 +1,4 @@
-import type { Track } from "./types";
-type Scene = {
-  fps: number;
-  bands: number[][];
-  energy: number[];
-  tracks: Track[];
-  sections: { at: number; emphasis: boolean }[];
-  visual: { theme: { accent: string; background: string } };
-};
+import type { Scene, Track, VisualTheme } from "./types";
 const clamp = (x: number) => Math.max(0, Math.min(1, x));
 const ease = (x: number) => {
   const t = clamp(x);
@@ -14,7 +6,7 @@ const ease = (x: number) => {
 };
 const valueAt = (data: Scene, frame: number) => data.energy[frame] ?? 0;
 const activity = (track: Track, frame: number, fps: number) =>
-  track.energy?.[frame] ??
+  track.activity?.[frame] ??
   track.notes.reduce(
     (peak, n) =>
       frame / fps >= n.start && frame / fps < n.start + n.duration
@@ -28,12 +20,14 @@ export function Sculpture({
   width,
   height,
   style,
+  theme,
 }: {
   data: Scene;
   frame: number;
   width: number;
   height: number;
   style: Record<string, any>;
+  theme: Pick<VisualTheme, "accent" | "background">;
 }) {
   const seconds = frame / data.fps;
   const spectrum = data.bands[frame] ?? [];
@@ -49,7 +43,7 @@ export function Sculpture({
         color: track.color,
         level: activity(track, frame, data.fps),
       }))
-    : [{ color: data.visual.theme.accent, level: valueAt(data, frame) * 5 }];
+    : [{ color: theme.accent, level: valueAt(data, frame) * 5 }];
   const centerX = width * Number(style.centerX ?? 0.56);
   const centerY = height * Number(style.centerY ?? 0.46);
   const scale = Math.min(width, height) / 720;
@@ -120,7 +114,7 @@ export function Sculpture({
           />
           <stop
             offset="1"
-            stopColor={data.visual.theme.background}
+            stopColor={theme.background}
             stopOpacity="0"
           />
         </radialGradient>

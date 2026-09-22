@@ -25,9 +25,10 @@ export function prepareTracks(
       name: track.name,
       category: track.category,
       kind: track.kind,
+      tags: track.tags,
       color: track.color,
       notes: readNotes(resolved, clip),
-      energy: energy.map((v) => Number((v / peak).toFixed(4))),
+      activity: energy.map((v) => Number((v / peak).toFixed(4))),
     };
     if (includeScopes) prepared.scopes = scopes(pcm, frames, fps);
     return prepared;

@@ -59,6 +59,7 @@
       "name": "Electronic Kick",
       "category": "PERCUSSION",
       "kind": "percussion",
+      "tags": ["kick"],
       "color": "#fb9466",
       "audio": "../../out/audio/chrome-afterglow/stems/kick.wav",
       "notes": "patterns/kick.json"

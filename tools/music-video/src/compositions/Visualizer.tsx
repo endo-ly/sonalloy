@@ -7,38 +7,36 @@ import {
   useVideoConfig,
 } from "remotion";
 import {
-  Resonance,
-  ScoreMachine,
-  ImpactGrid,
-  PhaseGarden,
+  visualizers,
+  VisualizerName,
   Scene,
 } from "../visualizers";
-const visuals = {
-  resonance: Resonance,
-  "score-machine": ScoreMachine,
-  "impact-grid": ImpactGrid,
-  "phase-garden": PhaseGarden,
-};
+const VIEWBOX = { width: 1000, height: 1778 };
 type Props = {
   scenePath: string;
-  variant: keyof typeof visuals;
+  variant: VisualizerName;
   data: Scene | null;
 };
 function Film({ data, variant }: Props) {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   if (!data) throw new Error("Missing prepared score and audio");
-  const Artwork = visuals[variant];
+  const Artwork = visualizers[variant];
   return (
     <AbsoluteFill style={{ background: "#090d10" }}>
       <Audio src={staticFile(data.audio)} />
       <svg
         width={width}
         height={height}
-        viewBox="0 0 1000 1778"
+        viewBox={`0 0 ${VIEWBOX.width} ${VIEWBOX.height}`}
         style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
       >
-        <Artwork data={data} frame={frame} width={1000} height={1778} />
+        <Artwork
+          data={data}
+          frame={frame}
+          width={VIEWBOX.width}
+          height={VIEWBOX.height}
+        />
       </svg>
     </AbsoluteFill>
   );
@@ -54,7 +52,7 @@ export function VisualizerComposition() {
       durationInFrames={900}
       defaultProps={{ scenePath: "", variant: "resonance", data: null } as Props}
       calculateMetadata={async ({ props, abortSignal }) => {
-        if (!Object.hasOwn(visuals, props.variant))
+        if (!Object.hasOwn(visualizers, props.variant))
           throw new Error("Unknown visualizer");
         const response = await fetch(staticFile(props.scenePath), {
           signal: abortSignal,

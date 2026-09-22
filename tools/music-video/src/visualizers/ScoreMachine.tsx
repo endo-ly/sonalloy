@@ -4,8 +4,13 @@ export function ScoreMachine({ data, frame }: VisualizerInput) {
   const t = frame / data.fps,
     tracks = data.tracks.filter((tr) => tr.kind === "melody");
   const notes = tracks.flatMap((tr) => tr.notes),
-    low = Math.min(...notes.map((n) => n.pitch)) - 2,
-    high = Math.max(...notes.map((n) => n.pitch)) + 2;
+    low = notes.length ? Math.min(...notes.map((n) => n.pitch)) - 2 : 48,
+    high = notes.length ? Math.max(...notes.map((n) => n.pitch)) + 2 : 72;
+  const titleWords = data.title.trim().toUpperCase().split(/\s+/);
+  const titleLines =
+    titleWords.length > 1
+      ? [titleWords.slice(0, -1).join(" "), titleWords.at(-1)!]
+      : titleWords;
   const isBlack = (pitch: number) => [1, 3, 6, 8, 10].includes(pitch % 12);
   const whitePitches = Array.from(
     { length: high - low + 1 },
@@ -31,26 +36,19 @@ export function ScoreMachine({ data, frame }: VisualizerInput) {
   return (
     <>
       <rect width="1000" height="1778" fill="#aebdaf" />
-      <text
-        x="57"
-        y="245"
-        fontSize="148"
-        fontWeight="800"
-        letterSpacing="-12"
-        fill="#202a29"
-      >
-        AFTER
-      </text>
-      <text
-        x="57"
-        y="382"
-        fontSize="148"
-        fontWeight="800"
-        letterSpacing="-12"
-        fill="#202a29"
-      >
-        GLOW.
-      </text>
+      {titleLines.map((line, index) => (
+        <text
+          key={line}
+          x="57"
+          y={245 + index * 137}
+          fontSize="148"
+          fontWeight="800"
+          letterSpacing="-12"
+          fill="#202a29"
+        >
+          {line}
+        </text>
+      ))}
       <defs>
         <clipPath id="falling-notes">
           <rect x="65" y="160" width="870" height="1120" />

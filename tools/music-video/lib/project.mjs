@@ -10,6 +10,19 @@ function text(value, field, fallback) {
     fail(field, "expected non-empty text");
   return result;
 }
+function optionalText(value, field) {
+  if (value === undefined || value === null) return undefined;
+  return text(value, field);
+}
+function stringArray(value, field) {
+  if (value === undefined || value === null) return undefined;
+  if (
+    !Array.isArray(value) ||
+    value.some((item) => typeof item !== "string" || !item.trim())
+  )
+    fail(field, "expected an array of non-empty text");
+  return value;
+}
 function number(value, field, min, max) {
   if (!Number.isFinite(value) || value < min || value > max)
     fail(field, `expected ${min}..${max}`);
@@ -333,28 +346,23 @@ export function loadProject(filename) {
     const trackId = text(track.id, `${field}.id`);
     if (trackIds.has(trackId)) fail(`${field}.id`, "duplicate identifier");
     trackIds.add(trackId);
-    const kind = track.kind ?? "melody";
-    if (!["melody", "percussion"].includes(kind))
-      fail(`${field}.kind`, "expected melody or percussion");
     if (!track.audio) fail(`${field}.audio`, "is required");
-    if (!track.notes && !track.pattern)
-      fail(`${field}.notes`, "is required");
+    const notes = track.notes ?? track.pattern;
+    const kind = optionalText(track.kind, `${field}.kind`);
+    const category = optionalText(track.category, `${field}.category`);
+    const tags = stringArray(track.tags, `${field}.tags`);
     return {
       id: trackId,
       name: text(track.name, `${field}.name`, trackId),
-      category: text(
-        track.category,
-        `${field}.category`,
-        kind === "percussion" ? "PERCUSSION" : "INSTRUMENT",
-      ),
       kind,
+      category,
+      tags,
       color: color(track.color ?? "#88ded3", `${field}.color`),
       audio: file(directory, track.audio, `${field}.audio`),
-      notes: file(
-        directory,
-        track.notes ?? track.pattern,
-        `${field}.notes`,
-      ),
+      notes:
+        notes === undefined
+          ? undefined
+          : file(directory, notes, `${field}.notes`),
     };
   });
 
@@ -366,7 +374,6 @@ export function loadProject(filename) {
     accent,
     "sections",
   );
-  if (sections.length > 6) fail("sections", "at most 6 sections fit this template");
 
   if (!Array.isArray(config.renders) || config.renders.length === 0)
     fail("renders", "expected a non-empty array");
@@ -439,6 +446,22 @@ export function resolveRender(project, renderId) {
     render.renderer === "instrument-score"
       ? visualConfig(render.visual, presentation.accent)
       : null;
+  const width = number(
+    render.width ?? 1080,
+    `renders.${render.id}.width`,
+    320,
+    7680,
+  );
+  const height = number(
+    render.height ?? 1920,
+    `renders.${render.id}.height`,
+    180,
+    7680,
+  );
+  if (!Number.isInteger(width) || !Number.isInteger(height))
+    fail(`renders.${render.id}`, "width and height must be integers");
+  if (render.renderer === "visualizer" && width * 16 !== height * 9)
+    fail(`renders.${render.id}`, "visualizer output must use a 9:16 aspect ratio");
   return {
     ...project,
     id: render.cacheId ?? `${project.id}-${render.id}`,
@@ -470,8 +493,8 @@ export function resolveRender(project, renderId) {
         "poster.png",
       ),
     },
-    width: render.width ?? 1080,
-    height: render.height ?? 1920,
+    width,
+    height,
     variants: render.variants ?? [],
   };
 }

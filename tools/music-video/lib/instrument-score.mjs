@@ -21,10 +21,13 @@ export function prepareInstrumentScore(project) {
   trimAudio(project.audio, wav, clip);
   const mix = samples(wav, { ...clip, startSeconds: 0 });
   const scene = {
+    title: project.title,
     fps,
     frames,
     duration: clip.durationSeconds,
     fadeOut: clip.fadeOutSeconds,
+    width: project.visual.canvas.width,
+    height: project.visual.canvas.height,
     visual: project.visual,
     audio: `${id}/mix.wav`,
     presentation: project.presentation,

@@ -1,6 +1,24 @@
-export { Resonance } from "./Resonance";
-export { ScoreMachine } from "./ScoreMachine";
-export { ImpactGrid } from "./ImpactGrid";
-export { PhaseGarden } from "./PhaseGarden";
+import { Resonance } from "./Resonance";
+import { ScoreMachine } from "./ScoreMachine";
+import { ImpactGrid } from "./ImpactGrid";
+import { PhaseGarden } from "./PhaseGarden";
+
+export { Resonance, ScoreMachine, ImpactGrid, PhaseGarden };
 export { Sculpture } from "./Sculpture";
-export type { VisualizerInput, Scene, Track, Note } from "./types";
+export const visualizers = {
+  resonance: Resonance,
+  "score-machine": ScoreMachine,
+  "impact-grid": ImpactGrid,
+  "phase-garden": PhaseGarden,
+} as const;
+export type {
+  VisualizerInput,
+  Scene,
+  Track,
+  Note,
+  Section,
+  VisualConfig,
+  VisualElement,
+  VisualTheme,
+} from "./types";
+export type VisualizerName = keyof typeof visualizers;

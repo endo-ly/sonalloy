@@ -4,9 +4,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc",
-    "studio": "remotion studio src/index.tsx",
-    "still": "remotion still src/index.tsx MusicVideo",
-    "render": "remotion render src/index.tsx MusicVideo"
+    "studio": "node scripts/render.mjs studio"
   },
   "dependencies": {
     "@remotion/cli": "4.0.526",

@@ -3,7 +3,7 @@ import { level, attack, VisualizerInput } from "./types";
 export function PhaseGarden({ data, frame }: VisualizerInput) {
   const t = frame / data.fps,
     voices = data.tracks.filter((tr) => tr.kind === "melody");
-  const kick = data.tracks.find((tr) => tr.id === "kick"),
+  const kick = data.tracks.find((tr) => tr.tags?.includes("kick")),
     pulse = kick ? attack(kick, t, 12) : 0;
   return (
     <>

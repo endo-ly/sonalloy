@@ -17,6 +17,8 @@ export function renderVisualizer(
     throw new Error("visualizer width and height are required");
   if (![width, height].every((value) => Number.isInteger(value) && value % 2 === 0))
     throw new Error("width and height must be even integers");
+  if (width * 16 !== height * 9)
+    throw new Error("visualizer output must use a 9:16 aspect ratio");
   const variants =
     selection === "all" ? availableVariants : [selection];
   if (!variants.length) throw new Error("visualizer variants are required");
@@ -54,23 +56,14 @@ export function renderVisualizer(
     project.fps,
     { includeScopes: true },
   );
-  const melody = tracks.filter((track) => track.kind === "melody");
-  const percussion = tracks.filter((track) => track.kind === "percussion");
-  if (
-    melody.length < 1 ||
-    melody.length > 5 ||
-    percussion.length > 4 ||
-    melody.length + percussion.length !== tracks.length
-  )
-    throw new Error("provide 1–5 melody tracks and 0–4 percussion tracks");
-  if (melody.some((track) => track.notes.length === 0))
-    throw new Error("melody tracks need notes within the selected clip");
 
   writeFileSync(
     path.join(publicDirectory, "scene.json"),
     JSON.stringify({
       title: project.title,
       audio: `visualizers/${project.id}/mix.wav`,
+      duration: durationSeconds,
+      fadeOut: project.clip.fadeOutSeconds,
       frames,
       fps: project.fps,
       width,
