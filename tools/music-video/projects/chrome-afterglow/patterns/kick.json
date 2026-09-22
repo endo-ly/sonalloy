@@ -1,0 +1,546 @@
+{
+  "schema_version": 1,
+  "name": "Chrome Afterglow — kick",
+  "ticks_per_beat": 480,
+  "length_ticks": 46080,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 128
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 7680,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 8160,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 8640,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 9120,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 9600,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 10080,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 10560,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 11040,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 11520,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 12000,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 12480,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 12960,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 13440,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 13920,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 14400,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 14880,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 15360,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 16320,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 17280,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 18240,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 19200,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 19680,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 20160,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 20640,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 21120,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 21600,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 22080,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 22560,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 23040,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 23520,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 24000,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 24480,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 24960,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 25440,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 25920,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 26400,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 26880,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 27360,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 27840,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 28320,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 28800,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 29280,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 29760,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 30240,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 30720,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 31200,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 31680,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 32160,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 32640,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 33120,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 33600,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 34080,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 34560,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 35040,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 35520,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 36000,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 36480,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 36960,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 37440,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 37920,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 38400,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 38880,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 39360,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 39840,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 40320,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 40800,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 41280,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 41760,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 42240,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 42720,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 43200,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 43680,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 44160,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 44640,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    },
+    {
+      "type": "note",
+      "tick": 45120,
+      "duration_ticks": 100,
+      "note": 36,
+      "velocity": 123
+    }
+  ]
+}

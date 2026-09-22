@@ -1,0 +1,19 @@
+{
+  "name": "sonalloy-music-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc",
+    "studio": "node scripts/render.mjs studio"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.526",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "remotion": "4.0.526"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "typescript": "5.9.3"
+  }
+}
