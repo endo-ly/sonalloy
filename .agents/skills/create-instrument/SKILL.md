@@ -16,10 +16,10 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 | `references/definition.md` | Definition全体の構造・Performance・Layer・Trigger・Macro / Vector・External Audio・コンパイル時の変換 |
 | `references/generators.md` | 全GeneratorのField・Range・Dynamic Parameter・制約 |
 | `references/processors.md` | 全ProcessorのField・Range・Dynamic Parameter・固定Latency |
-| `references/modulation.md` | Modulation Source・Routeの計算規則・MSEG |
+| `references/modulation.md` | Modulation Source・Routeの計算規則・Parameter IDのPrefix・MSEG |
 | `references/patterns.md` | Audition PatternのSchema・Event・MIDI Interchange |
 | `references/demos.md` | Demoの定義・時間軸・MIDI / Audio出力の仕様 |
-| `references/cli.md` | 全コマンドのOption・出力Report・診断Code |
+| `references/cli.md` | 全コマンドのOption・出力Report・診断Code・Exit Code |
 
 ## 全体フロー
 
@@ -30,10 +30,10 @@ init → edit → validate → inspect → pattern trial / render / analyze / tr
 1. **init**：新規Definitionのひな形を生成（既存を編集する場合は省略）
 2. **edit**：Generator、ADSR、Processor、Modulationを編集
 3. **validate**：`instrument validate`でJSON、制約、Asset準備を検証
-4. **inspect**：`instrument inspect --json`でCompile後のUnit、Source Polarity、Route Effect、Clamp範囲を確認
-5. **pattern trial / render / analyze / trace**：単音だけで判断できない場合は用途に合うAudition Patternを作り、`render pattern`または`render note` / `render events` / `render midi`でWAVを生成する。必要な事実を`--analyze`と`--trace`で取得
-6. **demo trial**：複数Instrumentをまとめて確認する場合は、各PatternとDemo Definitionを用意し、[Demo仕様](references/demos.md)の操作の流れに沿って検証・Render・MIDI Exportを行う
-7. **realtime trial**：Deviceが利用できる場合は`device list`で確認し、MIDI Keyboardがある場合は`play`、ない場合は`audition pattern`で同じDefinitionを演奏する
+4. **inspect**：`instrument inspect --json`でCompile後の実行値（Parameter ID、Route Effect、Clamp範囲）を確認
+5. **pattern trial / render**：単音だけで判断できない場合は用途に合うAudition Patternを作り、`render pattern`または`render note` / `render events` / `render midi`でWAVを生成する。必要な事実を`--analyze`と`--trace`で取得する
+6. **demo trial**：複数Instrumentをまとめて確認する場合は、[Demo仕様](references/demos.md)の操作の流れに沿って検証・Render・MIDI Exportを行う
+7. **realtime trial**：`device list`でDeviceを確認し、MIDI Keyboardがある場合は`play`、ない場合は`audition pattern`で同じDefinitionを演奏する
 8. **refine**：数値・音色・`metadata`を整理し、再度InspectとRenderを実行
 
 ## Definitionを編集する
@@ -44,7 +44,7 @@ init → edit → validate → inspect → pattern trial / render / analyze / tr
 sonalloy instrument init <path>
 ```
 
-Saw Oscillatorの最小Definition（同時発音数16、ADSR `0.005 / 0.18 / 0.65 / 0.3`、Gain `-14 dB`、Voice ProcessorのFilter `12000 Hz / 0.12`）が生成されます。
+Saw Oscillator・同時発音数16の最小Definitionが生成されます。
 
 ### 構造の基本
 
@@ -61,18 +61,6 @@ Layer 2 → Layer Processor → ADSR → Layer Gain / Pan ─┘
 
 ### ADSRで音の輪郭を作る
 
-```text
-Level
-  ▲
-  │        ┌──── sustain ────┐
-  │       ╱                  ╲
-  │      ╱                    ╲
-  │     ╱                      ╲
-  │    ╱                        ╲
-  └───┴──────────────────────────┴───▶ Time
-    attack   decay            release
-```
-
 | Parameter | 役割 | Range / 目安 |
 |---|---|---|
 | `attack_seconds` | Note Onから最大音量へ達する時間 | 0〜30秒。0で瞬発、数秒でうねり |
@@ -82,11 +70,11 @@ Level
 
 ### ProcessorとModulation
 
-- **Processor**：Layer / Voice / Globalの3段階で直列適用します。`cutoff`、`threshold_db`、`mix`などのDynamic Parameterを持ちます
+- **Processor**：Layer / Voice / Globalの3段階で直列適用します。`cutoff`、`threshold_db`、`mix`などのDynamic Parameterを持ち、Wet / Dry比は`mix` 1つで表現します
 - **Dynamics**：Gate / Compressorは`detector: "self_signal"`またはGlobal専用の`"external_audio"`を指定します。外部Detectorを使うときは`external_audio`を宣言します
-- **Modulation**：Velocity、Key Tracking、LFO、Envelope、Random、MSEG、Step、Sample Hold、Smooth Random、Envelope Follower、Macro、Transport PhaseなどのSourceをDynamic Parameterへ接続します
+- **Modulation**：Velocity、Key Tracking、LFO、Envelope、Random、MSEG、Step、MacroなどのSourceをDynamic Parameterへ接続します
 
-Processorはどの配置でもObjectのトップレベルに`type`（種類）と`id`（Parameter IDの一部になる識別子）を持ち、残りのFieldは種類ごとに異なります。Wet / Dry比は`mix` 1つで表現します。`processors`はLayerのField、`voice_processors` / `global_processors`はトップレベルのFieldです。
+Processorはどの配置でもObjectのトップレベルに`type`（種類）と`id`（Parameter IDの一部になる識別子）を持ち、残りのFieldは種類ごとに異なります。`processors`はLayerのField、`voice_processors` / `global_processors`はトップレベルのFieldです。
 
 ```json
 "processors": [
@@ -98,15 +86,7 @@ Processorはどの配置でもObjectのトップレベルに`type`（種類）�
 ]
 ```
 
-Dynamic ParameterのIDはProcessorの配置でPrefixが決まり、Modulation RouteとParameter ChangeのTargetはこの形式で書きます。
-
-| 配置 | Parameter ID |
-|---|---|
-| Layer（`processors`） | `layer.<layer_id>.processor.<processor_id>.<parameter>` |
-| Voice（`voice_processors`） | `voice.processor.<processor_id>.<parameter>` |
-| Global（`global_processors`） | `global.processor.<processor_id>.<parameter>` |
-
-たとえば上のLayer FilterのCutoffは`layer.<layer_id>.processor.attack_tone.cutoff`、ReverbのMixは`global.processor.space.mix`です。GeneratorのTargetが`layer.<layer_id>.generator.<name>`形式であることと併せて、Prefixの混同に注意します。Processorを追加・変更したときは、Modulation Routeを書く前に`instrument inspect --json`でCompile後のParameter IDと配置を確認します。
+Dynamic ParameterのIDはProcessorの配置でPrefixが決まり、Modulation RouteとParameter ChangeのTargetはこの形式で書きます。上例のLayer Filterは`layer.<layer_id>.processor.attack_tone.cutoff`、Reverbは`global.processor.space.mix`、Generatorは`layer.<layer_id>.generator.<name>`形式（Operator Modulationだけ`operator.<1-4>.<parameter>`）です。Prefixの一覧は[Modulation仕様](references/modulation.md)、ProcessorのFieldは[Processor仕様](references/processors.md)を参照し、Routeを書く前に`instrument inspect --json`で実際のParameter IDと配置を確認します。
 
 ```json
 "modulation": {
@@ -120,31 +100,7 @@ Dynamic ParameterのIDはProcessorの配置でPrefixが決まり、Modulation Ro
 }
 ```
 
-VelocityとKey Trackingは組み込みSourceのため、Source定義なしで`routes`から参照できます。
-
-Sourceの使い分けは、Note全体で固定する`Random`、一定間隔で値が切り替わる`Sample Hold`、切替間を補間する`Smooth Random`、段階値を順番に保持する`Step`、複数Segmentを進む`MSEG`です。Tempoへ追従させる周期・更新間隔には`per_beat` / `beats`を使い、時間で固定したい場合は`per_second` / `seconds`を使います。Macroは複数Targetをまとめて操作する0〜1のSource、VectorはLayerのConstant-power Mixを操作するTargetです。
-
-Routeの`depth.value`はTargetに意味のあるUnitで書きます。Linear TargetはNative Domainへ加算し、Log2 TargetはOctave Domainへ加算します。たとえばTuningの`20 cents`、Filter Cutoffの`2 octaves`、Gainの`-9 decibels`のように、旧来の全Rangeに対する割合へ換算しません。
-
-### 数値の意味を読む
-
-音色設計で迷いやすい値のEndpointと実装式は次のとおりです。
-
-| Field | 意味 |
-|---|---|
-| `waveshaping.amount` | 0はBypass。`shape = 1 + amount × 3`、正規化`tanh` WetをAmountでDryからCrossfade |
-| `phase_distortion.amount` | 0はIdentity。Breakpointは`0.5 - amount × 0.45`、1で0.05 |
-| `wavefold.amount` | 0はBypass。DaisySP Driveは`1 + amount × 7`、Wet量はAmount |
-| `feedback.amount` | 0は無効。Phase寄与は`(tanh(previous × amount × 2.5)) × 0.25` |
-| `drive.amount` / `drive.mix` | Amount 0はIdentity、Shapeは`amount × 4`。Mix 0はDry、1はWetのLinear Crossfade |
-| `morph` / `position` | MorphはA→B。Positionは対象Source Domainの開始→終了 |
-| `stereo_correlation` | 0は左右独立、1は同一 |
-| `pan_spread` / Unison spread | 0は中央、1は設定可能な最大配置幅 |
-| `freeze` | 0は通常走査、1はFrame固定（Phaseは進む） |
-| `formant.throat` | 0.5がBandwidth不変。0〜1で0.5〜2倍 |
-| Operator `modulation_amount` | Phaseは合計へ0.5を掛けたPhase Offset、Frequencyは`frequency × (1 + sum + feedback_offset)`、Amplitudeは`1 + output × amount`の積、RingはCarrierとProductのCrossfade |
-
-> **重要**：Inspect、Analysis、Traceが既に公開している事実を得るために、RuntimeのSource Codeを読んだり、同じ値を再計算する外部Python解析を作ったりしないでください。製品Interfaceで不足する研究や一回限りの人間向け分析に限り、外部ツールを使えます。
+VelocityとKey Trackingは組み込みSourceのため、Source定義なしで`routes`から参照できます。Sourceの種類・Polarity・`depth`のUnit対応・使い分けは[Modulation仕様](references/modulation.md)を参照してください。
 
 ## Asset（WAV）を扱う
 
@@ -175,7 +131,7 @@ Get-FileHash -Algorithm SHA256 <path>   # 小文字のhexでJSONへ記録する
 
 ## Generator
 
-GeneratorはLayerの`generator` Fieldへ、いずれか1つを指定します。Modulation Target IDは`layer.<layer_id>.generator.<name>`形式です（Operator Modulationだけ`operator.<1-4>.<parameter>`）。
+GeneratorはLayerの`generator` Fieldへ、いずれか1つを指定します。各GeneratorのField・Range・Dynamic Parameter・制約は[Generator仕様](references/generators.md)を参照してください。Modulation Target IDは`layer.<layer_id>.generator.<name>`形式です（Operator Modulationだけ`operator.<1-4>.<parameter>`）。
 
 ## Hybrid構成
 
@@ -193,8 +149,7 @@ Hybridを作る手順：
 1. 各LayerのGainとEnvelopeを単独で確認する
 2. Sample / Wavetable AssetのPathとSHA-256を保持したまま複製する
 3. `instrument inspect --json`でLayer / Voice / Global Processorの配置・順序・Parameter IDを確認し、Route TargetがDefinitionのLayer ID / Processor IDに一致することを確かめる
-4. LFO、Modulation Envelope、Velocity、Mod Wheel、AftertouchをFormant ParameterまたはProcessorへ接続する
-5. `render events`でParameter ChangeとControl Eventを含むPhrase、`render midi`でNote / Velocity / MIDI Controlを含む出力を確認する
+4. LFO、Modulation Envelope、Velocity、Mod Wheel、AftertouchをFormant ParameterまたはProcessorへ接続し、`render events` / `render midi`でPhraseの振る舞いを確認する
 
 ## 検証する
 
@@ -203,10 +158,10 @@ sonalloy instrument validate <definition>          # JSON Parse・Validation・�
 sonalloy instrument inspect <definition> --json    # 実行値を機械可読で表示（--json省略で人間可読）
 ```
 
-- `validate`のWarningは`print_warnings`で表示されるため必ず確認する
-- `inspect`でMode、Voice Count、Layer Trigger、Generator詳細、Gain / Pan / Tuning、Envelope、Processor Chain、Macro / Vector、ParameterのNative / Modulation Unit、Source Polarity、Route Effect、Reachable Range、Warningを確認する
-- ErrorにはField Pathが付くため、そのまま該当箇所へ反映できる
-- Warningが残る場合、Sonalloyは「他LayerでRenderを継続する」設計のため、意図しない無効化がないかを確認する
+- `validate`のWarningも表示されるため必ず確認する。ErrorにはField Pathが付くため、そのまま該当箇所へ反映できる
+- Warningが残る場合、Sonalloyは「他LayerでRenderを継続する」設計のため、`inspect`で意図しない無効化（Sample欠落など）がないかを確認する
+- `inspect`の表示項目は[CLIリファレンス](references/cli.md)を参照する
+- Inspect、Analysis、Traceが既に公開している事実を得るために、RuntimeのSource Codeを読んだり、同じ値を再計算する外部スクリプトを作ったりしないでください。製品Interfaceで不足する研究や一回限りの人間向け分析に限り、外部ツールを使えます
 
 ## 試聴する
 
@@ -230,7 +185,7 @@ sonalloy render midi <definition> <midi-file> \
 
 ## Patternで用途を試奏する
 
-単音だけでは音色の判断が難しい場合は、1つのInstrumentへ送る演奏条件をAudition Patternへ記述します。Patternは曲全体や複数InstrumentのArrangementではなく、音源の用途を確認するためのNote、Chord、Phrase、Drum Pattern、Performance Control、Parameter Changeの入力です。
+単音だけでは音色の判断が難しい場合は、1つのInstrumentへ送る演奏条件をAudition Patternへ記述します。Patternは曲全体や複数InstrumentのArrangementではなく、音源の用途を確認するためのNote、Chord、Phrase、Drum Pattern、Performance Control、Parameter Changeの入力です。SchemaとEventの詳細は[Pattern仕様](references/patterns.md)を参照してください。
 
 ```bash
 sonalloy pattern init out/<name>/audition.json
@@ -264,7 +219,7 @@ sonalloy pattern import-midi <phrase.mid> --channel 1 \
 sonalloy audition midi <definition> <phrase.mid> --channel 1
 ```
 
-`Parameter Change`を含むPatternは`render pattern`や`audition pattern`では音源固有Parameterとして解決されますが、Standard MIDIへExportできません。Patternの構造とMIDI変換の規則は[Pattern仕様](references/patterns.md)を参照してください。
+`Parameter Change`を含むPatternはStandard MIDIへExportできません（変換規則は[Pattern仕様](references/patterns.md)）。
 
 ## Deviceが利用できる場合のRealtime試聴
 
@@ -276,8 +231,6 @@ sonalloy play <definition> --midi-device <id>
 
 `play`は同じDefinitionをCoreのRealtime経路で演奏します。起動前に`device list`でAudio Input / OutputとMIDI InputのIDを確認し、外部Audioを使うDefinitionでは必要なChannel数とSample Rateに対応するInputを`--audio-input-device`で選びます。複数のMIDI Inputがある場合は`--midi-device`を必ず指定します。標準入力のEnterで停止します。Realtime試聴はOffline Render、Analysis、Traceを置き換えません。
 
-Realtimeの人間の確認項目は、Note、Pitch Bend、Mod Wheel、Channel Aftertouch、Sustainを含む入力、256 / 128 FrameのBuffer、10分以上の連続演奏、Xrun・Fatal Fault・Stuck Note・Queue Overflowです。
-
 ## 仕上げる
 
 - `metadata.name`と`metadata.description`を実際の音色に合わせる
@@ -288,15 +241,7 @@ Realtimeの人間の確認項目は、Note、Pitch Bend、Mod Wheel、Channel Af
 
 ## 失敗時の対処
 
-### Exit Code
-
-| Exit Code | 意味 | 対処 |
-|---:|---|---|
-| `0` | 成功 | — |
-| `1` | 音源定義 / コンパイルエラー | `--json`でDiagnosticsを取得し、Field Path付きのErrorを修正する |
-| `2` | CLI入力またはレンダリングリクエストエラー | Option値（Sample Rate、Block Size、Tail、Frequency）を確認する |
-| `3` | Core処理 / レンダリングエラー | `--json`の`DSP_ERROR`等のDiagnosticsを確認する |
-| `4` | WAV出力エラー | 出力先Directoryの存在と書き込み権限を確認する |
+Exit Codeの意味と対処は[CLIリファレンス](references/cli.md)を参照してください。
 
 ### よくある症状と対処
 

@@ -54,6 +54,6 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
 
 ## 固定Latency
 
-Frequency ShifterとConvolution、Spectral Morphは、それぞれ127 framesと256 frames、1024 framesの固定Latencyを持ちます。固定Latencyの合計は`inspect`の`reported_latency_frames`へ反映され、Render時の前置きLatencyとしてCLIが補正します。
+Frequency Shifterは127 frames、Convolutionは256 frames、Spectral Morphは1024 framesの固定Latencyを持ちます。固定Latencyの合計は`inspect`の`reported_latency_frames`へ反映され、Render時にCLIが補償します。
 
 FilterのCutoffが処理できる上限（20 kHzとSample Rateから決まる値の小さい方）を超える定義は、Warningを出して上限へ制限します。

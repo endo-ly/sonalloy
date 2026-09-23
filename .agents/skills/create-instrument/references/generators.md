@@ -80,8 +80,6 @@ Dynamic Parameter：`pulse_width`
 
 Dynamic Parameter：`sync_ratio`、`waveshape`、`phase_distortion`、`wavefold`、`oscillator_feedback`、`unison_detune`、`unison_spread`
 
-`instrument inspect --json`で`phase_domain` Backend、信号順序、DC Blocker、各Parameter IDを確認します。
-
 ## Noise
 
 White / Pink / Brown Noiseを生成します。常にStereo出力します。
@@ -137,11 +135,11 @@ Deterministic ExciterをFractional DelayのFeedback Loopへ入力し、弦や硬
 
 Note OffではGenerator固有のEnvelopeを追加せず、Layer ADSRのReleaseを適用します。
 
-Dynamic Parameter：`physical_string_decay_seconds`、`physical_string_brightness`、`physical_string_stiffness`。`decay_seconds`は`Seconds + Log2`で、Modulation DepthのUnitは`octaves`です。Parameter ID例：`layer.string.generator.physical_string_decay_seconds`
+Dynamic Parameter：`physical_string_decay_seconds`、`physical_string_brightness`、`physical_string_stiffness`。Modulation DepthのUnitは`decay_seconds`だけ`octaves`で、ほかは`normalized`です。Parameter ID例：`layer.string.generator.physical_string_decay_seconds`
 
 ## Modal
 
-Rust側のDeterministic ExciterをPinned DaisySPの低レベル`Resonator`へ入力し、複数Modeの共鳴で棒・板・ベル・金属・木質・ガラス的なBodyを作ります。出力はMonoです。
+Deterministic Exciterを複数Modeの共鳴処理へ入力し、棒・板・ベル・金属・木質・ガラス的なBodyを作ります。出力はMonoです。
 
 ```json
 "generator": {
@@ -168,7 +166,7 @@ Rust側のDeterministic ExciterをPinned DaisySPの低レベル`Resonator`へ入
 | `brightness` | 0〜1 | Yes | 高次Modeの強さと高域Loss |
 | `decay` | 0〜1 | Yes | 共鳴のDecay。0が短く、1が長い。秒単位のT60ではない |
 
-- `structure`は単純な明るさではなくMode配置を変える値です。`decay`はNative ResonatorのDampingへ渡しますが、周波数・Structure・Brightnessとの相互作用があるため、一定秒数のDecayとして解釈しません
+- `structure`は単純な明るさではなくMode配置を変える値です。`decay`は共鳴の減衰量ですが、周波数・Structure・Brightnessと相互作用があるため、一定秒数のDecayとして解釈しません
 - Fundamentalの安全周波数範囲とNote Off時のLayer ADSRはPhysical Stringと同じです
 - 実在する楽器名をGeneratorのModel名のように扱わず、Layer・Processor・Modulationの組み合わせで目指す音色を作ります
 
@@ -209,9 +207,9 @@ Note Frequencyを基準にした1〜64個のPartialのSineを加算します。�
 - 高域Partialは滑らかに減衰させ（NyquistへClampせず、個別の消え方を維持）、全PartialのEnergyで正規化します
 - Layer ADSRはPartial合計の後に適用します
 
-Dynamic Parameter：`additive_morph`、`additive_spectrum_tilt`、`additive_inharmonicity`
+完全無音のSpectrumや空のPartial配列はValidation Errorです。
 
-完全無音Spectrum、空のPartial配列、重複ID、65個以上のPartialはValidation Errorです。`instrument inspect --json`でPartial Count、Ratio、Amplitude、Phase、Envelope有無、3 Parameter IDを確認します。
+Dynamic Parameter：`additive_morph`、`additive_spectrum_tilt`、`additive_inharmonicity`
 
 ## Formant
 
@@ -258,8 +256,6 @@ Dynamic Parameter：`additive_morph`、`additive_spectrum_tilt`、`additive_inha
 
 Dynamic Parameter：`formant_vowel_position`、`formant_shift`、`formant_throat`、`formant_spectral_tilt`
 
-Profileが0個または9個以上、Partial数が0または65以上、Band数が5以外、ID重複、周波数非昇順、各Range違反はValidation Errorです。`instrument inspect --json`でProfile Count、5 Band、4 Parameter ID、出力Modeを確認します。
-
 ## Wavetable
 
 周期波形をFrame順に連結したWAVを、Frame単位で走査します。
@@ -285,12 +281,11 @@ Profileが0個または9個以上、Partial数が0または65以上、Band数が
 | `unison` | — | 一部Yes | Oscillatorと同じ |
 
 - WAV全体のSample数は`frame_length`で割り切れ、Frame数が1〜256である必要があります
-- Source Sample RateはPitchへ使わず、WavetableをResampleしません
 - Unison 1はMono、2 Voice以上はStereoです
 
 Dynamic Parameter：`wavetable_position`、`unison_detune` / `unison_spread`（Unison指定時）
 
-`instrument validate`はFrame配置、Hash、無音Frame / DCを検査し、`inspect --json`は準備済み状態、Band、Position Parameter ID、実効周波数上限を返します。
+無音FrameやDC Offsetは`instrument validate`で検査されます。
 
 ## Spectral
 
@@ -329,7 +324,7 @@ WAVをSTFT解析して再構成します。`asset_a`を必須の一次Sourceと�
 
 Dynamic Parameter：`spectral_position`、`spectral_freeze`、`spectral_blur`、`spectral_shift`、`spectral_morph`（`asset_b`指定時のみ）
 
-A/BのChannel数不一致はCompile Errorです。`inspect --json`でAsset A/Bの準備済み状態、Source Channel、Spectral Frame、準備済みSample Rate、FFT / Hop / Bin、Latency、5 Parameter IDを確認します。
+A/BのChannel数不一致はCompile Errorです。
 
 ## Operator Modulation
 
@@ -399,8 +394,6 @@ AlgorithmごとのOperator接続は次のとおりです。`A→B`はAの出力�
 | Ring | Carrier信号と接続元Operator出力の積へ、Amountの割合で近づける |
 
 Dynamic Parameter：`operator.<1-4>.ratio`、`operator.<1-4>.detune`、`operator.<1-4>.level`（Carrierのみ）、`operator.<1-4>.modulation_amount`（接続元のみ）、`operator.<1-4>.feedback`（Phase / Frequencyのみ）、`unison_detune` / `unison_spread`（Unison指定時）
-
-`inspect --json`でMode、Algorithm、評価順序、Carrier、4 OperatorのParameter ID、Unison、実効周波数上限を確認します。
 
 ## Sample
 
@@ -505,7 +498,7 @@ Note OffではGrainを破棄せずLayer EnvelopeがReleaseへ進み、Voice Stea
 
 Dynamic Parameter：`granular_position`、`grain_size`、`grain_density`、`grain_pitch`、`grain_randomness`、`grain_pan_spread`
 
-RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Parameter範囲違反は`INVALID_GRAIN_PARAMETER`です。`inspect --json`で準備済み状態、領域Frame、6 Parameter ID、Source Channel、Seed、Grain Pool Limitを確認します。
+RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Parameter範囲違反は`INVALID_GRAIN_PARAMETER`です。
 
 ## Wave Sequence
 
@@ -551,4 +544,4 @@ RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Pa
 - 利用できないAsset・不正なRegionのStepは削除せず、Durationを保持した無音Stepとして残ります（後続Stepの時間を変えません）
 - 全Stepが利用できない場合はLayerだけを発音候補から除外します
 
-Wave Sequence固有のDynamic Parameterはありません。Step構造はコンパイル時に確定します。`inspect --json`でStep Count、Direction、Loop、Crossfade、領域Frame、Duration、Playback、Availability、Pitch、Gainを確認します。
+Wave Sequence固有のDynamic Parameterはありません。Step構造はコンパイル時に確定します。

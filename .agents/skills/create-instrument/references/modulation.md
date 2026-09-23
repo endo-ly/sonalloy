@@ -4,7 +4,7 @@
 
 ## 構造とScope
 
-`modulation`は省略可能です。`sources`はVoiceごとのSource定義、`routes`はSourceからDynamic Parameterへの接続です。Routeは書かれた順に同じTargetへ加算され、最後にTarget範囲へClampされます。
+`modulation`は省略可能です。`sources`はVoiceごとのSource定義、`routes`はSourceからDynamic Parameterへの接続です。
 
 Scopeの分担：MacroとTransport Phase、Envelope FollowerはInstrument単位、LFOやEnvelopeなどの定義SourceはVoice単位です。
 
@@ -51,13 +51,19 @@ Polarityは、LFO、Random、MSEG、Step、Sample Hold、Smooth RandomがBipolar
 
 - `depth.value`はSigned値、`depth.unit`はTargetのModulation Unitです（Linear TargetはNative Unit、Log2 TargetはOctaves）。TargetごとのUnitは次節の表のとおりで、実効範囲（Clamp後の値域）は`instrument inspect --json`のParameter一覧で確認できます
 - `curve`は`linear`または`smooth_step`です
-- `curved_source × depth.value`をNative Domainへ加算し、Log2 TargetはOctave Domainで加算して`base × 2^sum`へ変換します
 - RouteはDefinition順に加算し、最後にTarget範囲へClampします
-- Parameter IDの解決とRouteの計算はコンパイル前に完了するため、音声処理中に文字列IDやJSONを扱いません
 
 ## TargetのModulation Unit
 
 RouteのTargetに指定できるDynamic Parameterと、`depth.unit`に書くUnitの対応です。同じ名前のParameterでもGeneratorとProcessorでUnitが異なることがあるため、Target IDごとに確認します。表にないField（Static Field）はModulation対象外です。
+
+ProcessorのParameter IDは配置でPrefixが変わります。
+
+| 配置 | Prefix |
+|---|---|
+| Layer（`processors`） | `layer.<layer_id>.processor.<processor_id>.<parameter>` |
+| Voice（`voice_processors`） | `voice.processor.<processor_id>.<parameter>` |
+| Global（`global_processors`） | `global.processor.<processor_id>.<parameter>` |
 
 Layerの組み込みTarget:
 
@@ -79,7 +85,7 @@ GeneratorのParameter（Target IDは`layer.<id>.generator.<parameter>`。Operato
 | `hertz` | `spectral_shift` |
 | `index` | `operator.<1-4>.modulation_amount` |
 
-ProcessorのParameter（Target IDは配置ごとのPrefix + `<parameter>`）:
+ProcessorのParameter:
 
 | Unit | Parameter |
 |---|---|

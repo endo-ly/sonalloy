@@ -2,8 +2,6 @@
 
 Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み込み、検証・コンパイルし、リアルタイム演奏またはWAVレンダリングを行います。本書は全コマンドのOption・出力・診断の正本です。
 
-各コマンドは「**音源定義を作る → 検証する → Patternを用意する → 鳴らす（リアルタイム / オフライン）**」の順に説明します。
-
 ## コマンドの全体像
 
 | コマンド | 役割 |
@@ -35,7 +33,7 @@ Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み
 
 ### `instrument init` — ひな形の生成
 
-最小のOscillator音源（Saw波形、同時発音数16）を生成します。ここから編集を始めるための土台です。
+最小のOscillator音源（Saw波形、同時発音数16）を生成します。
 
 ```bash
 sonalloy instrument init <path>
@@ -119,14 +117,7 @@ sonalloy pattern validate phrase.json
 sonalloy pattern validate phrase.json --json
 ```
 
-次を検証します：
-
-- Schema Versionと未知のField
-- Tick、Tempo、Time Signatureの整合
-- NoteとControl値の範囲と有限数
-- Noteが1つ以上あること
-
-Instrument固有Parameterの存在と範囲は、Instrumentを指定する`render pattern`または`audition pattern`で解決します。
+Schema Version、未知のField、Tick / Tempo / Time Signatureの整合、NoteとControl値の範囲、Noteが1つ以上あることを検証します。検証規則の詳細は[Pattern仕様](patterns.md)を参照してください。Instrument固有Parameterの存在と範囲は、Instrumentを指定する`render pattern`または`audition pattern`で解決します。
 
 ### `pattern inspect` — Pattern概要
 
@@ -150,7 +141,7 @@ sonalloy pattern import-midi phrase.mid --output phrase.json
 sonalloy pattern import-midi song.mid --channel 10 --output drums.json
 ```
 
-Patternは1 Instrument用なので、Note Channelが複数あるMIDIは`--channel 1..16`で1つを選びます。Channelが1つだけの場合は自動選択します。Output Pathが存在する場合は失敗します。
+`--channel 1..16`で取り込むNote Channelを選びます（1つのChannelだけのMIDIは自動選択）。既存のOutput Pathは上書きしません。取り込み規則は[Pattern仕様](patterns.md)を参照してください。
 
 ### `pattern export-midi` — PatternからMIDIへ変換
 
@@ -159,7 +150,7 @@ sonalloy pattern export-midi phrase.json --output phrase.mid
 sonalloy pattern export-midi drums.json --channel 10 --output drums.mid
 ```
 
-Sonalloy固有のParameter Changeを含むPatternは`MIDI_ERROR`で失敗し、Output Pathが存在する場合も上書きしません。
+既存のOutput Pathは上書きしません。MIDIへ変換できないEventがあるPatternは`MIDI_ERROR`で失敗します（規則は[Pattern仕様](patterns.md)）。
 
 ## Demo
 
@@ -172,9 +163,7 @@ sonalloy demo validate demo.json
 sonalloy demo validate demo.json --json
 ```
 
-Demo JSON、各Partが参照するInstrumentとPattern、PatternとInstrumentのCompile、全Partの時間軸を検証します。Instrument CompileはSample Rate `48000`、Block Size `257`で実行します。外部Audio入力を必要とするInstrumentは使用できません。検証は可能な範囲まで続き、参照先の診断Pathには`parts[i].instrument`または`parts[i].pattern`を付けます。
-
-成功時の`--json` Reportは既存のStatus Report形式です。
+Demo JSON、各Partが参照するInstrumentとPattern、全Partの時間軸を検証します。Instrument CompileはSample Rate `48000`、Block Size `257`で実行し、外部Audio入力を必要とするInstrumentは使用できません。検証内容・診断Path・Reportの詳細は[Demo仕様](demos.md)を参照してください。
 
 ### `demo inspect` — Demoの構成確認
 
@@ -268,15 +257,11 @@ sonalloy play <definition> --audio-device <id> --sample-rate 48000 --buffer-size
 - 起動時: Definition名、Audio / MIDI Device名とID、Sample Rate、Channel数、Sample Format、要求Buffer Size、Engine Latency、Tempo、Time Signature、Macro CC Mapping
 - 終了時: 観測した最小 / 最大Frame数とCallback回数（Host Callbackの実Frame数は要求値と異なることがあるため）
 
-Deviceを機械可読で確認するときは`device list --json`を使います。
-
 音声とエラーの扱いは次のとおりです。
 
-- CoreのPlanar `f32` Stereo出力をDeviceのSample Formatへ変換します。2chより多いDeviceではch 0 / 1へLeft / Rightを出力し、残りを無音にします
 - Mono Device、PCM以外のFormat、対応範囲外のBuffer Sizeは起動Errorになります
 - Realtime Schedulingの拒否はWarningを表示して継続し、Xrunは回数を終了時に表示します
-- Audio InputのFrame不足は無音Frameとして補い、Underflow Counterを記録してSessionを継続します。Input Queueが満杯になった場合は新しいFrameを破棄し、Overflow Counterを記録します
-- Audio InputのDevice Error、Audio Output Error、MIDI Error、Process Error・Event Queue Overflowは、出力を無音化してから対応するErrorとしてSessionを終了します
+- Audio InputのFrame不足は無音Frameで補って継続し、Device / MIDI / Processの致命的なErrorでは出力を無音化してSessionを終了します
 
 MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64（Sustain Pedal）は、Offline経路と同じCore Eventへ変換されます。`--macro-cc`で割り当てたCCはMacroの`parameter_change`へ変換されます。1つのCCを複数Macroへ割り当てたり、予約済みCCを割り当てたりする指定は起動時に拒否します。
 
@@ -421,7 +406,7 @@ Analysisの主なFieldは次のとおりです。
 
 測定できない項目（無音時のLevel / Activityなど）は`null`になり、NaNとInfinityはJSONへ出力しません。`render note`だけは指定MIDI Noteの標準音高をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
 
-Trace対象は既存CatalogのDynamic Parameter IDだけです。Reportには各時点のTarget値（Base、Routeごとの寄与、Clamp前後の値）が記録され、Voice所属Parameterなら所属Voiceの情報も付きます。Layer TuningをTraceした場合、Portamento中はRouteとは別の`portamento_offset_cents`と、Offsetを加えた実際の値を示す`effective_value`が記録されます。MacroはInstrument単位のため、Voice情報なしで一度だけ観測されます。Layer Targetは発音中のVoiceだけを報告します。
+Trace対象は既存CatalogのDynamic Parameter IDだけです。`trace.parameters[].observations[]`には各時点のTarget値（Base、Routeごとの寄与、Clamp前後の値。`final`が最終値）が記録され、Voice所属Parameterなら所属Voiceの情報も付きます。Layer TuningをTraceした場合、Portamento中はRouteとは別の`portamento_offset_cents`と、実際にGeneratorへ渡る値を示す`effective_value`が記録されます。MacroはInstrument単位のため、Voice情報なしで一度だけ観測され、Layer Targetは発音中のVoiceだけを報告します。
 
 Traceの時刻はLatency補正後の出力WAVと同じTimelineです。Renderと同じMusical Time Mapを通るため、Tempo / Meter変更位置では処理Blockが分かれます。`--trace`は繰り返し指定でき、観測総数には100,000件の上限があります。
 
@@ -433,9 +418,7 @@ sonalloy render note presets/basic.json --analyze \
   --trace-every-frames 480 --json --output out/note.wav
 ```
 
-`trace.parameters[].observations[]`の`final`が、全Route加算とClamp後の値です。Portamento中のLayer Tuningだけは、その後段の音高Offsetを`portamento_offset_cents`へ分け、実際にGeneratorへ渡る値を`effective_value`へ記録します。
-
-`--reset-check`は同じRuntimeをResetして同じEvent列を再実行し、前後のAudio差分をReportへ記録します。すべてのStateが初期化されていれば差分は0になります。`--reset-check`は`trace`と併用できません。
+`--reset-check`は同じRuntimeをResetして同じEvent列を再実行し、前後のAudio差分をReportへ記録します。すべてのStateが初期化されていれば差分は0になります。`trace`とは併用できません。
 
 ### `render midi` — MIDI Fileのレンダリング
 
@@ -518,17 +501,17 @@ sonalloy update
 
 すべての`render`コマンドは、32-bit float・2 Channel・指定Sample RateのStereo WAVを出力します。出力先の親Directoryは事前に作成してください。
 
-固定Algorithmic Latencyを持つ音源では、CLIが内部で報告Latency分を追加レンダリングし、先頭の無音部分を除去して、**演奏タイムラインのFrame 0**からWAVを始めます。Frequency Shifterは127 frames、Convolutionは256 frames、Spectral Morphは1024 framesの固定Latencyを持ちます。成功時のJSONには`reported_latency_frames`が含まれます。
+固定Algorithmic Latencyを持つ音源では、CLIが内部で報告Latency分を追加レンダリングし、先頭の無音部分を除去して、**演奏タイムラインのFrame 0**からWAVを始めます。Latencyの値は[Processor仕様](processors.md)、合計は成功時のJSONの`reported_latency_frames`に含まれます。
 
 ### Exit Code
 
-| Code | 意味 |
-|---:|---|
-| `0` | 成功 |
-| `1` | 音源定義 / コンパイルエラー |
-| `2` | CLI入力 / レンダリングリクエストエラー |
-| `3` | Core処理 / レンダリングエラー |
-| `4` | WAV出力エラー |
+| Code | 意味 | 対処 |
+|---:|---|---|
+| `0` | 成功 | — |
+| `1` | 音源定義 / コンパイルエラー | `--json`でDiagnosticsを取得し、Field Path付きのErrorを修正する |
+| `2` | CLI入力 / レンダリングリクエストエラー | Option値（Sample Rate、Block Size、Tail、Frequency）を確認する |
+| `3` | Core処理 / レンダリングエラー | `--json`の`DSP_ERROR`等のDiagnosticsを確認する |
+| `4` | WAV出力エラー | 出力先Directoryの存在と書き込み権限を確認する |
 
 `--json`を付けると、入力エラーを次の形で返します：
 
