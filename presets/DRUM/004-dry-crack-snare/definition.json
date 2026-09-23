@@ -1,7 +1,7 @@
 {
   "schema_version": 6,
   "metadata": {
-    "name": "Noise Snare",
+    "name": "Dry Crack Snare",
     "author": "gpt-6-astra low",
     "description": "鋭い衝撃に高域ノイズを重ねた、乾いた短いスネア。中域の小さな打撃が中心を支え、ノイズがすぐに収束して低い余韻を残さない。短い反復で発音が明確に分かれ、強い打鍵では輪郭の鋭さが増す。",
     "category": "Drum",
@@ -68,7 +68,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -20,
+      "gain_db": -15.4,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -111,7 +111,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -19,
+      "gain_db": -14.4,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -138,14 +138,34 @@
       ]
     }
   ],
-  "voice_processors": [],
+  "voice_processors": [
+    {
+      "type": "transient_shaper",
+      "id": "snap",
+      "attack": 0.15,
+      "sustain": 0.1,
+      "mix": 0.85
+    },
+    {
+      "type": "compressor",
+      "id": "density",
+      "detector": "self_signal",
+      "threshold_db": -20,
+      "ratio": 3,
+      "attack_ms": 3,
+      "release_ms": 70,
+      "knee_db": 10,
+      "makeup_gain_db": 5,
+      "mix": 0.85
+    }
+  ],
   "global_processors": [
     {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 120,
-      "input_gain_db": 0
+      "input_gain_db": -1.5
     }
   ],
   "modulation": {

@@ -78,7 +78,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -22,
+      "gain_db": -12.1,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -121,7 +121,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -28,
+      "gain_db": -18.1,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -162,6 +162,25 @@
       "mode": "low_pass",
       "cutoff_hz": 9500,
       "resonance": 0.05
+    },
+    {
+      "type": "transient_shaper",
+      "id": "grain_bite",
+      "attack": 0.1,
+      "sustain": 0.25,
+      "mix": 0.9
+    },
+    {
+      "type": "compressor",
+      "id": "density",
+      "detector": "self_signal",
+      "threshold_db": -22,
+      "ratio": 3,
+      "attack_ms": 3,
+      "release_ms": 55,
+      "knee_db": 10,
+      "makeup_gain_db": 5,
+      "mix": 0.85
     }
   ],
   "global_processors": [
