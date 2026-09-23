@@ -1,0 +1,294 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Clean Picked String",
+    "author": "mimo-v2.6-flash",
+    "description": "撥ねたクリーンな弦の振動を核に、木質の胴鳴りと細い爪痕を重ねた有音程音。発音直後に爪痕が中域へ粒を立ち、弦の自然な減衰に続いて胴の共鳴が寄り添う。弱い弾きほど明るさが落ち着き、強い弾きで爪痕と弦の芯が前に出て、短い音価でも粒が分かれて残る。",
+    "category": "Pluck",
+    "tags": [
+      "Physical",
+      "Clean",
+      "Warm",
+      "Smooth"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 360,
+          "note": 60,
+          "velocity": 104
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 360,
+          "note": 64,
+          "velocity": 92
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 360,
+          "note": 67,
+          "velocity": 110
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 360,
+          "note": 72,
+          "velocity": 98
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 360,
+          "note": 67,
+          "velocity": 88
+        },
+        {
+          "tick": 2400,
+          "duration_ticks": 360,
+          "note": 64,
+          "velocity": 106
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 360,
+          "note": 60,
+          "velocity": 94
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 400,
+          "note": 55,
+          "velocity": 114
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "string",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": 4,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.08,
+        "sustain_level": 1,
+        "release_seconds": 0.55
+      },
+      "generator": {
+        "physical_string": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.005,
+            "brightness": 0.78,
+            "seed": 70701
+          },
+          "decay_seconds": 2.4,
+          "brightness": 0.68,
+          "stiffness": 0.24
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -6,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.75,
+        "release_seconds": 0.4
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.006,
+            "brightness": 0.48,
+            "seed": 70702
+          },
+          "mode_count": 12,
+          "structure": 0.34,
+          "brightness": 0.46,
+          "decay": 0.42
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "pick",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -26,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.022,
+        "sustain_level": 0,
+        "release_seconds": 0.025
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 70703,
+          "stereo_correlation": 0.7
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "nail",
+          "mode": "band_pass",
+          "cutoff_hz": 2700,
+          "resonance": 0.4
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "floor",
+      "mode": "high_pass",
+      "cutoff_hz": 145,
+      "resonance": 0.04
+    },
+    {
+      "type": "filter",
+      "id": "air",
+      "mode": "low_pass",
+      "cutoff_hz": 9200,
+      "resonance": 0.05
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.014,
+      "decay": 0.3,
+      "damping": 0.58,
+      "width": 0.8,
+      "mix": 0.07
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 8
+    }
+  ],
+  "macros": [],
+  "vectors": [],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.string.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.string.generator.physical_string_brightness",
+        "depth": {
+          "value": 0.16,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.pick.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.string.generator.physical_string_brightness",
+        "depth": {
+          "value": 0.12,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.string.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

@@ -1,0 +1,331 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Soft Round Kick",
+    "author": "gpt-6-astra low",
+    "description": "柔らかな接触音の後に、丸い低域がどっしりと座るショートキック。中域寄りの穏やかなノックと控えめなコンプレッションで輪郭を締め、鋭い打撃芯は立てない。連打でも低域が濁りにくく、ベロシティを上げると押し出しと低域の密度が増し、丸い余韻が柔らかいまま残る。",
+    "category": "Drum",
+    "tags": [
+      "Sub",
+      "Soft",
+      "Percussive",
+      "Short"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 48
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 1920,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 180,
+          "note": 36,
+          "velocity": 90
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 180,
+          "note": 36,
+          "velocity": 112
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 180,
+          "note": 36,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 180,
+          "note": 36,
+          "velocity": 127
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -10,
+      "pan": 0,
+      "tuning_cents": -250,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.32,
+        "sustain_level": 0,
+        "release_seconds": 0.22
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": [
+        {
+          "type": "drive",
+          "id": "weight",
+          "amount": 0.12,
+          "mix": 0.2
+        }
+      ]
+    },
+    {
+      "id": "contact",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0015,
+        "decay_seconds": 0.028,
+        "sustain_level": 0,
+        "release_seconds": 0.03
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 6192,
+          "stereo_correlation": 1
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "low",
+          "mode": "low_pass",
+          "cutoff_hz": 1800,
+          "resonance": 0
+        },
+        {
+          "type": "filter",
+          "id": "high",
+          "mode": "high_pass",
+          "cutoff_hz": 650,
+          "resonance": 0
+        }
+      ]
+    },
+    {
+      "id": "thump",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.1,
+        "sustain_level": 0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": 0,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "second",
+              "ratio": 2,
+              "amplitude_a": 0.4,
+              "amplitude_b": 0.4,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.002,
+                "decay_seconds": 0.09,
+                "sustain_level": 0,
+                "release_seconds": 0.06
+              }
+            },
+            {
+              "id": "third",
+              "ratio": 3,
+              "amplitude_a": 0.18,
+              "amplitude_b": 0.18,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.002,
+                "decay_seconds": 0.05,
+                "sustain_level": 0,
+                "release_seconds": 0.04
+              }
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "focus",
+          "mode": "band_pass",
+          "cutoff_hz": 160,
+          "resonance": 0.2
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "floor",
+      "mode": "high_pass",
+      "cutoff_hz": 25,
+      "resonance": 0
+    },
+    {
+      "type": "eq",
+      "id": "shape",
+      "low_frequency_hz": 90,
+      "low_gain_db": 2.5,
+      "mid_frequency_hz": 220,
+      "mid_gain_db": 2,
+      "mid_q": 1.1,
+      "high_frequency_hz": 4500,
+      "high_gain_db": -1.5
+    },
+    {
+      "type": "compressor",
+      "id": "density",
+      "detector": "self_signal",
+      "threshold_db": -15,
+      "ratio": 2.8,
+      "attack_ms": 18,
+      "release_ms": 100,
+      "knee_db": 10,
+      "makeup_gain_db": 4,
+      "mix": 0.65
+    },
+    {
+      "type": "transient_shaper",
+      "id": "settle",
+      "attack": 0.08,
+      "sustain": -0.08,
+      "mix": 0.7
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "ceiling",
+      "ceiling_db": -1.2,
+      "release_ms": 80,
+      "input_gain_db": 2.5
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "fall",
+        "type": "mseg",
+        "initial_value": 1,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.025,
+              "unit": "seconds"
+            },
+            "target": 0.18,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.045,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "fall",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 750,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.contact.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.thump.gain",
+        "depth": {
+          "value": 5,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}
