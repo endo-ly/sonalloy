@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Dry Crack Snare",
     "author": "gpt-6-astra low",
-    "description": "鋭い衝撃に高域ノイズを重ねた、乾いた短いスネア。中域の小さな打撃が中心を支え、ノイズがすぐに収束して低い余韻を残さない。短い反復で発音が明確に分かれ、強い打鍵では輪郭の鋭さが増す。",
+    "description": "発音の瞬間、低めの短い胴が芯を支え、その上を鋭い高域のノイズがパチッと走る。胴は一瞬で消え、乾いた明るい輪郭だけが残ってすぐに収束する。短い反復でも発音が分かれ、強い打鍵では胴の存在感と高域の鋭さが同時に増す。",
     "category": "Drum",
     "tags": [
       "Noisy",
@@ -59,6 +59,76 @@
   },
   "layers": [
     {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16.0,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0006,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 0.06
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": 0,
+          "inharmonicity": 0.04,
+          "partials": [
+            {
+              "id": "chest",
+              "ratio": 2.5,
+              "amplitude_a": 0.5,
+              "amplitude_b": 0.5,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.0006,
+                "decay_seconds": 0.045,
+                "sustain_level": 0,
+                "release_seconds": 0.03
+              }
+            },
+            {
+              "id": "head",
+              "ratio": 3.2,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.0006,
+                "decay_seconds": 0.07,
+                "sustain_level": 0,
+                "release_seconds": 0.04
+              }
+            },
+            {
+              "id": "top",
+              "ratio": 4.6,
+              "amplitude_a": 0.35,
+              "amplitude_b": 0.35,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.0006,
+                "decay_seconds": 0.05,
+                "sustain_level": 0,
+                "release_seconds": 0.035
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
       "id": "noise",
       "enabled": true,
       "trigger": {
@@ -102,7 +172,7 @@
       ]
     },
     {
-      "id": "thump",
+      "id": "mid_snap",
       "enabled": true,
       "trigger": {
         "event": "note_on",
@@ -132,7 +202,7 @@
           "type": "filter",
           "id": "snap",
           "mode": "band_pass",
-          "cutoff_hz": 1800,
+          "cutoff_hz": 2200,
           "resonance": 0.16
         }
       ]
@@ -165,7 +235,7 @@
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 120,
-      "input_gain_db": -1.5
+      "input_gain_db": -3.5
     }
   ],
   "modulation": {
@@ -182,7 +252,16 @@
       },
       {
         "source": "velocity",
-        "target": "layer.thump.gain",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 5,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.mid_snap.gain",
         "depth": {
           "value": 5,
           "unit": "decibels"

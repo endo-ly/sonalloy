@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Wide Wash Crash",
     "author": "gpt-6-astra low",
-    "description": "密度の高い金属振動が広い高域へ広がるクラッシュ。発音直後の衝撃から高い成分が先に収まり、複雑な金属の余韻が長く残る。短い一打では広い音像が現れ、長い発音では余韻の層がゆっくり薄くなる。",
+    "description": "金属板の胴が鳴った直後、その周囲へ高域のWashが広がっていくクラッシュ。立ち上がりでは中域の金属共鳴が板の存在を示し、尾を引くうちに広い音像の高域がゆっくり薄まっていく。一打では胴からWashへの移りが聞き取れ、強い打鍵では衝撃と広がりが同時に増す。",
     "category": "Drum",
     "tags": [
       "Metallic",
@@ -23,29 +23,29 @@
         "numerator": 4,
         "denominator": 4
       },
-      "length_ticks": 1920,
+      "length_ticks": 4800,
       "notes": [
         {
           "tick": 0,
-          "duration_ticks": 180,
-          "note": 49,
-          "velocity": 90
-        },
-        {
-          "tick": 480,
-          "duration_ticks": 180,
-          "note": 49,
-          "velocity": 110
-        },
-        {
-          "tick": 960,
-          "duration_ticks": 180,
+          "duration_ticks": 1920,
           "note": 49,
           "velocity": 100
         },
         {
-          "tick": 1440,
-          "duration_ticks": 180,
+          "tick": 1920,
+          "duration_ticks": 960,
+          "note": 49,
+          "velocity": 90
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 960,
+          "note": 49,
+          "velocity": 110
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 960,
           "note": 49,
           "velocity": 120
         }
@@ -68,7 +68,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -14.0,
+      "gain_db": -8.0,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -82,13 +82,13 @@
           "exciter": {
             "type": "noise_burst",
             "duration_seconds": 0.003,
-            "brightness": 0.88,
+            "brightness": 0.72,
             "seed": 8808
           },
           "mode_count": 24,
-          "structure": 0.86,
-          "brightness": 0.84,
-          "decay": 0.78
+          "structure": 0.66,
+          "brightness": 0.62,
+          "decay": 0.84
         }
       },
       "processors": []
@@ -103,7 +103,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -22.0,
+      "gain_db": -27.0,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -171,7 +171,7 @@
       "type": "filter",
       "id": "air",
       "mode": "high_pass",
-      "cutoff_hz": 1600,
+      "cutoff_hz": 950.0,
       "resonance": 0.05
     },
     {
@@ -207,7 +207,7 @@
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 150,
-      "input_gain_db": 2.0
+      "input_gain_db": 2.5
     }
   ],
   "modulation": {

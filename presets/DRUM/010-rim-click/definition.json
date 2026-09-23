@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Rim Click",
     "author": "gpt-6-astra low",
-    "description": "硬い縁を叩いたような短いリム音。中高域の共鳴と小さなクリックが中央にまとまった鋭い輪郭を作り、低域や長い余韻を残さず収束する。短いリズムでは隣の発音と重なりにくく、強い打鍵で輪郭の鋭さが増す。",
+    "description": "最初の数ミリ秒に硬い高域のクリックが立ち、直後に短い木質の胴が続くリム音。高域の「カッ」という打撃が輪郭を作り、100ミリ秒前後で低めの共鳴ごと収束する。短いリズムでも発音が分かれ、強い打鍵ではクリックの鋭さが増す。",
     "category": "Drum",
     "tags": [
       "Bright",
@@ -68,7 +68,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -10.5,
+      "gain_db": -13.5,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -138,7 +138,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -16.5,
+      "gain_db": -19.0,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -208,14 +208,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -19.0,
+      "gain_db": -7.5,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.0005,
-        "decay_seconds": 0.008,
+        "decay_seconds": 0.012,
         "sustain_level": 0,
-        "release_seconds": 0.008
+        "release_seconds": 0.01
       },
       "generator": {
         "noise": {
@@ -229,8 +229,8 @@
           "type": "filter",
           "id": "tick",
           "mode": "high_pass",
-          "cutoff_hz": 3400,
-          "resonance": 0.05
+          "cutoff_hz": 3800.0,
+          "resonance": 0.12
         },
         {
           "type": "filter",
@@ -254,13 +254,13 @@
       "type": "filter",
       "id": "polish",
       "mode": "low_pass",
-      "cutoff_hz": 9000,
+      "cutoff_hz": 11000.0,
       "resonance": 0.05
     },
     {
       "type": "transient_shaper",
       "id": "click_bite",
-      "attack": 0.12,
+      "attack": 0.2,
       "sustain": 0.25,
       "mix": 0.8
     },
@@ -283,7 +283,7 @@
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 120,
-      "input_gain_db": -1.5
+      "input_gain_db": -3.5
     }
   ],
   "modulation": {
@@ -293,7 +293,7 @@
         "source": "velocity",
         "target": "layer.blip.gain",
         "depth": {
-          "value": 8,
+          "value": 6,
           "unit": "decibels"
         },
         "curve": "smooth_step"

@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Finger Snap",
     "author": "glm-5.3-flash",
-    "description": "指を弾いた瞬間の二つの接触がひとつのまとまりになった指スナップ。明るい帯域のパチンという輪郭に、短い擦れの尾が続き、すっと消える。連打しても前の音に重ならず、強いスナップでは明るさと押し出しが増す。",
+    "description": "二つの鋭い接触音が時間差で重なり、ごく短い中域の共鳴がひとまとまりの響きを作る指スナップ。接触音が収まった直後だけ中域の小さな共鳴が残り、低い胴にはならずにすっと消える。連打しても前の音に重ならず、強いスナップでは押し出しが増す。",
     "category": "Drum",
     "tags": [
       "Noisy",
@@ -58,6 +58,76 @@
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
+    {
+      "id": "palm",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.0,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0004,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 0.03
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": 0,
+          "inharmonicity": 0.12,
+          "partials": [
+            {
+              "id": "palm_lo",
+              "ratio": 9.5,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.0004,
+                "decay_seconds": 0.032,
+                "sustain_level": 0,
+                "release_seconds": 0.02
+              }
+            },
+            {
+              "id": "palm_mid",
+              "ratio": 15.2,
+              "amplitude_a": 0.6,
+              "amplitude_b": 0.6,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.0004,
+                "decay_seconds": 0.026,
+                "sustain_level": 0,
+                "release_seconds": 0.02
+              }
+            },
+            {
+              "id": "palm_hi",
+              "ratio": 23,
+              "amplitude_a": 0.4,
+              "amplitude_b": 0.4,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.0004,
+                "decay_seconds": 0.02,
+                "sustain_level": 0,
+                "release_seconds": 0.02
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
     {
       "id": "impact",
       "enabled": true,
@@ -193,7 +263,7 @@
       "type": "filter",
       "id": "floor",
       "mode": "high_pass",
-      "cutoff_hz": 1100,
+      "cutoff_hz": 640.0,
       "resonance": 0.04
     },
     {
@@ -251,6 +321,15 @@
           "unit": "octaves"
         },
         "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.palm.gain",
+        "depth": {
+          "value": 4,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
       }
     ]
   },
