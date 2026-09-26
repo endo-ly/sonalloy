@@ -477,7 +477,7 @@ sonalloy dev render-sine \
 
 | Option | Default | 内容 |
 |---|---|---|
-| `--frequency` | 440 | 周波数（Hz） |
+| `--frequency` | 440 | 周波数（Hz）。有限・非負で、選択したSample Rateの半分以下（Nyquist周波数） |
 | `--duration` | — | レンダリング長（秒、必須） |
 | `--sample-rate` | 48000 | 出力Sample Rate |
 | `--block-size` | 257 | 処理の最大Block Size |
@@ -513,7 +513,7 @@ sonalloy update
 | `3` | Core処理 / レンダリングエラー | `--json`の`DSP_ERROR`等のDiagnosticsを確認する |
 | `4` | WAV出力エラー | 出力先Directoryの存在と書き込み権限を確認する |
 
-`--json`を付けると、入力エラーを次の形で返します：
+Clapによるコマンドラインの構文・値エラーは標準エラーへ表示され、Exit Code `2`で終了します。これらのエラーは`--json`の対象外です。コマンドの実行開始後に発生したエラーは、そのコマンドが`--json`に対応していれば、次の形式で標準出力へ返します：
 
 ```json
 {

@@ -14,13 +14,13 @@ use crate::output::{
 pub(super) enum DevCommand {
     /// Render a sine wave through the complete audio path.
     #[command(
-        long_about = "Generate a sine wave and write it as a WAV file. Frequency must be finite and non-negative. Duration and tail are seconds; duration may be zero, and tail must be finite and non-negative. The sample rate and maximum process block size must be greater than zero. With `--json`, success is reported as machine-readable JSON and execution failures include structured diagnostics."
+        long_about = "Generate a sine wave and write it as a WAV file. Frequency in Hz must be finite, non-negative, and no greater than half the selected sample rate (the Nyquist frequency). Duration and tail are seconds; duration may be zero, and tail must be finite and non-negative. The sample rate and maximum process block size must be greater than zero. With `--json`, success is reported as machine-readable JSON and execution failures include structured diagnostics."
     )]
     RenderSine(RenderSineArgs),
 }
 #[derive(Debug, Args)]
 pub(super) struct RenderSineArgs {
-    /// Oscillator frequency in Hz.
+    /// Oscillator frequency in Hz; finite, non-negative, and no greater than half `--sample-rate`.
     #[arg(long, value_name = "HZ", default_value_t = 440.0, value_parser = super::parse_nonnegative_f32)]
     frequency: f32,
     /// Main render duration in seconds (finite and non-negative).

@@ -237,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    fn clap_enforces_render_event_option_constraints_and_ranges() {
+    fn render_event_option_relationships_are_enforced_by_clap() {
         let common = [
             "sonalloy",
             "render",
@@ -264,7 +264,10 @@ mod tests {
         let mut valid_trace = common.to_vec();
         valid_trace.extend(["--trace", "voice.tone", "--trace-every-frames", "64"]);
         assert!(Cli::try_parse_from(valid_trace).is_ok());
+    }
 
+    #[test]
+    fn numeric_cli_constraints_are_enforced_by_clap() {
         assert!(
             Cli::try_parse_from([
                 "sonalloy",
@@ -330,6 +333,10 @@ mod tests {
             ])
             .is_err()
         );
+    }
+
+    #[test]
+    fn play_syntax_constraints_are_enforced_by_clap() {
         assert!(
             Cli::try_parse_from([
                 "sonalloy",

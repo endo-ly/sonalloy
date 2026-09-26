@@ -72,7 +72,7 @@ Demoの`schema_version`は`1`です。定義にない項目は受け付けませ
 | `fade_out_seconds` | 最終Mixの末尾へ適用するLinear Fade Out | `0.0` |
 | `master` | FFmpegによるMaster設定 | `null` |
 
-`fade_out_seconds`は0以上で、最終Mixの長さ以下にします。`master`を指定する場合の範囲は次のとおりです。
+`fade_out_seconds`には有限値かつ0以上を指定します。最終Mixの長さも超えないことはRender時に検証し、その長さには`render demo --tail`で追加する余韻を含みます。Demo JSONだけを読む`demo validate`と`demo inspect`では、Mix長との比較は行いません。`master`を指定する場合の範囲は次のとおりです。
 
 | 項目 | 範囲 |
 |---|---:|

@@ -9,19 +9,25 @@ use crate::demo::{self, DemoInspection};
 use crate::midi::export_demo;
 use crate::output::{CliFailure, StatusReport, finish_failure, print_warnings};
 
-pub(super) const DEMO_JSON_HELP: &str = r#"A Demo JSON object requires `schema_version` (currently `1`) and a `parts` array; `name` is optional and `mix` may be omitted. Unknown fields are rejected. `parts` must contain at least one Part. Each Part requires `id`, `instrument`, and `pattern`; `gain_db` defaults to 0.0 and `midi_channel` is optional. `mix.fade_out_seconds` defaults to 0.0 and `mix.master` is optional. A master object requires `integrated_lufs` (-70..=-5 LUFS), `true_peak_db` (-9..=0 dB), and `loudness_range_lu` (1..=50 LU).
+pub(super) const DEMO_JSON_HELP: &str = r"A Demo JSON object requires `schema_version` (currently `1`) and a `parts` array; `name` is optional and `mix` may be omitted. Unknown fields are rejected. `parts` must contain at least one Part. Each Part requires `id`, `instrument`, and `pattern`; `gain_db` defaults to 0.0 and `midi_channel` is optional. `mix.fade_out_seconds` defaults to 0.0 and `mix.master` is optional. A master object requires `integrated_lufs` (-70..=-5 LUFS), `true_peak_db` (-9..=0 dB), and `loudness_range_lu` (1..=50 LU).
 
 Part IDs are 1..=64 ASCII letters, digits, `.`, `_`, or `-`, must start with a letter or digit, and cannot be Windows reserved device names. IDs must be unique ignoring ASCII case. `gain_db` must be finite and yield a finite linear gain. `midi_channel`, when specified, is a 1-based channel from 1 through 16; explicit channels must be unique. Omitted channels are assigned the lowest unused channel numbers in Part order, after reserving explicit channels. Parts without an available channel can still be rendered as audio, but MIDI export fails.
 
-Instrument and Pattern paths are resolved relative to the Demo JSON file; absolute paths are also accepted. All Part Patterns must use the same `ticks_per_beat`. Each shorter Pattern must match the longest Pattern's tempo and time-signature changes up to its own `length_ticks`. The Demo timeline begins at tick 0 and ends at the greatest Part Pattern length. `fade_out_seconds` must be finite, non-negative, and no longer than the final mix. Instruments that require external audio cannot be used in an offline Demo."#;
+Instrument and Pattern paths are resolved relative to the Demo JSON file; absolute paths are also accepted. All Part Patterns must use the same `ticks_per_beat`. Each shorter Pattern must match the longest Pattern's tempo and time-signature changes up to its own `length_ticks`. The Demo timeline begins at tick 0 and ends at the greatest Part Pattern length. `fade_out_seconds` must be finite and non-negative. Instruments that require external audio cannot be used in an offline Demo.";
 
 #[derive(Debug, Subcommand)]
 pub(super) enum DemoCommand {
     /// Validate a Demo and compile each referenced Instrument and Pattern.
-    #[command(long_about = DEMO_JSON_HELP)]
+    #[command(
+        long_about = "Validate the Demo JSON, load every referenced Instrument and Pattern, then compile each Instrument and its Pattern to check offline renderability.",
+        after_long_help = DEMO_JSON_HELP
+    )]
     Validate(DemoPathArgs),
     /// Inspect Demo timing, parts, and mix settings.
-    #[command(long_about = DEMO_JSON_HELP)]
+    #[command(
+        long_about = "Report the Demo's schema version, shared tick resolution, timeline length and musical duration, tempo and time-signature changes, Part references and resolved MIDI channels, mix settings, and whether mastering requires `FFmpeg`. Use `--json` for a machine-readable report.",
+        after_long_help = DEMO_JSON_HELP
+    )]
     Inspect(DemoPathArgs),
     /// Export all Demo parts to a Standard MIDI File Type 1.
     #[command(

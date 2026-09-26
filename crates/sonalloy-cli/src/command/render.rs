@@ -12,6 +12,7 @@ use sonalloy_core::{
     render_instrument_with_input_and_trace, seconds_to_frames,
 };
 
+use super::demo::DEMO_JSON_HELP;
 use super::{DEFAULT_BLOCK_SIZE, DEFAULT_SAMPLE_RATE, load_and_compile};
 use crate::command::pattern::load_pattern;
 use crate::demo::{self, FfmpegError, MasterReport, StereoMix, encode_mp3, master as master_demo};
@@ -22,7 +23,7 @@ use crate::output::{
 };
 use crate::pattern::{CompiledPattern, compile as compile_pattern};
 
-const RENDER_EVENTS_HELP: &str = r#"Render a JSON Event Sequence at exact absolute frame positions. The top-level object has an `events` array. Each entry requires `absolute_frame` (frames from render start) and `type`. Frames must be in ascending order and each must be less than `--duration-frames`; entries at the same frame are allowed.
+const RENDER_EVENTS_HELP: &str = r"Render a JSON Event Sequence at exact absolute frame positions. The top-level object has an `events` array. Each entry requires `absolute_frame` (frames from render start) and `type`. Frames must be in ascending order and each must be less than `--duration-frames`; entries at the same frame are allowed.
 
 Supported events and fields:
 - `note_on`: `note_id` (a non-negative integer identifying the note), `note` (0..=127), and `velocity` (1..=127).
@@ -32,15 +33,9 @@ Supported events and fields:
 - `pitch_bend`: finite `value` in -1..=1.
 - `mod_wheel` and `aftertouch`: finite `value` in 0..=1.
 
-`--duration-frames` is the main render duration. `--tail` adds audio after that duration; events cannot be placed in the tail. `--tempo` supplies one constant BPM for tempo-synced parameters. `--reset-check` renders the sequence again after resetting the instrument and cannot be combined with `--trace`. `--trace-every-frames` requires at least one `--trace` parameter."#;
+`--duration-frames` is the main render duration. `--tail` adds audio after that duration; events cannot be placed in the tail. `--tempo` supplies one constant BPM for tempo-synced parameters. `--reset-check` renders the sequence again after resetting the instrument and cannot be combined with `--trace`. `--trace-every-frames` requires at least one `--trace` parameter.";
 
-const RENDER_DEMO_HELP: &str = r#"Render all Parts on the Demo timeline, apply each Part's gain and the global fade, then write the Stereo WAV mix. A Demo JSON object requires `schema_version` (currently `1`) and a `parts` array; `name` is optional and `mix` may be omitted. Unknown fields are rejected. `parts` must contain at least one Part. Each Part requires `id`, `instrument`, and `pattern`; `gain_db` defaults to 0.0 and `midi_channel` is optional. `mix.fade_out_seconds` defaults to 0.0 and `mix.master` is optional. A master object requires `integrated_lufs` (-70..=-5 LUFS), `true_peak_db` (-9..=0 dB), and `loudness_range_lu` (1..=50 LU).
-
-Part IDs are 1..=64 ASCII letters, digits, `.`, `_`, or `-`, start with a letter or digit, and cannot be Windows reserved device names. IDs must be unique ignoring ASCII case. `gain_db` must be finite and yield a finite linear gain. `midi_channel`, when specified, is a 1-based channel from 1 through 16; explicit channels must be unique. Omitted channels are assigned the lowest unused channel numbers in Part order after reserving explicit channels. Parts without an available channel can still be rendered as audio, but MIDI export fails.
-
-Instrument and Pattern paths are resolved relative to the Demo JSON file; absolute paths are accepted. All Part Patterns must use the same `ticks_per_beat`. Each shorter Pattern must match the longest Pattern's tempo and time-signature changes up to its own `length_ticks`. The Demo timeline begins at tick 0 and ends at the greatest Part Pattern length. `fade_out_seconds` must be finite, non-negative, and no longer than the final mix. Instruments that require external audio cannot be used in an offline Demo.
-
-`--sample-rate` is shared by all Parts and must be greater than zero. `--block-size` is the maximum process block size in frames and must be greater than zero. `--tail` adds seconds after each Part Pattern's main duration and must be finite and non-negative. `--stems-dir` writes one WAV per Part before Part gain, global fade, and mastering are applied. `--analyze` reports the fade-applied mix before mastering. A Demo `mix.master` setting masters the final WAV; `--mp3-output` also requires FFmpeg and encodes the mastered WAV when mastering is configured, otherwise it encodes the unmastered mix. `--output` is the final Stereo WAV path. With `--json`, success is reported as JSON and execution failures include structured diagnostics."#;
+const RENDER_DEMO_HELP: &str = r"Render every Part over the Demo timeline, apply Part gain and the configured global fade, and write the final Stereo WAV. The fade must not exceed the duration of the rendered mix, including any `--tail`. `--sample-rate` and `--block-size` are shared by all Parts; both values must be positive. `--tail` adds time after each Pattern. `--stems-dir` writes each Part before gain, global fade, and mastering. `--analyze` reports the fade-applied mix before mastering. The Demo `mix.master` setting applies to the final WAV. `--mp3-output` requires `FFmpeg`; with mastering configured, it encodes the mastered audio, otherwise it encodes the mix. Use `--json` for machine-readable success and structured diagnostics for execution failures.";
 
 #[derive(Debug, Subcommand)]
 pub(super) enum RenderCommand {
@@ -60,7 +55,10 @@ pub(super) enum RenderCommand {
     )]
     Pattern(RenderPatternArgs),
     /// Render and mix every Part in a Demo.
-    #[command(long_about = RENDER_DEMO_HELP)]
+    #[command(
+        long_about = RENDER_DEMO_HELP,
+        after_long_help = DEMO_JSON_HELP
+    )]
     Demo(RenderDemoArgs),
 }
 #[derive(Debug, Args)]
@@ -157,7 +155,7 @@ pub(super) struct RenderDemoArgs {
     /// Write each Part's WAV before Part gain, global fade, and mastering are applied.
     #[arg(long, value_name = "DIRECTORY")]
     stems_dir: Option<PathBuf>,
-    /// Optional MP3 output; requires FFmpeg and uses Demo mastering when configured.
+    /// Optional MP3 output; requires `FFmpeg` and uses Demo mastering when configured.
     #[arg(long, value_name = "PATH")]
     mp3_output: Option<PathBuf>,
     /// Analyze the fade-applied mix before mastering.
