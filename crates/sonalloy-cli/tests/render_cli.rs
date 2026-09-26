@@ -623,6 +623,7 @@ fn render_note_rejects_midi_values_above_127() {
             ])
             .assert()
             .code(2)
-            .stdout(predicates::str::contains("\"VALUE_OUT_OF_RANGE\""));
+            .stdout(predicates::str::is_empty())
+            .stderr(predicates::str::contains("invalid value"));
     }
 }

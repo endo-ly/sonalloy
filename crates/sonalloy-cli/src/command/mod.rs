@@ -25,7 +25,8 @@ const DEFAULT_BLOCK_SIZE: usize = 257;
 #[command(
     name = "sonalloy",
     version,
-    about = "Sonalloy realtime and offline instrument engine"
+    about = "Validate instruments, render audio, audition patterns, and play from MIDI",
+    long_about = "Define instruments in JSON, validate and inspect their compiled configuration, render notes, events, MIDI, patterns, or multi-part demos to audio, audition patterns and MIDI files through an audio output, and play an instrument from a live MIDI input. Use `device list` to find audio and MIDI device IDs."
 )]
 pub(super) struct Cli {
     #[command(subcommand)]
@@ -34,41 +35,51 @@ pub(super) struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Work with JSON Instrument Definitions.
+    /// Create, validate, and inspect JSON Instrument Definitions.
     Instrument {
         #[command(subcommand)]
         command: instrument::InstrumentCommand,
     },
-    /// Work with one-instrument audition patterns.
+    /// Create, validate, inspect, and convert one-instrument audition patterns.
     Pattern {
         #[command(subcommand)]
         command: pattern::PatternCommand,
     },
-    /// Work with a multi-instrument offline Demo.
+    /// Validate, inspect, and export a multi-instrument offline Demo.
     Demo {
         #[command(subcommand)]
         command: demo::DemoCommand,
     },
-    /// Render an instrument offline.
+    /// Render an instrument, pattern, MIDI file, or Demo to audio.
     Render {
         #[command(subcommand)]
         command: render::RenderCommand,
     },
-    /// Audition a pattern or MIDI file through an audio output.
+    /// Play a pattern or MIDI file through an audio output without a MIDI input.
     Audition {
         #[command(subcommand)]
         command: realtime::AuditionCommand,
     },
-    /// Inspect realtime audio and MIDI devices.
+    /// List audio input, audio output, and MIDI input devices.
     Device {
         #[command(subcommand)]
         command: realtime::DeviceCommand,
     },
     /// Play an instrument from a live MIDI input through an audio output.
+    #[command(
+        long_about = "Play an Instrument Definition from live MIDI input through an audio output; press Enter to stop. `--audio-device` selects an Audio Output ID from `device list`; omission uses the OS default, and an unknown ID fails. `--audio-input-device` selects an Audio Input for Definitions that require external audio; omission uses the OS default input, which must support the Definition's required channel count and the selected sample rate. An unused external input is rejected.
+
+If `--midi-device` is omitted, no available MIDI inputs is an error, one input is selected automatically, and two or more require an explicit ID. Unknown IDs fail. Omit `--sample-rate` to use the output device's default rate; the rate must be positive and supported. `--buffer-size` must be positive and accepted by the device.
+
+`--tempo` is a finite positive playback tempo in BPM. `--time-signature` uses `numerator/denominator`, requires a positive numerator, and allows denominators 1, 2, 4, 8, 16, 32, 64, or 128. Repeat `--macro-cc id=cc` to map Macro IDs to MIDI CC values 0..=127. CC1 and CC64 are reserved; a CC or Macro cannot be mapped more than once, and the Macro ID must exist in the Definition."
+    )]
     Play(realtime::PlayArgs),
-    /// Update the installed binary from the latest GitHub release.
+    /// Update the user-local installation from the latest GitHub release.
+    #[command(
+        long_about = "Download and install the latest GitHub release for this platform. `update` applies only when the running binary is the regular user-local installation at `~/.local/bin/sonalloy` (or the platform executable equivalent); it fails when run from another location. The downloaded archive is verified against the release's SHA-256 checksum. After a successful replacement, the previous binary remains beside it as `.sonalloy.old` (with the platform executable suffix where applicable)."
+    )]
     Update,
-    /// Development-only commands used to verify the audio path.
+    /// Render diagnostic audio for development checks.
     Dev {
         #[command(subcommand)]
         command: dev::DevCommand,
@@ -154,4 +165,190 @@ pub(crate) fn load_and_compile(
         });
     };
     Ok((instrument, result.diagnostics))
+}
+
+pub(super) fn parse_positive_f64(value: &str) -> Result<f64, String> {
+    let value = value
+        .parse::<f64>()
+        .map_err(|_| "expected a finite number greater than zero".to_owned())?;
+    (value.is_finite() && value > 0.0)
+        .then_some(value)
+        .ok_or_else(|| "expected a finite number greater than zero".to_owned())
+}
+
+pub(super) fn parse_nonnegative_f64(value: &str) -> Result<f64, String> {
+    let value = value
+        .parse::<f64>()
+        .map_err(|_| "expected a finite non-negative number".to_owned())?;
+    (value.is_finite() && value >= 0.0)
+        .then_some(value)
+        .ok_or_else(|| "expected a finite non-negative number".to_owned())
+}
+
+pub(super) fn parse_nonnegative_f32(value: &str) -> Result<f32, String> {
+    let value = value
+        .parse::<f32>()
+        .map_err(|_| "expected a finite non-negative number".to_owned())?;
+    (value.is_finite() && value >= 0.0)
+        .then_some(value)
+        .ok_or_else(|| "expected a finite non-negative number".to_owned())
+}
+
+pub(super) fn parse_positive_usize(value: &str) -> Result<usize, String> {
+    let value = value
+        .parse::<usize>()
+        .map_err(|_| "expected a positive integer".to_owned())?;
+    (value > 0)
+        .then_some(value)
+        .ok_or_else(|| "expected a positive integer".to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::{Command, CommandFactory, Parser};
+
+    use super::Cli;
+
+    fn assert_help_is_complete(command: &Command) {
+        assert!(
+            command.get_about().is_some() || command.get_long_about().is_some(),
+            "{} has no command description",
+            command.get_name()
+        );
+        for arg in command.get_arguments() {
+            if arg.is_hide_set() || matches!(arg.get_id().as_str(), "help" | "version") {
+                continue;
+            }
+            assert!(
+                arg.get_help().is_some() || arg.get_long_help().is_some(),
+                "{} argument {} has no help",
+                command.get_name(),
+                arg.get_id()
+            );
+        }
+        for child in command.get_subcommands() {
+            assert_help_is_complete(child);
+        }
+    }
+
+    #[test]
+    fn every_command_and_argument_has_help() {
+        assert_help_is_complete(&Cli::command());
+    }
+
+    #[test]
+    fn clap_enforces_render_event_option_constraints_and_ranges() {
+        let common = [
+            "sonalloy",
+            "render",
+            "events",
+            "instrument.json",
+            "events.json",
+            "--duration-frames",
+            "32",
+            "--output",
+            "out.wav",
+        ];
+        let mut requires_trace = common.to_vec();
+        requires_trace.extend(["--trace-every-frames", "64"]);
+        assert!(Cli::try_parse_from(requires_trace).is_err());
+
+        let mut zero_trace_interval = common.to_vec();
+        zero_trace_interval.extend(["--trace", "voice.tone", "--trace-every-frames", "0"]);
+        assert!(Cli::try_parse_from(zero_trace_interval).is_err());
+
+        let mut conflicts_with_trace = common.to_vec();
+        conflicts_with_trace.extend(["--trace", "voice.tone", "--reset-check"]);
+        assert!(Cli::try_parse_from(conflicts_with_trace).is_err());
+
+        let mut valid_trace = common.to_vec();
+        valid_trace.extend(["--trace", "voice.tone", "--trace-every-frames", "64"]);
+        assert!(Cli::try_parse_from(valid_trace).is_ok());
+
+        assert!(
+            Cli::try_parse_from([
+                "sonalloy",
+                "render",
+                "note",
+                "instrument.json",
+                "--output",
+                "out.wav",
+                "--note",
+                "128",
+            ])
+            .is_err()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "sonalloy",
+                "render",
+                "note",
+                "instrument.json",
+                "--output",
+                "out.wav",
+                "--velocity",
+                "0",
+            ])
+            .is_err()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "sonalloy",
+                "render",
+                "note",
+                "instrument.json",
+                "--output",
+                "out.wav",
+                "--sample-rate",
+                "0",
+            ])
+            .is_err()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "sonalloy",
+                "render",
+                "note",
+                "instrument.json",
+                "--output",
+                "out.wav",
+                "--block-size",
+                "0",
+            ])
+            .is_err()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "sonalloy",
+                "render",
+                "note",
+                "instrument.json",
+                "--output",
+                "out.wav",
+                "--tail",
+                "NaN",
+            ])
+            .is_err()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "sonalloy",
+                "play",
+                "instrument.json",
+                "--time-signature",
+                "4/3",
+            ])
+            .is_err()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "sonalloy",
+                "play",
+                "instrument.json",
+                "--macro-cc",
+                "motion=64",
+            ])
+            .is_err()
+        );
+    }
 }

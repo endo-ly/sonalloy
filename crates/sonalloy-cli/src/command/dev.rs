@@ -2,9 +2,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Args, Subcommand};
-use sonalloy_core::{
-    Diagnostic, DiagnosticCode, RenderRequest, backend_info, render_sine, seconds_to_frames,
-};
+use sonalloy_core::{RenderRequest, backend_info, render_sine, seconds_to_frames};
 
 use super::{DEFAULT_BLOCK_SIZE, DEFAULT_SAMPLE_RATE};
 use crate::output::{
@@ -15,29 +13,32 @@ use crate::output::{
 #[derive(Debug, Subcommand)]
 pub(super) enum DevCommand {
     /// Render a sine wave through the complete audio path.
+    #[command(
+        long_about = "Generate a sine wave and write it as a WAV file. Frequency must be finite and non-negative. Duration and tail are seconds; duration may be zero, and tail must be finite and non-negative. The sample rate and maximum process block size must be greater than zero. With `--json`, success is reported as machine-readable JSON and execution failures include structured diagnostics."
+    )]
     RenderSine(RenderSineArgs),
 }
 #[derive(Debug, Args)]
 pub(super) struct RenderSineArgs {
     /// Oscillator frequency in Hz.
-    #[arg(long, default_value_t = 440.0)]
+    #[arg(long, value_name = "HZ", default_value_t = 440.0, value_parser = super::parse_nonnegative_f32)]
     frequency: f32,
-    /// Main render duration in seconds.
-    #[arg(long)]
+    /// Main render duration in seconds (finite and non-negative).
+    #[arg(long, value_name = "SECONDS", value_parser = super::parse_nonnegative_f64)]
     duration: f64,
     /// Sample rate in Hz.
-    #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
+    #[arg(long, value_name = "HZ", default_value_t = DEFAULT_SAMPLE_RATE, value_parser = clap::value_parser!(u32).range(1..))]
     sample_rate: u32,
-    /// Maximum process block size.
-    #[arg(long, default_value_t = DEFAULT_BLOCK_SIZE)]
+    /// Maximum process block size in frames; must be greater than zero.
+    #[arg(long, value_name = "FRAMES", default_value_t = DEFAULT_BLOCK_SIZE, value_parser = super::parse_positive_usize)]
     block_size: usize,
-    /// Additional render tail in seconds.
-    #[arg(long, default_value_t = 0.0)]
+    /// Additional render tail in seconds (finite and non-negative).
+    #[arg(long, value_name = "SECONDS", default_value_t = 0.0, value_parser = super::parse_nonnegative_f64)]
     tail: f64,
     /// Destination WAV path.
-    #[arg(long)]
+    #[arg(long, value_name = "PATH")]
     output: PathBuf,
-    /// Emit machine-readable JSON instead of text.
+    /// Emit machine-readable JSON results; execution failures include structured diagnostics.
     #[arg(long)]
     json: bool,
 }
@@ -56,15 +57,6 @@ fn run_render_sine(args: &RenderSineArgs) -> ExitCode {
 }
 
 fn render_sine_command(args: &RenderSineArgs) -> Result<SuccessReport, CliFailure> {
-    if !args.frequency.is_finite() || args.frequency < 0.0 {
-        return Err(CliFailure {
-            code: 2,
-            diagnostics: vec![Diagnostic::error(
-                DiagnosticCode::ValueOutOfRange,
-                "frequency must be finite and non-negative",
-            )],
-        });
-    }
     let sample_rate = f64::from(args.sample_rate);
     let duration_frames =
         seconds_to_frames(args.duration, sample_rate).map_err(|error| input_failure(&error))?;

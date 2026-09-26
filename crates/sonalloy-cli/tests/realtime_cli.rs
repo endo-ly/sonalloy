@@ -18,9 +18,7 @@ fn play_rejects_zero_buffer_before_accessing_devices() {
         ])
         .assert()
         .code(2)
-        .stderr(predicates::str::contains(
-            "buffer size must be greater than zero",
-        ));
+        .stderr(predicates::str::contains("expected a positive integer"));
 }
 
 #[test]
@@ -47,7 +45,5 @@ fn audition_pattern_validates_before_accessing_audio_devices() {
         ])
         .assert()
         .code(2)
-        .stderr(predicates::str::contains(
-            "buffer size must be greater than zero",
-        ));
+        .stderr(predicates::str::contains("expected a positive integer"));
 }

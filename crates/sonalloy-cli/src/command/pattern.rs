@@ -15,28 +15,51 @@ use crate::output::{CliFailure, StatusReport, finish_failure, print_warnings};
 
 #[derive(Debug, Subcommand)]
 pub(super) enum PatternCommand {
-    /// Create a valid one-bar pattern.
+    /// Create a valid one-bar Pattern JSON file.
+    #[command(
+        long_about = "Create a new valid Pattern JSON file without replacing an existing destination. The starter Pattern is one 4/4 bar at 120 BPM, with 480 ticks per beat and 1920 ticks total, plus one note at tick 0 (MIDI note 60, velocity 100, duration 480 ticks)."
+    )]
     Init(PatternInitArgs),
-    /// Validate a pattern without an Instrument.
+    /// Validate a tick-based Pattern without an Instrument.
+    #[command(
+        long_about = r#"Validate a Pattern JSON object independently of any Instrument. Required top-level fields are `schema_version` (currently `1`), `ticks_per_beat`, `length_ticks`, `tempo_changes`, `time_signature_changes`, and `events`; `name` is optional. Unknown fields are rejected.
+
+`ticks_per_beat` must be 1..=32767. `length_ticks` must be greater than zero. Each `tempo_changes` entry has `tick` and `bpm`; the first tick is 0, ticks are strictly ascending and less than `length_ticks`, and BPM must be finite and greater than zero. Each `time_signature_changes` entry has `tick`, `numerator`, and `denominator`; the first tick is 0, ticks are strictly ascending and less than `length_ticks`, the numerator is positive, and the denominator is a power of two from 1 through 128. Both change arrays must contain at least one entry.
+
+`events` must contain at least one `note`. All event `tick` values are measured from the Pattern start. A note uses `tick`, `duration_ticks`, `note` (0..=127), and `velocity` (1..=127); its tick is less than `length_ticks`, its duration is positive, and its end tick does not exceed `length_ticks`. `sustain_pedal` uses `tick` and boolean `down`. `pitch_bend` uses `tick` and finite `value` in -1..=1. `mod_wheel` and `aftertouch` use `tick` and finite `value` in 0..=1. These control events, including `parameter_change`, may use ticks from 0 through `length_ticks`, including the endpoint.
+
+`parameter_change` uses `tick`, `parameter` (a Parameter ID), and finite `native_value`. Its Parameter ID and value range are checked against the selected Instrument when rendered or auditioned. Event objects reject unknown fields."#
+    )]
     Validate(PatternPathArgs),
-    /// Display pattern contents and musical duration.
+    /// Inspect Pattern timing, notes, controls, and musical duration.
+    #[command(
+        long_about = "Report the tick resolution and length, musical duration, tempo and time signature changes, note count and note and velocity ranges, and counts of sustain, pitch bend, modulation wheel, aftertouch, and Parameter Change events. Use `--json` for a machine-readable result."
+    )]
     Inspect(PatternPathArgs),
-    /// Convert one MIDI channel into a pattern.
+    /// Import one MIDI Note Channel into a Pattern JSON file.
+    #[command(
+        long_about = "Convert one Note Channel from a Standard MIDI File into a tick-based Pattern. `--channel` selects a 1-based MIDI channel from 1 through 16. If omitted, the only Note Channel is selected automatically; a file with no Note Channel fails, and a file with multiple Note Channels requires `--channel`. Notes from multiple tracks on the selected channel are merged. An unmatched Note Off is ignored with a warning; a Note On without a matching Note Off fails. The destination must not already exist. Tempo and time signature changes are imported; missing MIDI metadata uses 120 BPM and 4/4. With `--json`, success is reported as JSON and execution failures include structured diagnostics."
+    )]
     ImportMidi(PatternImportMidiArgs),
-    /// Convert a pattern into a Standard MIDI File.
+    /// Export a Pattern as a Standard MIDI File.
+    #[command(
+        long_about = "Write a single-track Standard MIDI File (Type 0) using the Pattern tick resolution and selected 1-based channel. `--channel` accepts 1..=16. Notes, tempo and time signature changes, sustain pedal, pitch bend, mod wheel (CC1), and channel aftertouch are represented. Parameter Change events cannot be represented and cause the export to fail. Overlapping notes with the same pitch also fail because MIDI Note Off events do not identify a note instance. The destination must not already exist. With `--json`, success is reported as JSON and execution failures include structured diagnostics."
+    )]
     ExportMidi(PatternExportMidiArgs),
 }
 #[derive(Debug, Args)]
 pub(super) struct PatternInitArgs {
     /// Destination pattern path.
+    #[arg(value_name = "PATH")]
     path: PathBuf,
 }
 
 #[derive(Debug, Args)]
 pub(super) struct PatternPathArgs {
     /// Pattern JSON path.
+    #[arg(value_name = "PATTERN")]
     pattern: PathBuf,
-    /// Emit machine-readable JSON.
+    /// Emit machine-readable JSON results; execution failures include structured diagnostics.
     #[arg(long)]
     json: bool,
 }
@@ -44,14 +67,15 @@ pub(super) struct PatternPathArgs {
 #[derive(Debug, Args)]
 pub(super) struct PatternImportMidiArgs {
     /// Standard MIDI File path.
+    #[arg(value_name = "MIDI_FILE")]
     midi: PathBuf,
     /// Destination pattern JSON path.
-    #[arg(long)]
+    #[arg(long, value_name = "PATH")]
     output: PathBuf,
-    /// MIDI channel number from 1 to 16.
-    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=16))]
+    /// 1-based MIDI Note Channel to import; required when the file has several.
+    #[arg(long, value_name = "CHANNEL", value_parser = clap::value_parser!(u8).range(1..=16))]
     channel: Option<u8>,
-    /// Emit machine-readable JSON.
+    /// Emit machine-readable JSON results; execution failures include structured diagnostics.
     #[arg(long)]
     json: bool,
 }
@@ -59,14 +83,15 @@ pub(super) struct PatternImportMidiArgs {
 #[derive(Debug, Args)]
 pub(super) struct PatternExportMidiArgs {
     /// Pattern JSON path.
+    #[arg(value_name = "PATTERN")]
     pattern: PathBuf,
     /// Destination Standard MIDI File path.
-    #[arg(long)]
+    #[arg(long, value_name = "PATH")]
     output: PathBuf,
-    /// MIDI channel number from 1 to 16.
-    #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=16))]
+    /// 1-based MIDI channel for exported events (1..=16).
+    #[arg(long, value_name = "CHANNEL", default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=16))]
     channel: u8,
-    /// Emit machine-readable JSON.
+    /// Emit machine-readable JSON results; execution failures include structured diagnostics.
     #[arg(long)]
     json: bool,
 }
