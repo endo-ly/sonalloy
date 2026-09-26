@@ -19,13 +19,13 @@ Instrument and Pattern paths are resolved relative to the Demo JSON file; absolu
 pub(super) enum DemoCommand {
     /// Validate a Demo and compile each referenced Instrument and Pattern.
     #[command(
-        long_about = "Validate the Demo JSON, load every referenced Instrument and Pattern, then compile each Instrument and its Pattern to check offline renderability.",
+        long_about = "Validate the Demo JSON, load and compile each referenced Instrument and Pattern, and check their shared timeline.",
         after_long_help = DEMO_JSON_HELP
     )]
     Validate(DemoPathArgs),
-    /// Inspect Demo timing, parts, and mix settings.
+    /// Inspect Demo timing, parts, fade, and mastering requirements.
     #[command(
-        long_about = "Report the Demo's schema version, shared tick resolution, timeline length and musical duration, tempo and time-signature changes, Part references and resolved MIDI channels, mix settings, and whether mastering requires `FFmpeg`. Use `--json` for a machine-readable report.",
+        long_about = "Report the Demo's schema version, shared tick resolution, timeline length and musical duration, tempo and time-signature changes, Part references and resolved MIDI channels, fade-out duration, and whether mastering requires `FFmpeg`. Human-readable output shows these summaries; `--json` also returns the complete `mix` object, including its mastering targets.",
         after_long_help = DEMO_JSON_HELP
     )]
     Inspect(DemoPathArgs),
