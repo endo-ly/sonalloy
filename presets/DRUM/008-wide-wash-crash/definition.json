@@ -1,9 +1,9 @@
 {
   "schema_version": 6,
   "metadata": {
-    "name": "Electronic Crash",
+    "name": "Wide Wash Crash",
     "author": "gpt-6-astra low",
-    "description": "密度の高い金属振動と広い高域の響きを持つ電子クラッシュ。発音直後の衝撃から高い成分が先に収まり、複雑な金属の余韻が長く残る。短い一打では広い音像が現れ、長い発音では余韻の層がゆっくり薄くなる。",
+    "description": "金属板の胴が鳴った直後、その周囲へ高域のWashが広がっていくクラッシュ。立ち上がりでは中域の金属共鳴が板の存在を示し、尾を引くうちに広い音像の高域がゆっくり薄まっていく。一打では胴からWashへの移りが聞き取れ、強い打鍵では衝撃と広がりが同時に増す。",
     "category": "Drum",
     "tags": [
       "Metallic",
@@ -23,29 +23,29 @@
         "numerator": 4,
         "denominator": 4
       },
-      "length_ticks": 1920,
+      "length_ticks": 4800,
       "notes": [
         {
           "tick": 0,
-          "duration_ticks": 180,
-          "note": 49,
-          "velocity": 90
-        },
-        {
-          "tick": 480,
-          "duration_ticks": 180,
-          "note": 49,
-          "velocity": 110
-        },
-        {
-          "tick": 960,
-          "duration_ticks": 180,
+          "duration_ticks": 1920,
           "note": 49,
           "velocity": 100
         },
         {
-          "tick": 1440,
-          "duration_ticks": 180,
+          "tick": 1920,
+          "duration_ticks": 960,
+          "note": 49,
+          "velocity": 90
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 960,
+          "note": 49,
+          "velocity": 110
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 960,
           "note": 49,
           "velocity": 120
         }
@@ -59,6 +59,41 @@
   },
   "layers": [
     {
+      "id": "shell",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -8.0,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 3.2,
+        "sustain_level": 0,
+        "release_seconds": 2.2
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.003,
+            "brightness": 0.72,
+            "seed": 8808
+          },
+          "mode_count": 24,
+          "structure": 0.66,
+          "brightness": 0.62,
+          "decay": 0.84
+        }
+      },
+      "processors": []
+    },
+    {
       "id": "wash",
       "enabled": true,
       "trigger": {
@@ -68,20 +103,20 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -25,
+      "gain_db": -27.0,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.002,
-        "decay_seconds": 3.2,
+        "decay_seconds": 2.8,
         "sustain_level": 0,
-        "release_seconds": 2.1
+        "release_seconds": 2.0
       },
       "generator": {
         "noise": {
           "color": "white",
           "seed": 4545,
-          "stereo_correlation": 0.25
+          "stereo_correlation": 0.2
         }
       },
       "processors": [
@@ -89,97 +124,10 @@
           "type": "filter",
           "id": "shimmer",
           "mode": "high_pass",
-          "cutoff_hz": 4300,
+          "cutoff_hz": 5200,
           "resonance": 0.04
         }
       ]
-    },
-    {
-      "id": "metal",
-      "enabled": true,
-      "trigger": {
-        "event": "note_on",
-        "key_min": 0,
-        "key_max": 127,
-        "velocity_min": 1,
-        "velocity_max": 127
-      },
-      "gain_db": -22,
-      "pan": 0,
-      "tuning_cents": 0,
-      "envelope": {
-        "attack_seconds": 0.001,
-        "decay_seconds": 4.1,
-        "sustain_level": 0,
-        "release_seconds": 2.3
-      },
-      "generator": {
-        "operator_modulation": {
-          "mode": "phase",
-          "algorithm": "three_modulators",
-          "operators": [
-            {
-              "ratio": 15.3,
-              "detune_cents": 0,
-              "level": 0.8,
-              "modulation_amount": 0,
-              "feedback": 0,
-              "phase": 0,
-              "envelope": {
-                "attack_seconds": 0,
-                "decay_seconds": 0,
-                "sustain_level": 1,
-                "release_seconds": 2.3
-              }
-            },
-            {
-              "ratio": 9.37,
-              "detune_cents": 0,
-              "level": 0,
-              "modulation_amount": 1.15,
-              "feedback": 0,
-              "phase": 0.13,
-              "envelope": {
-                "attack_seconds": 0,
-                "decay_seconds": 0,
-                "sustain_level": 1,
-                "release_seconds": 2.3
-              }
-            },
-            {
-              "ratio": 13.11,
-              "detune_cents": 0,
-              "level": 0,
-              "modulation_amount": 0.95,
-              "feedback": 0,
-              "phase": 0.26,
-              "envelope": {
-                "attack_seconds": 0,
-                "decay_seconds": 0,
-                "sustain_level": 1,
-                "release_seconds": 2.3
-              }
-            },
-            {
-              "ratio": 21.73,
-              "detune_cents": 0,
-              "level": 0,
-              "modulation_amount": 0.8,
-              "feedback": 0,
-              "phase": 0.39,
-              "envelope": {
-                "attack_seconds": 0,
-                "decay_seconds": 0,
-                "sustain_level": 1,
-                "release_seconds": 2.3
-              }
-            }
-          ],
-          "phase_reset": true,
-          "unison": null
-        }
-      },
-      "processors": []
     },
     {
       "id": "strike",
@@ -191,20 +139,20 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -29,
+      "gain_db": -24.0,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
-        "attack_seconds": 0.0006,
-        "decay_seconds": 0.028,
+        "attack_seconds": 0.0004,
+        "decay_seconds": 0.032,
         "sustain_level": 0,
-        "release_seconds": 0.035
+        "release_seconds": 0.04
       },
       "generator": {
         "noise": {
           "color": "white",
           "seed": 4546,
-          "stereo_correlation": 1
+          "stereo_correlation": 0.85
         }
       },
       "processors": [
@@ -212,8 +160,8 @@
           "type": "filter",
           "id": "ping",
           "mode": "high_pass",
-          "cutoff_hz": 6800,
-          "resonance": 0.05
+          "cutoff_hz": 5800,
+          "resonance": 0.06
         }
       ]
     }
@@ -223,15 +171,34 @@
       "type": "filter",
       "id": "air",
       "mode": "high_pass",
-      "cutoff_hz": 2100,
+      "cutoff_hz": 950.0,
       "resonance": 0.05
     },
     {
       "type": "filter",
       "id": "tone",
       "mode": "low_pass",
-      "cutoff_hz": 13500,
+      "cutoff_hz": 14500,
       "resonance": 0.05
+    },
+    {
+      "type": "transient_shaper",
+      "id": "crack",
+      "attack": 0.25,
+      "sustain": 0.15,
+      "mix": 0.85
+    },
+    {
+      "type": "compressor",
+      "id": "density",
+      "detector": "self_signal",
+      "threshold_db": -22,
+      "ratio": 3.0,
+      "attack_ms": 4,
+      "release_ms": 120,
+      "knee_db": 10,
+      "makeup_gain_db": 4,
+      "mix": 0.75
     }
   ],
   "global_processors": [
@@ -239,8 +206,8 @@
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
-      "release_ms": 120,
-      "input_gain_db": 0
+      "release_ms": 150,
+      "input_gain_db": 2.5
     }
   ],
   "modulation": {
@@ -257,6 +224,15 @@
     "routes": [
       {
         "source": "velocity",
+        "target": "layer.shell.gain",
+        "depth": {
+          "value": 9,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
         "target": "layer.wash.gain",
         "depth": {
           "value": 10,
@@ -266,18 +242,9 @@
       },
       {
         "source": "velocity",
-        "target": "layer.metal.gain",
-        "depth": {
-          "value": 9,
-          "unit": "decibels"
-        },
-        "curve": "smooth_step"
-      },
-      {
-        "source": "velocity",
         "target": "layer.strike.gain",
         "depth": {
-          "value": 7,
+          "value": 8,
           "unit": "decibels"
         },
         "curve": "smooth_step"
@@ -311,7 +278,7 @@
       },
       {
         "source": "pitch_bend",
-        "target": "layer.metal.tuning",
+        "target": "layer.shell.tuning",
         "depth": {
           "value": 200,
           "unit": "cents"

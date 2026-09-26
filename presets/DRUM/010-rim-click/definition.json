@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Rim Click",
     "author": "gpt-6-astra low",
-    "description": "硬い縁を叩いたような短いリム音。中高域の共鳴と小さなクリックが中央にまとまった鋭い輪郭を作り、低域や長い余韻を残さず収束する。短いリズムでは隣の発音と重なりにくく、強い打鍵で輪郭の鋭さが増す。",
+    "description": "最初の数ミリ秒に硬い高域のクリックが立ち、直後に短い木質の胴が続くリム音。高域の「カッ」という打撃が輪郭を作り、100ミリ秒前後で低めの共鳴ごと収束する。短いリズムでも発音が分かれ、強い打鍵ではクリックの鋭さが増す。",
     "category": "Drum",
     "tags": [
       "Bright",
@@ -68,7 +68,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -14,
+      "gain_db": -13.5,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -92,7 +92,7 @@
               "phase": 0,
               "envelope": {
                 "attack_seconds": 0.0005,
-                "decay_seconds": 0.047,
+                "decay_seconds": 0.058,
                 "sustain_level": 0,
                 "release_seconds": 0.04
               }
@@ -105,7 +105,7 @@
               "phase": 0,
               "envelope": {
                 "attack_seconds": 0.0005,
-                "decay_seconds": 0.034,
+                "decay_seconds": 0.042,
                 "sustain_level": 0,
                 "release_seconds": 0.04
               }
@@ -118,9 +118,79 @@
               "phase": 0,
               "envelope": {
                 "attack_seconds": 0.0005,
-                "decay_seconds": 0.021,
+                "decay_seconds": 0.028,
                 "sustain_level": 0,
                 "release_seconds": 0.04
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -19.0,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0008,
+        "decay_seconds": 0,
+        "sustain_level": 1,
+        "release_seconds": 0.05
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -1.2,
+          "inharmonicity": 0.05,
+          "partials": [
+            {
+              "id": "shell",
+              "ratio": 9.2,
+              "amplitude_a": 0.7,
+              "amplitude_b": 0.7,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.0008,
+                "decay_seconds": 0.095,
+                "sustain_level": 0,
+                "release_seconds": 0.05
+              }
+            },
+            {
+              "id": "shell_hi",
+              "ratio": 14.6,
+              "amplitude_a": 0.35,
+              "amplitude_b": 0.35,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.0008,
+                "decay_seconds": 0.07,
+                "sustain_level": 0,
+                "release_seconds": 0.05
+              }
+            },
+            {
+              "id": "shell_lo",
+              "ratio": 6.1,
+              "amplitude_a": 0.45,
+              "amplitude_b": 0.45,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.0008,
+                "decay_seconds": 0.11,
+                "sustain_level": 0,
+                "release_seconds": 0.05
               }
             }
           ]
@@ -138,14 +208,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -22,
+      "gain_db": -7.5,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.0005,
-        "decay_seconds": 0.008,
+        "decay_seconds": 0.012,
         "sustain_level": 0,
-        "release_seconds": 0.008
+        "release_seconds": 0.01
       },
       "generator": {
         "noise": {
@@ -159,8 +229,8 @@
           "type": "filter",
           "id": "tick",
           "mode": "high_pass",
-          "cutoff_hz": 3400,
-          "resonance": 0.05
+          "cutoff_hz": 3800.0,
+          "resonance": 0.12
         },
         {
           "type": "filter",
@@ -184,8 +254,27 @@
       "type": "filter",
       "id": "polish",
       "mode": "low_pass",
-      "cutoff_hz": 9000,
+      "cutoff_hz": 11000.0,
       "resonance": 0.05
+    },
+    {
+      "type": "transient_shaper",
+      "id": "click_bite",
+      "attack": 0.2,
+      "sustain": 0.25,
+      "mix": 0.8
+    },
+    {
+      "type": "compressor",
+      "id": "density",
+      "detector": "self_signal",
+      "threshold_db": -22,
+      "ratio": 2.8,
+      "attack_ms": 1,
+      "release_ms": 50,
+      "knee_db": 10,
+      "makeup_gain_db": 3,
+      "mix": 0.75
     }
   ],
   "global_processors": [
@@ -194,7 +283,7 @@
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 120,
-      "input_gain_db": 0
+      "input_gain_db": -3.5
     }
   ],
   "modulation": {
@@ -204,7 +293,7 @@
         "source": "velocity",
         "target": "layer.blip.gain",
         "depth": {
-          "value": 8,
+          "value": 6,
           "unit": "decibels"
         },
         "curve": "smooth_step"
@@ -244,6 +333,15 @@
           "unit": "cents"
         },
         "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
       }
     ]
   },

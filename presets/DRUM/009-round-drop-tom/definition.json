@@ -1,9 +1,9 @@
 {
   "schema_version": 6,
   "metadata": {
-    "name": "Electronic Tom",
+    "name": "Round Drop Tom",
     "author": "gpt-6-astra low",
-    "description": "丸い基音と短い膜の共鳴を持つ電子タム。発音直後に控えめな音程下降が現れ、高い成分から先に減衰して胴鳴りへ収束する。短い反復でも音程差を明確に聞き分けられ、ベロシティを上げると輪郭と胴の密度が増す。",
+    "description": "叩いた瞬間の皮の輪郭が立ち、すぐに丸い胴鳴りへ収束するタム。発音直後は中高域の短い打撃音が輪郭を作り、数十ミリ秒で丸い基音の胴だけが残る。ベロシティを上げると輪郭の鋭さと胴の密度が揃って増す。",
     "category": "Drum",
     "tags": [
       "Warm",
@@ -67,7 +67,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -17,
+      "gain_db": -16.0,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -81,7 +81,7 @@
           "phase_reset": true,
           "morph": 0,
           "spectrum_tilt_db_per_octave": 0,
-          "inharmonicity": 0,
+          "inharmonicity": 0.18,
           "partials": [
             {
               "id": "fundamental",
@@ -99,12 +99,12 @@
             {
               "id": "second",
               "ratio": 1.59,
-              "amplitude_a": 0.25,
-              "amplitude_b": 0.25,
+              "amplitude_a": 0.55,
+              "amplitude_b": 0.55,
               "phase": 0,
               "envelope": {
                 "attack_seconds": 0.001,
-                "decay_seconds": 0.22,
+                "decay_seconds": 0.28,
                 "sustain_level": 0,
                 "release_seconds": 0.19
               }
@@ -112,12 +112,38 @@
             {
               "id": "third",
               "ratio": 2.14,
-              "amplitude_a": 0.11,
-              "amplitude_b": 0.11,
+              "amplitude_a": 0.32,
+              "amplitude_b": 0.32,
               "phase": 0,
               "envelope": {
                 "attack_seconds": 0.001,
-                "decay_seconds": 0.1,
+                "decay_seconds": 0.14,
+                "sustain_level": 0,
+                "release_seconds": 0.19
+              }
+            },
+            {
+              "id": "fourth",
+              "ratio": 2.78,
+              "amplitude_a": 0.18,
+              "amplitude_b": 0.18,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.08,
+                "sustain_level": 0,
+                "release_seconds": 0.19
+              }
+            },
+            {
+              "id": "fifth",
+              "ratio": 3.41,
+              "amplitude_a": 0.1,
+              "amplitude_b": 0.1,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.05,
                 "sustain_level": 0,
                 "release_seconds": 0.19
               }
@@ -137,14 +163,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -25,
+      "gain_db": -8.0,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.0006,
-        "decay_seconds": 0.022,
+        "decay_seconds": 0.045,
         "sustain_level": 0,
-        "release_seconds": 0.025
+        "release_seconds": 0.03
       },
       "generator": {
         "noise": {
@@ -158,14 +184,14 @@
           "type": "filter",
           "id": "skin",
           "mode": "high_pass",
-          "cutoff_hz": 2600,
-          "resonance": 0.05
+          "cutoff_hz": 1100.0,
+          "resonance": 0.12
         },
         {
           "type": "filter",
           "id": "tone",
           "mode": "low_pass",
-          "cutoff_hz": 8500,
+          "cutoff_hz": 6800.0,
           "resonance": 0.05
         }
       ]
@@ -176,8 +202,38 @@
       "type": "filter",
       "id": "tone",
       "mode": "low_pass",
-      "cutoff_hz": 6800,
+      "cutoff_hz": 7200,
       "resonance": 0.04
+    },
+    {
+      "type": "eq",
+      "id": "shape",
+      "low_frequency_hz": 95,
+      "low_gain_db": 1.5,
+      "mid_frequency_hz": 260,
+      "mid_gain_db": 2.0,
+      "mid_q": 1.2,
+      "high_frequency_hz": 5200,
+      "high_gain_db": 2.0
+    },
+    {
+      "type": "transient_shaper",
+      "id": "stick",
+      "attack": 0.22,
+      "sustain": 0.0,
+      "mix": 0.75
+    },
+    {
+      "type": "compressor",
+      "id": "density",
+      "detector": "self_signal",
+      "threshold_db": -18,
+      "ratio": 2.5,
+      "attack_ms": 5,
+      "release_ms": 90,
+      "knee_db": 10,
+      "makeup_gain_db": 1.0,
+      "mix": 0.55
     }
   ],
   "global_processors": [
@@ -186,7 +242,7 @@
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 120,
-      "input_gain_db": 0
+      "input_gain_db": -4.5
     }
   ],
   "modulation": {
@@ -214,7 +270,7 @@
         "source": "velocity",
         "target": "layer.body.gain",
         "depth": {
-          "value": 10,
+          "value": 12,
           "unit": "decibels"
         },
         "curve": "smooth_step"
@@ -223,7 +279,7 @@
         "source": "velocity",
         "target": "layer.slap.gain",
         "depth": {
-          "value": 5,
+          "value": 9,
           "unit": "decibels"
         },
         "curve": "smooth_step"

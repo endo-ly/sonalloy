@@ -3,7 +3,7 @@
   "metadata": {
     "name": "Open Hi-Hat",
     "author": "gpt-6-astra low",
-    "description": "クローズド・ハイハットより長い金属振動を持つオープン・ハイハット。高域のざらつきと金属の尾が一体になって減衰し、発音後も空気感が残る。短い連打では余韻が重なり、長めの発音では広がった高域がゆっくり収束する。",
+    "description": "長い尾の中で複数の金属振動が混ざり合い、時間とともに鳴りの中心が移っていくオープン・ハイハット。立ち上がりは高い金属音が一気に開き、尾では低めの金属共鳴と空気のノイズが一体になってゆっくり減衰する。短い連打では余韻が重なって厚みが増し、一打でも金属の混ざりが長く続く。",
     "category": "Drum",
     "tags": [
       "Metallic",
@@ -22,29 +22,29 @@
         "numerator": 4,
         "denominator": 4
       },
-      "length_ticks": 1920,
+      "length_ticks": 2400,
       "notes": [
         {
           "tick": 0,
-          "duration_ticks": 180,
+          "duration_ticks": 600,
           "note": 46,
           "velocity": 90
         },
         {
-          "tick": 480,
-          "duration_ticks": 180,
+          "tick": 600,
+          "duration_ticks": 600,
           "note": 46,
           "velocity": 110
         },
         {
-          "tick": 960,
-          "duration_ticks": 180,
+          "tick": 1200,
+          "duration_ticks": 600,
           "note": 46,
           "velocity": 100
         },
         {
-          "tick": 1440,
-          "duration_ticks": 180,
+          "tick": 1800,
+          "duration_ticks": 600,
           "note": 46,
           "velocity": 120
         }
@@ -67,14 +67,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -24,
+      "gain_db": -15.3,
       "pan": 0,
-      "tuning_cents": -400,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.0005,
-        "decay_seconds": 0.62,
+        "decay_seconds": 0.55,
         "sustain_level": 0,
-        "release_seconds": 0.4
+        "release_seconds": 0.35
       },
       "generator": {
         "operator_modulation": {
@@ -82,9 +82,9 @@
           "algorithm": "three_modulators",
           "operators": [
             {
-              "ratio": 17,
+              "ratio": 9,
               "detune_cents": 0,
-              "level": 0.8,
+              "level": 0.85,
               "modulation_amount": 0,
               "feedback": 0,
               "phase": 0,
@@ -92,49 +92,49 @@
                 "attack_seconds": 0,
                 "decay_seconds": 0,
                 "sustain_level": 1,
-                "release_seconds": 0.4
+                "release_seconds": 0.35
               }
             },
             {
-              "ratio": 9.37,
+              "ratio": 3.87,
               "detune_cents": 0,
               "level": 0,
-              "modulation_amount": 1.15,
+              "modulation_amount": 1.45,
               "feedback": 0,
-              "phase": 0.13,
+              "phase": 0.09,
               "envelope": {
                 "attack_seconds": 0,
                 "decay_seconds": 0,
                 "sustain_level": 1,
-                "release_seconds": 0.4
+                "release_seconds": 0.35
               }
             },
             {
-              "ratio": 13.11,
+              "ratio": 6.31,
               "detune_cents": 0,
               "level": 0,
-              "modulation_amount": 0.95,
+              "modulation_amount": 0.72,
               "feedback": 0,
-              "phase": 0.26,
+              "phase": 0.22,
               "envelope": {
                 "attack_seconds": 0,
-                "decay_seconds": 0,
-                "sustain_level": 1,
-                "release_seconds": 0.4
+                "decay_seconds": 0.3,
+                "sustain_level": 0,
+                "release_seconds": 0.2
               }
             },
             {
-              "ratio": 21.73,
+              "ratio": 14.53,
               "detune_cents": 0,
               "level": 0,
-              "modulation_amount": 0.8,
+              "modulation_amount": 1.05,
               "feedback": 0,
-              "phase": 0.39,
+              "phase": 0.35,
               "envelope": {
                 "attack_seconds": 0,
-                "decay_seconds": 0,
-                "sustain_level": 1,
-                "release_seconds": 0.4
+                "decay_seconds": 0.45,
+                "sustain_level": 0,
+                "release_seconds": 0.3
               }
             }
           ],
@@ -154,14 +154,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -27,
+      "gain_db": -19.0,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.0008,
-        "decay_seconds": 0.43,
+        "decay_seconds": 0.5,
         "sustain_level": 0,
-        "release_seconds": 0.4
+        "release_seconds": 0.35
       },
       "generator": {
         "noise": {
@@ -186,7 +186,7 @@
       "type": "filter",
       "id": "cut_low",
       "mode": "high_pass",
-      "cutoff_hz": 3500,
+      "cutoff_hz": 2800,
       "resonance": 0.05
     },
     {
@@ -195,6 +195,25 @@
       "mode": "low_pass",
       "cutoff_hz": 10500,
       "resonance": 0.05
+    },
+    {
+      "type": "transient_shaper",
+      "id": "bite",
+      "attack": 0.12,
+      "sustain": 0.2,
+      "mix": 0.9
+    },
+    {
+      "type": "compressor",
+      "id": "density",
+      "detector": "self_signal",
+      "threshold_db": -24,
+      "ratio": 3,
+      "attack_ms": 2,
+      "release_ms": 80,
+      "knee_db": 10,
+      "makeup_gain_db": 5,
+      "mix": 0.9
     }
   ],
   "global_processors": [
@@ -203,7 +222,7 @@
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 120,
-      "input_gain_db": 0
+      "input_gain_db": -1.5
     }
   ],
   "modulation": {

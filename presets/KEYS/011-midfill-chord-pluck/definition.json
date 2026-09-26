@@ -1,0 +1,306 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Midfill Chord Pluck",
+    "author": "mimo-v2.6-flash",
+    "description": "デチューンしたSaw波の厚い層を、短いフィルターエンベロープで叩くコードプラック。中域の密度を保ちながら高域は穏やかに抑え、発音直後に明るさが前へ出てから丸い芯へ収束する。短い和音では区切りが明確で、連続しても音の床が濁りにくい。",
+    "category": "Keys",
+    "tags": [
+      "Dense",
+      "Detuned",
+      "Plucky",
+      "Short",
+      "Warm"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 128,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 480,
+          "note": 60,
+          "velocity": 110
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 480,
+          "note": 63,
+          "velocity": 110
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 480,
+          "note": 67,
+          "velocity": 110
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 480,
+          "note": 58,
+          "velocity": 118
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 480,
+          "note": 62,
+          "velocity": 118
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 480,
+          "note": 65,
+          "velocity": 118
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 480,
+          "note": 53,
+          "velocity": 108
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 480,
+          "note": 57,
+          "velocity": 108
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 480,
+          "note": 60,
+          "velocity": 108
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 720,
+          "note": 55,
+          "velocity": 122
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 720,
+          "note": 59,
+          "velocity": 122
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 720,
+          "note": 62,
+          "velocity": 122
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 720,
+          "note": 67,
+          "velocity": 122
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "bed",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.42,
+        "sustain_level": 0.15,
+        "release_seconds": 0.16
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 4,
+            "detune_cents": 12,
+            "stereo_spread": 0.7,
+            "phase_spread": 0.35
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "core",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -20,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.32,
+        "sustain_level": 0.2,
+        "release_seconds": 0.14
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.42
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "floor",
+      "mode": "high_pass",
+      "cutoff_hz": 195,
+      "resonance": 0.05
+    },
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 2400,
+      "resonance": 0.12
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "width",
+      "delay_ms": 14,
+      "rate_hz": 0.35,
+      "depth": 0.35,
+      "width": 0.7,
+      "mix": 0.22,
+      "feedback": 0.1
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.016,
+      "decay": 0.3,
+      "damping": 0.62,
+      "width": 0.85,
+      "mix": 0.08
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 180,
+      "input_gain_db": -2
+    }
+  ],
+  "macros": [],
+  "vectors": [],
+  "modulation": {
+    "sources": [
+      {
+        "id": "filter_env",
+        "type": "envelope",
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.35,
+        "sustain_level": 0.1,
+        "release_seconds": 0.14
+      }
+    ],
+    "routes": [
+      {
+        "source": "filter_env",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.8,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.bed.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.core.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.55,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.bed.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.core.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}
