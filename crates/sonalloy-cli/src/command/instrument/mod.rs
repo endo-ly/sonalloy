@@ -16,25 +16,36 @@ mod inspect;
 
 #[derive(Debug, Subcommand)]
 pub(super) enum InstrumentCommand {
-    /// Create a minimal oscillator Definition.
+    /// Create a starter Instrument Definition JSON file.
+    #[command(
+        long_about = "Create a new Instrument Definition JSON file without replacing an existing destination. The starter Definition is a 16-voice polyphonic Saw oscillator with one low-pass filter and no external audio input."
+    )]
     Init(InitArgs),
-    /// Parse, validate, and compile a Definition.
+    /// Check that a Definition JSON file is valid and can be compiled.
+    #[command(
+        long_about = "Parse and compile an Instrument Definition, including its referenced assets. This checks whether the file can be used as an instrument, not only whether its JSON syntax is valid. With `--json`, success is reported as JSON and execution failures include structured diagnostics."
+    )]
     Validate(DefinitionArgs),
-    /// Display the compiled Definition in a human-readable form.
+    /// Inspect the instrument configuration produced from a Definition.
+    #[command(
+        long_about = "Compile the Definition and display the instrument configuration that will be used, including Parameters, Generators, Processors, Modulation, Macros, Vectors, and reported latency. Use `--json` for a machine-readable result. Compilation also checks referenced assets."
+    )]
     Inspect(DefinitionArgs),
 }
 
 #[derive(Debug, Args)]
 pub(super) struct InitArgs {
     /// Destination Definition path.
+    #[arg(value_name = "PATH")]
     path: PathBuf,
 }
 
 #[derive(Debug, Args)]
 pub(super) struct DefinitionArgs {
     /// Definition JSON path.
+    #[arg(value_name = "DEFINITION")]
     definition: PathBuf,
-    /// Emit machine-readable JSON.
+    /// Emit machine-readable JSON results; execution failures include structured diagnostics.
     #[arg(long)]
     json: bool,
 }

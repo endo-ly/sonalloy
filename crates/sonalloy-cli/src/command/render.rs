@@ -12,6 +12,7 @@ use sonalloy_core::{
     render_instrument_with_input_and_trace, seconds_to_frames,
 };
 
+use super::demo::DEMO_JSON_HELP;
 use super::{DEFAULT_BLOCK_SIZE, DEFAULT_SAMPLE_RATE, load_and_compile};
 use crate::command::pattern::load_pattern;
 use crate::demo::{self, FfmpegError, MasterReport, StereoMix, encode_mp3, master as master_demo};
@@ -22,46 +23,73 @@ use crate::output::{
 };
 use crate::pattern::{CompiledPattern, compile as compile_pattern};
 
+const RENDER_EVENTS_HELP: &str = r"Render a JSON Event Sequence at exact absolute frame positions. The top-level object has an `events` array. Each entry requires `absolute_frame` (frames from render start) and `type`. Frames must be in ascending order and each must be less than `--duration-frames`; entries at the same frame are allowed.
+
+Supported events and fields:
+- `note_on`: `note_id` (a non-negative integer identifying the note), `note` (0..=127), and `velocity` (1..=127).
+- `note_off`: `note_id` identifying the note to release.
+- `sustain_pedal`: boolean `down`.
+- `parameter_change`: `parameter` (an ID in the selected Instrument's Parameter catalog) and `native_value` (a finite value in that Parameter's native unit and range).
+- `pitch_bend`: finite `value` in -1..=1.
+- `mod_wheel` and `aftertouch`: finite `value` in 0..=1.
+
+`--duration-frames` is the main render duration. `--tail` adds audio after that duration; events cannot be placed in the tail. `--tempo` supplies one constant BPM for tempo-synced parameters. `--reset-check` renders the sequence again after resetting the instrument and cannot be combined with `--trace`. `--trace-every-frames` requires at least one `--trace` parameter.";
+
+const RENDER_DEMO_HELP: &str = r"Render every Part over the Demo timeline, apply Part gain and the configured global fade, and write the final Stereo WAV. The fade must not exceed the duration of the rendered mix, including any `--tail`. `--sample-rate` and `--block-size` are shared by all Parts; both values must be positive. `--tail` adds time after each Pattern. `--stems-dir` writes each Part before gain, global fade, and mastering. `--analyze` reports the fade-applied mix before mastering. The Demo `mix.master` setting applies to the final WAV. `--mp3-output` requires `FFmpeg`; with mastering configured, it encodes the mastered audio, otherwise it encodes the mix. Use `--json` for machine-readable success and structured diagnostics for execution failures.";
+
 #[derive(Debug, Subcommand)]
 pub(super) enum RenderCommand {
     /// Render one Note On / Note Off pair.
     Note(RenderNoteArgs),
-    /// Render an absolute-frame event sequence.
+    /// Render a JSON event sequence at absolute frame positions.
+    #[command(long_about = RENDER_EVENTS_HELP)]
     Events(RenderEventsArgs),
-    /// Render events from a Standard MIDI File.
+    /// Render the events in a Standard MIDI File.
+    #[command(
+        long_about = "Read a Standard MIDI File and render its events. MIDI tempo changes and time-signature changes determine the playback timeline; absent tempo or meter metadata uses 120 BPM or 4/4. `--tail` adds seconds after the MIDI timeline. External audio, analysis, tracing, WAV output, and JSON reporting follow the same rules as the other `render` commands."
+    )]
     Midi(RenderMidiArgs),
-    /// Render a musical-time audition pattern.
+    /// Render a tick-based Pattern using its tempo and time-signature changes.
+    #[command(
+        long_about = "Render a Pattern's tick-based timeline using its `tempo_changes` and `time_signature_changes`. `parameter_change` events are resolved against the selected Instrument's Parameter catalog and must use a known Parameter ID and an allowed native value. `--tail` adds seconds after the Pattern duration. External audio, analysis, tracing, WAV output, and JSON reporting follow the same rules as the other `render` commands."
+    )]
     Pattern(RenderPatternArgs),
-    /// Render and mix all parts of a Demo.
+    /// Render and mix every Part in a Demo.
+    #[command(
+        long_about = RENDER_DEMO_HELP,
+        after_long_help = DEMO_JSON_HELP
+    )]
     Demo(RenderDemoArgs),
 }
 #[derive(Debug, Args)]
 struct OfflineRenderCommonArgs {
     /// Definition JSON path.
+    #[arg(value_name = "DEFINITION")]
     definition: PathBuf,
-    /// External audio input WAV path.
-    #[arg(long)]
+    /// Mono/stereo external Audio WAV. Required by Definitions that use it; rejected otherwise.
+    /// Resampled to `--sample-rate`; silence is used after the input ends.
+    #[arg(long, value_name = "WAV")]
     audio_input: Option<PathBuf>,
-    /// Sample rate in Hz.
-    #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
+    /// Output sample rate in Hz; must be greater than zero.
+    #[arg(long, value_name = "HZ", default_value_t = DEFAULT_SAMPLE_RATE, value_parser = clap::value_parser!(u32).range(1..))]
     sample_rate: u32,
-    /// Maximum process block size.
-    #[arg(long, default_value_t = DEFAULT_BLOCK_SIZE)]
+    /// Maximum process block size in frames; must be greater than zero.
+    #[arg(long, value_name = "FRAMES", default_value_t = DEFAULT_BLOCK_SIZE, value_parser = super::parse_positive_usize)]
     block_size: usize,
     /// Destination WAV path.
-    #[arg(long)]
+    #[arg(long, value_name = "PATH")]
     output: PathBuf,
-    /// Emit machine-readable JSON.
+    /// Emit machine-readable JSON results; execution failures include structured diagnostics.
     #[arg(long)]
     json: bool,
-    /// Analyze the corrected output audio.
+    /// Analyze the latency-corrected WAV for levels, DC, activity, continuity, stereo, and spectrum.
     #[arg(long)]
     analyze: bool,
-    /// Trace a compiled Dynamic Parameter; may be repeated.
-    #[arg(long = "trace")]
+    /// Trace an existing Dynamic Parameter ID; may be repeated. An unknown ID fails.
+    #[arg(long = "trace", value_name = "PARAMETER_ID")]
     trace: Vec<String>,
-    /// Interval between trace observations in frames.
-    #[arg(long = "trace-every-frames")]
+    /// Trace interval in frames (positive; default: 480 when tracing).
+    #[arg(long = "trace-every-frames", value_name = "FRAMES", requires = "trace", value_parser = super::parse_positive_usize)]
     trace_every_frames: Option<usize>,
 }
 
@@ -69,20 +97,20 @@ struct OfflineRenderCommonArgs {
 pub(super) struct RenderNoteArgs {
     #[command(flatten)]
     common: OfflineRenderCommonArgs,
-    /// MIDI note number.
-    #[arg(long, default_value_t = 60)]
+    /// MIDI note number (0..=127).
+    #[arg(long, value_name = "MIDI_NOTE", default_value_t = 60, value_parser = clap::value_parser!(u8).range(0..=127))]
     note: u8,
-    /// MIDI velocity.
-    #[arg(long, default_value_t = 100)]
+    /// MIDI velocity (1..=127).
+    #[arg(long, value_name = "VELOCITY", default_value_t = 100, value_parser = clap::value_parser!(u8).range(1..=127))]
     velocity: u8,
-    /// Gate duration in seconds.
-    #[arg(long, default_value_t = 0.5)]
+    /// Note On duration in seconds; finite and greater than zero.
+    #[arg(long, value_name = "SECONDS", default_value_t = 0.5, value_parser = super::parse_positive_f64)]
     gate: f64,
-    /// Additional render tail in seconds.
-    #[arg(long, default_value_t = 0.5)]
+    /// Additional tail in seconds; finite and non-negative.
+    #[arg(long, value_name = "SECONDS", default_value_t = 0.5, value_parser = super::parse_nonnegative_f64)]
     tail: f64,
-    /// Processing tempo in beats per minute.
-    #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
+    /// Constant tempo for tempo-synced parameters, in BPM (finite and greater than zero).
+    #[arg(long, value_name = "BPM", default_value_t = DEFAULT_TEMPO_BPM, value_parser = super::parse_positive_f64)]
     tempo: f64,
 }
 
@@ -91,9 +119,10 @@ pub(super) struct RenderMidiArgs {
     #[command(flatten)]
     common: OfflineRenderCommonArgs,
     /// Standard MIDI File path.
+    #[arg(value_name = "MIDI_FILE")]
     midi: PathBuf,
-    /// Additional render tail in seconds.
-    #[arg(long, default_value_t = 1.0)]
+    /// Additional tail after the MIDI timeline, in seconds (finite and non-negative).
+    #[arg(long, value_name = "SECONDS", default_value_t = 1.0, value_parser = super::parse_nonnegative_f64)]
     tail: f64,
 }
 
@@ -102,38 +131,40 @@ pub(super) struct RenderPatternArgs {
     #[command(flatten)]
     common: OfflineRenderCommonArgs,
     /// Musical-time pattern JSON path.
+    #[arg(value_name = "PATTERN")]
     pattern: PathBuf,
-    /// Additional render tail in seconds.
-    #[arg(long, default_value_t = 1.0)]
+    /// Additional tail after the Pattern timeline, in seconds (finite and non-negative).
+    #[arg(long, value_name = "SECONDS", default_value_t = 1.0, value_parser = super::parse_nonnegative_f64)]
     tail: f64,
 }
 
 #[derive(Debug, Args)]
 pub(super) struct RenderDemoArgs {
     /// Demo JSON path.
+    #[arg(value_name = "DEMO")]
     demo: PathBuf,
-    /// Sample rate in Hz shared by all parts.
-    #[arg(long, default_value_t = DEFAULT_SAMPLE_RATE)]
+    /// Sample rate in Hz shared by all parts; must be greater than zero.
+    #[arg(long, value_name = "HZ", default_value_t = DEFAULT_SAMPLE_RATE, value_parser = clap::value_parser!(u32).range(1..))]
     sample_rate: u32,
-    /// Maximum process block size shared by all parts.
-    #[arg(long, default_value_t = DEFAULT_BLOCK_SIZE)]
+    /// Maximum process block size in frames shared by all parts; must be greater than zero.
+    #[arg(long, value_name = "FRAMES", default_value_t = DEFAULT_BLOCK_SIZE, value_parser = super::parse_positive_usize)]
     block_size: usize,
-    /// Additional render tail in seconds for every part.
-    #[arg(long, default_value_t = 1.0)]
+    /// Additional tail after each Part Pattern, in seconds (finite and non-negative).
+    #[arg(long, value_name = "SECONDS", default_value_t = 1.0, value_parser = super::parse_nonnegative_f64)]
     tail: f64,
-    /// Directory for per-part stem WAV files.
-    #[arg(long)]
+    /// Write each Part's WAV before Part gain, global fade, and mastering are applied.
+    #[arg(long, value_name = "DIRECTORY")]
     stems_dir: Option<PathBuf>,
-    /// Optional MP3 destination.
-    #[arg(long)]
+    /// Optional MP3 output; requires `FFmpeg` and uses Demo mastering when configured.
+    #[arg(long, value_name = "PATH")]
     mp3_output: Option<PathBuf>,
-    /// Analyze the final mix before mastering.
+    /// Analyze the fade-applied mix before mastering.
     #[arg(long)]
     analyze: bool,
     /// Destination final Stereo WAV path.
-    #[arg(long)]
+    #[arg(long, value_name = "PATH")]
     output: PathBuf,
-    /// Emit machine-readable JSON.
+    /// Emit machine-readable JSON results; execution failures include structured diagnostics.
     #[arg(long)]
     json: bool,
 }
@@ -141,19 +172,20 @@ pub(super) struct RenderDemoArgs {
 pub(super) struct RenderEventsArgs {
     #[command(flatten)]
     common: OfflineRenderCommonArgs,
-    /// Absolute-frame event sequence JSON path.
+    /// Event Sequence JSON path; see command help for its structure and event fields.
+    #[arg(value_name = "EVENTS_JSON")]
     events: PathBuf,
     /// Main render duration in frames.
-    #[arg(long)]
+    #[arg(long, value_name = "FRAMES")]
     duration_frames: u64,
-    /// Additional render tail in seconds.
-    #[arg(long, default_value_t = 1.0)]
+    /// Additional tail after the main duration, in seconds (finite and non-negative).
+    #[arg(long, value_name = "SECONDS", default_value_t = 1.0, value_parser = super::parse_nonnegative_f64)]
     tail: f64,
-    /// Processing tempo in beats per minute.
-    #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
+    /// Constant tempo for tempo-synced parameters, in BPM (finite and greater than zero).
+    #[arg(long, value_name = "BPM", default_value_t = DEFAULT_TEMPO_BPM, value_parser = super::parse_positive_f64)]
     tempo: f64,
-    /// Render the same event sequence again after resetting the prepared runtime.
-    #[arg(long)]
+    /// Render the sequence again after resetting the instrument; cannot be combined with --trace.
+    #[arg(long, conflicts_with = "trace")]
     reset_check: bool,
 }
 
@@ -283,33 +315,6 @@ fn note_render_timing(
     args: &RenderNoteArgs,
     sample_rate: f64,
 ) -> Result<(u64, u64, u64), CliFailure> {
-    if args.note > 127 {
-        return Err(CliFailure {
-            code: 2,
-            diagnostics: vec![Diagnostic::error(
-                DiagnosticCode::ValueOutOfRange,
-                "note must be between 0 and 127",
-            )],
-        });
-    }
-    if args.velocity == 0 || args.velocity > 127 {
-        return Err(CliFailure {
-            code: 2,
-            diagnostics: vec![Diagnostic::error(
-                DiagnosticCode::ValueOutOfRange,
-                "velocity must be between 1 and 127",
-            )],
-        });
-    }
-    if args.gate <= 0.0 {
-        return Err(CliFailure {
-            code: 2,
-            diagnostics: vec![Diagnostic::error(
-                DiagnosticCode::ValueOutOfRange,
-                "gate must be greater than zero",
-            )],
-        });
-    }
     let gate_frames =
         seconds_to_frames(args.gate, sample_rate).map_err(|error| input_failure(&error))?;
     let tail_frames =
@@ -497,15 +502,6 @@ fn render_offline_audio(
     CliFailure,
 > {
     if reset_check {
-        if trace_request.is_some() {
-            return Err(CliFailure {
-                code: 2,
-                diagnostics: vec![Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "--reset-check cannot be combined with --trace",
-                )],
-            });
-        }
         let (first, second) = render_instrument_with_input_and_reset(
             Arc::clone(compiled),
             request,
@@ -1146,27 +1142,9 @@ fn resolve_trace_request(
     every_frames: Option<usize>,
 ) -> Result<Option<TraceRequest>, CliFailure> {
     if ids.is_empty() {
-        if every_frames.is_some() {
-            return Err(CliFailure {
-                code: 2,
-                diagnostics: vec![Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "--trace-every-frames requires at least one --trace parameter",
-                )],
-            });
-        }
         return Ok(None);
     }
     let every_frames = every_frames.unwrap_or(480);
-    if every_frames == 0 {
-        return Err(CliFailure {
-            code: 2,
-            diagnostics: vec![Diagnostic::error(
-                DiagnosticCode::ValueOutOfRange,
-                "--trace-every-frames must be greater than zero",
-            )],
-        });
-    }
     let mut parameters = Vec::with_capacity(ids.len());
     for id in ids {
         let Some(handle) = compiled.parameter_handle(id) else {

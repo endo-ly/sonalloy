@@ -172,7 +172,7 @@ sonalloy demo inspect demo.json
 sonalloy demo inspect demo.json --json
 ```
 
-Schema Version、Part数、共通Tick解像度、最長Patternの`length_ticks`、音楽的な長さ、Tempo / Time Signatureの件数、各Partの参照Path・Gain・解決済みMIDI Channel、Mix設定、Master処理でFFmpegが必要かどうかを表示します。`--json`では同じ内容をReportとして出力します。
+Schema Version、Part数、共通Tick解像度、最長Patternの`length_ticks`、音楽的な長さ、Tempo / Time Signatureの件数、各Partの参照Path・Gain・解決済みMIDI Channelを表示します。Human-readable outputでは`Fade Out`と`FFmpeg Required`も表示します。`--json`ではこれらのSummaryに加えて、Master設定を含む`mix`全体を返します。
 
 ### `demo export-midi` — Type 1 MIDIの生成
 
@@ -477,7 +477,7 @@ sonalloy dev render-sine \
 
 | Option | Default | 内容 |
 |---|---|---|
-| `--frequency` | 440 | 周波数（Hz） |
+| `--frequency` | 440 | 周波数（Hz）。有限・非負で、選択したSample Rateの半分以下（Nyquist周波数） |
 | `--duration` | — | レンダリング長（秒、必須） |
 | `--sample-rate` | 48000 | 出力Sample Rate |
 | `--block-size` | 257 | 処理の最大Block Size |
@@ -513,7 +513,7 @@ sonalloy update
 | `3` | Core処理 / レンダリングエラー | `--json`の`DSP_ERROR`等のDiagnosticsを確認する |
 | `4` | WAV出力エラー | 出力先Directoryの存在と書き込み権限を確認する |
 
-`--json`を付けると、入力エラーを次の形で返します：
+Clapによるコマンドラインの構文・値エラーは標準エラーへ表示され、Exit Code `2`で終了します。これらのエラーは`--json`の対象外です。コマンドの実行開始後に発生したエラーは、そのコマンドが`--json`に対応していれば、次の形式で標準出力へ返します。例えば、`render note`でParameter CatalogにないIDを`--trace`へ指定した場合です：
 
 ```json
 {
@@ -521,11 +521,11 @@ sonalloy update
   "exit_code": 2,
   "diagnostics": [
     {
-      "code": "VALUE_OUT_OF_RANGE",
+      "code": "PARAMETER_NOT_FOUND",
       "severity": "error",
-      "path": null,
-      "message": "block size must be greater than zero",
-      "detail": null
+      "path": "--trace",
+      "message": "trace parameter id is not present in the compiled catalog",
+      "detail": "definitely.missing.parameter"
     }
   ]
 }

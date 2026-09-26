@@ -13,15 +13,24 @@ use crate::output::{CliFailure, finish_failure, print_warnings};
 use crate::realtime::{PlayOptions, ScheduledAuditionOptions};
 #[derive(Debug, Subcommand)]
 pub(super) enum AuditionCommand {
-    /// Play a pattern through an audio output.
+    /// Play a Pattern through an audio output without a MIDI input.
+    #[command(
+        long_about = "Play a tick-based Pattern through an audio output; a MIDI keyboard or MIDI input device is not needed. One-shot playback ends after the Pattern, its additional `--tail`, and engine latency have played. `--loop` repeats the Pattern timeline until Enter is pressed, without resetting the instrument; tail is used only for one-shot playback. Omit `--audio-device` to use the OS default output; an unknown ID fails. Omit `--sample-rate` to use the output device's default rate; an unsupported rate fails. `--buffer-size` must be positive and supported by the device. If the Definition requires external audio, `--audio-input-device` selects an input or defaults to the OS input; it must support the required channel count, sample rate, and buffer size. Specifying an input for a Definition that does not use external audio fails."
+    )]
     Pattern(AuditionPatternArgs),
-    /// Convert and play one MIDI channel through an audio output.
+    /// Play one MIDI Note Channel through an audio output without a MIDI input.
+    #[command(
+        long_about = "Convert one Note Channel from a Standard MIDI File to a Pattern and play it through an audio output. `--channel` selects a 1-based channel from 1 through 16. If omitted, the only Note Channel is selected automatically; no Note Channels is an error, and multiple Note Channels require `--channel`. This command does not use a MIDI input device. To repeat a MIDI file, convert it with `pattern import-midi` and use `audition pattern --loop`. The optional tail plays after the MIDI phrase ends. Omit `--audio-device` to use the OS default output; an unknown ID fails. Omit `--sample-rate` to use the output device's default rate; an unsupported rate fails. `--buffer-size` must be positive and supported by the device. If the Definition requires external audio, `--audio-input-device` selects an input or defaults to the OS input; it must support the required channel count, sample rate, and buffer size. Specifying an input for a Definition that does not use external audio fails."
+    )]
     Midi(AuditionMidiArgs),
 }
 
 #[derive(Debug, Subcommand)]
 pub(super) enum DeviceCommand {
-    /// List available audio outputs and MIDI inputs.
+    /// List available audio inputs, outputs, and MIDI inputs.
+    #[command(
+        long_about = "List Audio Input, Audio Output, and MIDI Input devices, including their IDs and available configuration details. Use an Audio Output ID with `--audio-device`, an Audio Input ID with `--audio-input-device`, and a MIDI Input ID with `--midi-device`. Add `--json` for machine-readable output."
+    )]
     List(DeviceListArgs),
 }
 
@@ -35,55 +44,58 @@ pub(super) struct DeviceListArgs {
 #[derive(Debug, Args)]
 pub(super) struct PlayArgs {
     /// Definition JSON path.
+    #[arg(value_name = "DEFINITION")]
     pub(crate) definition: PathBuf,
-    /// CPAL output device ID. The OS default is used when omitted.
-    #[arg(long)]
+    /// Audio Output ID from `device list`; the OS default is used when omitted.
+    #[arg(long, value_name = "DEVICE_ID")]
     pub(crate) audio_device: Option<String>,
-    /// CPAL input device ID. The OS default is used when external audio is required.
-    #[arg(long)]
+    /// Audio Input ID; used only when the Definition requires external audio.
+    #[arg(long, value_name = "DEVICE_ID")]
     pub(crate) audio_input_device: Option<String>,
-    /// Midir input port ID. A single available port is selected automatically.
-    #[arg(long)]
+    /// MIDI Input ID; if omitted, the only available input is selected automatically.
+    #[arg(long, value_name = "DEVICE_ID")]
     pub(crate) midi_device: Option<String>,
-    /// Requested output sample rate. The device default is used when omitted.
-    #[arg(long)]
+    /// Output sample rate in Hz; the device default is used when omitted.
+    #[arg(long, value_name = "HZ", value_parser = clap::value_parser!(u32).range(1..))]
     pub(crate) sample_rate: Option<u32>,
-    /// Requested callback buffer size in frames.
-    #[arg(long, default_value_t = crate::realtime::DEFAULT_BUFFER_SIZE)]
+    /// Requested audio buffer size in frames; must be supported by the device.
+    #[arg(long, value_name = "FRAMES", default_value_t = crate::realtime::DEFAULT_BUFFER_SIZE, value_parser = super::parse_positive_usize)]
     pub(crate) buffer_size: usize,
-    /// Constant tempo supplied to the Core process context.
-    #[arg(long, default_value_t = DEFAULT_TEMPO_BPM)]
+    /// Constant playback tempo in BPM (finite and greater than zero).
+    #[arg(long, value_name = "BPM", default_value_t = DEFAULT_TEMPO_BPM, value_parser = super::parse_positive_f64)]
     pub(crate) tempo: f64,
-    /// Time signature supplied to the Core process context, for example 4/4.
-    #[arg(long, default_value = "4/4")]
+    /// Playback time signature as numerator/denominator.
+    #[arg(long, value_name = "TIME_SIGNATURE", default_value = "4/4", value_parser = parse_time_signature_value)]
     pub(crate) time_signature: String,
-    /// Map a macro identifier to a MIDI CC number; may be repeated.
-    #[arg(long = "macro-cc")]
+    /// Map a Macro with `id=cc`; repeatable, with CC 0..=127 except reserved CC1 and CC64.
+    #[arg(long = "macro-cc", value_name = "ID=CC", value_parser = parse_macro_cc_value)]
     pub(crate) macro_cc: Vec<String>,
 }
 
 #[derive(Debug, Args)]
 pub(super) struct AuditionPatternArgs {
     /// Definition JSON path.
+    #[arg(value_name = "DEFINITION")]
     pub(crate) definition: PathBuf,
     /// Musical-time pattern JSON path.
+    #[arg(value_name = "PATTERN")]
     pub(crate) pattern: PathBuf,
-    /// CPAL output device ID. The OS default is used when omitted.
-    #[arg(long)]
+    /// Audio Output ID from `device list`; the OS default is used when omitted.
+    #[arg(long, value_name = "DEVICE_ID")]
     pub(crate) audio_device: Option<String>,
-    /// CPAL input device ID. The OS default is used when external audio is required.
-    #[arg(long)]
+    /// Audio Input ID; used only when the Definition requires external audio.
+    #[arg(long, value_name = "DEVICE_ID")]
     pub(crate) audio_input_device: Option<String>,
-    /// Requested output sample rate. The device default is used when omitted.
-    #[arg(long)]
+    /// Output sample rate in Hz; the device default is used when omitted.
+    #[arg(long, value_name = "HZ", value_parser = clap::value_parser!(u32).range(1..))]
     pub(crate) sample_rate: Option<u32>,
-    /// Requested callback buffer size in frames.
-    #[arg(long, default_value_t = crate::realtime::DEFAULT_BUFFER_SIZE)]
+    /// Requested audio buffer size in frames; must be supported by the device.
+    #[arg(long, value_name = "FRAMES", default_value_t = crate::realtime::DEFAULT_BUFFER_SIZE, value_parser = super::parse_positive_usize)]
     pub(crate) buffer_size: usize,
-    /// Additional tail in seconds for one-shot playback.
-    #[arg(long, default_value_t = 1.0)]
+    /// Additional one-shot tail in seconds (finite and non-negative).
+    #[arg(long, value_name = "SECONDS", default_value_t = 1.0, value_parser = super::parse_nonnegative_f64)]
     pub(crate) tail: f64,
-    /// Repeat the pattern until Enter is pressed.
+    /// Repeat the Pattern timeline until Enter is pressed, without resetting the instrument.
     #[arg(long)]
     pub(crate) r#loop: bool,
 }
@@ -91,26 +103,28 @@ pub(super) struct AuditionPatternArgs {
 #[derive(Debug, Args)]
 pub(super) struct AuditionMidiArgs {
     /// Definition JSON path.
+    #[arg(value_name = "DEFINITION")]
     pub(crate) definition: PathBuf,
     /// Standard MIDI File path.
+    #[arg(value_name = "MIDI_FILE")]
     pub(crate) midi: PathBuf,
-    /// MIDI channel number from 1 to 16.
-    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=16))]
+    /// 1-based MIDI Note Channel to play (1..=16).
+    #[arg(long, value_name = "CHANNEL", value_parser = clap::value_parser!(u8).range(1..=16))]
     pub(crate) channel: Option<u8>,
-    /// CPAL output device ID. The OS default is used when omitted.
-    #[arg(long)]
+    /// Audio Output ID from `device list`; the OS default is used when omitted.
+    #[arg(long, value_name = "DEVICE_ID")]
     pub(crate) audio_device: Option<String>,
-    /// CPAL input device ID. The OS default is used when external audio is required.
-    #[arg(long)]
+    /// Audio Input ID; used only when the Definition requires external audio.
+    #[arg(long, value_name = "DEVICE_ID")]
     pub(crate) audio_input_device: Option<String>,
-    /// Requested output sample rate. The device default is used when omitted.
-    #[arg(long)]
+    /// Output sample rate in Hz; the device default is used when omitted.
+    #[arg(long, value_name = "HZ", value_parser = clap::value_parser!(u32).range(1..))]
     pub(crate) sample_rate: Option<u32>,
-    /// Requested callback buffer size in frames.
-    #[arg(long, default_value_t = crate::realtime::DEFAULT_BUFFER_SIZE)]
+    /// Requested audio buffer size in frames; must be supported by the device.
+    #[arg(long, value_name = "FRAMES", default_value_t = crate::realtime::DEFAULT_BUFFER_SIZE, value_parser = super::parse_positive_usize)]
     pub(crate) buffer_size: usize,
-    /// Additional tail in seconds for one-shot playback.
-    #[arg(long, default_value_t = 1.0)]
+    /// Additional one-shot tail in seconds (finite and non-negative).
+    #[arg(long, value_name = "SECONDS", default_value_t = 1.0, value_parser = super::parse_nonnegative_f64)]
     pub(crate) tail: f64,
 }
 
@@ -137,45 +151,6 @@ fn run_device_list(json: bool) -> ExitCode {
     }
 }
 
-fn validate_play_args(args: &PlayArgs) -> Result<(), CliFailure> {
-    let mut diagnostics = Vec::new();
-    if !args.tempo.is_finite() || args.tempo <= 0.0 {
-        diagnostics.push(Diagnostic::error(
-            DiagnosticCode::ValueOutOfRange,
-            "tempo must be finite and greater than zero",
-        ));
-    }
-    if args.buffer_size == 0 {
-        diagnostics.push(Diagnostic::error(
-            DiagnosticCode::ValueOutOfRange,
-            "buffer size must be greater than zero",
-        ));
-    }
-    if args.sample_rate == Some(0) {
-        diagnostics.push(Diagnostic::error(
-            DiagnosticCode::ValueOutOfRange,
-            "sample rate must be greater than zero",
-        ));
-    }
-    if parse_time_signature(&args.time_signature).is_err() {
-        diagnostics.push(
-            Diagnostic::error(
-                DiagnosticCode::ValueOutOfRange,
-                "time signature must use numerator/denominator notation",
-            )
-            .with_path("time_signature"),
-        );
-    }
-    if diagnostics.is_empty() {
-        Ok(())
-    } else {
-        Err(CliFailure {
-            code: 2,
-            diagnostics,
-        })
-    }
-}
-
 fn parse_time_signature(value: &str) -> Result<TimeSignature, &'static str> {
     let (numerator, denominator) = value
         .split_once('/')
@@ -192,6 +167,31 @@ fn parse_time_signature(value: &str) -> Result<TimeSignature, &'static str> {
         .is_valid()
         .then_some(signature)
         .ok_or("invalid time signature")
+}
+
+fn parse_time_signature_value(value: &str) -> Result<String, String> {
+    parse_time_signature(value)
+        .map(|_| value.to_owned())
+        .map_err(str::to_owned)
+}
+
+fn parse_macro_cc_value(value: &str) -> Result<String, String> {
+    let Some((macro_id, cc)) = value.split_once('=') else {
+        return Err("use id=cc".to_owned());
+    };
+    if macro_id.is_empty() {
+        return Err("Macro ID must not be empty".to_owned());
+    }
+    let cc = cc
+        .parse::<u8>()
+        .map_err(|_| "CC must be 0..=127".to_owned())?;
+    if cc > 127 {
+        return Err("CC must be 0..=127".to_owned());
+    }
+    if cc == crate::midi::MOD_WHEEL_CONTROLLER || cc == crate::midi::SUSTAIN_PEDAL_CONTROLLER {
+        return Err("CC1 and CC64 are reserved".to_owned());
+    }
+    Ok(value.to_owned())
 }
 
 fn parse_macro_cc(
@@ -271,9 +271,6 @@ fn parse_macro_cc(
 }
 
 fn run_audition_pattern(args: &AuditionPatternArgs) -> ExitCode {
-    if let Err(failure) = validate_audition_args(args.sample_rate, args.buffer_size, args.tail) {
-        return finish_failure(false, failure);
-    }
     let pattern = match load_pattern(&args.pattern) {
         Ok(pattern) => pattern,
         Err(failure) => return finish_failure(false, failure),
@@ -327,9 +324,6 @@ fn run_audition_pattern(args: &AuditionPatternArgs) -> ExitCode {
 }
 
 fn run_audition_midi(args: &AuditionMidiArgs) -> ExitCode {
-    if let Err(failure) = validate_audition_args(args.sample_rate, args.buffer_size, args.tail) {
-        return finish_failure(false, failure);
-    }
     let parsed = match crate::midi::parse_midi(&args.midi) {
         Ok(parsed) => parsed,
         Err(diagnostics) => {
@@ -387,40 +381,6 @@ fn run_audition_midi(args: &AuditionMidiArgs) -> ExitCode {
     println!("playing one-shot pattern");
     print_warnings(&session.diagnostics);
     finish_scheduled_session(session, false)
-}
-
-fn validate_audition_args(
-    sample_rate: Option<u32>,
-    buffer_size: usize,
-    tail: f64,
-) -> Result<(), CliFailure> {
-    let mut diagnostics = Vec::new();
-    if sample_rate == Some(0) {
-        diagnostics.push(Diagnostic::error(
-            DiagnosticCode::ValueOutOfRange,
-            "sample rate must be greater than zero",
-        ));
-    }
-    if buffer_size == 0 {
-        diagnostics.push(Diagnostic::error(
-            DiagnosticCode::ValueOutOfRange,
-            "buffer size must be greater than zero",
-        ));
-    }
-    if !tail.is_finite() || tail < 0.0 {
-        diagnostics.push(Diagnostic::error(
-            DiagnosticCode::ValueOutOfRange,
-            "tail must be finite and non-negative",
-        ));
-    }
-    if diagnostics.is_empty() {
-        Ok(())
-    } else {
-        Err(CliFailure {
-            code: 2,
-            diagnostics,
-        })
-    }
 }
 
 fn print_device_inventory(report: &crate::realtime::DeviceInventoryReport) {
@@ -566,11 +526,8 @@ pub(super) fn run_device(command: DeviceCommand) -> ExitCode {
 
 #[allow(clippy::too_many_lines)]
 pub(super) fn run_play(args: &PlayArgs) -> ExitCode {
-    if let Err(failure) = validate_play_args(args) {
-        return finish_failure(false, failure);
-    }
     let time_signature =
-        parse_time_signature(&args.time_signature).expect("validated time signature");
+        parse_time_signature(&args.time_signature).expect("Clap validated the time signature");
     let session = match crate::realtime::start_play(
         &PlayOptions {
             definition_path: &args.definition,
@@ -697,24 +654,9 @@ pub(super) fn run_play(args: &PlayArgs) -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use super::{PlayArgs, parse_macro_cc, parse_time_signature, validate_play_args};
-    use crate::realtime::DEFAULT_BUFFER_SIZE;
+    use super::{parse_macro_cc, parse_macro_cc_value, parse_time_signature};
     use sonalloy_core::{CompileContext, ProcessSpec, TimeSignature, compile_instrument};
     use std::sync::Arc;
-
-    fn args(tempo: f64, buffer_size: usize, sample_rate: Option<u32>) -> PlayArgs {
-        PlayArgs {
-            definition: "instrument.json".into(),
-            audio_device: None,
-            audio_input_device: None,
-            midi_device: None,
-            sample_rate,
-            buffer_size,
-            tempo,
-            time_signature: "4/4".to_owned(),
-            macro_cc: Vec::new(),
-        }
-    }
 
     fn compiled_with_macro() -> Arc<sonalloy_core::CompiledInstrument> {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -735,14 +677,6 @@ mod tests {
             },
         );
         result.instrument.expect("fixture compiles")
-    }
-
-    #[test]
-    fn play_arguments_require_finite_tempo_and_positive_sizes() {
-        assert!(validate_play_args(&args(120.0, DEFAULT_BUFFER_SIZE, None)).is_ok());
-        assert!(validate_play_args(&args(f64::NAN, DEFAULT_BUFFER_SIZE, None)).is_err());
-        assert!(validate_play_args(&args(120.0, 0, None)).is_err());
-        assert!(validate_play_args(&args(120.0, DEFAULT_BUFFER_SIZE, Some(0))).is_err());
     }
 
     #[test]
@@ -776,5 +710,18 @@ mod tests {
             parse_macro_cc(&["motion=20".to_owned(), "motion=21".to_owned()], &compiled).is_err()
         );
         assert!(parse_macro_cc(&["missing=22".to_owned()], &compiled).is_err());
+    }
+
+    #[test]
+    fn macro_cc_parser_checks_format_range_and_reserved_controls() {
+        assert_eq!(parse_macro_cc_value("motion=0"), Ok("motion=0".to_owned()));
+        assert_eq!(
+            parse_macro_cc_value("motion=127"),
+            Ok("motion=127".to_owned())
+        );
+        assert!(parse_macro_cc_value("motion").is_err());
+        assert!(parse_macro_cc_value("motion=128").is_err());
+        assert!(parse_macro_cc_value("motion=1").is_err());
+        assert!(parse_macro_cc_value("motion=64").is_err());
     }
 }
