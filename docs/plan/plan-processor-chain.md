@@ -1514,8 +1514,8 @@ Tankの指定All-pass Delayへ低速Modulationを適用する。
 ### Stability
 
 - Decayは最大0.98
-- DefinitionのDecayは内部Feedback係数へ変換し、内部係数を0.19未満へ制限する
-- Diffusion係数は固定で絶対値1未満
+- DefinitionのDecayをTankのDecay係数としてそのまま使う
+- Diffusion係数は固定で絶対値1未満。All-passはLattice形式で全周波数Unity Gainとし、固定共振を持たない
 - Feedback Loop内で非有限値を検出
 - 極小Stateを0へ戻しDenormal蓄積を防止
 - Input 0でTail Energyが最終的に減衰

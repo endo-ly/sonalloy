@@ -170,7 +170,7 @@ fn sum_output_taps(
 }
 
 fn reverb_feedback(decay: f32) -> f32 {
-    (decay * 0.2).clamp(0.0, 0.19)
+    decay.clamp(0.0, 0.98)
 }
 
 fn modulation_offset(phase: f32, excursion: f32) -> f32 {
@@ -275,8 +275,9 @@ impl Allpass {
         } else {
             self.delay.read_modulated(modulation)?
         };
-        let output = -self.coefficient * input + delayed;
-        self.delay.write(input + self.coefficient * delayed)?;
+        let written = input + self.coefficient * delayed;
+        let output = delayed - self.coefficient * written;
+        self.delay.write(written)?;
         if output.is_finite() {
             Ok(output)
         } else {
@@ -440,7 +441,12 @@ impl DelayLine {
 #[cfg(test)]
 mod tests {
     use super::{DelayLine, PlateReverbRuntime, Tank, modulation_offset, sum_output_taps};
-    use crate::compiler::{CompiledReverbProcessor, ReverbOutputTap, ReverbTapSource};
+    use crate::compiler::tests::{context, definition};
+    use crate::compiler::{
+        CompiledProcessorKind, CompiledReverbProcessor, ReverbOutputTap, ReverbTapSource,
+        compile_instrument,
+    };
+    use crate::definition::{ProcessorDefinition, ReverbProcessorDefinition};
     use crate::parameter::ParameterHandle;
     use crate::runtime::modulation::ValueSpan;
 
@@ -655,6 +661,62 @@ mod tests {
                 .chain(whole_tail_right.iter().zip(&split_tail_right))
                 .all(|(left, right)| (left - right).abs() < 1.0e-6)
         );
+    }
+
+    #[test]
+    fn wet_level_has_no_pitch_dependent_resonance() {
+        let mut source = definition();
+        source
+            .global_processors
+            .push(ProcessorDefinition::Reverb(ReverbProcessorDefinition {
+                id: "room".to_owned(),
+                pre_delay_seconds: 0.02,
+                decay: 0.3,
+                damping: 0.8,
+                width: 0.75,
+                mix: 1.0,
+            }));
+        let compiled = compile_instrument(&source, &context())
+            .instrument
+            .expect("reverb compiles");
+        let CompiledProcessorKind::Reverb(reverb) = &compiled.global_processors[0].processor else {
+            panic!("global processor is a reverb");
+        };
+        let sample_rate = 48_000.0;
+        let frames = 24_000;
+
+        let wet_levels_db = (45..=74).map(|note| {
+            let frequency = 440.0 * 2.0_f64.powf((f64::from(note) - 69.0) / 12.0);
+            #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+            let mut left: Vec<f32> = (0..frames)
+                .map(|index| {
+                    (std::f64::consts::TAU * frequency * index as f64 / sample_rate).sin() as f32
+                })
+                .collect();
+            let mut right = left.clone();
+            PlateReverbRuntime::new(reverb)
+                .process(
+                    constant(0.3),
+                    constant(0.8),
+                    constant(0.75),
+                    constant(1.0),
+                    &mut left,
+                    &mut right,
+                )
+                .expect("reverb process");
+            let steady = frames / 2..frames;
+            #[allow(clippy::cast_precision_loss)]
+            let power = left[steady.clone()]
+                .iter()
+                .chain(&right[steady])
+                .map(|sample| sample * sample)
+                .sum::<f32>()
+                / frames as f32;
+            10.0 * (power / 0.5).log10()
+        });
+
+        let loudest_db = wet_levels_db.fold(f32::NEG_INFINITY, f32::max);
+        assert!(loudest_db < 4.0, "wet level peaks at {loudest_db} dB");
     }
 
     #[test]
