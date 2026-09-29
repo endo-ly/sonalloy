@@ -28,6 +28,10 @@ struct ConvolutionChannel {
     dry_position: usize,
     history: Vec<Box<[Complex<f32>]>>,
     history_position: usize,
+    /// Sum of the delayed partitions for the block being collected. Built
+    /// incrementally so each sample carries an equal share of the work.
+    delayed_accumulated: Vec<Complex<f32>>,
+    next_delayed_partition: usize,
     fft_buffer: Vec<Complex<f32>>,
     accumulated: Vec<Complex<f32>>,
     scratch: Vec<Complex<f32>>,
@@ -119,6 +123,8 @@ impl ConvolutionChannel {
                 partition_count
             ],
             history_position: 0,
+            delayed_accumulated: vec![Complex::new(0.0, 0.0); CONVOLUTION_FFT_SIZE],
+            next_delayed_partition: 1,
             fft_buffer: vec![Complex::new(0.0, 0.0); CONVOLUTION_FFT_SIZE],
             accumulated: vec![Complex::new(0.0, 0.0); CONVOLUTION_FFT_SIZE],
             scratch: vec![Complex::new(0.0, 0.0); scratch_len],
@@ -158,6 +164,7 @@ impl ConvolutionChannel {
         }
         self.input_block[self.input_count] = input;
         self.input_count += 1;
+        self.accumulate_delayed_partitions(spectra);
         if self.input_count == CONVOLUTION_PARTITION_SIZE {
             self.compute_block(spectra)?;
         }
@@ -165,6 +172,27 @@ impl ConvolutionChannel {
             Ok(output)
         } else {
             Err(non_finite())
+        }
+    }
+
+    /// Accumulates the delayed partitions due after `input_count` samples, so
+    /// that all of them are done when the block completes.
+    fn accumulate_delayed_partitions(&mut self, spectra: &[Box<[Complex<f32>]>]) {
+        let delayed_count = spectra.len() - 1;
+        let due = 1 + (self.input_count * delayed_count).div_ceil(CONVOLUTION_PARTITION_SIZE);
+        while self.next_delayed_partition < due {
+            let partition_index = self.next_delayed_partition;
+            let history_index =
+                (self.history_position + self.history.len() - partition_index) % self.history.len();
+            for ((target, input), ir) in self
+                .delayed_accumulated
+                .iter_mut()
+                .zip(self.history[history_index].iter())
+                .zip(spectra[partition_index].iter())
+            {
+                *target += input * ir;
+            }
+            self.next_delayed_partition += 1;
         }
     }
 
@@ -179,14 +207,17 @@ impl ConvolutionChannel {
         self.forward
             .process_with_scratch(&mut self.fft_buffer, &mut self.scratch);
         self.history[self.history_position].copy_from_slice(&self.fft_buffer);
-        self.accumulated.fill(Complex::new(0.0, 0.0));
-        for (partition_index, ir_spectrum) in spectra.iter().enumerate() {
-            let history_index =
-                (self.history_position + self.history.len() - partition_index) % self.history.len();
-            for index in 0..CONVOLUTION_FFT_SIZE {
-                self.accumulated[index] += self.history[history_index][index] * ir_spectrum[index];
-            }
+        for (((target, delayed), input), ir) in self
+            .accumulated
+            .iter_mut()
+            .zip(self.delayed_accumulated.iter())
+            .zip(self.fft_buffer.iter())
+            .zip(spectra[0].iter())
+        {
+            *target = delayed + input * ir;
         }
+        self.delayed_accumulated.fill(Complex::new(0.0, 0.0));
+        self.next_delayed_partition = 1;
         self.inverse
             .process_with_scratch(&mut self.accumulated, &mut self.scratch);
         #[allow(clippy::cast_precision_loss)]
@@ -225,6 +256,8 @@ impl ConvolutionChannel {
             partition.fill(Complex::new(0.0, 0.0));
         }
         self.history_position = 0;
+        self.delayed_accumulated.fill(Complex::new(0.0, 0.0));
+        self.next_delayed_partition = 1;
         self.fft_buffer.fill(Complex::new(0.0, 0.0));
         self.accumulated.fill(Complex::new(0.0, 0.0));
         self.scratch.fill(Complex::new(0.0, 0.0));
@@ -343,6 +376,41 @@ mod tests {
                 .zip(split)
                 .all(|(expected, actual)| (expected - actual).abs() < 1.0e-6)
         );
+    }
+
+    #[test]
+    fn delayed_partition_work_is_spread_in_proportion_to_callback_size() {
+        let partition_count = 21;
+        let samples = vec![0.25; CONVOLUTION_PARTITION_SIZE * partition_count];
+        let prepared = Arc::new(PreparedConvolutionIr {
+            sample_rate: 48_000.0,
+            source_channels: 1,
+            source_frames: samples.len(),
+            prepared_frames: samples.len(),
+            partition_size: CONVOLUTION_PARTITION_SIZE,
+            fft_size: CONVOLUTION_FFT_SIZE,
+            spectra: PreparedConvolutionSpectra::Mono(partition_spectra(&samples)),
+        });
+        let mut runtime =
+            ConvolutionRuntime::new(prepared, 48_000.0).expect("test impulse response prepares");
+
+        for _ in 0..8 {
+            let mut left = [1.0; 64];
+            let mut right = [1.0; 64];
+            runtime
+                .process(
+                    constant_span(0.0),
+                    constant_span(1.0),
+                    &mut left,
+                    &mut right,
+                )
+                .expect("convolution processes");
+
+            let collected = runtime.left.input_count;
+            let proportional_share =
+                (collected * (partition_count - 1)).div_ceil(CONVOLUTION_PARTITION_SIZE);
+            assert_eq!(runtime.left.next_delayed_partition, 1 + proportional_share);
+        }
     }
 
     #[test]
