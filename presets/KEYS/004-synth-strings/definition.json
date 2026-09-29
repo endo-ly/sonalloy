@@ -164,7 +164,7 @@
       "decay": 0.5,
       "damping": 0.6,
       "width": 0.85,
-      "mix": 0.08
+      "mix": 0.4
     },
     {
       "type": "filter",
@@ -178,7 +178,7 @@
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 250,
-      "input_gain_db": -5
+      "input_gain_db": -1.4
     }
   ],
   "modulation": {
