@@ -232,14 +232,14 @@
       "decay": 0.57,
       "damping": 0.52,
       "width": 0.9,
-      "mix": 0.14
+      "mix": 0.55
     },
     {
       "type": "limiter",
       "id": "ceiling",
       "ceiling_db": -1,
       "release_ms": 90,
-      "input_gain_db": 0
+      "input_gain_db": 5.6
     }
   ],
   "modulation": {

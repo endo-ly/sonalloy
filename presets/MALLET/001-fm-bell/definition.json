@@ -163,14 +163,14 @@
       "decay": 0.61,
       "damping": 0.55,
       "width": 0.82,
-      "mix": 0.11
+      "mix": 0.46
     },
     {
       "type": "limiter",
       "id": "cap",
       "ceiling_db": -1.5,
       "release_ms": 120,
-      "input_gain_db": 0
+      "input_gain_db": 4.4
     }
   ],
   "macros": [],

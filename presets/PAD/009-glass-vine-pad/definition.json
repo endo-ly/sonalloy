@@ -255,14 +255,14 @@
       "decay": 0.7,
       "damping": 0.52,
       "width": 0.9,
-      "mix": 0.23
+      "mix": 0.68
     },
     {
       "type": "limiter",
       "id": "ceiling",
       "ceiling_db": -1,
       "release_ms": 90,
-      "input_gain_db": -3
+      "input_gain_db": 4.8
     }
   ],
   "modulation": {
