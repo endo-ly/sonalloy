@@ -1,9 +1,10 @@
-use rustfft::{FftPlanner, num_complex::Complex};
+use realfft::{RealFftPlanner, num_complex::Complex};
 
 use crate::asset::{PreparedAudio, PreparedAudioChannels};
 
 pub(crate) const CONVOLUTION_PARTITION_SIZE: usize = 256;
 pub(crate) const CONVOLUTION_FFT_SIZE: usize = CONVOLUTION_PARTITION_SIZE * 2;
+pub(crate) const CONVOLUTION_BIN_COUNT: usize = CONVOLUTION_FFT_SIZE / 2 + 1;
 pub(crate) const CONVOLUTION_LATENCY_FRAMES: usize = CONVOLUTION_PARTITION_SIZE;
 pub(crate) const MAX_IR_SECONDS: f64 = 10.0;
 
@@ -127,17 +128,19 @@ pub(crate) fn prepare_convolution_ir(
 pub(crate) fn partition_spectra(samples: &[f32]) -> Box<[Box<[Complex<f32>]>]> {
     let partition_count =
         samples.len().saturating_add(CONVOLUTION_PARTITION_SIZE - 1) / CONVOLUTION_PARTITION_SIZE;
-    let mut planner = FftPlanner::<f32>::new();
+    let mut planner = RealFftPlanner::<f32>::new();
     let fft = planner.plan_fft_forward(CONVOLUTION_FFT_SIZE);
+    let mut input = fft.make_input_vec();
+    let mut scratch = fft.make_scratch_vec();
     let mut partitions = Vec::with_capacity(partition_count);
     for partition_index in 0..partition_count {
         let start = partition_index * CONVOLUTION_PARTITION_SIZE;
         let end = (start + CONVOLUTION_PARTITION_SIZE).min(samples.len());
-        let mut buffer = vec![Complex::new(0.0, 0.0); CONVOLUTION_FFT_SIZE];
-        for (target, source) in buffer[..end - start].iter_mut().zip(&samples[start..end]) {
-            target.re = *source;
-        }
-        fft.process(&mut buffer);
+        input.fill(0.0);
+        input[..end - start].copy_from_slice(&samples[start..end]);
+        let mut buffer = fft.make_output_vec();
+        fft.process_with_scratch(&mut input, &mut buffer, &mut scratch)
+            .expect("fixed convolution FFT buffer sizes");
         partitions.push(buffer.into_boxed_slice());
     }
     partitions.into_boxed_slice()

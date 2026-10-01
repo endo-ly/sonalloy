@@ -184,6 +184,8 @@ RealtimeでもOfflineでも、Coreは次の契約に従います。ここがCore
 
 ProcessはPrepareで確保したStateを使い回し、実行中に新しいStateを確保しません。Resetではこれらを初期値へ戻すため、同じEvent Sequenceを初期化直後のRuntimeとReset後のRuntimeへ与えた結果は一致します。
 
+ConvolutionはIRの積和を処理Frame数に応じて分散します。IRが長くなると各Frameの計算量が増え、短いBlockでも後段の計算を継続します。Partition境界で行うFFTと出力生成の規模はIR長に依存しません。Wet / Dryの両経路は256 framesの固定Latencyを持ち、Blockの分割方法によらず同じ出力になります。
+
 **エラー時の扱い**
 
 - 不正な入力やContextの不一致はErrorとし、そのBlockの出力を無音にします
