@@ -234,7 +234,7 @@ fn spectral_definition_validates_and_compiles_the_prepared_contract() {
         path.file_name().unwrap().to_string_lossy().into_owned(),
         1024,
     );
-    assert!(definition.validate().is_empty());
+    assert_eq!(definition.validate(), Vec::new());
 
     let compiled = compile(&definition, directory.path(), 257);
     let sonalloy_core::compiler::CompiledGenerator::Spectral(spectral) =
@@ -321,7 +321,7 @@ fn spectral_asset_b_adds_the_morph_parameter() {
     };
     spectral.asset_b = Some(spectral.asset_a.clone());
     spectral.morph = 0.5;
-    assert!(definition.validate().is_empty());
+    assert_eq!(definition.validate(), Vec::new());
     let compiled = compile(&definition, directory.path(), 257);
     let morph = compiled
         .parameter_handle("layer.body.generator.spectral_morph")
@@ -1197,7 +1197,7 @@ fn render_runtime_note(
 #[test]
 fn spectral_reference_definition_exposes_stereo_ab_and_transform_controls() {
     let (definition, path) = example_definition("spectral-generator-reference.json");
-    assert!(definition.validate().is_empty());
+    assert_eq!(definition.validate(), Vec::new());
     let compiled = compile(
         &definition,
         path.parent().expect("instrument directory"),
@@ -1246,7 +1246,7 @@ fn spectral_reference_definition_exposes_stereo_ab_and_transform_controls() {
 #[test]
 fn spectral_hybrid_uses_existing_layers_processors_modulation_and_midi_ready_parameters() {
     let (definition, path) = example_definition("spectral-hybrid-reference.json");
-    assert!(definition.validate().is_empty());
+    assert_eq!(definition.validate(), Vec::new());
     let base_dir = path.parent().expect("instrument directory");
     let compiled = compile(&definition, base_dir, 257);
     assert_hybrid_structure(&compiled, &definition);

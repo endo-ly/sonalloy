@@ -176,11 +176,12 @@ fn render_note_reports_analysis_and_trace_without_changing_audio() {
         .as_array()
         .expect("trace parameters")
     {
-        assert!(
-            !parameter["observations"]
+        assert_ne!(
+            parameter["observations"]
                 .as_array()
                 .expect("trace observations")
-                .is_empty()
+                .as_slice(),
+            [] as [serde_json::Value; 0]
         );
     }
 

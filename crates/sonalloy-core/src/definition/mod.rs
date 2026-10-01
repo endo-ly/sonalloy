@@ -551,7 +551,7 @@ pub(crate) mod tests {
 
     #[test]
     fn valid_definition_has_no_diagnostics() {
-        assert!(definition().validate().is_empty());
+        assert_eq!(definition().validate(), Vec::new());
     }
 
     #[test]
@@ -617,7 +617,7 @@ pub(crate) mod tests {
         let mut value = definition();
         value.layers.push(value.layers[0].clone());
         value.layers[1].id = "second".to_owned();
-        assert!(value.validate().is_empty());
+        assert_eq!(value.validate(), Vec::new());
     }
 
     #[test]
@@ -649,6 +649,6 @@ pub(crate) mod tests {
 
         let mut used_bus = unused_bus;
         used_bus.global_processors = vec![transfer];
-        assert!(used_bus.validate().is_empty());
+        assert_eq!(used_bus.validate(), Vec::new());
     }
 }

@@ -1,4 +1,3 @@
-use std::f64;
 use std::sync::Arc;
 
 use realfft::num_complex::Complex;

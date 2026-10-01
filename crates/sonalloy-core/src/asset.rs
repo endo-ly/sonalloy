@@ -602,7 +602,7 @@ mod tests {
     #[test]
     fn linear_resample_keeps_constant_signal_constant() {
         let output = linear_resample(&[0.25; 4], 44_100.0, 48_000.0);
-        assert!(!output.is_empty());
+        assert_ne!(output, [] as [f32; 0]);
         assert!(output.iter().all(|sample| (*sample - 0.25).abs() < 1.0e-6));
     }
 

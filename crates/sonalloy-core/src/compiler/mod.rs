@@ -895,7 +895,7 @@ pub(crate) mod tests {
         let source = definition();
         let result = compile_instrument(&source, &context());
         let compiled = result.instrument.expect("compiled instrument");
-        assert!(result.diagnostics.is_empty());
+        assert_eq!(result.diagnostics, Vec::new());
         assert_eq!(compiled.layers.len(), 1);
         assert_eq!(compiled.parameters()[0].id, "layer.body.gain");
         assert_eq!(

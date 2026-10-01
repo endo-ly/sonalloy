@@ -373,33 +373,33 @@ mod tests {
 
     #[test]
     fn valid_schema_v6_metadata_has_no_diagnostics() {
-        assert!(diagnostics(&metadata()).is_empty());
+        assert_eq!(diagnostics(&metadata()), Vec::new());
     }
 
     #[test]
     fn category_rejects_empty_and_outer_whitespace() {
         let mut empty = metadata();
         empty.category = Some(String::new());
-        assert!(!diagnostics(&empty).is_empty());
+        assert_ne!(diagnostics(&empty), Vec::new());
 
         let mut padded = metadata();
         padded.category = Some(" Bass".to_owned());
-        assert!(!diagnostics(&padded).is_empty());
+        assert_ne!(diagnostics(&padded), Vec::new());
     }
 
     #[test]
     fn tags_reject_too_many_empty_and_case_insensitive_duplicates() {
         let mut too_many = metadata();
         too_many.tags = (0..13).map(|index| format!("tag{index}")).collect();
-        assert!(!diagnostics(&too_many).is_empty());
+        assert_ne!(diagnostics(&too_many), Vec::new());
 
         let mut empty = metadata();
         empty.tags = vec![String::new()];
-        assert!(!diagnostics(&empty).is_empty());
+        assert_ne!(diagnostics(&empty), Vec::new());
 
         let mut duplicate = metadata();
         duplicate.tags = vec!["Warm".to_owned(), "warm".to_owned()];
-        assert!(!diagnostics(&duplicate).is_empty());
+        assert_ne!(diagnostics(&duplicate), Vec::new());
     }
 
     #[test]
@@ -409,14 +409,14 @@ mod tests {
             min_midi: 60,
             max_midi: 24,
         });
-        assert!(!diagnostics(&reversed).is_empty());
+        assert_ne!(diagnostics(&reversed), Vec::new());
 
         let mut out_of_range = metadata();
         out_of_range.recommended_range = Some(InstrumentRecommendedRange {
             min_midi: 128,
             max_midi: 127,
         });
-        assert!(!diagnostics(&out_of_range).is_empty());
+        assert_ne!(diagnostics(&out_of_range), Vec::new());
     }
 
     #[test]
@@ -424,7 +424,7 @@ mod tests {
         for tempo in [29.9, 300.1, f64::NAN] {
             let mut value = metadata();
             value.preview.as_mut().expect("preview").tempo_bpm = tempo;
-            assert!(!diagnostics(&value).is_empty());
+            assert_ne!(diagnostics(&value), Vec::new());
         }
 
         for signature in [
@@ -439,7 +439,7 @@ mod tests {
         ] {
             let mut value = metadata();
             value.preview.as_mut().expect("preview").time_signature = signature;
-            assert!(!diagnostics(&value).is_empty());
+            assert_ne!(diagnostics(&value), Vec::new());
         }
     }
 
@@ -447,7 +447,7 @@ mod tests {
     fn preview_rejects_note_count_velocity_timing_and_range_values() {
         let mut no_notes = metadata();
         no_notes.preview.as_mut().expect("preview").notes.clear();
-        assert!(!diagnostics(&no_notes).is_empty());
+        assert_ne!(diagnostics(&no_notes), Vec::new());
 
         let mut too_many = metadata();
         too_many.preview.as_mut().expect("preview").notes = (0..33)
@@ -458,35 +458,35 @@ mod tests {
                 velocity: 100,
             })
             .collect();
-        assert!(!diagnostics(&too_many).is_empty());
+        assert_ne!(diagnostics(&too_many), Vec::new());
 
         for velocity in [0, 128] {
             let mut value = metadata();
             value.preview.as_mut().expect("preview").notes[0].velocity = velocity;
-            assert!(!diagnostics(&value).is_empty());
+            assert_ne!(diagnostics(&value), Vec::new());
         }
 
         let mut tick_outside = metadata();
         tick_outside.preview.as_mut().expect("preview").notes[0].tick = 1920;
-        assert!(!diagnostics(&tick_outside).is_empty());
+        assert_ne!(diagnostics(&tick_outside), Vec::new());
 
         let mut zero_duration = metadata();
         zero_duration.preview.as_mut().expect("preview").notes[0].duration_ticks = 0;
-        assert!(!diagnostics(&zero_duration).is_empty());
+        assert_ne!(diagnostics(&zero_duration), Vec::new());
 
         let mut end_outside = metadata();
         end_outside.preview.as_mut().expect("preview").notes[0].duration_ticks = 1921;
-        assert!(!diagnostics(&end_outside).is_empty());
+        assert_ne!(diagnostics(&end_outside), Vec::new());
 
         let mut note_outside = metadata();
         note_outside.preview.as_mut().expect("preview").notes[0].note = 61;
-        assert!(!diagnostics(&note_outside).is_empty());
+        assert_ne!(diagnostics(&note_outside), Vec::new());
     }
 
     #[test]
     fn preview_rejects_music_longer_than_ten_seconds() {
         let mut value = metadata();
         value.preview.as_mut().expect("preview").length_ticks = 9_601;
-        assert!(!diagnostics(&value).is_empty());
+        assert_ne!(diagnostics(&value), Vec::new());
     }
 }

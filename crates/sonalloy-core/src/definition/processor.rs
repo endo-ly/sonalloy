@@ -1618,7 +1618,7 @@ mod tests {
     #[test]
     fn extended_processors_use_the_declared_placement_matrix() {
         let value = extended_definition();
-        assert!(value.validate().is_empty());
+        assert_eq!(value.validate(), Vec::new());
 
         let mut invalid_layer = value.clone();
         invalid_layer.layers[0]

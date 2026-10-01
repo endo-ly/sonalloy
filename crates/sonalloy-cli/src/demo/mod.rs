@@ -819,7 +819,7 @@ mod tests {
 
         assert!(parsed.mix.fade_out_seconds.abs() < f64::EPSILON);
         assert!(parsed.mix.master.is_none());
-        assert!(validate_definition(&parsed).is_empty());
+        assert_eq!(validate_definition(&parsed), Vec::new());
         let mut unsupported = parsed;
         unsupported.schema_version = 2;
         assert_eq!(
@@ -986,7 +986,7 @@ mod tests {
             shorter.length_ticks,
             1,
         );
-        assert!(diagnostics.is_empty());
+        assert_eq!(diagnostics, Vec::new());
 
         shorter.ticks_per_beat = 960;
         shorter.tempo_changes[0].bpm = 100.0;

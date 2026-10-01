@@ -1967,7 +1967,7 @@ mod tests {
         let result = compile_instrument(&source, &context());
         let compiled = result.instrument.expect("extended processors compile");
 
-        assert!(result.diagnostics.is_empty());
+        assert_eq!(result.diagnostics, Vec::new());
         assert_eq!(compiled.layer_alignment_latency_frames, 0);
         assert_eq!(
             compiled.reported_latency_frames,
@@ -2045,7 +2045,7 @@ mod tests {
 
         let result = compile_instrument(&source, &context);
         let compiled = result.instrument.expect("reverb compiles");
-        assert!(result.diagnostics.is_empty());
+        assert_eq!(result.diagnostics, Vec::new());
         assert!(matches!(
             &compiled.global_processors[0].processor,
             CompiledProcessorKind::Reverb(_)

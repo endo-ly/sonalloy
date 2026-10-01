@@ -394,7 +394,10 @@ fn macro_trace_is_instrument_scoped() {
     .expect("macro trace render");
 
     let observations = &report.parameters[0].observations;
-    assert!(!observations.is_empty());
+    assert_ne!(
+        observations.as_slice(),
+        [] as [sonalloy_core::TraceObservation; 0]
+    );
     assert!(
         observations
             .iter()
@@ -515,7 +518,10 @@ fn trace_final_matches_the_filter_effective_cutoff_limit() {
         .iter()
         .filter(|observation| observation.voice.is_some())
         .collect::<Vec<_>>();
-    assert!(!active.is_empty());
+    assert_ne!(
+        active.as_slice(),
+        [] as [&sonalloy_core::TraceObservation; 0]
+    );
     assert!(active.iter().all(|observation| {
         observation.before_clamp > 9_000.0 && (observation.final_value - 9_000.0).abs() < 1.0e-4
     }));

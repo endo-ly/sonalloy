@@ -2493,7 +2493,7 @@ mod tests {
             feedback: None,
             unison: None,
         });
-        assert!(value.validate().is_empty());
+        assert_eq!(value.validate(), Vec::new());
 
         if let GeneratorDefinition::Oscillator(oscillator) = &mut value.layers[0].generator {
             oscillator.phase = -f32::EPSILON;
@@ -2515,11 +2515,11 @@ mod tests {
             seed: 42,
             stereo_correlation: 0.0,
         });
-        assert!(value.validate().is_empty());
+        assert_eq!(value.validate(), Vec::new());
         if let GeneratorDefinition::Noise(noise) = &mut value.layers[0].generator {
             noise.stereo_correlation = 1.0;
         }
-        assert!(value.validate().is_empty());
+        assert_eq!(value.validate(), Vec::new());
         if let GeneratorDefinition::Noise(noise) = &mut value.layers[0].generator {
             noise.stereo_correlation = 1.0 + f32::EPSILON;
         }
@@ -2633,13 +2633,13 @@ mod tests {
             sample_zone("soft", 0, 127, 1, 64, None, one_shot),
             sample_zone("hard", 0, 127, 65, 127, None, one_shot),
         ]);
-        assert!(value.validate().is_empty());
+        assert_eq!(value.validate(), Vec::new());
 
         let value = sample_definition(vec![
             sample_zone("hit_a", 60, 60, 1, 127, Some("hits"), one_shot),
             sample_zone("hit_b", 60, 60, 1, 127, Some("hits"), one_shot),
         ]);
-        assert!(value.validate().is_empty());
+        assert_eq!(value.validate(), Vec::new());
 
         let mut value =
             sample_definition(vec![sample_zone("invalid", 60, 59, 1, 127, None, one_shot)]);
@@ -2969,7 +2969,7 @@ mod tests {
             OperatorModulationMode::Phase,
             OperatorAlgorithm::Stack4,
         ));
-        assert!(value.validate().is_empty());
+        assert_eq!(value.validate(), Vec::new());
 
         {
             let GeneratorDefinition::OperatorModulation(operator_modulation) =
