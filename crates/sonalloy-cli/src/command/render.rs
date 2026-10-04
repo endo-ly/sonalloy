@@ -493,58 +493,139 @@ fn render_demo_parts(
     sample_rate: f64,
     block_size: usize,
     tail_frames: u64,
-) -> Result<Vec<sonalloy_core::RenderedAudio>, CliFailure> {
-    let mut rendered_parts = (0..demo.parts.len()).map(|_| None).collect::<Vec<_>>();
+    mut consume: impl FnMut(usize, &sonalloy_core::RenderedAudio) -> Result<(), CliFailure>,
+) -> Result<(), CliFailure> {
+    let prerender_order = demo::prerender_order(demo);
+    let mut remaining_input_uses = vec![0; demo.parts.len()];
+    for source_index in demo.audio_dependencies.iter().flatten() {
+        remaining_input_uses[*source_index] += 1;
+    }
+    for index in &prerender_order {
+        if let Some(source_index) = demo.audio_dependencies[*index] {
+            remaining_input_uses[source_index] += 1;
+        }
+    }
     let mut prepared_inputs = (0..demo.parts.len()).map(|_| None).collect::<Vec<_>>();
 
-    for index in demo::render_order(demo) {
-        let part = &demo.parts[index];
-        let external_audio = if let Some(input) = &part.definition.audio_input {
-            let source_index = demo
-                .parts
-                .iter()
-                .position(|source| source.definition.id == input.part)
-                .ok_or_else(|| demo_routing_failure(index, "audio source part was not found"))?;
-            if prepared_inputs[source_index].is_none() {
-                let source_audio = rendered_parts[source_index]
-                    .as_ref()
-                    .ok_or_else(|| demo_routing_failure(index, "audio source was not rendered"))?;
-                prepared_inputs[source_index] = Some(
-                    prepare_part_audio_input(
-                        source_audio,
-                        demo.parts[source_index].definition.gain_db,
-                    )
-                    .map_err(|detail| demo_routing_failure(index, &detail))?,
-                );
-            }
-            prepared_inputs[source_index].as_ref()
-        } else {
-            None
-        };
-        let (audio, _) = render_compiled_pattern(
-            &part.instrument,
-            &part.compiled_pattern,
+    for index in 0..demo.parts.len() {
+        if let Some(source_index) = demo.audio_dependencies[index]
+            && prepared_inputs[source_index].is_none()
+        {
+            ensure_prepared_part_audio(
+                demo,
+                source_index,
+                sample_rate,
+                block_size,
+                tail_frames,
+                &mut prepared_inputs,
+                &mut remaining_input_uses,
+            )?;
+        }
+        let audio = render_demo_part_audio(
+            demo,
+            index,
             sample_rate,
             block_size,
             tail_frames,
-            None,
-            external_audio,
-        )
-        .map_err(|failure| prefix_part_failure(failure, index))?;
-        rendered_parts[index] = Some(audio);
+            &prepared_inputs,
+        )?;
+        release_part_audio_input(index, demo, &mut prepared_inputs, &mut remaining_input_uses);
+        consume(index, &audio)?;
+        if remaining_input_uses[index] > 0 && prepared_inputs[index].is_none() {
+            prepared_inputs[index] = Some(
+                prepare_part_audio_input(audio, demo.parts[index].definition.gain_db)
+                    .map_err(|detail| demo_routing_failure(index, &detail))?,
+            );
+        }
     }
+    Ok(())
+}
 
-    rendered_parts
-        .into_iter()
-        .enumerate()
-        .map(|(index, audio)| {
-            audio.ok_or_else(|| demo_routing_failure(index, "Demo Part was not rendered"))
+fn ensure_prepared_part_audio(
+    demo: &demo::LoadedDemo,
+    index: usize,
+    sample_rate: f64,
+    block_size: usize,
+    tail_frames: u64,
+    prepared_inputs: &mut [Option<sonalloy_core::PreparedAudio>],
+    remaining_input_uses: &mut [usize],
+) -> Result<(), CliFailure> {
+    if prepared_inputs[index].is_some() {
+        return Ok(());
+    }
+    if let Some(source_index) = demo.audio_dependencies[index] {
+        ensure_prepared_part_audio(
+            demo,
+            source_index,
+            sample_rate,
+            block_size,
+            tail_frames,
+            prepared_inputs,
+            remaining_input_uses,
+        )?;
+    }
+    let audio = render_demo_part_audio(
+        demo,
+        index,
+        sample_rate,
+        block_size,
+        tail_frames,
+        prepared_inputs,
+    )?;
+    release_part_audio_input(index, demo, prepared_inputs, remaining_input_uses);
+    prepared_inputs[index] = Some(
+        prepare_part_audio_input(audio, demo.parts[index].definition.gain_db)
+            .map_err(|detail| demo_routing_failure(index, &detail))?,
+    );
+    Ok(())
+}
+
+fn render_demo_part_audio(
+    demo: &demo::LoadedDemo,
+    index: usize,
+    sample_rate: f64,
+    block_size: usize,
+    tail_frames: u64,
+    prepared_inputs: &[Option<sonalloy_core::PreparedAudio>],
+) -> Result<sonalloy_core::RenderedAudio, CliFailure> {
+    let part = &demo.parts[index];
+    let external_audio = demo.audio_dependencies[index]
+        .map(|source_index| {
+            prepared_inputs[source_index]
+                .as_ref()
+                .ok_or_else(|| demo_routing_failure(index, "audio source was not prepared"))
         })
-        .collect()
+        .transpose()?;
+    let (audio, _) = render_compiled_pattern(
+        &part.instrument,
+        &part.compiled_pattern,
+        sample_rate,
+        block_size,
+        tail_frames,
+        None,
+        external_audio,
+    )
+    .map_err(|failure| prefix_part_failure(failure, index))?;
+    Ok(audio)
+}
+
+fn release_part_audio_input(
+    index: usize,
+    demo: &demo::LoadedDemo,
+    prepared_inputs: &mut [Option<sonalloy_core::PreparedAudio>],
+    remaining_input_uses: &mut [usize],
+) {
+    let Some(source_index) = demo.audio_dependencies[index] else {
+        return;
+    };
+    remaining_input_uses[source_index] -= 1;
+    if remaining_input_uses[source_index] == 0 {
+        prepared_inputs[source_index] = None;
+    }
 }
 
 fn prepare_part_audio_input(
-    audio: &sonalloy_core::RenderedAudio,
+    audio: sonalloy_core::RenderedAudio,
     gain_db: f64,
 ) -> Result<sonalloy_core::PreparedAudio, String> {
     if audio.channels.len() != 2 || audio.channels[0].len() != audio.channels[1].len() {
@@ -556,16 +637,19 @@ fn prepare_part_audio_input(
     if !gain.is_finite() {
         return Err("part gain cannot be represented as a finite audio gain".to_owned());
     }
-    let scale_channel = |channel: &[f32]| {
-        Arc::<[f32]>::from(
-            channel
-                .iter()
-                .map(|sample| *sample * gain)
-                .collect::<Vec<_>>(),
-        )
-    };
-    let left = scale_channel(&audio.channels[0]);
-    let right = scale_channel(&audio.channels[1]);
+    let mut channels = audio.channels.into_iter();
+    let mut left = channels
+        .next()
+        .ok_or("external audio source must be stereo")?;
+    let mut right = channels
+        .next()
+        .ok_or("external audio source must be stereo")?;
+    for sample in &mut left {
+        *sample *= gain;
+    }
+    for sample in &mut right {
+        *sample *= gain;
+    }
     let frames = left.len();
     Ok(sonalloy_core::PreparedAudio {
         sample_rate: f64::from(audio.sample_rate),
@@ -576,7 +660,10 @@ fn prepare_part_audio_input(
             bits_per_sample: Some(32),
             source_frames: frames,
         },
-        channels: sonalloy_core::PreparedAudioChannels::Stereo { left, right },
+        channels: sonalloy_core::PreparedAudioChannels::Stereo {
+            left: Arc::from(left),
+            right: Arc::from(right),
+        },
     })
 }
 
@@ -969,47 +1056,44 @@ fn run_render_demo(args: &RenderDemoArgs) -> ExitCode {
         );
     }
 
-    let rendered_parts = match render_demo_parts(&demo, sample_rate, args.block_size, tail_frames) {
-        Ok(parts) => parts,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
     let mut mix = StereoMix::new(args.sample_rate);
     let mut part_reports = Vec::with_capacity(demo.parts.len());
-    for (index, (part, audio)) in demo.parts.iter().zip(&rendered_parts).enumerate() {
-        let stem = if let Some(stems_dir) = &args.stems_dir {
-            let stem_path = stems_dir.join(format!("{}.wav", part.definition.id));
-            if let Err(error) = write_wav(&stem_path, audio) {
-                return finish_failure(
-                    args.json,
-                    CliFailure {
-                        code: 4,
-                        diagnostics: vec![error],
-                    },
-                );
-            }
-            Some(stem_path.to_string_lossy().into_owned())
-        } else {
-            None
-        };
-        let frames = audio.frames();
-        if let Err(error) = mix.add_part(audio, part.definition.gain_db) {
-            return finish_failure(
-                args.json,
-                CliFailure {
+    if let Err(failure) = render_demo_parts(
+        &demo,
+        sample_rate,
+        args.block_size,
+        tail_frames,
+        |index, audio| {
+            let part = &demo.parts[index];
+            let stem = if let Some(stems_dir) = &args.stems_dir {
+                let stem_path = stems_dir.join(format!("{}.wav", part.definition.id));
+                write_wav(&stem_path, audio).map_err(|error| CliFailure {
+                    code: 4,
+                    diagnostics: vec![error],
+                })?;
+                Some(stem_path.to_string_lossy().into_owned())
+            } else {
+                None
+            };
+            let frames = audio.frames();
+            mix.add_part(audio, part.definition.gain_db)
+                .map_err(|error| CliFailure {
                     code: 3,
                     diagnostics: vec![
                         Diagnostic::error(DiagnosticCode::RenderError, error)
                             .with_path(format!("parts[{index}]")),
                     ],
-                },
-            );
-        }
-        part_reports.push(DemoPartRenderReport {
-            id: part.definition.id.clone(),
-            gain_db: part.definition.gain_db,
-            frames,
-            stem,
-        });
+                })?;
+            part_reports.push(DemoPartRenderReport {
+                id: part.definition.id.clone(),
+                gain_db: part.definition.gain_db,
+                frames,
+                stem,
+            });
+            Ok(())
+        },
+    ) {
+        return finish_failure(args.json, failure);
     }
     if let Err(error) = mix.apply_fade(demo.definition.mix.fade_out_seconds) {
         return finish_failure(

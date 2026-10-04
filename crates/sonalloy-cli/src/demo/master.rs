@@ -346,12 +346,88 @@ fn json_number(value: &Value) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+    use std::process::Command;
 
     use super::{
         LoudnessMeasurement, build_gain_correction_command, build_loudnorm_command,
         build_mp3_command, find_json_object, loudnorm_filter, master_report, parse_loudnorm_report,
     };
     use crate::demo::DemoMaster;
+
+    #[test]
+    fn master_corrects_true_peak_overshoot_after_sample_rate_conversion() {
+        if Command::new("ffmpeg").arg("-version").output().is_err() {
+            return;
+        }
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let input = directory.path().join("overshoot-source.wav");
+        let output = directory.path().join("mastered.wav");
+        let spec = hound::WavSpec {
+            channels: 2,
+            sample_rate: 48_000,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let mut writer = hound::WavWriter::create(&input, spec).expect("input WAV");
+        // Sparse high-frequency bursts expose inter-sample peaks during rate conversion.
+        for frame in 0..48_000 * 3 {
+            let pulse = frame % 4_800 < 48;
+            let time = f64::from(frame) / 48_000.0;
+            let sample = if pulse {
+                (std::f64::consts::TAU * 18_000.0 * time).sin() * 0.9
+            } else {
+                (std::f64::consts::TAU * 440.0 * time).sin() * 0.02
+            };
+            #[allow(clippy::cast_possible_truncation)]
+            let sample = sample as f32;
+            writer.write_sample(sample).expect("left sample");
+            writer.write_sample(sample).expect("right sample");
+        }
+        writer.finalize().expect("input WAV finalized");
+
+        let settings = DemoMaster {
+            integrated_lufs: -10.0,
+            true_peak_db: -1.0,
+            loudness_range_lu: 7.0,
+        };
+        let report = super::master(&input, &output, &settings, 44_100).expect("master succeeds");
+        let independently_measured_tp = ffmpeg_true_peak(&output);
+
+        assert!(report.true_peak_correction_db < 0.0);
+        assert_eq!(
+            hound::WavReader::open(&output)
+                .expect("mastered WAV opens")
+                .spec()
+                .sample_rate,
+            44_100
+        );
+        assert!((report.output.true_peak_db - independently_measured_tp).abs() < 0.05);
+        assert!(independently_measured_tp <= settings.true_peak_db);
+    }
+
+    fn ffmpeg_true_peak(path: &Path) -> f64 {
+        let output = Command::new("ffmpeg")
+            .args(["-hide_banner", "-nostdin", "-i"])
+            .arg(path)
+            .args([
+                "-af",
+                "loudnorm=I=-10:TP=-1:LRA=7:print_format=json",
+                "-f",
+                "null",
+                "-",
+            ])
+            .output()
+            .expect("FFmpeg measurement starts");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        super::parse_loudnorm_report(&String::from_utf8_lossy(&output.stderr))
+            .expect("measurement report parses")
+            .input_tp
+            .expect("measurement includes input true peak")
+    }
 
     fn command_arguments(command: &std::process::Command) -> Vec<String> {
         command

@@ -443,11 +443,6 @@ fn render_demo_reports_measured_master_output_analysis_and_mp3() {
     assert_eq!(report["master"]["target"]["true_peak_db"], -1.0);
     assert!(report["master"]["normalization_type"].is_string());
     assert!(report["master"]["output"]["true_peak_db"].as_f64().unwrap() <= -1.0);
-    assert!(
-        report["master"]["true_peak_correction_db"]
-            .as_f64()
-            .is_some()
-    );
     assert_eq!(report["mp3_output"], mp3.to_string_lossy().as_ref());
     for field in ["integrated_lufs", "true_peak_db", "loudness_range_lu"] {
         assert!(
