@@ -1,0 +1,314 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Pulse Reese Bass",
+    "author": "gpt-6.1-sol",
+    "description": "パルス波の硬い打撃と、デチューンしたノコギリ波のうねりを組み合わせたReeseベース。発音直後にフィルターが開き、短い硬い輪郭から中低域の持続音へ収束する。短い反復ではアタックが立ち、長音では倍音の揺れが続き、モジュレーションホイールで明るさを広げられる。",
+    "category": "Bass",
+    "tags": [
+      "Detuned",
+      "Rough",
+      "Punchy",
+      "Sustained"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 60
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 7680,
+      "notes": [
+        {
+          "tick": 480,
+          "note": 36,
+          "duration_ticks": 360,
+          "velocity": 48
+        },
+        {
+          "tick": 960,
+          "note": 36,
+          "duration_ticks": 360,
+          "velocity": 90
+        },
+        {
+          "tick": 1440,
+          "note": 36,
+          "duration_ticks": 360,
+          "velocity": 127
+        },
+        {
+          "tick": 1920,
+          "note": 36,
+          "duration_ticks": 84,
+          "velocity": 100
+        },
+        {
+          "tick": 2040,
+          "note": 36,
+          "duration_ticks": 84,
+          "velocity": 65
+        },
+        {
+          "tick": 2160,
+          "note": 43,
+          "duration_ticks": 84,
+          "velocity": 100
+        },
+        {
+          "tick": 2280,
+          "note": 36,
+          "duration_ticks": 84,
+          "velocity": 80
+        },
+        {
+          "tick": 2400,
+          "note": 48,
+          "duration_ticks": 84,
+          "velocity": 105
+        },
+        {
+          "tick": 2520,
+          "note": 43,
+          "duration_ticks": 84,
+          "velocity": 75
+        },
+        {
+          "tick": 2640,
+          "note": 41,
+          "duration_ticks": 84,
+          "velocity": 100
+        },
+        {
+          "tick": 2760,
+          "note": 36,
+          "duration_ticks": 84,
+          "velocity": 110
+        },
+        {
+          "tick": 2880,
+          "note": 36,
+          "duration_ticks": 360,
+          "velocity": 110
+        },
+        {
+          "tick": 3120,
+          "note": 43,
+          "duration_ticks": 360,
+          "velocity": 80
+        },
+        {
+          "tick": 3360,
+          "note": 41,
+          "duration_ticks": 360,
+          "velocity": 100
+        },
+        {
+          "tick": 3600,
+          "note": 36,
+          "duration_ticks": 360,
+          "velocity": 95
+        },
+        {
+          "tick": 4320,
+          "note": 36,
+          "duration_ticks": 3360,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 3,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "motor",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16.2,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.006,
+        "decay_seconds": 0.16,
+        "sustain_level": 0.61,
+        "release_seconds": 0.04
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": true,
+          "phase": 0,
+          "unison": {
+            "voices": 3,
+            "detune_cents": 11,
+            "stereo_spread": 0.32,
+            "phase_spread": 0.4
+          }
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "sub_cut",
+          "mode": "high_pass",
+          "cutoff_hz": 140,
+          "resonance": 0.08
+        },
+        {
+          "type": "drive",
+          "id": "color",
+          "amount": 0.19,
+          "mix": 0.38
+        },
+        {
+          "type": "filter",
+          "id": "tone",
+          "mode": "low_pass",
+          "cutoff_hz": 580,
+          "resonance": 0.13
+        }
+      ]
+    },
+    {
+      "id": "bite",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -27.2,
+      "pan": 0,
+      "tuning_cents": 1200,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.082,
+        "sustain_level": 0.1,
+        "release_seconds": 0.022
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.34
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "low",
+          "mode": "high_pass",
+          "cutoff_hz": 220,
+          "resonance": 0.08
+        },
+        {
+          "type": "filter",
+          "id": "tone",
+          "mode": "low_pass",
+          "cutoff_hz": 2200,
+          "resonance": 0.08
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "attack",
+        "type": "envelope",
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.15,
+        "sustain_level": 0.12,
+        "release_seconds": 0.025
+      }
+    ],
+    "routes": [
+      {
+        "source": "attack",
+        "target": "layer.motor.processor.tone.cutoff",
+        "depth": {
+          "value": 1.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.motor.processor.tone.cutoff",
+        "depth": {
+          "value": 1.2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.motor.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.bite.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.motor.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.bite.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

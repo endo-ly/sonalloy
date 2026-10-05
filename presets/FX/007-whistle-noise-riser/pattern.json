@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "name": "Whistle Noise Riser - Full Rise",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 60,
+      "duration_ticks": 7680,
+      "velocity": 110
+    }
+  ]
+}

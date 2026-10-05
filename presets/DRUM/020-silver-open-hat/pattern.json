@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "Silver Open Hat / articulation and dynamics",
+  "name": "Silver Open Hat - Dynamics and Repetition",
   "ticks_per_beat": 480,
   "length_ticks": 7680,
   "tempo_changes": [
@@ -19,59 +19,59 @@
   "events": [
     {
       "type": "note",
-      "tick": 0,
+      "tick": 240,
       "note": 87,
-      "duration_ticks": 320,
-      "velocity": 70
-    },
-    {
-      "type": "note",
-      "tick": 960,
-      "note": 87,
-      "duration_ticks": 320,
+      "duration_ticks": 600,
       "velocity": 100
     },
     {
       "type": "note",
-      "tick": 1920,
+      "tick": 1200,
       "note": 87,
-      "duration_ticks": 320,
+      "duration_ticks": 600,
+      "velocity": 72
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 87,
+      "duration_ticks": 600,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 87,
+      "duration_ticks": 600,
       "velocity": 85
     },
     {
       "type": "note",
-      "tick": 2880,
+      "tick": 4080,
       "note": 87,
-      "duration_ticks": 320,
-      "velocity": 127
+      "duration_ticks": 600,
+      "velocity": 100
     },
     {
       "type": "note",
-      "tick": 3840,
+      "tick": 5040,
       "note": 87,
-      "duration_ticks": 320,
-      "velocity": 92
+      "duration_ticks": 600,
+      "velocity": 72
     },
     {
       "type": "note",
-      "tick": 4800,
+      "tick": 6000,
       "note": 87,
-      "duration_ticks": 320,
-      "velocity": 115
+      "duration_ticks": 600,
+      "velocity": 112
     },
     {
       "type": "note",
-      "tick": 5760,
+      "tick": 6960,
       "note": 87,
-      "duration_ticks": 320,
-      "velocity": 78
-    },
-    {
-      "type": "note",
-      "tick": 6720,
-      "note": 87,
-      "duration_ticks": 320,
-      "velocity": 110
+      "duration_ticks": 600,
+      "velocity": 85
     }
   ]
 }
