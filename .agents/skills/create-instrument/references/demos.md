@@ -1,8 +1,8 @@
 # Demo（複数音源のオフライン確認）
 
-Demoは、複数のInstrumentへそれぞれのAudition Patternを送り、同じ時間軸で音を確認するためのCLI定義ファイルです。1つのDemoから、ステレオのMix、PartごとのStem、Type 1 MIDI、必要に応じてMaster済みWAVやMP3を生成できます。
+Demoは、複数のInstrumentへそれぞれのAudition Patternを送り、同じ時間軸で音を確認するためのCLI定義ファイルです。Partの出力を別PartのExternal Audio入力へ渡す接続も指定できます。1つのDemoから、ステレオのMix、PartごとのStem、Type 1 MIDI、必要に応じてMaster済みWAVやMP3を生成できます。
 
-楽曲制作のProjectはHost / DAWが管理します。TrackやClipの配置、Arrangement、Recording、Automation、Routing、本格的なMixer、複数InstrumentのRealtime HostingはDemoの役割に含めません。
+楽曲制作のProjectはHost / DAWが管理します。DemoのRoutingはPart出力から別PartのExternal Audio入力への接続に限ります。TrackやClipの配置、Arrangement、Recording、Automation、任意Bus、Send / Return、本格的なMixer、複数InstrumentのRealtime HostingはDemoの役割に含めません。
 
 ## 定義ファイル
 
@@ -54,10 +54,15 @@ Demoの`schema_version`は`1`です。定義にない項目は受け付けませ
 | `pattern` | このPartへ送るAudition Patternへのパス | — |
 | `gain_db` | Mixへ加える前の固定Gain（dB） | `0.0` |
 | `midi_channel` | MIDI出力で使うチャンネル（1〜16） | 定義順に自動割り当て |
+| `audio_input` | InstrumentのExternal Audio入力へ接続するSource Part | なし |
 
 `id`にはASCII英数字、`.`、`_`、`-`だけを使い、先頭を英数字にします。長さは1〜64文字です。ASCIIの大文字小文字を区別しない重複を許さず、Windowsの予約デバイス名（`CON`、`PRN`、`AUX`、`NUL`、`COM1`〜`COM9`、`LPT1`〜`LPT9`）も指定できません。予約名は拡張子の前の名前として判定します。
 
 `gain_db`には有限値を指定します。値は各Partへ一度だけ適用される固定Gainで、PatternのEventや時間変化は持ちません。Audioへ変換した結果を有限値として扱えない値は検証エラーになります。
+
+`audio_input`は`{"part":"kick"}`の形で別のPart IDを1つ参照します。参照は大文字小文字も含めて完全一致し、自身への参照、存在しないID、循環する接続は検証エラーです。External Audioを必要とするInstrumentには接続が必須で、入力を使わないInstrumentには指定できません。
+
+接続へ渡す音はSource InstrumentのRender、Latency補正、Render Tail、Source Part Gainまでを適用したStereo音声です。Global FadeとMasterは含みません。同じSourceを複数Partが使う場合も、各接続で同じSource音声を共有します。
 
 ### MIDI Channel
 
@@ -94,8 +99,9 @@ Demo全体の`length_ticks`はPatternの最大値です。`musical_duration_seco
 2. Pattern JSONを読み込み、Pattern自身を検証する
 3. Patternを対象InstrumentのParameter CatalogへCompileする
 4. 全Partの共通時間軸を検証する
+5. External Audio接続の参照、Instrumentの入力要件、循環の有無を検証する
 
-外部Audio入力を必要とするInstrumentは、DemoのオフラインRenderへ入力を渡せないため検証エラーになります。検証は処理できるPartまで進み、参照先の診断には`parts[i].instrument`または`parts[i].pattern`の位置を付けます。参照パスを解決できない場合は、解決後のパスとI/O Errorを診断の`detail`へ含めます。
+External AudioのSourceはConsumerより先にRenderされます。Render順が変わっても、Stem、Mixへの加算、Report、MIDI TrackにはDemo定義順を使います。参照先の診断には`parts[i].instrument`、`parts[i].pattern`、`parts[i].audio_input`または`parts[i].audio_input.part`の位置を付けます。参照パスを解決できない場合は、解決後のパスとI/O Errorを診断の`detail`へ含めます。
 
 ```text
 Pattern単体:   events[4].velocity
@@ -111,19 +117,21 @@ Demoの音源:     parts[2].instrument.layers[0].generator.foo
 
 `demo export-midi`は、基準Patternの`ticks_per_beat`を使うStandard MIDI File Type 1を生成します。Conductor TrackにはDemoのName（指定時）、基準PatternのTempoと拍子、Demo全体の終端を入れます。Part TrackにはPart ID、解決済みChannel、Note、Sustain、Pitch Bend、Mod Wheel、Aftertouchを入れます。
 
-すべてのTrackのEnd Of TrackはDemoの`length_ticks`に揃えます。Parameter Change、同じ音程のNote Overlap、MIDI Channel不足は`MIDI_ERROR`になります。MIDI Marker、Section、Program Change、SysExは出力しません。
+すべてのTrackのEnd Of TrackはDemoの`length_ticks`に揃えます。Parameter Change、同じ音程のNote Overlap、MIDI Channel不足は`MIDI_ERROR`になります。既存の出力ファイルは上書きします。MIDI Marker、Section、Program Change、SysExは出力しません。
 
 ### AudioとStem
 
-`render demo`は各Partを順番に、既存の`render pattern`と同じRender経路で処理します。固定Latencyは既存Renderと同じ方法で補正し、Patternの終端後には`--tail`で指定した余韻を加えます。
+`render demo`は各Partを既存の`render pattern`と同じRender経路で処理します。External Audio接続がある場合はSourceから先にRenderし、接続のないPartは定義順に処理します。固定Latencyは既存Renderと同じ方法で補正し、Patternの終端後には`--tail`で指定した余韻を加えます。
 
 `--stems-dir`を指定すると、`<part.id>.wav`としてPartごとのStemを保存します。Stemは、Stereo Render、Latency補正、Render Tail追加までを済ませた音です。Part Gain、Global Fade、MasterはStemへ適用しません。
 
-MixはStereoの`f32`です。短いPartは無音で長いPartに揃え、各Partの固定Gainを適用して加算したあと、Mixの末尾へFadeを適用します。自動Normalize、Clamp、Limiterは行いません。WAVはStereo、指定Sample Rate、32-bit float形式です。`--analyze`を指定した場合は、Fade後かつMaster前のMixをAudio Analysisへ渡します。
+MixはStereoの`f32`です。短いPartは無音で長いPartに揃え、各Partの固定Gainを適用してDemo定義順に加算したあと、Mixの末尾へFadeを適用します。自動Normalize、Clamp、Limiterは行いません。WAVはStereo、指定Sample Rate、32-bit float形式です。`--analyze`を指定すると、Master前のMixを`mix_analysis`で、完成WAVを`output_analysis`で解析します。
 
 ### MasterとMP3
 
-`mix.master`または`--mp3-output`を指定した場合だけFFmpegを使います。Masterは`loudnorm`の2-pass処理を使い、実測値と`normalization_type`をReportへ記録します。Master済みWAVもステレオ、指定Sample Rate、32-bit floatのWAV形式で出力します。MP3はMaster済みWAVがあればそこから、なければ通常のMixから生成し、`libmp3lame`、`256k`固定です。
+`mix.master`または`--mp3-output`を指定した場合だけFFmpegを使います。Masterは`loudnorm`の2-pass処理後に完成WAVを再測定し、True PeakがTargetを超えていればその超過量だけGainを下げて再確認します。超過が残れば処理は失敗します。Reportの`master`にはTarget、Mix入力、完成WAV出力、OutputとTargetの偏差、`normalization_type`、True Peak補正量を記録します。True Peakは保証しますが、Integrated LUFSとLRAはTargetとの差をReportし、失敗条件にはしません。
+
+MP3はMaster済みWAVがあればそこから、なければ通常のMixから生成し、`libmp3lame`、`256k`固定です。生成後のMP3を再測定し、Integrated LUFS、True Peak、LRAを`mp3_measurement`へ記録します。MP3の値はCodec変換後の測定であり、Master済みWAVのTrue Peak保証には含まれません。
 
 ## 操作の流れ
 

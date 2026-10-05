@@ -163,7 +163,7 @@ sonalloy demo validate demo.json
 sonalloy demo validate demo.json --json
 ```
 
-Demo JSON、各Partが参照するInstrumentとPattern、全Partの時間軸を検証します。Instrument CompileはSample Rate `48000`、Block Size `257`で実行し、外部Audio入力を必要とするInstrumentは使用できません。検証内容・診断Path・Reportの詳細は[Demo仕様](demos.md)を参照してください。
+Demo JSON、各Partが参照するInstrumentとPattern、全Partの時間軸、External Audio接続を検証します。Instrument CompileはSample Rate `48000`、Block Size `257`で実行します。External Audioを必要とするInstrumentには`audio_input.part`が必要で、入力を使わないInstrumentには指定できません。接続先のPart ID、自己参照、循環も検証します。検証内容・診断Path・Reportの詳細は[Demo仕様](demos.md)を参照してください。
 
 ### `demo inspect` — Demoの構成確認
 
@@ -172,7 +172,7 @@ sonalloy demo inspect demo.json
 sonalloy demo inspect demo.json --json
 ```
 
-Schema Version、Part数、共通Tick解像度、最長Patternの`length_ticks`、音楽的な長さ、Tempo / Time Signatureの件数、各Partの参照Path・Gain・解決済みMIDI Channelを表示します。Human-readable outputでは`Fade Out`と`FFmpeg Required`も表示します。`--json`ではこれらのSummaryに加えて、Master設定を含む`mix`全体を返します。
+Schema Version、Part数、共通Tick解像度、最長Patternの`length_ticks`、音楽的な長さ、Tempo / Time Signatureの件数、各Partの参照Path・Gain・解決済みMIDI Channel・External Audio接続を表示します。Human-readable outputでは`Fade Out`と`FFmpeg Required`も表示します。`--json`では`status`と`command`を含む成功Reportに、Master設定を含む`mix`全体を返します。
 
 ### `demo export-midi` — Type 1 MIDIの生成
 
@@ -181,7 +181,7 @@ sonalloy demo export-midi demo.json --output demo.mid
 sonalloy demo export-midi demo.json --output demo.mid --json
 ```
 
-DemoをType 1 MIDIへ変換します。時間軸、Trackの内容、MIDIへ変換できないEventの扱いは[Demo仕様](demos.md)に従います。既に存在するOutput Pathは上書きしません。
+DemoをType 1 MIDIへ変換します。時間軸、Trackの内容、MIDIへ変換できないEventの扱いは[Demo仕様](demos.md)に従います。既存のOutput Pathは上書きします。
 
 ### `render demo` — DemoのOffline Render
 
@@ -200,12 +200,12 @@ sonalloy render demo demo.json \
 | `--tail <seconds>` | `1.0` | 各Pattern終端後へ追加するRender Tail |
 | `--stems-dir <directory>` | なし | 指定時だけPartごとのStem WAVを保存 |
 | `--mp3-output <mp3>` | なし | 指定時だけMP3を生成 |
-| `--analyze` | なし | Master前、Fade後の最終MixをAudio Analysisへ渡す |
+| `--analyze` | なし | Fade後・Master前のMixと、完成WAVをそれぞれAudio Analysisへ渡す |
 | `--json` | なし | 結果を機械可読で出力 |
 
 PartのRender、Stem、Mix、Masterの規則は[Demo仕様](demos.md)に従います。
 
-`--json`では、`status`、`sample_rate`、`channels`、`frames`、`output`、Partごとの`id` / `gain_db` / `frames` / `stem`を返します。`mix_analysis`は`--analyze`指定時、`master`はDemoの`mix.master`指定時、`mp3_output`と`stems_dir`は対応するOption指定時だけ含まれます。Masterの実測値と`normalization_type`も`master`へ含まれます。
+`--json`では、`status`、`sample_rate`、`channels`、`frames`、`output`、Partごとの`id` / `gain_db` / `frames` / `stem`を返します。`--analyze`指定時はMaster前の`mix_analysis`と完成WAVの`output_analysis`、`mix.master`指定時はTarget / Input / Output / Deviationと`normalization_type`を含む`master`、`--mp3-output`指定時は生成後の測定値`mp3_measurement`が含まれます。`mp3_output`と`stems_dir`は対応するOption指定時だけ含まれます。完成WAVのTrue PeakがTargetを超える場合はGainを補正して再測定し、超過が残ればRenderに失敗します。MP3は生成後の値を測定し、WAVのMaster目標へ合わせる追加処理は行いません。
 
 FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
 

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -13,7 +13,9 @@ use crate::pattern::{CompiledPattern, PatternDefinition, compile as compile_patt
 
 mod master;
 
-pub(crate) use master::{FfmpegError, MasterReport, encode_mp3, master};
+pub(crate) use master::{
+    FfmpegError, LoudnessMeasurement, MasterReport, encode_mp3, master, measure_loudness,
+};
 
 pub(crate) const DEMO_SCHEMA_VERSION: u32 = 1;
 
@@ -38,6 +40,14 @@ pub(crate) struct DemoPart {
     pub(crate) gain_db: f64,
     #[serde(default)]
     pub(crate) midi_channel: Option<u8>,
+    #[serde(default)]
+    pub(crate) audio_input: Option<DemoAudioInput>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DemoAudioInput {
+    pub(crate) part: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +80,7 @@ pub(crate) struct DemoMaster {
 pub(crate) struct LoadedDemo {
     pub(crate) definition: DemoDefinition,
     pub(crate) parts: Vec<LoadedDemoPart>,
+    pub(crate) audio_dependencies: Vec<Option<usize>>,
     pub(crate) length_ticks: u64,
     pub(crate) musical_duration_seconds: f64,
     pub(crate) diagnostics: Vec<Diagnostic>,
@@ -109,6 +120,8 @@ pub(crate) struct DemoPartInspection {
     pub(crate) pattern: PathBuf,
     pub(crate) gain_db: f64,
     pub(crate) midi_channel: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) audio_input: Option<DemoAudioInput>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -138,7 +151,7 @@ pub(crate) fn load(
     block_size: usize,
 ) -> Result<LoadedDemo, CliFailure> {
     let (definition, base_dir) = load_definition(path)?;
-    let mut diagnostics = validate_definition(&definition);
+    let (mut diagnostics, audio_dependencies) = validate_definition_with_dependencies(&definition);
     let mut exit_code = 1;
     let midi_channels = resolve_midi_channels(&definition.parts);
     let mut loaded_parts = Vec::with_capacity(definition.parts.len());
@@ -208,6 +221,7 @@ pub(crate) fn load(
     Ok(LoadedDemo {
         definition,
         parts: loaded_parts,
+        audio_dependencies,
         length_ticks,
         musical_duration_seconds,
         diagnostics,
@@ -260,19 +274,35 @@ fn load_instrument_reference(
                 "instrument",
                 &path,
             );
-            if instrument.required_input_channels() > 0 {
-                context.diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::DefinitionError,
-                        "Demo does not support instruments that require external audio input",
-                    )
-                    .with_path(format!("parts[{index}].instrument"))
-                    .with_detail(format!(
-                        "instrument requires {} external input channels",
-                        instrument.required_input_channels()
-                    )),
-                );
-                return None;
+            match (
+                instrument.required_input_channels() > 0,
+                part.audio_input.is_some(),
+            ) {
+                (true, false) => {
+                    context.diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::DefinitionError,
+                            "audio_input is required by this instrument",
+                        )
+                        .with_path(format!("parts[{index}].audio_input"))
+                        .with_detail(format!(
+                            "instrument requires {} external input channels",
+                            instrument.required_input_channels()
+                        )),
+                    );
+                    return None;
+                }
+                (false, true) => {
+                    context.diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::DefinitionError,
+                            "audio_input is not used by this instrument",
+                        )
+                        .with_path(format!("parts[{index}].audio_input")),
+                    );
+                    return None;
+                }
+                _ => {}
             }
             Some(instrument)
         }
@@ -333,6 +363,7 @@ pub(crate) fn inspect(demo: &LoadedDemo) -> DemoInspection {
                 pattern: part.definition.pattern.clone(),
                 gain_db: part.definition.gain_db,
                 midi_channel: part.midi_channel,
+                audio_input: part.definition.audio_input.clone(),
             })
             .collect(),
         mix: demo.definition.mix.clone(),
@@ -341,7 +372,9 @@ pub(crate) fn inspect(demo: &LoadedDemo) -> DemoInspection {
     }
 }
 
-pub(crate) fn validate_definition(definition: &DemoDefinition) -> Vec<Diagnostic> {
+fn validate_definition_with_dependencies(
+    definition: &DemoDefinition,
+) -> (Vec<Diagnostic>, Vec<Option<usize>>) {
     let mut diagnostics = Vec::new();
     if definition.schema_version != DEMO_SCHEMA_VERSION {
         diagnostics.push(
@@ -441,7 +474,145 @@ pub(crate) fn validate_definition(definition: &DemoDefinition) -> Vec<Diagnostic
             &mut diagnostics,
         );
     }
-    diagnostics
+    let audio_dependencies = resolve_audio_dependencies(definition, &mut diagnostics);
+    (diagnostics, audio_dependencies)
+}
+
+fn resolve_audio_dependencies(
+    definition: &DemoDefinition,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<Option<usize>> {
+    let part_indices = definition
+        .parts
+        .iter()
+        .enumerate()
+        .map(|(index, part)| (part.id.as_str(), index))
+        .collect::<HashMap<_, _>>();
+    let mut dependencies = vec![None; definition.parts.len()];
+
+    for (index, part) in definition.parts.iter().enumerate() {
+        let Some(audio_input) = &part.audio_input else {
+            continue;
+        };
+        let path = format!("parts[{index}].audio_input.part");
+        let Some(&source_index) = part_indices.get(audio_input.part.as_str()) else {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "audio_input.part must reference an existing part id",
+                )
+                .with_path(path),
+            );
+            continue;
+        };
+        if source_index == index {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "audio_input.part cannot reference its own part",
+                )
+                .with_path(path),
+            );
+            continue;
+        }
+        dependencies[index] = Some(source_index);
+    }
+
+    let mut states = vec![0; dependencies.len()];
+    for index in 0..dependencies.len() {
+        visit_audio_dependency(index, &dependencies, &mut states, diagnostics);
+    }
+    dependencies
+}
+
+fn visit_audio_dependency(
+    index: usize,
+    dependencies: &[Option<usize>],
+    states: &mut [u8],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if states[index] == 2 {
+        return;
+    }
+    states[index] = 1;
+    if let Some(source_index) = dependencies[index] {
+        if states[source_index] == 1 {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "audio_input routing cannot contain a cycle",
+                )
+                .with_path(format!("parts[{index}].audio_input.part")),
+            );
+        } else if states[source_index] == 0 {
+            visit_audio_dependency(source_index, dependencies, states, diagnostics);
+        }
+    }
+    states[index] = 2;
+}
+
+pub(crate) fn render_order(demo: &LoadedDemo) -> Vec<usize> {
+    fn visit(
+        index: usize,
+        dependencies: &[Option<usize>],
+        visited: &mut [bool],
+        order: &mut Vec<usize>,
+    ) {
+        if visited[index] {
+            return;
+        }
+        visited[index] = true;
+        if let Some(source_index) = dependencies[index] {
+            visit(source_index, dependencies, visited, order);
+        }
+        order.push(index);
+    }
+
+    let mut order = Vec::with_capacity(demo.parts.len());
+    let mut visited = vec![false; demo.parts.len()];
+    for index in 0..demo.parts.len() {
+        visit(index, &demo.audio_dependencies, &mut visited, &mut order);
+    }
+    order
+}
+
+pub(crate) fn prerender_order(demo: &LoadedDemo) -> Vec<usize> {
+    fn mark_required(
+        index: usize,
+        dependencies: &[Option<usize>],
+        rendered: &[bool],
+        required: &mut [bool],
+    ) {
+        if required[index] || rendered[index] {
+            return;
+        }
+        required[index] = true;
+        if let Some(source_index) = dependencies[index]
+            && !rendered[source_index]
+        {
+            mark_required(source_index, dependencies, rendered, required);
+        }
+    }
+
+    let mut required = vec![false; demo.parts.len()];
+    let mut rendered = vec![false; demo.parts.len()];
+    for (index, source_index) in demo.audio_dependencies.iter().enumerate() {
+        if let Some(source_index) = source_index
+            && !rendered[*source_index]
+        {
+            mark_required(
+                *source_index,
+                &demo.audio_dependencies,
+                &rendered,
+                &mut required,
+            );
+        }
+        rendered[index] = true;
+    }
+    render_order(demo)
+        .into_iter()
+        .filter(|index| required[*index])
+        .collect()
 }
 
 fn validate_part_id(id: &str, part_path: &str, diagnostics: &mut Vec<Diagnostic>) {
@@ -788,7 +959,8 @@ mod tests {
 
     use super::{
         DemoDefinition, DemoMix, DemoPart, append_time_axis_diagnostics, gain_linear,
-        resolve_midi_channels, resolve_reference_path, time_axis, validate_definition,
+        resolve_midi_channels, resolve_reference_path, time_axis,
+        validate_definition_with_dependencies,
     };
 
     fn part(id: &str) -> DemoPart {
@@ -798,6 +970,7 @@ mod tests {
             pattern: "pattern.json".into(),
             gain_db: 0.0,
             midi_channel: None,
+            audio_input: None,
         }
     }
 
@@ -819,17 +992,21 @@ mod tests {
 
         assert!(parsed.mix.fade_out_seconds.abs() < f64::EPSILON);
         assert!(parsed.mix.master.is_none());
-        assert_eq!(validate_definition(&parsed), Vec::new());
+        assert!(parsed.parts[0].audio_input.is_none());
+        assert_eq!(validate_definition_with_dependencies(&parsed).0, Vec::new());
         let mut unsupported = parsed;
         unsupported.schema_version = 2;
         assert_eq!(
-            validate_definition(&unsupported)[0].path.as_deref(),
+            validate_definition_with_dependencies(&unsupported).0[0]
+                .path
+                .as_deref(),
             Some("schema_version")
         );
 
         let empty = definition(Vec::new());
         assert!(
-            validate_definition(&empty)
+            validate_definition_with_dependencies(&empty)
+                .0
                 .iter()
                 .any(|diagnostic| { diagnostic.path.as_deref() == Some("parts") })
         );
@@ -837,6 +1014,44 @@ mod tests {
             r#"{"schema_version":1,"parts":[],"unknown":true}"#,
         );
         assert!(unknown_field.is_err());
+    }
+
+    #[test]
+    fn audio_routing_rejects_unknown_self_and_cyclic_references() {
+        let mut unknown = part("consumer");
+        unknown.audio_input = Some(super::DemoAudioInput {
+            part: "missing".to_owned(),
+        });
+        let diagnostics = validate_definition_with_dependencies(&definition(vec![unknown])).0;
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("parts[0].audio_input.part")
+                && diagnostic.message == "audio_input.part must reference an existing part id"
+        }));
+
+        let mut self_reference = part("self");
+        self_reference.audio_input = Some(super::DemoAudioInput {
+            part: "self".to_owned(),
+        });
+        let diagnostics =
+            validate_definition_with_dependencies(&definition(vec![self_reference])).0;
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("parts[0].audio_input.part")
+                && diagnostic.message == "audio_input.part cannot reference its own part"
+        }));
+
+        let mut first = part("first");
+        first.audio_input = Some(super::DemoAudioInput {
+            part: "second".to_owned(),
+        });
+        let mut second = part("second");
+        second.audio_input = Some(super::DemoAudioInput {
+            part: "first".to_owned(),
+        });
+        let diagnostics = validate_definition_with_dependencies(&definition(vec![first, second])).0;
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.path.as_deref() == Some("parts[1].audio_input.part")
+                && diagnostic.message == "audio_input routing cannot contain a cycle"
+        }));
     }
 
     #[test]
@@ -853,7 +1068,7 @@ mod tests {
             loudness_range_lu: 0.0,
         });
 
-        let diagnostics = validate_definition(&definition);
+        let diagnostics = validate_definition_with_dependencies(&definition).0;
         assert!(
             diagnostics
                 .iter()
@@ -896,7 +1111,7 @@ mod tests {
             part("com1.wav"),
         ]);
 
-        let diagnostics = validate_definition(&definition);
+        let diagnostics = validate_definition_with_dependencies(&definition).0;
 
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.code == super::DiagnosticCode::IdDuplicated

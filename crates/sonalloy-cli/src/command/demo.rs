@@ -3,17 +3,19 @@ use std::process::ExitCode;
 
 use clap::{Args, Subcommand};
 use serde::Serialize;
-use sonalloy_core::{Diagnostic, DiagnosticCode};
+use sonalloy_core::Diagnostic;
 
 use crate::demo::{self, DemoInspection};
 use crate::midi::export_demo;
 use crate::output::{CliFailure, StatusReport, finish_failure, print_warnings};
 
-pub(super) const DEMO_JSON_HELP: &str = r"A Demo JSON object requires `schema_version` (currently `1`) and a `parts` array; `name` is optional and `mix` may be omitted. Unknown fields are rejected. `parts` must contain at least one Part. Each Part requires `id`, `instrument`, and `pattern`; `gain_db` defaults to 0.0 and `midi_channel` is optional. `mix.fade_out_seconds` defaults to 0.0 and `mix.master` is optional. A master object requires `integrated_lufs` (-70..=-5 LUFS), `true_peak_db` (-9..=0 dB), and `loudness_range_lu` (1..=50 LU).
+pub(super) const DEMO_JSON_HELP: &str = r"A Demo JSON object requires `schema_version` (currently `1`) and a `parts` array; `name` is optional and `mix` may be omitted. Unknown fields are rejected. `parts` must contain at least one Part. Each Part requires `id`, `instrument`, and `pattern`; `gain_db` defaults to 0.0, `midi_channel` and `audio_input` are optional. `mix.fade_out_seconds` defaults to 0.0 and `mix.master` is optional. A master object requires `integrated_lufs` (-70..=-5 LUFS), `true_peak_db` (-9..=0 dB), and `loudness_range_lu` (1..=50 LU).
 
 Part IDs are 1..=64 ASCII letters, digits, `.`, `_`, or `-`, must start with a letter or digit, and cannot be Windows reserved device names. IDs must be unique ignoring ASCII case. `gain_db` must be finite and yield a finite linear gain. `midi_channel`, when specified, is a 1-based channel from 1 through 16; explicit channels must be unique. Omitted channels are assigned the lowest unused channel numbers in Part order, after reserving explicit channels. Parts without an available channel can still be rendered as audio, but MIDI export fails.
 
-Instrument and Pattern paths are resolved relative to the Demo JSON file; absolute paths are also accepted. All Part Patterns must use the same `ticks_per_beat`. Each shorter Pattern must match the longest Pattern's tempo and time-signature changes up to its own `length_ticks`. The Demo timeline begins at tick 0 and ends at the greatest Part Pattern length. `fade_out_seconds` must be finite and non-negative. Instruments that require external audio cannot be used in an offline Demo.";
+Instrument and Pattern paths are resolved relative to the Demo JSON file; absolute paths are also accepted. All Part Patterns must use the same `ticks_per_beat`. Each shorter Pattern must match the longest Pattern's tempo and time-signature changes up to its own `length_ticks`. The Demo timeline begins at tick 0 and ends at the greatest Part Pattern length. `fade_out_seconds` must be finite and non-negative.
+
+`audio_input` has one field, `part`, which names another Demo Part ID exactly. Instruments that require external audio must have `audio_input`; instruments that do not use external audio cannot specify it. Self-references, unknown Part IDs, and routing cycles are invalid. Each Source Part is rendered before the Part that consumes its audio. The input signal includes the Source Part's gain.";
 
 #[derive(Debug, Subcommand)]
 pub(super) enum DemoCommand {
@@ -25,13 +27,13 @@ pub(super) enum DemoCommand {
     Validate(DemoPathArgs),
     /// Inspect Demo timing, parts, fade, and mastering requirements.
     #[command(
-        long_about = "Report the Demo's schema version, shared tick resolution, timeline length and musical duration, tempo and time-signature changes, Part references and resolved MIDI channels, fade-out duration, and whether mastering requires `FFmpeg`. Human-readable output shows these summaries; `--json` also returns the complete `mix` object, including its mastering targets.",
+        long_about = "Report the Demo's schema version, shared tick resolution, timeline length and musical duration, tempo and time-signature changes, Part references, resolved MIDI channels, external audio connections, fade-out duration, and whether mastering requires `FFmpeg`. Human-readable output shows these summaries; `--json` also returns the complete `mix` object, including its mastering targets.",
         after_long_help = DEMO_JSON_HELP
     )]
     Inspect(DemoPathArgs),
     /// Export all Demo parts to a Standard MIDI File Type 1.
     #[command(
-        long_about = "Write a Type 1 Standard MIDI File with a Conductor Track for the Demo name, tempo, and time signature, plus one Track per Part for its ID, channel, notes, sustain, pitch bend, mod wheel, and aftertouch. Parameter Change events, overlapping notes with the same pitch, or Parts without an available MIDI channel cause export to fail. The destination must not already exist."
+        long_about = "Write a Type 1 Standard MIDI File with a Conductor Track for the Demo name, tempo, and time signature, plus one Track per Part for its ID, channel, notes, sustain, pitch bend, mod wheel, and aftertouch. Parameter Change events, overlapping notes with the same pitch, or Parts without an available MIDI channel cause export to fail. An existing destination is overwritten."
     )]
     ExportMidi(DemoExportMidiArgs),
 }
@@ -104,9 +106,14 @@ fn run_inspect(args: &DemoPathArgs) -> ExitCode {
     };
     let inspection = demo::inspect(&demo);
     if args.json {
+        let report = DemoInspectReport {
+            status: "ok",
+            command: "demo inspect",
+            inspection,
+        };
         println!(
             "{}",
-            serde_json::to_string(&inspection).expect("Demo inspection is serializable")
+            serde_json::to_string(&report).expect("Demo inspection report is serializable")
         );
     } else {
         print_inspection(&inspection);
@@ -115,21 +122,6 @@ fn run_inspect(args: &DemoPathArgs) -> ExitCode {
 }
 
 fn run_export_midi(args: &DemoExportMidiArgs) -> ExitCode {
-    if args.output.exists() {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 2,
-                diagnostics: vec![
-                    Diagnostic::error(
-                        DiagnosticCode::DefinitionError,
-                        "destination already exists",
-                    )
-                    .with_path(args.output.to_string_lossy()),
-                ],
-            },
-        );
-    }
     let demo = match demo::load(
         &args.demo,
         super::DEFAULT_SAMPLE_RATE,
@@ -194,10 +186,21 @@ fn print_inspection(inspection: &DemoInspection) {
             part.midi_channel
                 .map_or_else(|| "none".to_owned(), |channel| channel.to_string())
         );
+        if let Some(audio_input) = &part.audio_input {
+            println!("  External Audio Input: {}", audio_input.part);
+        }
     }
     println!("Fade Out: {:.6} seconds", inspection.mix.fade_out_seconds);
     println!("FFmpeg Required: {}", inspection.ffmpeg_required);
     print_warnings(&inspection.diagnostics);
+}
+
+#[derive(Debug, Serialize)]
+struct DemoInspectReport {
+    status: &'static str,
+    command: &'static str,
+    #[serde(flatten)]
+    inspection: DemoInspection,
 }
 
 #[derive(Debug, Serialize)]
