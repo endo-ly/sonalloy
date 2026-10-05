@@ -1,0 +1,396 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Needle Hat",
+    "author": "gpt-6.1-sol",
+    "description": "非整数倍音の細い金属打音に、高域の短いノイズを重ねたクローズドハット。金属の芯と空気の成分がほぼ同時に立ち、薄い音像のまま素早く収束する。細かな反復でも尾が溜まりにくく、ベロシティで刻みの強弱を付け、モジュレーションホイールでノイズ側の左右位置を動かせる。",
+    "category": "Drum",
+    "tags": [
+      "Noisy",
+      "Metallic",
+      "Sharp",
+      "Short",
+      "Airy"
+    ],
+    "recommended_range": {
+      "min_midi": 84,
+      "max_midi": 96
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 7680,
+      "notes": [
+        {
+          "tick": 0,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 70
+        },
+        {
+          "tick": 240,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 100
+        },
+        {
+          "tick": 480,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 85
+        },
+        {
+          "tick": 720,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 127
+        },
+        {
+          "tick": 960,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 92
+        },
+        {
+          "tick": 1200,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 115
+        },
+        {
+          "tick": 1440,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 78
+        },
+        {
+          "tick": 1680,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 110
+        },
+        {
+          "tick": 1920,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 70
+        },
+        {
+          "tick": 2160,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 100
+        },
+        {
+          "tick": 2400,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 85
+        },
+        {
+          "tick": 2640,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 127
+        },
+        {
+          "tick": 2880,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 92
+        },
+        {
+          "tick": 3120,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 115
+        },
+        {
+          "tick": 3360,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 78
+        },
+        {
+          "tick": 3600,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 110
+        },
+        {
+          "tick": 3840,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 70
+        },
+        {
+          "tick": 4080,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 100
+        },
+        {
+          "tick": 4320,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 85
+        },
+        {
+          "tick": 4560,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 127
+        },
+        {
+          "tick": 4800,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 92
+        },
+        {
+          "tick": 5040,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 115
+        },
+        {
+          "tick": 5280,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 78
+        },
+        {
+          "tick": 5520,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 110
+        },
+        {
+          "tick": 5760,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 70
+        },
+        {
+          "tick": 6000,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 100
+        },
+        {
+          "tick": 6240,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 85
+        },
+        {
+          "tick": 6480,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 127
+        },
+        {
+          "tick": 6720,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 92
+        },
+        {
+          "tick": 6960,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 115
+        },
+        {
+          "tick": 7200,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 78
+        },
+        {
+          "tick": 7440,
+          "note": 90,
+          "duration_ticks": 90,
+          "velocity": 110
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -21.51,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0008,
+        "decay_seconds": 0.048,
+        "sustain_level": 0,
+        "release_seconds": 0.009
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4104,
+          "stereo_correlation": 0.75
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "low",
+          "mode": "high_pass",
+          "cutoff_hz": 6100,
+          "resonance": 0.08
+        },
+        {
+          "type": "filter",
+          "id": "top",
+          "mode": "low_pass",
+          "cutoff_hz": 14500,
+          "resonance": 0.08
+        }
+      ]
+    },
+    {
+      "id": "metal",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -28.51,
+      "pan": -0.12,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.032,
+        "sustain_level": 0,
+        "release_seconds": 0.009
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -1,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "p0",
+              "ratio": 1,
+              "amplitude_a": 1,
+              "amplitude_b": 0.8,
+              "phase": 0
+            },
+            {
+              "id": "p1",
+              "ratio": 1.39,
+              "amplitude_a": 0.5,
+              "amplitude_b": 0.4,
+              "phase": 0.137
+            },
+            {
+              "id": "p2",
+              "ratio": 1.81,
+              "amplitude_a": 0.3333333333333333,
+              "amplitude_b": 0.26666666666666666,
+              "phase": 0.274
+            },
+            {
+              "id": "p3",
+              "ratio": 2.63,
+              "amplitude_a": 0.25,
+              "amplitude_b": 0.2,
+              "phase": 0.41100000000000003
+            },
+            {
+              "id": "p4",
+              "ratio": 3.27,
+              "amplitude_a": 0.2,
+              "amplitude_b": 0.16,
+              "phase": 0.548
+            },
+            {
+              "id": "p5",
+              "ratio": 4.11,
+              "amplitude_a": 0.16666666666666666,
+              "amplitude_b": 0.13333333333333333,
+              "phase": 0.685
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "low",
+          "mode": "high_pass",
+          "cutoff_hz": 4900,
+          "resonance": 0.08
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.air.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.metal.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.air.pan",
+        "depth": {
+          "value": 0.3,
+          "unit": "pan"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

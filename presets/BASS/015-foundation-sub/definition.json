@@ -1,0 +1,252 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Foundation Sub",
+    "author": "gpt-6.1-sol",
+    "description": "中央の正弦波を土台に、オクターブ上の薄い三角波を添えたサブベース。滑らかな立ち上がりから丸い低域を保ち、離鍵すると短いリリースで低音の尾を切る。短い音価の切り替えでは区切りが明確になり、長音では揺れの少ない基音と控えめな上側の倍音が安定して続く。",
+    "category": "Bass",
+    "tags": [
+      "Sub",
+      "Smooth",
+      "Centered",
+      "Stable"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 48
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 7680,
+      "notes": [
+        {
+          "tick": 0,
+          "note": 30,
+          "duration_ticks": 210,
+          "velocity": 70
+        },
+        {
+          "tick": 480,
+          "note": 33,
+          "duration_ticks": 210,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "note": 37,
+          "duration_ticks": 210,
+          "velocity": 85
+        },
+        {
+          "tick": 1440,
+          "note": 30,
+          "duration_ticks": 400,
+          "velocity": 127
+        },
+        {
+          "tick": 1920,
+          "note": 35,
+          "duration_ticks": 210,
+          "velocity": 92
+        },
+        {
+          "tick": 2400,
+          "note": 33,
+          "duration_ticks": 210,
+          "velocity": 115
+        },
+        {
+          "tick": 2880,
+          "note": 40,
+          "duration_ticks": 210,
+          "velocity": 78
+        },
+        {
+          "tick": 3360,
+          "note": 37,
+          "duration_ticks": 400,
+          "velocity": 110
+        },
+        {
+          "tick": 3840,
+          "note": 30,
+          "duration_ticks": 210,
+          "velocity": 70
+        },
+        {
+          "tick": 4320,
+          "note": 33,
+          "duration_ticks": 210,
+          "velocity": 100
+        },
+        {
+          "tick": 4800,
+          "note": 37,
+          "duration_ticks": 210,
+          "velocity": 85
+        },
+        {
+          "tick": 5280,
+          "note": 30,
+          "duration_ticks": 400,
+          "velocity": 127
+        },
+        {
+          "tick": 5760,
+          "note": 35,
+          "duration_ticks": 210,
+          "velocity": 92
+        },
+        {
+          "tick": 6240,
+          "note": 33,
+          "duration_ticks": 210,
+          "velocity": 115
+        },
+        {
+          "tick": 6720,
+          "note": 40,
+          "duration_ticks": 210,
+          "velocity": 78
+        },
+        {
+          "tick": 7200,
+          "note": 37,
+          "duration_ticks": 400,
+          "velocity": 110
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 2,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "fundamental",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.91,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.008,
+        "decay_seconds": 0.13,
+        "sustain_level": 0.86,
+        "release_seconds": 0.032
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "harmonic",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -29.91,
+      "pan": 0,
+      "tuning_cents": 1200,
+      "envelope": {
+        "attack_seconds": 0.007,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.75,
+        "release_seconds": 0.03
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "tone",
+          "mode": "low_pass",
+          "cutoff_hz": 480,
+          "resonance": 0.08
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.fundamental.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.harmonic.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.fundamental.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.harmonic.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

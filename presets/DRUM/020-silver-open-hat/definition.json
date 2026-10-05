@@ -1,0 +1,244 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Silver Open Hat",
+    "author": "gpt-6.1-sol",
+    "description": "明るい金属アタックに、左右へ広がるノイズの尾を重ねたオープンハット。金属の硬い輪郭が先に減衰し、その外側に軽い空気の成分が残って収束する。一打では芯から広がる尾への移りが現れ、短い連打では空気の層が重なり、ベロシティで全体の強さを変えられる。",
+    "category": "Drum",
+    "tags": [
+      "Metallic",
+      "Noisy",
+      "Wide",
+      "Percussive"
+    ],
+    "recommended_range": {
+      "min_midi": 81,
+      "max_midi": 93
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 7680,
+      "notes": [
+        {
+          "tick": 0,
+          "note": 87,
+          "duration_ticks": 320,
+          "velocity": 70
+        },
+        {
+          "tick": 960,
+          "note": 87,
+          "duration_ticks": 320,
+          "velocity": 100
+        },
+        {
+          "tick": 1920,
+          "note": 87,
+          "duration_ticks": 320,
+          "velocity": 85
+        },
+        {
+          "tick": 2880,
+          "note": 87,
+          "duration_ticks": 320,
+          "velocity": 127
+        },
+        {
+          "tick": 3840,
+          "note": 87,
+          "duration_ticks": 320,
+          "velocity": 92
+        },
+        {
+          "tick": 4800,
+          "note": 87,
+          "duration_ticks": 320,
+          "velocity": 115
+        },
+        {
+          "tick": 5760,
+          "note": 87,
+          "duration_ticks": 320,
+          "velocity": 78
+        },
+        {
+          "tick": 6720,
+          "note": 87,
+          "duration_ticks": 320,
+          "velocity": 110
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "air",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -22.72,
+      "pan": 0.17,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.28,
+        "sustain_level": 0,
+        "release_seconds": 0.022
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4105,
+          "stereo_correlation": 0.15
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "low",
+          "mode": "high_pass",
+          "cutoff_hz": 6200,
+          "resonance": 0.08
+        },
+        {
+          "type": "filter",
+          "id": "top",
+          "mode": "low_pass",
+          "cutoff_hz": 13500,
+          "resonance": 0.08
+        }
+      ]
+    },
+    {
+      "id": "metal",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -25.72,
+      "pan": -0.08,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.105,
+        "sustain_level": 0,
+        "release_seconds": 0.02
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": -2,
+          "inharmonicity": 0,
+          "partials": [
+            {
+              "id": "p0",
+              "ratio": 1,
+              "amplitude_a": 1,
+              "amplitude_b": 0.8,
+              "phase": 0
+            },
+            {
+              "id": "p1",
+              "ratio": 1.47,
+              "amplitude_a": 0.5,
+              "amplitude_b": 0.4,
+              "phase": 0.137
+            },
+            {
+              "id": "p2",
+              "ratio": 2.13,
+              "amplitude_a": 0.3333333333333333,
+              "amplitude_b": 0.26666666666666666,
+              "phase": 0.274
+            },
+            {
+              "id": "p3",
+              "ratio": 2.79,
+              "amplitude_a": 0.25,
+              "amplitude_b": 0.2,
+              "phase": 0.41100000000000003
+            },
+            {
+              "id": "p4",
+              "ratio": 3.87,
+              "amplitude_a": 0.2,
+              "amplitude_b": 0.16,
+              "phase": 0.548
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "low",
+          "mode": "high_pass",
+          "cutoff_hz": 4800,
+          "resonance": 0.08
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.016,
+      "decay": 0.32,
+      "damping": 0.64,
+      "width": 1,
+      "mix": 0.035
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.air.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.metal.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

@@ -1,0 +1,330 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Chrome Clap",
+    "author": "gpt-6.1-sol",
+    "description": "密集した三つの打撃に、独立した広がるノイズの尾を重ねた電子クラップ。中央寄りの硬い輪郭が先に立ち、短い間隔の打撃がまとまった後に中域の残響が薄く広がる。反復では打撃の区切りを保ちながら尾がつながり、ベロシティで輪郭と余韻の強さをまとめて調整できる。",
+    "category": "Drum",
+    "tags": [
+      "Noisy",
+      "Diffuse",
+      "Percussive",
+      "Short"
+    ],
+    "recommended_range": {
+      "min_midi": 60,
+      "max_midi": 60
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 7680,
+      "notes": [
+        {
+          "tick": 0,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 70
+        },
+        {
+          "tick": 480,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 100
+        },
+        {
+          "tick": 960,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 85
+        },
+        {
+          "tick": 1440,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 127
+        },
+        {
+          "tick": 1920,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 92
+        },
+        {
+          "tick": 2400,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 115
+        },
+        {
+          "tick": 2880,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 78
+        },
+        {
+          "tick": 3360,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 110
+        },
+        {
+          "tick": 3840,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 70
+        },
+        {
+          "tick": 4320,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 100
+        },
+        {
+          "tick": 4800,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 85
+        },
+        {
+          "tick": 5280,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 127
+        },
+        {
+          "tick": 5760,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 92
+        },
+        {
+          "tick": 6240,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 115
+        },
+        {
+          "tick": 6720,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 78
+        },
+        {
+          "tick": 7200,
+          "note": 60,
+          "duration_ticks": 240,
+          "velocity": 110
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 5,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "snap",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -25.36,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0008,
+        "decay_seconds": 0.12,
+        "sustain_level": 0,
+        "release_seconds": 0.025
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4102,
+          "stereo_correlation": 0.8
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "low",
+          "mode": "high_pass",
+          "cutoff_hz": 1050,
+          "resonance": 0.08
+        },
+        {
+          "type": "filter",
+          "id": "top",
+          "mode": "low_pass",
+          "cutoff_hz": 6800,
+          "resonance": 0.08
+        },
+        {
+          "type": "drive",
+          "id": "color",
+          "amount": 0.11,
+          "mix": 0.3
+        }
+      ]
+    },
+    {
+      "id": "tail",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -36.36,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.024,
+        "decay_seconds": 0.23,
+        "sustain_level": 0,
+        "release_seconds": 0.075
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4202,
+          "stereo_correlation": 0.05
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "body",
+          "mode": "band_pass",
+          "cutoff_hz": 1950,
+          "resonance": 0.17
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "compressor",
+      "id": "density",
+      "detector": "self_signal",
+      "threshold_db": -20,
+      "ratio": 2.8,
+      "attack_ms": 0.3,
+      "release_ms": 65,
+      "knee_db": 6,
+      "makeup_gain_db": 0,
+      "mix": 1
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.016,
+      "decay": 0.4,
+      "damping": 0.64,
+      "width": 1,
+      "mix": 0.075
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "bursts",
+        "type": "mseg",
+        "initial_value": 0.8,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.008,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.006,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.009,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.006,
+              "unit": "seconds"
+            },
+            "target": 0.8,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.025,
+              "unit": "seconds"
+            },
+            "target": -0.45,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "bursts",
+        "target": "layer.snap.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.snap.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.tail.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}
