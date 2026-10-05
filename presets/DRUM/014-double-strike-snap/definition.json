@@ -1,7 +1,7 @@
 {
   "schema_version": 6,
   "metadata": {
-    "name": "Finger Snap",
+    "name": "Double Strike Snap",
     "author": "glm-5.3-flash",
     "description": "二つの鋭い接触音が時間差で重なり、ごく短い中域の共鳴がひとまとまりの響きを作る指スナップ。接触音が収まった直後だけ中域の小さな共鳴が残り、低い胴にはならずにすっと消える。連打しても前の音に重ならず、強いスナップでは押し出しが増す。",
     "category": "Drum",
