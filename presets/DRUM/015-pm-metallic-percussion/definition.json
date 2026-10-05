@@ -1,0 +1,249 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "PM Metallic Percussion",
+    "author": "gpt-6.1-sol",
+    "description": "PMによる硬い金属質の打撃と、短い音程の芯を持つパーカッション。発音直後の複雑な高域が先に収まり、小さな胴鳴りに左右へ返る薄い反響が続く。短い連打では打撃が分離し、音程を変えると金属の大きさと鋭さが変わり、ベロシティでアクセントを付けられる。",
+    "category": "Drum",
+    "tags": [
+      "PM",
+      "Metallic",
+      "Percussive",
+      "Short"
+    ],
+    "recommended_range": {
+      "min_midi": 60,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 7680,
+      "notes": [
+        {
+          "tick": 0,
+          "note": 72,
+          "duration_ticks": 240,
+          "velocity": 110
+        },
+        {
+          "tick": 720,
+          "note": 72,
+          "duration_ticks": 240,
+          "velocity": 70
+        },
+        {
+          "tick": 1440,
+          "note": 72,
+          "duration_ticks": 240,
+          "velocity": 92
+        },
+        {
+          "tick": 2160,
+          "note": 72,
+          "duration_ticks": 240,
+          "velocity": 66
+        },
+        {
+          "tick": 2880,
+          "note": 72,
+          "duration_ticks": 240,
+          "velocity": 110
+        },
+        {
+          "tick": 3600,
+          "note": 72,
+          "duration_ticks": 240,
+          "velocity": 70
+        },
+        {
+          "tick": 4320,
+          "note": 72,
+          "duration_ticks": 240,
+          "velocity": 90
+        },
+        {
+          "tick": 5040,
+          "note": 72,
+          "duration_ticks": 240,
+          "velocity": 68
+        },
+        {
+          "tick": 5760,
+          "note": 72,
+          "duration_ticks": 240,
+          "velocity": 95
+        },
+        {
+          "tick": 6480,
+          "note": 72,
+          "duration_ticks": 200,
+          "velocity": 75
+        },
+        {
+          "tick": 6600,
+          "note": 72,
+          "duration_ticks": 200,
+          "velocity": 85
+        },
+        {
+          "tick": 6720,
+          "note": 72,
+          "duration_ticks": 240,
+          "velocity": 102
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "metal",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.34,
+      "pan": 0.28,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.18,
+        "sustain_level": 0,
+        "release_seconds": 0.045
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "two_stacks",
+          "phase_reset": true,
+          "unison": null,
+          "operators": [
+            {
+              "ratio": 1,
+              "detune_cents": 0,
+              "level": 0.85,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.14,
+                "sustain_level": 0,
+                "release_seconds": 0.08
+              }
+            },
+            {
+              "ratio": 3.43,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 2.5,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.06300000000000001,
+                "sustain_level": 0,
+                "release_seconds": 0.08
+              }
+            },
+            {
+              "ratio": 1.49,
+              "detune_cents": 4,
+              "level": 0.3,
+              "modulation_amount": 0,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.14,
+                "sustain_level": 0,
+                "release_seconds": 0.08
+              }
+            },
+            {
+              "ratio": 5.17,
+              "detune_cents": 0,
+              "level": 0,
+              "modulation_amount": 1.8,
+              "feedback": 0,
+              "phase": 0,
+              "envelope": {
+                "attack_seconds": 0.001,
+                "decay_seconds": 0.06300000000000001,
+                "sustain_level": 0,
+                "release_seconds": 0.08
+              }
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "low",
+          "mode": "high_pass",
+          "cutoff_hz": 700,
+          "resonance": 0.08
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "delay",
+      "id": "echo",
+      "time": {
+        "value": 0.5,
+        "unit": "beats"
+      },
+      "feedback_mode": "ping_pong",
+      "feedback": 0.15,
+      "taps": [],
+      "mix": 0.09
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.016,
+      "decay": 0.44,
+      "damping": 0.64,
+      "width": 1,
+      "mix": 0.08
+    },
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.metal.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}

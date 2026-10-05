@@ -1,0 +1,294 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Deep Punch Kick",
+    "author": "gpt-6.1-sol",
+    "description": "深い正弦波の胴に短い三角波のノックと控えめなクリックを重ね、低域の厚みと強い打撃を持つ電子キック。急な音程下降の後に丸い低域が残り、中高域の輪郭は先に収束する。連打では深い胴の余韻と打撃の区切りが両立し、演奏する音程で胴の深さを変え、ベロシティで全体の押し出しを調整できる。",
+    "category": "Drum",
+    "tags": [
+      "Sub",
+      "Punchy",
+      "Centered",
+      "Percussive"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 48
+    },
+    "preview": {
+      "tempo_bpm": 120,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 7680,
+      "notes": [
+        {
+          "tick": 0,
+          "note": 36,
+          "duration_ticks": 480,
+          "velocity": 105
+        },
+        {
+          "tick": 960,
+          "note": 36,
+          "duration_ticks": 480,
+          "velocity": 62
+        },
+        {
+          "tick": 1920,
+          "note": 36,
+          "duration_ticks": 480,
+          "velocity": 95
+        },
+        {
+          "tick": 2880,
+          "note": 36,
+          "duration_ticks": 480,
+          "velocity": 62
+        },
+        {
+          "tick": 3840,
+          "note": 36,
+          "duration_ticks": 480,
+          "velocity": 105
+        },
+        {
+          "tick": 4800,
+          "note": 36,
+          "duration_ticks": 480,
+          "velocity": 62
+        },
+        {
+          "tick": 5760,
+          "note": 36,
+          "duration_ticks": 480,
+          "velocity": 95
+        },
+        {
+          "tick": 6720,
+          "note": 36,
+          "duration_ticks": 480,
+          "velocity": 62
+        },
+        {
+          "tick": 7440,
+          "note": 36,
+          "duration_ticks": 240,
+          "velocity": 55
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 3,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.29,
+      "pan": 0,
+      "tuning_cents": -1200,
+      "envelope": {
+        "attack_seconds": 0.0015,
+        "decay_seconds": 0.42,
+        "sustain_level": 0,
+        "release_seconds": 0.035
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": [
+        {
+          "type": "drive",
+          "id": "color",
+          "amount": 0.16,
+          "mix": 0.22
+        }
+      ]
+    },
+    {
+      "id": "knock",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -31.29,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0008,
+        "decay_seconds": 0.046,
+        "sustain_level": 0,
+        "release_seconds": 0.016
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "tone",
+          "mode": "low_pass",
+          "cutoff_hz": 2000,
+          "resonance": 0.08
+        }
+      ]
+    },
+    {
+      "id": "click",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -36.29,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0007,
+        "decay_seconds": 0.009,
+        "sustain_level": 0,
+        "release_seconds": 0.005
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4101,
+          "stereo_correlation": 1
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "low",
+          "mode": "high_pass",
+          "cutoff_hz": 2400,
+          "resonance": 0.08
+        },
+        {
+          "type": "filter",
+          "id": "top",
+          "mode": "low_pass",
+          "cutoff_hz": 8500,
+          "resonance": 0.08
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "cap",
+      "ceiling_db": -1.5,
+      "release_ms": 120,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "pitch_drop",
+        "type": "mseg",
+        "initial_value": 1,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.009,
+              "unit": "seconds"
+            },
+            "target": 0.28,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.041,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "pitch_drop",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 2400,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_drop",
+        "target": "layer.knock.tuning",
+        "depth": {
+          "value": 1100,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.knock.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.click.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      }
+    ]
+  }
+}
