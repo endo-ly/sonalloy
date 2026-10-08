@@ -1,0 +1,512 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Worn Tine Keys",
+    "author": "claude-opus-5.5",
+    "description": "FMで作った金属的なティンのアタックと丸い胴鳴りを持つ、使い込まれた質感のエレクトリックピアノ。ゆっくりした音程の揺れと左右へ揺れるトレモロが持続音に動きを与え、高域は穏やかに丸められている。強く弾くほど倍音が増えて歪んだ唸りが現れ、Wearで劣化した粗さと暗さが増す。",
+    "category": "Keys",
+    "tags": [
+      "Warm",
+      "Mellow",
+      "FM",
+      "Wide"
+    ],
+    "recommended_range": {
+      "min_midi": 40,
+      "max_midi": 88
+    },
+    "preview": {
+      "tempo_bpm": 82,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 5760,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 50,
+          "velocity": 80
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 53,
+          "velocity": 80
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 57,
+          "velocity": 92
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 60,
+          "velocity": 92
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 64,
+          "velocity": 86
+        },
+        {
+          "tick": 1260,
+          "duration_ticks": 480,
+          "note": 50,
+          "velocity": 70
+        },
+        {
+          "tick": 1260,
+          "duration_ticks": 480,
+          "note": 53,
+          "velocity": 66
+        },
+        {
+          "tick": 1260,
+          "duration_ticks": 480,
+          "note": 57,
+          "velocity": 66
+        },
+        {
+          "tick": 1260,
+          "duration_ticks": 480,
+          "note": 60,
+          "velocity": 70
+        },
+        {
+          "tick": 1260,
+          "duration_ticks": 480,
+          "note": 64,
+          "velocity": 70
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 720,
+          "note": 53,
+          "velocity": 80
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 720,
+          "note": 57,
+          "velocity": 92
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 720,
+          "note": 59,
+          "velocity": 80
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 720,
+          "note": 64,
+          "velocity": 86
+        },
+        {
+          "tick": 3180,
+          "duration_ticks": 480,
+          "note": 53,
+          "velocity": 66
+        },
+        {
+          "tick": 3180,
+          "duration_ticks": 480,
+          "note": 57,
+          "velocity": 66
+        },
+        {
+          "tick": 3180,
+          "duration_ticks": 480,
+          "note": 59,
+          "velocity": 66
+        },
+        {
+          "tick": 3180,
+          "duration_ticks": 480,
+          "note": 64,
+          "velocity": 70
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 720,
+          "note": 52,
+          "velocity": 86
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 720,
+          "note": 55,
+          "velocity": 86
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 720,
+          "note": 59,
+          "velocity": 80
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 720,
+          "note": 62,
+          "velocity": 80
+        },
+        {
+          "tick": 5100,
+          "duration_ticks": 480,
+          "note": 52,
+          "velocity": 70
+        },
+        {
+          "tick": 5100,
+          "duration_ticks": 480,
+          "note": 55,
+          "velocity": 66
+        },
+        {
+          "tick": 5100,
+          "duration_ticks": 480,
+          "note": 59,
+          "velocity": 66
+        },
+        {
+          "tick": 5100,
+          "duration_ticks": 480,
+          "note": 62,
+          "velocity": 70
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "tine",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 4.5,
+        "sustain_level": 0.12,
+        "release_seconds": 0.32
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "two_stacks",
+          "phase_reset": true,
+          "unison": null,
+          "operators": [
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.85,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1,
+                "sustain_level": 1.0,
+                "release_seconds": 0.3
+              }
+            },
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 0.7,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 1.4,
+                "sustain_level": 0.2,
+                "release_seconds": 0.3
+              }
+            },
+            {
+              "ratio": 1.0,
+              "detune_cents": 3.0,
+              "level": 0.32,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 2.2,
+                "sustain_level": 0.0,
+                "release_seconds": 0.3
+              }
+            },
+            {
+              "ratio": 14.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 1.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.07,
+                "sustain_level": 0.0,
+                "release_seconds": 0.05
+              }
+            }
+          ]
+        }
+      },
+      "processors": [
+        {
+          "type": "bitcrusher",
+          "id": "wear",
+          "bit_depth": 10,
+          "sample_rate_ratio": 0.42,
+          "mix": 0.1
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "drive",
+      "id": "bark",
+      "amount": 0.18,
+      "mix": 0.5
+    },
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 4200.0,
+      "resonance": 0.08
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "eq",
+      "id": "color",
+      "low_frequency_hz": 160.0,
+      "low_gain_db": 1.0,
+      "mid_frequency_hz": 900.0,
+      "mid_gain_db": -1.5,
+      "mid_q": 0.7,
+      "high_frequency_hz": 7000.0,
+      "high_gain_db": -3.0
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.015,
+      "decay": 0.5,
+      "damping": 0.55,
+      "width": 0.9,
+      "mix": 0.14
+    },
+    {
+      "type": "limiter",
+      "id": "safety",
+      "ceiling_db": -3.0,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "wow",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.55,
+          "unit": "per_second"
+        },
+        "phase": 0.0
+      },
+      {
+        "id": "flutter",
+        "type": "lfo",
+        "waveform": "triangle",
+        "rate": {
+          "value": 6.3,
+          "unit": "per_second"
+        },
+        "phase": 0.0
+      },
+      {
+        "id": "drift",
+        "type": "smooth_random",
+        "seed": 8201,
+        "rate": {
+          "value": 0.4,
+          "unit": "per_second"
+        }
+      },
+      {
+        "id": "trem",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 4.6,
+          "unit": "per_second"
+        },
+        "phase": 0.0
+      }
+    ],
+    "routes": [
+      {
+        "source": "wow",
+        "target": "layer.tine.tuning",
+        "depth": {
+          "value": 8.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "flutter",
+        "target": "layer.tine.tuning",
+        "depth": {
+          "value": 1.5,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "drift",
+        "target": "layer.tine.tuning",
+        "depth": {
+          "value": 3.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "trem",
+        "target": "layer.tine.pan",
+        "depth": {
+          "value": 0.45,
+          "unit": "pan"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.tine.generator.operator.2.modulation_amount",
+        "depth": {
+          "value": 1.3,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.tine.generator.operator.4.modulation_amount",
+        "depth": {
+          "value": 0.8,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.bark.amount",
+        "depth": {
+          "value": 0.35,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.tine.gain",
+        "depth": {
+          "value": 9.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.8,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.wear",
+        "target": "layer.tine.processor.wear.mix",
+        "depth": {
+          "value": 0.45,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.wear",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": -1.2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": -1.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.tine.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "wear",
+      "name": "Wear",
+      "default": 0.35
+    }
+  ],
+  "vectors": []
+}

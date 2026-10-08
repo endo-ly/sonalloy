@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "name": "Log Drum - Syncopated Groove and Slide",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 113
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 41,
+      "duration_ticks": 340,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 360,
+      "note": 41,
+      "duration_ticks": 220,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 44,
+      "duration_ticks": 220,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 41,
+      "duration_ticks": 220,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 48,
+      "duration_ticks": 340,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 1800,
+      "note": 46,
+      "duration_ticks": 100,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 39,
+      "duration_ticks": 340,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 2280,
+      "note": 39,
+      "duration_ticks": 220,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 41,
+      "duration_ticks": 340,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 41,
+      "duration_ticks": 460,
+      "velocity": 98
+    },
+    {
+      "type": "note",
+      "tick": 3240,
+      "note": 44,
+      "duration_ticks": 220,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 3480,
+      "note": 36,
+      "duration_ticks": 340,
+      "velocity": 116
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 41,
+      "duration_ticks": 340,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 4200,
+      "note": 41,
+      "duration_ticks": 220,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 4560,
+      "note": 44,
+      "duration_ticks": 220,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5040,
+      "note": 41,
+      "duration_ticks": 220,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 5280,
+      "note": 48,
+      "duration_ticks": 340,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 5640,
+      "note": 46,
+      "duration_ticks": 100,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 39,
+      "duration_ticks": 340,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 6120,
+      "note": 39,
+      "duration_ticks": 220,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 6480,
+      "note": 41,
+      "duration_ticks": 220,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 6720,
+      "note": 44,
+      "duration_ticks": 480,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 6960,
+      "note": 48,
+      "duration_ticks": 460,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 7320,
+      "note": 41,
+      "duration_ticks": 340,
+      "velocity": 118
+    }
+  ]
+}

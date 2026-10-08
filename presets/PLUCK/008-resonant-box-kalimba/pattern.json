@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "name": "Kalimba - Arpeggios, Dyads and Ringing Notes",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 100
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 60,
+      "duration_ticks": 230,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 240,
+      "note": 64,
+      "duration_ticks": 230,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "note": 67,
+      "duration_ticks": 230,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 72,
+      "duration_ticks": 230,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 69,
+      "duration_ticks": 230,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 67,
+      "duration_ticks": 230,
+      "velocity": 76
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 64,
+      "duration_ticks": 230,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 1680,
+      "note": 67,
+      "duration_ticks": 230,
+      "velocity": 72
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 62,
+      "duration_ticks": 230,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 67,
+      "duration_ticks": 230,
+      "velocity": 78
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "note": 69,
+      "duration_ticks": 230,
+      "velocity": 86
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 74,
+      "duration_ticks": 230,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 72,
+      "duration_ticks": 230,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 69,
+      "duration_ticks": 230,
+      "velocity": 74
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 67,
+      "duration_ticks": 230,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 64,
+      "duration_ticks": 230,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 60,
+      "duration_ticks": 960,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 67,
+      "duration_ticks": 960,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 4320,
+      "note": 64,
+      "duration_ticks": 480,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 4560,
+      "note": 79,
+      "duration_ticks": 470,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 72,
+      "duration_ticks": 1440,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 76,
+      "duration_ticks": 1440,
+      "velocity": 98
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "name": "808 - Glides, Retriggers and Octave Jumps",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 140
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 29,
+      "duration_ticks": 720,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 29,
+      "duration_ticks": 240,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 29,
+      "duration_ticks": 480,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1560,
+      "note": 41,
+      "duration_ticks": 360,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 32,
+      "duration_ticks": 840,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 32,
+      "duration_ticks": 240,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 32,
+      "duration_ticks": 480,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 3480,
+      "note": 27,
+      "duration_ticks": 360,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 29,
+      "duration_ticks": 960,
+      "velocity": 116
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 36,
+      "duration_ticks": 240,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 5160,
+      "note": 39,
+      "duration_ticks": 240,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 5520,
+      "note": 41,
+      "duration_ticks": 240,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 29,
+      "duration_ticks": 720,
+      "velocity": 108
+    },
+    {
+      "type": "note",
+      "tick": 6360,
+      "note": 36,
+      "duration_ticks": 240,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 6600,
+      "note": 24,
+      "duration_ticks": 1080,
+      "velocity": 118
+    }
+  ]
+}
