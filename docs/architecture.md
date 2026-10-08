@@ -116,7 +116,7 @@ Rust側はネイティブのC++ Objectを不透明ハンドルとして所有し
 
 | フェーズ | 所有するもの |
 |---|---|
-| Compile | 変更不能な`CompiledInstrument`（Metadata、Performance、有効Layer、Processor Chain、Parameter Catalog、Source、Route、Asset Warning）。`sonalloy-core`が所有し、Parameter IDをDense Handleへ解決する |
+| Compile | 変更不能な`CompiledInstrument`（Metadata、Performance、有効Layer、Processor Chain、Parameter Catalog、Source、Route、Compile Warning）。`sonalloy-core`が所有し、Parameter IDをDense Handleへ解決する |
 | Prepare | `InstrumentRuntime`の可変状態。Scratch Buffer、Generator State、同時発音数分のVoiceを実行前に確保する |
 | Activate | 準備済みのRuntimeをAudio Streamへ接続できる状態にする。CompileやResource確保は行わない |
 | Process / Reset / Deactivate | Prepareで確保した状態を再利用する。Resetは準備時と同じ初期状態を復元し、DeactivateはResourceを保持したままProcessを停止する |

@@ -6,9 +6,7 @@ use super::spectral::{
     PreparedSpectralAsset, SpectralPreparationError, SpectralSynthesisPlan, prepare_spectral_asset,
     spectral_hop_size,
 };
-use super::wavetable::{
-    WavetablePreparation, WavetablePreparationError, WavetableWarning, prepare_wavetable_asset,
-};
+use super::wavetable::{WavetablePreparationError, prepare_wavetable_asset};
 use super::{
     AssetCacheKey, BASIC_FREQUENCY_LIMIT_RATIO, PHYSICAL_FREQUENCY_LIMIT_RATIO, asset_diagnostic,
     brown_noise_coefficient, compile_adsr, db_to_linear, effective_max_frequency,
@@ -25,7 +23,7 @@ use crate::definition::{
     SpectralDefinition, UnisonDefinition, WaveSequenceDefinition, WaveSequenceDirection,
     WaveSequenceDurationDefinition, WaveSequenceStepPlayback, WavetableDefinition,
 };
-use crate::diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
+use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::parameter::generator::{
     ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SHIFT,
     FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY, GRAIN_PAN_SPREAD,
@@ -892,7 +890,7 @@ pub(super) fn compile_generator(
     asset_cache: &mut HashMap<AssetCacheKey, Result<PreparedAsset, AssetError>>,
     wavetable_asset_cache: &mut HashMap<
         WavetableAssetCacheKey,
-        Result<WavetablePreparation, WavetablePreparationError>,
+        Result<Arc<PreparedWavetable>, WavetablePreparationError>,
     >,
     spectral_asset_cache: &mut HashMap<
         SpectralAssetCacheKey,
@@ -1224,9 +1222,9 @@ fn prepare_cached_wavetable(
     frame_length: usize,
     asset_cache: &mut HashMap<
         WavetableAssetCacheKey,
-        Result<WavetablePreparation, WavetablePreparationError>,
+        Result<Arc<PreparedWavetable>, WavetablePreparationError>,
     >,
-) -> Result<WavetablePreparation, WavetablePreparationError> {
+) -> Result<Arc<PreparedWavetable>, WavetablePreparationError> {
     let resolved = resolved_asset_path(definition_base_dir, &reference.path);
     let path = std::fs::canonicalize(&resolved).unwrap_or(resolved);
     let key = WavetableAssetCacheKey {
@@ -1287,30 +1285,19 @@ fn compile_wavetable(
     sample_rate: f64,
     asset_cache: &mut HashMap<
         WavetableAssetCacheKey,
-        Result<WavetablePreparation, WavetablePreparationError>,
+        Result<Arc<PreparedWavetable>, WavetablePreparationError>,
     >,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CompiledWavetable {
     let asset_path = format!("layers[{layer_index}].generator.wavetable.asset.path");
-    if Path::new(&wavetable.asset.path).is_absolute() {
-        diagnostics.push(
-            Diagnostic::warning(
-                DiagnosticCode::AssetAbsolutePath,
-                "absolute asset paths reduce Definition portability",
-            )
-            .with_path(asset_path.clone()),
-        );
-    }
     let prepared = prepare_compiled_wavetable(
         &wavetable.asset,
         definition_base_dir,
         usize::from(wavetable.frame_length),
         asset_cache,
         &asset_path,
-        &format!("layers[{layer_index}].generator.wavetable.asset.sha256"),
         diagnostics,
-    )
-    .map(|prepared| prepared.prepared);
+    );
     let position = generator_parameter_handle(catalog, layer_id, WAVETABLE_POSITION);
     let unison_detune = wavetable
         .unison
@@ -1360,7 +1347,6 @@ fn compile_spectral(
     let source = compile_spectral_asset(
         &spectral.asset_a,
         &asset_a_path,
-        &format!("{spectral_path}.asset_a.sha256"),
         definition_base_dir,
         sample_rate,
         fft_size,
@@ -1377,7 +1363,6 @@ fn compile_spectral(
         let prepared = compile_spectral_asset(
             asset_b,
             path,
-            &format!("{spectral_path}.asset_b.sha256"),
             definition_base_dir,
             sample_rate,
             fft_size,
@@ -1448,7 +1433,6 @@ fn compile_spectral(
 fn compile_spectral_asset(
     reference: &AssetReference,
     asset_path: &str,
-    hash_path: &str,
     definition_base_dir: &Path,
     sample_rate: f64,
     fft_size: usize,
@@ -1459,15 +1443,6 @@ fn compile_spectral_asset(
     >,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<Arc<PreparedSpectralAsset>> {
-    if Path::new(&reference.path).is_absolute() {
-        diagnostics.push(
-            Diagnostic::warning(
-                DiagnosticCode::AssetAbsolutePath,
-                "absolute asset paths reduce Definition portability",
-            )
-            .with_path(asset_path),
-        );
-    }
     match prepare_cached_spectral(
         reference,
         definition_base_dir,
@@ -1476,29 +1451,7 @@ fn compile_spectral_asset(
         asset_cache,
         spectral_asset_cache,
     ) {
-        Ok(source) => {
-            if reference.sha256.is_none() {
-                diagnostics.push(
-                    Diagnostic::warning(
-                        DiagnosticCode::AssetHashMissing,
-                        "asset sha256 is not specified",
-                    )
-                    .with_path(hash_path),
-                );
-            }
-            if (f64::from(source.source_metadata.source_sample_rate) - sample_rate).abs()
-                > f64::EPSILON
-            {
-                diagnostics.push(
-                    Diagnostic::warning(
-                        DiagnosticCode::AssetResampled,
-                        "asset was resampled to the process sample rate",
-                    )
-                    .with_path(asset_path),
-                );
-            }
-            Some(source)
-        }
+        Ok(source) => Some(source),
         Err(error) => {
             report_spectral_preparation_error(asset_path, error, diagnostics);
             None
@@ -1511,42 +1464,29 @@ fn report_spectral_preparation_error(
     error: SpectralPreparationError,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let (severity, code, message, detail) = match error {
+    let (code, message, detail) = match error {
         SpectralPreparationError::Asset(error) => {
             let (code, message) = asset_diagnostic(&error);
-            (
-                DiagnosticSeverity::Warning,
-                code,
-                message.to_owned(),
-                Some(error.to_string()),
-            )
+            (code, message.to_owned(), Some(error.to_string()))
         }
         SpectralPreparationError::InvalidFftSize(value) => (
-            DiagnosticSeverity::Error,
             DiagnosticCode::SpectralPreparationFailed,
             "spectral FFT size is invalid".to_owned(),
             Some(format!("FFT size {value} is not supported")),
         ),
         SpectralPreparationError::Layout(detail)
         | SpectralPreparationError::Preparation(detail) => (
-            DiagnosticSeverity::Error,
             DiagnosticCode::SpectralPreparationFailed,
             "spectral preparation failed".to_owned(),
             Some(detail),
         ),
         SpectralPreparationError::ResourceLimit(bytes) => (
-            DiagnosticSeverity::Error,
             DiagnosticCode::GeneratorResourceLimitExceeded,
             "prepared spectral asset exceeds the resource limit".to_owned(),
             Some(format!("prepared spectral data requires {bytes} bytes")),
         ),
     };
-    let diagnostic = if severity == DiagnosticSeverity::Warning {
-        Diagnostic::warning(code, message)
-    } else {
-        Diagnostic::error(code, message)
-    }
-    .with_path(asset_path);
+    let diagnostic = Diagnostic::error(code, message).with_path(asset_path);
     diagnostics.push(if let Some(detail) = detail {
         diagnostic.with_detail(detail)
     } else {
@@ -1658,76 +1598,19 @@ fn prepare_compiled_wavetable(
     frame_length: usize,
     asset_cache: &mut HashMap<
         WavetableAssetCacheKey,
-        Result<WavetablePreparation, WavetablePreparationError>,
+        Result<Arc<PreparedWavetable>, WavetablePreparationError>,
     >,
     diagnostic_path: &str,
-    hash_path: &str,
     diagnostics: &mut Vec<Diagnostic>,
-) -> Option<WavetablePreparation> {
+) -> Option<Arc<PreparedWavetable>> {
     let result =
         prepare_cached_wavetable(reference, definition_base_dir, frame_length, asset_cache);
     match result {
-        Ok(preparation) => {
-            report_wavetable_warnings(
-                reference,
-                &preparation,
-                diagnostic_path,
-                hash_path,
-                diagnostics,
-            );
-            Some(preparation)
-        }
+        Ok(preparation) => Some(preparation),
         Err(error) => {
             report_wavetable_preparation_error(diagnostic_path, error, diagnostics);
             None
         }
-    }
-}
-
-fn report_wavetable_warnings(
-    reference: &crate::definition::AssetReference,
-    preparation: &WavetablePreparation,
-    diagnostic_path: &str,
-    hash_path: &str,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    for warning in &preparation.warnings {
-        match warning {
-            WavetableWarning::SilentFrame { index, rms } => diagnostics.push(
-                Diagnostic::warning(
-                    DiagnosticCode::WavetableSilentFrame,
-                    format!("wavetable frame {index} is nearly silent"),
-                )
-                .with_path(diagnostic_path)
-                .with_detail(format!("frame index {index}, rms is {rms:.6e}")),
-            ),
-            WavetableWarning::DcOffset { index, mean } => diagnostics.push(
-                Diagnostic::warning(
-                    DiagnosticCode::WavetableDcOffset,
-                    format!("wavetable frame {index} has a DC offset"),
-                )
-                .with_path(diagnostic_path)
-                .with_detail(format!("frame index {index}, mean is {mean:.6e}")),
-            ),
-        }
-    }
-    if reference.sha256.is_none() {
-        diagnostics.push(
-            Diagnostic::warning(
-                DiagnosticCode::AssetHashMissing,
-                "asset sha256 is not specified",
-            )
-            .with_path(hash_path),
-        );
-    }
-    if preparation.prepared.source_metadata.source_channels > 1 {
-        diagnostics.push(
-            Diagnostic::warning(
-                DiagnosticCode::AssetDownmixed,
-                "stereo asset was downmixed to mono",
-            )
-            .with_path(diagnostic_path),
-        );
     }
 }
 
@@ -1736,47 +1619,33 @@ fn report_wavetable_preparation_error(
     error: WavetablePreparationError,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let (severity, code, message, detail) = match error {
+    let (code, message, detail) = match error {
         WavetablePreparationError::Asset(error) => {
             let (code, message) = asset_diagnostic(&error);
-            (
-                DiagnosticSeverity::Warning,
-                code,
-                message.to_owned(),
-                Some(error.to_string()),
-            )
+            (code, message.to_owned(), Some(error.to_string()))
         }
         WavetablePreparationError::Silent => (
-            DiagnosticSeverity::Warning,
             DiagnosticCode::WavetablePreparationFailed,
             "wavetable asset contains no audible frame".to_owned(),
             None,
         ),
         WavetablePreparationError::Layout(detail) => (
-            DiagnosticSeverity::Error,
             DiagnosticCode::WavetableLayoutInvalid,
             "wavetable asset layout is invalid".to_owned(),
             Some(detail),
         ),
         WavetablePreparationError::ResourceLimit(bytes) => (
-            DiagnosticSeverity::Error,
             DiagnosticCode::GeneratorResourceLimitExceeded,
             "prepared wavetable exceeds the resource limit".to_owned(),
             Some(format!("prepared table requires {bytes} bytes")),
         ),
         WavetablePreparationError::Preparation(detail) => (
-            DiagnosticSeverity::Error,
             DiagnosticCode::WavetablePreparationFailed,
             "wavetable preparation failed".to_owned(),
             Some(detail),
         ),
     };
-    let diagnostic = if severity == DiagnosticSeverity::Warning {
-        Diagnostic::warning(code, message)
-    } else {
-        Diagnostic::error(code, message)
-    }
-    .with_path(asset_path);
+    let diagnostic = Diagnostic::error(code, message).with_path(asset_path);
     let diagnostic = if let Some(detail) = detail {
         diagnostic.with_detail(detail)
     } else {
@@ -1801,15 +1670,6 @@ fn compile_granular(
     let mut source = None;
     let mut start_frame = 0;
     let mut end_frame = 0;
-    if Path::new(&granular.asset.path).is_absolute() {
-        diagnostics.push(
-            Diagnostic::warning(
-                DiagnosticCode::AssetAbsolutePath,
-                "absolute asset paths reduce Definition portability",
-            )
-            .with_path(format!("{granular_path}.asset.path")),
-        );
-    }
     match prepare_cached_asset(
         &granular.asset,
         definition_base_dir,
@@ -1817,26 +1677,6 @@ fn compile_granular(
         asset_cache,
     ) {
         Ok(prepared) => {
-            if granular.asset.sha256.is_none() {
-                diagnostics.push(
-                    Diagnostic::warning(
-                        DiagnosticCode::AssetHashMissing,
-                        "asset sha256 is not specified",
-                    )
-                    .with_path(format!("{granular_path}.asset.sha256")),
-                );
-            }
-            if (f64::from(prepared.audio.source_metadata.source_sample_rate) - sample_rate).abs()
-                > f64::EPSILON
-            {
-                diagnostics.push(
-                    Diagnostic::warning(
-                        DiagnosticCode::AssetResampled,
-                        "asset was resampled to the process sample rate",
-                    )
-                    .with_path(format!("{granular_path}.asset.path")),
-                );
-            }
             let region_start = granular_time_to_frame(
                 granular.region.start_seconds,
                 sample_rate,
@@ -1879,7 +1719,7 @@ fn compile_granular(
         Err(error) => {
             let (code, message) = asset_diagnostic(&error);
             diagnostics.push(
-                Diagnostic::warning(code, message)
+                Diagnostic::error(code, message)
                     .with_path(format!("{granular_path}.asset.path"))
                     .with_detail(error.to_string()),
             );
@@ -1943,39 +1783,8 @@ fn compile_wave_sequence(
                 gain: db_to_linear(step.gain_db),
                 pitch_cents: step.pitch_cents,
             };
-            if Path::new(&step.asset.path).is_absolute() {
-                diagnostics.push(
-                    Diagnostic::warning(
-                        DiagnosticCode::AssetAbsolutePath,
-                        "absolute asset paths reduce Definition portability",
-                    )
-                    .with_path(format!("{step_path}.asset.path")),
-                );
-            }
             match prepare_cached_asset(&step.asset, definition_base_dir, sample_rate, asset_cache) {
                 Ok(prepared) => {
-                    if step.asset.sha256.is_none() {
-                        diagnostics.push(
-                            Diagnostic::warning(
-                                DiagnosticCode::AssetHashMissing,
-                                "asset sha256 is not specified",
-                            )
-                            .with_path(format!("{step_path}.asset.sha256")),
-                        );
-                    }
-                    if (f64::from(prepared.audio.source_metadata.source_sample_rate)
-                        - sample_rate)
-                        .abs()
-                        > f64::EPSILON
-                    {
-                        diagnostics.push(
-                            Diagnostic::warning(
-                                DiagnosticCode::AssetResampled,
-                                "asset was resampled to the process sample rate",
-                            )
-                            .with_path(format!("{step_path}.asset.path")),
-                        );
-                    }
                     let start_frame = sequence_time_to_frame(
                         step.region.start_seconds,
                         sample_rate,
@@ -2015,7 +1824,7 @@ fn compile_wave_sequence(
                 Err(error) => {
                     let (code, message) = asset_diagnostic(&error);
                     diagnostics.push(
-                        Diagnostic::warning(code, message)
+                        Diagnostic::error(code, message)
                             .with_path(format!("{step_path}.asset.path"))
                             .with_detail(error.to_string()),
                     );
@@ -2103,38 +1912,8 @@ fn compile_sample(
             },
             asset_path: zone.asset.path.clone(),
         };
-        if Path::new(&zone.asset.path).is_absolute() {
-            diagnostics.push(
-                Diagnostic::warning(
-                    DiagnosticCode::AssetAbsolutePath,
-                    "absolute asset paths reduce Definition portability",
-                )
-                .with_path(format!("{zone_path}.asset.path")),
-            );
-        }
         match prepare_cached_asset(&zone.asset, definition_base_dir, sample_rate, asset_cache) {
             Ok(prepared) => {
-                if zone.asset.sha256.is_none() {
-                    diagnostics.push(
-                        Diagnostic::warning(
-                            DiagnosticCode::AssetHashMissing,
-                            "asset sha256 is not specified",
-                        )
-                        .with_path(format!("{zone_path}.asset.sha256")),
-                    );
-                }
-                if (f64::from(prepared.audio.source_metadata.source_sample_rate) - sample_rate)
-                    .abs()
-                    > f64::EPSILON
-                {
-                    diagnostics.push(
-                        Diagnostic::warning(
-                            DiagnosticCode::AssetResampled,
-                            "asset was resampled to the process sample rate",
-                        )
-                        .with_path(format!("{zone_path}.asset.path")),
-                    );
-                }
                 if let Some(playback) = compile_sample_playback(
                     zone,
                     prepared.audio.frames,
@@ -2149,7 +1928,7 @@ fn compile_sample(
             Err(error) => {
                 let (code, message) = asset_diagnostic(&error);
                 diagnostics.push(
-                    Diagnostic::warning(code, message)
+                    Diagnostic::error(code, message)
                         .with_path(format!("{zone_path}.asset.path"))
                         .with_detail(error.to_string()),
                 );

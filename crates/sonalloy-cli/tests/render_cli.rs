@@ -258,6 +258,156 @@ fn render_events_supports_parameter_and_external_control_events() {
 }
 
 #[test]
+fn pattern_and_frame_ramps_render_the_same_filter_sweep() {
+    let directory = tempdir().expect("directory");
+    let pattern = directory.path().join("ramp-pattern.json");
+    let events = directory.path().join("ramp-events.json");
+    std::fs::write(&pattern, r#"{
+        "schema_version":1,"ticks_per_beat":480,"length_ticks":2880,
+        "tempo_changes":[{"tick":0,"bpm":120}],
+        "time_signature_changes":[{"tick":0,"numerator":4,"denominator":4}],
+        "events":[
+          {"type":"note","tick":0,"duration_ticks":2400,"note":60,"velocity":100},
+          {"type":"parameter_ramp","tick":240,"duration_ticks":1920,"parameter":"voice.processor.tone.cutoff","from_value":1200,"to_value":8000}
+        ]}"#).expect("pattern");
+    std::fs::write(&events, r#"{"events":[
+        {"absolute_frame":0,"type":"note_on","note_id":0,"note":60,"velocity":100},
+        {"absolute_frame":12000,"type":"parameter_ramp","duration_frames":96000,"parameter":"voice.processor.tone.cutoff","from_value":1200,"to_value":8000},
+        {"absolute_frame":120000,"type":"note_off","note_id":0}
+    ]}"#).expect("events");
+    let definition = fixture_path("instruments/basic-poly-synth.json");
+    let mut renders = Vec::new();
+    for (kind, input, block_size) in [
+        ("pattern", &pattern, "257"),
+        ("events", &events, "257"),
+        ("events", &events, "64"),
+    ] {
+        let output = directory.path().join(format!("{kind}-{block_size}.wav"));
+        let mut command = Command::cargo_bin("sonalloy").expect("binary");
+        command
+            .args(["render", kind])
+            .arg(&definition)
+            .arg(input)
+            .args([
+                "--sample-rate",
+                "48000",
+                "--block-size",
+                block_size,
+                "--tail",
+                "0",
+                "--output",
+            ])
+            .arg(&output);
+        if kind == "events" {
+            command.args(["--duration-frames", "144000"]);
+        }
+        command.assert().success();
+        renders.push(
+            hound::WavReader::open(output)
+                .expect("WAV")
+                .samples::<f32>()
+                .map(Result::unwrap)
+                .collect::<Vec<_>>(),
+        );
+    }
+
+    assert!(renders[0].iter().any(|sample| sample.abs() > 0.01));
+    for render in &renders[1..] {
+        assert_eq!(render.len(), renders[0].len());
+        assert!(
+            render
+                .iter()
+                .zip(&renders[0])
+                .all(|(left, right)| (left - right).abs() <= 1.0e-5)
+        );
+    }
+}
+
+#[test]
+fn frame_ramps_reject_invalid_duration_and_parameter_endpoints() {
+    let directory = tempdir().expect("directory");
+    let input = directory.path().join("invalid-ramp.json");
+    let output = directory.path().join("invalid.wav");
+    for (duration, parameter, from_value, to_value) in [
+        (0_u64, "layer.body.gain", -24.0, 0.0),
+        (1025, "layer.body.gain", -24.0, 0.0),
+        (u64::MAX, "layer.body.gain", -24.0, 0.0),
+        (128, "layer.missing.gain", -24.0, 0.0),
+        (128, "layer.body.gain", -1000.0, 0.0),
+        (128, "layer.body.gain", -24.0, 1000.0),
+    ] {
+        std::fs::write(
+            &input,
+            serde_json::to_vec(&serde_json::json!({"events":[{
+                "absolute_frame":0,"type":"parameter_ramp","duration_frames":duration,
+                "parameter":parameter,"from_value":from_value,"to_value":to_value
+            }]}))
+            .expect("JSON"),
+        )
+        .expect("input");
+        Command::cargo_bin("sonalloy")
+            .expect("binary")
+            .args(["render", "events"])
+            .arg(fixture_path("instruments/basic-poly-synth.json"))
+            .arg(&input)
+            .args(["--duration-frames", "1024", "--output"])
+            .arg(&output)
+            .assert()
+            .failure();
+        assert!(!output.exists());
+    }
+}
+
+#[test]
+fn single_instrument_renders_report_required_and_unused_audio_input() {
+    let directory = tempdir().expect("directory");
+    let output = directory.path().join("missing-input.wav");
+    for kind in ["note", "events", "pattern", "midi"] {
+        let mut command = Command::cargo_bin("sonalloy").expect("binary");
+        command
+            .args(["render", kind])
+            .arg(fixture_path("instruments/sidechain-ducking.json"));
+        match kind {
+            "events" => {
+                command
+                    .arg("missing-events.json")
+                    .args(["--duration-frames", "1024"]);
+            }
+            "pattern" => {
+                command.arg("missing-pattern.json");
+            }
+            "midi" => {
+                command.arg("missing-midi.mid");
+            }
+            _ => {}
+        }
+        command
+            .args(["--output"])
+            .arg(&output)
+            .arg("--json")
+            .assert()
+            .code(2)
+            .stdout(predicates::str::contains("\"AUDIO_INPUT_REQUIRED\""))
+            .stdout(predicates::str::contains(
+                "external audio input is required; specify --audio-input <WAV>",
+            ));
+        assert!(!output.exists());
+    }
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["render", "note"])
+        .arg(fixture_path("instruments/basic-poly-synth.json"))
+        .args(["--audio-input", "missing-input.wav", "--output"])
+        .arg(&output)
+        .arg("--json")
+        .assert()
+        .code(2)
+        .stdout(predicates::str::contains(
+            "external audio input is not used by this instrument",
+        ));
+}
+
+#[test]
 fn render_events_accepts_external_audio_input() {
     let directory = tempdir().expect("temporary directory");
     let output = directory.path().join("external-audio.wav");

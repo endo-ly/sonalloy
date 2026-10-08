@@ -2,6 +2,8 @@
 
 GeneratorはLayerの`generator` Fieldへ、いずれか1つを指定します。ここでは各GeneratorのField・Range・Dynamic Parameter・制約を扱います。
 
+Assetを参照する有効なLayerでは、必要なWAVの欠落・読み込み失敗・指定Hashの不一致はCompile Errorです。`sha256`は任意で、Pathは相対・絶対の両方を受け付けます。通常のリサンプリングと仕様どおりのDownmixはAssetの準備に含まれます。`enabled: false`のLayerはAssetを準備しません。
+
 | Generator | 用途 |
 |---|---|
 | Oscillator | 基本波形（Sine / Saw / Square / Triangle / Pulse）とComplex変形 |
@@ -285,7 +287,7 @@ Dynamic Parameter：`formant_vowel_position`、`formant_shift`、`formant_throat
 
 Dynamic Parameter：`wavetable_position`、`unison_detune` / `unison_spread`（Unison指定時）
 
-無音FrameやDC Offsetは`instrument validate`で検査されます。
+WAV全体が完全な無音の場合はCompile Errorです。部分的な無音FrameやDC Offsetを含む素材も利用できます。
 
 ## Spectral
 
@@ -320,7 +322,7 @@ WAVをSTFT解析して再構成します。`asset_a`を必須の一次Sourceと�
 - MIDI NoteとLayer TuningはRoot Noteに対する周波数比として適用され、Source Durationは変わりません
 - 報告Latencyは他Layerへ補償されるため、Transientの時間位置はHybrid全体で確認します
 - 元波形への再合成を確認する際は5 Parameterを0へ揃え、Latency後で元WAVと比較します
-- `asset_b`の準備に失敗したときはAだけへフォールバックせず、Layerが無効化されます
+- 指定した`asset_a`と`asset_b`は、両方とも準備できる必要があります
 
 Dynamic Parameter：`spectral_position`、`spectral_freeze`、`spectral_blur`、`spectral_shift`、`spectral_morph`（`asset_b`指定時のみ）
 
@@ -458,7 +460,7 @@ Dynamic Parameter：`operator.<1-4>.ratio`、`operator.<1-4>.detune`、`operator
 
 `fixed_stretch`と`tempo_sync`のDuration比が0.5〜2.0の範囲外だとProcess Errorです。
 
-Release Sampleを作る場合はLayerの`trigger.event`を`note_off`にします。Path違いやHash不一致ではそのZoneだけが無効化され、他ZoneやLayerでRenderが継続します。
+Release Sampleを作る場合はLayerの`trigger.event`を`note_off`にします。
 
 ## Granular
 
@@ -541,7 +543,6 @@ RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Pa
 | `steps[].gain_db` | -60〜12 dB | Step固有のGain |
 | `steps[].pitch_cents` | -2400〜2400 cents | Root Noteへ加算するPitch |
 
-- 利用できないAsset・不正なRegionのStepは削除せず、Durationを保持した無音Stepとして残ります（後続Stepの時間を変えません）
-- 全Stepが利用できない場合はLayerだけを発音候補から除外します
+各StepのAssetとRegionはCompile時に検証され、利用できないStepがある場合はCompile Errorになります。
 
 Wave Sequence固有のDynamic Parameterはありません。Step構造はコンパイル時に確定します。

@@ -268,7 +268,7 @@ fn granular_region_outside_prepared_asset_is_rejected_at_compile() {
 }
 
 #[test]
-fn granular_missing_asset_does_not_disable_other_layers() {
+fn granular_missing_required_asset_rejects_the_instrument() {
     let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../testdata/instruments/basic-poly-synth.json");
     let reference: InstrumentDefinition = serde_json::from_str(
@@ -281,26 +281,20 @@ fn granular_missing_asset_does_not_disable_other_layers() {
     let mut oscillator = reference.layers[0].clone();
     oscillator.id = "body_oscillator".to_owned();
     definition.layers.push(oscillator);
-    let compiled = compile(&definition, base_dir, 257);
-    let mut runtime = compiled.instantiate();
-    runtime
-        .prepare(ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"))
-        .expect("unavailable Granular layer does not prevent prepare");
-    runtime.activate().expect("runtime activates");
-    let audio = process_runtime(
-        &mut runtime,
-        257,
-        0,
-        &[ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 100,
-            },
-        }],
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir.to_path_buf(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("process spec"),
+        },
     );
-    assert!(audio[0].iter().any(|sample| sample.abs() > 1.0e-4));
+    assert!(result.instrument.is_none());
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == DiagnosticCode::AssetNotFound)
+    );
 }
 
 #[test]

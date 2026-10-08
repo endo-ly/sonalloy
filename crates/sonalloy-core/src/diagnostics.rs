@@ -89,30 +89,15 @@ pub enum DiagnosticCode {
     /// A referenced asset cannot be decoded.
     #[serde(rename = "ASSET_DECODE_FAILED")]
     AssetDecodeFailed,
-    /// A source asset was downmixed to the engine's internal format.
-    #[serde(rename = "ASSET_DOWNMIXED")]
-    AssetDownmixed,
-    /// A relative asset path was absolute.
-    #[serde(rename = "ASSET_ABSOLUTE_PATH")]
-    AssetAbsolutePath,
-    /// A referenced asset has no digest.
-    #[serde(rename = "ASSET_HASH_MISSING")]
-    AssetHashMissing,
-    /// A source asset was resampled for the process configuration.
-    #[serde(rename = "ASSET_RESAMPLED")]
-    AssetResampled,
+    /// Required external audio input was not provided.
+    #[serde(rename = "AUDIO_INPUT_REQUIRED")]
+    AudioInputRequired,
     /// A Wavetable asset cannot be split into valid frames.
     #[serde(rename = "WAVETABLE_LAYOUT_INVALID")]
     WavetableLayoutInvalid,
     /// A Wavetable could not be prepared as finite band tables.
     #[serde(rename = "WAVETABLE_PREPARATION_FAILED")]
     WavetablePreparationFailed,
-    /// A Wavetable frame contains no meaningful signal.
-    #[serde(rename = "WAVETABLE_SILENT_FRAME")]
-    WavetableSilentFrame,
-    /// A Wavetable frame has a significant DC offset.
-    #[serde(rename = "WAVETABLE_DC_OFFSET")]
-    WavetableDcOffset,
     /// A spectral asset could not be prepared from its decoded audio.
     #[serde(rename = "SPECTRAL_PREPARATION_FAILED")]
     SpectralPreparationFailed,
