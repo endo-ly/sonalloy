@@ -199,15 +199,16 @@ sonalloy render demo demo.json \
 | `--block-size <frames>` | `257` | 全Partへ共通して使う最大Process Block Size |
 | `--tail <seconds>` | `1.0` | 各Pattern終端後へ追加するRender Tail |
 | `--stems-dir <directory>` | なし | 指定時だけPartごとのStem WAVを保存 |
+| `--premaster-output <wav>` | なし | Part GainとGlobal Fadeを適用したMaster前のMixを保存 |
 | `--mp3-output <mp3>` | なし | 指定時だけMP3を生成 |
 | `--analyze` | なし | Fade後・Master前のMixと、完成WAVをそれぞれAudio Analysisへ渡す |
 | `--json` | なし | 結果を機械可読で出力 |
 
 PartのRender、Stem、Mix、Masterの規則は[Demo仕様](demos.md)に従います。
 
-`--json`では、`status`、`sample_rate`、`channels`、`frames`、`output`、Partごとの`id` / `gain_db` / `frames` / `stem`を返します。`--analyze`指定時はMaster前の`mix_analysis`と完成WAVの`output_analysis`、`mix.master`指定時はTarget / Input / Output / Deviationと`normalization_type`を含む`master`、`--mp3-output`指定時は生成後の測定値`mp3_measurement`が含まれます。`mp3_output`と`stems_dir`は対応するOption指定時だけ含まれます。完成WAVのTrue PeakがTargetを超える場合はGainを補正して再測定し、超過が残ればRenderに失敗します。MP3は生成後の値を測定し、WAVのMaster目標へ合わせる追加処理は行いません。
+`--json`では、`status`、`sample_rate`、`channels`、`frames`、`output`、Partごとの`id` / `gain_db` / `frames` / `stem`を返します。`--analyze`指定時はMaster前の`mix_analysis` / `mix_loudness`と完成WAVの`output_analysis` / `output_loudness`を返します。`mix.master`指定時の`master`にはTarget / Input / Output / Deviation、入力・出力Gain、探索回数を含みます。`premaster_output`、`mp3_output`、`stems_dir`は対応するOption指定時だけ含まれ、MP3生成時は測定値`mp3_measurement`も返します。Masterの処理と出力確定条件は[Demo仕様](demos.md#masterとmp3)に従います。
 
-FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
+FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for loudness analysis, Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
 
 ## リアルタイム演奏
 
@@ -403,6 +404,12 @@ Analysisの主なFieldは次のとおりです。
 | `continuity` | 隣接Frame最大差分、差分が0.25を超えた件数、先頭最大16箇所 |
 | `stereo.correlation` | Zero-mean Pearson相関。分母が0なら`null` |
 | `spectrum` | Hann窓STFTのCentroid、最大8局所Peak、指定NoteのReference周波数とHarmonic比 |
+| `spectrum.bands` | 周波数帯ごとの`lower_hz` / `upper_hz`、`mean_square`、`power_dbfs`、`energy_ratio` |
+| `loudness` | Integrated LUFS（`integrated_lufs`）、True Peak（`true_peak_db`、dBTP）、LRA（`loudness_range_lu`、LU）、`short_term` |
+
+帯域Energyは既存のMono Spectrumと同じ窓から計算し、20–60、60–120、120–250、250–500、500–2000、2000–6000、6000–20000 Hzの帯域へFFT Binを一度ずつ集計します。`mean_square`は窓のPowerを補正した平均二乗値、`power_dbfs`はそのPowerのdBFS、`energy_ratio`は全正周波数Powerに対する比率です。上端はNyquistへ切り詰め、利用できるBinがない帯域は`null`を返します。
+
+LoudnessはCLIのFFmpegによるオフライン計測です。`--analyze`にはFFmpegが必要です。単独Renderでは`analysis.loudness`、Demoでは`mix_loudness` / `output_loudness`に出力します。`short_term_window_seconds`と`short_term_interval_seconds`はいずれも3です。`short_term[]`の`time_seconds`はRender開始からの秒数で、その時刻を終端とする3秒窓の`short_term_lufs`を3秒間隔で返します。3秒未満の音声には完全な窓がなく、配列は空でLRAは`null`になります。無音のLUFSやTrue Peakも`null`です。
 
 測定できない項目（無音時のLevel / Activityなど）は`null`になり、NaNとInfinityはJSONへ出力しません。`render note`だけは指定MIDI Noteの標準音高をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
 

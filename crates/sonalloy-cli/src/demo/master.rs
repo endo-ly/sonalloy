@@ -1,7 +1,5 @@
-//! FFmpeg-backed Demo mastering and loudness measurement helpers.
+//! Offline `FFmpeg` measurements and fixed-gain, oversampled Demo mastering.
 
-use std::fmt::Write;
-use std::fs;
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
@@ -14,21 +12,35 @@ use super::DemoMaster;
 pub(crate) struct LoudnessTarget {
     pub(crate) integrated_lufs: f64,
     pub(crate) true_peak_db: f64,
-    pub(crate) loudness_range_lu: f64,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
 pub(crate) struct LoudnessMeasurement {
-    pub(crate) integrated_lufs: f64,
-    pub(crate) true_peak_db: f64,
-    pub(crate) loudness_range_lu: f64,
+    pub(crate) integrated_lufs: Option<f64>,
+    pub(crate) true_peak_db: Option<f64>,
+    pub(crate) loudness_range_lu: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct ShortTermLoudness {
+    /// End of the trailing three-second window, in seconds from render start.
+    pub(crate) time_seconds: f64,
+    pub(crate) short_term_lufs: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct LoudnessAnalysis {
+    #[serde(flatten)]
+    pub(crate) measurement: LoudnessMeasurement,
+    pub(crate) short_term_window_seconds: u32,
+    pub(crate) short_term_interval_seconds: u32,
+    pub(crate) short_term: Vec<ShortTermLoudness>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
 pub(crate) struct LoudnessDeviation {
     pub(crate) integrated_lufs: f64,
     pub(crate) true_peak_db: f64,
-    pub(crate) loudness_range_lu: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -37,17 +49,9 @@ pub(crate) struct MasterReport {
     pub(crate) input: LoudnessMeasurement,
     pub(crate) output: LoudnessMeasurement,
     pub(crate) deviation: LoudnessDeviation,
-    pub(crate) normalization_type: String,
-    pub(crate) true_peak_correction_db: f64,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct LoudnormMeasurements {
-    input_i: f64,
-    input_tp: f64,
-    input_lra: f64,
-    input_thresh: f64,
-    target_offset: f64,
+    pub(crate) input_gain_db: f64,
+    pub(crate) output_gain_db: f64,
+    pub(crate) attempts: u32,
 }
 
 #[derive(Debug)]
@@ -62,266 +66,143 @@ pub(crate) fn master(
     settings: &DemoMaster,
     sample_rate: u32,
 ) -> Result<MasterReport, FfmpegError> {
-    let first_pass = run_loudnorm(input, &loudnorm_filter(settings, None), None, sample_rate)?;
-    let measurements = LoudnormMeasurements {
-        input_i: required_measurement(first_pass.input_i, "input_i")?,
-        input_tp: required_measurement(first_pass.input_tp, "input_tp")?,
-        input_lra: required_measurement(first_pass.input_lra, "input_lra")?,
-        input_thresh: required_measurement(first_pass.input_thresh, "input_thresh")?,
-        target_offset: required_measurement(first_pass.target_offset, "target_offset")?,
-    };
-    let input_measurement = measurement_from_report(&first_pass)?;
-
-    let temporary_directory = tempfile::Builder::new()
-        .prefix("sonalloy-demo-master-")
-        .tempdir()
+    let input_measurement = measure_loudness(input)?;
+    let input_i = input_measurement.integrated_lufs.ok_or_else(|| ffmpeg_error(format!(
+        "master target {} LUFS / {} dBTP cannot be reached: input integrated loudness and required gain are undefined",
+        settings.integrated_lufs, settings.true_peak_db
+    )))?;
+    let oversampled_rate = sample_rate
+        .checked_mul(4)
+        .ok_or_else(|| ffmpeg_error("oversampled sample rate overflows"))?;
+    let parent = output
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let directory = tempfile::Builder::new()
+        .prefix("sonalloy-master-")
+        .tempdir_in(parent)
         .map_err(|error| ffmpeg_error(error.to_string()))?;
-    let normalized_path = temporary_directory.path().join("normalized.wav");
-    let corrected_path = temporary_directory.path().join("corrected.wav");
-    let second_pass = run_loudnorm(
-        input,
-        &loudnorm_filter(settings, Some(measurements)),
-        Some(&normalized_path),
-        sample_rate,
-    )?;
-    let normalization_type = second_pass.normalization_type.ok_or_else(|| FfmpegError {
-        not_found: false,
-        detail: "FFmpeg loudnorm report did not contain normalization_type".to_owned(),
-    })?;
-    let mut output_measurement = measure_loudness(&normalized_path, Some(settings), sample_rate)?;
-    let mut final_path = normalized_path.as_path();
-    let mut correction_db = 0.0;
-
-    if output_measurement.true_peak_db > settings.true_peak_db {
-        correction_db = settings.true_peak_db - output_measurement.true_peak_db;
-        let mut command =
-            build_gain_correction_command(&normalized_path, &corrected_path, correction_db);
-        ensure_success(run_command(&mut command)?)?;
-        output_measurement = measure_loudness(&corrected_path, Some(settings), sample_rate)?;
-        final_path = corrected_path.as_path();
-    }
-
-    if output_measurement.true_peak_db > settings.true_peak_db {
-        return Err(ffmpeg_error(format!(
-            "completed WAV true peak {} dBTP exceeds target {} dBTP after gain correction",
-            output_measurement.true_peak_db, settings.true_peak_db
-        )));
-    }
-    fs::copy(final_path, output)
-        .map_err(|error| ffmpeg_error(format!("could not write completed WAV: {error}")))?;
-
-    Ok(master_report(
-        settings,
-        input_measurement,
-        output_measurement,
-        normalization_type,
-        correction_db,
-    ))
-}
-
-pub(crate) fn measure_loudness(
-    input: &Path,
-    target: Option<&DemoMaster>,
-    sample_rate: u32,
-) -> Result<LoudnessMeasurement, FfmpegError> {
-    let filter = target.map_or_else(
-        || "loudnorm=I=-24:TP=-2:LRA=7:print_format=json".to_owned(),
-        |target| loudnorm_filter(target, None),
-    );
-    let report = run_loudnorm(input, &filter, None, sample_rate)?;
-    measurement_from_report(&report)
-}
-
-pub(crate) fn encode_mp3(input: &Path, output: &Path) -> Result<(), FfmpegError> {
-    let mut command = build_mp3_command(input, output);
-    let output = run_command(&mut command)?;
-    ensure_success(output).map(|_| ())
-}
-
-fn measurement_from_report(report: &LoudnormReport) -> Result<LoudnessMeasurement, FfmpegError> {
-    Ok(LoudnessMeasurement {
-        integrated_lufs: required_measurement(report.input_i, "input_i")?,
-        true_peak_db: required_measurement(report.input_tp, "input_tp")?,
-        loudness_range_lu: required_measurement(report.input_lra, "input_lra")?,
-    })
-}
-
-fn master_report(
-    settings: &DemoMaster,
-    input: LoudnessMeasurement,
-    output: LoudnessMeasurement,
-    normalization_type: String,
-    correction_db: f64,
-) -> MasterReport {
-    let target = LoudnessTarget {
-        integrated_lufs: settings.integrated_lufs,
-        true_peak_db: settings.true_peak_db,
-        loudness_range_lu: settings.loudness_range_lu,
-    };
-    MasterReport {
-        target,
-        input,
-        output,
-        deviation: LoudnessDeviation {
-            integrated_lufs: output.integrated_lufs - target.integrated_lufs,
-            true_peak_db: output.true_peak_db - target.true_peak_db,
-            loudness_range_lu: output.loudness_range_lu - target.loudness_range_lu,
-        },
-        normalization_type,
-        true_peak_correction_db: correction_db,
-    }
-}
-
-fn run_loudnorm(
-    input: &Path,
-    filter: &str,
-    output: Option<&Path>,
-    sample_rate: u32,
-) -> Result<LoudnormReport, FfmpegError> {
-    let mut command = build_loudnorm_command(input, filter, output, sample_rate);
-    let output = run_command(&mut command)?;
-    ensure_success(output).and_then(|output| {
-        parse_loudnorm_report(&String::from_utf8_lossy(&output.stderr)).map_err(|detail| {
-            FfmpegError {
-                not_found: false,
-                detail,
-            }
-        })
-    })
-}
-
-fn build_loudnorm_command(
-    input: &Path,
-    filter: &str,
-    output: Option<&Path>,
-    sample_rate: u32,
-) -> Command {
-    let mut command = Command::new("ffmpeg");
-    command
-        .args(["-hide_banner", "-nostdin", "-y", "-i"])
-        .arg(input)
-        .args(["-af", filter]);
-    if let Some(output) = output {
-        command
-            .arg("-ar")
-            .arg(sample_rate.to_string())
-            .args(["-ac", "2", "-c:a", "pcm_f32le", "-f", "wav"])
-            .arg(output);
-    } else {
-        command.args(["-f", "null", "-"]);
-    }
-    command.stdin(Stdio::null());
-    command
-}
-
-fn build_gain_correction_command(input: &Path, output: &Path, gain_db: f64) -> Command {
-    let mut command = Command::new("ffmpeg");
-    command
-        .args(["-hide_banner", "-nostdin", "-y", "-i"])
-        .arg(input)
-        .arg("-af")
-        .arg(format!("volume={gain_db}dB"))
-        .args(["-ac", "2", "-c:a", "pcm_f32le", "-f", "wav"])
-        .arg(output)
-        .stdin(Stdio::null());
-    command
-}
-
-fn build_mp3_command(input: &Path, output: &Path) -> Command {
-    let mut command = Command::new("ffmpeg");
-    command
-        .args(["-hide_banner", "-nostdin", "-y", "-i"])
-        .arg(input)
-        .args(["-vn", "-codec:a", "libmp3lame", "-b:a", "256k", "-f", "mp3"])
-        .arg(output)
-        .stdin(Stdio::null());
-    command
-}
-
-fn run_command(command: &mut Command) -> Result<Output, FfmpegError> {
-    command.output().map_err(|error| FfmpegError {
-        not_found: error.kind() == std::io::ErrorKind::NotFound,
-        detail: error.to_string(),
-    })
-}
-
-fn ensure_success(output: Output) -> Result<Output, FfmpegError> {
-    if !output.status.success() {
-        return Err(FfmpegError {
-            not_found: false,
-            detail: String::from_utf8_lossy(&output.stderr).trim().to_owned(),
-        });
-    }
-    Ok(output)
-}
-
-fn ffmpeg_error(detail: String) -> FfmpegError {
-    FfmpegError {
-        not_found: false,
-        detail,
-    }
-}
-
-fn loudnorm_filter(settings: &DemoMaster, measurements: Option<LoudnormMeasurements>) -> String {
-    let mut filter = format!(
-        "loudnorm=I={}:TP={}:LRA={}",
-        settings.integrated_lufs, settings.true_peak_db, settings.loudness_range_lu
-    );
-    if let Some(measurements) = measurements {
-        let _ = write!(
-            filter,
-            ":measured_I={}:measured_TP={}:measured_LRA={}:measured_thresh={}:offset={}:linear=true",
-            measurements.input_i,
-            measurements.input_tp,
-            measurements.input_lra,
-            measurements.input_thresh,
-            measurements.target_offset
+    let candidate = directory.path().join("candidate.wav");
+    let corrected = directory.path().join("corrected.wav");
+    let mut gain_db = settings.integrated_lufs - input_i;
+    let mut last = input_measurement;
+    let mut last_output_gain_db = 0.0;
+    for attempt in 1..=8 {
+        let limit = 10.0_f64.powf(settings.true_peak_db / 20.0);
+        let filter = format!(
+            "volume={gain_db}dB:precision=double,aresample={oversampled_rate},alimiter=limit={limit}:attack=5:release=50:level=0:latency=1,aresample={sample_rate}"
         );
+        process_wav(input, &candidate, &filter, sample_rate)?;
+        last = measure_loudness(&candidate)?;
+        let mut output_gain_db = 0.0;
+        let mut final_path = &candidate;
+        if required(last.true_peak_db, "output true peak")? >= settings.true_peak_db {
+            // Reserve one measurement quantum (loudnorm reports hundredths of a dB).
+            output_gain_db =
+                settings.true_peak_db - required(last.true_peak_db, "output true peak")? - 0.01;
+            process_wav(
+                &candidate,
+                &corrected,
+                &format!("volume={output_gain_db}dB:precision=double"),
+                sample_rate,
+            )?;
+            last = measure_loudness(&corrected)?;
+            final_path = &corrected;
+        }
+        let deviation = required(last.integrated_lufs, "output integrated loudness")?
+            - settings.integrated_lufs;
+        let peak_deviation =
+            required(last.true_peak_db, "output true peak")? - settings.true_peak_db;
+        last_output_gain_db = output_gain_db;
+        if deviation.abs() <= 0.5 && peak_deviation <= 0.0 {
+            // Candidates live beside the destination: only a verified WAV becomes final.
+            std::fs::rename(final_path, output).map_err(|error| ffmpeg_error(error.to_string()))?;
+            return Ok(MasterReport {
+                target: LoudnessTarget {
+                    integrated_lufs: settings.integrated_lufs,
+                    true_peak_db: settings.true_peak_db,
+                },
+                input: input_measurement,
+                output: last,
+                deviation: LoudnessDeviation {
+                    integrated_lufs: deviation,
+                    true_peak_db: peak_deviation,
+                },
+                input_gain_db: gain_db,
+                output_gain_db,
+                attempts: attempt,
+            });
+        }
+        if peak_deviation > 0.0 {
+            break;
+        }
+        if attempt < 8 {
+            gain_db -= deviation;
+        }
     }
-    filter.push_str(":print_format=json");
-    filter
+    let output_i = required(last.integrated_lufs, "output integrated loudness")?;
+    let output_tp = required(last.true_peak_db, "output true peak")?;
+    Err(ffmpeg_error(format!(
+        "master target not reached: target {} LUFS / {} dBTP, measured {output_i} LUFS / {output_tp} dBTP, input gain {gain_db} dB, output gain {last_output_gain_db} dB",
+        settings.integrated_lufs, settings.true_peak_db
+    )))
 }
 
-fn required_measurement(value: Option<f64>, name: &str) -> Result<f64, FfmpegError> {
-    value
-        .filter(|value| value.is_finite())
-        .ok_or_else(|| FfmpegError {
-            not_found: false,
-            detail: format!("FFmpeg loudnorm report did not contain finite {name}"),
-        })
+pub(crate) fn measure_loudness(input: &Path) -> Result<LoudnessMeasurement, FfmpegError> {
+    analyze_loudness(input).map(|analysis| analysis.measurement)
 }
 
-#[derive(Debug)]
-struct LoudnormReport {
-    input_i: Option<f64>,
-    input_tp: Option<f64>,
-    input_lra: Option<f64>,
-    input_thresh: Option<f64>,
-    target_offset: Option<f64>,
-    normalization_type: Option<String>,
-}
-
-fn parse_loudnorm_report(text: &str) -> Result<LoudnormReport, String> {
-    let value = find_json_object(text)
-        .ok_or_else(|| "FFmpeg loudnorm did not emit a JSON report".to_owned())?;
-    let object = value
-        .as_object()
-        .ok_or_else(|| "FFmpeg loudnorm report is not an object".to_owned())?;
-    let field = |name: &str| object.get(name).and_then(json_number);
-    Ok(LoudnormReport {
-        input_i: field("input_i"),
-        input_tp: field("input_tp"),
-        input_lra: field("input_lra"),
-        input_thresh: field("input_thresh"),
-        target_offset: field("target_offset"),
-        normalization_type: object
-            .get("normalization_type")
-            .and_then(Value::as_str)
-            .map(str::to_owned),
+pub(crate) fn analyze_loudness(input: &Path) -> Result<LoudnessAnalysis, FfmpegError> {
+    let output = run_filter(
+        input,
+        "ebur128=metadata=1,ametadata=mode=print:key=lavfi.r128.S,loudnorm=I=-24:TP=-2:LRA=7:print_format=json",
+    )?;
+    let text = String::from_utf8_lossy(&output.stderr);
+    let mut measurement = parse_measurement(&text)?;
+    let short_term = parse_short_term(&text);
+    if short_term.is_empty() {
+        measurement.loudness_range_lu = None;
+    }
+    Ok(LoudnessAnalysis {
+        measurement,
+        short_term_window_seconds: 3,
+        short_term_interval_seconds: 3,
+        short_term,
     })
 }
 
-fn find_json_object(text: &str) -> Option<Value> {
+fn parse_short_term(text: &str) -> Vec<ShortTermLoudness> {
+    let mut result = Vec::new();
+    let mut timestamp = None;
+    let mut next_end = 3.0;
+    for line in text.lines() {
+        if let Some((_, time)) = line.split_once("pts_time:") {
+            timestamp = time
+                .split_whitespace()
+                .next()
+                .and_then(|value| value.parse::<f64>().ok());
+        }
+        if let Some((_, value)) = line.split_once("lavfi.r128.S=")
+            && let Some(time) = timestamp
+            // Metadata timestamps mark the START of a 100 ms scanner frame.
+            && time + 0.100_001 >= next_end
+        {
+            // The scanner's formatted zero-energy sentinel is not a measured LUFS value.
+            let lufs = (value.trim() != "-120.691")
+                .then(|| value.trim().parse::<f64>().ok())
+                .flatten()
+                .filter(|value| value.is_finite());
+            result.push(ShortTermLoudness {
+                time_seconds: next_end,
+                short_term_lufs: lufs,
+            });
+            next_end += 3.0;
+        }
+    }
+    result
+}
+
+fn parse_measurement(text: &str) -> Result<LoudnessMeasurement, FfmpegError> {
     for (index, _) in text
         .char_indices()
         .filter(|(_, character)| *character == '{')
@@ -330,237 +211,182 @@ fn find_json_object(text: &str) -> Option<Value> {
         if let Ok(value) = Value::deserialize(&mut deserializer)
             && value.get("input_i").is_some()
         {
-            return Some(value);
+            let field = |name| -> Result<Option<f64>, FfmpegError> {
+                let number = value
+                    .get(name)
+                    .and_then(|value| {
+                        value
+                            .as_f64()
+                            .or_else(|| value.as_str().and_then(|value| value.parse::<f64>().ok()))
+                    })
+                    .ok_or_else(|| {
+                        ffmpeg_error(format!("ffmpeg loudness report contains no numeric {name}"))
+                    })?;
+                Ok(number.is_finite().then_some(number))
+            };
+            let integrated_lufs = field("input_i")?;
+            let lra = field("input_lra")?;
+            return Ok(LoudnessMeasurement {
+                integrated_lufs,
+                true_peak_db: field("input_tp")?,
+                // LRA is not defined when integrated loudness cannot be measured.
+                loudness_range_lu: integrated_lufs.and(lra),
+            });
         }
     }
-    None
+    Err(ffmpeg_error("ffmpeg did not emit a loudness JSON report"))
 }
 
-fn json_number(value: &Value) -> Option<f64> {
-    value
-        .as_f64()
-        .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
-        .filter(|value| value.is_finite())
+fn required(value: Option<f64>, name: &str) -> Result<f64, FfmpegError> {
+    value.ok_or_else(|| ffmpeg_error(format!("{name} is undefined")))
+}
+
+fn run_filter(input: &Path, filter: &str) -> Result<Output, FfmpegError> {
+    run_command(
+        Command::new("ffmpeg")
+            .args(["-hide_banner", "-nostdin", "-i"])
+            .arg(input)
+            .args(["-af", filter, "-f", "null", "-"]),
+    )
+}
+
+fn process_wav(
+    input: &Path,
+    output: &Path,
+    filter: &str,
+    sample_rate: u32,
+) -> Result<(), FfmpegError> {
+    run_command(
+        Command::new("ffmpeg")
+            .args(["-hide_banner", "-nostdin", "-y", "-i"])
+            .arg(input)
+            .args(["-af", filter, "-ar"])
+            .arg(sample_rate.to_string())
+            .args(["-ac", "2", "-c:a", "pcm_f32le", "-f", "wav"])
+            .arg(output),
+    )?;
+    Ok(())
+}
+
+pub(crate) fn encode_mp3(input: &Path, output: &Path) -> Result<(), FfmpegError> {
+    run_command(
+        Command::new("ffmpeg")
+            .args(["-hide_banner", "-nostdin", "-y", "-i"])
+            .arg(input)
+            .args(["-vn", "-codec:a", "libmp3lame", "-b:a", "256k", "-f", "mp3"])
+            .arg(output),
+    )?;
+    Ok(())
+}
+
+fn run_command(command: &mut Command) -> Result<Output, FfmpegError> {
+    let output = command
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|error| FfmpegError {
+            not_found: error.kind() == std::io::ErrorKind::NotFound,
+            detail: error.to_string(),
+        })?;
+    if !output.status.success() {
+        return Err(ffmpeg_error(String::from_utf8_lossy(&output.stderr).trim()));
+    }
+    Ok(output)
+}
+
+fn ffmpeg_error(detail: impl Into<String>) -> FfmpegError {
+    FfmpegError {
+        not_found: false,
+        detail: detail.into(),
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-    use std::process::Command;
-
-    use super::{
-        LoudnessMeasurement, build_gain_correction_command, build_loudnorm_command,
-        build_mp3_command, find_json_object, loudnorm_filter, master_report, parse_loudnorm_report,
-    };
-    use crate::demo::DemoMaster;
+    use super::*;
 
     #[test]
-    fn master_corrects_true_peak_overshoot_after_sample_rate_conversion() {
+    fn master_verifies_loudness_peak_and_preserves_limiter_tail() {
         if Command::new("ffmpeg").arg("-version").output().is_err() {
             return;
         }
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let input = directory.path().join("overshoot-source.wav");
-        let output = directory.path().join("mastered.wav");
+        let directory = tempfile::tempdir().expect("directory");
+        let input = directory.path().join("input.wav");
+        let output = directory.path().join("output.wav");
         let spec = hound::WavSpec {
             channels: 2,
             sample_rate: 48_000,
             bits_per_sample: 32,
             sample_format: hound::SampleFormat::Float,
         };
-        let mut writer = hound::WavWriter::create(&input, spec).expect("input WAV");
-        // Sparse high-frequency bursts expose inter-sample peaks during rate conversion.
-        for frame in 0..48_000 * 3 {
-            let pulse = frame % 4_800 < 48;
+        let mut writer = hound::WavWriter::create(&input, spec).expect("writer");
+        for frame in 0..48_000 * 6 {
             let time = f64::from(frame) / 48_000.0;
-            let sample = if pulse {
-                (std::f64::consts::TAU * 18_000.0 * time).sin() * 0.9
-            } else {
-                (std::f64::consts::TAU * 440.0 * time).sin() * 0.02
-            };
+            let envelope = if frame % 24_000 < 2_400 { 0.8 } else { 0.12 };
             #[allow(clippy::cast_possible_truncation)]
-            let sample = sample as f32;
-            writer.write_sample(sample).expect("left sample");
-            writer.write_sample(sample).expect("right sample");
+            let sample = ((std::f64::consts::TAU * 440.0 * time).sin() * envelope) as f32;
+            writer.write_sample(sample).expect("left");
+            writer.write_sample(sample).expect("right");
         }
-        writer.finalize().expect("input WAV finalized");
+        writer.finalize().expect("finalize");
 
         let settings = DemoMaster {
-            integrated_lufs: -10.0,
+            integrated_lufs: -9.0,
             true_peak_db: -1.0,
-            loudness_range_lu: 7.0,
         };
-        let report = super::master(&input, &output, &settings, 44_100).expect("master succeeds");
-        let independently_measured_tp = ffmpeg_true_peak(&output);
+        for sample_rate in [44_100, 48_000] {
+            let report = master(&input, &output, &settings, sample_rate).expect("master");
+            let measured = analyze_loudness(&output).expect("independent measurement");
+            let mut reader = hound::WavReader::open(&output).expect("output");
+            assert_eq!(reader.duration(), sample_rate * 6);
+            assert_eq!(
+                reader.spec(),
+                hound::WavSpec {
+                    sample_rate,
+                    ..spec
+                }
+            );
+            assert!(
+                reader
+                    .samples::<f32>()
+                    .last()
+                    .expect("tail")
+                    .expect("sample")
+                    .abs()
+                    > 0.001
+            );
+            assert!((measured.measurement.integrated_lufs.expect("LUFS") + 9.0).abs() <= 0.5);
+            assert!(measured.measurement.true_peak_db.expect("peak") <= -1.0);
+            assert!(report.attempts <= 8);
+            assert_eq!(measured.short_term.len(), 2);
+            assert!((measured.short_term[0].time_seconds - 3.0).abs() < f64::EPSILON);
+            assert!(
+                measured
+                    .short_term
+                    .iter()
+                    .all(|window| window.short_term_lufs.is_some())
+            );
+        }
 
-        assert!(report.true_peak_correction_db < 0.0);
-        assert_eq!(
-            hound::WavReader::open(&output)
-                .expect("mastered WAV opens")
-                .spec()
-                .sample_rate,
-            44_100
-        );
-        assert!((report.output.true_peak_db - independently_measured_tp).abs() < 0.05);
-        assert!(independently_measured_tp <= settings.true_peak_db);
-    }
-
-    fn ffmpeg_true_peak(path: &Path) -> f64 {
-        let output = Command::new("ffmpeg")
-            .args(["-hide_banner", "-nostdin", "-i"])
-            .arg(path)
-            .args([
-                "-af",
-                "loudnorm=I=-10:TP=-1:LRA=7:print_format=json",
-                "-f",
-                "null",
-                "-",
-            ])
-            .output()
-            .expect("FFmpeg measurement starts");
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        super::parse_loudnorm_report(&String::from_utf8_lossy(&output.stderr))
-            .expect("measurement report parses")
-            .input_tp
-            .expect("measurement includes input true peak")
-    }
-
-    fn command_arguments(command: &std::process::Command) -> Vec<String> {
-        command
-            .get_args()
-            .map(|argument| argument.to_string_lossy().into_owned())
-            .collect()
-    }
-
-    #[test]
-    fn ffmpeg_commands_keep_sample_rate_and_codec_contracts() {
-        let wav_arguments = command_arguments(&build_loudnorm_command(
-            Path::new("mix.wav"),
-            "loudnorm=I=-16",
-            Some(Path::new("master.wav")),
-            48_000,
-        ));
-        assert!(
-            wav_arguments
-                .windows(2)
-                .any(|window| window == ["-ar", "48000"])
-        );
-        assert!(
-            wav_arguments
-                .windows(2)
-                .any(|window| window == ["-f", "wav"])
-        );
-
-        let correction_arguments = command_arguments(&build_gain_correction_command(
-            Path::new("candidate.wav"),
-            Path::new("corrected.wav"),
-            -1.2,
-        ));
-        assert!(
-            correction_arguments
-                .windows(2)
-                .any(|window| { window == ["-af", "volume=-1.2dB"] })
-        );
-        assert!(
-            !correction_arguments
-                .iter()
-                .any(|argument| argument == "-ar")
-        );
-
-        let mp3_arguments = command_arguments(&build_mp3_command(
-            Path::new("master.wav"),
-            Path::new("preview.mp3"),
-        ));
-        assert!(
-            mp3_arguments
-                .windows(2)
-                .any(|window| window == ["-f", "mp3"])
-        );
-        assert!(
-            mp3_arguments
-                .windows(2)
-                .any(|window| window == ["-b:a", "256k"])
-        );
-        assert!(
-            mp3_arguments
-                .windows(2)
-                .any(|window| window == ["-codec:a", "libmp3lame"])
-        );
-    }
-
-    #[test]
-    fn loudnorm_filter_contains_first_and_second_pass_arguments() {
-        let settings = DemoMaster {
-            integrated_lufs: -16.0,
-            true_peak_db: -1.0,
-            loudness_range_lu: 11.0,
+        let silence = directory.path().join("silence.wav");
+        let mut writer = hound::WavWriter::create(&silence, spec).expect("silence");
+        for _ in 0..48_000 {
+            writer.write_sample(0.0_f32).expect("sample");
+        }
+        writer.finalize().expect("silence finalized");
+        let failed = directory.path().join("failed.wav");
+        let impossible = DemoMaster {
+            integrated_lufs: -5.0,
+            true_peak_db: -9.0,
         };
-        let first = loudnorm_filter(&settings, None);
-        let second = loudnorm_filter(
-            &settings,
-            Some(super::LoudnormMeasurements {
-                input_i: -18.0,
-                input_tp: -2.0,
-                input_lra: 5.0,
-                input_thresh: -28.0,
-                target_offset: 2.0,
-            }),
-        );
-
-        assert_eq!(first, "loudnorm=I=-16:TP=-1:LRA=11:print_format=json");
-        assert_eq!(
-            second,
-            "loudnorm=I=-16:TP=-1:LRA=11:measured_I=-18:measured_TP=-2:measured_LRA=5:measured_thresh=-28:offset=2:linear=true:print_format=json"
-        );
-    }
-
-    #[test]
-    fn loudnorm_report_parses_measurements_and_normalization_type() {
-        let report = parse_loudnorm_report(
-            "[Parsed_loudnorm_0 @ 0x0]\n{\"input_i\":\"-18.70\",\"input_tp\":\"-2.4\",\"input_lra\":\"5.1\",\"input_thresh\":\"-28.0\",\"target_offset\":\"2.7\",\"normalization_type\":\"dynamic\"}\n",
-        )
-        .expect("loudnorm report parses");
-
-        assert_eq!(report.input_i, Some(-18.7));
-        assert_eq!(report.input_tp, Some(-2.4));
-        assert_eq!(report.input_lra, Some(5.1));
-        assert_eq!(report.normalization_type.as_deref(), Some("dynamic"));
-        assert!(find_json_object("no report").is_none());
-    }
-
-    #[test]
-    fn master_report_calculates_deviation_from_the_target() {
-        let settings = DemoMaster {
-            integrated_lufs: -10.0,
-            true_peak_db: -1.0,
-            loudness_range_lu: 7.0,
-        };
-        let report = master_report(
-            &settings,
-            LoudnessMeasurement {
-                integrated_lufs: -17.5,
-                true_peak_db: -3.2,
-                loudness_range_lu: 6.4,
-            },
-            LoudnessMeasurement {
-                integrated_lufs: -11.8,
-                true_peak_db: -1.0,
-                loudness_range_lu: 6.1,
-            },
-            "dynamic".to_owned(),
-            -1.2,
-        );
-
-        assert!((report.target.integrated_lufs - -10.0).abs() < f64::EPSILON);
-        assert!((report.input.true_peak_db - -3.2).abs() < 1.0e-12);
-        assert!((report.deviation.integrated_lufs - -1.8).abs() < 1.0e-12);
-        assert!(report.deviation.true_peak_db.abs() < f64::EPSILON);
-        assert!((report.deviation.loudness_range_lu - -0.9).abs() < 1.0e-12);
-        assert_eq!(report.normalization_type, "dynamic");
-        assert!((report.true_peak_correction_db - -1.2).abs() < 1.0e-12);
+        let error = master(&input, &failed, &impossible, 48_000).expect_err("unreachable loudness");
+        assert!(error.detail.contains("target -5 LUFS / -9 dBTP"));
+        assert!(error.detail.contains("input gain"));
+        assert!(!failed.exists());
+        assert!(master(&silence, &failed, &settings, 48_000).is_err());
+        assert!(!failed.exists());
+        let measurement = analyze_loudness(&silence).expect("silence analysis");
+        assert!(measurement.measurement.integrated_lufs.is_none());
+        assert!(measurement.measurement.true_peak_db.is_none());
+        assert!(measurement.short_term.is_empty());
     }
 }
