@@ -99,6 +99,7 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 
 - Rust stable（`rustup`で導入）
 - CMake 3.20以上
+- FFmpeg（オフラインLoudness分析・Demo Master・MP3出力と関連テスト）
 - Windows: Visual Studio C++ Build Tools
 - Linux: `g++`または`clang++`、`git`、`pkg-config`、`libasound2-dev`
 - macOS: Xcode Command Line Tools
