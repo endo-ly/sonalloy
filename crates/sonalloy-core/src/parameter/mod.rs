@@ -194,7 +194,14 @@ impl ParameterDescriptor {
                 ModulationUnit::Decibels
             }
             ParameterUnit::Pan if self.scale == ParameterScale::Linear => ModulationUnit::Pan,
-            ParameterUnit::Cents if matches!(self.scale, ParameterScale::Linear | ParameterScale::LinearUnbounded) => ModulationUnit::Cents,
+            ParameterUnit::Cents
+                if matches!(
+                    self.scale,
+                    ParameterScale::Linear | ParameterScale::LinearUnbounded
+                ) =>
+            {
+                ModulationUnit::Cents
+            }
             ParameterUnit::Hertz => match self.scale {
                 ParameterScale::Linear | ParameterScale::LinearUnbounded => ModulationUnit::Hertz,
                 ParameterScale::Log2 => ModulationUnit::Octaves,
