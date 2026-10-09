@@ -560,14 +560,15 @@ mod tests {
 
     #[test]
     fn ramp_validation_checks_duration_end_and_native_endpoints() {
-        for (tick, duration_ticks, from_value, to_value) in [
-            (0, 0, 0.0, 1.0),
-            (1900, 21, 0.0, 1.0),
-            (u64::MAX, 1, 0.0, 1.0),
-            (0, 480, f32::NAN, 1.0),
-            (0, 480, 0.0, f32::INFINITY),
+        for (tick, duration_ticks, from_value, to_value, field) in [
+            (0, 0, 0.0, 1.0, "duration_ticks"),
+            (1900, 21, 0.0, 1.0, "duration_ticks"),
+            (u64::MAX, 1, 0.0, 1.0, "duration_ticks"),
+            (0, 480, f32::NAN, 1.0, "from_value"),
+            (0, 480, 0.0, f32::INFINITY, "to_value"),
         ] {
             let mut pattern = default_pattern();
+            let expected_path = format!("events[{}].{field}", pattern.events.len());
             pattern.events.push(super::PatternEvent::ParameterRamp {
                 tick,
                 duration_ticks,
@@ -575,7 +576,14 @@ mod tests {
                 from_value,
                 to_value,
             });
-            assert!(!super::validate(&pattern).is_empty());
+            let diagnostics = super::validate(&pattern);
+            assert!(
+                diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == sonalloy_core::DiagnosticCode::ValueOutOfRange
+                        && diagnostic.path.as_deref() == Some(expected_path.as_str())
+                }),
+                "expected {expected_path}, received {diagnostics:?}"
+            );
         }
         let mut pattern = default_pattern();
         pattern.events.push(super::PatternEvent::ParameterRamp {
