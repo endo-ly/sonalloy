@@ -32,7 +32,7 @@ use wave_sequence::WaveSequenceRuntime;
 use wavetable::WavetableRuntime;
 
 fn validate_generator_span(
-    span: ValueSpan,
+    span: &ValueSpan,
     spec: GeneratorParameterSpec,
 ) -> Result<(), ProcessError> {
     if !span.start.is_finite() || !span.end.is_finite() {
@@ -240,7 +240,7 @@ impl GeneratorRuntime {
         tuning_end: f32,
         sample_rate: f64,
         tempo_bpm: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
         left: &mut [f32],
         right: &mut [f32],
@@ -420,7 +420,7 @@ impl GeneratorRuntime {
         note_number: u8,
         tuning_start: f32,
         tuning_end: f32,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         tempo_bpm: f64,
         mono: &mut [f32],
         left: &mut [f32],

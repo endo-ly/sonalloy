@@ -148,7 +148,7 @@ impl SpectralRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
         left: &mut [f32],
         right: &mut [f32],
@@ -184,14 +184,8 @@ impl SpectralRuntime {
         if frames == 0 {
             return Ok(self.is_finished());
         }
-        let tuning = ValueSpan {
-            start: tuning_start,
-            end: tuning_end,
-        };
-        let morph = morph.unwrap_or(ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        });
+        let tuning = ValueSpan::linear(tuning_start, tuning_end);
+        let morph = morph.unwrap_or(ValueSpan::linear(0.0, 0.0));
         let hop_size = self.synthesis_plan.hop_size();
         for offset in 0..frames {
             if self.samples_until_next_frame == 0 {
@@ -790,28 +784,13 @@ mod tests {
         shift: f32,
         morph: Option<f32>,
     ) -> LayerGeneratorTargetSpan {
-        let position = ValueSpan {
-            start: position,
-            end: position,
-        };
+        let position = ValueSpan::linear(position, position);
         LayerGeneratorTargetSpan::Spectral {
             position,
-            freeze: ValueSpan {
-                start: freeze,
-                end: freeze,
-            },
-            blur: ValueSpan {
-                start: blur,
-                end: blur,
-            },
-            shift: ValueSpan {
-                start: shift,
-                end: shift,
-            },
-            morph: morph.map(|value| ValueSpan {
-                start: value,
-                end: value,
-            }),
+            freeze: ValueSpan::linear(freeze, freeze),
+            blur: ValueSpan::linear(blur, blur),
+            shift: ValueSpan::linear(shift, shift),
+            morph: morph.map(|value| ValueSpan::linear(value, value)),
         }
     }
 
@@ -830,7 +809,7 @@ mod tests {
                     0.0,
                     0.0,
                     48_000.0,
-                    targets_with_blur(0.0, 0.0, 0.02, 0.0),
+                    &targets_with_blur(0.0, 0.0, 0.02, 0.0),
                     &mut mono,
                     &mut left,
                     &mut right,
@@ -854,7 +833,7 @@ mod tests {
                 0.0,
                 0.0,
                 48_000.0,
-                targets(0.0, 0.0, 0.0),
+                &targets(0.0, 0.0, 0.0),
                 &mut mono,
                 &mut left,
                 &mut right,
@@ -881,7 +860,7 @@ mod tests {
                 0.0,
                 0.0,
                 48_000.0,
-                targets(0.5, 1.0, 0.0),
+                &targets(0.5, 1.0, 0.0),
                 &mut mono,
                 &mut left,
                 &mut right,
@@ -917,7 +896,7 @@ mod tests {
                 0.0,
                 0.0,
                 48_000.0,
-                targets(0.25, 1.0, 0.0),
+                &targets(0.25, 1.0, 0.0),
                 &mut mono,
                 &mut left,
                 &mut right,
@@ -931,7 +910,7 @@ mod tests {
                 0.0,
                 0.0,
                 48_000.0,
-                targets(0.25, 1.0, 0.0),
+                &targets(0.25, 1.0, 0.0),
                 &mut mono,
                 &mut left,
                 &mut right,
@@ -963,7 +942,7 @@ mod tests {
                 0.0,
                 0.0,
                 48_000.0,
-                targets_with_blur(0.0, 0.0, 0.02, 0.0),
+                &targets_with_blur(0.0, 0.0, 0.02, 0.0),
                 &mut mono,
                 &mut left,
                 &mut right,
@@ -977,7 +956,7 @@ mod tests {
                 0.0,
                 0.0,
                 48_000.0,
-                targets_with_blur(0.75, 1.0, 0.02, 0.0),
+                &targets_with_blur(0.75, 1.0, 0.02, 0.0),
                 &mut mono,
                 &mut left,
                 &mut right,
@@ -1004,7 +983,7 @@ mod tests {
                     0.0,
                     0.0,
                     48_000.0,
-                    targets_with_blur(0.0, 0.0, 0.02, 0.0),
+                    &targets_with_blur(0.0, 0.0, 0.02, 0.0),
                     &mut mono,
                     &mut left,
                     &mut right,
@@ -1023,7 +1002,7 @@ mod tests {
                     0.0,
                     0.0,
                     48_000.0,
-                    targets_with_blur(0.0, 0.0, 0.02, 0.0),
+                    &targets_with_blur(0.0, 0.0, 0.02, 0.0),
                     &mut mono,
                     &mut left,
                     &mut right,

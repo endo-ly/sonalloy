@@ -74,7 +74,7 @@ impl WavetableRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
         left: &mut [f32],
         right: &mut [f32],
@@ -101,16 +101,10 @@ impl WavetableRuntime {
             return Err(invalid_state());
         }
         validate_generator_span(position, WAVETABLE_POSITION)?;
-        let detune = unison_detune.unwrap_or(ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        });
-        let spread = unison_spread.unwrap_or(ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        });
-        validate_generator_span(detune, UNISON_DETUNE)?;
-        validate_generator_span(spread, UNISON_SPREAD)?;
+        let detune = unison_detune.unwrap_or(ValueSpan::linear(0.0, 0.0));
+        let spread = unison_spread.unwrap_or(ValueSpan::linear(0.0, 0.0));
+        validate_generator_span(&detune, UNISON_DETUNE)?;
+        validate_generator_span(&spread, UNISON_SPREAD)?;
         let (base_start, base_end) = base_frequencies(note_number, tuning_start, tuning_end)?;
         let max_frequency = self.effective_max_frequency;
 
@@ -121,7 +115,7 @@ impl WavetableRuntime {
                 base_start,
                 base_end,
                 self.unison.position_distribution[0],
-                detune,
+                &detune,
                 position,
                 sample_rate,
                 max_frequency,
@@ -146,7 +140,7 @@ impl WavetableRuntime {
                 base_start,
                 base_end,
                 distribution,
-                detune,
+                &detune,
                 position,
                 sample_rate,
                 max_frequency,
@@ -187,8 +181,8 @@ fn render_component(
     base_start: f32,
     base_end: f32,
     distribution: f32,
-    detune: ValueSpan,
-    position: ValueSpan,
+    detune: &ValueSpan,
+    position: &ValueSpan,
     sample_rate: f64,
     max_frequency: f32,
     prepared: &PreparedWavetable,
@@ -204,11 +198,7 @@ fn render_component(
         return Err(invalid_state());
     }
     for (index, sample) in output.iter_mut().take(frames).enumerate() {
-        let base = ValueSpan {
-            start: base_start,
-            end: base_end,
-        }
-        .value_at(index, frames);
+        let base = ValueSpan::linear(base_start, base_end).value_at(index, frames);
         let current_detune = detune.value_at(index, frames);
         let frequency = component_frequency(base, distribution, current_detune, max_frequency)?;
         let current_position = position.value_at(index, frames);

@@ -231,6 +231,20 @@ float process_oscillator_sample(sonalloy_dsp_oscillator* handle) {
     return handle->oscillator.Process();
 }
 
+/// Log-ratio of a positive ramp, used to interpolate log-scaled parameters
+/// geometrically. A log-scaled parameter moves linearly in normalized space,
+/// which is geometric in its native units. The ratio is kept in double
+/// precision so a span stays as close to its endpoints as the engine's
+/// single-precision span values allow.
+double geometric_ramp_log_ratio(float start, float end) {
+    return std::log(static_cast<double>(end) / static_cast<double>(start));
+}
+
+float geometric_ramp_value(float start, double log_ratio, float position) {
+    return static_cast<float>(
+        static_cast<double>(start) * std::exp(log_ratio * static_cast<double>(position)));
+}
+
 }  // namespace
 
 extern "C" const char* sonalloy_dsp_backend_version(void) {
@@ -908,13 +922,14 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp(
     }
     try {
         handle->filter.SetRes(resonance);
+        const double cutoff_log_ratio =
+            geometric_ramp_log_ratio(start_cutoff_hz, end_cutoff_hz);
         for (uint32_t index = 0; index < frames; ++index) {
             const float position = frames <= 1u
                 ? 0.0f
                 : static_cast<float>(index) / static_cast<float>(frames);
-            const float cutoff_hz = start_cutoff_hz +
-                (end_cutoff_hz - start_cutoff_hz) * position;
-            handle->filter.SetFreq(cutoff_hz);
+            handle->filter.SetFreq(geometric_ramp_value(
+                start_cutoff_hz, cutoff_log_ratio, position));
             handle->filter.Process(buffer[index]);
             buffer[index] = filter_output(handle, mode);
         }
@@ -966,15 +981,16 @@ extern "C" int32_t sonalloy_dsp_filter_process_ramp_with_resonance(
         return SONALLOY_DSP_INVALID_ARGUMENT;
     }
     try {
+        const double cutoff_log_ratio =
+            geometric_ramp_log_ratio(start_cutoff_hz, end_cutoff_hz);
         for (uint32_t index = 0; index < frames; ++index) {
             const float position = frames <= 1u
                 ? 0.0f
                 : static_cast<float>(index) / static_cast<float>(frames);
-            const float cutoff_hz = start_cutoff_hz +
-                (end_cutoff_hz - start_cutoff_hz) * position;
             const float resonance = start_resonance +
                 (end_resonance - start_resonance) * position;
-            handle->filter.SetFreq(cutoff_hz);
+            handle->filter.SetFreq(geometric_ramp_value(
+                start_cutoff_hz, cutoff_log_ratio, position));
             handle->filter.SetRes(resonance);
             handle->filter.Process(buffer[index]);
             buffer[index] = filter_output(handle, mode);

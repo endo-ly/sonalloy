@@ -346,10 +346,7 @@ mod tests {
     }
 
     fn constant_span(value: f32) -> ValueSpan {
-        ValueSpan {
-            start: value,
-            end: value,
-        }
+        ValueSpan::linear(value, value)
     }
 
     #[test]

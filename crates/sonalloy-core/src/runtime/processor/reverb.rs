@@ -476,10 +476,7 @@ mod tests {
     }
 
     fn constant(value: f32) -> ValueSpan {
-        ValueSpan {
-            start: value,
-            end: value,
-        }
+        ValueSpan::linear(value, value)
     }
 
     #[test]
@@ -551,22 +548,10 @@ mod tests {
         whole_left[0] = 1.0;
         whole_runtime
             .process(
-                ValueSpan {
-                    start: 0.2,
-                    end: 0.9,
-                },
-                ValueSpan {
-                    start: 0.1,
-                    end: 0.8,
-                },
-                ValueSpan {
-                    start: 0.3,
-                    end: 1.0,
-                },
-                ValueSpan {
-                    start: 0.2,
-                    end: 0.7,
-                },
+                ValueSpan::linear(0.2, 0.9),
+                ValueSpan::linear(0.1, 0.8),
+                ValueSpan::linear(0.3, 1.0),
+                ValueSpan::linear(0.2, 0.7),
                 &mut whole_left,
                 &mut whole_right,
             )
@@ -578,44 +563,20 @@ mod tests {
         split_left[0] = 1.0;
         split_runtime
             .process(
-                ValueSpan {
-                    start: 0.2,
-                    end: 0.2 + 0.7 / 32.0,
-                },
-                ValueSpan {
-                    start: 0.1,
-                    end: 0.1 + 0.7 / 32.0,
-                },
-                ValueSpan {
-                    start: 0.3,
-                    end: 0.3 + 0.7 / 32.0,
-                },
-                ValueSpan {
-                    start: 0.2,
-                    end: 0.2 + 0.5 / 32.0,
-                },
+                ValueSpan::linear(0.2, 0.2 + 0.7 / 32.0),
+                ValueSpan::linear(0.1, 0.1 + 0.7 / 32.0),
+                ValueSpan::linear(0.3, 0.3 + 0.7 / 32.0),
+                ValueSpan::linear(0.2, 0.2 + 0.5 / 32.0),
                 &mut split_left[..1],
                 &mut split_right[..1],
             )
             .expect("first split reverb process");
         split_runtime
             .process(
-                ValueSpan {
-                    start: 0.2 + 0.7 / 32.0,
-                    end: 0.9,
-                },
-                ValueSpan {
-                    start: 0.1 + 0.7 / 32.0,
-                    end: 0.8,
-                },
-                ValueSpan {
-                    start: 0.3 + 0.7 / 32.0,
-                    end: 1.0,
-                },
-                ValueSpan {
-                    start: 0.2 + 0.5 / 32.0,
-                    end: 0.7,
-                },
+                ValueSpan::linear(0.2 + 0.7 / 32.0, 0.9),
+                ValueSpan::linear(0.1 + 0.7 / 32.0, 0.8),
+                ValueSpan::linear(0.3 + 0.7 / 32.0, 1.0),
+                ValueSpan::linear(0.2 + 0.5 / 32.0, 0.7),
                 &mut split_left[1..],
                 &mut split_right[1..],
             )

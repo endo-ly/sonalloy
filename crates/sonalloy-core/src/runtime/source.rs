@@ -277,10 +277,10 @@ impl VoiceSourceRuntime {
         note: NoteId,
     ) -> Result<ValueSpan, ProcessError> {
         if frames == 0 {
-            return Ok(ValueSpan {
-                start: self.current_value(source).unwrap_or(0.0),
-                end: self.current_value(source).unwrap_or(0.0),
-            });
+            return Ok(ValueSpan::linear(
+                self.current_value(source).unwrap_or(0.0),
+                self.current_value(source).unwrap_or(0.0),
+            ));
         }
         let start = self.current_value(source).unwrap_or(0.0);
         let end = match (source, self) {
@@ -326,7 +326,7 @@ impl VoiceSourceRuntime {
         if !end.is_finite() {
             return Err(ProcessError::InvalidMusicalTime);
         }
-        Ok(ValueSpan { start, end })
+        Ok(ValueSpan::linear(start, end))
     }
 }
 

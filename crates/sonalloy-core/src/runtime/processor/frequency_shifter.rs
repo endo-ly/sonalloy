@@ -177,10 +177,7 @@ mod tests {
     }
 
     fn span(value: f32) -> ValueSpan {
-        ValueSpan {
-            start: value,
-            end: value,
-        }
+        ValueSpan::linear(value, value)
     }
 
     #[test]
@@ -242,10 +239,7 @@ mod tests {
 
         runtime
             .process(
-                ValueSpan {
-                    start: -500.0,
-                    end: 500.0,
-                },
+                ValueSpan::linear(-500.0, 500.0),
                 span(1.0),
                 &mut left,
                 &mut right,

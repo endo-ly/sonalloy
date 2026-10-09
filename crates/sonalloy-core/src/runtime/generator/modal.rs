@@ -61,7 +61,7 @@ impl ModalRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
     ) -> Result<(), ProcessError> {
         if frames == 0 {
@@ -150,28 +150,19 @@ mod tests {
         let mut runtime = ModalRuntime::new(&compiled(), spec).expect("runtime");
         runtime.start(3).expect("start");
         let targets = LayerGeneratorTargetSpan::Modal {
-            structure: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
-            brightness: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
-            decay: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
+            structure: ValueSpan::linear(0.5, 0.5),
+            brightness: ValueSpan::linear(0.5, 0.5),
+            decay: ValueSpan::linear(0.5, 0.5),
         };
         let mut first = vec![0.0; 257];
         runtime
-            .render(257, 69, 0.0, 0.0, 48_000.0, targets, &mut first)
+            .render(257, 69, 0.0, 0.0, 48_000.0, &targets, &mut first)
             .expect("render");
         assert!(first.iter().all(|sample| sample.is_finite()));
         runtime.start(3).expect("restart");
         let mut second = vec![0.0; 257];
         runtime
-            .render(257, 69, 0.0, 0.0, 48_000.0, targets, &mut second)
+            .render(257, 69, 0.0, 0.0, 48_000.0, &targets, &mut second)
             .expect("render after reset");
         assert_eq!(first, second);
     }
@@ -182,22 +173,13 @@ mod tests {
         let mut runtime = ModalRuntime::new(&compiled(), spec).expect("runtime");
         runtime.start(3).expect("start");
         let targets = LayerGeneratorTargetSpan::Modal {
-            structure: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
-            brightness: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
-            decay: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
+            structure: ValueSpan::linear(0.5, 0.5),
+            brightness: ValueSpan::linear(0.5, 0.5),
+            decay: ValueSpan::linear(0.5, 0.5),
         };
         let mut output = [0.0; 64];
         assert_eq!(
-            runtime.render(64, 127, 1_200.0, 1_200.0, 48_000.0, targets, &mut output),
+            runtime.render(64, 127, 1_200.0, 1_200.0, 48_000.0, &targets, &mut output),
             Err(ProcessError::InvalidFrequency)
         );
     }

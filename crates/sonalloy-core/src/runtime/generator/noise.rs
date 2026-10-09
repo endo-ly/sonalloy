@@ -60,7 +60,7 @@ impl NoiseRuntime {
     pub(super) fn render(
         &mut self,
         frames: usize,
-        correlation: ValueSpan,
+        correlation: &ValueSpan,
         left: &mut [f32],
         right: &mut [f32],
     ) -> Result<(), ProcessError> {
@@ -96,7 +96,7 @@ impl NoiseRuntime {
     }
 }
 
-fn validate_correlation(correlation: ValueSpan) -> Result<(), ProcessError> {
+fn validate_correlation(correlation: &ValueSpan) -> Result<(), ProcessError> {
     validate_generator_span(correlation, NOISE_CORRELATION)
 }
 
@@ -218,16 +218,13 @@ mod tests {
 
     #[test]
     fn correlation_endpoints_and_reset_are_deterministic() {
-        let span = ValueSpan {
-            start: 1.0,
-            end: 1.0,
-        };
+        let span = ValueSpan::linear(1.0, 1.0);
         let mut correlated = NoiseRuntime::new(&compiled_noise(NoiseColor::White, 7));
         correlated.start(13);
         let mut left = vec![0.0; 512];
         let mut right = vec![0.0; 512];
         correlated
-            .render(512, span, &mut left, &mut right)
+            .render(512, &span, &mut left, &mut right)
             .expect("correlated noise renders");
         assert_eq!(left, right);
 
@@ -238,10 +235,7 @@ mod tests {
         independent
             .render(
                 512,
-                ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                },
+                &ValueSpan::linear(0.0, 0.0),
                 &mut independent_left,
                 &mut independent_right,
             )
@@ -258,7 +252,7 @@ mod tests {
         let mut repeated_left = vec![0.0; 512];
         let mut repeated_right = vec![0.0; 512];
         correlated
-            .render(512, span, &mut repeated_left, &mut repeated_right)
+            .render(512, &span, &mut repeated_left, &mut repeated_right)
             .expect("reset noise renders");
         assert_eq!(left, repeated_left);
         assert_eq!(right, repeated_right);
@@ -267,16 +261,13 @@ mod tests {
     #[test]
     fn block_partition_does_not_change_the_noise_sequence() {
         let compiled = compiled_noise(NoiseColor::Pink, 99);
-        let span = ValueSpan {
-            start: 0.4,
-            end: 0.4,
-        };
+        let span = ValueSpan::linear(0.4, 0.4);
         let mut one_block = NoiseRuntime::new(&compiled);
         one_block.start(5);
         let mut whole_left = vec![0.0; 257];
         let mut whole_right = vec![0.0; 257];
         one_block
-            .render(257, span, &mut whole_left, &mut whole_right)
+            .render(257, &span, &mut whole_left, &mut whole_right)
             .expect("whole block renders");
 
         let mut split = NoiseRuntime::new(&compiled);
@@ -288,7 +279,7 @@ mod tests {
             split
                 .render(
                     length,
-                    span,
+                    &span,
                     &mut split_left[offset..offset + length],
                     &mut split_right[offset..offset + length],
                 )

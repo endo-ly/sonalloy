@@ -455,10 +455,7 @@ impl LayerProcessorChain {
 impl ProcessorTargetSpan {
     #[allow(clippy::too_many_lines)]
     pub(crate) fn zero_for(processor: &CompiledProcessorKind) -> Self {
-        let zero = ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        };
+        let zero = ValueSpan::linear(0.0, 0.0);
         match processor {
             CompiledProcessorKind::Filter(_) => Self::Filter {
                 cutoff: zero,
@@ -572,10 +569,7 @@ impl ProcessorTargetSpan {
 
     #[allow(clippy::too_many_lines)]
     pub(crate) fn clear(&mut self) {
-        let zero = ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        };
+        let zero = ValueSpan::linear(0.0, 0.0);
         match self {
             Self::Filter { cutoff, resonance } => {
                 *cutoff = zero;

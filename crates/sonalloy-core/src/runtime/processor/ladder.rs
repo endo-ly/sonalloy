@@ -178,10 +178,7 @@ mod tests {
     use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
-        ValueSpan {
-            start: value,
-            end: value,
-        }
+        ValueSpan::linear(value, value)
     }
 
     #[test]

@@ -7,11 +7,21 @@ use crate::process::ProcessError;
 
 use super::processor::ProcessorTargetSpan;
 
-/// A value that changes linearly over one render span.
+/// How a value moves between the endpoints of a render span.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum ValueInterpolation {
+    /// Linear in the span's own units.
+    Linear,
+    /// Geometric in the span's own units, matching log-scaled parameters.
+    Geometric,
+}
+
+/// A value that changes over one render span.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ValueSpan {
     pub(crate) start: f32,
     pub(crate) end: f32,
+    interpolation: ValueInterpolation,
 }
 
 /// Result of evaluating one parameter in its native value domain.
@@ -144,7 +154,50 @@ pub(crate) fn apply_domain_sum_with_maximum(
     })
 }
 
+/// Evaluate one parameter over a span and keep the span's interpolation
+/// consistent with the parameter's scale.
+///
+/// A log-scaled parameter moves linearly in normalized space, which is
+/// geometric in its native units, so its span interpolates geometrically.
+pub(crate) fn evaluate_parameter_span(
+    descriptor: &ParameterDescriptor,
+    base: ValueSpan,
+    start_domain_sum: f32,
+    end_domain_sum: f32,
+    effective_maximum: f32,
+) -> Result<ValueSpan, ProcessError> {
+    let start =
+        apply_domain_sum_with_maximum(descriptor, base.start, start_domain_sum, effective_maximum)?
+            .final_value;
+    let end =
+        apply_domain_sum_with_maximum(descriptor, base.end, end_domain_sum, effective_maximum)?
+            .final_value;
+    Ok(match descriptor.scale {
+        ParameterScale::Linear | ParameterScale::LinearUnbounded => ValueSpan::linear(start, end),
+        ParameterScale::Log2 => ValueSpan::geometric(start, end),
+    })
+}
+
 impl ValueSpan {
+    /// A span whose value moves linearly between its endpoints.
+    pub(crate) const fn linear(start: f32, end: f32) -> Self {
+        Self {
+            start,
+            end,
+            interpolation: ValueInterpolation::Linear,
+        }
+    }
+
+    /// A span whose value moves geometrically between positive endpoints, as
+    /// log-scaled parameters do when they are interpolated in normalized space.
+    pub(crate) const fn geometric(start: f32, end: f32) -> Self {
+        Self {
+            start,
+            end,
+            interpolation: ValueInterpolation::Geometric,
+        }
+    }
+
     pub(crate) fn is_constant(self) -> bool {
         self.start.total_cmp(&self.end).is_eq()
     }
@@ -158,7 +211,29 @@ impl ValueSpan {
                 index as f32 / frames as f32
             }
         };
-        self.start + (self.end - self.start) * position
+        match self.interpolation {
+            ValueInterpolation::Linear => self.start + (self.end - self.start) * position,
+            ValueInterpolation::Geometric => self.geometric_at(position),
+        }
+    }
+
+    /// Endpoints stay exact so a span always reports the values it was built
+    /// with, independently of how the span is partitioned. The ratio is
+    /// evaluated in double precision so a sample stays as close to the
+    /// per-sample curve as single-precision endpoints allow.
+    fn geometric_at(self, position: f32) -> f32 {
+        if position <= 0.0 {
+            return self.start;
+        }
+        if position >= 1.0 {
+            return self.end;
+        }
+        #[allow(clippy::cast_possible_truncation)]
+        {
+            (f64::from(self.start)
+                * (f64::from(self.end) / f64::from(self.start)).powf(f64::from(position)))
+                as f32
+        }
     }
 }
 
@@ -234,10 +309,10 @@ fn interpolate(start: f32, end: f32, offset: usize, length: usize, total: usize)
     let start_position = offset.min(total) as f32 / total as f32;
     #[allow(clippy::cast_precision_loss)]
     let end_position = (offset + length).min(total) as f32 / total as f32;
-    ValueSpan {
-        start: start + (end - start) * start_position,
-        end: start + (end - start) * end_position,
-    }
+    ValueSpan::linear(
+        start + (end - start) * start_position,
+        start + (end - start) * end_position,
+    )
 }
 
 /// Per-layer target values after base values and routes have been evaluated.
@@ -327,10 +402,7 @@ pub(crate) struct OperatorTargetSpan {
 
 impl CompiledGenerator {
     pub(crate) fn zero_target_span(&self) -> LayerGeneratorTargetSpan {
-        let zero = ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        };
+        let zero = ValueSpan::linear(0.0, 0.0);
         match self {
             Self::Oscillator(value) => LayerGeneratorTargetSpan::Oscillator {
                 pulse_width: value.parameters.pulse_width.map(|_| zero),
@@ -418,19 +490,13 @@ pub(crate) struct VoiceTargetScratch {
 
 impl VoiceTargetScratch {
     pub(crate) fn new(layers: &[CompiledLayer], voice_processors: &[CompiledProcessor]) -> Self {
-        let zero = ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        };
+        let zero = ValueSpan::linear(0.0, 0.0);
         Self {
             layers: layers
                 .iter()
                 .map(|layer| LayerTargetSpan {
                     gain: zero,
-                    gain_weight: ValueSpan {
-                        start: 1.0,
-                        end: 1.0,
-                    },
+                    gain_weight: ValueSpan::linear(1.0, 1.0),
                     pan: zero,
                     tuning: zero,
                     generator: layer.generator.zero_target_span(),
@@ -460,13 +526,19 @@ mod tests {
 
     #[test]
     fn value_span_uses_one_shared_ramp_formula() {
-        let span = ValueSpan {
-            start: 2.0,
-            end: 6.0,
-        };
+        let span = ValueSpan::linear(2.0, 6.0);
 
         assert!((span.value_at(0, 4) - 2.0).abs() < f32::EPSILON);
         assert!((span.value_at(2, 4) - 4.0).abs() < f32::EPSILON);
         assert!((span.value_at(4, 4) - 6.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn geometric_span_follows_the_parameter_scale() {
+        let span = ValueSpan::geometric(20.0, 20_000.0);
+
+        assert!((span.value_at(0, 32) - 20.0).abs() < f32::EPSILON);
+        assert!((span.value_at(16, 32) - 632.455_5).abs() < 1.0e-3);
+        assert!((span.value_at(32, 32) - 20_000.0).abs() < f32::EPSILON);
     }
 }

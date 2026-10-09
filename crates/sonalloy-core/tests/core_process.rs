@@ -224,6 +224,80 @@ fn filter_parameter_ramp_audio_is_independent_of_host_blocks() {
             .flatten()
             .zip(candidate.channels.iter().flatten())
         {
+            // Span endpoints are single-precision, and a log-scaled cutoff
+            // spreads their rounding over the sweep, so the multi-frame render
+            // agrees with the per-frame render to roughly a millionth of full
+            // scale.
+            assert_relative_eq!(*expected, *actual, epsilon = 1.0e-5);
+        }
+    }
+}
+
+#[test]
+fn short_log_scaled_parameter_ramp_is_independent_of_host_blocks() {
+    // A short sweep that starts between quantum boundaries, so a span is cut
+    // by both the ramp endpoint and the quantum grid.
+    const RAMP_FRAME: u64 = 45;
+    const RAMP_FRAMES: usize = 64;
+
+    let source = basic_generator_definition();
+    let render = |block_size| {
+        let compiled = compile_instrument(
+            &source,
+            &CompileContext {
+                definition_base_dir: ".".into(),
+                process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("spec"),
+            },
+        )
+        .instrument
+        .expect("compiled");
+        let parameter = compiled
+            .parameter_handle("voice.processor.tone.cutoff")
+            .expect("filter cutoff");
+        let descriptor = compiled
+            .parameter_descriptor(parameter)
+            .expect("descriptor");
+        let events = [
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: RAMP_FRAME,
+                kind: ProcessEventKind::ParameterRamp {
+                    catalog_revision: compiled.parameter_catalog_revision(),
+                    parameter,
+                    from_normalized: descriptor.normalize(400.0).expect("from"),
+                    to_normalized: descriptor.normalize(6_400.0).expect("to"),
+                    duration_frames: RAMP_FRAMES,
+                },
+            },
+        ];
+        render_instrument(
+            compiled,
+            RenderRequest {
+                sample_rate: 48_000.0,
+                block_size,
+                duration_frames: 512,
+                tail_frames: 0,
+            },
+            &events,
+        )
+        .expect("render")
+    };
+    let reference = render(1);
+    for block_size in [32, 64, 257] {
+        let candidate = render(block_size);
+        for (expected, actual) in reference
+            .channels
+            .iter()
+            .flatten()
+            .zip(candidate.channels.iter().flatten())
+        {
             assert_relative_eq!(*expected, *actual, epsilon = 1.0e-6);
         }
     }

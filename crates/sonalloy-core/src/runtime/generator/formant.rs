@@ -68,7 +68,7 @@ impl FormantRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
     ) -> Result<(), ProcessError> {
         if frames == 0 {
@@ -91,10 +91,7 @@ impl FormantRuntime {
         validate_generator_span(throat, FORMANT_THROAT)?;
         validate_generator_span(spectral_tilt, FORMANT_SPECTRAL_TILT)?;
         let (base_start, base_end) = base_frequencies(note_number, tuning_start, tuning_end)?;
-        let base_frequency = ValueSpan {
-            start: base_start,
-            end: base_end,
-        };
+        let base_frequency = ValueSpan::linear(base_start, base_end);
         for (frame, sample) in mono.iter_mut().take(frames).enumerate() {
             let current_frequency = base_frequency.value_at(frame, frames);
             if self.bank.controls_due() {

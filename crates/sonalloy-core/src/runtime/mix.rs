@@ -39,14 +39,8 @@ pub(crate) fn mix_component(
     }
     let (left_start, right_start) = constant_power_pan(pan_distribution * spread.start);
     let (left_end, right_end) = constant_power_pan(pan_distribution * spread.end);
-    let left_gain = ValueSpan {
-        start: left_start,
-        end: left_end,
-    };
-    let right_gain = ValueSpan {
-        start: right_start,
-        end: right_end,
-    };
+    let left_gain = ValueSpan::linear(left_start, left_end);
+    let right_gain = ValueSpan::linear(right_start, right_end);
     for (index, sample) in component.iter().take(frames).copied().enumerate() {
         if !mix_component_sample(
             index,

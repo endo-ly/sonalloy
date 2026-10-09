@@ -14,8 +14,7 @@ use crate::trace::{TraceObservation, TraceVoice, TraceVoiceState};
 use super::external_audio::EnvelopeFollowerRuntime;
 use super::external_audio::ExternalAudioBlock;
 use super::modulation::{
-    ParameterSpanValue, SharedParameterSpan, ValueSpan, apply_domain_sum_with_maximum,
-    route_domain_delta,
+    ParameterSpanValue, SharedParameterSpan, ValueSpan, evaluate_parameter_span, route_domain_delta,
 };
 use super::processor::{ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::{Smoother, rounded_frame_count};
@@ -52,10 +51,7 @@ fn phase_endpoint_fraction(position: f64) -> f32 {
 }
 
 fn phase_span(start: f64, end: f64) -> ValueSpan {
-    ValueSpan {
-        start: phase_fraction(start),
-        end: phase_endpoint_fraction(end),
-    }
+    ValueSpan::linear(phase_fraction(start), phase_endpoint_fraction(end))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -588,18 +584,9 @@ impl RuntimeGeneration {
         let (pitch_start, pitch_end) = self.pitch_bend.span(frames);
         let (wheel_start, wheel_end) = self.mod_wheel.span(frames);
         let (touch_start, touch_end) = self.aftertouch.span(frames);
-        let pitch = ValueSpan {
-            start: pitch_start,
-            end: pitch_end,
-        };
-        let wheel = ValueSpan {
-            start: wheel_start,
-            end: wheel_end,
-        };
-        let touch = ValueSpan {
-            start: touch_start,
-            end: touch_end,
-        };
+        let pitch = ValueSpan::linear(pitch_start, pitch_end);
+        let wheel = ValueSpan::linear(wheel_start, wheel_end);
+        let touch = ValueSpan::linear(touch_start, touch_end);
         let start_frame = context.absolute_frame.saturating_add(offset as u64);
         let beat_delta = if context.transport_state == TransportState::Playing {
             (start_frame.saturating_sub(context.absolute_frame) as f64) * context.tempo_bpm
@@ -648,17 +635,13 @@ impl RuntimeGeneration {
                         .get(parameter.index())
                         .copied()
                         .ok_or_else(invalid_state)?;
-                    ValueSpan {
-                        start: value.start,
-                        end: value.end,
-                    }
+                    ValueSpan::linear(value.start, value.end)
                 }
                 CompiledInstrumentSourceKind::BeatPhase => phase_span(start_beats, end_beats),
                 CompiledInstrumentSourceKind::BarPhase => phase_span(start_bar, end_bar),
-                CompiledInstrumentSourceKind::EnvelopeFollower(_) => ValueSpan {
-                    start: span.start,
-                    end: span.end,
-                },
+                CompiledInstrumentSourceKind::EnvelopeFollower(_) => {
+                    ValueSpan::linear(span.start, span.end)
+                }
             };
             *span = ParameterSpanValue {
                 start: value.start,
@@ -930,10 +913,7 @@ impl RuntimeGeneration {
             };
             let control = match route.depth_control {
                 Some(handle) => shared.instrument_source(handle).ok_or_else(invalid_state)?,
-                None => ValueSpan {
-                    start: 1.0,
-                    end: 1.0,
-                },
+                None => ValueSpan::linear(1.0, 1.0),
             };
             start_domain_sum +=
                 route_domain_delta(source.start, route.depth, route.curve) * control.start;
@@ -943,17 +923,13 @@ impl RuntimeGeneration {
         let effective_maximum = compiled
             .effective_parameter_maximum(handle)
             .ok_or_else(invalid_state)?;
-        let start = apply_domain_sum_with_maximum(
+        evaluate_parameter_span(
             descriptor,
-            base.start,
+            base,
             start_domain_sum,
+            end_domain_sum,
             effective_maximum,
-        )?
-        .final_value;
-        let end =
-            apply_domain_sum_with_maximum(descriptor, base.end, end_domain_sum, effective_maximum)?
-                .final_value;
-        Ok(ValueSpan { start, end })
+        )
     }
 }
 

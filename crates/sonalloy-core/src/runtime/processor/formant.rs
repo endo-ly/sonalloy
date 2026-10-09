@@ -216,10 +216,7 @@ mod tests {
     use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
-        ValueSpan {
-            start: value,
-            end: value,
-        }
+        ValueSpan::linear(value, value)
     }
 
     fn profile() -> CompiledFormantProfile {
@@ -251,10 +248,7 @@ mod tests {
         first[0] = 1.0;
         runtime
             .process_mono(
-                ValueSpan {
-                    start: 0.0,
-                    end: 1.0,
-                },
+                ValueSpan::linear(0.0, 1.0),
                 span(2400.0),
                 span(1.0),
                 span(1.0),

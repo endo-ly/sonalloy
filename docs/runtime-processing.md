@@ -162,9 +162,9 @@ PortamentoはConnected TransitionとHeld Noteへの復帰にだけ適用され�
 | **Note Off伝播** | Layer ADSR・Operator ADSR・Modulation Envelopeへ伝える。LFOとRandomはVoiceの終了まで保持し、終了時に初期値へ戻す |
 | **Reset** | Base Parameter、Macro、Vector Axis、External Control、Held Note、Portamentoを定義の初期状態へ戻す |
 
-連続するParameterはBlock内でStart / Endの値を受け取り、各Sampleへ補間します。Processorの種類・配置・順序、Filter Mode、EQ周波数、Delay容量などCompile時に決まる値は、Process中に変更できません。
+連続するParameterはSpan内でStart / Endの値を受け取り、各Sampleへ補間します。Linear ScaleはNative Unitで線形補間し、Log2 ScaleはNative Unitで等比補間します。どちらも正規化座標での移動がSpan内で保たれるため、Parameter Change、Parameter Ramp、Modulation RouteのいずれでもNative Unitへの変換時刻に依存しない結果になります。Processorの種類・配置・順序、Filter Mode、EQ周波数、Delay容量などCompile時に決まる値は、Process中に変更できません。
 
-Parameter RampはEvent位置で開始値を直ちに適用し、指定された正のFrame数で終了値へ到達します。補間は正規化座標で線形に進み、連続するParameterと共通のSpan単位の線形値としてDSPへ渡ります。開始と終了のFrame位置と値はDurationによらず正確です。指定Durationが通常のSmoothingより優先され、後続のChangeまたはRampが同じParameterの進行を置き換えます。Mod WheelのDepth制御は既存のControl Smoothingを使い、Wheelをゼロへ下げてもVoiceのLFO位相は進み続けます。
+Parameter RampはEvent位置で開始値を直ちに適用し、指定された正のFrame数で終了値へ到達します。正規化座標で線形に進むため、Log2 ScaleのParameterではNative Unitで等比的に変化し、開始と終了のFrame位置と値はDurationによらず正確です。指定Durationが通常のSmoothingより優先され、後続のChangeまたはRampが同じParameterの進行を置き換えます。Mod WheelのDepth制御は既存のControl Smoothingを使い、Wheelをゼロへ下げてもVoiceのLFO位相は進み続けます。
 
 Pitch Offsetは外部Controlの0〜1区間を超える値も保持し、実周波数へ変換した段階でGeneratorのDSP境界を適用します。Panなど定義域を持つParameterはRoute加算後にその範囲へ収めます。Routeの加算順と値域の適用は、BlockやVoiceへの分割に依存しません。Control変換と加算の契約は`references/modulation.md`を参照してください。
 
