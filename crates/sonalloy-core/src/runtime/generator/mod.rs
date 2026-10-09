@@ -40,7 +40,10 @@ fn validate_generator_span(
             kind: ProcessorFailureKind::NonFinite,
         });
     }
-    if !(spec.min..=spec.max).contains(&span.start) || !(spec.min..=spec.max).contains(&span.end) {
+    if spec.scale != crate::parameter::ParameterScale::LinearUnbounded
+        && (!(spec.min..=spec.max).contains(&span.start)
+            || !(spec.min..=spec.max).contains(&span.end))
+    {
         return Err(ProcessError::ProcessorFailure {
             kind: ProcessorFailureKind::InvalidInput,
         });

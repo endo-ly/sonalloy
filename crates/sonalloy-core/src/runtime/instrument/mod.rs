@@ -349,6 +349,9 @@ impl RuntimeGeneration {
     }
 
     pub(crate) fn shared_target_remaining(&self) -> Option<usize> {
+        if self.parameter_states.iter().any(Smoother::is_exact_ramp) {
+            return Some(1);
+        }
         let mut remaining = self
             .parameter_states
             .iter()
@@ -928,8 +931,17 @@ impl RuntimeGeneration {
                 }
                 crate::compiler::CompiledSourceRef::Voice(_) => return Err(invalid_state()),
             };
-            start_domain_sum += route_domain_delta(source.start, route.depth, route.curve);
-            end_domain_sum += route_domain_delta(source.end, route.depth, route.curve);
+            let control = match route.depth_control {
+                Some(handle) => shared.instrument_source(handle).ok_or_else(invalid_state)?,
+                None => ValueSpan {
+                    start: 1.0,
+                    end: 1.0,
+                },
+            };
+            start_domain_sum +=
+                route_domain_delta(source.start, route.depth, route.curve) * control.start;
+            end_domain_sum +=
+                route_domain_delta(source.end, route.depth, route.curve) * control.end;
         }
         let effective_maximum = compiled
             .effective_parameter_maximum(handle)
@@ -1445,6 +1457,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Cents,
                     },
                     curve: crate::definition::ModulationCurve::Linear,
+                    depth_control: None,
                 }],
             });
             definition
@@ -1944,6 +1957,7 @@ pub(crate) mod tests {
                     unit: crate::parameter::ModulationUnit::Octaves,
                 },
                 curve: crate::definition::ModulationCurve::SmoothStep,
+                depth_control: None,
             }],
         });
         source.global_processors = vec![
@@ -2465,11 +2479,11 @@ pub(crate) mod tests {
     }
 
     fn allocation_case_voice_stealing() -> AllocationCase {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 1,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-        };
+        let mut source = modulated_steal_definition();
+        source.layers[0].choke_group = Some("hat".to_owned());
+        for route in &mut source.modulation.as_mut().expect("modulation").routes {
+            route.depth_control = Some(crate::definition::ModulationDepthControl::ModWheel);
+        }
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
         let first_event = [ProcessEvent {
@@ -2480,14 +2494,34 @@ pub(crate) mod tests {
                 velocity: 100,
             },
         }];
-        let second_event = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 2,
-                note_number: 64,
-                velocity: 100,
+        let parameter = runtime
+            .compiled()
+            .parameter_handle("layer.body.pan")
+            .expect("pan");
+        let second_event = [
+            ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 2,
+                    note_number: 64,
+                    velocity: 100,
+                },
             },
-        }];
+            ProcessEvent {
+                sample_offset: 1,
+                kind: ProcessEventKind::ParameterRamp {
+                    catalog_revision: runtime.compiled().parameter_catalog_revision(),
+                    parameter,
+                    from_normalized: 0.0,
+                    to_normalized: 1.0,
+                    duration_frames: 301,
+                },
+            },
+            ProcessEvent {
+                sample_offset: 2,
+                kind: ProcessEventKind::ModWheel { value: 1.0 },
+            },
+        ];
 
         let _ = process(&mut runtime, 64, 0, &first_event);
         let _ = process(&mut runtime, 64, 64, &second_event);
@@ -2495,12 +2529,12 @@ pub(crate) mod tests {
         let _ = process(&mut runtime, 64, 0, &first_event);
 
         AllocationCase {
-            name: "voice stealing",
+            name: "voice stealing, choke, and parameter ramp",
             runtime,
             events: second_event.to_vec(),
             process: process_with_stack_output,
             start_frame: 64,
-            measured_blocks: 1,
+            measured_blocks: 6,
             _directory: None,
         }
     }
@@ -2847,6 +2881,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Decibels,
                     },
                     curve: crate::definition::ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "steal_lfo".to_owned(),
@@ -2856,6 +2891,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Octaves,
                     },
                     curve: crate::definition::ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "steal_envelope".to_owned(),
@@ -2865,6 +2901,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Cents,
                     },
                     curve: crate::definition::ModulationCurve::Linear,
+                    depth_control: None,
                 },
             ],
         });
@@ -3028,6 +3065,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Normalized,
                     },
                     curve: crate::definition::ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "mod_wheel".to_owned(),
@@ -3037,6 +3075,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Normalized,
                     },
                     curve: crate::definition::ModulationCurve::Linear,
+                    depth_control: None,
                 },
             ],
         });

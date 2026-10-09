@@ -538,10 +538,14 @@ impl InstrumentRuntime {
             match event.kind {
                 ProcessEventKind::ParameterChange {
                     catalog_revision, ..
+                }
+                | ProcessEventKind::ParameterRamp {
+                    catalog_revision, ..
                 } if catalog_revision != revision => {
                     self.stale_parameter_events = self.stale_parameter_events.saturating_add(1);
                 }
                 ProcessEventKind::ParameterChange { parameter, .. }
+                | ProcessEventKind::ParameterRamp { parameter, .. }
                     if active.compiled.parameter_descriptor(parameter).is_none() =>
                 {
                     return Err(ProcessError::ParameterHandleOutOfRange {

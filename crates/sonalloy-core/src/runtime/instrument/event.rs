@@ -37,6 +37,7 @@ impl RuntimeGeneration {
                         let voice_index = self.select_voice();
                         let fade_frames =
                             rounded_frame_count(spec.sample_rate * STEAL_FADE_SECONDS);
+                        self.choke_selected_layers(fade_frames);
                         self.voices
                             .get_mut(voice_index)
                             .ok_or_else(invalid_state)?
@@ -75,28 +76,8 @@ impl RuntimeGeneration {
                     }
                 }
             }
-            ProcessEventKind::ParameterChange {
-                catalog_revision,
-                parameter,
-                normalized,
-            } => {
-                if !accept_parameter_changes
-                    || catalog_revision != self.compiled.parameter_catalog_revision()
-                {
-                    return Ok(());
-                }
-                let descriptor = self.compiled.parameter_descriptor(parameter).ok_or(
-                    ProcessError::ParameterHandleOutOfRange {
-                        handle: parameter.index(),
-                    },
-                )?;
-                let frames =
-                    rounded_frame_count(f64::from(descriptor.smoothing_seconds) * spec.sample_rate)
-                        .max(1);
-                self.parameter_states
-                    .get_mut(parameter.index())
-                    .ok_or_else(invalid_state)?
-                    .set_target(normalized, frames);
+            ProcessEventKind::ParameterChange { .. } | ProcessEventKind::ParameterRamp { .. } => {
+                self.apply_parameter_event(event, accept_parameter_changes)?;
             }
             ProcessEventKind::PitchBend { value } => {
                 self.pitch_bend
@@ -110,6 +91,59 @@ impl RuntimeGeneration {
                 self.aftertouch
                     .set_target(value, control_smoothing_frames(spec.sample_rate));
             }
+        }
+        Ok(())
+    }
+
+    fn apply_parameter_event(
+        &mut self,
+        event: ProcessEventKind,
+        accept: bool,
+    ) -> Result<(), ProcessError> {
+        if !accept {
+            return Ok(());
+        }
+        let (ProcessEventKind::ParameterChange {
+            catalog_revision: revision,
+            parameter,
+            ..
+        }
+        | ProcessEventKind::ParameterRamp {
+            catalog_revision: revision,
+            parameter,
+            ..
+        }) = event
+        else {
+            return Err(invalid_state());
+        };
+        if revision != self.compiled.parameter_catalog_revision() {
+            return Ok(());
+        }
+        let descriptor = self.compiled.parameter_descriptor(parameter).ok_or(
+            ProcessError::ParameterHandleOutOfRange {
+                handle: parameter.index(),
+            },
+        )?;
+        let state = self
+            .parameter_states
+            .get_mut(parameter.index())
+            .ok_or_else(invalid_state)?;
+        match event {
+            ProcessEventKind::ParameterChange { normalized, .. } => {
+                let frames = rounded_frame_count(
+                    f64::from(descriptor.smoothing_seconds)
+                        * self.spec.ok_or(ProcessError::NotPrepared)?.sample_rate,
+                )
+                .max(1);
+                state.set_target(normalized, frames);
+            }
+            ProcessEventKind::ParameterRamp {
+                from_normalized,
+                to_normalized,
+                duration_frames,
+                ..
+            } => state.start_ramp(from_normalized, to_normalized, duration_frames),
+            _ => return Err(invalid_state()),
         }
         Ok(())
     }
@@ -165,6 +199,7 @@ impl RuntimeGeneration {
         let fade_frames = rounded_frame_count(
             self.spec.ok_or(ProcessError::NotPrepared)?.sample_rate * STEAL_FADE_SECONDS,
         );
+        self.choke_selected_layers(fade_frames);
         let voice = self.voices.get_mut(0).ok_or_else(invalid_state)?;
         if connected {
             voice.retrigger_monophonic(
@@ -248,6 +283,19 @@ impl RuntimeGeneration {
         self.compiled.layers.iter().any(|layer| {
             layer.trigger.matches(note.note_number, note.velocity) && layer.generator.is_available()
         })
+    }
+
+    fn choke_selected_layers(&mut self, frames: usize) {
+        for (layer, selection) in self.compiled.layers.iter().zip(&self.note_layer_selection) {
+            if !matches!(selection, PreparedLayerSelection::Active { .. }) {
+                continue;
+            }
+            if let Some(group) = layer.choke_group {
+                for voice in &mut self.voices {
+                    voice.choke_group(&self.compiled, group, frames.max(1));
+                }
+            }
+        }
     }
 
     fn select_voice(&self) -> usize {
@@ -422,18 +470,35 @@ impl RuntimeGeneration {
             return Ok(());
         }
         for event in events {
-            if let ProcessEventKind::ParameterChange {
-                catalog_revision,
-                parameter,
-                ..
-            } = event.kind
-                && catalog_revision == self.compiled.parameter_catalog_revision()
-                && self.compiled.parameter_descriptor(parameter).is_none()
-            {
-                return Err(ProcessError::ParameterHandleOutOfRange {
-                    handle: parameter.index(),
-                });
+            let (catalog_revision, parameter, from, to) = match event.kind {
+                ProcessEventKind::ParameterChange {
+                    catalog_revision,
+                    parameter,
+                    normalized,
+                } => (catalog_revision, parameter, normalized, normalized),
+                ProcessEventKind::ParameterRamp {
+                    catalog_revision,
+                    parameter,
+                    from_normalized,
+                    to_normalized,
+                    ..
+                } => (catalog_revision, parameter, from_normalized, to_normalized),
+                _ => continue,
+            };
+            if catalog_revision != self.compiled.parameter_catalog_revision() {
+                continue;
             }
+            let descriptor = self.compiled.parameter_descriptor(parameter).ok_or(
+                ProcessError::ParameterHandleOutOfRange {
+                    handle: parameter.index(),
+                },
+            )?;
+            descriptor
+                .denormalize(from)
+                .map_err(|_| ProcessError::InvalidEventValue)?;
+            descriptor
+                .denormalize(to)
+                .map_err(|_| ProcessError::InvalidEventValue)?;
         }
         Ok(())
     }
@@ -513,6 +578,239 @@ mod tests {
     }
 
     #[test]
+    fn parameter_ramp_applies_exact_endpoints_and_replaces_running_changes() {
+        let mut runtime = runtime();
+        prepare(&mut runtime);
+        let parameter = runtime
+            .compiled()
+            .parameter_handle("layer.body.pan")
+            .expect("pan");
+        let revision = runtime.compiled().parameter_catalog_revision();
+        let invalid = [ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::ParameterRamp {
+                catalog_revision: revision,
+                parameter,
+                from_normalized: 0.0,
+                to_normalized: 1.1,
+                duration_frames: 19,
+            },
+        }];
+        assert_eq!(
+            runtime.validate_parameter_events(&invalid, true),
+            Err(ProcessError::InvalidEventValue)
+        );
+        runtime
+            .apply_event(
+                ProcessEventKind::ParameterRamp {
+                    catalog_revision: revision,
+                    parameter,
+                    from_normalized: 0.0,
+                    to_normalized: 1.0,
+                    duration_frames: 19,
+                },
+                0,
+                true,
+                true,
+            )
+            .expect("ramp starts");
+        assert_relative_eq!(runtime.parameter_states[parameter.index()].current(), 0.0);
+        process(&mut runtime, 7, 0, &[]);
+        assert_relative_eq!(
+            runtime.parameter_states[parameter.index()].current(),
+            7.0 / 19.0
+        );
+        process(&mut runtime, 12, 7, &[]);
+        assert_relative_eq!(runtime.parameter_states[parameter.index()].current(), 1.0);
+        runtime
+            .apply_event(
+                ProcessEventKind::ParameterChange {
+                    catalog_revision: revision,
+                    parameter,
+                    normalized: 0.0,
+                },
+                19,
+                true,
+                true,
+            )
+            .expect("change");
+        runtime
+            .apply_event(
+                ProcessEventKind::ParameterRamp {
+                    catalog_revision: revision,
+                    parameter,
+                    from_normalized: 0.8,
+                    to_normalized: 0.2,
+                    duration_frames: 3,
+                },
+                19,
+                true,
+                true,
+            )
+            .expect("replacement");
+        assert_relative_eq!(runtime.parameter_states[parameter.index()].current(), 0.8);
+        process(&mut runtime, 3, 19, &[]);
+        assert_relative_eq!(runtime.parameter_states[parameter.index()].current(), 0.2);
+        runtime.reset().expect("reset");
+        assert!(!runtime.parameter_states[parameter.index()].is_exact_ramp());
+    }
+
+    #[test]
+    fn wheel_multiplies_signed_lfo_depth_without_resetting_phase() {
+        let mut source = super::super::tests::modulated_steal_definition();
+        let modulation = source.modulation.as_mut().expect("modulation");
+        modulation.routes.retain(|route| route.source != "velocity");
+        for route in &mut modulation.routes {
+            route.depth_control = Some(crate::definition::ModulationDepthControl::ModWheel);
+            route.depth.value = -route.depth.value.abs();
+        }
+        let target = modulation.routes[0].target.clone();
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        process(
+            &mut runtime,
+            64,
+            0,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            }],
+        );
+        let parameter = runtime
+            .compiled()
+            .parameter_handle(&target)
+            .expect("target");
+        for wheel in [0.0, 0.5, 1.0] {
+            runtime.mod_wheel.reset(wheel);
+            let observations = runtime
+                .trace_snapshots(
+                    &[parameter],
+                    64,
+                    48_000.0,
+                    crate::process::ProcessContext {
+                        absolute_frame: 64,
+                        tempo_bpm: 120.0,
+                        beat_position: 0.0,
+                        bar_position: 0.0,
+                        time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                        transport_state: crate::process::TransportState::Playing,
+                    },
+                )
+                .expect("trace");
+            let route = &observations[0].1.routes[0];
+            assert_relative_eq!(
+                route.contribution.value,
+                route.shaped * route.depth.value * wheel,
+                epsilon = 1.0e-6
+            );
+            assert!(route.raw.abs() > 0.0);
+        }
+        let phase_before = traced_source_value(&runtime, 64);
+        process(
+            &mut runtime,
+            64,
+            64,
+            &[ProcessEvent {
+                sample_offset: 0,
+                kind: ProcessEventKind::ModWheel { value: 0.0 },
+            }],
+        );
+        let phase_after = traced_source_value(&runtime, 128);
+        assert!((phase_before - phase_after).abs() > 1.0e-6);
+    }
+
+    #[test]
+    fn choke_stops_only_selected_group_layers_and_does_not_revive_on_release() {
+        let mut source = definition();
+        source.layers[0].envelope.attack_seconds = 0.0;
+        source.layers[0].envelope.release_seconds = 10.0;
+        source.layers[0].trigger.key_min = 60;
+        source.layers[0].trigger.key_max = 60;
+        source.layers[0].choke_group = Some("hats".to_owned());
+        let mut closed = source.layers[0].clone();
+        closed.id = "closed".to_owned();
+        closed.trigger.key_min = 61;
+        closed.trigger.key_max = 61;
+        let mut other = source.layers[0].clone();
+        other.id = "other".to_owned();
+        other.choke_group = Some("other".to_owned());
+        source.layers.extend([closed, other]);
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let note = |id, number| ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: id,
+                note_number: number,
+                velocity: 100,
+            },
+        };
+        process(&mut runtime, 64, 0, &[note(1, 60)]);
+        process(&mut runtime, 64, 64, &[note(3, 62)]);
+        assert!(runtime.voices[0].trace_layer_active(0));
+        process(&mut runtime, 240, 128, &[note(2, 61)]);
+        assert!(!runtime.voices[0].trace_layer_active(0));
+        assert!(runtime.voices[0].trace_layer_active(2));
+        assert!(runtime.voices[1].trace_layer_active(1));
+        process(
+            &mut runtime,
+            64,
+            368,
+            &[
+                ProcessEvent {
+                    sample_offset: 0,
+                    kind: ProcessEventKind::SustainPedal { down: true },
+                },
+                ProcessEvent {
+                    sample_offset: 1,
+                    kind: ProcessEventKind::NoteOff { note_id: 1 },
+                },
+                ProcessEvent {
+                    sample_offset: 2,
+                    kind: ProcessEventKind::SustainPedal { down: false },
+                },
+            ],
+        );
+        assert!(!runtime.voices[0].trace_layer_active(0));
+        assert!(runtime.voices[1].trace_layer_active(1));
+    }
+
+    #[test]
+    fn newer_choke_hit_cancels_older_pending_layers() {
+        let mut source = definition();
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 2,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        };
+        source.layers[0].choke_group = Some("hat".to_owned());
+        source.layers[0].envelope.attack_seconds = 0.0;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        for id in 1..=4 {
+            process(
+                &mut runtime,
+                1,
+                id - 1,
+                &[ProcessEvent {
+                    sample_offset: 0,
+                    kind: ProcessEventKind::NoteOn {
+                        note_id: id,
+                        note_number: 60,
+                        velocity: 100,
+                    },
+                }],
+            );
+        }
+        process(&mut runtime, 240, 4, &[]);
+        assert!(!runtime.voices[0].trace_layer_active(0));
+        assert!(runtime.voices[1].trace_layer_active(0));
+    }
+
+    #[test]
     fn monophonic_legato_ignores_notes_outside_the_layer_trigger() {
         let mut definition = monophonic_definition(true, Some(0.1));
         definition.layers[0].trigger.key_max = 60;
@@ -585,6 +883,7 @@ mod tests {
                     unit: crate::parameter::ModulationUnit::Cents,
                 },
                 curve: crate::definition::ModulationCurve::Linear,
+                depth_control: None,
             }],
         });
         let mut runtime = runtime_with(&definition);
@@ -643,6 +942,7 @@ mod tests {
                     unit: crate::parameter::ModulationUnit::Cents,
                 },
                 curve: crate::definition::ModulationCurve::Linear,
+                depth_control: None,
             }],
         });
         let mut runtime = runtime_with(&definition);

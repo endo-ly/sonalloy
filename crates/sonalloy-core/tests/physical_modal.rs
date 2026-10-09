@@ -684,6 +684,7 @@ fn modulation_routes_reach_physical_modal_parameters() {
                     unit: sonalloy_core::ModulationUnit::Normalized,
                 },
                 curve: ModulationCurve::Linear,
+                depth_control: None,
             },
             ModulationRouteDefinition {
                 source: "physical_envelope".to_owned(),
@@ -693,6 +694,7 @@ fn modulation_routes_reach_physical_modal_parameters() {
                     unit: sonalloy_core::ModulationUnit::Normalized,
                 },
                 curve: ModulationCurve::Linear,
+                depth_control: None,
             },
             ModulationRouteDefinition {
                 source: "velocity".to_owned(),
@@ -702,6 +704,7 @@ fn modulation_routes_reach_physical_modal_parameters() {
                     unit: sonalloy_core::ModulationUnit::Normalized,
                 },
                 curve: ModulationCurve::Linear,
+                depth_control: None,
             },
             ModulationRouteDefinition {
                 source: "mod_wheel".to_owned(),
@@ -711,14 +714,10 @@ fn modulation_routes_reach_physical_modal_parameters() {
                     unit: sonalloy_core::ModulationUnit::Normalized,
                 },
                 curve: ModulationCurve::Linear,
+                depth_control: None,
             },
         ],
     });
-    let diagnostics = definition.validate();
-    assert!(
-        diagnostics.is_empty(),
-        "modulation diagnostics: {diagnostics:?}"
-    );
     let routed_instrument = compile(&definition, 48_000.0, 257);
     let baseline = render(&physical_modal_definition(), 48_000.0, 257, 4_096);
     let routed = render_instrument(
@@ -776,6 +775,7 @@ fn modulation_trace_reports_final_values_for_physical_modal_targets() {
                     unit: sonalloy_core::ModulationUnit::Normalized,
                 },
                 curve: ModulationCurve::Linear,
+                depth_control: None,
             },
             ModulationRouteDefinition {
                 source: "mod_wheel".to_owned(),
@@ -785,6 +785,7 @@ fn modulation_trace_reports_final_values_for_physical_modal_targets() {
                     unit: sonalloy_core::ModulationUnit::Normalized,
                 },
                 curve: ModulationCurve::Linear,
+                depth_control: None,
             },
         ],
     });

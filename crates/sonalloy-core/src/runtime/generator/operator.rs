@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use crate::compiler::{CompiledOperatorModulation, CompiledOperatorTopology, CompiledUnison};
 use crate::definition::{
-    OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX,
-    OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX,
-    OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,
-    OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN, OperatorModulationMode,
+    OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_FEEDBACK_MAX,
+    OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
+    OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_RATIO_MAX,
+    OPERATOR_RATIO_MIN, OperatorModulationMode,
 };
 use crate::parameter::generator::{UNISON_DETUNE, UNISON_SPREAD};
 use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
@@ -400,7 +400,7 @@ fn validate_targets(
 ) -> Result<(), ProcessError> {
     for target in targets {
         validate_span(target.ratio, OPERATOR_RATIO_MIN, OPERATOR_RATIO_MAX)?;
-        validate_span(target.detune, OPERATOR_DETUNE_MIN, OPERATOR_DETUNE_MAX)?;
+        validate_span(target.detune, f32::MIN, f32::MAX)?;
         if let Some(level) = target.level {
             validate_span(level, OPERATOR_LEVEL_MIN, OPERATOR_LEVEL_MAX)?;
         }

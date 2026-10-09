@@ -136,7 +136,7 @@ impl FormantRuntime {
         let (first, second, profile_mix) = profile_pair(&self.profiles, vowel_position)?;
         let shift_ratio = 2.0_f32.powf(formant_shift / 1200.0);
         let bandwidth_multiplier = 2.0_f32.powf(2.0 * (throat - 0.5));
-        if !shift_ratio.is_finite() || !bandwidth_multiplier.is_finite() {
+        if !shift_ratio.is_finite() || shift_ratio <= 0.0 || !bandwidth_multiplier.is_finite() {
             return Err(super::non_finite());
         }
         let mut bands = [CompiledFormantBand {
@@ -160,6 +160,13 @@ impl FormantRuntime {
                 * bandwidth_multiplier;
             band.gain_db =
                 first_band.gain_db + (second_band.gain_db - first_band.gain_db) * profile_mix;
+            if !band.frequency_hz.is_finite()
+                || !band.bandwidth_hz.is_finite()
+                || band.frequency_hz <= 0.0
+                || band.bandwidth_hz <= 0.0
+            {
+                return Err(ProcessError::InvalidFrequency);
+            }
         }
         let mut energy = 0.0_f32;
         for index in 0..self.partial_count {

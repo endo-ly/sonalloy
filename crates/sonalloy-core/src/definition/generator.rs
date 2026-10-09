@@ -6,13 +6,13 @@ use super::range_message;
 use super::{LayerTriggerDefinition, validate_range};
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::parameter::generator::{
-    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SHIFT,
-    FORMANT_SPECTRAL_TILT, FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY, GRAIN_PAN_SPREAD,
-    GRAIN_PITCH, GRAIN_RANDOMNESS, GRAIN_SIZE, GRANULAR_POSITION, MODAL_BRIGHTNESS, MODAL_DECAY,
-    MODAL_STRUCTURE, NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION,
-    PHYSICAL_STRING_BRIGHTNESS, PHYSICAL_STRING_DECAY_SECONDS, PHYSICAL_STRING_STIFFNESS,
-    PULSE_WIDTH, SPECTRAL_BLUR, SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT,
-    SYNC_RATIO, UNISON_DETUNE, UNISON_SPREAD, WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
+    ADDITIVE_INHARMONICITY, ADDITIVE_MORPH, ADDITIVE_SPECTRUM_TILT, FORMANT_SPECTRAL_TILT,
+    FORMANT_THROAT, FORMANT_VOWEL_POSITION, GRAIN_DENSITY, GRAIN_PAN_SPREAD, GRAIN_RANDOMNESS,
+    GRAIN_SIZE, GRANULAR_POSITION, MODAL_BRIGHTNESS, MODAL_DECAY, MODAL_STRUCTURE,
+    NOISE_CORRELATION, OSCILLATOR_FEEDBACK, PHASE_DISTORTION, PHYSICAL_STRING_BRIGHTNESS,
+    PHYSICAL_STRING_DECAY_SECONDS, PHYSICAL_STRING_STIFFNESS, PULSE_WIDTH, SPECTRAL_BLUR,
+    SPECTRAL_FREEZE, SPECTRAL_MORPH, SPECTRAL_POSITION, SPECTRAL_SHIFT, SYNC_RATIO, UNISON_SPREAD,
+    WAVEFOLD, WAVESHAPE, WAVETABLE_POSITION,
 };
 use crate::parameter::is_component_id;
 
@@ -1054,12 +1054,10 @@ pub(super) fn validate_granular(
         GRAIN_DENSITY.min..=GRAIN_DENSITY.max,
         "granular density must be finite and between 1 and 100 grains per second",
     );
-    validate_granular_range(
+    super::validate_pitch_ratio(
         diagnostics,
         format!("{granular_path}.pitch"),
         granular.pitch,
-        GRAIN_PITCH.min..=GRAIN_PITCH.max,
-        "granular pitch must be finite and between -2400 and 2400 cents",
     );
     validate_granular_range(
         diagnostics,
@@ -1169,12 +1167,10 @@ pub(super) fn validate_wave_sequence(
             -60.0..=12.0,
             "wave sequence step gain_db must be finite and between -60 and 12 dB",
         );
-        validate_range(
+        super::validate_pitch_ratio(
             diagnostics,
             format!("{step_path}.pitch_cents"),
             step.pitch_cents,
-            -2400.0..=2400.0,
-            "wave sequence step pitch_cents must be finite and between -2400 and 2400",
         );
     }
 }
@@ -1695,11 +1691,6 @@ pub(super) fn validate_operator_modulation(
         ),
     };
     let ratio_message = range_message("operator ratio", OPERATOR_RATIO_MIN, OPERATOR_RATIO_MAX);
-    let detune_message = range_message(
-        "operator detune_cents",
-        OPERATOR_DETUNE_MIN,
-        OPERATOR_DETUNE_MAX,
-    );
     let level_message = range_message("operator level", OPERATOR_LEVEL_MIN, OPERATOR_LEVEL_MAX);
     let feedback_message = range_message(
         "operator feedback",
@@ -1717,12 +1708,10 @@ pub(super) fn validate_operator_modulation(
             OPERATOR_RATIO_MIN..=OPERATOR_RATIO_MAX,
             &ratio_message,
         );
-        validate_range(
+        super::validate_pitch_ratio(
             diagnostics,
             format!("{current_path}.detune_cents"),
             operator.detune_cents,
-            OPERATOR_DETUNE_MIN..=OPERATOR_DETUNE_MAX,
-            &detune_message,
         );
         validate_range(
             diagnostics,
@@ -1840,8 +1829,18 @@ fn validate_unison(diagnostics: &mut Vec<Diagnostic>, path: &str, unison: Unison
         diagnostics,
         format!("{path}.detune_cents"),
         unison.detune_cents,
-        UNISON_DETUNE.min..=UNISON_DETUNE.max,
-        "unison detune_cents must be finite and between 0 and 100",
+        0.0..=f32::MAX,
+        "unison detune_cents must be finite and nonnegative",
+    );
+    super::validate_pitch_ratio(
+        diagnostics,
+        format!("{path}.detune_cents"),
+        unison.detune_cents,
+    );
+    super::validate_pitch_ratio(
+        diagnostics,
+        format!("{path}.detune_cents"),
+        -unison.detune_cents,
     );
     validate_range(
         diagnostics,
@@ -2120,12 +2119,10 @@ pub(super) fn validate_formant(
         FORMANT_VOWEL_POSITION.min..=FORMANT_VOWEL_POSITION.max,
         "formant vowel_position must be finite and between 0 and 1",
     );
-    validate_range(
+    super::validate_pitch_ratio(
         diagnostics,
         format!("{formant_path}.formant_shift_cents"),
         formant.formant_shift_cents,
-        FORMANT_SHIFT.min..=FORMANT_SHIFT.max,
-        "formant_shift_cents must be finite and between -2400 and 2400",
     );
     validate_range(
         diagnostics,

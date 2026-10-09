@@ -164,8 +164,21 @@ pub enum ProcessEventKind {
         catalog_revision: crate::parameter::ParameterCatalogRevision,
         /// Compiled parameter handle resolved by control code.
         parameter: ParameterHandle,
-        /// Target value in the inclusive zero-to-one range.
+        /// Target normalized value accepted by the parameter descriptor.
         normalized: f32,
+    },
+    /// Move a parameter linearly in normalized coordinates over an exact frame duration.
+    ParameterRamp {
+        /// Revision of the catalog used to resolve `parameter`.
+        catalog_revision: crate::parameter::ParameterCatalogRevision,
+        /// Compiled parameter handle resolved by control code.
+        parameter: ParameterHandle,
+        /// Normalized value applied immediately at the event frame.
+        from_normalized: f32,
+        /// Normalized value reached after `duration_frames`.
+        to_normalized: f32,
+        /// Positive duration in engine frames.
+        duration_frames: usize,
     },
     /// Change the shared pitch bend control.
     PitchBend {
@@ -191,7 +204,7 @@ impl ProcessEventKind {
         match self {
             Self::SustainPedal { .. } => 0,
             Self::NoteOff { .. } => 1,
-            Self::ParameterChange { .. } => 2,
+            Self::ParameterChange { .. } | Self::ParameterRamp { .. } => 2,
             Self::PitchBend { .. } => 3,
             Self::ModWheel { .. } => 4,
             Self::Aftertouch { .. } => 5,
@@ -212,7 +225,22 @@ impl ProcessEventKind {
                 return Ok(());
             }
             Self::NoteOff { .. } | Self::SustainPedal { .. } => return Ok(()),
-            Self::ParameterChange { normalized, .. } => (normalized, 0.0, 1.0),
+            Self::ParameterChange { normalized, .. } => (normalized, f32::MIN, f32::MAX),
+            Self::ParameterRamp {
+                from_normalized,
+                to_normalized,
+                duration_frames,
+                ..
+            } => {
+                return if from_normalized.is_finite()
+                    && to_normalized.is_finite()
+                    && duration_frames > 0
+                {
+                    Ok(())
+                } else {
+                    Err(ProcessError::InvalidEventValue)
+                };
+            }
             Self::PitchBend { value } => (value, -1.0, 1.0),
             Self::ModWheel { value } | Self::Aftertouch { value } => (value, 0.0, 1.0),
         };
@@ -365,6 +393,16 @@ impl ProcessBlock<'_> {
         }
         for event in self.events {
             event.kind.validate_value()?;
+            if let ProcessEventKind::ParameterRamp {
+                duration_frames, ..
+            } = event.kind
+            {
+                self.context
+                    .absolute_frame
+                    .checked_add(event.sample_offset as u64)
+                    .and_then(|start| start.checked_add(duration_frames as u64))
+                    .ok_or(ProcessError::FrameOverflow)?;
+            }
         }
         for window in self.events.windows(2) {
             if window[0].sample_offset > window[1].sample_offset {
@@ -729,6 +767,20 @@ mod tests {
             ProcessSpec::new(48_000.0, 1024, 3, 2),
             Err(ProcessError::InvalidInputChannels { actual: 3 })
         );
+    }
+
+    #[test]
+    fn parameter_ramp_requires_finite_endpoints_and_a_positive_duration() {
+        for (from, to, duration) in [(f32::NAN, 1.0, 1), (0.0, f32::INFINITY, 1), (0.0, 1.0, 0)] {
+            let event = ProcessEventKind::ParameterRamp {
+                catalog_revision: 0,
+                parameter: crate::parameter::ParameterHandle::new(0),
+                from_normalized: from,
+                to_normalized: to,
+                duration_frames: duration,
+            };
+            assert_eq!(event.validate_value(), Err(ProcessError::InvalidEventValue));
+        }
     }
 
     #[test]

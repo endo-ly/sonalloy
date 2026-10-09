@@ -120,15 +120,19 @@ pub(crate) fn apply_domain_sum_with_maximum(
         .denormalize(base_normalized)
         .map_err(|_| ProcessError::InvalidEventValue)?;
     let unclamped = match descriptor.scale {
-        ParameterScale::Linear => base + domain_sum,
+        ParameterScale::Linear | ParameterScale::LinearUnbounded => base + domain_sum,
         ParameterScale::Log2 => base * 2.0_f32.powf(domain_sum),
     };
     if !unclamped.is_finite() {
         return Err(ProcessError::InvalidEventValue);
     }
-    let final_value = unclamped
-        .clamp(descriptor.min, descriptor.max)
-        .min(effective_maximum);
+    let final_value = if descriptor.scale == ParameterScale::LinearUnbounded {
+        unclamped
+    } else {
+        unclamped
+            .clamp(descriptor.min, descriptor.max)
+            .min(effective_maximum)
+    };
     if !final_value.is_finite() {
         return Err(ProcessError::InvalidEventValue);
     }

@@ -335,18 +335,23 @@ fn spectral_asset_b_adds_the_morph_parameter() {
 }
 
 #[test]
-fn spectral_missing_asset_is_unavailable_without_contributing_latency() {
+fn spectral_missing_required_asset_rejects_the_instrument() {
     let directory = fixture_directory();
     let definition = definition("missing.wav".to_owned(), 1024);
-    let compiled = compile(&definition, directory.path(), 257);
-    let sonalloy_core::compiler::CompiledGenerator::Spectral(spectral) =
-        &compiled.layers[0].generator
-    else {
-        panic!("definition must compile to Spectral");
-    };
-    assert!(spectral.source.is_none());
-    assert_eq!(spectral.latency_frames, 0);
-    assert_eq!(compiled.reported_latency_frames, 0);
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: directory.path().to_path_buf(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("process spec"),
+        },
+    );
+    assert!(result.instrument.is_none());
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == DiagnosticCode::AssetNotFound)
+    );
 }
 
 #[test]
@@ -710,7 +715,7 @@ fn spectral_one_shot_drains_ola_and_finishes_after_source_end() {
 }
 
 #[test]
-fn spectral_asset_b_is_prepared_and_missing_asset_b_disables_the_layer() {
+fn spectral_asset_b_is_prepared_and_required() {
     let directory = fixture_directory();
     let path_a = directory.path().join("asset-a.wav");
     let path_b = directory.path().join("asset-b.wav");
@@ -745,28 +750,17 @@ fn spectral_asset_b_is_prepared_and_missing_asset_b_disables_the_layer() {
         path: "missing-b.wav".to_owned(),
         sha256: None,
     });
-    let unavailable_compiled = compile(&unavailable, directory.path(), 257);
-    let sonalloy_core::compiler::CompiledGenerator::Spectral(spectral) =
-        &unavailable_compiled.layers[0].generator
-    else {
-        panic!("definition must compile to Spectral");
-    };
-    assert!(spectral.source.is_some());
-    assert!(spectral.source_b.is_none());
-    assert_eq!(spectral.latency_frames, 0);
-    assert_eq!(unavailable_compiled.reported_latency_frames, 0);
-    let audio = render(&unavailable, directory.path(), 257, 16_384);
-    let peak = audio
-        .channels
-        .iter()
-        .flatten()
-        .copied()
-        .map(f32::abs)
-        .fold(0.0_f32, f32::max);
-    assert!(
-        peak <= 1.0e-8,
-        "missing morph source was not disabled: {peak}"
+    let result = compile_instrument(
+        &unavailable,
+        &CompileContext {
+            definition_base_dir: directory.path().to_path_buf(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("process spec"),
+        },
     );
+    assert!(result.instrument.is_none());
+    assert!(result.diagnostics.iter().any(|diagnostic| diagnostic.code
+        == DiagnosticCode::AssetNotFound
+        && diagnostic.path.as_deref() == Some("layers[0].generator.spectral.asset_b.path")));
 }
 
 #[test]
@@ -1415,6 +1409,7 @@ fn trace_lfo_modulation() -> ModulationDefinition {
                 unit: sonalloy_core::ModulationUnit::Decibels,
             },
             curve: ModulationCurve::Linear,
+            depth_control: None,
         }],
     }
 }

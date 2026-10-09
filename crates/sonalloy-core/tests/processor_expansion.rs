@@ -452,6 +452,7 @@ fn processor_parameter_changes_and_global_modulation_are_block_size_independent(
                 unit: sonalloy_core::ModulationUnit::Normalized,
             },
             curve: ModulationCurve::Linear,
+            depth_control: None,
         }],
     });
 

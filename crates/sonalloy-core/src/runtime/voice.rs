@@ -79,6 +79,8 @@ struct LayerRuntime {
     armed_sample_zone: Option<usize>,
     instrument_latency_frames: usize,
     delay: LayerDelayCompensation,
+    choke_gain: Smoother,
+    choking: bool,
 }
 
 struct LayerDelayCompensation {
@@ -162,6 +164,8 @@ impl LayerRuntime {
             armed_sample_zone: None,
             instrument_latency_frames,
             delay: LayerDelayCompensation::new(instrument_latency_frames),
+            choke_gain: Smoother::new(1.0),
+            choking: false,
         })
     }
 
@@ -181,6 +185,8 @@ impl LayerRuntime {
         self.armed = false;
         self.armed_sample_zone = None;
         self.envelope.note_on();
+        self.choke_gain.reset(1.0);
+        self.choking = false;
         self.active = true;
         Ok(())
     }
@@ -241,6 +247,8 @@ impl LayerRuntime {
         self.active = false;
         self.armed = false;
         self.armed_sample_zone = None;
+        self.choke_gain.reset(1.0);
+        self.choking = false;
         Ok(())
     }
 
@@ -251,6 +259,8 @@ impl LayerRuntime {
         self.active = false;
         self.armed = false;
         self.armed_sample_zone = None;
+        self.choke_gain.reset(1.0);
+        self.choking = false;
         Ok(())
     }
 }
@@ -329,6 +339,28 @@ impl VoiceRuntime {
 
     pub(crate) fn state(&self) -> VoiceState {
         self.state
+    }
+
+    pub(crate) fn choke_group(
+        &mut self,
+        compiled: &CompiledInstrument,
+        group: usize,
+        frames: usize,
+    ) {
+        for (index, (layer, definition)) in self.layers.iter_mut().zip(&compiled.layers).enumerate()
+        {
+            if definition.choke_group != Some(group) {
+                continue;
+            }
+            if (layer.active || layer.delay.has_pending()) && !layer.choking {
+                layer.choking = true;
+                layer.choke_gain.set_target(0.0, frames);
+            }
+            // A newer hit also supersedes a layer waiting for voice stealing to finish.
+            if self.pending.is_some() {
+                self.pending_layer_selection[index] = PreparedLayerSelection::Inactive;
+            }
+        }
     }
 
     pub(crate) fn started_at_frame(&self) -> u64 {
@@ -857,8 +889,13 @@ impl VoiceRuntime {
                 } else {
                     layer.delay.process_silence()
                 };
-                voice_left[frame] += output_left;
-                voice_right[frame] += output_right;
+                let choke_gain = layer.choke_gain.span(1).0;
+                voice_left[frame] += output_left * choke_gain;
+                voice_right[frame] += output_right * choke_gain;
+                if layer.choking && layer.choke_gain.frames_until_target().is_none() {
+                    layer.active = false;
+                    layer.delay.reset();
+                }
             }
             if was_active && (layer.envelope.is_idle() || generator_finished) {
                 layer.active = false;
@@ -1479,8 +1516,17 @@ impl VoiceRuntime {
                     shared.instrument_source(handle).ok_or_else(invalid_state)?
                 }
             };
-            start_domain_sum += route_domain_delta(source.start, route.depth, route.curve);
-            end_domain_sum += route_domain_delta(source.end, route.depth, route.curve);
+            let control = match route.depth_control {
+                Some(handle) => shared.instrument_source(handle).ok_or_else(invalid_state)?,
+                None => ValueSpan {
+                    start: 1.0,
+                    end: 1.0,
+                },
+            };
+            start_domain_sum +=
+                route_domain_delta(source.start, route.depth, route.curve) * control.start;
+            end_domain_sum +=
+                route_domain_delta(source.end, route.depth, route.curve) * control.end;
         }
         let effective_maximum = compiled
             .effective_parameter_maximum(handle)
@@ -1507,6 +1553,9 @@ impl VoiceRuntime {
     ) -> usize {
         let mut boundary = remaining;
         for layer in &self.layers {
+            if let Some(frames) = layer.choke_gain.frames_until_target() {
+                boundary = boundary.min(frames);
+            }
             if !layer.active {
                 continue;
             }

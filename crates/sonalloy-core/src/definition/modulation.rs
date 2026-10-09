@@ -293,6 +293,17 @@ pub struct ModulationRouteDefinition {
     pub depth: ModulationDepthDefinition,
     /// Source shaping curve.
     pub curve: ModulationCurve,
+    /// Optional shared control multiplying this route's signed depth.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub depth_control: Option<ModulationDepthControl>,
+}
+
+/// Shared control used as a route depth multiplier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModulationDepthControl {
+    /// Smoothed modulation wheel, from zero to one.
+    ModWheel,
 }
 
 /// Signed modulation depth written by an instrument author.
@@ -940,6 +951,7 @@ mod tests {
                         unit: crate::parameter::ModulationUnit::Decibels,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 ModulationRouteDefinition {
                     source: "velocity".to_owned(),
@@ -949,6 +961,7 @@ mod tests {
                         unit: crate::parameter::ModulationUnit::Decibels,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
             ],
         });

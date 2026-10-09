@@ -88,7 +88,7 @@ typedef struct SonalloyParameterDescriptor {
     uint32_t owner_sub_index;
     uint32_t owner_axis;
     uint32_t unit;
-    uint32_t scale;
+    uint32_t scale; /* 0: linear, 1: log2, 2: linear unbounded (min/max are control anchors) */
     float min;
     float max;
     float default_value;

@@ -7,6 +7,7 @@ pub(crate) struct Smoother {
     total: usize,
     elapsed: usize,
     remaining: usize,
+    exact_ramp: bool,
 }
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -23,6 +24,7 @@ impl Smoother {
             total: 0,
             elapsed: 0,
             remaining: 0,
+            exact_ramp: false,
         }
     }
 
@@ -33,9 +35,11 @@ impl Smoother {
         self.total = 0;
         self.elapsed = 0;
         self.remaining = 0;
+        self.exact_ramp = false;
     }
 
     pub(crate) fn set_target(&mut self, target: f32, frames: usize) {
+        self.exact_ramp = false;
         self.start = self.current;
         self.target = target;
         self.total = frames;
@@ -44,6 +48,16 @@ impl Smoother {
         if frames == 0 {
             self.current = target;
         }
+    }
+
+    pub(crate) fn start_ramp(&mut self, from: f32, to: f32, frames: usize) {
+        self.reset(from);
+        self.set_target(to, frames);
+        self.exact_ramp = true;
+    }
+
+    pub(crate) fn is_exact_ramp(&self) -> bool {
+        self.exact_ramp && self.remaining > 0
     }
 
     pub(crate) fn current(&self) -> f32 {
@@ -79,8 +93,10 @@ impl Smoother {
         if self.total == 0 {
             return self.target;
         }
-        let ratio = elapsed.min(self.total) as f32 / self.total as f32;
-        self.start + (self.target - self.start) * ratio
+        let ratio = elapsed.min(self.total) as f64 / self.total as f64;
+        #[allow(clippy::cast_possible_truncation)]
+        let value = (f64::from(self.start) * (1.0 - ratio) + f64::from(self.target) * ratio) as f32;
+        value
     }
 }
 

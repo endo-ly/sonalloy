@@ -383,6 +383,7 @@ fn modulation_route_reaches_operator_index_parameter() {
                 unit: sonalloy_core::ModulationUnit::Index,
             },
             curve: ModulationCurve::Linear,
+            depth_control: None,
         }],
     });
     let baseline_audio = render(&baseline, 257, 2_048, &[note_on()]);
