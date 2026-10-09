@@ -104,7 +104,7 @@ Sustain Pedal、Pitch Bend、Mod Wheel、AftertouchをTick位置で切り替え�
 }
 ```
 
-`duration_ticks`は正の整数で、`tick + duration_ticks`は`length_ticks`以下にします。両端の値は有限で、音源のParameter Catalogへ照合されます。開始・終了TickをそれぞれFrameへ変換するため、途中にTempo変更があっても終了位置が一致します。Frameへ丸めた長さが0、または処理Frame数として表現できない場合はCompile Errorです。RampはParameterの正規化した値を指定時間で補間するため、対数ScaleのParameterはNative Unit上でも対数的に変化します。
+`duration_ticks`は正の整数で、`tick + duration_ticks`は`length_ticks`以下にします。両端の値は有限で、音源のParameter Catalogへ照合されます。開始・終了TickをそれぞれFrameへ変換するため、途中にTempo変更があっても終了位置が一致します。Frameへ丸めた長さが0、または処理Frame数として表現できない場合はCompile Errorです。補間はParameterの正規化した値で線形に進み、開始・終了のTick位置と値を正確に保持します。
 
 同じParameterへ次のRampやChangeが開始すると、その位置で進行中のRampを置き換えます。同時刻は既存のEvent順に従います。Rampは`render pattern`、`render demo`、`audition pattern`とLoopで共通に使えます。
 

@@ -349,9 +349,6 @@ impl RuntimeGeneration {
     }
 
     pub(crate) fn shared_target_remaining(&self) -> Option<usize> {
-        if self.parameter_states.iter().any(Smoother::is_exact_ramp) {
-            return Some(1);
-        }
         let mut remaining = self
             .parameter_states
             .iter()
@@ -2552,6 +2549,49 @@ pub(crate) mod tests {
             measured_blocks: 6,
             _directory: None,
         }
+    }
+
+    #[test]
+    fn a_running_ramp_keeps_normal_multi_frame_spans() {
+        let mut runtime = runtime();
+        prepare(&mut runtime);
+        let parameter = runtime
+            .compiled()
+            .parameter_handle("layer.body.pan")
+            .expect("pan");
+        runtime
+            .apply_event(
+                ProcessEventKind::ParameterRamp {
+                    catalog_revision: runtime.compiled().parameter_catalog_revision(),
+                    parameter,
+                    from_normalized: 0.0,
+                    to_normalized: 1.0,
+                    duration_frames: 500,
+                },
+                0,
+                true,
+                true,
+            )
+            .expect("ramp starts");
+
+        let mut left = vec![0.0; 257];
+        let mut right = vec![0.0; 257];
+        let mut output: [&mut [f32]; 2] = [&mut left, &mut right];
+        let block = ProcessBlock {
+            frames: 257,
+            context: ProcessContext {
+                absolute_frame: 0,
+                tempo_bpm: 120.0,
+                beat_position: 0.0,
+                bar_position: 0.0,
+                time_signature: crate::process::DEFAULT_TIME_SIGNATURE,
+                transport_state: crate::process::TransportState::Playing,
+            },
+            events: &[],
+            input: &[],
+            output: &mut output,
+        };
+        assert_eq!(runtime.next_span_end(&block, 0, 0).expect("span end"), 32);
     }
 
     #[test]

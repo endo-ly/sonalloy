@@ -683,8 +683,6 @@ mod tests {
         assert_relative_eq!(runtime.parameter_states[parameter.index()].current(), 0.8);
         process(&mut runtime, 3, 19, &[]);
         assert_relative_eq!(runtime.parameter_states[parameter.index()].current(), 0.2);
-        runtime.reset().expect("reset");
-        assert!(!runtime.parameter_states[parameter.index()].is_exact_ramp());
     }
 
     #[test]
