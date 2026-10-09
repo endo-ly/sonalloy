@@ -36,6 +36,12 @@ pub(super) enum DemoCommand {
         long_about = "Write a Type 1 Standard MIDI File with a Conductor Track for the Demo name, tempo, and time signature, plus one Track per Part for its ID, channel, notes, sustain, pitch bend, mod wheel, and aftertouch. Parameter Change events, overlapping notes with the same pitch, or Parts without an available MIDI channel cause export to fail. An existing destination is overwritten."
     )]
     ExportMidi(DemoExportMidiArgs),
+    /// Export a self-contained Demo Bundle v1 with optional Mix and all Stems.
+    #[command(
+        long_about = "Copy every Part's Pattern, Instrument Definition, and referenced assets into a self-contained Bundle v1. Preserve performance events, Part order, gains, optional MIDI channels, external audio routing, fade, and mastering. Validate the relocated Demo and compile every Instrument and Pattern. Record render settings even without rendering. With --with-render, render the bundled Demo to mix.wav and all Part stems using the render demo pipeline. The output must not exist; failed exports leave no completed directory.",
+        after_long_help = "Bundle v1 contains bundle.json, demo.json, patterns/<part-id>.json, instruments/<part-id>/definition.json and hash-named assets. Optional WAVs are render/mix.wav and render/stems/<part-id>.wav. The manifest records format_version=1, demo, render_settings, render (null without WAVs), and sorted files with SHA-256, excluding bundle.json itself. All bundle references use safe relative paths with forward slashes. Asset references include their SHA-256. Bundled demo.json can be passed directly to demo validate and render demo. Absolute paths, parent traversal, empty or dot components, backslashes, and symbolic links are forbidden in a Bundle. --json reports status, command, output, format_version, part_count, file_count (excluding bundle.json), render_included, and diagnostics. Execution failures use the shared diagnostic report; an existing destination has code BUNDLE_OUTPUT_EXISTS."
+    )]
+    Pack(DemoPackArgs),
 }
 
 #[derive(Debug, Args)]
@@ -66,6 +72,7 @@ pub(super) fn run(command: DemoCommand) -> ExitCode {
         DemoCommand::Validate(args) => run_validate(&args),
         DemoCommand::Inspect(args) => run_inspect(&args),
         DemoCommand::ExportMidi(args) => run_export_midi(&args),
+        DemoCommand::Pack(args) => run_pack(&args),
     }
 }
 
@@ -210,4 +217,52 @@ struct DemoExportReport {
     output: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Args)]
+pub(super) struct DemoPackArgs {
+    /// Source Demo JSON path.
+    #[arg(value_name = "DEMO")]
+    demo: PathBuf,
+    /// New Bundle directory; existing paths are rejected.
+    #[arg(long, value_name = "DIRECTORY")]
+    output: PathBuf,
+    /// Include the final Mix and every Part Stem.
+    #[arg(long)]
+    with_render: bool,
+    /// Render sample rate in Hz; recorded even without WAVs.
+    #[arg(long, value_name = "HZ", default_value_t = super::DEFAULT_SAMPLE_RATE, value_parser = clap::value_parser!(u32).range(1..))]
+    sample_rate: u32,
+    /// Maximum process block size in frames.
+    #[arg(long, value_name = "FRAMES", default_value_t = super::DEFAULT_BLOCK_SIZE, value_parser = super::parse_positive_usize)]
+    block_size: usize,
+    /// Additional tail in seconds (finite and non-negative).
+    #[arg(long, value_name = "SECONDS", default_value_t = 1.0, value_parser = super::parse_nonnegative_f64)]
+    tail: f64,
+    /// Emit machine-readable results and structured diagnostics.
+    #[arg(long)]
+    json: bool,
+}
+
+fn run_pack(args: &DemoPackArgs) -> ExitCode {
+    let settings = demo::RenderSettings {
+        sample_rate: args.sample_rate,
+        block_size: args.block_size,
+        tail_seconds: args.tail,
+    };
+    let report: demo::PackReport =
+        match demo::pack(&args.demo, &args.output, settings, args.with_render) {
+            Ok(report) => report,
+            Err(failure) => return finish_failure(args.json, failure),
+        };
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string(&report).expect("bundle report is serializable")
+        );
+    } else {
+        println!("created {}", args.output.display());
+        print_warnings(&report.diagnostics);
+    }
+    ExitCode::SUCCESS
 }

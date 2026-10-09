@@ -1676,6 +1676,7 @@ dependencies = [
  "midir",
  "midly",
  "predicates",
+ "rustix",
  "serde",
  "serde_json",
  "sha2",
