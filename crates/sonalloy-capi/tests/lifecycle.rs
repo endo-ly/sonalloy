@@ -90,6 +90,8 @@ fn c_api_lifecycle_process_update_and_reclaim() {
         bool_value: 0,
         reserved: 0,
         value: 0.0,
+        target_value: 0.0,
+        duration_frames: 0,
     };
     assert_eq!(
         sonalloy_runtime_process(
@@ -305,6 +307,120 @@ fn c_api_lifecycle_process_update_and_reclaim() {
         SonalloyResult::Ok
     );
     assert!(left.iter().chain(&right).all(|sample| sample.is_finite()));
+
+    let context_128 = context(128);
+    assert_eq!(
+        sonalloy_runtime_process(
+            runtime,
+            &raw const context_128,
+            ptr::null(),
+            0,
+            ptr::null(),
+            0,
+            output.as_mut_ptr(),
+            2,
+            64,
+        ),
+        SonalloyResult::Ok
+    );
+    let audible_peak = left.iter().chain(&right).copied().fold(0.0_f32, f32::max);
+    assert!(audible_peak > 1.0e-3);
+
+    let mut gain_handle = 0;
+    assert_eq!(
+        sonalloy_capi::sonalloy_compiled_parameter_handle(
+            compiled,
+            view("layer.body.gain"),
+            &raw mut gain_handle,
+        ),
+        SonalloyResult::Ok
+    );
+    let mut gain_descriptor = sonalloy_capi::SonalloyParameterDescriptor {
+        id: SonalloyStringView {
+            data: ptr::null(),
+            length: 0,
+        },
+        owner_kind: 0,
+        owner_index: 0,
+        owner_sub_index: 0,
+        owner_axis: 0,
+        unit: 0,
+        scale: 0,
+        min: 0.0,
+        max: 0.0,
+        default: 0.0,
+        smoothing_seconds: 0.0,
+    };
+    assert_eq!(
+        sonalloy_capi::sonalloy_compiled_parameter_descriptor(
+            compiled,
+            gain_handle,
+            &raw mut gain_descriptor,
+        ),
+        SonalloyResult::Ok
+    );
+    let mut from = 0.0;
+    assert_eq!(
+        sonalloy_capi::sonalloy_compiled_parameter_normalize(
+            compiled,
+            gain_handle,
+            gain_descriptor.default,
+            &raw mut from,
+        ),
+        SonalloyResult::Ok
+    );
+    let mut to = 0.0;
+    assert_eq!(
+        sonalloy_capi::sonalloy_compiled_parameter_normalize(
+            compiled,
+            gain_handle,
+            gain_descriptor.min,
+            &raw mut to,
+        ),
+        SonalloyResult::Ok
+    );
+    let gain_ramp = SonalloyEvent {
+        event_type: 8,
+        parameter_catalog_revision: outcome.parameter_catalog_revision,
+        parameter_handle: gain_handle,
+        value: from,
+        target_value: to,
+        duration_frames: 64,
+        ..note_on
+    };
+    let context_192 = context(192);
+    assert_eq!(
+        sonalloy_runtime_process(
+            runtime,
+            &raw const context_192,
+            &raw const gain_ramp,
+            1,
+            ptr::null(),
+            0,
+            output.as_mut_ptr(),
+            2,
+            64,
+        ),
+        SonalloyResult::Ok
+    );
+    let context_256 = context(256);
+    assert_eq!(
+        sonalloy_runtime_process(
+            runtime,
+            &raw const context_256,
+            ptr::null(),
+            0,
+            ptr::null(),
+            0,
+            output.as_mut_ptr(),
+            2,
+            64,
+        ),
+        SonalloyResult::Ok
+    );
+    let silenced_peak = left.iter().chain(&right).copied().fold(0.0_f32, f32::max);
+    assert!(silenced_peak.is_finite());
+    assert!(silenced_peak * 10.0 < audible_peak);
 
     assert_eq!(sonalloy_runtime_reset(runtime), SonalloyResult::Ok);
     let mut reclaimable = ptr::null_mut();

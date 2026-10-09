@@ -65,7 +65,8 @@ typedef enum SonalloyEventType {
     SONALLOY_EVENT_PARAMETER_CHANGE = 4,
     SONALLOY_EVENT_PITCH_BEND = 5,
     SONALLOY_EVENT_MOD_WHEEL = 6,
-    SONALLOY_EVENT_AFTERTOUCH = 7
+    SONALLOY_EVENT_AFTERTOUCH = 7,
+    SONALLOY_EVENT_PARAMETER_RAMP = 8
 } SonalloyEventType;
 
 typedef struct SonalloyEvent {
@@ -79,6 +80,8 @@ typedef struct SonalloyEvent {
     uint8_t bool_value;
     uint8_t reserved;
     float value;
+    float target_value; /* parameter ramp target (normalized) */
+    uint32_t duration_frames; /* parameter ramp duration in engine frames */
 } SonalloyEvent;
 
 typedef struct SonalloyParameterDescriptor {

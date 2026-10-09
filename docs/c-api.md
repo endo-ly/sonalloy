@@ -84,7 +84,7 @@ runtime_create → runtime_prepare → runtime_activate
 
 `runtime_prepare`はVoice、Processor、Scratch、外部Audio Stateを確保します。`runtime_activate`は準備済みRuntimeをAudio Streamへ接続する状態へ移します。`runtime_deactivate`はResourceを保持したままProcessを停止します。Audio ProcessはActive状態だけで実行できます。
 
-Process ContextにはAbsolute Frame、Tempo、Beat / Bar Position、Time Signature、Transport Stateを渡します。Audio BufferはPlanar形式で、出力は2 Channelです。EventはSample Offsetの昇順で渡し、Parameter ChangeのValueはDescriptorで正規化した値です。Bounded Parameterでは`0..=1`、Linear Unboundedでは区間外の有限値も扱えます。Process中の最大Event数は1024です。1回のProcessで渡すFrame数はPrepare時の`max_block_size`以下でなければなりません。
+Process ContextにはAbsolute Frame、Tempo、Beat / Bar Position、Time Signature、Transport Stateを渡します。Audio BufferはPlanar形式で、出力は2 Channelです。EventはSample Offsetの昇順で渡し、Parameter Change / RampのValueはDescriptorで正規化した値です。Rampは`value`を開始値、`target_value`を終了値、`duration_frames`を正のFrame数として使います。Bounded Parameterでは`0..=1`、Linear Unboundedでは区間外の有限値も扱えます。Process中の最大Event数は1024です。1回のProcessで渡すFrame数はPrepare時の`max_block_size`以下でなければなりません。
 
 入力Channel同士は同じMemoryを参照できます。出力Channel同士の範囲は重複できず、入力Channelと出力Channelの範囲も重複できません。違反したBuffer配置は`SONALLOY_INVALID_ARGUMENT`になります。
 
@@ -110,7 +110,7 @@ sonalloy_runtime_process(
 
 新しいDefinitionはControl ThreadでCompileし、候補Runtimeが使用するProcessSpecを使って`sonalloy_update_prepare`します。Live Publishでは現在のRuntimeと同じProcessSpecを渡し、External Input Channel数を変更する場合は変更後のProcessSpecを渡します。Prepared UpdateをAudio Threadへ所有権移動し、Process Blockの開始前に`sonalloy_runtime_publish`を呼びます。
 
-Publish後の新しいNoteは新Generationで始まり、発音中のNoteは旧Generationで継続します。Note Off、Sustain、Pitch Bend、Mod Wheel、AftertouchはLive Generationへ伝わり、Parameter ChangeはActive Generationだけが受け取ります。
+Publish後の新しいNoteは新Generationで始まり、発音中のNoteは旧Generationで継続します。Note Off、Sustain、Pitch Bend、Mod Wheel、AftertouchはLive Generationへ伝わり、Parameter Change / RampはActive Generationだけが受け取ります。
 
 Publishの失敗時はUpdateを消費せず、同じHandleを後で再試行できます。ProcessSpec、Reported Latency、External Input Channel数が変わるUpdateは`SONALLOY_UPDATE_INCOMPATIBLE`となるため、Streamを停止して再Prepare / Activateします。Global Processorの切替中は`SONALLOY_TRANSITION_BUSY`です。
 
