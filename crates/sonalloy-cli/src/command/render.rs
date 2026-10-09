@@ -1129,10 +1129,7 @@ fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFai
     let demo = demo::load(&args.demo, args.sample_rate, args.block_size)?;
     let (mix_audio, part_reports) = render_demo_mix(&demo, args, tail_frames)?;
     let mix_analysis = if args.analyze {
-        match analyze_audio(&mix_audio, None) {
-            Ok(analysis) => Some(analysis),
-            Err(failure) => return Err(failure),
-        }
+        Some(analyze_audio(&mix_audio, None)?)
     } else {
         None
     };
@@ -1175,10 +1172,7 @@ fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFai
     };
 
     let output_analysis = if args.analyze {
-        match analyze_output_wav(&args.output, args.sample_rate) {
-            Ok(analysis) => Some(analysis),
-            Err(failure) => return Err(failure),
-        }
+        Some(analyze_output_wav(&args.output, args.sample_rate)?)
     } else {
         None
     };
