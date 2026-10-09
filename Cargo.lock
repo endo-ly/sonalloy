@@ -1676,7 +1676,6 @@ dependencies = [
  "midir",
  "midly",
  "predicates",
- "rustix",
  "serde",
  "serde_json",
  "sha2",
@@ -1684,7 +1683,6 @@ dependencies = [
  "tar",
  "tempfile",
  "ureq",
- "windows-sys 0.61.2",
 ]
 
 [[package]]

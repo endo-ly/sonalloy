@@ -11,17 +11,6 @@ use sonalloy_core::{Diagnostic, DiagnosticCode};
 use crate::command::render_bundle_demo;
 use crate::output::CliFailure;
 
-#[cfg(windows)]
-use std::os::windows::ffi::OsStrExt;
-#[cfg(windows)]
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
-#[cfg(windows)]
-use windows_sys::Win32::Storage::FileSystem::{
-    CreateFileW, DELETE, FILE_FLAG_BACKUP_SEMANTICS, FILE_RENAME_INFO, FILE_RENAME_INFO_0,
-    FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FileRenameInfoEx, OPEN_EXISTING,
-    SetFileInformationByHandle,
-};
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct RenderSettings {
@@ -548,114 +537,22 @@ fn reject_existing_output(output: &Path) -> Result<(), CliFailure> {
     }
 }
 
-/// Commits the staged bundle by renaming it, without ever taking over a name that
-/// something else owns.
-#[cfg(unix)]
+/// Commits the staged bundle by renaming it onto a name this process has claimed.
+///
+/// Creating the destination directory is the atomic step: it fails whenever a file,
+/// directory or symbolic link already owns the name, so an output that appears after
+/// the CLI checked is reported instead of taken over. A rename alone cannot express
+/// that on Windows, where `rename` replaces an existing empty directory, and renaming
+/// the staged tree onto the freshly created directory keeps the bundle appearing in
+/// one step.
 fn commit_directory(source: &Path, destination: &Path) -> std::io::Result<()> {
-    rustix::fs::renameat_with(
-        rustix::fs::CWD,
-        source,
-        rustix::fs::CWD,
-        destination,
-        rustix::fs::RenameFlags::NOREPLACE,
-    )
-    .map_err(Into::into)
-}
-
-/// Commits the staged bundle by renaming it, without ever taking over a name that
-/// something else owns.
-#[cfg(windows)]
-fn commit_directory(source: &Path, destination: &Path) -> std::io::Result<()> {
-    let source = OwnedHandle::open_directory(source)?;
-    let request = rename_request(destination)?;
-    let size = byte_length(request.len())?;
-    // SAFETY: `source` is a directory handle opened for renaming and `request` is a
-    // `FILE_RENAME_INFO` header followed by the file name it announces.
-    let renamed = unsafe {
-        SetFileInformationByHandle(source.0, FileRenameInfoEx, request.as_ptr().cast(), size)
-    };
-    if renamed == 0 {
-        return Err(std::io::Error::last_os_error());
+    fs::create_dir(destination)?;
+    if let Err(error) = fs::rename(source, destination) {
+        // Nothing else may observe the claim of a commit that did not happen.
+        let _ = fs::remove_dir(destination);
+        return Err(error);
     }
     Ok(())
-}
-
-/// Encodes `FileRenameInformationEx` without `FILE_RENAME_FLAG_REPLACE_IF_EXISTS`, so
-/// the kernel rejects the rename as soon as any file or directory already owns the
-/// destination name. That is the guarantee `fs::rename` and `MoveFileEx` lack: both
-/// replace an existing empty directory instead of failing. The information class
-/// needs Windows 10 1709 or newer.
-#[cfg(windows)]
-fn rename_request(destination: &Path) -> std::io::Result<Vec<u8>> {
-    let name: Vec<u8> = std::path::absolute(destination)?
-        .as_os_str()
-        .encode_wide()
-        .flat_map(u16::to_ne_bytes)
-        .collect();
-    let header = FILE_RENAME_INFO {
-        Anonymous: FILE_RENAME_INFO_0 { Flags: 0 },
-        RootDirectory: std::ptr::null_mut(),
-        FileNameLength: byte_length(name.len())?,
-        FileName: [0],
-    };
-    let minimum = std::mem::size_of::<FILE_RENAME_INFO>();
-    let mut request = Vec::with_capacity(minimum + name.len());
-    // SAFETY: `header` is a live `FILE_RENAME_INFO` and the prefix stops at `FileName`.
-    request.extend_from_slice(unsafe {
-        std::slice::from_raw_parts(
-            std::ptr::from_ref(&header).cast::<u8>(),
-            std::mem::offset_of!(FILE_RENAME_INFO, FileName),
-        )
-    });
-    request.extend_from_slice(&name);
-    // The structure is padded to its own size after the name it carries.
-    request.resize(request.len().max(minimum), 0);
-    Ok(request)
-}
-
-#[cfg(windows)]
-fn byte_length(bytes: usize) -> std::io::Result<u32> {
-    u32::try_from(bytes)
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "path is too long"))
-}
-
-/// A directory handle that `SetFileInformationByHandle` can rename.
-#[cfg(windows)]
-struct OwnedHandle(HANDLE);
-
-#[cfg(windows)]
-impl OwnedHandle {
-    fn open_directory(path: &Path) -> std::io::Result<Self> {
-        // `CreateFileW` needs a null-terminated wide string.
-        let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-        // SAFETY: `path` is null-terminated and the remaining arguments request an
-        // existing directory opened only for renaming.
-        let handle = unsafe {
-            CreateFileW(
-                path.as_ptr(),
-                DELETE,
-                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                std::ptr::null(),
-                OPEN_EXISTING,
-                FILE_FLAG_BACKUP_SEMANTICS,
-                std::ptr::null_mut(),
-            )
-        };
-        if handle == INVALID_HANDLE_VALUE {
-            return Err(std::io::Error::last_os_error());
-        }
-        Ok(Self(handle))
-    }
-}
-
-#[cfg(windows)]
-impl Drop for OwnedHandle {
-    fn drop(&mut self) {
-        // SAFETY: the handle is opened once and closed once, by this drop.
-        unsafe {
-            CloseHandle(self.0);
-        }
-    }
 }
 
 fn io_failure(path: &Path, message: &str, error: impl std::fmt::Display) -> CliFailure {
