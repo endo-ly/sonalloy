@@ -69,7 +69,7 @@ Dynamic Parameter：`pulse_width`
 | `wavefold.amount` | 0〜1 | Yes | 波形の折り返し量。0で原形、大きいほど折り返しが増える |
 | `feedback.amount` | 0〜1 | Yes | 直前Sampleを入力側へ戻す量。0で無効 |
 | `unison.voices` | 2〜8 | No | UnisonのVoice数 |
-| `unison.detune_cents` | 0〜100 | Yes | 各VoiceのDetune幅 |
+| `unison.detune_cents` | 有限の非負値 | Yes | 各VoiceのDetune幅。正負両側のPitch比率が有限かつ正であること |
 | `unison.stereo_spread` | 0〜1 | Yes | 左右への配置幅 |
 | `unison.phase_spread` | 0〜1 | No | 各Voiceの位相ばらつき |
 
@@ -243,7 +243,7 @@ Dynamic Parameter：`additive_morph`、`additive_spectrum_tilt`、`additive_inha
 |---|---|---|---|
 | `partial_count` | 1〜64 | No | 生成する整数倍Partial数 |
 | `vowel_position` | 0〜1 | Yes | Profile配列の先頭から末尾への位置 |
-| `formant_shift_cents` | -2400〜2400 cents | Yes | Bandの中心周波数と帯域幅を移動（基音Pitchは不変） |
+| `formant_shift_cents` | 有限値（cents） | Yes | Bandの中心周波数と帯域幅を移動（基音Pitchは不変）。移動後の周波数・帯域幅が有限かつ正であること |
 | `throat` | 0〜1 | Yes | 帯域幅の拡大・縮小。`0.5`が等倍で、端に向かって約0.5倍〜2倍へ変わる |
 | `spectral_tilt_db_per_octave` | -24〜12 dB/octave | Yes | 高域Partialの減衰傾き |
 | `profiles` | 1〜8個 | No | Definition順のProfile |
@@ -358,7 +358,7 @@ A/BのChannel数不一致はCompile Errorです。
 | `mode` | `phase` / `frequency` / `amplitude` / `ring` | No | PM / FM / AM / Ring |
 | `algorithm` | `stack_4` / `stack_3_plus_carrier` / `two_stacks` / `fork_to_carrier` / `two_modulators_plus_carrier` / `three_modulators` / `shared_modulator` / `parallel` | No | Operatorの接続Topology |
 | `operators[].ratio` | 0.25〜32 | Yes | Note Frequencyに対する周波数比 |
-| `operators[].detune_cents` | -100〜100 | Yes | 周波数の微調整 |
+| `operators[].detune_cents` | 有限値 | Yes | 周波数のPitch Offset。有限で正のPitch比率が必要 |
 | `operators[].level` | 0〜1 | Yes | Carrierの出力音量（Carrierのみ） |
 | `operators[].modulation_amount` | Mode依存 | Yes | Phase / Frequencyは0〜8、Amplitude / Ringは0〜1 |
 | `operators[].feedback` | 0〜1 | Yes | 直前Sampleで自己変調する量（Phase / Frequencyのみ） |
@@ -491,7 +491,7 @@ Sampleと同じAssetをGrainへ分解して再構成します。Mono Assetでも
 | `position` | 0〜1 | Yes | Region内の基本位置。0がStart、1がGrain長を考慮したEnd側 |
 | `grain_size` | 0.005〜0.5秒 | Yes | Grain長 |
 | `density` | 1〜100 grains/sec | Yes | Grainの生成密度 |
-| `pitch` | -2400〜2400 cents | Yes | Note PitchとLayer Tuningへ加算 |
+| `pitch` | 有限値（cents） | Yes | Note PitchとLayer Tuningへ加算。有限で正のPitch比率が必要 |
 | `randomness` | 0〜1 | Yes | Positionの分散幅 |
 | `pan_spread` | 0〜1 | Yes | GrainごとのStereo配置幅 |
 | `seed` | 整数 | No | Position・Panの決定的Seed |
@@ -541,7 +541,7 @@ RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Pa
 | `steps[].playback` | `one_shot` / `loop` | Assetを一度だけ読むか繰り返すか。`one_shot`はSource終了後、Step終端まで無音を保持する |
 | `steps[].playback_direction` | `forward` / `reverse` | AssetのRead方向（Sequence方向とは独立） |
 | `steps[].gain_db` | -60〜12 dB | Step固有のGain |
-| `steps[].pitch_cents` | -2400〜2400 cents | Root Noteへ加算するPitch |
+| `steps[].pitch_cents` | 有限値（cents） | Root Noteへ加算するPitch。有限で正のPitch比率が必要 |
 
 各StepのAssetとRegionはCompile時に検証され、利用できないStepがある場合はCompile Errorになります。
 

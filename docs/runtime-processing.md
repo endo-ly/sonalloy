@@ -28,15 +28,15 @@ flowchart LR
 
 **Eventの規則**
 
-扱うEventはNote On / Note Off、Sustain Pedal、Parameter Change、Pitch Bend、Mod Wheel、Aftertouchです。
+扱うEventはNote On / Note Off、Sustain Pedal、Parameter Change / Ramp、Pitch Bend、Mod Wheel、Aftertouchです。
 
 | 規則 | 内容 |
 |---|---|
 | 順序 | Eventは`sample_offset`の昇順に並べ、同じ位置では渡された順番で適用します |
-| 整列 | Event FileやMIDI FileなどOffline由来の入力は、同じFrameに重なったEventをSustain Pedal → Note Off → Parameter Change → Pitch Bend → Mod Wheel → Aftertouch → Note Onの順へ並べ替えてから渡します |
+| 整列 | Event FileやMIDI FileなどOffline由来の入力は、同じFrameに重なったEventをSustain Pedal → Note Off → Parameter Change / Ramp → Pitch Bend → Mod Wheel → Aftertouch → Note Onの順へ並べ替えてから渡します。ChangeとRampは同じ優先順位で入力順を保ちます |
 | 検証 | Parameter Handle、変換済みのParameter値、External Control値をBlock開始前に全件検証します。不正があれば、そのBlockを無音にしてErrorを返します。致命的なProcess ErrorではRuntimeがFaultedへ移行します |
 
-Parameter ChangeはParameter CatalogのRevisionとDense Handleを持つ正規化値（`0..=1`）で受け取ります。Native Unit（TuningはCents、Filter CutoffはHz、GainはdB）の入力は、Catalogの正規化・逆正規化を使ってEventへ変換します。
+Parameter Change / RampはParameter CatalogのRevisionとDense Handleを持つ正規化値で受け取ります。値域は各Descriptorの契約に従います。Native Unit（TuningはCents、Filter CutoffはHz、GainはdB）の入力は、Catalogの正規化・逆正規化を使ってEventへ変換します。
 
 ## Runtime Lifecycle
 
@@ -70,6 +70,8 @@ Envelope Followerの値はInstrument ScopeのSourceとしてRouteへ供給され
 2. Voiceを1つ選びます。空きVoice（Idle）を最優先し、なければ音量の最も小さいReleasing、次いで最古のActiveを奪います
 3. `note_on`のLayerを開始し、`note_off`のLayerは対応するNote Offまで待機させます。待機Layerは音を出さずNote IDだけ保持します
 4. Voiceを奪うときは、古い音を5msでフェードしてから新しいNoteを開始します（Voice Stealing）
+
+`choke_group`を持つLayerが発音すると、同じGroupの古いLayerだけを5msで消音します。ADSRのReleaseとは独立しており、Voice内の別GroupのLayerとGlobal Processorの残響は継続します。TriggerやSample Zoneに一致する発音LayerだけがChokeを起こし、Voice Stealingで開始を待つ古い同GroupのLayerも取り消します。消音済みLayerはNote OffやSustainで再開しません。
 
 ### Voiceの中の信号経路
 
@@ -149,8 +151,8 @@ PortamentoはConnected TransitionとHeld Noteへの復帰にだけ適用され�
 
 | 要素 | 振る舞い |
 |---|---|
-| **Base Parameter** | Native Unit値をSmootherへ入れ、5ms（Filterは10ms、DelayとReverbは固定値）でTargetへ近づける |
-| **Route** | 同じTargetについてDefinition順に、Curve後のSourceへ直接Depthを掛けて加算する。Linear TargetはNative Domain、Log2 TargetはOctave Domainで合計し、最後にClampする |
+| **Base Parameter** | Descriptorで変換したControl値をSmootherへ入れ、各ParameterのSmoothing時間でTargetへ近づける |
+| **Route** | 同じTargetについてDefinition順に、Curve後のSourceへDepthを掛けて加算する。`depth_control: "mod_wheel"`があるRouteは、さらに共有Mod Wheelを倍率として使う。Linear TargetはNative Domain、Log2 TargetはOctave Domainで合計し、Targetの定義域に従って適用する |
 | **Parameter Span** | 最大32 Frame単位で全Voiceへ同じ値を渡す。VoiceごとのSourceはVoice単位でSpanを計算する |
 | **Sourceの所属** | `velocity`・`key_tracking`・LFO・Modulation Envelope・Random・MSEG・Step・Sample & Hold・Smooth RandomはVoiceごと。Pitch Bend・Mod Wheel・Aftertouch・Macro・Beat Phase・Bar Phaseは全Voiceで共有するInstrument Source |
 | **Note Off伝播** | Layer ADSR・Operator ADSR・Modulation Envelopeへ伝える。LFOとRandomはVoiceの終了まで保持し、終了時に初期値へ戻す |
@@ -158,7 +160,9 @@ PortamentoはConnected TransitionとHeld Noteへの復帰にだけ適用され�
 
 連続するParameterはBlock内でStart / Endの値を受け取り、各Sampleへ補間します。Processorの種類・配置・順序、Filter Mode、EQ周波数、Delay容量などCompile時に決まる値は、Process中に変更できません。
 
-Routeの加算順とClampの位置は、BlockやVoiceへの分割に依存しません。加算の計算式は`references/modulation.md`を参照してください。
+Parameter RampはEvent位置で開始値を直ちに適用し、指定された正のFrame数で終了値へ到達します。補間は正規化座標で線形に進み、各SampleでDescriptorのNative Unitへ変換するため、対数ScaleのParameterでもBlock分割によらず同じ変化になります。指定Durationが通常のSmoothingより優先され、後続のChangeまたはRampが同じParameterの進行を置き換えます。Mod WheelのDepth制御は既存のControl Smoothingを使い、Wheelをゼロへ下げてもVoiceのLFO位相は進み続けます。
+
+Pitch Offsetは外部Controlの0〜1区間を超える値も保持し、実周波数へ変換した段階でGeneratorのDSP境界を適用します。Panなど定義域を持つParameterはRoute加算後にその範囲へ収めます。Routeの加算順と値域の適用は、BlockやVoiceへの分割に依存しません。Control変換と加算の契約は`references/modulation.md`を参照してください。
 
 ## 実行上の約束事
 
@@ -195,7 +199,7 @@ ConvolutionはIRの積和を処理Frame数に応じて分散します。IRが長
 
 構成を変更する場合は、Control側で新しいDefinitionをCompileし、候補Runtimeが使用するProcessSpecで`PreparedInstrumentUpdate`を完全にPrepareします。Audio Callbackへ渡されたUpdateはBlockの開始時にだけPublishされます。CompileやPrepareが失敗した場合は、現在のRuntimeと再生を維持します。
 
-Publish後は、新しいNoteがActive Generationで始まり、すでに発音中のNoteはRetired Generationで旧Definitionを保持します。Note Off、Sustain、Pitch Bend、Mod Wheel、Aftertouchは全Live Generationへ届き、Parameter ChangeはActive Generationだけが受け取ります。Parameter ChangeのCatalog Revisionが現在のRevisionと異なる場合、Eventは無視されてStale Counterだけが増えます。
+Publish後は、新しいNoteがActive Generationで始まり、すでに発音中のNoteはRetired Generationで旧Definitionを保持します。Note Off、Sustain、Pitch Bend、Mod Wheel、Aftertouchは全Live Generationへ届き、Parameter Change / RampはActive Generationだけが受け取ります。Parameter EventのCatalog Revisionが現在のRevisionと異なる場合、Eventは無視されてStale Counterだけが増えます。
 
 Retired Generationは、VoiceとHeld Noteがなくなるまで処理対象に残ります。旧Global Processorを含む不要なResourceは`take_reclaimable`でControl側へ移し、Audio CallbackでHeap Freeを発生させずに破棄します。Live Generationは最大8世代です。上限、ProcessSpec、入力Bus、または固定Latencyの条件を満たさないPublishは現行Runtimeを維持したまま失敗します。
 

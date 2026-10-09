@@ -71,7 +71,7 @@ sonalloy instrument inspect <definition> --json
 | Macro / Vector | MacroのParameter ID・Default・Route、VectorのAxis ID・所属Layer・初期値 |
 | Processor | Layer / Voice / Globalの各Processor Chain、固定Latency、DelayのTempo Unit / Feedback Mode / Tap数、ConvolutionのIR準備情報、外部Detector / Cross Synthesisの入力整列 |
 | External Audio | `channels`、要求Input Channel数、使用するProcessorと入力整列Frame |
-| Warning | コンパイル時の警告（Asset欠落など） |
+| Warning | コンパイル時の警告 |
 
 `--json`は、Generatorごとの構造をFieldとして返します。返るFieldはGeneratorの種類ごとに異なります。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。`sources[]`にはScope、RateとRate Unit、MSEG / Step / Randomの構造が含まれ、`macros[]`と`vectors[]`には外部から操作するIDを含めます。
 
@@ -84,8 +84,8 @@ sonalloy instrument inspect <definition> --json
   "min": -1200.0,
   "max": 1200.0,
   "default": 0.0,
-  "scale": "linear",
-  "modulation": { "unit": "cents", "max_abs_depth": 2400.0 },
+  "scale": "linear_unbounded",
+  "modulation": { "unit": "cents", "max_abs_depth": 3.4028235e38 },
   "modulated_range_from_default": {
     "unclamped_min": -20.0,
     "unclamped_max": 20.0,
@@ -132,7 +132,7 @@ sonalloy pattern inspect phrase.json --json
 - Length（Tempo Timelineから計算した、Sample Rateに依存しない音楽的な長さ）
 - Tempo Change / Time Signature Changeの件数
 - Note数とVelocity範囲
-- Control数とParameter ID数
+- Control数、Parameter Change数（`parameter_change_count`）、Ramp数（`parameter_ramp_count`）とParameter ID数
 
 ### `pattern import-midi` — MIDIからPatternへ変換
 
@@ -297,7 +297,7 @@ MIDI FileをTickベースで読み込み、1つのChannelをPatternへ変換し�
 
 `render`コマンドはいずれもWAVを生成します。確認したい内容に合わせて使い分けます。
 
-外部Audioを使う定義では、すべての`render`サブコマンドに`--audio-input <wav>`を追加できます。WAVはCompile時のSample Rateへ準備され、Monoは左右へ複製、Stereoは左右を保持します。入力の終端後は無音を渡します。外部Audioを要求する定義で指定を省略した場合、または外部Audioを使わない定義へ指定した場合はErrorになります。
+外部Audioを使う定義では、`render note/events/pattern/midi`に`--audio-input <wav>`を指定します。WAVはCompile時のSample Rateへ準備され、Monoは左右へ複製、Stereoは左右を保持します。入力の終端後は無音を渡します。必須入力の省略は`AUDIO_INPUT_REQUIRED`とMessage `external audio input is required; specify --audio-input <WAV>`を返します。外部Audioを使わない定義への入力指定はErrorです。Demoの入力接続は`audio_input.part`で指定します。
 
 | コマンド | 向いている用途 |
 |---|---|
@@ -365,14 +365,17 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 | `note_on` / `note_off` | `note_id`、`note`、`velocity` | 音を鳴らす / 止める。`note_id`でOnとOffを対応付ける |
 | `sustain_pedal` | `down`（bool） | Pedal Down中はNote Off後のReleaseを保留し、Pedal UpでReleaseを開始する |
 | `parameter_change` | `parameter`、`native_value` | Parameter CatalogのNative Unit値を送る（CutoffはHz、TuningはCents、GainはdB） |
+| `parameter_ramp` | `duration_frames`、`parameter`、`from_value`、`to_value` | Native Unitの両端を指定し、開始Frameから指定長で補間する |
 | `pitch_bend` | `value` | -1〜1 |
 | `mod_wheel` | `value` | 0〜1 |
 | `aftertouch` | `value` | 0〜1 |
 
 読み込み時の処理：
 
-- Eventを時系列へ処理するため、`absolute_frame`の昇順へ整列します
+- Eventは`absolute_frame`の昇順で記述します。同時刻はEventの種類と定義順に従います
 - 次のいずれかはErrorになり、WAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、Native範囲外の値
+
+Rampの`duration_frames`は正の整数で、`absolute_frame + duration_frames`は`--duration-frames`以下かつ処理Frame数として表現できる必要があります。両端は有限値です。補間と次の変更による置き換えは[PatternのParameter Automation](patterns.md#parameter-automation)と共通です。
 
 `render note`と`render events`は指定Tempoの4/4から始まります。`render midi`はTempo Meta EventとTime Signature Meta Eventを`MusicalTimeMap`へ変換し、Time Signatureがない場合は4/4を使います。`render pattern`もPatternの`tempo_changes`と`time_signature_changes`から同じMapを作ります。Tempo / Meterの変更位置でProcess Blockを分割し、`beat_position`と`bar_position`をProcessContextへ渡します。
 
@@ -468,7 +471,7 @@ sonalloy render pattern <definition> <pattern> \
   --output out/pattern.wav
 ```
 
-`--analyze`、`--trace`、`--trace-every-frames`、`--json`はほかのrenderコマンドと同じです。`--tail`はPatternの1周の長さに含めず、終端後の余韻として追加します。PatternのParameter ChangeはInstrument Compile後にParameter Catalogで解決されます。
+`--analyze`、`--trace`、`--trace-every-frames`、`--json`はほかのrenderコマンドと同じです。`--tail`はPatternの1周の長さに含めず、終端後の余韻として追加します。PatternのParameter ChangeとRampはInstrument Compile後にParameter Catalogで解決されます。
 
 ## 動作確認
 
@@ -549,7 +552,8 @@ Clapによるコマンドラインの構文・値エラーは標準エラーへ�
 | Modulation Source / Route | `SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_DEPTH_INVALID`、`ROUTE_DEPTH_UNIT_INVALID`、`ROUTE_TARGET_INVALID` |
 | Event File | `EVENT_ORDER_INVALID` |
 | Trace | `TRACE_LIMIT_EXCEEDED` |
-| Asset | `ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`ASSET_HASH_MISSING`、`ASSET_ABSOLUTE_PATH` |
+| Asset | `ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED` |
+| 外部Audio入力 | `AUDIO_INPUT_REQUIRED` |
 | 実行と書き出し | `PROCESS_ERROR`、`DSP_ERROR`、`RENDER_ERROR`、`WAV_OUTPUT_ERROR`、`MIDI_ERROR` |
 | Realtime I/O | `AUDIO_DEVICE_ERROR` |
 
@@ -557,11 +561,11 @@ Generator固有の診断Codeは次のとおりです。
 
 | Generator | Code |
 |---|---|
-| Wavetable | `WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`WAVETABLE_SILENT_FRAME`、`WAVETABLE_DC_OFFSET`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
+| Wavetable | `WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
 | Spectral | `SPECTRAL_PREPARATION_FAILED`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
 | Granular | `INVALID_GRAIN_REGION`、`INVALID_GRAIN_PARAMETER` |
 | Sample | `UNSUPPORTED_PLAYBACK_COMBINATION`、`INVALID_STRETCH_RATIO`、`INVALID_SOURCE_TEMPO`、`STRETCH_BACKEND_FAILURE` |
 | Wave Sequence | `INVALID_SEQUENCE`、`INVALID_STEP_DURATION` |
 | Operator Modulation | `VALUE_OUT_OF_RANGE`、`DEFINITION_ERROR`（Carrier Level / 非Carrier Level / 未接続Amount / AM・Ring Feedback）、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
 
-Assetの欠落・Decode失敗はWarningとして扱われ、ほかの有効なLayerがあればレンダリングを続けます。
+有効なLayerやProcessorの必須Assetが欠落・Decode失敗した場合はCompile Errorです。

@@ -1,6 +1,6 @@
 # Pattern仕様（Audition Pattern）
 
-Audition Pattern（以下、Pattern）は、1つのSonalloy音源を試奏するための演奏データ（JSON）です。Sample Rateに依存しないTickを正本の時間軸として扱うため、NoteやChord、フレーズ、ドラム、Pitch Bendのような演奏操作、Parameter Changeを同じ形式で記述・保存できます。
+Audition Pattern（以下、Pattern）は、1つのSonalloy音源を試奏するための演奏データ（JSON）です。Sample Rateに依存しないTickを正本の時間軸として扱うため、NoteやChord、フレーズ、ドラム、Pitch Bendのような演奏操作、Parameterの一時点の変更や連続変化を同じ形式で記述・保存できます。
 
 Patternが扱うのは1つの音源への演奏条件だけです。複数のPatternを一つの試聴作品としてまとめる場合は[Demo](demos.md)を使用します。雛形は`sonalloy pattern init`で生成できます。
 
@@ -54,7 +54,7 @@ Schema VersionはInstrument Definitionとは独立して管理しており、現
 
 ## Eventの種類
 
-書けるEventはNote、演奏操作、Parameter Changeの3分類です。Polyphonic Aftertouch、Program Change、SysExといったMIDI機能は扱いません。
+書けるEventはNote、演奏操作、Parameter Automationの3分類です。Polyphonic Aftertouch、Program Change、SysExといったMIDI機能は扱いません。
 
 ### Note
 

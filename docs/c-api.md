@@ -68,6 +68,8 @@ Catalogの順序はCompile時に固定されます。Parameter IDをControl側�
 
 Catalog Revisionが異なるParameter Eventは、Runtimeが安全に無視します。現在のRevisionで存在しないHandleはProcess Errorになります。
 
+Descriptorの`scale`は0がLinear、1がLog2、2がLinear Unboundedです。Linear Unboundedでは`min` / `max`がControlの0 / 1に対応し、Normalize / Denormalizeはその区間外にも線形変換を延長します。Pitch Offsetの演奏制御には、この変換で得た有限値を使います。
+
 ## Runtime Lifecycle
 
 Runtimeは次の順序で使用します。
@@ -82,7 +84,7 @@ runtime_create → runtime_prepare → runtime_activate
 
 `runtime_prepare`はVoice、Processor、Scratch、外部Audio Stateを確保します。`runtime_activate`は準備済みRuntimeをAudio Streamへ接続する状態へ移します。`runtime_deactivate`はResourceを保持したままProcessを停止します。Audio ProcessはActive状態だけで実行できます。
 
-Process ContextにはAbsolute Frame、Tempo、Beat / Bar Position、Time Signature、Transport Stateを渡します。Audio BufferはPlanar形式で、出力は2 Channelです。EventはSample Offsetの昇順で渡し、Parameter ChangeのValueは`0..=1`の正規化値です。Process中の最大Event数は1024です。1回のProcessで渡すFrame数はPrepare時の`max_block_size`以下でなければなりません。
+Process ContextにはAbsolute Frame、Tempo、Beat / Bar Position、Time Signature、Transport Stateを渡します。Audio BufferはPlanar形式で、出力は2 Channelです。EventはSample Offsetの昇順で渡し、Parameter ChangeのValueはDescriptorで正規化した値です。Bounded Parameterでは`0..=1`、Linear Unboundedでは区間外の有限値も扱えます。Process中の最大Event数は1024です。1回のProcessで渡すFrame数はPrepare時の`max_block_size`以下でなければなりません。
 
 入力Channel同士は同じMemoryを参照できます。出力Channel同士の範囲は重複できず、入力Channelと出力Channelの範囲も重複できません。違反したBuffer配置は`SONALLOY_INVALID_ARGUMENT`になります。
 

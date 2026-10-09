@@ -27,7 +27,7 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
 | Flanger | `delay_ms`: 0.5〜10、`rate_hz`: 0.01〜10、`depth` / `width` / `mix`: 0〜1、`feedback`: -0.95〜0.95 | Chorusと同じ | `delay_ms` |
 | Phaser | `stages`: 2 / 4 / 6 / 8、`center_hz`: 100〜5000、`sweep_octaves`: 0.25〜6、`rate_hz`: 0.01〜8、`depth` / `width` / `mix`: 0〜1、`feedback`: -0.9〜0.9 | `rate_hz`、`depth`、`feedback`、`width`、`mix` | `stages`、`center_hz`、`sweep_octaves` |
 | Ladder Filter | `cutoff_hz`: 20〜20000 Hz、`resonance` / `drive`: 0〜1 | `cutoff`、`resonance`、`drive` | なし（cutoffの実効上限はSample Rate依存） |
-| Formant | `vowel_position` / `throat` / `mix`: 0〜1、`formant_shift_cents`: -2400〜2400、`profiles`: 1〜8個の5帯域Profile | `vowel_position`、`formant_shift`、`throat`、`mix` | `profiles` |
+| Formant | `vowel_position` / `throat` / `mix`: 0〜1、`formant_shift_cents`: 有限値（移動後の周波数・帯域幅が有限かつ正）、`profiles`: 1〜8個の5帯域Profile | `vowel_position`、`formant_shift`、`throat`、`mix` | `profiles` |
 | Frequency Shifter（Globalのみ） | `shift_hz`: -5000〜5000 Hz、`mix`: 0〜1 | `shift_hz`、`mix` | 127 framesの固定Latency |
 | Delay（Globalのみ） | `time.value`: Secondsは0.001〜8秒、Beatsは0.015625〜2 beats、`feedback`: 0〜0.95、`taps`: 最大8個、`mix`: 0〜1 | `feedback`、`mix` | `time`、`feedback_mode`、`taps`。最大4個、Runtime bufferは16秒まで |
 | Reverb（Globalのみ） | `pre_delay_seconds`: 0〜0.2秒、`decay`: 0〜0.98（大きいほど残響が長い）、`damping` / `width` / `mix`: 0〜1 | `decay`、`damping`、`width`、`mix` | `pre_delay_seconds` |
