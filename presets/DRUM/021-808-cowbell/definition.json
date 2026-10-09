@@ -1,0 +1,379 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "808 Cowbell",
+    "author": "claude-opus-5.5",
+    "description": "808系の2つの矩形波を約1.5倍の音程比で重ね、帯域を絞って金属的な響きにしたカウベル。発音直後の鋭い打撃が数十ミリ秒で静まり、短く鳴り続ける余韻へ移る二段の減衰を持つ。鍵盤に沿って音程が変わるためメロディとして刻め、Crunchで歪みによる荒い倍音、Velocityで打撃の強さが変わる。",
+    "category": "Drum",
+    "tags": [
+      "Metallic",
+      "Sharp",
+      "Percussive",
+      "Short"
+    ],
+    "recommended_range": {
+      "min_midi": 61,
+      "max_midi": 85
+    },
+    "preview": {
+      "tempo_bpm": 130,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 160,
+          "note": 73,
+          "velocity": 118
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 160,
+          "note": 73,
+          "velocity": 118
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 160,
+          "note": 76,
+          "velocity": 118
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 160,
+          "note": 73,
+          "velocity": 118
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 160,
+          "note": 78,
+          "velocity": 92
+        },
+        {
+          "tick": 1320,
+          "duration_ticks": 160,
+          "note": 76,
+          "velocity": 118
+        },
+        {
+          "tick": 1680,
+          "duration_ticks": 160,
+          "note": 71,
+          "velocity": 118
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 160,
+          "note": 73,
+          "velocity": 118
+        },
+        {
+          "tick": 2280,
+          "duration_ticks": 160,
+          "note": 73,
+          "velocity": 118
+        },
+        {
+          "tick": 2640,
+          "duration_ticks": 160,
+          "note": 76,
+          "velocity": 118
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 160,
+          "note": 80,
+          "velocity": 118
+        },
+        {
+          "tick": 3120,
+          "duration_ticks": 160,
+          "note": 78,
+          "velocity": 92
+        },
+        {
+          "tick": 3240,
+          "duration_ticks": 160,
+          "note": 76,
+          "velocity": 118
+        },
+        {
+          "tick": 3600,
+          "duration_ticks": 160,
+          "note": 78,
+          "velocity": 118
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 6,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "low",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -19.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0004,
+        "decay_seconds": 0.42,
+        "sustain_level": 0.0,
+        "release_seconds": 0.42
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "square"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "high",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -19.5,
+      "pan": 0.0,
+      "tuning_cents": 679.0,
+      "envelope": {
+        "attack_seconds": 0.0004,
+        "decay_seconds": 0.42,
+        "sustain_level": 0.0,
+        "release_seconds": 0.42
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "square"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "body",
+      "mode": "band_pass",
+      "cutoff_hz": 600.0,
+      "resonance": 0.18
+    },
+    {
+      "type": "filter",
+      "id": "low_cut",
+      "mode": "high_pass",
+      "cutoff_hz": 200.0,
+      "resonance": 0.0
+    },
+    {
+      "type": "drive",
+      "id": "crunch",
+      "amount": 0.08,
+      "mix": 1.0
+    },
+    {
+      "type": "eq",
+      "id": "tone",
+      "low_frequency_hz": 300.0,
+      "low_gain_db": 0.0,
+      "mid_frequency_hz": 2600.0,
+      "mid_gain_db": 2.0,
+      "mid_q": 1.2,
+      "high_frequency_hz": 8000.0,
+      "high_gain_db": -2.0
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.01,
+      "decay": 0.42,
+      "damping": 0.55,
+      "width": 0.9,
+      "mix": 0.1
+    },
+    {
+      "type": "limiter",
+      "id": "safety",
+      "ceiling_db": -3.0,
+      "release_ms": 60.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "strike",
+        "type": "mseg",
+        "initial_value": 1.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.012,
+              "unit": "seconds"
+            },
+            "target": 0.55,
+            "curve": "linear"
+          },
+          {
+            "duration": {
+              "value": 0.035,
+              "unit": "seconds"
+            },
+            "target": 0.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "strike",
+        "target": "layer.low.gain",
+        "depth": {
+          "value": 9.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "strike",
+        "target": "layer.high.gain",
+        "depth": {
+          "value": 9.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.low.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.high.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.body.cutoff",
+        "depth": {
+          "value": 5.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.low_cut.cutoff",
+        "depth": {
+          "value": 5.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.crunch",
+        "target": "voice.processor.crunch.amount",
+        "depth": {
+          "value": 0.7,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.crunch",
+        "target": "layer.low.gain",
+        "depth": {
+          "value": -8.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.crunch",
+        "target": "layer.high.gain",
+        "depth": {
+          "value": -8.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.body.resonance",
+        "depth": {
+          "value": 0.5,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.low.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.high.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "crunch",
+      "name": "Crunch",
+      "default": 0.0
+    }
+  ],
+  "vectors": []
+}
