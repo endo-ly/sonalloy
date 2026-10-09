@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "name": "Loose Sizzle Hat - Swung Eighths with Half-Open Accents",
+  "ticks_per_beat": 480,
+  "length_ticks": 3840,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 96
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 260,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 72
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 740,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 1220,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 72
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 1700,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 2180,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 72
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 2660,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 3140,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 72
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 3620,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 118
+    }
+  ]
+}

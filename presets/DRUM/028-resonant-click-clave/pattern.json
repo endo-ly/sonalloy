@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "name": "Resonant Click Clave - 3-2 Clave Rhythm",
+  "ticks_per_beat": 480,
+  "length_ticks": 3840,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 104
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 75,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 360,
+      "note": 75,
+      "duration_ticks": 120,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 75,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 75,
+      "duration_ticks": 120,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 75,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 75,
+      "duration_ticks": 120,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 2280,
+      "note": 75,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 75,
+      "duration_ticks": 120,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 75,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 75,
+      "duration_ticks": 120,
+      "velocity": 100
+    }
+  ]
+}

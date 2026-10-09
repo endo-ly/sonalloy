@@ -1,0 +1,283 @@
+{
+  "schema_version": 1,
+  "name": "Worn Tine Keys - Swung Voicings, Pedal and Fill",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 82
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 50,
+      "duration_ticks": 720,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 53,
+      "duration_ticks": 720,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 57,
+      "duration_ticks": 720,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 60,
+      "duration_ticks": 720,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 64,
+      "duration_ticks": 720,
+      "velocity": 86
+    },
+    {
+      "type": "note",
+      "tick": 1260,
+      "note": 50,
+      "duration_ticks": 480,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 1260,
+      "note": 53,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 1260,
+      "note": 57,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 1260,
+      "note": 60,
+      "duration_ticks": 480,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 1260,
+      "note": 64,
+      "duration_ticks": 480,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 53,
+      "duration_ticks": 720,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 57,
+      "duration_ticks": 720,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 59,
+      "duration_ticks": 720,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 64,
+      "duration_ticks": 720,
+      "velocity": 86
+    },
+    {
+      "type": "note",
+      "tick": 3180,
+      "note": 53,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 3180,
+      "note": 57,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 3180,
+      "note": 59,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 3180,
+      "note": 64,
+      "duration_ticks": 480,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 52,
+      "duration_ticks": 720,
+      "velocity": 86
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 55,
+      "duration_ticks": 720,
+      "velocity": 86
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 59,
+      "duration_ticks": 720,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 62,
+      "duration_ticks": 720,
+      "velocity": 80
+    },
+    {
+      "type": "sustain_pedal",
+      "tick": 3840,
+      "down": true
+    },
+    {
+      "type": "note",
+      "tick": 5100,
+      "note": 52,
+      "duration_ticks": 480,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 5100,
+      "note": 55,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 5100,
+      "note": 59,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 5100,
+      "note": 62,
+      "duration_ticks": 480,
+      "velocity": 70
+    },
+    {
+      "type": "sustain_pedal",
+      "tick": 5750,
+      "down": false
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 55,
+      "duration_ticks": 720,
+      "velocity": 86
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 61,
+      "duration_ticks": 720,
+      "velocity": 86
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 65,
+      "duration_ticks": 720,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 69,
+      "duration_ticks": 720,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 7020,
+      "note": 55,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 7020,
+      "note": 61,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 7020,
+      "note": 65,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 7020,
+      "note": 69,
+      "duration_ticks": 480,
+      "velocity": 66
+    },
+    {
+      "type": "note",
+      "tick": 7200,
+      "note": 72,
+      "duration_ticks": 200,
+      "velocity": 88
+    },
+    {
+      "type": "note",
+      "tick": 7500,
+      "note": 74,
+      "duration_ticks": 160,
+      "velocity": 80
+    }
+  ]
+}

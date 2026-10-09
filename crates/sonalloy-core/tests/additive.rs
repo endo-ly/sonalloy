@@ -648,6 +648,7 @@ fn additive_partial_envelopes_note_off_reset_and_voice_stealing_are_deterministi
     stealing_definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
         polyphony: 1,
         voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        choke_groups: Vec::new(),
     };
     let stealing = compile(&stealing_definition, 48_000.0, 257);
     let mut stealing_runtime = stealing.instantiate();

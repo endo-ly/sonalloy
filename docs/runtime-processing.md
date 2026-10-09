@@ -67,9 +67,10 @@ Envelope Followerの値はInstrument ScopeのSourceとしてRouteへ供給され
 ### 発音（Note On）
 
 1. Trigger条件（Event・Key・Velocity）に合うLayerを持つNoteだけを受け付けます
-2. Voiceを1つ選びます。空きVoice（Idle）を最優先し、なければ音量の最も小さいReleasing、次いで最古のActiveを奪います
-3. `note_on`のLayerを開始し、`note_off`のLayerは対応するNote Offまで待機させます。待機Layerは音を出さずNote IDだけ保持します
-4. Voiceを奪うときは、古い音を5msでフェードしてから新しいNoteを開始します（Voice Stealing）
+2. Keyが`performance.choke_groups`に属する場合は、同Groupの鳴っているNoteを5msでフェードし、同Groupの待機Noteを取り消します。他Groupの待機Noteは保持します
+3. Voiceを1つ選びます。Note Chokeで再利用できるVoiceを優先し、なければ空きVoice（Idle）、音量の最も小さいReleasing、最古のActiveの順に選びます
+4. `note_on`のLayerを開始し、`note_off`のLayerは対応するNote Offまで待機させます。待機Layerは音を出さずNote IDだけ保持します
+5. 発音中のVoiceを再利用するときは、古い音を5msでフェードしてから新しいNoteを開始します
 
 `choke_group`を持つLayerが発音すると、同じGroupの古いLayerだけを5msで消音します。ADSRのReleaseとは独立しており、Voice内の別GroupのLayerとGlobal Processorの残響は継続します。TriggerやSample Zoneに一致する発音LayerだけがChokeを起こし、Voice Stealingで開始を待つ古い同GroupのLayerも取り消します。消音済みLayerはNote OffやSustainで再開しません。
 
@@ -109,7 +110,7 @@ flowchart TD
 | **Processor** | 各配置で使える種類とFieldは[`references/processors.md`](../.agents/skills/create-instrument/references/processors.md)を参照。Dynamic ParameterはBlock内で滑らかに変化する。Modulation FXはGlobal Chainに1つのStateを共有し、Dynamicsは左右のPeakをリンクして判定する。Stereo GeneratorのLayer Stateは左右独立で、Mono GeneratorではMono側だけを確保する |
 | **Global Tail** | Global Delay・Reverb・Chorus・Flanger・PhaserはActive Voiceがいなくても毎Block処理する。Noteの終了やVoice Stealingで停止・初期化されない |
 
-### Note Off、Sustain、Stealing
+### Note Off、Sustain、Stealing、Choke
 
 | タイミング | 振る舞い |
 |---|---|
@@ -120,6 +121,7 @@ flowchart TD
 | Steal開始 | 古い音を5msで音量ゼロへFade。Steal中の待機Layerは発音しない |
 | Steal中のNote Off | 待機中の新しいNoteをキャンセルできる |
 | Steal完了 | 待機していたNoteを開始し、待機状態を破棄 |
+| Choke | 同じChoke GroupのNote Onで、鳴っている音を5msで音量ゼロへFadeしてIdleへ戻す。Steal中に待機しているNoteが同じGroupならキャンセルする |
 | Voiceの解放 | Active Layerと待機Layerがすべて終わったらIdleへ戻る |
 
 ```mermaid
@@ -130,9 +132,11 @@ stateDiagram-v2
     Active --> Releasing: Note Off（Sustain Up）
     Active --> Releasing: Pedal Up（Key Up済み）
     Releasing --> Idle: Release完了
-    Active --> StealFading: 別のNoteに奪われる
-    StealFading --> Active: Fade完了で新しいNoteを開始
-    StealFading --> Idle: 新しいNoteがキャンセル
+    Active --> FadingOut: 別のNoteに奪われる
+    Active --> FadingOut: 同じChoke GroupのNote On
+    Releasing --> FadingOut: 同じChoke GroupのNote On
+    FadingOut --> Active: Fade完了で新しいNoteを開始
+    FadingOut --> Idle: Fade完了で待機Noteなし（Choke、またはキャンセル）
 ```
 
 Sustain Down中のNote OffはReleaseを保留するだけなので、VoiceはActiveのまま残ります。保留中かどうかはKeyの押下状態とPedalの状態で管理し、保留中のVoiceも通常どおりVoice Stealingの対象です。

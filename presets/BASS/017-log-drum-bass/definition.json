@@ -1,0 +1,477 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Log Drum Bass",
+    "author": "claude-opus-5.5",
+    "description": "大きく下降する音程とFMの短い倍音で丸く弾ける、打楽器的な有音程ベース。木質の短いノックが発音の輪郭を作り、中域に寄った太い胴鳴りが0.5秒ほどで自然に減衰する。重ねて弾くとレガートで音程が滑り、ベロシティでアタックの硬さと明るさが変わる。",
+    "category": "Bass",
+    "tags": [
+      "Percussive",
+      "Punchy",
+      "Sub",
+      "Warm"
+    ],
+    "recommended_range": {
+      "min_midi": 33,
+      "max_midi": 57
+    },
+    "preview": {
+      "tempo_bpm": 113,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 7680,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 340,
+          "note": 41,
+          "velocity": 112
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 220,
+          "note": 41,
+          "velocity": 84
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 220,
+          "note": 44,
+          "velocity": 100
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 220,
+          "note": 41,
+          "velocity": 96
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 340,
+          "note": 48,
+          "velocity": 108
+        },
+        {
+          "tick": 1800,
+          "duration_ticks": 100,
+          "note": 46,
+          "velocity": 80
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 340,
+          "note": 39,
+          "velocity": 110
+        },
+        {
+          "tick": 2280,
+          "duration_ticks": 220,
+          "note": 39,
+          "velocity": 82
+        },
+        {
+          "tick": 2640,
+          "duration_ticks": 340,
+          "note": 41,
+          "velocity": 104
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 460,
+          "note": 41,
+          "velocity": 98
+        },
+        {
+          "tick": 3240,
+          "duration_ticks": 220,
+          "note": 44,
+          "velocity": 90
+        },
+        {
+          "tick": 3480,
+          "duration_ticks": 340,
+          "note": 36,
+          "velocity": 116
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 340,
+          "note": 41,
+          "velocity": 112
+        },
+        {
+          "tick": 4200,
+          "duration_ticks": 220,
+          "note": 41,
+          "velocity": 84
+        },
+        {
+          "tick": 4560,
+          "duration_ticks": 220,
+          "note": 44,
+          "velocity": 100
+        },
+        {
+          "tick": 5040,
+          "duration_ticks": 220,
+          "note": 41,
+          "velocity": 96
+        },
+        {
+          "tick": 5280,
+          "duration_ticks": 340,
+          "note": 48,
+          "velocity": 108
+        },
+        {
+          "tick": 5640,
+          "duration_ticks": 100,
+          "note": 46,
+          "velocity": 80
+        },
+        {
+          "tick": 5760,
+          "duration_ticks": 340,
+          "note": 39,
+          "velocity": 110
+        },
+        {
+          "tick": 6120,
+          "duration_ticks": 220,
+          "note": 39,
+          "velocity": 84
+        },
+        {
+          "tick": 6480,
+          "duration_ticks": 220,
+          "note": 41,
+          "velocity": 100
+        },
+        {
+          "tick": 6720,
+          "duration_ticks": 480,
+          "note": 44,
+          "velocity": 104
+        },
+        {
+          "tick": 6960,
+          "duration_ticks": 460,
+          "note": 48,
+          "velocity": 112
+        },
+        {
+          "tick": 7320,
+          "duration_ticks": 340,
+          "note": 41,
+          "velocity": 118
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": true,
+    "portamento": {
+      "time_seconds": 0.07
+    }
+  },
+  "layers": [
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -5.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 1.1,
+        "sustain_level": 0.0,
+        "release_seconds": 0.1
+      },
+      "generator": {
+        "operator_modulation": {
+          "mode": "phase",
+          "algorithm": "three_modulators",
+          "phase_reset": true,
+          "unison": null,
+          "operators": [
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.9,
+              "modulation_amount": 0.0,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1,
+                "sustain_level": 1.0,
+                "release_seconds": 0.12
+              }
+            },
+            {
+              "ratio": 1.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 1.1,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.16,
+                "sustain_level": 0.15,
+                "release_seconds": 0.12
+              }
+            },
+            {
+              "ratio": 2.0,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 0.5,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.06,
+                "sustain_level": 0.0,
+                "release_seconds": 0.06
+              }
+            },
+            {
+              "ratio": 3.47,
+              "detune_cents": 0.0,
+              "level": 0.0,
+              "modulation_amount": 0.35,
+              "feedback": 0.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.025,
+                "sustain_level": 0.0,
+                "release_seconds": 0.025
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "knock",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -4.0,
+      "pan": 0.0,
+      "tuning_cents": 1200.0,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.12,
+        "sustain_level": 0.0,
+        "release_seconds": 0.05
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "impulse",
+            "duration_seconds": 0.002,
+            "brightness": 0.55,
+            "seed": 5113
+          },
+          "mode_count": 8,
+          "structure": 0.32,
+          "brightness": 0.42,
+          "decay": 0.18
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "wood",
+          "mode": "band_pass",
+          "cutoff_hz": 700.0,
+          "resonance": 0.2
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "drive",
+      "id": "heat",
+      "amount": 0.32,
+      "mix": 0.5
+    },
+    {
+      "type": "eq",
+      "id": "shape",
+      "low_frequency_hz": 60.0,
+      "low_gain_db": 0.0,
+      "mid_frequency_hz": 380.0,
+      "mid_gain_db": 3.5,
+      "mid_q": 1.0,
+      "high_frequency_hz": 5000.0,
+      "high_gain_db": -4.0
+    },
+    {
+      "type": "ladder_filter",
+      "id": "tone",
+      "cutoff_hz": 3000.0,
+      "resonance": 0.05,
+      "drive": 0.0
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.008,
+      "decay": 0.35,
+      "damping": 0.6,
+      "width": 0.6,
+      "mix": 0.07
+    },
+    {
+      "type": "limiter",
+      "id": "safety",
+      "ceiling_db": -3.0,
+      "release_ms": 80.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drop",
+        "type": "mseg",
+        "initial_value": 1.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.015,
+              "unit": "seconds"
+            },
+            "target": 0.4,
+            "curve": "linear"
+          },
+          {
+            "duration": {
+              "value": 0.07,
+              "unit": "seconds"
+            },
+            "target": 0.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "drop",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 650.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.knock.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.generator.operator.2.modulation_amount",
+        "depth": {
+          "value": 0.8,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.knock",
+        "target": "layer.knock.gain",
+        "depth": {
+          "value": 8.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.knock",
+        "target": "layer.body.generator.operator.4.modulation_amount",
+        "depth": {
+          "value": 0.6,
+          "unit": "index"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.heat.amount",
+        "depth": {
+          "value": 0.4,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.body.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.knock.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "knock",
+      "name": "Knock",
+      "default": 0.5
+    }
+  ],
+  "vectors": []
+}

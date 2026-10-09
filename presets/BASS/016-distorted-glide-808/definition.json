@@ -1,0 +1,452 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Distorted Glide 808",
+    "author": "claude-opus-5.5",
+    "description": "Sine波の基音を強く飽和させ、オクターブ上の倍音と短いノックを重ねた歪んだ808。発音直後に音程が素早く下降して打撃の輪郭を作り、飽和で生まれた中低域の倍音が基音の上に明確な音程感を与える。重ねて弾くとレガートで音程が滑らかに移り、ベロシティとGritで歪みの量と荒さが大きく変わる。",
+    "category": "Bass",
+    "tags": [
+      "Sub",
+      "Rough",
+      "Punchy",
+      "Dense"
+    ],
+    "recommended_range": {
+      "min_midi": 24,
+      "max_midi": 55
+    },
+    "preview": {
+      "tempo_bpm": 140,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 7680,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 720,
+          "note": 29,
+          "velocity": 112
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 240,
+          "note": 29,
+          "velocity": 88
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 480,
+          "note": 29,
+          "velocity": 100
+        },
+        {
+          "tick": 1560,
+          "duration_ticks": 360,
+          "note": 41,
+          "velocity": 108
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 840,
+          "note": 32,
+          "velocity": 110
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 240,
+          "note": 32,
+          "velocity": 84
+        },
+        {
+          "tick": 3120,
+          "duration_ticks": 480,
+          "note": 32,
+          "velocity": 104
+        },
+        {
+          "tick": 3480,
+          "duration_ticks": 360,
+          "note": 27,
+          "velocity": 100
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 960,
+          "note": 29,
+          "velocity": 116
+        },
+        {
+          "tick": 4800,
+          "duration_ticks": 240,
+          "note": 36,
+          "velocity": 96
+        },
+        {
+          "tick": 5160,
+          "duration_ticks": 240,
+          "note": 39,
+          "velocity": 92
+        },
+        {
+          "tick": 5520,
+          "duration_ticks": 240,
+          "note": 41,
+          "velocity": 120
+        },
+        {
+          "tick": 5760,
+          "duration_ticks": 720,
+          "note": 29,
+          "velocity": 108
+        },
+        {
+          "tick": 6360,
+          "duration_ticks": 240,
+          "note": 36,
+          "velocity": 104
+        },
+        {
+          "tick": 6600,
+          "duration_ticks": 1080,
+          "note": 24,
+          "velocity": 118
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "monophonic",
+    "legato": true,
+    "portamento": {
+      "time_seconds": 0.09
+    }
+  },
+  "layers": [
+    {
+      "id": "sub",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -5.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 2.2,
+        "sustain_level": 0.28,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "waveshaping": {
+            "amount": 0.3
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "octave",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -20.0,
+      "pan": 0.0,
+      "tuning_cents": 1200.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 2.2,
+        "sustain_level": 0.28,
+        "release_seconds": 0.12
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0.0,
+          "waveshaping": {
+            "amount": 0.3
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "knock",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.0,
+      "pan": 0.0,
+      "tuning_cents": 1200.0,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.04,
+        "sustain_level": 0.0,
+        "release_seconds": 0.02
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": true,
+          "phase": 0.0
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "drive",
+      "id": "grit",
+      "amount": 0.45,
+      "mix": 0.85
+    },
+    {
+      "type": "ladder_filter",
+      "id": "tone",
+      "cutoff_hz": 3400.0,
+      "resonance": 0.04,
+      "drive": 0.1
+    },
+    {
+      "type": "eq",
+      "id": "shape",
+      "low_frequency_hz": 70.0,
+      "low_gain_db": 1.5,
+      "mid_frequency_hz": 420.0,
+      "mid_gain_db": -2.5,
+      "mid_q": 0.9,
+      "high_frequency_hz": 6000.0,
+      "high_gain_db": -3.0
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "limiter",
+      "id": "clip",
+      "ceiling_db": -3.0,
+      "release_ms": 80.0,
+      "input_gain_db": -10.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "drop",
+        "type": "mseg",
+        "initial_value": 1.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.012,
+              "unit": "seconds"
+            },
+            "target": 0.35,
+            "curve": "linear"
+          },
+          {
+            "duration": {
+              "value": 0.05,
+              "unit": "seconds"
+            },
+            "target": 0.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "drop",
+        "target": "layer.sub.tuning",
+        "depth": {
+          "value": 420.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "drop",
+        "target": "layer.knock.tuning",
+        "depth": {
+          "value": 420.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sub.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.knock.gain",
+        "depth": {
+          "value": 9.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "drop",
+        "target": "layer.octave.tuning",
+        "depth": {
+          "value": 420.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.octave.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.sub.generator.waveshape",
+        "depth": {
+          "value": 0.25,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.grit",
+        "target": "layer.sub.generator.waveshape",
+        "depth": {
+          "value": 0.6,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.grit",
+        "target": "layer.octave.generator.waveshape",
+        "depth": {
+          "value": 0.5,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.grit",
+        "target": "layer.octave.gain",
+        "depth": {
+          "value": 8.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.grit",
+        "target": "voice.processor.grit.amount",
+        "depth": {
+          "value": 0.5,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.grit",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.0,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.sub.generator.waveshape",
+        "depth": {
+          "value": 0.35,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.0,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.sub.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.knock.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.octave.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [
+    {
+      "id": "grit",
+      "name": "Grit",
+      "default": 0.55
+    }
+  ],
+  "vectors": []
+}

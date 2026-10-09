@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "name": "909 Open Hat - Off-Beat Line with Pickup",
+  "ticks_per_beat": 480,
+  "length_ticks": 3840,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 126
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 240,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 1680,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 3480,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 80
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 46,
+      "duration_ticks": 120,
+      "velocity": 120
+    }
+  ]
+}

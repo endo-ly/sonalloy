@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "name": "Bright Ping Ride - Swung Bow Pattern, Bell Quarters and a Crash-Ride Hit",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 110
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 740,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 78
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 1700,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 78
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 2660,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 78
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 3620,
+      "note": 51,
+      "duration_ticks": 120,
+      "velocity": 78
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 53,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 4320,
+      "note": 53,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 53,
+      "duration_ticks": 120,
+      "velocity": 110
+    },
+    {
+      "type": "note",
+      "tick": 5280,
+      "note": 53,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 51,
+      "duration_ticks": 960,
+      "velocity": 120
+    }
+  ]
+}

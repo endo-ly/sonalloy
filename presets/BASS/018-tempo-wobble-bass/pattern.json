@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "name": "Tempo Wobble Bass - Quarter and Eighth Wobbles with Rate Switch",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 140
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 31,
+      "duration_ticks": 930,
+      "velocity": 112
+    },
+    {
+      "type": "mod_wheel",
+      "tick": 0,
+      "value": 0.0
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 31,
+      "duration_ticks": 450,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 34,
+      "duration_ticks": 450,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 29,
+      "duration_ticks": 930,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 29,
+      "duration_ticks": 690,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 36,
+      "duration_ticks": 210,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 31,
+      "duration_ticks": 930,
+      "velocity": 112
+    },
+    {
+      "type": "mod_wheel",
+      "tick": 3840,
+      "value": 1.0
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 38,
+      "duration_ticks": 450,
+      "velocity": 104
+    },
+    {
+      "type": "note",
+      "tick": 5280,
+      "note": 34,
+      "duration_ticks": 450,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 27,
+      "duration_ticks": 930,
+      "velocity": 116
+    },
+    {
+      "type": "mod_wheel",
+      "tick": 5760,
+      "value": 0.0
+    },
+    {
+      "type": "note",
+      "tick": 6720,
+      "note": 29,
+      "duration_ticks": 930,
+      "velocity": 108
+    },
+    {
+      "type": "mod_wheel",
+      "tick": 6720,
+      "value": 1.0
+    }
+  ]
+}

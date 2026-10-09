@@ -1,0 +1,439 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Resonant Box Kalimba",
+    "author": "claude-opus-5.5",
+    "description": "基音と非整数比の高次モードを加算し、金属の舌の澄んだ鳴りと木箱の短い響きを持たせたカリンバ。発音直後の金属的なきらめきが先に消え、柔らかな基音が数秒かけて減衰する。短く弾いても余韻が重なって響き、ベロシティで爪の当たりと高次モードの明るさが変わる。",
+    "category": "Pluck",
+    "tags": [
+      "Plucky",
+      "Metallic",
+      "Warm",
+      "Long-Tail"
+    ],
+    "recommended_range": {
+      "min_midi": 55,
+      "max_midi": 91
+    },
+    "preview": {
+      "tempo_bpm": 100,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 6720,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 230,
+          "note": 60,
+          "velocity": 96
+        },
+        {
+          "tick": 240,
+          "duration_ticks": 230,
+          "note": 64,
+          "velocity": 80
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 230,
+          "note": 67,
+          "velocity": 88
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 230,
+          "note": 72,
+          "velocity": 84
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 230,
+          "note": 69,
+          "velocity": 92
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 230,
+          "note": 67,
+          "velocity": 76
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 230,
+          "note": 64,
+          "velocity": 84
+        },
+        {
+          "tick": 1680,
+          "duration_ticks": 230,
+          "note": 67,
+          "velocity": 72
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 230,
+          "note": 62,
+          "velocity": 96
+        },
+        {
+          "tick": 2160,
+          "duration_ticks": 230,
+          "note": 67,
+          "velocity": 78
+        },
+        {
+          "tick": 2400,
+          "duration_ticks": 230,
+          "note": 69,
+          "velocity": 86
+        },
+        {
+          "tick": 2640,
+          "duration_ticks": 230,
+          "note": 74,
+          "velocity": 82
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 230,
+          "note": 72,
+          "velocity": 100
+        },
+        {
+          "tick": 3120,
+          "duration_ticks": 230,
+          "note": 69,
+          "velocity": 74
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 230,
+          "note": 67,
+          "velocity": 82
+        },
+        {
+          "tick": 3600,
+          "duration_ticks": 230,
+          "note": 64,
+          "velocity": 70
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 960,
+          "note": 60,
+          "velocity": 104
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 960,
+          "note": 67,
+          "velocity": 92
+        },
+        {
+          "tick": 4320,
+          "duration_ticks": 480,
+          "note": 64,
+          "velocity": 84
+        },
+        {
+          "tick": 4560,
+          "duration_ticks": 470,
+          "note": 79,
+          "velocity": 80
+        },
+        {
+          "tick": 4800,
+          "duration_ticks": 1440,
+          "note": 72,
+          "velocity": 88
+        },
+        {
+          "tick": 4800,
+          "duration_ticks": 1440,
+          "note": 76,
+          "velocity": 98
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 16,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "tine",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -13.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 2.8,
+        "sustain_level": 0.0,
+        "release_seconds": 1.8
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 1.0,
+          "spectrum_tilt_db_per_octave": 0.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "fundamental",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.0
+            },
+            {
+              "id": "octave_buzz",
+              "ratio": 2.0,
+              "amplitude_a": 0.05,
+              "amplitude_b": 0.02,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.6,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2
+              }
+            },
+            {
+              "id": "second_mode",
+              "ratio": 6.27,
+              "amplitude_a": 0.5,
+              "amplitude_b": 0.16,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.45,
+                "sustain_level": 0.0,
+                "release_seconds": 0.15
+              }
+            },
+            {
+              "id": "third_mode",
+              "ratio": 17.55,
+              "amplitude_a": 0.32,
+              "amplitude_b": 0.05,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.08,
+                "sustain_level": 0.0,
+                "release_seconds": 0.05
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "thump",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -14.0,
+      "pan": 0.0,
+      "tuning_cents": -1200.0,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.08,
+        "sustain_level": 0.0,
+        "release_seconds": 0.04
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "impulse",
+            "duration_seconds": 0.002,
+            "brightness": 0.4,
+            "seed": 6627
+          },
+          "mode_count": 8,
+          "structure": 0.3,
+          "brightness": 0.35,
+          "decay": 0.12
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "nail",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -36.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.004,
+        "sustain_level": 0.0,
+        "release_seconds": 0.003
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 4410,
+          "stereo_correlation": 0.9
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "air",
+          "mode": "high_pass",
+          "cutoff_hz": 3500.0,
+          "resonance": 0.0
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "resonator",
+      "id": "box",
+      "frequency_hz": 280.0,
+      "decay_seconds": 0.12,
+      "damping": 0.6,
+      "mix": 0.18
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "eq",
+      "id": "color",
+      "low_frequency_hz": 140.0,
+      "low_gain_db": -4.0,
+      "mid_frequency_hz": 2500.0,
+      "mid_gain_db": 1.0,
+      "mid_q": 0.8,
+      "high_frequency_hz": 9000.0,
+      "high_gain_db": -1.5
+    },
+    {
+      "type": "delay",
+      "id": "echo",
+      "time": {
+        "value": 0.75,
+        "unit": "beats"
+      },
+      "feedback": 0.25,
+      "feedback_mode": "ping_pong",
+      "taps": [],
+      "mix": 0.09
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.012,
+      "decay": 0.55,
+      "damping": 0.5,
+      "width": 1.0,
+      "mix": 0.15
+    },
+    {
+      "type": "limiter",
+      "id": "safety",
+      "ceiling_db": -3.0,
+      "release_ms": 100.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.tine.generator.additive_morph",
+        "depth": {
+          "value": -1.0,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.tine.gain",
+        "depth": {
+          "value": 8.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.thump.gain",
+        "depth": {
+          "value": 8.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.nail.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.box.mix",
+        "depth": {
+          "value": 0.4,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.tine.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.thump.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -18,6 +18,8 @@ struct InspectReport {
     polyphony: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     voice_stealing: Option<&'static str>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    choke_groups: Vec<Vec<u8>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     legato: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2147,14 +2149,31 @@ fn inspect_modulated_range(
     })
 }
 
+fn inspect_choke_groups(groups: sonalloy_core::compiler::CompiledChokeGroups) -> Vec<Vec<u8>> {
+    let mut keys_by_group: Vec<Vec<u8>> = Vec::new();
+    for key in 0..=127 {
+        if let Some(group) = groups.group_of(key) {
+            let group = usize::from(group);
+            if keys_by_group.len() <= group {
+                keys_by_group.resize(group + 1, Vec::new());
+            }
+            keys_by_group[group].push(key);
+        }
+    }
+    keys_by_group
+}
+
 #[allow(clippy::too_many_lines)]
 fn make_inspect_report(
     compiled: &CompiledInstrument,
     diagnostics: Vec<Diagnostic>,
 ) -> InspectReport {
-    let (mode, polyphony, voice_stealing, legato, portamento_seconds) =
+    let (mode, polyphony, voice_stealing, choke_groups, legato, portamento_seconds) =
         match compiled.performance.mode {
-            sonalloy_core::compiler::CompiledPerformanceMode::Polyphonic { voice_stealing } => (
+            sonalloy_core::compiler::CompiledPerformanceMode::Polyphonic {
+                voice_stealing,
+                choke_groups,
+            } => (
                 "polyphonic",
                 Some(compiled.performance.voice_count),
                 Some(match voice_stealing {
@@ -2162,6 +2181,7 @@ fn make_inspect_report(
                         "quietest_releasing_then_oldest"
                     }
                 }),
+                inspect_choke_groups(choke_groups),
                 None,
                 None,
             ),
@@ -2172,6 +2192,7 @@ fn make_inspect_report(
                 "monophonic",
                 None,
                 None,
+                Vec::new(),
                 Some(legato),
                 portamento_frames
                     .map(|frames| frames_to_seconds(frames, compiled.process_sample_rate)),
@@ -2283,6 +2304,7 @@ fn make_inspect_report(
         voice_count: compiled.performance.voice_count,
         polyphony,
         voice_stealing,
+        choke_groups,
         legato,
         portamento_seconds,
         layer_alignment_latency_frames: compiled.layer_alignment_latency_frames(),
@@ -2366,6 +2388,9 @@ fn print_inspect(compiled: &CompiledInstrument, diagnostics: &[Diagnostic]) {
     }
     if let Some(voice_stealing) = report.voice_stealing {
         println!("voice stealing: {voice_stealing}");
+    }
+    for (index, keys) in report.choke_groups.iter().enumerate() {
+        println!("choke group {index}: keys {keys:?}");
     }
     if let Some(legato) = report.legato {
         println!("legato: {legato}");

@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "name": "Reverse Swell Pad - One-Bar Reverse Swells into Each Downbeat",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 128
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 57,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 60,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 64,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 67,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 53,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 57,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 60,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 65,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 55,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 59,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 62,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 67,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 52,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 55,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 59,
+      "duration_ticks": 1920,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 64,
+      "duration_ticks": 1920,
+      "velocity": 100
+    }
+  ]
+}

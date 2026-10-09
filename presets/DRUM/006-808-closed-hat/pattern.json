@@ -1,0 +1,335 @@
+{
+  "schema_version": 1,
+  "name": "808 Closed Hat - 16ths, Fill and Longer Decay",
+  "ticks_per_beat": 480,
+  "length_ticks": 5760,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 120
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 120,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 240,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 360,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 600,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 840,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 1080,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 1320,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 1560,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 1680,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 1800,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 2040,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 2280,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 2520,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 2760,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 3000,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 3240,
+      "note": 42,
+      "duration_ticks": 110,
+      "velocity": 62
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 42,
+      "duration_ticks": 50,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 3420,
+      "note": 42,
+      "duration_ticks": 50,
+      "velocity": 77
+    },
+    {
+      "type": "note",
+      "tick": 3480,
+      "note": 42,
+      "duration_ticks": 50,
+      "velocity": 84
+    },
+    {
+      "type": "note",
+      "tick": 3540,
+      "note": 42,
+      "duration_ticks": 50,
+      "velocity": 91
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 42,
+      "duration_ticks": 50,
+      "velocity": 98
+    },
+    {
+      "type": "note",
+      "tick": 3660,
+      "note": 42,
+      "duration_ticks": 50,
+      "velocity": 105
+    },
+    {
+      "type": "note",
+      "tick": 3720,
+      "note": 42,
+      "duration_ticks": 50,
+      "velocity": 112
+    },
+    {
+      "type": "note",
+      "tick": 3780,
+      "note": 42,
+      "duration_ticks": 50,
+      "velocity": 119
+    },
+    {
+      "type": "parameter_change",
+      "tick": 3840,
+      "parameter": "macro.decay",
+      "native_value": 0.6
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 42,
+      "duration_ticks": 220,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 4080,
+      "note": 42,
+      "duration_ticks": 220,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 4320,
+      "note": 42,
+      "duration_ticks": 220,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 4560,
+      "note": 42,
+      "duration_ticks": 220,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 42,
+      "duration_ticks": 220,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 5040,
+      "note": 42,
+      "duration_ticks": 220,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 5280,
+      "note": 42,
+      "duration_ticks": 220,
+      "velocity": 90
+    },
+    {
+      "type": "note",
+      "tick": 5520,
+      "note": 42,
+      "duration_ticks": 220,
+      "velocity": 118
+    }
+  ]
+}

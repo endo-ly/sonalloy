@@ -1,0 +1,285 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Resonant Click Clave",
+    "author": "claude-opus-5.5",
+    "description": "短いクリックの直後に、2.5kHz付近の強い共鳴が澄んで鳴るクラーベ。硬い木を打ち合わせたような乾いた響きが100ミリ秒ほどで消え、後には短い部屋鳴りだけが残る。速い刻みでも音が濁らずリズムの芯になり、ベロシティで当たりの強さと音量が変わる。",
+    "category": "Drum",
+    "tags": [
+      "Bright",
+      "Resonant",
+      "Sharp",
+      "Short"
+    ],
+    "recommended_range": {
+      "min_midi": 75,
+      "max_midi": 75
+    },
+    "preview": {
+      "tempo_bpm": 104,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 120,
+          "note": 75,
+          "velocity": 110
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 120,
+          "note": 75,
+          "velocity": 100
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 120,
+          "note": 75,
+          "velocity": 110
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 120,
+          "note": 75,
+          "velocity": 100
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 120,
+          "note": 75,
+          "velocity": 110
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 120,
+          "note": 75,
+          "velocity": 100
+        },
+        {
+          "tick": 2280,
+          "duration_ticks": 120,
+          "note": 75,
+          "velocity": 110
+        },
+        {
+          "tick": 2640,
+          "duration_ticks": 120,
+          "note": 75,
+          "velocity": 100
+        },
+        {
+          "tick": 3120,
+          "duration_ticks": 120,
+          "note": 75,
+          "velocity": 110
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 120,
+          "note": 75,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 6,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "wood",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -11.0,
+      "pan": 0.0,
+      "tuning_cents": 1188.0,
+      "envelope": {
+        "attack_seconds": 0.0002,
+        "decay_seconds": 0.13,
+        "sustain_level": 0.0,
+        "release_seconds": 0.13
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": 0.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "w0",
+              "ratio": 2.00662,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.11,
+                "sustain_level": 0.0,
+                "release_seconds": 0.11
+              }
+            },
+            {
+              "id": "w1",
+              "ratio": 2.04707,
+              "amplitude_a": 0.35,
+              "amplitude_b": 0.35,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.09,
+                "sustain_level": 0.0,
+                "release_seconds": 0.09
+              }
+            },
+            {
+              "id": "w2",
+              "ratio": 5.54247,
+              "amplitude_a": 0.22,
+              "amplitude_b": 0.22,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.03,
+                "sustain_level": 0.0,
+                "release_seconds": 0.03
+              }
+            },
+            {
+              "id": "w3",
+              "ratio": 9.62852,
+              "amplitude_a": 0.08,
+              "amplitude_b": 0.08,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.012,
+                "sustain_level": 0.0,
+                "release_seconds": 0.012
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "click",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -20.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0001,
+        "decay_seconds": 0.003,
+        "sustain_level": 0.0,
+        "release_seconds": 0.003
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 7501,
+          "stereo_correlation": 1.0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "band",
+          "mode": "band_pass",
+          "cutoff_hz": 4200.0,
+          "resonance": 0.3
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.012,
+      "decay": 0.4,
+      "damping": 0.5,
+      "width": 0.9,
+      "mix": 0.1
+    },
+    {
+      "type": "limiter",
+      "id": "safety",
+      "ceiling_db": -3.0,
+      "release_ms": 60.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "hit",
+        "type": "random",
+        "seed": 7502
+      }
+    ],
+    "routes": [
+      {
+        "source": "hit",
+        "target": "layer.wood.tuning",
+        "depth": {
+          "value": 8.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.wood.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.click.gain",
+        "depth": {
+          "value": 12.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.wood.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}
