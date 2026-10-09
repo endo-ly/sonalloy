@@ -1181,13 +1181,15 @@ fn bundled_asset_instrument(
         layer.enabled = false;
         instrument.layers.push(layer);
     }
+    // The convolution IR reaches the very same bytes through a second path, so both
+    // references must collapse onto a single stored asset.
     instrument
         .global_processors
         .push(ProcessorDefinition::Convolution(
             ConvolutionProcessorDefinition {
                 id: "room".to_owned(),
                 ir: AssetReference {
-                    path: sample.to_string_lossy().into_owned(),
+                    path: source_sample.to_string_lossy().into_owned(),
                     sha256: None,
                 },
                 gain_db: -12.0,

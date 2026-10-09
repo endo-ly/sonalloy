@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -10,6 +10,17 @@ use sonalloy_core::{Diagnostic, DiagnosticCode};
 
 use crate::command::render_bundle_demo;
 use crate::output::CliFailure;
+
+#[cfg(windows)]
+use std::os::windows::ffi::OsStrExt;
+#[cfg(windows)]
+use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
+#[cfg(windows)]
+use windows_sys::Win32::Storage::FileSystem::{
+    CreateFileW, DELETE, FILE_FLAG_BACKUP_SEMANTICS, FILE_RENAME_INFO, FILE_RENAME_INFO_0,
+    FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FileRenameInfoEx, OPEN_EXISTING,
+    SetFileInformationByHandle,
+};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -184,6 +195,7 @@ fn relocate_parts(
     definition: &mut serde_json::Value,
 ) -> Result<(), CliFailure> {
     let base = input.parent().unwrap_or_else(|| Path::new("."));
+    let mut hashes = HashMap::<PathBuf, String>::new();
     for (index, part) in source.parts.iter().enumerate() {
         let id = &part.definition.id;
         let instrument_path = super::resolve_reference_path(base, &part.definition.instrument);
@@ -192,19 +204,21 @@ fn relocate_parts(
         fs::create_dir_all(&destination).map_err(|error| {
             io_failure(&destination, "could not create instrument directory", error)
         })?;
-        relocate_assets(&mut instrument, &instrument_path, &destination).map_err(|mut error| {
-            for diagnostic in &mut error.diagnostics {
-                diagnostic.path = Some(format!(
-                    "parts[{index}].instrument.{}",
-                    diagnostic.path.as_deref().unwrap_or("assets")
-                ));
-                diagnostic.detail = Some(format!(
-                    "part {id}: {}",
-                    diagnostic.detail.as_deref().unwrap_or("")
-                ));
-            }
-            error
-        })?;
+        relocate_assets(&mut instrument, &instrument_path, &destination, &mut hashes).map_err(
+            |mut error| {
+                for diagnostic in &mut error.diagnostics {
+                    diagnostic.path = Some(format!(
+                        "parts[{index}].instrument.{}",
+                        diagnostic.path.as_deref().unwrap_or("assets")
+                    ));
+                    diagnostic.detail = Some(format!(
+                        "part {id}: {}",
+                        diagnostic.detail.as_deref().unwrap_or("")
+                    ));
+                }
+                error
+            },
+        )?;
         write_json(&destination.join("definition.json"), &instrument)?;
         let pattern = format!("patterns/{id}.json");
         let source_pattern = super::resolve_reference_path(base, &part.definition.pattern);
@@ -217,56 +231,34 @@ fn relocate_parts(
     Ok(())
 }
 
+/// Copies every asset referenced by one instrument into its bundle directory.
+///
+/// `hashes` carries the SHA-256 of each source across the whole bundle: samplers
+/// reference the same file from many zones, and each reference would otherwise copy
+/// and hash the whole file again before the duplicate is noticed.
 fn relocate_assets(
     definition: &mut InstrumentDefinition,
     source: &Path,
     destination: &Path,
+    hashes: &mut HashMap<PathBuf, String>,
 ) -> Result<(), CliFailure> {
     let base = source.parent().unwrap_or_else(|| Path::new("."));
     let assets = destination.join("assets");
     fs::create_dir_all(&assets)
         .map_err(|error| io_failure(&assets, "could not create assets directory", error))?;
-    let mut copied = HashMap::<String, String>::new();
+    let mut stored = HashMap::<String, String>::new();
     definition.try_for_each_asset_mut(|field, reference| {
         let path = super::resolve_reference_path(base, Path::new(&reference.path));
-        let metadata = fs::metadata(&path).map_err(|error| {
-            failure(
-                DiagnosticCode::AssetNotFound,
-                "could not inspect asset",
-                field,
-                format!("{}: {error}", path.display()),
-            )
-        })?;
-        if !metadata.is_file() {
-            return Err(failure(
-                DiagnosticCode::AssetNotFound,
-                "asset is not a regular file",
-                field,
-                path.display(),
-            ));
-        }
-        let mut input = File::open(&path).map_err(|error| {
-            failure(
-                DiagnosticCode::AssetNotFound,
-                "could not open asset",
-                field,
-                format!("{}: {error}", path.display()),
-            )
-        })?;
-        let mut temporary = tempfile::NamedTempFile::new_in(&assets)
-            .map_err(|error| io_failure(&assets, "could not stage asset", error))?;
-        std::io::copy(&mut input, &mut temporary).map_err(|error| {
-            failure(
-                DiagnosticCode::DefinitionError,
-                "could not copy asset",
-                field,
-                format!("{}: {error}", path.display()),
-            )
-        })?;
-        temporary
-            .flush()
-            .map_err(|error| io_failure(temporary.path(), "could not flush asset", error))?;
-        let hash = hash_file(temporary.path())?;
+        let mut staged = None;
+        let hash = if let Some(hash) = hashes.get(&path) {
+            hash.clone()
+        } else {
+            let file = stage_asset(&assets, field, &path)?;
+            let hash = hash_file(file.path())?;
+            hashes.insert(path.clone(), hash.clone());
+            staged = Some(file);
+            hash
+        };
         if let Some(expected) = &reference.sha256
             && !expected.eq_ignore_ascii_case(&hash)
         {
@@ -277,41 +269,96 @@ fn relocate_assets(
                 format!("{}: expected {expected}, actual {hash}", path.display()),
             ));
         }
-        let relative = if let Some(relative) = copied.get(&hash) {
+        let relative = if let Some(relative) = stored.get(&hash) {
             relative.clone()
         } else {
-            let extension = path
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .unwrap_or("");
-            if !extension.is_empty()
-                && (!valid_path(extension)
-                    || extension.contains(['/', '<', '>', '"', '|', '?', '*'])
-                    || extension.chars().any(char::is_control)
-                    || extension.ends_with(' '))
-            {
-                return Err(failure(
-                    DiagnosticCode::DefinitionError,
-                    "unsafe asset extension",
-                    field,
-                    path.display(),
-                ));
-            }
-            let name = if extension.is_empty() {
-                hash.clone()
+            let name = asset_name(&hash, &path, field)?;
+            let file = if let Some(file) = staged {
+                file
             } else {
-                format!("{hash}.{}", extension.to_ascii_lowercase())
+                stage_asset(&assets, field, &path)?
             };
-            temporary
-                .persist_noclobber(assets.join(&name))
+            file.persist_noclobber(assets.join(&name))
                 .map_err(|error| io_failure(&path, "could not store asset", error))?;
             let relative = format!("assets/{name}");
-            copied.insert(hash.clone(), relative.clone());
+            stored.insert(hash.clone(), relative.clone());
             relative
         };
         reference.path = relative;
         reference.sha256 = Some(hash);
         Ok(())
+    })
+}
+
+/// Copies one source asset next to its instrument so that it can be hashed, and later
+/// persisted under its content-addressed name.
+fn stage_asset(
+    assets: &Path,
+    field: &str,
+    path: &Path,
+) -> Result<tempfile::NamedTempFile, CliFailure> {
+    let metadata = fs::metadata(path).map_err(|error| {
+        failure(
+            DiagnosticCode::AssetNotFound,
+            "could not inspect asset",
+            field,
+            format!("{}: {error}", path.display()),
+        )
+    })?;
+    if !metadata.is_file() {
+        return Err(failure(
+            DiagnosticCode::AssetNotFound,
+            "asset is not a regular file",
+            field,
+            path.display(),
+        ));
+    }
+    let mut input = File::open(path).map_err(|error| {
+        failure(
+            DiagnosticCode::AssetNotFound,
+            "could not open asset",
+            field,
+            format!("{}: {error}", path.display()),
+        )
+    })?;
+    let mut staged = tempfile::NamedTempFile::new_in(assets)
+        .map_err(|error| io_failure(assets, "could not stage asset", error))?;
+    std::io::copy(&mut input, &mut staged).map_err(|error| {
+        failure(
+            DiagnosticCode::DefinitionError,
+            "could not copy asset",
+            field,
+            format!("{}: {error}", path.display()),
+        )
+    })?;
+    staged
+        .flush()
+        .map_err(|error| io_failure(staged.path(), "could not flush asset", error))?;
+    Ok(staged)
+}
+
+fn asset_name(hash: &str, path: &Path, field: &str) -> Result<String, CliFailure> {
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or("");
+    if !extension.is_empty()
+        && (!valid_path(extension)
+            || extension.contains(['/', '<', '>', '"', '|', '?', '*'])
+            || extension.chars().any(char::is_control)
+            || extension.ends_with(' '))
+    {
+        return Err(failure(
+            DiagnosticCode::DefinitionError,
+            "unsafe asset extension",
+            field,
+            path.display(),
+        ));
+    }
+    Ok(if extension.is_empty() {
+        hash.to_owned()
+    } else {
+        format!("{hash}.{}", extension.to_ascii_lowercase())
     })
 }
 
@@ -491,6 +538,8 @@ fn reject_existing_output(output: &Path) -> Result<(), CliFailure> {
     }
 }
 
+/// Commits the staged bundle by renaming it, without ever taking over a name that
+/// something else owns.
 #[cfg(unix)]
 fn commit_directory(source: &Path, destination: &Path) -> std::io::Result<()> {
     rustix::fs::renameat_with(
@@ -503,9 +552,100 @@ fn commit_directory(source: &Path, destination: &Path) -> std::io::Result<()> {
     .map_err(Into::into)
 }
 
+/// Commits the staged bundle by renaming it, without ever taking over a name that
+/// something else owns.
 #[cfg(windows)]
 fn commit_directory(source: &Path, destination: &Path) -> std::io::Result<()> {
-    fs::rename(source, destination)
+    let source = OwnedHandle::open_directory(source)?;
+    let request = rename_request(destination)?;
+    let size = byte_length(request.len())?;
+    // SAFETY: `source` is a directory handle opened for renaming and `request` is a
+    // `FILE_RENAME_INFO` header followed by the file name it announces.
+    let renamed = unsafe {
+        SetFileInformationByHandle(source.0, FileRenameInfoEx, request.as_ptr().cast(), size)
+    };
+    if renamed == 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+/// Encodes `FileRenameInformationEx` without `FILE_RENAME_FLAG_REPLACE_IF_EXISTS`, so
+/// the kernel rejects the rename as soon as any file or directory already owns the
+/// destination name. That is the guarantee `fs::rename` and `MoveFileEx` lack: both
+/// replace an existing empty directory instead of failing. The information class
+/// needs Windows 10 1709 or newer.
+#[cfg(windows)]
+fn rename_request(destination: &Path) -> std::io::Result<Vec<u8>> {
+    let name: Vec<u8> = std::path::absolute(destination)?
+        .as_os_str()
+        .encode_wide()
+        .flat_map(u16::to_ne_bytes)
+        .collect();
+    let header = FILE_RENAME_INFO {
+        Anonymous: FILE_RENAME_INFO_0 { Flags: 0 },
+        RootDirectory: std::ptr::null_mut(),
+        FileNameLength: byte_length(name.len())?,
+        FileName: [0],
+    };
+    let minimum = std::mem::size_of::<FILE_RENAME_INFO>();
+    let mut request = Vec::with_capacity(minimum + name.len());
+    // SAFETY: `header` is a live `FILE_RENAME_INFO` and the prefix stops at `FileName`.
+    request.extend_from_slice(unsafe {
+        std::slice::from_raw_parts(
+            std::ptr::from_ref(&header).cast::<u8>(),
+            std::mem::offset_of!(FILE_RENAME_INFO, FileName),
+        )
+    });
+    request.extend_from_slice(&name);
+    // The structure is padded to its own size after the name it carries.
+    request.resize(request.len().max(minimum), 0);
+    Ok(request)
+}
+
+#[cfg(windows)]
+fn byte_length(bytes: usize) -> std::io::Result<u32> {
+    u32::try_from(bytes)
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "path is too long"))
+}
+
+/// A directory handle that `SetFileInformationByHandle` can rename.
+#[cfg(windows)]
+struct OwnedHandle(HANDLE);
+
+#[cfg(windows)]
+impl OwnedHandle {
+    fn open_directory(path: &Path) -> std::io::Result<Self> {
+        // `CreateFileW` needs a null-terminated wide string.
+        let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+        // SAFETY: `path` is null-terminated and the remaining arguments request an
+        // existing directory opened only for renaming.
+        let handle = unsafe {
+            CreateFileW(
+                path.as_ptr(),
+                DELETE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                std::ptr::null(),
+                OPEN_EXISTING,
+                FILE_FLAG_BACKUP_SEMANTICS,
+                std::ptr::null_mut(),
+            )
+        };
+        if handle == INVALID_HANDLE_VALUE {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(Self(handle))
+    }
+}
+
+#[cfg(windows)]
+impl Drop for OwnedHandle {
+    fn drop(&mut self) {
+        // SAFETY: the handle is opened once and closed once, by this drop.
+        unsafe {
+            CloseHandle(self.0);
+        }
+    }
 }
 
 fn io_failure(path: &Path, message: &str, error: impl std::fmt::Display) -> CliFailure {
