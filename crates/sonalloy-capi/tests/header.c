@@ -7,5 +7,5 @@ int main(void) {
     };
     (void)spec;
     (void)context;
-    return (int)sonalloy_c_api_version();
+    return sonalloy_c_api_version() == SONALLOY_C_API_VERSION ? 0 : 1;
 }

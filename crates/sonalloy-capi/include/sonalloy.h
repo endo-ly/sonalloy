@@ -130,6 +130,8 @@ enum {
     SONALLOY_CAPABILITY_NEURAL_BACKEND = 7
 };
 
+#define SONALLOY_C_API_VERSION 2u
+
 uint32_t sonalloy_c_api_version(void);
 SonalloyResult sonalloy_has_capability(uint32_t capability, uint8_t* out_supported);
 
