@@ -1,0 +1,435 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Pumping Supersaw Chord",
+    "author": "claude-opus-5.5",
+    "description": "7声と5声のUnison Saw波を重ねた、明るく左右に広がるスーパーソウのコード音源。発音を起点に1拍周期で音量が深く沈んでから持ち上がるポンピングを内蔵し、保持中も拍に沿った起伏が続く。拍頭で弾いた和音はポンピングと揃い、ベロシティとMod Wheelでフィルターの明るさが大きく開く。",
+    "category": "Keys",
+    "tags": [
+      "Bright",
+      "Wide",
+      "Detuned",
+      "Dense",
+      "Rhythmic"
+    ],
+    "recommended_range": {
+      "min_midi": 48,
+      "max_midi": 84
+    },
+    "preview": {
+      "tempo_bpm": 150,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 7680,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 1860,
+          "note": 53,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1860,
+          "note": 57,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1860,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1860,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 0,
+          "duration_ticks": 1860,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 1860,
+          "note": 55,
+          "velocity": 100
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 1860,
+          "note": 59,
+          "velocity": 100
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 1860,
+          "note": 62,
+          "velocity": 100
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 1860,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 1860,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 1860,
+          "note": 52,
+          "velocity": 100
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 1860,
+          "note": 55,
+          "velocity": 100
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 1860,
+          "note": 59,
+          "velocity": 100
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 1860,
+          "note": 62,
+          "velocity": 100
+        },
+        {
+          "tick": 3840,
+          "duration_ticks": 1860,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 5760,
+          "duration_ticks": 1860,
+          "note": 57,
+          "velocity": 100
+        },
+        {
+          "tick": 5760,
+          "duration_ticks": 1860,
+          "note": 60,
+          "velocity": 100
+        },
+        {
+          "tick": 5760,
+          "duration_ticks": 1860,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 5760,
+          "duration_ticks": 1860,
+          "note": 67,
+          "velocity": 100
+        },
+        {
+          "tick": 5760,
+          "duration_ticks": 1860,
+          "note": 71,
+          "velocity": 100
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "saw",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -12.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.8,
+        "sustain_level": 0.82,
+        "release_seconds": 0.32
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": false,
+          "phase": 0.0,
+          "unison": {
+            "voices": 7,
+            "detune_cents": 24.0,
+            "stereo_spread": 0.85,
+            "phase_spread": 1.0
+          }
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "shine",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -22.0,
+      "pan": 0.0,
+      "tuning_cents": 1200.0,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.8,
+        "sustain_level": 0.82,
+        "release_seconds": 0.32
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "saw"
+          },
+          "phase_reset": false,
+          "phase": 0.0,
+          "unison": {
+            "voices": 5,
+            "detune_cents": 16.0,
+            "stereo_spread": 1.0,
+            "phase_spread": 1.0
+          }
+        }
+      },
+      "processors": []
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "low_cut",
+      "mode": "high_pass",
+      "cutoff_hz": 150.0,
+      "resonance": 0.0
+    },
+    {
+      "type": "filter",
+      "id": "tone",
+      "mode": "low_pass",
+      "cutoff_hz": 4200.0,
+      "resonance": 0.12
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "eq",
+      "id": "color",
+      "low_frequency_hz": 200.0,
+      "low_gain_db": -1.5,
+      "mid_frequency_hz": 600.0,
+      "mid_gain_db": -2.0,
+      "mid_q": 0.8,
+      "high_frequency_hz": 9000.0,
+      "high_gain_db": 2.0
+    },
+    {
+      "type": "chorus",
+      "id": "widen",
+      "delay_ms": 12.0,
+      "rate_hz": 0.35,
+      "depth": 0.25,
+      "feedback": 0.0,
+      "width": 1.0,
+      "mix": 0.22
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.02,
+      "decay": 0.62,
+      "damping": 0.45,
+      "width": 1.0,
+      "mix": 0.16
+    },
+    {
+      "type": "limiter",
+      "id": "safety",
+      "ceiling_db": -3.0,
+      "release_ms": 120.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "pump",
+        "type": "mseg",
+        "initial_value": -1.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.08,
+              "unit": "beats"
+            },
+            "target": -0.45,
+            "curve": "linear"
+          },
+          {
+            "duration": {
+              "value": 0.3,
+              "unit": "beats"
+            },
+            "target": 0.0,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.57,
+              "unit": "beats"
+            },
+            "target": 0.0,
+            "curve": "linear"
+          },
+          {
+            "duration": {
+              "value": 0.05,
+              "unit": "beats"
+            },
+            "target": -1.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 0,
+          "end_segment": 4
+        }
+      },
+      {
+        "id": "tone_env",
+        "type": "envelope",
+        "attack_seconds": 0.0,
+        "decay_seconds": 0.35,
+        "sustain_level": 0.0,
+        "release_seconds": 0.2
+      }
+    ],
+    "routes": [
+      {
+        "source": "pump",
+        "target": "layer.saw.gain",
+        "depth": {
+          "value": 13.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pump",
+        "target": "layer.shine.gain",
+        "depth": {
+          "value": 13.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "tone_env",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 1.0,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.8,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.saw.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.shine.gain",
+        "depth": {
+          "value": 4.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 2.2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "voice.processor.tone.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.saw.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.shine.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "name": "Dusty Crushed Hat - Swung Eighths with Ghost Notes",
+  "ticks_per_beat": 480,
+  "length_ticks": 3840,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 84
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 280,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 74
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 760,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 74
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 1240,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 74
+    },
+    {
+      "type": "note",
+      "tick": 1340,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 52
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 1720,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 74
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 2200,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 74
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 2680,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 74
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 3160,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 74
+    },
+    {
+      "type": "note",
+      "tick": 3260,
+      "note": 42,
+      "duration_ticks": 60,
+      "velocity": 52
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 3640,
+      "note": 42,
+      "duration_ticks": 120,
+      "velocity": 74
+    }
+  ]
+}

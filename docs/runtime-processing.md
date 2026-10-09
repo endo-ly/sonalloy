@@ -70,6 +70,7 @@ Envelope Followerの値はInstrument ScopeのSourceとしてRouteへ供給され
 2. Voiceを1つ選びます。空きVoice（Idle）を最優先し、なければ音量の最も小さいReleasing、次いで最古のActiveを奪います
 3. `note_on`のLayerを開始し、`note_off`のLayerは対応するNote Offまで待機させます。待機Layerは音を出さずNote IDだけ保持します
 4. Voiceを奪うときは、古い音を5msでフェードしてから新しいNoteを開始します（Voice Stealing）
+5. NoteのKeyがChoke Groupに属する場合は、同じGroupのKeyで鳴っているNoteと待機中のNoteを止めます。鳴っている音は5msでフェードしてIdleへ戻ります（Choke）
 
 ### Voiceの中の信号経路
 
@@ -107,7 +108,7 @@ flowchart TD
 | **Processor** | 各配置で使える種類とFieldは[`references/processors.md`](../.agents/skills/create-instrument/references/processors.md)を参照。Dynamic ParameterはBlock内で滑らかに変化する。Modulation FXはGlobal Chainに1つのStateを共有し、Dynamicsは左右のPeakをリンクして判定する。Stereo GeneratorのLayer Stateは左右独立で、Mono GeneratorではMono側だけを確保する |
 | **Global Tail** | Global Delay・Reverb・Chorus・Flanger・PhaserはActive Voiceがいなくても毎Block処理する。Noteの終了やVoice Stealingで停止・初期化されない |
 
-### Note Off、Sustain、Stealing
+### Note Off、Sustain、Stealing、Choke
 
 | タイミング | 振る舞い |
 |---|---|
@@ -118,6 +119,7 @@ flowchart TD
 | Steal開始 | 古い音を5msで音量ゼロへFade。Steal中の待機Layerは発音しない |
 | Steal中のNote Off | 待機中の新しいNoteをキャンセルできる |
 | Steal完了 | 待機していたNoteを開始し、待機状態を破棄 |
+| Choke | 同じChoke GroupのNote Onで、鳴っている音を5msで音量ゼロへFadeしてIdleへ戻す。Steal中に待機しているNoteが同じGroupならキャンセルする |
 | Voiceの解放 | Active Layerと待機Layerがすべて終わったらIdleへ戻る |
 
 ```mermaid
@@ -128,9 +130,11 @@ stateDiagram-v2
     Active --> Releasing: Note Off（Sustain Up）
     Active --> Releasing: Pedal Up（Key Up済み）
     Releasing --> Idle: Release完了
-    Active --> StealFading: 別のNoteに奪われる
-    StealFading --> Active: Fade完了で新しいNoteを開始
-    StealFading --> Idle: 新しいNoteがキャンセル
+    Active --> FadingOut: 別のNoteに奪われる
+    Active --> FadingOut: 同じChoke GroupのNote On
+    Releasing --> FadingOut: 同じChoke GroupのNote On
+    FadingOut --> Active: Fade完了で新しいNoteを開始
+    FadingOut --> Idle: Fade完了で待機Noteなし（Choke、またはキャンセル）
 ```
 
 Sustain Down中のNote OffはReleaseを保留するだけなので、VoiceはActiveのまま残ります。保留中かどうかはKeyの押下状態とPedalの状態で管理し、保留中のVoiceも通常どおりVoice Stealingの対象です。

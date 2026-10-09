@@ -87,7 +87,7 @@ presets/
 | `category` | 音源の主な役割。カテゴリ表の表示名と一致させる |
 | `description` | 音そのものを説明する文章 |
 | `tags` | 音の特徴を検索するための語彙 |
-| `recommended_range` | 推奨演奏音域 |
+| `recommended_range` | 推奨演奏音域。奏法を鍵盤で弾き分ける音源では、奏法を割り当てた鍵盤の範囲 |
 
 ### `name`
 

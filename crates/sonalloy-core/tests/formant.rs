@@ -527,6 +527,7 @@ fn formant_reset_voice_stealing_and_block_sizes_are_deterministic() {
     definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
         polyphony: 1,
         voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        choke_groups: Vec::new(),
     };
     let compiled = compile(&definition, 48_000.0, 1_024);
     let spec = ProcessSpec::new(48_000.0, 1_024, 0, 2).expect("valid spec");

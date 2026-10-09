@@ -122,9 +122,12 @@ Previewの音楽時間は`length_ticks / ticks_per_beat * 60 / tempo_bpm`で計�
 "performance": {
   "mode": "polyphonic",
   "polyphony": 16,
-  "voice_stealing": "quietest_releasing_then_oldest"
+  "voice_stealing": "quietest_releasing_then_oldest",
+  "choke_groups": [{ "keys": [42, 44, 46] }]
 }
 ```
+
+`choke_groups`は省略可能で、互いに音を止め合うKeyの集合を並べます。Groupに属するKeyのNote Onは、同じGroupのKeyで鳴っているNoteを5msでフェードして止めます。同じKeyの再発音も前の音を止めます。オープンハイハットをクローズドで止めるような、同じ楽器の奏法どうしの関係に使います。各Groupは1個以上のKey（0〜127）を持ち、1つのKeyは1つのGroupにだけ属せます。
 
 ### Monophonic
 
@@ -138,7 +141,7 @@ Previewの音楽時間は`length_ticks / ticks_per_beat * 60 / tempo_bpm`で計�
 }
 ```
 
-`portamento.time_seconds`は0より大きく10秒以下です。Monophonicでは`polyphony`と`voice_stealing`を指定しません。
+`portamento.time_seconds`は0より大きく10秒以下です。Monophonicでは`polyphony`、`voice_stealing`、`choke_groups`を指定しません。
 
 ## Layer
 

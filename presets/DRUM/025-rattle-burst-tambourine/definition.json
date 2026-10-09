@@ -1,0 +1,1256 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Rattle Burst Tambourine",
+    "author": "claude-opus-5.5",
+    "description": "金属の鈴が短い間に何度も打ち合って連なり、皮の短い当たりを伴うタンバリン。発音直後の数十ミリ秒に鈴の当たりが連なって弾け、明るい余韻が0.2秒ほどで収まる。叩くたびに鈴の鳴り方が少しずつ変わり、ベロシティで鈴の量と皮の当たりの強さが変わる。",
+    "category": "Drum",
+    "tags": [
+      "Metallic",
+      "Bright",
+      "Percussive",
+      "Short"
+    ],
+    "recommended_range": {
+      "min_midi": 54,
+      "max_midi": 54
+    },
+    "preview": {
+      "tempo_bpm": 112,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 70
+        },
+        {
+          "tick": 240,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 82
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 116
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 82
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 70
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 82
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 116
+        },
+        {
+          "tick": 1680,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 82
+        },
+        {
+          "tick": 1800,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 64
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 70
+        },
+        {
+          "tick": 2160,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 82
+        },
+        {
+          "tick": 2400,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 116
+        },
+        {
+          "tick": 2640,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 82
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 70
+        },
+        {
+          "tick": 3120,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 82
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 116
+        },
+        {
+          "tick": 3600,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 82
+        },
+        {
+          "tick": 3720,
+          "duration_ticks": 120,
+          "note": 54,
+          "velocity": 64
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "zils",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -21.0,
+      "pan": 0.0,
+      "tuning_cents": 1188.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.22,
+        "sustain_level": 0.0,
+        "release_seconds": 0.22
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": false,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": 0.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "z0",
+              "ratio": 13.11919,
+              "amplitude_a": 0.7583,
+              "amplitude_b": 0.7583,
+              "phase": 0.8285,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1398280593973648,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1751159624177906
+              }
+            },
+            {
+              "id": "z1",
+              "ratio": 13.3319,
+              "amplitude_a": 0.7912,
+              "amplitude_b": 0.7912,
+              "phase": 0.3966,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.18691166318707242,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1473140688233825
+              }
+            },
+            {
+              "id": "z2",
+              "ratio": 13.62155,
+              "amplitude_a": 0.3306,
+              "amplitude_b": 0.3306,
+              "phase": 0.8354,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.17865631105341806,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1959184232725313
+              }
+            },
+            {
+              "id": "z3",
+              "ratio": 13.69835,
+              "amplitude_a": 0.4878,
+              "amplitude_b": 0.4878,
+              "phase": 0.1576,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.145616803600501,
+                "sustain_level": 0.0,
+                "release_seconds": 0.19134119922677267
+              }
+            },
+            {
+              "id": "z4",
+              "ratio": 13.90609,
+              "amplitude_a": 0.797,
+              "amplitude_b": 0.797,
+              "phase": 0.5754,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.15550084203739034,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14874731697611626
+              }
+            },
+            {
+              "id": "z5",
+              "ratio": 14.23198,
+              "amplitude_a": 0.4975,
+              "amplitude_b": 0.4975,
+              "phase": 0.7891,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.18579086543610945,
+                "sustain_level": 0.0,
+                "release_seconds": 0.13000284263161963
+              }
+            },
+            {
+              "id": "z6",
+              "ratio": 14.46003,
+              "amplitude_a": 0.4514,
+              "amplitude_b": 0.4514,
+              "phase": 0.5061,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.15759694810677125,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1488958632454701
+              }
+            },
+            {
+              "id": "z7",
+              "ratio": 14.63007,
+              "amplitude_a": 0.8849,
+              "amplitude_b": 0.8849,
+              "phase": 0.0217,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.12989072517743966,
+                "sustain_level": 0.0,
+                "release_seconds": 0.15860223828852896
+              }
+            },
+            {
+              "id": "z8",
+              "ratio": 14.80061,
+              "amplitude_a": 0.8879,
+              "amplitude_b": 0.8879,
+              "phase": 0.363,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1186645092199427,
+                "sustain_level": 0.0,
+                "release_seconds": 0.12996642089141147
+              }
+            },
+            {
+              "id": "z9",
+              "ratio": 15.02979,
+              "amplitude_a": 0.8495,
+              "amplitude_b": 0.8495,
+              "phase": 0.6324,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.17611972071994964,
+                "sustain_level": 0.0,
+                "release_seconds": 0.09852312174664063
+              }
+            },
+            {
+              "id": "z10",
+              "ratio": 15.2624,
+              "amplitude_a": 0.8798,
+              "amplitude_b": 0.8798,
+              "phase": 0.7794,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.10972925851187429,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14956982822158832
+              }
+            },
+            {
+              "id": "z11",
+              "ratio": 15.47479,
+              "amplitude_a": 0.4735,
+              "amplitude_b": 0.4735,
+              "phase": 0.7198,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.09059578511995861,
+                "sustain_level": 0.0,
+                "release_seconds": 0.08874470936984091
+              }
+            },
+            {
+              "id": "z12",
+              "ratio": 15.69707,
+              "amplitude_a": 0.8348,
+              "amplitude_b": 0.8348,
+              "phase": 0.2155,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1692260125603055,
+                "sustain_level": 0.0,
+                "release_seconds": 0.0757241687901424
+              }
+            },
+            {
+              "id": "z13",
+              "ratio": 15.98711,
+              "amplitude_a": 0.8305,
+              "amplitude_b": 0.8305,
+              "phase": 0.5652,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.11688025150662015,
+                "sustain_level": 0.0,
+                "release_seconds": 0.16347100304665846
+              }
+            },
+            {
+              "id": "z14",
+              "ratio": 16.27374,
+              "amplitude_a": 0.6307,
+              "amplitude_b": 0.6307,
+              "phase": 0.4433,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.19103149618895288,
+                "sustain_level": 0.0,
+                "release_seconds": 0.10207260555346742
+              }
+            },
+            {
+              "id": "z15",
+              "ratio": 16.40858,
+              "amplitude_a": 0.9674,
+              "amplitude_b": 0.9674,
+              "phase": 0.1032,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.114754319428899,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1369991189286619
+              }
+            },
+            {
+              "id": "z16",
+              "ratio": 16.65007,
+              "amplitude_a": 0.8866,
+              "amplitude_b": 0.8866,
+              "phase": 0.1072,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.15540015053267248,
+                "sustain_level": 0.0,
+                "release_seconds": 0.16068291104424376
+              }
+            },
+            {
+              "id": "z17",
+              "ratio": 16.92474,
+              "amplitude_a": 0.5839,
+              "amplitude_b": 0.5839,
+              "phase": 0.8379,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.10901520661647562,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1702088482768793
+              }
+            },
+            {
+              "id": "z18",
+              "ratio": 17.15976,
+              "amplitude_a": 0.662,
+              "amplitude_b": 0.662,
+              "phase": 0.997,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.08646585211922853,
+                "sustain_level": 0.0,
+                "release_seconds": 0.16230884196038314
+              }
+            },
+            {
+              "id": "z19",
+              "ratio": 17.40922,
+              "amplitude_a": 0.7843,
+              "amplitude_b": 0.7843,
+              "phase": 0.5022,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.08766452276332773,
+                "sustain_level": 0.0,
+                "release_seconds": 0.0843030847593493
+              }
+            },
+            {
+              "id": "z20",
+              "ratio": 17.66765,
+              "amplitude_a": 0.7248,
+              "amplitude_b": 0.7248,
+              "phase": 0.4459,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.11878581188434881,
+                "sustain_level": 0.0,
+                "release_seconds": 0.13239055314183049
+              }
+            },
+            {
+              "id": "z21",
+              "ratio": 17.9629,
+              "amplitude_a": 0.7447,
+              "amplitude_b": 0.7447,
+              "phase": 0.9907,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.13023992315408028,
+                "sustain_level": 0.0,
+                "release_seconds": 0.17982584806084395
+              }
+            },
+            {
+              "id": "z22",
+              "ratio": 18.19547,
+              "amplitude_a": 0.5714,
+              "amplitude_b": 0.5714,
+              "phase": 0.1171,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1996990227029401,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1910105873054831
+              }
+            },
+            {
+              "id": "z23",
+              "ratio": 18.47209,
+              "amplitude_a": 0.4275,
+              "amplitude_b": 0.4275,
+              "phase": 0.5777,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.11189217974151745,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14592541302684486
+              }
+            },
+            {
+              "id": "z24",
+              "ratio": 18.92124,
+              "amplitude_a": 0.4094,
+              "amplitude_b": 0.4094,
+              "phase": 0.2171,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1410468340390543,
+                "sustain_level": 0.0,
+                "release_seconds": 0.12011588826849835
+              }
+            },
+            {
+              "id": "z25",
+              "ratio": 19.16966,
+              "amplitude_a": 0.4762,
+              "amplitude_b": 0.4762,
+              "phase": 0.1134,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.11169074087481554,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14792739471730906
+              }
+            },
+            {
+              "id": "z26",
+              "ratio": 19.44272,
+              "amplitude_a": 0.4834,
+              "amplitude_b": 0.4834,
+              "phase": 0.2636,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.15721168155942444,
+                "sustain_level": 0.0,
+                "release_seconds": 0.15945941269274472
+              }
+            },
+            {
+              "id": "z27",
+              "ratio": 19.65281,
+              "amplitude_a": 0.7797,
+              "amplitude_b": 0.7797,
+              "phase": 0.744,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1369702445765018,
+                "sustain_level": 0.0,
+                "release_seconds": 0.07988418873303105
+              }
+            },
+            {
+              "id": "z28",
+              "ratio": 19.96623,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.9708,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14664185954508574,
+                "sustain_level": 0.0,
+                "release_seconds": 0.12083942399121672
+              }
+            },
+            {
+              "id": "z29",
+              "ratio": 20.35644,
+              "amplitude_a": 0.4638,
+              "amplitude_b": 0.4638,
+              "phase": 0.9984,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.11926592585847301,
+                "sustain_level": 0.0,
+                "release_seconds": 0.18876582394556649
+              }
+            },
+            {
+              "id": "z30",
+              "ratio": 20.62073,
+              "amplitude_a": 0.8511,
+              "amplitude_b": 0.8511,
+              "phase": 0.4116,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.09271880572266411,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1848221788076895
+              }
+            },
+            {
+              "id": "z31",
+              "ratio": 20.88626,
+              "amplitude_a": 0.7393,
+              "amplitude_b": 0.7393,
+              "phase": 0.0688,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.08838825853859578,
+                "sustain_level": 0.0,
+                "release_seconds": 0.08179157889335116
+              }
+            },
+            {
+              "id": "z32",
+              "ratio": 21.22823,
+              "amplitude_a": 0.468,
+              "amplitude_b": 0.468,
+              "phase": 0.5071,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1506439002732321,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14314451103764697
+              }
+            },
+            {
+              "id": "z33",
+              "ratio": 21.60015,
+              "amplitude_a": 0.6598,
+              "amplitude_b": 0.6598,
+              "phase": 0.0407,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.143290964281093,
+                "sustain_level": 0.0,
+                "release_seconds": 0.13807132013310194
+              }
+            },
+            {
+              "id": "z34",
+              "ratio": 21.83284,
+              "amplitude_a": 0.8589,
+              "amplitude_b": 0.8589,
+              "phase": 0.0915,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.17614166859901098,
+                "sustain_level": 0.0,
+                "release_seconds": 0.13660778040194366
+              }
+            },
+            {
+              "id": "z35",
+              "ratio": 22.12966,
+              "amplitude_a": 0.5493,
+              "amplitude_b": 0.5493,
+              "phase": 0.2637,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.10929092955150535,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1309249843777337
+              }
+            },
+            {
+              "id": "z36",
+              "ratio": 22.65863,
+              "amplitude_a": 0.8187,
+              "amplitude_b": 0.8187,
+              "phase": 0.7073,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.16718689724362906,
+                "sustain_level": 0.0,
+                "release_seconds": 0.17331626946232848
+              }
+            },
+            {
+              "id": "z37",
+              "ratio": 22.98929,
+              "amplitude_a": 0.5639,
+              "amplitude_b": 0.5639,
+              "phase": 0.071,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1428075643751374,
+                "sustain_level": 0.0,
+                "release_seconds": 0.19534687078507143
+              }
+            },
+            {
+              "id": "z38",
+              "ratio": 23.13499,
+              "amplitude_a": 0.492,
+              "amplitude_b": 0.492,
+              "phase": 0.8804,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.09650296139477459,
+                "sustain_level": 0.0,
+                "release_seconds": 0.19329102234961923
+              }
+            },
+            {
+              "id": "z39",
+              "ratio": 23.5762,
+              "amplitude_a": 0.3801,
+              "amplitude_b": 0.3801,
+              "phase": 0.992,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.09659502069418036,
+                "sustain_level": 0.0,
+                "release_seconds": 0.10557375614373701
+              }
+            },
+            {
+              "id": "z40",
+              "ratio": 24.04081,
+              "amplitude_a": 0.657,
+              "amplitude_b": 0.657,
+              "phase": 0.9092,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.08678691615523834,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1077427640902599
+              }
+            },
+            {
+              "id": "z41",
+              "ratio": 24.36223,
+              "amplitude_a": 0.5769,
+              "amplitude_b": 0.5769,
+              "phase": 0.8251,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.09673049171280232,
+                "sustain_level": 0.0,
+                "release_seconds": 0.07041578208950415
+              }
+            },
+            {
+              "id": "z42",
+              "ratio": 24.76229,
+              "amplitude_a": 0.9926,
+              "amplitude_b": 0.9926,
+              "phase": 0.7494,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14147887751580898,
+                "sustain_level": 0.0,
+                "release_seconds": 0.15591222061178767
+              }
+            },
+            {
+              "id": "z43",
+              "ratio": 25.15682,
+              "amplitude_a": 0.8702,
+              "amplitude_b": 0.8702,
+              "phase": 0.3441,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.12298383409939789,
+                "sustain_level": 0.0,
+                "release_seconds": 0.17436843946236635
+              }
+            },
+            {
+              "id": "z44",
+              "ratio": 25.54621,
+              "amplitude_a": 0.9019,
+              "amplitude_b": 0.9019,
+              "phase": 0.1918,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.10514843773707516,
+                "sustain_level": 0.0,
+                "release_seconds": 0.08644786382271358
+              }
+            },
+            {
+              "id": "z45",
+              "ratio": 25.80835,
+              "amplitude_a": 0.5696,
+              "amplitude_b": 0.5696,
+              "phase": 0.6985,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.11228832377432965,
+                "sustain_level": 0.0,
+                "release_seconds": 0.11973194780714899
+              }
+            },
+            {
+              "id": "z46",
+              "ratio": 26.31012,
+              "amplitude_a": 0.4758,
+              "amplitude_b": 0.4758,
+              "phase": 0.6767,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.10152321455518887,
+                "sustain_level": 0.0,
+                "release_seconds": 0.18954166584047316
+              }
+            },
+            {
+              "id": "z47",
+              "ratio": 26.47204,
+              "amplitude_a": 0.499,
+              "amplitude_b": 0.499,
+              "phase": 0.3722,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.0827394715820121,
+                "sustain_level": 0.0,
+                "release_seconds": 0.10016515737275324
+              }
+            },
+            {
+              "id": "z48",
+              "ratio": 27.02054,
+              "amplitude_a": 0.3575,
+              "amplitude_b": 0.3575,
+              "phase": 0.0893,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1877930687610632,
+                "sustain_level": 0.0,
+                "release_seconds": 0.16961355276128637
+              }
+            },
+            {
+              "id": "z49",
+              "ratio": 27.35613,
+              "amplitude_a": 0.8329,
+              "amplitude_b": 0.8329,
+              "phase": 0.4201,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.19523363611200759,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1526748499841828
+              }
+            },
+            {
+              "id": "z50",
+              "ratio": 27.68547,
+              "amplitude_a": 0.9392,
+              "amplitude_b": 0.9392,
+              "phase": 0.3667,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.08012507866396439,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1979340346354024
+              }
+            },
+            {
+              "id": "z51",
+              "ratio": 28.21713,
+              "amplitude_a": 0.5054,
+              "amplitude_b": 0.5054,
+              "phase": 0.403,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1577628866253047,
+                "sustain_level": 0.0,
+                "release_seconds": 0.18724359638104227
+              }
+            },
+            {
+              "id": "z52",
+              "ratio": 28.75592,
+              "amplitude_a": 0.4633,
+              "amplitude_b": 0.4633,
+              "phase": 0.0614,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.12576282742841272,
+                "sustain_level": 0.0,
+                "release_seconds": 0.09954366248429153
+              }
+            },
+            {
+              "id": "z53",
+              "ratio": 29.11892,
+              "amplitude_a": 0.6831,
+              "amplitude_b": 0.6831,
+              "phase": 0.6367,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14288256871993782,
+                "sustain_level": 0.0,
+                "release_seconds": 0.19600137157130562
+              }
+            },
+            {
+              "id": "z54",
+              "ratio": 29.48456,
+              "amplitude_a": 0.8272,
+              "amplitude_b": 0.8272,
+              "phase": 0.014,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1718964088353161,
+                "sustain_level": 0.0,
+                "release_seconds": 0.11301669557795743
+              }
+            },
+            {
+              "id": "z55",
+              "ratio": 30.01937,
+              "amplitude_a": 0.686,
+              "amplitude_b": 0.686,
+              "phase": 0.6491,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.09638392778668124,
+                "sustain_level": 0.0,
+                "release_seconds": 0.09041794816296392
+              }
+            },
+            {
+              "id": "z56",
+              "ratio": 30.30745,
+              "amplitude_a": 0.4937,
+              "amplitude_b": 0.4937,
+              "phase": 0.832,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.15297316053195442,
+                "sustain_level": 0.0,
+                "release_seconds": 0.15051670474979464
+              }
+            },
+            {
+              "id": "z57",
+              "ratio": 30.82961,
+              "amplitude_a": 0.528,
+              "amplitude_b": 0.528,
+              "phase": 0.1174,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.16650343241539797,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14777541145362771
+              }
+            },
+            {
+              "id": "z58",
+              "ratio": 31.4226,
+              "amplitude_a": 0.7599,
+              "amplitude_b": 0.7599,
+              "phase": 0.4416,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.07253398145979231,
+                "sustain_level": 0.0,
+                "release_seconds": 0.10991309752488299
+              }
+            },
+            {
+              "id": "z59",
+              "ratio": 31.86243,
+              "amplitude_a": 0.4006,
+              "amplitude_b": 0.4006,
+              "phase": 0.1735,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14777076037919137,
+                "sustain_level": 0.0,
+                "release_seconds": 0.17669559150679204
+              }
+            },
+            {
+              "id": "z60",
+              "ratio": 32.1679,
+              "amplitude_a": 0.5968,
+              "amplitude_b": 0.5968,
+              "phase": 0.1342,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.13469526173172128,
+                "sustain_level": 0.0,
+                "release_seconds": 0.11128363437198899
+              }
+            },
+            {
+              "id": "z61",
+              "ratio": 32.92787,
+              "amplitude_a": 0.6417,
+              "amplitude_b": 0.6417,
+              "phase": 0.7484,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.12420854387537522,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1790665565841233
+              }
+            },
+            {
+              "id": "z62",
+              "ratio": 33.32947,
+              "amplitude_a": 0.5943,
+              "amplitude_b": 0.5943,
+              "phase": 0.3267,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.16688065966826915,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1712292474646912
+              }
+            },
+            {
+              "id": "z63",
+              "ratio": 33.82015,
+              "amplitude_a": 0.4292,
+              "amplitude_b": 0.4292,
+              "phase": 0.0065,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.19074325781904167,
+                "sustain_level": 0.0,
+                "release_seconds": 0.18978979554532396
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "shimmer",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -28.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.16,
+        "sustain_level": 0.0,
+        "release_seconds": 0.16
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 5402,
+          "stereo_correlation": 0.5
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "band",
+          "mode": "band_pass",
+          "cutoff_hz": 8500.0,
+          "resonance": 0.2
+        },
+        {
+          "type": "filter",
+          "id": "top",
+          "mode": "low_pass",
+          "cutoff_hz": 12000.0,
+          "resonance": 0.0
+        }
+      ]
+    },
+    {
+      "id": "head",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.03,
+        "sustain_level": 0.0,
+        "release_seconds": 0.03
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 5403,
+          "stereo_correlation": 1.0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "band",
+          "mode": "band_pass",
+          "cutoff_hz": 900.0,
+          "resonance": 0.4
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.008,
+      "decay": 0.3,
+      "damping": 0.6,
+      "width": 1.0,
+      "mix": 0.06
+    },
+    {
+      "type": "limiter",
+      "id": "safety",
+      "ceiling_db": -3.0,
+      "release_ms": 80.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "hit",
+        "type": "random",
+        "seed": 5404
+      },
+      {
+        "id": "restrike",
+        "type": "mseg",
+        "initial_value": 1.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.012,
+              "unit": "seconds"
+            },
+            "target": -0.6,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.01,
+              "unit": "seconds"
+            },
+            "target": 0.7,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.014,
+              "unit": "seconds"
+            },
+            "target": -0.7,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.01,
+              "unit": "seconds"
+            },
+            "target": 0.4,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.018,
+              "unit": "seconds"
+            },
+            "target": -0.8,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.012,
+              "unit": "seconds"
+            },
+            "target": 0.1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.04,
+              "unit": "seconds"
+            },
+            "target": -1.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "restrike",
+        "target": "layer.zils.gain",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "restrike",
+        "target": "layer.shimmer.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit",
+        "target": "layer.zils.tuning",
+        "depth": {
+          "value": 15.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit",
+        "target": "layer.shimmer.processor.band.cutoff",
+        "depth": {
+          "value": 0.15,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.zils.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.shimmer.gain",
+        "depth": {
+          "value": 12.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.head.gain",
+        "depth": {
+          "value": 12.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.zils.tuning",
+        "depth": {
+          "value": -200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

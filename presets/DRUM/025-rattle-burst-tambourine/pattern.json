@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "name": "Rattle Burst Tambourine - Accented Backbeat Eighths",
+  "ticks_per_beat": 480,
+  "length_ticks": 3840,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 112
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 240,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 116
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 116
+    },
+    {
+      "type": "note",
+      "tick": 1680,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 1800,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 64
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 116
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 116
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 82
+    },
+    {
+      "type": "note",
+      "tick": 3720,
+      "note": 54,
+      "duration_ticks": 120,
+      "velocity": 64
+    }
+  ]
+}

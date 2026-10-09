@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::num::NonZeroU8;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -241,6 +242,8 @@ pub enum CompiledPerformanceMode {
     Polyphonic {
         /// Voice stealing policy.
         voice_stealing: CompiledVoiceStealing,
+        /// Choke group assignment of every MIDI key.
+        choke_groups: CompiledChokeGroups,
     },
     /// Last-note-priority monophonic performance.
     Monophonic {
@@ -249,6 +252,37 @@ pub enum CompiledPerformanceMode {
         /// Glide duration in frames.
         portamento_frames: Option<usize>,
     },
+}
+
+/// Choke group index assigned to each MIDI key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompiledChokeGroups {
+    group_by_key: [Option<NonZeroU8>; 128],
+}
+
+impl CompiledChokeGroups {
+    fn new(groups: &[crate::definition::ChokeGroupDefinition]) -> Self {
+        let mut group_by_key = [None; 128];
+        for (index, group) in groups.iter().enumerate() {
+            let tag = u8::try_from(index + 1).ok().and_then(NonZeroU8::new);
+            for key in &group.keys {
+                if let Some(slot) = group_by_key.get_mut(usize::from(*key)) {
+                    *slot = tag;
+                }
+            }
+        }
+        Self { group_by_key }
+    }
+
+    /// Return the zero-based choke group index of a MIDI key.
+    #[must_use]
+    pub fn group_of(&self, key: u8) -> Option<u8> {
+        self.group_by_key
+            .get(usize::from(key))
+            .copied()
+            .flatten()
+            .map(|tag| tag.get() - 1)
+    }
 }
 
 /// Compiled voice allocation policy.
@@ -582,6 +616,7 @@ fn compile_performance(
         crate::definition::PerformanceDefinition::Polyphonic {
             polyphony,
             voice_stealing,
+            choke_groups,
         } => CompiledPerformance {
             mode: CompiledPerformanceMode::Polyphonic {
                 voice_stealing: match voice_stealing {
@@ -589,6 +624,7 @@ fn compile_performance(
                         CompiledVoiceStealing::QuietestReleasingThenOldest
                     }
                 },
+                choke_groups: CompiledChokeGroups::new(choke_groups),
             },
             voice_count: usize::from(*polyphony),
         },

@@ -25,8 +25,8 @@ pub enum VoiceState {
     Active,
     /// Note Off has started the release envelopes.
     Releasing,
-    /// The old note is fading before a pending note starts.
-    StealFading,
+    /// The sounding note is fading out before the voice is freed or a pending note starts.
+    FadingOut,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -272,8 +272,8 @@ pub(crate) struct VoiceRuntime {
     targets: VoiceTargetScratch,
     pending: Option<PendingNote>,
     pending_layer_selection: Vec<PreparedLayerSelection>,
-    steal_fade_total: usize,
-    steal_fade_remaining: usize,
+    fade_out_total: usize,
+    fade_out_remaining: usize,
     pitch_glide: Smoother,
     pitch_glide_span: ValueSpan,
 }
@@ -317,8 +317,8 @@ impl VoiceRuntime {
             targets: VoiceTargetScratch::new(&compiled.layers, &compiled.voice_processors),
             pending: None,
             pending_layer_selection: vec![PreparedLayerSelection::Inactive; compiled.layers.len()],
-            steal_fade_total: 0,
-            steal_fade_remaining: 0,
+            fade_out_total: 0,
+            fade_out_remaining: 0,
             pitch_glide: Smoother::new(0.0),
             pitch_glide_span: ValueSpan {
                 start: 0.0,
@@ -403,13 +403,41 @@ impl VoiceRuntime {
             key_down: true,
             sustain_held: false,
         });
-        self.state = VoiceState::StealFading;
-        self.steal_fade_total = fade_frames;
-        self.steal_fade_remaining = fade_frames;
+        self.state = VoiceState::FadingOut;
+        self.fade_out_total = fade_frames;
+        self.fade_out_remaining = fade_frames;
         if fade_frames == 0 {
-            self.complete_steal(compiled)?;
+            self.complete_fade_out(compiled)?;
         }
         Ok(())
+    }
+
+    /// Fade out the sounding note and cancel the pending note when their keys are choked.
+    pub(crate) fn choke(
+        &mut self,
+        compiled: &CompiledInstrument,
+        is_choked: impl Fn(u8) -> bool,
+        fade_frames: usize,
+    ) -> Result<bool, ProcessError> {
+        let canceled_pending = self
+            .pending
+            .as_ref()
+            .is_some_and(|pending| is_choked(pending.request.note_number));
+        if canceled_pending {
+            self.pending = None;
+        }
+        if matches!(self.state, VoiceState::Active | VoiceState::Releasing)
+            && is_choked(self.note_number)
+        {
+            self.state = VoiceState::FadingOut;
+            self.fade_out_total = fade_frames;
+            self.fade_out_remaining = fade_frames;
+            if fade_frames == 0 {
+                self.complete_fade_out(compiled)?;
+            }
+            return Ok(true);
+        }
+        Ok(self.state == VoiceState::FadingOut && canceled_pending)
     }
 
     pub(crate) fn transition_legato(
@@ -598,12 +626,12 @@ impl VoiceRuntime {
             }
             let mut chunk =
                 self.next_voice_boundary(compiled, frames - offset, sample_rate, tempo_bpm);
-            if self.state == VoiceState::StealFading {
-                chunk = chunk.min(self.steal_fade_remaining);
+            if self.state == VoiceState::FadingOut {
+                chunk = chunk.min(self.fade_out_remaining);
             }
             if chunk == 0 {
-                if self.state == VoiceState::StealFading {
-                    self.complete_steal(compiled)?;
+                if self.state == VoiceState::FadingOut {
+                    self.complete_fade_out(compiled)?;
                     continue;
                 }
                 chunk = 1.min(frames - offset);
@@ -626,15 +654,15 @@ impl VoiceRuntime {
                 &mut voice_left[offset..offset + chunk],
                 &mut voice_right[offset..offset + chunk],
             )?;
-            if self.state == VoiceState::StealFading {
+            if self.state == VoiceState::FadingOut {
                 #[allow(clippy::cast_precision_loss)]
-                let total = self.steal_fade_total.max(1) as f32;
+                let total = self.fade_out_total.max(1) as f32;
                 for index in offset..offset + chunk {
                     #[allow(clippy::cast_precision_loss)]
-                    let gain = self.steal_fade_remaining as f32 / total;
+                    let gain = self.fade_out_remaining as f32 / total;
                     voice_left[index] *= gain;
                     voice_right[index] *= gain;
-                    self.steal_fade_remaining = self.steal_fade_remaining.saturating_sub(1);
+                    self.fade_out_remaining = self.fade_out_remaining.saturating_sub(1);
                     peak = peak
                         .max(voice_left[index].abs())
                         .max(voice_right[index].abs());
@@ -648,13 +676,13 @@ impl VoiceRuntime {
             }
             offset += chunk;
             if !self.has_active_layer() {
-                if self.state == VoiceState::StealFading {
-                    self.complete_steal(compiled)?;
+                if self.state == VoiceState::FadingOut {
+                    self.complete_fade_out(compiled)?;
                 } else {
                     self.reset_to_idle(compiled)?;
                 }
-            } else if self.state == VoiceState::StealFading && self.steal_fade_remaining == 0 {
-                self.complete_steal(compiled)?;
+            } else if self.state == VoiceState::FadingOut && self.fade_out_remaining == 0 {
+                self.complete_fade_out(compiled)?;
             }
         }
         self.estimated_level = self.estimated_level.mul_add(0.95, peak * 0.05);
@@ -723,12 +751,12 @@ impl VoiceRuntime {
         Ok(())
     }
 
-    fn complete_steal(&mut self, compiled: &CompiledInstrument) -> Result<(), ProcessError> {
+    fn complete_fade_out(&mut self, compiled: &CompiledInstrument) -> Result<(), ProcessError> {
         let pending = self.pending.take();
         self.note_id = None;
         self.state = VoiceState::Idle;
-        self.steal_fade_total = 0;
-        self.steal_fade_remaining = 0;
+        self.fade_out_total = 0;
+        self.fade_out_remaining = 0;
         if let Some(pending) = pending {
             self.activate_pending_note(compiled, pending)?;
         } else {
@@ -892,8 +920,8 @@ impl VoiceRuntime {
         self.sustain_held = false;
         self.estimated_level = 0.0;
         self.pending = None;
-        self.steal_fade_total = 0;
-        self.steal_fade_remaining = 0;
+        self.fade_out_total = 0;
+        self.fade_out_remaining = 0;
         self.pitch_glide.reset(0.0);
         self.pitch_glide_span = ValueSpan {
             start: 0.0,
@@ -908,8 +936,8 @@ impl VoiceRuntime {
         }
         self.processors.reset()?;
         self.pending = None;
-        self.steal_fade_total = 0;
-        self.steal_fade_remaining = 0;
+        self.fade_out_total = 0;
+        self.fade_out_remaining = 0;
         self.reset_source_state(compiled);
         self.pitch_glide.reset(0.0);
         self.pitch_glide_span = ValueSpan {

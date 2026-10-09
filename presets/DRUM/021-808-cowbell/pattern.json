@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "name": "Cowbell - Melodic 3+3+2 Figure, Clean then Crunched",
+  "ticks_per_beat": 480,
+  "length_ticks": 7680,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 130
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 73,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 360,
+      "note": 73,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 76,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 73,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 78,
+      "duration_ticks": 160,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 1320,
+      "note": 76,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 1680,
+      "note": 71,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 73,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 2280,
+      "note": 73,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 76,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 80,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 78,
+      "duration_ticks": 160,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 3240,
+      "note": 76,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 78,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 3840,
+      "note": 73,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "parameter_change",
+      "tick": 3840,
+      "parameter": "macro.crunch",
+      "native_value": 0.7
+    },
+    {
+      "type": "note",
+      "tick": 4200,
+      "note": 73,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 4560,
+      "note": 76,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 4800,
+      "note": 73,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 5040,
+      "note": 78,
+      "duration_ticks": 160,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 5160,
+      "note": 76,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 5520,
+      "note": 71,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 5760,
+      "note": 73,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 6120,
+      "note": 73,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 6480,
+      "note": 76,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 6720,
+      "note": 80,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 6960,
+      "note": 78,
+      "duration_ticks": 160,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 7080,
+      "note": 76,
+      "duration_ticks": 160,
+      "velocity": 118
+    },
+    {
+      "type": "note",
+      "tick": 7440,
+      "note": 73,
+      "duration_ticks": 240,
+      "velocity": 120
+    }
+  ]
+}
