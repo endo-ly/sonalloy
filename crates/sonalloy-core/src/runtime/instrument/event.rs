@@ -6,7 +6,9 @@ use super::{
     FADE_OUT_SECONDS, HeldNote, MAX_MONOPHONIC_HELD_NOTES, RuntimeGeneration,
     control_smoothing_frames, invalid_state,
 };
-use crate::compiler::{CompiledGenerator, CompiledPerformanceMode, CompiledSampleZone};
+use crate::compiler::{
+    CompiledChokeGroups, CompiledGenerator, CompiledPerformanceMode, CompiledSampleZone,
+};
 use crate::definition::LayerTriggerEvent;
 use crate::process::{ProcessError, ProcessEventKind};
 
@@ -31,35 +33,7 @@ impl RuntimeGeneration {
                 let request = NoteRequest::new(note_id, note_number, velocity, absolute_frame);
                 match self.compiled.performance.mode {
                     CompiledPerformanceMode::Polyphonic { choke_groups, .. } => {
-                        if !self.prepare_note_request(request)? {
-                            return Ok(());
-                        }
-                        let fade_frames = rounded_frame_count(spec.sample_rate * FADE_OUT_SECONDS);
-                        let choked_voice_index =
-                            if let Some(group) = choke_groups.group_of(note_number) {
-                                let is_choked = |key| choke_groups.group_of(key) == Some(group);
-                                let mut choked_voice_index = None;
-                                for (index, voice) in self.voices.iter_mut().enumerate() {
-                                    if voice.choke(&self.compiled, is_choked, fade_frames)?
-                                        && choked_voice_index.is_none()
-                                    {
-                                        choked_voice_index = Some(index);
-                                    }
-                                }
-                                choked_voice_index
-                            } else {
-                                None
-                            };
-                        let voice_index = choked_voice_index.unwrap_or_else(|| self.select_voice());
-                        self.voices
-                            .get_mut(voice_index)
-                            .ok_or_else(invalid_state)?
-                            .request_note(
-                                &self.compiled,
-                                request,
-                                &self.note_layer_selection,
-                                fade_frames,
-                            )?;
+                        self.apply_polyphonic_note_on(request, spec.sample_rate, choke_groups)?;
                     }
                     CompiledPerformanceMode::Monophonic { .. } => {
                         self.apply_monophonic_note_on(request)?;
@@ -126,6 +100,50 @@ impl RuntimeGeneration {
             }
         }
         Ok(())
+    }
+
+    fn apply_polyphonic_note_on(
+        &mut self,
+        request: NoteRequest,
+        sample_rate: f64,
+        choke_groups: CompiledChokeGroups,
+    ) -> Result<(), ProcessError> {
+        if !self.prepare_note_request(request)? {
+            return Ok(());
+        }
+        let fade_frames = rounded_frame_count(sample_rate * FADE_OUT_SECONDS);
+        let voice_index = self
+            .choke_voice_index(choke_groups, request.note_number, fade_frames)?
+            .unwrap_or_else(|| self.select_voice());
+        self.voices
+            .get_mut(voice_index)
+            .ok_or_else(invalid_state)?
+            .request_note(
+                &self.compiled,
+                request,
+                &self.note_layer_selection,
+                fade_frames,
+            )
+    }
+
+    fn choke_voice_index(
+        &mut self,
+        choke_groups: CompiledChokeGroups,
+        note_number: u8,
+        fade_frames: usize,
+    ) -> Result<Option<usize>, ProcessError> {
+        let Some(group) = choke_groups.group_of(note_number) else {
+            return Ok(None);
+        };
+        let is_choked = |key| choke_groups.group_of(key) == Some(group);
+        let mut choked_voice_index = None;
+        for (index, voice) in self.voices.iter_mut().enumerate() {
+            if voice.choke(&self.compiled, is_choked, fade_frames)? && choked_voice_index.is_none()
+            {
+                choked_voice_index = Some(index);
+            }
+        }
+        Ok(choked_voice_index)
     }
 
     fn apply_monophonic_note_on(&mut self, request: NoteRequest) -> Result<(), ProcessError> {
@@ -1002,12 +1020,16 @@ mod tests {
             [
                 Some(VoiceState::FadingOut),
                 Some(VoiceState::Active),
-                Some(VoiceState::Active)
+                Some(VoiceState::Idle)
             ]
         );
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
         assert_eq!(runtime.voice_state(1), Some(VoiceState::Active));
-        assert_eq!(runtime.voice_state(2), Some(VoiceState::Active));
+        assert_eq!(runtime.voice_state(2), Some(VoiceState::Idle));
+        assert_eq!(
+            runtime.voices[0].trace_identity().map(|note| note.0),
+            Some(3)
+        );
     }
 
     #[test]
@@ -1016,7 +1038,9 @@ mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 2,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-            choke_groups: vec![crate::definition::ChokeGroupDefinition { keys: vec![42, 46] }],
+            choke_groups: vec![crate::definition::ChokeGroupDefinition {
+                keys: vec![42, 44, 46],
+            }],
         };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
@@ -1034,6 +1058,7 @@ mod tests {
 
         let _ = process(&mut runtime, 64, 0, &[note_on(0, 1, 46), note_on(0, 2, 60)]);
         let _ = process(&mut runtime, 64, 64, &[note_on(0, 3, 42)]);
+        let _ = process(&mut runtime, 64, 128, &[note_on(0, 4, 44)]);
 
         assert_eq!(runtime.voice_state(0), Some(VoiceState::FadingOut));
         assert_eq!(runtime.voice_state(1), Some(VoiceState::Active));
@@ -1041,22 +1066,61 @@ mod tests {
             runtime.voices[1].trace_identity().map(|note| note.0),
             Some(2)
         );
+        assert!(!runtime.voices[0].contains_note_id(3));
+        assert!(runtime.voices[0].contains_note_id(4));
 
         let empty: [ProcessEvent; 0] = [];
-        for block in 2..7 {
+        for block in 3..7 {
             let _ = process(&mut runtime, 64, block * 64, &empty);
         }
 
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
         assert_eq!(
             runtime.voices[0].trace_identity().map(|note| note.0),
-            Some(3)
+            Some(4)
         );
         assert_eq!(runtime.voice_state(1), Some(VoiceState::Active));
         assert_eq!(
             runtime.voices[1].trace_identity().map(|note| note.0),
             Some(2)
         );
+    }
+
+    #[test]
+    fn choke_does_not_replace_a_pending_note_from_another_group() {
+        let mut source = definition();
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 3,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: vec![
+                crate::definition::ChokeGroupDefinition {
+                    keys: vec![42, 44, 46],
+                },
+                crate::definition::ChokeGroupDefinition { keys: vec![65, 67] },
+            ],
+        };
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let note_on = |sample_offset, note_id, note_number| ProcessEvent {
+            sample_offset,
+            kind: ProcessEventKind::NoteOn {
+                note_id,
+                note_number,
+                velocity: 127,
+            },
+        };
+
+        let _ = process(
+            &mut runtime,
+            64,
+            0,
+            &[note_on(0, 1, 46), note_on(0, 2, 60), note_on(0, 3, 70)],
+        );
+        let _ = process(&mut runtime, 64, 64, &[note_on(0, 4, 65)]);
+        let _ = process(&mut runtime, 64, 128, &[note_on(0, 5, 42)]);
+
+        assert!(runtime.voices[0].contains_note_id(4));
+        assert!(!runtime.voices[0].contains_note_id(5));
     }
 
     #[test]

@@ -419,11 +419,11 @@ impl VoiceRuntime {
         is_choked: impl Fn(u8) -> bool,
         fade_frames: usize,
     ) -> Result<bool, ProcessError> {
-        if self
+        let canceled_pending = self
             .pending
             .as_ref()
-            .is_some_and(|pending| is_choked(pending.request.note_number))
-        {
+            .is_some_and(|pending| is_choked(pending.request.note_number));
+        if canceled_pending {
             self.pending = None;
         }
         if matches!(self.state, VoiceState::Active | VoiceState::Releasing)
@@ -437,7 +437,7 @@ impl VoiceRuntime {
             }
             return Ok(true);
         }
-        Ok(false)
+        Ok(self.state == VoiceState::FadingOut && canceled_pending)
     }
 
     pub(crate) fn transition_legato(
