@@ -176,6 +176,16 @@ fn portable_path_key(path: &str) -> String {
 fn validate_part_paths(definition: &super::DemoDefinition) -> Result<(), CliFailure> {
     let mut names = HashSet::new();
     for (index, part) in definition.parts.iter().enumerate() {
+        // Windows drops trailing periods from file names, which would detach the
+        // directory from the path every reference inside the bundle points at.
+        if part.id.ends_with('.') {
+            return Err(failure(
+                DiagnosticCode::ValueOutOfRange,
+                "bundle part id must not end with a period",
+                format!("parts[{index}].id"),
+                &part.id,
+            ));
+        }
         if !names.insert(portable_path_key(&part.id)) {
             return Err(failure(
                 DiagnosticCode::IdDuplicated,

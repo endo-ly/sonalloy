@@ -911,7 +911,9 @@ fn demo_audio_input_must_match_the_instrument_contract() {
 }
 
 fn read_json_file(path: &Path) -> Value {
-    serde_json::from_slice(&std::fs::read(path).expect("JSON file")).expect("valid JSON")
+    let context = || format!("{}: JSON file", path.display());
+    let bytes = std::fs::read(path).unwrap_or_else(|error| panic!("{}: {error}", context()));
+    serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("{}: {error}", context()))
 }
 
 fn write_json_file(path: &Path, value: &impl serde::Serialize) {
@@ -1277,6 +1279,7 @@ fn demo_pack_rejects_invalid_inputs_and_existing_outputs_without_residue() {
         "missing-pattern",
         "missing-asset",
         "hash",
+        "part-id",
         "existing-file",
         "existing-directory",
         "render",
@@ -1317,6 +1320,12 @@ fn demo_pack_rejects_invalid_inputs_and_existing_outputs_without_residue() {
                 } else {
                     "ASSET_NOT_FOUND"
                 }
+            }
+            "part-id" => {
+                let mut demo = read_json_file(&fixture.demo);
+                demo["parts"][0]["id"] = json!("first.part.");
+                write_json_file(&fixture.demo, &demo);
+                "VALUE_OUT_OF_RANGE"
             }
             "existing-file" => {
                 std::fs::write(&bundle, b"keep").unwrap();
