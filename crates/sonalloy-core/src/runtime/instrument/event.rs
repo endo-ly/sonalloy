@@ -35,13 +35,22 @@ impl RuntimeGeneration {
                             return Ok(());
                         }
                         let fade_frames = rounded_frame_count(spec.sample_rate * FADE_OUT_SECONDS);
-                        if let Some(group) = choke_groups.group_of(note_number) {
-                            let is_choked = |key| choke_groups.group_of(key) == Some(group);
-                            for voice in &mut self.voices {
-                                voice.choke(&self.compiled, is_choked, fade_frames)?;
-                            }
-                        }
-                        let voice_index = self.select_voice();
+                        let choked_voice_index =
+                            if let Some(group) = choke_groups.group_of(note_number) {
+                                let is_choked = |key| choke_groups.group_of(key) == Some(group);
+                                let mut choked_voice_index = None;
+                                for (index, voice) in self.voices.iter_mut().enumerate() {
+                                    if voice.choke(&self.compiled, is_choked, fade_frames)?
+                                        && choked_voice_index.is_none()
+                                    {
+                                        choked_voice_index = Some(index);
+                                    }
+                                }
+                                choked_voice_index
+                            } else {
+                                None
+                            };
+                        let voice_index = choked_voice_index.unwrap_or_else(|| self.select_voice());
                         self.voices
                             .get_mut(voice_index)
                             .ok_or_else(invalid_state)?
@@ -999,6 +1008,55 @@ mod tests {
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
         assert_eq!(runtime.voice_state(1), Some(VoiceState::Active));
         assert_eq!(runtime.voice_state(2), Some(VoiceState::Active));
+    }
+
+    #[test]
+    fn choke_reuses_choked_voice_before_stealing_an_unrelated_voice() {
+        let mut source = definition();
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 2,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: vec![crate::definition::ChokeGroupDefinition { keys: vec![42, 46] }],
+        };
+        source.layers[0].envelope.attack_seconds = 0.0;
+        source.layers[0].envelope.decay_seconds = 0.0;
+        source.layers[0].envelope.sustain_level = 1.0;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let note_on = |sample_offset, note_id, note_number| ProcessEvent {
+            sample_offset,
+            kind: ProcessEventKind::NoteOn {
+                note_id,
+                note_number,
+                velocity: 127,
+            },
+        };
+
+        let _ = process(&mut runtime, 64, 0, &[note_on(0, 1, 46), note_on(0, 2, 60)]);
+        let _ = process(&mut runtime, 64, 64, &[note_on(0, 3, 42)]);
+
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::FadingOut));
+        assert_eq!(runtime.voice_state(1), Some(VoiceState::Active));
+        assert_eq!(
+            runtime.voices[1].trace_identity().map(|note| note.0),
+            Some(2)
+        );
+
+        let empty: [ProcessEvent; 0] = [];
+        for block in 2..7 {
+            let _ = process(&mut runtime, 64, block * 64, &empty);
+        }
+
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+        assert_eq!(
+            runtime.voices[0].trace_identity().map(|note| note.0),
+            Some(3)
+        );
+        assert_eq!(runtime.voice_state(1), Some(VoiceState::Active));
+        assert_eq!(
+            runtime.voices[1].trace_identity().map(|note| note.0),
+            Some(2)
+        );
     }
 
     #[test]

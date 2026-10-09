@@ -418,7 +418,7 @@ impl VoiceRuntime {
         compiled: &CompiledInstrument,
         is_choked: impl Fn(u8) -> bool,
         fade_frames: usize,
-    ) -> Result<(), ProcessError> {
+    ) -> Result<bool, ProcessError> {
         if self
             .pending
             .as_ref()
@@ -435,8 +435,9 @@ impl VoiceRuntime {
             if fade_frames == 0 {
                 self.complete_fade_out(compiled)?;
             }
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
 
     pub(crate) fn transition_legato(
