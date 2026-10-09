@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::super::smoothing::rounded_frame_count;
 use super::super::voice::{NoteRequest, PreparedLayerSelection, VoiceState};
 use super::{
-    HeldNote, MAX_MONOPHONIC_HELD_NOTES, RuntimeGeneration, STEAL_FADE_SECONDS,
+    FADE_OUT_SECONDS, HeldNote, MAX_MONOPHONIC_HELD_NOTES, RuntimeGeneration,
     control_smoothing_frames, invalid_state,
 };
 use crate::compiler::{CompiledGenerator, CompiledPerformanceMode, CompiledSampleZone};
@@ -30,13 +30,18 @@ impl RuntimeGeneration {
                 }
                 let request = NoteRequest::new(note_id, note_number, velocity, absolute_frame);
                 match self.compiled.performance.mode {
-                    CompiledPerformanceMode::Polyphonic { .. } => {
+                    CompiledPerformanceMode::Polyphonic { choke_groups, .. } => {
                         if !self.prepare_note_request(request)? {
                             return Ok(());
                         }
+                        let fade_frames = rounded_frame_count(spec.sample_rate * FADE_OUT_SECONDS);
+                        if let Some(group) = choke_groups.group_of(note_number) {
+                            let is_choked = |key| choke_groups.group_of(key) == Some(group);
+                            for voice in &mut self.voices {
+                                voice.choke(&self.compiled, is_choked, fade_frames)?;
+                            }
+                        }
                         let voice_index = self.select_voice();
-                        let fade_frames =
-                            rounded_frame_count(spec.sample_rate * STEAL_FADE_SECONDS);
                         self.voices
                             .get_mut(voice_index)
                             .ok_or_else(invalid_state)?
@@ -163,7 +168,7 @@ impl RuntimeGeneration {
             return Ok(());
         }
         let fade_frames = rounded_frame_count(
-            self.spec.ok_or(ProcessError::NotPrepared)?.sample_rate * STEAL_FADE_SECONDS,
+            self.spec.ok_or(ProcessError::NotPrepared)?.sample_rate * FADE_OUT_SECONDS,
         );
         let voice = self.voices.get_mut(0).ok_or_else(invalid_state)?;
         if connected {
@@ -850,6 +855,7 @@ mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
@@ -949,11 +955,59 @@ mod tests {
     }
 
     #[test]
+    fn choke_group_note_fades_out_only_voices_of_the_same_group() {
+        let mut source = definition();
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony: 4,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: vec![crate::definition::ChokeGroupDefinition { keys: vec![42, 46] }],
+        };
+        source.layers[0].envelope.attack_seconds = 0.0;
+        source.layers[0].envelope.decay_seconds = 0.0;
+        source.layers[0].envelope.sustain_level = 1.0;
+        let mut runtime = runtime_with(&source);
+        prepare(&mut runtime);
+        let note_on = |sample_offset, note_id, note_number| ProcessEvent {
+            sample_offset,
+            kind: ProcessEventKind::NoteOn {
+                note_id,
+                note_number,
+                velocity: 127,
+            },
+        };
+        let _ = process(&mut runtime, 64, 0, &[note_on(0, 1, 46), note_on(0, 2, 60)]);
+
+        let _ = process(&mut runtime, 64, 64, &[note_on(0, 3, 42)]);
+        let choking_states = [
+            runtime.voice_state(0),
+            runtime.voice_state(1),
+            runtime.voice_state(2),
+        ];
+        let empty: [ProcessEvent; 0] = [];
+        for block in 2..8 {
+            let _ = process(&mut runtime, 64, block * 64, &empty);
+        }
+
+        assert_eq!(
+            choking_states,
+            [
+                Some(VoiceState::FadingOut),
+                Some(VoiceState::Active),
+                Some(VoiceState::Active)
+            ]
+        );
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
+        assert_eq!(runtime.voice_state(1), Some(VoiceState::Active));
+        assert_eq!(runtime.voice_state(2), Some(VoiceState::Active));
+    }
+
+    #[test]
     fn steal_starts_pending_note_when_release_finishes_before_fade() {
         let mut source = definition();
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].envelope = crate::definition::AdsrDefinition {
             attack_seconds: 0.0,
@@ -1005,6 +1059,7 @@ mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
@@ -1037,7 +1092,7 @@ mod tests {
                 },
             }],
         );
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::StealFading));
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::FadingOut));
         let empty: [ProcessEvent; 0] = [];
         let _ = process(&mut runtime, 64, 128, &empty);
         let _ = process(&mut runtime, 64, 192, &empty);
@@ -1051,6 +1106,7 @@ mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
@@ -1102,6 +1158,7 @@ mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
@@ -1164,6 +1221,7 @@ mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
@@ -1196,7 +1254,7 @@ mod tests {
                 },
             }],
         );
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::StealFading));
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::FadingOut));
         runtime.reset().expect("reset");
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Idle));
     }
@@ -1247,6 +1305,7 @@ mod tests {
                 polyphony: 1,
                 voice_stealing:
                     crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+                choke_groups: Vec::new(),
             };
             source.layers[0].trigger.key_min = key_min;
             source.layers[0].trigger.key_max = key_max;

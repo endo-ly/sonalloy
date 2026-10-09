@@ -63,7 +63,7 @@ sonalloy instrument inspect <definition> --json
 
 | 項目 | 内容 |
 |---|---|
-| Performance | `mode`、Voice Count、PolyphonicのVoice Stealing、MonophonicのLegato / Portamento、Layer Alignment Latency、報告Latency |
+| Performance | `mode`、Voice Count、PolyphonicのVoice StealingとChoke Group、MonophonicのLegato / Portamento、Layer Alignment Latency、報告Latency |
 | Layer | 発音条件、Generator、Gain、Pan、Tuning、ADSR |
 | Generator | 各Generatorの構成値（波形、Asset、Parameter、Algorithmなど）。Physical StringはExciterとLoop Parameter、ModalはExciter・Mode Count・共鳴Parameter・実効周波数上限を表示 |
 | Parameter | Parameter ID、Owner、Native Unit、Native範囲、Default、Scale、Smoothing、Modulation Unit、最大Depth |

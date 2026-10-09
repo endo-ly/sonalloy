@@ -345,6 +345,7 @@ fn granular_voice_stealing_restarts_grain_state() {
     definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
         polyphony: 1,
         voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        choke_groups: Vec::new(),
     };
     let compiled = compile(&definition, base_dir, 257);
     let mut stolen = compiled.instantiate();

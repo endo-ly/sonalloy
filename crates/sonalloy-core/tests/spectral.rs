@@ -1276,6 +1276,7 @@ fn spectral_hybrid_supports_sixteen_voices_voice_stealing_and_reset_determinism(
     stealing_definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
         polyphony: 1,
         voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        choke_groups: Vec::new(),
     };
     let stealing_compiled = compile(&stealing_definition, base_dir, 257);
     let stolen_audio = render_instrument(

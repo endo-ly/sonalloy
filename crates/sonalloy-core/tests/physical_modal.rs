@@ -27,6 +27,7 @@ fn physical_modal_definition() -> InstrumentDefinition {
     definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
         polyphony: 4,
         voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        choke_groups: Vec::new(),
     };
     definition.voice_processors.clear();
     definition.modulation = None;
@@ -855,6 +856,7 @@ fn polyphony_stealing_and_note_off_trigger_keep_physical_layers_finite() {
     definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
         polyphony: 2,
         voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        choke_groups: Vec::new(),
     };
     definition.layers[1].trigger.event = sonalloy_core::LayerTriggerEvent::NoteOff;
     let instrument = compile(&definition, 48_000.0, 257);

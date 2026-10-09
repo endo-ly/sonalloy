@@ -445,6 +445,7 @@ fn operator_envelope_note_off_and_voice_stealing_reset_state() {
     definition.performance = sonalloy_core::PerformanceDefinition::Polyphonic {
         polyphony: 1,
         voice_stealing: sonalloy_core::VoiceStealingDefinition::QuietestReleasingThenOldest,
+        choke_groups: Vec::new(),
     };
     let events = [
         note_on(),

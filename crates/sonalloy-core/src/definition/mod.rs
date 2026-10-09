@@ -103,6 +103,9 @@ pub enum PerformanceDefinition {
         polyphony: u16,
         /// Voice stealing policy.
         voice_stealing: VoiceStealingDefinition,
+        /// Key groups whose notes cut off one another.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        choke_groups: Vec<ChokeGroupDefinition>,
     },
     /// A single last-note-priority voice.
     Monophonic {
@@ -120,6 +123,14 @@ pub enum PerformanceDefinition {
 pub struct PortamentoDefinition {
     /// Glide duration in seconds.
     pub time_seconds: f32,
+}
+
+/// MIDI keys whose notes stop every sounding note of the same group.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChokeGroupDefinition {
+    /// MIDI note numbers that belong to the group.
+    pub keys: Vec<u8>,
 }
 
 /// Voice stealing policies supported by the runtime.
@@ -216,7 +227,11 @@ impl InstrumentDefinition {
         }
         validate_metadata(&mut diagnostics, &self.metadata);
         match &self.performance {
-            PerformanceDefinition::Polyphonic { polyphony, .. } => {
+            PerformanceDefinition::Polyphonic {
+                polyphony,
+                choke_groups,
+                ..
+            } => {
                 if !(1..=64).contains(polyphony) {
                     diagnostics.push(
                         Diagnostic::error(
@@ -226,6 +241,7 @@ impl InstrumentDefinition {
                         .with_path("performance.polyphony"),
                     );
                 }
+                validate_choke_groups(&mut diagnostics, choke_groups);
             }
             PerformanceDefinition::Monophonic { portamento, .. } => {
                 if let Some(portamento) = portamento {
@@ -477,6 +493,42 @@ fn validate_finite(diagnostics: &mut Vec<Diagnostic>, path: String, value: f32, 
     }
 }
 
+fn validate_choke_groups(diagnostics: &mut Vec<Diagnostic>, groups: &[ChokeGroupDefinition]) {
+    let mut assigned = HashSet::new();
+    for (group_index, group) in groups.iter().enumerate() {
+        let path = format!("performance.choke_groups[{group_index}].keys");
+        if group.keys.is_empty() {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::RequiredFieldMissing,
+                    "choke group must contain at least one key",
+                )
+                .with_path(path.clone()),
+            );
+        }
+        for (key_index, key) in group.keys.iter().enumerate() {
+            let key_path = format!("{path}[{key_index}]");
+            if *key > 127 {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ValueOutOfRange,
+                        "choke group key must be between 0 and 127",
+                    )
+                    .with_path(key_path),
+                );
+            } else if !assigned.insert(*key) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::IdDuplicated,
+                        format!("choke group key {key} is already assigned"),
+                    )
+                    .with_path(key_path),
+                );
+            }
+        }
+    }
+}
+
 fn range_message(field: &str, min: f32, max: f32) -> String {
     format!("{field} must be finite and between {min} and {max}")
 }
@@ -484,11 +536,11 @@ fn range_message(field: &str, min: f32, max: f32) -> String {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::definition::{
-        AdsrDefinition, CURRENT_SCHEMA_VERSION, EnvelopeTransferProcessorDefinition,
-        ExternalAudioChannels, ExternalAudioInputDefinition, GeneratorDefinition,
-        InstrumentDefinition, InstrumentMetadata, LayerDefinition, LayerTriggerDefinition,
-        LayerTriggerEvent, OscillatorDefinition, OscillatorWaveform, PerformanceDefinition,
-        ProcessorDefinition, VoiceStealingDefinition,
+        AdsrDefinition, CURRENT_SCHEMA_VERSION, ChokeGroupDefinition,
+        EnvelopeTransferProcessorDefinition, ExternalAudioChannels, ExternalAudioInputDefinition,
+        GeneratorDefinition, InstrumentDefinition, InstrumentMetadata, LayerDefinition,
+        LayerTriggerDefinition, LayerTriggerEvent, OscillatorDefinition, OscillatorWaveform,
+        PerformanceDefinition, ProcessorDefinition, VoiceStealingDefinition,
     };
     use crate::diagnostics::DiagnosticCode;
 
@@ -508,6 +560,7 @@ pub(crate) mod tests {
             performance: PerformanceDefinition::Polyphonic {
                 polyphony: 4,
                 voice_stealing: VoiceStealingDefinition::QuietestReleasingThenOldest,
+                choke_groups: Vec::new(),
             },
             layers: vec![LayerDefinition {
                 id: "body".to_owned(),
@@ -598,6 +651,43 @@ pub(crate) mod tests {
                 .iter()
                 .any(|diagnostic| { diagnostic.path.as_deref() == Some("layers[0].trigger") })
         );
+    }
+
+    #[test]
+    fn choke_groups_reject_empty_groups_and_shared_keys() {
+        let mut value = definition();
+        value.performance = PerformanceDefinition::Polyphonic {
+            polyphony: 4,
+            voice_stealing: VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: vec![
+                ChokeGroupDefinition { keys: vec![42, 46] },
+                ChokeGroupDefinition { keys: Vec::new() },
+                ChokeGroupDefinition {
+                    keys: vec![46, 128],
+                },
+            ],
+        };
+
+        let diagnostics = value.validate();
+
+        let located = |code, path: &str| {
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.code == code && diagnostic.path.as_deref() == Some(path)
+            })
+        };
+        assert!(located(
+            DiagnosticCode::RequiredFieldMissing,
+            "performance.choke_groups[1].keys"
+        ));
+        assert!(located(
+            DiagnosticCode::IdDuplicated,
+            "performance.choke_groups[2].keys[0]"
+        ));
+        assert!(located(
+            DiagnosticCode::ValueOutOfRange,
+            "performance.choke_groups[2].keys[1]"
+        ));
+        assert_eq!(diagnostics.len(), 3);
     }
 
     #[test]

@@ -91,8 +91,8 @@ pub enum TraceVoiceState {
     Active,
     /// Note Off has started release.
     Releasing,
-    /// Voice is fading before a pending note starts.
-    StealFading,
+    /// Voice is fading out after being stolen or choked.
+    FadingOut,
 }
 
 /// One route's source and direct-depth contribution.

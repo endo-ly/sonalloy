@@ -168,6 +168,7 @@ fn default_definition() -> InstrumentDefinition {
         performance: PerformanceDefinition::Polyphonic {
             polyphony: 16,
             voice_stealing: VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         },
         layers: vec![LayerDefinition {
             id: "body".to_owned(),

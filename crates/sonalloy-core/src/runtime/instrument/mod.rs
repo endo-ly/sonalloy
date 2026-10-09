@@ -32,7 +32,7 @@ pub use lifecycle::{
 };
 
 const CONTROL_SMOOTHING_SECONDS: f64 = 0.005;
-const STEAL_FADE_SECONDS: f64 = 0.005;
+const FADE_OUT_SECONDS: f64 = 0.005;
 const QUANTUM_FRAMES: usize = 32;
 const MAX_MONOPHONIC_HELD_NOTES: usize = 128;
 
@@ -266,7 +266,7 @@ impl RuntimeGeneration {
                 let trace_state = match state {
                     VoiceState::Active => TraceVoiceState::Active,
                     VoiceState::Releasing => TraceVoiceState::Releasing,
-                    VoiceState::StealFading => TraceVoiceState::StealFading,
+                    VoiceState::FadingOut => TraceVoiceState::FadingOut,
                     VoiceState::Idle => continue,
                 };
                 let voice_info = TraceVoice {
@@ -1320,6 +1320,7 @@ pub(crate) mod tests {
         definition.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         compile_instrument(
             &definition,
@@ -1630,6 +1631,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].generator =
             crate::definition::GeneratorDefinition::Sample(crate::definition::SampleDefinition {
@@ -1722,6 +1724,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
@@ -1768,6 +1771,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].processors = vec![
             crate::definition::ProcessorDefinition::Eq(crate::definition::EqProcessorDefinition {
@@ -2031,6 +2035,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].generator = crate::definition::GeneratorDefinition::Wavetable(
             crate::definition::WavetableDefinition {
@@ -2101,6 +2106,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         let envelope = crate::definition::AdsrDefinition {
             attack_seconds: 0.0,
@@ -2183,6 +2189,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].generator = crate::definition::GeneratorDefinition::Oscillator(
             crate::definition::OscillatorDefinition {
@@ -2228,6 +2235,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 16,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].generator = crate::definition::GeneratorDefinition::Additive(
             crate::definition::AdditiveDefinition {
@@ -2291,6 +2299,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 16,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].generator =
             crate::definition::GeneratorDefinition::Formant(crate::definition::FormantDefinition {
@@ -2427,6 +2436,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 16,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
@@ -2469,6 +2479,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
@@ -2764,6 +2775,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
@@ -2800,6 +2812,7 @@ pub(crate) mod tests {
         source.performance = crate::definition::PerformanceDefinition::Polyphonic {
             polyphony: 1,
             voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups: Vec::new(),
         };
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
