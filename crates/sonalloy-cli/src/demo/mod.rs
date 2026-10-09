@@ -281,8 +281,8 @@ fn load_instrument_reference(
                 (true, false) => {
                     context.diagnostics.push(
                         Diagnostic::error(
-                            DiagnosticCode::DefinitionError,
-                            "audio_input is required by this instrument",
+                            DiagnosticCode::AudioInputRequired,
+                            "external audio input is required; specify audio_input.part",
                         )
                         .with_path(format!("parts[{index}].audio_input"))
                         .with_detail(format!(
@@ -296,7 +296,7 @@ fn load_instrument_reference(
                     context.diagnostics.push(
                         Diagnostic::error(
                             DiagnosticCode::DefinitionError,
-                            "audio_input is not used by this instrument",
+                            "external audio input is not used by this instrument",
                         )
                         .with_path(format!("parts[{index}].audio_input")),
                     );

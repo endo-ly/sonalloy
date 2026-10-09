@@ -281,6 +281,13 @@ fn demo_export_midi_writes_conductor_and_part_tracks() {
 #[test]
 fn demo_export_midi_prefixes_parameter_change_errors_with_part_path() {
     let fixture = demo_fixture();
+    let mut events = vec![
+        json!({"type": "note", "tick": 0, "duration_ticks": 240, "note": 67, "velocity": 100}),
+    ];
+    for tick in 0..300 {
+        events.push(json!({"type":"parameter_change","tick":tick,"parameter":"voice.processor.tone.cutoff","native_value":8000.0}));
+        events.push(json!({"type":"parameter_ramp","tick":tick,"duration_ticks":120,"parameter":"voice.processor.tone.cutoff","from_value":1200.0,"to_value":8000.0}));
+    }
     std::fs::write(
         &fixture.second_pattern,
         serde_json::to_vec_pretty(&json!({
@@ -289,10 +296,7 @@ fn demo_export_midi_prefixes_parameter_change_errors_with_part_path() {
             "length_ticks": 480,
             "tempo_changes": [{"tick": 0, "bpm": 120.0}],
             "time_signature_changes": [{"tick": 0, "numerator": 4, "denominator": 4}],
-            "events": [
-                {"type": "note", "tick": 0, "duration_ticks": 240, "note": 67, "velocity": 100},
-                {"type": "parameter_change", "tick": 0, "parameter": "voice.processor.tone.cutoff", "native_value": 8000.0}
-            ]
+            "events": events
         }))
         .expect("parameter pattern JSON"),
     )
@@ -315,9 +319,18 @@ fn demo_export_midi_prefixes_parameter_change_errors_with_part_path() {
     let report: Value = serde_json::from_slice(&result.stdout).expect("error report");
     assert_eq!(report["diagnostics"][0]["code"], "MIDI_ERROR");
     assert_eq!(
-        report["diagnostics"][0]["path"],
-        "parts[1].pattern.events[1]"
+        report["diagnostics"].as_array().expect("diagnostics").len(),
+        1
     );
+    assert!(
+        report["diagnostics"][0]["message"]
+            .as_str()
+            .expect("message")
+            .starts_with("600 Sonalloy parameter events")
+    );
+    assert_eq!(report["diagnostics"][0]["detail"], "part 1 (second.part)");
+    assert!(!output.exists());
+    assert_eq!(report["diagnostics"][0]["path"], "parts[1].pattern.events");
 }
 
 #[test]
@@ -409,8 +422,7 @@ fn render_demo_reports_measured_master_output_analysis_and_mp3() {
         serde_json::from_slice(&std::fs::read(&fixture.demo).expect("Demo JSON")).expect("Demo");
     definition["mix"]["master"] = json!({
         "integrated_lufs": -10.0,
-        "true_peak_db": -1.0,
-        "loudness_range_lu": 7.0
+        "true_peak_db": -1.0
     });
     std::fs::write(
         &fixture.demo,
@@ -441,10 +453,17 @@ fn render_demo_reports_measured_master_output_analysis_and_mp3() {
     assert!(report["mix_analysis"].is_object());
     assert!(report["output_analysis"].is_object());
     assert_eq!(report["master"]["target"]["true_peak_db"], -1.0);
-    assert!(report["master"]["normalization_type"].is_string());
+    assert!(
+        (report["master"]["output"]["integrated_lufs"]
+            .as_f64()
+            .unwrap()
+            + 10.0)
+            .abs()
+            <= 0.5
+    );
     assert!(report["master"]["output"]["true_peak_db"].as_f64().unwrap() <= -1.0);
     assert_eq!(report["mp3_output"], mp3.to_string_lossy().as_ref());
-    for field in ["integrated_lufs", "true_peak_db", "loudness_range_lu"] {
+    for field in ["integrated_lufs", "true_peak_db"] {
         assert!(
             report["mp3_measurement"][field]
                 .as_f64()
@@ -511,11 +530,7 @@ fn render_demo_measures_mp3_without_mastering() {
             .as_f64()
             .is_some_and(f64::is_finite)
     );
-    assert!(
-        report["mp3_measurement"]["loudness_range_lu"]
-            .as_f64()
-            .is_some_and(f64::is_finite)
-    );
+    assert!(report["mp3_measurement"]["loudness_range_lu"].is_null());
 }
 
 fn ffmpeg_true_peak(path: &Path) -> f64 {
@@ -847,9 +862,10 @@ fn demo_audio_input_must_match_the_instrument_contract() {
     let report: Value = serde_json::from_slice(&result.stdout).expect("error report");
     assert!(report["diagnostics"].as_array().is_some_and(|diagnostics| {
         diagnostics.iter().any(|diagnostic| {
-            diagnostic["code"] == "DEFINITION_ERROR"
+            diagnostic["code"] == "AUDIO_INPUT_REQUIRED"
                 && diagnostic["path"] == "parts[0].audio_input"
-                && diagnostic["message"] == "audio_input is required by this instrument"
+                && diagnostic["message"]
+                    == "external audio input is required; specify audio_input.part"
         })
     }));
 
@@ -904,7 +920,8 @@ fn demo_audio_input_must_match_the_instrument_contract() {
                 diagnostics.iter().any(|diagnostic| {
                     diagnostic["code"] == "DEFINITION_ERROR"
                         && diagnostic["path"] == "parts[0].audio_input"
-                        && diagnostic["message"] == "audio_input is not used by this instrument"
+                        && diagnostic["message"]
+                            == "external audio input is not used by this instrument"
                 })
             })
     );

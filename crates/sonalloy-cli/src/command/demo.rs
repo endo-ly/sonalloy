@@ -9,7 +9,7 @@ use crate::demo::{self, DemoInspection};
 use crate::midi::export_demo;
 use crate::output::{CliFailure, StatusReport, finish_failure, print_warnings};
 
-pub(super) const DEMO_JSON_HELP: &str = r"A Demo JSON object requires `schema_version` (currently `1`) and a `parts` array; `name` is optional and `mix` may be omitted. Unknown fields are rejected. `parts` must contain at least one Part. Each Part requires `id`, `instrument`, and `pattern`; `gain_db` defaults to 0.0, `midi_channel` and `audio_input` are optional. `mix.fade_out_seconds` defaults to 0.0 and `mix.master` is optional. A master object requires `integrated_lufs` (-70..=-5 LUFS), `true_peak_db` (-9..=0 dB), and `loudness_range_lu` (1..=50 LU).
+pub(super) const DEMO_JSON_HELP: &str = r"A Demo JSON object requires `schema_version` (currently `1`) and a `parts` array; `name` is optional and `mix` may be omitted. Unknown fields are rejected. `parts` must contain at least one Part. Each Part requires `id`, `instrument`, and `pattern`; `gain_db` defaults to 0.0, `midi_channel` and `audio_input` are optional. `mix.fade_out_seconds` defaults to 0.0 and `mix.master` is optional. A master object requires `integrated_lufs` (-70..=-5 LUFS) and `true_peak_db` (-9..=0 dB).
 
 Part IDs are 1..=64 ASCII letters, digits, `.`, `_`, or `-`, must start with a letter or digit, and cannot be Windows reserved device names. IDs must be unique ignoring ASCII case. `gain_db` must be finite and yield a finite linear gain. `midi_channel`, when specified, is a 1-based channel from 1 through 16; explicit channels must be unique. Omitted channels are assigned the lowest unused channel numbers in Part order, after reserving explicit channels. Parts without an available channel can still be rendered as audio, but MIDI export fails.
 
@@ -33,7 +33,7 @@ pub(super) enum DemoCommand {
     Inspect(DemoPathArgs),
     /// Export all Demo parts to a Standard MIDI File Type 1.
     #[command(
-        long_about = "Write a Type 1 Standard MIDI File with a Conductor Track for the Demo name, tempo, and time signature, plus one Track per Part for its ID, channel, notes, sustain, pitch bend, mod wheel, and aftertouch. Parameter Change events, overlapping notes with the same pitch, or Parts without an available MIDI channel cause export to fail. An existing destination is overwritten."
+        long_about = "Write a Type 1 Standard MIDI File with a Conductor Track for the Demo name, tempo, and time signature, plus one Track per Part for its ID, channel, notes, sustain, pitch bend, mod wheel, and aftertouch. Parameter Change and Ramp events are counted in one MIDI_ERROR per Pattern with the Part index and ID. These events, overlapping notes with the same pitch, or Parts without an available MIDI channel cause export to fail. An existing destination is overwritten."
     )]
     ExportMidi(DemoExportMidiArgs),
 }
