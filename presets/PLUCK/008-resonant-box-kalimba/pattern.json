@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "Kalimba - Arpeggios, Dyads and Ringing Notes",
+  "name": "Resonant Box Kalimba - Arpeggios, Dyads and Ringing Notes",
   "ticks_per_beat": 480,
   "length_ticks": 7680,
   "tempo_changes": [

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "Wobble - Quarter and Eighth Wobbles with Rate Switch",
+  "name": "Tempo Wobble Bass - Quarter and Eighth Wobbles with Rate Switch",
   "ticks_per_beat": 480,
   "length_ticks": 7680,
   "tempo_changes": [

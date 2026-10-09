@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "Swell - One-Bar Reverse Swells into Each Downbeat",
+  "name": "Reverse Swell Pad - One-Bar Reverse Swells into Each Downbeat",
   "ticks_per_beat": 480,
   "length_ticks": 7680,
   "tempo_changes": [

@@ -1,64 +1,137 @@
 {
   "schema_version": 6,
+  "external_audio": null,
   "metadata": {
-    "name": "Long Sizzle Hat",
-    "author": "gpt-6-astra low",
-    "description": "長い尾の中で複数の金属振動が混ざり合い、時間とともに鳴りの中心が移っていくオープン・ハイハット。立ち上がりは高い金属音が一気に開き、尾では低めの金属共鳴と空気のノイズが一体になってゆっくり減衰する。短い連打では余韻が重なって厚みが増し、一打でも金属の混ざりが長く続く。",
+    "name": "Loose Sizzle Hat",
+    "author": "claude-opus-5.5",
+    "description": "少し開いた2枚のシンバルが触れ合う、ざらついたハーフオープンのハイハット。中域の当たりの後に、細かく震える金属のさざめきが200ミリ秒ほど続く。叩くたびに震え方が変わって機械的に聞こえにくく、Loosenessでシンバルの緩さとざわめきの量が変わる。",
     "category": "Drum",
     "tags": [
       "Metallic",
-      "Noisy",
+      "Rough",
       "Percussive",
-      "Long-Tail"
+      "Dense"
     ],
     "recommended_range": {
       "min_midi": 46,
       "max_midi": 46
     },
     "preview": {
-      "tempo_bpm": 120,
+      "tempo_bpm": 96,
       "ticks_per_beat": 480,
       "time_signature": {
         "numerator": 4,
         "denominator": 4
       },
-      "length_ticks": 2400,
+      "length_ticks": 3840,
       "notes": [
         {
           "tick": 0,
-          "duration_ticks": 600,
+          "duration_ticks": 120,
           "note": 46,
-          "velocity": 90
+          "velocity": 84
         },
         {
-          "tick": 600,
-          "duration_ticks": 600,
+          "tick": 260,
+          "duration_ticks": 120,
           "note": 46,
-          "velocity": 110
+          "velocity": 72
         },
         {
-          "tick": 1200,
-          "duration_ticks": 600,
+          "tick": 480,
+          "duration_ticks": 120,
           "note": 46,
-          "velocity": 100
+          "velocity": 84
         },
         {
-          "tick": 1800,
-          "duration_ticks": 600,
+          "tick": 740,
+          "duration_ticks": 120,
           "note": 46,
-          "velocity": 120
+          "velocity": 118
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 84
+        },
+        {
+          "tick": 1220,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 72
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 84
+        },
+        {
+          "tick": 1700,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 118
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 84
+        },
+        {
+          "tick": 2180,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 72
+        },
+        {
+          "tick": 2400,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 84
+        },
+        {
+          "tick": 2660,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 118
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 84
+        },
+        {
+          "tick": 3140,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 72
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 84
+        },
+        {
+          "tick": 3620,
+          "duration_ticks": 120,
+          "note": 46,
+          "velocity": 118
         }
       ]
     }
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 12,
+    "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
     {
-      "id": "metal",
+      "id": "chick",
       "enabled": true,
       "trigger": {
         "event": "note_on",
@@ -67,214 +140,1065 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -15.3,
-      "pan": 0,
-      "tuning_cents": 0,
+      "gain_db": -17.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.0005,
-        "decay_seconds": 0.55,
-        "sustain_level": 0,
-        "release_seconds": 0.35
-      },
-      "generator": {
-        "operator_modulation": {
-          "mode": "phase",
-          "algorithm": "three_modulators",
-          "operators": [
-            {
-              "ratio": 9,
-              "detune_cents": 0,
-              "level": 0.85,
-              "modulation_amount": 0,
-              "feedback": 0,
-              "phase": 0,
-              "envelope": {
-                "attack_seconds": 0,
-                "decay_seconds": 0,
-                "sustain_level": 1,
-                "release_seconds": 0.35
-              }
-            },
-            {
-              "ratio": 3.87,
-              "detune_cents": 0,
-              "level": 0,
-              "modulation_amount": 1.45,
-              "feedback": 0,
-              "phase": 0.09,
-              "envelope": {
-                "attack_seconds": 0,
-                "decay_seconds": 0,
-                "sustain_level": 1,
-                "release_seconds": 0.35
-              }
-            },
-            {
-              "ratio": 6.31,
-              "detune_cents": 0,
-              "level": 0,
-              "modulation_amount": 0.72,
-              "feedback": 0,
-              "phase": 0.22,
-              "envelope": {
-                "attack_seconds": 0,
-                "decay_seconds": 0.3,
-                "sustain_level": 0,
-                "release_seconds": 0.2
-              }
-            },
-            {
-              "ratio": 14.53,
-              "detune_cents": 0,
-              "level": 0,
-              "modulation_amount": 1.05,
-              "feedback": 0,
-              "phase": 0.35,
-              "envelope": {
-                "attack_seconds": 0,
-                "decay_seconds": 0.45,
-                "sustain_level": 0,
-                "release_seconds": 0.3
-              }
-            }
-          ],
-          "phase_reset": true,
-          "unison": null
-        }
-      },
-      "processors": []
-    },
-    {
-      "id": "air",
-      "enabled": true,
-      "trigger": {
-        "event": "note_on",
-        "key_min": 0,
-        "key_max": 127,
-        "velocity_min": 1,
-        "velocity_max": 127
-      },
-      "gain_db": -19.0,
-      "pan": 0,
-      "tuning_cents": 0,
-      "envelope": {
-        "attack_seconds": 0.0008,
-        "decay_seconds": 0.5,
-        "sustain_level": 0,
-        "release_seconds": 0.35
+        "attack_seconds": 0.0002,
+        "decay_seconds": 0.018,
+        "sustain_level": 0.0,
+        "release_seconds": 0.018
       },
       "generator": {
         "noise": {
           "color": "white",
-          "seed": 4443,
-          "stereo_correlation": 0.6
+          "seed": 702,
+          "stereo_correlation": 1.0
         }
       },
       "processors": [
         {
           "type": "filter",
-          "id": "sizzle",
+          "id": "band",
+          "mode": "band_pass",
+          "cutoff_hz": 3600.0,
+          "resonance": 0.35
+        }
+      ]
+    },
+    {
+      "id": "body",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.0,
+      "pan": 0.0,
+      "tuning_cents": 1188.0,
+      "envelope": {
+        "attack_seconds": 0.0004,
+        "decay_seconds": 0.28,
+        "sustain_level": 0.0,
+        "release_seconds": 0.28
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": false,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": 0.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "b0",
+              "ratio": 12.26581,
+              "amplitude_a": 0.5237,
+              "amplitude_b": 0.5237,
+              "phase": 0.111,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.21894913751751416,
+                "sustain_level": 0.0,
+                "release_seconds": 0.16352467230041054
+              }
+            },
+            {
+              "id": "b1",
+              "ratio": 12.48312,
+              "amplitude_a": 0.7847,
+              "amplitude_b": 0.7847,
+              "phase": 0.5387,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1275621654970886,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1519361006379994
+              }
+            },
+            {
+              "id": "b2",
+              "ratio": 12.81117,
+              "amplitude_a": 0.3609,
+              "amplitude_b": 0.3609,
+              "phase": 0.3783,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1279453333580251,
+                "sustain_level": 0.0,
+                "release_seconds": 0.17809463618723723
+              }
+            },
+            {
+              "id": "b3",
+              "ratio": 12.97725,
+              "amplitude_a": 0.7979,
+              "amplitude_b": 0.7979,
+              "phase": 0.9356,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14072561388334442,
+                "sustain_level": 0.0,
+                "release_seconds": 0.25915451738645584
+              }
+            },
+            {
+              "id": "b4",
+              "ratio": 13.22692,
+              "amplitude_a": 0.5743,
+              "amplitude_b": 0.5743,
+              "phase": 0.5159,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.22084088274666847,
+                "sustain_level": 0.0,
+                "release_seconds": 0.22055595782063672
+              }
+            },
+            {
+              "id": "b5",
+              "ratio": 13.53816,
+              "amplitude_a": 0.5332,
+              "amplitude_b": 0.5332,
+              "phase": 0.3928,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.15492552961680875,
+                "sustain_level": 0.0,
+                "release_seconds": 0.15377069984106317
+              }
+            },
+            {
+              "id": "b6",
+              "ratio": 13.73818,
+              "amplitude_a": 0.6637,
+              "amplitude_b": 0.6637,
+              "phase": 0.9166,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.29670493133731873,
+                "sustain_level": 0.0,
+                "release_seconds": 0.25072698320562925
+              }
+            },
+            {
+              "id": "b7",
+              "ratio": 14.16322,
+              "amplitude_a": 0.7113,
+              "amplitude_b": 0.7113,
+              "phase": 0.8006,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.16225680651923835,
+                "sustain_level": 0.0,
+                "release_seconds": 0.21014465477069671
+              }
+            },
+            {
+              "id": "b8",
+              "ratio": 14.40522,
+              "amplitude_a": 0.3562,
+              "amplitude_b": 0.3562,
+              "phase": 0.9247,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.24275164521767717,
+                "sustain_level": 0.0,
+                "release_seconds": 0.25184366890353993
+              }
+            },
+            {
+              "id": "b9",
+              "ratio": 14.74795,
+              "amplitude_a": 0.3743,
+              "amplitude_b": 0.3743,
+              "phase": 0.9835,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.13428469138079513,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2891483904810297
+              }
+            },
+            {
+              "id": "b10",
+              "ratio": 14.97338,
+              "amplitude_a": 0.5994,
+              "amplitude_b": 0.5994,
+              "phase": 0.9043,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.18229771279531398,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2777790817575813
+              }
+            },
+            {
+              "id": "b11",
+              "ratio": 15.44948,
+              "amplitude_a": 0.4787,
+              "amplitude_b": 0.4787,
+              "phase": 0.9978,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.29429782577652785,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2947741264106251
+              }
+            },
+            {
+              "id": "b12",
+              "ratio": 15.65467,
+              "amplitude_a": 0.5507,
+              "amplitude_b": 0.5507,
+              "phase": 0.7379,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1266477835061274,
+                "sustain_level": 0.0,
+                "release_seconds": 0.16336559564854666
+              }
+            },
+            {
+              "id": "b13",
+              "ratio": 15.91375,
+              "amplitude_a": 0.8963,
+              "amplitude_b": 0.8963,
+              "phase": 0.102,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14386936163031808,
+                "sustain_level": 0.0,
+                "release_seconds": 0.22030583694872283
+              }
+            },
+            {
+              "id": "b14",
+              "ratio": 16.25813,
+              "amplitude_a": 0.8676,
+              "amplitude_b": 0.8676,
+              "phase": 0.8931,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.16756168124778847,
+                "sustain_level": 0.0,
+                "release_seconds": 0.216201627793305
+              }
+            },
+            {
+              "id": "b15",
+              "ratio": 16.75373,
+              "amplitude_a": 0.3404,
+              "amplitude_b": 0.3404,
+              "phase": 0.5311,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1347740482735147,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2594435249919035
+              }
+            },
+            {
+              "id": "b16",
+              "ratio": 17.11085,
+              "amplitude_a": 0.5311,
+              "amplitude_b": 0.5311,
+              "phase": 0.0534,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2107699739722214,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2762715706727443
+              }
+            },
+            {
+              "id": "b17",
+              "ratio": 17.2443,
+              "amplitude_a": 0.7102,
+              "amplitude_b": 0.7102,
+              "phase": 0.6934,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14007356474778465,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2653018145839712
+              }
+            },
+            {
+              "id": "b18",
+              "ratio": 17.85255,
+              "amplitude_a": 0.364,
+              "amplitude_b": 0.364,
+              "phase": 0.3368,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2937153296924875,
+                "sustain_level": 0.0,
+                "release_seconds": 0.20110269428917663
+              }
+            },
+            {
+              "id": "b19",
+              "ratio": 18.15192,
+              "amplitude_a": 0.8598,
+              "amplitude_b": 0.8598,
+              "phase": 0.4221,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14331105025072796,
+                "sustain_level": 0.0,
+                "release_seconds": 0.16620428840431214
+              }
+            },
+            {
+              "id": "b20",
+              "ratio": 18.58835,
+              "amplitude_a": 0.9047,
+              "amplitude_b": 0.9047,
+              "phase": 0.8194,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1594159164194766,
+                "sustain_level": 0.0,
+                "release_seconds": 0.17005657133781513
+              }
+            },
+            {
+              "id": "b21",
+              "ratio": 18.91685,
+              "amplitude_a": 0.94,
+              "amplitude_b": 0.94,
+              "phase": 0.7918,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2934611458008952,
+                "sustain_level": 0.0,
+                "release_seconds": 0.19299251351921576
+              }
+            },
+            {
+              "id": "b22",
+              "ratio": 19.31898,
+              "amplitude_a": 0.5439,
+              "amplitude_b": 0.5439,
+              "phase": 0.048,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2826750854810035,
+                "sustain_level": 0.0,
+                "release_seconds": 0.13424864647487295
+              }
+            },
+            {
+              "id": "b23",
+              "ratio": 19.5841,
+              "amplitude_a": 0.9152,
+              "amplitude_b": 0.9152,
+              "phase": 0.8028,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2727233737176239,
+                "sustain_level": 0.0,
+                "release_seconds": 0.24760266956264526
+              }
+            },
+            {
+              "id": "b24",
+              "ratio": 19.99108,
+              "amplitude_a": 0.7399,
+              "amplitude_b": 0.7399,
+              "phase": 0.2729,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2817241917832929,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1864095880043231
+              }
+            },
+            {
+              "id": "b25",
+              "ratio": 20.43745,
+              "amplitude_a": 0.6815,
+              "amplitude_b": 0.6815,
+              "phase": 0.6058,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14200033675344081,
+                "sustain_level": 0.0,
+                "release_seconds": 0.28230994379529695
+              }
+            },
+            {
+              "id": "b26",
+              "ratio": 21.04281,
+              "amplitude_a": 0.4518,
+              "amplitude_b": 0.4518,
+              "phase": 0.7054,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.22558535185711287,
+                "sustain_level": 0.0,
+                "release_seconds": 0.13393509982356858
+              }
+            },
+            {
+              "id": "b27",
+              "ratio": 21.32976,
+              "amplitude_a": 0.9738,
+              "amplitude_b": 0.9738,
+              "phase": 0.5057,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2667576357721396,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2480507667125718
+              }
+            },
+            {
+              "id": "b28",
+              "ratio": 21.87638,
+              "amplitude_a": 0.9885,
+              "amplitude_b": 0.9885,
+              "phase": 0.0257,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.21590133716008467,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1572268047137123
+              }
+            },
+            {
+              "id": "b29",
+              "ratio": 22.38733,
+              "amplitude_a": 0.7897,
+              "amplitude_b": 0.7897,
+              "phase": 0.1463,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2925607111923237,
+                "sustain_level": 0.0,
+                "release_seconds": 0.20174307787568824
+              }
+            },
+            {
+              "id": "b30",
+              "ratio": 22.55811,
+              "amplitude_a": 0.6596,
+              "amplitude_b": 0.6596,
+              "phase": 0.4511,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.22387777568788014,
+                "sustain_level": 0.0,
+                "release_seconds": 0.21914969323624767
+              }
+            },
+            {
+              "id": "b31",
+              "ratio": 23.20328,
+              "amplitude_a": 0.8732,
+              "amplitude_b": 0.8732,
+              "phase": 0.9265,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2751476376858961,
+                "sustain_level": 0.0,
+                "release_seconds": 0.19967258176544905
+              }
+            },
+            {
+              "id": "b32",
+              "ratio": 23.67528,
+              "amplitude_a": 0.5209,
+              "amplitude_b": 0.5209,
+              "phase": 0.9534,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.29643496829245963,
+                "sustain_level": 0.0,
+                "release_seconds": 0.27424874252773557
+              }
+            },
+            {
+              "id": "b33",
+              "ratio": 24.08501,
+              "amplitude_a": 0.5516,
+              "amplitude_b": 0.5516,
+              "phase": 0.717,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.12120746447694804,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2689749283016064
+              }
+            },
+            {
+              "id": "b34",
+              "ratio": 24.67583,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.2953,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.20696401999164055,
+                "sustain_level": 0.0,
+                "release_seconds": 0.20027951648078723
+              }
+            },
+            {
+              "id": "b35",
+              "ratio": 25.26001,
+              "amplitude_a": 0.9991,
+              "amplitude_b": 0.9991,
+              "phase": 0.9569,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.22293647742776618,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2839996869674241
+              }
+            },
+            {
+              "id": "b36",
+              "ratio": 25.54105,
+              "amplitude_a": 0.5998,
+              "amplitude_b": 0.5998,
+              "phase": 0.4914,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.12177625003705572,
+                "sustain_level": 0.0,
+                "release_seconds": 0.12140095643617653
+              }
+            },
+            {
+              "id": "b37",
+              "ratio": 26.37861,
+              "amplitude_a": 0.7295,
+              "amplitude_b": 0.7295,
+              "phase": 0.8396,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.22015390259550924,
+                "sustain_level": 0.0,
+                "release_seconds": 0.16256856256564625
+              }
+            },
+            {
+              "id": "b38",
+              "ratio": 26.74419,
+              "amplitude_a": 0.6464,
+              "amplitude_b": 0.6464,
+              "phase": 0.9003,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1792853060578589,
+                "sustain_level": 0.0,
+                "release_seconds": 0.21145159449934287
+              }
+            },
+            {
+              "id": "b39",
+              "ratio": 27.35546,
+              "amplitude_a": 0.636,
+              "amplitude_b": 0.636,
+              "phase": 0.4958,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1344196697767512,
+                "sustain_level": 0.0,
+                "release_seconds": 0.13246154159092172
+              }
+            },
+            {
+              "id": "b40",
+              "ratio": 27.79976,
+              "amplitude_a": 0.5131,
+              "amplitude_b": 0.5131,
+              "phase": 0.5903,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.24868936874548564,
+                "sustain_level": 0.0,
+                "release_seconds": 0.16393109886248342
+              }
+            },
+            {
+              "id": "b41",
+              "ratio": 28.46122,
+              "amplitude_a": 0.5698,
+              "amplitude_b": 0.5698,
+              "phase": 0.3637,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.19643303441086607,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1400220387303096
+              }
+            },
+            {
+              "id": "b42",
+              "ratio": 29.22612,
+              "amplitude_a": 0.921,
+              "amplitude_b": 0.921,
+              "phase": 0.0815,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.26143566537409246,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14839265600973572
+              }
+            },
+            {
+              "id": "b43",
+              "ratio": 29.76704,
+              "amplitude_a": 0.5071,
+              "amplitude_b": 0.5071,
+              "phase": 0.804,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14648968214629263,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14939812049520917
+              }
+            },
+            {
+              "id": "b44",
+              "ratio": 30.25212,
+              "amplitude_a": 0.7962,
+              "amplitude_b": 0.7962,
+              "phase": 0.4393,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2244435078555831,
+                "sustain_level": 0.0,
+                "release_seconds": 0.13104957425846261
+              }
+            },
+            {
+              "id": "b45",
+              "ratio": 31.06157,
+              "amplitude_a": 0.5227,
+              "amplitude_b": 0.5227,
+              "phase": 1.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.21211532993080606,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1356299246758986
+              }
+            },
+            {
+              "id": "b46",
+              "ratio": 31.54196,
+              "amplitude_a": 0.606,
+              "amplitude_b": 0.606,
+              "phase": 0.9606,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14162559044908787,
+                "sustain_level": 0.0,
+                "release_seconds": 0.17641300139030738
+              }
+            },
+            {
+              "id": "b47",
+              "ratio": 32.17309,
+              "amplitude_a": 0.915,
+              "amplitude_b": 0.915,
+              "phase": 0.7542,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.18428439985736308,
+                "sustain_level": 0.0,
+                "release_seconds": 0.16994570862666072
+              }
+            },
+            {
+              "id": "b48",
+              "ratio": 33.16488,
+              "amplitude_a": 0.4631,
+              "amplitude_b": 0.4631,
+              "phase": 0.4343,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.17617463879318837,
+                "sustain_level": 0.0,
+                "release_seconds": 0.17559941034090013
+              }
+            },
+            {
+              "id": "b49",
+              "ratio": 33.72625,
+              "amplitude_a": 0.8712,
+              "amplitude_b": 0.8712,
+              "phase": 0.6895,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2697466996756114,
+                "sustain_level": 0.0,
+                "release_seconds": 0.28343465556629793
+              }
+            },
+            {
+              "id": "b50",
+              "ratio": 34.3542,
+              "amplitude_a": 0.8539,
+              "amplitude_b": 0.8539,
+              "phase": 0.3352,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1534508239286663,
+                "sustain_level": 0.0,
+                "release_seconds": 0.13061906333119747
+              }
+            },
+            {
+              "id": "b51",
+              "ratio": 35.21761,
+              "amplitude_a": 0.4699,
+              "amplitude_b": 0.4699,
+              "phase": 0.941,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1373115048419336,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14674741471947123
+              }
+            },
+            {
+              "id": "b52",
+              "ratio": 35.57763,
+              "amplitude_a": 0.6443,
+              "amplitude_b": 0.6443,
+              "phase": 0.8203,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.18941929860299112,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2962808868736294
+              }
+            },
+            {
+              "id": "b53",
+              "ratio": 36.45927,
+              "amplitude_a": 0.3701,
+              "amplitude_b": 0.3701,
+              "phase": 0.0079,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.21839313846877995,
+                "sustain_level": 0.0,
+                "release_seconds": 0.23434459839221544
+              }
+            },
+            {
+              "id": "b54",
+              "ratio": 37.31001,
+              "amplitude_a": 0.8112,
+              "amplitude_b": 0.8112,
+              "phase": 0.1963,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1728181556353211,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14220573850194257
+              }
+            },
+            {
+              "id": "b55",
+              "ratio": 37.80566,
+              "amplitude_a": 0.5058,
+              "amplitude_b": 0.5058,
+              "phase": 0.302,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1257751754407048,
+                "sustain_level": 0.0,
+                "release_seconds": 0.2902425971663782
+              }
+            },
+            {
+              "id": "b56",
+              "ratio": 38.83608,
+              "amplitude_a": 0.5477,
+              "amplitude_b": 0.5477,
+              "phase": 0.945,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.14609971121952647,
+                "sustain_level": 0.0,
+                "release_seconds": 0.18414797934305266
+              }
+            },
+            {
+              "id": "b57",
+              "ratio": 39.43838,
+              "amplitude_a": 0.7594,
+              "amplitude_b": 0.7594,
+              "phase": 0.5576,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.16913167386539332,
+                "sustain_level": 0.0,
+                "release_seconds": 0.21094978507042014
+              }
+            },
+            {
+              "id": "b58",
+              "ratio": 40.64472,
+              "amplitude_a": 0.8352,
+              "amplitude_b": 0.8352,
+              "phase": 0.3138,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2546984376174477,
+                "sustain_level": 0.0,
+                "release_seconds": 0.27547718627139545
+              }
+            },
+            {
+              "id": "b59",
+              "ratio": 41.40288,
+              "amplitude_a": 0.7385,
+              "amplitude_b": 0.7385,
+              "phase": 0.4592,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1838394719078482,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14341249070315942
+              }
+            },
+            {
+              "id": "b60",
+              "ratio": 42.33251,
+              "amplitude_a": 0.6189,
+              "amplitude_b": 0.6189,
+              "phase": 0.1834,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.18175040592863823,
+                "sustain_level": 0.0,
+                "release_seconds": 0.19236206021879032
+              }
+            },
+            {
+              "id": "b61",
+              "ratio": 42.79725,
+              "amplitude_a": 0.7467,
+              "amplitude_b": 0.7467,
+              "phase": 0.6318,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.16051933452369316,
+                "sustain_level": 0.0,
+                "release_seconds": 0.14603280439000643
+              }
+            },
+            {
+              "id": "b62",
+              "ratio": 43.96509,
+              "amplitude_a": 0.4777,
+              "amplitude_b": 0.4777,
+              "phase": 0.8853,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2589117342772363,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1616942933738206
+              }
+            },
+            {
+              "id": "b63",
+              "ratio": 44.58437,
+              "amplitude_a": 0.5425,
+              "amplitude_b": 0.5425,
+              "phase": 0.2898,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.2998568969431275,
+                "sustain_level": 0.0,
+                "release_seconds": 0.23784976867174487
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "wash",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -25.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.26,
+        "sustain_level": 0.0,
+        "release_seconds": 0.26
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 703,
+          "stereo_correlation": 0.4
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "hp",
           "mode": "high_pass",
-          "cutoff_hz": 6800,
+          "cutoff_hz": 5000.0,
           "resonance": 0.05
+        },
+        {
+          "type": "filter",
+          "id": "top",
+          "mode": "low_pass",
+          "cutoff_hz": 11000.0,
+          "resonance": 0.0
         }
       ]
     }
   ],
-  "voice_processors": [
-    {
-      "type": "filter",
-      "id": "cut_low",
-      "mode": "high_pass",
-      "cutoff_hz": 2800,
-      "resonance": 0.05
-    },
-    {
-      "type": "filter",
-      "id": "sheen",
-      "mode": "low_pass",
-      "cutoff_hz": 10500,
-      "resonance": 0.05
-    },
-    {
-      "type": "transient_shaper",
-      "id": "bite",
-      "attack": 0.12,
-      "sustain": 0.2,
-      "mix": 0.9
-    },
-    {
-      "type": "compressor",
-      "id": "density",
-      "detector": "self_signal",
-      "threshold_db": -24,
-      "ratio": 3,
-      "attack_ms": 2,
-      "release_ms": 80,
-      "knee_db": 10,
-      "makeup_gain_db": 5,
-      "mix": 0.9
-    }
-  ],
+  "voice_processors": [],
   "global_processors": [
     {
       "type": "limiter",
-      "id": "cap",
-      "ceiling_db": -1.5,
-      "release_ms": 120,
-      "input_gain_db": -1.5
+      "id": "safety",
+      "ceiling_db": -3.0,
+      "release_ms": 80.0,
+      "input_gain_db": 0.0
     }
   ],
   "modulation": {
-    "sources": [],
+    "sources": [
+      {
+        "id": "hit",
+        "type": "random",
+        "seed": 704
+      },
+      {
+        "id": "rattle",
+        "type": "smooth_random",
+        "seed": 705,
+        "rate": {
+          "value": 40.0,
+          "unit": "per_second"
+        }
+      }
+    ],
     "routes": [
       {
-        "source": "velocity",
-        "target": "layer.metal.gain",
+        "source": "hit",
+        "target": "layer.body.tuning",
         "depth": {
-          "value": 8,
-          "unit": "decibels"
+          "value": 14.0,
+          "unit": "cents"
         },
-        "curve": "smooth_step"
+        "curve": "linear"
       },
       {
-        "source": "velocity",
-        "target": "layer.air.gain",
+        "source": "hit",
+        "target": "layer.chick.processor.band.cutoff",
         "depth": {
-          "value": 9,
-          "unit": "decibels"
-        },
-        "curve": "smooth_step"
-      },
-      {
-        "source": "velocity",
-        "target": "voice.processor.sheen.cutoff",
-        "depth": {
-          "value": 0.3,
+          "value": 0.15,
           "unit": "octaves"
         },
         "curve": "linear"
       },
       {
-        "source": "mod_wheel",
-        "target": "layer.metal.gain",
+        "source": "rattle",
+        "target": "layer.body.gain",
         "depth": {
-          "value": 3,
+          "value": 5.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "rattle",
+        "target": "layer.wash.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.chick.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.wash.gain",
+        "depth": {
+          "value": 12.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.looseness",
+        "target": "layer.wash.gain",
+        "depth": {
+          "value": 6.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "macro.looseness",
+        "target": "layer.body.gain",
+        "depth": {
+          "value": -4.0,
           "unit": "decibels"
         },
         "curve": "linear"
       },
       {
         "source": "pitch_bend",
-        "target": "layer.metal.tuning",
+        "target": "layer.body.tuning",
         "depth": {
-          "value": 200,
+          "value": -200.0,
           "unit": "cents"
         },
         "curve": "linear"
       }
     ]
   },
-  "macros": [],
+  "macros": [
+    {
+      "id": "looseness",
+      "name": "Looseness",
+      "default": 0.5
+    }
+  ],
   "vectors": []
 }

@@ -1,231 +1,722 @@
 {
   "schema_version": 6,
+  "external_audio": null,
   "metadata": {
     "name": "Needle Closed Hat",
-    "author": "gpt-6.1-sol",
-    "description": "非整数倍音の細い金属打音に、高域の短いノイズを重ねたクローズドハット。金属の芯と空気の成分がほぼ同時に立ち、薄い音像のまま素早く収束する。細かな反復でも尾が溜まりにくく、ベロシティで刻みの強弱を付け、モジュレーションホイールでノイズ側の左右位置を動かせる。",
+    "author": "claude-opus-5.5",
+    "description": "高域に集めた非整数倍音と、スティックの先端が当たる短いクリックを重ねた細く鋭いクローズドハット。数ミリ秒の当たりのあと20ミリ秒前後で消え、強く叩いたときだけ短い余韻が加わる。32分や3連のロールでも音が重ならず、弱い音ほど短く暗くなるため、ベロシティで抑揚を付けられる。",
     "category": "Drum",
     "tags": [
-      "Noisy",
-      "Metallic",
+      "Bright",
       "Sharp",
       "Short",
       "Airy"
     ],
     "recommended_range": {
-      "min_midi": 84,
-      "max_midi": 96
+      "min_midi": 42,
+      "max_midi": 42
     },
     "preview": {
-      "tempo_bpm": 120,
+      "tempo_bpm": 140,
       "ticks_per_beat": 480,
       "time_signature": {
         "numerator": 4,
         "denominator": 4
       },
-      "length_ticks": 7680,
+      "length_ticks": 3840,
       "notes": [
         {
           "tick": 0,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 95
+          "duration_ticks": 120,
+          "note": 42,
+          "velocity": 104
         },
         {
           "tick": 240,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
+          "duration_ticks": 120,
+          "note": 42,
+          "velocity": 86
         },
         {
           "tick": 480,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 88
+          "duration_ticks": 120,
+          "note": 42,
+          "velocity": 104
         },
         {
           "tick": 720,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
+          "duration_ticks": 120,
+          "note": 42,
+          "velocity": 86
         },
         {
           "tick": 960,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 95
+          "duration_ticks": 120,
+          "note": 42,
+          "velocity": 104
         },
         {
           "tick": 1200,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
+          "duration_ticks": 120,
+          "note": 42,
+          "velocity": 86
         },
         {
           "tick": 1440,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 88
+          "duration_ticks": 120,
+          "note": 42,
+          "velocity": 104
         },
         {
           "tick": 1680,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
+          "duration_ticks": 120,
+          "note": 42,
+          "velocity": 86
         },
         {
           "tick": 1920,
-          "note": 90,
           "duration_ticks": 60,
-          "velocity": 95
+          "note": 42,
+          "velocity": 70
+        },
+        {
+          "tick": 2040,
+          "duration_ticks": 60,
+          "note": 42,
+          "velocity": 75
         },
         {
           "tick": 2160,
-          "note": 90,
           "duration_ticks": 60,
-          "velocity": 50
+          "note": 42,
+          "velocity": 80
+        },
+        {
+          "tick": 2280,
+          "duration_ticks": 60,
+          "note": 42,
+          "velocity": 85
         },
         {
           "tick": 2400,
-          "note": 90,
           "duration_ticks": 60,
-          "velocity": 88
+          "note": 42,
+          "velocity": 90
+        },
+        {
+          "tick": 2520,
+          "duration_ticks": 60,
+          "note": 42,
+          "velocity": 95
         },
         {
           "tick": 2640,
-          "note": 90,
           "duration_ticks": 60,
-          "velocity": 50
+          "note": 42,
+          "velocity": 100
+        },
+        {
+          "tick": 2760,
+          "duration_ticks": 60,
+          "note": 42,
+          "velocity": 105
         },
         {
           "tick": 2880,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 95
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 60
+        },
+        {
+          "tick": 2960,
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 65
+        },
+        {
+          "tick": 3040,
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 70
         },
         {
           "tick": 3120,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 75
+        },
+        {
+          "tick": 3200,
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 80
+        },
+        {
+          "tick": 3280,
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 85
         },
         {
           "tick": 3360,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 88
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 90
+        },
+        {
+          "tick": 3440,
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 95
+        },
+        {
+          "tick": 3520,
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 100
         },
         {
           "tick": 3600,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 105
         },
         {
-          "tick": 3840,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 95
+          "tick": 3680,
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 110
         },
         {
-          "tick": 4080,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
-        },
-        {
-          "tick": 4320,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 88
-        },
-        {
-          "tick": 4560,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
-        },
-        {
-          "tick": 4800,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 95
-        },
-        {
-          "tick": 5040,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
-        },
-        {
-          "tick": 5280,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 88
-        },
-        {
-          "tick": 5520,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
-        },
-        {
-          "tick": 5760,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 95
-        },
-        {
-          "tick": 6000,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
-        },
-        {
-          "tick": 6240,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 88
-        },
-        {
-          "tick": 6480,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
-        },
-        {
-          "tick": 6720,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 95
-        },
-        {
-          "tick": 6960,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
-        },
-        {
-          "tick": 7200,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 88
-        },
-        {
-          "tick": 7440,
-          "note": 90,
-          "duration_ticks": 60,
-          "velocity": 50
+          "tick": 3760,
+          "duration_ticks": 40,
+          "note": 42,
+          "velocity": 115
         }
       ]
     }
   },
   "performance": {
     "mode": "polyphonic",
-    "polyphony": 4,
+    "polyphony": 8,
     "voice_stealing": "quietest_releasing_then_oldest"
   },
   "layers": [
+    {
+      "id": "tip",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17.5,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0002,
+        "decay_seconds": 0.004,
+        "sustain_level": 0.0,
+        "release_seconds": 0.004
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 1902,
+          "stereo_correlation": 1.0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "band",
+          "mode": "band_pass",
+          "cutoff_hz": 7800.0,
+          "resonance": 0.35
+        }
+      ]
+    },
+    {
+      "id": "shimmer",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -18.0,
+      "pan": 0.0,
+      "tuning_cents": 1188.0,
+      "envelope": {
+        "attack_seconds": 0.0003,
+        "decay_seconds": 0.026,
+        "sustain_level": 0.0,
+        "release_seconds": 0.026
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": false,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": 0.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "m0",
+              "ratio": 35.5461,
+              "amplitude_a": 0.3463,
+              "amplitude_b": 0.3463,
+              "phase": 0.3232
+            },
+            {
+              "id": "m1",
+              "ratio": 35.8953,
+              "amplitude_a": 0.6624,
+              "amplitude_b": 0.6624,
+              "phase": 0.7093
+            },
+            {
+              "id": "m2",
+              "ratio": 36.16057,
+              "amplitude_a": 0.6435,
+              "amplitude_b": 0.6435,
+              "phase": 0.5642
+            },
+            {
+              "id": "m3",
+              "ratio": 36.47331,
+              "amplitude_a": 0.813,
+              "amplitude_b": 0.813,
+              "phase": 0.4912
+            },
+            {
+              "id": "m4",
+              "ratio": 36.76886,
+              "amplitude_a": 0.7524,
+              "amplitude_b": 0.7524,
+              "phase": 0.5027
+            },
+            {
+              "id": "m5",
+              "ratio": 37.1303,
+              "amplitude_a": 0.4062,
+              "amplitude_b": 0.4062,
+              "phase": 0.0124
+            },
+            {
+              "id": "m6",
+              "ratio": 37.48352,
+              "amplitude_a": 0.8343,
+              "amplitude_b": 0.8343,
+              "phase": 0.8316
+            },
+            {
+              "id": "m7",
+              "ratio": 37.91465,
+              "amplitude_a": 0.7829,
+              "amplitude_b": 0.7829,
+              "phase": 0.4346
+            },
+            {
+              "id": "m8",
+              "ratio": 38.16686,
+              "amplitude_a": 0.7992,
+              "amplitude_b": 0.7992,
+              "phase": 0.0129
+            },
+            {
+              "id": "m9",
+              "ratio": 38.50663,
+              "amplitude_a": 0.4213,
+              "amplitude_b": 0.4213,
+              "phase": 0.0331
+            },
+            {
+              "id": "m10",
+              "ratio": 38.88571,
+              "amplitude_a": 0.5879,
+              "amplitude_b": 0.5879,
+              "phase": 0.0446
+            },
+            {
+              "id": "m11",
+              "ratio": 39.24822,
+              "amplitude_a": 0.4692,
+              "amplitude_b": 0.4692,
+              "phase": 0.4323
+            },
+            {
+              "id": "m12",
+              "ratio": 39.7172,
+              "amplitude_a": 0.8616,
+              "amplitude_b": 0.8616,
+              "phase": 0.8455
+            },
+            {
+              "id": "m13",
+              "ratio": 39.89251,
+              "amplitude_a": 0.4114,
+              "amplitude_b": 0.4114,
+              "phase": 0.7918
+            },
+            {
+              "id": "m14",
+              "ratio": 40.3372,
+              "amplitude_a": 0.5984,
+              "amplitude_b": 0.5984,
+              "phase": 0.9883
+            },
+            {
+              "id": "m15",
+              "ratio": 40.71987,
+              "amplitude_a": 0.4013,
+              "amplitude_b": 0.4013,
+              "phase": 0.0964
+            },
+            {
+              "id": "m16",
+              "ratio": 41.06698,
+              "amplitude_a": 0.6582,
+              "amplitude_b": 0.6582,
+              "phase": 0.7104
+            },
+            {
+              "id": "m17",
+              "ratio": 41.34472,
+              "amplitude_a": 0.633,
+              "amplitude_b": 0.633,
+              "phase": 0.7127
+            },
+            {
+              "id": "m18",
+              "ratio": 41.92184,
+              "amplitude_a": 0.792,
+              "amplitude_b": 0.792,
+              "phase": 0.1186
+            },
+            {
+              "id": "m19",
+              "ratio": 42.21793,
+              "amplitude_a": 0.4813,
+              "amplitude_b": 0.4813,
+              "phase": 0.7822
+            },
+            {
+              "id": "m20",
+              "ratio": 42.57029,
+              "amplitude_a": 0.5984,
+              "amplitude_b": 0.5984,
+              "phase": 0.6636
+            },
+            {
+              "id": "m21",
+              "ratio": 42.94774,
+              "amplitude_a": 0.5378,
+              "amplitude_b": 0.5378,
+              "phase": 0.3668
+            },
+            {
+              "id": "m22",
+              "ratio": 43.30938,
+              "amplitude_a": 0.8755,
+              "amplitude_b": 0.8755,
+              "phase": 0.3036
+            },
+            {
+              "id": "m23",
+              "ratio": 43.67966,
+              "amplitude_a": 0.7725,
+              "amplitude_b": 0.7725,
+              "phase": 0.3494
+            },
+            {
+              "id": "m24",
+              "ratio": 44.22464,
+              "amplitude_a": 0.931,
+              "amplitude_b": 0.931,
+              "phase": 0.3975
+            },
+            {
+              "id": "m25",
+              "ratio": 44.70143,
+              "amplitude_a": 0.775,
+              "amplitude_b": 0.775,
+              "phase": 0.4364
+            },
+            {
+              "id": "m26",
+              "ratio": 44.90523,
+              "amplitude_a": 0.6704,
+              "amplitude_b": 0.6704,
+              "phase": 0.7822
+            },
+            {
+              "id": "m27",
+              "ratio": 45.24191,
+              "amplitude_a": 0.7146,
+              "amplitude_b": 0.7146,
+              "phase": 0.0208
+            },
+            {
+              "id": "m28",
+              "ratio": 45.93425,
+              "amplitude_a": 0.4941,
+              "amplitude_b": 0.4941,
+              "phase": 0.5446
+            },
+            {
+              "id": "m29",
+              "ratio": 46.1331,
+              "amplitude_a": 0.8023,
+              "amplitude_b": 0.8023,
+              "phase": 0.5189
+            },
+            {
+              "id": "m30",
+              "ratio": 46.50837,
+              "amplitude_a": 0.9776,
+              "amplitude_b": 0.9776,
+              "phase": 0.4207
+            },
+            {
+              "id": "m31",
+              "ratio": 47.11532,
+              "amplitude_a": 0.663,
+              "amplitude_b": 0.663,
+              "phase": 0.6684
+            },
+            {
+              "id": "m32",
+              "ratio": 47.47284,
+              "amplitude_a": 0.7228,
+              "amplitude_b": 0.7228,
+              "phase": 0.4682
+            },
+            {
+              "id": "m33",
+              "ratio": 47.84185,
+              "amplitude_a": 0.8504,
+              "amplitude_b": 0.8504,
+              "phase": 0.2623
+            },
+            {
+              "id": "m34",
+              "ratio": 48.2893,
+              "amplitude_a": 0.6846,
+              "amplitude_b": 0.6846,
+              "phase": 0.8677
+            },
+            {
+              "id": "m35",
+              "ratio": 48.93832,
+              "amplitude_a": 0.7011,
+              "amplitude_b": 0.7011,
+              "phase": 0.7151
+            },
+            {
+              "id": "m36",
+              "ratio": 49.29763,
+              "amplitude_a": 0.7378,
+              "amplitude_b": 0.7378,
+              "phase": 0.308
+            },
+            {
+              "id": "m37",
+              "ratio": 49.74644,
+              "amplitude_a": 0.8724,
+              "amplitude_b": 0.8724,
+              "phase": 0.1339
+            },
+            {
+              "id": "m38",
+              "ratio": 50.18634,
+              "amplitude_a": 0.7907,
+              "amplitude_b": 0.7907,
+              "phase": 0.1566
+            },
+            {
+              "id": "m39",
+              "ratio": 50.69892,
+              "amplitude_a": 0.557,
+              "amplitude_b": 0.557,
+              "phase": 0.3887
+            },
+            {
+              "id": "m40",
+              "ratio": 50.9624,
+              "amplitude_a": 0.5835,
+              "amplitude_b": 0.5835,
+              "phase": 0.8458
+            },
+            {
+              "id": "m41",
+              "ratio": 51.65405,
+              "amplitude_a": 0.9741,
+              "amplitude_b": 0.9741,
+              "phase": 0.3472
+            },
+            {
+              "id": "m42",
+              "ratio": 52.1398,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.799
+            },
+            {
+              "id": "m43",
+              "ratio": 52.49822,
+              "amplitude_a": 0.5687,
+              "amplitude_b": 0.5687,
+              "phase": 0.1198
+            },
+            {
+              "id": "m44",
+              "ratio": 53.08904,
+              "amplitude_a": 0.9691,
+              "amplitude_b": 0.9691,
+              "phase": 0.2263
+            },
+            {
+              "id": "m45",
+              "ratio": 53.50777,
+              "amplitude_a": 0.6408,
+              "amplitude_b": 0.6408,
+              "phase": 0.952
+            },
+            {
+              "id": "m46",
+              "ratio": 54.06062,
+              "amplitude_a": 0.7597,
+              "amplitude_b": 0.7597,
+              "phase": 0.9562
+            },
+            {
+              "id": "m47",
+              "ratio": 54.49878,
+              "amplitude_a": 0.7959,
+              "amplitude_b": 0.7959,
+              "phase": 0.2329
+            },
+            {
+              "id": "m48",
+              "ratio": 54.82901,
+              "amplitude_a": 0.858,
+              "amplitude_b": 0.858,
+              "phase": 0.756
+            },
+            {
+              "id": "m49",
+              "ratio": 55.50647,
+              "amplitude_a": 0.3622,
+              "amplitude_b": 0.3622,
+              "phase": 0.1848
+            },
+            {
+              "id": "m50",
+              "ratio": 56.03663,
+              "amplitude_a": 0.6416,
+              "amplitude_b": 0.6416,
+              "phase": 0.3266
+            },
+            {
+              "id": "m51",
+              "ratio": 56.4407,
+              "amplitude_a": 0.4253,
+              "amplitude_b": 0.4253,
+              "phase": 0.5861
+            },
+            {
+              "id": "m52",
+              "ratio": 56.81302,
+              "amplitude_a": 0.6018,
+              "amplitude_b": 0.6018,
+              "phase": 0.4144
+            },
+            {
+              "id": "m53",
+              "ratio": 57.35522,
+              "amplitude_a": 0.6136,
+              "amplitude_b": 0.6136,
+              "phase": 0.899
+            },
+            {
+              "id": "m54",
+              "ratio": 57.8847,
+              "amplitude_a": 0.9225,
+              "amplitude_b": 0.9225,
+              "phase": 0.7357
+            },
+            {
+              "id": "m55",
+              "ratio": 58.39272,
+              "amplitude_a": 0.7089,
+              "amplitude_b": 0.7089,
+              "phase": 0.3957
+            },
+            {
+              "id": "m56",
+              "ratio": 58.86179,
+              "amplitude_a": 0.9707,
+              "amplitude_b": 0.9707,
+              "phase": 0.9909
+            },
+            {
+              "id": "m57",
+              "ratio": 59.63773,
+              "amplitude_a": 0.8151,
+              "amplitude_b": 0.8151,
+              "phase": 0.6697
+            },
+            {
+              "id": "m58",
+              "ratio": 60.17471,
+              "amplitude_a": 0.4933,
+              "amplitude_b": 0.4933,
+              "phase": 0.7255
+            },
+            {
+              "id": "m59",
+              "ratio": 60.45206,
+              "amplitude_a": 0.867,
+              "amplitude_b": 0.867,
+              "phase": 0.3841
+            },
+            {
+              "id": "m60",
+              "ratio": 61.09767,
+              "amplitude_a": 0.7897,
+              "amplitude_b": 0.7897,
+              "phase": 0.1232
+            },
+            {
+              "id": "m61",
+              "ratio": 61.57177,
+              "amplitude_a": 0.9432,
+              "amplitude_b": 0.9432,
+              "phase": 0.2699
+            },
+            {
+              "id": "m62",
+              "ratio": 62.1309,
+              "amplitude_a": 0.9397,
+              "amplitude_b": 0.9397,
+              "phase": 0.2951
+            },
+            {
+              "id": "m63",
+              "ratio": 62.69693,
+              "amplitude_a": 0.9467,
+              "amplitude_b": 0.9467,
+              "phase": 0.6231
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
     {
       "id": "air",
       "enabled": true,
@@ -236,41 +727,41 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -21.51,
-      "pan": 0,
-      "tuning_cents": 0,
+      "gain_db": -27.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.0008,
-        "decay_seconds": 0.048,
-        "sustain_level": 0,
-        "release_seconds": 0.009
+        "attack_seconds": 0.0003,
+        "decay_seconds": 0.03,
+        "sustain_level": 0.0,
+        "release_seconds": 0.03
       },
       "generator": {
         "noise": {
           "color": "white",
-          "seed": 4104,
-          "stereo_correlation": 0.75
+          "seed": 1903,
+          "stereo_correlation": 0.7
         }
       },
       "processors": [
         {
           "type": "filter",
-          "id": "low",
+          "id": "hp",
           "mode": "high_pass",
-          "cutoff_hz": 6100,
-          "resonance": 0.08
+          "cutoff_hz": 9500.0,
+          "resonance": 0.05
         },
         {
           "type": "filter",
           "id": "top",
           "mode": "low_pass",
-          "cutoff_hz": 14500,
-          "resonance": 0.08
+          "cutoff_hz": 13500.0,
+          "resonance": 0.0
         }
       ]
     },
     {
-      "id": "metal",
+      "id": "tail",
       "enabled": true,
       "trigger": {
         "event": "note_on",
@@ -279,74 +770,36 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -28.51,
-      "pan": -0.12,
-      "tuning_cents": 0,
+      "gain_db": -47.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
       "envelope": {
-        "attack_seconds": 0.001,
-        "decay_seconds": 0.032,
-        "sustain_level": 0,
-        "release_seconds": 0.009
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.09,
+        "sustain_level": 0.0,
+        "release_seconds": 0.09
       },
       "generator": {
-        "additive": {
-          "phase_reset": true,
-          "morph": 0,
-          "spectrum_tilt_db_per_octave": -1,
-          "inharmonicity": 0,
-          "partials": [
-            {
-              "id": "p0",
-              "ratio": 1,
-              "amplitude_a": 1,
-              "amplitude_b": 0.8,
-              "phase": 0
-            },
-            {
-              "id": "p1",
-              "ratio": 1.39,
-              "amplitude_a": 0.5,
-              "amplitude_b": 0.4,
-              "phase": 0.137
-            },
-            {
-              "id": "p2",
-              "ratio": 1.81,
-              "amplitude_a": 0.3333333333333333,
-              "amplitude_b": 0.26666666666666666,
-              "phase": 0.274
-            },
-            {
-              "id": "p3",
-              "ratio": 2.63,
-              "amplitude_a": 0.25,
-              "amplitude_b": 0.2,
-              "phase": 0.41100000000000003
-            },
-            {
-              "id": "p4",
-              "ratio": 3.27,
-              "amplitude_a": 0.2,
-              "amplitude_b": 0.16,
-              "phase": 0.548
-            },
-            {
-              "id": "p5",
-              "ratio": 4.11,
-              "amplitude_a": 0.16666666666666666,
-              "amplitude_b": 0.13333333333333333,
-              "phase": 0.685
-            }
-          ]
+        "noise": {
+          "color": "white",
+          "seed": 1904,
+          "stereo_correlation": 0.6
         }
       },
       "processors": [
         {
           "type": "filter",
-          "id": "low",
+          "id": "hp",
           "mode": "high_pass",
-          "cutoff_hz": 4900,
-          "resonance": 0.08
+          "cutoff_hz": 7000.0,
+          "resonance": 0.05
+        },
+        {
+          "type": "filter",
+          "id": "top",
+          "mode": "low_pass",
+          "cutoff_hz": 12000.0,
+          "resonance": 0.0
         }
       ]
     }
@@ -355,42 +808,104 @@
   "global_processors": [
     {
       "type": "limiter",
-      "id": "cap",
-      "ceiling_db": -1.5,
-      "release_ms": 120,
-      "input_gain_db": 0
+      "id": "safety",
+      "ceiling_db": -3.0,
+      "release_ms": 60.0,
+      "input_gain_db": 0.0
     }
   ],
   "modulation": {
-    "sources": [],
+    "sources": [
+      {
+        "id": "hit",
+        "type": "random",
+        "seed": 1905
+      }
+    ],
     "routes": [
+      {
+        "source": "hit",
+        "target": "layer.shimmer.tuning",
+        "depth": {
+          "value": 12.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit",
+        "target": "layer.tip.processor.band.cutoff",
+        "depth": {
+          "value": 0.15,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit",
+        "target": "layer.air.gain",
+        "depth": {
+          "value": 1.2,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.tip.gain",
+        "depth": {
+          "value": 12.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.shimmer.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
       {
         "source": "velocity",
         "target": "layer.air.gain",
         "depth": {
-          "value": 12,
+          "value": 10.0,
           "unit": "decibels"
         },
         "curve": "linear"
       },
       {
         "source": "velocity",
-        "target": "layer.metal.gain",
+        "target": "layer.tail.gain",
         "depth": {
-          "value": 12,
+          "value": 26.0,
           "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.air.processor.hp.cutoff",
+        "depth": {
+          "value": -0.5,
+          "unit": "octaves"
         },
         "curve": "linear"
       },
       {
-        "source": "mod_wheel",
-        "target": "layer.air.pan",
+        "source": "pitch_bend",
+        "target": "layer.shimmer.tuning",
         "depth": {
-          "value": 0.3,
-          "unit": "pan"
+          "value": -200.0,
+          "unit": "cents"
         },
         "curve": "linear"
       }
     ]
-  }
+  },
+  "macros": [],
+  "vectors": []
 }

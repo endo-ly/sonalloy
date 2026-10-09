@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "Vocal Chop - Syncopated Chops and Held Vowel",
+  "name": "Formant Vocal Chop - Syncopated Chops and Held Vowel",
   "ticks_per_beat": 480,
   "length_ticks": 7680,
   "tempo_changes": [

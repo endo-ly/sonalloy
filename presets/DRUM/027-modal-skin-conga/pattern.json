@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "name": "Modal Skin Conga - Two-Drum Pattern with Mutes and Slaps",
+  "ticks_per_beat": 480,
+  "length_ticks": 3840,
+  "tempo_changes": [
+    {
+      "tick": 0,
+      "bpm": 118
+    }
+  ],
+  "time_signature_changes": [
+    {
+      "tick": 0,
+      "numerator": 4,
+      "denominator": 4
+    }
+  ],
+  "events": [
+    {
+      "type": "note",
+      "tick": 0,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 240,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 64
+    },
+    {
+      "type": "note",
+      "tick": 360,
+      "note": 63,
+      "duration_ticks": 120,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 480,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 720,
+      "note": 63,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 840,
+      "note": 63,
+      "duration_ticks": 120,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 960,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 1200,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 64
+    },
+    {
+      "type": "note",
+      "tick": 1320,
+      "note": 63,
+      "duration_ticks": 120,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 1440,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 1680,
+      "note": 64,
+      "duration_ticks": 120,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 1800,
+      "note": 64,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 1920,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 2160,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 64
+    },
+    {
+      "type": "note",
+      "tick": 2280,
+      "note": 63,
+      "duration_ticks": 120,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 2400,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 2640,
+      "note": 63,
+      "duration_ticks": 120,
+      "velocity": 96
+    },
+    {
+      "type": "note",
+      "tick": 2760,
+      "note": 63,
+      "duration_ticks": 120,
+      "velocity": 92
+    },
+    {
+      "type": "note",
+      "tick": 2880,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 3120,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 64
+    },
+    {
+      "type": "note",
+      "tick": 3240,
+      "note": 63,
+      "duration_ticks": 120,
+      "velocity": 120
+    },
+    {
+      "type": "note",
+      "tick": 3360,
+      "note": 62,
+      "duration_ticks": 120,
+      "velocity": 70
+    },
+    {
+      "type": "note",
+      "tick": 3600,
+      "note": 64,
+      "duration_ticks": 120,
+      "velocity": 100
+    },
+    {
+      "type": "note",
+      "tick": 3720,
+      "note": 64,
+      "duration_ticks": 120,
+      "velocity": 96
+    }
+  ]
+}

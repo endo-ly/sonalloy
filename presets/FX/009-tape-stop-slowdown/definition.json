@@ -2,12 +2,12 @@
   "schema_version": 6,
   "external_audio": null,
   "metadata": {
-    "name": "Tape Stop Drop",
+    "name": "Tape Stop Slowdown",
     "author": "claude-opus-5.5",
     "description": "位相変調による太いSaw系の音と低音域のサブを、テープの減速のように一定の割合で遅くしていく停止の効果音。発音直後から音程が下がり始め、約1拍半で2オクターブ下まで落ちる間にこもりと音量の減衰が進み、2拍以内に止まる。和音とベース音を同時に鳴らすと全体がまとまって止まり、Mod Wheelでテープ風の飽和が強まる。",
     "category": "FX",
     "tags": [
-      "Warm",
+      "Evolving",
       "Dense",
       "Centered",
       "Short"

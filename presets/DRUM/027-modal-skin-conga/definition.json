@@ -1,0 +1,1019 @@
+{
+  "schema_version": 6,
+  "external_audio": null,
+  "metadata": {
+    "name": "Modal Skin Conga",
+    "author": "claude-opus-5.5",
+    "description": "膜の振動モードを加算し、手の当たりを重ねた2つの胴のコンガ。高い胴のミュートとオープン、低い胴のオープンを鍵盤で弾き分け、発音直後にわずかに下がる音程が皮の張りを感じさせる。高い胴を強く叩くと鋭いスラップに変わり、ベロシティで明るさと音量が変わる。",
+    "category": "Drum",
+    "tags": [
+      "Warm",
+      "Resonant",
+      "Percussive",
+      "Short"
+    ],
+    "recommended_range": {
+      "min_midi": 62,
+      "max_midi": 64
+    },
+    "preview": {
+      "tempo_bpm": 118,
+      "ticks_per_beat": 480,
+      "time_signature": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length_ticks": 3840,
+      "notes": [
+        {
+          "tick": 0,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 70
+        },
+        {
+          "tick": 240,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 64
+        },
+        {
+          "tick": 360,
+          "duration_ticks": 120,
+          "note": 63,
+          "velocity": 120
+        },
+        {
+          "tick": 480,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 70
+        },
+        {
+          "tick": 720,
+          "duration_ticks": 120,
+          "note": 63,
+          "velocity": 96
+        },
+        {
+          "tick": 840,
+          "duration_ticks": 120,
+          "note": 63,
+          "velocity": 92
+        },
+        {
+          "tick": 960,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 70
+        },
+        {
+          "tick": 1200,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 64
+        },
+        {
+          "tick": 1320,
+          "duration_ticks": 120,
+          "note": 63,
+          "velocity": 120
+        },
+        {
+          "tick": 1440,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 70
+        },
+        {
+          "tick": 1680,
+          "duration_ticks": 120,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 1800,
+          "duration_ticks": 120,
+          "note": 64,
+          "velocity": 96
+        },
+        {
+          "tick": 1920,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 70
+        },
+        {
+          "tick": 2160,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 64
+        },
+        {
+          "tick": 2280,
+          "duration_ticks": 120,
+          "note": 63,
+          "velocity": 120
+        },
+        {
+          "tick": 2400,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 70
+        },
+        {
+          "tick": 2640,
+          "duration_ticks": 120,
+          "note": 63,
+          "velocity": 96
+        },
+        {
+          "tick": 2760,
+          "duration_ticks": 120,
+          "note": 63,
+          "velocity": 92
+        },
+        {
+          "tick": 2880,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 70
+        },
+        {
+          "tick": 3120,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 64
+        },
+        {
+          "tick": 3240,
+          "duration_ticks": 120,
+          "note": 63,
+          "velocity": 120
+        },
+        {
+          "tick": 3360,
+          "duration_ticks": 120,
+          "note": 62,
+          "velocity": 70
+        },
+        {
+          "tick": 3600,
+          "duration_ticks": 120,
+          "note": 64,
+          "velocity": 100
+        },
+        {
+          "tick": 3720,
+          "duration_ticks": 120,
+          "note": 64,
+          "velocity": 96
+        }
+      ]
+    }
+  },
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 8,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "open_high",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 63,
+        "key_max": 63,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16.0,
+      "pan": 0.0,
+      "tuning_cents": 198.9,
+      "envelope": {
+        "attack_seconds": 0.0006,
+        "decay_seconds": 0.45,
+        "sustain_level": 0.0,
+        "release_seconds": 0.45
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": -3.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "m0",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.42,
+                "sustain_level": 0.0,
+                "release_seconds": 0.42
+              }
+            },
+            {
+              "id": "m1",
+              "ratio": 1.594,
+              "amplitude_a": 0.55,
+              "amplitude_b": 0.55,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.231,
+                "sustain_level": 0.0,
+                "release_seconds": 0.231
+              }
+            },
+            {
+              "id": "m2",
+              "ratio": 2.136,
+              "amplitude_a": 0.38,
+              "amplitude_b": 0.38,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.168,
+                "sustain_level": 0.0,
+                "release_seconds": 0.168
+              }
+            },
+            {
+              "id": "m3",
+              "ratio": 2.296,
+              "amplitude_a": 0.3,
+              "amplitude_b": 0.3,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.147,
+                "sustain_level": 0.0,
+                "release_seconds": 0.147
+              }
+            },
+            {
+              "id": "m4",
+              "ratio": 2.653,
+              "amplitude_a": 0.22,
+              "amplitude_b": 0.22,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.11760000000000001,
+                "sustain_level": 0.0,
+                "release_seconds": 0.11760000000000001
+              }
+            },
+            {
+              "id": "m5",
+              "ratio": 2.918,
+              "amplitude_a": 0.16,
+              "amplitude_b": 0.16,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.0924,
+                "sustain_level": 0.0,
+                "release_seconds": 0.0924
+              }
+            },
+            {
+              "id": "m6",
+              "ratio": 3.156,
+              "amplitude_a": 0.12,
+              "amplitude_b": 0.12,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.0756,
+                "sustain_level": 0.0,
+                "release_seconds": 0.0756
+              }
+            },
+            {
+              "id": "m7",
+              "ratio": 3.501,
+              "amplitude_a": 0.09,
+              "amplitude_b": 0.09,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.058800000000000005,
+                "sustain_level": 0.0,
+                "release_seconds": 0.058800000000000005
+              }
+            },
+            {
+              "id": "m8",
+              "ratio": 3.6,
+              "amplitude_a": 0.07,
+              "amplitude_b": 0.07,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.05039999999999999,
+                "sustain_level": 0.0,
+                "release_seconds": 0.05039999999999999
+              }
+            },
+            {
+              "id": "m9",
+              "ratio": 4.06,
+              "amplitude_a": 0.05,
+              "amplitude_b": 0.05,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.042,
+                "sustain_level": 0.0,
+                "release_seconds": 0.042
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "open_low",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 64,
+        "key_max": 64,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.0,
+      "pan": 0.0,
+      "tuning_cents": -499.6,
+      "envelope": {
+        "attack_seconds": 0.0006,
+        "decay_seconds": 0.6,
+        "sustain_level": 0.0,
+        "release_seconds": 0.6
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": -3.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "m0",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.55,
+                "sustain_level": 0.0,
+                "release_seconds": 0.55
+              }
+            },
+            {
+              "id": "m1",
+              "ratio": 1.594,
+              "amplitude_a": 0.55,
+              "amplitude_b": 0.55,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.30250000000000005,
+                "sustain_level": 0.0,
+                "release_seconds": 0.30250000000000005
+              }
+            },
+            {
+              "id": "m2",
+              "ratio": 2.136,
+              "amplitude_a": 0.38,
+              "amplitude_b": 0.38,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.22000000000000003,
+                "sustain_level": 0.0,
+                "release_seconds": 0.22000000000000003
+              }
+            },
+            {
+              "id": "m3",
+              "ratio": 2.296,
+              "amplitude_a": 0.3,
+              "amplitude_b": 0.3,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.1925,
+                "sustain_level": 0.0,
+                "release_seconds": 0.1925
+              }
+            },
+            {
+              "id": "m4",
+              "ratio": 2.653,
+              "amplitude_a": 0.22,
+              "amplitude_b": 0.22,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.15400000000000003,
+                "sustain_level": 0.0,
+                "release_seconds": 0.15400000000000003
+              }
+            },
+            {
+              "id": "m5",
+              "ratio": 2.918,
+              "amplitude_a": 0.16,
+              "amplitude_b": 0.16,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.12100000000000001,
+                "sustain_level": 0.0,
+                "release_seconds": 0.12100000000000001
+              }
+            },
+            {
+              "id": "m6",
+              "ratio": 3.156,
+              "amplitude_a": 0.12,
+              "amplitude_b": 0.12,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.099,
+                "sustain_level": 0.0,
+                "release_seconds": 0.099
+              }
+            },
+            {
+              "id": "m7",
+              "ratio": 3.501,
+              "amplitude_a": 0.09,
+              "amplitude_b": 0.09,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.07700000000000001,
+                "sustain_level": 0.0,
+                "release_seconds": 0.07700000000000001
+              }
+            },
+            {
+              "id": "m8",
+              "ratio": 3.6,
+              "amplitude_a": 0.07,
+              "amplitude_b": 0.07,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.066,
+                "sustain_level": 0.0,
+                "release_seconds": 0.066
+              }
+            },
+            {
+              "id": "m9",
+              "ratio": 4.06,
+              "amplitude_a": 0.05,
+              "amplitude_b": 0.05,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.05500000000000001,
+                "sustain_level": 0.0,
+                "release_seconds": 0.05500000000000001
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "mute",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 62,
+        "key_max": 62,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.0,
+      "pan": 0.0,
+      "tuning_cents": 366.8,
+      "envelope": {
+        "attack_seconds": 0.0006,
+        "decay_seconds": 0.08,
+        "sustain_level": 0.0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "additive": {
+          "phase_reset": true,
+          "morph": 0.0,
+          "spectrum_tilt_db_per_octave": -3.0,
+          "inharmonicity": 0.0,
+          "partials": [
+            {
+              "id": "m0",
+              "ratio": 1.0,
+              "amplitude_a": 1.0,
+              "amplitude_b": 1.0,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.07,
+                "sustain_level": 0.0,
+                "release_seconds": 0.07
+              }
+            },
+            {
+              "id": "m1",
+              "ratio": 1.594,
+              "amplitude_a": 0.55,
+              "amplitude_b": 0.55,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.038500000000000006,
+                "sustain_level": 0.0,
+                "release_seconds": 0.038500000000000006
+              }
+            },
+            {
+              "id": "m2",
+              "ratio": 2.136,
+              "amplitude_a": 0.38,
+              "amplitude_b": 0.38,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.028000000000000004,
+                "sustain_level": 0.0,
+                "release_seconds": 0.028000000000000004
+              }
+            },
+            {
+              "id": "m3",
+              "ratio": 2.296,
+              "amplitude_a": 0.3,
+              "amplitude_b": 0.3,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.0245,
+                "sustain_level": 0.0,
+                "release_seconds": 0.0245
+              }
+            },
+            {
+              "id": "m4",
+              "ratio": 2.653,
+              "amplitude_a": 0.22,
+              "amplitude_b": 0.22,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.019600000000000003,
+                "sustain_level": 0.0,
+                "release_seconds": 0.019600000000000003
+              }
+            },
+            {
+              "id": "m5",
+              "ratio": 2.918,
+              "amplitude_a": 0.16,
+              "amplitude_b": 0.16,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.015400000000000002,
+                "sustain_level": 0.0,
+                "release_seconds": 0.015400000000000002
+              }
+            },
+            {
+              "id": "m6",
+              "ratio": 3.156,
+              "amplitude_a": 0.12,
+              "amplitude_b": 0.12,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.0126,
+                "sustain_level": 0.0,
+                "release_seconds": 0.0126
+              }
+            },
+            {
+              "id": "m7",
+              "ratio": 3.501,
+              "amplitude_a": 0.09,
+              "amplitude_b": 0.09,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.009800000000000001,
+                "sustain_level": 0.0,
+                "release_seconds": 0.009800000000000001
+              }
+            },
+            {
+              "id": "m8",
+              "ratio": 3.6,
+              "amplitude_a": 0.07,
+              "amplitude_b": 0.07,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.008400000000000001,
+                "sustain_level": 0.0,
+                "release_seconds": 0.008400000000000001
+              }
+            },
+            {
+              "id": "m9",
+              "ratio": 4.06,
+              "amplitude_a": 0.05,
+              "amplitude_b": 0.05,
+              "phase": 0.0,
+              "envelope": {
+                "attack_seconds": 0.0,
+                "decay_seconds": 0.007000000000000001,
+                "sustain_level": 0.0,
+                "release_seconds": 0.007000000000000001
+              }
+            }
+          ]
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "touch_high",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 63,
+        "key_max": 63,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -26.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0003,
+        "decay_seconds": 0.012,
+        "sustain_level": 0.0,
+        "release_seconds": 0.012
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 1058,
+          "stereo_correlation": 1.0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "band",
+          "mode": "band_pass",
+          "cutoff_hz": 2400.0,
+          "resonance": 0.3
+        }
+      ]
+    },
+    {
+      "id": "touch_low",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 64,
+        "key_max": 64,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -26.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0003,
+        "decay_seconds": 0.012,
+        "sustain_level": 0.0,
+        "release_seconds": 0.012
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 980,
+          "stereo_correlation": 1.0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "band",
+          "mode": "band_pass",
+          "cutoff_hz": 2000.0,
+          "resonance": 0.3
+        }
+      ]
+    },
+    {
+      "id": "palm",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 62,
+        "key_max": 62,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -20.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0003,
+        "decay_seconds": 0.02,
+        "sustain_level": 0.0,
+        "release_seconds": 0.02
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 426,
+          "stereo_correlation": 1.0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "band",
+          "mode": "band_pass",
+          "cutoff_hz": 1300.0,
+          "resonance": 0.3
+        }
+      ]
+    },
+    {
+      "id": "slap",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 63,
+        "key_max": 63,
+        "velocity_min": 112,
+        "velocity_max": 127
+      },
+      "gain_db": -17.0,
+      "pan": 0.0,
+      "tuning_cents": 0.0,
+      "envelope": {
+        "attack_seconds": 0.0002,
+        "decay_seconds": 0.035,
+        "sustain_level": 0.0,
+        "release_seconds": 0.035
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 6304,
+          "stereo_correlation": 1.0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "band",
+          "mode": "band_pass",
+          "cutoff_hz": 3200.0,
+          "resonance": 0.25
+        }
+      ]
+    }
+  ],
+  "voice_processors": [],
+  "global_processors": [
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.01,
+      "decay": 0.35,
+      "damping": 0.5,
+      "width": 0.8,
+      "mix": 0.08
+    },
+    {
+      "type": "limiter",
+      "id": "safety",
+      "ceiling_db": -3.0,
+      "release_ms": 80.0,
+      "input_gain_db": 0.0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "hit",
+        "type": "random",
+        "seed": 6305
+      },
+      {
+        "id": "strike",
+        "type": "mseg",
+        "initial_value": 1.0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.045,
+              "unit": "seconds"
+            },
+            "target": 0.0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      }
+    ],
+    "routes": [
+      {
+        "source": "strike",
+        "target": "layer.open_high.tuning",
+        "depth": {
+          "value": 45.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "strike",
+        "target": "layer.open_low.tuning",
+        "depth": {
+          "value": 45.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "strike",
+        "target": "layer.mute.tuning",
+        "depth": {
+          "value": 45.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit",
+        "target": "layer.open_high.tuning",
+        "depth": {
+          "value": 6.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit",
+        "target": "layer.open_low.tuning",
+        "depth": {
+          "value": 6.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit",
+        "target": "layer.mute.tuning",
+        "depth": {
+          "value": 6.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.open_high.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.open_low.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.mute.gain",
+        "depth": {
+          "value": 10.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.open_high.generator.additive_spectrum_tilt",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels_per_octave"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.open_low.generator.additive_spectrum_tilt",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels_per_octave"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.mute.generator.additive_spectrum_tilt",
+        "depth": {
+          "value": 5.0,
+          "unit": "decibels_per_octave"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.touch_high.gain",
+        "depth": {
+          "value": 12.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.touch_low.gain",
+        "depth": {
+          "value": 12.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.palm.gain",
+        "depth": {
+          "value": 12.0,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.open_high.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.open_low.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.mute.tuning",
+        "depth": {
+          "value": 200.0,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}
