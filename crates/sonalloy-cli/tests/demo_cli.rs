@@ -109,21 +109,7 @@ fn write_pattern_with_axis(
     .expect("pattern file");
 }
 
-fn json_report(output: &std::process::Output) -> Value {
-    assert!(output.status.success());
-    serde_json::from_slice(&output.stdout).expect("JSON report")
-}
-
-fn track_end_tick(track: &[midly::TrackEvent<'_>]) -> u64 {
-    track
-        .iter()
-        .map(|event| u64::from(event.delta.as_int()))
-        .sum()
-}
-
-#[test]
-fn demo_uses_the_longest_pattern_for_its_timeline_and_conductor() {
-    let fixture = demo_fixture();
+fn write_longest_pattern_demo(fixture: &DemoFixture) {
     write_pattern_with_axis(
         &fixture.first_pattern,
         480,
@@ -146,6 +132,63 @@ fn demo_uses_the_longest_pattern_for_its_timeline_and_conductor() {
             {"tick": 480, "numerator": 3, "denominator": 4}
         ]),
     );
+}
+
+fn assert_longest_pattern_conductor(smf: &midly::Smf<'_>) {
+    assert!(smf.tracks[0].iter().any(|event| {
+        matches!(
+            event.kind,
+            midly::TrackEventKind::Meta(midly::MetaMessage::Tempo(value))
+                if value.as_int() == 1_000_000
+        )
+    }));
+    assert!(smf.tracks[0].iter().any(|event| {
+        matches!(
+            event.kind,
+            midly::TrackEventKind::Meta(midly::MetaMessage::TimeSignature(3, 2, _, _))
+        )
+    }));
+    assert!(smf.tracks.iter().all(|track| track_end_tick(track) == 960));
+}
+
+fn render_demo_mp3(fixture: &DemoFixture, wav_name: &str, mp3_name: &str) -> Value {
+    let output = fixture.demo.with_file_name(wav_name);
+    let mp3 = fixture.demo.with_file_name(mp3_name);
+    let result = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "demo",
+            fixture.demo.to_str().expect("Demo path"),
+            "--tail",
+            "0",
+            "--output",
+            output.to_str().expect("WAV output"),
+            "--mp3-output",
+            mp3.to_str().expect("MP3 output"),
+            "--json",
+        ])
+        .output()
+        .expect("Demo render starts");
+    json_report(&result)
+}
+
+fn json_report(output: &std::process::Output) -> Value {
+    assert!(output.status.success());
+    serde_json::from_slice(&output.stdout).expect("JSON report")
+}
+
+fn track_end_tick(track: &[midly::TrackEvent<'_>]) -> u64 {
+    track
+        .iter()
+        .map(|event| u64::from(event.delta.as_int()))
+        .sum()
+}
+
+#[test]
+fn demo_uses_the_longest_pattern_for_its_timeline_and_conductor() {
+    let fixture = demo_fixture();
+    write_longest_pattern_demo(&fixture);
 
     let validation = Command::cargo_bin("sonalloy")
         .expect("binary")
@@ -215,20 +258,7 @@ fn demo_uses_the_longest_pattern_for_its_timeline_and_conductor() {
         .success();
     let bytes = std::fs::read(output).expect("MIDI output");
     let smf = Smf::parse(&bytes).expect("Type 1 MIDI");
-    assert!(smf.tracks[0].iter().any(|event| {
-        matches!(
-            event.kind,
-            midly::TrackEventKind::Meta(midly::MetaMessage::Tempo(value))
-                if value.as_int() == 1_000_000
-        )
-    }));
-    assert!(smf.tracks[0].iter().any(|event| {
-        matches!(
-            event.kind,
-            midly::TrackEventKind::Meta(midly::MetaMessage::TimeSignature(3, 2, _, _))
-        )
-    }));
-    assert!(smf.tracks.iter().all(|track| track_end_tick(track) == 960));
+    assert_longest_pattern_conductor(&smf);
 }
 
 #[test]
@@ -541,28 +571,10 @@ fn render_demo_reports_master_analysis_and_mp3_measurement() {
         .expect("completed WAV sample peak analysis");
     assert!((sample_peak_dbfs - analyzed_peak_dbfs).abs() < 0.01);
 
-    let unmastered_fixture = demo_fixture();
-    let unmastered = unmastered_fixture.demo.with_file_name("unmastered.wav");
-    let unmastered_mp3 = unmastered_fixture.demo.with_file_name("unmastered.mp3");
-    let result = Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "demo",
-            unmastered_fixture.demo.to_str().expect("Demo path"),
-            "--tail",
-            "0",
-            "--output",
-            unmastered.to_str().expect("WAV output"),
-            "--mp3-output",
-            unmastered_mp3.to_str().expect("MP3 output"),
-            "--json",
-        ])
-        .output()
-        .expect("unmastered Demo render starts");
-    let report = json_report(&result);
+    let unmastered = demo_fixture();
+    let report = render_demo_mp3(&unmastered, "unmastered.wav", "unmastered.mp3");
     assert!(report.get("master").is_none());
-    assert!(unmastered_mp3.exists());
+    assert!(unmastered.demo.with_file_name("unmastered.mp3").exists());
     assert!(
         report["mp3_measurement"]["integrated_lufs"]
             .as_f64()

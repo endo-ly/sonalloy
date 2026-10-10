@@ -742,9 +742,7 @@ fn every_noise_color_renders_audible_audio() {
             "{color:?} generated a non-finite sample"
         );
         assert!(
-            audio.channels[0]
-                .iter()
-                .any(|sample| sample.abs() > 0.001),
+            audio.channels[0].iter().any(|sample| sample.abs() > 0.001),
             "{color:?} generated silence"
         );
     }
@@ -2028,7 +2026,6 @@ fn missing_required_round_robin_member_rejects_the_instrument() {
     );
     assert!(result.instrument.is_none());
 }
-
 
 #[test]
 fn missing_required_sample_rejects_the_instrument() {

@@ -241,9 +241,16 @@ mod tests {
         assert!(Cli::try_parse_from(valid_trace).is_ok());
     }
 
+    fn arguments(base: &[&str], extra: &[&str]) -> Vec<String> {
+        base.iter()
+            .chain(extra)
+            .map(|value| (*value).to_owned())
+            .collect()
+    }
+
     #[test]
     fn cli_numeric_and_syntax_constraints_are_enforced_by_clap() {
-        let note = [
+        const RENDER_NOTE: &[&str] = &[
             "sonalloy",
             "render",
             "note",
@@ -251,59 +258,40 @@ mod tests {
             "--output",
             "out.wav",
         ];
-        let rejected: [&[&str]; 10] = [
-            &[
-                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav", "--note",
-                "128",
-            ],
-            &[
-                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav",
-                "--velocity", "0",
-            ],
-            &[
-                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav",
-                "--velocity", "128",
-            ],
-            &[
-                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav",
-                "--sample-rate", "0",
-            ],
-            &[
-                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav",
-                "--block-size", "0",
-            ],
-            &[
-                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav", "--tail",
-                "NaN",
-            ],
-            &[
-                "sonalloy", "dev", "render-sine", "--duration", "1.0", "--sample-rate", "48000",
-                "--block-size", "0", "--output", "out.wav",
-            ],
-            &["sonalloy", "play", "instrument.json", "--buffer-size", "0"],
-            &["sonalloy", "play", "instrument.json", "--time-signature", "4/3"],
-            &["sonalloy", "play", "instrument.json", "--macro-cc", "motion=64"],
+        const DEV_SINE: &[&str] = &[
+            "sonalloy",
+            "dev",
+            "render-sine",
+            "--duration",
+            "1.0",
+            "--sample-rate",
+            "48000",
+            "--output",
+            "out.wav",
         ];
-        for arguments in rejected {
+        const PLAY: &[&str] = &["sonalloy", "play", "instrument.json"];
+
+        let rejected = [
+            arguments(RENDER_NOTE, &["--note", "128"]),
+            arguments(RENDER_NOTE, &["--velocity", "0"]),
+            arguments(RENDER_NOTE, &["--velocity", "128"]),
+            arguments(RENDER_NOTE, &["--sample-rate", "0"]),
+            arguments(RENDER_NOTE, &["--block-size", "0"]),
+            arguments(RENDER_NOTE, &["--tail", "NaN"]),
+            arguments(DEV_SINE, &["--block-size", "0"]),
+            arguments(PLAY, &["--buffer-size", "0"]),
+            arguments(PLAY, &["--time-signature", "4/3"]),
+            arguments(PLAY, &["--macro-cc", "motion=64"]),
+        ];
+        for arguments in &rejected {
             assert!(
                 Cli::try_parse_from(arguments).is_err(),
                 "{arguments:?} must be rejected by clap"
             );
         }
 
-        assert!(Cli::try_parse_from(note).is_ok());
-        assert!(
-            Cli::try_parse_from([
-                "sonalloy",
-                "render",
-                "note",
-                "instrument.json",
-                "--output",
-                "out.wav",
-                "--note",
-                "127",
-            ])
-            .is_ok()
-        );
+        assert!(Cli::try_parse_from(arguments(RENDER_NOTE, &[])).is_ok());
+        assert!(Cli::try_parse_from(arguments(RENDER_NOTE, &["--note", "127"])).is_ok());
+        assert!(Cli::try_parse_from(arguments(PLAY, &["--macro-cc", "motion=20"])).is_ok());
     }
 }

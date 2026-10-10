@@ -252,7 +252,12 @@ mod tests {
         let mut repeated_left = vec![0.0; 512];
         let mut repeated_right = vec![0.0; 512];
         correlated
-            .render(512, &correlated_span, &mut repeated_left, &mut repeated_right)
+            .render(
+                512,
+                &correlated_span,
+                &mut repeated_left,
+                &mut repeated_right,
+            )
             .expect("reset noise renders");
         assert_eq!(left, repeated_left);
         assert_eq!(right, repeated_right);

@@ -1390,9 +1390,7 @@ fn push_normalized_descriptor(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        GeneratorDefinition, OscillatorWaveform, ParameterCatalog, ParameterUnit,
-    };
+    use super::{GeneratorDefinition, OscillatorWaveform, ParameterCatalog, ParameterUnit};
     use crate::definition::{ProcessorDefinition, tests::definition};
 
     #[test]
@@ -1431,6 +1429,51 @@ mod tests {
                 "voice.processor.tone.resonance"
             ]
         );
+    }
+
+    fn published_generator_parameters() -> [(&'static str, ParameterUnit, f32, f32, f32, f32); 5] {
+        [
+            (
+                "layer.body.generator.pulse_width",
+                ParameterUnit::Normalized,
+                0.05,
+                0.95,
+                0.25,
+                0.005,
+            ),
+            (
+                "layer.body.generator.sync_ratio",
+                ParameterUnit::Ratio,
+                1.0,
+                16.0,
+                3.0,
+                0.005,
+            ),
+            (
+                "layer.body.generator.waveshape",
+                ParameterUnit::Normalized,
+                0.0,
+                1.0,
+                0.25,
+                0.005,
+            ),
+            (
+                "layer.body.generator.unison_detune",
+                ParameterUnit::Cents,
+                0.0,
+                100.0,
+                18.0,
+                0.010,
+            ),
+            (
+                "layer.texture.generator.noise_correlation",
+                ParameterUnit::Normalized,
+                0.0,
+                1.0,
+                0.6,
+                0.010,
+            ),
+        ]
     }
 
     #[test]
@@ -1486,55 +1529,13 @@ mod tests {
             ]
         );
 
-        let published: &[(&str, ParameterUnit, f32, f32, f32, f32)] = &[
-            (
-                "layer.body.generator.pulse_width",
-                ParameterUnit::Normalized,
-                0.05,
-                0.95,
-                0.25,
-                0.005,
-            ),
-            (
-                "layer.body.generator.sync_ratio",
-                ParameterUnit::Ratio,
-                1.0,
-                16.0,
-                3.0,
-                0.005,
-            ),
-            (
-                "layer.body.generator.waveshape",
-                ParameterUnit::Normalized,
-                0.0,
-                1.0,
-                0.25,
-                0.005,
-            ),
-            (
-                "layer.body.generator.unison_detune",
-                ParameterUnit::Cents,
-                0.0,
-                100.0,
-                18.0,
-                0.010,
-            ),
-            (
-                "layer.texture.generator.noise_correlation",
-                ParameterUnit::Normalized,
-                0.0,
-                1.0,
-                0.6,
-                0.010,
-            ),
-        ];
-        for (id, unit, min, max, default, smoothing_seconds) in published {
+        for (id, unit, min, max, default, smoothing_seconds) in published_generator_parameters() {
             let parameter = catalog
                 .parameters()
                 .iter()
                 .find(|parameter| parameter.id == *id)
                 .unwrap_or_else(|| panic!("{id} descriptor"));
-            assert_eq!(parameter.unit, *unit, "{id} unit");
+            assert_eq!(parameter.unit, unit, "{id} unit");
             assert!((parameter.min - min).abs() < f32::EPSILON, "{id} min");
             assert!((parameter.max - max).abs() < f32::EPSILON, "{id} max");
             assert!(

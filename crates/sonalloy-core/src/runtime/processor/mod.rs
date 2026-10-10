@@ -1219,11 +1219,13 @@ mod tests {
         ValueSpan::linear(value, value)
     }
 
+    type ChannelProcess = fn(&mut [f32], &mut [f32]);
+
     /// Each processor driven with its neutral setting must pass audio through unchanged.
     #[test]
     fn neutral_processor_settings_pass_audio_through_unchanged() {
         let original = [0.1_f32, -0.8, 0.4, 0.0, 0.7, -0.2];
-        let neutral: &[(&str, fn(&mut [f32], &mut [f32]))] = &[
+        let neutral: &[(&str, ChannelProcess)] = &[
             ("bitcrusher", |left, right| {
                 let mut runtime = BitcrusherRuntime::new(GeneratorOutputMode::Mono);
                 for buffer in [left, right] {
@@ -1270,9 +1272,8 @@ mod tests {
                         high_gain_db: ParameterHandle::new(2),
                     },
                 };
-                let mut runtime =
-                    EqRuntime::new(&compiled, 48_000.0, GeneratorOutputMode::Mono)
-                        .expect("EQ prepares");
+                let mut runtime = EqRuntime::new(&compiled, 48_000.0, GeneratorOutputMode::Mono)
+                    .expect("EQ prepares");
                 for buffer in [left, right] {
                     runtime
                         .process_mono(span(0.0), span(0.0), span(0.0), buffer)

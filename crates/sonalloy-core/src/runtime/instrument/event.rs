@@ -841,12 +841,7 @@ mod tests {
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
         for id in 1..=4 {
-            process(
-                &mut runtime,
-                1,
-                id - 1,
-                &[note_on(id, 60)],
-            );
+            process(&mut runtime, 1, id - 1, &[note_on(id, 60)]);
         }
         process(&mut runtime, 240, 4, &[]);
         assert!(!runtime.voices[0].trace_layer_active(0));

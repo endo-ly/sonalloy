@@ -597,7 +597,6 @@ mod tests {
             PatternMidiEventKind::NoteOn { .. }
         ));
     }
-
 }
 
 #[derive(Debug, Clone, Copy)]

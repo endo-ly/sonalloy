@@ -371,6 +371,8 @@ mod tests {
         diagnostics
     }
 
+    type PreviewMutation = fn(&mut InstrumentPreviewDefinition);
+
     #[test]
     fn category_and_tags_reject_empty_outer_whitespace_and_duplicates() {
         let mut empty_category = metadata();
@@ -416,7 +418,11 @@ mod tests {
         for tempo in [29.9, 300.1, f64::NAN] {
             let mut value = metadata();
             value.preview.as_mut().expect("preview").tempo_bpm = tempo;
-            assert_ne!(diagnostics(&value), Vec::new(), "tempo {tempo} must be rejected");
+            assert_ne!(
+                diagnostics(&value),
+                Vec::new(),
+                "tempo {tempo} must be rejected"
+            );
         }
 
         for signature in [
@@ -431,11 +437,20 @@ mod tests {
         ] {
             let mut value = metadata();
             value.preview.as_mut().expect("preview").time_signature = signature;
-            assert_ne!(diagnostics(&value), Vec::new(), "{signature:?} must be rejected");
+            assert_ne!(
+                diagnostics(&value),
+                Vec::new(),
+                "{signature:?} must be rejected"
+            );
         }
 
         let mut without_notes = metadata();
-        without_notes.preview.as_mut().expect("preview").notes.clear();
+        without_notes
+            .preview
+            .as_mut()
+            .expect("preview")
+            .notes
+            .clear();
         assert_ne!(diagnostics(&without_notes), Vec::new());
 
         let mut too_many_notes = metadata();
@@ -452,11 +467,13 @@ mod tests {
 
     #[test]
     fn preview_rejects_note_values_outside_the_declared_music() {
-        let invalid_fields: [(&str, fn(&mut InstrumentPreviewDefinition)); 6] = [
+        let invalid_fields: [(&str, PreviewMutation); 6] = [
             ("velocity", |preview| preview.notes[0].velocity = 128),
             ("velocity", |preview| preview.notes[0].velocity = 0),
             ("tick", |preview| preview.notes[0].tick = 1_920),
-            ("duration_ticks", |preview| preview.notes[0].duration_ticks = 0),
+            ("duration_ticks", |preview| {
+                preview.notes[0].duration_ticks = 0;
+            }),
             ("duration_ticks", |preview| {
                 preview.notes[0].duration_ticks = 1_921;
             }),
