@@ -161,7 +161,7 @@ LFO、Envelope、MSEG、Step Modulator、Sample & Hold、Smooth Random、Velocit
 - 各Parameterは一意なID、型、単位、最小/最大/初期値を持つ
 - Modulation RouteはSource・Target・Depth・Curveで定義する。DepthはTargetに応じた明示的な単位（dB、Pan、Cents、Hertz、Seconds、PerSecond、Index、dB/Octave、Normalized、Octaves）を持つ
 - Source出力は正規化（単方向：0〜1、正負：-1〜1）
-- 複数Routeが同一Targetへ接続された場合、定義順でDepthをTargetのDomainへ加算し、最後にClampする。Linear ParameterはNative Domain、Log2 ParameterはOctave Domainで評価する
+- 複数Routeが同一Targetへ接続された場合、定義順でDepthをTargetのDomainへ加算する。Linear ParameterはNative Domain、Log2 ParameterはOctave Domainで評価し、Targetの定義域とGenerator・Processor固有のDSP境界を適用する
 - 連続値変更は平滑化を適用しクリックノイズを回避
 - 波形種類、FM Algorithm、Processor種類などの離散値はModulation対象外とし、変更時は再Compile
 
@@ -424,12 +424,12 @@ Compiled Instrument、Runtime状態、Decode済みBuffer、FFT一時Buffer、Voi
 |------|------|
 | Definition構造や値に矛盾 | Compile失敗。現在利用中のCompiled Instrumentを維持 |
 | ConvolutionのIRが見つからない、読めない、非対応、または長すぎる | Compile失敗。ProcessorをBypassせず、現在利用中のCompiled Instrumentを維持 |
-| 参照Assetが見つからない | Instrument全体を失敗させず、依存するZone/Layer/Processorだけ無効化 |
-| Hash不一致 | 対象Assetを無効化し、診断を返す |
-| Optional Backendがない | 対象Optional Layerだけ無効化し、他Layerを継続 |
+| 有効なLayerの参照Assetが見つからない | Compile Errorとして参照Pathを診断する |
+| 指定されたHashが不一致 | Compile Errorとして対象Assetを診断する |
+| 有効なLayerのBackendを利用できない | Compile Errorとして対象Layerを診断する |
 | CPU/Memory上限超過 | Compile Errorとして拒否 |
 | External Inputがない | Input必須ProcessorをCompile Errorとして診断し、未準備のCompiled Instrumentを公開しない |
-| 事前解析に失敗 | 対象Generator/Processorを無効化し、再解析可能な診断を返す |
+| 事前解析に失敗 | Compile Errorとして対象Generator/Processorと原因を診断する |
 
 **変更時の反映規則**：
 
@@ -666,7 +666,7 @@ SonalloyはRiffraがなくても単独で主要機能が動作します。
 | **Realtime Safety** | Audio Callbackでは事前準備済み構成のみ使用。File I/O、Decode、FFT事前解析、大規模alloc、JSON、Blocking Lock、Network、Device操作は禁止 |
 | **計算量の予測可能性** | Voice/Unison/Grain/Partial/Spectral/Delay/Convolution等に上限を設け、Compile時に検証 |
 | **演奏継続性** | Parameter変更や構成変更でAudio処理を停止しない。Compile失敗時は現在構成を維持 |
-| **部分的な読込** | Asset/Optional Backend不足でも、依存部分だけ無効化して他Layerを利用可能 |
+| **構成の完全性** | 有効なLayer・Processorの依存準備が完了したInstrumentだけを公開する |
 | **再現性** | 同一Definition + Event + Context + Asset + Seed + Backend条件から同等のOffline Renderを生成 |
 | **Sample Rate非依存** | 固定Sample Rateを前提としない |
 | **Block Size独立** | 合理的な許容誤差内でBlock Sizeに依存しない |

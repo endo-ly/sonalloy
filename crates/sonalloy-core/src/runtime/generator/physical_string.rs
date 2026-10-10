@@ -195,7 +195,7 @@ impl PhysicalStringRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
     ) -> Result<(), ProcessError> {
         if frames == 0 {
@@ -233,13 +233,10 @@ impl PhysicalStringRuntime {
         self.exciter
             .render(frames, &mut self.exciter_scratch[..frames])?;
         let spans = PhysicalStringParameterSpans {
-            base: ValueSpan {
-                start: base_start,
-                end: base_end,
-            },
-            decay_seconds,
-            brightness,
-            stiffness,
+            base: ValueSpan::linear(base_start, base_end),
+            decay_seconds: *decay_seconds,
+            brightness: *brightness,
+            stiffness: *stiffness,
         };
         let coefficient_cache =
             PhysicalStringCoefficientCache::new(self.sample_rate, max_delay_frames, spans)?;
@@ -365,29 +362,20 @@ mod tests {
         let mut runtime = PhysicalStringRuntime::new(&compiled(), spec).expect("runtime");
         runtime.start(3);
         let targets = LayerGeneratorTargetSpan::PhysicalString {
-            decay_seconds: ValueSpan {
-                start: 1.0,
-                end: 1.0,
-            },
-            brightness: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
-            stiffness: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
+            decay_seconds: ValueSpan::linear(1.0, 1.0),
+            brightness: ValueSpan::linear(0.5, 0.5),
+            stiffness: ValueSpan::linear(0.5, 0.5),
         };
         let mut first = vec![0.0; 257];
         runtime
-            .render(257, 69, 0.0, 0.0, 48_000.0, targets, &mut first)
+            .render(257, 69, 0.0, 0.0, 48_000.0, &targets, &mut first)
             .expect("render");
         assert!(first.iter().all(|sample| sample.is_finite()));
         assert_eq!(first[0].to_bits(), 0.0625_f32.to_bits());
         runtime.start(3);
         let mut second = vec![0.0; 257];
         runtime
-            .render(257, 69, 0.0, 0.0, 48_000.0, targets, &mut second)
+            .render(257, 69, 0.0, 0.0, 48_000.0, &targets, &mut second)
             .expect("render after reset");
         assert_eq!(first, second);
     }
@@ -398,22 +386,13 @@ mod tests {
         let mut runtime = PhysicalStringRuntime::new(&compiled(), spec).expect("runtime");
         runtime.start(3);
         let targets = LayerGeneratorTargetSpan::PhysicalString {
-            decay_seconds: ValueSpan {
-                start: 1.0,
-                end: 1.0,
-            },
-            brightness: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
-            stiffness: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
+            decay_seconds: ValueSpan::linear(1.0, 1.0),
+            brightness: ValueSpan::linear(0.5, 0.5),
+            stiffness: ValueSpan::linear(0.5, 0.5),
         };
         let mut output = [0.0; 64];
         assert_eq!(
-            runtime.render(64, 127, 1_200.0, 1_200.0, 48_000.0, targets, &mut output),
+            runtime.render(64, 127, 1_200.0, 1_200.0, 48_000.0, &targets, &mut output),
             Err(ProcessError::InvalidFrequency)
         );
     }
@@ -426,22 +405,13 @@ mod tests {
             let mut runtime = PhysicalStringRuntime::new(&compiled(), spec).expect("runtime");
             runtime.start(3);
             let targets = LayerGeneratorTargetSpan::PhysicalString {
-                decay_seconds: ValueSpan {
-                    start: 4.0,
-                    end: 4.0,
-                },
-                brightness: ValueSpan {
-                    start: 0.5,
-                    end: 0.5,
-                },
-                stiffness: ValueSpan {
-                    start: stiffness,
-                    end: stiffness,
-                },
+                decay_seconds: ValueSpan::linear(4.0, 4.0),
+                brightness: ValueSpan::linear(0.5, 0.5),
+                stiffness: ValueSpan::linear(stiffness, stiffness),
             };
             let mut output = vec![0.0; 8_192];
             runtime
-                .render(8_192, 69, 0.0, 0.0, 48_000.0, targets, &mut output)
+                .render(8_192, 69, 0.0, 0.0, 48_000.0, &targets, &mut output)
                 .expect("render");
 
             let window = &output[512..];
@@ -496,22 +466,13 @@ mod tests {
             let mut runtime = PhysicalStringRuntime::new(&compiled(), spec).expect("runtime");
             runtime.start(3);
             let targets = LayerGeneratorTargetSpan::PhysicalString {
-                decay_seconds: ValueSpan {
-                    start: decay_seconds,
-                    end: decay_seconds,
-                },
-                brightness: ValueSpan {
-                    start: 0.5,
-                    end: 0.5,
-                },
-                stiffness: ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                },
+                decay_seconds: ValueSpan::linear(decay_seconds, decay_seconds),
+                brightness: ValueSpan::linear(0.5, 0.5),
+                stiffness: ValueSpan::linear(0.0, 0.0),
             };
             let mut output = vec![0.0; 8_192];
             runtime
-                .render(8_192, 69, 0.0, 0.0, 48_000.0, targets, &mut output)
+                .render(8_192, 69, 0.0, 0.0, 48_000.0, &targets, &mut output)
                 .expect("render");
             output
         };
@@ -535,22 +496,13 @@ mod tests {
             let mut runtime = PhysicalStringRuntime::new(&compiled(), spec).expect("runtime");
             runtime.start(3);
             let targets = LayerGeneratorTargetSpan::PhysicalString {
-                decay_seconds: ValueSpan {
-                    start: 4.0,
-                    end: 4.0,
-                },
-                brightness: ValueSpan {
-                    start: brightness,
-                    end: brightness,
-                },
-                stiffness: ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                },
+                decay_seconds: ValueSpan::linear(4.0, 4.0),
+                brightness: ValueSpan::linear(brightness, brightness),
+                stiffness: ValueSpan::linear(0.0, 0.0),
             };
             let mut output = vec![0.0; 4_096];
             runtime
-                .render(4_096, 69, 0.0, 0.0, 48_000.0, targets, &mut output)
+                .render(4_096, 69, 0.0, 0.0, 48_000.0, &targets, &mut output)
                 .expect("render");
             output
         };

@@ -67,6 +67,8 @@ struct InspectExternalConsumer {
 struct InspectLayer {
     id: String,
     enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    choke_group: Option<usize>,
     trigger: InspectTrigger,
     generator: InspectGenerator,
     asset_status: &'static str,
@@ -554,6 +556,8 @@ struct InspectRoute {
     target: String,
     depth: InspectDepth,
     curve: ModulationCurve,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    depth_control: Option<String>,
     source_range: InspectSourceBounds,
     effect: InspectRouteEffect,
 }
@@ -2067,7 +2071,7 @@ fn inspect_route_effect(
         (second, first)
     };
     match descriptor.scale {
-        ParameterScale::Linear => InspectRouteEffect {
+        ParameterScale::Linear | ParameterScale::LinearUnbounded => InspectRouteEffect {
             kind: "additive",
             unit: descriptor.modulation_unit(),
             min_delta: Some(min),
@@ -2117,20 +2121,31 @@ fn inspect_modulated_range(
         maximum += first.max(second);
     }
     let (unclamped_min, unclamped_max) = match descriptor.scale {
-        ParameterScale::Linear => (descriptor.default + minimum, descriptor.default + maximum),
+        ParameterScale::Linear | ParameterScale::LinearUnbounded => {
+            (descriptor.default + minimum, descriptor.default + maximum)
+        }
         ParameterScale::Log2 => (
             descriptor.default * 2.0_f32.powf(minimum),
             descriptor.default * 2.0_f32.powf(maximum),
         ),
     };
-    let effective_min = unclamped_min.clamp(descriptor.min, descriptor.max);
-    let effective_max = unclamped_max.clamp(descriptor.min, descriptor.max);
+    let unbounded = descriptor.scale == ParameterScale::LinearUnbounded;
+    let effective_min = if unbounded {
+        unclamped_min
+    } else {
+        unclamped_min.clamp(descriptor.min, descriptor.max)
+    };
+    let effective_max = if unbounded {
+        unclamped_max
+    } else {
+        unclamped_max.clamp(descriptor.min, descriptor.max)
+    };
     Some(InspectModulatedRange {
         unclamped_min,
         unclamped_max,
         effective_min,
         effective_max,
-        may_clamp: unclamped_min < descriptor.min || unclamped_max > descriptor.max,
+        may_clamp: !unbounded && (unclamped_min < descriptor.min || unclamped_max > descriptor.max),
     })
 }
 
@@ -2194,6 +2209,7 @@ fn make_inspect_report(
             InspectLayer {
                 id: layer.id.clone(),
                 enabled: true,
+                choke_group: layer.choke_group,
                 trigger: InspectTrigger {
                     event: match layer.trigger.event {
                         sonalloy_core::LayerTriggerEvent::NoteOn => "note_on",
@@ -2245,6 +2261,9 @@ fn make_inspect_report(
                     unit: descriptor.modulation_unit(),
                 },
                 curve: route.curve,
+                depth_control: route
+                    .depth_control
+                    .map(|handle| instrument_source_id(compiled, handle)),
                 source_range,
                 effect,
             }

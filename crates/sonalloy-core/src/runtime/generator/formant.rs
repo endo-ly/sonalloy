@@ -68,7 +68,7 @@ impl FormantRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
     ) -> Result<(), ProcessError> {
         if frames == 0 {
@@ -91,10 +91,7 @@ impl FormantRuntime {
         validate_generator_span(throat, FORMANT_THROAT)?;
         validate_generator_span(spectral_tilt, FORMANT_SPECTRAL_TILT)?;
         let (base_start, base_end) = base_frequencies(note_number, tuning_start, tuning_end)?;
-        let base_frequency = ValueSpan {
-            start: base_start,
-            end: base_end,
-        };
+        let base_frequency = ValueSpan::linear(base_start, base_end);
         for (frame, sample) in mono.iter_mut().take(frames).enumerate() {
             let current_frequency = base_frequency.value_at(frame, frames);
             if self.bank.controls_due() {
@@ -136,7 +133,7 @@ impl FormantRuntime {
         let (first, second, profile_mix) = profile_pair(&self.profiles, vowel_position)?;
         let shift_ratio = 2.0_f32.powf(formant_shift / 1200.0);
         let bandwidth_multiplier = 2.0_f32.powf(2.0 * (throat - 0.5));
-        if !shift_ratio.is_finite() || !bandwidth_multiplier.is_finite() {
+        if !shift_ratio.is_finite() || shift_ratio <= 0.0 || !bandwidth_multiplier.is_finite() {
             return Err(super::non_finite());
         }
         let mut bands = [CompiledFormantBand {
@@ -160,6 +157,13 @@ impl FormantRuntime {
                 * bandwidth_multiplier;
             band.gain_db =
                 first_band.gain_db + (second_band.gain_db - first_band.gain_db) * profile_mix;
+            if !band.frequency_hz.is_finite()
+                || !band.bandwidth_hz.is_finite()
+                || band.frequency_hz <= 0.0
+                || band.bandwidth_hz <= 0.0
+            {
+                return Err(ProcessError::InvalidFrequency);
+            }
         }
         let mut energy = 0.0_f32;
         for index in 0..self.partial_count {

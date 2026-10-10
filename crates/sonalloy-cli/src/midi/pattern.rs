@@ -78,6 +78,7 @@ pub(crate) fn midi_events(
     }
     let mut events = Vec::with_capacity(pattern.events.len().saturating_mul(2));
     let mut errors = midi_note_overlap_diagnostics(pattern);
+    let mut parameter_event_count = 0;
     for (source_index, event) in pattern.events.iter().enumerate() {
         match event {
             PatternEvent::Note {
@@ -123,14 +124,19 @@ pub(crate) fn midi_events(
                 source_index,
                 kind: PatternMidiEventKind::Aftertouch { value: *value },
             }),
-            PatternEvent::ParameterChange { .. } => errors.push(
-                Diagnostic::error(
-                    DiagnosticCode::MidiError,
-                    "Sonalloy parameter changes cannot be represented in Standard MIDI",
-                )
-                .with_path(format!("events[{source_index}]")),
-            ),
+            PatternEvent::ParameterChange { .. } | PatternEvent::ParameterRamp { .. } => {
+                parameter_event_count += 1;
+            }
         }
+    }
+    if parameter_event_count > 0 {
+        errors.push(
+            Diagnostic::error(
+                DiagnosticCode::MidiError,
+                format!("{parameter_event_count} Sonalloy parameter events cannot be represented in Standard MIDI"),
+            )
+            .with_path("events"),
+        );
     }
     if !errors.is_empty() {
         return Err(errors);
@@ -620,6 +626,36 @@ mod tests {
             "notes with the same pitch cannot overlap in Standard MIDI"
         );
         assert_eq!(diagnostics[0].path.as_deref(), Some("events[1]"));
+    }
+
+    #[test]
+    fn midi_parameter_events_are_counted_in_one_error() {
+        let mut pattern = default_pattern();
+        for tick in 0..300 {
+            pattern.events.push(PatternEvent::ParameterChange {
+                tick,
+                parameter: "macro.motion".to_owned(),
+                native_value: 0.5,
+            });
+            pattern.events.push(PatternEvent::ParameterRamp {
+                tick,
+                duration_ticks: 480,
+                parameter: "macro.motion".to_owned(),
+                from_value: 0.0,
+                to_value: 1.0,
+            });
+        }
+
+        let errors = midi_events(&pattern).expect_err("Sonalloy events cannot be exported");
+
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].code, sonalloy_core::DiagnosticCode::MidiError);
+        assert_eq!(errors[0].path.as_deref(), Some("events"));
+        assert!(
+            errors[0]
+                .message
+                .starts_with("600 Sonalloy parameter events")
+        );
     }
 }
 

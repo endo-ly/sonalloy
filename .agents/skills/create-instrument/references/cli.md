@@ -72,7 +72,7 @@ sonalloy instrument inspect <definition> --json
 | Macro / Vector | MacroのParameter ID・Default・Route、VectorのAxis ID・所属Layer・初期値 |
 | Processor | Layer / Voice / Globalの各Processor Chain、固定Latency、DelayのTempo Unit / Feedback Mode / Tap数、ConvolutionのIR準備情報、外部Detector / Cross Synthesisの入力整列 |
 | External Audio | `channels`、要求Input Channel数、使用するProcessorと入力整列Frame |
-| Warning | コンパイル時の警告（Asset欠落など） |
+| Warning | コンパイル時の警告 |
 
 `--json`は、Generatorごとの構造をFieldとして返します。返るFieldはGeneratorの種類ごとに異なります。`parameters[].modulation`はTargetに許可されたUnitと最大絶対Depthを、`routes[].effect`はSource Endpointが作るAdditive DeltaまたはLog2 Factorを返します。`sources[]`にはScope、RateとRate Unit、MSEG / Step / Randomの構造が含まれ、`macros[]`と`vectors[]`には外部から操作するIDを含めます。
 
@@ -85,8 +85,8 @@ sonalloy instrument inspect <definition> --json
   "min": -1200.0,
   "max": 1200.0,
   "default": 0.0,
-  "scale": "linear",
-  "modulation": { "unit": "cents", "max_abs_depth": 2400.0 },
+  "scale": "linear_unbounded",
+  "modulation": { "unit": "cents", "max_abs_depth": 3.4028235e38 },
   "modulated_range_from_default": {
     "unclamped_min": -20.0,
     "unclamped_max": 20.0,
@@ -133,7 +133,7 @@ sonalloy pattern inspect phrase.json --json
 - Length（Tempo Timelineから計算した、Sample Rateに依存しない音楽的な長さ）
 - Tempo Change / Time Signature Changeの件数
 - Note数とVelocity範囲
-- Control数とParameter ID数
+- Control数、Parameter Change数（`parameter_change_count`）、Ramp数（`parameter_ramp_count`）とParameter ID数
 
 ### `pattern import-midi` — MIDIからPatternへ変換
 
@@ -224,15 +224,16 @@ sonalloy render demo demo.json \
 | `--block-size <frames>` | `257` | 全Partへ共通して使う最大Process Block Size |
 | `--tail <seconds>` | `1.0` | 各Pattern終端後へ追加するRender Tail |
 | `--stems-dir <directory>` | なし | 指定時だけPartごとのStem WAVを保存 |
+| `--premaster-output <wav>` | なし | Part GainとGlobal Fadeを適用したMaster前のMixを保存 |
 | `--mp3-output <mp3>` | なし | 指定時だけMP3を生成 |
 | `--analyze` | なし | Fade後・Master前のMixと、完成WAVをそれぞれAudio Analysisへ渡す |
 | `--json` | なし | 結果を機械可読で出力 |
 
 PartのRender、Stem、Mix、Masterの規則は[Demo仕様](demos.md)に従います。
 
-`--json`では、`status`、`sample_rate`、`channels`、`frames`、`output`、Partごとの`id` / `gain_db` / `frames` / `stem`を返します。`--analyze`指定時はMaster前の`mix_analysis`と完成WAVの`output_analysis`、`mix.master`指定時はTarget / Input / Output / Deviationと`normalization_type`を含む`master`、`--mp3-output`指定時は生成後の測定値`mp3_measurement`が含まれます。`mp3_output`と`stems_dir`は対応するOption指定時だけ含まれます。完成WAVのTrue PeakがTargetを超える場合はGainを補正して再測定し、超過が残ればRenderに失敗します。MP3は生成後の値を測定し、WAVのMaster目標へ合わせる追加処理は行いません。
+`--json`では、`status`、`sample_rate`、`channels`、`frames`、`output`、Partごとの`id` / `gain_db` / `frames` / `stem`を返します。`--analyze`指定時はMaster前の`mix_analysis` / `mix_loudness`と完成WAVの`output_analysis` / `output_loudness`を返します。`mix.master`指定時の`master`にはTarget / Input / Output / Deviation、入力・出力Gain、探索回数を含みます。`premaster_output`、`mp3_output`、`stems_dir`は対応するOption指定時だけ含まれ、MP3生成時は測定値`mp3_measurement`も返します。Masterの処理と出力確定条件は[Demo仕様](demos.md#masterとmp3)に従います。
 
-FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
+FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for loudness analysis, Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
 
 ## リアルタイム演奏
 
@@ -321,7 +322,7 @@ MIDI FileをTickベースで読み込み、1つのChannelをPatternへ変換し�
 
 `render`コマンドはいずれもWAVを生成します。確認したい内容に合わせて使い分けます。
 
-外部Audioを使う定義では、すべての`render`サブコマンドに`--audio-input <wav>`を追加できます。WAVはCompile時のSample Rateへ準備され、Monoは左右へ複製、Stereoは左右を保持します。入力の終端後は無音を渡します。外部Audioを要求する定義で指定を省略した場合、または外部Audioを使わない定義へ指定した場合はErrorになります。
+外部Audioを使う定義では、`render note/events/pattern/midi`に`--audio-input <wav>`を指定します。WAVはCompile時のSample Rateへ準備され、Monoは左右へ複製、Stereoは左右を保持します。入力の終端後は無音を渡します。必須入力の省略は`AUDIO_INPUT_REQUIRED`とMessage `external audio input is required; specify --audio-input <WAV>`を返します。外部Audioを使わない定義への入力指定はErrorです。Demoの入力接続は`audio_input.part`で指定します。
 
 | コマンド | 向いている用途 |
 |---|---|
@@ -389,14 +390,17 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 | `note_on` / `note_off` | `note_id`、`note`、`velocity` | 音を鳴らす / 止める。`note_id`でOnとOffを対応付ける |
 | `sustain_pedal` | `down`（bool） | Pedal Down中はNote Off後のReleaseを保留し、Pedal UpでReleaseを開始する |
 | `parameter_change` | `parameter`、`native_value` | Parameter CatalogのNative Unit値を送る（CutoffはHz、TuningはCents、GainはdB） |
+| `parameter_ramp` | `duration_frames`、`parameter`、`from_value`、`to_value` | Native Unitの両端を指定し、開始Frameから指定長で補間する |
 | `pitch_bend` | `value` | -1〜1 |
 | `mod_wheel` | `value` | 0〜1 |
 | `aftertouch` | `value` | 0〜1 |
 
 読み込み時の処理：
 
-- Eventを時系列へ処理するため、`absolute_frame`の昇順へ整列します
+- Eventは`absolute_frame`の昇順で記述します。同時刻はEventの種類と定義順に従います
 - 次のいずれかはErrorになり、WAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、Native範囲外の値
+
+Rampの`duration_frames`は正の整数で、`absolute_frame + duration_frames`は`--duration-frames`以下かつ処理Frame数として表現できる必要があります。両端は有限値です。補間と次の変更による置き換えは[PatternのParameter Automation](patterns.md#parameter-automation)と共通です。
 
 `render note`と`render events`は指定Tempoの4/4から始まります。`render midi`はTempo Meta EventとTime Signature Meta Eventを`MusicalTimeMap`へ変換し、Time Signatureがない場合は4/4を使います。`render pattern`もPatternの`tempo_changes`と`time_signature_changes`から同じMapを作ります。Tempo / Meterの変更位置でProcess Blockを分割し、`beat_position`と`bar_position`をProcessContextへ渡します。
 
@@ -428,6 +432,12 @@ Analysisの主なFieldは次のとおりです。
 | `continuity` | 隣接Frame最大差分、差分が0.25を超えた件数、先頭最大16箇所 |
 | `stereo.correlation` | Zero-mean Pearson相関。分母が0なら`null` |
 | `spectrum` | Hann窓STFTのCentroid、最大8局所Peak、指定NoteのReference周波数とHarmonic比 |
+| `spectrum.bands` | 周波数帯ごとの`lower_hz` / `upper_hz`、`mean_square`、`power_dbfs`、`energy_ratio` |
+| `loudness` | Integrated LUFS（`integrated_lufs`）、True Peak（`true_peak_db`、dBTP）、LRA（`loudness_range_lu`、LU）、`short_term` |
+
+帯域Energyは既存のMono Spectrumと同じ窓から計算し、20–60、60–120、120–250、250–500、500–2000、2000–6000、6000–20000 Hzの帯域へFFT Binを一度ずつ集計します。`mean_square`は窓のPowerを補正した平均二乗値、`power_dbfs`はそのPowerのdBFS、`energy_ratio`は全正周波数Powerに対する比率です。上端はNyquistへ切り詰め、利用できるBinがない帯域は`null`を返します。
+
+LoudnessはCLIのFFmpegによるオフライン計測です。`--analyze`にはFFmpegが必要です。単独Renderでは`analysis.loudness`、Demoでは`mix_loudness` / `output_loudness`に出力します。`short_term_window_seconds`と`short_term_interval_seconds`はいずれも3です。`short_term[]`の`time_seconds`はRender開始からの秒数で、その時刻を終端とする3秒窓の`short_term_lufs`を3秒間隔で返します。3秒未満の音声には完全な窓がなく、配列は空でLRAは`null`になります。無音のLUFSやTrue Peakも`null`です。
 
 測定できない項目（無音時のLevel / Activityなど）は`null`になり、NaNとInfinityはJSONへ出力しません。`render note`だけは指定MIDI Noteの標準音高をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
 
@@ -486,7 +496,7 @@ sonalloy render pattern <definition> <pattern> \
   --output out/pattern.wav
 ```
 
-`--analyze`、`--trace`、`--trace-every-frames`、`--json`はほかのrenderコマンドと同じです。`--tail`はPatternの1周の長さに含めず、終端後の余韻として追加します。PatternのParameter ChangeはInstrument Compile後にParameter Catalogで解決されます。
+`--analyze`、`--trace`、`--trace-every-frames`、`--json`はほかのrenderコマンドと同じです。`--tail`はPatternの1周の長さに含めず、終端後の余韻として追加します。PatternのParameter ChangeとRampはInstrument Compile後にParameter Catalogで解決されます。
 
 ## 動作確認
 
@@ -569,6 +579,7 @@ Clapによるコマンドラインの構文・値エラーは標準エラーへ�
 | Trace | `TRACE_LIMIT_EXCEEDED` |
 | Bundle | `BUNDLE_OUTPUT_EXISTS` |
 | Asset | `ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`ASSET_HASH_MISSING`、`ASSET_ABSOLUTE_PATH` |
+| 外部Audio入力 | `AUDIO_INPUT_REQUIRED` |
 | 実行と書き出し | `PROCESS_ERROR`、`DSP_ERROR`、`RENDER_ERROR`、`WAV_OUTPUT_ERROR`、`MIDI_ERROR` |
 | Realtime I/O | `AUDIO_DEVICE_ERROR` |
 
@@ -576,11 +587,11 @@ Generator固有の診断Codeは次のとおりです。
 
 | Generator | Code |
 |---|---|
-| Wavetable | `WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`WAVETABLE_SILENT_FRAME`、`WAVETABLE_DC_OFFSET`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
+| Wavetable | `WAVETABLE_LAYOUT_INVALID`、`WAVETABLE_PREPARATION_FAILED`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
 | Spectral | `SPECTRAL_PREPARATION_FAILED`、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
 | Granular | `INVALID_GRAIN_REGION`、`INVALID_GRAIN_PARAMETER` |
 | Sample | `UNSUPPORTED_PLAYBACK_COMBINATION`、`INVALID_STRETCH_RATIO`、`INVALID_SOURCE_TEMPO`、`STRETCH_BACKEND_FAILURE` |
 | Wave Sequence | `INVALID_SEQUENCE`、`INVALID_STEP_DURATION` |
 | Operator Modulation | `VALUE_OUT_OF_RANGE`、`DEFINITION_ERROR`（Carrier Level / 非Carrier Level / 未接続Amount / AM・Ring Feedback）、`GENERATOR_RESOURCE_LIMIT_EXCEEDED` |
 
-Assetの欠落・Decode失敗はWarningとして扱われ、ほかの有効なLayerがあればレンダリングを続けます。
+有効なLayerやProcessorの必須Assetが欠落・Decode失敗した場合はCompile Errorです。

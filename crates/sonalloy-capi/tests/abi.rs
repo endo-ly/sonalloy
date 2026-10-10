@@ -3,9 +3,9 @@ use std::ptr;
 use sonalloy_capi::{
     SonalloyCompiledInstrument, SonalloyDefinitionInfo, SonalloyDiagnosticView,
     SonalloyDiagnostics, SonalloyProcessSpec, SonalloyResult, SonalloyStringView,
-    sonalloy_c_api_version, sonalloy_compile_json, sonalloy_compiled_destroy,
-    sonalloy_diagnostics_count, sonalloy_diagnostics_destroy, sonalloy_diagnostics_get,
-    sonalloy_has_capability, sonalloy_inspect_json,
+    sonalloy_compile_json, sonalloy_compiled_destroy, sonalloy_diagnostics_count,
+    sonalloy_diagnostics_destroy, sonalloy_diagnostics_get, sonalloy_has_capability,
+    sonalloy_inspect_json,
 };
 
 fn view(value: &str) -> SonalloyStringView {
@@ -25,8 +25,7 @@ fn spec() -> SonalloyProcessSpec {
 }
 
 #[test]
-fn abi_version_capability_and_pointer_validation_are_stable() {
-    assert_eq!(sonalloy_c_api_version(), 1);
+fn capability_and_pointer_validation_are_stable() {
     let mut supported = 0;
     assert_eq!(
         sonalloy_has_capability(1, &raw mut supported),
@@ -141,8 +140,6 @@ fn compile_diagnostics_and_parameter_catalog_use_borrowed_views() {
     assert!(!diagnostics.is_null());
     assert_eq!(sonalloy_diagnostics_count(diagnostics), 0);
 
-    let count = sonalloy_c_api_version();
-    assert_eq!(count, 1);
     let mut handle = 0;
     assert_eq!(
         sonalloy_capi::sonalloy_compiled_parameter_handle(

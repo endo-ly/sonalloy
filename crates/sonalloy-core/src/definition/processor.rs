@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
-use crate::parameter::generator::{FORMANT_SHIFT, FORMANT_THROAT, FORMANT_VOWEL_POSITION};
+use crate::parameter::generator::{FORMANT_THROAT, FORMANT_VOWEL_POSITION};
 use crate::parameter::is_component_id;
 
 const MAX_CONVOLUTION_PROCESSORS: usize = 2;
@@ -821,12 +821,10 @@ fn validate_processor_values(
                 FORMANT_VOWEL_POSITION.min..=FORMANT_VOWEL_POSITION.max,
                 "vowel_position must be finite and between 0 and 1",
             );
-            validate_range(
+            super::validate_pitch_ratio(
                 diagnostics,
                 format!("{path}.formant_shift_cents"),
                 value.formant_shift_cents,
-                FORMANT_SHIFT.min..=FORMANT_SHIFT.max,
-                "formant_shift_cents must be finite and between -2400 and 2400",
             );
             validate_range(
                 diagnostics,

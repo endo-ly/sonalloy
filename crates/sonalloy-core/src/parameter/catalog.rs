@@ -146,6 +146,7 @@ fn update_scale(hasher: &mut Sha256, scale: ParameterScale) {
         match scale {
             ParameterScale::Linear => 0,
             ParameterScale::Log2 => 1,
+            ParameterScale::LinearUnbounded => 2,
         },
     );
 }
@@ -227,7 +228,11 @@ fn push_layer_descriptors(
             id: layer_parameter_id(&layer.id, suffix),
             owner: ParameterOwner::Layer { definition_index },
             unit,
-            scale: ParameterScale::Linear,
+            scale: if suffix == "tuning" {
+                ParameterScale::LinearUnbounded
+            } else {
+                ParameterScale::Linear
+            },
             min,
             max,
             default,
@@ -565,7 +570,7 @@ fn push_generator_descriptors(
                     index,
                     "detune",
                     ParameterUnit::Cents,
-                    ParameterScale::Linear,
+                    ParameterScale::LinearUnbounded,
                     OPERATOR_DETUNE_MIN,
                     OPERATOR_DETUNE_MAX,
                     operator.detune_cents,
@@ -824,7 +829,7 @@ fn push_processor_descriptors(
                 format!("{base}.formant_shift"),
                 owner,
                 ParameterUnit::Cents,
-                ParameterScale::Linear,
+                ParameterScale::LinearUnbounded,
                 -2400.0,
                 2400.0,
                 value.formant_shift_cents,

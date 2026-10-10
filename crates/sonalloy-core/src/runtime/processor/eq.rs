@@ -309,10 +309,7 @@ mod tests {
     use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
-        ValueSpan {
-            start: value,
-            end: value,
-        }
+        ValueSpan::linear(value, value)
     }
 
     #[test]
@@ -389,10 +386,7 @@ mod tests {
         buffer[0] = 1.0;
         runtime
             .process_mono(
-                ValueSpan {
-                    start: -12.0,
-                    end: 12.0,
-                },
+                ValueSpan::linear(-12.0, 12.0),
                 span(0.0),
                 span(0.0),
                 &mut buffer,

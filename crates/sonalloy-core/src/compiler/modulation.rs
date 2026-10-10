@@ -234,6 +234,8 @@ pub struct CompiledRoute {
     pub depth: f32,
     /// Source curve.
     pub curve: ModulationCurve,
+    /// Optional instrument-scoped depth multiplier.
+    pub depth_control: Option<InstrumentSourceHandle>,
 }
 
 /// Contiguous route range for one target handle.
@@ -353,7 +355,14 @@ pub(super) fn compile_modulation(
             modulation
                 .routes
                 .iter()
-                .map(|route| route.source.as_str())
+                .flat_map(|route| {
+                    [
+                        Some(route.source.as_str()),
+                        route.depth_control.map(|_| "mod_wheel"),
+                    ]
+                    .into_iter()
+                    .flatten()
+                })
                 .collect::<HashSet<_>>()
         })
         .unwrap_or_default();
@@ -491,6 +500,14 @@ pub(super) fn compile_modulation(
                     target,
                     depth: route.depth.value,
                     curve: route.curve,
+                    depth_control: route
+                        .depth_control
+                        .map(|_| match source_lookup["mod_wheel"] {
+                            CompiledSourceRef::Instrument(handle) => handle,
+                            CompiledSourceRef::Voice(_) => {
+                                unreachable!("mod wheel is instrument scoped")
+                            }
+                        }),
                 },
             ));
         }
@@ -611,6 +628,7 @@ mod tests {
                         unit: crate::parameter::ModulationUnit::Decibels,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "key_tracking".to_owned(),
@@ -620,6 +638,7 @@ mod tests {
                         unit: crate::parameter::ModulationUnit::Decibels,
                     },
                     curve: ModulationCurve::SmoothStep,
+                    depth_control: None,
                 },
             ],
         });
@@ -645,6 +664,7 @@ mod tests {
                         unit: crate::parameter::ModulationUnit::Pan,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "velocity".to_owned(),
@@ -654,6 +674,7 @@ mod tests {
                         unit: crate::parameter::ModulationUnit::Decibels,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
             ],
         });
@@ -702,6 +723,7 @@ mod tests {
                         unit: crate::parameter::ModulationUnit::Normalized,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "transport_beat_phase".to_owned(),
@@ -711,6 +733,7 @@ mod tests {
                         unit: crate::parameter::ModulationUnit::Cents,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
             ],
         });
@@ -756,6 +779,7 @@ mod tests {
                     unit: crate::parameter::ModulationUnit::Normalized,
                 },
                 curve: ModulationCurve::Linear,
+                depth_control: None,
             }],
         });
 
@@ -781,6 +805,7 @@ mod tests {
                     unit: crate::parameter::ModulationUnit::Normalized,
                 },
                 curve: ModulationCurve::Linear,
+                depth_control: None,
             }],
         });
         let result = compile_instrument(&source, &context());

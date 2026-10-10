@@ -65,7 +65,8 @@ typedef enum SonalloyEventType {
     SONALLOY_EVENT_PARAMETER_CHANGE = 4,
     SONALLOY_EVENT_PITCH_BEND = 5,
     SONALLOY_EVENT_MOD_WHEEL = 6,
-    SONALLOY_EVENT_AFTERTOUCH = 7
+    SONALLOY_EVENT_AFTERTOUCH = 7,
+    SONALLOY_EVENT_PARAMETER_RAMP = 8
 } SonalloyEventType;
 
 typedef struct SonalloyEvent {
@@ -79,6 +80,8 @@ typedef struct SonalloyEvent {
     uint8_t bool_value;
     uint8_t reserved;
     float value;
+    float target_value; /* parameter ramp target (normalized) */
+    uint32_t duration_frames; /* parameter ramp duration in engine frames */
 } SonalloyEvent;
 
 typedef struct SonalloyParameterDescriptor {
@@ -88,7 +91,7 @@ typedef struct SonalloyParameterDescriptor {
     uint32_t owner_sub_index;
     uint32_t owner_axis;
     uint32_t unit;
-    uint32_t scale;
+    uint32_t scale; /* 0: linear, 1: log2, 2: linear unbounded (min/max are control anchors) */
     float min;
     float max;
     float default_value;
@@ -127,7 +130,6 @@ enum {
     SONALLOY_CAPABILITY_NEURAL_BACKEND = 7
 };
 
-uint32_t sonalloy_c_api_version(void);
 SonalloyResult sonalloy_has_capability(uint32_t capability, uint8_t* out_supported);
 
 SonalloyResult sonalloy_compile_json(

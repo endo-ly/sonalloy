@@ -151,7 +151,10 @@ impl DspFilter {
         result
     }
 
-    /// Process an input buffer while linearly ramping the cutoff in native code.
+    /// Process an input buffer while ramping the cutoff geometrically in native code.
+    ///
+    /// The cutoff follows the log-scaled parameter's normalized movement, and resonance is held
+    /// constant.
     ///
     /// # Errors
     ///
@@ -195,6 +198,8 @@ impl DspFilter {
     }
 
     /// Process a buffer while ramping cutoff and resonance together.
+    ///
+    /// The cutoff ramps geometrically and the resonance ramps linearly.
     ///
     /// # Errors
     ///

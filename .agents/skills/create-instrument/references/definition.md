@@ -152,9 +152,10 @@ Layerは「Generator + Layer Processor + ADSR + Gain + Pan」のセットで、T
 | `id` | — | Layer識別子。一意 |
 | `enabled` | Boolean | 発音の有無 |
 | `trigger` | 下記Trigger表 | 発音条件 |
+| `choke_group` | 非空文字列（省略可） | 同じGroupの古いLayerを、新しい発音時に短く消音する。`note_on` Trigger専用 |
 | `gain_db` | -60〜12 dB | Layer音量 |
 | `pan` | -1〜1 | 定位。定電力で配置する |
-| `tuning_cents` | -1200〜1200 | 音程（Cent。100 = 半音） |
+| `tuning_cents` | 有限値 | 音程（Cent。100 = 半音）。有限で正のPitch比率を計算できる値 |
 | `envelope` | ADSR | 音量の輪郭。Attack / Decay / Sustain / Releaseの4区間 |
 | `processors` | — | Generator後に直列適用するProcessor Chain。`processors.md`参照 |
 | `generator` | — | 音源。`generators.md`参照 |
@@ -170,6 +171,8 @@ Layerは「Generator + Layer Processor + ADSR + Gain + Pan」のセットで、T
 最小値は最大値以下にします。
 
 Layerの全体例は「全体構造」の例にある`layers[0]`です。
+
+Open HatとClosed Hatのような排他発音では、別々のNote範囲を持つLayerに同じ`choke_group: "hats"`を指定します。実際に発音するLayerだけがChokeを起こし、同Groupの古いLayerはADSRのRelease設定によらず5msで停止します。Voice内の他GroupのLayerとGlobal Processorの残響は継続します。`performance.choke_groups`も宣言した場合は、Keyに応じたNote全体の停止も適用されます。
 
 ## Macro
 
@@ -270,7 +273,7 @@ VectorはLayerをConstant-powerで混ぜる専用機能です。2-WayのParamete
 
 Sample、Wavetable、Spectral、Granular、Wave Sequenceは、コンパイル時にAssetを読み込み、SHA-256を照合してWAVをDecodeします。Sample Rateが異なる場合は変換し、同一Assetを参照するZoneやGenerator間でPrepared Audioを共有します。
 
-読み込めなかったAssetを使うUnitは無音・無効になり、Warningを残して他の部分のコンパイルとレンダリングを続けます（SampleはZone単位、Wave SequenceはStep単位、それ以外はLayer単位）。ZoneのSHA-256省略もWarningです。
+有効なLayerが参照するAssetの欠落・Hash不一致・Decodeや事前解析の失敗はCompile Errorです。`enabled: false`のLayerはAsset準備と発音の対象外です。SHA-256は任意で、指定した場合に照合します。絶対Path、通常のResample、WavetableのMono化は正常な入力処理として扱います。
 
 **ErrorとWarning**
 

@@ -43,7 +43,7 @@ Polarityは、LFO、Random、MSEG、Step、Sample Hold、Smooth RandomがBipolar
 
 ## Routeの計算規則
 
-各Routeは`source`、`target`、`depth`、`curve`を持ちます。
+各Routeは`source`、`target`、`depth`、`curve`を持ち、任意で`depth_control`を指定できます。
 
 ```json
 { "source": "filter_env", "target": "voice.processor.tone.cutoff", "depth": { "value": 2.0, "unit": "octaves" }, "curve": "smooth_step" }
@@ -51,7 +51,21 @@ Polarityは、LFO、Random、MSEG、Step、Sample Hold、Smooth RandomがBipolar
 
 - `depth.value`はSigned値、`depth.unit`はTargetのModulation Unitです（Linear TargetはNative Unit、Log2 TargetはOctaves）。TargetごとのUnitは次節の表のとおりで、実効範囲（Clamp後の値域）は`instrument inspect --json`のParameter一覧で確認できます
 - `curve`は`linear`または`smooth_step`です
-- RouteはDefinition順に加算し、最後にTarget範囲へClampします
+- RouteはDefinition順に加算します。Panなど定義域を持つTargetは最後にその範囲へClampされ、Pitch OffsetはGeneratorの周波数処理まで加算値を保持します
+
+Layer Tuning、Granular Pitch、Operator Detune、Unison Detune、Formant ShiftのDescriptorは`scale: "linear_unbounded"`です。`min` / `max`は外部Controlの0 / 1に対応する値を示し、Native値の上限・下限にはなりません。Normalize / Denormalizeは同じ線形変換を0〜1の外へ延長するため、PatternやFrame EventのNative値で広いPitch Sweepを指定できます。計算不能なPitch比率・周波数はErrorとなり、Generator固有の最終周波数制約は維持されます。
+
+ビブラートの量をMod Wheelで演奏中に変えるには、LFOのRouteへ`depth_control: "mod_wheel"`を指定します。対応する値は`"mod_wheel"`だけです。Wheel=0でRouteの寄与がゼロ、0.5で半量、1で`depth.value`の全量となり、Depthの符号は維持されます。Wheelは5msのSmoothingを使い、ゼロでもLFOの位相は継続します。
+
+```json
+{
+  "source": "vibrato",
+  "target": "layer.body.tuning",
+  "depth": { "value": 35.0, "unit": "cents" },
+  "curve": "linear",
+  "depth_control": "mod_wheel"
+}
+```
 
 ## TargetのModulation Unit
 

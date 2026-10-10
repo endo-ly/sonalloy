@@ -116,6 +116,8 @@ pub enum ParameterUnit {
 pub enum ParameterScale {
     /// Uniform spacing in native units.
     Linear,
+    /// Linear control mapping whose native values may extend beyond the control interval.
+    LinearUnbounded,
     /// Uniform spacing in base-two logarithmic units.
     Log2,
 }
@@ -168,9 +170,9 @@ pub struct ParameterDescriptor {
     pub unit: ParameterUnit,
     /// Normalized mapping.
     pub scale: ParameterScale,
-    /// Inclusive native minimum.
+    /// Native value mapped to control zero; a hard minimum except for `LinearUnbounded`.
     pub min: f32,
-    /// Inclusive native maximum.
+    /// Native value mapped to control one; a hard maximum except for `LinearUnbounded`.
     pub max: f32,
     /// Native default copied from the Definition.
     pub default: f32,
@@ -192,18 +194,27 @@ impl ParameterDescriptor {
                 ModulationUnit::Decibels
             }
             ParameterUnit::Pan if self.scale == ParameterScale::Linear => ModulationUnit::Pan,
-            ParameterUnit::Cents if self.scale == ParameterScale::Linear => ModulationUnit::Cents,
+            ParameterUnit::Cents
+                if matches!(
+                    self.scale,
+                    ParameterScale::Linear | ParameterScale::LinearUnbounded
+                ) =>
+            {
+                ModulationUnit::Cents
+            }
             ParameterUnit::Hertz => match self.scale {
-                ParameterScale::Linear => ModulationUnit::Hertz,
+                ParameterScale::Linear | ParameterScale::LinearUnbounded => ModulationUnit::Hertz,
                 ParameterScale::Log2 => ModulationUnit::Octaves,
             },
             ParameterUnit::Ratio if self.scale == ParameterScale::Log2 => ModulationUnit::Octaves,
             ParameterUnit::Seconds => match self.scale {
-                ParameterScale::Linear => ModulationUnit::Seconds,
+                ParameterScale::Linear | ParameterScale::LinearUnbounded => ModulationUnit::Seconds,
                 ParameterScale::Log2 => ModulationUnit::Octaves,
             },
             ParameterUnit::PerSecond => match self.scale {
-                ParameterScale::Linear => ModulationUnit::PerSecond,
+                ParameterScale::Linear | ParameterScale::LinearUnbounded => {
+                    ModulationUnit::PerSecond
+                }
                 ParameterScale::Log2 => ModulationUnit::Octaves,
             },
             ParameterUnit::Index if self.scale == ParameterScale::Linear => ModulationUnit::Index,
@@ -220,11 +231,12 @@ impl ParameterDescriptor {
         }
     }
 
-    /// Return the greatest absolute modulation depth representable by this parameter.
+    /// Return the greatest finite modulation depth allowed by this parameter's contract.
     #[must_use]
     pub fn max_modulation_depth(&self) -> f32 {
         match self.scale {
             ParameterScale::Linear => self.max - self.min,
+            ParameterScale::LinearUnbounded => f32::MAX,
             ParameterScale::Log2 => (self.max / self.min).log2(),
         }
     }
@@ -233,20 +245,23 @@ impl ParameterDescriptor {
     ///
     /// # Errors
     ///
-    /// Returns an error for non-finite or out-of-range input.
+    /// Returns an error for non-finite input or values outside a bounded native domain.
     pub fn normalize(&self, native: f32) -> Result<f32, ParameterValueError> {
         if !native.is_finite() {
             return Err(ParameterValueError::NonFinite);
         }
-        if !(self.min..=self.max).contains(&native) {
+        if self.scale != ParameterScale::LinearUnbounded && !(self.min..=self.max).contains(&native)
+        {
             return Err(ParameterValueError::OutOfRange);
         }
         let normalized = match self.scale {
-            ParameterScale::Linear => (native - self.min) / (self.max - self.min),
+            ParameterScale::Linear | ParameterScale::LinearUnbounded => {
+                (native - self.min) / (self.max - self.min)
+            }
             ParameterScale::Log2 => (native / self.min).log2() / (self.max / self.min).log2(),
         };
         if normalized.is_finite() {
-            Ok(normalized.clamp(0.0, 1.0))
+            Ok(normalized)
         } else {
             Err(ParameterValueError::NonFinite)
         }
@@ -256,22 +271,24 @@ impl ParameterDescriptor {
     ///
     /// # Errors
     ///
-    /// Returns an error for non-finite or out-of-range input.
+    /// Returns an error for non-finite input or values outside a bounded control interval.
     pub fn denormalize(&self, normalized: f32) -> Result<f32, ParameterValueError> {
         if !normalized.is_finite() {
             return Err(ParameterValueError::NonFinite);
         }
-        if !(0.0..=1.0).contains(&normalized) {
+        if self.scale != ParameterScale::LinearUnbounded && !(0.0..=1.0).contains(&normalized) {
             return Err(ParameterValueError::OutOfRange);
         }
         let native = match self.scale {
-            ParameterScale::Linear => self.min + normalized * (self.max - self.min),
+            ParameterScale::Linear | ParameterScale::LinearUnbounded => {
+                self.min + normalized * (self.max - self.min)
+            }
             ParameterScale::Log2 => {
                 self.min * 2.0_f32.powf(normalized * (self.max / self.min).log2())
             }
         };
         if native.is_finite() {
-            Ok(native.clamp(self.min, self.max))
+            Ok(native)
         } else {
             Err(ParameterValueError::NonFinite)
         }
@@ -476,7 +493,21 @@ mod tests {
             .find(|parameter| parameter.id == "layer.body.tuning")
             .expect("layer tuning descriptor");
         assert_eq!(tuning.modulation_unit(), ModulationUnit::Cents);
-        assert!((tuning.max_modulation_depth() - 2_400.0).abs() < f32::EPSILON);
+        assert!((tuning.max_modulation_depth() - f32::MAX).abs() < f32::EPSILON);
+        for native in [-4_800.0, 4_800.0] {
+            let control = tuning.normalize(native).expect("wide pitch normalizes");
+            assert!(!(0.0..=1.0).contains(&control));
+            assert!(
+                (tuning
+                    .denormalize(control)
+                    .expect("wide pitch denormalizes")
+                    - native)
+                    .abs()
+                    < 0.001
+            );
+        }
+        assert!(tuning.normalize(f32::NAN).is_err());
+        assert!(tuning.denormalize(f32::INFINITY).is_err());
 
         let cutoff = catalog
             .parameters()

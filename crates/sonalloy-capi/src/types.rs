@@ -163,6 +163,8 @@ pub enum SonalloyEventType {
     ModWheel = 6,
     /// Change channel aftertouch.
     Aftertouch = 7,
+    /// Move a parameter linearly over an exact frame duration.
+    ParameterRamp = 8,
 }
 
 /// Flat, fixed-layout process event.
@@ -189,6 +191,10 @@ pub struct SonalloyEvent {
     pub reserved: u8,
     /// Normalized or bipolar event value.
     pub value: f32,
+    /// Normalized ramp target for a parameter ramp event.
+    pub target_value: f32,
+    /// Positive ramp duration in engine frames for a parameter ramp event.
+    pub duration_frames: u32,
 }
 
 impl SonalloyEvent {
@@ -221,6 +227,17 @@ impl SonalloyEvent {
             5 => ProcessEventKind::PitchBend { value: self.value },
             6 => ProcessEventKind::ModWheel { value: self.value },
             7 => ProcessEventKind::Aftertouch { value: self.value },
+            8 => ProcessEventKind::ParameterRamp {
+                catalog_revision: self.parameter_catalog_revision,
+                parameter: sonalloy_core::ParameterHandle::from_index(
+                    usize::try_from(self.parameter_handle)
+                        .map_err(|_| SonalloyResult::InvalidArgument)?,
+                ),
+                from_normalized: self.value,
+                to_normalized: self.target_value,
+                duration_frames: usize::try_from(self.duration_frames)
+                    .map_err(|_| SonalloyResult::InvalidArgument)?,
+            },
             _ => return Err(SonalloyResult::InvalidArgument),
         };
         Ok(ProcessEvent {

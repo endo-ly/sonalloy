@@ -1,6 +1,6 @@
 # Pattern仕様（Audition Pattern）
 
-Audition Pattern（以下、Pattern）は、1つのSonalloy音源を試奏するための演奏データ（JSON）です。Sample Rateに依存しないTickを正本の時間軸として扱うため、NoteやChord、フレーズ、ドラム、Pitch Bendのような演奏操作、Parameter Changeを同じ形式で記述・保存できます。
+Audition Pattern（以下、Pattern）は、1つのSonalloy音源を試奏するための演奏データ（JSON）です。Sample Rateに依存しないTickを正本の時間軸として扱うため、NoteやChord、フレーズ、ドラム、Pitch Bendのような演奏操作、Parameterの一時点の変更や連続変化を同じ形式で記述・保存できます。
 
 Patternが扱うのは1つの音源への演奏条件だけです。複数のPatternを一つの試聴作品としてまとめる場合は[Demo](demos.md)を使用します。雛形は`sonalloy pattern init`で生成できます。
 
@@ -54,7 +54,7 @@ Schema VersionはInstrument Definitionとは独立して管理しており、現
 
 ## Eventの種類
 
-書けるEventはNote、演奏操作、Parameter Changeの3分類です。Polyphonic Aftertouch、Program Change、SysExといったMIDI機能は扱いません。
+書けるEventはNote、演奏操作、Parameter Automationの3分類です。Polyphonic Aftertouch、Program Change、SysExといったMIDI機能は扱いません。
 
 ### Note
 
@@ -89,7 +89,26 @@ Sustain Pedal、Pitch Bend、Mod Wheel、AftertouchをTick位置で切り替え�
 - `tick`は`0`以上`length_ticks`以下で指定できます。終端に置いたEventは、ループ境界で状態を明示的に戻すために使えます
 - `value`は有限の数で、Pitch Bendは-1〜1、Mod WheelとAftertouchは0〜1です
 
-### Parameter Change
+### Parameter Automation
+
+一定時間かけて値を動かす場合は`parameter_ramp`を使います。両端をParameterのNative Unitで指定し、開始Tickで`from_value`を適用して、終了Tickで`to_value`へ到達します。
+
+```json
+{
+  "type": "parameter_ramp",
+  "tick": 1920,
+  "duration_ticks": 1920,
+  "parameter": "voice.processor.tone.cutoff",
+  "from_value": 1200.0,
+  "to_value": 8000.0
+}
+```
+
+`duration_ticks`は正の整数で、`tick + duration_ticks`は`length_ticks`以下にします。両端の値は有限で、音源のParameter Catalogへ照合されます。開始・終了TickをそれぞれFrameへ変換するため、途中にTempo変更があっても終了位置が一致します。Frameへ丸めた長さが0、または処理Frame数として表現できない場合はCompile Errorです。補間はParameterの正規化した値で線形に進むため、Log2 ScaleのParameterではNative Unitで等比的に変化し、開始・終了のTick位置と値を正確に保持します。
+
+同じParameterへ次のRampやChangeが開始すると、その位置で進行中のRampを置き換えます。同時刻は既存のEvent順に従います。Rampは`render pattern`、`render demo`、`audition pattern`とLoopで共通に使えます。
+
+一時点の変更は`parameter_change`で指定します。こちらはParameter既定のSmoothingを使います。
 
 ```json
 {
@@ -126,7 +145,7 @@ Monophonic、Legato、Portamentoの意味はPatternではなくInstrument Defini
 
 ## 時間の扱い
 
-PatternはTickのまま保持され、Compile時に処理Frameへ変換されます。小数のFrame位置をTempo変更の区間ごとに積算し、最後に最も近い整数Frameへ丸めます。途中で整数へ丸めないため、長いPatternでも丸め誤差が累積しません。異なるTickが同じFrameへ丸め込まれる場合はCompile Errorです。
+PatternはTickのまま保持され、Compile時に処理Frameへ変換されます。小数のFrame位置をTempo変更の区間ごとに積算し、最後に最も近い整数Frameへ丸めます。途中で整数へ丸めないため、長いPatternでも丸め誤差が累積しません。NoteやRampの開始・終了Tickが同じFrameへ丸め込まれる場合はCompile Errorです。
 
 同じFrameに複数のEventが重なった場合は、元のTick、Eventの種類、Pattern内での定義順に基づいて処理します。Tempoと拍子から作られたMusical Time Mapは、CoreのBeat / Bar PositionとTempo同期Sourceへ同じ値を渡します。
 
@@ -151,6 +170,6 @@ Standard MIDI File（SMF）とPatternは、1つの音源の演奏情報として
 
 - `ticks_per_beat`を引き継いだSingle TrackのSMFとして出力します。Tempo、拍子、Note、Pitch Bend、CC1、CC64、Channel Aftertouch、End Of Trackを含みます
 - CC1とAftertouchはMIDIの7-bit値へ丸め、Pitch Bendは-8192〜8191へ変換します
-- Sonalloy固有のParameter ChangeはStandard MIDIで表現できないため、1件でも含むPatternは`MIDI_ERROR`で失敗し、CCやSysExへ黙って変換することはありません
+- Sonalloy固有のParameter ChangeとRampはStandard MIDIで表現できないため、件数をPattern単位の1件の`MIDI_ERROR`へまとめて出力を中止します。DemoではPart IndexとIDも示します
 - 同じ音程のNoteが時間的に重なる場合も、MIDIのNote OffにNote IDがないため`MIDI_ERROR`で出力を中止します（Pattern自体は重なりを許可します）
 - 往復変換では、Noteの位置・長さ・音程・Velocity、拍子、Sustainが保たれます。TempoはMIDIのマイクロ秒/拍という整数制約によりわずかに差が出ることがあり、CC1・Aftertouch・Pitch BendはMIDIの分解能へ丸められます

@@ -16,13 +16,20 @@ pub(crate) struct SuccessReport {
     pub(crate) output: String,
     pub(crate) backend: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) analysis: Option<AudioAnalysis>,
+    pub(crate) analysis: Option<OfflineAnalysis>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) trace: Option<RenderTraceReport>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) reset_comparison: Option<ResetComparison>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct OfflineAnalysis {
+    #[serde(flatten)]
+    pub(crate) audio: AudioAnalysis,
+    pub(crate) loudness: crate::demo::LoudnessAnalysis,
 }
 
 #[derive(Debug, Serialize)]
@@ -45,6 +52,59 @@ pub(crate) struct StatusReport {
 pub(crate) struct CliFailure {
     pub(crate) code: u8,
     pub(crate) diagnostics: Vec<Diagnostic>,
+}
+
+pub(crate) fn pending_wav(path: &Path) -> Result<tempfile::TempPath, CliFailure> {
+    let parent = path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    tempfile::NamedTempFile::new_in(parent)
+        .map(tempfile::NamedTempFile::into_temp_path)
+        .map_err(|error| wav_commit_failure(path, &error))
+}
+
+pub(crate) fn output_identity(path: &Path) -> Result<std::path::PathBuf, CliFailure> {
+    if path.exists() {
+        return std::fs::canonicalize(path).map_err(|error| wav_commit_failure(path, &error));
+    }
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let parent = std::fs::canonicalize(parent).map_err(|error| wav_commit_failure(path, &error))?;
+    let name = path.file_name().ok_or_else(|| {
+        wav_commit_failure(
+            path,
+            &std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "output path must name a file",
+            ),
+        )
+    })?;
+    #[cfg(windows)]
+    let name = name.to_ascii_lowercase();
+    Ok(parent.join(name))
+}
+
+pub(crate) fn commit_wav(pending: tempfile::TempPath, output: &Path) -> Result<(), CliFailure> {
+    pending
+        .persist(output)
+        .map_err(|error| wav_commit_failure(output, &error.error))
+}
+
+fn wav_commit_failure(path: &Path, error: &std::io::Error) -> CliFailure {
+    CliFailure {
+        code: 4,
+        diagnostics: vec![
+            Diagnostic::error(
+                DiagnosticCode::WavOutputError,
+                "could not commit wav output",
+            )
+            .with_path(path.to_string_lossy())
+            .with_detail(error.to_string()),
+        ],
+    }
 }
 
 pub(crate) fn write_wav(
@@ -132,6 +192,7 @@ pub(crate) fn print_success(json: bool, report: SuccessReport) -> ExitCode {
             report.frames, report.sample_rate, report.output, report.backend
         );
         if let Some(analysis) = &report.analysis {
+            let analysis = &analysis.audio;
             println!("analysis");
             match analysis.level.peak_dbfs {
                 Some(peak) => println!("  peak: {peak:.2} dBFS"),
@@ -178,6 +239,12 @@ pub(crate) fn print_success(json: bool, report: SuccessReport) -> ExitCode {
                     last_frame
                 );
             }
+        }
+        if let Some(analysis) = &report.analysis {
+            println!(
+                "loudness: {}",
+                serde_json::to_string(&analysis.loudness).expect("loudness serializes")
+            );
         }
         print_warnings(&report.diagnostics);
     }

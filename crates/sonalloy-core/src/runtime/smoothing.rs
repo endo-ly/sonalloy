@@ -46,6 +46,11 @@ impl Smoother {
         }
     }
 
+    pub(crate) fn start_ramp(&mut self, from: f32, to: f32, frames: usize) {
+        self.reset(from);
+        self.set_target(to, frames);
+    }
+
     pub(crate) fn current(&self) -> f32 {
         self.current
     }
@@ -79,8 +84,10 @@ impl Smoother {
         if self.total == 0 {
             return self.target;
         }
-        let ratio = elapsed.min(self.total) as f32 / self.total as f32;
-        self.start + (self.target - self.start) * ratio
+        let ratio = elapsed.min(self.total) as f64 / self.total as f64;
+        #[allow(clippy::cast_possible_truncation)]
+        let value = (f64::from(self.start) * (1.0 - ratio) + f64::from(self.target) * ratio) as f32;
+        value
     }
 }
 

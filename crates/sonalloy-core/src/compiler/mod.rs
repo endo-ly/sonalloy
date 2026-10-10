@@ -312,6 +312,8 @@ pub struct CompiledLayer {
     pub id: String,
     /// Compiled trigger conditions.
     pub trigger: CompiledLayerTrigger,
+    /// Dense choke group identity resolved during compilation.
+    pub choke_group: Option<usize>,
     /// Runtime parameter bindings.
     pub parameters: CompiledLayerParameters,
     /// Sample-rate-specific envelope.
@@ -393,6 +395,7 @@ pub fn compile_instrument(
 
     let performance =
         compile_performance(&definition.performance, context.process_spec.sample_rate);
+    let mut choke_groups = HashMap::new();
     let layers = definition
         .layers
         .iter()
@@ -449,6 +452,10 @@ pub fn compile_instrument(
                 definition_index,
                 id: layer.id.clone(),
                 trigger: compile_trigger(layer.trigger),
+                choke_group: layer.choke_group.as_ref().map(|name| {
+                    let next = choke_groups.len();
+                    *choke_groups.entry(name.clone()).or_insert(next)
+                }),
                 parameters,
                 envelope,
                 generator,
@@ -1089,6 +1096,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Decibels,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "mod_env".to_owned(),
@@ -1098,6 +1106,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Pan,
                     },
                     curve: ModulationCurve::SmoothStep,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "random".to_owned(),
@@ -1107,6 +1116,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Cents,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "motion_env".to_owned(),
@@ -1116,6 +1126,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Pan,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "step".to_owned(),
@@ -1125,6 +1136,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Cents,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "sample_hold".to_owned(),
@@ -1134,6 +1146,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Decibels,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
                 crate::definition::ModulationRouteDefinition {
                     source: "smooth_random".to_owned(),
@@ -1143,6 +1156,7 @@ pub(crate) mod tests {
                         unit: crate::parameter::ModulationUnit::Cents,
                     },
                     curve: ModulationCurve::Linear,
+                    depth_control: None,
                 },
             ],
         });

@@ -44,7 +44,12 @@ impl RuntimeGeneration {
                 }
             };
             let shaped = modulation::curve_value(raw, route.curve);
-            let contribution = modulation::route_domain_delta(raw, route.depth, route.curve);
+            let depth_multiplier = match route.depth_control {
+                Some(handle) => self.trace_instrument_source(handle, context)?,
+                None => 1.0,
+            };
+            let contribution =
+                modulation::route_domain_delta(raw, route.depth, route.curve) * depth_multiplier;
             domain_sum += contribution;
             routes.push(TraceRoute {
                 source: trace_source_id(&self.compiled, route.source),

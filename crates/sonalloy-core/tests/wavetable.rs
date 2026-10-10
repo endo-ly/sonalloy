@@ -349,7 +349,7 @@ fn wavetable_position_and_unison_change_the_compiled_output_mode_and_signal() {
 }
 
 #[test]
-fn wavetable_frame_warnings_keep_audible_assets_available() {
+fn wavetable_with_silent_and_dc_frames_is_available() {
     let directory = fixture_directory();
     let path = directory.path().join("fixture.wav");
     write_pcm16_wav(&path, &warning_samples());
@@ -363,17 +363,21 @@ fn wavetable_frame_warnings_keep_audible_assets_available() {
         },
     );
     assert!(result.instrument.is_some());
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == DiagnosticCode::WavetableSilentFrame)
+
+    write_pcm16_wav(&path, &[0; 64]);
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir.to_path_buf(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("process spec"),
+        },
     );
+    assert!(result.instrument.is_none());
     assert!(
         result
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == DiagnosticCode::WavetableDcOffset)
+            .any(|diagnostic| diagnostic.code == DiagnosticCode::WavetablePreparationFailed)
     );
 }
 
@@ -504,7 +508,7 @@ fn wavetable_output_is_stable_across_block_sizes_and_reset() {
 }
 
 #[test]
-fn missing_wavetable_asset_leaves_other_layers_available() {
+fn missing_required_wavetable_asset_rejects_the_instrument() {
     let directory = fixture_directory();
     let base_dir = directory.path();
     let missing = "missing.wav".to_owned();
@@ -531,32 +535,27 @@ fn missing_wavetable_asset_leaves_other_layers_available() {
             process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
-    let compiled = result
-        .instrument
-        .expect("missing asset remains recoverable");
+    assert!(result.instrument.is_none());
     assert!(
         result
             .diagnostics
             .iter()
             .any(|diagnostic| { diagnostic.code == DiagnosticCode::AssetNotFound })
     );
-    let audio = render_instrument(
-        compiled,
-        RenderRequest {
-            sample_rate: 48_000.0,
-            block_size: 257,
-            duration_frames: 512,
-            tail_frames: 0,
+    definition.layers[0].enabled = false;
+    let result = compile_instrument(
+        &definition,
+        &CompileContext {
+            definition_base_dir: base_dir.to_path_buf(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("process spec"),
         },
-        &[ScheduledEvent {
-            absolute_frame: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 110,
-            },
-        }],
-    )
-    .expect("fallback layer renders");
-    assert!(audio.channels[0].iter().any(|sample| sample.abs() > 0.01));
+    );
+    assert_eq!(
+        result
+            .instrument
+            .expect("explicitly disabled asset layer")
+            .layers
+            .len(),
+        1
+    );
 }

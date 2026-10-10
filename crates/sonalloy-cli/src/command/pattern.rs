@@ -28,12 +28,12 @@ pub(super) enum PatternCommand {
 
 `events` must contain at least one `note`. All event `tick` values are measured from the Pattern start. A note uses `tick`, `duration_ticks`, `note` (0..=127), and `velocity` (1..=127); its tick is less than `length_ticks`, its duration is positive, and its end tick does not exceed `length_ticks`. `sustain_pedal` uses `tick` and boolean `down`. `pitch_bend` uses `tick` and finite `value` in -1..=1. `mod_wheel` and `aftertouch` use `tick` and finite `value` in 0..=1. These control events, including `parameter_change`, may use ticks from 0 through `length_ticks`, including the endpoint.
 
-`parameter_change` uses `tick`, `parameter` (a Parameter ID), and finite `native_value`. Its Parameter ID and value range are checked against the selected Instrument when rendered or auditioned. Event objects reject unknown fields."#
+`parameter_change` uses `tick`, `parameter` (a Parameter ID), and finite `native_value`. `parameter_ramp` uses `tick`, positive `duration_ticks`, `parameter`, and finite native-unit `from_value` and `to_value`; the end tick must fit within `length_ticks`. Parameter IDs and value ranges are checked against the selected Instrument when rendered or auditioned. Event objects reject unknown fields."#
     )]
     Validate(PatternPathArgs),
     /// Inspect Pattern timing, notes, controls, and musical duration.
     #[command(
-        long_about = "Report the tick resolution and length, musical duration, tempo and time signature changes, note count and note and velocity ranges, and counts of sustain, pitch bend, modulation wheel, aftertouch, and Parameter Change events. Use `--json` for a machine-readable result."
+        long_about = "Report the tick resolution and length, musical duration, tempo and time signature changes, note count and note and velocity ranges, and counts of sustain, pitch bend, modulation wheel, aftertouch, Parameter Change, and Parameter Ramp events. Use `--json` for a machine-readable result."
     )]
     Inspect(PatternPathArgs),
     /// Import one MIDI Note Channel into a Pattern JSON file.
@@ -43,7 +43,7 @@ pub(super) enum PatternCommand {
     ImportMidi(PatternImportMidiArgs),
     /// Export a Pattern as a Standard MIDI File.
     #[command(
-        long_about = "Write a single-track Standard MIDI File (Type 0) using the Pattern tick resolution and selected 1-based channel. `--channel` accepts 1..=16. Notes, tempo and time signature changes, sustain pedal, pitch bend, mod wheel (CC1), and channel aftertouch are represented. Parameter Change events cannot be represented and cause the export to fail. Overlapping notes with the same pitch also fail because MIDI Note Off events do not identify a note instance. The destination must not already exist. With `--json`, success is reported as JSON and execution failures include structured diagnostics."
+        long_about = "Write a single-track Standard MIDI File (Type 0) using the Pattern tick resolution and selected 1-based channel. `--channel` accepts 1..=16. Notes, tempo and time signature changes, sustain pedal, pitch bend, mod wheel (CC1), and channel aftertouch are represented. Parameter Change and Ramp events cannot be represented; their count is reported in one MIDI_ERROR and export fails. Overlapping notes with the same pitch also fail because MIDI Note Off events do not identify a note instance. The destination must not already exist. With `--json`, success is reported as JSON and execution failures include structured diagnostics."
     )]
     ExportMidi(PatternExportMidiArgs),
 }
@@ -404,6 +404,7 @@ fn print_pattern_inspection(inspection: &PatternInspection) {
     println!("Mod Wheel Events: {}", inspection.mod_wheel_event_count);
     println!("Aftertouch Events: {}", inspection.aftertouch_event_count);
     println!("Parameter Changes: {}", inspection.parameter_change_count);
+    println!("Parameter Ramps: {}", inspection.parameter_ramp_count);
     println!(
         "Distinct Parameter IDs: {}",
         inspection.distinct_parameter_ids.len()

@@ -112,6 +112,8 @@ pub struct StereoAnalysis {
 /// Spectrum and known-reference facts.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SpectrumAnalysis {
+    /// Non-overlapping frequency-band powers from the same averaged mono spectrum.
+    pub bands: Vec<SpectralBand>,
     /// FFT size used for the summary, or zero when no FFT can be formed.
     pub fft_size: usize,
     /// Hop size used between windows, or zero when no FFT can be formed.
@@ -124,6 +126,76 @@ pub struct SpectrumAnalysis {
     pub reference_frequency_hz: Option<f32>,
     /// Energy near integer multiples of the known frequency.
     pub harmonic_energy_ratio: Option<f32>,
+}
+
+/// Energy in a frequency band of the Hann-windowed mono spectrum.
+/// Bands are half-open; the last available band includes the Nyquist bin.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SpectralBand {
+    /// Inclusive lower frequency boundary in Hz.
+    pub lower_hz: f32,
+    /// Upper frequency boundary in Hz, clipped to Nyquist; empty bands have equal boundaries.
+    pub upper_hz: f32,
+    /// Window-power-corrected mean-square energy, or null if no bins are available.
+    pub mean_square: Option<f32>,
+    /// Band power in dBFS (10 log10 mean square), or null for zero/unavailable power.
+    pub power_dbfs: Option<f32>,
+    /// Fraction of all positive-frequency power, or null for silence/unavailable bins.
+    pub energy_ratio: Option<f32>,
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn spectral_bands(
+    power: &[f32],
+    sample_rate: u32,
+    fft_size: usize,
+    windows: usize,
+) -> Vec<SpectralBand> {
+    let nyquist = sample_rate as f32 / 2.0;
+    let bin_hz = if fft_size == 0 {
+        0.0
+    } else {
+        sample_rate as f32 / fft_size as f32
+    };
+    let total: f32 = power
+        .iter()
+        .enumerate()
+        .skip(1)
+        .map(|(bin, value)| value * if bin == fft_size / 2 { 1.0 } else { 2.0 })
+        .sum();
+    [20.0_f32, 60.0, 120.0, 250.0, 500.0, 2000.0, 6000.0, 20000.0]
+        .windows(2)
+        .map(|bounds| {
+            let lower = bounds[0];
+            let upper = bounds[1].min(nyquist);
+            let mut bins = 0;
+            let mut weighted_sum = 0.0;
+            for (bin, value) in power.iter().enumerate().skip(1) {
+                let frequency = bin as f32 * bin_hz;
+                if frequency >= lower
+                    && (frequency < upper
+                        || (bin == fft_size / 2 && bounds[1] >= nyquist && lower < upper))
+                {
+                    bins += 1;
+                    weighted_sum += value * if bin == fft_size / 2 { 1.0 } else { 2.0 };
+                }
+            }
+            // Parseval, averaged over windows, corrected for periodic Hann power.
+            let window_power = if fft_size == 2 { 0.5 } else { 0.375 };
+            let mean_square = (bins > 0 && windows > 0).then(|| {
+                weighted_sum / (windows as f32 * (fft_size as f32).powi(2) * window_power)
+            });
+            SpectralBand {
+                lower_hz: lower,
+                upper_hz: upper.max(lower),
+                mean_square,
+                power_dbfs: mean_square
+                    .filter(|value| *value > 0.0)
+                    .map(|value| 10.0 * value.log10()),
+                energy_ratio: (bins > 0 && total > 0.0).then(|| weighted_sum / total),
+            }
+        })
+        .collect()
 }
 
 /// One local maximum in the averaged spectrum.
@@ -343,6 +415,7 @@ fn spectrum(audio: &RenderedAudio, reference_frequency_hz: Option<f32>) -> Spect
     let frames = audio.frames();
     let Some(fft_size) = largest_power_of_two(frames).filter(|size| *size >= 2) else {
         return SpectrumAnalysis {
+            bands: spectral_bands(&[], audio.sample_rate, 0, 0),
             fft_size: 0,
             hop_size: 0,
             spectral_centroid_hz: None,
@@ -385,6 +458,7 @@ fn spectrum(audio: &RenderedAudio, reference_frequency_hz: Option<f32>) -> Spect
         }
         if plan.process(&mut input, &mut output).is_err() {
             return SpectrumAnalysis {
+                bands: spectral_bands(&[], audio.sample_rate, 0, 0),
                 fft_size,
                 hop_size,
                 spectral_centroid_hz: None,
@@ -401,6 +475,7 @@ fn spectrum(audio: &RenderedAudio, reference_frequency_hz: Option<f32>) -> Spect
     }
     if windows == 0 {
         return SpectrumAnalysis {
+            bands: spectral_bands(&[], audio.sample_rate, 0, 0),
             fft_size,
             hop_size,
             spectral_centroid_hz: None,
@@ -473,6 +548,7 @@ fn spectrum(audio: &RenderedAudio, reference_frequency_hz: Option<f32>) -> Spect
         Some((harmonic_power / total_power).min(1.0))
     });
     SpectrumAnalysis {
+        bands: spectral_bands(&power, audio.sample_rate, fft_size, windows),
         fft_size,
         hop_size,
         spectral_centroid_hz: centroid,
@@ -517,6 +593,13 @@ mod tests {
         assert_eq!(report.stereo.correlation, None);
         assert_eq!(report.spectrum.fft_size, 32);
         assert_eq!(report.spectrum.hop_size, 16);
+        assert!(
+            report
+                .spectrum
+                .bands
+                .iter()
+                .all(|band| band.power_dbfs.is_none() && band.energy_ratio.is_none())
+        );
     }
 
     #[test]
@@ -555,6 +638,10 @@ mod tests {
 
         assert!(report.finite);
         assert!((report.level.peak - 0.5).abs() < 0.001);
+        let band = &report.spectrum.bands[3];
+        assert!(band.energy_ratio.expect("440 Hz band") > 0.99);
+        assert!((band.mean_square.expect("power") - 0.125).abs() < 0.001);
+        assert!((band.power_dbfs.expect("dBFS") + 9.031).abs() < 0.02);
         assert!((report.level.rms - 0.5 / 2.0_f32.sqrt()).abs() < 0.002);
         assert!((report.dc[0]).abs() < 0.002);
         assert!((report.stereo.correlation.expect("identical sine") - 1.0).abs() < 1.0e-6);
@@ -574,5 +661,24 @@ mod tests {
                 .expect("harmonic ratio")
                 > 0.9
         );
+    }
+
+    #[test]
+    fn bands_partition_boundary_bins_and_clip_to_nyquist() {
+        let power = vec![1.0; 9];
+        let bands = super::spectral_bands(&power, 240, 16, 1);
+        assert!((bands[1].upper_hz - 120.0).abs() < f32::EPSILON);
+        assert!(
+            (bands
+                .iter()
+                .filter_map(|band| band.energy_ratio)
+                .sum::<f32>()
+                - 13.0 / 15.0)
+                .abs()
+                < 1.0e-6
+        );
+        assert!(bands[2..].iter().all(|band| band.mean_square.is_none()));
+        let empty = super::spectral_bands(&[], 48_000, 0, 0);
+        assert!(empty.iter().all(|band| band.mean_square.is_none()));
     }
 }

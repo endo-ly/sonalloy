@@ -161,7 +161,7 @@ impl OscillatorRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
         left: &mut [f32],
         right: &mut [f32],
@@ -204,37 +204,28 @@ impl OscillatorRuntime {
             None
         };
         if let Some(amount) = phase_distortion {
-            validate_generator_span(amount, PHASE_DISTORTION)?;
+            validate_generator_span(&amount, PHASE_DISTORTION)?;
         }
         if let Some(amount) = oscillator_feedback {
-            validate_generator_span(amount, OSCILLATOR_FEEDBACK)?;
+            validate_generator_span(&amount, OSCILLATOR_FEEDBACK)?;
         }
         if let Some(amount) = wavefold {
-            validate_generator_span(amount, WAVEFOLD)?;
+            validate_generator_span(&amount, WAVEFOLD)?;
         }
-        let detune = unison_detune.unwrap_or(ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        });
-        let spread = unison_spread.unwrap_or(ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        });
-        validate_generator_span(detune, UNISON_DETUNE)?;
-        validate_generator_span(spread, UNISON_SPREAD)?;
+        let detune = unison_detune.unwrap_or(ValueSpan::linear(0.0, 0.0));
+        let spread = unison_spread.unwrap_or(ValueSpan::linear(0.0, 0.0));
+        validate_generator_span(&detune, UNISON_DETUNE)?;
+        validate_generator_span(&spread, UNISON_SPREAD)?;
         if let Some(ratio) = sync_ratio {
-            validate_generator_span(ratio, SYNC_RATIO)?;
+            validate_generator_span(&ratio, SYNC_RATIO)?;
         }
         let (base_start, base_end) = base_frequencies(note_number, tuning_start, tuning_end)?;
         let pulse_width = if matches!(self.waveform, OscillatorWaveform::Pulse { .. }) {
             pulse_width.ok_or_else(invalid_state)?
         } else {
-            ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            }
+            ValueSpan::linear(0.5, 0.5)
         };
-        validate_generator_span(pulse_width, PULSE_WIDTH)?;
+        validate_generator_span(&pulse_width, PULSE_WIDTH)?;
 
         if self.unison.position_distribution.len() == 1 {
             let position = self
@@ -644,7 +635,7 @@ fn clamp_frequency(
 }
 
 fn apply_waveshaping(amount: ValueSpan, output: &mut [f32]) -> Result<(), ProcessError> {
-    validate_generator_span(amount, WAVESHAPE)?;
+    validate_generator_span(&amount, WAVESHAPE)?;
     if same_value(amount.start, 0.0) && same_value(amount.end, 0.0) {
         return Ok(());
     }

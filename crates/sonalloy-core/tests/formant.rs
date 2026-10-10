@@ -294,7 +294,14 @@ fn formant_compiles_fixed_profiles_and_parameter_contract() {
             }
         );
         assert_eq!(descriptor.unit, unit);
-        assert_eq!(descriptor.scale, ParameterScale::Linear);
+        assert_eq!(
+            descriptor.scale,
+            if unit == ParameterUnit::Cents {
+                ParameterScale::LinearUnbounded
+            } else {
+                ParameterScale::Linear
+            }
+        );
         assert_relative_eq!(descriptor.min, min);
         assert_relative_eq!(descriptor.max, max);
         assert_relative_eq!(descriptor.default, default);
@@ -350,7 +357,7 @@ fn formant_validation_rejects_profile_band_and_parameter_contract_errors() {
         panic!("fixture must be formant");
     };
     formant.vowel_position = f32::NAN;
-    formant.formant_shift_cents = 2401.0;
+    formant.formant_shift_cents = f32::MAX;
     formant.throat = -0.01;
     formant.spectral_tilt_db_per_octave = f32::INFINITY;
     formant.profiles[0].id.clear();

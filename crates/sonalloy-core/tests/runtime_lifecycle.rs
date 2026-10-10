@@ -98,6 +98,7 @@ fn performance_control_definition(
                     unit: ModulationUnit::Cents,
                 },
                 curve: ModulationCurve::Linear,
+                depth_control: None,
             })
             .collect(),
     });

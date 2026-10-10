@@ -152,6 +152,9 @@ pub struct LayerDefinition {
     pub enabled: bool,
     /// Key and velocity trigger conditions.
     pub trigger: LayerTriggerDefinition,
+    /// Optional nonempty group whose older sounding layers fade on Note On.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choke_group: Option<String>,
     /// Layer gain in decibels.
     pub gain_db: f32,
     /// Constant-power pan position, from left (-1) to right (1).
@@ -293,6 +296,17 @@ impl InstrumentDefinition {
                 );
             }
             validate_trigger(&mut diagnostics, &path, layer.trigger);
+            if let Some(group) = &layer.choke_group {
+                if group.trim().is_empty() || layer.trigger.event != LayerTriggerEvent::NoteOn {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "choke_group must be nonempty and requires a note_on trigger",
+                        )
+                        .with_path(format!("{path}.choke_group")),
+                    );
+                }
+            }
             validate_range(
                 &mut diagnostics,
                 format!("{path}.gain_db"),
@@ -307,12 +321,10 @@ impl InstrumentDefinition {
                 -1.0..=1.0,
                 "pan must be finite and between -1 and 1",
             );
-            validate_range(
+            validate_pitch_ratio(
                 &mut diagnostics,
                 format!("{path}.tuning_cents"),
                 layer.tuning_cents,
-                -1200.0..=1200.0,
-                "tuning_cents must be finite and between -1200 and 1200",
             );
             validate_adsr(&mut diagnostics, &path, layer.envelope);
             validate_processor_chain(
@@ -474,6 +486,19 @@ fn validate_external_audio_usage(
     }
 }
 
+fn validate_pitch_ratio(diagnostics: &mut Vec<Diagnostic>, path: String, cents: f32) {
+    let ratio = 2.0_f32.powf(cents / 1200.0);
+    if !cents.is_finite() || !ratio.is_finite() || ratio <= 0.0 {
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "pitch offset must produce a finite positive ratio",
+            )
+            .with_path(path),
+        );
+    }
+}
+
 fn validate_range(
     diagnostics: &mut Vec<Diagnostic>,
     path: String,
@@ -574,6 +599,7 @@ pub(crate) mod tests {
                     velocity_max: 127,
                 },
                 gain_db: -12.0,
+                choke_group: None,
                 pan: 0.0,
                 tuning_cents: 0.0,
                 envelope: AdsrDefinition {
@@ -609,6 +635,24 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn choke_group_requires_a_name_and_note_on_trigger() {
+        let mut source = definition();
+        for (group, event) in [
+            ("", LayerTriggerEvent::NoteOn),
+            ("hat", LayerTriggerEvent::NoteOff),
+        ] {
+            source.layers[0].choke_group = Some(group.to_owned());
+            source.layers[0].trigger.event = event;
+            assert!(
+                source
+                    .validate()
+                    .iter()
+                    .any(|diagnostic| diagnostic.path.as_deref() == Some("layers[0].choke_group"))
+            );
+        }
+    }
+
+    #[test]
     fn schema_and_duplicate_ids_use_specific_diagnostic_codes() {
         let mut value = definition();
         value.schema_version = CURRENT_SCHEMA_VERSION + 1;
@@ -640,8 +684,14 @@ pub(crate) mod tests {
     fn invalid_values_have_field_paths() {
         let mut value = definition();
         value.layers[0].pan = f32::NAN;
+        value.layers[0].tuning_cents = f32::MAX;
         value.layers[0].trigger.velocity_min = 0;
         let diagnostics = value.validate();
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.path.as_deref() == Some("layers[0].tuning_cents"))
+        );
         assert!(
             diagnostics
                 .iter()

@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use crate::compiler::{CompiledOperatorModulation, CompiledOperatorTopology, CompiledUnison};
 use crate::definition::{
-    OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_DETUNE_MAX,
-    OPERATOR_DETUNE_MIN, OPERATOR_FEEDBACK_MAX, OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX,
-    OPERATOR_LEVEL_MIN, OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN,
-    OPERATOR_RATIO_MAX, OPERATOR_RATIO_MIN, OperatorModulationMode,
+    OPERATOR_AM_RING_AMOUNT_MAX, OPERATOR_AM_RING_AMOUNT_MIN, OPERATOR_FEEDBACK_MAX,
+    OPERATOR_FEEDBACK_MIN, OPERATOR_LEVEL_MAX, OPERATOR_LEVEL_MIN,
+    OPERATOR_PHASE_FREQUENCY_AMOUNT_MAX, OPERATOR_PHASE_FREQUENCY_AMOUNT_MIN, OPERATOR_RATIO_MAX,
+    OPERATOR_RATIO_MIN, OperatorModulationMode,
 };
 use crate::parameter::generator::{UNISON_DETUNE, UNISON_SPREAD};
 use crate::process::{ProcessError, ProcessSpec, ProcessorFailureKind};
@@ -95,7 +95,7 @@ impl OperatorModulationRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
         left: &mut [f32],
         right: &mut [f32],
@@ -119,17 +119,11 @@ impl OperatorModulationRuntime {
         {
             return Err(invalid_state());
         }
-        validate_targets(&operators, self.mode)?;
-        let detune = unison_detune.unwrap_or(ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        });
-        let spread = unison_spread.unwrap_or(ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        });
-        validate_generator_span(detune, UNISON_DETUNE)?;
-        validate_generator_span(spread, UNISON_SPREAD)?;
+        validate_targets(operators, self.mode)?;
+        let detune = unison_detune.unwrap_or(ValueSpan::linear(0.0, 0.0));
+        let spread = unison_spread.unwrap_or(ValueSpan::linear(0.0, 0.0));
+        validate_generator_span(&detune, UNISON_DETUNE)?;
+        validate_generator_span(&spread, UNISON_SPREAD)?;
         let (base_start, base_end) = base_frequencies(note_number, tuning_start, tuning_end)?;
         let topology = self.topology;
         let mode = self.mode;
@@ -151,7 +145,7 @@ impl OperatorModulationRuntime {
                     self.effective_max_frequency,
                     mode,
                     topology,
-                    &operators,
+                    operators,
                     envelopes,
                     component,
                 )?;
@@ -178,7 +172,7 @@ impl OperatorModulationRuntime {
                     self.effective_max_frequency,
                     mode,
                     topology,
-                    &operators,
+                    operators,
                     envelopes,
                     component,
                 )?;
@@ -191,14 +185,8 @@ impl OperatorModulationRuntime {
                     sample,
                     &mut left[..frames],
                     &mut right[..frames],
-                    ValueSpan {
-                        start: left_gain,
-                        end: left_gain,
-                    },
-                    ValueSpan {
-                        start: right_gain,
-                        end: right_gain,
-                    },
+                    ValueSpan::linear(left_gain, left_gain),
+                    ValueSpan::linear(right_gain, right_gain),
                     normalization,
                 ) {
                     return Err(invalid_state());
@@ -247,11 +235,7 @@ fn render_sample(
     envelopes: [f32; 4],
     component: &mut OperatorComponentRuntime,
 ) -> Result<f32, ProcessError> {
-    let base_frequency = ValueSpan {
-        start: base_start,
-        end: base_end,
-    }
-    .value_at(frame, frames);
+    let base_frequency = ValueSpan::linear(base_start, base_end).value_at(frame, frames);
     let current_detune = unison_detune.value_at(frame, frames);
     let mut current_outputs = [0.0_f32; 4];
     for operator_index in topology.evaluation_order {
@@ -400,7 +384,7 @@ fn validate_targets(
 ) -> Result<(), ProcessError> {
     for target in targets {
         validate_span(target.ratio, OPERATOR_RATIO_MIN, OPERATOR_RATIO_MAX)?;
-        validate_span(target.detune, OPERATOR_DETUNE_MIN, OPERATOR_DETUNE_MAX)?;
+        validate_span(target.detune, f32::MIN, f32::MAX)?;
         if let Some(level) = target.level {
             validate_span(level, OPERATOR_LEVEL_MIN, OPERATOR_LEVEL_MAX)?;
         }

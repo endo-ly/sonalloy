@@ -31,8 +31,7 @@ Demoの`schema_version`は`1`です。定義にない項目は受け付けませ
     "fade_out_seconds": 2.7,
     "master": {
       "integrated_lufs": -16.0,
-      "true_peak_db": -1.0,
-      "loudness_range_lu": 11.0
+      "true_peak_db": -1.0
     }
   }
 }
@@ -83,7 +82,6 @@ Demoの`schema_version`は`1`です。定義にない項目は受け付けませ
 |---|---:|
 | `integrated_lufs` | `-70.0 ..= -5.0` |
 | `true_peak_db` | `-9.0 ..= 0.0` |
-| `loudness_range_lu` | `1.0 ..= 50.0` |
 
 ## 時間軸と検証
 
@@ -125,11 +123,15 @@ Demoの音源:     parts[2].instrument.layers[0].generator.foo
 
 `--stems-dir`を指定すると、`<part.id>.wav`としてPartごとのStemを保存します。Stemは、Stereo Render、Latency補正、Render Tail追加までを済ませた音です。Part Gain、Global Fade、MasterはStemへ適用しません。
 
-MixはStereoの`f32`です。短いPartは無音で長いPartに揃え、各Partの固定Gainを適用してDemo定義順に加算したあと、Mixの末尾へFadeを適用します。自動Normalize、Clamp、Limiterは行いません。WAVはStereo、指定Sample Rate、32-bit float形式です。`--analyze`を指定すると、Master前のMixを`mix_analysis`で、完成WAVを`output_analysis`で解析します。
+MixはStereoの`f32`です。短いPartは無音で長いPartに揃え、各Partの固定Gainを適用してDemo定義順に加算したあと、Mixの末尾へFadeを適用します。WAVはStereo、指定Sample Rate、32-bit float形式です。`--premaster-output <WAV>`を指定すると、このMixをMaster前の音声として保存します。Masterの有無にかかわらず指定でき、Masterが失敗した場合も保存済みの音声を取得できます。最終WAVとPre-Masterには異なるパスを指定します。
+
+`--analyze`はMaster前のMixを`mix_analysis`と`mix_loudness`で、完成WAVを`output_analysis`と`output_loudness`で解析します。周波数帯別EnergyとLoudnessの数値・単位は[CLIのAnalysis仕様](cli.md#analysisとtraceanalyze--trace)に従います。
 
 ### MasterとMP3
 
-`mix.master`または`--mp3-output`を指定した場合だけFFmpegを使います。Masterは`loudnorm`の2-pass処理後に完成WAVを再測定し、True PeakがTargetを超えていればその超過量だけGainを下げて再確認します。超過が残れば処理は失敗します。Reportの`master`にはTarget、Mix入力、完成WAV出力、OutputとTargetの偏差、`normalization_type`、True Peak補正量を記録します。True Peakは保証しますが、Integrated LUFSとLRAはTargetとの差をReportし、失敗条件にはしません。
+FFmpegは`mix.master`、`--analyze`、`--mp3-output`のいずれかを指定した場合に使います。MasterはMixのIntegrated LUFSを測定して固定Gainを決め、4倍のSample RateでLookahead Limiterを適用したあと、指定Sample Rateへ戻してTrue Peakを再測定します。LimiterのLookaheadは5 ms、Releaseは50 msで、自動出力増幅は無効、遅延補償は有効です。入力Gainの探索は最大8回です。True Peakの超過は最終段のGainで補正し、完成WAVがTarget LUFSの±0.5 LU以内かつTrue Peak上限以下の場合に確定します。無音や達成できない目標はErrorになります。LRAは測定値として返します。
+
+Reportの`master`には`target`、`input`、`output`、`deviation`、`input_gain_db`、`output_gain_db`、`attempts`を記録します。`output`と`premaster_output`はそれぞれのWAVのパスです。失敗時に未検証の候補WAVを最終出力として残しません。
 
 MP3はMaster済みWAVがあればそこから、なければ通常のMixから生成し、`libmp3lame`、`256k`固定です。生成後のMP3を再測定し、Integrated LUFS、True Peak、LRAを`mp3_measurement`へ記録します。MP3の値はCodec変換後の測定であり、Master済みWAVのTrue Peak保証には含まれません。
 
@@ -176,7 +178,7 @@ Render SettingsはWAVを同梱しない場合も再現条件として記録し�
 ```bash
 sonalloy demo validate demo.json
 sonalloy demo inspect demo.json --json
-sonalloy render demo demo.json --output out/demo.wav --stems-dir out/stems --analyze --json
+sonalloy render demo demo.json --output out/demo.wav --premaster-output out/premaster.wav --stems-dir out/stems --analyze --json
 sonalloy demo export-midi demo.json --output out/demo.mid
 ```
 

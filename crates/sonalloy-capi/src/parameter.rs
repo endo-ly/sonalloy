@@ -61,6 +61,7 @@ fn scale_id(scale: ParameterScale) -> u32 {
     match scale {
         ParameterScale::Linear => 0,
         ParameterScale::Log2 => 1,
+        ParameterScale::LinearUnbounded => 2,
     }
 }
 

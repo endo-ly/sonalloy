@@ -1475,8 +1475,11 @@ fn compile_convolution_processor(
             },
             Err(error) => {
                 let (code, message) = asset_diagnostic(&error);
-                diagnostics
-                    .push(Diagnostic::error(code, message).with_path(format!("{path}.ir.path")));
+                diagnostics.push(
+                    Diagnostic::error(code, message)
+                        .with_path(format!("{path}.ir.path"))
+                        .with_detail(error.to_string()),
+                );
                 Arc::new(PreparedConvolutionIr::empty(sample_rate))
             }
         };
@@ -2117,6 +2120,7 @@ mod tests {
                     unit: crate::parameter::ModulationUnit::Normalized,
                 },
                 curve: ModulationCurve::Linear,
+                depth_control: None,
             }],
         });
 

@@ -16,7 +16,7 @@ use super::demo::DEMO_JSON_HELP;
 use super::{DEFAULT_BLOCK_SIZE, DEFAULT_SAMPLE_RATE, load_and_compile};
 use crate::command::pattern::load_pattern;
 use crate::demo::{
-    self, FfmpegError, LoudnessMeasurement, MasterReport, StereoMix, encode_mp3,
+    self, FfmpegError, LoudnessAnalysis, LoudnessMeasurement, MasterReport, StereoMix, encode_mp3,
     master as master_demo,
 };
 use crate::midi::read_midi;
@@ -33,12 +33,13 @@ Supported events and fields:
 - `note_off`: `note_id` identifying the note to release.
 - `sustain_pedal`: boolean `down`.
 - `parameter_change`: `parameter` (an ID in the selected Instrument's Parameter catalog) and `native_value` (a finite value in that Parameter's native unit and range).
+- `parameter_ramp`: `parameter`, native-unit `from_value` and `to_value`, and positive `duration_frames`. The ramp end must fit within `--duration-frames`.
 - `pitch_bend`: finite `value` in -1..=1.
 - `mod_wheel` and `aftertouch`: finite `value` in 0..=1.
 
 `--duration-frames` is the main render duration. `--tail` adds audio after that duration; events cannot be placed in the tail. `--tempo` supplies one constant BPM for tempo-synced parameters. `--reset-check` renders the sequence again after resetting the instrument and cannot be combined with `--trace`. `--trace-every-frames` requires at least one `--trace` parameter.";
 
-const RENDER_DEMO_HELP: &str = r"Render every Part over the Demo timeline, apply Part gain and the configured global fade, and write the final Stereo WAV. External Audio dependencies are rendered Source first. The fade must not exceed the duration of the rendered mix, including any `--tail`. `--sample-rate` and `--block-size` are shared by all Parts; both values must be positive. `--tail` adds time after each Pattern. `--stems-dir` writes each Part before gain, global fade, and mastering. `--analyze` reports the fade-applied mix before mastering as `mix_analysis` and the completed WAV as `output_analysis`. The Demo `mix.master` setting applies to the final WAV and reports its target, input, output, and deviation; True Peak is checked against the completed WAV. `--mp3-output` requires `FFmpeg`; with mastering configured, it encodes the mastered audio, otherwise it encodes the mix, and reports the encoded MP3 measurement. Use `--json` for machine-readable success and structured diagnostics for execution failures.";
+const RENDER_DEMO_HELP: &str = r"Render every Part over the Demo timeline, apply Part gain and the configured global fade, and write the final Stereo WAV. External Audio dependencies are rendered Source first. The fade must not exceed the duration of the rendered mix, including any `--tail`. `--sample-rate` and `--block-size` are shared by all Parts; both values must be positive. `--tail` adds time after each Pattern. `--stems-dir` writes each Part before gain, global fade, and mastering. `--premaster-output` saves the gain- and fade-applied mix before mastering, including when mastering fails. It must differ from the final output path. `--analyze` requires FFmpeg and reports the premaster as `mix_analysis` / `mix_loudness` and the completed WAV as `output_analysis` / `output_loudness`; short-term LUFS uses trailing 3-second windows reported every 3 seconds. Demo `mix.master` uses fixed gain and an oversampled limiter, with at most 8 input-gain attempts. The final WAV is committed only after reaching target LUFS within 0.5 LU and True Peak at or below target; the report includes target, input, output, deviation and applied gains. `--mp3-output` requires FFmpeg and encodes the final audio, reporting the encoded MP3 measurement. Use `--json` for machine-readable success and structured diagnostics for execution failures.";
 
 #[derive(Debug, Subcommand)]
 pub(super) enum RenderCommand {
@@ -54,7 +55,7 @@ pub(super) enum RenderCommand {
     Midi(RenderMidiArgs),
     /// Render a tick-based Pattern using its tempo and time-signature changes.
     #[command(
-        long_about = "Render a Pattern's tick-based timeline using its `tempo_changes` and `time_signature_changes`. `parameter_change` events are resolved against the selected Instrument's Parameter catalog and must use a known Parameter ID and an allowed native value. `--tail` adds seconds after the Pattern duration. External audio, analysis, tracing, WAV output, and JSON reporting follow the same rules as the other `render` commands."
+        long_about = "Render a Pattern's tick-based timeline using its `tempo_changes` and `time_signature_changes`. `parameter_change` and `parameter_ramp` events are resolved against the selected Instrument's Parameter catalog and must use a known Parameter ID and allowed native values. Ramp endpoints follow their tick positions across tempo changes. `--tail` adds seconds after the Pattern duration. External audio, analysis, tracing, WAV output, and JSON reporting follow the same rules as the other `render` commands."
     )]
     Pattern(RenderPatternArgs),
     /// Render and mix every Part in a Demo.
@@ -85,7 +86,7 @@ struct OfflineRenderCommonArgs {
     /// Emit machine-readable JSON results; execution failures include structured diagnostics.
     #[arg(long)]
     json: bool,
-    /// Analyze the latency-corrected WAV for levels, DC, activity, continuity, stereo, and spectrum.
+    /// Analyze the latency-corrected WAV, including band energy and loudness; requires `FFmpeg`.
     #[arg(long)]
     analyze: bool,
     /// Trace an existing Dynamic Parameter ID; may be repeated. An unknown ID fails.
@@ -158,10 +159,13 @@ pub(super) struct RenderDemoArgs {
     /// Write each Part's WAV before Part gain, global fade, and mastering are applied.
     #[arg(long, value_name = "DIRECTORY")]
     stems_dir: Option<PathBuf>,
+    /// Write the Stereo mix after Part gain and global fade, before mastering.
+    #[arg(long, value_name = "WAV")]
+    premaster_output: Option<PathBuf>,
     /// Optional MP3 output; requires `FFmpeg` and uses Demo mastering when configured.
     #[arg(long, value_name = "PATH")]
     mp3_output: Option<PathBuf>,
-    /// Analyze the fade-applied mix before mastering.
+    /// Analyze premaster and final WAV, including loudness; requires `FFmpeg`.
     #[arg(long)]
     analyze: bool,
     /// Destination final Stereo WAV path.
@@ -222,6 +226,12 @@ enum EventSequenceKind {
         parameter: String,
         native_value: f32,
     },
+    ParameterRamp {
+        duration_frames: u64,
+        parameter: String,
+        from_value: f32,
+        to_value: f32,
+    },
     PitchBend {
         value: f32,
     },
@@ -260,11 +270,10 @@ fn run_render_note(args: &RenderNoteArgs) -> ExitCode {
             Ok(request) => request,
             Err(failure) => return finish_failure(common.json, failure),
         };
-    let external_audio =
-        match load_external_audio(common.audio_input.as_deref(), common.sample_rate) {
-            Ok(audio) => audio,
-            Err(failure) => return finish_failure(common.json, failure),
-        };
+    let external_audio = match load_render_audio_input(common, &compiled) {
+        Ok(audio) => audio,
+        Err(failure) => return finish_failure(common.json, failure),
+    };
     let events = [
         ScheduledEvent {
             absolute_frame: 0,
@@ -344,11 +353,10 @@ fn run_render_events(args: &RenderEventsArgs) -> ExitCode {
             Ok(result) => result,
             Err(failure) => return finish_failure(common.json, failure),
         };
-    let external_audio =
-        match load_external_audio(common.audio_input.as_deref(), common.sample_rate) {
-            Ok(audio) => audio,
-            Err(failure) => return finish_failure(common.json, failure),
-        };
+    let external_audio = match load_render_audio_input(common, &compiled) {
+        Ok(audio) => audio,
+        Err(failure) => return finish_failure(common.json, failure),
+    };
     let trace_request =
         match resolve_trace_request(&compiled, &common.trace, common.trace_every_frames) {
             Ok(request) => request,
@@ -432,7 +440,11 @@ fn write_offline_render_result(
     } else {
         None
     };
-    if let Err(error) = write_wav(&common.output, audio) {
+    let pending = match crate::output::pending_wav(&common.output) {
+        Ok(path) => path,
+        Err(failure) => return finish_failure(common.json, failure),
+    };
+    if let Err(error) = write_wav(&pending, audio) {
         return finish_failure(
             common.json,
             CliFailure {
@@ -440,6 +452,17 @@ fn write_offline_render_result(
                 diagnostics: vec![error],
             },
         );
+    }
+    let loudness = if common.analyze {
+        match demo::analyze_loudness(&pending) {
+            Ok(loudness) => Some(loudness),
+            Err(error) => return finish_failure(common.json, ffmpeg_failure(error)),
+        }
+    } else {
+        None
+    };
+    if let Err(failure) = crate::output::commit_wav(pending, &common.output) {
+        return finish_failure(common.json, failure);
     }
     print_success(
         common.json,
@@ -452,7 +475,9 @@ fn write_offline_render_result(
             output: common.output.to_string_lossy().into_owned(),
             backend: backend_info().version,
             diagnostics,
-            analysis,
+            analysis: analysis
+                .zip(loudness)
+                .map(|(audio, loudness)| crate::output::OfflineAnalysis { audio, loudness }),
             trace,
             reset_comparison,
         },
@@ -858,6 +883,46 @@ fn compile_event_sequence(
                     normalized,
                 }
             }
+            EventSequenceKind::ParameterRamp {
+                duration_frames: ramp_frames,
+                parameter,
+                from_value,
+                to_value,
+            } => {
+                let Some(ramp_frames) = usize::try_from(*ramp_frames)
+                    .ok()
+                    .filter(|frames| *frames > 0)
+                    .filter(|_| {
+                        entry
+                            .absolute_frame
+                            .checked_add(*ramp_frames)
+                            .is_some_and(|end| end <= duration_frames)
+                    })
+                else {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            "ramp duration_frames must be positive, fit in the process frame counter, and end within the render duration",
+                        )
+                        .with_path(format!("{event_path}.duration_frames")),
+                    );
+                    continue;
+                };
+                match crate::pattern::resolve_parameter_ramp(
+                    compiled,
+                    parameter,
+                    *from_value,
+                    *to_value,
+                    ramp_frames,
+                    &event_path,
+                ) {
+                    Ok(kind) => kind,
+                    Err(error) => {
+                        diagnostics.push(error);
+                        continue;
+                    }
+                }
+            }
             EventSequenceKind::PitchBend { value } => {
                 if !value.is_finite() || !(-1.0..=1.0).contains(value) {
                     diagnostics.push(
@@ -930,11 +995,10 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
             Ok(request) => request,
             Err(failure) => return finish_failure(common.json, failure),
         };
-    let external_audio =
-        match load_external_audio(common.audio_input.as_deref(), common.sample_rate) {
-            Ok(audio) => audio,
-            Err(failure) => return finish_failure(common.json, failure),
-        };
+    let external_audio = match load_render_audio_input(common, &compiled) {
+        Ok(audio) => audio,
+        Err(failure) => return finish_failure(common.json, failure),
+    };
     let midi = match read_midi(&args.midi, sample_rate) {
         Ok(midi) => midi,
         Err(midi_diagnostics) => {
@@ -985,6 +1049,10 @@ fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
             Ok(result) => result,
             Err(failure) => return finish_failure(common.json, failure),
         };
+    let external_audio = match load_render_audio_input(common, &compiled) {
+        Ok(audio) => audio,
+        Err(failure) => return finish_failure(common.json, failure),
+    };
     let pattern = match load_pattern(&args.pattern) {
         Ok(pattern) => pattern,
         Err(failure) => return finish_failure(common.json, failure),
@@ -1004,11 +1072,6 @@ fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
     let trace_request =
         match resolve_trace_request(&compiled, &common.trace, common.trace_every_frames) {
             Ok(request) => request,
-            Err(failure) => return finish_failure(common.json, failure),
-        };
-    let external_audio =
-        match load_external_audio(common.audio_input.as_deref(), common.sample_rate) {
-            Ok(audio) => audio,
             Err(failure) => return finish_failure(common.json, failure),
         };
     let (audio, trace) = match render_compiled_pattern(
@@ -1041,6 +1104,7 @@ pub(crate) fn render_bundle_demo(
         sample_rate,
         block_size,
         tail,
+        premaster_output: None,
         mp3_output: None,
         analyze: false,
         json: false,
@@ -1120,7 +1184,132 @@ fn render_demo_mix(
     Ok((mix_audio, part_reports))
 }
 
+/// Reject a Demo render whose final, premaster and MP3 outputs would share a path.
+fn validate_demo_output_paths(args: &RenderDemoArgs) -> Result<(), CliFailure> {
+    let mut output_paths = Vec::new();
+    for path in std::iter::once(&args.output)
+        .chain(args.premaster_output.iter())
+        .chain(args.mp3_output.iter())
+    {
+        let identity = crate::output::output_identity(path)?;
+        if output_paths.contains(&identity) {
+            return Err(CliFailure {
+                code: 2,
+                diagnostics: vec![Diagnostic::error(
+                    DiagnosticCode::WavOutputError,
+                    "final, premaster and MP3 output paths must be different",
+                )],
+            });
+        }
+        output_paths.push(identity);
+    }
+    Ok(())
+}
+
+/// Resolve the WAV that mastering and loudness analysis read, filling a temporary
+/// mix only when no premaster was requested and a WAV is still needed. The
+/// returned directory keeps that temporary mix alive for the caller.
+fn demo_premaster_source(
+    args: &RenderDemoArgs,
+    master_configured: bool,
+    mix_audio: &sonalloy_core::RenderedAudio,
+) -> Result<(Option<tempfile::TempDir>, Option<PathBuf>), CliFailure> {
+    if args.premaster_output.is_none() && !(args.analyze || master_configured) {
+        return Ok((None, None));
+    }
+    let Some(path) = &args.premaster_output else {
+        let directory = tempfile::tempdir().map_err(|error| CliFailure {
+            code: 4,
+            diagnostics: vec![
+                Diagnostic::error(
+                    DiagnosticCode::WavOutputError,
+                    "could not create temporary Demo mix",
+                )
+                .with_detail(error.to_string()),
+            ],
+        })?;
+        let path = directory.path().join("mix.wav");
+        write_wav(&path, mix_audio).map_err(|error| CliFailure {
+            code: 4,
+            diagnostics: vec![error],
+        })?;
+        return Ok((Some(directory), Some(path)));
+    };
+    Ok((None, Some(path.clone())))
+}
+
+/// Master the premaster WAV into the pending output, or write the mix directly
+/// when the Demo configures no mastering. Both paths fill the pending name, so
+/// the caller still publishes the final WAV only after every later step.
+fn render_demo_master(
+    args: &RenderDemoArgs,
+    master: Option<&demo::DemoMaster>,
+    premaster_path: Option<&Path>,
+    pending: &Path,
+    mix_audio: &sonalloy_core::RenderedAudio,
+) -> Result<Option<MasterReport>, CliFailure> {
+    if let Some(settings) = master {
+        Ok(Some(
+            master_demo(
+                premaster_path.expect("mastering has a premaster WAV"),
+                pending,
+                settings,
+                args.sample_rate,
+            )
+            .map_err(ffmpeg_failure)?,
+        ))
+    } else {
+        write_wav(pending, mix_audio).map_err(|error| CliFailure {
+            code: 4,
+            diagnostics: vec![error],
+        })?;
+        Ok(None)
+    }
+}
+
+/// Inspect the rendered WAV and encode an optional MP3, so the final output is
+/// only published once every measurement has succeeded.
+fn measure_demo_output(
+    args: &RenderDemoArgs,
+    output_wav: &Path,
+    master_report: Option<&MasterReport>,
+    mix_loudness: Option<&LoudnessAnalysis>,
+) -> Result<DemoOutputMeasurements, CliFailure> {
+    let analysis = if args.analyze {
+        Some(analyze_output_wav(output_wav, args.sample_rate)?)
+    } else {
+        None
+    };
+    let loudness = if args.analyze {
+        if master_report.is_none() {
+            mix_loudness.cloned()
+        } else {
+            Some(demo::analyze_loudness(output_wav).map_err(ffmpeg_failure)?)
+        }
+    } else {
+        None
+    };
+    let mp3_measurement = if let Some(mp3_output) = &args.mp3_output {
+        encode_mp3(output_wav, mp3_output).map_err(ffmpeg_failure)?;
+        Some(demo::measure_loudness(mp3_output).map_err(ffmpeg_failure)?)
+    } else {
+        None
+    };
+    Ok(DemoOutputMeasurements {
+        analysis,
+        loudness,
+        mp3_measurement,
+    })
+}
+
+struct DemoOutputMeasurements {
+    analysis: Option<AudioAnalysis>,
+    loudness: Option<LoudnessAnalysis>,
+    mp3_measurement: Option<LoudnessMeasurement>,
+}
+
 fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFailure> {
+    validate_demo_output_paths(args)?;
     let sample_rate = f64::from(args.sample_rate);
     let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
         Ok(frames) => frames,
@@ -1128,77 +1317,63 @@ fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFai
     };
     let demo = demo::load(&args.demo, args.sample_rate, args.block_size)?;
     let (mix_audio, part_reports) = render_demo_mix(&demo, args, tail_frames)?;
+    // Persist a requested premaster before any mastering or FFmpeg analysis can fail.
+    if let Some(path) = &args.premaster_output
+        && let Err(error) = write_wav(path, &mix_audio)
+    {
+        return Err(CliFailure {
+            code: 4,
+            diagnostics: vec![error],
+        });
+    }
     let mix_analysis = if args.analyze {
         Some(analyze_audio(&mix_audio, None)?)
     } else {
         None
     };
 
-    let master_report = if let Some(settings) = &demo.definition.mix.master {
-        let temporary_mix_directory = match tempfile::tempdir() {
-            Ok(directory) => directory,
-            Err(error) => {
-                return Err(CliFailure {
-                    code: 4,
-                    diagnostics: vec![
-                        Diagnostic::error(
-                            DiagnosticCode::WavOutputError,
-                            "could not create temporary Demo mix",
-                        )
-                        .with_detail(error.to_string()),
-                    ],
-                });
-            }
-        };
-        let temporary_mix = temporary_mix_directory.path().join("mix.wav");
-        if let Err(error) = write_wav(&temporary_mix, &mix_audio) {
-            return Err(CliFailure {
-                code: 4,
-                diagnostics: vec![error],
-            });
-        }
-        match master_demo(&temporary_mix, &args.output, settings, args.sample_rate) {
-            Ok(report) => Some(report),
-            Err(error) => return Err(ffmpeg_failure(error)),
-        }
-    } else {
-        if let Err(error) = write_wav(&args.output, &mix_audio) {
-            return Err(CliFailure {
-                code: 4,
-                diagnostics: vec![error],
-            });
-        }
-        None
-    };
-
-    let output_analysis = if args.analyze {
-        Some(analyze_output_wav(&args.output, args.sample_rate)?)
+    let (_temporary_mix_directory, premaster_path) =
+        demo_premaster_source(args, demo.definition.mix.master.is_some(), &mix_audio)?;
+    let mix_loudness = if args.analyze {
+        Some(
+            demo::analyze_loudness(
+                premaster_path
+                    .as_deref()
+                    .expect("analysis has a premaster WAV"),
+            )
+            .map_err(ffmpeg_failure)?,
+        )
     } else {
         None
     };
+    // The final WAV stays under a pending name until analysis and MP3 succeed, so a
+    // failure never replaces an already published output.
+    let pending = crate::output::pending_wav(&args.output)?;
+    let master_report = render_demo_master(
+        args,
+        demo.definition.mix.master.as_ref(),
+        premaster_path.as_deref(),
+        &pending,
+        &mix_audio,
+    )?;
 
-    let mp3_measurement = if let Some(mp3_output) = &args.mp3_output {
-        if let Err(error) = encode_mp3(&args.output, mp3_output) {
-            return Err(ffmpeg_failure(error));
-        }
-        match demo::measure_loudness(
-            mp3_output,
-            demo.definition.mix.master.as_ref(),
-            args.sample_rate,
-        ) {
-            Ok(measurement) => Some(measurement),
-            Err(error) => return Err(ffmpeg_failure(error)),
-        }
-    } else {
-        None
-    };
-
+    let measurements = measure_demo_output(
+        args,
+        &pending,
+        master_report.as_ref(),
+        mix_loudness.as_ref(),
+    )?;
+    crate::output::commit_wav(pending, &args.output)?;
     let report = DemoRenderReport {
         status: "ok",
         sample_rate: mix_audio.sample_rate,
         channels: mix_audio.channels.len(),
         frames: mix_audio.frames(),
         output: args.output.to_string_lossy().into_owned(),
+        premaster_output: args
+            .premaster_output
+            .as_ref()
+            .map(|path| path.to_string_lossy().into_owned()),
         mp3_output: args
             .mp3_output
             .as_ref()
@@ -1209,9 +1384,11 @@ fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFai
             .map(|path| path.to_string_lossy().into_owned()),
         parts: part_reports,
         mix_analysis,
-        output_analysis,
+        output_analysis: measurements.analysis,
+        mix_loudness,
+        output_loudness: measurements.loudness,
         master: master_report,
-        mp3_measurement,
+        mp3_measurement: measurements.mp3_measurement,
         diagnostics: demo.diagnostics.clone(),
     };
     Ok(report)
@@ -1235,25 +1412,34 @@ fn run_render_demo(args: &RenderDemoArgs) -> ExitCode {
         if let Some(mp3_output) = &report.mp3_output {
             println!("created {mp3_output}");
         }
+        if let Some(premaster) = &report.premaster_output {
+            println!("created premaster {premaster}");
+        }
+        for (label, loudness) in [
+            ("mix loudness", &report.mix_loudness),
+            ("output loudness", &report.output_loudness),
+        ] {
+            if let Some(loudness) = loudness {
+                println!(
+                    "{label}: {}",
+                    serde_json::to_string(loudness).expect("loudness serializes")
+                );
+            }
+        }
         if let Some(master) = &report.master {
             println!(
-                "master target: {:.1} LUFS, {:.2} dBTP, {:.1} LU LRA",
-                master.target.integrated_lufs,
-                master.target.true_peak_db,
-                master.target.loudness_range_lu
+                "master target: {:.1} LUFS, {:.2} dBTP",
+                master.target.integrated_lufs, master.target.true_peak_db
             );
             print_loudness_measurement("master input", &master.input);
             print_loudness_measurement("master output", &master.output);
             println!(
-                "master deviation: {:+.1} LUFS, {:+.2} dBTP, {:+.1} LU LRA",
-                master.deviation.integrated_lufs,
-                master.deviation.true_peak_db,
-                master.deviation.loudness_range_lu
+                "master deviation: {:+.1} LUFS, {:+.2} dBTP",
+                master.deviation.integrated_lufs, master.deviation.true_peak_db
             );
-            println!("master normalization type: {}", master.normalization_type);
             println!(
-                "master True Peak correction: {:.2} dB",
-                master.true_peak_correction_db
+                "master gain: input {:.2} dB, output {:.2} dB ({} attempts)",
+                master.input_gain_db, master.output_gain_db, master.attempts
             );
         }
         if let Some(measurement) = &report.mp3_measurement {
@@ -1282,7 +1468,7 @@ fn ffmpeg_failure(error: FfmpegError) -> CliFailure {
             diagnostics: vec![
                 Diagnostic::error(
                     DiagnosticCode::RenderError,
-                    "FFmpeg is required for Demo mastering or MP3 output",
+                    "FFmpeg is required for loudness analysis, Demo mastering or MP3 output",
                 )
                 .with_detail("install ffmpeg and make it available on PATH"),
             ],
@@ -1291,7 +1477,7 @@ fn ffmpeg_failure(error: FfmpegError) -> CliFailure {
         CliFailure {
             code: 4,
             diagnostics: vec![
-                Diagnostic::error(DiagnosticCode::RenderError, "FFmpeg Demo processing failed")
+                Diagnostic::error(DiagnosticCode::RenderError, "FFmpeg processing failed")
                     .with_detail(error.detail),
             ],
         }
@@ -1305,6 +1491,12 @@ struct DemoRenderReport {
     channels: usize,
     frames: usize,
     output: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    premaster_output: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mix_loudness: Option<LoudnessAnalysis>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output_loudness: Option<LoudnessAnalysis>,
     #[serde(skip_serializing_if = "Option::is_none")]
     mp3_output: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1324,7 +1516,7 @@ struct DemoRenderReport {
 
 fn print_loudness_measurement(label: &str, measurement: &LoudnessMeasurement) {
     println!(
-        "{label}: {:.1} LUFS, {:.2} dBTP, {:.1} LU LRA",
+        "{label}: {:?} LUFS, {:?} dBTP, {:?} LU LRA",
         measurement.integrated_lufs, measurement.true_peak_db, measurement.loudness_range_lu
     );
 }
@@ -1517,14 +1709,33 @@ fn correct_rendered_audio(audio: &mut sonalloy_core::RenderedAudio, latency_fram
     }
 }
 
-fn load_external_audio(
-    path: Option<&Path>,
-    sample_rate: u32,
+fn load_render_audio_input(
+    common: &OfflineRenderCommonArgs,
+    compiled: &CompiledInstrument,
 ) -> Result<Option<sonalloy_core::PreparedAudio>, CliFailure> {
-    let Some(path) = path else {
+    let required = compiled.required_input_channels() > 0;
+    if required && common.audio_input.is_none() {
+        return Err(CliFailure {
+            code: 2,
+            diagnostics: vec![Diagnostic::error(
+                DiagnosticCode::AudioInputRequired,
+                "external audio input is required; specify --audio-input <WAV>",
+            )],
+        });
+    }
+    if !required && common.audio_input.is_some() {
+        return Err(CliFailure {
+            code: 2,
+            diagnostics: vec![Diagnostic::error(
+                DiagnosticCode::DefinitionError,
+                "external audio input is not used by this instrument",
+            )],
+        });
+    }
+    let Some(path) = common.audio_input.as_deref() else {
         return Ok(None);
     };
-    prepare_audio_file(path, f64::from(sample_rate))
+    prepare_audio_file(path, f64::from(common.sample_rate))
         .map(Some)
         .map_err(|error| CliFailure {
             code: 2,
@@ -1537,4 +1748,137 @@ fn load_external_audio(
                 .with_detail(error.to_string()),
             ],
         })
+}
+
+#[cfg(test)]
+mod mastering_tests {
+    use super::*;
+
+    fn fixture(directory: &Path) -> (demo::DemoDefinition, RenderDemoArgs) {
+        let instrument = directory.join("instrument.json");
+        std::fs::write(
+            &instrument,
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../presets/BASS/001-clean-sub-bass/definition.json"
+            )),
+        )
+        .expect("instrument");
+        let pattern_path = directory.join("pattern.json");
+        let pattern = crate::pattern::default_pattern();
+        std::fs::write(
+            &pattern_path,
+            serde_json::to_vec(&pattern).expect("pattern JSON"),
+        )
+        .expect("pattern");
+        let demo_path = directory.join("demo.json");
+        let definition = demo::DemoDefinition {
+            schema_version: 1,
+            name: None,
+            parts: vec![demo::DemoPart {
+                id: "bass".into(),
+                instrument,
+                pattern: pattern_path,
+                gain_db: -6.0,
+                midi_channel: None,
+                audio_input: None,
+            }],
+            mix: demo::DemoMix {
+                fade_out_seconds: 0.2,
+                master: None,
+            },
+        };
+        std::fs::write(
+            &demo_path,
+            serde_json::to_vec(&definition).expect("demo JSON"),
+        )
+        .expect("demo");
+        let args = RenderDemoArgs {
+            demo: demo_path,
+            sample_rate: 48_000,
+            block_size: 257,
+            tail: 0.2,
+            stems_dir: Some(directory.join("stems")),
+            premaster_output: Some(directory.join("premaster.wav")),
+            mp3_output: None,
+            analyze: false,
+            output: directory.join("final.wav"),
+            json: true,
+        };
+        (definition, args)
+    }
+
+    #[test]
+    fn premaster_applies_mix_gain_and_fade_and_survives_master_failure() {
+        let directory = tempfile::tempdir().expect("directory");
+        let (mut definition, mut args) = fixture(directory.path());
+
+        assert_eq!(run_render_demo(&args), ExitCode::SUCCESS);
+        let samples = |path: &Path| {
+            hound::WavReader::open(path)
+                .expect("WAV")
+                .into_samples::<f32>()
+                .map(|sample| sample.expect("sample"))
+                .collect::<Vec<_>>()
+        };
+        let premaster = samples(args.premaster_output.as_deref().expect("premaster path"));
+        assert_eq!(premaster, samples(&args.output));
+        let stem = samples(&args.stems_dir.as_ref().expect("stems").join("bass.wav"));
+        let active = stem
+            .iter()
+            .position(|sample| sample.abs() > 0.001)
+            .expect("audible stem");
+        assert!((premaster[active] - stem[active] * 0.501_187_2).abs() < 1.0e-6);
+        assert!(premaster.last().expect("fade endpoint").abs() < f32::EPSILON);
+
+        if std::process::Command::new("ffmpeg")
+            .arg("-version")
+            .output()
+            .is_err()
+        {
+            return;
+        }
+        definition.mix.master = Some(demo::DemoMaster {
+            integrated_lufs: -9.0,
+            true_peak_db: -1.0,
+        });
+        std::fs::write(
+            &args.demo,
+            serde_json::to_vec(&definition).expect("master demo JSON"),
+        )
+        .expect("master demo");
+        args.analyze = true;
+        assert_eq!(run_render_demo(&args), ExitCode::SUCCESS);
+        let measurement = demo::measure_loudness(&args.output).expect("master output measurement");
+        assert!((measurement.integrated_lufs.expect("LUFS") + 9.0).abs() <= 0.5);
+        assert!(measurement.true_peak_db.expect("true peak") <= -1.0);
+        assert_eq!(
+            premaster,
+            samples(args.premaster_output.as_deref().expect("premaster path"))
+        );
+        let instrument = &definition.parts[0].instrument;
+        let mut silent: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(instrument).expect("instrument JSON"))
+                .expect("instrument object");
+        for layer in silent["layers"].as_array_mut().expect("layers") {
+            layer["enabled"] = false.into();
+        }
+        std::fs::write(
+            instrument,
+            serde_json::to_vec(&silent).expect("silent instrument JSON"),
+        )
+        .expect("silent instrument");
+        std::fs::write(&args.output, b"existing completed output").expect("existing output");
+
+        assert_ne!(run_render_demo(&args), ExitCode::SUCCESS);
+        assert_eq!(
+            std::fs::read(&args.output).expect("existing output retained"),
+            b"existing completed output"
+        );
+        assert!(
+            samples(args.premaster_output.as_deref().expect("premaster path"))
+                .iter()
+                .all(|sample| sample.abs() < f32::EPSILON)
+        );
+    }
 }

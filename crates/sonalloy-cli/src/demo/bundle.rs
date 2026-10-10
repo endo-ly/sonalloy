@@ -98,6 +98,8 @@ pub(crate) fn pack(
         settings.block_size,
     )?;
     let render = if with_render {
+        fs::create_dir(root.join("render"))
+            .map_err(|error| io_failure(root, "could not create render directory", error))?;
         render_bundle_demo(
             root.join("demo.json"),
             root.join("render/mix.wav"),

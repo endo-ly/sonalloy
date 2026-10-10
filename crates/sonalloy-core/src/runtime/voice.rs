@@ -10,7 +10,7 @@ use super::generator::GeneratorRuntime;
 use super::mix::constant_power_pan;
 use super::modulation::{
     LayerGeneratorTargetSpan, LayerTargetSpan, SharedParameterSpan, ValueSpan, VoiceTargetScratch,
-    apply_domain_sum_with_maximum, route_domain_delta,
+    evaluate_parameter_span, route_domain_delta,
 };
 use super::processor::{LayerProcessorChain, ProcessorTargetSpan, StereoProcessorChain};
 use super::smoothing::Smoother;
@@ -79,6 +79,8 @@ struct LayerRuntime {
     armed_sample_zone: Option<usize>,
     instrument_latency_frames: usize,
     delay: LayerDelayCompensation,
+    choke_gain: Smoother,
+    choking: bool,
 }
 
 struct LayerDelayCompensation {
@@ -162,6 +164,8 @@ impl LayerRuntime {
             armed_sample_zone: None,
             instrument_latency_frames,
             delay: LayerDelayCompensation::new(instrument_latency_frames),
+            choke_gain: Smoother::new(1.0),
+            choking: false,
         })
     }
 
@@ -181,6 +185,8 @@ impl LayerRuntime {
         self.armed = false;
         self.armed_sample_zone = None;
         self.envelope.note_on();
+        self.choke_gain.reset(1.0);
+        self.choking = false;
         self.active = true;
         Ok(())
     }
@@ -209,7 +215,7 @@ impl LayerRuntime {
         tuning_end: f32,
         sample_rate: f64,
         tempo_bpm: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
         left: &mut [f32],
         right: &mut [f32],
@@ -241,6 +247,8 @@ impl LayerRuntime {
         self.active = false;
         self.armed = false;
         self.armed_sample_zone = None;
+        self.choke_gain.reset(1.0);
+        self.choking = false;
         Ok(())
     }
 
@@ -251,6 +259,8 @@ impl LayerRuntime {
         self.active = false;
         self.armed = false;
         self.armed_sample_zone = None;
+        self.choke_gain.reset(1.0);
+        self.choking = false;
         Ok(())
     }
 }
@@ -294,13 +304,7 @@ impl VoiceRuntime {
             .iter()
             .map(|source| VoiceSourceRuntime::new(&source.source))
             .collect::<Vec<_>>();
-        let source_spans = vec![
-            ValueSpan {
-                start: 0.0,
-                end: 0.0
-            };
-            compiled.sources.len()
-        ];
+        let source_spans = vec![ValueSpan::linear(0.0, 0.0); compiled.sources.len()];
         Ok(Self {
             state: VoiceState::Idle,
             note_id: None,
@@ -320,15 +324,34 @@ impl VoiceRuntime {
             fade_out_total: 0,
             fade_out_remaining: 0,
             pitch_glide: Smoother::new(0.0),
-            pitch_glide_span: ValueSpan {
-                start: 0.0,
-                end: 0.0,
-            },
+            pitch_glide_span: ValueSpan::linear(0.0, 0.0),
         })
     }
 
     pub(crate) fn state(&self) -> VoiceState {
         self.state
+    }
+
+    pub(crate) fn choke_group(
+        &mut self,
+        compiled: &CompiledInstrument,
+        group: usize,
+        frames: usize,
+    ) {
+        for (index, (layer, definition)) in self.layers.iter_mut().zip(&compiled.layers).enumerate()
+        {
+            if definition.choke_group != Some(group) {
+                continue;
+            }
+            if (layer.active || layer.delay.has_pending()) && !layer.choking {
+                layer.choking = true;
+                layer.choke_gain.set_target(0.0, frames);
+            }
+            // A newer hit also supersedes a layer waiting for voice stealing to finish.
+            if self.pending.is_some() {
+                self.pending_layer_selection[index] = PreparedLayerSelection::Inactive;
+            }
+        }
     }
 
     pub(crate) fn started_at_frame(&self) -> u64 {
@@ -639,10 +662,7 @@ impl VoiceRuntime {
             let subspan = shared.subspan(offset, chunk);
             self.advance_source_spans(compiled, chunk, sample_rate, tempo_bpm)?;
             let (pitch_start, pitch_end) = self.pitch_glide.span(chunk);
-            self.pitch_glide_span = ValueSpan {
-                start: pitch_start,
-                end: pitch_end,
-            };
+            self.pitch_glide_span = ValueSpan::linear(pitch_start, pitch_end);
             self.evaluate_targets(compiled, subspan)?;
             self.render_active_segment(
                 chunk,
@@ -818,7 +838,7 @@ impl VoiceRuntime {
                     target.tuning.end + self.pitch_glide_span.end,
                     sample_rate,
                     tempo_bpm,
-                    target.generator,
+                    &target.generator,
                     layer_mono,
                     layer_left,
                     layer_right,
@@ -841,25 +861,13 @@ impl VoiceRuntime {
             let gain = linear_gain_span(target.gain, target.gain_weight);
             let (mono_left_start, mono_right_start) = constant_power_pan(target.pan.start);
             let (mono_left_end, mono_right_end) = constant_power_pan(target.pan.end);
-            let mono_left = ValueSpan {
-                start: mono_left_start,
-                end: mono_left_end,
-            };
-            let mono_right = ValueSpan {
-                start: mono_right_start,
-                end: mono_right_end,
-            };
+            let mono_left = ValueSpan::linear(mono_left_start, mono_left_end);
+            let mono_right = ValueSpan::linear(mono_right_start, mono_right_end);
             let (stereo_left_start, stereo_right_start) =
                 super::mix::stereo_balance(target.pan.start);
             let (stereo_left_end, stereo_right_end) = super::mix::stereo_balance(target.pan.end);
-            let stereo_left = ValueSpan {
-                start: stereo_left_start,
-                end: stereo_left_end,
-            };
-            let stereo_right = ValueSpan {
-                start: stereo_right_start,
-                end: stereo_right_end,
-            };
+            let stereo_left = ValueSpan::linear(stereo_left_start, stereo_left_end);
+            let stereo_right = ValueSpan::linear(stereo_right_start, stereo_right_end);
             for frame in 0..frames {
                 let (input_left, input_right) = if was_active {
                     let envelope = layer.envelope.next_sample();
@@ -885,8 +893,13 @@ impl VoiceRuntime {
                 } else {
                     layer.delay.process_silence()
                 };
-                voice_left[frame] += output_left;
-                voice_right[frame] += output_right;
+                let choke_gain = layer.choke_gain.span(1).0;
+                voice_left[frame] += output_left * choke_gain;
+                voice_right[frame] += output_right * choke_gain;
+                if layer.choking && layer.choke_gain.frames_until_target().is_none() {
+                    layer.active = false;
+                    layer.delay.reset();
+                }
             }
             if was_active && (layer.envelope.is_idle() || generator_finished) {
                 layer.active = false;
@@ -923,10 +936,7 @@ impl VoiceRuntime {
         self.fade_out_total = 0;
         self.fade_out_remaining = 0;
         self.pitch_glide.reset(0.0);
-        self.pitch_glide_span = ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        };
+        self.pitch_glide_span = ValueSpan::linear(0.0, 0.0);
         self.reset_source_state(compiled);
     }
 
@@ -940,10 +950,7 @@ impl VoiceRuntime {
         self.fade_out_remaining = 0;
         self.reset_source_state(compiled);
         self.pitch_glide.reset(0.0);
-        self.pitch_glide_span = ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        };
+        self.pitch_glide_span = ValueSpan::linear(0.0, 0.0);
         Ok(())
     }
 
@@ -988,10 +995,7 @@ impl VoiceRuntime {
             .zip(&compiled.used_voice_sources)
         {
             if !*used {
-                *span = ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                };
+                *span = ValueSpan::linear(0.0, 0.0);
                 continue;
             }
             *span = state.advance(&source.source, frames, sample_rate, tempo_bpm, note_id)?;
@@ -1114,10 +1118,7 @@ impl VoiceRuntime {
             };
             self.targets.layers[index] = LayerTargetSpan {
                 gain: self.evaluate_target(compiled, layer.parameters.gain, shared)?,
-                gain_weight: ValueSpan {
-                    start: 1.0,
-                    end: 1.0,
-                },
+                gain_weight: ValueSpan::linear(1.0, 1.0),
                 pan,
                 tuning: self.evaluate_target(compiled, layer.parameters.tuning, shared)?,
                 generator,
@@ -1507,23 +1508,25 @@ impl VoiceRuntime {
                     shared.instrument_source(handle).ok_or_else(invalid_state)?
                 }
             };
-            start_domain_sum += route_domain_delta(source.start, route.depth, route.curve);
-            end_domain_sum += route_domain_delta(source.end, route.depth, route.curve);
+            let control = match route.depth_control {
+                Some(handle) => shared.instrument_source(handle).ok_or_else(invalid_state)?,
+                None => ValueSpan::linear(1.0, 1.0),
+            };
+            start_domain_sum +=
+                route_domain_delta(source.start, route.depth, route.curve) * control.start;
+            end_domain_sum +=
+                route_domain_delta(source.end, route.depth, route.curve) * control.end;
         }
         let effective_maximum = compiled
             .effective_parameter_maximum(handle)
             .ok_or_else(invalid_state)?;
-        let start = apply_domain_sum_with_maximum(
+        evaluate_parameter_span(
             descriptor,
-            base.start,
+            base,
             start_domain_sum,
+            end_domain_sum,
             effective_maximum,
-        )?
-        .final_value;
-        let end =
-            apply_domain_sum_with_maximum(descriptor, base.end, end_domain_sum, effective_maximum)?
-                .final_value;
-        Ok(ValueSpan { start, end })
+        )
     }
 
     fn next_voice_boundary(
@@ -1535,6 +1538,9 @@ impl VoiceRuntime {
     ) -> usize {
         let mut boundary = remaining;
         for layer in &self.layers {
+            if let Some(frames) = layer.choke_gain.frames_until_target() {
+                boundary = boundary.min(frames);
+            }
             if !layer.active {
                 continue;
             }
@@ -1572,26 +1578,22 @@ fn invalid_state() -> ProcessError {
     }
 }
 
+/// Map both endpoints of a linear-domain span, used for pan and vector weight
+/// geometry whose intermediate values follow the mapped endpoints.
 fn map_span(span: ValueSpan, map: impl Fn(f32) -> f32) -> ValueSpan {
-    ValueSpan {
-        start: map(span.start),
-        end: map(span.end),
-    }
+    ValueSpan::linear(map(span.start), map(span.end))
 }
 
+/// Multiply two linear-domain spans, used for gain and weight mixing.
 fn multiply_span(left: ValueSpan, right: ValueSpan) -> ValueSpan {
-    ValueSpan {
-        start: left.start * right.start,
-        end: left.end * right.end,
-    }
+    ValueSpan::linear(left.start * right.start, left.end * right.end)
 }
 
+/// Convert a gain span in decibels into a linear gain span and scale it by a
+/// weight span.
 fn linear_gain_span(gain_db: ValueSpan, weight: ValueSpan) -> ValueSpan {
     multiply_span(
-        ValueSpan {
-            start: db_to_linear(gain_db.start),
-            end: db_to_linear(gain_db.end),
-        },
+        ValueSpan::linear(db_to_linear(gain_db.start), db_to_linear(gain_db.end)),
         weight,
     )
 }
@@ -1603,16 +1605,7 @@ mod tests {
 
     #[test]
     fn vector_weight_scales_linear_gain_after_db_conversion() {
-        let gain = linear_gain_span(
-            ValueSpan {
-                start: -20.0,
-                end: -20.0,
-            },
-            ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
-        );
+        let gain = linear_gain_span(ValueSpan::linear(-20.0, -20.0), ValueSpan::linear(0.5, 0.5));
 
         assert!((gain.start - 0.05).abs() < 1.0e-6);
         assert!((gain.end - 0.05).abs() < 1.0e-6);

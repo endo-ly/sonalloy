@@ -178,11 +178,13 @@ fn render_at_sample_rate(
 }
 
 #[test]
-fn wave_sequence_compiles_steps_and_preserves_missing_step_timing() {
+fn wave_sequence_compiles_steps_and_preserves_silent_step_timing() {
     let directory = fixture_directory();
     let first = directory.path().join("first.wav");
+    let silent = directory.path().join("silent.wav");
     let third = directory.path().join("third.wav");
     write_wav(&first, false, 4_800, |_| (0.2, 0.2));
+    write_wav(&silent, false, 4_800, |_| (0.0, 0.0));
     write_wav(&third, false, 4_800, |_| (0.6, 0.6));
     let definition = base_definition(
         vec![
@@ -196,8 +198,8 @@ fn wave_sequence_compiles_steps_and_preserves_missing_step_timing() {
                 0.0,
             ),
             step(
-                "missing",
-                "missing.wav".to_owned(),
+                "silent",
+                "silent.wav".to_owned(),
                 WaveSequenceDurationDefinition::Seconds { value: 0.02 },
                 WaveSequenceStepPlayback::OneShot,
                 SamplePlaybackDirection::Forward,
@@ -226,7 +228,7 @@ fn wave_sequence_compiles_steps_and_preserves_missing_step_timing() {
     };
     assert_eq!(sequence.steps.len(), 3);
     assert!(sequence.steps[0].source.is_some());
-    assert!(sequence.steps[1].source.is_none());
+    assert!(sequence.steps[1].source.is_some());
     assert!(sequence.steps[2].source.is_some());
     assert_eq!(
         compiled.layers[0].generator.output_mode(),
@@ -680,7 +682,7 @@ fn wave_sequence_reverse_starts_at_the_last_step() {
 }
 
 #[test]
-fn wave_sequence_all_missing_is_unavailable_but_compile_is_recoverable() {
+fn wave_sequence_missing_required_asset_rejects_the_instrument() {
     let directory = fixture_directory();
     let definition = base_definition(
         vec![step(
@@ -703,7 +705,7 @@ fn wave_sequence_all_missing_is_unavailable_but_compile_is_recoverable() {
             process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
     );
-    assert!(result.instrument.is_some());
+    assert!(result.instrument.is_none());
     assert!(
         result
             .diagnostics

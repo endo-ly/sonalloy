@@ -248,6 +248,57 @@ pub(crate) fn compile(
                     &mut diagnostics,
                 );
             }
+            PatternEvent::ParameterRamp {
+                tick,
+                duration_ticks,
+                parameter,
+                from_value,
+                to_value,
+            } => {
+                let path = format!("events[{source_index}]");
+                let result = (|| {
+                    let start =
+                        tick_to_frame(*tick, pattern.ticks_per_beat, &tempo_changes, sample_rate)
+                            .map_err(|error| time_error(error, format!("{path}.tick")))?;
+                    let end = tick_to_frame(
+                        tick.checked_add(*duration_ticks)
+                            .expect("validated ramp end tick"),
+                        pattern.ticks_per_beat,
+                        &tempo_changes,
+                        sample_rate,
+                    )
+                    .map_err(|error| time_error(error, format!("{path}.duration_ticks")))?;
+                    let duration_frames = end
+                        .checked_sub(start)
+                        .and_then(|frames| usize::try_from(frames).ok())
+                        .filter(|frames| *frames > 0)
+                        .ok_or_else(|| {
+                            Diagnostic::error(
+                                DiagnosticCode::ValueOutOfRange,
+                                "ramp duration must occupy at least one frame and fit in the process frame counter",
+                            )
+                            .with_path(format!("{path}.duration_ticks"))
+                        })?;
+                    let kind = resolve_parameter_ramp(
+                        instrument,
+                        parameter,
+                        *from_value,
+                        *to_value,
+                        duration_frames,
+                        &path,
+                    )?;
+                    Ok(PendingPatternEvent {
+                        absolute_frame: start,
+                        original_tick: *tick,
+                        source_index,
+                        kind,
+                    })
+                })();
+                match result {
+                    Ok(event) => pending.push(event),
+                    Err(error) => diagnostics.push(error),
+                }
+            }
         }
     }
     if !diagnostics.is_empty() {
@@ -321,6 +372,39 @@ fn push_control_event(
         source_index,
         kind,
     });
+}
+
+pub(crate) fn resolve_parameter_ramp(
+    instrument: &CompiledInstrument,
+    parameter: &str,
+    from_value: f32,
+    to_value: f32,
+    duration_frames: usize,
+    path: &str,
+) -> Result<ProcessEventKind, Diagnostic> {
+    let handle = instrument.parameter_handle(parameter).ok_or_else(|| {
+        Diagnostic::error(
+            DiagnosticCode::ParameterNotFound,
+            "parameter id is not present in the compiled catalog",
+        )
+        .with_path(format!("{path}.parameter"))
+    })?;
+    let descriptor = instrument
+        .parameter_descriptor(handle)
+        .expect("resolved catalog handle");
+    let normalize = |value, field| {
+        descriptor.normalize(value).map_err(|error| {
+            Diagnostic::error(DiagnosticCode::ValueOutOfRange, error.to_string())
+                .with_path(format!("{path}.{field}"))
+        })
+    };
+    Ok(ProcessEventKind::ParameterRamp {
+        catalog_revision: instrument.parameter_catalog_revision(),
+        parameter: handle,
+        from_normalized: normalize(from_value, "from_value")?,
+        to_normalized: normalize(to_value, "to_value")?,
+        duration_frames,
+    })
 }
 
 pub(crate) fn tempo_points(pattern: &PatternDefinition) -> Vec<TempoPoint> {
@@ -407,5 +491,84 @@ mod tests {
                 ] if *absolute_frame == u64::from(sample_rate_hz) / 2
             ));
         }
+    }
+
+    #[test]
+    fn ramp_duration_uses_both_tick_endpoints_across_tempo_changes() {
+        let definition: InstrumentDefinition = serde_json::from_str(include_str!(
+            "../../../../testdata/instruments/basic-poly-synth.json"
+        ))
+        .expect("definition");
+        let instrument = compile_instrument(
+            &definition,
+            &CompileContext {
+                definition_base_dir: PathBuf::from("."),
+                process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("process spec"),
+            },
+        )
+        .instrument
+        .expect("instrument");
+        let mut pattern = default_pattern();
+        pattern
+            .tempo_changes
+            .push(crate::pattern::PatternTempoChange {
+                tick: 480,
+                bpm: 60.0,
+            });
+        pattern
+            .events
+            .push(crate::pattern::PatternEvent::ParameterRamp {
+                tick: 240,
+                duration_ticks: 480,
+                parameter: "layer.body.gain".to_owned(),
+                from_value: -24.0,
+                to_value: 0.0,
+            });
+
+        let compiled = compile(&pattern, &instrument, 48_000.0).expect("ramp compiles");
+
+        let event = compiled
+            .events
+            .iter()
+            .find(|event| matches!(event.kind, ProcessEventKind::ParameterRamp { .. }))
+            .expect("ramp");
+        assert_eq!(event.absolute_frame, 12_000);
+        let ProcessEventKind::ParameterRamp {
+            duration_frames,
+            from_normalized,
+            to_normalized,
+            parameter,
+            ..
+        } = event.kind
+        else {
+            unreachable!()
+        };
+        assert_eq!(duration_frames, 36_000);
+        let descriptor = instrument
+            .parameter_descriptor(parameter)
+            .expect("descriptor");
+        assert!(
+            (from_normalized - descriptor.normalize(-24.0).expect("from")).abs() < f32::EPSILON
+        );
+        assert!((to_normalized - descriptor.normalize(0.0).expect("to")).abs() < f32::EPSILON);
+
+        pattern.tempo_changes[0].bpm = 1.0e12;
+        pattern.events.pop();
+        pattern
+            .events
+            .push(crate::pattern::PatternEvent::ParameterRamp {
+                tick: 0,
+                duration_ticks: 1,
+                parameter: "layer.body.gain".to_owned(),
+                from_value: -24.0,
+                to_value: 0.0,
+            });
+        let errors =
+            compile(&pattern, &instrument, 48_000.0).expect_err("sub-frame ramp must fail");
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.path.as_deref() == Some("events[1].duration_ticks"))
+        );
     }
 }

@@ -69,19 +69,14 @@ fn process_sample(input: f32, amount: f32, mix: f32) -> Result<f32, ProcessError
 #[cfg(test)]
 mod tests {
     use super::DriveRuntime;
+    use crate::runtime::modulation::ValueSpan;
 
     #[test]
     fn amount_zero_is_identity() {
         let mut buffer = [-1.0, -0.25, 0.0, 0.5, 1.0];
         DriveRuntime::process_mono(
-            super::super::ValueSpan {
-                start: 0.0,
-                end: 0.0,
-            },
-            super::super::ValueSpan {
-                start: 1.0,
-                end: 1.0,
-            },
+            ValueSpan::linear(0.0, 0.0),
+            ValueSpan::linear(1.0, 1.0),
             &mut buffer,
         )
         .expect("drive process");
@@ -97,14 +92,8 @@ mod tests {
     fn wet_output_is_odd_and_finite() {
         let mut positive = [0.75];
         let mut negative = [-0.75];
-        let span = super::super::ValueSpan {
-            start: 0.8,
-            end: 0.8,
-        };
-        let mix = super::super::ValueSpan {
-            start: 1.0,
-            end: 1.0,
-        };
+        let span = ValueSpan::linear(0.8, 0.8);
+        let mix = ValueSpan::linear(1.0, 1.0);
         DriveRuntime::process_mono(span, mix, &mut positive).expect("positive drive");
         DriveRuntime::process_mono(span, mix, &mut negative).expect("negative drive");
         assert!((positive[0] + negative[0]).abs() < 1.0e-6);
@@ -117,40 +106,22 @@ mod tests {
         let input: Vec<f32> = (0..32).map(|index| index as f32 / 31.0 - 0.5).collect();
         let mut whole = input.clone();
         DriveRuntime::process_mono(
-            super::super::ValueSpan {
-                start: 0.0,
-                end: 1.0,
-            },
-            super::super::ValueSpan {
-                start: 0.2,
-                end: 0.8,
-            },
+            ValueSpan::linear(0.0, 1.0),
+            ValueSpan::linear(0.2, 0.8),
             &mut whole,
         )
         .expect("whole drive process");
 
         let mut split = input;
         DriveRuntime::process_mono(
-            super::super::ValueSpan {
-                start: 0.0,
-                end: 1.0 / 32.0,
-            },
-            super::super::ValueSpan {
-                start: 0.2,
-                end: 0.2 + 0.6 / 32.0,
-            },
+            ValueSpan::linear(0.0, 1.0 / 32.0),
+            ValueSpan::linear(0.2, 0.2 + 0.6 / 32.0),
             &mut split[..1],
         )
         .expect("first split drive process");
         DriveRuntime::process_mono(
-            super::super::ValueSpan {
-                start: 1.0 / 32.0,
-                end: 1.0,
-            },
-            super::super::ValueSpan {
-                start: 0.2 + 0.6 / 32.0,
-                end: 0.8,
-            },
+            ValueSpan::linear(1.0 / 32.0, 1.0),
+            ValueSpan::linear(0.2 + 0.6 / 32.0, 0.8),
             &mut split[1..],
         )
         .expect("second split drive process");

@@ -17,7 +17,8 @@ mod master;
 pub(crate) use bundle::{PackReport, RenderSettings, pack};
 
 pub(crate) use master::{
-    FfmpegError, LoudnessMeasurement, MasterReport, encode_mp3, master, measure_loudness,
+    FfmpegError, LoudnessAnalysis, LoudnessMeasurement, MasterReport, analyze_loudness, encode_mp3,
+    master, measure_loudness,
 };
 
 pub(crate) const DEMO_SCHEMA_VERSION: u32 = 1;
@@ -76,7 +77,6 @@ impl Default for DemoMix {
 pub(crate) struct DemoMaster {
     pub(crate) integrated_lufs: f64,
     pub(crate) true_peak_db: f64,
-    pub(crate) loudness_range_lu: f64,
 }
 
 #[derive(Debug)]
@@ -284,8 +284,8 @@ fn load_instrument_reference(
                 (true, false) => {
                     context.diagnostics.push(
                         Diagnostic::error(
-                            DiagnosticCode::DefinitionError,
-                            "audio_input is required by this instrument",
+                            DiagnosticCode::AudioInputRequired,
+                            "external audio input is required; specify audio_input.part",
                         )
                         .with_path(format!("parts[{index}].audio_input"))
                         .with_detail(format!(
@@ -299,7 +299,7 @@ fn load_instrument_reference(
                     context.diagnostics.push(
                         Diagnostic::error(
                             DiagnosticCode::DefinitionError,
-                            "audio_input is not used by this instrument",
+                            "external audio input is not used by this instrument",
                         )
                         .with_path(format!("parts[{index}].audio_input")),
                     );
@@ -467,13 +467,6 @@ fn validate_definition_with_dependencies(
             -9.0..=0.0,
             "true_peak_db",
             "mix.master.true_peak_db",
-            &mut diagnostics,
-        );
-        validate_master_value(
-            master.loudness_range_lu,
-            1.0..=50.0,
-            "loudness_range_lu",
-            "mix.master.loudness_range_lu",
             &mut diagnostics,
         );
     }
@@ -659,7 +652,7 @@ fn validate_master_value(
         diagnostics.push(
             Diagnostic::error(
                 DiagnosticCode::ValueOutOfRange,
-                format!("{name} must be finite and within the FFmpeg loudnorm range"),
+                format!("{name} must be finite and within {range:?}"),
             )
             .with_path(path),
         );
@@ -1068,7 +1061,6 @@ mod tests {
         definition.mix.master = Some(super::DemoMaster {
             integrated_lufs: -100.0,
             true_peak_db: 1.0,
-            loudness_range_lu: 0.0,
         });
 
         let diagnostics = validate_definition_with_dependencies(&definition).0;
@@ -1100,9 +1092,6 @@ mod tests {
                 diagnostic.path.as_deref() == Some("mix.master.true_peak_db")
             })
         );
-        assert!(diagnostics.iter().any(|diagnostic| {
-            diagnostic.path.as_deref() == Some("mix.master.loudness_range_lu")
-        }));
     }
 
     #[test]

@@ -99,7 +99,7 @@ impl GranularRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        targets: LayerGeneratorTargetSpan,
+        targets: &LayerGeneratorTargetSpan,
         mono: &mut [f32],
         left: &mut [f32],
         right: &mut [f32],
@@ -188,11 +188,11 @@ impl GranularRuntime {
         tuning_start: f32,
         tuning_end: f32,
         sample_rate: f64,
-        position: ValueSpan,
-        grain_size: ValueSpan,
-        pitch: ValueSpan,
-        randomness: ValueSpan,
-        pan_spread: ValueSpan,
+        position: &ValueSpan,
+        grain_size: &ValueSpan,
+        pitch: &ValueSpan,
+        randomness: &ValueSpan,
+        pan_spread: &ValueSpan,
     ) -> Result<(), ProcessError> {
         let grain_serial = self.grain_serial;
         self.grain_serial = self.grain_serial.wrapping_add(1);
@@ -516,26 +516,11 @@ mod tests {
                 0.0,
                 0.0,
                 48_000.0,
-                ValueSpan {
-                    start: 1.0,
-                    end: 1.0,
-                },
-                ValueSpan {
-                    start: 0.005,
-                    end: 0.005,
-                },
-                ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                },
-                ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                },
-                ValueSpan {
-                    start: 0.0,
-                    end: 0.0,
-                },
+                &ValueSpan::linear(1.0, 1.0),
+                &ValueSpan::linear(0.005, 0.005),
+                &ValueSpan::linear(0.0, 0.0),
+                &ValueSpan::linear(0.0, 0.0),
+                &ValueSpan::linear(0.0, 0.0),
             )
             .expect("grain starts");
         assert!((runtime.grains[0].source_position - 784.0).abs() < 1.0e-6);
@@ -546,20 +531,11 @@ mod tests {
         let definition = compiled();
         let mut runtime = GranularRuntime::new(&definition).expect("runtime prepares");
         runtime.start(9).expect("runtime starts");
-        let zero = ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        };
+        let zero = ValueSpan::linear(0.0, 0.0);
         let targets = LayerGeneratorTargetSpan::Granular {
             position: zero,
-            grain_size: ValueSpan {
-                start: 0.05,
-                end: 0.05,
-            },
-            density: ValueSpan {
-                start: 20.0,
-                end: 20.0,
-            },
+            grain_size: ValueSpan::linear(0.05, 0.05),
+            density: ValueSpan::linear(20.0, 20.0),
             pitch: zero,
             randomness: zero,
             pan_spread: zero,
@@ -569,7 +545,7 @@ mod tests {
         let mut right = vec![0.0; 128];
         runtime
             .render(
-                128, 60, 0.0, 0.0, 48_000.0, targets, &mut mono, &mut left, &mut right,
+                128, 60, 0.0, 0.0, 48_000.0, &targets, &mut mono, &mut left, &mut right,
             )
             .expect("granular render");
         assert!(left.iter().chain(&right).all(|sample| sample.is_finite()));
@@ -581,23 +557,11 @@ mod tests {
         let definition = constant_compiled();
         let mut runtime = GranularRuntime::new(&definition).expect("runtime prepares");
         runtime.start(9).expect("runtime starts");
-        let zero = ValueSpan {
-            start: 0.0,
-            end: 0.0,
-        };
+        let zero = ValueSpan::linear(0.0, 0.0);
         let targets = LayerGeneratorTargetSpan::Granular {
-            position: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
-            grain_size: ValueSpan {
-                start: 0.08,
-                end: 0.08,
-            },
-            density: ValueSpan {
-                start: 24.0,
-                end: 24.0,
-            },
+            position: ValueSpan::linear(0.5, 0.5),
+            grain_size: ValueSpan::linear(0.08, 0.08),
+            density: ValueSpan::linear(24.0, 24.0),
             pitch: zero,
             randomness: zero,
             pan_spread: zero,
@@ -608,7 +572,7 @@ mod tests {
         let mut right = vec![0.0; frames];
         runtime
             .render(
-                frames, 60, 0.0, 0.0, 48_000.0, targets, &mut mono, &mut left, &mut right,
+                frames, 60, 0.0, 0.0, 48_000.0, &targets, &mut mono, &mut left, &mut right,
             )
             .expect("granular render");
 
@@ -628,30 +592,12 @@ mod tests {
         let mut runtime = GranularRuntime::new(&definition).expect("runtime prepares");
         runtime.start(9).expect("runtime starts");
         let targets = LayerGeneratorTargetSpan::Granular {
-            position: ValueSpan {
-                start: 0.5,
-                end: 0.5,
-            },
-            grain_size: ValueSpan {
-                start: 0.05,
-                end: 0.05,
-            },
-            density: ValueSpan {
-                start: 100.0,
-                end: 100.0,
-            },
-            pitch: ValueSpan {
-                start: 0.0,
-                end: 0.0,
-            },
-            randomness: ValueSpan {
-                start: 1.0,
-                end: 1.0,
-            },
-            pan_spread: ValueSpan {
-                start: 1.0,
-                end: 1.0,
-            },
+            position: ValueSpan::linear(0.5, 0.5),
+            grain_size: ValueSpan::linear(0.05, 0.05),
+            density: ValueSpan::linear(100.0, 100.0),
+            pitch: ValueSpan::linear(0.0, 0.0),
+            randomness: ValueSpan::linear(1.0, 1.0),
+            pan_spread: ValueSpan::linear(1.0, 1.0),
         };
         let mut mono = vec![0.0; 128];
         let mut left = vec![0.0; 128];
@@ -660,7 +606,7 @@ mod tests {
             for _ in 0..32 {
                 runtime
                     .render(
-                        128, 60, 0.0, 0.0, 48_000.0, targets, &mut mono, &mut left, &mut right,
+                        128, 60, 0.0, 0.0, 48_000.0, &targets, &mut mono, &mut left, &mut right,
                     )
                     .expect("granular render");
             }

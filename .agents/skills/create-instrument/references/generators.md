@@ -2,6 +2,8 @@
 
 GeneratorはLayerの`generator` Fieldへ、いずれか1つを指定します。ここでは各GeneratorのField・Range・Dynamic Parameter・制約を扱います。
 
+Assetを参照する有効なLayerでは、必要なWAVの欠落・読み込み失敗・指定Hashの不一致はCompile Errorです。`sha256`は任意で、Pathは相対・絶対の両方を受け付けます。通常のリサンプリングと仕様どおりのDownmixはAssetの準備に含まれます。`enabled: false`のLayerはAssetを準備しません。
+
 | Generator | 用途 |
 |---|---|
 | Oscillator | 基本波形（Sine / Saw / Square / Triangle / Pulse）とComplex変形 |
@@ -67,7 +69,7 @@ Dynamic Parameter：`pulse_width`
 | `wavefold.amount` | 0〜1 | Yes | 波形の折り返し量。0で原形、大きいほど折り返しが増える |
 | `feedback.amount` | 0〜1 | Yes | 直前Sampleを入力側へ戻す量。0で無効 |
 | `unison.voices` | 2〜8 | No | UnisonのVoice数 |
-| `unison.detune_cents` | 0〜100 | Yes | 各VoiceのDetune幅 |
+| `unison.detune_cents` | 有限の非負値 | Yes | 各VoiceのDetune幅。正負両側のPitch比率が有限かつ正であること |
 | `unison.stereo_spread` | 0〜1 | Yes | 左右への配置幅 |
 | `unison.phase_spread` | 0〜1 | No | 各Voiceの位相ばらつき |
 
@@ -241,7 +243,7 @@ Dynamic Parameter：`additive_morph`、`additive_spectrum_tilt`、`additive_inha
 |---|---|---|---|
 | `partial_count` | 1〜64 | No | 生成する整数倍Partial数 |
 | `vowel_position` | 0〜1 | Yes | Profile配列の先頭から末尾への位置 |
-| `formant_shift_cents` | -2400〜2400 cents | Yes | Bandの中心周波数と帯域幅を移動（基音Pitchは不変） |
+| `formant_shift_cents` | 有限値（cents） | Yes | Bandの中心周波数と帯域幅を移動（基音Pitchは不変）。移動後の周波数・帯域幅が有限かつ正であること |
 | `throat` | 0〜1 | Yes | 帯域幅の拡大・縮小。`0.5`が等倍で、端に向かって約0.5倍〜2倍へ変わる |
 | `spectral_tilt_db_per_octave` | -24〜12 dB/octave | Yes | 高域Partialの減衰傾き |
 | `profiles` | 1〜8個 | No | Definition順のProfile |
@@ -285,7 +287,7 @@ Dynamic Parameter：`formant_vowel_position`、`formant_shift`、`formant_throat
 
 Dynamic Parameter：`wavetable_position`、`unison_detune` / `unison_spread`（Unison指定時）
 
-無音FrameやDC Offsetは`instrument validate`で検査されます。
+WAV全体が完全な無音の場合はCompile Errorです。部分的な無音FrameやDC Offsetを含む素材も利用できます。
 
 ## Spectral
 
@@ -320,7 +322,7 @@ WAVをSTFT解析して再構成します。`asset_a`を必須の一次Sourceと�
 - MIDI NoteとLayer TuningはRoot Noteに対する周波数比として適用され、Source Durationは変わりません
 - 報告Latencyは他Layerへ補償されるため、Transientの時間位置はHybrid全体で確認します
 - 元波形への再合成を確認する際は5 Parameterを0へ揃え、Latency後で元WAVと比較します
-- `asset_b`の準備に失敗したときはAだけへフォールバックせず、Layerが無効化されます
+- 指定した`asset_a`と`asset_b`は、両方とも準備できる必要があります
 
 Dynamic Parameter：`spectral_position`、`spectral_freeze`、`spectral_blur`、`spectral_shift`、`spectral_morph`（`asset_b`指定時のみ）
 
@@ -356,7 +358,7 @@ A/BのChannel数不一致はCompile Errorです。
 | `mode` | `phase` / `frequency` / `amplitude` / `ring` | No | PM / FM / AM / Ring |
 | `algorithm` | `stack_4` / `stack_3_plus_carrier` / `two_stacks` / `fork_to_carrier` / `two_modulators_plus_carrier` / `three_modulators` / `shared_modulator` / `parallel` | No | Operatorの接続Topology |
 | `operators[].ratio` | 0.25〜32 | Yes | Note Frequencyに対する周波数比 |
-| `operators[].detune_cents` | -100〜100 | Yes | 周波数の微調整 |
+| `operators[].detune_cents` | 有限値 | Yes | 周波数のPitch Offset。有限で正のPitch比率が必要 |
 | `operators[].level` | 0〜1 | Yes | Carrierの出力音量（Carrierのみ） |
 | `operators[].modulation_amount` | Mode依存 | Yes | Phase / Frequencyは0〜8、Amplitude / Ringは0〜1 |
 | `operators[].feedback` | 0〜1 | Yes | 直前Sampleで自己変調する量（Phase / Frequencyのみ） |
@@ -458,7 +460,7 @@ Dynamic Parameter：`operator.<1-4>.ratio`、`operator.<1-4>.detune`、`operator
 
 `fixed_stretch`と`tempo_sync`のDuration比が0.5〜2.0の範囲外だとProcess Errorです。
 
-Release Sampleを作る場合はLayerの`trigger.event`を`note_off`にします。Path違いやHash不一致ではそのZoneだけが無効化され、他ZoneやLayerでRenderが継続します。
+Release Sampleを作る場合はLayerの`trigger.event`を`note_off`にします。
 
 ## Granular
 
@@ -489,7 +491,7 @@ Sampleと同じAssetをGrainへ分解して再構成します。Mono Assetでも
 | `position` | 0〜1 | Yes | Region内の基本位置。0がStart、1がGrain長を考慮したEnd側 |
 | `grain_size` | 0.005〜0.5秒 | Yes | Grain長 |
 | `density` | 1〜100 grains/sec | Yes | Grainの生成密度 |
-| `pitch` | -2400〜2400 cents | Yes | Note PitchとLayer Tuningへ加算 |
+| `pitch` | 有限値（cents） | Yes | Note PitchとLayer Tuningへ加算。有限で正のPitch比率が必要 |
 | `randomness` | 0〜1 | Yes | Positionの分散幅 |
 | `pan_spread` | 0〜1 | Yes | GrainごとのStereo配置幅 |
 | `seed` | 整数 | No | Position・Panの決定的Seed |
@@ -539,9 +541,8 @@ RegionがPrepared Frameへ変換できない場合は`INVALID_GRAIN_REGION`、Pa
 | `steps[].playback` | `one_shot` / `loop` | Assetを一度だけ読むか繰り返すか。`one_shot`はSource終了後、Step終端まで無音を保持する |
 | `steps[].playback_direction` | `forward` / `reverse` | AssetのRead方向（Sequence方向とは独立） |
 | `steps[].gain_db` | -60〜12 dB | Step固有のGain |
-| `steps[].pitch_cents` | -2400〜2400 cents | Root Noteへ加算するPitch |
+| `steps[].pitch_cents` | 有限値（cents） | Root Noteへ加算するPitch。有限で正のPitch比率が必要 |
 
-- 利用できないAsset・不正なRegionのStepは削除せず、Durationを保持した無音Stepとして残ります（後続Stepの時間を変えません）
-- 全Stepが利用できない場合はLayerだけを発音候補から除外します
+各StepのAssetとRegionはCompile時に検証され、利用できないStepがある場合はCompile Errorになります。
 
 Wave Sequence固有のDynamic Parameterはありません。Step構造はコンパイル時に確定します。

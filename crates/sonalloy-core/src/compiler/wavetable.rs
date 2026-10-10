@@ -15,24 +15,6 @@ const MAX_FRAME_LENGTH: usize = 4096;
 const MAX_FRAME_COUNT: usize = 256;
 const MAX_PREPARED_BYTES: usize = 256 * 1024 * 1024;
 
-/// Compile-time warnings found while preparing Wavetable frames.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum WavetableWarning {
-    /// A frame has an RMS value below the useful-signal threshold.
-    SilentFrame { index: usize, rms: f32 },
-    /// A frame has a source DC offset above the review threshold.
-    DcOffset { index: usize, mean: f32 },
-}
-
-/// Prepared Wavetable and its frame-level review information.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct WavetablePreparation {
-    /// Immutable band tables shared by all voices.
-    pub(crate) prepared: Arc<PreparedWavetable>,
-    /// Warnings found before spectral preparation.
-    pub(crate) warnings: Box<[WavetableWarning]>,
-}
-
 /// Failure while preparing a Wavetable asset.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub(crate) enum WavetablePreparationError {
@@ -58,7 +40,7 @@ pub(crate) fn prepare_wavetable_asset(
     reference: &AssetReference,
     definition_base_dir: &Path,
     frame_length: usize,
-) -> Result<WavetablePreparation, WavetablePreparationError> {
+) -> Result<Arc<PreparedWavetable>, WavetablePreparationError> {
     if !(MIN_FRAME_LENGTH..=MAX_FRAME_LENGTH).contains(&frame_length)
         || !frame_length.is_power_of_two()
     {
@@ -92,13 +74,7 @@ pub(crate) fn prepare_wavetable_asset(
         return Err(WavetablePreparationError::ResourceLimit(prepared_bytes));
     }
 
-    let warnings = frame_warnings(&source.samples, frame_length);
-    if warnings
-        .iter()
-        .filter(|warning| matches!(warning, WavetableWarning::SilentFrame { .. }))
-        .count()
-        == frame_count
-    {
+    if source.samples.iter().all(|sample| *sample == 0.0) {
         return Err(WavetablePreparationError::Silent);
     }
 
@@ -150,20 +126,17 @@ pub(crate) fn prepare_wavetable_asset(
         });
     }
 
-    Ok(WavetablePreparation {
-        prepared: Arc::new(PreparedWavetable {
-            frame_length,
-            frame_count,
-            bands: bands.into_boxed_slice(),
-            source_metadata: WavetableSourceMetadata {
-                source_sample_rate: source.sample_rate,
-                source_channels: source.channels,
-                bits_per_sample: source.bits_per_sample,
-                source_frames: source.source_frames,
-            },
-        }),
-        warnings: warnings.into_boxed_slice(),
-    })
+    Ok(Arc::new(PreparedWavetable {
+        frame_length,
+        frame_count,
+        bands: bands.into_boxed_slice(),
+        source_metadata: WavetableSourceMetadata {
+            source_sample_rate: source.sample_rate,
+            source_channels: source.channels,
+            bits_per_sample: source.bits_per_sample,
+            source_frames: source.source_frames,
+        },
+    }))
 }
 
 fn band_limits(frame_length: usize) -> Vec<usize> {
@@ -184,38 +157,9 @@ fn harmonic_for_bin(bin: usize, frame_length: usize) -> usize {
     }
 }
 
-fn frame_warnings(samples: &[f32], frame_length: usize) -> Vec<WavetableWarning> {
-    samples
-        .chunks_exact(frame_length)
-        .enumerate()
-        .flat_map(|(index, frame)| {
-            let sum = frame.iter().copied().sum::<f32>();
-            #[allow(clippy::cast_precision_loss)]
-            let frame_length_f32 = frame_length as f32;
-            let mean = sum / frame_length_f32;
-            #[allow(clippy::cast_precision_loss)]
-            let rms = (frame
-                .iter()
-                .copied()
-                .map(|sample| sample * sample)
-                .sum::<f32>()
-                / frame_length_f32)
-                .sqrt();
-            let mut warnings = Vec::with_capacity(2);
-            if rms < 1.0e-6 {
-                warnings.push(WavetableWarning::SilentFrame { index, rms });
-            }
-            if mean.abs() > 0.01 {
-                warnings.push(WavetableWarning::DcOffset { index, mean });
-            }
-            warnings
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{WavetableWarning, frame_warnings, harmonic_for_bin};
+    use super::harmonic_for_bin;
 
     #[test]
     fn harmonic_lookup_preserves_negative_frequency_bins() {
@@ -223,24 +167,5 @@ mod tests {
         assert_eq!(harmonic_for_bin(1, 64), 1);
         assert_eq!(harmonic_for_bin(32, 64), 32);
         assert_eq!(harmonic_for_bin(63, 64), 1);
-    }
-
-    #[test]
-    fn frame_warnings_distinguish_silent_and_dc_frames() {
-        let samples = [0.0_f32; 64]
-            .into_iter()
-            .chain(std::iter::repeat_n(0.02_f32, 64))
-            .collect::<Vec<_>>();
-        let warnings = frame_warnings(&samples, 64);
-        assert!(
-            warnings.iter().any(|warning| {
-                matches!(warning, WavetableWarning::SilentFrame { index: 0, .. })
-            })
-        );
-        assert!(
-            warnings
-                .iter()
-                .any(|warning| { matches!(warning, WavetableWarning::DcOffset { index: 1, .. }) })
-        );
     }
 }

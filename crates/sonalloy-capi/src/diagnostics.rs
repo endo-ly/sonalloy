@@ -36,14 +36,8 @@ fn code_id(code: DiagnosticCode) -> u32 {
         DiagnosticCode::AssetNotFound => 21,
         DiagnosticCode::AssetHashMismatch => 22,
         DiagnosticCode::AssetDecodeFailed => 23,
-        DiagnosticCode::AssetDownmixed => 24,
-        DiagnosticCode::AssetAbsolutePath => 25,
-        DiagnosticCode::AssetHashMissing => 26,
-        DiagnosticCode::AssetResampled => 27,
         DiagnosticCode::WavetableLayoutInvalid => 28,
         DiagnosticCode::WavetablePreparationFailed => 29,
-        DiagnosticCode::WavetableSilentFrame => 30,
-        DiagnosticCode::WavetableDcOffset => 31,
         DiagnosticCode::SpectralPreparationFailed => 32,
         DiagnosticCode::GeneratorResourceLimitExceeded => 33,
         DiagnosticCode::ProcessError => 34,
@@ -67,6 +61,7 @@ fn code_id(code: DiagnosticCode) -> u32 {
         DiagnosticCode::InvalidStepDuration => 52,
         DiagnosticCode::TraceLimitExceeded => 53,
         DiagnosticCode::BundleOutputExists => 54,
+        DiagnosticCode::AudioInputRequired => 55,
     }
 }
 

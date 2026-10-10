@@ -173,6 +173,7 @@ fn default_definition() -> InstrumentDefinition {
         layers: vec![LayerDefinition {
             id: "body".to_owned(),
             enabled: true,
+            choke_group: None,
             trigger: LayerTriggerDefinition {
                 event: sonalloy_core::LayerTriggerEvent::NoteOn,
                 key_min: 0,

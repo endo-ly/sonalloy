@@ -31,11 +31,24 @@ pub(crate) fn export_demo(path: &Path, demo: &LoadedDemo) -> Result<(), Vec<Diag
     };
     let mut part_events = Vec::with_capacity(demo.parts.len());
     for (index, part) in demo.parts.iter().enumerate() {
-        let events = match midi_events(&part.pattern) {
-            Ok(events) => events,
-            Err(diagnostics) => return Err(prefix_pattern_diagnostics(diagnostics, index)),
-        };
-        part_events.push(midi_export_events(&events));
+        match midi_events(&part.pattern) {
+            Ok(events) => part_events.push(midi_export_events(&events)),
+            Err(errors) => {
+                diagnostics.extend(prefix_pattern_diagnostics(errors, index).into_iter().map(
+                    |mut diagnostic| {
+                        let context = format!("part {index} ({})", part.definition.id);
+                        diagnostic.detail = Some(match diagnostic.detail.take() {
+                            Some(detail) => format!("{context}: {detail}"),
+                            None => context,
+                        });
+                        diagnostic
+                    },
+                ));
+            }
+        }
+    }
+    if !diagnostics.is_empty() {
+        return Err(diagnostics);
     }
 
     let conductor_name = demo.definition.name.as_deref().map(str::as_bytes);

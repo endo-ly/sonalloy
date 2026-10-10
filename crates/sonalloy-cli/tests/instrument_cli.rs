@@ -456,8 +456,7 @@ fn hybrid_validate_and_inspect_report_sample_layers() {
             "--json",
         ])
         .assert()
-        .success()
-        .stdout(predicates::str::contains("\"ASSET_RESAMPLED\""));
+        .success();
 
     Command::cargo_bin("sonalloy")
         .expect("binary")
@@ -553,7 +552,7 @@ fn processed_hybrid_inspects_processor_chains() {
 }
 
 #[test]
-fn missing_asset_is_a_warning_and_body_still_renders() {
+fn missing_required_asset_fails_rendering() {
     let directory = tempdir().expect("temporary directory");
     let output = directory.path().join("fallback.wav");
     Command::cargo_bin("sonalloy")
@@ -578,7 +577,7 @@ fn missing_asset_is_a_warning_and_body_still_renders() {
             "--json",
         ])
         .assert()
-        .success()
+        .failure()
         .stdout(predicates::str::contains("\"ASSET_NOT_FOUND\""));
-    assert!(hound::WavReader::open(output).is_ok());
+    assert!(!output.exists());
 }

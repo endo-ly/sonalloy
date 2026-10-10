@@ -11,7 +11,8 @@ pub mod trace;
 
 pub use analysis::{
     ActivityAnalysis, AudioAnalysis, AudioAnalysisError, AudioAnalysisOptions, ContinuityAnalysis,
-    LevelAnalysis, SpectralPeak, SpectrumAnalysis, StereoAnalysis, analyze_rendered_audio,
+    LevelAnalysis, SpectralBand, SpectralPeak, SpectrumAnalysis, StereoAnalysis,
+    analyze_rendered_audio,
 };
 pub use asset::{
     AudioFileError, PreparedAudio, PreparedAudioChannels, SampleMetadata, prepare_audio_file,
@@ -61,7 +62,7 @@ pub use definition::{
     GranularDefinition, HardSyncDefinition, InstrumentDefinition, InstrumentMetadata,
     InstrumentPreviewDefinition, InstrumentPreviewNote, InstrumentPreviewTimeSignature,
     InstrumentRecommendedRange, LayerDefinition, LayerTriggerDefinition, LayerTriggerEvent,
-    LimiterProcessorDefinition, ModalDefinition, ModulationDepthDefinition,
+    LimiterProcessorDefinition, ModalDefinition, ModulationDepthControl, ModulationDepthDefinition,
     ModulationDurationDefinition, ModulationDurationUnit, ModulationRateDefinition,
     ModulationRateUnit, ModulationSegmentCurve, MsegDefinition, MsegLoopDefinition,
     MsegSegmentDefinition, NoiseColor, NoiseDefinition, OperatorAlgorithm, OperatorDefinition,

@@ -1,6 +1,8 @@
 mod compile;
 
-pub(crate) use compile::{CompiledPattern, compile, loop_note_id, tempo_points};
+pub(crate) use compile::{
+    CompiledPattern, compile, loop_note_id, resolve_parameter_ramp, tempo_points,
+};
 
 use std::collections::BTreeSet;
 
@@ -69,6 +71,13 @@ pub(crate) enum PatternEvent {
         parameter: String,
         native_value: f32,
     },
+    ParameterRamp {
+        tick: u64,
+        duration_ticks: u64,
+        parameter: String,
+        from_value: f32,
+        to_value: f32,
+    },
 }
 
 impl PatternEvent {
@@ -99,6 +108,7 @@ pub(crate) struct PatternInspection {
     pub(crate) mod_wheel_event_count: usize,
     pub(crate) aftertouch_event_count: usize,
     pub(crate) parameter_change_count: usize,
+    pub(crate) parameter_ramp_count: usize,
     pub(crate) distinct_parameter_ids: Vec<String>,
     pub(crate) musical_duration_seconds: f64,
 }
@@ -375,6 +385,48 @@ fn validate_event(
             validate_control_tick(*tick, length_ticks, &path, diagnostics);
             validate_normalized_value(*value, 0.0, 1.0, &path, "aftertouch", diagnostics);
         }
+        PatternEvent::ParameterRamp {
+            tick,
+            duration_ticks,
+            parameter,
+            from_value,
+            to_value,
+        } => {
+            validate_control_tick(*tick, length_ticks, &path, diagnostics);
+            if *duration_ticks == 0
+                || tick
+                    .checked_add(*duration_ticks)
+                    .is_none_or(|end| end > length_ticks)
+            {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ValueOutOfRange,
+                        "ramp duration_ticks must be positive and its end tick must fit within length_ticks",
+                    )
+                    .with_path(format!("{path}.duration_ticks")),
+                );
+            }
+            if parameter.is_empty() {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ParameterNotFound,
+                        "parameter must not be empty",
+                    )
+                    .with_path(format!("{path}.parameter")),
+                );
+            }
+            for (field, value) in [("from_value", from_value), ("to_value", to_value)] {
+                if !value.is_finite() {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ValueOutOfRange,
+                            format!("{field} must be finite"),
+                        )
+                        .with_path(format!("{path}.{field}")),
+                    );
+                }
+            }
+        }
         PatternEvent::ParameterChange {
             tick,
             parameter,
@@ -451,7 +503,7 @@ pub(crate) fn inspect(pattern: &PatternDefinition) -> Result<PatternInspection, 
     let mut notes = Vec::new();
     let mut velocities = Vec::new();
     let mut distinct_parameter_ids = BTreeSet::new();
-    let mut counts = [0_usize; 5];
+    let mut counts = [0_usize; 6];
     for event in &pattern.events {
         match event {
             PatternEvent::Note { note, velocity, .. } => {
@@ -464,6 +516,10 @@ pub(crate) fn inspect(pattern: &PatternDefinition) -> Result<PatternInspection, 
             PatternEvent::Aftertouch { .. } => counts[3] += 1,
             PatternEvent::ParameterChange { parameter, .. } => {
                 counts[4] += 1;
+                distinct_parameter_ids.insert(parameter.clone());
+            }
+            PatternEvent::ParameterRamp { parameter, .. } => {
+                counts[5] += 1;
                 distinct_parameter_ids.insert(parameter.clone());
             }
         }
@@ -485,6 +541,7 @@ pub(crate) fn inspect(pattern: &PatternDefinition) -> Result<PatternInspection, 
         mod_wheel_event_count: counts[2],
         aftertouch_event_count: counts[3],
         parameter_change_count: counts[4],
+        parameter_ramp_count: counts[5],
         distinct_parameter_ids: distinct_parameter_ids.into_iter().collect(),
         musical_duration_seconds,
     })
@@ -499,6 +556,46 @@ mod tests {
         let pattern = default_pattern();
 
         assert_eq!(pattern.length_ticks, 1_920);
+    }
+
+    #[test]
+    fn ramp_validation_checks_duration_end_and_native_endpoints() {
+        for (tick, duration_ticks, from_value, to_value, field) in [
+            (0, 0, 0.0, 1.0, "duration_ticks"),
+            (1900, 21, 0.0, 1.0, "duration_ticks"),
+            (u64::MAX, 1, 0.0, 1.0, "duration_ticks"),
+            (0, 480, f32::NAN, 1.0, "from_value"),
+            (0, 480, 0.0, f32::INFINITY, "to_value"),
+        ] {
+            let mut pattern = default_pattern();
+            let expected_path = format!("events[{}].{field}", pattern.events.len());
+            pattern.events.push(super::PatternEvent::ParameterRamp {
+                tick,
+                duration_ticks,
+                parameter: "macro.motion".to_owned(),
+                from_value,
+                to_value,
+            });
+            let diagnostics = super::validate(&pattern);
+            assert!(
+                diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == sonalloy_core::DiagnosticCode::ValueOutOfRange
+                        && diagnostic.path.as_deref() == Some(expected_path.as_str())
+                }),
+                "expected {expected_path}, received {diagnostics:?}"
+            );
+        }
+        let mut pattern = default_pattern();
+        pattern.events.push(super::PatternEvent::ParameterRamp {
+            tick: 0,
+            duration_ticks: 1920,
+            parameter: "macro.motion".to_owned(),
+            from_value: 0.0,
+            to_value: 1.0,
+        });
+        let inspection = super::inspect(&pattern).expect("ramp ends at pattern boundary");
+        assert_eq!(inspection.parameter_ramp_count, 1);
+        assert_eq!(inspection.distinct_parameter_ids, ["macro.motion"]);
     }
 
     #[test]

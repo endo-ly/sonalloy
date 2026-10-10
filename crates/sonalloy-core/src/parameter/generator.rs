@@ -50,7 +50,7 @@ pub(crate) const FORMANT_VOWEL_POSITION: GeneratorParameterSpec = GeneratorParam
 pub(crate) const FORMANT_SHIFT: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "formant_shift",
     unit: ParameterUnit::Cents,
-    scale: ParameterScale::Linear,
+    scale: ParameterScale::LinearUnbounded,
     min: -2400.0,
     max: 2400.0,
     smoothing_seconds: 0.010,
@@ -185,7 +185,7 @@ pub(crate) const SPECTRAL_MORPH: GeneratorParameterSpec = GeneratorParameterSpec
 pub(crate) const UNISON_DETUNE: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "unison_detune",
     unit: ParameterUnit::Cents,
-    scale: ParameterScale::Linear,
+    scale: ParameterScale::LinearUnbounded,
     min: 0.0,
     max: 100.0,
     smoothing_seconds: 0.010,
@@ -293,7 +293,7 @@ pub(crate) const GRAIN_DENSITY: GeneratorParameterSpec = GeneratorParameterSpec 
 pub(crate) const GRAIN_PITCH: GeneratorParameterSpec = GeneratorParameterSpec {
     suffix: "grain_pitch",
     unit: ParameterUnit::Cents,
-    scale: ParameterScale::Linear,
+    scale: ParameterScale::LinearUnbounded,
     min: -2400.0,
     max: 2400.0,
     smoothing_seconds: 0.005,

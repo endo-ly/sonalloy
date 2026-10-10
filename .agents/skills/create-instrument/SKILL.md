@@ -104,12 +104,12 @@ VelocityとKey Trackingは組み込みSourceのため、Source定義なしで`ro
 
 ## Asset（WAV）を扱う
 
-Sample、Wavetable、Spectral、Granular、Wave Sequenceは外部WAVをAssetとして参照します。共通する扱いをまとめます。各Generatorへ渡す`asset.path`は、DefinitionのあるDirectoryを基準とした相対Pathにします。絶対Pathは動作しますが`ASSET_ABSOLUTE_PATH`のWarning対象で、Definitionの移植性を下げます。
+Sample、Wavetable、Spectral、Granular、Wave Sequenceは外部WAVをAssetとして参照します。共通する扱いをまとめます。各Generatorへ渡す`asset.path`は、DefinitionのあるDirectoryを基準とした相対Path、または絶対Pathを指定できます。共有する音源では相対Pathが適しています。
 
 ### 配置と形式
 
 - 形式はPCM 16/24 bitまたはFloat 32。Mono / Stereoを使用できます
-- `sha256`は起動時の検証用。省略するとWarning、欠落・不一致・Decode失敗時はそのLayerだけが無効化されてRenderが継続します
+- `sha256`は任意の起動時検証用です。必要なAssetの欠落・Hash不一致・Decode失敗はCompile Errorとなり、Path・形式・Hashを修正してからRenderします
 
 ### SHA-256の計算
 
@@ -159,7 +159,7 @@ sonalloy instrument inspect <definition> --json    # 実行値を機械可読で
 ```
 
 - `validate`のWarningも表示されるため必ず確認する。ErrorにはField Pathが付くため、そのまま該当箇所へ反映できる
-- Warningが残る場合、Sonalloyは「他LayerでRenderを継続する」設計のため、`inspect`で意図しない無効化（Sample欠落など）がないかを確認する
+- Asset Errorの場合は、診断のField Pathを確認して参照WAVを修正する
 - `inspect`の表示項目は[CLIリファレンス](references/cli.md)を参照する
 - Inspect、Analysis、Traceが既に公開している事実を得るために、RuntimeのSource Codeを読んだり、同じ値を再計算する外部スクリプトを作ったりしないでください。製品Interfaceで不足する研究や一回限りの人間向け分析に限り、外部ツールを使えます
 
@@ -219,7 +219,7 @@ sonalloy pattern import-midi <phrase.mid> --channel 1 \
 sonalloy audition midi <definition> <phrase.mid> --channel 1
 ```
 
-`Parameter Change`を含むPatternはStandard MIDIへExportできません（変換規則は[Pattern仕様](references/patterns.md)）。
+`parameter_change` / `parameter_ramp`を含むPatternはStandard MIDIへExportできません（変換規則は[Pattern仕様](references/patterns.md)）。
 
 ## Deviceが利用できる場合のRealtime試聴
 
@@ -247,6 +247,6 @@ Exit Codeの意味と対処は[CLIリファレンス](references/cli.md)を参�
 
 | 症状 | 対処 |
 |---|---|
-| Warningが出た | `instrument inspect`で意図しないLayer無効化（Sample欠落など）がないか確認する |
+| Asset Errorが出た | 診断のField Pathに対応するPath・Hash・WAV形式を確認する |
 | 音が鳴らない | `enabled: true`、`trigger`の範囲に発音するNote / Velocityが含まれているか確認する |
 | Sampleが無視された | Asset PathとSHA-256の一致、WAV形式（PCM 16/24、Float 32）を確認する |

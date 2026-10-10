@@ -124,6 +124,9 @@ impl FormantProcessorRuntime {
         }
         let (first, second, mix) = profile_pair(&self.profiles, position)?;
         let shift = 2.0_f32.powf(shift_cents / 1200.0);
+        if !shift.is_finite() || shift <= 0.0 {
+            return Err(ProcessError::InvalidFrequency);
+        }
         let bandwidth_scale = 2.0_f32.powf(2.0 * (throat - 0.5));
         let mut energy = 0.0;
         for index in 0..FORMANT_BANDS {
@@ -134,6 +137,13 @@ impl FormantProcessorRuntime {
             let bandwidth = geometric_lerp(first_band.bandwidth_hz, second_band.bandwidth_hz, mix)
                 * shift
                 * bandwidth_scale;
+            if !frequency.is_finite()
+                || !bandwidth.is_finite()
+                || frequency <= 0.0
+                || bandwidth <= 0.0
+            {
+                return Err(ProcessError::InvalidFrequency);
+            }
             let frequency = frequency.clamp(20.0, self.sample_rate * 0.45);
             self.coefficients[index] =
                 BiquadCoefficients::band_pass(self.sample_rate, frequency, bandwidth.max(1.0))?;
@@ -206,10 +216,7 @@ mod tests {
     use crate::runtime::modulation::ValueSpan;
 
     fn span(value: f32) -> ValueSpan {
-        ValueSpan {
-            start: value,
-            end: value,
-        }
+        ValueSpan::linear(value, value)
     }
 
     fn profile() -> CompiledFormantProfile {
@@ -241,10 +248,7 @@ mod tests {
         first[0] = 1.0;
         runtime
             .process_mono(
-                ValueSpan {
-                    start: 0.0,
-                    end: 1.0,
-                },
+                ValueSpan::linear(0.0, 1.0),
                 span(2400.0),
                 span(1.0),
                 span(1.0),
