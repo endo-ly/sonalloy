@@ -3,9 +3,6 @@
 use crate::guard;
 use crate::types::SonalloyResult;
 
-/// Public C ABI version.
-pub const SONALLOY_C_API_VERSION: u32 = 1;
-
 /// Capability identifiers used by `sonalloy_has_capability`.
 pub mod capability_id {
     /// Prepared runtime updates are supported.
@@ -22,12 +19,6 @@ pub mod capability_id {
     pub const STATE_SERIALIZATION: u32 = 6;
     /// Neural backends are not supported by this contract.
     pub const NEURAL_BACKEND: u32 = 7;
-}
-
-/// Return the public C ABI version.
-#[unsafe(no_mangle)]
-pub extern "C" fn sonalloy_c_api_version() -> u32 {
-    SONALLOY_C_API_VERSION
 }
 
 /// Query whether one public runtime capability is supported.

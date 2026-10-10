@@ -7,7 +7,7 @@ mod parameter;
 mod runtime;
 mod types;
 
-pub use capability::{sonalloy_c_api_version, sonalloy_has_capability};
+pub use capability::sonalloy_has_capability;
 pub use compile::{
     sonalloy_compile_json, sonalloy_compiled_destroy, sonalloy_compiled_parameter_catalog_revision,
     sonalloy_compiled_parameter_count, sonalloy_compiled_reported_latency_frames,

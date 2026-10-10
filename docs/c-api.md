@@ -26,7 +26,7 @@ $env:SONALLOY_DSP_MSVC_RUNTIME="release"
 cargo rustc -p sonalloy-capi --lib --release --crate-type staticlib
 ```
 
-ABI Versionは`sonalloy_c_api_version()`で確認できます。HeaderとLibraryが同じVersionを返すことを、Applicationの起動時に確認してください。
+公開C ABIは破壊的変更を許容します。HeaderとLibraryは同一のSonalloyリビジョンから取得し、異なるリビジョンのHeaderとLibraryを組み合わせた動作は保証しません。
 
 ## 文字列とHandle
 
