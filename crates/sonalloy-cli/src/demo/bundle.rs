@@ -537,14 +537,8 @@ fn reject_existing_output(output: &Path) -> Result<(), CliFailure> {
     }
 }
 
-/// Commits the staged bundle by renaming it onto a name this process has claimed.
-///
-/// Creating the destination directory is the atomic step: it fails whenever a file,
-/// directory or symbolic link already owns the name, so an output that appears after
-/// the CLI checked is reported instead of taken over. A rename alone cannot express
-/// that on Windows, where `rename` replaces an existing empty directory, and renaming
-/// the staged tree onto the freshly created directory keeps the bundle appearing in
-/// one step.
+/// Claims a new output directory, then renames the staged bundle into it.
+/// The empty destination is briefly visible before the rename.
 fn commit_directory(source: &Path, destination: &Path) -> std::io::Result<()> {
     fs::create_dir(destination)?;
     if let Err(error) = fs::rename(source, destination) {

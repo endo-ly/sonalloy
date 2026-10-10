@@ -36,10 +36,9 @@ pub(super) enum DemoCommand {
         long_about = "Write a Type 1 Standard MIDI File with a Conductor Track for the Demo name, tempo, and time signature, plus one Track per Part for its ID, channel, notes, sustain, pitch bend, mod wheel, and aftertouch. Parameter Change events, overlapping notes with the same pitch, or Parts without an available MIDI channel cause export to fail. An existing destination is overwritten."
     )]
     ExportMidi(DemoExportMidiArgs),
-    /// Export a self-contained Demo Bundle v1 with optional Mix and all Stems.
+    /// Export a self-contained Demo Bundle.
     #[command(
-        long_about = "Copy every Part's Pattern, Instrument Definition, and referenced assets into a self-contained Bundle v1. Preserve performance events, Part order, gains, optional MIDI channels, external audio routing, fade, and mastering. Validate the relocated Demo and compile every Instrument and Pattern. Record render settings even without rendering. With --with-render, render the bundled Demo to mix.wav and all Part stems using the render demo pipeline. The output must not exist; failed exports leave no completed directory.",
-        after_long_help = "Bundle v1 contains bundle.json, demo.json, patterns/<part-id>.json, instruments/<part-id>/definition.json and hash-named assets. Optional WAVs are render/mix.wav and render/stems/<part-id>.wav. The manifest records format_version=1, demo, render_settings, render (null without WAVs), and sorted files with SHA-256, excluding bundle.json itself. All bundle references use safe relative paths with forward slashes. Asset references include their SHA-256. Bundled demo.json can be passed directly to demo validate and render demo. Absolute paths, parent traversal, empty or dot components, backslashes, and symbolic links are forbidden in a Bundle. --json reports status, command, output, format_version, part_count, file_count (excluding bundle.json), render_included, and diagnostics. Execution failures use the shared diagnostic report; an existing destination has code BUNDLE_OUTPUT_EXISTS."
+        long_about = "Package a Demo with its Patterns, Instrument Definitions, and assets. Use --with-render to include the final mix and all Part stems."
     )]
     Pack(DemoPackArgs),
 }
