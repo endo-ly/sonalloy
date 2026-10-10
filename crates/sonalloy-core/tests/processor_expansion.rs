@@ -372,42 +372,6 @@ fn all_processor_scopes_compile_with_stable_parameter_ids() {
 }
 
 #[test]
-fn modulation_effect_state_is_independent_of_block_size() {
-    let mut definition = base_definition();
-    definition.global_processors = vec![ProcessorDefinition::Chorus(ChorusProcessorDefinition {
-        id: "wide".to_owned(),
-        delay_ms: 15.0,
-        rate_hz: 0.35,
-        depth: 0.65,
-        feedback: 0.1,
-        width: 1.0,
-        mix: 0.5,
-    })];
-    let whole = render(&definition, 48_000.0, 64, 4_096);
-    let split = render(&definition, 48_000.0, 257, 4_096);
-    assert!(
-        whole
-            .channels
-            .iter()
-            .flatten()
-            .all(|sample| sample.is_finite())
-    );
-    assert!(
-        split
-            .channels
-            .iter()
-            .flatten()
-            .all(|sample| sample.is_finite())
-    );
-    assert!(
-        whole.channels[0]
-            .iter()
-            .zip(&split.channels[0])
-            .all(|(left, right)| (left - right).abs() < 1.0e-5)
-    );
-}
-
-#[test]
 #[allow(clippy::too_many_lines)]
 fn processor_parameter_changes_and_global_modulation_are_block_size_independent() {
     let mut definition = base_definition();

@@ -559,6 +559,30 @@ mod tests {
         runtime_with, traced_source_value,
     };
 
+    fn note_on(note_id: u64, note_number: u8) -> ProcessEvent {
+        ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id,
+                note_number,
+                velocity: 127,
+            },
+        }
+    }
+
+    fn choke_definition(
+        polyphony: u16,
+        choke_groups: Vec<crate::definition::ChokeGroupDefinition>,
+    ) -> crate::definition::InstrumentDefinition {
+        let mut source = definition();
+        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
+            polyphony,
+            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
+            choke_groups,
+        };
+        source
+    }
+
     #[test]
     fn monophonic_uses_last_note_priority_and_returns_to_held_notes() {
         let definition = monophonic_definition(true, None);
@@ -771,11 +795,11 @@ mod tests {
         source.layers.extend([closed, other]);
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
-        let note = |id, number| ProcessEvent {
+        let note = |note_id, note_number| ProcessEvent {
             sample_offset: 0,
             kind: ProcessEventKind::NoteOn {
-                note_id: id,
-                note_number: number,
+                note_id,
+                note_number,
                 velocity: 100,
             },
         };
@@ -811,12 +835,7 @@ mod tests {
 
     #[test]
     fn newer_choke_hit_cancels_older_pending_layers() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 2,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-            choke_groups: Vec::new(),
-        };
+        let mut source = choke_definition(2, Vec::new());
         source.layers[0].choke_group = Some("hat".to_owned());
         source.layers[0].envelope.attack_seconds = 0.0;
         let mut runtime = runtime_with(&source);
@@ -826,14 +845,7 @@ mod tests {
                 &mut runtime,
                 1,
                 id - 1,
-                &[ProcessEvent {
-                    sample_offset: 0,
-                    kind: ProcessEventKind::NoteOn {
-                        note_id: id,
-                        note_number: 60,
-                        velocity: 100,
-                    },
-                }],
+                &[note_on(id, 60)],
             );
         }
         process(&mut runtime, 240, 4, &[]);
@@ -1027,151 +1039,47 @@ mod tests {
     }
 
     #[test]
-    fn sustain_defers_release_until_the_pedal_is_lifted() {
+    fn sustain_holds_a_released_note_until_the_pedal_lifts() {
         let mut runtime = runtime();
         prepare(&mut runtime);
-        let note_on = [ProcessEvent {
+        let note_on = |note_id| ProcessEvent {
             sample_offset: 0,
             kind: ProcessEventKind::NoteOn {
-                note_id: 1,
+                note_id,
                 note_number: 60,
                 velocity: 100,
             },
-        }];
-        let _ = process(&mut runtime, 64, 0, &note_on);
+        };
+        let note_off = |note_id| ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::NoteOff { note_id },
+        };
+        let pedal = |down| ProcessEvent {
+            sample_offset: 0,
+            kind: ProcessEventKind::SustainPedal { down },
+        };
 
-        let sustain_and_note_off = [
-            ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::SustainPedal { down: true },
-            },
-            ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::NoteOff { note_id: 1 },
-            },
-        ];
-        let _ = process(&mut runtime, 64, 64, &sustain_and_note_off);
+        let _ = process(&mut runtime, 64, 0, &[note_on(1)]);
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
 
-        let pedal_up = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::SustainPedal { down: false },
-        }];
-        let _ = process(&mut runtime, 64, 128, &pedal_up);
+        let _ = process(&mut runtime, 64, 64, &[pedal(true), note_off(1)]);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+
+        let _ = process(&mut runtime, 64, 128, &[pedal(true)]);
+        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+
+        let _ = process(&mut runtime, 64, 192, &[pedal(false), pedal(false)]);
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
-    }
-
-    #[test]
-    fn sustain_does_not_release_a_key_that_is_still_down() {
-        let mut runtime = runtime();
-        prepare(&mut runtime);
-        let note_on = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 100,
-            },
-        }];
-        let _ = process(&mut runtime, 64, 0, &note_on);
-        let pedal_down = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::SustainPedal { down: true },
-        }];
-        let _ = process(&mut runtime, 64, 64, &pedal_down);
-        let pedal_up = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::SustainPedal { down: false },
-        }];
-        let _ = process(&mut runtime, 64, 128, &pedal_up);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
-
-        let note_off = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOff { note_id: 1 },
-        }];
-        let _ = process(&mut runtime, 64, 192, &note_off);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
-    }
-
-    #[test]
-    fn repeated_sustain_state_changes_are_idempotent() {
-        let mut runtime = runtime();
-        prepare(&mut runtime);
-        let note_on = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 100,
-            },
-        }];
-        let _ = process(&mut runtime, 64, 0, &note_on);
-        let repeated_down = [
-            ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::SustainPedal { down: true },
-            },
-            ProcessEvent {
-                sample_offset: 1,
-                kind: ProcessEventKind::SustainPedal { down: true },
-            },
-            ProcessEvent {
-                sample_offset: 2,
-                kind: ProcessEventKind::NoteOff { note_id: 1 },
-            },
-        ];
-        let _ = process(&mut runtime, 64, 64, &repeated_down);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
-
-        let repeated_up = [
-            ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::SustainPedal { down: false },
-            },
-            ProcessEvent {
-                sample_offset: 1,
-                kind: ProcessEventKind::SustainPedal { down: false },
-            },
-        ];
-        let _ = process(&mut runtime, 64, 128, &repeated_up);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
-    }
-
-    #[test]
-    fn reset_clears_sustain_state() {
-        let mut runtime = runtime();
-        prepare(&mut runtime);
-        let note_on = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 100,
-            },
-        }];
-        let _ = process(&mut runtime, 64, 0, &note_on);
-        let held_note = [
-            ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::SustainPedal { down: true },
-            },
-            ProcessEvent {
-                sample_offset: 1,
-                kind: ProcessEventKind::NoteOff { note_id: 1 },
-            },
-        ];
-        let _ = process(&mut runtime, 64, 64, &held_note);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
 
         runtime.reset().expect("reset");
-        let _ = process(&mut runtime, 64, 0, &note_on);
-        let note_off = [ProcessEvent {
-            sample_offset: 0,
-            kind: ProcessEventKind::NoteOff { note_id: 1 },
-        }];
-        let _ = process(&mut runtime, 64, 64, &note_off);
-
+        let _ = process(&mut runtime, 64, 0, &[note_on(2), pedal(true)]);
+        let _ = process(&mut runtime, 64, 64, &[pedal(false)]);
+        assert_eq!(
+            runtime.voice_state(0),
+            Some(VoiceState::Active),
+            "a key that is still down must survive a pedal release"
+        );
+        let _ = process(&mut runtime, 64, 128, &[note_off(2)]);
         assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
     }
 
@@ -1282,28 +1190,18 @@ mod tests {
 
     #[test]
     fn choke_group_note_fades_out_only_voices_of_the_same_group() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 4,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-            choke_groups: vec![crate::definition::ChokeGroupDefinition { keys: vec![42, 46] }],
-        };
+        let mut source = choke_definition(
+            4,
+            vec![crate::definition::ChokeGroupDefinition { keys: vec![42, 46] }],
+        );
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
-        let note_on = |sample_offset, note_id, note_number| ProcessEvent {
-            sample_offset,
-            kind: ProcessEventKind::NoteOn {
-                note_id,
-                note_number,
-                velocity: 127,
-            },
-        };
-        let _ = process(&mut runtime, 64, 0, &[note_on(0, 1, 46), note_on(0, 2, 60)]);
+        let _ = process(&mut runtime, 64, 0, &[note_on(1, 46), note_on(2, 60)]);
 
-        let _ = process(&mut runtime, 64, 64, &[note_on(0, 3, 42)]);
+        let _ = process(&mut runtime, 64, 64, &[note_on(3, 42)]);
         let choking_states = [
             runtime.voice_state(0),
             runtime.voice_state(1),
@@ -1333,14 +1231,12 @@ mod tests {
 
     #[test]
     fn choke_reuses_choked_voice_before_stealing_an_unrelated_voice() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 2,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-            choke_groups: vec![crate::definition::ChokeGroupDefinition {
+        let mut source = choke_definition(
+            2,
+            vec![crate::definition::ChokeGroupDefinition {
                 keys: vec![42, 44, 46],
             }],
-        };
+        );
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
@@ -1355,18 +1251,10 @@ mod tests {
         source.layers.push(unrelated);
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
-        let note_on = |sample_offset, note_id, note_number| ProcessEvent {
-            sample_offset,
-            kind: ProcessEventKind::NoteOn {
-                note_id,
-                note_number,
-                velocity: 127,
-            },
-        };
 
-        let _ = process(&mut runtime, 64, 0, &[note_on(0, 1, 46), note_on(0, 2, 60)]);
-        let _ = process(&mut runtime, 64, 64, &[note_on(0, 3, 42)]);
-        let _ = process(&mut runtime, 64, 128, &[note_on(0, 4, 44)]);
+        let _ = process(&mut runtime, 64, 0, &[note_on(1, 46), note_on(2, 60)]);
+        let _ = process(&mut runtime, 64, 64, &[note_on(3, 42)]);
+        let _ = process(&mut runtime, 64, 128, &[note_on(4, 44)]);
 
         assert_eq!(runtime.voice_state(0), Some(VoiceState::FadingOut));
         assert_eq!(runtime.voice_state(1), Some(VoiceState::Active));
@@ -1396,36 +1284,26 @@ mod tests {
 
     #[test]
     fn choke_does_not_replace_a_pending_note_from_another_group() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 3,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-            choke_groups: vec![
+        let source = choke_definition(
+            3,
+            vec![
                 crate::definition::ChokeGroupDefinition {
                     keys: vec![42, 44, 46],
                 },
                 crate::definition::ChokeGroupDefinition { keys: vec![65, 67] },
             ],
-        };
+        );
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
-        let note_on = |sample_offset, note_id, note_number| ProcessEvent {
-            sample_offset,
-            kind: ProcessEventKind::NoteOn {
-                note_id,
-                note_number,
-                velocity: 127,
-            },
-        };
 
         let _ = process(
             &mut runtime,
             64,
             0,
-            &[note_on(0, 1, 46), note_on(0, 2, 60), note_on(0, 3, 70)],
+            &[note_on(1, 46), note_on(2, 60), note_on(3, 70)],
         );
-        let _ = process(&mut runtime, 64, 64, &[note_on(0, 4, 65)]);
-        let _ = process(&mut runtime, 64, 128, &[note_on(0, 5, 42)]);
+        let _ = process(&mut runtime, 64, 64, &[note_on(4, 65)]);
+        let _ = process(&mut runtime, 64, 128, &[note_on(5, 42)]);
 
         assert!(runtime.voices[0].contains_note_id(4));
         assert!(!runtime.voices[0].contains_note_id(5));
@@ -1433,12 +1311,7 @@ mod tests {
 
     #[test]
     fn steal_starts_pending_note_when_release_finishes_before_fade() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 1,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-            choke_groups: Vec::new(),
-        };
+        let mut source = choke_definition(1, Vec::new());
         source.layers[0].envelope = crate::definition::AdsrDefinition {
             attack_seconds: 0.0,
             decay_seconds: 0.0,
@@ -1447,19 +1320,7 @@ mod tests {
         };
         let mut runtime = runtime_with(&source);
         prepare(&mut runtime);
-        let _ = process(
-            &mut runtime,
-            64,
-            0,
-            &[ProcessEvent {
-                sample_offset: 0,
-                kind: ProcessEventKind::NoteOn {
-                    note_id: 1,
-                    note_number: 60,
-                    velocity: 127,
-                },
-            }],
-        );
+        let _ = process(&mut runtime, 64, 0, &[note_on(1, 60)]);
         let audio = process(
             &mut runtime,
             64,
@@ -1485,12 +1346,7 @@ mod tests {
 
     #[test]
     fn steal_fade_completes_across_multiple_blocks() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 1,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-            choke_groups: Vec::new(),
-        };
+        let mut source = choke_definition(1, Vec::new());
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
@@ -1532,12 +1388,7 @@ mod tests {
 
     #[test]
     fn pending_note_off_cancels_note_before_steal_completion() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 1,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-            choke_groups: Vec::new(),
-        };
+        let mut source = choke_definition(1, Vec::new());
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
@@ -1584,12 +1435,7 @@ mod tests {
 
     #[test]
     fn pending_note_off_is_held_by_sustain_until_steal_completes() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 1,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-            choke_groups: Vec::new(),
-        };
+        let mut source = choke_definition(1, Vec::new());
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;
@@ -1647,12 +1493,7 @@ mod tests {
 
     #[test]
     fn reset_discards_pending_note_during_steal() {
-        let mut source = definition();
-        source.performance = crate::definition::PerformanceDefinition::Polyphonic {
-            polyphony: 1,
-            voice_stealing: crate::definition::VoiceStealingDefinition::QuietestReleasingThenOldest,
-            choke_groups: Vec::new(),
-        };
+        let mut source = choke_definition(1, Vec::new());
         source.layers[0].envelope.attack_seconds = 0.0;
         source.layers[0].envelope.decay_seconds = 0.0;
         source.layers[0].envelope.sustain_level = 1.0;

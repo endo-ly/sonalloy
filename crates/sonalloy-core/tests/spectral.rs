@@ -355,19 +355,18 @@ fn spectral_missing_required_asset_rejects_the_instrument() {
 }
 
 #[test]
-fn spectral_identity_resynthesis_matches_the_source_after_reported_latency() {
+fn identity_resynthesis_matches_the_source_and_a_morph_of_identical_sources() {
     let directory = fixture_directory();
     let path = directory.path().join("fixture.wav");
-    let samples = source_samples(8_192);
+    let samples = source_samples(16_384);
     write_pcm16_wav(&path, &samples);
-    let definition = definition(
+    let mut definition = definition(
         path.file_name().unwrap().to_string_lossy().into_owned(),
         1024,
     );
-    let audio = render(&definition, directory.path(), 257, samples.len());
+    let baseline = render(&definition, directory.path(), 257, samples.len());
+
     let latency = 768;
-    let comparison_start = latency + 512;
-    let comparison_end = latency + samples.len() - 512;
     let mut signal_power = 0.0_f64;
     let mut error_power = 0.0_f64;
     for (source_index, sample) in samples
@@ -378,13 +377,33 @@ fn spectral_identity_resynthesis_matches_the_source_after_reported_latency() {
     {
         let expected = f64::from(*sample) / 32_768.0;
         let rendered =
-            f64::from(audio.channels[0][latency + source_index]) * f64::from(2.0_f32.sqrt());
+            f64::from(baseline.channels[0][latency + source_index]) * f64::from(2.0_f32.sqrt());
         signal_power += expected * expected;
         error_power += (rendered - expected) * (rendered - expected);
     }
     let snr_db = 10.0 * (signal_power / error_power.max(1.0e-20)).log10();
-    assert!(comparison_end > comparison_start);
     assert!(snr_db >= 60.0, "identity SNR is {snr_db:.2} dB");
+
+    let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator else {
+        panic!("fixture must use Spectral");
+    };
+    spectral.asset_b = Some(AssetReference {
+        path: path.file_name().unwrap().to_string_lossy().into_owned(),
+        sha256: None,
+    });
+    spectral.morph = 0.5;
+    let morphed = render(&definition, directory.path(), 257, samples.len());
+    let maximum_difference = baseline
+        .channels
+        .iter()
+        .flatten()
+        .zip(morphed.channels.iter().flatten())
+        .map(|(left, right)| (left - right).abs())
+        .fold(0.0_f32, f32::max);
+    assert!(
+        maximum_difference <= 1.0e-6,
+        "identical-source morph changed the signal: {maximum_difference}"
+    );
 }
 
 #[test]
@@ -830,36 +849,6 @@ fn spectral_morph_endpoints_select_the_corresponding_source() {
     assert!(
         frequency_energy(morph_window, 48_000.0, 880.0)
             > frequency_energy(morph_window, 48_000.0, 440.0) * 4.0
-    );
-}
-
-#[test]
-fn spectral_morph_of_identical_sources_is_identity_resynthesis() {
-    let directory = fixture_directory();
-    let path = directory.path().join("identical.wav");
-    let samples = source_samples(16_384);
-    write_pcm16_wav(&path, &samples);
-    let mut definition = definition("identical.wav".to_owned(), 1024);
-    let baseline = render(&definition, directory.path(), 257, samples.len());
-    let GeneratorDefinition::Spectral(spectral) = &mut definition.layers[0].generator else {
-        panic!("fixture must use Spectral");
-    };
-    spectral.asset_b = Some(AssetReference {
-        path: "identical.wav".to_owned(),
-        sha256: None,
-    });
-    spectral.morph = 0.5;
-    let morphed = render(&definition, directory.path(), 257, samples.len());
-    let maximum_difference = baseline
-        .channels
-        .iter()
-        .flatten()
-        .zip(morphed.channels.iter().flatten())
-        .map(|(left, right)| (left - right).abs())
-        .fold(0.0_f32, f32::max);
-    assert!(
-        maximum_difference <= 1.0e-6,
-        "identical-source morph changed the signal: {maximum_difference}"
     );
 }
 
