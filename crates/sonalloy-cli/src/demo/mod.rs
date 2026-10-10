@@ -1262,30 +1262,22 @@ mod tests {
 
     #[test]
     fn stereo_mix_fade_reaches_zero_at_the_final_frame() {
-        let mut mix = super::StereoMix {
-            sample_rate: 4,
-            left: vec![1.0; 4],
-            right: vec![1.0; 4],
-        };
+        for fade_seconds in [0.5, 0.25] {
+            let mut mix = super::StereoMix {
+                sample_rate: 4,
+                left: vec![1.0; 4],
+                right: vec![1.0; 4],
+            };
 
-        mix.apply_fade(0.5).expect("fade applies");
+            mix.apply_fade(fade_seconds).expect("fade applies");
 
-        assert_eq!(mix.left, vec![1.0, 1.0, 1.0, 0.0]);
-        assert_eq!(mix.right, vec![1.0, 1.0, 1.0, 0.0]);
-    }
-
-    #[test]
-    fn stereo_mix_one_frame_fade_silences_the_final_frame() {
-        let mut mix = super::StereoMix {
-            sample_rate: 4,
-            left: vec![1.0; 4],
-            right: vec![1.0; 4],
-        };
-
-        mix.apply_fade(0.25).expect("one-frame fade applies");
-
-        assert_eq!(mix.left, vec![1.0, 1.0, 1.0, 0.0]);
-        assert_eq!(mix.right, vec![1.0, 1.0, 1.0, 0.0]);
+            assert_eq!(
+                mix.left,
+                vec![1.0, 1.0, 1.0, 0.0],
+                "{fade_seconds}s fade must silence the final frame"
+            );
+            assert_eq!(mix.right, vec![1.0, 1.0, 1.0, 0.0]);
+        }
     }
 
     #[test]

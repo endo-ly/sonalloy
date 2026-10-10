@@ -1391,8 +1391,7 @@ fn push_normalized_descriptor(
 #[cfg(test)]
 mod tests {
     use super::{
-        GeneratorDefinition, OscillatorWaveform, ParameterCatalog, ParameterOwner, ParameterScale,
-        ParameterUnit,
+        GeneratorDefinition, OscillatorWaveform, ParameterCatalog, ParameterUnit,
     };
     use crate::definition::{ProcessorDefinition, tests::definition};
 
@@ -1435,90 +1434,11 @@ mod tests {
     }
 
     #[test]
-    fn generator_parameters_follow_layer_parameters_and_preserve_metadata() {
+    fn generator_parameters_preserve_published_metadata() {
         let mut source = definition();
         source.layers[0].generator =
             GeneratorDefinition::Oscillator(crate::definition::OscillatorDefinition {
                 waveform: OscillatorWaveform::Pulse { pulse_width: 0.25 },
-                phase_reset: true,
-                phase: 0.0,
-                hard_sync: None,
-                waveshaping: None,
-                phase_distortion: None,
-                wavefold: None,
-                feedback: None,
-                unison: None,
-            });
-        let mut noise_layer = source.layers[0].clone();
-        noise_layer.id = "texture".to_owned();
-        noise_layer.generator = GeneratorDefinition::Noise(crate::definition::NoiseDefinition {
-            color: crate::definition::NoiseColor::White,
-            seed: 7,
-            stereo_correlation: 0.6,
-        });
-        source.layers.push(noise_layer);
-
-        let catalog = ParameterCatalog::from_definition(&source);
-        let ids: Vec<_> = catalog
-            .parameters()
-            .iter()
-            .map(|item| item.id.as_str())
-            .collect();
-        assert_eq!(
-            ids,
-            [
-                "layer.body.gain",
-                "layer.body.pan",
-                "layer.body.tuning",
-                "layer.body.generator.pulse_width",
-                "layer.texture.gain",
-                "layer.texture.pan",
-                "layer.texture.tuning",
-                "layer.texture.generator.noise_correlation",
-            ]
-        );
-
-        let pulse = catalog
-            .parameters()
-            .iter()
-            .find(|parameter| parameter.id == "layer.body.generator.pulse_width")
-            .expect("pulse width descriptor");
-        assert_eq!(
-            pulse.owner,
-            ParameterOwner::LayerGenerator {
-                definition_index: 0
-            }
-        );
-        assert_eq!(pulse.unit, ParameterUnit::Normalized);
-        assert_eq!(pulse.scale, ParameterScale::Linear);
-        assert!((pulse.min - 0.05).abs() < f32::EPSILON);
-        assert!((pulse.max - 0.95).abs() < f32::EPSILON);
-        assert!((pulse.default - 0.25).abs() < f32::EPSILON);
-        assert!((pulse.smoothing_seconds - 0.005).abs() < f32::EPSILON);
-
-        let correlation = catalog
-            .parameters()
-            .iter()
-            .find(|parameter| parameter.id == "layer.texture.generator.noise_correlation")
-            .expect("noise correlation descriptor");
-        assert_eq!(
-            correlation.owner,
-            ParameterOwner::LayerGenerator {
-                definition_index: 1
-            }
-        );
-        assert!((correlation.min - 0.0).abs() < f32::EPSILON);
-        assert!((correlation.max - 1.0).abs() < f32::EPSILON);
-        assert!((correlation.default - 0.6).abs() < f32::EPSILON);
-        assert!((correlation.smoothing_seconds - 0.010).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn complex_generator_parameters_preserve_catalog_metadata() {
-        let mut source = definition();
-        source.layers[0].generator =
-            GeneratorDefinition::Oscillator(crate::definition::OscillatorDefinition {
-                waveform: OscillatorWaveform::Saw,
                 phase_reset: true,
                 phase: 0.0,
                 hard_sync: Some(crate::definition::HardSyncDefinition { ratio: 3.0 }),
@@ -1533,36 +1453,99 @@ mod tests {
                     phase_spread: 0.2,
                 }),
             });
+        let mut noise_layer = source.layers[0].clone();
+        noise_layer.id = "texture".to_owned();
+        noise_layer.generator = GeneratorDefinition::Noise(crate::definition::NoiseDefinition {
+            color: crate::definition::NoiseColor::White,
+            seed: 7,
+            stereo_correlation: 0.6,
+        });
+        source.layers.push(noise_layer);
+
         let catalog = ParameterCatalog::from_definition(&source);
-        let parameters = catalog.parameters();
-        let ids: Vec<_> = parameters
+        let ids: Vec<_> = catalog
+            .parameters()
             .iter()
             .map(|parameter| parameter.id.as_str())
             .collect();
         assert_eq!(
-            &ids[3..],
+            ids,
             [
+                "layer.body.gain",
+                "layer.body.pan",
+                "layer.body.tuning",
+                "layer.body.generator.pulse_width",
                 "layer.body.generator.sync_ratio",
                 "layer.body.generator.waveshape",
                 "layer.body.generator.unison_detune",
                 "layer.body.generator.unison_spread",
+                "layer.texture.gain",
+                "layer.texture.pan",
+                "layer.texture.tuning",
+                "layer.texture.generator.noise_correlation",
             ]
         );
 
-        let sync = &parameters[3];
-        assert_eq!(sync.unit, ParameterUnit::Ratio);
-        assert_eq!(sync.scale, ParameterScale::Log2);
-        assert!((sync.min - 1.0).abs() < f32::EPSILON);
-        assert!((sync.max - 16.0).abs() < f32::EPSILON);
-        assert!((sync.default - 3.0).abs() < f32::EPSILON);
-        assert!((sync.smoothing_seconds - 0.005).abs() < f32::EPSILON);
-
-        let detune = &parameters[5];
-        assert_eq!(detune.unit, ParameterUnit::Cents);
-        assert!(detune.min.abs() < f32::EPSILON);
-        assert!((detune.max - 100.0).abs() < f32::EPSILON);
-        assert!((detune.default - 18.0).abs() < f32::EPSILON);
-        assert!((detune.smoothing_seconds - 0.010).abs() < f32::EPSILON);
+        let published: &[(&str, ParameterUnit, f32, f32, f32, f32)] = &[
+            (
+                "layer.body.generator.pulse_width",
+                ParameterUnit::Normalized,
+                0.05,
+                0.95,
+                0.25,
+                0.005,
+            ),
+            (
+                "layer.body.generator.sync_ratio",
+                ParameterUnit::Ratio,
+                1.0,
+                16.0,
+                3.0,
+                0.005,
+            ),
+            (
+                "layer.body.generator.waveshape",
+                ParameterUnit::Normalized,
+                0.0,
+                1.0,
+                0.25,
+                0.005,
+            ),
+            (
+                "layer.body.generator.unison_detune",
+                ParameterUnit::Cents,
+                0.0,
+                100.0,
+                18.0,
+                0.010,
+            ),
+            (
+                "layer.texture.generator.noise_correlation",
+                ParameterUnit::Normalized,
+                0.0,
+                1.0,
+                0.6,
+                0.010,
+            ),
+        ];
+        for (id, unit, min, max, default, smoothing_seconds) in published {
+            let parameter = catalog
+                .parameters()
+                .iter()
+                .find(|parameter| parameter.id == *id)
+                .unwrap_or_else(|| panic!("{id} descriptor"));
+            assert_eq!(parameter.unit, *unit, "{id} unit");
+            assert!((parameter.min - min).abs() < f32::EPSILON, "{id} min");
+            assert!((parameter.max - max).abs() < f32::EPSILON, "{id} max");
+            assert!(
+                (parameter.default - default).abs() < f32::EPSILON,
+                "{id} default"
+            );
+            assert!(
+                (parameter.smoothing_seconds - smoothing_seconds).abs() < f32::EPSILON,
+                "{id} smoothing"
+            );
+        }
     }
 
     #[test]

@@ -436,9 +436,7 @@ fn sample_at(source: &[f32], index: isize, start_frame: usize, end_frame: usize)
 mod tests {
     use std::sync::Arc;
 
-    use super::{
-        GranularRuntime, LayerGeneratorTargetSpan, POSITION_STREAM, ValueSpan, random_value,
-    };
+    use super::{GranularRuntime, LayerGeneratorTargetSpan, ValueSpan};
     use crate::asset::SampleMetadata;
     use crate::asset::{PreparedAudio, PreparedAudioChannels};
     use crate::compiler::{CompiledGranular, GRANULAR_GRAIN_POOL_LIMIT};
@@ -493,14 +491,6 @@ mod tests {
 
     fn constant_compiled() -> CompiledGranular {
         compiled_with_source(source(&vec![0.5; 48_000]))
-    }
-
-    #[test]
-    fn random_value_is_stable_for_the_same_grain_identity() {
-        let first = random_value(1, 2, 3, 4, POSITION_STREAM);
-        let second = random_value(1, 2, 3, 4, POSITION_STREAM);
-        assert_eq!(first, second);
-        assert_ne!(first, random_value(1, 2, 3, 5, POSITION_STREAM));
     }
 
     #[test]

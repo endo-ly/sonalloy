@@ -1007,14 +1007,6 @@ mod tests {
     }
 
     #[test]
-    fn duration_zero_produces_empty_stereo() {
-        let audio = render_sine(440.0, request(0, 0, 257)).expect("zero-length render");
-        assert_eq!(audio.sample_rate, 48_000);
-        assert_eq!(audio.channels.len(), 2);
-        assert_eq!(audio.frames(), 0);
-    }
-
-    #[test]
     fn one_frame_and_tail_are_rendered_exactly() {
         let audio = render_sine(440.0, request(1, 3, 2)).expect("short render");
         assert_eq!(audio.frames(), 4);

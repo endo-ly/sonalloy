@@ -340,34 +340,6 @@ mod tests {
     }
 
     #[test]
-    fn zero_gain_is_an_identity() {
-        let compiled = CompiledEqProcessor {
-            low_frequency_hz: 100.0,
-            mid_frequency_hz: 1_000.0,
-            mid_q: 1.0,
-            high_frequency_hz: 8_000.0,
-            parameters: CompiledEqParameters {
-                low_gain_db: ParameterHandle::new(0),
-                mid_gain_db: ParameterHandle::new(1),
-                high_gain_db: ParameterHandle::new(2),
-            },
-        };
-        let mut runtime =
-            EqRuntime::new(&compiled, 48_000.0, GeneratorOutputMode::Mono).expect("EQ prepares");
-        let original = [0.1, -0.8, 0.4, 0.0, 0.7, -0.2];
-        let mut buffer = original;
-        runtime
-            .process_mono(span(0.0), span(0.0), span(0.0), &mut buffer)
-            .expect("EQ processes");
-        assert!(
-            original
-                .into_iter()
-                .zip(buffer)
-                .all(|(expected, actual)| (expected - actual).abs() < 1.0e-6)
-        );
-    }
-
-    #[test]
     fn gain_ramp_updates_coefficients_without_non_finite_output() {
         let compiled = CompiledEqProcessor {
             low_frequency_hz: 100.0,

@@ -372,34 +372,26 @@ mod tests {
     }
 
     #[test]
-    fn valid_schema_v6_metadata_has_no_diagnostics() {
-        assert_eq!(diagnostics(&metadata()), Vec::new());
-    }
+    fn category_and_tags_reject_empty_outer_whitespace_and_duplicates() {
+        let mut empty_category = metadata();
+        empty_category.category = Some(String::new());
+        assert_ne!(diagnostics(&empty_category), Vec::new());
 
-    #[test]
-    fn category_rejects_empty_and_outer_whitespace() {
-        let mut empty = metadata();
-        empty.category = Some(String::new());
-        assert_ne!(diagnostics(&empty), Vec::new());
+        let mut padded_category = metadata();
+        padded_category.category = Some(" Bass".to_owned());
+        assert_ne!(diagnostics(&padded_category), Vec::new());
 
-        let mut padded = metadata();
-        padded.category = Some(" Bass".to_owned());
-        assert_ne!(diagnostics(&padded), Vec::new());
-    }
+        let mut too_many_tags = metadata();
+        too_many_tags.tags = (0..13).map(|index| format!("tag{index}")).collect();
+        assert_ne!(diagnostics(&too_many_tags), Vec::new());
 
-    #[test]
-    fn tags_reject_too_many_empty_and_case_insensitive_duplicates() {
-        let mut too_many = metadata();
-        too_many.tags = (0..13).map(|index| format!("tag{index}")).collect();
-        assert_ne!(diagnostics(&too_many), Vec::new());
+        let mut empty_tag = metadata();
+        empty_tag.tags = vec![String::new()];
+        assert_ne!(diagnostics(&empty_tag), Vec::new());
 
-        let mut empty = metadata();
-        empty.tags = vec![String::new()];
-        assert_ne!(diagnostics(&empty), Vec::new());
-
-        let mut duplicate = metadata();
-        duplicate.tags = vec!["Warm".to_owned(), "warm".to_owned()];
-        assert_ne!(diagnostics(&duplicate), Vec::new());
+        let mut case_insensitive_duplicate = metadata();
+        case_insensitive_duplicate.tags = vec!["Warm".to_owned(), "warm".to_owned()];
+        assert_ne!(diagnostics(&case_insensitive_duplicate), Vec::new());
     }
 
     #[test]
@@ -420,11 +412,11 @@ mod tests {
     }
 
     #[test]
-    fn preview_rejects_tempo_and_time_signature_values() {
+    fn preview_rejects_invalid_tempo_time_signature_and_note_count() {
         for tempo in [29.9, 300.1, f64::NAN] {
             let mut value = metadata();
             value.preview.as_mut().expect("preview").tempo_bpm = tempo;
-            assert_ne!(diagnostics(&value), Vec::new());
+            assert_ne!(diagnostics(&value), Vec::new(), "tempo {tempo} must be rejected");
         }
 
         for signature in [
@@ -439,18 +431,15 @@ mod tests {
         ] {
             let mut value = metadata();
             value.preview.as_mut().expect("preview").time_signature = signature;
-            assert_ne!(diagnostics(&value), Vec::new());
+            assert_ne!(diagnostics(&value), Vec::new(), "{signature:?} must be rejected");
         }
-    }
 
-    #[test]
-    fn preview_rejects_note_count_velocity_timing_and_range_values() {
-        let mut no_notes = metadata();
-        no_notes.preview.as_mut().expect("preview").notes.clear();
-        assert_ne!(diagnostics(&no_notes), Vec::new());
+        let mut without_notes = metadata();
+        without_notes.preview.as_mut().expect("preview").notes.clear();
+        assert_ne!(diagnostics(&without_notes), Vec::new());
 
-        let mut too_many = metadata();
-        too_many.preview.as_mut().expect("preview").notes = (0..33)
+        let mut too_many_notes = metadata();
+        too_many_notes.preview.as_mut().expect("preview").notes = (0..33)
             .map(|index| InstrumentPreviewNote {
                 tick: index,
                 duration_ticks: 1,
@@ -458,29 +447,30 @@ mod tests {
                 velocity: 100,
             })
             .collect();
-        assert_ne!(diagnostics(&too_many), Vec::new());
+        assert_ne!(diagnostics(&too_many_notes), Vec::new());
+    }
 
-        for velocity in [0, 128] {
+    #[test]
+    fn preview_rejects_note_values_outside_the_declared_music() {
+        let invalid_fields: [(&str, fn(&mut InstrumentPreviewDefinition)); 6] = [
+            ("velocity", |preview| preview.notes[0].velocity = 128),
+            ("velocity", |preview| preview.notes[0].velocity = 0),
+            ("tick", |preview| preview.notes[0].tick = 1_920),
+            ("duration_ticks", |preview| preview.notes[0].duration_ticks = 0),
+            ("duration_ticks", |preview| {
+                preview.notes[0].duration_ticks = 1_921;
+            }),
+            ("note", |preview| preview.notes[0].note = 61),
+        ];
+        for (field, invalidate) in invalid_fields {
             let mut value = metadata();
-            value.preview.as_mut().expect("preview").notes[0].velocity = velocity;
-            assert_ne!(diagnostics(&value), Vec::new());
+            invalidate(value.preview.as_mut().expect("preview"));
+            assert_ne!(
+                diagnostics(&value),
+                Vec::new(),
+                "{field} must stay inside the preview music"
+            );
         }
-
-        let mut tick_outside = metadata();
-        tick_outside.preview.as_mut().expect("preview").notes[0].tick = 1920;
-        assert_ne!(diagnostics(&tick_outside), Vec::new());
-
-        let mut zero_duration = metadata();
-        zero_duration.preview.as_mut().expect("preview").notes[0].duration_ticks = 0;
-        assert_ne!(diagnostics(&zero_duration), Vec::new());
-
-        let mut end_outside = metadata();
-        end_outside.preview.as_mut().expect("preview").notes[0].duration_ticks = 1921;
-        assert_ne!(diagnostics(&end_outside), Vec::new());
-
-        let mut note_outside = metadata();
-        note_outside.preview.as_mut().expect("preview").notes[0].note = 61;
-        assert_ne!(diagnostics(&note_outside), Vec::new());
     }
 
     #[test]

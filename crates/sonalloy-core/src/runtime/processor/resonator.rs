@@ -213,22 +213,6 @@ mod tests {
     }
 
     #[test]
-    fn mix_zero_is_an_identity() {
-        let mut runtime = runtime();
-        let original = [0.1, -0.8, 0.4, 0.0, 0.7, -0.2];
-        let mut buffer = original;
-        runtime
-            .process_mono(span(440.0), span(0.5), span(0.35), span(0.0), &mut buffer)
-            .expect("resonator processes");
-        assert!(
-            buffer
-                .into_iter()
-                .zip(original)
-                .all(|(actual, expected)| (actual - expected).abs() < f32::EPSILON)
-        );
-    }
-
-    #[test]
     fn frequency_and_decay_change_the_impulse_response() {
         let low = impulse_response(220.0, 0.55);
         let high = impulse_response(440.0, 0.55);

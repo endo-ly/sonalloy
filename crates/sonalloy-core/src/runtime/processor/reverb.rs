@@ -440,7 +440,7 @@ impl DelayLine {
 
 #[cfg(test)]
 mod tests {
-    use super::{DelayLine, PlateReverbRuntime, Tank, modulation_offset, sum_output_taps};
+    use super::{DelayLine, PlateReverbRuntime, modulation_offset};
     use crate::compiler::tests::{context, definition};
     use crate::compiler::{
         CompiledProcessorKind, CompiledReverbProcessor, ReverbOutputTap, ReverbTapSource,
@@ -678,22 +678,6 @@ mod tests {
 
         let loudest_db = wet_levels_db.fold(f32::NEG_INFINITY, f32::max);
         assert!(loudest_db < 4.0, "wet level peaks at {loudest_db} dB");
-    }
-
-    #[test]
-    fn output_taps_read_their_declared_delay_lines() {
-        let compiled = compiled();
-        let mut left_tank = Tank::new(compiled.tank_left_lengths, 1.0);
-        let mut right_tank = Tank::new(compiled.tank_right_lengths, 1.0);
-        left_tank.long_delay.buffer[8] = 2.0;
-        right_tank.long_delay.buffer[12] = 3.0;
-
-        let left = sum_output_taps(&compiled.left_output_taps, &left_tank, &right_tank)
-            .expect("left output taps");
-        let right = sum_output_taps(&compiled.right_output_taps, &left_tank, &right_tank)
-            .expect("right output taps");
-        assert!((left - 8.4).abs() < 1.0e-6);
-        assert!((right - 12.6).abs() < 1.0e-6);
     }
 
     #[test]

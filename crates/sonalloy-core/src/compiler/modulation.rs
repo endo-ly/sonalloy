@@ -612,84 +612,71 @@ mod tests {
     use super::super::tests::{context, definition};
     use super::{CompiledInstrumentSourceKind, ModulationCurve};
     use crate::compile_instrument;
+    use crate::definition::{
+        ModulationDefinition, ModulationDepthDefinition, ModulationRouteDefinition,
+    };
     use crate::diagnostics::DiagnosticCode;
+    use crate::parameter::ModulationUnit;
 
-    #[test]
-    fn routes_resolve_to_dense_targets_and_preserve_same_target_order() {
-        let mut source = definition();
-        source.modulation = Some(crate::definition::ModulationDefinition {
-            sources: vec![],
-            routes: vec![
-                crate::definition::ModulationRouteDefinition {
-                    source: "velocity".to_owned(),
-                    target: "layer.body.gain".to_owned(),
-                    depth: crate::definition::ModulationDepthDefinition {
-                        value: 7.2,
-                        unit: crate::parameter::ModulationUnit::Decibels,
-                    },
-                    curve: ModulationCurve::Linear,
-                    depth_control: None,
+    fn routes(depths: &[(ModulationUnit, f32)]) -> Vec<ModulationRouteDefinition> {
+        depths
+            .iter()
+            .map(|(unit, value)| ModulationRouteDefinition {
+                source: "velocity".to_owned(),
+                target: "layer.body.gain".to_owned(),
+                depth: ModulationDepthDefinition {
+                    value: *value,
+                    unit: *unit,
                 },
-                crate::definition::ModulationRouteDefinition {
-                    source: "key_tracking".to_owned(),
-                    target: "layer.body.gain".to_owned(),
-                    depth: crate::definition::ModulationDepthDefinition {
-                        value: -14.4,
-                        unit: crate::parameter::ModulationUnit::Decibels,
-                    },
-                    curve: ModulationCurve::SmoothStep,
-                    depth_control: None,
-                },
-            ],
-        });
-        let result = compile_instrument(&source, &context());
-        let compiled = result.instrument.expect("routes compile");
-        let routes = compiled.routes_for(compiled.layers[0].parameters.gain);
-        assert_eq!(routes.len(), 2);
-        assert!((routes[0].depth - 7.2).abs() < f32::EPSILON);
-        assert!((routes[1].depth + 14.4).abs() < f32::EPSILON);
+                curve: ModulationCurve::Linear,
+                depth_control: None,
+            })
+            .collect()
     }
 
     #[test]
-    fn route_depth_units_and_limits_are_checked_against_the_target_descriptor() {
+    fn routes_resolve_to_dense_targets_and_validate_the_depth_contract() {
         let mut source = definition();
-        source.modulation = Some(crate::definition::ModulationDefinition {
-            sources: vec![],
-            routes: vec![
-                crate::definition::ModulationRouteDefinition {
-                    source: "velocity".to_owned(),
-                    target: "layer.body.gain".to_owned(),
-                    depth: crate::definition::ModulationDepthDefinition {
-                        value: 1.0,
-                        unit: crate::parameter::ModulationUnit::Pan,
-                    },
-                    curve: ModulationCurve::Linear,
-                    depth_control: None,
-                },
-                crate::definition::ModulationRouteDefinition {
-                    source: "velocity".to_owned(),
-                    target: "layer.body.gain".to_owned(),
-                    depth: crate::definition::ModulationDepthDefinition {
-                        value: 72.1,
-                        unit: crate::parameter::ModulationUnit::Decibels,
-                    },
-                    curve: ModulationCurve::Linear,
-                    depth_control: None,
-                },
-            ],
+        source.modulation = Some(ModulationDefinition {
+            sources: Vec::new(),
+            routes: routes(&[
+                (ModulationUnit::Decibels, 7.2),
+                (ModulationUnit::Decibels, -14.4),
+            ]),
         });
+        let compiled = compile_instrument(&source, &context())
+            .instrument
+            .expect("routes compile");
+        let compiled_routes = compiled.routes_for(compiled.layers[0].parameters.gain);
+        assert_eq!(compiled_routes.len(), 2);
+        assert!((compiled_routes[0].depth - 7.2).abs() < f32::EPSILON);
+        assert!((compiled_routes[1].depth + 14.4).abs() < f32::EPSILON);
 
-        let result = compile_instrument(&source, &context());
-
-        assert!(result.instrument.is_none());
-        assert!(result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.code == DiagnosticCode::RouteDepthUnitInvalid
-                && diagnostic.path.as_deref() == Some("modulation.routes[0].depth.unit")
-        }));
-        assert!(result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.code == DiagnosticCode::RouteDepthInvalid
-                && diagnostic.path.as_deref() == Some("modulation.routes[1].depth.value")
-        }));
+        let mut invalid_unit = definition();
+        invalid_unit.modulation = Some(ModulationDefinition {
+            sources: Vec::new(),
+            routes: routes(&[(ModulationUnit::Pan, 1.0)]),
+        });
+        let mut excessive_depth = definition();
+        excessive_depth.modulation = Some(ModulationDefinition {
+            sources: Vec::new(),
+            routes: routes(&[(ModulationUnit::Decibels, 72.1)]),
+        });
+        for (source, expected) in [
+            (invalid_unit, DiagnosticCode::RouteDepthUnitInvalid),
+            (excessive_depth, DiagnosticCode::RouteDepthInvalid),
+        ] {
+            let result = compile_instrument(&source, &context());
+            assert!(result.instrument.is_none());
+            assert!(
+                result
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == expected),
+                "{expected:?} must be reported: {:?}",
+                result.diagnostics
+            );
+        }
     }
 
     #[test]

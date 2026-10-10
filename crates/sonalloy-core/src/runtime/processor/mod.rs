@@ -1201,3 +1201,124 @@ fn process_filter(
 fn same_value(left: f32, right: f32) -> bool {
     left.total_cmp(&right).is_eq()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        BitcrusherRuntime, CompressorRuntime, DriveRuntime, EqRuntime, ExternalAudioBlock,
+        GeneratorOutputMode, ResonatorRuntime, ValueSpan,
+    };
+    use crate::compiler::{
+        CompiledCompressorParameters, CompiledCompressorProcessor, CompiledDynamicsDetector,
+        CompiledEqParameters, CompiledEqProcessor, CompiledResonatorParameters,
+        CompiledResonatorProcessor,
+    };
+    use crate::parameter::ParameterHandle;
+
+    fn span(value: f32) -> ValueSpan {
+        ValueSpan::linear(value, value)
+    }
+
+    /// Each processor driven with its neutral setting must pass audio through unchanged.
+    #[test]
+    fn neutral_processor_settings_pass_audio_through_unchanged() {
+        let original = [0.1_f32, -0.8, 0.4, 0.0, 0.7, -0.2];
+        let neutral: &[(&str, fn(&mut [f32], &mut [f32]))] = &[
+            ("bitcrusher", |left, right| {
+                let mut runtime = BitcrusherRuntime::new(GeneratorOutputMode::Mono);
+                for buffer in [left, right] {
+                    runtime
+                        .process_mono(span(4.0), span(0.25), span(0.0), buffer)
+                        .expect("bitcrusher processes");
+                }
+            }),
+            ("drive", |left, right| {
+                for buffer in [left, right] {
+                    DriveRuntime::process_mono(span(0.0), span(1.0), buffer)
+                        .expect("drive processes");
+                }
+            }),
+            ("resonator", |left, right| {
+                let mut runtime = ResonatorRuntime::new(
+                    &CompiledResonatorProcessor {
+                        parameters: CompiledResonatorParameters {
+                            frequency_hz: ParameterHandle::new(0),
+                            decay_seconds: ParameterHandle::new(1),
+                            damping: ParameterHandle::new(2),
+                            mix: ParameterHandle::new(3),
+                        },
+                        max_delay_frames: 48_000,
+                        sample_rate: 48_000.0,
+                    },
+                    GeneratorOutputMode::Mono,
+                );
+                for buffer in [left, right] {
+                    runtime
+                        .process_mono(span(440.0), span(0.5), span(0.35), span(0.0), buffer)
+                        .expect("resonator processes");
+                }
+            }),
+            ("eq", |left, right| {
+                let compiled = CompiledEqProcessor {
+                    low_frequency_hz: 100.0,
+                    mid_frequency_hz: 1_000.0,
+                    mid_q: 1.0,
+                    high_frequency_hz: 8_000.0,
+                    parameters: CompiledEqParameters {
+                        low_gain_db: ParameterHandle::new(0),
+                        mid_gain_db: ParameterHandle::new(1),
+                        high_gain_db: ParameterHandle::new(2),
+                    },
+                };
+                let mut runtime =
+                    EqRuntime::new(&compiled, 48_000.0, GeneratorOutputMode::Mono)
+                        .expect("EQ prepares");
+                for buffer in [left, right] {
+                    runtime
+                        .process_mono(span(0.0), span(0.0), span(0.0), buffer)
+                        .expect("EQ processes");
+                }
+            }),
+            ("compressor", |left, right| {
+                let mut runtime = CompressorRuntime::new(&CompiledCompressorProcessor {
+                    attack_coeff: 0.0,
+                    release_coeff: 0.0,
+                    knee_db: 0.0,
+                    detector: CompiledDynamicsDetector::SelfSignal,
+                    external_input_alignment_frames: 0,
+                    parameters: CompiledCompressorParameters {
+                        threshold_db: ParameterHandle::new(0),
+                        ratio: ParameterHandle::new(1),
+                        makeup_gain_db: ParameterHandle::new(2),
+                        mix: ParameterHandle::new(3),
+                    },
+                });
+                runtime
+                    .process(
+                        span(-18.0),
+                        span(1.0),
+                        span(0.0),
+                        span(1.0),
+                        ExternalAudioBlock::new(&[]),
+                        left,
+                        right,
+                    )
+                    .expect("compressor processes");
+            }),
+        ];
+
+        for (name, process) in neutral {
+            let mut left = original;
+            let mut right = original;
+            process(&mut left, &mut right);
+            for (channel, buffer) in [("left", &left), ("right", &right)] {
+                for (actual, expected) in buffer.iter().zip(original) {
+                    assert!(
+                        (actual - expected).abs() < 1.0e-6,
+                        "{name} changed the {channel} channel: {actual} != {expected}"
+                    );
+                }
+            }
+        }
+    }
+}
