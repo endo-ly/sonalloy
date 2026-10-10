@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::diagnostics::{Diagnostic, DiagnosticCode};
 use crate::parameter::is_component_id;
 
+mod assets;
 mod generator;
 mod metadata;
 mod modulation;

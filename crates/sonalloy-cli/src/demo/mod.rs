@@ -11,7 +11,10 @@ use crate::musical_time::musical_duration_seconds;
 use crate::output::CliFailure;
 use crate::pattern::{CompiledPattern, PatternDefinition, compile as compile_pattern};
 
+mod bundle;
 mod master;
+
+pub(crate) use bundle::{PackReport, RenderSettings, pack};
 
 pub(crate) use master::{
     FfmpegError, LoudnessMeasurement, MasterReport, encode_mp3, master, measure_loudness,

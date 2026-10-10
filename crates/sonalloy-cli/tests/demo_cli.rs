@@ -909,3 +909,463 @@ fn demo_audio_input_must_match_the_instrument_contract() {
             })
     );
 }
+
+fn read_json_file(path: &Path) -> Value {
+    let context = || format!("{}: JSON file", path.display());
+    let bytes = std::fs::read(path).unwrap_or_else(|error| panic!("{}: {error}", context()));
+    serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("{}: {error}", context()))
+}
+
+fn write_json_file(path: &Path, value: &impl serde::Serialize) {
+    std::fs::write(path, serde_json::to_vec_pretty(value).expect("JSON")).expect("write JSON");
+}
+
+fn pack_demo(input: &Path, output: &Path, with_render: bool) -> std::process::Output {
+    let mut command = Command::cargo_bin("sonalloy").expect("binary");
+    command
+        .args(["demo", "pack"])
+        .arg(input)
+        .arg("--output")
+        .arg(output)
+        .args(["--tail", "0", "--json"]);
+    if with_render {
+        command.arg("--with-render");
+    }
+    command.output().expect("pack starts")
+}
+
+fn bundle_file_paths(root: &Path, path: &Path, paths: &mut Vec<String>) {
+    for entry in std::fs::read_dir(path).unwrap() {
+        let entry = entry.unwrap();
+        assert!(!entry.file_type().unwrap().is_symlink());
+        if entry.file_type().unwrap().is_dir() {
+            bundle_file_paths(root, &entry.path(), paths);
+        } else {
+            let relative = entry
+                .path()
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            if relative != "bundle.json" {
+                paths.push(relative);
+            }
+        }
+    }
+}
+
+fn assert_bundle_manifest(root: &Path) -> Value {
+    use sha2::{Digest, Sha256};
+    use std::fmt::Write as _;
+    let manifest = read_json_file(&root.join("bundle.json"));
+    assert_eq!(manifest.as_object().unwrap().len(), 5);
+    assert_eq!(manifest["format_version"], 1);
+    assert_eq!(manifest["demo"], "demo.json");
+    assert_eq!(
+        manifest["render_settings"],
+        json!({"sample_rate": 48000, "block_size": 257, "tail_seconds": 0.0})
+    );
+    let files = manifest["files"].as_array().unwrap();
+    let paths = files
+        .iter()
+        .map(|file| file["path"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert!(paths.windows(2).all(|pair| pair[0] < pair[1]));
+    for file in files {
+        assert_eq!(file.as_object().unwrap().len(), 2);
+        let path = file["path"].as_str().unwrap();
+        assert!(!path.contains('\\'));
+        assert!(path.split('/').all(|part| !["", ".", ".."].contains(&part)));
+        let mut hash = String::new();
+        for byte in Sha256::digest(std::fs::read(root.join(path)).unwrap()) {
+            write!(hash, "{byte:02x}").unwrap();
+        }
+        assert_eq!(file["sha256"], hash);
+    }
+    let mut actual = Vec::new();
+    bundle_file_paths(root, root, &mut actual);
+    actual.sort();
+    assert_eq!(actual, paths);
+    manifest
+}
+
+#[test]
+fn demo_pack_preserves_performance_and_renders_after_source_is_moved() {
+    let fixture = demo_fixture();
+    let output_directory = tempfile::tempdir().unwrap();
+    let bundle = output_directory.path().join("bundle");
+    let mut pattern = read_json_file(&fixture.first_pattern);
+    pattern["tempo_changes"] = json!([{"tick":0,"bpm":120.0},{"tick":600,"bpm":90.0}]);
+    pattern["time_signature_changes"] = json!([{"tick":0,"numerator":4,"denominator":4},{"tick":600,"numerator":3,"denominator":4}]);
+    // Deliberately keep events in definition order rather than tick order.
+    pattern["events"] = json!([
+        {"type":"sustain_pedal","tick":200,"down":true},
+        {"type":"note","tick":0,"duration_ticks":480,"note":60,"velocity":100},
+        {"type":"pitch_bend","tick":10,"value":0.25},
+        {"type":"mod_wheel","tick":20,"value":0.4},
+        {"type":"aftertouch","tick":30,"value":0.5},
+        {"type":"parameter_change","tick":40,"parameter":"voice.processor.tone.cutoff","native_value":3000.0},
+        {"type":"sustain_pedal","tick":500,"down":false}
+    ]);
+    write_json_file(&fixture.first_pattern, &pattern);
+    let mut original = read_json_file(&fixture.demo);
+    original["mix"]["fade_out_seconds"] = json!(0.2);
+    write_json_file(&fixture.demo, &original);
+    let reference = output_directory.path().join("reference.wav");
+    let reference_stems = output_directory.path().join("reference-stems");
+    render_routed_demo(&fixture, &reference, &reference_stems);
+
+    let result = json_report(&pack_demo(&fixture.demo, &bundle, false));
+    let manifest = assert_bundle_manifest(&bundle);
+    let mut relocated = read_json_file(&bundle.join("demo.json"));
+    for (index, id) in ["first-part", "second.part"].iter().enumerate() {
+        assert!(bundle.join(format!("instruments/{id}/assets")).is_dir());
+        assert_eq!(
+            relocated["parts"][index]["instrument"],
+            format!("instruments/{id}/definition.json")
+        );
+        assert_eq!(
+            relocated["parts"][index]["pattern"],
+            format!("patterns/{id}.json")
+        );
+        relocated["parts"][index]["instrument"] = original["parts"][index]["instrument"].clone();
+        relocated["parts"][index]["pattern"] = original["parts"][index]["pattern"].clone();
+    }
+    assert_eq!(relocated, original);
+    assert_eq!(
+        read_json_file(&bundle.join("patterns/first-part.json")),
+        pattern
+    );
+    assert_eq!(result["command"], "demo pack");
+    assert_eq!(result["part_count"], 2);
+    assert_eq!(
+        result["file_count"],
+        manifest["files"].as_array().unwrap().len()
+    );
+    assert_eq!(result["render_included"], false);
+    assert!(result["diagnostics"].is_array());
+    assert!(manifest["render"].is_null());
+    assert!(!bundle.join("render").exists());
+    std::fs::rename(
+        fixture.demo.parent().unwrap(),
+        fixture.demo.parent().unwrap().with_file_name("moved-song"),
+    )
+    .unwrap();
+    Command::cargo_bin("sonalloy")
+        .unwrap()
+        .args(["demo", "validate"])
+        .arg(bundle.join("demo.json"))
+        .assert()
+        .success();
+    let rerender = output_directory.path().join("rerender.wav");
+    Command::cargo_bin("sonalloy")
+        .unwrap()
+        .args(["render", "demo"])
+        .arg(bundle.join("demo.json"))
+        .args(["--tail", "0", "--output"])
+        .arg(&rerender)
+        .assert()
+        .success();
+    assert_wav_matches(&rerender, &reference);
+}
+
+#[test]
+fn demo_pack_includes_all_stems_and_preserves_external_audio_and_mastering() {
+    for mastered in [false, true] {
+        if mastered
+            && !ProcessCommand::new("ffmpeg")
+                .arg("-version")
+                .output()
+                .is_ok_and(|output| output.status.success())
+        {
+            continue;
+        }
+        let fixture = demo_fixture();
+        configure_routed_demo(&fixture);
+        let mut definition = read_json_file(&fixture.demo);
+        definition["mix"]["fade_out_seconds"] = json!(0.1);
+        if mastered {
+            definition["mix"]["master"] =
+                json!({"integrated_lufs":-16.0,"true_peak_db":-1.0,"loudness_range_lu":11.0});
+        }
+        write_json_file(&fixture.demo, &definition);
+        let directory = tempfile::tempdir().unwrap();
+        let reference = directory.path().join("reference.wav");
+        let reference_stems = directory.path().join("reference-stems");
+        render_routed_demo(&fixture, &reference, &reference_stems);
+        let bundle = directory.path().join("bundle");
+
+        let result = json_report(&pack_demo(&fixture.demo, &bundle, true));
+
+        let manifest = assert_bundle_manifest(&bundle);
+        assert_eq!(result["render_included"], true);
+        assert_eq!(manifest["render"]["mix"], "render/mix.wav");
+        assert_eq!(manifest["render"]["stems"].as_object().unwrap().len(), 3);
+        assert_wav_matches(&bundle.join("render/mix.wav"), &reference);
+        let relocated = read_json_file(&bundle.join("demo.json"));
+        for (index, id) in ["lead", "bass", "first-part"].iter().enumerate() {
+            assert_eq!(
+                relocated["parts"][index]["audio_input"],
+                definition["parts"][index]["audio_input"]
+            );
+            assert_eq!(
+                manifest["render"]["stems"][id],
+                format!("render/stems/{id}.wav")
+            );
+            assert_wav_matches(
+                &bundle.join(format!("render/stems/{id}.wav")),
+                &reference_stems.join(format!("{id}.wav")),
+            );
+        }
+        assert_eq!(relocated["mix"], definition["mix"]);
+    }
+}
+
+fn bundled_asset_instrument(
+    fixture: &DemoFixture,
+) -> sonalloy_core::definition::InstrumentDefinition {
+    use sonalloy_core::definition::{
+        AssetReference, ConvolutionProcessorDefinition, GeneratorDefinition, InstrumentDefinition,
+        ProcessorDefinition,
+    };
+    let mut instrument: InstrumentDefinition = serde_json::from_value(read_json_file(
+        &fixture_path("instruments/mapped-sample-instrument.json"),
+    ))
+    .unwrap();
+    let sample = fixture.demo.parent().unwrap().join("sample.wav");
+    let source_sample = sample.with_file_name("source-sample.wav");
+    std::fs::copy(fixture_path("assets/metal-hit.wav"), &source_sample).unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&source_sample, &sample).unwrap();
+    #[cfg(windows)]
+    std::fs::copy(&source_sample, &sample).unwrap();
+    instrument
+        .try_for_each_asset_mut(|_, reference| {
+            reference.path = sample.to_string_lossy().into_owned();
+            Ok::<_, ()>(())
+        })
+        .unwrap();
+    for relative in [
+        "presets/PAD/008-granular-texture-pad/definition.json",
+        "presets/SEQ/001-rhythmic-wave-sequence/definition.json",
+        "presets/PAD/005-wavetable-motion-pad/definition.json",
+        "testdata/instruments/spectral-generator-reference.json",
+    ] {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(relative);
+        let mut extra: InstrumentDefinition =
+            serde_json::from_value(read_json_file(&source)).unwrap();
+        extra
+            .try_for_each_asset_mut(|_, reference| {
+                reference.path = source
+                    .parent()
+                    .unwrap()
+                    .join(&reference.path)
+                    .to_string_lossy()
+                    .into_owned();
+                Ok::<_, ()>(())
+            })
+            .unwrap();
+        let mut layer = extra
+            .layers
+            .into_iter()
+            .find(|layer| {
+                matches!(
+                    layer.generator,
+                    GeneratorDefinition::Granular(_)
+                        | GeneratorDefinition::WaveSequence(_)
+                        | GeneratorDefinition::Wavetable(_)
+                        | GeneratorDefinition::Spectral(_)
+                )
+            })
+            .unwrap();
+        layer.enabled = false;
+        instrument.layers.push(layer);
+    }
+    // The convolution IR reaches the very same bytes through a second path, so both
+    // references must collapse onto a single stored asset.
+    instrument
+        .global_processors
+        .push(ProcessorDefinition::Convolution(
+            ConvolutionProcessorDefinition {
+                id: "room".to_owned(),
+                ir: AssetReference {
+                    path: source_sample.to_string_lossy().into_owned(),
+                    sha256: None,
+                },
+                gain_db: -12.0,
+                mix: 0.1,
+            },
+        ));
+    instrument
+}
+
+#[test]
+fn demo_pack_copies_every_asset_kind_and_deduplicates_content_per_instrument() {
+    use sonalloy_core::definition::InstrumentDefinition;
+    let fixture = demo_fixture();
+    let instrument_path = fixture
+        .demo
+        .parent()
+        .unwrap()
+        .join("instruments/first.json");
+    let mut instrument = bundled_asset_instrument(&fixture);
+    let mut reference_count = 0;
+    instrument
+        .try_for_each_asset_mut(|_, _| {
+            reference_count += 1;
+            Ok::<_, ()>(())
+        })
+        .unwrap();
+    assert!(reference_count >= 11);
+    write_json_file(&instrument_path, &instrument);
+    let directory = tempfile::tempdir().unwrap();
+    let bundle = directory.path().join("bundle");
+
+    json_report(&pack_demo(&fixture.demo, &bundle, false));
+
+    let manifest = assert_bundle_manifest(&bundle);
+    let packed_path = bundle.join("instruments/first-part/definition.json");
+    let mut packed: InstrumentDefinition =
+        serde_json::from_value(read_json_file(&packed_path)).unwrap();
+    let mut hashes = std::collections::HashSet::new();
+    let mut actual_count = 0;
+    packed
+        .try_for_each_asset_mut(|_, reference| {
+            actual_count += 1;
+            let hash = reference.sha256.as_ref().unwrap();
+            hashes.insert(hash.clone());
+            assert_eq!(reference.path, format!("assets/{hash}.wav"));
+            let relative = format!("instruments/first-part/{}", reference.path);
+            assert!(
+                manifest["files"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|file| file["path"] == relative && file["sha256"] == *hash)
+            );
+            Ok::<_, ()>(())
+        })
+        .unwrap();
+    assert_eq!(actual_count, reference_count);
+    assert_eq!(
+        std::fs::read_dir(packed_path.parent().unwrap().join("assets"))
+            .unwrap()
+            .count(),
+        hashes.len()
+    );
+    assert!(hashes.len() < reference_count);
+    std::fs::remove_dir_all(fixture.demo.parent().unwrap()).unwrap();
+    Command::cargo_bin("sonalloy")
+        .unwrap()
+        .args(["demo", "validate"])
+        .arg(bundle.join("demo.json"))
+        .assert()
+        .success();
+    Command::cargo_bin("sonalloy")
+        .unwrap()
+        .args(["render", "demo"])
+        .arg(bundle.join("demo.json"))
+        .args(["--tail", "0", "--output"])
+        .arg(directory.path().join("mix.wav"))
+        .assert()
+        .success();
+}
+
+#[test]
+fn demo_pack_rejects_invalid_inputs_and_existing_outputs_without_residue() {
+    for case in [
+        "missing-pattern",
+        "missing-asset",
+        "hash",
+        "part-id",
+        "existing-file",
+        "existing-directory",
+        "render",
+    ] {
+        let fixture = demo_fixture();
+        let directory = tempfile::tempdir().unwrap();
+        let bundle = directory.path().join("bundle");
+        let instrument = fixture
+            .demo
+            .parent()
+            .unwrap()
+            .join("instruments/first.json");
+        let expected_code = match case {
+            "missing-pattern" => {
+                std::fs::remove_file(&fixture.first_pattern).unwrap();
+                "DEFINITION_ERROR"
+            }
+            "missing-asset" | "hash" => {
+                let mut definition =
+                    read_json_file(&fixture_path("instruments/mapped-sample-instrument.json"));
+                for zone in definition["layers"][0]["generator"]["sample"]["zones"]
+                    .as_array_mut()
+                    .unwrap()
+                {
+                    zone["asset"]["path"] = fixture_path("assets/metal-hit.wav")
+                        .to_string_lossy()
+                        .into_owned()
+                        .into();
+                    if case == "missing-asset" {
+                        zone["asset"]["path"] = json!("absent.wav");
+                    } else {
+                        zone["asset"]["sha256"] = json!("0".repeat(64));
+                    }
+                }
+                write_json_file(&instrument, &definition);
+                if case == "hash" {
+                    "ASSET_HASH_MISMATCH"
+                } else {
+                    "ASSET_NOT_FOUND"
+                }
+            }
+            "part-id" => {
+                let mut demo = read_json_file(&fixture.demo);
+                demo["parts"][0]["id"] = json!("first.part.");
+                write_json_file(&fixture.demo, &demo);
+                "VALUE_OUT_OF_RANGE"
+            }
+            "existing-file" => {
+                std::fs::write(&bundle, b"keep").unwrap();
+                "BUNDLE_OUTPUT_EXISTS"
+            }
+            "existing-directory" => {
+                std::fs::create_dir(&bundle).unwrap();
+                "BUNDLE_OUTPUT_EXISTS"
+            }
+            "render" => {
+                let mut demo = read_json_file(&fixture.demo);
+                demo["mix"]["fade_out_seconds"] = json!(100.0);
+                write_json_file(&fixture.demo, &demo);
+                "RENDER_ERROR"
+            }
+            _ => unreachable!(),
+        };
+        let before = std::fs::read(&fixture.demo).unwrap();
+
+        let output = pack_demo(&fixture.demo, &bundle, case == "render");
+
+        assert!(!output.status.success(), "{case}");
+        let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert!(
+            report["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == expected_code),
+            "{case}: {report}"
+        );
+        assert_eq!(std::fs::read(&fixture.demo).unwrap(), before);
+        if case.starts_with("existing") {
+            if case == "existing-file" {
+                assert_eq!(std::fs::read(&bundle).unwrap(), b"keep");
+            }
+            assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+        } else {
+            assert!(!bundle.exists());
+            assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+        }
+    }
+}

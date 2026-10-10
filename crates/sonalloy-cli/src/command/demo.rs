@@ -36,6 +36,11 @@ pub(super) enum DemoCommand {
         long_about = "Write a Type 1 Standard MIDI File with a Conductor Track for the Demo name, tempo, and time signature, plus one Track per Part for its ID, channel, notes, sustain, pitch bend, mod wheel, and aftertouch. Parameter Change events, overlapping notes with the same pitch, or Parts without an available MIDI channel cause export to fail. An existing destination is overwritten."
     )]
     ExportMidi(DemoExportMidiArgs),
+    /// Export a self-contained Demo Bundle.
+    #[command(
+        long_about = "Package a Demo with its Patterns, Instrument Definitions, and assets. Use --with-render to include the final mix and all Part stems."
+    )]
+    Pack(DemoPackArgs),
 }
 
 #[derive(Debug, Args)]
@@ -66,6 +71,7 @@ pub(super) fn run(command: DemoCommand) -> ExitCode {
         DemoCommand::Validate(args) => run_validate(&args),
         DemoCommand::Inspect(args) => run_inspect(&args),
         DemoCommand::ExportMidi(args) => run_export_midi(&args),
+        DemoCommand::Pack(args) => run_pack(&args),
     }
 }
 
@@ -210,4 +216,52 @@ struct DemoExportReport {
     output: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Args)]
+pub(super) struct DemoPackArgs {
+    /// Source Demo JSON path.
+    #[arg(value_name = "DEMO")]
+    demo: PathBuf,
+    /// New Bundle directory; existing paths are rejected.
+    #[arg(long, value_name = "DIRECTORY")]
+    output: PathBuf,
+    /// Include the final Mix and every Part Stem.
+    #[arg(long)]
+    with_render: bool,
+    /// Render sample rate in Hz; recorded even without WAVs.
+    #[arg(long, value_name = "HZ", default_value_t = super::DEFAULT_SAMPLE_RATE, value_parser = clap::value_parser!(u32).range(1..))]
+    sample_rate: u32,
+    /// Maximum process block size in frames.
+    #[arg(long, value_name = "FRAMES", default_value_t = super::DEFAULT_BLOCK_SIZE, value_parser = super::parse_positive_usize)]
+    block_size: usize,
+    /// Additional tail in seconds (finite and non-negative).
+    #[arg(long, value_name = "SECONDS", default_value_t = 1.0, value_parser = super::parse_nonnegative_f64)]
+    tail: f64,
+    /// Emit machine-readable results and structured diagnostics.
+    #[arg(long)]
+    json: bool,
+}
+
+fn run_pack(args: &DemoPackArgs) -> ExitCode {
+    let settings = demo::RenderSettings {
+        sample_rate: args.sample_rate,
+        block_size: args.block_size,
+        tail_seconds: args.tail,
+    };
+    let report: demo::PackReport =
+        match demo::pack(&args.demo, &args.output, settings, args.with_render) {
+            Ok(report) => report,
+            Err(failure) => return finish_failure(args.json, failure),
+        };
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string(&report).expect("bundle report is serializable")
+        );
+    } else {
+        println!("created {}", args.output.display());
+        print_warnings(&report.diagnostics);
+    }
+    ExitCode::SUCCESS
 }
