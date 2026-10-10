@@ -1238,8 +1238,9 @@ fn demo_premaster_source(
     Ok((None, Some(path.clone())))
 }
 
-/// Master the premaster WAV into the rendered output, or write the mix directly
-/// when the Demo configures no mastering.
+/// Master the premaster WAV into the pending output, or write the mix directly
+/// when the Demo configures no mastering. Both paths fill the pending name, so
+/// the caller still publishes the final WAV only after every later step.
 fn render_demo_master(
     args: &RenderDemoArgs,
     master: Option<&demo::DemoMaster>,
@@ -1345,34 +1346,24 @@ fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFai
     } else {
         None
     };
-    // Mastering publishes its verified WAV by itself, so the final output is only
-    // staged under a pending name when no mastering will replace it.
-    let pending = if demo.definition.mix.master.is_none() {
-        Some(crate::output::pending_wav(&args.output)?)
-    } else {
-        None
-    };
-    let output_wav: &Path = match &pending {
-        Some(pending) => pending.as_ref(),
-        None => args.output.as_path(),
-    };
+    // The final WAV stays under a pending name until analysis and MP3 succeed, so a
+    // failure never replaces an already published output.
+    let pending = crate::output::pending_wav(&args.output)?;
     let master_report = render_demo_master(
         args,
         demo.definition.mix.master.as_ref(),
         premaster_path.as_deref(),
-        output_wav,
+        &pending,
         &mix_audio,
     )?;
 
     let measurements = measure_demo_output(
         args,
-        output_wav,
+        &pending,
         master_report.as_ref(),
         mix_loudness.as_ref(),
     )?;
-    if let Some(pending) = pending {
-        crate::output::commit_wav(pending, &args.output)?;
-    }
+    crate::output::commit_wav(pending, &args.output)?;
     let report = DemoRenderReport {
         status: "ok",
         sample_rate: mix_audio.sample_rate,

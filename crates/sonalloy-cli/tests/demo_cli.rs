@@ -533,6 +533,55 @@ fn render_demo_measures_mp3_without_mastering() {
     assert!(report["mp3_measurement"]["loudness_range_lu"].is_null());
 }
 
+#[test]
+fn render_demo_keeps_the_published_output_when_a_later_step_fails() {
+    if ProcessCommand::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .is_err()
+    {
+        return;
+    }
+    for mastered in [false, true] {
+        let fixture = demo_fixture();
+        let mut definition = read_json_file(&fixture.demo);
+        if mastered {
+            definition["mix"]["master"] = json!({"integrated_lufs":-16.0,"true_peak_db":-1.0});
+        }
+        write_json_file(&fixture.demo, &definition);
+
+        let output = fixture.demo.with_file_name("published.wav");
+        // A previously published output that a failed run must leave untouched.
+        std::fs::write(&output, b"published").expect("existing output");
+        let mp3 = fixture.demo.with_file_name("mp3-target");
+        std::fs::create_dir(&mp3).expect("MP3 target directory");
+
+        let result = Command::cargo_bin("sonalloy")
+            .expect("binary")
+            .args([
+                "render",
+                "demo",
+                fixture.demo.to_str().expect("Demo path"),
+                "--tail",
+                "0",
+                "--output",
+                output.to_str().expect("WAV output"),
+                "--mp3-output",
+                mp3.to_str().expect("MP3 output"),
+                "--json",
+            ])
+            .output()
+            .expect("Demo render starts");
+
+        assert!(!result.status.success(), "mastered={mastered}");
+        assert_eq!(
+            std::fs::read(&output).expect("published output"),
+            b"published",
+            "mastered={mastered}"
+        );
+    }
+}
+
 fn ffmpeg_true_peak(path: &Path) -> f64 {
     let output = ProcessCommand::new("ffmpeg")
         .args([
