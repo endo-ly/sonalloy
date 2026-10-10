@@ -59,9 +59,12 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 | コンパイル後の実行値を確認する | `sonalloy instrument inspect <definition>` |
 | 1音 / Event列 / MIDI / Patternをレンダリングする | `sonalloy render note` / `events` / `midi` / `pattern` |
 | 複数音源をまとめて確認する | `sonalloy demo validate <demo>` → `sonalloy render demo <demo> --output <wav>` |
+| Demoを音源アセットごと持ち出す | `sonalloy demo pack <demo> --output <directory> [--with-render]` |
 | 演奏パターンを試聴する（MIDI Keyboard不要） | `sonalloy pattern init` → `sonalloy audition pattern` |
 | MIDI Keyboardで演奏する | `sonalloy device list` → `sonalloy play` |
 | インストールしたCLIをアップデートする | `sonalloy update` |
+
+`demo pack`で生成したBundleの`demo.json`は、そのまま検証・Renderできます。`--with-render`を指定すると完成Mixと全Part Stemも同梱します。配置とManifestの仕様は[Demo Bundle](.agents/skills/create-instrument/references/demos.md#bundle-format-v1)を参照してください。
 
 全コマンドのOptionと出力の詳細は[CLIリファレンス](.agents/skills/create-instrument/references/cli.md)を参照してください。
 

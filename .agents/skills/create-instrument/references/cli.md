@@ -16,6 +16,7 @@ Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み
 | `pattern export-midi` | PatternをSingle Track MIDIへ変換する |
 | `demo validate` | 複数InstrumentとPatternからなるDemoを検証する |
 | `demo inspect` | Demoの時間軸、Part、Mix設定を表示する |
+| `demo pack` | Demoと参照先を自己完結Bundleへまとめる |
 | `demo export-midi` | DemoをType 1 Multi-track MIDIへ変換する |
 | `render note` | 1音をレンダリングする |
 | `render events` | Event Sequenceをレンダリングする |
@@ -182,6 +183,30 @@ sonalloy demo export-midi demo.json --output demo.mid --json
 ```
 
 DemoをType 1 MIDIへ変換します。時間軸、Trackの内容、MIDIへ変換できないEventの扱いは[Demo仕様](demos.md)に従います。既存のOutput Pathは上書きします。
+
+### `demo pack` — 自己完結Bundleの生成
+
+楽曲データと音源アセットをまとめ、別の場所へ移動しても検証・RenderできるBundleを生成します。配置とManifestの契約は[Bundle Format v1](demos.md#bundle-format-v1)を参照してください。
+
+```bash
+sonalloy demo pack demo.json --output song-bundle --json
+sonalloy demo pack demo.json --output rendered-bundle --with-render \
+  --sample-rate 48000 --block-size 257 --tail 1.0 --json
+```
+
+| 引数・Option | Default | 内容 |
+|---|---:|---|
+| `<DEMO>` | — | 入力Demo JSON（必須） |
+| `--output <DIRECTORY>` | — | 新規Bundleディレクトリ（必須）。既存のファイル・ディレクトリ・Symbolic Linkは拒否 |
+| `--with-render` | false | 完成Mixと全Part Stemを同梱 |
+| `--sample-rate <HZ>` | 48000 | 正の整数。全InstrumentのCompile・Renderで共有 |
+| `--block-size <FRAMES>` | 257 | 正の整数。Process Blockの最大Frames |
+| `--tail <SECONDS>` | 1.0 | 有限数かつ0以上。各Partへ加える余韻の秒数 |
+| `--json` | false | 構造化Reportと診断を出力 |
+
+WAV同梱の有無にかかわらず、指定条件で再配置後のInstrumentとPatternをCompileし、Render SettingsをManifestへ保存します。`--with-render`がなければ音声RenderとFFmpeg処理は実行しません。
+
+成功Reportは`status: "ok"`、`command: "demo pack"`、`output`、`format_version: 1`、`part_count`、`file_count`、`render_included`、`diagnostics`を含みます。`file_count`はManifestの`files`件数であり、`bundle.json`を含みません。失敗時は共通のDiagnostic形式を使います。既存出力先は`BUNDLE_OUTPUT_EXISTS`、アセット欠落は`ASSET_NOT_FOUND`、Hash不一致は`ASSET_HASH_MISMATCH`、Render失敗は`RENDER_ERROR`として区別します。
 
 ### `render demo` — DemoのOffline Render
 
@@ -552,7 +577,8 @@ Clapによるコマンドラインの構文・値エラーは標準エラーへ�
 | Modulation Source / Route | `SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_DEPTH_INVALID`、`ROUTE_DEPTH_UNIT_INVALID`、`ROUTE_TARGET_INVALID` |
 | Event File | `EVENT_ORDER_INVALID` |
 | Trace | `TRACE_LIMIT_EXCEEDED` |
-| Asset | `ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED` |
+| Bundle | `BUNDLE_OUTPUT_EXISTS` |
+| Asset | `ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`ASSET_HASH_MISSING`、`ASSET_ABSOLUTE_PATH` |
 | 外部Audio入力 | `AUDIO_INPUT_REQUIRED` |
 | 実行と書き出し | `PROCESS_ERROR`、`DSP_ERROR`、`RENDER_ERROR`、`WAV_OUTPUT_ERROR`、`MIDI_ERROR` |
 | Realtime I/O | `AUDIO_DEVICE_ERROR` |

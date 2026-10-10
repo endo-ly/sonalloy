@@ -135,6 +135,44 @@ Reportの`master`には`target`、`input`、`output`、`deviation`、`input_gain
 
 MP3はMaster済みWAVがあればそこから、なければ通常のMixから生成し、`libmp3lame`、`256k`固定です。生成後のMP3を再測定し、Integrated LUFS、True Peak、LRAを`mp3_measurement`へ記録します。MP3の値はCodec変換後の測定であり、Master済みWAVのTrue Peak保証には含まれません。
 
+## Bundle Format v1
+
+`demo pack`は、Demoと参照先を1つのディレクトリへまとめます。制作ディレクトリを移動・削除したあとも、Bundle内の`demo.json`を既存の`demo validate`と`render demo`へ直接渡せます。編集可能な楽曲データはDemo、Pattern、Instrument Definitionと音源アセットにあり、同梱WAVは参照音声として利用します。
+
+```bash
+sonalloy demo pack demo.json --output song-bundle --with-render
+sonalloy demo validate song-bundle/demo.json
+sonalloy render demo song-bundle/demo.json --output replay.wav
+```
+
+Bundle内の配置はPart IDで決まります。同じInstrumentやPatternを複数Partが使う場合も、各Partへ個別に配置します。
+
+| 相対パス | 内容 |
+|---|---|
+| `bundle.json` | Version、配置、完全性を表すManifest |
+| `demo.json` | 既存Demo Schema v1の楽曲定義 |
+| `patterns/<part-id>.json` | 既存Pattern Schema v1の演奏データ |
+| `instruments/<part-id>/definition.json` | Instrument Definition |
+| `instruments/<part-id>/assets/<sha256>.<拡張子>` | Instrumentの参照アセット |
+| `render/mix.wav` | `--with-render`指定時の完成Mix |
+| `render/stems/<part-id>.wav` | `--with-render`指定時の全Part Stem |
+
+Part順序、ID、Gain、MIDI Channel指定とその省略、External Audio接続、Fade、Master設定は保持します。Patternの時間軸と全イベントは元の定義順で保存します。Instrumentが参照する全アセットをコピーし、参照をDefinitionからの相対パスへ変更して実ファイルのSHA-256を設定します。同じInstrument内の同一内容はHashで1ファイルへ集約し、元の拡張子を小文字で保持します。入力のSymbolic Linkは実ファイルとしてコピーします。
+
+Manifestのトップレベルは次の5項目に固定します。`format_version`はDemo・Pattern・InstrumentのSchema Versionから独立しています。
+
+| Field | 値・内容 |
+|---|---|
+| `format_version` | 整数`1` |
+| `demo` | `"demo.json"` |
+| `render_settings` | `sample_rate`（正の整数、Hz）、`block_size`（正の整数、Frames）、`tail_seconds`（有限数かつ0以上、秒） |
+| `render` | WAV同梱時は`mix: "render/mix.wav"`と、Part IDをキー、`render/stems/<part-id>.wav`を値とする`stems`オブジェクト。同梱しない場合は`null` |
+| `files` | `path`と`sha256`を持つオブジェクトの配列。`bundle.json`自身を除く全ファイルをちょうど1回ずつ、パス文字列の昇順で記録 |
+
+`files[].sha256`はファイル内容のSHA-256を小文字64桁の16進数で表します。ManifestのパスはBundleルートから、Demoの参照はDemo JSONから、アセットの参照はInstrument Definitionから解決します。すべて`/`区切りの相対パスで、絶対パス、`..`、空要素、`.`、バックスラッシュ、Bundle外への参照を許しません。ファイル配置は大文字小文字を区別しない環境でも衝突せず、Bundle内にSymbolic Linkを含めません。
+
+Render SettingsはWAVを同梱しない場合も再現条件として記録します。`--with-render`指定時はBundle内Demoから、上記のAudio・Stem・Masterと同じ処理でMixと全Stemを生成します。出力先は新規ディレクトリに限ります。親ディレクトリの一時領域で配置・再検証・必要なRender・Manifest照合を完了してから出力を確定し、失敗時は一時領域を削除します。
+
 ## 操作の流れ
 
 ```bash

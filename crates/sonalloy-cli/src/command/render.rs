@@ -1089,63 +1089,55 @@ fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
     write_offline_render_result(common, &compiled, diagnostics, &audio, trace, None, None)
 }
 
-#[allow(clippy::too_many_lines)]
-fn run_render_demo(args: &RenderDemoArgs) -> ExitCode {
-    let mut output_paths = Vec::new();
-    for path in std::iter::once(&args.output)
-        .chain(args.premaster_output.iter())
-        .chain(args.mp3_output.iter())
-    {
-        let identity = match crate::output::output_identity(path) {
-            Ok(path) => path,
-            Err(failure) => return finish_failure(args.json, failure),
-        };
-        if output_paths.contains(&identity) {
-            return finish_failure(
-                args.json,
-                CliFailure {
-                    code: 2,
-                    diagnostics: vec![Diagnostic::error(
-                        DiagnosticCode::WavOutputError,
-                        "final, premaster and MP3 output paths must be different",
-                    )],
-                },
-            );
-        }
-        output_paths.push(identity);
-    }
+pub(crate) fn render_bundle_demo(
+    demo: PathBuf,
+    output: PathBuf,
+    stems_dir: PathBuf,
+    sample_rate: u32,
+    block_size: usize,
+    tail: f64,
+) -> Result<(), CliFailure> {
+    execute_render_demo(&RenderDemoArgs {
+        demo,
+        output,
+        stems_dir: Some(stems_dir),
+        sample_rate,
+        block_size,
+        tail,
+        premaster_output: None,
+        mp3_output: None,
+        analyze: false,
+        json: false,
+    })
+    .map(|_| ())
+}
+
+fn render_demo_mix(
+    demo: &demo::LoadedDemo,
+    args: &RenderDemoArgs,
+    tail_frames: u64,
+) -> Result<(sonalloy_core::RenderedAudio, Vec<DemoPartRenderReport>), CliFailure> {
     let sample_rate = f64::from(args.sample_rate);
-    let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
-        Ok(frames) => frames,
-        Err(error) => return finish_failure(args.json, input_failure(&error)),
-    };
-    let demo = match demo::load(&args.demo, args.sample_rate, args.block_size) {
-        Ok(demo) => demo,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
     if let Some(stems_dir) = &args.stems_dir
         && let Err(error) = std::fs::create_dir_all(stems_dir)
     {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 4,
-                diagnostics: vec![
-                    Diagnostic::error(
-                        DiagnosticCode::WavOutputError,
-                        "could not create stems directory",
-                    )
-                    .with_path(stems_dir.to_string_lossy())
-                    .with_detail(error.to_string()),
-                ],
-            },
-        );
+        return Err(CliFailure {
+            code: 4,
+            diagnostics: vec![
+                Diagnostic::error(
+                    DiagnosticCode::WavOutputError,
+                    "could not create stems directory",
+                )
+                .with_path(stems_dir.to_string_lossy())
+                .with_detail(error.to_string()),
+            ],
+        });
     }
 
     let mut mix = StereoMix::new(args.sample_rate);
     let mut part_reports = Vec::with_capacity(demo.parts.len());
-    if let Err(failure) = render_demo_parts(
-        &demo,
+    render_demo_parts(
+        demo,
         sample_rate,
         args.block_size,
         tail_frames,
@@ -1178,155 +1170,208 @@ fn run_render_demo(args: &RenderDemoArgs) -> ExitCode {
             });
             Ok(())
         },
-    ) {
-        return finish_failure(args.json, failure);
-    }
+    )?;
     if let Err(error) = mix.apply_fade(demo.definition.mix.fade_out_seconds) {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 3,
-                diagnostics: vec![
-                    Diagnostic::error(DiagnosticCode::RenderError, error)
-                        .with_path("mix.fade_out_seconds"),
-                ],
-            },
-        );
+        return Err(CliFailure {
+            code: 3,
+            diagnostics: vec![
+                Diagnostic::error(DiagnosticCode::RenderError, error)
+                    .with_path("mix.fade_out_seconds"),
+            ],
+        });
     }
     let mix_audio = mix.into_audio();
+    Ok((mix_audio, part_reports))
+}
+
+/// Reject a Demo render whose final, premaster and MP3 outputs would share a path.
+fn validate_demo_output_paths(args: &RenderDemoArgs) -> Result<(), CliFailure> {
+    let mut output_paths = Vec::new();
+    for path in std::iter::once(&args.output)
+        .chain(args.premaster_output.iter())
+        .chain(args.mp3_output.iter())
+    {
+        let identity = crate::output::output_identity(path)?;
+        if output_paths.contains(&identity) {
+            return Err(CliFailure {
+                code: 2,
+                diagnostics: vec![Diagnostic::error(
+                    DiagnosticCode::WavOutputError,
+                    "final, premaster and MP3 output paths must be different",
+                )],
+            });
+        }
+        output_paths.push(identity);
+    }
+    Ok(())
+}
+
+/// Resolve the WAV that mastering and loudness analysis read, filling a temporary
+/// mix only when no premaster was requested and a WAV is still needed. The
+/// returned directory keeps that temporary mix alive for the caller.
+fn demo_premaster_source(
+    args: &RenderDemoArgs,
+    master_configured: bool,
+    mix_audio: &sonalloy_core::RenderedAudio,
+) -> Result<(Option<tempfile::TempDir>, Option<PathBuf>), CliFailure> {
+    if args.premaster_output.is_none() && !(args.analyze || master_configured) {
+        return Ok((None, None));
+    }
+    let Some(path) = &args.premaster_output else {
+        let directory = tempfile::tempdir().map_err(|error| CliFailure {
+            code: 4,
+            diagnostics: vec![
+                Diagnostic::error(
+                    DiagnosticCode::WavOutputError,
+                    "could not create temporary Demo mix",
+                )
+                .with_detail(error.to_string()),
+            ],
+        })?;
+        let path = directory.path().join("mix.wav");
+        write_wav(&path, mix_audio).map_err(|error| CliFailure {
+            code: 4,
+            diagnostics: vec![error],
+        })?;
+        return Ok((Some(directory), Some(path)));
+    };
+    Ok((None, Some(path.clone())))
+}
+
+/// Master the premaster WAV into the rendered output, or write the mix directly
+/// when the Demo configures no mastering.
+fn render_demo_master(
+    args: &RenderDemoArgs,
+    master: Option<&demo::DemoMaster>,
+    premaster_path: Option<&Path>,
+    pending: &Path,
+    mix_audio: &sonalloy_core::RenderedAudio,
+) -> Result<Option<MasterReport>, CliFailure> {
+    if let Some(settings) = master {
+        Ok(Some(
+            master_demo(
+                premaster_path.expect("mastering has a premaster WAV"),
+                pending,
+                settings,
+                args.sample_rate,
+            )
+            .map_err(ffmpeg_failure)?,
+        ))
+    } else {
+        write_wav(pending, mix_audio).map_err(|error| CliFailure {
+            code: 4,
+            diagnostics: vec![error],
+        })?;
+        Ok(None)
+    }
+}
+
+/// Inspect the rendered WAV and encode an optional MP3, so the final output is
+/// only published once every measurement has succeeded.
+fn measure_demo_output(
+    args: &RenderDemoArgs,
+    output_wav: &Path,
+    master_report: Option<&MasterReport>,
+    mix_loudness: Option<&LoudnessAnalysis>,
+) -> Result<DemoOutputMeasurements, CliFailure> {
+    let analysis = if args.analyze {
+        Some(analyze_output_wav(output_wav, args.sample_rate)?)
+    } else {
+        None
+    };
+    let loudness = if args.analyze {
+        if master_report.is_none() {
+            mix_loudness.cloned()
+        } else {
+            Some(demo::analyze_loudness(output_wav).map_err(ffmpeg_failure)?)
+        }
+    } else {
+        None
+    };
+    let mp3_measurement = if let Some(mp3_output) = &args.mp3_output {
+        encode_mp3(output_wav, mp3_output).map_err(ffmpeg_failure)?;
+        Some(demo::measure_loudness(mp3_output).map_err(ffmpeg_failure)?)
+    } else {
+        None
+    };
+    Ok(DemoOutputMeasurements {
+        analysis,
+        loudness,
+        mp3_measurement,
+    })
+}
+
+struct DemoOutputMeasurements {
+    analysis: Option<AudioAnalysis>,
+    loudness: Option<LoudnessAnalysis>,
+    mp3_measurement: Option<LoudnessMeasurement>,
+}
+
+fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFailure> {
+    validate_demo_output_paths(args)?;
+    let sample_rate = f64::from(args.sample_rate);
+    let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
+        Ok(frames) => frames,
+        Err(error) => return Err(input_failure(&error)),
+    };
+    let demo = demo::load(&args.demo, args.sample_rate, args.block_size)?;
+    let (mix_audio, part_reports) = render_demo_mix(&demo, args, tail_frames)?;
     // Persist a requested premaster before any mastering or FFmpeg analysis can fail.
     if let Some(path) = &args.premaster_output
         && let Err(error) = write_wav(path, &mix_audio)
     {
-        return finish_failure(
-            args.json,
-            CliFailure {
-                code: 4,
-                diagnostics: vec![error],
-            },
-        );
+        return Err(CliFailure {
+            code: 4,
+            diagnostics: vec![error],
+        });
     }
     let mix_analysis = if args.analyze {
-        match analyze_audio(&mix_audio, None) {
-            Ok(analysis) => Some(analysis),
-            Err(failure) => return finish_failure(args.json, failure),
-        }
+        Some(analyze_audio(&mix_audio, None)?)
     } else {
         None
     };
 
-    let temporary_mix_directory = if args.premaster_output.is_none()
-        && (args.analyze || demo.definition.mix.master.is_some())
-    {
-        Some(match tempfile::tempdir() {
-            Ok(directory) => directory,
-            Err(error) => {
-                return finish_failure(
-                    args.json,
-                    CliFailure {
-                        code: 4,
-                        diagnostics: vec![
-                            Diagnostic::error(
-                                DiagnosticCode::WavOutputError,
-                                "could not create temporary Demo mix",
-                            )
-                            .with_detail(error.to_string()),
-                        ],
-                    },
-                );
-            }
-        })
-    } else {
-        None
-    };
-    let temporary_mix = temporary_mix_directory
-        .as_ref()
-        .map(|directory| directory.path().join("mix.wav"));
-    let premaster_path = args
-        .premaster_output
-        .as_deref()
-        .or(temporary_mix.as_deref());
-    if let Some(path) = &temporary_mix {
-        if let Err(error) = write_wav(path, &mix_audio) {
-            return finish_failure(
-                args.json,
-                CliFailure {
-                    code: 4,
-                    diagnostics: vec![error],
-                },
-            );
-        }
-    }
+    let (_temporary_mix_directory, premaster_path) =
+        demo_premaster_source(args, demo.definition.mix.master.is_some(), &mix_audio)?;
     let mix_loudness = if args.analyze {
-        match demo::analyze_loudness(premaster_path.expect("analysis has a premaster WAV")) {
-            Ok(measurement) => Some(measurement),
-            Err(error) => return finish_failure(args.json, ffmpeg_failure(error)),
-        }
+        Some(
+            demo::analyze_loudness(
+                premaster_path
+                    .as_deref()
+                    .expect("analysis has a premaster WAV"),
+            )
+            .map_err(ffmpeg_failure)?,
+        )
     } else {
         None
     };
-    let pending = match crate::output::pending_wav(&args.output) {
-        Ok(path) => path,
-        Err(failure) => return finish_failure(args.json, failure),
-    };
-    let master_report = if let Some(settings) = &demo.definition.mix.master {
-        match master_demo(
-            premaster_path.expect("mastering has a premaster WAV"),
-            &pending,
-            settings,
-            args.sample_rate,
-        ) {
-            Ok(report) => Some(report),
-            Err(error) => return finish_failure(args.json, ffmpeg_failure(error)),
-        }
+    // Mastering publishes its verified WAV by itself, so the final output is only
+    // staged under a pending name when no mastering will replace it.
+    let pending = if demo.definition.mix.master.is_none() {
+        Some(crate::output::pending_wav(&args.output)?)
     } else {
-        if let Err(error) = write_wav(&pending, &mix_audio) {
-            return finish_failure(
-                args.json,
-                CliFailure {
-                    code: 4,
-                    diagnostics: vec![error],
-                },
-            );
-        }
         None
     };
+    let output_wav: &Path = match &pending {
+        Some(pending) => pending.as_ref(),
+        None => args.output.as_path(),
+    };
+    let master_report = render_demo_master(
+        args,
+        demo.definition.mix.master.as_ref(),
+        premaster_path.as_deref(),
+        output_wav,
+        &mix_audio,
+    )?;
 
-    let output_analysis = if args.analyze {
-        match analyze_output_wav(&pending, args.sample_rate) {
-            Ok(analysis) => Some(analysis),
-            Err(failure) => return finish_failure(args.json, failure),
-        }
-    } else {
-        None
-    };
-    let output_loudness = if args.analyze {
-        if master_report.is_none() {
-            mix_loudness.clone()
-        } else {
-            match demo::analyze_loudness(&pending) {
-                Ok(measurement) => Some(measurement),
-                Err(error) => return finish_failure(args.json, ffmpeg_failure(error)),
-            }
-        }
-    } else {
-        None
-    };
-
-    let mp3_measurement = if let Some(mp3_output) = &args.mp3_output {
-        if let Err(error) = encode_mp3(&pending, mp3_output) {
-            return finish_failure(args.json, ffmpeg_failure(error));
-        }
-        match demo::measure_loudness(mp3_output) {
-            Ok(measurement) => Some(measurement),
-            Err(error) => return finish_failure(args.json, ffmpeg_failure(error)),
-        }
-    } else {
-        None
-    };
-
-    if let Err(failure) = crate::output::commit_wav(pending, &args.output) {
-        return finish_failure(args.json, failure);
+    let measurements = measure_demo_output(
+        args,
+        output_wav,
+        master_report.as_ref(),
+        mix_loudness.as_ref(),
+    )?;
+    if let Some(pending) = pending {
+        crate::output::commit_wav(pending, &args.output)?;
     }
     let report = DemoRenderReport {
         status: "ok",
@@ -1348,12 +1393,20 @@ fn run_render_demo(args: &RenderDemoArgs) -> ExitCode {
             .map(|path| path.to_string_lossy().into_owned()),
         parts: part_reports,
         mix_analysis,
-        output_analysis,
+        output_analysis: measurements.analysis,
         mix_loudness,
-        output_loudness,
+        output_loudness: measurements.loudness,
         master: master_report,
-        mp3_measurement,
+        mp3_measurement: measurements.mp3_measurement,
         diagnostics: demo.diagnostics.clone(),
+    };
+    Ok(report)
+}
+
+fn run_render_demo(args: &RenderDemoArgs) -> ExitCode {
+    let report = match execute_render_demo(args) {
+        Ok(report) => report,
+        Err(failure) => return finish_failure(args.json, failure),
     };
     if args.json {
         println!(

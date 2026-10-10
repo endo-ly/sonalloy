@@ -20,6 +20,9 @@ pub enum DiagnosticSeverity {
 /// Stable diagnostic categories used by CLI and adapters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum DiagnosticCode {
+    /// A bundle destination already exists.
+    #[serde(rename = "BUNDLE_OUTPUT_EXISTS")]
+    BundleOutputExists,
     /// The Definition schema version is not supported.
     #[serde(rename = "SCHEMA_UNSUPPORTED")]
     SchemaUnsupported,

@@ -16,6 +16,8 @@ mod instrument;
 pub(crate) mod pattern;
 mod realtime;
 mod render;
+
+pub(crate) use render::render_bundle_demo;
 mod update;
 
 const DEFAULT_SAMPLE_RATE: u32 = 48_000;
