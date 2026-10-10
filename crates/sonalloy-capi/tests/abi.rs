@@ -26,7 +26,7 @@ fn spec() -> SonalloyProcessSpec {
 
 #[test]
 fn abi_version_capability_and_pointer_validation_are_stable() {
-    assert_eq!(sonalloy_c_api_version(), 2);
+    assert_eq!(sonalloy_c_api_version(), 1);
     let mut supported = 0;
     assert_eq!(
         sonalloy_has_capability(1, &raw mut supported),
@@ -142,7 +142,7 @@ fn compile_diagnostics_and_parameter_catalog_use_borrowed_views() {
     assert_eq!(sonalloy_diagnostics_count(diagnostics), 0);
 
     let count = sonalloy_c_api_version();
-    assert_eq!(count, 2);
+    assert_eq!(count, 1);
     let mut handle = 0;
     assert_eq!(
         sonalloy_capi::sonalloy_compiled_parameter_handle(

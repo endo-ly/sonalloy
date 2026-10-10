@@ -4,7 +4,7 @@ use crate::guard;
 use crate::types::SonalloyResult;
 
 /// Public C ABI version.
-pub const SONALLOY_C_API_VERSION: u32 = 2;
+pub const SONALLOY_C_API_VERSION: u32 = 1;
 
 /// Capability identifiers used by `sonalloy_has_capability`.
 pub mod capability_id {

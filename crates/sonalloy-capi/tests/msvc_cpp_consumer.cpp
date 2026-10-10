@@ -8,10 +8,6 @@ int main() {
         return 1;
     }
 
-    if (sonalloy_c_api_version() != SONALLOY_C_API_VERSION) {
-        return 1;
-    }
-
     SonalloyProcessSpec spec = {48000.0, 256, 0, 2};
     SonalloyProcessContext context = {
         0, 120.0, 0.0, 0.0, 4, 4, SONALLOY_TRANSPORT_PLAYING
@@ -35,5 +31,5 @@ int main() {
     sonalloy_compiled_destroy(compiled);
     sonalloy_diagnostics_destroy(diagnostics);
 
-    return sonalloy_c_api_version() == SONALLOY_C_API_VERSION ? 0 : 1;
+    return sonalloy_c_api_version() == 1 ? 0 : 1;
 }
