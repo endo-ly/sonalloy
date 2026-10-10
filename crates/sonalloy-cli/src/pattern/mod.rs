@@ -549,6 +549,8 @@ pub(crate) fn inspect(pattern: &PatternDefinition) -> Result<PatternInspection, 
 
 #[cfg(test)]
 mod tests {
+    use super::{PatternDefinition, default_pattern};
+
     #[test]
     fn ramp_validation_checks_duration_end_and_native_endpoints() {
         for (tick, duration_ticks, from_value, to_value, field) in [

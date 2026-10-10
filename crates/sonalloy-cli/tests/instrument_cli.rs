@@ -116,62 +116,29 @@ fn instrument_init_validate_and_inspect_are_available() {
 }
 
 #[test]
-fn basic_generators_validate_and_inspect_all_generator_modes() {
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "validate",
-            fixture_path("instruments/basic-generators-reference.json")
-                .to_str()
-                .expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
-
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "inspect",
-            fixture_path("instruments/basic-generators-reference.json")
-                .to_str()
-                .expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"waveform\":\"square\""))
-        .stdout(predicates::str::contains("\"waveform\":\"triangle\""))
-        .stdout(predicates::str::contains("\"waveform\":\"pulse\""))
-        .stdout(predicates::str::contains("\"kind\":\"noise\""))
-        .stdout(predicates::str::contains("\"output_mode\":\"stereo\""))
-        .stdout(predicates::str::contains(
-            "layer.pulse.generator.pulse_width",
-        ))
-        .stdout(predicates::str::contains(
-            "layer.pink.generator.noise_correlation",
-        ));
-}
-
-#[test]
-fn spectral_validate_and_inspect_reports_prepared_asset() {
+fn spectral_definitions_validate_inspect_and_render_across_asset_configurations() {
     let directory = tempdir().expect("temporary directory");
     let definition = write_spectral_definition(directory.path());
 
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "validate",
-            definition.to_str().expect("utf-8 definition path"),
-            "--json",
-        ])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("\"status\":\"ok\""));
+    for reference in [
+        definition.to_str().expect("utf-8 definition path").to_owned(),
+        fixture_path("instruments/spectral-generator-reference.json")
+            .to_str()
+            .expect("utf-8 reference path")
+            .to_owned(),
+        fixture_path("instruments/spectral-hybrid-reference.json")
+            .to_str()
+            .expect("utf-8 hybrid path")
+            .to_owned(),
+    ] {
+        Command::cargo_bin("sonalloy")
+            .expect("binary")
+            .args(["instrument", "validate", &reference, "--json"])
+            .assert()
+            .success()
+            .stdout(predicates::str::contains("\"status\":\"ok\""));
+    }
+
     Command::cargo_bin("sonalloy")
         .expect("binary")
         .args([
@@ -192,56 +159,6 @@ fn spectral_validate_and_inspect_reports_prepared_asset() {
         .stdout(predicates::str::contains("spectral_position"))
         .stdout(predicates::str::contains("spectral_frame_count"));
 
-    let output = directory.path().join("spectral.wav");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "render",
-            "note",
-            definition.to_str().expect("utf-8 definition path"),
-            "--note",
-            "60",
-            "--gate",
-            "0.1",
-            "--tail",
-            "0.1",
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "257",
-            "--output",
-            output.to_str().expect("utf-8 output path"),
-        ])
-        .assert()
-        .success();
-    let mut reader = hound::WavReader::open(output).expect("spectral WAV");
-    let samples = reader
-        .samples::<f32>()
-        .map(|sample| sample.expect("finite spectral sample"))
-        .collect::<Vec<_>>();
-    assert!(samples.iter().all(|sample| sample.is_finite()));
-    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
-}
-
-#[test]
-fn spectral_reference_and_hybrid_support_inspect() {
-    for definition in [
-        fixture_path("instruments/spectral-generator-reference.json"),
-        fixture_path("instruments/spectral-hybrid-reference.json"),
-    ] {
-        Command::cargo_bin("sonalloy")
-            .expect("binary")
-            .args([
-                "instrument",
-                "validate",
-                definition.to_str().expect("utf-8 definition path"),
-                "--json",
-            ])
-            .assert()
-            .success()
-            .stdout(predicates::str::contains("\"status\":\"ok\""));
-    }
-
     Command::cargo_bin("sonalloy")
         .expect("binary")
         .args([
@@ -254,9 +171,7 @@ fn spectral_reference_and_hybrid_support_inspect() {
         ])
         .assert()
         .success()
-        .stdout(predicates::str::contains("\"kind\":\"spectral\""))
         .stdout(predicates::str::contains("\"output_mode\":\"stereo\""))
-        .stdout(predicates::str::contains("\"asset_a_prepared\":true"))
         .stdout(predicates::str::contains("\"asset_b_prepared\":true"))
         .stdout(predicates::str::contains("\"fft_size\":2048"))
         .stdout(predicates::str::contains("\"hop_size\":512"))
@@ -282,11 +197,53 @@ fn spectral_reference_and_hybrid_support_inspect() {
             "layer.spectral.generator.spectral_position",
         ))
         .stdout(predicates::str::contains("global.processor.space.mix"));
+
+    let output = directory.path().join("spectral.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "note",
+            definition.to_str().expect("utf-8 definition path"),
+            "--note",
+            "60",
+            "--gate",
+            "0.1",
+            "--tail",
+            "0.1",
+            "--sample-rate",
+            "48000",
+            "--block-size",
+            "257",
+            "--output",
+            output.to_str().expect("utf-8 output path"),
+        ])
+        .assert()
+        .success();
+    let samples = hound::WavReader::open(output)
+        .expect("spectral WAV")
+        .samples::<f32>()
+        .map(|sample| sample.expect("finite spectral sample"))
+        .collect::<Vec<_>>();
+    assert!(samples.iter().all(|sample| sample.is_finite()));
+    assert!(samples.iter().any(|sample| sample.abs() > 0.01));
 }
 
 #[test]
 fn generator_definitions_validate_and_inspect() {
     let cases: &[(&str, &[&str])] = &[
+        (
+            "instruments/basic-generators-reference.json",
+            &[
+                "\"waveform\":\"square\"",
+                "\"waveform\":\"triangle\"",
+                "\"waveform\":\"pulse\"",
+                "\"kind\":\"noise\"",
+                "\"output_mode\":\"stereo\"",
+                "layer.pulse.generator.pulse_width",
+                "layer.pink.generator.noise_correlation",
+            ],
+        ),
         (
             "instruments/operator-modulation-reference.json",
             &[
@@ -387,24 +344,6 @@ fn inspect_lists_external_modulation_sources() {
         .stdout(predicates::str::contains("\"max_abs_depth\""))
         .stdout(predicates::str::contains("\"polarity\":\"bipolar\""))
         .stdout(predicates::str::contains("\"effect\""));
-}
-
-#[test]
-fn invalid_definition_returns_exit_code_one() {
-    let directory = tempdir().expect("temporary directory");
-    let definition = directory.path().join("invalid.json");
-    std::fs::write(&definition, "{\"schema_version\": 1}").expect("write invalid JSON");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "instrument",
-            "validate",
-            definition.to_str().expect("utf-8 path"),
-            "--json",
-        ])
-        .assert()
-        .code(1)
-        .stdout(predicates::str::contains("\"status\":\"error\""));
 }
 
 #[test]

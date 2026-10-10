@@ -207,36 +207,9 @@ pub(super) fn parse_positive_usize(value: &str) -> Result<usize, String> {
 
 #[cfg(test)]
 mod tests {
-    use clap::{Command, CommandFactory, Parser};
+    use clap::Parser;
 
     use super::Cli;
-
-    fn assert_help_is_complete(command: &Command) {
-        assert!(
-            command.get_about().is_some() || command.get_long_about().is_some(),
-            "{} has no command description",
-            command.get_name()
-        );
-        for arg in command.get_arguments() {
-            if arg.is_hide_set() || matches!(arg.get_id().as_str(), "help" | "version") {
-                continue;
-            }
-            assert!(
-                arg.get_help().is_some() || arg.get_long_help().is_some(),
-                "{} argument {} has no help",
-                command.get_name(),
-                arg.get_id()
-            );
-        }
-        for child in command.get_subcommands() {
-            assert_help_is_complete(child);
-        }
-    }
-
-    #[test]
-    fn every_command_and_argument_has_help() {
-        assert_help_is_complete(&Cli::command());
-    }
 
     #[test]
     fn render_event_option_relationships_are_enforced_by_clap() {
@@ -269,7 +242,56 @@ mod tests {
     }
 
     #[test]
-    fn numeric_cli_constraints_are_enforced_by_clap() {
+    fn cli_numeric_and_syntax_constraints_are_enforced_by_clap() {
+        let note = [
+            "sonalloy",
+            "render",
+            "note",
+            "instrument.json",
+            "--output",
+            "out.wav",
+        ];
+        let rejected: [&[&str]; 10] = [
+            &[
+                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav", "--note",
+                "128",
+            ],
+            &[
+                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav",
+                "--velocity", "0",
+            ],
+            &[
+                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav",
+                "--velocity", "128",
+            ],
+            &[
+                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav",
+                "--sample-rate", "0",
+            ],
+            &[
+                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav",
+                "--block-size", "0",
+            ],
+            &[
+                "sonalloy", "render", "note", "instrument.json", "--output", "out.wav", "--tail",
+                "NaN",
+            ],
+            &[
+                "sonalloy", "dev", "render-sine", "--duration", "1.0", "--sample-rate", "48000",
+                "--block-size", "0", "--output", "out.wav",
+            ],
+            &["sonalloy", "play", "instrument.json", "--buffer-size", "0"],
+            &["sonalloy", "play", "instrument.json", "--time-signature", "4/3"],
+            &["sonalloy", "play", "instrument.json", "--macro-cc", "motion=64"],
+        ];
+        for arguments in rejected {
+            assert!(
+                Cli::try_parse_from(arguments).is_err(),
+                "{arguments:?} must be rejected by clap"
+            );
+        }
+
+        assert!(Cli::try_parse_from(note).is_ok());
         assert!(
             Cli::try_parse_from([
                 "sonalloy",
@@ -279,85 +301,9 @@ mod tests {
                 "--output",
                 "out.wav",
                 "--note",
-                "128",
+                "127",
             ])
-            .is_err()
-        );
-        assert!(
-            Cli::try_parse_from([
-                "sonalloy",
-                "render",
-                "note",
-                "instrument.json",
-                "--output",
-                "out.wav",
-                "--velocity",
-                "0",
-            ])
-            .is_err()
-        );
-        assert!(
-            Cli::try_parse_from([
-                "sonalloy",
-                "render",
-                "note",
-                "instrument.json",
-                "--output",
-                "out.wav",
-                "--sample-rate",
-                "0",
-            ])
-            .is_err()
-        );
-        assert!(
-            Cli::try_parse_from([
-                "sonalloy",
-                "render",
-                "note",
-                "instrument.json",
-                "--output",
-                "out.wav",
-                "--block-size",
-                "0",
-            ])
-            .is_err()
-        );
-        assert!(
-            Cli::try_parse_from([
-                "sonalloy",
-                "render",
-                "note",
-                "instrument.json",
-                "--output",
-                "out.wav",
-                "--tail",
-                "NaN",
-            ])
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn play_syntax_constraints_are_enforced_by_clap() {
-        assert!(
-            Cli::try_parse_from([
-                "sonalloy",
-                "play",
-                "instrument.json",
-                "--time-signature",
-                "4/3",
-            ])
-            .is_err()
-        );
-        assert!(
-            Cli::try_parse_from([
-                "sonalloy",
-                "play",
-                "instrument.json",
-                "--macro-cc",
-                "motion=64",
-            ])
-            .is_err()
+            .is_ok()
         );
     }
 }

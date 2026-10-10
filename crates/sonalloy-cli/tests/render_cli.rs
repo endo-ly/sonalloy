@@ -752,29 +752,59 @@ fn render_midi_rejects_control_only_input() {
 }
 
 #[test]
-fn render_note_rejects_midi_values_above_127() {
+fn invalid_cli_arguments_fail_before_any_output_is_written() {
     let directory = tempdir().expect("temporary directory");
     let output = directory.path().join("note.wav");
-    for argument in [["--note", "128"], ["--velocity", "128"]] {
-        Command::cargo_bin("sonalloy")
-            .expect("binary")
-            .args([
+    let output_path = output.to_str().expect("utf-8 output path").to_owned();
+    let definition = fixture_path("instruments/basic-poly-synth.json")
+        .to_str()
+        .expect("utf-8 definition path")
+        .to_owned();
+    let cases: [(&[&str], &str); 3] = [
+        (
+            &[
                 "render",
                 "note",
-                fixture_path("instruments/basic-poly-synth.json")
-                    .to_str()
-                    .expect("utf-8 definition path"),
-                argument[0],
-                argument[1],
-                "--gate",
-                "0.01",
+                &definition,
+                "--velocity",
+                "128",
                 "--output",
-                output.to_str().expect("utf-8 output path"),
-                "--json",
-            ])
+                &output_path,
+            ],
+            "invalid value",
+        ),
+        (
+            &[
+                "render",
+                "note",
+                &definition,
+                "--note",
+                "128",
+                "--output",
+                &output_path,
+            ],
+            "invalid value",
+        ),
+        (
+            &[
+                "dev",
+                "render-sine",
+                "--block-size",
+                "0",
+                "--output",
+                &output_path,
+            ],
+            "expected a positive integer",
+        ),
+    ];
+    for (arguments, message) in cases {
+        Command::cargo_bin("sonalloy")
+            .expect("binary")
+            .args(arguments)
             .assert()
             .code(2)
             .stdout(predicates::str::is_empty())
-            .stderr(predicates::str::contains("invalid value"));
+            .stderr(predicates::str::contains(message));
+        assert!(!output.exists(), "{arguments:?} must not write audio");
     }
 }

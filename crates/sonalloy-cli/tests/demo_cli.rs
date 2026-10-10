@@ -122,8 +122,30 @@ fn track_end_tick(track: &[midly::TrackEvent<'_>]) -> u64 {
 }
 
 #[test]
-fn demo_validate_and_inspect_use_relative_references_and_longest_pattern() {
+fn demo_uses_the_longest_pattern_for_its_timeline_and_conductor() {
     let fixture = demo_fixture();
+    write_pattern_with_axis(
+        &fixture.first_pattern,
+        480,
+        240,
+        60,
+        &json!([{"tick": 0, "bpm": 120.0}]),
+        &json!([{"tick": 0, "numerator": 4, "denominator": 4}]),
+    );
+    write_pattern_with_axis(
+        &fixture.second_pattern,
+        960,
+        240,
+        67,
+        &json!([
+            {"tick": 0, "bpm": 120.0},
+            {"tick": 480, "bpm": 60.0}
+        ]),
+        &json!([
+            {"tick": 0, "numerator": 4, "denominator": 4},
+            {"tick": 480, "numerator": 3, "denominator": 4}
+        ]),
+    );
 
     let validation = Command::cargo_bin("sonalloy")
         .expect("binary")
@@ -166,7 +188,9 @@ fn demo_validate_and_inspect_use_relative_references_and_longest_pattern() {
     assert_eq!(inspection_report["part_count"], 2);
     assert_eq!(inspection_report["ticks_per_beat"], 480);
     assert_eq!(inspection_report["length_ticks"], 960);
-    assert_eq!(inspection_report["musical_duration_seconds"], 1.0);
+    assert_eq!(inspection_report["musical_duration_seconds"], 1.5);
+    assert_eq!(inspection_report["tempo_change_count"], 2);
+    assert_eq!(inspection_report["time_signature_change_count"], 2);
     assert_eq!(inspection_report["parts"][0]["midi_channel"], 2);
     assert_eq!(inspection_report["parts"][1]["midi_channel"], 1);
     assert_eq!(inspection_report["ffmpeg_required"], false);
@@ -176,6 +200,35 @@ fn demo_validate_and_inspect_use_relative_references_and_longest_pattern() {
         .args(["demo", "inspect", fixture.demo.to_str().expect("Demo path")])
         .assert()
         .success();
+
+    let output = fixture.demo.with_file_name("longest.mid");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "demo",
+            "export-midi",
+            fixture.demo.to_str().expect("Demo path"),
+            "--output",
+            output.to_str().expect("MIDI output"),
+        ])
+        .assert()
+        .success();
+    let bytes = std::fs::read(output).expect("MIDI output");
+    let smf = Smf::parse(&bytes).expect("Type 1 MIDI");
+    assert!(smf.tracks[0].iter().any(|event| {
+        matches!(
+            event.kind,
+            midly::TrackEventKind::Meta(midly::MetaMessage::Tempo(value))
+                if value.as_int() == 1_000_000
+        )
+    }));
+    assert!(smf.tracks[0].iter().any(|event| {
+        matches!(
+            event.kind,
+            midly::TrackEventKind::Meta(midly::MetaMessage::TimeSignature(3, 2, _, _))
+        )
+    }));
+    assert!(smf.tracks.iter().all(|track| track_end_tick(track) == 960));
 }
 
 #[test]
@@ -409,7 +462,7 @@ fn render_demo_writes_stems_before_gain_and_reports_mix() {
 }
 
 #[test]
-fn render_demo_reports_measured_master_output_analysis_and_mp3() {
+fn render_demo_reports_master_analysis_and_mp3_measurement() {
     if ProcessCommand::new("ffmpeg")
         .arg("-version")
         .output()
@@ -487,39 +540,29 @@ fn render_demo_reports_measured_master_output_analysis_and_mp3() {
         .as_f64()
         .expect("completed WAV sample peak analysis");
     assert!((sample_peak_dbfs - analyzed_peak_dbfs).abs() < 0.01);
-}
 
-#[test]
-fn render_demo_measures_mp3_without_mastering() {
-    if ProcessCommand::new("ffmpeg")
-        .arg("-version")
-        .output()
-        .is_err()
-    {
-        return;
-    }
-    let fixture = demo_fixture();
-    let output = fixture.demo.with_file_name("unmastered.wav");
-    let mp3 = fixture.demo.with_file_name("unmastered.mp3");
+    let unmastered_fixture = demo_fixture();
+    let unmastered = unmastered_fixture.demo.with_file_name("unmastered.wav");
+    let unmastered_mp3 = unmastered_fixture.demo.with_file_name("unmastered.mp3");
     let result = Command::cargo_bin("sonalloy")
         .expect("binary")
         .args([
             "render",
             "demo",
-            fixture.demo.to_str().expect("Demo path"),
+            unmastered_fixture.demo.to_str().expect("Demo path"),
             "--tail",
             "0",
             "--output",
-            output.to_str().expect("WAV output"),
+            unmastered.to_str().expect("WAV output"),
             "--mp3-output",
-            mp3.to_str().expect("MP3 output"),
+            unmastered_mp3.to_str().expect("MP3 output"),
             "--json",
         ])
         .output()
-        .expect("Demo render starts");
+        .expect("unmastered Demo render starts");
     let report = json_report(&result);
     assert!(report.get("master").is_none());
-    assert!(mp3.exists());
+    assert!(unmastered_mp3.exists());
     assert!(
         report["mp3_measurement"]["integrated_lufs"]
             .as_f64()
@@ -806,78 +849,6 @@ fn wav_samples(path: &Path) -> Vec<f32> {
         .into_samples::<f32>()
         .map(|sample| sample.expect("valid WAV sample"))
         .collect()
-}
-
-#[test]
-fn demo_uses_longest_pattern_for_timeline_and_conductor() {
-    let fixture = demo_fixture();
-    write_pattern_with_axis(
-        &fixture.first_pattern,
-        480,
-        240,
-        60,
-        &json!([{"tick": 0, "bpm": 120.0}]),
-        &json!([{"tick": 0, "numerator": 4, "denominator": 4}]),
-    );
-    write_pattern_with_axis(
-        &fixture.second_pattern,
-        960,
-        240,
-        67,
-        &json!([
-            {"tick": 0, "bpm": 120.0},
-            {"tick": 480, "bpm": 60.0}
-        ]),
-        &json!([
-            {"tick": 0, "numerator": 4, "denominator": 4},
-            {"tick": 480, "numerator": 3, "denominator": 4}
-        ]),
-    );
-
-    let inspection = Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "demo",
-            "inspect",
-            fixture.demo.to_str().expect("Demo path"),
-            "--json",
-        ])
-        .output()
-        .expect("inspection starts");
-    let inspection_report = json_report(&inspection);
-    assert_eq!(inspection_report["length_ticks"], 960);
-    assert_eq!(inspection_report["musical_duration_seconds"], 1.5);
-    assert_eq!(inspection_report["tempo_change_count"], 2);
-    assert_eq!(inspection_report["time_signature_change_count"], 2);
-
-    let output = fixture.demo.with_file_name("longest.mid");
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args([
-            "demo",
-            "export-midi",
-            fixture.demo.to_str().expect("Demo path"),
-            "--output",
-            output.to_str().expect("MIDI output"),
-        ])
-        .assert()
-        .success();
-    let bytes = std::fs::read(output).expect("MIDI output");
-    let smf = Smf::parse(&bytes).expect("Type 1 MIDI");
-    assert!(smf.tracks[0].iter().any(|event| {
-        matches!(
-            event.kind,
-            midly::TrackEventKind::Meta(midly::MetaMessage::Tempo(value))
-                if value.as_int() == 1_000_000
-        )
-    }));
-    assert!(smf.tracks[0].iter().any(|event| {
-        matches!(
-            event.kind,
-            midly::TrackEventKind::Meta(midly::MetaMessage::TimeSignature(3, 2, _, _))
-        )
-    }));
-    assert!(smf.tracks.iter().all(|track| track_end_tick(track) == 960));
 }
 
 #[test]
