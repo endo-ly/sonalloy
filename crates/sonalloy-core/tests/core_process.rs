@@ -749,6 +749,22 @@ fn every_noise_color_renders_audible_audio() {
 }
 
 #[test]
+fn noise_stereo_correlation_reaches_the_rendered_channels() {
+    let correlated =
+        render_basic_generator(&noise_definition(NoiseColor::White, 1.0, 0.0), 257, 2_048);
+    assert_eq!(correlated.channels[0], correlated.channels[1]);
+
+    let independent =
+        render_basic_generator(&noise_definition(NoiseColor::White, 0.0, 0.0), 257, 2_048);
+    assert!(
+        independent.channels[0]
+            .iter()
+            .zip(&independent.channels[1])
+            .any(|(left, right)| left.to_bits() != right.to_bits())
+    );
+}
+
+#[test]
 fn stereo_layer_processors_and_balance_preserve_the_generator_contract() {
     let mut definition = noise_definition(NoiseColor::White, 1.0, 0.0);
     definition.layers[0].processors = vec![
