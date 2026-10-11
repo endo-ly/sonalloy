@@ -551,7 +551,8 @@ mod tests {
     use crate::process::ProcessError;
     use crate::process::ProcessEvent;
     use crate::process::{InstrumentProcessor, ProcessBlock, ProcessEventKind, ProcessSpec};
-    use crate::runtime::voice::VoiceState;
+    use crate::runtime::instrument::RuntimeGeneration;
+    use crate::runtime::voice::{VoiceRuntime, VoiceState};
 
     use super::super::tests::{
         compiled, modulated_steal_definition, monophonic_definition, phase_runtime,
@@ -1053,29 +1054,57 @@ mod tests {
             sample_offset: 0,
             kind: ProcessEventKind::SustainPedal { down },
         };
+        let state_of = |runtime: &RuntimeGeneration, note_id: u64| {
+            runtime
+                .voices
+                .iter()
+                .find(|voice| voice.trace_identity().is_some_and(|note| note.0 == note_id))
+                .map(VoiceRuntime::state)
+        };
 
         let _ = process(&mut runtime, 64, 0, &[note_on(1)]);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+        assert_eq!(state_of(&runtime, 1), Some(VoiceState::Active));
 
-        let _ = process(&mut runtime, 64, 64, &[pedal(true), note_off(1)]);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
+        let _ = process(
+            &mut runtime,
+            64,
+            64,
+            &[pedal(true), pedal(true), note_off(1)],
+        );
+        assert_eq!(state_of(&runtime, 1), Some(VoiceState::Active));
 
-        let _ = process(&mut runtime, 64, 128, &[pedal(true)]);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Active));
-
-        let _ = process(&mut runtime, 64, 192, &[pedal(false), pedal(false)]);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
-
+        // The pedal is still held here. Reset must clear it, so the plain note cycle
+        // below releases normally even though no pedal-up event is ever sent.
         runtime.reset().expect("reset");
-        let _ = process(&mut runtime, 64, 0, &[note_on(2), pedal(true)]);
-        let _ = process(&mut runtime, 64, 64, &[pedal(false)]);
+        let _ = process(&mut runtime, 64, 0, &[note_on(2)]);
+        assert_eq!(state_of(&runtime, 2), Some(VoiceState::Active));
+        let _ = process(&mut runtime, 64, 64, &[note_off(2)]);
         assert_eq!(
-            runtime.voice_state(0),
+            state_of(&runtime, 2),
+            Some(VoiceState::Releasing),
+            "Reset must clear the held pedal state"
+        );
+
+        let _ = process(&mut runtime, 64, 128, &[note_on(3)]);
+        let _ = process(&mut runtime, 64, 192, &[pedal(true), note_off(3)]);
+        assert_eq!(state_of(&runtime, 3), Some(VoiceState::Active));
+
+        let _ = process(&mut runtime, 64, 256, &[pedal(false), pedal(false)]);
+        assert_eq!(
+            state_of(&runtime, 3),
+            Some(VoiceState::Releasing),
+            "a repeated pedal-up event must release the held note"
+        );
+
+        let _ = process(&mut runtime, 64, 320, &[note_on(4)]);
+        let _ = process(&mut runtime, 64, 384, &[pedal(true), pedal(false)]);
+        assert_eq!(
+            state_of(&runtime, 4),
             Some(VoiceState::Active),
             "a key that is still down must survive a pedal release"
         );
-        let _ = process(&mut runtime, 64, 128, &[note_off(2)]);
-        assert_eq!(runtime.voice_state(0), Some(VoiceState::Releasing));
+        let _ = process(&mut runtime, 64, 448, &[note_off(4)]);
+        assert_eq!(state_of(&runtime, 4), Some(VoiceState::Releasing));
     }
 
     #[test]
