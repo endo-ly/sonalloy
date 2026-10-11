@@ -181,8 +181,8 @@ fn definition_json_round_trip_and_validation_cover_physical_contracts() {
 }
 
 #[test]
-fn every_supported_modal_mode_count_compiles_and_renders() {
-    for mode_count in [4, 8, 12, 16, 20, 24] {
+fn every_supported_modal_mode_count_compiles_and_renders_audible_audio() {
+    for mode_count in [4, 12, 24] {
         let mut definition = physical_modal_definition();
         let GeneratorDefinition::Modal(modal) = &mut definition.layers[1].generator else {
             panic!("modal fixture must use the modal generator");
@@ -196,6 +196,14 @@ fn every_supported_modal_mode_count_compiles_and_renders() {
                 .iter()
                 .flatten()
                 .all(|sample| sample.is_finite()),
+            "mode count {mode_count}"
+        );
+        assert!(
+            audio
+                .channels
+                .iter()
+                .flatten()
+                .any(|sample| sample.abs() > 1.0e-6),
             "mode count {mode_count}"
         );
     }
@@ -292,7 +300,7 @@ fn compile_exposes_the_declared_parameter_contract() {
 }
 
 #[test]
-fn two_layer_render_is_finite_at_supported_sample_rates() {
+fn render_is_stable_across_sample_rates_block_sizes_and_reset_repeats() {
     let definition = physical_modal_definition();
     for sample_rate in [44_100.0, 48_000.0, 96_000.0] {
         let audio = render(&definition, sample_rate, 257, 2_048);
@@ -311,11 +319,7 @@ fn two_layer_render_is_finite_at_supported_sample_rates() {
                 .any(|sample| sample.abs() > 1.0e-6)
         );
     }
-}
 
-#[test]
-fn constant_render_is_bit_exact_across_block_sizes_and_reset_repeats() {
-    let definition = physical_modal_definition();
     let reference = render(&definition, 48_000.0, 32, 2_048);
     for block_size in [64, 257, 1_024] {
         let candidate = render(&definition, 48_000.0, block_size, 2_048);

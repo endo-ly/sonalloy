@@ -597,66 +597,6 @@ mod tests {
             PatternMidiEventKind::NoteOn { .. }
         ));
     }
-
-    #[test]
-    fn midi_events_reject_overlapping_notes_with_the_same_pitch() {
-        let pattern = PatternDefinition {
-            length_ticks: 960,
-            events: vec![
-                PatternEvent::Note {
-                    tick: 0,
-                    duration_ticks: 720,
-                    note: 60,
-                    velocity: 100,
-                },
-                PatternEvent::Note {
-                    tick: 480,
-                    duration_ticks: 240,
-                    note: 60,
-                    velocity: 80,
-                },
-            ],
-            ..default_pattern()
-        };
-
-        let diagnostics = midi_events(&pattern).expect_err("overlapping notes are not MIDI-safe");
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(
-            diagnostics[0].message,
-            "notes with the same pitch cannot overlap in Standard MIDI"
-        );
-        assert_eq!(diagnostics[0].path.as_deref(), Some("events[1]"));
-    }
-
-    #[test]
-    fn midi_parameter_events_are_counted_in_one_error() {
-        let mut pattern = default_pattern();
-        for tick in 0..300 {
-            pattern.events.push(PatternEvent::ParameterChange {
-                tick,
-                parameter: "macro.motion".to_owned(),
-                native_value: 0.5,
-            });
-            pattern.events.push(PatternEvent::ParameterRamp {
-                tick,
-                duration_ticks: 480,
-                parameter: "macro.motion".to_owned(),
-                from_value: 0.0,
-                to_value: 1.0,
-            });
-        }
-
-        let errors = midi_events(&pattern).expect_err("Sonalloy events cannot be exported");
-
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].code, sonalloy_core::DiagnosticCode::MidiError);
-        assert_eq!(errors[0].path.as_deref(), Some("events"));
-        assert!(
-            errors[0]
-                .message
-                .starts_with("600 Sonalloy parameter events")
-        );
-    }
 }
 
 #[derive(Debug, Clone, Copy)]

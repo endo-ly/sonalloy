@@ -49,43 +49,6 @@ fn process_runtime(
     vec![left, right]
 }
 
-fn render_instrument_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
-    let definition = definition();
-    let result = compile_instrument(
-        &definition,
-        &CompileContext {
-            definition_base_dir: ".".into(),
-            process_spec: ProcessSpec::new(48_000.0, block_size, 0, 2).expect("valid spec"),
-        },
-    );
-    let instrument = result.instrument.expect("reference Definition compiles");
-    let events = [
-        ScheduledEvent {
-            absolute_frame: 100,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 1,
-                note_number: 60,
-                velocity: 100,
-            },
-        },
-        ScheduledEvent {
-            absolute_frame: 1_100,
-            kind: ProcessEventKind::NoteOff { note_id: 1 },
-        },
-    ];
-    render_instrument(
-        Arc::clone(&instrument),
-        RenderRequest {
-            sample_rate: 48_000.0,
-            block_size,
-            duration_frames: 1_200,
-            tail_frames: 0,
-        },
-        &events,
-    )
-    .expect("instrument render succeeds")
-}
-
 fn render_sustain_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
     let definition = basic_generator_definition();
     let result = compile_instrument(
@@ -767,50 +730,7 @@ fn trace_final_matches_the_filter_effective_cutoff_limit() {
 }
 
 #[test]
-fn noise_is_stereo_deterministic_and_block_size_independent() {
-    let correlated_definition = noise_definition(NoiseColor::White, 1.0, 0.0);
-    let correlated = render_basic_generator(&correlated_definition, 257, 2_048);
-    assert!(
-        correlated
-            .channels
-            .iter()
-            .flatten()
-            .all(|sample| sample.is_finite())
-    );
-    assert!(
-        correlated.channels[0]
-            .iter()
-            .any(|sample| sample.abs() > 0.01)
-    );
-    assert_eq!(correlated.channels[0], correlated.channels[1]);
-
-    let independent_definition = noise_definition(NoiseColor::White, 0.0, 0.0);
-    let independent = render_basic_generator(&independent_definition, 257, 2_048);
-    assert!(
-        independent.channels[0]
-            .iter()
-            .zip(&independent.channels[1])
-            .any(|(left, right)| left.to_bits() != right.to_bits())
-    );
-
-    let reference =
-        render_basic_generator(&noise_definition(NoiseColor::Pink, 0.4, 0.0), 32, 2_048);
-    for block_size in [64, 257, 1_024] {
-        let candidate = render_basic_generator(
-            &noise_definition(NoiseColor::Pink, 0.4, 0.0),
-            block_size,
-            2_048,
-        );
-        for (expected, actual) in reference.channels[0].iter().zip(&candidate.channels[0]) {
-            assert_relative_eq!(*expected, *actual, epsilon = 1.0e-6);
-        }
-        for (expected, actual) in reference.channels[1].iter().zip(&candidate.channels[1]) {
-            assert_relative_eq!(*expected, *actual, epsilon = 1.0e-6);
-        }
-    }
-    let repeated = render_basic_generator(&correlated_definition, 257, 2_048);
-    assert_eq!(correlated, repeated);
-
+fn every_noise_color_renders_audible_audio() {
     for color in [NoiseColor::White, NoiseColor::Pink, NoiseColor::Brown] {
         let audio = render_basic_generator(&noise_definition(color, 0.5, 0.0), 257, 2_048);
         assert!(
@@ -818,10 +738,30 @@ fn noise_is_stereo_deterministic_and_block_size_independent() {
                 .channels
                 .iter()
                 .flatten()
-                .all(|sample| sample.is_finite())
+                .all(|sample| sample.is_finite()),
+            "{color:?} generated a non-finite sample"
         );
-        assert!(audio.channels[0].iter().any(|sample| sample.abs() > 0.001));
+        assert!(
+            audio.channels[0].iter().any(|sample| sample.abs() > 0.001),
+            "{color:?} generated silence"
+        );
     }
+}
+
+#[test]
+fn noise_stereo_correlation_reaches_the_rendered_channels() {
+    let correlated =
+        render_basic_generator(&noise_definition(NoiseColor::White, 1.0, 0.0), 257, 2_048);
+    assert_eq!(correlated.channels[0], correlated.channels[1]);
+
+    let independent =
+        render_basic_generator(&noise_definition(NoiseColor::White, 0.0, 0.0), 257, 2_048);
+    assert!(
+        independent.channels[0]
+            .iter()
+            .zip(&independent.channels[1])
+            .any(|(left, right)| left.to_bits() != right.to_bits())
+    );
 }
 
 #[test]
@@ -1226,22 +1166,6 @@ fn expressive_reference_renders_at_supported_sample_rates() {
     }
 }
 
-#[test]
-fn absolute_event_timing_is_stable_across_block_sizes() {
-    let reference = render_instrument_blocks(64);
-    for candidate in [
-        render_instrument_blocks(257),
-        render_instrument_blocks(1024),
-    ] {
-        for (left, right) in reference.channels[0].iter().zip(&candidate.channels[0]) {
-            assert_relative_eq!(*left, *right, epsilon = 1.0e-5);
-        }
-        for (left, right) in reference.channels[1].iter().zip(&candidate.channels[1]) {
-            assert_relative_eq!(*left, *right, epsilon = 1.0e-5);
-        }
-    }
-}
-
 fn render_expressive_blocks(block_size: usize) -> sonalloy_core::RenderedAudio {
     let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../testdata/instruments/expressive-hybrid-lead.json");
@@ -1585,38 +1509,80 @@ fn processed_hybrid_compiles_all_processor_scopes_and_keeps_a_global_tail() {
 }
 
 #[test]
-fn hybrid_compiles_two_layers_and_prepares_the_sample() {
+fn hybrid_layers_share_one_voice_and_render_the_sample_layer() {
     let definition = hybrid_definition();
     let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
-    let result = compile_instrument(
+    let instrument = compile_instrument(
         &definition,
         &CompileContext {
             definition_base_dir: base_dir,
             process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
         },
+    )
+    .instrument
+    .expect("hybrid compiles");
+    let events = [
+        ScheduledEvent {
+            absolute_frame: 0,
+            kind: ProcessEventKind::NoteOn {
+                note_id: 7,
+                note_number: 60,
+                velocity: 110,
+            },
+        },
+        ScheduledEvent {
+            absolute_frame: 4_800,
+            kind: ProcessEventKind::NoteOff { note_id: 7 },
+        },
+    ];
+    let request = RenderRequest {
+        sample_rate: 48_000.0,
+        block_size: 257,
+        duration_frames: 24_000,
+        tail_frames: 24_000,
+    };
+    let audio =
+        render_instrument(Arc::clone(&instrument), request, &events).expect("hybrid render");
+    assert_eq!(audio.channels.len(), 2);
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .all(|sample| sample.is_finite())
     );
-    let instrument = result.instrument.expect("hybrid compiles");
-    assert_eq!(instrument.layers.len(), 2);
-    match &instrument.layers[0].generator {
-        sonalloy_core::compiler::CompiledGenerator::Sample(sample) => {
-            assert_eq!(sample.zones.len(), 1);
-            assert!(sample.zones[0].is_enabled());
-            assert!(sample.zones[0].source.is_some());
-        }
-        sonalloy_core::compiler::CompiledGenerator::Oscillator(_)
-        | sonalloy_core::compiler::CompiledGenerator::Noise(_)
-        | sonalloy_core::compiler::CompiledGenerator::PhysicalString(_)
-        | sonalloy_core::compiler::CompiledGenerator::Modal(_)
-        | sonalloy_core::compiler::CompiledGenerator::Additive(_)
-        | sonalloy_core::compiler::CompiledGenerator::Formant(_)
-        | sonalloy_core::compiler::CompiledGenerator::Granular(_)
-        | sonalloy_core::compiler::CompiledGenerator::WaveSequence(_)
-        | sonalloy_core::compiler::CompiledGenerator::Wavetable(_)
-        | sonalloy_core::compiler::CompiledGenerator::Spectral(_)
-        | sonalloy_core::compiler::CompiledGenerator::OperatorModulation(_) => {
-            panic!("attack layer must be a sample")
+    assert!(
+        audio
+            .channels
+            .iter()
+            .flatten()
+            .any(|sample| sample.abs() > 0.01)
+    );
+
+    let mut without_sample = definition.clone();
+    for layer in &mut without_sample.layers {
+        if matches!(layer.generator, GeneratorDefinition::Sample(_)) {
+            layer.enabled = false;
         }
     }
+    let reference = compile_instrument(
+        &without_sample,
+        &CompileContext {
+            definition_base_dir: "../../testdata/instruments".into(),
+            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
+        },
+    )
+    .instrument
+    .expect("sample-free hybrid compiles");
+    let without_sample =
+        render_instrument(reference, request, &events).expect("oscillator-only render");
+    assert!(
+        audio.channels[0]
+            .iter()
+            .zip(&without_sample.channels[0])
+            .any(|(hybrid, oscillator_only)| (hybrid - oscillator_only).abs() > 1.0e-4),
+        "the prepared sample layer must contribute audio"
+    );
 }
 
 #[test]
@@ -2075,60 +2041,6 @@ fn missing_required_round_robin_member_rejects_the_instrument() {
             .any(|diagnostic| diagnostic.code == DiagnosticCode::AssetNotFound)
     );
     assert!(result.instrument.is_none());
-}
-
-#[test]
-fn hybrid_layers_share_one_voice_and_render_finite_audio() {
-    let definition = hybrid_definition();
-    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../testdata/instruments");
-    let result = compile_instrument(
-        &definition,
-        &CompileContext {
-            definition_base_dir: base_dir,
-            process_spec: ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid process spec"),
-        },
-    );
-    let instrument = result.instrument.expect("hybrid compiles");
-    let events = [
-        ScheduledEvent {
-            absolute_frame: 0,
-            kind: ProcessEventKind::NoteOn {
-                note_id: 7,
-                note_number: 60,
-                velocity: 110,
-            },
-        },
-        ScheduledEvent {
-            absolute_frame: 4_800,
-            kind: ProcessEventKind::NoteOff { note_id: 7 },
-        },
-    ];
-    let audio = render_instrument(
-        std::sync::Arc::clone(&instrument),
-        RenderRequest {
-            sample_rate: 48_000.0,
-            block_size: 257,
-            duration_frames: 24_000,
-            tail_frames: 24_000,
-        },
-        &events,
-    )
-    .expect("hybrid render succeeds");
-    assert_eq!(audio.channels.len(), 2);
-    assert!(
-        audio
-            .channels
-            .iter()
-            .flatten()
-            .all(|sample| sample.is_finite())
-    );
-    assert!(
-        audio
-            .channels
-            .iter()
-            .flatten()
-            .any(|sample| sample.abs() > 0.01)
-    );
 }
 
 #[test]

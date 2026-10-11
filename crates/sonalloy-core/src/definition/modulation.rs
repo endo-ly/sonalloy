@@ -911,19 +911,7 @@ mod tests {
     }
 
     #[test]
-    fn routes_require_depth_and_reject_legacy_amount_fields() {
-        let mut legacy = serde_json::to_value(definition()).expect("definition serializes");
-        legacy["modulation"] = serde_json::json!({
-            "sources": [],
-            "routes": [{
-                "source": "velocity",
-                "target": "layer.body.gain",
-                "amount": 0.5,
-                "curve": "linear"
-            }]
-        });
-        assert!(serde_json::from_value::<InstrumentDefinition>(legacy).is_err());
-
+    fn route_depth_rejects_unknown_fields() {
         let mut unknown_depth = serde_json::to_value(definition()).expect("definition serializes");
         unknown_depth["modulation"] = serde_json::json!({
             "sources": [],

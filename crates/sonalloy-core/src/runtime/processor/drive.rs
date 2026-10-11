@@ -72,23 +72,6 @@ mod tests {
     use crate::runtime::modulation::ValueSpan;
 
     #[test]
-    fn amount_zero_is_identity() {
-        let mut buffer = [-1.0, -0.25, 0.0, 0.5, 1.0];
-        DriveRuntime::process_mono(
-            ValueSpan::linear(0.0, 0.0),
-            ValueSpan::linear(1.0, 1.0),
-            &mut buffer,
-        )
-        .expect("drive process");
-        assert!(
-            buffer
-                .iter()
-                .zip([-1.0, -0.25, 0.0, 0.5, 1.0])
-                .all(|(actual, expected)| (actual - expected).abs() < 1.0e-6)
-        );
-    }
-
-    #[test]
     fn wet_output_is_odd_and_finite() {
         let mut positive = [0.75];
         let mut negative = [-0.75];

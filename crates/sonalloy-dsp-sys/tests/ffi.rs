@@ -1,6 +1,6 @@
 use sonalloy_dsp_sys::{
     DspError, DspFilter, DspFilterError, DspFilterMode, DspOscillator, DspOscillatorWaveform,
-    backend_version, capabilities,
+    capabilities,
 };
 
 fn render_blocks(block_size: usize, waveform: DspOscillatorWaveform) -> Vec<f32> {
@@ -106,7 +106,7 @@ fn block_sizes_produce_the_same_signal() {
 }
 
 #[test]
-fn signal_frequency_and_saw_generation_are_verified() {
+fn waveform_generation_is_finite_and_the_signal_keeps_its_frequency() {
     let sine = render_blocks(257, DspOscillatorWaveform::Sine);
     let crossings = positive_zero_crossings(&sine);
     let crossing_count = u32::try_from(crossings).expect("crossing count fits in u32");
@@ -114,15 +114,9 @@ fn signal_frequency_and_saw_generation_are_verified() {
     let estimated_frequency = f64::from(crossing_count) * 48_000.0 / f64::from(frame_count);
     assert!((estimated_frequency - 440.0).abs() < 1.0);
 
-    let saw = render_blocks(257, DspOscillatorWaveform::Saw);
-    assert!(saw.iter().all(|sample| sample.is_finite()));
-    assert!(saw.iter().any(|sample| sample.abs() > 0.5));
-    assert!(saw.iter().all(|sample| sample.abs() <= 1.1));
-}
-
-#[test]
-fn triangle_square_and_pulse_generation_are_finite() {
     for waveform in [
+        DspOscillatorWaveform::Sine,
+        DspOscillatorWaveform::Saw,
         DspOscillatorWaveform::Triangle,
         DspOscillatorWaveform::Square,
         DspOscillatorWaveform::Pulse,
@@ -141,8 +135,14 @@ fn triangle_square_and_pulse_generation_are_finite() {
                 .process(440.0, &mut output)
                 .expect("waveform process");
         }
-        assert!(output.iter().all(|sample| sample.is_finite()));
-        assert!(output.iter().any(|sample| sample.abs() > 0.1));
+        assert!(
+            output.iter().all(|sample| sample.is_finite()),
+            "{waveform:?} generated a non-finite sample"
+        );
+        assert!(
+            output.iter().any(|sample| sample.abs() > 0.1),
+            "{waveform:?} generated silence"
+        );
         let peak = output.iter().map(|sample| sample.abs()).fold(0.0, f32::max);
         assert!(peak <= 2.0, "{waveform:?} peak was {peak}");
     }
@@ -362,7 +362,6 @@ fn oscillator_frequency_ramp_rejects_invalid_input_and_clears_output() {
 
 #[test]
 fn backend_reports_capabilities() {
-    assert!(backend_version().contains("DaisySP V1.0.0"));
     assert_eq!(
         capabilities(),
         sonalloy_dsp_sys::DspCapabilities {

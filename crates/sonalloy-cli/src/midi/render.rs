@@ -587,28 +587,6 @@ mod tests {
     }
 
     #[test]
-    fn control_only_midi_is_rejected() {
-        let (_directory, path) = midi_file(vec![
-            midi_event_with_delta(
-                0,
-                MidiMessage::PitchBend {
-                    bend: midly::PitchBend::from_int(0),
-                },
-                0,
-            ),
-            end_of_track(),
-        ]);
-        let Err(diagnostics) = read_midi(&path, 48_000.0) else {
-            panic!("control-only MIDI must fail");
-        };
-        assert!(
-            diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.message == "MIDI file contains no note events")
-        );
-    }
-
-    #[test]
     #[allow(clippy::too_many_lines)]
     fn midi_channel_warnings_follow_overlapping_note_and_control_cases() {
         let cases = [

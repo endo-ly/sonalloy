@@ -11,7 +11,7 @@ if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
         "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()
 
-project(sonalloy-native LANGUAGES CXX)
+project(sonalloy-native LANGUAGES C CXX)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -186,12 +186,13 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         add_executable(sonalloy-cmake-consumer tests/cmake_consumer.cpp)
         target_link_libraries(sonalloy-cmake-consumer PRIVATE sonalloy::capi)
         add_dependencies(sonalloy-cmake-consumer sonalloy::cli)
-        sonalloy_stage_builtin_bundle(
-            TARGET sonalloy-builtin-bundle-stage
-            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/test-builtin-resources"
-        )
-        add_dependencies(sonalloy-cmake-consumer sonalloy-builtin-bundle-stage)
         add_test(NAME SonalloyCMakeConsumer COMMAND sonalloy-cmake-consumer)
+
+        add_executable(sonalloy-c-header-consumer tests/cmake_header_consumer.c)
+        target_link_libraries(sonalloy-c-header-consumer PRIVATE sonalloy::capi)
+        add_dependencies(sonalloy-c-header-consumer sonalloy::cli)
+        add_test(NAME SonalloyCHeaderConsumer COMMAND sonalloy-c-header-consumer)
+
         add_test(
             NAME SonalloyCliConsumer
             COMMAND "${CMAKE_COMMAND}"

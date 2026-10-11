@@ -552,13 +552,6 @@ mod tests {
     use super::{PatternDefinition, default_pattern};
 
     #[test]
-    fn default_pattern_is_one_bar_long() {
-        let pattern = default_pattern();
-
-        assert_eq!(pattern.length_ticks, 1_920);
-    }
-
-    #[test]
     fn ramp_validation_checks_duration_end_and_native_endpoints() {
         for (tick, duration_ticks, from_value, to_value, field) in [
             (0, 0, 0.0, 1.0, "duration_ticks"),

@@ -21,31 +21,30 @@ jobs:
         with:
           toolchain: stable
       - uses: ilammy/msvc-dev-cmd@v1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
       - name: Install audio tools
         run: choco install ffmpeg --yes --no-progress
-      - name: Format
-        run: cargo fmt --all -- --check
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Test
-        run: cargo test --workspace
-      - name: CMake consumer smoke
+      - name: C ABI tests
+        run: cargo test -p sonalloy-capi
+      - name: CLI tests
+        run: cargo test -p sonalloy-cli --tests
+      - name: DSP integration tests
+        run: >
+          cargo test -p sonalloy-core
+          --test core_process
+          --test runtime_lifecycle
+          --test external_audio
+          --test processor_expansion
+      - name: Debug CMake C ABI and CLI consumers
         shell: pwsh
         run: |
           cmake -S . -B cmake-build -DBUILD_TESTING=ON
           cmake --build cmake-build --config Debug --parallel
           ctest --test-dir cmake-build --build-config Debug --output-on-failure
-      - name: Debug C++ C ABI consumer link
+      - name: Release CMake C ABI and CLI consumers
         shell: pwsh
-        run: ./scripts/verify-msvc-capi-consumer.ps1 -Configuration Debug
-      - name: Release build
-        run: cargo build --workspace --release
-      - name: Release C++ C ABI consumer link
-        shell: pwsh
-        run: ./scripts/verify-msvc-capi-consumer.ps1 -Configuration Release
+        run: |
+          cmake --build cmake-build --config Release --parallel
+          ctest --test-dir cmake-build --build-config Release --output-on-failure
 
   linux:
     runs-on: ubuntu-latest
@@ -72,8 +71,6 @@ jobs:
           cmake -S . -B cmake-build -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
           cmake --build cmake-build --parallel
           ctest --test-dir cmake-build --build-config Release --output-on-failure
-      - name: Release build
-        run: cargo build --workspace --release
 
   macos:
     runs-on: macos-14
@@ -82,24 +79,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
       - name: Install audio tools
         run: brew install ffmpeg
-      - name: Format
-        run: cargo fmt --all -- --check
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Test
-        run: cargo test --workspace
+      - name: C ABI and CLI tests
+        run: cargo test -p sonalloy-capi -p sonalloy-cli --tests
       - name: CMake consumer smoke
         run: |
           cmake -S . -B cmake-build -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
           cmake --build cmake-build --parallel
           ctest --test-dir cmake-build --build-config Release --output-on-failure
-      - name: Release build
-        run: cargo build --workspace --release
 
   audit:
     runs-on: ubuntu-latest

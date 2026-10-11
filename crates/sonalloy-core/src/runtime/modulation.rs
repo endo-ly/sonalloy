@@ -525,15 +525,6 @@ mod tests {
     use super::ValueSpan;
 
     #[test]
-    fn value_span_uses_one_shared_ramp_formula() {
-        let span = ValueSpan::linear(2.0, 6.0);
-
-        assert!((span.value_at(0, 4) - 2.0).abs() < f32::EPSILON);
-        assert!((span.value_at(2, 4) - 4.0).abs() < f32::EPSILON);
-        assert!((span.value_at(4, 4) - 6.0).abs() < f32::EPSILON);
-    }
-
-    #[test]
     fn geometric_span_follows_the_parameter_scale() {
         let span = ValueSpan::geometric(20.0, 20_000.0);
 

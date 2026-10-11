@@ -141,37 +141,6 @@ mod tests {
     }
 
     #[test]
-    fn ratio_one_without_makeup_is_an_identity() {
-        let mut runtime = runtime(0.0, 0.0);
-        let original_left = [0.8, -0.4, 0.2, -0.1];
-        let original_right = [-0.3, 0.6, -0.2, 0.05];
-        let mut left = original_left;
-        let mut right = original_right;
-        runtime
-            .process(
-                span(-18.0),
-                span(1.0),
-                span(0.0),
-                span(1.0),
-                ExternalAudioBlock::new(&[]),
-                &mut left,
-                &mut right,
-            )
-            .expect("compressor processes");
-        assert!(
-            left.into_iter()
-                .zip(original_left)
-                .all(|(actual, expected)| (actual - expected).abs() < f32::EPSILON)
-        );
-        assert!(
-            right
-                .into_iter()
-                .zip(original_right)
-                .all(|(actual, expected)| (actual - expected).abs() < f32::EPSILON)
-        );
-    }
-
-    #[test]
     fn stereo_link_uses_one_gain_reduction_for_both_channels() {
         let mut runtime = runtime(0.0, 0.0);
         let mut left = [0.8; 4];

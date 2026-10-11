@@ -694,7 +694,7 @@ mod tests {
     }
 
     #[test]
-    fn macro_cc_parser_resolves_mappings_and_rejects_reserved_or_duplicate_controls() {
+    fn macro_cc_parses_and_rejects_reserved_or_malformed_controls() {
         let compiled = compiled_with_macro();
         let parameter = compiled
             .parameter_handle("macro.motion")
@@ -706,14 +706,12 @@ mod tests {
         assert!(parse_macro_cc(&["motion=128".to_owned()], &compiled).is_err());
         assert!(parse_macro_cc(&["motion=255".to_owned()], &compiled).is_err());
         assert!(parse_macro_cc(&["motion=1".to_owned()], &compiled).is_err());
+        assert!(parse_macro_cc(&["motion=64".to_owned()], &compiled).is_err());
         assert!(
             parse_macro_cc(&["motion=20".to_owned(), "motion=21".to_owned()], &compiled).is_err()
         );
         assert!(parse_macro_cc(&["missing=22".to_owned()], &compiled).is_err());
-    }
 
-    #[test]
-    fn macro_cc_parser_checks_format_range_and_reserved_controls() {
         assert_eq!(parse_macro_cc_value("motion=0"), Ok("motion=0".to_owned()));
         assert_eq!(
             parse_macro_cc_value("motion=127"),
@@ -721,7 +719,5 @@ mod tests {
         );
         assert!(parse_macro_cc_value("motion").is_err());
         assert!(parse_macro_cc_value("motion=128").is_err());
-        assert!(parse_macro_cc_value("motion=1").is_err());
-        assert!(parse_macro_cc_value("motion=64").is_err());
     }
 }

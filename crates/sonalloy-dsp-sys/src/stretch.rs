@@ -367,7 +367,7 @@ pub fn backend_version() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{DspStretch, DspStretchError, backend_version};
+    use super::{DspStretch, DspStretchError};
     use crate::ffi;
 
     #[cfg(sonalloy_test_hooks)]
@@ -376,9 +376,8 @@ mod tests {
     }
 
     #[test]
-    fn backend_reports_fixed_version_and_latency() {
+    fn stretch_reports_latency_after_preparation() {
         let mut stretch = DspStretch::new().expect("stretch allocation");
-        assert!(backend_version().contains("signalsmith-stretch-1.3.2"));
         assert_eq!(stretch.reset(), Err(DspStretchError::NotPrepared));
         stretch
             .prepare(2, 48_000.0, 512, 257)

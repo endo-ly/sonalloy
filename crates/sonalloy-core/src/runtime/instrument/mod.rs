@@ -2688,7 +2688,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    pub(crate) fn prepare_accepts_an_instrument_compiled_at_44_1_khz() {
+    fn prepare_accepts_an_instrument_compiled_at_44_1_khz() {
         let result = compile_instrument(
             &definition(),
             &CompileContext {
@@ -2706,7 +2706,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    pub(crate) fn note_timing_is_independent_of_block_size() {
+    fn note_timing_is_independent_of_block_size() {
         let mut first = runtime();
         let mut second = runtime();
         let spec = ProcessSpec::new(48_000.0, 257, 0, 2).expect("valid spec");
@@ -2746,7 +2746,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    pub(crate) fn reset_restarts_the_same_render() {
+    fn reset_restarts_the_same_render() {
         let mut runtime = runtime();
         prepare(&mut runtime);
         let event = [ProcessEvent {
@@ -2766,7 +2766,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    pub(crate) fn reset_restarts_round_robin_selection_from_the_first_zone() {
+    fn reset_restarts_round_robin_selection_from_the_first_zone() {
         let asset_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../testdata/assets/metal-hit.wav")
             .to_string_lossy()

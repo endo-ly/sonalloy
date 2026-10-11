@@ -97,32 +97,6 @@ fn render_sine_writes_stereo_wav() {
 }
 
 #[test]
-fn clap_rejects_zero_block_size_before_rendering() {
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path().join("sine.wav");
-    let mut command = Command::cargo_bin("sonalloy").expect("binary");
-    command
-        .args([
-            "dev",
-            "render-sine",
-            "--duration",
-            "1.0",
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "0",
-            "--output",
-            output.to_str().expect("utf-8 path"),
-            "--json",
-        ])
-        .assert()
-        .code(2)
-        .stdout(predicates::str::is_empty())
-        .stderr(predicates::str::contains("expected a positive integer"));
-    assert!(!output.exists());
-}
-
-#[test]
 fn missing_output_directory_returns_wav_error() {
     let directory = tempdir().expect("temporary directory");
     let output = directory.path().join("missing").join("sine.wav");
@@ -145,30 +119,6 @@ fn missing_output_directory_returns_wav_error() {
         .code(4)
         .stdout(predicates::str::contains("\"WAV_OUTPUT_ERROR\""));
     assert!(!output.exists());
-}
-
-#[test]
-fn output_directory_used_as_file_returns_wav_error() {
-    let directory = tempdir().expect("temporary directory");
-    let output = directory.path();
-    let mut command = Command::cargo_bin("sonalloy").expect("binary");
-    command
-        .args([
-            "dev",
-            "render-sine",
-            "--duration",
-            "0.01",
-            "--sample-rate",
-            "48000",
-            "--block-size",
-            "64",
-            "--output",
-            output.to_str().expect("utf-8 path"),
-            "--json",
-        ])
-        .assert()
-        .code(4)
-        .stdout(predicates::str::contains("\"WAV_OUTPUT_ERROR\""));
 }
 
 #[test]

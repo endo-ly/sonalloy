@@ -630,11 +630,6 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn valid_definition_has_no_diagnostics() {
-        assert_eq!(definition().validate(), Vec::new());
-    }
-
-    #[test]
     fn choke_group_requires_a_name_and_note_on_trigger() {
         let mut source = definition();
         for (group, event) in [
@@ -751,14 +746,6 @@ pub(crate) mod tests {
             diagnostic.code == DiagnosticCode::LayerRangeInvalid
                 && diagnostic.path.as_deref() == Some("layers[0].trigger")
         }));
-    }
-
-    #[test]
-    fn validation_accepts_multiple_enabled_layers() {
-        let mut value = definition();
-        value.layers.push(value.layers[0].clone());
-        value.layers[1].id = "second".to_owned();
-        assert_eq!(value.validate(), Vec::new());
     }
 
     #[test]

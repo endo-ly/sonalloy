@@ -155,6 +155,7 @@ fn pattern_commands_initialize_validate_inspect_and_render() {
         .assert()
         .success()
         .stdout(predicates::str::contains("\"note_count\":1"))
+        .stdout(predicates::str::contains("\"length_ticks\":1920"))
         .stdout(predicates::str::contains(
             "\"musical_duration_seconds\":2.0",
         ));

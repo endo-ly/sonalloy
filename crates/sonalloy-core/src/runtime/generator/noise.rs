@@ -217,14 +217,14 @@ mod tests {
     }
 
     #[test]
-    fn correlation_endpoints_and_reset_are_deterministic() {
-        let span = ValueSpan::linear(1.0, 1.0);
+    fn noise_seed_correlation_reset_and_partition_are_deterministic() {
+        let correlated_span = ValueSpan::linear(1.0, 1.0);
         let mut correlated = NoiseRuntime::new(&compiled_noise(NoiseColor::White, 7));
         correlated.start(13);
         let mut left = vec![0.0; 512];
         let mut right = vec![0.0; 512];
         correlated
-            .render(512, &span, &mut left, &mut right)
+            .render(512, &correlated_span, &mut left, &mut right)
             .expect("correlated noise renders");
         assert_eq!(left, right);
 
@@ -252,14 +252,16 @@ mod tests {
         let mut repeated_left = vec![0.0; 512];
         let mut repeated_right = vec![0.0; 512];
         correlated
-            .render(512, &span, &mut repeated_left, &mut repeated_right)
+            .render(
+                512,
+                &correlated_span,
+                &mut repeated_left,
+                &mut repeated_right,
+            )
             .expect("reset noise renders");
         assert_eq!(left, repeated_left);
         assert_eq!(right, repeated_right);
-    }
 
-    #[test]
-    fn block_partition_does_not_change_the_noise_sequence() {
         let compiled = compiled_noise(NoiseColor::Pink, 99);
         let span = ValueSpan::linear(0.4, 0.4);
         let mut one_block = NoiseRuntime::new(&compiled);

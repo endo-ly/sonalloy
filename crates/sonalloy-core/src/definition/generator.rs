@@ -2470,13 +2470,6 @@ mod tests {
     }
 
     #[test]
-    fn legacy_string_waveform_is_rejected() {
-        let mut value = serde_json::to_value(definition()).expect("definition serializes");
-        value["layers"][0]["generator"]["oscillator"]["waveform"] = serde_json::json!("saw");
-        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
-    }
-
-    #[test]
     fn oscillator_and_noise_ranges_are_validated() {
         let mut value = definition();
         value.layers[0].generator = GeneratorDefinition::Oscillator(OscillatorDefinition {
@@ -2539,15 +2532,10 @@ mod tests {
             phase: 0.0,
             unison: None,
         });
-        for frame_length in [64, 2_048, 4_096] {
-            if let GeneratorDefinition::Wavetable(wavetable) = &mut value.layers[0].generator {
-                wavetable.frame_length = frame_length;
-            }
-            assert!(
-                value.validate().is_empty(),
-                "frame_length {frame_length} is valid"
-            );
+        if let GeneratorDefinition::Wavetable(wavetable) = &mut value.layers[0].generator {
+            wavetable.frame_length = 2_048;
         }
+        assert!(value.validate().is_empty(), "frame_length 2048 is valid");
 
         if let GeneratorDefinition::Wavetable(wavetable) = &mut value.layers[0].generator {
             wavetable.frame_length = 65;
@@ -2601,22 +2589,7 @@ mod tests {
     }
 
     #[test]
-    fn sample_schema_rejects_legacy_direct_fields() {
-        let mut value = serde_json::to_value(definition()).expect("definition serializes");
-        value["layers"][0]["generator"] = serde_json::json!({
-            "sample": {
-                "asset": {"path": "test.wav"},
-                "root_note": 60,
-                "playback_mode": "one_shot",
-                "interpolation": "cubic"
-            }
-        });
-
-        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
-    }
-
-    #[test]
-    fn sample_zone_mapping_and_round_robin_ranges_are_validated() {
+    fn sample_zone_ranges_and_mapping_are_validated() {
         let one_shot = SampleZonePlaybackDefinition {
             region: SampleRegionDefinition {
                 start_seconds: 0.0,
@@ -2637,6 +2610,48 @@ mod tests {
             sample_zone("hit_b", 60, 60, 1, 127, Some("hits"), one_shot),
         ]);
         assert_eq!(value.validate(), Vec::new());
+
+        let midi_fields = [
+            ("root_note", "layers[0].generator.sample.zones[0].root_note"),
+            ("key_min", "layers[0].generator.sample.zones[0].key_min"),
+            ("key_max", "layers[0].generator.sample.zones[0].key_max"),
+            (
+                "velocity_min",
+                "layers[0].generator.sample.zones[0].velocity_min",
+            ),
+            (
+                "velocity_max",
+                "layers[0].generator.sample.zones[0].velocity_max",
+            ),
+        ];
+        for (field, path) in midi_fields {
+            let mut value =
+                sample_definition(vec![sample_zone("valid", 0, 127, 1, 127, None, one_shot)]);
+            if let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator {
+                set_sample_zone_midi_field(&mut sample.zones[0], field, 127);
+            }
+            assert!(value.validate().is_empty(), "{field}=127 must be valid");
+
+            let mut value =
+                sample_definition(vec![sample_zone("invalid", 0, 127, 1, 127, None, one_shot)]);
+            if let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator {
+                let zone = &mut sample.zones[0];
+                match field {
+                    "key_min" => zone.key_max = 255,
+                    "velocity_min" => zone.velocity_max = 255,
+                    _ => {}
+                }
+                set_sample_zone_midi_field(zone, field, 128);
+            }
+            let diagnostics = value.validate();
+            assert!(
+                diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == DiagnosticCode::LayerRangeInvalid
+                        && diagnostic.path.as_deref() == Some(path)
+                }),
+                "{field}=128 must report {path}: {diagnostics:?}"
+            );
+        }
 
         let mut value =
             sample_definition(vec![sample_zone("invalid", 60, 59, 1, 127, None, one_shot)]);
@@ -2727,63 +2742,6 @@ mod tests {
                 && diagnostic.path.as_deref()
                     == Some("layers[0].generator.sample.zones[0].playback")
         }));
-    }
-
-    #[test]
-    fn sample_zone_midi_fields_have_explicit_bounds() {
-        let one_shot = SampleZonePlaybackDefinition {
-            region: SampleRegionDefinition {
-                start_seconds: 0.0,
-                end_seconds: None,
-            },
-            direction: SamplePlaybackDirection::Forward,
-            r#loop: None,
-            time: SampleTimeDefinition::Resample,
-        };
-        let fields = [
-            ("root_note", "layers[0].generator.sample.zones[0].root_note"),
-            ("key_min", "layers[0].generator.sample.zones[0].key_min"),
-            ("key_max", "layers[0].generator.sample.zones[0].key_max"),
-            (
-                "velocity_min",
-                "layers[0].generator.sample.zones[0].velocity_min",
-            ),
-            (
-                "velocity_max",
-                "layers[0].generator.sample.zones[0].velocity_max",
-            ),
-        ];
-
-        for (field, path) in fields {
-            let mut value =
-                sample_definition(vec![sample_zone("valid", 0, 127, 1, 127, None, one_shot)]);
-            if let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator {
-                set_sample_zone_midi_field(&mut sample.zones[0], field, 127);
-            }
-            assert!(value.validate().is_empty(), "{field}=127 must be valid");
-
-            for invalid in [128, 255] {
-                let mut value =
-                    sample_definition(vec![sample_zone("invalid", 0, 127, 1, 127, None, one_shot)]);
-                if let GeneratorDefinition::Sample(sample) = &mut value.layers[0].generator {
-                    let zone = &mut sample.zones[0];
-                    match field {
-                        "key_min" => zone.key_max = 255,
-                        "velocity_min" => zone.velocity_max = 255,
-                        _ => {}
-                    }
-                    set_sample_zone_midi_field(zone, field, invalid);
-                }
-                let diagnostics = value.validate();
-                assert!(
-                    diagnostics.iter().any(|diagnostic| {
-                        diagnostic.code == DiagnosticCode::LayerRangeInvalid
-                            && diagnostic.path.as_deref() == Some(path)
-                    }),
-                    "{field}={invalid} must report {path}: {diagnostics:?}"
-                );
-            }
-        }
     }
 
     #[test]

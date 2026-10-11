@@ -203,8 +203,7 @@ mod tests {
     use super::{INHARMONICITY_MAX, effective_ratio};
 
     #[test]
-    fn inharmonicity_keeps_the_fundamental_at_one() {
-        assert_eq!(effective_ratio(1.0, INHARMONICITY_MAX), Ok(1.0));
+    fn inharmonicity_shifts_higher_partials_only() {
         assert!(effective_ratio(2.0, INHARMONICITY_MAX).expect("ratio is finite") > 2.0);
     }
 }

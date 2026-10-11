@@ -2268,6 +2268,7 @@ mod tests {
     use crate::definition::{
         GeneratorDefinition, NoiseColor, OscillatorDefinition, OscillatorWaveform,
     };
+    use crate::{ProcessEventKind, RenderRequest, ScheduledEvent, render_instrument};
 
     #[test]
     fn basic_generators_compile_with_parameter_handles_and_output_modes() {
@@ -2330,16 +2331,54 @@ mod tests {
     }
 
     #[test]
-    fn disabled_layers_stay_in_the_catalog_but_not_the_runtime_layers() {
+    fn a_disabled_layer_stays_addressable_but_never_sounds() {
         let mut source = definition();
         let mut disabled = source.layers[0].clone();
         disabled.id = "disabled".to_owned();
         disabled.enabled = false;
+        disabled.gain_db = 0.0;
+        source.layers[0].gain_db = -60.0;
         source.layers.insert(0, disabled);
-        let result = compile_instrument(&source, &context());
-        let compiled = result.instrument.expect("enabled layer compiles");
-        assert_eq!(compiled.layers.len(), 1);
+        let compiled = compile_instrument(&source, &context())
+            .instrument
+            .expect("disabled layer compiles");
         assert_eq!(compiled.parameters()[0].id, "layer.disabled.gain");
-        assert_eq!(compiled.layers[0].id, "body");
+
+        let mut equivalent = source.clone();
+        equivalent.layers.remove(0);
+        let reference = compile_instrument(&equivalent, &context())
+            .instrument
+            .expect("enabled layer compiles");
+        let events = [
+            ScheduledEvent {
+                absolute_frame: 0,
+                kind: ProcessEventKind::NoteOn {
+                    note_id: 1,
+                    note_number: 60,
+                    velocity: 100,
+                },
+            },
+            ScheduledEvent {
+                absolute_frame: 4_800,
+                kind: ProcessEventKind::NoteOff { note_id: 1 },
+            },
+        ];
+        let request = RenderRequest {
+            sample_rate: 48_000.0,
+            block_size: 257,
+            duration_frames: 9_600,
+            tail_frames: 0,
+        };
+        let with_disabled = render_instrument(compiled, request, &events).expect("render");
+        let without_disabled =
+            render_instrument(reference, request, &events).expect("reference render");
+        for (disabled_layer, enabled_only) in with_disabled
+            .channels
+            .iter()
+            .flatten()
+            .zip(without_disabled.channels.iter().flatten())
+        {
+            assert!((disabled_layer - enabled_only).abs() < 1.0e-6);
+        }
     }
 }

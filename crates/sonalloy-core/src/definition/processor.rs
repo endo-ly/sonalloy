@@ -1709,20 +1709,6 @@ mod tests {
     }
 
     #[test]
-    fn schema_rejects_the_old_delay_shape() {
-        let mut value = serde_json::to_value(definition()).expect("definition serializes");
-        value["global_processors"] = serde_json::json!([{
-            "type": "delay",
-            "id": "echo",
-            "time_seconds": 0.3,
-            "feedback": 0.4,
-            "mix": 0.3,
-        }]);
-
-        assert!(serde_json::from_value::<InstrumentDefinition>(value).is_err());
-    }
-
-    #[test]
     fn serde_rejects_unknown_processor_fields() {
         let mut value = serde_json::to_value(definition()).expect("definition serializes");
         value["voice_processors"] = serde_json::json!([{

@@ -969,18 +969,15 @@ mod tests {
     }
 
     #[test]
-    fn sample_runtime_finishes_without_out_of_bounds_reads() {
-        let zone = zone(sample(&[0.1, 0.2, 0.3]), one_shot(0, 3));
+    fn sample_runtime_plays_only_the_compiled_region_and_finishes() {
+        let tiny = zone(sample(&[0.1, 0.2, 0.3]), one_shot(0, 3));
         let mut runtime = SampleRuntime::new();
-        runtime.start(Some(&zone)).expect("sample start");
+        runtime.start(Some(&tiny)).expect("sample start");
         let values: Vec<f32> = (0..5).map(|_| next_sample(&mut runtime, 1.0)).collect();
         assert!(values[..3].iter().all(|value| value.is_finite()));
         assert!(values[3..].iter().all(|value| value.abs() < 1.0e-6));
         assert!(runtime.is_finished());
-    }
 
-    #[test]
-    fn sample_runtime_plays_only_the_compiled_region() {
         let zone = zone(
             sample(&[100.0, 101.0, 1.0, 2.0, 3.0, 4.0, 100.0, 101.0]),
             one_shot(2, 6),

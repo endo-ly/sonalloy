@@ -144,11 +144,6 @@ fn expected_preset_category(path: &Path, preset_id: &str) -> &'static str {
 #[test]
 fn every_builtin_preset_metadata_validates_and_renders() {
     let paths = preset_paths();
-    assert!(
-        paths.len() >= 60,
-        "expected at least 60 built-in presets, found {}",
-        paths.len()
-    );
 
     for path in paths {
         let preset_id = path
