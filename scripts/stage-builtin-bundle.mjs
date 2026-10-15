@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import {
   copyFileSync,
   cpSync,
@@ -10,12 +11,12 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const licenseFiles = ['THIRD_PARTY_NOTICES.md', 'LICENSE-MIT', 'LICENSE-APACHE'];
 const usage =
-  'Usage: node scripts/stage-builtin-bundle.mjs --destination <path> [--source-root <path>] [--source-release <tag>]';
+  'Usage: node scripts/stage-builtin-bundle.mjs --destination <path> --sonalloy-bin <absolute-path> [--source-root <path>] [--source-release <tag>]';
 
 function normalizeReleaseTag(value) {
   if (!value) throw new Error('A Sonalloy source release is required.');
@@ -51,14 +52,14 @@ const presetCategoryLabels = {
   SEQ: 'Sequence',
   FX: 'FX',
 };
-const ignoredPresetDirectories = new Set(['assets', 'common-patterns']);
+const ignoredPresetDirectories = new Set(['assets', 'common-scores']);
 const presetDirectoryPattern = /^\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function manifestPath(value) {
   return value.split('\\').join('/');
 }
 
-function readPreset(sourceRoot, presetPath, presetId, categoryCode) {
+function readPreset(sourceRoot, presetPath, presetId, categoryCode, sonalloyBin) {
   const definitionPath = join(sourceRoot, 'presets', ...presetPath.split('/'), 'definition.json');
   let definition;
   try {
@@ -91,21 +92,12 @@ function readPreset(sourceRoot, presetPath, presetId, categoryCode) {
     presetId,
     'recommended_range',
   );
-  const preview = readRequiredRecord(metadata.preview, presetId, 'preview');
   if (!Object.hasOwn(recommendedRange, 'min_midi') || !Object.hasOwn(recommendedRange, 'max_midi')) {
     throw new Error(`Sonalloy preset '${presetId}' metadata.recommended_range is incomplete.`);
   }
-  if (
-    !Object.hasOwn(preview, 'tempo_bpm') ||
-    !Object.hasOwn(preview, 'ticks_per_beat') ||
-    !Object.hasOwn(preview, 'time_signature') ||
-    !Object.hasOwn(preview, 'length_ticks') ||
-    !Object.hasOwn(preview, 'notes')
-  ) {
-    throw new Error(`Sonalloy preset '${presetId}' metadata.preview is incomplete.`);
-  }
-  const timeSignature = readRequiredRecord(preview.time_signature, presetId, 'preview.time_signature');
-  const notes = readRequiredArray(preview.notes, presetId, 'preview.notes');
+  const result = spawnSync(sonalloyBin, ['score', 'inspect', join(sourceRoot, 'presets', presetPath, 'preview.score.yaml'), '--preset-root', join(sourceRoot, 'presets'), '--preview-json'], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+  if (result.error || result.status !== 0) throw new Error(`Sonalloy preset '${presetId}' preview compilation failed: ${result.error?.message ?? result.stderr}`);
+  const preview = JSON.parse(result.stdout);
 
   return {
     definitionPath,
@@ -120,21 +112,7 @@ function readPreset(sourceRoot, presetPath, presetId, categoryCode) {
         minMidi: recommendedRange.min_midi,
         maxMidi: recommendedRange.max_midi,
       },
-      preview: {
-        tempoBpm: preview.tempo_bpm,
-        ticksPerBeat: preview.ticks_per_beat,
-        timeSignature: {
-          numerator: timeSignature.numerator,
-          denominator: timeSignature.denominator,
-        },
-        lengthTicks: preview.length_ticks,
-        notes: notes.map((note) => ({
-          tick: note.tick,
-          durationTicks: note.duration_ticks,
-          note: note.note,
-          velocity: note.velocity,
-        })),
-      },
+      preview,
       definitionPath: `${manifestPath(presetPath)}/definition.json`,
       resourceBasePath: manifestPath(presetPath),
     },
@@ -173,7 +151,7 @@ function readRequiredRecord(value, presetId, field) {
   return value;
 }
 
-function collectPresets(sourceRoot) {
+function collectPresets(sourceRoot, sonalloyBin) {
   const presetsRoot = join(sourceRoot, 'presets');
   if (!existsSync(presetsRoot)) throw new Error(`Sonalloy presets directory is missing: ${presetsRoot}`);
 
@@ -206,10 +184,10 @@ function collectPresets(sourceRoot) {
         throw new Error(`Duplicate built-in preset ID '${presetId}'.`);
       }
       presetIds.add(presetId);
-      presets.push(readPreset(sourceRoot, presetPath, presetId, category.name));
+      presets.push({ presetPath, presetId, categoryCode: category.name });
     }
   }
-  return presets;
+  return presets.map(({ presetPath, presetId, categoryCode }) => readPreset(sourceRoot, presetPath, presetId, categoryCode, sonalloyBin));
 }
 
 function replaceDirectory(destination, stagedDestination) {
@@ -234,7 +212,8 @@ function replaceDirectory(destination, stagedDestination) {
   }
 }
 
-export function stageBuiltinBundle({ destination, sourceRoot, sourceRelease }) {
+export function stageBuiltinBundle({ destination, sourceRoot, sourceRelease, sonalloyBin }) {
+  if (!sonalloyBin || !isAbsolute(sonalloyBin) || !existsSync(sonalloyBin)) throw new Error('An existing absolute --sonalloy-bin path is required.');
   if (!destination) throw new Error('A destination for built-in resources is required.');
   const sourceRootPath = resolve(sourceRoot ?? resolve(dirname(fileURLToPath(import.meta.url)), '..'));
   if (!existsSync(sourceRootPath)) throw new Error(`Sonalloy source directory is missing: ${sourceRootPath}`);
@@ -249,7 +228,7 @@ export function stageBuiltinBundle({ destination, sourceRoot, sourceRelease }) {
   try {
     mkdirSync(dirname(destinationRoot), { recursive: true });
     const stagedBuiltinRoot = join(stagedRoot, 'instruments', 'builtin');
-    const presets = collectPresets(sourceRootPath);
+    const presets = collectPresets(sourceRootPath, sonalloyBin);
     mkdirSync(stagedBuiltinRoot, { recursive: true });
 
     for (const { definitionPath, entry } of presets) {
@@ -292,7 +271,7 @@ function parseOptions(args) {
   for (let index = 0; index < args.length; index += 2) {
     const option = args[index];
     const value = args[index + 1];
-    if (!['--destination', '--source-root', '--source-release'].includes(option) || !value) {
+    if (!['--destination', '--source-root', '--source-release', '--sonalloy-bin'].includes(option) || !value) {
       throw new Error(usage);
     }
     if (options.has(option)) throw new Error(`Duplicate option: ${option}`);
@@ -302,6 +281,7 @@ function parseOptions(args) {
   if (!destination) throw new Error(usage);
   return {
     destination,
+    sonalloyBin: options.get('--sonalloy-bin'),
     sourceRoot: options.get('--source-root'),
     sourceRelease: options.get('--source-release'),
   };

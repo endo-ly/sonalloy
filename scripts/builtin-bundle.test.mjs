@@ -21,6 +21,9 @@ const sourceRelease = readFileSync(join(sourceRoot, 'Cargo.toml'), 'utf8').match
 )?.[1];
 if (!sourceRelease) throw new Error('Cargo.toml package version is missing.');
 
+const sonalloyBin = process.env.SONALLOY_BIN;
+if (!sonalloyBin) throw new Error('Set SONALLOY_BIN to the absolute repository CLI path.');
+
 const licenseFiles = ['THIRD_PARTY_NOTICES.md', 'LICENSE-MIT', 'LICENSE-APACHE'];
 
 function sourcePresetIds() {
@@ -47,7 +50,7 @@ test('staged built-in bundle contains source definitions and required resources'
   const temporaryRoot = mkdtempSync(join(tmpdir(), 'sonalloy-bundle-'));
   try {
     const destination = join(temporaryRoot, 'bundle');
-    stageBuiltinBundle({ destination, sourceRoot });
+    stageBuiltinBundle({ sonalloyBin, destination, sourceRoot });
     const manifest = JSON.parse(
       readFileSync(join(destination, 'instruments', 'builtin', 'manifest.json'), 'utf8'),
     );
@@ -119,6 +122,7 @@ test('staging rejects a preset with missing required metadata', () => {
     assert.throws(
       () =>
         stageBuiltinBundle({
+          sonalloyBin,
           destination: join(temporaryRoot, 'bundle'),
           sourceRoot: temporaryRoot,
           sourceRelease: '1.0.0',
@@ -139,6 +143,7 @@ test('staging rejects an unexpected preset directory instead of omitting it', ()
     assert.throws(
       () =>
         stageBuiltinBundle({
+          sonalloyBin,
           destination: join(temporaryRoot, 'bundle'),
           sourceRoot: temporaryRoot,
           sourceRelease: '1.0.0',
@@ -167,6 +172,7 @@ test('staging rejects duplicate preset IDs', () => {
     assert.throws(
       () =>
         stageBuiltinBundle({
+          sonalloyBin,
           destination: join(temporaryRoot, 'bundle'),
           sourceRoot: temporaryRoot,
           sourceRelease: '1.0.0',

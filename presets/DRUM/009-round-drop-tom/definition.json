@@ -14,41 +14,6 @@
     "recommended_range": {
       "min_midi": 33,
       "max_midi": 57
-    },
-    "preview": {
-      "tempo_bpm": 120,
-      "ticks_per_beat": 480,
-      "time_signature": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length_ticks": 1920,
-      "notes": [
-        {
-          "tick": 0,
-          "duration_ticks": 180,
-          "note": 45,
-          "velocity": 90
-        },
-        {
-          "tick": 480,
-          "duration_ticks": 180,
-          "note": 45,
-          "velocity": 110
-        },
-        {
-          "tick": 960,
-          "duration_ticks": 180,
-          "note": 45,
-          "velocity": 100
-        },
-        {
-          "tick": 1440,
-          "duration_ticks": 180,
-          "note": 45,
-          "velocity": 120
-        }
-      ]
     }
   },
   "performance": {
@@ -67,7 +32,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -16.0,
+      "gain_db": -16,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -163,7 +128,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -8.0,
+      "gain_db": -8,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -184,14 +149,14 @@
           "type": "filter",
           "id": "skin",
           "mode": "high_pass",
-          "cutoff_hz": 1100.0,
+          "cutoff_hz": 1100,
           "resonance": 0.12
         },
         {
           "type": "filter",
           "id": "tone",
           "mode": "low_pass",
-          "cutoff_hz": 6800.0,
+          "cutoff_hz": 6800,
           "resonance": 0.05
         }
       ]
@@ -211,16 +176,16 @@
       "low_frequency_hz": 95,
       "low_gain_db": 1.5,
       "mid_frequency_hz": 260,
-      "mid_gain_db": 2.0,
+      "mid_gain_db": 2,
       "mid_q": 1.2,
       "high_frequency_hz": 5200,
-      "high_gain_db": 2.0
+      "high_gain_db": 2
     },
     {
       "type": "transient_shaper",
       "id": "stick",
       "attack": 0.22,
-      "sustain": 0.0,
+      "sustain": 0,
       "mix": 0.75
     },
     {
@@ -232,7 +197,7 @@
       "attack_ms": 5,
       "release_ms": 90,
       "knee_db": 10,
-      "makeup_gain_db": 1.0,
+      "makeup_gain_db": 1,
       "mix": 0.55
     }
   ],

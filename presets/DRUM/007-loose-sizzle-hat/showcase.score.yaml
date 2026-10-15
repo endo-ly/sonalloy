@@ -1,0 +1,147 @@
+meta:
+  title: "Loose Sizzle Hat - Swung Eighths with Half-Open Accents"
+  bpm: 96
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 2
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "13/24"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 72
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "37/24"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "61/24"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 72
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "85/24"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "13/24"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 72
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "37/24"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "61/24"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 72
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "85/24"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 118
+instruments:
+  preview:
+    preset: "DRUM/007-loose-sizzle-hat"

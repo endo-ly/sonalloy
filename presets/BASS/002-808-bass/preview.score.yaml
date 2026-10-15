@@ -1,0 +1,43 @@
+meta:
+  title: "808 Bass preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 1
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1,,"
+        duration_quarters: "3/4"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "5,,"
+        duration_quarters: "3/4"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "1,"
+        duration_quarters: "1"
+        velocity: 104
+instruments:
+  preview:
+    preset: "BASS/002-808-bass"

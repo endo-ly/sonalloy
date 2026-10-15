@@ -1,0 +1,147 @@
+meta:
+  title: "808 Closed Hat preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 1
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "9/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "11/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "13/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "15/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+instruments:
+  preview:
+    preset: "DRUM/006-808-closed-hat"

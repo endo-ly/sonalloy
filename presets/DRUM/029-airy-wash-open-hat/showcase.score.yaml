@@ -1,0 +1,83 @@
+meta:
+  title: "Airy Wash Open Hat - Off-Beat Opens and Velocity Pair"
+  bpm: 124
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 2
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1/2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1/2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 120
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 127
+instruments:
+  preview:
+    preset: "DRUM/029-airy-wash-open-hat"

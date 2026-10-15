@@ -1,0 +1,131 @@
+meta:
+  title: "PM Glass Pluck preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 4
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "3/2"
+        velocity: 45
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "1"
+        duration_quarters: "3/2"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "3/2"
+        velocity: 127
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "1"
+        duration_quarters: "3/8"
+        velocity: 92
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "3"
+        duration_quarters: "3/8"
+        velocity: 76
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "5"
+        duration_quarters: "3/8"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "7"
+        duration_quarters: "3/8"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "1'"
+        duration_quarters: "3/8"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1/2"
+        degree: "5"
+        duration_quarters: "3/8"
+        velocity: 78
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1"
+        degree: "3"
+        duration_quarters: "3/8"
+        velocity: 98
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/2"
+        degree: "2"
+        duration_quarters: "3/8"
+        velocity: 82
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "2"
+        degree: "1"
+        duration_quarters: "11/8"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "2"
+        degree: "3"
+        duration_quarters: "11/8"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "1'"
+        duration_quarters: "3"
+        velocity: 100
+instruments:
+  preview:
+    preset: "PLUCK/007-pm-glass-pluck"

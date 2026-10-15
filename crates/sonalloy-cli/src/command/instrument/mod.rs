@@ -163,7 +163,6 @@ fn default_definition() -> InstrumentDefinition {
             category: None,
             tags: Vec::new(),
             recommended_range: None,
-            preview: None,
         },
         performance: PerformanceDefinition::Polyphonic {
             polyphony: 16,

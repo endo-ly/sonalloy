@@ -15,83 +15,6 @@
     "recommended_range": {
       "min_midi": 26,
       "max_midi": 50
-    },
-    "preview": {
-      "tempo_bpm": 140,
-      "ticks_per_beat": 480,
-      "time_signature": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length_ticks": 7680,
-      "notes": [
-        {
-          "tick": 0,
-          "duration_ticks": 930,
-          "note": 31,
-          "velocity": 112
-        },
-        {
-          "tick": 960,
-          "duration_ticks": 450,
-          "note": 31,
-          "velocity": 100
-        },
-        {
-          "tick": 1440,
-          "duration_ticks": 450,
-          "note": 34,
-          "velocity": 104
-        },
-        {
-          "tick": 1920,
-          "duration_ticks": 930,
-          "note": 29,
-          "velocity": 112
-        },
-        {
-          "tick": 2880,
-          "duration_ticks": 690,
-          "note": 29,
-          "velocity": 100
-        },
-        {
-          "tick": 3600,
-          "duration_ticks": 210,
-          "note": 36,
-          "velocity": 96
-        },
-        {
-          "tick": 3840,
-          "duration_ticks": 930,
-          "note": 31,
-          "velocity": 112
-        },
-        {
-          "tick": 4800,
-          "duration_ticks": 450,
-          "note": 38,
-          "velocity": 104
-        },
-        {
-          "tick": 5280,
-          "duration_ticks": 450,
-          "note": 34,
-          "velocity": 100
-        },
-        {
-          "tick": 5760,
-          "duration_ticks": 930,
-          "note": 27,
-          "velocity": 116
-        },
-        {
-          "tick": 6720,
-          "duration_ticks": 930,
-          "note": 29,
-          "velocity": 108
-        }
-      ]
     }
   },
   "performance": {
@@ -112,9 +35,9 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -7.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -7,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.003,
         "decay_seconds": 0.4,
@@ -127,7 +50,7 @@
             "type": "sine"
           },
           "phase_reset": true,
-          "phase": 0.0
+          "phase": 0
         }
       },
       "processors": []
@@ -142,9 +65,9 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -6.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -6,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.003,
         "decay_seconds": 0.4,
@@ -157,12 +80,12 @@
             "type": "saw"
           },
           "phase_reset": true,
-          "phase": 0.0,
+          "phase": 0,
           "unison": {
             "voices": 3,
-            "detune_cents": 9.0,
-            "stereo_spread": 0.0,
-            "phase_spread": 0.0
+            "detune_cents": 9,
+            "stereo_spread": 0,
+            "phase_spread": 0
           }
         }
       },
@@ -170,7 +93,7 @@
         {
           "type": "ladder_filter",
           "id": "wah",
-          "cutoff_hz": 560.0,
+          "cutoff_hz": 560,
           "resonance": 0.6,
           "drive": 0.35
         },
@@ -184,8 +107,8 @@
           "type": "filter",
           "id": "low_cut",
           "mode": "high_pass",
-          "cutoff_hz": 90.0,
-          "resonance": 0.0
+          "cutoff_hz": 90,
+          "resonance": 0
         }
       ]
     },
@@ -199,9 +122,9 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -6.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -6,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.003,
         "decay_seconds": 0.4,
@@ -214,12 +137,12 @@
             "type": "saw"
           },
           "phase_reset": true,
-          "phase": 0.0,
+          "phase": 0,
           "unison": {
             "voices": 3,
-            "detune_cents": 9.0,
-            "stereo_spread": 0.0,
-            "phase_spread": 0.0
+            "detune_cents": 9,
+            "stereo_spread": 0,
+            "phase_spread": 0
           }
         }
       },
@@ -227,7 +150,7 @@
         {
           "type": "ladder_filter",
           "id": "wah",
-          "cutoff_hz": 560.0,
+          "cutoff_hz": 560,
           "resonance": 0.6,
           "drive": 0.35
         },
@@ -241,8 +164,8 @@
           "type": "filter",
           "id": "low_cut",
           "mode": "high_pass",
-          "cutoff_hz": 90.0,
-          "resonance": 0.0
+          "cutoff_hz": 90,
+          "resonance": 0
         }
       ]
     }
@@ -251,22 +174,22 @@
     {
       "type": "eq",
       "id": "shape",
-      "low_frequency_hz": 60.0,
-      "low_gain_db": 0.0,
-      "mid_frequency_hz": 350.0,
-      "mid_gain_db": -2.0,
-      "mid_q": 1.0,
-      "high_frequency_hz": 7000.0,
-      "high_gain_db": -3.0
+      "low_frequency_hz": 60,
+      "low_gain_db": 0,
+      "mid_frequency_hz": 350,
+      "mid_gain_db": -2,
+      "mid_q": 1,
+      "high_frequency_hz": 7000,
+      "high_gain_db": -3
     }
   ],
   "global_processors": [
     {
       "type": "limiter",
       "id": "safety",
-      "ceiling_db": -3.0,
-      "release_ms": 80.0,
-      "input_gain_db": 0.0
+      "ceiling_db": -3,
+      "release_ms": 80,
+      "input_gain_db": 0
     }
   ],
   "modulation": {
@@ -276,7 +199,7 @@
         "type": "lfo",
         "waveform": "sine",
         "rate": {
-          "value": 1.0,
+          "value": 1,
           "unit": "per_beat"
         },
         "phase": 0.75
@@ -286,7 +209,7 @@
         "type": "lfo",
         "waveform": "sine",
         "rate": {
-          "value": 2.0,
+          "value": 2,
           "unit": "per_beat"
         },
         "phase": 0.75
@@ -333,7 +256,7 @@
         "source": "key_tracking",
         "target": "layer.quarter.processor.wah.cutoff",
         "depth": {
-          "value": 2.0,
+          "value": 2,
           "unit": "octaves"
         },
         "curve": "linear"
@@ -342,7 +265,7 @@
         "source": "key_tracking",
         "target": "layer.eighth.processor.wah.cutoff",
         "depth": {
-          "value": 2.0,
+          "value": 2,
           "unit": "octaves"
         },
         "curve": "linear"
@@ -369,7 +292,7 @@
         "source": "mod_wheel",
         "target": "vector.rate.position",
         "depth": {
-          "value": 1.0,
+          "value": 1,
           "unit": "normalized"
         },
         "curve": "linear"
@@ -378,7 +301,7 @@
         "source": "pitch_bend",
         "target": "layer.sub.tuning",
         "depth": {
-          "value": 200.0,
+          "value": 200,
           "unit": "cents"
         },
         "curve": "linear"
@@ -387,7 +310,7 @@
         "source": "pitch_bend",
         "target": "layer.quarter.tuning",
         "depth": {
-          "value": 200.0,
+          "value": 200,
           "unit": "cents"
         },
         "curve": "linear"
@@ -396,7 +319,7 @@
         "source": "pitch_bend",
         "target": "layer.eighth.tuning",
         "depth": {
-          "value": 200.0,
+          "value": 200,
           "unit": "cents"
         },
         "curve": "linear"
@@ -417,7 +340,7 @@
       "name": "Rate",
       "layer_a": "quarter",
       "layer_b": "eighth",
-      "position": 0.0
+      "position": 0
     }
   ]
 }

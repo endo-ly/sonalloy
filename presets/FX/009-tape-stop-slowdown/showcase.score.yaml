@@ -1,0 +1,147 @@
+meta:
+  title: "Tape Stop Slowdown - Chord and Bass Hits Slowing to a Stop"
+  bpm: 128
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 4
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "6,"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "6,,"
+        duration_quarters: "2"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "4,"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "6,"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "4,,"
+        duration_quarters: "2"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "5,"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "7,"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "2"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "5,,"
+        duration_quarters: "2"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "6,"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "6,,,"
+        duration_quarters: "2"
+        velocity: 112
+instruments:
+  preview:
+    preset: "FX/009-tape-stop-slowdown"

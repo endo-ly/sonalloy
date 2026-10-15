@@ -1,0 +1,171 @@
+meta:
+  title: "Breathy Whistle Lead - Legato Melody with Held Vibrato Notes"
+  bpm: 104
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 4
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "3'"
+        duration_quarters: "9/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1/2"
+        degree: "5'"
+        duration_quarters: "9/16"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "6'"
+        duration_quarters: "47/48"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "5'"
+        duration_quarters: "9/16"
+        velocity: 88
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "3'"
+        duration_quarters: "17/12"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "2'"
+        duration_quarters: "9/16"
+        velocity: 92
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1/2"
+        degree: "3'"
+        duration_quarters: "9/16"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1"
+        degree: "5'"
+        duration_quarters: "13/16"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/4"
+        degree: "6'"
+        duration_quarters: "5/16"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "1''"
+        duration_quarters: "23/12"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "3'"
+        duration_quarters: "9/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1/2"
+        degree: "5'"
+        duration_quarters: "9/16"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1"
+        degree: "6'"
+        duration_quarters: "47/48"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "2"
+        degree: "7'"
+        duration_quarters: "9/16"
+        velocity: 92
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "1''"
+        duration_quarters: "17/12"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "6'"
+        duration_quarters: "9/16"
+        velocity: 92
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "1/2"
+        degree: "5'"
+        duration_quarters: "9/16"
+        velocity: 88
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "1"
+        degree: "3'"
+        duration_quarters: "9/16"
+        velocity: 92
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "2'"
+        duration_quarters: "29/12"
+        velocity: 104
+instruments:
+  preview:
+    preset: "LEAD/010-breathy-whistle-lead"

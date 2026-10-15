@@ -1,0 +1,51 @@
+meta:
+  title: "Double Strike Snap preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 1
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "b3,,"
+        duration_quarters: "3/8"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "b3,,"
+        duration_quarters: "3/8"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "b3,,"
+        duration_quarters: "3/8"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "b3,,"
+        duration_quarters: "3/8"
+        velocity: 120
+instruments:
+  preview:
+    preset: "DRUM/014-double-strike-snap"

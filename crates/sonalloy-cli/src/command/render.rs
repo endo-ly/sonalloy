@@ -1752,22 +1752,12 @@ mod mastering_tests {
             premaster,
             samples(args.premaster_output.as_deref().expect("premaster path"))
         );
-        let instrument = Path::new(
-            definition["instruments"]["bass"]["definition"]
-                .as_str()
-                .expect("path"),
-        );
-        let mut silent: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(instrument).expect("instrument JSON"))
-                .expect("instrument object");
-        for layer in silent["layers"].as_array_mut().expect("layers") {
-            layer["enabled"] = false.into();
-        }
+        definition["instruments"]["bass"]["gain_db"] = (-1000).into();
         std::fs::write(
-            instrument,
-            serde_json::to_vec(&silent).expect("silent instrument JSON"),
+            &args.score,
+            serde_yaml_ng::to_string(&definition).expect("silent score"),
         )
-        .expect("silent instrument");
+        .expect("score");
         std::fs::write(&args.output, b"existing completed output").expect("existing output");
 
         assert_ne!(run_render_score(&args), ExitCode::SUCCESS);

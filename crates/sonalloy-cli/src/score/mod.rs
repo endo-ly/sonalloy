@@ -194,6 +194,81 @@ pub(crate) fn tonic_pitch(text: &str) -> std::result::Result<i32, CliFailure> {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn audition_scores_preserve_the_complete_event_sequences() {
+        use crate::performance::events::MusicalEvent;
+        use sha2::{Digest, Sha256};
+        let snapshots: Vec<serde_json::Value> = serde_json::from_str(include_str!(
+            "../../../../testdata/scores/audition-events.sha256.json"
+        ))
+        .expect("event fingerprints");
+        assert_eq!(snapshots.len(), 160);
+        for snapshot in snapshots {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .join(snapshot["score"].as_str().expect("score path"));
+            let plan = super::read(&path).expect("audition score compiles");
+            assert_eq!(plan.lanes.len(), 1, "{}", path.display());
+            let events = &plan.lanes[0].pattern;
+            let mut ordered = events.events.clone();
+            let position = |e: &MusicalEvent| match e {
+                MusicalEvent::Note { tick, .. } => (*tick, 2),
+                MusicalEvent::SustainPedal { tick, .. }
+                | MusicalEvent::PitchBend { tick, .. }
+                | MusicalEvent::ModWheel { tick, .. }
+                | MusicalEvent::Aftertouch { tick, .. }
+                | MusicalEvent::ParameterChange { tick, .. }
+                | MusicalEvent::ParameterRamp { tick, .. } => (*tick, 1),
+            };
+            ordered.sort_by_key(position);
+            let mut lines = vec![format!(
+                "time|{}|{}|{}|{}|{}",
+                events.length_ticks,
+                events.ticks_per_beat,
+                events.tempo_changes[0].bpm.to_bits(),
+                events.time_signature_changes[0].numerator,
+                events.time_signature_changes[0].denominator
+            )];
+            for e in ordered {
+                lines.push(match e {
+                    MusicalEvent::Note {
+                        tick,
+                        duration_ticks,
+                        note,
+                        velocity,
+                    } => format!("n|{tick}|{duration_ticks}|{note}|{velocity}"),
+                    MusicalEvent::SustainPedal { tick, down } => {
+                        format!("s|{tick}|{}", u8::from(down))
+                    }
+                    MusicalEvent::PitchBend { tick, value } => {
+                        format!("b|{tick}|{}", value.to_bits())
+                    }
+                    MusicalEvent::ModWheel { tick, value } => {
+                        format!("w|{tick}|{}", value.to_bits())
+                    }
+                    MusicalEvent::Aftertouch { tick, value } => {
+                        format!("a|{tick}|{}", value.to_bits())
+                    }
+                    MusicalEvent::ParameterChange {
+                        tick,
+                        parameter,
+                        native_value,
+                    } => format!("p|{tick}|{parameter}|{}", native_value.to_bits()),
+                    MusicalEvent::ParameterRamp { .. } => panic!("unexpected audition ramp"),
+                });
+            }
+            assert_eq!(
+                Sha256::digest(lines.join("\n").as_bytes())
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>(),
+                snapshot["sha256"].as_str().expect("digest"),
+                "{}",
+                path.display()
+            );
+        }
+    }
+
+    #[test]
     fn reference_composition_expands_all_sections() {
         let text = include_str!("../../../../testdata/scores/dopamine_overload.score.yaml");
         let plan = super::compile(text).expect("reference score compiles");

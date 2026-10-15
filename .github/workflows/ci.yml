@@ -65,6 +65,8 @@ jobs:
       - name: Test
         run: cargo test --workspace
       - name: Built-in bundle test
+        env:
+          SONALLOY_BIN: ${{ github.workspace }}/target/debug/sonalloy
         run: node --test scripts/builtin-bundle.test.mjs
       - name: CMake consumer smoke
         run: |

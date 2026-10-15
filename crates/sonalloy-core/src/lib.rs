@@ -60,7 +60,6 @@ pub use definition::{
     FormantDefinition, FormantProcessorDefinition, FormantProfileDefinition,
     FrequencyShifterProcessorDefinition, GateProcessorDefinition, GeneratorDefinition,
     GranularDefinition, HardSyncDefinition, InstrumentDefinition, InstrumentMetadata,
-    InstrumentPreviewDefinition, InstrumentPreviewNote, InstrumentPreviewTimeSignature,
     InstrumentRecommendedRange, LayerDefinition, LayerTriggerDefinition, LayerTriggerEvent,
     LimiterProcessorDefinition, ModalDefinition, ModulationDepthControl, ModulationDepthDefinition,
     ModulationDurationDefinition, ModulationDurationUnit, ModulationRateDefinition,

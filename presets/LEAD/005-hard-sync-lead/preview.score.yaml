@@ -1,0 +1,51 @@
+meta:
+  title: "Hard Sync Lead preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 1
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "1/2"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "3"
+        duration_quarters: "1/2"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "1'"
+        duration_quarters: "1/2"
+        velocity: 115
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "9/4"
+        degree: "5'"
+        duration_quarters: "3/4"
+        velocity: 100
+instruments:
+  preview:
+    preset: "LEAD/005-hard-sync-lead"

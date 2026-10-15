@@ -1,0 +1,27 @@
+meta:
+  title: "Whistle Noise Riser preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 4
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "16"
+        velocity: 110
+instruments:
+  preview:
+    preset: "FX/007-whistle-noise-riser"

@@ -1,0 +1,115 @@
+meta:
+  title: "Drums - Rim"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 4
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/4"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 45
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 40
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "15/4"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 45
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "2"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "15/4"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 42
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "1"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "9/4"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 45
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "13/4"
+        degree: "#1,,"
+        duration_quarters: "5/24"
+        velocity: 60
+instruments:
+  preview:
+    external: true

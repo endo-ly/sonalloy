@@ -1,0 +1,43 @@
+meta:
+  title: "FX - Riser"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 9
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1,"
+        duration_quarters: "9"
+        velocity: 76
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "1,"
+        duration_quarters: "9"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "0"
+        degree: "1,"
+        duration_quarters: "9"
+        velocity: 127
+instruments:
+  preview:
+    external: true

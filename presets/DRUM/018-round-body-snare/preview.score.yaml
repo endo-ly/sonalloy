@@ -1,0 +1,99 @@
+meta:
+  title: "Round Body Snare preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 4
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/4"
+        degree: "#4,"
+        duration_quarters: "1/2"
+        velocity: 42
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "#4,"
+        duration_quarters: "1/2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "#4,"
+        duration_quarters: "1/2"
+        velocity: 48
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "#4,"
+        duration_quarters: "1/2"
+        velocity: 40
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "#4,"
+        duration_quarters: "1/2"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/2"
+        degree: "#4,"
+        duration_quarters: "1/2"
+        velocity: 45
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "2"
+        degree: "#4,"
+        duration_quarters: "1/2"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "7/2"
+        degree: "#4,"
+        duration_quarters: "1/2"
+        velocity: 50
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "#4,"
+        duration_quarters: "1/2"
+        velocity: 44
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "2"
+        degree: "#4,"
+        duration_quarters: "1/2"
+        velocity: 115
+instruments:
+  preview:
+    preset: "DRUM/018-round-body-snare"
