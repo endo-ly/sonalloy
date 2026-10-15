@@ -272,13 +272,25 @@ fn routed_lanes_apply_gain_before_stems_and_reject_invalid_graphs() {
     for invalid in ["missing", "receiver"] {
         doc["instruments"]["receiver"]["audio_input"] = json!(invalid);
         std::fs::write(&score, serde_json::to_string_pretty(&doc).expect("YAML")).expect("score");
-        Command::cargo_bin("sonalloy")
+        let output = Command::cargo_bin("sonalloy")
             .expect("binary")
             .args(["score", "validate"])
             .arg(&score)
             .arg("--json")
             .assert()
-            .failure();
+            .failure()
+            .get_output()
+            .stdout
+            .clone();
+        let report: serde_json::Value = serde_json::from_slice(&output).expect("diagnostics");
+        let diagnostic = report["diagnostics"]
+            .as_array()
+            .expect("diagnostics")
+            .iter()
+            .find(|diagnostic| diagnostic["path"] == "instruments.receiver.audio_input")
+            .expect("routing field");
+        assert_eq!(diagnostic["actual"], invalid);
+        assert!(diagnostic["line"].as_u64().expect("source line") > 0);
     }
 }
 

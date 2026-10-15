@@ -137,17 +137,16 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
     }
     builder.validate_controls()?;
     let timeline = compile_timeline(meta, &builder, &sections, &start, &tempos, &meters)?;
-    let resolution = timeline.ticks_per_beat;
-    let length_ticks = timeline.length_ticks;
     let lanes = compile_lanes(builder.events, &timeline, &start)?;
     let occurrences = inspect_sections(&sections, &builder.harmony, &timeline)?;
     Ok(ScorePlan {
+        source: super::Source::default(),
         title: text_field(meta, "title", "meta")?.into(),
         instruments: object(&doc["instruments"], "instruments")?.clone(),
         lanes,
         sections: occurrences,
-        length_ticks,
-        ticks_per_beat: resolution,
+        length_ticks: timeline.length_ticks,
+        ticks_per_beat: timeline.ticks_per_beat,
         master: meta.get("master").cloned(),
         fade_out_seconds: optional_number(meta, "fade_out_seconds", 0.0, "meta")?,
         timeline,

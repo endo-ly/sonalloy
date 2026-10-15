@@ -183,7 +183,7 @@ fn ensure_new(path: &Path) -> Result<(), CliFailure> {
     }
 }
 fn write_score(path: &Path, doc: &Value) -> Result<(), CliFailure> {
-    let text = serde_yaml_ng::to_string(doc).map_err(|e| failure(path, e.to_string()))?;
+    let text = crate::score::to_yaml(doc).map_err(|e| failure(path, e.to_string()))?;
     crate::score::compile(&text)?;
     let mut file = std::fs::OpenOptions::new()
         .write(true)

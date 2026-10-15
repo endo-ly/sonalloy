@@ -315,11 +315,11 @@ fn score_and_frame_ramps_render_the_same_filter_sweep() {
         if kind == "score" {
             let report: serde_json::Value =
                 serde_json::from_slice(&rendered.stdout).expect("trace report");
-            assert!(
-                !report["parts"][0]["traces"][0]["parameters"][0]["observations"]
+            assert_ne!(
+                report["parts"][0]["traces"][0]["parameters"][0]["observations"]
                     .as_array()
-                    .expect("observations")
-                    .is_empty()
+                    .expect("observations"),
+                &[] as &[serde_json::Value]
             );
         }
         renders.push(

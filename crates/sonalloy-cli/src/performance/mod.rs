@@ -215,7 +215,10 @@ pub(crate) fn load(
     block_size: usize,
 ) -> Result<PerformancePlan, CliFailure> {
     let score = crate::score::read(path)?;
-    let paths = definition_paths(&score, path, bindings)?;
+    let paths = definition_paths(&score, path, bindings).map_err(|mut failure| {
+        score.annotate_diagnostics(&mut failure.diagnostics);
+        failure
+    })?;
     prepare(score, &paths, sample_rate, block_size)
 }
 
@@ -326,6 +329,7 @@ fn prepare(
         mix,
     };
     let audio_dependencies = resolve_audio_dependencies(&definition, &mut diagnostics);
+    score.annotate_diagnostics(&mut diagnostics);
     if diagnostics
         .iter()
         .any(|d| d.severity == DiagnosticSeverity::Error)
@@ -369,12 +373,12 @@ fn resolve_audio_dependencies(
         let Some(audio_input) = &part.audio_input else {
             continue;
         };
-        let path = format!("parts[{index}].audio_input.part");
+        let path = format!("instruments.{}.audio_input", part.id);
         let Some(&source_index) = part_indices.get(audio_input.part.as_str()) else {
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::DefinitionError,
-                    "audio_input.part must reference an existing part id",
+                    "audio_input must reference an existing instrument id",
                 )
                 .with_path(path),
             );
@@ -384,7 +388,7 @@ fn resolve_audio_dependencies(
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::DefinitionError,
-                    "audio_input.part cannot reference its own part",
+                    "audio_input cannot reference its own instrument",
                 )
                 .with_path(path),
             );
@@ -395,13 +399,20 @@ fn resolve_audio_dependencies(
 
     let mut states = vec![0; dependencies.len()];
     for index in 0..dependencies.len() {
-        visit_audio_dependency(index, &dependencies, &mut states, diagnostics);
+        visit_audio_dependency(
+            index,
+            &definition.parts,
+            &dependencies,
+            &mut states,
+            diagnostics,
+        );
     }
     dependencies
 }
 
 fn visit_audio_dependency(
     index: usize,
+    parts: &[Part],
     dependencies: &[Option<usize>],
     states: &mut [u8],
     diagnostics: &mut Vec<Diagnostic>,
@@ -417,10 +428,10 @@ fn visit_audio_dependency(
                     DiagnosticCode::DefinitionError,
                     "audio_input routing cannot contain a cycle",
                 )
-                .with_path(format!("parts[{index}].audio_input.part")),
+                .with_path(format!("instruments.{}.audio_input", parts[index].id)),
             );
         } else if states[source_index] == 0 {
-            visit_audio_dependency(source_index, dependencies, states, diagnostics);
+            visit_audio_dependency(source_index, parts, dependencies, states, diagnostics);
         }
     }
     states[index] = 2;
@@ -506,7 +517,7 @@ fn validate_part_id(id: &str, part_path: &str, diagnostics: &mut Vec<Diagnostic>
                 DiagnosticCode::ValueOutOfRange,
                 "id must be 1 to 64 ASCII characters, start with a letter or digit, contain only letters, digits, '.', '_' or '-', and not be a Windows reserved device name",
             )
-            .with_path(format!("{part_path}.id")),
+            .with_path(part_path),
         );
     }
 }

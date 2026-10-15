@@ -79,7 +79,7 @@ impl Error {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 struct Source {
     positions: BTreeMap<String, (usize, usize)>,
     values: BTreeMap<String, Value>,
@@ -128,6 +128,7 @@ pub(crate) struct EventSource {
 
 #[derive(Debug, Clone)]
 pub(crate) struct ScorePlan {
+    source: Source,
     pub(crate) title: String,
     pub(crate) instruments: serde_json::Map<String, Value>,
     pub(crate) lanes: Vec<ScoreLane>,
@@ -137,6 +138,23 @@ pub(crate) struct ScorePlan {
     pub(crate) master: Option<Value>,
     pub(crate) fade_out_seconds: f64,
     pub(crate) timeline: PerformanceEvents,
+}
+
+impl ScorePlan {
+    pub(crate) fn annotate_diagnostics(&self, diagnostics: &mut [sonalloy_core::Diagnostic]) {
+        for diagnostic in diagnostics {
+            if diagnostic.detail.is_none()
+                && let Some(path) = diagnostic.path.as_deref()
+                && (path.starts_with("instruments.") || path.starts_with("meta."))
+            {
+                diagnostic.detail = Error::new(path, &diagnostic.message)
+                    .failure(&self.source)
+                    .diagnostics
+                    .remove(0)
+                    .detail;
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, clap::Args)]
@@ -171,6 +189,7 @@ pub(crate) fn compile(text: &str) -> std::result::Result<ScorePlan, CliFailure> 
         lower::lower(&document)
     });
     result
+        .map_err(|error| error.failure(&source))
         .map(|mut plan| {
             for lane in &mut plan.lanes {
                 for origin in &mut lane.sources {
@@ -221,9 +240,9 @@ pub(crate) fn compile(text: &str) -> std::result::Result<ScorePlan, CliFailure> 
                     }
                 }
             }
+            plan.source = source;
             plan
         })
-        .map_err(|error| error.failure(&source))
 }
 
 fn object<'a>(v: &'a Value, path: &str) -> Result<&'a serde_json::Map<String, Value>> {
@@ -280,6 +299,33 @@ fn fields(v: &Value, allowed: &[&str], path: &str) -> Result<()> {
 
 pub(crate) fn tonic_pitch(text: &str) -> std::result::Result<i32, CliFailure> {
     syntax::tonic(text).map_err(|e| e.failure(&Source::default()))
+}
+
+pub(crate) fn to_yaml(
+    document: &Value,
+) -> std::result::Result<String, yaml_rust2::emitter::EmitError> {
+    fn node(value: &Value) -> yaml_rust2::Yaml {
+        use yaml_rust2::Yaml;
+        match value {
+            Value::Null => Yaml::Null,
+            Value::Bool(value) => Yaml::Boolean(*value),
+            Value::String(value) => Yaml::String(value.clone()),
+            Value::Number(value) => value
+                .as_i64()
+                .map_or_else(|| Yaml::Real(value.to_string()), Yaml::Integer),
+            Value::Array(values) => Yaml::Array(values.iter().map(node).collect()),
+            Value::Object(values) => Yaml::Hash(
+                values
+                    .iter()
+                    .map(|(key, value)| (Yaml::String(key.clone()), node(value)))
+                    .collect(),
+            ),
+        }
+    }
+    let mut output = String::new();
+    yaml_rust2::YamlEmitter::new(&mut output).dump(&node(document))?;
+    output.push('\n');
+    Ok(output)
 }
 
 #[cfg(test)]
