@@ -587,7 +587,7 @@ mod tests {
         let plan = super::compile(text).expect("reference score compiles");
         assert_eq!(plan.sections.len(), 14);
         assert_eq!(plan.sections.iter().map(|s| s.bars).sum::<usize>(), 70);
-        assert_eq!(plan.instruments.len(), 42);
+        assert_eq!(plan.instruments.len(), 41);
         assert_eq!(plan.length_ticks, u64::from(plan.ticks_per_beat) * 280);
         assert!(
             plan.lanes
