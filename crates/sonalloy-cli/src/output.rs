@@ -29,7 +29,7 @@ pub(crate) struct SuccessReport {
 pub(crate) struct OfflineAnalysis {
     #[serde(flatten)]
     pub(crate) audio: AudioAnalysis,
-    pub(crate) loudness: crate::demo::LoudnessAnalysis,
+    pub(crate) loudness: crate::performance::LoudnessAnalysis,
 }
 
 #[derive(Debug, Serialize)]

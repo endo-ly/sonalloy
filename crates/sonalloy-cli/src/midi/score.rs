@@ -3,10 +3,10 @@ use std::path::Path;
 use midly::{Format, Header, Smf, Timing, num::u15};
 use sonalloy_core::{Diagnostic, DiagnosticCode};
 
-use crate::demo::{LoadedDemo, longest_part};
 use crate::midi::pattern::{build_track, midi_events, midi_export_events, pattern_export_events};
+use crate::performance::PerformancePlan;
 
-pub(crate) fn export_demo(path: &Path, demo: &LoadedDemo) -> Result<(), Vec<Diagnostic>> {
+pub(crate) fn export_score(path: &Path, demo: &PerformancePlan) -> Result<(), Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
     for (index, part) in demo.parts.iter().enumerate() {
         if part.midi_channel.is_none() {
@@ -23,7 +23,8 @@ pub(crate) fn export_demo(path: &Path, demo: &LoadedDemo) -> Result<(), Vec<Diag
         return Err(diagnostics);
     }
 
-    let (conductor_index, conductor_part) = longest_part(demo);
+    let conductor_index = 0;
+    let conductor_part = &demo.parts[0];
     let conductor_pattern = &conductor_part.pattern;
     let conductor_events = match pattern_export_events(conductor_pattern, &[]) {
         Ok(events) => events,

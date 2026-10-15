@@ -108,7 +108,7 @@ pub(crate) struct ScheduledSession {
 
 #[allow(clippy::too_many_lines)]
 pub(crate) fn start_scheduled_audition(
-    pattern: &crate::pattern::PatternDefinition,
+    pattern: &crate::performance::events::PerformanceEvents,
     mut diagnostics: Vec<Diagnostic>,
     options: &ScheduledAuditionOptions<'_>,
     load: impl FnOnce(
@@ -141,13 +141,13 @@ pub(crate) fn start_scheduled_audition(
         sample_rate,
         options.buffer_size,
     )?;
-    let compiled_pattern = match crate::pattern::compile(pattern, &compiled, f64::from(sample_rate))
-    {
-        Ok(pattern) => pattern,
-        Err(diagnostics) => {
-            return Err((2, diagnostics));
-        }
-    };
+    let compiled_pattern =
+        match crate::performance::events::compile(pattern, &compiled, f64::from(sample_rate)) {
+            Ok(pattern) => pattern,
+            Err(diagnostics) => {
+                return Err((2, diagnostics));
+            }
+        };
     let tail_frames = match seconds_to_frames(options.tail, f64::from(sample_rate)) {
         Ok(frames) => frames,
         Err(error) => {

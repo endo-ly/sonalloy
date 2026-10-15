@@ -10,14 +10,12 @@ use sonalloy_core::{
 
 use crate::output::CliFailure;
 
-mod demo;
 mod dev;
 mod instrument;
-pub(crate) mod pattern;
 mod realtime;
 mod render;
+pub(crate) mod score;
 
-pub(crate) use render::render_bundle_demo;
 mod update;
 
 const DEFAULT_SAMPLE_RATE: u32 = 48_000;
@@ -42,15 +40,10 @@ enum Command {
         #[command(subcommand)]
         command: instrument::InstrumentCommand,
     },
-    /// Create, validate, inspect, and convert one-instrument audition patterns.
-    Pattern {
+    /// Create, validate, inspect, and exchange Score YAML.
+    Score {
         #[command(subcommand)]
-        command: pattern::PatternCommand,
-    },
-    /// Validate, inspect, and export a multi-instrument offline Demo.
-    Demo {
-        #[command(subcommand)]
-        command: demo::DemoCommand,
+        command: score::ScoreCommand,
     },
     /// Render an instrument, pattern, MIDI file, or Demo to audio.
     Render {
@@ -91,8 +84,7 @@ If `--midi-device` is omitted, no available MIDI inputs is an error, one input i
 pub(super) fn run(cli: Cli) -> ExitCode {
     match cli.command {
         Command::Instrument { command } => instrument::run(command),
-        Command::Pattern { command } => pattern::run(command),
-        Command::Demo { command } => demo::run(command),
+        Command::Score { command } => score::run(command),
         Command::Render { command } => render::run(command),
         Command::Audition { command } => realtime::run_audition(command),
         Command::Device { command } => realtime::run_device(command),

@@ -11,9 +11,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::output::CliFailure;
-use crate::pattern::{
-    PatternDefinition, PatternEvent, PatternTempoChange, PatternTimeSignatureChange,
-};
+use crate::performance::events::{MeterChange, MusicalEvent, PerformanceEvents, TempoChange};
 use time::q;
 
 type Result<T> = std::result::Result<T, Error>;
@@ -88,7 +86,7 @@ pub(crate) struct Occurrence {
 pub(crate) struct ScoreLane {
     pub(crate) id: String,
     pub(crate) gain_db: f64,
-    pub(crate) pattern: PatternDefinition,
+    pub(crate) pattern: PerformanceEvents,
 }
 
 #[derive(Debug, Clone)]
@@ -187,6 +185,10 @@ fn fields(v: &Value, allowed: &[&str], path: &str) -> Result<()> {
         }
     }
     Ok(())
+}
+
+pub(crate) fn tonic_pitch(text: &str) -> std::result::Result<i32, CliFailure> {
+    syntax::tonic(text).map_err(|e| e.failure(&Source::default()))
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ use sonalloy_core::{
     PreparedMusicalTimeMap, ProcessContext, ProcessEvent, ProcessEventKind, ScheduledEvent,
 };
 
-use crate::pattern::{CompiledPattern, loop_note_id};
+use crate::performance::events::{CompiledEvents, loop_note_id};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ScheduledFeedError {
@@ -42,7 +42,7 @@ pub(crate) struct ScheduledEventFeed {
 
 impl ScheduledEventFeed {
     pub(crate) fn new(
-        pattern: CompiledPattern,
+        pattern: CompiledEvents,
         tail_frames: u64,
         latency_frames: usize,
         looping: bool,
@@ -294,10 +294,10 @@ mod tests {
     };
 
     use super::ScheduledEventFeed;
-    use crate::pattern::{CompiledPattern, loop_note_id};
+    use crate::performance::events::{CompiledEvents, loop_note_id};
 
-    fn pattern(events: Vec<ScheduledEvent>, length_frames: u64) -> CompiledPattern {
-        CompiledPattern {
+    fn pattern(events: Vec<ScheduledEvent>, length_frames: u64) -> CompiledEvents {
+        CompiledEvents {
             events,
             musical_time_map: MusicalTimeMap::new(vec![
                 MusicalTimeChange {
@@ -367,7 +367,7 @@ mod tests {
     #[test]
     fn context_positions_accumulate_tempo_and_meter_changes() {
         let feed = ScheduledEventFeed::new(
-            CompiledPattern {
+            CompiledEvents {
                 events: Vec::new(),
                 musical_time_map: MusicalTimeMap::new(vec![
                     MusicalTimeChange {
@@ -454,8 +454,8 @@ mod tests {
         ));
     }
 
-    fn constant_pattern(events: Vec<ScheduledEvent>, length_frames: u64) -> CompiledPattern {
-        CompiledPattern {
+    fn constant_pattern(events: Vec<ScheduledEvent>, length_frames: u64) -> CompiledEvents {
+        CompiledEvents {
             events,
             musical_time_map: MusicalTimeMap::constant(120.0).expect("tempo map"),
             length_frames,

@@ -542,7 +542,7 @@ instruments:
   hat: {preset: DRUM/019-needle-closed-hat, gain_db: -8, role: drums}
   hat2: {preset: DRUM/006-808-closed-hat, gain_db: -9, role: drums}
   openhat: {preset: DRUM/023-909-open-hat, gain_db: -10, role: drums}
-  ride: {preset: DRUM/024-bright-ping-ride, gain_db: -10, role: drums}
+  ride: {preset: DRUM/024-bright-ping-ride, trigger_note_midi: 51, gain_db: -10, role: drums}
   shaker: {preset: DRUM/011-noise-shaker, gain_db: -12, role: drums}
   rim: {preset: DRUM/010-woody-rim-click, gain_db: -9, role: drums}
   cowbell: {preset: DRUM/021-808-cowbell, gain_db: -12, role: drums}

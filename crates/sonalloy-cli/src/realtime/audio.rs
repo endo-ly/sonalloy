@@ -998,7 +998,7 @@ mod tests {
 
     fn prepared_scheduled_engine() -> AudioEngine {
         let feed = ScheduledEventFeed::new(
-            crate::pattern::CompiledPattern {
+            crate::performance::events::CompiledEvents {
                 events: vec![ScheduledEvent {
                     absolute_frame: 0,
                     kind: ProcessEventKind::NoteOn {

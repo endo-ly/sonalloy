@@ -1,9 +1,8 @@
 use std::collections::{HashMap, VecDeque};
-use std::path::Path;
 
 use midly::{
-    Format, Header, MidiMessage, Smf, TrackEvent, TrackEventKind,
-    num::{u4, u7, u15, u24, u28},
+    MidiMessage, TrackEvent, TrackEventKind,
+    num::{u4, u7, u24, u28},
 };
 use sonalloy_core::{DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, ProcessEventKind};
 
@@ -13,10 +12,7 @@ use crate::midi::{
     MOD_WHEEL_CONTROLLER, SUSTAIN_PEDAL_CONTROLLER, denormalize_control, denormalize_pitch_bend,
     normalize_control, normalize_pitch_bend, tempo_to_microseconds_per_beat,
 };
-use crate::pattern::{
-    PATTERN_SCHEMA_VERSION, PatternDefinition, PatternEvent, PatternTempoChange, validate,
-};
-use midly::Timing;
+use crate::performance::events::{MusicalEvent, PerformanceEvents, TempoChange, validate};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum PatternMidiEventKind {
@@ -62,15 +58,15 @@ struct PendingImportedNote {
 }
 
 #[derive(Debug)]
-struct ImportedPatternEvent {
+struct ImportedMusicalEvent {
     tick: u64,
     track: usize,
     index: usize,
-    event: PatternEvent,
+    event: MusicalEvent,
 }
 
 pub(crate) fn midi_events(
-    pattern: &PatternDefinition,
+    pattern: &PerformanceEvents,
 ) -> Result<Vec<PatternMidiEvent>, Vec<Diagnostic>> {
     let diagnostics = validate(pattern);
     if !diagnostics.is_empty() {
@@ -81,7 +77,7 @@ pub(crate) fn midi_events(
     let mut parameter_event_count = 0;
     for (source_index, event) in pattern.events.iter().enumerate() {
         match event {
-            PatternEvent::Note {
+            MusicalEvent::Note {
                 tick,
                 duration_ticks,
                 note,
@@ -104,27 +100,27 @@ pub(crate) fn midi_events(
                     kind: PatternMidiEventKind::NoteOff { note: *note },
                 });
             }
-            PatternEvent::SustainPedal { tick, down } => events.push(PatternMidiEvent {
+            MusicalEvent::SustainPedal { tick, down } => events.push(PatternMidiEvent {
                 tick: *tick,
                 source_index,
                 kind: PatternMidiEventKind::SustainPedal { down: *down },
             }),
-            PatternEvent::PitchBend { tick, value } => events.push(PatternMidiEvent {
+            MusicalEvent::PitchBend { tick, value } => events.push(PatternMidiEvent {
                 tick: *tick,
                 source_index,
                 kind: PatternMidiEventKind::PitchBend { value: *value },
             }),
-            PatternEvent::ModWheel { tick, value } => events.push(PatternMidiEvent {
+            MusicalEvent::ModWheel { tick, value } => events.push(PatternMidiEvent {
                 tick: *tick,
                 source_index,
                 kind: PatternMidiEventKind::ModWheel { value: *value },
             }),
-            PatternEvent::Aftertouch { tick, value } => events.push(PatternMidiEvent {
+            MusicalEvent::Aftertouch { tick, value } => events.push(PatternMidiEvent {
                 tick: *tick,
                 source_index,
                 kind: PatternMidiEventKind::Aftertouch { value: *value },
             }),
-            PatternEvent::ParameterChange { .. } | PatternEvent::ParameterRamp { .. } => {
+            MusicalEvent::ParameterChange { .. } | MusicalEvent::ParameterRamp { .. } => {
                 parameter_event_count += 1;
             }
         }
@@ -145,13 +141,13 @@ pub(crate) fn midi_events(
     Ok(events)
 }
 
-fn midi_note_overlap_diagnostics(pattern: &PatternDefinition) -> Vec<Diagnostic> {
+fn midi_note_overlap_diagnostics(pattern: &PerformanceEvents) -> Vec<Diagnostic> {
     let mut notes = pattern
         .events
         .iter()
         .enumerate()
         .filter_map(|(source_index, event)| {
-            let PatternEvent::Note {
+            let MusicalEvent::Note {
                 tick,
                 duration_ticks,
                 note,
@@ -202,7 +198,7 @@ pub(crate) fn time_signature_denominator_power(denominator: u8) -> u8 {
 pub(crate) fn import_pattern(
     parsed: ParsedMidi,
     channel: Option<u8>,
-) -> Result<(PatternDefinition, Vec<Diagnostic>), Vec<Diagnostic>> {
+) -> Result<(PerformanceEvents, Vec<Diagnostic>), Vec<Diagnostic>> {
     let mut diagnostics = parsed.diagnostics;
     let mut available_channels = [false; 16];
     for event in &parsed.events {
@@ -295,11 +291,11 @@ pub(crate) fn import_pattern(
                     )]
                 })?;
                 note_end_tick = note_end_tick.max(raw.tick);
-                imported.push(ImportedPatternEvent {
+                imported.push(ImportedMusicalEvent {
                     tick: pending.tick,
                     track: pending.track,
                     index: pending.index,
-                    event: PatternEvent::Note {
+                    event: MusicalEvent::Note {
                         tick: pending.tick,
                         duration_ticks,
                         note: pending.note,
@@ -307,38 +303,38 @@ pub(crate) fn import_pattern(
                     },
                 });
             }
-            RawMidiEventKind::SustainPedal { down, .. } => imported.push(ImportedPatternEvent {
+            RawMidiEventKind::SustainPedal { down, .. } => imported.push(ImportedMusicalEvent {
                 tick: raw.tick,
                 track: raw.track,
                 index: raw.index,
-                event: PatternEvent::SustainPedal {
+                event: MusicalEvent::SustainPedal {
                     tick: raw.tick,
                     down,
                 },
             }),
-            RawMidiEventKind::PitchBend { value, .. } => imported.push(ImportedPatternEvent {
+            RawMidiEventKind::PitchBend { value, .. } => imported.push(ImportedMusicalEvent {
                 tick: raw.tick,
                 track: raw.track,
                 index: raw.index,
-                event: PatternEvent::PitchBend {
+                event: MusicalEvent::PitchBend {
                     tick: raw.tick,
                     value: normalize_pitch_bend(value),
                 },
             }),
-            RawMidiEventKind::ModWheel { value, .. } => imported.push(ImportedPatternEvent {
+            RawMidiEventKind::ModWheel { value, .. } => imported.push(ImportedMusicalEvent {
                 tick: raw.tick,
                 track: raw.track,
                 index: raw.index,
-                event: PatternEvent::ModWheel {
+                event: MusicalEvent::ModWheel {
                     tick: raw.tick,
                     value: normalize_control(value),
                 },
             }),
-            RawMidiEventKind::Aftertouch { value, .. } => imported.push(ImportedPatternEvent {
+            RawMidiEventKind::Aftertouch { value, .. } => imported.push(ImportedMusicalEvent {
                 tick: raw.tick,
                 track: raw.track,
                 index: raw.index,
-                event: PatternEvent::Aftertouch {
+                event: MusicalEvent::Aftertouch {
                     tick: raw.tick,
                     value: normalize_control(value),
                 },
@@ -396,8 +392,7 @@ pub(crate) fn import_pattern(
     tempo_changes.sort_by_key(|change| change.tick);
     time_signature_changes.sort_by_key(|change| change.tick);
     imported.sort_by_key(|event| (event.tick, event.track, event.index));
-    let pattern = PatternDefinition {
-        schema_version: PATTERN_SCHEMA_VERSION,
+    let pattern = PerformanceEvents {
         name: None,
         ticks_per_beat: parsed.ticks_per_beat,
         length_ticks,
@@ -405,7 +400,7 @@ pub(crate) fn import_pattern(
         time_signature_changes,
         events: imported.into_iter().map(|event| event.event).collect(),
     };
-    let pattern_diagnostics = crate::pattern::validate(&pattern);
+    let pattern_diagnostics = crate::performance::events::validate(&pattern);
     if !pattern_diagnostics.is_empty() {
         return Err(pattern_diagnostics);
     }
@@ -423,8 +418,8 @@ fn raw_channel(kind: RawMidiEventKind) -> u8 {
     }
 }
 
-fn imported_tempo_changes(changes: &[RawMidiTempoChange]) -> Vec<PatternTempoChange> {
-    let mut result = vec![PatternTempoChange {
+fn imported_tempo_changes(changes: &[RawMidiTempoChange]) -> Vec<TempoChange> {
+    let mut result = vec![TempoChange {
         tick: 0,
         bpm: DEFAULT_TEMPO_BPM,
     }];
@@ -436,7 +431,7 @@ fn imported_tempo_changes(changes: &[RawMidiTempoChange]) -> Vec<PatternTempoCha
         {
             previous.bpm = bpm;
         } else {
-            result.push(PatternTempoChange {
+            result.push(TempoChange {
                 tick: change.tick,
                 bpm,
             });
@@ -446,30 +441,8 @@ fn imported_tempo_changes(changes: &[RawMidiTempoChange]) -> Vec<PatternTempoCha
     result
 }
 
-pub(crate) fn export_pattern(
-    path: &Path,
-    pattern: &PatternDefinition,
-    channel: u8,
-) -> Result<(), Vec<Diagnostic>> {
-    let pattern_events = midi_events(pattern)?;
-    let events = pattern_export_events(pattern, &pattern_events)?;
-    let track = build_track(events, channel, pattern.length_ticks, None)?;
-    let mut smf = Smf::new(Header::new(
-        Format::SingleTrack,
-        Timing::Metrical(u15::new(pattern.ticks_per_beat)),
-    ));
-    smf.tracks.push(track);
-    smf.save(path).map_err(|error| {
-        vec![
-            Diagnostic::error(DiagnosticCode::MidiError, "could not write MIDI output")
-                .with_path(path.to_string_lossy())
-                .with_detail(error.to_string()),
-        ]
-    })
-}
-
 pub(crate) fn pattern_export_events(
-    pattern: &PatternDefinition,
+    pattern: &PerformanceEvents,
     pattern_events: &[PatternMidiEvent],
 ) -> Result<Vec<ExportEvent>, Vec<Diagnostic>> {
     let mut events = Vec::with_capacity(
@@ -565,21 +538,21 @@ pub(crate) fn build_track(
 
 #[cfg(test)]
 mod tests {
-    use super::{PatternDefinition, PatternEvent, PatternMidiEventKind, midi_events};
-    use crate::pattern::default_pattern;
+    use super::{MusicalEvent, PatternMidiEventKind, PerformanceEvents, midi_events};
+    use crate::performance::events::default_pattern;
 
     #[test]
     fn same_tick_midi_events_use_core_priority() {
-        let pattern = PatternDefinition {
+        let pattern = PerformanceEvents {
             length_ticks: 480,
             events: vec![
-                PatternEvent::Note {
+                MusicalEvent::Note {
                     tick: 0,
                     duration_ticks: 240,
                     note: 60,
                     velocity: 100,
                 },
-                PatternEvent::SustainPedal {
+                MusicalEvent::SustainPedal {
                     tick: 0,
                     down: true,
                 },

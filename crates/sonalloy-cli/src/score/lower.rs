@@ -3,9 +3,9 @@ use std::collections::BTreeSet;
 
 use super::time::{Quarter, ppq, rational, tick};
 use super::{
-    Error, Occurrence, PatternDefinition, PatternEvent, PatternTempoChange,
-    PatternTimeSignatureChange, Result, ScoreLane, ScorePlan, array, integer, number, object,
-    optional_int, optional_number, q, required, string, text_field,
+    Error, MeterChange, MusicalEvent, Occurrence, PerformanceEvents, Result, ScoreLane, ScorePlan,
+    TempoChange, array, integer, number, object, optional_int, optional_number, q, required,
+    string, text_field,
 };
 use super::{resolve, syntax};
 
@@ -29,7 +29,7 @@ struct Event {
     gain: f64,
     at: Quarter,
     duration: Quarter,
-    kind: PatternEvent,
+    kind: MusicalEvent,
     source: String,
     roll: bool,
 }
@@ -205,7 +205,7 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
     let tempo_changes: Vec<_> = tempos
         .iter()
         .map(|(at, bpm)| {
-            Ok(PatternTempoChange {
+            Ok(TempoChange {
                 tick: tick(at, resolution)?,
                 bpm: *bpm,
             })
@@ -214,7 +214,7 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
     let time_signature_changes: Vec<_> = meters
         .iter()
         .map(|(at, (n, d))| {
-            Ok(PatternTimeSignatureChange {
+            Ok(MeterChange {
                 tick: tick(at, resolution)?,
                 numerator: *n,
                 denominator: *d,
@@ -232,12 +232,12 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
         let at = tick(&event.at, resolution)?;
         let duration = tick(&event.duration, resolution)?;
         match &mut event.kind {
-            PatternEvent::Note {
+            MusicalEvent::Note {
                 tick,
                 duration_ticks,
                 ..
             }
-            | PatternEvent::ParameterRamp {
+            | MusicalEvent::ParameterRamp {
                 tick,
                 duration_ticks,
                 ..
@@ -245,11 +245,11 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
                 *tick = at;
                 *duration_ticks = duration;
             }
-            PatternEvent::SustainPedal { tick, .. }
-            | PatternEvent::PitchBend { tick, .. }
-            | PatternEvent::ModWheel { tick, .. }
-            | PatternEvent::Aftertouch { tick, .. }
-            | PatternEvent::ParameterChange { tick, .. } => *tick = at,
+            MusicalEvent::SustainPedal { tick, .. }
+            | MusicalEvent::PitchBend { tick, .. }
+            | MusicalEvent::ModWheel { tick, .. }
+            | MusicalEvent::Aftertouch { tick, .. }
+            | MusicalEvent::ParameterChange { tick, .. } => *tick = at,
         }
         let index = lanes
             .iter()
@@ -258,8 +258,7 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
                 lanes.push(ScoreLane {
                     id: event.id.clone(),
                     gain_db: event.gain,
-                    pattern: PatternDefinition {
-                        schema_version: 1,
+                    pattern: PerformanceEvents {
                         name: Some(text_field(meta, "title", "meta").unwrap_or("").into()),
                         ticks_per_beat: resolution,
                         length_ticks,
@@ -302,15 +301,15 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
     })
 }
 
-fn event_tick(event: &PatternEvent) -> u64 {
+fn event_tick(event: &MusicalEvent) -> u64 {
     match event {
-        PatternEvent::Note { tick, .. }
-        | PatternEvent::SustainPedal { tick, .. }
-        | PatternEvent::PitchBend { tick, .. }
-        | PatternEvent::ModWheel { tick, .. }
-        | PatternEvent::Aftertouch { tick, .. }
-        | PatternEvent::ParameterChange { tick, .. }
-        | PatternEvent::ParameterRamp { tick, .. } => *tick,
+        MusicalEvent::Note { tick, .. }
+        | MusicalEvent::SustainPedal { tick, .. }
+        | MusicalEvent::PitchBend { tick, .. }
+        | MusicalEvent::ModWheel { tick, .. }
+        | MusicalEvent::Aftertouch { tick, .. }
+        | MusicalEvent::ParameterChange { tick, .. }
+        | MusicalEvent::ParameterRamp { tick, .. } => *tick,
     }
 }
 
@@ -359,7 +358,7 @@ impl Builder<'_> {
             gain,
             at,
             duration,
-            kind: PatternEvent::Note {
+            kind: MusicalEvent::Note {
                 tick: 0,
                 duration_ticks: 0,
                 note: u8::try_from(note).expect("range checked"),
@@ -1077,30 +1076,30 @@ impl Builder<'_> {
             Ok(n)
         };
         let event = match kind {
-            "sustain_pedal" => PatternEvent::SustainPedal {
+            "sustain_pedal" => MusicalEvent::SustainPedal {
                 tick: 0,
                 down: required(v, "down", path)?
                     .as_bool()
                     .ok_or_else(|| Error::new(path, "down must be boolean"))?,
             },
-            "pitch_bend" => PatternEvent::PitchBend {
+            "pitch_bend" => MusicalEvent::PitchBend {
                 tick: 0,
                 value: control("value")?,
             },
-            "mod_wheel" => PatternEvent::ModWheel {
+            "mod_wheel" => MusicalEvent::ModWheel {
                 tick: 0,
                 value: control("value")?,
             },
-            "aftertouch" => PatternEvent::Aftertouch {
+            "aftertouch" => MusicalEvent::Aftertouch {
                 tick: 0,
                 value: control("value")?,
             },
-            "parameter_change" => PatternEvent::ParameterChange {
+            "parameter_change" => MusicalEvent::ParameterChange {
                 tick: 0,
                 parameter: text_field(v, "parameter", path)?.into(),
                 native_value: native("native_value")?,
             },
-            "automation" => PatternEvent::ParameterRamp {
+            "automation" => MusicalEvent::ParameterRamp {
                 tick: 0,
                 duration_ticks: 0,
                 parameter: text_field(v, "parameter", path)?.into(),
@@ -1248,7 +1247,7 @@ impl Builder<'_> {
             (Some(id), begin, end, Vec::new())
         };
         self.events.retain_mut(|e| {
-            if !matches!(e.kind, PatternEvent::Note { .. }) || e.at < s.start || e.at >= section_end
+            if !matches!(e.kind, MusicalEvent::Note { .. }) || e.at < s.start || e.at >= section_end
             {
                 return true;
             }
