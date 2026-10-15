@@ -419,7 +419,7 @@ form:
 | プリセット詳細試奏 | `presets/<CAT>/<NNN-name>/showcase.score.yaml` | 基本的に自分の`preset:` |
 | 複数音源で共用する試奏 | `presets/common-scores/*.score.yaml` | `external: true`をCLIで束縛 |
 
-短いプレビューと詳細試奏が異なる音楽なら、異なるScoreでよい。**同じ音符の列を`metadata.preview.notes`とYAMLへ二重に記録しない。** 音源`definition.json`内のプレビュー用イベントは移行後に削除する。音源の名前、タグ、音域、音色関連のDefinitionはそのまま。
+短いプレビューと詳細試奏が異なる音楽なら、異なるScoreでよい。演奏データはScoreに記録し、音源の名前、タグ、音域、音色は`definition.json`に定義する。
 
 ブラウザ向けプレビューは1楽器・1テンポ・1拍子のNote列とし、30〜300 BPM、1〜32音、音楽時間10秒以内に収める。
 
