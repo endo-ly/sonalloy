@@ -479,27 +479,7 @@ mod tests {
         let (instrument, _) = crate::command::load_and_compile(&definition_path, 48_000, 64)
             .expect("instrument compiles");
         let parameter = "voice.processor.tone.cutoff";
-        let score = serde_json::json!({
-            "meta": {"title":"Window", "bpm":120, "meter":"4/4", "tuning":"12edo", "gate":1},
-            "form": [
-                {"section":"intro", "bars":1, "tonic":"C", "scale":"ionian"},
-                {"section":"phrase", "bars":4, "tonic":"C", "scale":"ionian"}
-            ],
-            "sections": {
-                "intro":{"events":[
-                    {"kind":"sustain_pedal", "instrument":"part", "down":true, "at":{"bar":1,"step":3}},
-                    {"kind":"mod_wheel", "instrument":"part", "value":0.4, "at":{"bar":1,"step":1}}
-                ]},
-                "phrase":{"events":[
-                {"kind":"part_window", "instrument":"part", "bars":[2,3]},
-                {"kind":"sustain_pedal", "instrument":"part", "down":true, "at":{"bar":1,"step":3}},
-                {"kind":"pitch_bend", "instrument":"part", "value":0.75, "at":{"bar":2,"step":5}},
-                {"kind":"mod_wheel", "instrument":"part", "value":1, "at":{"bar":4,"step":1}},
-                {"kind":"automation", "instrument":"part", "parameter":"voice.processor.tone.cutoff", "from_value":1000, "to_value":9000, "at":{"bar":1,"step":1}, "duration_quarters":16},
-                {"kind":"parameter_change", "instrument":"part", "parameter":"voice.processor.tone.cutoff", "native_value":1500, "at":{"bar":4,"step":1}}
-            ]}},
-            "instruments": {"part":{"external":true}}
-        });
+        let score = part_window_score();
         let mut plan = crate::score::compile(&score.to_string()).expect("Score window compiles");
         let windows = plan.part_windows.clone();
         assert_eq!(windows.len(), 1);
@@ -580,6 +560,30 @@ mod tests {
             )));
         }
         assert_eq!(lane.pattern.events.len(), lane.sources.len());
+    }
+
+    fn part_window_score() -> serde_json::Value {
+        serde_json::json!({
+            "meta": {"title":"Window", "bpm":120, "meter":"4/4", "tuning":"12edo", "gate":1},
+            "form": [
+                {"section":"intro", "bars":1, "tonic":"C", "scale":"ionian"},
+                {"section":"phrase", "bars":4, "tonic":"C", "scale":"ionian"}
+            ],
+            "sections": {
+                "intro":{"events":[
+                    {"kind":"sustain_pedal", "instrument":"part", "down":true, "at":{"bar":1,"step":3}},
+                    {"kind":"mod_wheel", "instrument":"part", "value":0.4, "at":{"bar":1,"step":1}}
+                ]},
+                "phrase":{"events":[
+                    {"kind":"part_window", "instrument":"part", "bars":[2,3]},
+                    {"kind":"sustain_pedal", "instrument":"part", "down":true, "at":{"bar":1,"step":3}},
+                    {"kind":"pitch_bend", "instrument":"part", "value":0.75, "at":{"bar":2,"step":5}},
+                    {"kind":"mod_wheel", "instrument":"part", "value":1, "at":{"bar":4,"step":1}},
+                    {"kind":"automation", "instrument":"part", "parameter":"voice.processor.tone.cutoff", "from_value":1000, "to_value":9000, "at":{"bar":1,"step":1}, "duration_quarters":16},
+                    {"kind":"parameter_change", "instrument":"part", "parameter":"voice.processor.tone.cutoff", "native_value":1500, "at":{"bar":4,"step":1}}
+                ]}},
+            "instruments": {"part":{"external":true}}
+        })
     }
 }
 

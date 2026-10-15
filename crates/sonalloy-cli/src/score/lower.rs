@@ -107,23 +107,7 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
         transforms: Vec::new(),
         part_windows: Vec::new(),
     };
-    if let Some(macros) = doc.get("macros") {
-        for (name, value) in object(macros, "macros")? {
-            let path = format!("macros.{name}");
-            resolve::event_kind(&builder.macro_event(value, &path, &mut Vec::new())?, &path)?;
-        }
-    }
-    for (name, _) in object(&doc["sections"], "sections")? {
-        let section = resolve::inherit(&doc["sections"], name, false, &format!("sections.{name}"))?;
-        if let Some(events) = section.get("events") {
-            for (i, event) in array(events, name)?.iter().enumerate() {
-                let path = format!("sections.{name}.events[{i}]");
-                let event = builder.macro_event(event, &path, &mut Vec::new())?;
-                resolve::event_kind(&event, &path)?;
-                builder.event_targets(&event, &path)?;
-            }
-        }
-    }
+    expand_declared_events(doc, &mut builder)?;
     for section in &sections {
         builder.chords(section)?;
     }
@@ -140,22 +124,11 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
     }
     builder.apply_part_windows();
     builder.validate_controls()?;
-    let part_windows = std::mem::take(&mut builder.part_windows);
     let timeline = compile_timeline(meta, &builder, &sections, &start, &tempos, &meters)?;
-    let part_windows = part_windows
-        .into_iter()
-        .map(
-            |(instrument, section_start, section_end, window_start, window_end)| {
-                Ok(PartWindow {
-                    instrument,
-                    section_start_tick: tick(&section_start, timeline.ticks_per_beat)?,
-                    section_end_tick: tick(&section_end, timeline.ticks_per_beat)?,
-                    start_tick: tick(&window_start, timeline.ticks_per_beat)?,
-                    end_tick: tick(&window_end, timeline.ticks_per_beat)?,
-                })
-            },
-        )
-        .collect::<Result<Vec<_>>>()?;
+    let part_windows = compile_part_windows(
+        std::mem::take(&mut builder.part_windows),
+        timeline.ticks_per_beat,
+    )?;
     let lanes = compile_lanes(builder.events, &timeline, &start)?;
     let occurrences = inspect_sections(&sections, &builder.harmony, &timeline)?;
     Ok(ScorePlan {
@@ -173,6 +146,47 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
     })
 }
 
+fn compile_part_windows(
+    windows: Vec<(String, Quarter, Quarter, Quarter, Quarter)>,
+    ticks_per_beat: u16,
+) -> Result<Vec<PartWindow>> {
+    windows
+        .into_iter()
+        .map(
+            |(instrument, section_start, section_end, window_start, window_end)| {
+                Ok(PartWindow {
+                    instrument,
+                    section_start_tick: tick(&section_start, ticks_per_beat)?,
+                    section_end_tick: tick(&section_end, ticks_per_beat)?,
+                    start_tick: tick(&window_start, ticks_per_beat)?,
+                    end_tick: tick(&window_end, ticks_per_beat)?,
+                })
+            },
+        )
+        .collect()
+}
+
+fn expand_declared_events(doc: &Value, builder: &mut Builder<'_>) -> Result<()> {
+    if let Some(macros) = doc.get("macros") {
+        for (name, value) in object(macros, "macros")? {
+            let path = format!("macros.{name}");
+            resolve::event_kind(&builder.macro_event(value, &path, &mut Vec::new())?, &path)?;
+        }
+    }
+    for (name, _) in object(&doc["sections"], "sections")? {
+        let section = resolve::inherit(&doc["sections"], name, false, &format!("sections.{name}"))?;
+        if let Some(events) = section.get("events") {
+            for (i, event) in array(events, name)?.iter().enumerate() {
+                let path = format!("sections.{name}.events[{i}]");
+                let event = builder.macro_event(event, &path, &mut Vec::new())?;
+                resolve::event_kind(&event, &path)?;
+                builder.event_targets(&event, &path)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn event_tick(event: &MusicalEvent) -> u64 {
     match event {
         MusicalEvent::Note { tick, .. }
@@ -185,23 +199,31 @@ fn event_tick(event: &MusicalEvent) -> u64 {
     }
 }
 
+type PartWindowRanges = BTreeMap<(String, Quarter, Quarter), (Quarter, Quarter)>;
+
+fn merged_part_window_ranges(
+    part_windows: &[(String, Quarter, Quarter, Quarter, Quarter)],
+) -> PartWindowRanges {
+    let mut ranges = PartWindowRanges::new();
+    for (instrument, section_start, section_end, window_start, window_end) in part_windows {
+        ranges
+            .entry((
+                instrument.clone(),
+                section_start.clone(),
+                section_end.clone(),
+            ))
+            .and_modify(|(start, end)| {
+                *start = start.clone().max(window_start.clone());
+                *end = end.clone().min(window_end.clone());
+            })
+            .or_insert((window_start.clone(), window_end.clone()));
+    }
+    ranges
+}
+
 impl Builder<'_> {
     fn apply_part_windows(&mut self) {
-        let mut ranges: BTreeMap<(String, Quarter, Quarter), (Quarter, Quarter)> = BTreeMap::new();
-        for (instrument, section_start, section_end, window_start, window_end) in &self.part_windows
-        {
-            ranges
-                .entry((
-                    instrument.clone(),
-                    section_start.clone(),
-                    section_end.clone(),
-                ))
-                .and_modify(|(start, end)| {
-                    *start = start.clone().max(window_start.clone());
-                    *end = end.clone().min(window_end.clone());
-                })
-                .or_insert((window_start.clone(), window_end.clone()));
-        }
+        let ranges = merged_part_window_ranges(&self.part_windows);
         if ranges.is_empty() {
             return;
         }
@@ -773,42 +795,12 @@ impl Builder<'_> {
         Ok(())
     }
     fn placement(&mut self, s: &Section, v: &Value, velocity: i64, path: &str) -> Result<()> {
-        let targets = ["melody", "degree", "chord", "bass_note"]
-            .iter()
-            .filter(|key| v.get(**key).is_some())
-            .count();
-        if targets != 1 {
-            return Err(Error::new(
-                path,
-                "placement requires exactly one of melody, degree, chord, bass_note",
-            ));
-        }
+        validate_placement_shape(v, path)?;
         let offset = Self::position(s, required(v, "at", path)?, path, false)?;
         let id = text_field(v, "instrument", path)?;
         let velocity = optional_int(v, "velocity", velocity, path)?;
         let transpose = signed_int(v, "transpose", 0, path)?;
         let gain = optional_number(v, "gain_db", 0.0, path)?;
-        if v.get("melody").is_some()
-            && (v.get("duration_steps").is_some() || v.get("duration_quarters").is_some())
-        {
-            return Err(Error::new(
-                path,
-                "melody placements use the source durations; use slice_steps to select a passage",
-            ));
-        }
-        if v.get("melody").is_none()
-            && (v.get("slice_steps").is_some() || v.get("take_notes").is_some())
-        {
-            return Err(Error::new(
-                path,
-                "slice_steps and take_notes require melody",
-            ));
-        }
-        if v.get("chord").is_none()
-            && (v.get("voicing_floor_midi").is_some() || v.get("add_root_degree").is_some())
-        {
-            return Err(Error::new(path, "voicing fields require chord"));
-        }
         if v.get("melody").is_some() {
             return self.melody(s, v, &offset, velocity, transpose, gain, path, false);
         }
@@ -1610,7 +1602,44 @@ fn quarter_ramp_value(start: &Quarter, end: &Quarter, at: &Quarter, from: f32, t
     let ratio = ((at - start) / (end - start))
         .to_f64()
         .expect("ramp interpolation ratio is between zero and one");
-    (f64::from(from) + (f64::from(to) - f64::from(from)) * ratio) as f32
+    (f64::from(from) + (f64::from(to) - f64::from(from)) * ratio)
+        .to_f32()
+        .expect("interpolated ramp value is within the f32 range")
+}
+
+fn validate_placement_shape(v: &Value, path: &str) -> Result<()> {
+    let targets = ["melody", "degree", "chord", "bass_note"]
+        .iter()
+        .filter(|key| v.get(**key).is_some())
+        .count();
+    if targets != 1 {
+        return Err(Error::new(
+            path,
+            "placement requires exactly one of melody, degree, chord, bass_note",
+        ));
+    }
+    if v.get("melody").is_some()
+        && (v.get("duration_steps").is_some() || v.get("duration_quarters").is_some())
+    {
+        return Err(Error::new(
+            path,
+            "melody placements use the source durations; use slice_steps to select a passage",
+        ));
+    }
+    if v.get("melody").is_none()
+        && (v.get("slice_steps").is_some() || v.get("take_notes").is_some())
+    {
+        return Err(Error::new(
+            path,
+            "slice_steps and take_notes require melody",
+        ));
+    }
+    if v.get("chord").is_none()
+        && (v.get("voicing_floor_midi").is_some() || v.get("add_root_degree").is_some())
+    {
+        return Err(Error::new(path, "voicing fields require chord"));
+    }
+    Ok(())
 }
 
 fn signed_int(v: &Value, key: &str, default: i64, path: &str) -> Result<i32> {
