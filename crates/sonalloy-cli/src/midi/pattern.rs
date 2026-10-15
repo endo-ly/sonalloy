@@ -15,7 +15,7 @@ use crate::midi::{
 use crate::performance::events::{MusicalEvent, PerformanceEvents, TempoChange, validate};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum PatternMidiEventKind {
+pub(crate) enum PerformanceMidiEventKind {
     NoteOn { note: u8, velocity: u8 },
     NoteOff { note: u8 },
     SustainPedal { down: bool },
@@ -25,13 +25,13 @@ pub(crate) enum PatternMidiEventKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct PatternMidiEvent {
+pub(crate) struct PerformanceMidiEvent {
     pub(crate) tick: u64,
     pub(crate) source_index: usize,
-    pub(crate) kind: PatternMidiEventKind,
+    pub(crate) kind: PerformanceMidiEventKind,
 }
 
-impl PatternMidiEventKind {
+impl PerformanceMidiEventKind {
     pub(crate) const fn priority(self) -> u8 {
         match self {
             Self::SustainPedal { down } => ProcessEventKind::SustainPedal { down }.priority(),
@@ -67,7 +67,7 @@ struct ImportedMusicalEvent {
 
 pub(crate) fn midi_events(
     pattern: &PerformanceEvents,
-) -> Result<Vec<PatternMidiEvent>, Vec<Diagnostic>> {
+) -> Result<Vec<PerformanceMidiEvent>, Vec<Diagnostic>> {
     let diagnostics = validate(pattern);
     if !diagnostics.is_empty() {
         return Err(diagnostics);
@@ -86,39 +86,39 @@ pub(crate) fn midi_events(
                 let end_tick = tick
                     .checked_add(*duration_ticks)
                     .expect("validated note duration fits the tick counter");
-                events.push(PatternMidiEvent {
+                events.push(PerformanceMidiEvent {
                     tick: *tick,
                     source_index,
-                    kind: PatternMidiEventKind::NoteOn {
+                    kind: PerformanceMidiEventKind::NoteOn {
                         note: *note,
                         velocity: *velocity,
                     },
                 });
-                events.push(PatternMidiEvent {
+                events.push(PerformanceMidiEvent {
                     tick: end_tick,
                     source_index,
-                    kind: PatternMidiEventKind::NoteOff { note: *note },
+                    kind: PerformanceMidiEventKind::NoteOff { note: *note },
                 });
             }
-            MusicalEvent::SustainPedal { tick, down } => events.push(PatternMidiEvent {
+            MusicalEvent::SustainPedal { tick, down } => events.push(PerformanceMidiEvent {
                 tick: *tick,
                 source_index,
-                kind: PatternMidiEventKind::SustainPedal { down: *down },
+                kind: PerformanceMidiEventKind::SustainPedal { down: *down },
             }),
-            MusicalEvent::PitchBend { tick, value } => events.push(PatternMidiEvent {
+            MusicalEvent::PitchBend { tick, value } => events.push(PerformanceMidiEvent {
                 tick: *tick,
                 source_index,
-                kind: PatternMidiEventKind::PitchBend { value: *value },
+                kind: PerformanceMidiEventKind::PitchBend { value: *value },
             }),
-            MusicalEvent::ModWheel { tick, value } => events.push(PatternMidiEvent {
+            MusicalEvent::ModWheel { tick, value } => events.push(PerformanceMidiEvent {
                 tick: *tick,
                 source_index,
-                kind: PatternMidiEventKind::ModWheel { value: *value },
+                kind: PerformanceMidiEventKind::ModWheel { value: *value },
             }),
-            MusicalEvent::Aftertouch { tick, value } => events.push(PatternMidiEvent {
+            MusicalEvent::Aftertouch { tick, value } => events.push(PerformanceMidiEvent {
                 tick: *tick,
                 source_index,
-                kind: PatternMidiEventKind::Aftertouch { value: *value },
+                kind: PerformanceMidiEventKind::Aftertouch { value: *value },
             }),
             MusicalEvent::ParameterChange { .. } | MusicalEvent::ParameterRamp { .. } => {
                 parameter_event_count += 1;
@@ -195,7 +195,7 @@ pub(crate) fn time_signature_denominator_power(denominator: u8) -> u8 {
 }
 
 #[allow(clippy::too_many_lines)]
-pub(crate) fn import_pattern(
+pub(crate) fn import_performance(
     parsed: ParsedMidi,
     channel: Option<u8>,
 ) -> Result<(PerformanceEvents, Vec<Diagnostic>), Vec<Diagnostic>> {
@@ -441,14 +441,13 @@ fn imported_tempo_changes(changes: &[RawMidiTempoChange]) -> Vec<TempoChange> {
     result
 }
 
-pub(crate) fn pattern_export_events(
+pub(crate) fn conductor_events(
     pattern: &PerformanceEvents,
-    pattern_events: &[PatternMidiEvent],
 ) -> Result<Vec<ExportEvent>, Vec<Diagnostic>> {
     let mut events = Vec::with_capacity(
-        pattern_events
+        pattern
+            .tempo_changes
             .len()
-            .saturating_add(pattern.tempo_changes.len())
             .saturating_add(pattern.time_signature_changes.len()),
     );
     for (index, change) in pattern.tempo_changes.iter().enumerate() {
@@ -479,11 +478,10 @@ pub(crate) fn pattern_export_events(
             },
         });
     }
-    events.extend(midi_export_events(pattern_events));
     Ok(events)
 }
 
-pub(crate) fn midi_export_events(pattern_events: &[PatternMidiEvent]) -> Vec<ExportEvent> {
+pub(crate) fn midi_export_events(pattern_events: &[PerformanceMidiEvent]) -> Vec<ExportEvent> {
     pattern_events
         .iter()
         .map(|event| ExportEvent {
@@ -538,7 +536,7 @@ pub(crate) fn build_track(
 
 #[cfg(test)]
 mod tests {
-    use super::{MusicalEvent, PatternMidiEventKind, PerformanceEvents, midi_events};
+    use super::{MusicalEvent, PerformanceEvents, PerformanceMidiEventKind, midi_events};
     use crate::performance::events::default_pattern;
 
     #[test]
@@ -563,11 +561,11 @@ mod tests {
         let events = midi_events(&pattern).expect("valid MIDI events");
         assert!(matches!(
             events[0].kind,
-            PatternMidiEventKind::SustainPedal { down: true }
+            PerformanceMidiEventKind::SustainPedal { down: true }
         ));
         assert!(matches!(
             events[1].kind,
-            PatternMidiEventKind::NoteOn { .. }
+            PerformanceMidiEventKind::NoteOn { .. }
         ));
     }
 }
@@ -587,7 +585,7 @@ pub(crate) enum ExportEventKind {
         numerator: u8,
         denominator_power: u8,
     },
-    Midi(PatternMidiEventKind),
+    Midi(PerformanceMidiEventKind),
 }
 
 pub(crate) fn u28_value(value: u64) -> Result<u28, Vec<Diagnostic>> {
@@ -619,26 +617,26 @@ fn export_event_kind(kind: ExportEventKind, channel: u8) -> TrackEventKind<'stat
         ExportEventKind::Midi(event) => TrackEventKind::Midi {
             channel,
             message: match event {
-                PatternMidiEventKind::NoteOn { note, velocity } => MidiMessage::NoteOn {
+                PerformanceMidiEventKind::NoteOn { note, velocity } => MidiMessage::NoteOn {
                     key: u7::new(note),
                     vel: u7::new(velocity),
                 },
-                PatternMidiEventKind::NoteOff { note } => MidiMessage::NoteOff {
+                PerformanceMidiEventKind::NoteOff { note } => MidiMessage::NoteOff {
                     key: u7::new(note),
                     vel: u7::new(0),
                 },
-                PatternMidiEventKind::SustainPedal { down } => MidiMessage::Controller {
+                PerformanceMidiEventKind::SustainPedal { down } => MidiMessage::Controller {
                     controller: u7::new(SUSTAIN_PEDAL_CONTROLLER),
                     value: u7::new(if down { 127 } else { 0 }),
                 },
-                PatternMidiEventKind::PitchBend { value } => MidiMessage::PitchBend {
+                PerformanceMidiEventKind::PitchBend { value } => MidiMessage::PitchBend {
                     bend: midly::PitchBend::from_int(denormalize_pitch_bend(value)),
                 },
-                PatternMidiEventKind::ModWheel { value } => MidiMessage::Controller {
+                PerformanceMidiEventKind::ModWheel { value } => MidiMessage::Controller {
                     controller: u7::new(MOD_WHEEL_CONTROLLER),
                     value: u7::new(denormalize_control(value)),
                 },
-                PatternMidiEventKind::Aftertouch { value } => MidiMessage::ChannelAftertouch {
+                PerformanceMidiEventKind::Aftertouch { value } => MidiMessage::ChannelAftertouch {
                     vel: u7::new(denormalize_control(value)),
                 },
             },

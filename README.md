@@ -57,14 +57,13 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 | 音源定義のひな形を生成する | `sonalloy instrument init <path>` |
 | 定義を検証する | `sonalloy instrument validate <definition>` |
 | コンパイル後の実行値を確認する | `sonalloy instrument inspect <definition>` |
-| 1音 / Event列 / MIDI / Patternをレンダリングする | `sonalloy render note` / `events` / `midi` / `pattern` |
-| 複数音源をまとめて確認する | `sonalloy demo validate <demo>` → `sonalloy render demo <demo> --output <wav>` |
-| Demoを音源アセットごと持ち出す | `sonalloy demo pack <demo> --output <directory> [--with-render]` |
-| 演奏パターンを試聴する（MIDI Keyboard不要） | `sonalloy pattern init` → `sonalloy audition pattern` |
+| 1音 / Event列 / MIDIをレンダリングする | `sonalloy render note` / `events` / `midi` |
+| 楽曲・試奏Scoreを確認する | `sonalloy score validate <score>` → `sonalloy render score <score> --output <wav>` |
+| 演奏を試聴する（MIDI Keyboard不要） | `sonalloy score init` → `sonalloy audition score` |
 | MIDI Keyboardで演奏する | `sonalloy device list` → `sonalloy play` |
 | インストールしたCLIをアップデートする | `sonalloy update` |
 
-`demo pack`で生成したBundleの`demo.json`は、そのまま検証・Renderできます。`--with-render`を指定すると完成Mixと全Part Stemも同梱します。配置とManifestの仕様は[Demo Bundle](.agents/skills/create-instrument/references/demos.md#bundle-format-v1)を参照してください。
+楽曲と試奏は[Score YAML](.agents/skills/create-instrument/references/score_spec.md)で記述します。音源はInstrument Definition JSONで参照し、同じ演奏からWAV・Stem・MIDIを生成できます。
 
 全コマンドのOptionと出力の詳細は[CLIリファレンス](.agents/skills/create-instrument/references/cli.md)を参照してください。
 
@@ -82,8 +81,7 @@ sonalloy render note my-synth.json --output my-synth.wav  # 1音をレンダリ�
 |---|---|
 | [`.agents/skills/create-instrument/SKILL.md`](.agents/skills/create-instrument/SKILL.md) | 音源を作成・検証・試聴する手順と仕様への入口 |
 | [`.agents/skills/create-instrument/references/cli.md`](.agents/skills/create-instrument/references/cli.md) | CLIのコマンド、Option、Report、診断Code |
-| [`.agents/skills/create-instrument/references/patterns.md`](.agents/skills/create-instrument/references/patterns.md) | Audition Patternの定義、Event、MIDI変換 |
-| [`.agents/skills/create-instrument/references/demos.md`](.agents/skills/create-instrument/references/demos.md) | 複数Instrumentを同じ時間軸で確認するDemoの定義と出力 |
+| [`.agents/skills/create-instrument/references/score_spec.md`](.agents/skills/create-instrument/references/score_spec.md) | 楽曲・試奏・プレビューのScore YAML仕様 |
 
 ### 設計・実装を理解する
 

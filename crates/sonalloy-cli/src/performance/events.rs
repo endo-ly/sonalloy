@@ -2,20 +2,19 @@
 mod compile;
 
 pub(crate) use compile::{
-    CompiledEvents, compile, loop_note_id, resolve_parameter_ramp, tempo_points,
+    CompiledEvents, Timeline, compile, compile_on_timeline, loop_note_id, resolve_parameter_ramp,
+    tempo_points,
 };
 
 use std::collections::BTreeSet;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sonalloy_core::{Diagnostic, DiagnosticCode};
 
 use crate::musical_time::musical_duration_seconds;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, Serialize)]
 pub(crate) struct PerformanceEvents {
-    #[serde(default)]
     pub(crate) name: Option<String>,
     pub(crate) ticks_per_beat: u16,
     pub(crate) length_ticks: u64,
@@ -24,23 +23,21 @@ pub(crate) struct PerformanceEvents {
     pub(crate) events: Vec<MusicalEvent>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub(crate) struct TempoChange {
     pub(crate) tick: u64,
     pub(crate) bpm: f64,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub(crate) struct MeterChange {
     pub(crate) tick: u64,
     pub(crate) numerator: u8,
     pub(crate) denominator: u8,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum MusicalEvent {
     Note {
         tick: u64,
@@ -525,6 +522,7 @@ pub(crate) fn inspect(pattern: &PerformanceEvents) -> Result<EventInspection, Ve
     })
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn slice_section(
     pattern: &mut PerformanceEvents,
     sections: &[crate::score::Occurrence],
@@ -567,6 +565,11 @@ pub(crate) fn slice_section(
             } => {
                 let note_end = (*tick + *duration_ticks).min(end);
                 if note_end <= start {
+                    if sustained_at_cut(pattern, note_end, start) {
+                        *tick = 0;
+                        *duration_ticks = 1;
+                        events.push(event);
+                    }
                     continue;
                 }
                 *tick = (*tick).max(start) - start;
@@ -595,8 +598,10 @@ pub(crate) fn slice_section(
                     let fraction = ((seconds(position)? - seconds(at)?)
                         / (seconds(ramp_end)? - seconds(at)?))
                     .clamp(0.0, 1.0);
+                    #[allow(clippy::cast_possible_truncation)]
+                    let fraction = fraction as f32;
                     descriptor
-                        .denormalize(from + (to - from) * fraction as f32)
+                        .denormalize(from + (to - from) * fraction)
                         .map_err(|e| e.to_string())
                 };
                 if ramp_end <= start {
@@ -633,7 +638,7 @@ pub(crate) fn slice_section(
                     | MusicalEvent::ModWheel { tick, .. }
                     | MusicalEvent::Aftertouch { tick, .. }
                     | MusicalEvent::ParameterChange { tick, .. } => {
-                        *tick = at.saturating_sub(start)
+                        *tick = at.saturating_sub(start);
                     }
                     _ => unreachable!(),
                 }
@@ -702,9 +707,66 @@ pub(crate) fn slice_section(
     Ok(())
 }
 
+fn sustained_at_cut(pattern: &PerformanceEvents, note_end: u64, start: u64) -> bool {
+    let down = pattern
+        .events
+        .iter()
+        .filter_map(|event| match event {
+            MusicalEvent::SustainPedal { tick, down } if *tick < note_end => Some(*down),
+            _ => None,
+        })
+        .next_back()
+        .unwrap_or(false);
+    down&&!pattern.events.iter().any(|event|matches!(event,MusicalEvent::SustainPedal{tick,down:false} if *tick>=note_end&&*tick<=start))
+}
+
 #[cfg(test)]
 mod tests {
     use super::default_pattern;
+
+    #[test]
+    fn section_selection_preserves_sustain_bend_and_normalized_ramp_state() {
+        let doc = serde_json::json!({"meta":{"title":"Selection","bpm":120,"meter":"4/4","tuning":"12edo","gate":1},"form":[{"section":"first","bars":1,"tonic":"C","scale":"ionian"},{"section":"second","bars":1,"tonic":"C","scale":"ionian","bpm":60}],"sections":{"first":{"placements":[{"instrument":"part","degree":"1","at":{"bar":1,"step":1},"duration_quarters":6},{"instrument":"part","degree":"3","at":{"bar":1,"step":1},"duration_quarters":2}],"events":[{"kind":"sustain_pedal","instrument":"part","at":{"bar":1,"step":5},"down":true},{"kind":"pitch_bend","instrument":"part","at":{"bar":1,"step":13},"value":0.5},{"kind":"automation","instrument":"part","at":{"bar":1,"step":9},"duration_quarters":4,"parameter":"layer.body.gain","from_value":-24,"to_value":0}]},"second":{"events":[{"kind":"sustain_pedal","instrument":"part","at":{"bar":1,"step":5},"down":false}]}},"instruments":{"part":{"external":true}}});
+        let plan = crate::score::compile(&doc.to_string()).expect("score");
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata/instruments/basic-poly-synth.json");
+        let (instrument, _) =
+            crate::command::load_and_compile(&path, 48000, 257).expect("instrument");
+        let mut events = plan.lanes[0].pattern.clone();
+
+        super::slice_section(&mut events, &plan.sections, "second", &instrument)
+            .expect("selected section");
+
+        assert_eq!(events.length_ticks, 1920);
+        assert!((events.tempo_changes[0].bpm - 60.0).abs() < f64::EPSILON);
+        assert!(events.events.iter().any(|e| matches!(
+            e,
+            super::MusicalEvent::Note {
+                tick: 0,
+                duration_ticks: 960,
+                note: 60,
+                ..
+            }
+        )));
+        assert!(events.events.iter().any(|e| matches!(
+            e,
+            super::MusicalEvent::Note {
+                tick: 0,
+                duration_ticks: 1,
+                note: 64,
+                ..
+            }
+        )));
+        assert!(events.events.iter().any(|e|matches!(e,super::MusicalEvent::PitchBend{tick:0,value} if (*value-0.5).abs()<f32::EPSILON)));
+        assert!(events.events.iter().any(|e| matches!(
+            e,
+            super::MusicalEvent::SustainPedal {
+                tick: 0,
+                down: true
+            }
+        )));
+        assert!(events.events.iter().any(|e|matches!(e,super::MusicalEvent::ParameterRamp{tick:0,duration_ticks:960,from_value,..} if (*from_value+16.0).abs()<1e-4)));
+    }
 
     #[test]
     fn ramp_validation_checks_duration_end_and_native_endpoints() {

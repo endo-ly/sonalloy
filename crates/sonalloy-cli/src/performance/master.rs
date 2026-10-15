@@ -1,4 +1,4 @@
-//! Offline `FFmpeg` measurements and fixed-gain, oversampled Demo mastering.
+//! Offline `FFmpeg` measurements and fixed-gain, oversampled Score mastering.
 
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
@@ -52,6 +52,15 @@ pub(crate) struct MasterReport {
     pub(crate) input_gain_db: f64,
     pub(crate) output_gain_db: f64,
     pub(crate) attempts: u32,
+    pub(crate) lra: Option<LraComparison>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct LraComparison {
+    pub(crate) target_lu: f64,
+    pub(crate) measured_lu: Option<f64>,
+    pub(crate) deviation_lu: Option<f64>,
+    pub(crate) reason: Option<&'static str>,
 }
 
 #[derive(Debug)]
@@ -131,6 +140,7 @@ pub(crate) fn master(
                 input_gain_db: gain_db,
                 output_gain_db,
                 attempts: attempt,
+                lra:settings.target_lra_lu.map(|target|LraComparison{target_lu:target,measured_lu:last.loudness_range_lu,deviation_lu:last.loudness_range_lu.map(|measured|measured-target),reason:last.loudness_range_lu.is_none().then_some("audio is too short or lacks sufficient loudness variation for LRA measurement")}),
             });
         }
         if peak_deviation > 0.0 {

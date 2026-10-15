@@ -10,7 +10,7 @@
 |---|---|
 | `schema_version` | スキーマ版。現在は`6`。それ以外はUnsupportedとして拒否 |
 | `external_audio` | 外部Audio入力のChannel構成（省略可）。使用する場合はMonoまたはStereoを指定 |
-| `metadata` | `name`、`author`、`description`、`category`、`tags`、`recommended_range`、`preview` |
+| `metadata` | `name`、`author`、`description`、`category`、`tags`、`recommended_range` |
 | `performance` | `mode`が`polyphonic`または`monophonic`。Modeごとに必要なFieldが異なる |
 | `layers` | 発音の単位となるLayer配列（1個以上） |
 | `voice_processors` | 全LayerのMix後に適用するProcessor Chain |
@@ -60,7 +60,7 @@
 
 ## Metadata
 
-`metadata`は音源の名前と説明に加えて、Libraryで検索・分類・試聴するための情報を持ちます。`category`、`tags`、`recommended_range`、`preview`は一般のDefinitionでは省略できます。Built-in Presetでは4項目をすべて設定します。
+`metadata`は音源の名前と説明に加えて、Libraryで検索・分類・試聴するための情報を持ちます。`category`、`tags`、`recommended_range`は一般のDefinitionでは省略できます。Built-in Presetでは3項目をすべて設定します。
 
 | Field | 内容と制約 |
 |---|---|
@@ -70,45 +70,8 @@
 | `category` | LibraryのPrimary Category。指定時は前後に空白を持たない1〜64文字で、制御文字を含めません |
 | `tags` | 検索用Tag。0〜12件。各Tagは前後に空白を持たない1〜32文字で、制御文字を含めず、ASCIIの大文字・小文字を区別した重複を持ちません |
 | `recommended_range` | 実用的な音域。`min_midi` / `max_midi`を0〜127で指定し、最小値を最大値以下にします |
-| `preview` | Browser試聴用のNote列。Note以外の演奏制御は含めません。音楽時間は10秒以下です |
 
-`preview`は次のFieldで構成します。
-
-| Field | 制約 |
-|---|---|
-| `tempo_bpm` | 有限値、30〜300 BPM |
-| `ticks_per_beat` | 1〜32767 |
-| `time_signature.numerator` | 1〜32 |
-| `time_signature.denominator` | 1〜128の2の冪 |
-| `length_ticks` | 0より大きい長さ |
-| `notes` | 1〜32件。`tick`の昇順。同じTickのNoteはChordとして許可 |
-| `notes[].tick` | `length_ticks`未満 |
-| `notes[].duration_ticks` | 0より大きく、Noteの終端が`length_ticks`以内 |
-| `notes[].note` | MIDI 0〜127。`recommended_range`がある場合はその範囲内 |
-| `notes[].velocity` | MIDI 1〜127 |
-
-Previewの音楽時間は`length_ticks / ticks_per_beat * 60 / tempo_bpm`で計算します。
-
-```json
-"metadata": {
-  "name": "Clean Sub Bass",
-  "author": "Sonalloy",
-  "description": "A clean sub bass for low-end support.",
-  "category": "Bass",
-  "tags": ["Sub", "Clean", "Warm"],
-  "recommended_range": { "min_midi": 24, "max_midi": 60 },
-  "preview": {
-    "tempo_bpm": 120.0,
-    "ticks_per_beat": 480,
-    "time_signature": { "numerator": 4, "denominator": 4 },
-    "length_ticks": 1920,
-    "notes": [
-      { "tick": 0, "duration_ticks": 360, "note": 36, "velocity": 92 },
-      { "tick": 480, "duration_ticks": 360, "note": 43, "velocity": 108 }
-    ]
-  }
-}
-```
+短いブラウザ試聴の演奏は、プリセットと同じディレクトリの `preview.score.yaml` に記述します。音源メタデータは分類と音域を持ち、音符や演奏時間は[Score YAML](score_spec.md)から取得します。
 
 ## Performance
 

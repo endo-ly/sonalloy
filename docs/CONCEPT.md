@@ -67,8 +67,7 @@ Sonalloy本体はPlugin API・Audio Device APIに依存せず、すべてAdapter
 - **Modulation**：LFO/Envelope/MSEG/Step/Random/Velocity/Key Tracking/Macro/Envelope Follower
 - **Processing**：Filter/Drive/EQ/Comb/Bitcrusher/Freq Shifter/Chorus/Delay/Reverb/Convolution/Dynamics
 - **Instrument機能**：Hybrid構成/Polyphony/Voice Management/MIDI演奏
-- **Audition Pattern**：1つのInstrumentへ送るNote、Chord、Phrase、Drum Pattern、Performance Control、Parameter Changeの保存・Offline Render・Realtime Audition・MIDI Interchange
-- **Demo**：複数のInstrumentとAudition Patternを同じ時間軸でOffline Renderし、Stem、Multi-track MIDI、固定Gainによる簡易Mix、最終Audioを出力する
+- **Score YAML**：楽曲・試奏・プレビューを共通の時間軸で記述し、Offline Render、1楽器のRealtime Audition、Stem、Multi-track MIDI、MixとMasterを出力する
 
 **意図的に扱わない範囲**：
 - 完全自由なModular Audio Graph（Cycle管理・計算量予測が困難）
@@ -463,15 +462,15 @@ GUIやDAWがなくても、CLIだけでSonalloyの主要機能を完結できま
 |--------------|----------|
 | **作る** | 新規作成、Layer/Generator/Processor追加・削除、Sample/Wavetable/IR追加、Parameter/Modulation設定 |
 | **理解する** | 内容表示、構成解析、Validation、依存Asset、Latency、推定計算量の確認 |
-| **演奏する** | 単音、Audition Pattern、Note Sequence、MIDI File、External Control、必要ならAudio Input付き演奏 |
-| **交換する** | PatternとStandard MIDI FileのImport / Export |
-| **書き出す** | Offline Render、DemoのStem / Multi-track MIDI / WAV / MP3等へのExport |
+| **演奏する** | 単音、Score、Note Sequence、MIDI File、External Control、必要ならAudio Input付き演奏 |
+| **交換する** | ScoreとStandard MIDI FileのImport / Export |
+| **書き出す** | Offline Render、ScoreのStem / Multi-track MIDI / WAV / MP3等へのExport |
 | **素材処理** | Sample Slice、Loop確認、Wavetable/Spectral/IR事前解析 |
 | **リアルタイム** | MIDI Device + Audio Deviceによる演奏（Linux/Windows） |
 | **修復する** | 不足Assetの再指定、再Validation、再Compile |
 | **比較する** | 複数Definition/Parameter VariantのRender比較 |
 
-CLIが扱う正本はInstrument Definition、1つのInstrumentを試奏するAudition Pattern、複数InstrumentをOfflineで確認するDemo Definitionの3種類です。PatternとDemoはCLI Frontendの入力形式として既存のProcess Contractへ変換され、CoreへPattern、Demo、Arrangementのモデルを持ち込みません。
+CLIが扱う正本は、音色を定義するInstrument Definition JSONと、演奏を定義するScore YAMLです。ScoreはCLI内で共通の演奏計画へ展開し、Process Contract、MIDI、音声出力へ供給します。Coreは楽譜の文法やファイル参照を所有しません。
 
 ### 5.2 Plugin（CLAP/VST3）
 
@@ -621,7 +620,7 @@ Neural OptionalにはDDSP、Timbre Transfer、Neural Codec Generator、Latent Mo
 | 区分 | 対象 |
 |------|------|
 | **Sonalloyが所有** | Definition、Layer、Generator Model、Compiler、Compiled Instrument、Voice、Modulation、Runtime、Sample Mapping、Processor Chain、共通Event/Process Contract |
-| **Frontend/Adapterが所有** | Audio/MIDI Device、Plugin Host API、Input Bus、CLIのAudition Pattern / Demo Definition JSON、Standard MIDI Fileの変換、JUCE/CPAL/CLAP/VST3固有変換 |
+| **Frontend/Adapterが所有** | Audio/MIDI Device、Plugin Host API、Input Bus、CLIのScore YAMLと演奏計画、Standard MIDI Fileの変換、JUCE/CPAL/CLAP/VST3固有変換 |
 | **既存Libraryに委譲** | FFT、Resampling、Codec、Device接続、MIDI接続等の汎用基盤 |
 | **Optional Backendが所有** | Neural推論Runtime、GPU固有処理等。SonalloyからCapability経由で利用 |
 
@@ -642,10 +641,10 @@ SonalloyはRiffraがなくても単独で主要機能が動作します。
 |------------|-------------------|
 | **Design** | Layer、Generator、Sample Mapping、Wavetable、FM Operator、Granular、Modulation、Processor、Macroを視覚編集。Definitionの意味を再実装しない |
 | **Play** | MIDI鍵盤等からRealtime演奏。Performance Settings、Macro、Expression、External Audio InputをProcess Contractへ変換 |
-| **Audition** | 1つのInstrumentをPattern、Chord、Phrase、Drum Patternで確認。必要ならStandard MIDI FileをImport / Export |
+| **Audition** | 1つのInstrumentをScoreのNote、Chord、Phrase、Drum Patternで確認。必要ならStandard MIDI FileをImport / Export |
 | **Arrange** | 複数InstrumentのTrack、Clip、Arrangement、Automation、Tempo、Transport、Audio Input Routingを管理し、必要なEventをSonalloy Contractへ渡す |
 
-**所有関係**：RiffraはProject、Track、Arrangement、Audio Device、JUCE Audio Callback、Host Input/Output Routingを所有します。Sonalloy CLIは1つのInstrumentを試奏するPatternと、複数Instrumentを固定条件で確認するDemo、MIDI Interchangeを扱います。Riffraは必要に応じてTimelineからProcess Contractを直接駆動できます。Sonalloyは渡されたContext・Event・Input/Output Bufferを処理し、RiffraやJUCE固有APIを呼びません。
+**所有関係**：RiffraはProject、Track、Arrangement、Audio Device、JUCE Audio Callback、Host Input/Output Routingを所有します。Sonalloy CLIは楽曲・試奏のScore、固定条件での音声出力、1楽器のリアルタイム試奏、MIDI Interchangeを扱います。Riffraは必要に応じてTimelineからProcess Contractを直接駆動できます。Sonalloyは渡されたContext・Event・Input/Output Bufferを処理し、RiffraやJUCE固有APIを呼びません。
 
 **Design画面での構成変更Flow**：
 1. RiffraがControl側でCompileを要求

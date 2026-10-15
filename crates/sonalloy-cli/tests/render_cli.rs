@@ -258,18 +258,17 @@ fn render_events_supports_parameter_and_external_control_events() {
 }
 
 #[test]
-fn pattern_and_frame_ramps_render_the_same_filter_sweep() {
+fn score_and_frame_ramps_render_the_same_filter_sweep() {
     let directory = tempdir().expect("directory");
-    let pattern = directory.path().join("ramp-pattern.json");
+    let pattern = directory.path().join("ramp.score.yaml");
     let events = directory.path().join("ramp-events.json");
-    std::fs::write(&pattern, r#"{
-        "schema_version":1,"ticks_per_beat":480,"length_ticks":2880,
-        "tempo_changes":[{"tick":0,"bpm":120}],
-        "time_signature_changes":[{"tick":0,"numerator":4,"denominator":4}],
-        "events":[
-          {"type":"note","tick":0,"duration_ticks":2400,"note":60,"velocity":100},
-          {"type":"parameter_ramp","tick":240,"duration_ticks":1920,"parameter":"voice.processor.tone.cutoff","from_value":1200,"to_value":8000}
-        ]}"#).expect("pattern");
+    let definition = fixture_path("instruments/basic-poly-synth.json");
+    let score = serde_json::json!({"meta":{"title":"Sweep","bpm":120,"meter":"4/4","tuning":"12edo","gate":1},"form":[{"section":"phrase","bars":2,"last_bar_quarters":2,"tonic":"C","scale":"ionian"}],"sections":{"phrase":{"placements":[{"instrument":"part","degree":"1","at":{"bar":1,"step":1},"duration_quarters":5}],"events":[{"kind":"automation","instrument":"part","at":{"bar":1,"step":3},"duration_quarters":4,"parameter":"voice.processor.tone.cutoff","from_value":1200,"to_value":8000}]}},"instruments":{"part":{"definition":definition}}});
+    std::fs::write(
+        &pattern,
+        serde_json::to_string_pretty(&score).expect("score YAML"),
+    )
+    .expect("score");
     std::fs::write(&events, r#"{"events":[
         {"absolute_frame":0,"type":"note_on","note_id":0,"note":60,"velocity":100},
         {"absolute_frame":12000,"type":"parameter_ramp","duration_frames":96000,"parameter":"voice.processor.tone.cutoff","from_value":1200,"to_value":8000},
@@ -278,15 +277,17 @@ fn pattern_and_frame_ramps_render_the_same_filter_sweep() {
     let definition = fixture_path("instruments/basic-poly-synth.json");
     let mut renders = Vec::new();
     for (kind, input, block_size) in [
-        ("pattern", &pattern, "257"),
+        ("score", &pattern, "257"),
         ("events", &events, "257"),
         ("events", &events, "64"),
     ] {
         let output = directory.path().join(format!("{kind}-{block_size}.wav"));
         let mut command = Command::cargo_bin("sonalloy").expect("binary");
+        command.args(["render", kind]);
+        if kind == "events" {
+            command.arg(&definition);
+        }
         command
-            .args(["render", kind])
-            .arg(&definition)
             .arg(input)
             .args([
                 "--sample-rate",
@@ -301,7 +302,26 @@ fn pattern_and_frame_ramps_render_the_same_filter_sweep() {
         if kind == "events" {
             command.args(["--duration-frames", "144000"]);
         }
-        command.assert().success();
+        if kind == "score" {
+            command.args([
+                "--trace",
+                "part:voice.processor.tone.cutoff",
+                "--trace-every-frames",
+                "12000",
+                "--json",
+            ]);
+        }
+        let rendered = command.assert().success().get_output().clone();
+        if kind == "score" {
+            let report: serde_json::Value =
+                serde_json::from_slice(&rendered.stdout).expect("trace report");
+            assert!(
+                !report["parts"][0]["traces"][0]["parameters"][0]["observations"]
+                    .as_array()
+                    .expect("observations")
+                    .is_empty()
+            );
+        }
         renders.push(
             hound::WavReader::open(output)
                 .expect("WAV")
@@ -362,7 +382,7 @@ fn frame_ramps_reject_invalid_duration_and_parameter_endpoints() {
 fn single_instrument_renders_report_required_and_unused_audio_input() {
     let directory = tempdir().expect("directory");
     let output = directory.path().join("missing-input.wav");
-    for kind in ["note", "events", "pattern", "midi"] {
+    for kind in ["note", "events", "midi"] {
         let mut command = Command::cargo_bin("sonalloy").expect("binary");
         command
             .args(["render", kind])
@@ -372,9 +392,6 @@ fn single_instrument_renders_report_required_and_unused_audio_input() {
                 command
                     .arg("missing-events.json")
                     .args(["--duration-frames", "1024"]);
-            }
-            "pattern" => {
-                command.arg("missing-pattern.json");
             }
             "midi" => {
                 command.arg("missing-midi.mid");

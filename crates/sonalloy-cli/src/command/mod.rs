@@ -25,8 +25,8 @@ const DEFAULT_BLOCK_SIZE: usize = 257;
 #[command(
     name = "sonalloy",
     version,
-    about = "Validate instruments, render audio, audition patterns, and play from MIDI",
-    long_about = "Define instruments in JSON, validate and inspect their compiled configuration, render notes, events, MIDI, patterns, or multi-part demos to audio, audition patterns and MIDI files through an audio output, and play an instrument from a live MIDI input. Use `device list` to find audio and MIDI device IDs."
+    about = "Validate instruments and scores, render audio, and play from MIDI",
+    long_about = "Define instruments in JSON, validate and inspect their compiled configuration, render notes, events, MIDI, or scores to audio, audition scores and MIDI files through an audio output, and play an instrument from a live MIDI input. Use `device list` to find audio and MIDI device IDs."
 )]
 pub(super) struct Cli {
     #[command(subcommand)]
@@ -45,12 +45,12 @@ enum Command {
         #[command(subcommand)]
         command: score::ScoreCommand,
     },
-    /// Render an instrument, pattern, MIDI file, or Demo to audio.
+    /// Render an instrument, score, or MIDI file to audio.
     Render {
         #[command(subcommand)]
         command: render::RenderCommand,
     },
-    /// Play a pattern or MIDI file through an audio output without a MIDI input.
+    /// Play one score instrument or a MIDI file through an audio output without a MIDI input.
     Audition {
         #[command(subcommand)]
         command: realtime::AuditionCommand,
@@ -99,6 +99,22 @@ pub(crate) fn load_and_compile(
     sample_rate: u32,
     block_size: usize,
 ) -> Result<(Arc<CompiledInstrument>, Vec<Diagnostic>), CliFailure> {
+    load_with_metadata(path, sample_rate, block_size)
+        .map(|(instrument, diagnostics, _)| (instrument, diagnostics))
+}
+
+pub(crate) fn load_with_metadata(
+    path: &Path,
+    sample_rate: u32,
+    block_size: usize,
+) -> Result<
+    (
+        Arc<CompiledInstrument>,
+        Vec<Diagnostic>,
+        sonalloy_core::InstrumentMetadata,
+    ),
+    CliFailure,
+> {
     let text = std::fs::read_to_string(path).map_err(|error| CliFailure {
         code: 2,
         diagnostics: vec![
@@ -158,7 +174,7 @@ pub(crate) fn load_and_compile(
             diagnostics: result.diagnostics,
         });
     };
-    Ok((instrument, result.diagnostics))
+    Ok((instrument, result.diagnostics, definition.metadata))
 }
 
 pub(super) fn parse_positive_f64(value: &str) -> Result<f64, String> {

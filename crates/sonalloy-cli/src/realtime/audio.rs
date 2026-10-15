@@ -225,6 +225,7 @@ pub(crate) struct AudioEngine {
     input_right: Vec<f32>,
     queued_events: Vec<QueuedEvent>,
     process_events: Vec<ProcessEvent>,
+    output_gain: f32,
 }
 
 pub(crate) struct BuiltAudioStreams {
@@ -248,6 +249,7 @@ impl AudioEngine {
     ) -> Self {
         Self {
             runtime,
+            output_gain: 1.0,
             events,
             feed: RealtimeEventFeed::Live,
             status,
@@ -282,6 +284,7 @@ impl AudioEngine {
         let time_signature = feed.context_at(0).time_signature;
         Self {
             runtime,
+            output_gain: 1.0,
             events: Arc::new(ArrayQueue::new(1)),
             feed: RealtimeEventFeed::Scheduled(feed),
             status,
@@ -382,8 +385,8 @@ impl AudioEngine {
             }
             for frame in 0..block_frames {
                 let offset = (frame_start + frame) * self.channels;
-                data[offset] = T::from_sample_(self.left[frame]);
-                data[offset + 1] = T::from_sample_(self.right[frame]);
+                data[offset] = T::from_sample_(self.left[frame] * self.output_gain);
+                data[offset + 1] = T::from_sample_(self.right[frame] * self.output_gain);
             }
             frame_start += block_frames;
             if self.scheduled_finished() {
@@ -536,6 +539,7 @@ pub(crate) fn build_scheduled_stream(
     input_channels: usize,
     runtime: InstrumentRuntime,
     feed: ScheduledEventFeed,
+    gain: f32,
     status: &Arc<RealtimeStatus>,
     max_block_size: usize,
 ) -> Result<BuiltAudioStreams, DeviceError> {
@@ -558,7 +562,7 @@ pub(crate) fn build_scheduled_stream(
     }
     let input_queue =
         selected_input.map(|_| Arc::new(ArrayQueue::new(REALTIME_INPUT_QUEUE_CAPACITY)));
-    let engine = AudioEngine::new_scheduled(
+    let mut engine = AudioEngine::new_scheduled(
         runtime,
         feed,
         status.clone(),
@@ -568,6 +572,8 @@ pub(crate) fn build_scheduled_stream(
         input_channels,
         input_queue.clone(),
     );
+
+    engine.output_gain = gain;
     let output = build_stream_with_engine(selected, engine, status.clone())?;
     let input = selected_input
         .zip(input_queue)
@@ -1502,8 +1508,12 @@ mod tests {
     #[test]
     fn scheduled_callback_handles_events_without_allocating() {
         let mut engine = prepared_scheduled_engine();
+        engine.output_gain = 0.5;
+        let mut reference = prepared_scheduled_engine();
         let process_capacity = engine.process_events.capacity();
         let mut data = vec![0.0_f32; 641 * 2];
+        let mut reference_data = vec![0.0_f32; data.len()];
+        reference.process_callback(&mut reference_data);
 
         let allocations = count_allocations(|| engine.process_callback(&mut data));
 
@@ -1511,5 +1521,10 @@ mod tests {
         assert_eq!(engine.process_events.capacity(), process_capacity);
         assert_eq!(engine.status.fatal(), FatalStatus::None);
         assert!(data.iter().any(|sample| *sample != 0.0));
+        assert!(
+            data.iter()
+                .zip(&reference_data)
+                .all(|(actual, unscaled)| (*actual - *unscaled * 0.5).abs() < f32::EPSILON)
+        );
     }
 }

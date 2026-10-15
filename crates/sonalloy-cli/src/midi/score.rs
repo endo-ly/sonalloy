@@ -3,17 +3,26 @@ use std::path::Path;
 use midly::{Format, Header, Smf, Timing, num::u15};
 use sonalloy_core::{Diagnostic, DiagnosticCode};
 
-use crate::midi::pattern::{build_track, midi_events, midi_export_events, pattern_export_events};
+use crate::midi::pattern::{build_track, conductor_events, midi_events, midi_export_events};
 use crate::performance::PerformancePlan;
 
 pub(crate) fn export_score(path: &Path, demo: &PerformancePlan) -> Result<(), Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
     for (index, part) in demo.parts.iter().enumerate() {
+        if part.render_lanes.len() > 1 && part.pattern.events.iter().any(|event| !event.is_note()) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::MidiError,
+                    "independent controller states on gain lanes cannot share one MIDI channel",
+                )
+                .with_path(format!("instruments.{}", part.definition.id)),
+            );
+        }
         if part.midi_channel.is_none() {
             diagnostics.push(
                 Diagnostic::error(
                     DiagnosticCode::MidiError,
-                    "no MIDI channel is available for this Demo part",
+                    "no MIDI channel is available for this Score part",
                 )
                 .with_path(format!("parts[{index}].midi_channel")),
             );
@@ -26,7 +35,7 @@ pub(crate) fn export_score(path: &Path, demo: &PerformancePlan) -> Result<(), Ve
     let conductor_index = 0;
     let conductor_part = &demo.parts[0];
     let conductor_pattern = &conductor_part.pattern;
-    let conductor_events = match pattern_export_events(conductor_pattern, &[]) {
+    let conductor_events = match conductor_events(conductor_pattern) {
         Ok(events) => events,
         Err(diagnostics) => return Err(prefix_pattern_diagnostics(diagnostics, conductor_index)),
     };

@@ -30,56 +30,95 @@ struct EventTimeContext<'a> {
     sample_rate: f64,
 }
 
-#[allow(clippy::too_many_lines)]
+#[derive(Debug, Clone)]
+pub(crate) struct Timeline {
+    map: MusicalTimeMap,
+    length_frames: u64,
+    tempo_changes: Vec<TempoPoint>,
+    sample_rate: f64,
+}
+impl Timeline {
+    pub(crate) fn new(
+        pattern: &PerformanceEvents,
+        sample_rate: f64,
+    ) -> Result<Self, Vec<Diagnostic>> {
+        let diagnostics = validate(pattern);
+        if !diagnostics.is_empty() {
+            return Err(diagnostics);
+        }
+        let tempo_changes = tempo_points(pattern);
+        let mut diagnostics = Vec::new();
+        let length_frames = match tick_to_frame(
+            pattern.length_ticks,
+            pattern.ticks_per_beat,
+            &tempo_changes,
+            sample_rate,
+        ) {
+            Ok(frame) if frame > 0 => frame,
+            Ok(_) => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::ValueOutOfRange,
+                        "pattern length must occupy at least one frame",
+                    )
+                    .with_path("length_ticks"),
+                );
+                0
+            }
+            Err(error) => {
+                diagnostics.push(time_error(error, "length_ticks"));
+                0
+            }
+        };
+        let time_signature_changes = time_signature_points(pattern);
+        let musical_time_map = match build_musical_time_map(
+            pattern.ticks_per_beat,
+            &tempo_changes,
+            &time_signature_changes,
+            sample_rate,
+        ) {
+            Ok(map) => Some(map),
+            Err(error) => {
+                diagnostics.push(time_error(error, "tempo_changes"));
+                None
+            }
+        };
+
+        if !diagnostics.is_empty() {
+            return Err(diagnostics);
+        }
+        Ok(Self {
+            map: musical_time_map.expect("validated time map"),
+            length_frames,
+            tempo_changes,
+            sample_rate,
+        })
+    }
+}
 pub(crate) fn compile(
     pattern: &PerformanceEvents,
     instrument: &CompiledInstrument,
     sample_rate: f64,
 ) -> Result<CompiledEvents, Vec<Diagnostic>> {
-    let diagnostics = validate(pattern);
+    compile_on_timeline(pattern, instrument, &Timeline::new(pattern, sample_rate)?)
+}
+#[allow(clippy::too_many_lines)]
+pub(crate) fn compile_on_timeline(
+    pattern: &PerformanceEvents,
+    instrument: &CompiledInstrument,
+    timeline: &Timeline,
+) -> Result<CompiledEvents, Vec<Diagnostic>> {
+    let mut diagnostics = validate(pattern);
     if !diagnostics.is_empty() {
         return Err(diagnostics);
     }
-    let tempo_changes = tempo_points(pattern);
-    let mut diagnostics = Vec::new();
-    let length_frames = match tick_to_frame(
-        pattern.length_ticks,
-        pattern.ticks_per_beat,
-        &tempo_changes,
-        sample_rate,
-    ) {
-        Ok(frame) if frame > 0 => frame,
-        Ok(_) => {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::ValueOutOfRange,
-                    "pattern length must occupy at least one frame",
-                )
-                .with_path("length_ticks"),
-            );
-            0
-        }
-        Err(error) => {
-            diagnostics.push(time_error(error, "length_ticks"));
-            0
-        }
-    };
-    let time_signature_changes = time_signature_points(pattern);
-    let musical_time_map = match build_musical_time_map(
-        pattern.ticks_per_beat,
-        &tempo_changes,
-        &time_signature_changes,
-        sample_rate,
-    ) {
-        Ok(map) => Some(map),
-        Err(error) => {
-            diagnostics.push(time_error(error, "tempo_changes"));
-            None
-        }
-    };
+    let sample_rate = timeline.sample_rate;
+    let tempo_changes = &timeline.tempo_changes;
+    let length_frames = timeline.length_frames;
+    let musical_time_map = Some(timeline.map.clone());
     let time = EventTimeContext {
         pattern,
-        tempo_changes: &tempo_changes,
+        tempo_changes,
         sample_rate,
     };
 
@@ -108,20 +147,22 @@ pub(crate) fn compile(
                 let Some(end_tick) = tick.checked_add(*duration_ticks) else {
                     continue;
                 };
-                let start_frame =
-                    match tick_to_frame(*tick, pattern.ticks_per_beat, &tempo_changes, sample_rate)
-                    {
-                        Ok(frame) => frame,
-                        Err(error) => {
-                            diagnostics
-                                .push(time_error(error, format!("events[{source_index}].tick")));
-                            continue;
-                        }
-                    };
+                let start_frame = match tick_to_frame(
+                    *tick,
+                    pattern.ticks_per_beat,
+                    tempo_changes,
+                    sample_rate,
+                ) {
+                    Ok(frame) => frame,
+                    Err(error) => {
+                        diagnostics.push(time_error(error, format!("events[{source_index}].tick")));
+                        continue;
+                    }
+                };
                 let end_frame = match tick_to_frame(
                     end_tick,
                     pattern.ticks_per_beat,
-                    &tempo_changes,
+                    tempo_changes,
                     sample_rate,
                 ) {
                     Ok(frame) => frame,
@@ -258,13 +299,13 @@ pub(crate) fn compile(
                 let path = format!("events[{source_index}]");
                 let result = (|| {
                     let start =
-                        tick_to_frame(*tick, pattern.ticks_per_beat, &tempo_changes, sample_rate)
+                        tick_to_frame(*tick, pattern.ticks_per_beat, tempo_changes, sample_rate)
                             .map_err(|error| time_error(error, format!("{path}.tick")))?;
                     let end = tick_to_frame(
                         tick.checked_add(*duration_ticks)
                             .expect("validated ramp end tick"),
                         pattern.ticks_per_beat,
-                        &tempo_changes,
+                        tempo_changes,
                         sample_rate,
                     )
                     .map_err(|error| time_error(error, format!("{path}.duration_ticks")))?;
@@ -552,7 +593,7 @@ mod tests {
         );
         assert!((to_normalized - descriptor.normalize(0.0).expect("to")).abs() < f32::EPSILON);
 
-        pattern.tempo_changes[0].bpm = 1.0e12;
+        pattern.tempo_changes[0].bpm = 1.0e6;
         pattern.events.pop();
         pattern
             .events

@@ -270,6 +270,7 @@ fn parse_macro_cc(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn run_audition_score(args: &AuditionScoreArgs) -> ExitCode {
     let selected = (|| {
         let score = crate::score::read(&args.score)?;
@@ -288,40 +289,68 @@ fn run_audition_score(args: &AuditionScoreArgs) -> ExitCode {
                 ));
             }
         };
-        let lanes: Vec<_> = score.lanes.iter().filter(|lane| lane.id == id).collect();
-        if lanes.len() != 1 {
-            return Err(score_selection_failure(
-                "selected instrument must have exactly one independent performance lane",
-            ));
+        if !score.instruments.contains_key(&id) {
+            return Err(score_selection_failure("unknown --part instrument"));
         }
         if score.instruments[&id].get("audio_input").is_some() {
             return Err(score_selection_failure(
                 "score audio routing requires offline render",
             ));
         }
-        let mut pattern = lanes[0].pattern.clone();
-        if let Some(section) = &args.section {
-            crate::performance::events::slice_section(
-                &mut pattern,
-                &score.sections,
-                section,
-                &super::load_and_compile(
-                    &paths[&id],
-                    super::DEFAULT_SAMPLE_RATE,
-                    super::DEFAULT_BLOCK_SIZE,
-                )?
-                .0,
-            )
-            .map_err(score_selection_failure)?;
-        }
-        Ok((pattern, paths[&id].clone()))
+        Ok((score, paths[&id].clone(), id))
     })();
-    let (pattern, definition) = match selected {
+    let (score, definition, id) = match selected {
         Ok(value) => value,
         Err(failure) => return finish_failure(false, failure),
     };
     let session = match crate::realtime::start_scheduled_audition(
-        &pattern,
+        |compiled| {
+            let mut lanes = Vec::new();
+            for lane in score.lanes.iter().filter(|lane| lane.id == id) {
+                let mut pattern = lane.pattern.clone();
+                if let Some(section) = &args.section {
+                    crate::performance::events::slice_section(
+                        &mut pattern,
+                        &score.sections,
+                        section,
+                        compiled,
+                    )
+                    .map_err(|message| (1, score_selection_failure(message).diagnostics))?;
+                }
+                if pattern
+                    .events
+                    .iter()
+                    .any(crate::performance::events::MusicalEvent::is_note)
+                    || compiled.required_input_channels() > 0
+                {
+                    lanes.push((pattern, lane.gain_db));
+                }
+            }
+            if lanes.len() > 1 {
+                return Err((
+                    1,
+                    score_selection_failure(
+                        "selected passage requires multiple independent performance lanes",
+                    )
+                    .diagnostics,
+                ));
+            }
+            if let Some(lane) = lanes.pop() {
+                Ok(lane)
+            } else {
+                let mut empty = score.timeline.clone();
+                if let Some(section) = &args.section {
+                    crate::performance::events::slice_section(
+                        &mut empty,
+                        &score.sections,
+                        section,
+                        compiled,
+                    )
+                    .map_err(|message| (1, score_selection_failure(message).diagnostics))?;
+                }
+                Ok((empty, 0.0))
+            }
+        },
         Vec::new(),
         &ScheduledAuditionOptions {
             definition_path: &definition,
@@ -372,7 +401,7 @@ fn run_audition_midi(args: &AuditionMidiArgs) -> ExitCode {
         }
     };
     let (pattern, diagnostics) =
-        match crate::midi::import_pattern(parsed, args.channel.map(|channel| channel - 1)) {
+        match crate::midi::import_performance(parsed, args.channel.map(|channel| channel - 1)) {
             Ok(result) => result,
             Err(diagnostics) => {
                 return finish_failure(
@@ -385,7 +414,7 @@ fn run_audition_midi(args: &AuditionMidiArgs) -> ExitCode {
             }
         };
     let session = match crate::realtime::start_scheduled_audition(
-        &pattern,
+        |_| Ok((pattern.clone(), 0.0)),
         diagnostics,
         &ScheduledAuditionOptions {
             definition_path: &args.definition,
@@ -687,6 +716,13 @@ pub(super) fn run_play(args: &PlayArgs) -> ExitCode {
     }
 }
 
+fn score_selection_failure(message: impl Into<String>) -> CliFailure {
+    CliFailure {
+        code: 1,
+        diagnostics: vec![Diagnostic::error(DiagnosticCode::DefinitionError, message)],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{parse_macro_cc, parse_macro_cc_value, parse_time_signature};
@@ -754,12 +790,5 @@ mod tests {
         );
         assert!(parse_macro_cc_value("motion").is_err());
         assert!(parse_macro_cc_value("motion=128").is_err());
-    }
-}
-
-fn score_selection_failure(message: impl Into<String>) -> CliFailure {
-    CliFailure {
-        code: 1,
-        diagnostics: vec![Diagnostic::error(DiagnosticCode::DefinitionError, message)],
     }
 }

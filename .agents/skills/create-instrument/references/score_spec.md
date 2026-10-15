@@ -68,7 +68,7 @@ meta:
     target_lra_lu: 7
 ```
 
-`bpm` は四分音符毎分、`reference_octave` は音符 `1` が属するオクターブ（C4＝MIDIノート60）、`gate` は生成音符の基本音価へ掛ける倍率（0より大きく1以下）。`master` のLUFS・True Peak・LRAは出力の目標／上限であり、音源の物理的実現性はレンダラーが検証する。`target_lra_lu`は測定値との比較目標であり、強制的に達成するマスタリング処理は規定しない。測定結果・差分・計測できない理由をレポートする。
+`bpm` は四分音符毎分、`reference_octave` は音符 `1` が属するオクターブ（C4＝MIDIノート60）、`gate` は生成音符の基本音価へ掛ける倍率（0より大きく1以下）。`master` のLUFS・True Peak・LRAは出力の目標／上限であり、音源の物理的実現性はレンダラーが検証する。`target_lra_lu`は測定値との比較目標であり、強制的に達成するマスタリング処理は規定しない。測定結果・差分・計測できない理由をレポートする。目標との差が0.5 LUを超える場合、または計測できない場合はwarningを返す。
 
 `form` の各項目は `{section, bars, tonic, scale}` を持ち、必要なら`bpm`、`meter`、`last_bar_quarters`を追加できる。テンポと拍子は曲頭で`meta`の値を採用し、`form`で値を変更した場合は後続セクションにも引き継ぐ。`section` は `sections` のキー、`bars` は正の整数で、最後の端数小節も1小節として数える。`tonic` は `C` / `F#` / `Bb` などの音名、`scale` は`ionian` / `dorian` / `phrygian` / `lydian` / `mixolydian` / `aeolian` / `locrian` などの既知の音階名とする。`harmonic_minor`、`melodic_minor`、`major_pentatonic`、`minor_pentatonic`、`whole_tone`も組込み名として扱う。組込み以外はトップレベルの`scale_definitions`に、名前をキー、度数トークンの配列を値として登録する。未登録名はエラーとし、黙って長音階にはしない。**`scale` はすでに書いた音符の音程を変えない。**
 
@@ -191,7 +191,7 @@ drums:
 
 - `comp` の `x` は、現在のコードをその位置で発音。`-`で保持、`.`で休止。`hold`に限り、1小節中にコードが替わった地点で前の和音を終了し、新しい和音を発音し直す。
 - `instruments.*.voicing_floor_midi`は、クローズボイシングをその値以上に配置する下限。転回形のベース指定は和音の最低音へ反映する。**ボイシングの決定規則**：`voicing_floor_midi`以上で最も低い指定ベース音を第1声部とする。残りのコード構成音は、第1声部より上の最も近い位置から昇順に配置する。同じ構成音の重複は除く。ベースがコード構成音でない場合は、ベースとは別に構成音全てを追加する。これを標準クローズボイシングとする。
-- `arps.<name>.order`の `0 1 2 3` は、上記ボイシングの構成音を下から並べた音列のインデックス。コード音が4個未満の場合は構成音を上オクターブへ反復して必要数を作る。1マスずつ再発音する。
+- `arps.<name>.order`の `0 1 2 3` は、上記ボイシングの構成音を下から並べた音列のインデックス。コード音が4個未満の場合は構成音を上オクターブへ反復して必要数を作る。`retrigger_each_step`の省略時または`true`では1マスずつ再発音し、`false`では隣接する同音の音価を結合してからGateを適用する。
 - `counters.<name>.when: lead_silent_full_beat` は、その拍の**全期間**にリード音が鳴っていない場合だけ、`cell` の連続音をその1拍に等分配置する。リードの休みはNote Off・Gate処理後に判定する。
 
 ## 6. 素材の参照・反復・変奏
@@ -338,14 +338,14 @@ time_changes:
 
 ### 9.2 部分小節
 
-`form[]`は`last_bar_quarters: "p/q"`を許す。`bars`は**最後の短い小節を含む正の整数**。最後の小節長を`L`、通常小節長を`B=n*4/d`とすると、`0 < L < B`を要求し、セクション長は`(bars-1)*B + L`。最終小節の許可時刻は`[0,L)`であり、発音・制御の終端はセクション終端以下とする。短い小節の素材は**実際の有効長**を消費する。最後の部分を暗黙にトリミングしたり、無音を自動で埋めたりしない。
+`form[]`は`last_bar_quarters: "p/q"`を許す。`bars`は**最後の短い小節を含む正の整数**。最後の小節長を`L`、通常小節長を`B=n*4/d`とすると、`0 < L < B`を要求し、セクション長は`(bars-1)*B + L`。最終小節の発音位置は`[0,L)`であり、明示ノートの終端は曲終端以下とする。Sustain解除などの瞬時制御は末尾小節の`offset_quarters: L`でセクション終端にも配置できる。短い小節の素材は**実際の有効長**を消費する。最後の部分を暗黙にトリミングしたり、無音を自動で埋めたりしない。
 
 ```yaml
 form:
   - {section: fx_preview, bars: 8, last_bar_quarters: "2", tonic: C, scale: ionian}
 ```
 
-これは4/4の通常7小節＋最後2四分音符＝7.5小節。480 PPQなら`length_ticks=14400`。既存の`fx-downlifter-pattern.json`と`fx-sub-drop-pattern.json`の完全移行に必要な契約である。拍子変更が曲中小節の途中にあるMIDIも、旧拍子側を部分小節として終えてから新拍子のセクションを開始する。
+これは4/4の通常7小節＋最後2四分音符＝7.5小節。480 PPQなら`length_ticks=14400`。`presets/common-scores/fx-downlifter.score.yaml`と`fx-sub-drop.score.yaml`はこの長さを使う。拍子変更が曲中小節の途中にあるMIDIも、旧拍子側を部分小節として終えてから新拍子のセクションを開始する。
 
 ### 9.3 記法の単位と連符
 
@@ -421,11 +421,13 @@ form:
 
 短いプレビューと詳細試奏が異なる音楽なら、異なるScoreでよい。**同じ音符の列を`metadata.preview.notes`とYAMLへ二重に記録しない。** 音源`definition.json`内のプレビュー用イベントは移行後に削除する。音源の名前、タグ、音域、音色関連のDefinitionはそのまま。
 
+ブラウザ向けプレビューは1楽器・1テンポ・1拍子のNote列とし、30〜300 BPM、1〜32音、音楽時間10秒以内に収める。
+
 内蔵プリセットの`manifest.json`を作る`stage-builtin-bundle.mjs`は**配布用データ生成**であって、廃止する楽曲Bundle v1とは別物。生成Manifestの`preview`はScoreを単一のRustコンパイラで展開したNote/Tempo/Lengthから得る。NodeスクリプトへScore DSLを再実装しない。
 
 ### 11.2 公開CLIと内部仕様の境界
 
-採用するコマンドと必須の受入条件はAgent実装設計書に詳述する。Scoreに関わる公開入口は`score init/validate/inspect/import-midi/export-midi`、`render score`、`audition score`。移行済み楽譜・試奏を同じ解析器へ通す。旧`demo`/`pattern`の入力CLIと楽曲Bundle v1を削除。`score pack`は**導入しない**。
+コマンドのOptionとReportは[CLIリファレンス](cli.md)を参照する。Scoreに関わる公開入口は`score init/validate/inspect/import-midi/export-midi`、`render score`、`audition score`。移行済み楽譜・試奏を同じ解析器へ通す。旧`demo`/`pattern`の入力CLIと楽曲Bundle v1を削除。`score pack`は**導入しない**。
 
 `score import-midi`でMIDI半音クラスを度数へ書き直す際の固定綴り：
 

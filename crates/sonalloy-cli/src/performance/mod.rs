@@ -22,7 +22,6 @@ pub(crate) struct AudioInput {
 pub(crate) struct Part {
     pub(crate) id: String,
     pub(crate) instrument: PathBuf,
-    pub(crate) gain_db: f64,
     pub(crate) audio_input: Option<AudioInput>,
 }
 #[derive(Debug, Clone, Serialize)]
@@ -44,6 +43,7 @@ pub(crate) struct PerformanceDefinition {
 }
 #[derive(Debug)]
 pub(crate) struct PerformancePlan {
+    pub(crate) sample_rate: u32,
     pub(crate) definition: PerformanceDefinition,
     pub(crate) parts: Vec<PartLane>,
     pub(crate) audio_dependencies: Vec<Option<usize>>,
@@ -75,6 +75,28 @@ fn failure(path: impl Into<String>, message: impl Into<String>) -> CliFailure {
     }
 }
 
+fn lane_failure(lane: &crate::score::ScoreLane, mut diagnostics: Vec<Diagnostic>) -> CliFailure {
+    for diagnostic in &mut diagnostics {
+        if let Some((index, suffix)) = diagnostic
+            .path
+            .as_deref()
+            .and_then(|path| path.strip_prefix("events["))
+            .and_then(|path| path.split_once(']'))
+            .and_then(|(index, suffix)| index.parse::<usize>().ok().map(|i| (i, suffix.to_owned())))
+        {
+            if let Some(source) = lane.sources.get(index) {
+                diagnostic.path = Some(format!("{}{suffix}", source.path));
+                diagnostic.detail=Some(serde_json::json!({"source_type":"score","line":source.line,"column":source.column,"section":source.section,"bar":source.bar,"step":source.step,"actual":lane.pattern.events[index],"expected":diagnostic.message}).to_string());
+            }
+        }
+    }
+    CliFailure {
+        code: 1,
+        diagnostics,
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 pub(crate) fn definition_paths(
     score: &ScorePlan,
     path: &Path,
@@ -194,40 +216,23 @@ pub(crate) fn load(
 ) -> Result<PerformancePlan, CliFailure> {
     let score = crate::score::read(path)?;
     let paths = definition_paths(&score, path, bindings)?;
-    prepare(score, paths, sample_rate, block_size)
+    prepare(score, &paths, sample_rate, block_size)
 }
 
+#[allow(clippy::too_many_lines)]
 fn prepare(
     score: ScorePlan,
-    paths: HashMap<String, PathBuf>,
+    paths: &HashMap<String, PathBuf>,
     sample_rate: u32,
     block_size: usize,
 ) -> Result<PerformancePlan, CliFailure> {
-    let mut cache = HashMap::new();
-    let mut diagnostics = Vec::new();
-    for (id, path) in &paths {
-        if !cache.contains_key(path) {
-            let (instrument, warnings) =
-                crate::command::load_and_compile(path, sample_rate, block_size)?;
-            diagnostics.extend(warnings);
-            cache.insert(path.clone(), instrument);
-        }
-        let spec = &score.instruments[id];
-        if let Some(value) = spec.get("gain_db") {
-            let gain = value
-                .as_f64()
-                .filter(|v| gain_linear(*v).is_some())
-                .ok_or_else(|| {
-                    failure(format!("instruments.{id}.gain_db"), "gain must be finite")
-                })?;
-            let _ = gain;
-        }
-    }
+    let InstrumentBank {
+        instruments: cache,
+        ranges,
+        mut diagnostics,
+    } = load_instruments(&score, paths, sample_rate, block_size)?;
     let mut lanes = score.lanes.clone();
-    let timeline = lanes
-        .first()
-        .map(|l| l.pattern.clone())
-        .ok_or_else(|| failure("sections", "score contains no performance events"))?;
+    let timeline = score.timeline.clone();
     for (id, spec) in &score.instruments {
         if !lanes.iter().any(|lane| &lane.id == id) {
             let mut pattern = timeline.clone();
@@ -236,9 +241,17 @@ fn prepare(
                 id: id.clone(),
                 gain_db: spec["gain_db"].as_f64().unwrap_or(0.0),
                 pattern,
+                sources: Vec::new(),
             });
         }
     }
+    let compiled_timeline =
+        events::Timeline::new(&timeline, f64::from(sample_rate)).map_err(|diagnostics| {
+            CliFailure {
+                code: 1,
+                diagnostics,
+            }
+        })?;
     let mut parts = Vec::new();
     let mut channels = HashMap::new();
     for lane in lanes {
@@ -247,7 +260,6 @@ fn prepare(
         let definition = Part {
             id: lane.id.clone(),
             instrument: paths[&lane.id].clone(),
-            gain_db: lane.gain_db,
             audio_input: spec
                 .get("audio_input")
                 .map(|v| {
@@ -262,34 +274,16 @@ fn prepare(
                 })
                 .transpose()?,
         };
-        if (instrument.required_input_channels() > 0) != definition.audio_input.is_some() {
-            return Err(failure(
-                format!("instruments.{}.audio_input", lane.id),
-                if instrument.required_input_channels() > 0 {
-                    "instrument requires audio_input"
-                } else {
-                    "instrument does not use audio_input"
-                },
-            ));
-        }
-        for event in &lane.pattern.events {
-            if let MusicalEvent::Note { note, velocity, .. } = event {
-                if !instrument.layers.iter().any(|l| {
-                    (l.trigger.key_min..=l.trigger.key_max).contains(note)
-                        && (l.trigger.velocity_min..=l.trigger.velocity_max).contains(velocity)
-                }) {
-                    return Err(failure(
-                        format!("instruments.{}", lane.id),
-                        format!("note {note} velocity {velocity} cannot trigger any layer"),
-                    ));
-                }
-            }
-        }
-        let compiled_pattern = events::compile(&lane.pattern, &instrument, f64::from(sample_rate))
-            .map_err(|diagnostics| CliFailure {
-                code: 1,
-                diagnostics,
-            })?;
+        validate_lane(
+            &lane,
+            &definition,
+            &instrument,
+            ranges[&paths[&lane.id]],
+            &mut diagnostics,
+        )?;
+        let compiled_pattern =
+            events::compile_on_timeline(&lane.pattern, &instrument, &compiled_timeline)
+                .map_err(|diagnostics| lane_failure(&lane, diagnostics))?;
         let next = channels.len() + 1;
         let channel = *channels.entry(lane.id.clone()).or_insert(next);
         if let Some(part) = parts
@@ -302,8 +296,6 @@ fn prepare(
                 gain_db: lane.gain_db,
             });
         } else {
-            let mut definition = definition;
-            definition.gain_db = 0.0;
             parts.push(PartLane {
                 definition,
                 instrument,
@@ -316,36 +308,18 @@ fn prepare(
             });
         }
     }
-    let mix = Mix {
-        fade_out_seconds: score.fade_out_seconds,
-        master: score
-            .master
-            .as_ref()
-            .map(|v| {
-                Ok(Master {
-                    integrated_lufs: v["target_lufs"].as_f64().ok_or_else(|| {
-                        failure("meta.master.target_lufs", "expected LUFS target")
-                    })?,
-                    true_peak_db: v["max_true_peak_db"].as_f64().ok_or_else(|| {
-                        failure("meta.master.max_true_peak_db", "expected true peak ceiling")
-                    })?,
-                    target_lra_lu: v
-                        .get("target_lra_lu")
-                        .map(|v| {
-                            v.as_f64()
-                                .filter(|n| n.is_finite() && *n >= 0.0)
-                                .ok_or_else(|| {
-                                    failure(
-                                        "meta.master.target_lra_lu",
-                                        "expected nonnegative LRA target",
-                                    )
-                                })
-                        })
-                        .transpose()?,
-                })
-            })
-            .transpose()?,
-    };
+    let mix = prepare_mix(&score)?;
+    for part in &parts {
+        if part.render_lanes.len() > 1 && part.pattern.events.iter().any(|event| !event.is_note()) {
+            diagnostics.push(
+                Diagnostic::warning(
+                    DiagnosticCode::DefinitionError,
+                    "additional gain lanes have independent controller state",
+                )
+                .with_path(format!("instruments.{}", part.definition.id)),
+            );
+        }
+    }
     let definition = PerformanceDefinition {
         name: Some(score.title.clone()),
         parts: parts.iter().map(|p| p.definition.clone()).collect(),
@@ -368,6 +342,7 @@ fn prepare(
     )
     .map_err(|e| failure("form", e.to_string()))?;
     Ok(PerformancePlan {
+        sample_rate,
         length_ticks: score.length_ticks,
         musical_duration_seconds,
         definition,
@@ -525,7 +500,7 @@ fn validate_part_id(id: &str, part_path: &str, diagnostics: &mut Vec<Diagnostic>
         .next()
         .is_some_and(|byte| byte.is_ascii_alphanumeric());
     let windows_reserved = is_windows_reserved_device_name(id);
-    if !valid_length || !valid_characters || !valid_first || windows_reserved {
+    if !valid_length || !valid_characters || !valid_first || windows_reserved || id.ends_with('.') {
         diagnostics.push(
             Diagnostic::error(
                 DiagnosticCode::ValueOutOfRange,
@@ -575,7 +550,7 @@ impl StereoMix {
         gain_db: f64,
     ) -> Result<(), String> {
         if audio.sample_rate != self.sample_rate {
-            return Err("part sample rate does not match the Demo sample rate".to_owned());
+            return Err("part sample rate does not match the Score sample rate".to_owned());
         }
         let [left, right] = audio.channels.as_slice() else {
             return Err("part render must contain exactly two channels".to_owned());
@@ -645,4 +620,137 @@ impl StereoMix {
             channels: vec![self.left, self.right],
         }
     }
+}
+
+fn prepare_mix(score: &ScorePlan) -> Result<Mix, CliFailure> {
+    Ok(Mix {
+        fade_out_seconds: score.fade_out_seconds,
+        master: score
+            .master
+            .as_ref()
+            .map(|v| {
+                Ok(Master {
+                    integrated_lufs: v["target_lufs"].as_f64().ok_or_else(|| {
+                        failure("meta.master.target_lufs", "expected LUFS target")
+                    })?,
+                    true_peak_db: v["max_true_peak_db"].as_f64().ok_or_else(|| {
+                        failure("meta.master.max_true_peak_db", "expected true peak ceiling")
+                    })?,
+                    target_lra_lu: v
+                        .get("target_lra_lu")
+                        .map(|v| {
+                            v.as_f64()
+                                .filter(|n| n.is_finite() && *n >= 0.0)
+                                .ok_or_else(|| {
+                                    failure(
+                                        "meta.master.target_lra_lu",
+                                        "expected nonnegative LRA target",
+                                    )
+                                })
+                        })
+                        .transpose()?,
+                })
+            })
+            .transpose()?,
+    })
+}
+
+fn validate_lane(
+    lane: &crate::score::ScoreLane,
+    definition: &Part,
+    instrument: &sonalloy_core::CompiledInstrument,
+    range: Option<sonalloy_core::InstrumentRecommendedRange>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(), CliFailure> {
+    if (instrument.required_input_channels() > 0) != definition.audio_input.is_some() {
+        return Err(failure(
+            format!("instruments.{}.audio_input", lane.id),
+            if instrument.required_input_channels() > 0 {
+                "instrument requires audio_input"
+            } else {
+                "instrument does not use audio_input"
+            },
+        ));
+    }
+    if definition.audio_input.is_some() && instrument.required_input_channels() != 2 {
+        return Err(failure(
+            format!("instruments.{}.audio_input", lane.id),
+            "score audio routes require a stereo input",
+        ));
+    }
+    for (index, event) in lane.pattern.events.iter().enumerate() {
+        if let MusicalEvent::Note { note, velocity, .. } = event {
+            if !instrument.layers.iter().any(|l| {
+                (l.trigger.key_min..=l.trigger.key_max).contains(note)
+                    && (l.trigger.velocity_min..=l.trigger.velocity_max).contains(velocity)
+            }) {
+                return Err(lane_failure(
+                    lane,
+                    vec![
+                        Diagnostic::error(
+                            DiagnosticCode::DefinitionError,
+                            format!("note {note} velocity {velocity} cannot trigger any layer"),
+                        )
+                        .with_path(format!("events[{index}]")),
+                    ],
+                ));
+            }
+        }
+    }
+    if let Some(range) = range {
+        let outside=lane.pattern.events.iter().filter(|e|matches!(e,MusicalEvent::Note{note,..} if *note<range.min_midi||*note>range.max_midi)).count();
+        if outside > 0 {
+            diagnostics.push(
+                Diagnostic::warning(
+                    DiagnosticCode::ValueOutOfRange,
+                    format!(
+                        "{outside} notes are outside the recommended range {}..{}",
+                        range.min_midi, range.max_midi
+                    ),
+                )
+                .with_path(format!("instruments.{}", lane.id)),
+            );
+        }
+    }
+    Ok(())
+}
+
+struct InstrumentBank {
+    instruments: HashMap<PathBuf, Arc<sonalloy_core::CompiledInstrument>>,
+    ranges: HashMap<PathBuf, Option<sonalloy_core::InstrumentRecommendedRange>>,
+    diagnostics: Vec<Diagnostic>,
+}
+fn load_instruments(
+    score: &ScorePlan,
+    paths: &HashMap<String, PathBuf>,
+    sample_rate: u32,
+    block_size: usize,
+) -> Result<InstrumentBank, CliFailure> {
+    let mut cache = HashMap::new();
+    let mut ranges = HashMap::new();
+    let mut diagnostics = Vec::new();
+    for (id, spec) in &score.instruments {
+        let path = &paths[id];
+        if !cache.contains_key(path) {
+            let (instrument, warnings, metadata) =
+                crate::command::load_with_metadata(path, sample_rate, block_size)?;
+            diagnostics.extend(warnings);
+            cache.insert(path.clone(), instrument);
+            ranges.insert(path.clone(), metadata.recommended_range);
+        }
+        if let Some(value) = spec.get("gain_db") {
+            let gain = value
+                .as_f64()
+                .filter(|v| gain_linear(*v).is_some())
+                .ok_or_else(|| {
+                    failure(format!("instruments.{id}.gain_db"), "gain must be finite")
+                })?;
+            let _ = gain;
+        }
+    }
+    Ok(InstrumentBank {
+        instruments: cache,
+        ranges,
+        diagnostics,
+    })
 }

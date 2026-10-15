@@ -62,6 +62,7 @@ pub(super) fn tonic(token: &str) -> Result<i32> {
 
 #[derive(Debug, Clone)]
 pub(super) struct Chord {
+    pub(super) spelling: String,
     pub(super) root: i32,
     pub(super) bass: i32,
     pub(super) intervals: &'static [i32],
@@ -94,6 +95,7 @@ pub(super) fn chord(text: &str) -> Result<Option<Chord>> {
         _ => return Err(Error::new("", "unknown chord quality")),
     };
     Ok(Some(Chord {
+        spelling: text.into(),
         root,
         bass,
         intervals,

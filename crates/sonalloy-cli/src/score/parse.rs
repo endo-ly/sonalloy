@@ -27,6 +27,7 @@ fn next(parser: &mut Parser<std::str::Chars<'_>>) -> Result<(Event, Marker)> {
     })
 }
 
+#[allow(clippy::too_many_lines)]
 fn node(
     parser: &mut Parser<std::str::Chars<'_>>,
     source: &mut Source,
@@ -48,12 +49,21 @@ fn node(
     };
     let value = match event {
         Event::Scalar(text, style, anchor, tag) => {
+            let rational_field = matches!(
+                path.rsplit('.').next(),
+                Some(
+                    "gate"
+                        | "duration_steps"
+                        | "duration_quarters"
+                        | "offset_quarters"
+                        | "at_quarters"
+                        | "last_bar_quarters"
+                )
+            );
             if anchor != 0 || tag.is_some() {
                 return Err(fail("YAML anchors and tags are not supported"));
             }
-            if style != TScalarStyle::Plain {
-                Value::String(text)
-            } else {
+            if style == TScalarStyle::Plain && !rational_field {
                 match text.as_str() {
                     "true" => Value::Bool(true),
                     "false" => Value::Bool(false),
@@ -63,6 +73,8 @@ fn node(
                         .filter(Value::is_number)
                         .unwrap_or(Value::String(text)),
                 }
+            } else {
+                Value::String(text)
             }
         }
         Event::SequenceStart(anchor, tag) => {

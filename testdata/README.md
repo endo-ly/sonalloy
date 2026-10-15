@@ -10,6 +10,7 @@ TestやCIが参照する固定入力（Fixture）の正本を置く。プロダ�
 | `assets/` | 音声Asset（WAV）。生成方法とSHA-256は`assets/README.md`へ記録する |
 | `midi/` | TestやCIが参照するMIDI入力 |
 | `events/` | Event Sequence入力（JSON） |
+| `scores/` | Score YAMLの楽曲入力 |
 | `expected/` | 複数Testで共有する期待値 |
 | `generate/` | Fixtureを決定的に再生成するScript。一覧は`generate/README.md` |
 

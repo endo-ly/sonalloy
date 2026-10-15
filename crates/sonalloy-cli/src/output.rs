@@ -260,15 +260,15 @@ pub(crate) fn finish_failure(json: bool, failure: CliFailure) -> ExitCode {
 pub(crate) fn print_failure(json: bool, failure: &CliFailure) {
     if json {
         #[derive(Serialize)]
-        struct ErrorReport<'a> {
+        struct ErrorReport {
             status: &'static str,
             exit_code: u8,
-            diagnostics: &'a [Diagnostic],
+            diagnostics: Vec<serde_json::Value>,
         }
         let report = ErrorReport {
             status: "error",
             exit_code: failure.code,
-            diagnostics: &failure.diagnostics,
+            diagnostics: failure.diagnostics.iter().map(diagnostic_value).collect(),
         };
         println!(
             "{}",
@@ -296,6 +296,27 @@ pub(crate) fn print_warnings(diagnostics: &[Diagnostic]) {
             }
         }
     }
+}
+
+fn diagnostic_value(diagnostic: &Diagnostic) -> serde_json::Value {
+    let mut value = serde_json::to_value(diagnostic).expect("diagnostic serializes");
+    if let Some(detail) = diagnostic
+        .detail
+        .as_deref()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
+        .filter(|v| v["source_type"] == "score")
+    {
+        let map = value.as_object_mut().expect("diagnostic object");
+        map.remove("detail");
+        for key in [
+            "line", "column", "section", "bar", "step", "actual", "expected",
+        ] {
+            if let Some(field) = detail.get(key) {
+                map.insert(key.into(), field.clone());
+            }
+        }
+    }
+    value
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@ use crate::performance::{self, PerformancePlan};
 use crate::score::Bindings;
 use clap::{Args, Subcommand};
 use serde_json::{Value, json};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -82,7 +83,7 @@ pub(super) fn run(command: ScoreCommand) -> ExitCode {
                     serde_json::to_string_pretty(&report).expect("report serializes")
                 );
             } else {
-                println!("{}", report);
+                display_report(&report);
             }
             ExitCode::SUCCESS
         }
@@ -103,7 +104,9 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
         }
         ScoreCommand::Validate(args) => {
             let plan = load(&args)?;
-            print_warnings(&plan.diagnostics);
+            if !args.json {
+                print_warnings(&plan.diagnostics);
+            }
             Ok(
                 json!({"status":"ok","sections":plan.score.sections.len(),"instruments":plan.score.instruments.len(),"diagnostics":plan.diagnostics}),
             )
@@ -114,7 +117,7 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
                 return preview(&plan);
             }
             Ok(
-                json!({"status":"ok","title":plan.score.title,"sections":plan.score.sections,"ticks_per_beat":plan.score.ticks_per_beat,"length_ticks":plan.length_ticks,"musical_duration_seconds":plan.musical_duration_seconds,"instruments":plan.score.instruments,"parts":plan.parts.iter().map(|part|json!({"id":part.definition.id,"gain_db":part.definition.gain_db,"audio_input":part.definition.audio_input,"events":part.pattern.events,"summary":crate::performance::events::inspect(&part.pattern).ok(),"tempo_changes":part.pattern.tempo_changes,"time_signature_changes":part.pattern.time_signature_changes})).collect::<Vec<_>>(),"diagnostics":plan.diagnostics}),
+                json!({"status":"ok","title":plan.score.title,"sections":plan.score.sections,"ticks_per_beat":plan.score.ticks_per_beat,"length_ticks":plan.length_ticks,"musical_duration_seconds":plan.musical_duration_seconds,"instruments":plan.score.instruments,"lanes":plan.score.lanes.iter().map(|lane|json!({"id":lane.id,"gain_db":lane.gain_db,"events":lane.pattern.events,"sources":lane.sources})).collect::<Vec<_>>(),"parts":plan.parts.iter().map(|part|json!({"id":part.definition.id,"lane_gains_db":part.render_lanes.iter().map(|lane|lane.gain_db).collect::<Vec<_>>(),"audio_input":part.definition.audio_input,"events":part.pattern.events,"summary":crate::performance::events::inspect(&part.pattern).expect("prepared events are valid"),"tempo_changes":part.pattern.tempo_changes,"time_signature_changes":part.pattern.time_signature_changes})).collect::<Vec<_>>(),"diagnostics":plan.diagnostics}),
             )
         }
         ScoreCommand::ExportMidi { score, output } => {
@@ -149,11 +152,13 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
                 code: 1,
                 diagnostics,
             })?;
-            let (events, diagnostics) = crate::midi::import_pattern(parsed, channel.map(|c| c - 1))
-                .map_err(|diagnostics| CliFailure {
-                    code: 1,
-                    diagnostics,
-                })?;
+            let (events, diagnostics) =
+                crate::midi::import_performance(parsed, channel.map(|c| c - 1)).map_err(
+                    |diagnostics| CliFailure {
+                        code: 1,
+                        diagnostics,
+                    },
+                )?;
             let instrument =
                 std::fs::canonicalize(instrument).map_err(|e| failure(&output, e.to_string()))?;
             let doc = import_document(&events, &instrument, &tonic)?;
@@ -180,7 +185,6 @@ fn ensure_new(path: &Path) -> Result<(), CliFailure> {
 fn write_score(path: &Path, doc: &Value) -> Result<(), CliFailure> {
     let text = serde_yaml_ng::to_string(doc).map_err(|e| failure(path, e.to_string()))?;
     crate::score::compile(&text)?;
-    use std::io::Write;
     let mut file = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -194,6 +198,17 @@ fn preview(plan: &PerformancePlan) -> Result<Value, CliFailure> {
         return Err(failure("instruments", "preview requires exactly one lane"));
     }
     let events = &plan.parts[0].pattern;
+    if events.events.is_empty()
+        || events.events.len() > 32
+        || plan.musical_duration_seconds > 10.0
+        || !(30.0..=300.0).contains(&events.tempo_changes[0].bpm)
+        || events.time_signature_changes[0].numerator > 32
+    {
+        return Err(failure(
+            "sections",
+            "browser preview requires 1..32 notes, at most 10 seconds, 30..300 BPM, and a meter numerator of at most 32",
+        ));
+    }
     if events.tempo_changes.len() != 1 || events.time_signature_changes.len() != 1 {
         return Err(failure("form", "preview requires one tempo and meter"));
     }
@@ -249,6 +264,14 @@ pub(crate) fn import_document(
             .expect("initial tempo")
             .bpm;
         let mut entry = json!({"section":name,"bars":count,"tonic":tonic,"scale":"ionian","meter":format!("{}/{}",meter.numerator,meter.denominator),"bpm":bpm});
+        if i > 0
+            && !events
+                .tempo_changes
+                .iter()
+                .any(|change| change.tick == start)
+        {
+            entry.as_object_mut().expect("form entry").remove("bpm");
+        }
         if *remainder.numer() != 0 {
             entry["last_bar_quarters"] = Value::String(remainder.to_string());
         }
@@ -257,11 +280,11 @@ pub(crate) fn import_document(
         let mut controls = Vec::new();
         for event in &events.events {
             let tick = event_tick(event);
-            if tick < start || tick >= end {
+            if tick < start || tick > end || (tick == end && end != events.length_ticks) {
                 continue;
             }
             let offset = num_rational::Ratio::new(tick - start, ppq);
-            let index = (offset / bar).to_integer();
+            let index = (offset / bar).to_integer().min(count - 1);
             let within = offset - bar * num_rational::Ratio::from_integer(index);
             let at = json!({"bar":index+1,"offset_quarters":within.to_string()});
             let mut control = serde_json::to_value(event).expect("event serializes");
@@ -285,7 +308,7 @@ pub(crate) fn import_document(
                 let suffix = if octave < 0 {
                     ",".repeat(octave.unsigned_abs() as usize)
                 } else {
-                    "'".repeat(octave as usize)
+                    "'".repeat(usize::try_from(octave).expect("nonnegative octave"))
                 };
                 placements.push(json!({"instrument":"part","at":at,"degree":format!("{degree}{suffix}"),"duration_quarters":num_rational::Ratio::new(*duration_ticks,ppq).to_string(),"velocity":velocity}));
             } else {
@@ -312,5 +335,50 @@ fn event_tick(event: &MusicalEvent) -> u64 {
         | MusicalEvent::Aftertouch { tick, .. }
         | MusicalEvent::ParameterChange { tick, .. }
         | MusicalEvent::ParameterRamp { tick, .. } => *tick,
+    }
+}
+
+fn display_report(report: &Value) {
+    if let Some(title) = report["title"].as_str() {
+        println!("{title}");
+        println!(
+            "duration: {:.3} seconds; {} ticks at {} PPQ",
+            report["musical_duration_seconds"]
+                .as_f64()
+                .expect("duration"),
+            report["length_ticks"],
+            report["ticks_per_beat"]
+        );
+        if let Some(sections) = report["sections"].as_array() {
+            for s in sections {
+                println!(
+                    "  {}: {} bars, {} {}, {} BPM, {} (ticks {}..{})",
+                    s["section"].as_str().expect("name"),
+                    s["bars"],
+                    s["tonic"].as_str().expect("tonic"),
+                    s["scale"].as_str().expect("scale"),
+                    s["bpm"],
+                    s["meter"].as_str().expect("meter"),
+                    s["start_tick"],
+                    s["end_tick"]
+                );
+            }
+        }
+        if let Some(parts) = report["parts"].as_array() {
+            for part in parts {
+                println!(
+                    "  {}: {} notes",
+                    part["id"].as_str().expect("id"),
+                    part["summary"]["note_count"]
+                );
+            }
+        }
+    } else if let Some(output) = report["output"].as_str() {
+        println!("wrote {output}");
+    } else {
+        println!(
+            "valid: {} sections, {} instruments",
+            report["sections"], report["instruments"]
+        );
     }
 }

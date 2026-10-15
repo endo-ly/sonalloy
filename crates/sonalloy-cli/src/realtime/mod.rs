@@ -108,7 +108,12 @@ pub(crate) struct ScheduledSession {
 
 #[allow(clippy::too_many_lines)]
 pub(crate) fn start_scheduled_audition(
-    pattern: &crate::performance::events::PerformanceEvents,
+    prepare: impl FnOnce(
+        &sonalloy_core::CompiledInstrument,
+    ) -> Result<
+        (crate::performance::events::PerformanceEvents, f64),
+        (u8, Vec<Diagnostic>),
+    >,
     mut diagnostics: Vec<Diagnostic>,
     options: &ScheduledAuditionOptions<'_>,
     load: impl FnOnce(
@@ -134,6 +139,27 @@ pub(crate) fn start_scheduled_audition(
     let (compiled, compile_diagnostics) =
         load(options.definition_path, sample_rate, options.buffer_size)?;
     diagnostics.extend(compile_diagnostics);
+    let (pattern, gain_db) = prepare(&compiled)?;
+    let gain = crate::performance::gain_linear(gain_db).ok_or_else(|| {
+        (
+            2,
+            vec![Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "audition gain must be finite",
+            )],
+        )
+    })?;
+    #[allow(clippy::cast_possible_truncation)]
+    let gain = gain as f32;
+    if !gain.is_finite() {
+        return Err((
+            2,
+            vec![Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "audition gain exceeds the audio range",
+            )],
+        ));
+    }
     let input_channels = compiled.required_input_channels();
     let selected_input = select_audio_input(
         options.audio_input_device,
@@ -142,7 +168,7 @@ pub(crate) fn start_scheduled_audition(
         options.buffer_size,
     )?;
     let compiled_pattern =
-        match crate::performance::events::compile(pattern, &compiled, f64::from(sample_rate)) {
+        match crate::performance::events::compile(&pattern, &compiled, f64::from(sample_rate)) {
             Ok(pattern) => pattern,
             Err(diagnostics) => {
                 return Err((2, diagnostics));
@@ -234,6 +260,7 @@ pub(crate) fn start_scheduled_audition(
         input_channels,
         runtime,
         feed,
+        gain,
         &status,
         options.buffer_size,
     ) {
