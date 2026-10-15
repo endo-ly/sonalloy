@@ -1,11 +1,11 @@
 ---
 name: create-instrument
-description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add an Additive, Formant, Sample, Wavetable, Spectral, Operator Modulation, Granular, Physical String, or Modal layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi / pattern.
+description: Use when creating, editing, or debugging Sonalloy instruments, or composing, previewing, auditioning, and rendering Score-based music in Sonalloy. Covers instrument definitions, custom WAV assets, Score YAML, validation, inspection, and audio rendering.
 ---
 
 # Create Instrument
 
-Sonalloyで音源（Instrument）を作成・編集・検証・試聴するための手順書です。
+Sonalloyで音源（Instrument）を制作・検証・試聴し、Scoreを使った楽曲・試奏を作成・編集・確認する手順書です。
 
 ## 参照ファイル
 
@@ -23,7 +23,7 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 ## 全体フロー
 
 ```text
-init → edit → validate → inspect → pattern trial / render / analyze / trace → optional demo trial → optional realtime trial → refine
+init → edit → validate → inspect → Score trial / render / analyze / trace → optional realtime audition → refine
 ```
 
 1. **init**：新規Definitionのひな形を生成（既存を編集する場合は省略）
@@ -184,7 +184,7 @@ sonalloy render midi <definition> <midi-file> \
 
 ## Scoreで用途を試奏する
 
-単音だけでは判断できない場合は、[Score YAML](references/score_spec.md)に演奏を記述します。プリセットの短い試聴は各音源の `preview.score.yaml`、詳細な奏法は `showcase.score.yaml` を使います。共通の試奏素材は `presets/common-scores/` にあり、未束縛の楽器を `--bind` で指定します。
+単音だけでは判断できない場合は、[Score YAML](references/score_spec.md)に演奏を記述します。プリセットの短い試聴は `preview.score.yaml` を使い、別の演奏内容で詳細な奏法を試す場合だけ `showcase.score.yaml` を用意します。同じ演奏の詳細試奏にも `preview.score.yaml` を使います。共通の試奏素材は `presets/common-scores/` にあり、未束縛の楽器を `--bind` で指定します。
 
 ```bash
 sonalloy score validate presets/common-scores/lead.score.yaml --bind preview=<definition>

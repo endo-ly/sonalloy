@@ -93,7 +93,7 @@ sonalloy instrument inspect <definition> --json
 
 ## Scoreの編集・検証・出力
 
-楽曲・試奏・プレビューは[Score YAML](score_spec.md)を使います。音源のJSONとアセットはScoreから参照します。
+楽曲・試奏・プレビューは[Score YAML](score_spec.md)を使います。正式な文法と演奏規則はこの仕様を参照し、このリファレンスではCLIの実行方法・Option・出力を説明します。音源のJSONとアセットはScoreから参照します。
 
 ```bash
 sonalloy score init phrase.score.yaml
