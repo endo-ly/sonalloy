@@ -1,0 +1,611 @@
+# DOPAMINE OVERLOAD — Sonalloyデモ用楽譜（仕様: score_spec.md）
+# 12平均律 / 主音=1 / 同主長調基準 / scale は演奏音高を自動変更しない
+
+meta:
+  title: DOPAMINE OVERLOAD
+  bpm: 168
+  meter: 4/4
+  tuning: 12edo
+  reference_octave: 4
+  gate: 0.92
+  master:
+    target_lufs: -12
+    max_true_peak_db: -1
+    target_lra_lu: 7
+form:
+  - {section: intro, bars: 4, tonic: C, scale: aeolian}
+  - {section: verse1, bars: 8, tonic: Eb, scale: ionian}
+  - {section: pre1, bars: 4, tonic: Eb, scale: ionian}
+  - {section: chorus1, bars: 8, tonic: Eb, scale: ionian}
+  - {section: post, bars: 4, tonic: Eb, scale: ionian}
+  - {section: verse2, bars: 4, tonic: G, scale: ionian}
+  - {section: pre2, bars: 4, tonic: E, scale: ionian}
+  - {section: chorus2, bars: 8, tonic: E, scale: ionian}
+  - {section: bridge, bars: 6, tonic: A, scale: aeolian}
+  - {section: build, bars: 2, tonic: F, scale: ionian}
+  - {section: final, bars: 4, tonic: F, scale: ionian}
+  - {section: finalB, bars: 4, tonic: F, scale: ionian}
+  - {section: final2, bars: 8, tonic: Ab, scale: ionian}
+  - {section: outro, bars: 2, tonic: Ab, scale: ionian}
+sections:
+  intro:
+    chords:
+      - "1:m 1:m/b7"
+      - "b6:maj7"
+      - "4:m7 4:m7/b3"
+      - "b7:7sus4 b7:7"
+    lead: {instrument: kalimba, melody: intro}
+    pad: {instrument: glasspad, pattern: hold}
+    velocity: 90
+  verse1:
+    chords:
+      - "1:maj 1:maj/7"
+      - "6:m7 6:m7/5"
+      - "4:maj7"
+      - "#4:m7b5 5:maj"
+      - "1:maj/3"
+      - "4:maj #4:dim7"
+      - "2:m7"
+      - "5:sus4 5:7"
+    lead: {instrument: tine, melody: verse}
+    drums: verse
+    bass: {pattern: verse}
+    comp:
+      fmep: offbeat
+    answers:
+      - {instrument: chop, melody: answers.pickup, at: {bar: 1, step: 1}}
+      - {instrument: chop, melody: answers.pickup, at: {bar: 5, step: 1}}
+    velocity: 92
+  pre1:
+    chords:
+      - "4:maj7"
+      - "#4:dim7"
+      - "5:sus4"
+      - "5:7"
+    lead: {instrument: fmlead, melody: pre}
+    drums: pre
+    bass: {pattern: octave8}
+    comp:
+      brass: 8ths
+    velocity: 100
+    events:
+      - {macro: roll}
+      - {macro: gasp}
+      - {macro: hey}
+  chorus1:
+    chords:
+      - "4:maj7 5:7"
+      - "3:m7 6:7"
+      - "2:m7 5:7/7"
+      - "1:maj 1:7"
+      - "4:maj 4:m"
+      - "6:m7 2:7"
+      - "2:m7 5:7"
+      - "1:maj"
+    lead: {instrument: hook, melody: hook}
+    drums: four
+    bass: {pattern: '808'}
+    comp:
+      supersaw: hold
+    arp: {instrument: crystal, pattern: crystal}
+    answers:
+      - {instrument: chop, melody: answers.gap, at: {bar: 4, step: 1}}
+      - {instrument: chop, melody: answers.end, at: {bar: 8, step: 1}}
+    velocity: 112
+    events:
+      - {macro: drop}
+      - {kind: hit, at: {bar: 4, step: 14}, instrument: glitch}
+  post:
+    chords:
+      - "6:m 6:m/5"
+      - "4:maj7 1:maj/3"
+      - "2:m7 2:m7/1"
+      - "5:maj NC"
+    drums: trap
+    bass: {pattern: trap}
+    comp:
+      fmep: stab
+    velocity: 110
+    events:
+      - {kind: hit, at: {bar: 1, step: 1}, instrument: crash}
+    placements:
+      - {instrument: chop, melody: riff, at: {bar: 1, step: 1}}
+      - {instrument: donk, melody: riff, transpose: -12, at: {bar: 1, step: 1}}
+      - {instrument: donk, melody: riff, transpose: -12, gain_db: 3, at: {bar: 2, step: 1}}
+      - {instrument: chop, melody: riff, slice_steps: {start: 10, count: 7}, at: {bar: 2, step: 10}}
+      - {instrument: chop, melody: riff_inv, at: {bar: 3, step: 1}}
+      - {instrument: donk, melody: riff_inv, transpose: -12, at: {bar: 3, step: 1}}
+      - {instrument: chop, melody: riff, slice_steps: {start: 1, count: 8}, at: {bar: 4, step: 1}}
+      - {instrument: donk, melody: riff, slice_steps: {start: 1, count: 8}, transpose: -12, at: {bar: 4, step: 1}}
+      - {instrument: hook, degree: '3', at: {bar: 4, step: 8}, duration_steps: 8}
+      - {instrument: glasspad, degree: '3', transpose: -12, at: {bar: 4, step: 8}, duration_steps: 8}
+    bass_overrides:
+      - bar: 4
+        parts:
+          b808: R' - - R' | - - . . | . . . . | . . . .
+  verse2:
+    chords:
+      - "1:maj 1:maj/7"
+      - "6:m7 6:m7/5"
+      - "4:maj7"
+      - "#4:m7b5 5:maj"
+    lead: {instrument: pulse, melody: verse2}
+    drums: chip
+    bass: {pattern: octave8}
+    comp:
+      pulsestab: offbeat
+    answers:
+      - {instrument: chop, melody: answers.tail_dn, at: {bar: 2, step: 1}}
+    velocity: 95
+  pre2:
+    chords:
+      - "6:m7 6:m7/5"
+      - "4:maj7 #4:m7b5"
+      - "3:m7 6:7"
+      - "2:m7/5 5:7"
+    lead: {instrument: hardsync, melody: pre2}
+    drums: kime
+    bass: {pattern: kime}
+    comp:
+      chrome: tresillo
+    answers:
+      - {instrument: chop, melody: answers.pickup, at: {bar: 4, step: 1}}
+    velocity: 106
+    events:
+      - {macro: roll, bars: 1}
+      - {macro: gasp}
+  chorus2:
+    from: chorus1
+    chords:
+      - "4:maj7 5:7"
+      - "3:m7 6:7"
+      - "2:m7 5:7/7"
+      - "1:maj 1:7/b7"
+      - "4:maj/6 4:m/b6"
+      - "6:m7/5 2:7/#4"
+      - "2:m7/4 5:7"
+      - "1:maj b6:maj"
+    lead:
+      instrument: hook
+      melody: hook2
+      layers:
+        - instrument: pulse
+          transpose: 0
+    comp:
+      supersaw: hold
+      chrome: tresillo
+    velocity: 116
+    events:
+      - {macro: drop}
+      - {kind: hit, at: {bar: 4, step: 14}, instrument: glitch}
+      - {kind: silence, at: {bar: 5, step: 1}, duration_steps: 8, except_instruments: [hook, pulse, chop]}
+  bridge:
+    chords:
+      - "1:m 1:m/b7"
+      - "6:m7b5 b6:maj7"
+      - "b3:maj/5"
+      - "b7:maj"
+      - "4:m7 4:m7/b3"
+      - "2:m7b5 5:7"
+    lead: {instrument: singer, melody: bridge}
+    drums: halftime
+    bass: {pattern: sustain}
+    comp:
+      bloom: hold
+    pad: {instrument: glasspad, pattern: hold}
+    counter: {instrument: bell, pattern: bell_minor}
+    answers:
+      - {instrument: chop, melody: answers.tail_dn_minor, at: {bar: 2, step: 1}}
+      - {instrument: chop, melody: answers.tail_dn_minor, at: {bar: 4, step: 1}}
+    velocity: 96
+    events:
+      - {kind: hit, at: {bar: 1, step: 1}, instrument: crash}
+  build:
+    chords:
+      - "6:m7 b7:maj7"
+      - "5:7sus4 5:aug"
+    lead: {instrument: fmlead, melody: build}
+    drums: pre
+    bass: {pattern: octave8}
+    comp:
+      brass: 8ths
+    velocity: 108
+    events:
+      - {macro: roll, bars: all}
+      - {macro: gasp}
+      - {macro: hey}
+      - {kind: part_window, instrument: clap, bars: [1, 1]}
+  final:
+    chords:
+      - "4:maj7 5:7"
+      - "3:m7 6:7"
+      - "2:m7 5:7/7"
+      - "1:maj 1:7/b7"
+    lead:
+      instrument: mono
+      melody: hook
+      slice_bars:
+        - 1
+        - 4
+    drums: otosabi
+    bass: {pattern: verse}
+    comp:
+      bloom: hold
+    pad: {instrument: glasspad, pattern: hold}
+    velocity: 100
+    events:
+      - {macro: roll, bars: 1}
+      - {macro: gasp}
+  finalB:
+    chords:
+      - "4:maj/6 4:m/b6"
+      - "6:m7/5 2:7/#4"
+      - "2:m7/4 5:7"
+      - "1:maj"
+    lead:
+      instrument: hook
+      melody: hook
+      slice_bars:
+        - 5
+        - 8
+      layers:
+        - instrument: mono
+          transpose: 0
+    drums: four
+    bass: {pattern: '808'}
+    comp:
+      supersaw: hold
+      chrome: tresillo
+    arp: {instrument: crystal, pattern: crystal}
+    answers:
+      - {instrument: chop, melody: answers.end, at: {bar: 4, step: 1}}
+    velocity: 120
+    events:
+      - {macro: drop}
+      - {kind: step_roll, instrument: snare, bar: last, from_step: 8, through_step: 15, velocity_from: 80, velocity_to: 120}
+  final2:
+    chords:
+      - "4:maj7 5:maj/4"
+      - "3:m7 6:7"
+      - "2:m7 #2:dim7"
+      - "1:maj/3 1:7/b7"
+      - "4:maj 4:m/#5"
+      - "7:m7b5 3:7"
+      - "6:m7 2:7"
+      - "2:m7/5 5:7"
+    lead:
+      instrument: hook
+      melody: hook_ab
+      layers:
+        - instrument: sslead
+          transpose: -12
+    drums: mega
+    bass:
+      pattern: '808'
+      add_parts:
+        subbass: R - - . | R - - . | R - - . | R - - .
+    comp:
+      supersaw: hold
+      chrome: tresillo
+    arp: {instrument: crystal, pattern: crystal}
+    counter: {instrument: bell, pattern: bell}
+    answers:
+      - {instrument: chop, melody: answers.mid, at: {bar: 2, step: 1}}
+      - {instrument: chop, melody: answers.gap, at: {bar: 4, step: 1}}
+    velocity: 124
+    events:
+      - {macro: drop}
+  outro:
+    chords:
+      - "1:maj"
+      - "1:maj"
+    placements:
+      - {instrument: donk, melody: riff, take_notes: 4, transpose: -12, velocity: 112, at: {bar: 1, step: 1}}
+      - {instrument: tapestop, chord: "1:maj", voicing_floor_midi: 50, add_root_degree: '3,,,', at: {bar: 1, step: 6}, duration_steps: 7}
+      - {instrument: chop, degree: '5', at: {bar: 1, step: 14}, duration_steps: 1.5, velocity: 122, mark: hey}
+      - {instrument: supersaw, chord: "1:maj", voicing_floor_midi: 48, at: {bar: 2, step: 1}, duration_steps: 12}
+      - {instrument: chrome, chord: "1:maj", voicing_floor_midi: 60, at: {bar: 2, step: 1}, duration_steps: 3}
+      - {instrument: hook, degree: '1', at: {bar: 2, step: 1}, duration_steps: 8}
+      - {instrument: singer, degree: '1', at: {bar: 2, step: 1}, duration_steps: 8}
+      - {instrument: b808, bass_note: R, at: {bar: 2, step: 1}, duration_steps: 12, velocity: 125}
+      - {instrument: subdrop, bass_note: R', at: {bar: 2, step: 1}, duration_steps: 12}
+    events:
+      - {kind: hits, at: {bar: 2, step: 1}, instruments: [kick, clap, crash, impact]}
+melodies:
+  hook:
+    - "3 - 2 3 | - - 5 - | 4 - - 2 | 2 - . ."
+    - "7, - - 2 | 3 - - . | . . 3 4 | 6 - - -"
+    - "2 - 1 2 | - - 4 - | 3 - - 1 | 7, - . ."
+    - "3 - - - | 2 - 1 - | - - . . | 5 6 b7 -"
+    - "6 - 5 6 | - - 5 - | b6 - - 5 | 3 - . ."
+    - "5 6 7 - | 1' - - - | 7 - 6 - | - - . ."
+    - "4 - 3 - | 2 - 1 - | 2 - 3 - | 2 - - -"
+    - "1 - - - | - - - - | . . . . | . . . ."
+  hook2:
+    from: hook
+    replace:
+      5: "6 5 6 - | 1' - 6 - | b6 - 5 - | 3 - - -"
+  hook_ab:
+    from: hook
+    replace:
+      2: "7, - - 2 | 3 - - . | . . 3 4 | 5 - - -"
+      3: "2 - 1 2 | - - 4 - | 1 - - 1 | b3 - . ."
+      4: "3 - - - | 2 - 1 - | - - . . | 3 4 5 -"
+      6: "4 5 6 - | 6 - - - | #5 - 3 - | 2 - - -"
+      7: "3 - 2 - | 1 - 7, - | 2 - 3 - | #4 - - -"
+      8: "2 - - - | 1 - 2 - | 7, - - - | 5, - - -"
+  intro:
+    - "5 - 4 5 | - - b7 - | . . . . | . . . ."
+    - "5 - 4 5 | - - b3 - | . . . . | . . . ."
+    - ". . . . | . . . . | . . . . | . . . ."
+    - ". . . . | . . . . | . . . . | . . . ."
+  verse:
+    - ". . 5, 5, | 6, - 5, - | 3, 5, - - | . . . ."
+    - ". . 5, 5, | 7, - 2 - | 7, 5, - - | . . . ."
+    - "6, - - 1 | 6, - 5, - | 4, - - - | . . . ."
+    - ". . . . | 5, 6, 7, 1 | 2 - - - | . . . ."
+    - ". . 5, 5, | 6, - 5, - | 3, 5, - - | . . . ."
+    - ". . 5, 5, | 6, - 1 - | b3 - - 2 | 1 - . ."
+    - "6, - 1 - | 6, - 5, - | 4, - 3, - | - - . ."
+    - "4, - - - | . . . . | 5, - . . | . . . ."
+  verse2:
+    - use: verse
+      bars:
+        - 1
+        - 2
+      shift_steps: -2
+    - "1 - 3 - | 5 - - - | 4 - 3 - | 1 - - -"
+    - "6, - 7, - | 1 - 3 - | 2 - - - | 3 - . ."
+  pre:
+    - "6, - 1 - | 6, - 1 - | 2 - - - | 1 - . ."
+    - "6, - 1 - | 6, - 1 - | b3 - - - | 1 - . ."
+    - "1 - 2 - | 4 - - - | 2 - 1 - | 2 - - -"
+    - "5 - - - | - - - - | - - . . | . . . ."
+  pre2:
+    - "3 . 3 3 | - . 2 3 | - - . . | 5 - 3 -"
+    - "4 . 4 4 | - . 3 4 | - - . . | #4 - 6 -"
+    - "5 . 5 5 | - . 4 5 | - - . . | 5 - 6 -"
+    - "6 - - - | - - . . | 5 - - . | . . . ."
+  bridge:
+    - "5, - - - | - - 4, - | 5, - - - | - - - -"
+    - "6, - - - | 5, - - - | b3, - - - | - - - -"
+    - "5, - - - | - - 4, - | 5, - - - | b7, - - -"
+    - "1 - - - | - - - - | b7, - - - | 5, - - -"
+    - "4, - - - | - - b3, - | 4, - - - | b6, - - -"
+    - "4, - - - | b6, - - - | 7, - - - | - - - -"
+  build:
+    - "6, - 1 - | 6, - 1 - | b7, - 2 - | 3 - - -"
+    - "5 - - - | - - - - | - - . . | . . . ."
+  riff:
+    - "3 2 3 . | 5 - . 3 | 3 . 2 . | 1 - . ."
+  riff_inv:
+    - "5 6 5 . | 3 - . 5 | 5 . 6 . | 1' - . ."
+  answers:
+    gap: ". . . . | . . . . | . . 5 6 | . . . ."
+    mid: ". . . . | . . . 5 | 6 5 . . | . . . ."
+    end: ". . . . | . . . . | 5 3 5 . | 6 - 5 -"
+    pickup: ". . . . | . . . . | . . . . | 2 3 5 -"
+    tail_dn: ". . . . | . . . . | . . . . | 5 3 2 -"
+    tail_dn_minor: ". . . . | . . . . | . . . . | 5 b3 2 -"
+drums:
+  verse:
+    parts:
+      kick: "X... | .... | ..x. | ...."
+      rim: ".... | x... | .... | x..."
+      hat: "x.o. | x.o. | x.o. | x.o."
+      shaker: "xoxo | xoxo | xoxo | xoxo"
+    overrides:
+      - when: {odd: true}
+        parts: {kick: X... | ...o | ..x. | ....}
+      - when: {bar: last}
+        parts: {snare: '.... | .... | .... | oxxX'}
+  pre:
+    parts:
+      kick: "x... | x... | x... | x..."
+      clap: ".... | x... | .... | x..."
+      hat: "o.o. | o.o. | x.x. | x.x."
+  kime:
+    parts:
+      kick: "X..x | ..x. | ..x. | x..."
+      clap: ".... | x... | .... | x..."
+      hat: "xoxo | xoxo | xoxo | xoxo"
+  otosabi:
+    parts:
+      kick: "x... | .... | .... | ...."
+      rim: ".... | x... | .... | x..."
+      shaker: "o.o. | o.o. | o.o. | o.o."
+    overrides:
+      - when: {odd: true}
+        parts: {kick: x... | .... | ..o. | ....}
+  four:
+    parts:
+      kick: "X... | X... | X... | X..."
+      clap: ".... | X... | .... | X..."
+      snare: ".... | x... | .... | x..."
+      hat: "XxXx | XxXx | XxXx | XxXx"
+      openhat: "..x. | ..x. | ..x. | ..x."
+    overrides:
+      - when: {odd: true}
+        parts: {hat: 'XxXx | XxXx | XxXx | [oxXoxXoxXoxX]'}
+      - when: {every: 4}
+        parts: {kick: X... | X... | X... | Xooo}
+  mega:
+    from: four
+    parts:
+      tamb: "...x | ...x | ...x | ...x"
+    overrides:
+      - when: {bar: 5}
+        parts: {crash: X... | .... | .... | ....}
+  trap:
+    parts:
+      kick: "X... | .... | ..x. | ...."
+      snare2: ".... | .... | X... | ...."
+      clap: ".... | .... | x... | ...."
+      hat2: "X.x. | X.x. | X.x. | X.x."
+    overrides:
+      - when: {odd: true}
+        parts: {kick: X... | ...x | ..x. | ...., hat2: 'X.x. | X.x. | X.x. | [oooxxx]'}
+  chip:
+    parts:
+      kick: "X... | .... | X.x. | ...."
+      snare: ".... | x... | .... | x..."
+      hat: "X.x. | X.x. | X.x. | X.x."
+      cowbell: "...x | ..x. | ...x | ..x."
+  halftime:
+    parts:
+      kick: "X... | ...x | .... | ...."
+      snare2: ".... | .... | X... | ...."
+      clap: ".... | .... | x... | ...."
+      ride: "X.x. | X.x. | X.x. | X.x."
+    overrides:
+      - when: {odd: true}
+        parts: {kick: X... | ...x | ...x | ....}
+      - when: {bar: last}
+        parts: {snare2: '.... | .... | .... | [oooxxxXX]'}
+bass:
+  verse:
+    parts:
+      b808: "R - - - | - - . . | . . R - | R - - -"
+  '808':
+    choices:
+      T:
+        odd: N'
+        even: R5
+    parts:
+      b808: "R - - R | - - R' - | R - R - | R' - T -"
+  trap:
+    parts:
+      b808: "R' - - R' | - - . . | . . R' - | . R5' - -"
+  kime:
+    parts:
+      pluckbass: "R - . R | - . R' - | . . R - | R' - . ."
+  octave8:
+    parts:
+      pluckbass: "R - R' - | R - R' - | R - R' - | R - R' -"
+  sustain:
+    parts:
+      reese: "R' - - - | - - - - | - - - - | - - - -"
+comp:
+  hold: "x - - - | - - - - | - - - - | - - - -"
+  offbeat: ". . x - | . . x - | . . x - | . . x -"
+  8ths: "x . x . | x . x . | x . x . | x . x ."
+  tresillo: "x . . x | . . x . | . . x . | x . . ."
+  stab: "x . . x | . . x . | . . x . | . . . ."
+arps:
+  crystal:
+    order: 0 1 2 3 | 2 1 2 3 | 0 1 2 3 | 3 2 1 2
+    voicing_floor_midi: 72
+    retrigger_each_step: true
+counters:
+  bell:
+    when: lead_silent_full_beat
+    cell: 1' 6 5 6
+  bell_minor:
+    when: lead_silent_full_beat
+    cell: 1' b6 5 b6
+macros:
+  drop:
+    kind: hits
+    at: {bar: 1, step: 1}
+    instruments:
+      - crash
+      - impact
+      - subdrop
+  gasp:
+    kind: silence
+    at: {bar: last, step: 13}
+    duration_steps: 4
+    except_instruments:
+      - chop
+  hey:
+    kind: degree
+    instrument: chop
+    degree: '5'
+    at: {bar: last, step: 13}
+    duration_steps: 1
+    velocity: 124
+  roll:
+    kind: drum_roll
+    instrument: snare
+    bars: 2
+    early_hits_per_beat: 2
+    final_hits_per_beat: 4
+    last_bar_end_beat: 3
+    velocity_from: 85
+    velocity_to: 120
+    riser: riser
+instruments:
+  kick: {preset: DRUM/001-hard-punch-kick, gain_db: -2, role: drums}
+  clap: {preset: DRUM/005-gritty-burst-clap, gain_db: -4, role: drums}
+  snare: {preset: DRUM/004-dry-crack-snare, gain_db: -6, role: drums}
+  snare2: {preset: DRUM/018-round-body-snare, gain_db: 2, role: drums}
+  hat: {preset: DRUM/019-needle-closed-hat, gain_db: -8, role: drums}
+  hat2: {preset: DRUM/006-808-closed-hat, gain_db: -9, role: drums}
+  openhat: {preset: DRUM/023-909-open-hat, gain_db: -10, role: drums}
+  ride: {preset: DRUM/024-bright-ping-ride, gain_db: -10, role: drums}
+  shaker: {preset: DRUM/011-noise-shaker, gain_db: -12, role: drums}
+  rim: {preset: DRUM/010-woody-rim-click, gain_db: -9, role: drums}
+  cowbell: {preset: DRUM/021-808-cowbell, gain_db: -12, role: drums}
+  tamb: {preset: DRUM/025-rattle-burst-tambourine, gain_db: -10, role: drums}
+  crash: {preset: DRUM/008-wide-wash-crash, gain_db: -11, role: drums}
+  riser: {preset: FX/001-noise-riser, gain_db: -6, role: fx}
+  impact: {preset: FX/008-noise-crash-impact, gain_db: -5, role: fx}
+  subdrop: {preset: FX/004-sub-drop, gain_db: -8, role: fx}
+  glitch: {preset: FX/005-glitch-burst, gain_db: -5, role: fx}
+  tapestop: {preset: FX/009-tape-stop-slowdown, gain_db: -6, role: fx}
+  b808: {preset: BASS/016-distorted-glide-808, gain_db: -7, role: bass}
+  pluckbass: {preset: BASS/004-short-pluck-bass, gain_db: 0, role: bass}
+  reese: {preset: BASS/007-reese-bass, gain_db: -3, role: bass}
+  subbass: {preset: BASS/015-octave-sub-bass, gain_db: -10, role: bass}
+  supersaw: {preset: KEYS/012-pumping-supersaw-chord, gain_db: -6, role: chords, voicing_floor_midi: 48}
+  fmep: {preset: KEYS/001-fm-electric-piano, gain_db: -5, role: chords, voicing_floor_midi: 52}
+  pulsestab: {preset: KEYS/007-pulse-chord-stab, gain_db: -5, role: chords, voicing_floor_midi: 55}
+  brass: {preset: KEYS/006-synth-brass-stab, gain_db: -5, role: chords, voicing_floor_midi: 53}
+  chrome: {preset: KEYS/008-chrome-stab, gain_db: -9, role: chords, voicing_floor_midi: 60}
+  bloom: {preset: KEYS/009-bloom-poly, gain_db: -9, role: chords, voicing_floor_midi: 48}
+  glasspad: {preset: PAD/009-glass-vine-pad, gain_db: -8, role: pad, voicing_floor_midi: 55}
+  hook: {preset: LEAD/001-analog-saw-lead, gain_db: -1, role: lead}
+  tine: {preset: KEYS/013-worn-tine-keys, gain_db: 0, role: lead}
+  fmlead: {preset: LEAD/004-fm-digital-lead, gain_db: -4, role: lead}
+  pulse: {preset: LEAD/003-pulse-lead, gain_db: -7, role: lead}
+  hardsync: {preset: LEAD/005-hard-sync-lead, gain_db: 1, role: lead}
+  mono: {preset: LEAD/006-mono-portamento-lead, gain_db: -2.5, role: lead}
+  singer: {preset: LEAD/008-vocal-formant-lead, gain_db: 0, role: lead}
+  sslead: {preset: LEAD/002-supersaw-lead, gain_db: -4, role: lead-double}
+  kalimba: {preset: PLUCK/008-resonant-box-kalimba, gain_db: -3, role: lead}
+  chop: {preset: LEAD/009-formant-vocal-chop, gain_db: 2, role: ear-candy}
+  donk: {preset: PLUCK/005-bounce-donk-pluck, gain_db: -3, role: ear-candy}
+  crystal: {preset: PLUCK/003-digital-crystal-pluck, gain_db: -5, role: arp}
+  bell: {preset: MALLET/001-fm-bell, gain_db: -3, role: counter}
+transitions:
+  - from: post
+    to: verse2
+    method: common-tone
+    description: E♭ の3度 G だけを残し、新しい主音にする
+  - from: verse2
+    to: pre2
+    method: pivot
+    description: 同じルートのまま5度を戻して、E の vi として着地
+  - from: chorus2
+    to: bridge
+    method: flat-VI
+    description: サビ2の最後に E → C（♭VI）。C の平行調 Am へ
+  - from: bridge
+    to: build
+    method: pivot+backdoor
+    description: Dm7（Am の iv = F の vi）を軸に、E♭maj7（♭VII）を経て C7 へ
+  - from: build
+    to: final
+    method: dominant
+    description: C7sus4 → Caug → F
+  - from: finalB
+    to: final2
+    method: direct
+    description: 準備なし、短3度上へ
+notes: |
+  - 曲は1曲として聴こえること（メドレーにしない）。背骨: キック、808、フックのモチーフ
+  - リードの音色はセクションごとに替える。formant（singer）はブリッジだけ
+  - 声ネタは合いの手として、リードの隙間にだけ。多すぎるとくどい、ゼロだと寂しい
+  - 2回目のセクションは基盤を共有し、要所だけ変える（サビ2: キー・クリシェ・ストップ・5小節目）
+  - メロディの最高音は F5 まで
+
