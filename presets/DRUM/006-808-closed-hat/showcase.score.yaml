@@ -1,0 +1,380 @@
+meta:
+  title: "808 Closed Hat - 16ths, Fill and Longer Decay"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 3
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "9/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "11/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "13/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "15/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "9/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "11/4"
+        degree: "#4,,"
+        duration_quarters: "11/48"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "#4,,"
+        duration_quarters: "5/48"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "25/8"
+        degree: "#4,,"
+        duration_quarters: "5/48"
+        velocity: 77
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "13/4"
+        degree: "#4,,"
+        duration_quarters: "5/48"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "27/8"
+        degree: "#4,,"
+        duration_quarters: "5/48"
+        velocity: 91
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "#4,,"
+        duration_quarters: "5/48"
+        velocity: 98
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "29/8"
+        degree: "#4,,"
+        duration_quarters: "5/48"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "15/4"
+        degree: "#4,,"
+        duration_quarters: "5/48"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "31/8"
+        degree: "#4,,"
+        duration_quarters: "5/48"
+        velocity: 119
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "#4,,"
+        duration_quarters: "11/24"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1/2"
+        degree: "#4,,"
+        duration_quarters: "11/24"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1"
+        degree: "#4,,"
+        duration_quarters: "11/24"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/2"
+        degree: "#4,,"
+        duration_quarters: "11/24"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "2"
+        degree: "#4,,"
+        duration_quarters: "11/24"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "#4,,"
+        duration_quarters: "11/24"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3"
+        degree: "#4,,"
+        duration_quarters: "11/24"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "7/2"
+        degree: "#4,,"
+        duration_quarters: "11/24"
+        velocity: 118
+    events:
+      -
+        kind: "parameter_change"
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        parameter: "macro.decay"
+        native_value: 0.6
+instruments:
+  preview:
+    preset: "DRUM/006-808-closed-hat"

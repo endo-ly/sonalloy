@@ -15,65 +15,6 @@
     "recommended_range": {
       "min_midi": 46,
       "max_midi": 46
-    },
-    "preview": {
-      "tempo_bpm": 124,
-      "ticks_per_beat": 480,
-      "time_signature": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length_ticks": 3840,
-      "notes": [
-        {
-          "tick": 240,
-          "duration_ticks": 120,
-          "note": 46,
-          "velocity": 112
-        },
-        {
-          "tick": 720,
-          "duration_ticks": 120,
-          "note": 46,
-          "velocity": 96
-        },
-        {
-          "tick": 1200,
-          "duration_ticks": 120,
-          "note": 46,
-          "velocity": 112
-        },
-        {
-          "tick": 1680,
-          "duration_ticks": 120,
-          "note": 46,
-          "velocity": 96
-        },
-        {
-          "tick": 2160,
-          "duration_ticks": 120,
-          "note": 46,
-          "velocity": 70
-        },
-        {
-          "tick": 2640,
-          "duration_ticks": 120,
-          "note": 46,
-          "velocity": 120
-        },
-        {
-          "tick": 3120,
-          "duration_ticks": 120,
-          "note": 46,
-          "velocity": 90
-        },
-        {
-          "tick": 3600,
-          "duration_ticks": 120,
-          "note": 46,
-          "velocity": 127
-        }
-      ]
     }
   },
   "performance": {
@@ -92,20 +33,20 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -21.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -21,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.0002,
         "decay_seconds": 0.012,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.012
       },
       "generator": {
         "noise": {
           "color": "white",
           "seed": 2003,
-          "stereo_correlation": 1.0
+          "stereo_correlation": 1
         }
       },
       "processors": [
@@ -113,7 +54,7 @@
           "type": "filter",
           "id": "band",
           "mode": "band_pass",
-          "cutoff_hz": 4300.0,
+          "cutoff_hz": 4300,
           "resonance": 0.3
         }
       ]
@@ -128,21 +69,21 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -19.0,
+      "gain_db": -19,
       "pan": -0.15,
-      "tuning_cents": 1188.0,
+      "tuning_cents": 1188,
       "envelope": {
         "attack_seconds": 0.0004,
         "decay_seconds": 0.85,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.85
       },
       "generator": {
         "additive": {
           "phase_reset": false,
-          "morph": 0.0,
-          "spectrum_tilt_db_per_octave": 0.0,
-          "inharmonicity": 0.0,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": 0,
+          "inharmonicity": 0,
           "partials": [
             {
               "id": "b0",
@@ -151,9 +92,9 @@
               "amplitude_b": 0.4584,
               "phase": 0.0527,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7081283571631685,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8727496686670504
               }
             },
@@ -164,9 +105,9 @@
               "amplitude_b": 0.5714,
               "phase": 0.7455,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.695226391730198,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.6910482669729119
               }
             },
@@ -177,9 +118,9 @@
               "amplitude_b": 0.3599,
               "phase": 0.6417,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.39698583963985956,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8608586508354131
               }
             },
@@ -190,9 +131,9 @@
               "amplitude_b": 0.635,
               "phase": 0.3534,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5566757200599891,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.858441818424538
               }
             },
@@ -203,9 +144,9 @@
               "amplitude_b": 0.4254,
               "phase": 0.7088,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.6038510292269957,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.48702817983147084
               }
             },
@@ -216,9 +157,9 @@
               "amplitude_b": 0.3671,
               "phase": 0.7934,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8088703109814344,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.43987612891304545
               }
             },
@@ -229,9 +170,9 @@
               "amplitude_b": 0.8115,
               "phase": 0.2867,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7906204838131234,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7120820042006193
               }
             },
@@ -242,9 +183,9 @@
               "amplitude_b": 0.6829,
               "phase": 0.0241,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5318553052118642,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8024801770133212
               }
             },
@@ -255,9 +196,9 @@
               "amplitude_b": 0.7166,
               "phase": 0.3586,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8666341305254499,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.6912508050971901
               }
             },
@@ -268,9 +209,9 @@
               "amplitude_b": 0.772,
               "phase": 0.5347,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5442468237352438,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.6223953688400512
               }
             },
@@ -281,9 +222,9 @@
               "amplitude_b": 0.4684,
               "phase": 0.7366,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7895560178844208,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.548574104869815
               }
             },
@@ -294,9 +235,9 @@
               "amplitude_b": 0.3627,
               "phase": 0.8877,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8648431185312149,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.5961409561084554
               }
             },
@@ -307,9 +248,9 @@
               "amplitude_b": 0.8037,
               "phase": 0.3238,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.55886808939195,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.43932624385102825
               }
             },
@@ -320,9 +261,9 @@
               "amplitude_b": 0.377,
               "phase": 0.1967,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.721760605167177,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.385537161055628
               }
             },
@@ -333,9 +274,9 @@
               "amplitude_b": 0.4449,
               "phase": 0.2283,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.37469186023969814,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7926799513191298
               }
             },
@@ -346,9 +287,9 @@
               "amplitude_b": 0.5307,
               "phase": 0.0786,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.3954876612576069,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7563568663230484
               }
             },
@@ -359,9 +300,9 @@
               "amplitude_b": 0.6925,
               "phase": 0.0155,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8282123370506063,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7247154949078378
               }
             },
@@ -372,9 +313,9 @@
               "amplitude_b": 0.8284,
               "phase": 0.4187,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.45482305225790365,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8182927115714593
               }
             },
@@ -385,9 +326,9 @@
               "amplitude_b": 0.7346,
               "phase": 0.132,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.4212260618151097,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.4868739337988842
               }
             },
@@ -398,9 +339,9 @@
               "amplitude_b": 0.3791,
               "phase": 0.0763,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.48238630159470197,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8359487530925835
               }
             },
@@ -411,9 +352,9 @@
               "amplitude_b": 0.6114,
               "phase": 0.4588,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.42700636107644113,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3968722621752892
               }
             },
@@ -424,9 +365,9 @@
               "amplitude_b": 0.3606,
               "phase": 0.8401,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5320824548482713,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8408182084188944
               }
             },
@@ -437,9 +378,9 @@
               "amplitude_b": 0.5771,
               "phase": 0.6217,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8725348674712508,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.6017545587482586
               }
             },
@@ -450,9 +391,9 @@
               "amplitude_b": 0.4182,
               "phase": 0.7307,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.38953065665605496,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.6422146344340575
               }
             },
@@ -463,9 +404,9 @@
               "amplitude_b": 0.7414,
               "phase": 0.0796,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8259447997118721,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7632070237086432
               }
             },
@@ -476,9 +417,9 @@
               "amplitude_b": 0.9244,
               "phase": 0.8637,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8695556685822183,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.4068109533996308
               }
             },
@@ -489,9 +430,9 @@
               "amplitude_b": 0.6143,
               "phase": 0.1123,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.4105899261017547,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.5920394145154189
               }
             },
@@ -502,9 +443,9 @@
               "amplitude_b": 0.4745,
               "phase": 0.5088,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.4958126978254771,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.5187019733574988
               }
             },
@@ -515,9 +456,9 @@
               "amplitude_b": 0.8492,
               "phase": 0.0616,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7672417979880326,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.686081744415749
               }
             },
@@ -528,9 +469,9 @@
               "amplitude_b": 0.4217,
               "phase": 0.3516,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7286394390580754,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.48782383256462436
               }
             },
@@ -541,9 +482,9 @@
               "amplitude_b": 0.9547,
               "phase": 0.6185,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7530065228356051,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.43479919252304233
               }
             },
@@ -554,9 +495,9 @@
               "amplitude_b": 0.3844,
               "phase": 0.1829,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5941753036765587,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7144032463541863
               }
             },
@@ -567,9 +508,9 @@
               "amplitude_b": 0.5383,
               "phase": 0.879,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5106354294688457,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3630526336229887
               }
             },
@@ -580,9 +521,9 @@
               "amplitude_b": 0.407,
               "phase": 0.4827,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5116799021231815,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.662066550941166
               }
             },
@@ -593,9 +534,9 @@
               "amplitude_b": 0.8712,
               "phase": 0.2747,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.662116270826945,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8695361846749622
               }
             },
@@ -606,9 +547,9 @@
               "amplitude_b": 0.4109,
               "phase": 0.6043,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.4016518561617866,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7454134652888844
               }
             },
@@ -619,9 +560,9 @@
               "amplitude_b": 0.9126,
               "phase": 0.6204,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7086751835248071,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8649409482837465
               }
             },
@@ -632,9 +573,9 @@
               "amplitude_b": 0.8847,
               "phase": 0.9505,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7592509442432718,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.4152345196008075
               }
             },
@@ -645,22 +586,22 @@
               "amplitude_b": 0.3959,
               "phase": 0.2893,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.6297081566592332,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.5600622497369179
               }
             },
             {
               "id": "b39",
               "ratio": 33.56549,
-              "amplitude_a": 1.0,
-              "amplitude_b": 1.0,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
               "phase": 0.6098,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7442093437300501,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7125126680167189
               }
             },
@@ -671,9 +612,9 @@
               "amplitude_b": 0.3768,
               "phase": 0.7467,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.44320600862234166,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8469767646959996
               }
             },
@@ -684,9 +625,9 @@
               "amplitude_b": 0.3686,
               "phase": 0.1234,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5833487163960043,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8201500656633304
               }
             },
@@ -697,9 +638,9 @@
               "amplitude_b": 0.4876,
               "phase": 0.6582,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7732768129918269,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7446403417996832
               }
             },
@@ -710,9 +651,9 @@
               "amplitude_b": 0.9242,
               "phase": 0.4613,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5815642025873864,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.48967618969225424
               }
             },
@@ -723,9 +664,9 @@
               "amplitude_b": 0.4063,
               "phase": 0.5134,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5152305420929322,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7823601462935486
               }
             },
@@ -736,9 +677,9 @@
               "amplitude_b": 0.6165,
               "phase": 0.1618,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5119368102663933,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7393449967656949
               }
             },
@@ -749,9 +690,9 @@
               "amplitude_b": 0.8256,
               "phase": 0.121,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.40393748208321517,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.39062867855878414
               }
             },
@@ -762,9 +703,9 @@
               "amplitude_b": 0.9099,
               "phase": 0.4965,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8653142364909795,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7796084374662964
               }
             },
@@ -775,9 +716,9 @@
               "amplitude_b": 0.6412,
               "phase": 0.7354,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.853337824545569,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.6405448727790393
               }
             },
@@ -788,9 +729,9 @@
               "amplitude_b": 0.527,
               "phase": 0.6704,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.5168293022832586,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8114742778468708
               }
             },
@@ -801,9 +742,9 @@
               "amplitude_b": 0.7979,
               "phase": 0.5212,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7235697334341389,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.47047173846104096
               }
             },
@@ -814,9 +755,9 @@
               "amplitude_b": 0.5449,
               "phase": 0.6642,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8849909681653665,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.599283065039226
               }
             },
@@ -827,9 +768,9 @@
               "amplitude_b": 0.5496,
               "phase": 0.3673,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.47016540819665464,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.4889926763365653
               }
             },
@@ -840,9 +781,9 @@
               "amplitude_b": 0.4765,
               "phase": 0.8393,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.6802033480712867,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3600432162093622
               }
             },
@@ -853,9 +794,9 @@
               "amplitude_b": 0.8542,
               "phase": 0.583,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.46922632607991543,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.8905866077520707
               }
             },
@@ -866,9 +807,9 @@
               "amplitude_b": 0.437,
               "phase": 0.793,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.43899660396144796,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.4490714883492338
               }
             },
@@ -879,9 +820,9 @@
               "amplitude_b": 0.6222,
               "phase": 0.7176,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.44331488355531645,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.5645575704091519
               }
             },
@@ -892,9 +833,9 @@
               "amplitude_b": 0.3906,
               "phase": 0.7404,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.6355224385471533,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.6167418887715478
               }
             },
@@ -905,9 +846,9 @@
               "amplitude_b": 0.8713,
               "phase": 0.9702,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.4142385841392385,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7127264866314305
               }
             },
@@ -918,9 +859,9 @@
               "amplitude_b": 0.4885,
               "phase": 0.365,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7310510926627848,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3514351919877377
               }
             },
@@ -931,9 +872,9 @@
               "amplitude_b": 0.8009,
               "phase": 0.0806,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.6501689661192076,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.4476900142974506
               }
             },
@@ -944,9 +885,9 @@
               "amplitude_b": 0.7141,
               "phase": 0.1481,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8000034870411739,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.5658304677996445
               }
             },
@@ -957,9 +898,9 @@
               "amplitude_b": 0.2976,
               "phase": 0.6844,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.7099962183343853,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.5740750214747116
               }
             },
@@ -970,9 +911,9 @@
               "amplitude_b": 0.4206,
               "phase": 0.1698,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.8936723758754767,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.7847932435569694
               }
             }
@@ -991,21 +932,21 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -23.0,
+      "gain_db": -23,
       "pan": 0.15,
-      "tuning_cents": 1188.0,
+      "tuning_cents": 1188,
       "envelope": {
         "attack_seconds": 0.0004,
         "decay_seconds": 0.5,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.5
       },
       "generator": {
         "additive": {
           "phase_reset": false,
-          "morph": 0.0,
-          "spectrum_tilt_db_per_octave": 0.0,
-          "inharmonicity": 0.0,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": 0,
+          "inharmonicity": 0,
           "partials": [
             {
               "id": "f0",
@@ -1014,9 +955,9 @@
               "amplitude_b": 0.5547,
               "phase": 0.7775,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.2910143116737781,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3701268565861099
               }
             },
@@ -1027,9 +968,9 @@
               "amplitude_b": 0.6141,
               "phase": 0.0017,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.21680548374359176,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2781368402916069
               }
             },
@@ -1040,9 +981,9 @@
               "amplitude_b": 0.3227,
               "phase": 0.7735,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.36932124412746525,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.15667209266024096
               }
             },
@@ -1053,9 +994,9 @@
               "amplitude_b": 0.3908,
               "phase": 0.3968,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.24144537077717243,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2787902566020144
               }
             },
@@ -1066,9 +1007,9 @@
               "amplitude_b": 0.5196,
               "phase": 0.0416,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.28472964241755727,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.15361078466376968
               }
             },
@@ -1079,9 +1020,9 @@
               "amplitude_b": 0.8533,
               "phase": 0.8478,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.38048656332395014,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2990545012456542
               }
             },
@@ -1092,9 +1033,9 @@
               "amplitude_b": 0.7525,
               "phase": 0.3264,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.21541154889734762,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.24611529550945538
               }
             },
@@ -1105,9 +1046,9 @@
               "amplitude_b": 0.3297,
               "phase": 0.2893,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.24732716421029366,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.26909692815542435
               }
             },
@@ -1118,9 +1059,9 @@
               "amplitude_b": 0.359,
               "phase": 0.1311,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.1930246955477954,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.16196271651601643
               }
             },
@@ -1131,9 +1072,9 @@
               "amplitude_b": 0.7939,
               "phase": 0.1461,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.20816110537804308,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2893945508382123
               }
             },
@@ -1144,9 +1085,9 @@
               "amplitude_b": 0.4735,
               "phase": 0.2193,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.16640792795741324,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.27762625074611164
               }
             },
@@ -1157,9 +1098,9 @@
               "amplitude_b": 0.5042,
               "phase": 0.3208,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.3038535233998744,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.15019936359616104
               }
             },
@@ -1170,9 +1111,9 @@
               "amplitude_b": 0.6448,
               "phase": 0.7408,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.32831864881986084,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.17280508541309356
               }
             },
@@ -1183,9 +1124,9 @@
               "amplitude_b": 0.8749,
               "phase": 0.9131,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.37178399196780043,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.26525929889017663
               }
             },
@@ -1196,9 +1137,9 @@
               "amplitude_b": 0.6982,
               "phase": 0.4963,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.2528323596106272,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.26460964355244876
               }
             },
@@ -1209,9 +1150,9 @@
               "amplitude_b": 0.6812,
               "phase": 0.7391,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.35536213671874495,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.24055124413899567
               }
             },
@@ -1222,9 +1163,9 @@
               "amplitude_b": 0.839,
               "phase": 0.6488,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.39988132893263434,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3745309934460524
               }
             },
@@ -1235,9 +1176,9 @@
               "amplitude_b": 0.5622,
               "phase": 0.2968,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.20820279558038107,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.20471028742442324
               }
             },
@@ -1246,11 +1187,11 @@
               "ratio": 33.55575,
               "amplitude_a": 0.7079,
               "amplitude_b": 0.7079,
-              "phase": 1.0,
+              "phase": 1,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.3255063335752251,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.22775665487093166
               }
             },
@@ -1261,9 +1202,9 @@
               "amplitude_b": 0.4535,
               "phase": 0.1653,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.2482611928990125,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3738305350197373
               }
             },
@@ -1274,9 +1215,9 @@
               "amplitude_b": 0.6953,
               "phase": 0.3527,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.18898269193090564,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.35143900126199384
               }
             },
@@ -1287,9 +1228,9 @@
               "amplitude_b": 0.342,
               "phase": 0.1694,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.3450131870706913,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.23612741109052807
               }
             },
@@ -1300,9 +1241,9 @@
               "amplitude_b": 0.7895,
               "phase": 0.9686,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.36764377447431795,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3326396792612767
               }
             },
@@ -1313,9 +1254,9 @@
               "amplitude_b": 0.8078,
               "phase": 0.3629,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.24599494851448367,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.18521366355190266
               }
             },
@@ -1326,9 +1267,9 @@
               "amplitude_b": 0.3736,
               "phase": 0.321,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.36470137815078296,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.20204269061363694
               }
             },
@@ -1339,9 +1280,9 @@
               "amplitude_b": 0.7592,
               "phase": 0.6389,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.295959433667432,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.29727523104901454
               }
             },
@@ -1352,9 +1293,9 @@
               "amplitude_b": 0.889,
               "phase": 0.1433,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.39947336744612805,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.22645660664966635
               }
             },
@@ -1365,9 +1306,9 @@
               "amplitude_b": 0.8394,
               "phase": 0.2686,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.39742934050460543,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2854943965944585
               }
             },
@@ -1378,9 +1319,9 @@
               "amplitude_b": 0.9465,
               "phase": 0.1619,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.3811489229584454,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3451094767543882
               }
             },
@@ -1391,9 +1332,9 @@
               "amplitude_b": 0.9352,
               "phase": 0.4897,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.1570581029592637,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3548383896304631
               }
             },
@@ -1404,9 +1345,9 @@
               "amplitude_b": 0.9938,
               "phase": 0.7399,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.23686281012673702,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.33248388965618
               }
             },
@@ -1417,9 +1358,9 @@
               "amplitude_b": 0.5842,
               "phase": 0.9782,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.2007248851748031,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.35133039484503087
               }
             },
@@ -1430,9 +1371,9 @@
               "amplitude_b": 0.8813,
               "phase": 0.0037,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.21162377683500644,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.31340864501672183
               }
             },
@@ -1443,9 +1384,9 @@
               "amplitude_b": 0.897,
               "phase": 0.8425,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.3272115657321223,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.38599694511470684
               }
             },
@@ -1456,22 +1397,22 @@
               "amplitude_b": 0.378,
               "phase": 0.1685,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.1505962515498572,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.26535513664830623
               }
             },
             {
               "id": "f35",
               "ratio": 42.17706,
-              "amplitude_a": 1.0,
-              "amplitude_b": 1.0,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
               "phase": 0.5237,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.17223832643119769,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.1703611920044634
               }
             },
@@ -1482,9 +1423,9 @@
               "amplitude_b": 0.8585,
               "phase": 0.3703,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.36353926535185,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2479163345679444
               }
             },
@@ -1495,9 +1436,9 @@
               "amplitude_b": 0.9657,
               "phase": 0.1309,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.18706894116386655,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3080654344169502
               }
             },
@@ -1508,9 +1449,9 @@
               "amplitude_b": 0.8409,
               "phase": 0.3917,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.26954902583785,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2387809505640744
               }
             },
@@ -1521,9 +1462,9 @@
               "amplitude_b": 0.7291,
               "phase": 0.295,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.16456006319604788,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3655698796898528
               }
             },
@@ -1534,9 +1475,9 @@
               "amplitude_b": 0.3922,
               "phase": 0.1241,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.39435149482439197,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2614987645856607
               }
             },
@@ -1547,9 +1488,9 @@
               "amplitude_b": 0.7414,
               "phase": 0.3277,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.33618188702844426,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.183343749258628
               }
             },
@@ -1560,9 +1501,9 @@
               "amplitude_b": 0.8426,
               "phase": 0.1942,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.24750020312846893,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.16051159425987385
               }
             },
@@ -1573,9 +1514,9 @@
               "amplitude_b": 0.5937,
               "phase": 0.658,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.36314407740794497,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.18602118585862074
               }
             },
@@ -1586,9 +1527,9 @@
               "amplitude_b": 0.7498,
               "phase": 0.5097,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.38310734599389135,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2370469435259588
               }
             },
@@ -1599,9 +1540,9 @@
               "amplitude_b": 0.5971,
               "phase": 0.7427,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.2800113288066169,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.19674557833083856
               }
             },
@@ -1612,9 +1553,9 @@
               "amplitude_b": 0.6545,
               "phase": 0.5147,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.26292077189193663,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.36713037945046756
               }
             },
@@ -1625,9 +1566,9 @@
               "amplitude_b": 0.4899,
               "phase": 0.3291,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.24401199859495096,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.17768530824016837
               }
             },
@@ -1638,9 +1579,9 @@
               "amplitude_b": 0.4359,
               "phase": 0.9377,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.17424979917208422,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.18843319945368667
               }
             },
@@ -1651,9 +1592,9 @@
               "amplitude_b": 0.8746,
               "phase": 0.3355,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.30909564568336834,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.37129557328546936
               }
             },
@@ -1664,9 +1605,9 @@
               "amplitude_b": 0.5019,
               "phase": 0.1069,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.22191989895583103,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.15296859816950226
               }
             },
@@ -1677,9 +1618,9 @@
               "amplitude_b": 0.6258,
               "phase": 0.4917,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.3765584105770295,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.27952178269323635
               }
             },
@@ -1690,9 +1631,9 @@
               "amplitude_b": 0.798,
               "phase": 0.3376,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.16805856429515237,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.15297877738826327
               }
             },
@@ -1703,9 +1644,9 @@
               "amplitude_b": 0.6512,
               "phase": 0.2571,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.25168806690340484,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2666165619733074
               }
             },
@@ -1716,9 +1657,9 @@
               "amplitude_b": 0.8811,
               "phase": 0.3574,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.36659823643961004,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2712281848011167
               }
             },
@@ -1729,9 +1670,9 @@
               "amplitude_b": 0.9022,
               "phase": 0.6945,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.2152050759361777,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3151388448813881
               }
             },
@@ -1742,9 +1683,9 @@
               "amplitude_b": 0.7734,
               "phase": 0.7962,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.29551992882206346,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.24481202771970456
               }
             },
@@ -1755,9 +1696,9 @@
               "amplitude_b": 0.7258,
               "phase": 0.6016,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.19704798281432742,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3595125453280871
               }
             },
@@ -1768,9 +1709,9 @@
               "amplitude_b": 0.7023,
               "phase": 0.4045,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.38185295411810716,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.2171682801779328
               }
             },
@@ -1781,9 +1722,9 @@
               "amplitude_b": 0.8274,
               "phase": 0.4392,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.29122389251235375,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.23573577902722115
               }
             },
@@ -1794,9 +1735,9 @@
               "amplitude_b": 0.881,
               "phase": 0.3892,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.28090797760302,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.27985119703924266
               }
             },
@@ -1807,9 +1748,9 @@
               "amplitude_b": 0.5547,
               "phase": 0.9011,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.38316019490279385,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.29306856936013165
               }
             },
@@ -1820,9 +1761,9 @@
               "amplitude_b": 0.8342,
               "phase": 0.5922,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.2522624397212804,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.3449976102232386
               }
             },
@@ -1833,9 +1774,9 @@
               "amplitude_b": 0.8702,
               "phase": 0.4829,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.21857310007102404,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.29139153891621
               }
             }
@@ -1854,13 +1795,13 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -29.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -29,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.002,
         "decay_seconds": 0.7,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.7
       },
       "generator": {
@@ -1875,15 +1816,15 @@
           "type": "filter",
           "id": "hp",
           "mode": "high_pass",
-          "cutoff_hz": 6200.0,
+          "cutoff_hz": 6200,
           "resonance": 0.05
         },
         {
           "type": "filter",
           "id": "top",
           "mode": "low_pass",
-          "cutoff_hz": 14500.0,
-          "resonance": 0.0
+          "cutoff_hz": 14500,
+          "resonance": 0
         }
       ]
     }
@@ -1896,15 +1837,15 @@
       "pre_delay_seconds": 0.008,
       "decay": 0.3,
       "damping": 0.6,
-      "width": 1.0,
+      "width": 1,
       "mix": 0.05
     },
     {
       "type": "limiter",
       "id": "safety",
-      "ceiling_db": -3.0,
-      "release_ms": 80.0,
-      "input_gain_db": 0.0
+      "ceiling_db": -3,
+      "release_ms": 80,
+      "input_gain_db": 0
     }
   ],
   "modulation": {
@@ -1919,7 +1860,7 @@
         "type": "smooth_random",
         "seed": 2006,
         "rate": {
-          "value": 32.0,
+          "value": 32,
           "unit": "per_second"
         }
       }
@@ -1929,7 +1870,7 @@
         "source": "hit",
         "target": "layer.bright.tuning",
         "depth": {
-          "value": 14.0,
+          "value": 14,
           "unit": "cents"
         },
         "curve": "linear"
@@ -1938,7 +1879,7 @@
         "source": "hit",
         "target": "layer.fine.tuning",
         "depth": {
-          "value": 14.0,
+          "value": 14,
           "unit": "cents"
         },
         "curve": "linear"
@@ -1974,7 +1915,7 @@
         "source": "velocity",
         "target": "layer.chick.gain",
         "depth": {
-          "value": 12.0,
+          "value": 12,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -1983,7 +1924,7 @@
         "source": "velocity",
         "target": "layer.bright.gain",
         "depth": {
-          "value": 9.0,
+          "value": 9,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -1992,7 +1933,7 @@
         "source": "velocity",
         "target": "layer.fine.gain",
         "depth": {
-          "value": 12.0,
+          "value": 12,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -2001,7 +1942,7 @@
         "source": "velocity",
         "target": "layer.wash.gain",
         "depth": {
-          "value": 12.0,
+          "value": 12,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -2019,7 +1960,7 @@
         "source": "pitch_bend",
         "target": "layer.bright.tuning",
         "depth": {
-          "value": -200.0,
+          "value": -200,
           "unit": "cents"
         },
         "curve": "linear"
@@ -2028,7 +1969,7 @@
         "source": "pitch_bend",
         "target": "layer.fine.tuning",
         "depth": {
-          "value": -200.0,
+          "value": -200,
           "unit": "cents"
         },
         "curve": "linear"

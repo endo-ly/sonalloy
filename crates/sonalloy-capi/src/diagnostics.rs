@@ -60,7 +60,6 @@ fn code_id(code: DiagnosticCode) -> u32 {
         DiagnosticCode::InvalidSequence => 51,
         DiagnosticCode::InvalidStepDuration => 52,
         DiagnosticCode::TraceLimitExceeded => 53,
-        DiagnosticCode::BundleOutputExists => 54,
         DiagnosticCode::AudioInputRequired => 55,
     }
 }

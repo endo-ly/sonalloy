@@ -15,41 +15,6 @@
     "recommended_range": {
       "min_midi": 49,
       "max_midi": 49
-    },
-    "preview": {
-      "tempo_bpm": 120,
-      "ticks_per_beat": 480,
-      "time_signature": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length_ticks": 4800,
-      "notes": [
-        {
-          "tick": 0,
-          "duration_ticks": 1920,
-          "note": 49,
-          "velocity": 100
-        },
-        {
-          "tick": 1920,
-          "duration_ticks": 960,
-          "note": 49,
-          "velocity": 90
-        },
-        {
-          "tick": 2880,
-          "duration_ticks": 960,
-          "note": 49,
-          "velocity": 110
-        },
-        {
-          "tick": 3840,
-          "duration_ticks": 960,
-          "note": 49,
-          "velocity": 120
-        }
-      ]
     }
   },
   "performance": {
@@ -68,7 +33,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -8.0,
+      "gain_db": -8,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -103,14 +68,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -27.0,
+      "gain_db": -27,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.002,
         "decay_seconds": 2.8,
         "sustain_level": 0,
-        "release_seconds": 2.0
+        "release_seconds": 2
       },
       "generator": {
         "noise": {
@@ -139,7 +104,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -24.0,
+      "gain_db": -24,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -171,7 +136,7 @@
       "type": "filter",
       "id": "air",
       "mode": "high_pass",
-      "cutoff_hz": 950.0,
+      "cutoff_hz": 950,
       "resonance": 0.05
     },
     {
@@ -193,7 +158,7 @@
       "id": "density",
       "detector": "self_signal",
       "threshold_db": -22,
-      "ratio": 3.0,
+      "ratio": 3,
       "attack_ms": 4,
       "release_ms": 120,
       "knee_db": 10,

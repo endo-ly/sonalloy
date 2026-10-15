@@ -56,7 +56,8 @@ presets/
 │     ├─ definition.json
 │     ├─ note-*.wav
 │     ├─ phrase.wav
-│     └─ pattern.json       # 音源固有のパターンがある場合
+│     ├─ preview.score.yaml  # 短いブラウザ試聴と同一演奏の正本
+│     └─ showcase.score.yaml # 演奏内容が異なる詳細試奏がある場合
 ├─ LEAD/
 ├─ PAD/
 ├─ KEYS/
@@ -65,7 +66,7 @@ presets/
 ├─ DRUM/
 ├─ SEQ/
 ├─ FX/
-├─ common-patterns/         # 複数音源で共有するパターン
+├─ common-scores/         # 複数音源で共有するパターン
 ├─ assets/                  # 定義から参照する外部素材
 ├─ presets-defs.md          # 音源カタログ
 └─ README.md
@@ -73,7 +74,7 @@ presets/
 
 各プリセットディレクトリには `definition.json` を1つ置く。`note-*.wav` と `phrase.wav` は定義から生成するプレビュー音源として同じディレクトリに置く。
 
-音源固有のパターンは `pattern.json`、共有パターンは `common-patterns/<descriptive-name>-pattern.json` に置く。
+短い試聴は `preview.score.yaml` に置く。詳細試奏を用意する場合は、短い試聴と異なる演奏に限り `showcase.score.yaml` に置く。同じ演奏を両方へ複製せず、両方の用途には `preview.score.yaml` を使う。共有試奏は `common-scores/<descriptive-name>.score.yaml` に置く。文法は[Score YAML](../.agents/skills/create-instrument/references/score_spec.md)に従う。
 
 外部WAV素材は `assets/` にまとめ、カテゴリ配下の定義から `../../assets/<file>` で参照する。
 
@@ -192,17 +193,17 @@ presets/
 ## 追加・変更手順
 
 1. カテゴリ末尾のIDでディレクトリを作り、`definition.json` を配置する。
-2. プレビューWAVと、必要なパターンを同じ構成に揃える。
+2. 短いPreview Scoreを配置し、別の演奏で確認する場合に限り詳細試奏Score・WAVを配置する。
 3. `presets-defs.md` のカタログを更新する。
-4. パスを参照するスクリプト、テスト、Pattern、デモを確認する。
+4. パスを参照するスクリプト、テスト、Scoreを確認する。
 
 ## 検証
 
 ```text
 sonalloy instrument validate presets/<CATEGORY>/<NNN-name>/definition.json
 sonalloy instrument inspect presets/<CATEGORY>/<NNN-name>/definition.json --json
-sonalloy pattern validate presets/<CATEGORY>/<NNN-name>/pattern.json
-sonalloy pattern validate presets/common-patterns/<name>-pattern.json
+sonalloy score validate presets/<CATEGORY>/<NNN-name>/preview.score.yaml
+sonalloy score validate presets/common-scores/<name>.score.yaml --bind preview=<definition>
 ```
 
-音源固有の `pattern.json` と共有パターンを、それぞれの配置に応じて検証する。共有パターンを変更した場合は、参照する音源とデモも確認する。
+Preview、詳細試奏、共通試奏は同じScoreコンパイラで検証する。共通試奏では対象音源を `--bind` で指定し、音域と演奏操作が適合することを確認する。

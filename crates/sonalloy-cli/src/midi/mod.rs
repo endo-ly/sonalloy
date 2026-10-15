@@ -1,12 +1,12 @@
-mod demo;
 mod parse;
 mod pattern;
 mod render;
+mod score;
 
-pub(crate) use demo::export_demo;
 pub(crate) use parse::parse_midi;
-pub(crate) use pattern::{export_pattern, import_pattern};
+pub(crate) use pattern::import_performance;
 pub(crate) use render::read_midi;
+pub(crate) use score::export_score;
 
 pub(crate) const MOD_WHEEL_CONTROLLER: u8 = 1;
 pub(crate) const SUSTAIN_PEDAL_CONTROLLER: u8 = 64;

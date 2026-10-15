@@ -1,16 +1,13 @@
-mod support;
-
 use assert_cmd::Command;
-use support::fixture_path;
 use tempfile::tempdir;
 
 #[test]
-fn audition_pattern_validates_before_accessing_audio_devices() {
+fn audition_score_validates_before_accessing_audio_devices() {
     let directory = tempdir().expect("temporary directory");
-    let pattern = directory.path().join("audition.json");
+    let pattern = directory.path().join("audition.score.yaml");
     Command::cargo_bin("sonalloy")
         .expect("binary")
-        .args(["pattern", "init", pattern.to_str().expect("pattern path")])
+        .args(["score", "init", pattern.to_str().expect("pattern path")])
         .assert()
         .success();
 
@@ -18,10 +15,7 @@ fn audition_pattern_validates_before_accessing_audio_devices() {
         .expect("binary")
         .args([
             "audition",
-            "pattern",
-            fixture_path("instruments/basic-poly-synth.json")
-                .to_str()
-                .expect("definition path"),
+            "score",
             pattern.to_str().expect("pattern path"),
             "--buffer-size",
             "0",

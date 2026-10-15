@@ -1,0 +1,98 @@
+meta:
+  title: "sustained pad chords"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 13
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1,"
+        duration_quarters: "28"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "5,"
+        duration_quarters: "28"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "7,"
+        duration_quarters: "28"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "28"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "2"
+        degree: "4,"
+        duration_quarters: "26"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "2"
+        degree: "6,"
+        duration_quarters: "26"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "2"
+        degree: "1"
+        duration_quarters: "26"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "2"
+        degree: "3"
+        duration_quarters: "26"
+        velocity: 100
+    events:
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 11
+          offset_quarters: "2"
+        value: 0.5
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 13
+          offset_quarters: "0"
+        value: 0
+instruments:
+  preview:
+    external: true

@@ -170,7 +170,8 @@ function(sonalloy_stage_builtin_bundle)
             "${SONALLOY_SOURCE_DIR}/scripts/stage-builtin-bundle.mjs"
             --destination "${STAGE_DESTINATION}"
             --source-root "${SONALLOY_SOURCE_DIR}"
-        DEPENDS ${SONALLOY_BUNDLE_INPUTS}
+            --sonalloy-bin "$<TARGET_FILE:sonalloy_cli>"
+        DEPENDS sonalloy-cli-build ${SONALLOY_BUNDLE_INPUTS}
         BYPRODUCTS
             "${STAGE_DESTINATION}/instruments/builtin/manifest.json"
             "${STAGE_DESTINATION}/THIRD_PARTY_NOTICES.md"

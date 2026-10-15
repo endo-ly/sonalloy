@@ -14,65 +14,6 @@
     "recommended_range": {
       "min_midi": 48,
       "max_midi": 84
-    },
-    "preview": {
-      "tempo_bpm": 120,
-      "ticks_per_beat": 480,
-      "time_signature": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length_ticks": 3840,
-      "notes": [
-        {
-          "tick": 0,
-          "duration_ticks": 360,
-          "note": 60,
-          "velocity": 104
-        },
-        {
-          "tick": 480,
-          "duration_ticks": 360,
-          "note": 64,
-          "velocity": 92
-        },
-        {
-          "tick": 960,
-          "duration_ticks": 360,
-          "note": 67,
-          "velocity": 110
-        },
-        {
-          "tick": 1440,
-          "duration_ticks": 360,
-          "note": 72,
-          "velocity": 98
-        },
-        {
-          "tick": 1920,
-          "duration_ticks": 360,
-          "note": 67,
-          "velocity": 88
-        },
-        {
-          "tick": 2400,
-          "duration_ticks": 360,
-          "note": 64,
-          "velocity": 106
-        },
-        {
-          "tick": 2880,
-          "duration_ticks": 360,
-          "note": 60,
-          "velocity": 94
-        },
-        {
-          "tick": 3360,
-          "duration_ticks": 400,
-          "note": 55,
-          "velocity": 114
-        }
-      ]
     }
   },
   "performance": {

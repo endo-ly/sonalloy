@@ -581,7 +581,6 @@ pub(crate) mod tests {
                 category: None,
                 tags: Vec::new(),
                 recommended_range: None,
-                preview: None,
             },
             performance: PerformanceDefinition::Polyphonic {
                 polyphony: 4,

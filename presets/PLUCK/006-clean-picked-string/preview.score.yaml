@@ -1,0 +1,83 @@
+meta:
+  title: "Clean Picked String preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 2
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "3/4"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "3"
+        duration_quarters: "3/4"
+        velocity: 92
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "5"
+        duration_quarters: "3/4"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "1'"
+        duration_quarters: "3/4"
+        velocity: 98
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "5"
+        duration_quarters: "3/4"
+        velocity: 88
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1"
+        degree: "3"
+        duration_quarters: "3/4"
+        velocity: 106
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "1"
+        duration_quarters: "3/4"
+        velocity: 94
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "5,"
+        duration_quarters: "5/6"
+        velocity: 114
+instruments:
+  preview:
+    preset: "PLUCK/006-clean-picked-string"

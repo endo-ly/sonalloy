@@ -1,0 +1,211 @@
+meta:
+  title: "Modal Skin Conga preview"
+  bpm: 118
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 2
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1/2"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 64
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "b3"
+        duration_quarters: "1/4"
+        velocity: 120
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "b3"
+        duration_quarters: "1/4"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/4"
+        degree: "b3"
+        duration_quarters: "1/4"
+        velocity: 92
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 64
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "11/4"
+        degree: "b3"
+        duration_quarters: "1/4"
+        velocity: 120
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "3"
+        duration_quarters: "1/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "15/4"
+        degree: "3"
+        duration_quarters: "1/4"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1/2"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 64
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "b3"
+        duration_quarters: "1/4"
+        velocity: 120
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "b3"
+        duration_quarters: "1/4"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/4"
+        degree: "b3"
+        duration_quarters: "1/4"
+        velocity: 92
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 64
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "11/4"
+        degree: "b3"
+        duration_quarters: "1/4"
+        velocity: 120
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "2"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "3"
+        duration_quarters: "1/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "15/4"
+        degree: "3"
+        duration_quarters: "1/4"
+        velocity: 96
+instruments:
+  preview:
+    preset: "DRUM/027-modal-skin-conga"

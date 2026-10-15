@@ -15,41 +15,6 @@
     "recommended_range": {
       "min_midi": 39,
       "max_midi": 39
-    },
-    "preview": {
-      "tempo_bpm": 120,
-      "ticks_per_beat": 480,
-      "time_signature": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length_ticks": 1920,
-      "notes": [
-        {
-          "tick": 0,
-          "duration_ticks": 180,
-          "note": 39,
-          "velocity": 90
-        },
-        {
-          "tick": 480,
-          "duration_ticks": 180,
-          "note": 39,
-          "velocity": 112
-        },
-        {
-          "tick": 960,
-          "duration_ticks": 180,
-          "note": 39,
-          "velocity": 100
-        },
-        {
-          "tick": 1440,
-          "duration_ticks": 180,
-          "note": 39,
-          "velocity": 120
-        }
-      ]
     }
   },
   "performance": {
@@ -68,7 +33,7 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -17.0,
+      "gain_db": -17,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
@@ -263,7 +228,7 @@
       "type": "filter",
       "id": "floor",
       "mode": "high_pass",
-      "cutoff_hz": 640.0,
+      "cutoff_hz": 640,
       "resonance": 0.04
     },
     {

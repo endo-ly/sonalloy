@@ -1,0 +1,474 @@
+meta:
+  title: "syncopated chord stabs"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 8
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "211/480"
+        velocity: 45
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "1"
+        duration_quarters: "211/480"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "211/480"
+        velocity: 120
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "1,"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "5,"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "b7,"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "b3"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "1,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "5,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "b7,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "b3"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1"
+        degree: "1,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1"
+        degree: "5,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1"
+        degree: "b7,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1"
+        degree: "b3"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "1,"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "5,"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "b7,"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "b3"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "1,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "5,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "b7,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "b3"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "1,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "5,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "b7,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "b3"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3"
+        degree: "4,"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3"
+        degree: "6,"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3"
+        degree: "1"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3"
+        degree: "5"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "1/2"
+        degree: "4,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "1/2"
+        degree: "6,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "1/2"
+        degree: "1"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "1/2"
+        degree: "5"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "2"
+        degree: "4,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "2"
+        degree: "6,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "2"
+        degree: "1"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "2"
+        degree: "5"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "7/2"
+        degree: "4,"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "7/2"
+        degree: "6,"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "7/2"
+        degree: "1"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "7/2"
+        degree: "5"
+        duration_quarters: "269/480"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        degree: "4,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        degree: "6,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        degree: "1"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        degree: "5"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "5/2"
+        degree: "4,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "5/2"
+        degree: "6,"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "5/2"
+        degree: "1"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "5/2"
+        degree: "5"
+        duration_quarters: "77/240"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "0"
+        degree: "1,"
+        duration_quarters: "6"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "0"
+        degree: "5,"
+        duration_quarters: "6"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "0"
+        degree: "b7,"
+        duration_quarters: "6"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "0"
+        degree: "b3"
+        duration_quarters: "6"
+        velocity: 110
+    events:
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "2"
+        value: 0.7
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "0"
+        value: 0
+instruments:
+  preview:
+    external: true

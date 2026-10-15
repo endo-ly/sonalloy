@@ -1,0 +1,28 @@
+meta:
+  title: "Sub Drop preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 2
+    tonic: "C"
+    scale: "ionian"
+    last_bar_quarters: "3"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "6,,"
+        duration_quarters: "32/5"
+        velocity: 100
+instruments:
+  preview:
+    preset: "FX/004-sub-drop"

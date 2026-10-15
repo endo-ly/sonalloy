@@ -1,0 +1,75 @@
+meta:
+  title: "Sequences and Texture - Hold"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 9
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "16"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "4"
+        velocity: 62
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "0"
+        degree: "5"
+        duration_quarters: "4"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 8
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "8"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 8
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "8"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 8
+          offset_quarters: "0"
+        degree: "5"
+        duration_quarters: "8"
+        velocity: 90
+instruments:
+  preview:
+    external: true

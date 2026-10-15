@@ -1,10 +1,10 @@
 mod command;
-mod demo;
 mod midi;
 mod musical_time;
 mod output;
-mod pattern;
+mod performance;
 mod realtime;
+mod score;
 
 use std::process::ExitCode;
 

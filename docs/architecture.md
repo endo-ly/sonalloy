@@ -41,6 +41,8 @@ RealtimeでもOfflineでも音声は同じ`sonalloy-core`の処理契約を通�
 
 CLIはユーザー入力の解釈と、OSのAudio / MIDI Deviceとのやり取りを担います。
 
+楽譜の入力はScore YAMLに集約します。`score`は構文・参照・音高・有理数の音楽時間を解決し、`performance`は共通の時間軸、楽器別の演奏Lane、音声配線、MixとMasterを所有します。Offline Render、Realtime Audition、MIDI出力はこの演奏計画を共有し、音源定義のCompileと音声処理をCoreへ渡します。
+
 Realtime Sessionは、次の要素で構成されます。
 
 | 要素 | 責務 |

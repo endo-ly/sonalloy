@@ -15,131 +15,6 @@
     "recommended_range": {
       "min_midi": 67,
       "max_midi": 91
-    },
-    "preview": {
-      "tempo_bpm": 104,
-      "ticks_per_beat": 480,
-      "time_signature": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length_ticks": 7680,
-      "notes": [
-        {
-          "tick": 0,
-          "duration_ticks": 270,
-          "note": 76,
-          "velocity": 96
-        },
-        {
-          "tick": 240,
-          "duration_ticks": 270,
-          "note": 79,
-          "velocity": 90
-        },
-        {
-          "tick": 480,
-          "duration_ticks": 470,
-          "note": 81,
-          "velocity": 104
-        },
-        {
-          "tick": 960,
-          "duration_ticks": 270,
-          "note": 79,
-          "velocity": 88
-        },
-        {
-          "tick": 1200,
-          "duration_ticks": 680,
-          "note": 76,
-          "velocity": 100
-        },
-        {
-          "tick": 1920,
-          "duration_ticks": 270,
-          "note": 74,
-          "velocity": 92
-        },
-        {
-          "tick": 2160,
-          "duration_ticks": 270,
-          "note": 76,
-          "velocity": 90
-        },
-        {
-          "tick": 2400,
-          "duration_ticks": 390,
-          "note": 79,
-          "velocity": 100
-        },
-        {
-          "tick": 2760,
-          "duration_ticks": 150,
-          "note": 81,
-          "velocity": 84
-        },
-        {
-          "tick": 2880,
-          "duration_ticks": 920,
-          "note": 84,
-          "velocity": 108
-        },
-        {
-          "tick": 3840,
-          "duration_ticks": 270,
-          "note": 76,
-          "velocity": 96
-        },
-        {
-          "tick": 4080,
-          "duration_ticks": 270,
-          "note": 79,
-          "velocity": 90
-        },
-        {
-          "tick": 4320,
-          "duration_ticks": 470,
-          "note": 81,
-          "velocity": 104
-        },
-        {
-          "tick": 4800,
-          "duration_ticks": 270,
-          "note": 83,
-          "velocity": 92
-        },
-        {
-          "tick": 5040,
-          "duration_ticks": 680,
-          "note": 84,
-          "velocity": 104
-        },
-        {
-          "tick": 5760,
-          "duration_ticks": 270,
-          "note": 81,
-          "velocity": 92
-        },
-        {
-          "tick": 6000,
-          "duration_ticks": 270,
-          "note": 79,
-          "velocity": 88
-        },
-        {
-          "tick": 6240,
-          "duration_ticks": 270,
-          "note": 76,
-          "velocity": 92
-        },
-        {
-          "tick": 6480,
-          "duration_ticks": 1160,
-          "note": 74,
-          "velocity": 104
-        }
-      ]
     }
   },
   "performance": {
@@ -160,9 +35,9 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -9.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -9,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.03,
         "decay_seconds": 0.3,
@@ -175,7 +50,7 @@
             "type": "sine"
           },
           "phase_reset": false,
-          "phase": 0.0
+          "phase": 0
         }
       },
       "processors": []
@@ -190,9 +65,9 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -31.0,
-      "pan": 0.0,
-      "tuning_cents": 1200.0,
+      "gain_db": -31,
+      "pan": 0,
+      "tuning_cents": 1200,
       "envelope": {
         "attack_seconds": 0.03,
         "decay_seconds": 0.3,
@@ -205,7 +80,7 @@
             "type": "sine"
           },
           "phase_reset": false,
-          "phase": 0.0
+          "phase": 0
         }
       },
       "processors": []
@@ -220,9 +95,9 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -12.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -12,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.008,
         "decay_seconds": 0.2,
@@ -241,14 +116,14 @@
           "type": "filter",
           "id": "band",
           "mode": "band_pass",
-          "cutoff_hz": 325.0,
+          "cutoff_hz": 325,
           "resonance": 0.85
         },
         {
           "type": "filter",
           "id": "focus",
           "mode": "band_pass",
-          "cutoff_hz": 325.0,
+          "cutoff_hz": 325,
           "resonance": 0.6
         }
       ]
@@ -263,9 +138,9 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -38.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -38,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.015,
         "decay_seconds": 0.12,
@@ -284,8 +159,8 @@
           "type": "filter",
           "id": "hp",
           "mode": "high_pass",
-          "cutoff_hz": 6500.0,
-          "resonance": 0.0
+          "cutoff_hz": 6500,
+          "resonance": 0
         }
       ]
     }
@@ -294,13 +169,13 @@
     {
       "type": "eq",
       "id": "tone",
-      "low_frequency_hz": 300.0,
-      "low_gain_db": -3.0,
-      "mid_frequency_hz": 2500.0,
+      "low_frequency_hz": 300,
+      "low_gain_db": -3,
+      "mid_frequency_hz": 2500,
       "mid_gain_db": 1.5,
       "mid_q": 0.8,
-      "high_frequency_hz": 9000.0,
-      "high_gain_db": 1.0
+      "high_frequency_hz": 9000,
+      "high_gain_db": 1
     }
   ],
   "global_processors": [
@@ -322,15 +197,15 @@
       "pre_delay_seconds": 0.025,
       "decay": 0.72,
       "damping": 0.45,
-      "width": 1.0,
+      "width": 1,
       "mix": 0.2
     },
     {
       "type": "limiter",
       "id": "safety",
-      "ceiling_db": -3.0,
-      "release_ms": 100.0,
-      "input_gain_db": 0.0
+      "ceiling_db": -3,
+      "release_ms": 100,
+      "input_gain_db": 0
     }
   ],
   "modulation": {
@@ -338,14 +213,14 @@
       {
         "id": "vibrato",
         "type": "mseg",
-        "initial_value": 0.0,
+        "initial_value": 0,
         "segments": [
           {
             "duration": {
               "value": 0.28,
               "unit": "seconds"
             },
-            "target": 0.0,
+            "target": 0,
             "curve": "linear"
           },
           {
@@ -369,7 +244,7 @@
               "value": 0.045,
               "unit": "seconds"
             },
-            "target": 0.0,
+            "target": 0,
             "curve": "smooth_step"
           },
           {
@@ -393,7 +268,7 @@
               "value": 0.045,
               "unit": "seconds"
             },
-            "target": 0.0,
+            "target": 0,
             "curve": "smooth_step"
           },
           {
@@ -401,7 +276,7 @@
               "value": 0.045,
               "unit": "seconds"
             },
-            "target": 1.0,
+            "target": 1,
             "curve": "smooth_step"
           },
           {
@@ -409,7 +284,7 @@
               "value": 0.09,
               "unit": "seconds"
             },
-            "target": -1.0,
+            "target": -1,
             "curve": "smooth_step"
           },
           {
@@ -417,7 +292,7 @@
               "value": 0.045,
               "unit": "seconds"
             },
-            "target": 0.0,
+            "target": 0,
             "curve": "smooth_step"
           }
         ],
@@ -429,14 +304,14 @@
       {
         "id": "scoop",
         "type": "mseg",
-        "initial_value": -1.0,
+        "initial_value": -1,
         "segments": [
           {
             "duration": {
               "value": 0.07,
               "unit": "seconds"
             },
-            "target": 0.0,
+            "target": 0,
             "curve": "smooth_step"
           }
         ],
@@ -466,7 +341,7 @@
         "source": "vibrato",
         "target": "layer.tone.tuning",
         "depth": {
-          "value": 26.0,
+          "value": 26,
           "unit": "cents"
         },
         "curve": "linear"
@@ -475,7 +350,7 @@
         "source": "vibrato",
         "target": "layer.overtone.tuning",
         "depth": {
-          "value": 26.0,
+          "value": 26,
           "unit": "cents"
         },
         "curve": "linear"
@@ -484,7 +359,7 @@
         "source": "vibrato",
         "target": "layer.tone.gain",
         "depth": {
-          "value": 1.0,
+          "value": 1,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -493,7 +368,7 @@
         "source": "scoop",
         "target": "layer.tone.tuning",
         "depth": {
-          "value": 70.0,
+          "value": 70,
           "unit": "cents"
         },
         "curve": "linear"
@@ -502,7 +377,7 @@
         "source": "scoop",
         "target": "layer.overtone.tuning",
         "depth": {
-          "value": 70.0,
+          "value": 70,
           "unit": "cents"
         },
         "curve": "linear"
@@ -511,7 +386,7 @@
         "source": "velocity",
         "target": "layer.tone.gain",
         "depth": {
-          "value": 6.0,
+          "value": 6,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -520,7 +395,7 @@
         "source": "velocity",
         "target": "layer.overtone.gain",
         "depth": {
-          "value": 9.0,
+          "value": 9,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -529,7 +404,7 @@
         "source": "velocity",
         "target": "layer.breath.gain",
         "depth": {
-          "value": 6.0,
+          "value": 6,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -538,7 +413,7 @@
         "source": "macro.breath",
         "target": "layer.breath.gain",
         "depth": {
-          "value": 12.0,
+          "value": 12,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -547,7 +422,7 @@
         "source": "macro.breath",
         "target": "layer.air.gain",
         "depth": {
-          "value": 12.0,
+          "value": 12,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -556,7 +431,7 @@
         "source": "mod_wheel",
         "target": "layer.breath.gain",
         "depth": {
-          "value": 6.0,
+          "value": 6,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -565,7 +440,7 @@
         "source": "mod_wheel",
         "target": "layer.tone.gain",
         "depth": {
-          "value": -3.0,
+          "value": -3,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -574,7 +449,7 @@
         "source": "pitch_bend",
         "target": "layer.tone.tuning",
         "depth": {
-          "value": 200.0,
+          "value": 200,
           "unit": "cents"
         },
         "curve": "linear"
@@ -583,7 +458,7 @@
         "source": "pitch_bend",
         "target": "layer.overtone.tuning",
         "depth": {
-          "value": 200.0,
+          "value": 200,
           "unit": "cents"
         },
         "curve": "linear"

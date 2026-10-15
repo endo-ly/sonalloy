@@ -12,19 +12,17 @@ use sonalloy_core::{
     render_instrument_with_input_and_trace, seconds_to_frames,
 };
 
-use super::demo::DEMO_JSON_HELP;
 use super::{DEFAULT_BLOCK_SIZE, DEFAULT_SAMPLE_RATE, load_and_compile};
-use crate::command::pattern::load_pattern;
-use crate::demo::{
-    self, FfmpegError, LoudnessAnalysis, LoudnessMeasurement, MasterReport, StereoMix, encode_mp3,
-    master as master_demo,
-};
 use crate::midi::read_midi;
 use crate::output::{
     CliFailure, ResetComparison, SuccessReport, finish_failure, input_failure, print_success,
     print_warnings, render_failure, write_wav,
 };
-use crate::pattern::{CompiledPattern, compile as compile_pattern};
+use crate::performance::events::CompiledEvents;
+use crate::performance::{
+    self, FfmpegError, LoudnessAnalysis, LoudnessMeasurement, MasterReport, StereoMix, encode_mp3,
+    master as master_score,
+};
 
 const RENDER_EVENTS_HELP: &str = r"Render a JSON Event Sequence at exact absolute frame positions. The top-level object has an `events` array. Each entry requires `absolute_frame` (frames from render start) and `type`. Frames must be in ascending order and each must be less than `--duration-frames`; entries at the same frame are allowed.
 
@@ -39,8 +37,6 @@ Supported events and fields:
 
 `--duration-frames` is the main render duration. `--tail` adds audio after that duration; events cannot be placed in the tail. `--tempo` supplies one constant BPM for tempo-synced parameters. `--reset-check` renders the sequence again after resetting the instrument and cannot be combined with `--trace`. `--trace-every-frames` requires at least one `--trace` parameter.";
 
-const RENDER_DEMO_HELP: &str = r"Render every Part over the Demo timeline, apply Part gain and the configured global fade, and write the final Stereo WAV. External Audio dependencies are rendered Source first. The fade must not exceed the duration of the rendered mix, including any `--tail`. `--sample-rate` and `--block-size` are shared by all Parts; both values must be positive. `--tail` adds time after each Pattern. `--stems-dir` writes each Part before gain, global fade, and mastering. `--premaster-output` saves the gain- and fade-applied mix before mastering, including when mastering fails. It must differ from the final output path. `--analyze` requires FFmpeg and reports the premaster as `mix_analysis` / `mix_loudness` and the completed WAV as `output_analysis` / `output_loudness`; short-term LUFS uses trailing 3-second windows reported every 3 seconds. Demo `mix.master` uses fixed gain and an oversampled limiter, with at most 8 input-gain attempts. The final WAV is committed only after reaching target LUFS within 0.5 LU and True Peak at or below target; the report includes target, input, output, deviation and applied gains. `--mp3-output` requires FFmpeg and encodes the final audio, reporting the encoded MP3 measurement. Use `--json` for machine-readable success and structured diagnostics for execution failures.";
-
 #[derive(Debug, Subcommand)]
 pub(super) enum RenderCommand {
     /// Render one Note On / Note Off pair.
@@ -53,17 +49,8 @@ pub(super) enum RenderCommand {
         long_about = "Read a Standard MIDI File and render its events. MIDI tempo changes and time-signature changes determine the playback timeline; absent tempo or meter metadata uses 120 BPM or 4/4. `--tail` adds seconds after the MIDI timeline. External audio, analysis, tracing, WAV output, and JSON reporting follow the same rules as the other `render` commands."
     )]
     Midi(RenderMidiArgs),
-    /// Render a tick-based Pattern using its tempo and time-signature changes.
-    #[command(
-        long_about = "Render a Pattern's tick-based timeline using its `tempo_changes` and `time_signature_changes`. `parameter_change` and `parameter_ramp` events are resolved against the selected Instrument's Parameter catalog and must use a known Parameter ID and allowed native values. Ramp endpoints follow their tick positions across tempo changes. `--tail` adds seconds after the Pattern duration. External audio, analysis, tracing, WAV output, and JSON reporting follow the same rules as the other `render` commands."
-    )]
-    Pattern(RenderPatternArgs),
-    /// Render and mix every Part in a Demo.
-    #[command(
-        long_about = RENDER_DEMO_HELP,
-        after_long_help = DEMO_JSON_HELP
-    )]
-    Demo(RenderDemoArgs),
+    /// Render and mix a Score YAML performance.
+    Score(RenderScoreArgs),
 }
 #[derive(Debug, Args)]
 struct OfflineRenderCommonArgs {
@@ -131,22 +118,12 @@ pub(super) struct RenderMidiArgs {
 }
 
 #[derive(Debug, Args)]
-pub(super) struct RenderPatternArgs {
+pub(super) struct RenderScoreArgs {
+    /// Score YAML path.
+    #[arg(value_name = "SCORE")]
+    score: PathBuf,
     #[command(flatten)]
-    common: OfflineRenderCommonArgs,
-    /// Musical-time pattern JSON path.
-    #[arg(value_name = "PATTERN")]
-    pattern: PathBuf,
-    /// Additional tail after the Pattern timeline, in seconds (finite and non-negative).
-    #[arg(long, value_name = "SECONDS", default_value_t = 1.0, value_parser = super::parse_nonnegative_f64)]
-    tail: f64,
-}
-
-#[derive(Debug, Args)]
-pub(super) struct RenderDemoArgs {
-    /// Demo JSON path.
-    #[arg(value_name = "DEMO")]
-    demo: PathBuf,
+    bindings: crate::score::Bindings,
     /// Sample rate in Hz shared by all parts; must be greater than zero.
     #[arg(long, value_name = "HZ", default_value_t = DEFAULT_SAMPLE_RATE, value_parser = clap::value_parser!(u32).range(1..))]
     sample_rate: u32,
@@ -162,12 +139,18 @@ pub(super) struct RenderDemoArgs {
     /// Write the Stereo mix after Part gain and global fade, before mastering.
     #[arg(long, value_name = "WAV")]
     premaster_output: Option<PathBuf>,
-    /// Optional MP3 output; requires `FFmpeg` and uses Demo mastering when configured.
+    /// Optional MP3 output; requires `FFmpeg` and uses Score mastering when configured.
     #[arg(long, value_name = "PATH")]
     mp3_output: Option<PathBuf>,
     /// Analyze premaster and final WAV, including loudness; requires `FFmpeg`.
     #[arg(long)]
     analyze: bool,
+    /// Observe [`instrument_id`:]`parameter_id`; repeat for multiple parameters.
+    #[arg(long = "trace", value_name = "PARAMETER_ID")]
+    trace: Vec<String>,
+    /// Positive observation interval in frames.
+    #[arg(long,requires="trace",value_parser=super::parse_positive_usize)]
+    trace_every_frames: Option<usize>,
     /// Destination final Stereo WAV path.
     #[arg(long, value_name = "PATH")]
     output: PathBuf,
@@ -248,8 +231,7 @@ pub(super) fn run(command: RenderCommand) -> ExitCode {
         RenderCommand::Note(args) => run_render_note(&args),
         RenderCommand::Events(args) => run_render_events(&args),
         RenderCommand::Midi(args) => run_render_midi(&args),
-        RenderCommand::Pattern(args) => run_render_pattern(&args),
-        RenderCommand::Demo(args) => run_render_demo(&args),
+        RenderCommand::Score(args) => run_render_score(&args),
     }
 }
 
@@ -454,7 +436,7 @@ fn write_offline_render_result(
         );
     }
     let loudness = if common.analyze {
-        match demo::analyze_loudness(&pending) {
+        match performance::analyze_loudness(&pending) {
             Ok(loudness) => Some(loudness),
             Err(error) => return finish_failure(common.json, ffmpeg_failure(error)),
         }
@@ -486,7 +468,7 @@ fn write_offline_render_result(
 
 pub(crate) fn render_compiled_pattern(
     compiled: &Arc<CompiledInstrument>,
-    pattern: &CompiledPattern,
+    pattern: &CompiledEvents,
     sample_rate: f64,
     block_size: usize,
     tail_frames: u64,
@@ -513,14 +495,19 @@ pub(crate) fn render_compiled_pattern(
     Ok((audio, trace))
 }
 
-fn render_demo_parts(
-    demo: &demo::LoadedDemo,
+fn render_score_parts(
+    demo: &performance::PerformancePlan,
     sample_rate: f64,
     block_size: usize,
     tail_frames: u64,
-    mut consume: impl FnMut(usize, &sonalloy_core::RenderedAudio) -> Result<(), CliFailure>,
+    trace_requests: &[Option<TraceRequest>],
+    mut consume: impl FnMut(
+        usize,
+        &sonalloy_core::RenderedAudio,
+        Vec<RenderTraceReport>,
+    ) -> Result<(), CliFailure>,
 ) -> Result<(), CliFailure> {
-    let prerender_order = demo::prerender_order(demo);
+    let prerender_order = performance::prerender_order(demo);
     let mut remaining_input_uses = vec![0; demo.parts.len()];
     for source_index in demo.audio_dependencies.iter().flatten() {
         remaining_input_uses[*source_index] += 1;
@@ -546,20 +533,21 @@ fn render_demo_parts(
                 &mut remaining_input_uses,
             )?;
         }
-        let audio = render_demo_part_audio(
+        let (audio, traces) = render_score_part_audio(
             demo,
             index,
             sample_rate,
             block_size,
             tail_frames,
             &prepared_inputs,
+            trace_requests[index].as_ref(),
         )?;
         release_part_audio_input(index, demo, &mut prepared_inputs, &mut remaining_input_uses);
-        consume(index, &audio)?;
+        consume(index, &audio, traces)?;
         if remaining_input_uses[index] > 0 && prepared_inputs[index].is_none() {
             prepared_inputs[index] = Some(
-                prepare_part_audio_input(audio, demo.parts[index].definition.gain_db)
-                    .map_err(|detail| demo_routing_failure(index, &detail))?,
+                prepare_part_audio_input(audio)
+                    .map_err(|detail| score_routing_failure(index, &detail))?,
             );
         }
     }
@@ -567,7 +555,7 @@ fn render_demo_parts(
 }
 
 fn ensure_prepared_part_audio(
-    demo: &demo::LoadedDemo,
+    demo: &performance::PerformancePlan,
     index: usize,
     sample_rate: f64,
     block_size: usize,
@@ -589,54 +577,65 @@ fn ensure_prepared_part_audio(
             remaining_input_uses,
         )?;
     }
-    let audio = render_demo_part_audio(
+    let (audio, _) = render_score_part_audio(
         demo,
         index,
         sample_rate,
         block_size,
         tail_frames,
         prepared_inputs,
+        None,
     )?;
     release_part_audio_input(index, demo, prepared_inputs, remaining_input_uses);
     prepared_inputs[index] = Some(
-        prepare_part_audio_input(audio, demo.parts[index].definition.gain_db)
-            .map_err(|detail| demo_routing_failure(index, &detail))?,
+        prepare_part_audio_input(audio).map_err(|detail| score_routing_failure(index, &detail))?,
     );
     Ok(())
 }
 
-fn render_demo_part_audio(
-    demo: &demo::LoadedDemo,
+fn render_score_part_audio(
+    demo: &performance::PerformancePlan,
     index: usize,
     sample_rate: f64,
     block_size: usize,
     tail_frames: u64,
     prepared_inputs: &[Option<sonalloy_core::PreparedAudio>],
-) -> Result<sonalloy_core::RenderedAudio, CliFailure> {
+    trace_request: Option<&TraceRequest>,
+) -> Result<(sonalloy_core::RenderedAudio, Vec<RenderTraceReport>), CliFailure> {
     let part = &demo.parts[index];
     let external_audio = demo.audio_dependencies[index]
         .map(|source_index| {
             prepared_inputs[source_index]
                 .as_ref()
-                .ok_or_else(|| demo_routing_failure(index, "audio source was not prepared"))
+                .ok_or_else(|| score_routing_failure(index, "audio source was not prepared"))
         })
         .transpose()?;
-    let (audio, _) = render_compiled_pattern(
-        &part.instrument,
-        &part.compiled_pattern,
-        sample_rate,
-        block_size,
-        tail_frames,
-        None,
-        external_audio,
-    )
-    .map_err(|failure| prefix_part_failure(failure, index))?;
-    Ok(audio)
+    let mut mix = StereoMix::new(demo.sample_rate);
+    let mut traces = Vec::new();
+    for lane in &part.render_lanes {
+        let (audio, trace) = render_compiled_pattern(
+            &part.instrument,
+            &lane.compiled,
+            sample_rate,
+            block_size,
+            tail_frames,
+            trace_request,
+            external_audio,
+        )
+        .map_err(|failure| prefix_part_failure(failure, index))?;
+        if let Some(trace) = trace {
+            traces.push(trace);
+        }
+        mix.add_part(&audio, lane.gain_db)
+            .map_err(|detail| score_routing_failure(index, &detail))?;
+    }
+    let audio = mix.into_audio();
+    Ok((audio, traces))
 }
 
 fn release_part_audio_input(
     index: usize,
-    demo: &demo::LoadedDemo,
+    demo: &performance::PerformancePlan,
     prepared_inputs: &mut [Option<sonalloy_core::PreparedAudio>],
     remaining_input_uses: &mut [usize],
 ) {
@@ -651,30 +650,17 @@ fn release_part_audio_input(
 
 fn prepare_part_audio_input(
     audio: sonalloy_core::RenderedAudio,
-    gain_db: f64,
 ) -> Result<sonalloy_core::PreparedAudio, String> {
     if audio.channels.len() != 2 || audio.channels[0].len() != audio.channels[1].len() {
-        return Err("external audio source must be stereo".to_owned());
-    }
-    let gain = demo::gain_linear(gain_db).ok_or_else(|| "part gain is not finite".to_owned())?;
-    #[allow(clippy::cast_possible_truncation)]
-    let gain = gain as f32;
-    if !gain.is_finite() {
-        return Err("part gain cannot be represented as a finite audio gain".to_owned());
+        return Err("external audio source must be stereo".into());
     }
     let mut channels = audio.channels.into_iter();
-    let mut left = channels
+    let left = channels
         .next()
         .ok_or("external audio source must be stereo")?;
-    let mut right = channels
+    let right = channels
         .next()
         .ok_or("external audio source must be stereo")?;
-    for sample in &mut left {
-        *sample *= gain;
-    }
-    for sample in &mut right {
-        *sample *= gain;
-    }
     let frames = left.len();
     Ok(sonalloy_core::PreparedAudio {
         sample_rate: f64::from(audio.sample_rate),
@@ -692,13 +678,13 @@ fn prepare_part_audio_input(
     })
 }
 
-fn demo_routing_failure(part_index: usize, detail: &str) -> CliFailure {
+fn score_routing_failure(part_index: usize, detail: &str) -> CliFailure {
     CliFailure {
         code: 3,
         diagnostics: vec![
             Diagnostic::error(
                 DiagnosticCode::RenderError,
-                "Demo external audio routing failed",
+                "Score external audio routing failed",
             )
             .with_path(format!("parts[{part_index}].audio_input"))
             .with_detail(detail),
@@ -908,7 +894,7 @@ fn compile_event_sequence(
                     );
                     continue;
                 };
-                match crate::pattern::resolve_parameter_ramp(
+                match crate::performance::events::resolve_parameter_ramp(
                     compiled,
                     parameter,
                     *from_value,
@@ -1037,86 +1023,11 @@ fn run_render_midi(args: &RenderMidiArgs) -> ExitCode {
     write_offline_render(common, &compiled, diagnostics, rendered, None)
 }
 
-fn run_render_pattern(args: &RenderPatternArgs) -> ExitCode {
-    let common = &args.common;
-    let sample_rate = f64::from(common.sample_rate);
-    let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
-        Ok(frames) => frames,
-        Err(error) => return finish_failure(common.json, input_failure(&error)),
-    };
-    let (compiled, diagnostics) =
-        match load_and_compile(&common.definition, common.sample_rate, common.block_size) {
-            Ok(result) => result,
-            Err(failure) => return finish_failure(common.json, failure),
-        };
-    let external_audio = match load_render_audio_input(common, &compiled) {
-        Ok(audio) => audio,
-        Err(failure) => return finish_failure(common.json, failure),
-    };
-    let pattern = match load_pattern(&args.pattern) {
-        Ok(pattern) => pattern,
-        Err(failure) => return finish_failure(common.json, failure),
-    };
-    let compiled_pattern = match compile_pattern(&pattern, &compiled, sample_rate) {
-        Ok(compiled_pattern) => compiled_pattern,
-        Err(diagnostics) => {
-            return finish_failure(
-                common.json,
-                CliFailure {
-                    code: 2,
-                    diagnostics,
-                },
-            );
-        }
-    };
-    let trace_request =
-        match resolve_trace_request(&compiled, &common.trace, common.trace_every_frames) {
-            Ok(request) => request,
-            Err(failure) => return finish_failure(common.json, failure),
-        };
-    let (audio, trace) = match render_compiled_pattern(
-        &compiled,
-        &compiled_pattern,
-        sample_rate,
-        common.block_size,
-        tail_frames,
-        trace_request.as_ref(),
-        external_audio.as_ref(),
-    ) {
-        Ok(rendered) => rendered,
-        Err(failure) => return finish_failure(common.json, failure),
-    };
-    write_offline_render_result(common, &compiled, diagnostics, &audio, trace, None, None)
-}
-
-pub(crate) fn render_bundle_demo(
-    demo: PathBuf,
-    output: PathBuf,
-    stems_dir: PathBuf,
-    sample_rate: u32,
-    block_size: usize,
-    tail: f64,
-) -> Result<(), CliFailure> {
-    execute_render_demo(&RenderDemoArgs {
-        demo,
-        output,
-        stems_dir: Some(stems_dir),
-        sample_rate,
-        block_size,
-        tail,
-        premaster_output: None,
-        mp3_output: None,
-        analyze: false,
-        json: false,
-    })
-    .map(|_| ())
-}
-
-fn render_demo_mix(
-    demo: &demo::LoadedDemo,
-    args: &RenderDemoArgs,
+fn render_score_mix(
+    demo: &performance::PerformancePlan,
+    args: &RenderScoreArgs,
     tail_frames: u64,
-) -> Result<(sonalloy_core::RenderedAudio, Vec<DemoPartRenderReport>), CliFailure> {
+) -> Result<(sonalloy_core::RenderedAudio, Vec<PartRenderReport>), CliFailure> {
     let sample_rate = f64::from(args.sample_rate);
     if let Some(stems_dir) = &args.stems_dir
         && let Err(error) = std::fs::create_dir_all(stems_dir)
@@ -1134,14 +1045,16 @@ fn render_demo_mix(
         });
     }
 
+    let trace_requests = score_trace_requests(demo, args)?;
     let mut mix = StereoMix::new(args.sample_rate);
     let mut part_reports = Vec::with_capacity(demo.parts.len());
-    render_demo_parts(
+    render_score_parts(
         demo,
         sample_rate,
         args.block_size,
         tail_frames,
-        |index, audio| {
+        &trace_requests,
+        |index, audio, traces| {
             let part = &demo.parts[index];
             let stem = if let Some(stems_dir) = &args.stems_dir {
                 let stem_path = stems_dir.join(format!("{}.wav", part.definition.id));
@@ -1154,19 +1067,19 @@ fn render_demo_mix(
                 None
             };
             let frames = audio.frames();
-            mix.add_part(audio, part.definition.gain_db)
-                .map_err(|error| CliFailure {
-                    code: 3,
-                    diagnostics: vec![
-                        Diagnostic::error(DiagnosticCode::RenderError, error)
-                            .with_path(format!("parts[{index}]")),
-                    ],
-                })?;
-            part_reports.push(DemoPartRenderReport {
+            mix.add_part(audio, 0.0).map_err(|error| CliFailure {
+                code: 3,
+                diagnostics: vec![
+                    Diagnostic::error(DiagnosticCode::RenderError, error)
+                        .with_path(format!("parts[{index}]")),
+                ],
+            })?;
+            part_reports.push(PartRenderReport {
                 id: part.definition.id.clone(),
-                gain_db: part.definition.gain_db,
+                lane_gains_db: part.render_lanes.iter().map(|lane| lane.gain_db).collect(),
                 frames,
                 stem,
+                traces,
             });
             Ok(())
         },
@@ -1184,8 +1097,8 @@ fn render_demo_mix(
     Ok((mix_audio, part_reports))
 }
 
-/// Reject a Demo render whose final, premaster and MP3 outputs would share a path.
-fn validate_demo_output_paths(args: &RenderDemoArgs) -> Result<(), CliFailure> {
+/// Reject a Score render whose final, premaster and MP3 outputs would share a path.
+fn validate_score_output_paths(args: &RenderScoreArgs) -> Result<(), CliFailure> {
     let mut output_paths = Vec::new();
     for path in std::iter::once(&args.output)
         .chain(args.premaster_output.iter())
@@ -1206,11 +1119,110 @@ fn validate_demo_output_paths(args: &RenderDemoArgs) -> Result<(), CliFailure> {
     Ok(())
 }
 
+fn validate_score_input_paths(
+    plan: &performance::PerformancePlan,
+    args: &RenderScoreArgs,
+) -> Result<(), CliFailure> {
+    let mut inputs = vec![crate::output::output_identity(&args.score)?];
+    for part in &plan.parts {
+        let definition = &part.definition.instrument;
+        let identity = crate::output::output_identity(definition)?;
+        if !inputs.contains(&identity) {
+            inputs.push(identity);
+        }
+        for asset in score_asset_paths(definition)? {
+            let identity = crate::output::output_identity(&asset)?;
+            if !inputs.contains(&identity) {
+                inputs.push(identity);
+            }
+        }
+    }
+    let mut outputs = std::iter::once(&args.output)
+        .chain(args.premaster_output.iter())
+        .chain(args.mp3_output.iter())
+        .map(|p| crate::output::output_identity(p))
+        .collect::<Result<Vec<_>, _>>()?;
+    if let Some(directory) = &args.stems_dir {
+        for part in &plan.parts {
+            let path = directory.join(format!("{}.wav", part.definition.id));
+            let identity = crate::output::output_identity(&path)?;
+            if outputs.contains(&identity) {
+                return Err(score_output_path_failure(
+                    &path,
+                    "stem and mix output paths must be distinct",
+                ));
+            }
+            outputs.push(identity);
+        }
+    }
+    if let Some(output) = outputs.iter().find(|output| inputs.contains(output)) {
+        return Err(score_output_path_failure(
+            output,
+            "output must not overwrite a score, instrument definition, or referenced asset",
+        ));
+    }
+    Ok(())
+}
+
+fn score_asset_paths(definition_path: &Path) -> Result<Vec<PathBuf>, CliFailure> {
+    let text = std::fs::read_to_string(definition_path).map_err(|error| CliFailure {
+        code: 1,
+        diagnostics: vec![
+            Diagnostic::error(
+                DiagnosticCode::DefinitionError,
+                "could not read instrument definition assets",
+            )
+            .with_path(definition_path.to_string_lossy())
+            .with_detail(error.to_string()),
+        ],
+    })?;
+    let mut definition: sonalloy_core::InstrumentDefinition =
+        serde_json::from_str(&text).map_err(|error| CliFailure {
+            code: 1,
+            diagnostics: vec![
+                Diagnostic::error(
+                    DiagnosticCode::JsonInvalid,
+                    "could not inspect instrument definition assets",
+                )
+                .with_path(definition_path.to_string_lossy())
+                .with_detail(error.to_string()),
+            ],
+        })?;
+    definition.layers.retain(|layer| layer.enabled);
+    let base = definition_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut assets = Vec::new();
+    definition
+        .try_for_each_asset_mut(|_, reference| {
+            let path = Path::new(&reference.path);
+            assets.push(if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                base.join(path)
+            });
+            Ok::<_, std::convert::Infallible>(())
+        })
+        .expect("asset collection is infallible");
+    Ok(assets)
+}
+
+fn score_output_path_failure(path: &Path, detail: &str) -> CliFailure {
+    CliFailure {
+        code: 2,
+        diagnostics: vec![
+            Diagnostic::error(DiagnosticCode::WavOutputError, detail)
+                .with_path(path.to_string_lossy()),
+        ],
+    }
+}
+
 /// Resolve the WAV that mastering and loudness analysis read, filling a temporary
 /// mix only when no premaster was requested and a WAV is still needed. The
 /// returned directory keeps that temporary mix alive for the caller.
-fn demo_premaster_source(
-    args: &RenderDemoArgs,
+fn score_premaster_source(
+    args: &RenderScoreArgs,
     master_configured: bool,
     mix_audio: &sonalloy_core::RenderedAudio,
 ) -> Result<(Option<tempfile::TempDir>, Option<PathBuf>), CliFailure> {
@@ -1223,7 +1235,7 @@ fn demo_premaster_source(
             diagnostics: vec![
                 Diagnostic::error(
                     DiagnosticCode::WavOutputError,
-                    "could not create temporary Demo mix",
+                    "could not create temporary Score mix",
                 )
                 .with_detail(error.to_string()),
             ],
@@ -1239,18 +1251,18 @@ fn demo_premaster_source(
 }
 
 /// Master the premaster WAV into the pending output, or write the mix directly
-/// when the Demo configures no mastering. Both paths fill the pending name, so
+/// when the Score configures no mastering. Both paths fill the pending name, so
 /// the caller still publishes the final WAV only after every later step.
-fn render_demo_master(
-    args: &RenderDemoArgs,
-    master: Option<&demo::DemoMaster>,
+fn render_score_master(
+    args: &RenderScoreArgs,
+    master: Option<&performance::Master>,
     premaster_path: Option<&Path>,
     pending: &Path,
     mix_audio: &sonalloy_core::RenderedAudio,
 ) -> Result<Option<MasterReport>, CliFailure> {
     if let Some(settings) = master {
         Ok(Some(
-            master_demo(
+            master_score(
                 premaster_path.expect("mastering has a premaster WAV"),
                 pending,
                 settings,
@@ -1269,12 +1281,12 @@ fn render_demo_master(
 
 /// Inspect the rendered WAV and encode an optional MP3, so the final output is
 /// only published once every measurement has succeeded.
-fn measure_demo_output(
-    args: &RenderDemoArgs,
+fn measure_score_output(
+    args: &RenderScoreArgs,
     output_wav: &Path,
     master_report: Option<&MasterReport>,
     mix_loudness: Option<&LoudnessAnalysis>,
-) -> Result<DemoOutputMeasurements, CliFailure> {
+) -> Result<OutputMeasurements, CliFailure> {
     let analysis = if args.analyze {
         Some(analyze_output_wav(output_wav, args.sample_rate)?)
     } else {
@@ -1284,39 +1296,46 @@ fn measure_demo_output(
         if master_report.is_none() {
             mix_loudness.cloned()
         } else {
-            Some(demo::analyze_loudness(output_wav).map_err(ffmpeg_failure)?)
+            Some(performance::analyze_loudness(output_wav).map_err(ffmpeg_failure)?)
         }
     } else {
         None
     };
     let mp3_measurement = if let Some(mp3_output) = &args.mp3_output {
         encode_mp3(output_wav, mp3_output).map_err(ffmpeg_failure)?;
-        Some(demo::measure_loudness(mp3_output).map_err(ffmpeg_failure)?)
+        Some(performance::measure_loudness(mp3_output).map_err(ffmpeg_failure)?)
     } else {
         None
     };
-    Ok(DemoOutputMeasurements {
+    Ok(OutputMeasurements {
         analysis,
         loudness,
         mp3_measurement,
     })
 }
 
-struct DemoOutputMeasurements {
+struct OutputMeasurements {
     analysis: Option<AudioAnalysis>,
     loudness: Option<LoudnessAnalysis>,
     mp3_measurement: Option<LoudnessMeasurement>,
 }
 
-fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFailure> {
-    validate_demo_output_paths(args)?;
+#[allow(clippy::too_many_lines)]
+fn execute_render_score(args: &RenderScoreArgs) -> Result<ScoreRenderReport, CliFailure> {
+    validate_score_output_paths(args)?;
     let sample_rate = f64::from(args.sample_rate);
     let tail_frames = match seconds_to_frames(args.tail, sample_rate) {
         Ok(frames) => frames,
         Err(error) => return Err(input_failure(&error)),
     };
-    let demo = demo::load(&args.demo, args.sample_rate, args.block_size)?;
-    let (mix_audio, part_reports) = render_demo_mix(&demo, args, tail_frames)?;
+    let demo = performance::load(
+        &args.score,
+        &args.bindings,
+        args.sample_rate,
+        args.block_size,
+    )?;
+    validate_score_input_paths(&demo, args)?;
+    let (mix_audio, part_reports) = render_score_mix(&demo, args, tail_frames)?;
     // Persist a requested premaster before any mastering or FFmpeg analysis can fail.
     if let Some(path) = &args.premaster_output
         && let Err(error) = write_wav(path, &mix_audio)
@@ -1333,10 +1352,10 @@ fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFai
     };
 
     let (_temporary_mix_directory, premaster_path) =
-        demo_premaster_source(args, demo.definition.mix.master.is_some(), &mix_audio)?;
+        score_premaster_source(args, demo.definition.mix.master.is_some(), &mix_audio)?;
     let mix_loudness = if args.analyze {
         Some(
-            demo::analyze_loudness(
+            performance::analyze_loudness(
                 premaster_path
                     .as_deref()
                     .expect("analysis has a premaster WAV"),
@@ -1349,7 +1368,7 @@ fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFai
     // The final WAV stays under a pending name until analysis and MP3 succeed, so a
     // failure never replaces an already published output.
     let pending = crate::output::pending_wav(&args.output)?;
-    let master_report = render_demo_master(
+    let master_report = render_score_master(
         args,
         demo.definition.mix.master.as_ref(),
         premaster_path.as_deref(),
@@ -1357,14 +1376,40 @@ fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFai
         &mix_audio,
     )?;
 
-    let measurements = measure_demo_output(
+    let measurements = measure_score_output(
         args,
         &pending,
         master_report.as_ref(),
         mix_loudness.as_ref(),
     )?;
     crate::output::commit_wav(pending, &args.output)?;
-    let report = DemoRenderReport {
+    let mut diagnostics = demo.diagnostics.clone();
+    if let Some(comparison) = master_report
+        .as_ref()
+        .and_then(|report| report.lra.as_ref())
+    {
+        if comparison
+            .deviation_lu
+            .is_none_or(|difference| difference.abs() > 0.5)
+        {
+            diagnostics.push(
+                Diagnostic::warning(
+                    DiagnosticCode::ValueOutOfRange,
+                    comparison.reason.map_or_else(
+                        || {
+                            format!(
+                                "measured LRA differs from target by {:.2} LU",
+                                comparison.deviation_lu.expect("measured deviation")
+                            )
+                        },
+                        str::to_owned,
+                    ),
+                )
+                .with_path("meta.master.target_lra_lu"),
+            );
+        }
+    }
+    let report = ScoreRenderReport {
         status: "ok",
         sample_rate: mix_audio.sample_rate,
         channels: mix_audio.channels.len(),
@@ -1389,20 +1434,20 @@ fn execute_render_demo(args: &RenderDemoArgs) -> Result<DemoRenderReport, CliFai
         output_loudness: measurements.loudness,
         master: master_report,
         mp3_measurement: measurements.mp3_measurement,
-        diagnostics: demo.diagnostics.clone(),
+        diagnostics,
     };
     Ok(report)
 }
 
-fn run_render_demo(args: &RenderDemoArgs) -> ExitCode {
-    let report = match execute_render_demo(args) {
+fn run_render_score(args: &RenderScoreArgs) -> ExitCode {
+    let report = match execute_render_score(args) {
         Ok(report) => report,
         Err(failure) => return finish_failure(args.json, failure),
     };
     if args.json {
         println!(
             "{}",
-            serde_json::to_string(&report).expect("Demo render report is serializable")
+            serde_json::to_string(&report).expect("Score render report is serializable")
         );
     } else {
         println!(
@@ -1468,7 +1513,7 @@ fn ffmpeg_failure(error: FfmpegError) -> CliFailure {
             diagnostics: vec![
                 Diagnostic::error(
                     DiagnosticCode::RenderError,
-                    "FFmpeg is required for loudness analysis, Demo mastering or MP3 output",
+                    "FFmpeg is required for loudness analysis, Score mastering or MP3 output",
                 )
                 .with_detail("install ffmpeg and make it available on PATH"),
             ],
@@ -1485,7 +1530,7 @@ fn ffmpeg_failure(error: FfmpegError) -> CliFailure {
 }
 
 #[derive(Debug, Serialize)]
-struct DemoRenderReport {
+struct ScoreRenderReport {
     status: &'static str,
     sample_rate: u32,
     channels: usize,
@@ -1501,7 +1546,7 @@ struct DemoRenderReport {
     mp3_output: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stems_dir: Option<String>,
-    parts: Vec<DemoPartRenderReport>,
+    parts: Vec<PartRenderReport>,
     #[serde(skip_serializing_if = "Option::is_none")]
     mix_analysis: Option<AudioAnalysis>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1522,9 +1567,11 @@ fn print_loudness_measurement(label: &str, measurement: &LoudnessMeasurement) {
 }
 
 #[derive(Debug, Serialize)]
-struct DemoPartRenderReport {
+struct PartRenderReport {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    traces: Vec<RenderTraceReport>,
     id: String,
-    gain_db: f64,
+    lane_gains_db: Vec<f64>,
     frames: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     stem: Option<String>,
@@ -1750,11 +1797,93 @@ fn load_render_audio_input(
         })
 }
 
+fn score_trace_requests(
+    plan: &performance::PerformancePlan,
+    args: &RenderScoreArgs,
+) -> Result<Vec<Option<TraceRequest>>, CliFailure> {
+    let mut ids = vec![Vec::new(); plan.parts.len()];
+    for requested in &args.trace {
+        let (part_id, parameter) = requested
+            .split_once(':')
+            .map_or((None, requested.as_str()), |(id, p)| (Some(id), p));
+        let mut matched = false;
+        for (index, part) in plan.parts.iter().enumerate() {
+            if part_id.is_none_or(|id| id == part.definition.id)
+                && part.instrument.parameter_handle(parameter).is_some()
+            {
+                ids[index].push(parameter.to_owned());
+                matched = true;
+            }
+        }
+        if !matched {
+            return Err(CliFailure {
+                code: 2,
+                diagnostics: vec![
+                    Diagnostic::error(
+                        DiagnosticCode::ParameterNotFound,
+                        "trace instrument or parameter does not exist",
+                    )
+                    .with_path("--trace")
+                    .with_detail(requested),
+                ],
+            });
+        }
+    }
+    plan.parts
+        .iter()
+        .zip(ids)
+        .map(|(part, ids)| resolve_trace_request(&part.instrument, &ids, args.trace_every_frames))
+        .collect()
+}
+
 #[cfg(test)]
 mod mastering_tests {
     use super::*;
 
-    fn fixture(directory: &Path) -> (demo::DemoDefinition, RenderDemoArgs) {
+    #[test]
+    fn builtin_preview_scores_render_finite_audible_stereo() {
+        let snapshots: Vec<serde_json::Value> = serde_json::from_str(include_str!(
+            "../../../../testdata/expected/score-auditions.sha256.json"
+        ))
+        .expect("audition catalog");
+        let previews: Vec<_> = snapshots
+            .iter()
+            .filter_map(|v| v["score"].as_str())
+            .filter(|p| p.ends_with("/preview.score.yaml"))
+            .collect();
+        assert_eq!(previews.len(), 109);
+        for path in previews {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .join(path);
+            let plan = performance::load(&path, &crate::score::Bindings::default(), 48000, 257)
+                .expect("preview loads");
+            let part = &plan.parts[0];
+            let (audio, _) = render_compiled_pattern(
+                &part.instrument,
+                &part.render_lanes[0].compiled,
+                48000.0,
+                257,
+                4800,
+                None,
+                None,
+            )
+            .expect("preview renders");
+            assert_eq!(audio.channels.len(), 2, "{}", path.display());
+            assert!(
+                audio.channels.iter().flatten().all(|s| s.is_finite()),
+                "{}",
+                path.display()
+            );
+            assert!(
+                audio.channels.iter().flatten().any(|s| s.abs() > 1e-5),
+                "{} is silent",
+                path.display()
+            );
+        }
+    }
+
+    fn fixture(directory: &Path) -> (serde_json::Value, RenderScoreArgs) {
         let instrument = directory.join("instrument.json");
         std::fs::write(
             &instrument,
@@ -1764,38 +1893,24 @@ mod mastering_tests {
             )),
         )
         .expect("instrument");
-        let pattern_path = directory.join("pattern.json");
-        let pattern = crate::pattern::default_pattern();
+        let score_path = directory.join("score.yaml");
+        let definition = serde_json::json!({
+            "meta":{"title":"Master test","bpm":120,"meter":"4/4","tuning":"12edo","gate":1,"fade_out_seconds":0.2},
+            "form":[{"section":"phrase","bars":1,"tonic":"C","scale":"ionian"}],
+            "sections":{"phrase":{"placements":[{"instrument":"bass","degree":"1","at":{"bar":1,"step":1},"duration_quarters":1}]}},
+            "instruments":{"bass":{"definition":instrument,"gain_db":-6}}
+        });
         std::fs::write(
-            &pattern_path,
-            serde_json::to_vec(&pattern).expect("pattern JSON"),
+            &score_path,
+            serde_json::to_string_pretty(&definition).expect("score YAML"),
         )
-        .expect("pattern");
-        let demo_path = directory.join("demo.json");
-        let definition = demo::DemoDefinition {
-            schema_version: 1,
-            name: None,
-            parts: vec![demo::DemoPart {
-                id: "bass".into(),
-                instrument,
-                pattern: pattern_path,
-                gain_db: -6.0,
-                midi_channel: None,
-                audio_input: None,
-            }],
-            mix: demo::DemoMix {
-                fade_out_seconds: 0.2,
-                master: None,
-            },
-        };
-        std::fs::write(
-            &demo_path,
-            serde_json::to_vec(&definition).expect("demo JSON"),
-        )
-        .expect("demo");
-        let args = RenderDemoArgs {
-            demo: demo_path,
-            sample_rate: 48_000,
+        .expect("score");
+        let args = RenderScoreArgs {
+            score: score_path,
+            trace: Vec::new(),
+            trace_every_frames: None,
+            bindings: crate::score::Bindings::default(),
+            sample_rate: 48000,
             block_size: 257,
             tail: 0.2,
             stems_dir: Some(directory.join("stems")),
@@ -1813,7 +1928,7 @@ mod mastering_tests {
         let directory = tempfile::tempdir().expect("directory");
         let (mut definition, mut args) = fixture(directory.path());
 
-        assert_eq!(run_render_demo(&args), ExitCode::SUCCESS);
+        assert_eq!(run_render_score(&args), ExitCode::SUCCESS);
         let samples = |path: &Path| {
             hound::WavReader::open(path)
                 .expect("WAV")
@@ -1828,7 +1943,7 @@ mod mastering_tests {
             .iter()
             .position(|sample| sample.abs() > 0.001)
             .expect("audible stem");
-        assert!((premaster[active] - stem[active] * 0.501_187_2).abs() < 1.0e-6);
+        assert!((premaster[active] - stem[active]).abs() < 1.0e-6);
         assert!(premaster.last().expect("fade endpoint").abs() < f32::EPSILON);
 
         if std::process::Command::new("ffmpeg")
@@ -1838,39 +1953,32 @@ mod mastering_tests {
         {
             return;
         }
-        definition.mix.master = Some(demo::DemoMaster {
-            integrated_lufs: -9.0,
-            true_peak_db: -1.0,
-        });
+        definition["meta"]["master"] =
+            serde_json::json!({"target_lufs":-9,"max_true_peak_db":-1,"target_lra_lu":7});
         std::fs::write(
-            &args.demo,
-            serde_json::to_vec(&definition).expect("master demo JSON"),
+            &args.score,
+            serde_json::to_string_pretty(&definition).expect("score YAML"),
         )
-        .expect("master demo");
+        .expect("score");
         args.analyze = true;
-        assert_eq!(run_render_demo(&args), ExitCode::SUCCESS);
-        let measurement = demo::measure_loudness(&args.output).expect("master output measurement");
+        assert_eq!(run_render_score(&args), ExitCode::SUCCESS);
+        let measurement =
+            performance::measure_loudness(&args.output).expect("master output measurement");
         assert!((measurement.integrated_lufs.expect("LUFS") + 9.0).abs() <= 0.5);
         assert!(measurement.true_peak_db.expect("true peak") <= -1.0);
         assert_eq!(
             premaster,
             samples(args.premaster_output.as_deref().expect("premaster path"))
         );
-        let instrument = &definition.parts[0].instrument;
-        let mut silent: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(instrument).expect("instrument JSON"))
-                .expect("instrument object");
-        for layer in silent["layers"].as_array_mut().expect("layers") {
-            layer["enabled"] = false.into();
-        }
+        definition["instruments"]["bass"]["gain_db"] = (-1000).into();
         std::fs::write(
-            instrument,
-            serde_json::to_vec(&silent).expect("silent instrument JSON"),
+            &args.score,
+            serde_json::to_string_pretty(&definition).expect("silent score"),
         )
-        .expect("silent instrument");
+        .expect("score");
         std::fs::write(&args.output, b"existing completed output").expect("existing output");
 
-        assert_ne!(run_render_demo(&args), ExitCode::SUCCESS);
+        assert_ne!(run_render_score(&args), ExitCode::SUCCESS);
         assert_eq!(
             std::fs::read(&args.output).expect("existing output retained"),
             b"existing completed output"

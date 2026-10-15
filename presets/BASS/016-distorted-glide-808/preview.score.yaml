@@ -1,0 +1,139 @@
+meta:
+  title: "Distorted Glide 808 preview"
+  bpm: 140
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 4
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "4,,,"
+        duration_quarters: "3/2"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "4,,,"
+        duration_quarters: "1/2"
+        velocity: 88
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "4,,,"
+        duration_quarters: "1"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "13/4"
+        degree: "4,,"
+        duration_quarters: "3/4"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "b6,,,"
+        duration_quarters: "7/4"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "b6,,,"
+        duration_quarters: "1/2"
+        velocity: 84
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "b6,,,"
+        duration_quarters: "1"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "13/4"
+        degree: "b3,,,"
+        duration_quarters: "3/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "4,,,"
+        duration_quarters: "2"
+        velocity: 116
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "2"
+        degree: "1,,"
+        duration_quarters: "1/2"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "11/4"
+        degree: "b3,,"
+        duration_quarters: "1/2"
+        velocity: 92
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "7/2"
+        degree: "4,,"
+        duration_quarters: "1/2"
+        velocity: 120
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "4,,,"
+        duration_quarters: "3/2"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "5/4"
+        degree: "1,,"
+        duration_quarters: "1/2"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "7/4"
+        degree: "1,,,"
+        duration_quarters: "9/4"
+        velocity: 118
+instruments:
+  preview:
+    preset: "BASS/016-distorted-glide-808"

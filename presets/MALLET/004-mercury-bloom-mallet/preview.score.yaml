@@ -1,0 +1,51 @@
+meta:
+  title: "Mercury Bloom Mallet preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 1
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "7/8"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "3"
+        duration_quarters: "7/8"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "5"
+        duration_quarters: "1"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "1'"
+        duration_quarters: "1"
+        velocity: 80
+instruments:
+  preview:
+    preset: "MALLET/004-mercury-bloom-mallet"

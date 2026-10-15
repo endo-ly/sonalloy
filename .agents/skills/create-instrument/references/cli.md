@@ -9,21 +9,13 @@ Sonalloy CLI（バイナリ名`sonalloy`）は、音源定義（JSON）を読み
 | `instrument init` | 音源定義のひな形を生成する |
 | `instrument validate` | 音源定義を検証する |
 | `instrument inspect` | コンパイル後の実行値を表示する |
-| `pattern init` | 1つのInstrumentを試奏するPatternを生成する |
-| `pattern validate` | Patternの構造を検証する |
-| `pattern inspect` | Patternの音楽的な長さとEvent概要を表示する |
-| `pattern import-midi` | MIDIの1 ChannelをPatternへ変換する |
-| `pattern export-midi` | PatternをSingle Track MIDIへ変換する |
-| `demo validate` | 複数InstrumentとPatternからなるDemoを検証する |
-| `demo inspect` | Demoの時間軸、Part、Mix設定を表示する |
-| `demo pack` | Demoと参照先を自己完結Bundleへまとめる |
-| `demo export-midi` | DemoをType 1 Multi-track MIDIへ変換する |
+| `score init / validate / inspect` | Score YAMLを生成・検証・展開する |
+| `score import-midi / export-midi` | ScoreとMIDIを相互変換する |
+| `render score` | 楽曲・試奏をWAV、Stem、MP3へ出力する |
+| `audition score` | Scoreの1楽器をAudio Deviceで試聴する |
 | `render note` | 1音をレンダリングする |
 | `render events` | Event Sequenceをレンダリングする |
 | `render midi` | MIDI Fileをレンダリングする |
-| `render pattern` | 演奏パターン（Pattern）をレンダリングする |
-| `render demo` | 複数InstrumentをOffline RenderしてMixする |
-| `audition pattern` | PatternをAudio Deviceで試聴する |
 | `audition midi` | MIDI Fileを1 Channel選択して試聴する |
 | `device list` | Audio Input / OutputとMIDI Inputを列挙する |
 | `play` | MIDI InputからAudio Outputへリアルタイム演奏する。外部Audio定義ではAudio Inputも接続する |
@@ -99,141 +91,50 @@ sonalloy instrument inspect <definition> --json
 
 `modulated_range_from_default`は、各Sourceが単独で最大Depthまで届いたと仮定して計算した理論上の範囲です。実際の演奏で通る値の予測ではありません。
 
-## Audition Pattern
+## Scoreの編集・検証・出力
 
-Audition Patternは、1つのInstrumentを試奏するための演奏パターン（JSON）です。NoteやChord、フレーズ、ドラム、演奏操作、Parameter ChangeをTickベースの時間軸で書けます。Schema、Validation、Loop、MIDI Interchangeの正本は[`patterns.md`](patterns.md)です。
-
-### `pattern init` — 試奏Patternの生成
+楽曲・試奏・プレビューは[Score YAML](score_spec.md)を使います。正式な文法と演奏規則はこの仕様を参照し、このリファレンスではCLIの実行方法・Option・出力を説明します。音源のJSONとアセットはScoreから参照します。
 
 ```bash
-sonalloy pattern init phrase.json
+sonalloy score init phrase.score.yaml
+sonalloy score validate phrase.score.yaml --json
+sonalloy score inspect phrase.score.yaml --json
+sonalloy render score phrase.score.yaml --output phrase.wav --stems-dir stems --json
+sonalloy score export-midi phrase.score.yaml --output phrase.mid --json
+sonalloy score import-midi phrase.mid --instrument instrument.json --output imported.score.yaml --json
 ```
 
-検証を通る1小節のPatternを生成します（120 BPM、4/4拍子、C4の四分音符1つ）。既存のPathは上書きしません。
+`score init` は組み込みLEADをPreset IDで参照する1小節のScoreを生成します。生成時にプリセットの配置先を解決しないため、別の環境へ移しても同じIDを使えます。生成先が存在する場合は失敗します。`validate`、`inspect`、`render score`ではPreset IDを実行時に解決します。プリセットの探索順と、見つからない場合の診断は[Score仕様](score_spec.md)を参照してください。`validate` は構文・参照・音楽・音源能力・配線を検査し、`inspect` はセクション順、和声、共通時間軸、楽器別イベント、元の度数と入力位置を表示します。
 
-### `pattern validate` — 構造検証
+| 共通Option | 意味 |
+|---|---|
+| `--preset-root DIR` | `preset:` の探索先。未指定時は環境変数、Scoreの親階層にある `presets/` の順に解決 |
+| `--bind ID=DEFINITION` | `external: true` の音源を束縛。複数回指定可。固定音源の差替えや重複IDはエラー |
+| `--json` | 成功Reportと構造化DiagnosticをJSONで出力 |
 
-```bash
-sonalloy pattern validate phrase.json
-sonalloy pattern validate phrase.json --json
-```
+`inspect --preview-json` は1楽器・1テンポ・1拍子のNote列をブラウザ用の `tempoBpm` / `ticksPerBeat` / `timeSignature` / `lengthTicks` / `notes` として返します。配布スクリプトは `--sonalloy-bin <絶対パス>` で指定したCLIからこのReportを取得します。
 
-Schema Version、未知のField、Tick / Tempo / Time Signatureの整合、NoteとControl値の範囲、Noteが1つ以上あることを検証します。検証規則の詳細は[Pattern仕様](patterns.md)を参照してください。Instrument固有Parameterの存在と範囲は、Instrumentを指定する`render pattern`または`audition pattern`で解決します。
+MIDI入力の `--channel 1..16` はNote Channelを選び、`--tonic` は度数表記の主音（既定C）を指定します。テンポ、拍子、非グリッド位置、Note、Sustain、Bend、Wheel、Aftertouchを保持します。出力はConductorと楽器ごとのTrackを持つType 1 MIDIです。最大16チャンネル、同音Noteの重複、音源固有Parameter操作などの制約を診断します。MIDI入出力は既存の出力先を上書きしません。
 
-### `pattern inspect` — Pattern概要
+### `render score` — 楽曲・試奏の音声出力
 
-```bash
-sonalloy pattern inspect phrase.json
-sonalloy pattern inspect phrase.json --json
-```
+すべての楽器を共通の時間軸でレンダリングし、楽器Gainを適用したStereo Mixを生成します。外部Audioは依存元から準備し、追加GainのLaneは独立に鳴らして元の楽器ID単位で合算します。
 
-表示項目：
+| Option | 意味 |
+|---|---|
+| `--output WAV` | 完成Stereo WAV。必須 |
+| `--sample-rate HZ` / `--block-size FRAMES` | 全楽器共通の処理条件。既定48000 / 257 |
+| `--tail SEC` | 曲終端後の余韻。既定1秒 |
+| `--stems-dir DIR` | 楽器Gain適用後・全体Fade/Master適用前の楽器別WAV |
+| `--premaster-output WAV` | Gain・全体Fade適用後、Master前のMix |
+| `--mp3-output PATH` | 完成音声からMP3を生成し測定。FFmpeg必須 |
+| `--analyze` | Premasterと完成WAVの音響・LUFS・True Peak・LRA解析。FFmpeg必須 |
+| `--trace [ID:]PARAMETER` | 指定楽器、または該当する全楽器のParameterを観測。複数回指定可 |
+| `--trace-every-frames N` | Trace間隔。正の整数、既定480 |
 
-- Name、Schema、Tick Resolution
-- Length（Tempo Timelineから計算した、Sample Rateに依存しない音楽的な長さ）
-- Tempo Change / Time Signature Changeの件数
-- Note数とVelocity範囲
-- Control数、Parameter Change数（`parameter_change_count`）、Ramp数（`parameter_ramp_count`）とParameter ID数
+MasterはScoreの `meta.master` を使い、LUFS差0.5以内・True Peak上限以下のWAVを確定します。LRAは測定値との差と警告を返します。PremasterはMaster失敗時にも残り、完成WAVは後続の解析やMP3出力を含む処理が成功してから確定します。出力先の衝突はエラーです。
 
-### `pattern import-midi` — MIDIからPatternへ変換
-
-```bash
-sonalloy pattern import-midi phrase.mid --output phrase.json
-sonalloy pattern import-midi song.mid --channel 10 --output drums.json
-```
-
-`--channel 1..16`で取り込むNote Channelを選びます（1つのChannelだけのMIDIは自動選択）。既存のOutput Pathは上書きしません。取り込み規則は[Pattern仕様](patterns.md)を参照してください。
-
-### `pattern export-midi` — PatternからMIDIへ変換
-
-```bash
-sonalloy pattern export-midi phrase.json --output phrase.mid
-sonalloy pattern export-midi drums.json --channel 10 --output drums.mid
-```
-
-既存のOutput Pathは上書きしません。MIDIへ変換できないEventがあるPatternは`MIDI_ERROR`で失敗します（規則は[Pattern仕様](patterns.md)）。
-
-## Demo
-
-Demoの定義と出力の意味は[Demo仕様](demos.md)にまとめています。ここではDemo関連コマンドの使い方とReportを説明します。
-
-### `demo validate` — Demoの検証
-
-```bash
-sonalloy demo validate demo.json
-sonalloy demo validate demo.json --json
-```
-
-Demo JSON、各Partが参照するInstrumentとPattern、全Partの時間軸、External Audio接続を検証します。Instrument CompileはSample Rate `48000`、Block Size `257`で実行します。External Audioを必要とするInstrumentには`audio_input.part`が必要で、入力を使わないInstrumentには指定できません。接続先のPart ID、自己参照、循環も検証します。検証内容・診断Path・Reportの詳細は[Demo仕様](demos.md)を参照してください。
-
-### `demo inspect` — Demoの構成確認
-
-```bash
-sonalloy demo inspect demo.json
-sonalloy demo inspect demo.json --json
-```
-
-Schema Version、Part数、共通Tick解像度、最長Patternの`length_ticks`、音楽的な長さ、Tempo / Time Signatureの件数、各Partの参照Path・Gain・解決済みMIDI Channel・External Audio接続を表示します。Human-readable outputでは`Fade Out`と`FFmpeg Required`も表示します。`--json`では`status`と`command`を含む成功Reportに、Master設定を含む`mix`全体を返します。
-
-### `demo export-midi` — Type 1 MIDIの生成
-
-```bash
-sonalloy demo export-midi demo.json --output demo.mid
-sonalloy demo export-midi demo.json --output demo.mid --json
-```
-
-DemoをType 1 MIDIへ変換します。時間軸、Trackの内容、MIDIへ変換できないEventの扱いは[Demo仕様](demos.md)に従います。既存のOutput Pathは上書きします。
-
-### `demo pack` — 自己完結Bundleの生成
-
-楽曲データと音源アセットをまとめ、別の場所へ移動しても検証・RenderできるBundleを生成します。配置とManifestの契約は[Bundle Format v1](demos.md#bundle-format-v1)を参照してください。
-
-```bash
-sonalloy demo pack demo.json --output song-bundle --json
-sonalloy demo pack demo.json --output rendered-bundle --with-render \
-  --sample-rate 48000 --block-size 257 --tail 1.0 --json
-```
-
-| 引数・Option | Default | 内容 |
-|---|---:|---|
-| `<DEMO>` | — | 入力Demo JSON（必須） |
-| `--output <DIRECTORY>` | — | 新規Bundleディレクトリ（必須）。既存のファイル・ディレクトリ・Symbolic Linkは拒否 |
-| `--with-render` | false | 完成Mixと全Part Stemを同梱 |
-| `--sample-rate <HZ>` | 48000 | 正の整数。全InstrumentのCompile・Renderで共有 |
-| `--block-size <FRAMES>` | 257 | 正の整数。Process Blockの最大Frames |
-| `--tail <SECONDS>` | 1.0 | 有限数かつ0以上。各Partへ加える余韻の秒数 |
-| `--json` | false | 構造化Reportと診断を出力 |
-
-WAV同梱の有無にかかわらず、指定条件で再配置後のInstrumentとPatternをCompileし、Render SettingsをManifestへ保存します。`--with-render`がなければ音声RenderとFFmpeg処理は実行しません。
-
-成功Reportは`status: "ok"`、`command: "demo pack"`、`output`、`format_version: 1`、`part_count`、`file_count`、`render_included`、`diagnostics`を含みます。`file_count`はManifestの`files`件数であり、`bundle.json`を含みません。失敗時は共通のDiagnostic形式を使います。既存出力先は`BUNDLE_OUTPUT_EXISTS`、アセット欠落は`ASSET_NOT_FOUND`、Hash不一致は`ASSET_HASH_MISMATCH`、Render失敗は`RENDER_ERROR`として区別します。
-
-### `render demo` — DemoのOffline Render
-
-```bash
-sonalloy render demo demo.json \
-  --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --stems-dir out/stems --analyze --output out/demo.wav --json
-```
-
-| Option | 初期値 | 内容 |
-|---|---:|---|
-| `<demo>` | — | Demo Definition（必須） |
-| `--output <wav>` | — | 最終Stereo WAV（必須） |
-| `--sample-rate <hz>` | `48000` | 全Partへ共通して使うSample Rate |
-| `--block-size <frames>` | `257` | 全Partへ共通して使う最大Process Block Size |
-| `--tail <seconds>` | `1.0` | 各Pattern終端後へ追加するRender Tail |
-| `--stems-dir <directory>` | なし | 指定時だけPartごとのStem WAVを保存 |
-| `--premaster-output <wav>` | なし | Part GainとGlobal Fadeを適用したMaster前のMixを保存 |
-| `--mp3-output <mp3>` | なし | 指定時だけMP3を生成 |
-| `--analyze` | なし | Fade後・Master前のMixと、完成WAVをそれぞれAudio Analysisへ渡す |
-| `--json` | なし | 結果を機械可読で出力 |
-
-PartのRender、Stem、Mix、Masterの規則は[Demo仕様](demos.md)に従います。
-
-`--json`では、`status`、`sample_rate`、`channels`、`frames`、`output`、Partごとの`id` / `gain_db` / `frames` / `stem`を返します。`--analyze`指定時はMaster前の`mix_analysis` / `mix_loudness`と完成WAVの`output_analysis` / `output_loudness`を返します。`mix.master`指定時の`master`にはTarget / Input / Output / Deviation、入力・出力Gain、探索回数を含みます。`premaster_output`、`mp3_output`、`stems_dir`は対応するOption指定時だけ含まれ、MP3生成時は測定値`mp3_measurement`も返します。Masterの処理と出力確定条件は[Demo仕様](demos.md#masterとmp3)に従います。
-
-FFmpegが必要な状態で見つからない場合はExit Code `4`、`RENDER_ERROR`、Message `FFmpeg is required for loudness analysis, Demo mastering or MP3 output`、Detail `install ffmpeg and make it available on PATH`で失敗します。
+JSON Reportには `sample_rate`、`frames`、`output`、楽器別の `parts` を含みます。指定した処理に応じて `mix_analysis`、`output_analysis`、`mix_loudness`、`output_loudness`、`master`、`mp3_measurement`、各Partの `traces` を返します。
 
 ## リアルタイム演奏
 
@@ -291,23 +192,16 @@ sonalloy play <definition> --audio-device <id> --sample-rate 48000 --buffer-size
 
 MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64（Sustain Pedal）は、Offline経路と同じCore Eventへ変換されます。`--macro-cc`で割り当てたCCはMacroの`parameter_change`へ変換されます。1つのCCを複数Macroへ割り当てたり、予約済みCCを割り当てたりする指定は起動時に拒否します。
 
-### `audition pattern` — PatternのRealtime試聴
+### `audition score` — 1楽器のリアルタイム試聴
 
 ```bash
-sonalloy audition pattern <definition> <pattern>
-sonalloy audition pattern <definition> <pattern> --loop
+sonalloy audition score phrase.score.yaml --loop
+sonalloy audition score song.score.yaml --part lead --section verse
 ```
 
-Audio Outputだけを使うため、MIDI Input DeviceやMIDI Keyboardは不要です。One-shotはPatternの終端、Tail、Engine Latencyを再生して自動終了します。`--loop`ではPatternのEvent Timelineだけを繰り返し、Instrument RuntimeをResetしません。Loop中は標準入力のEnterで停止します。
+複数楽器のScoreでは `--part` が必須です。`--section` は1つの出現を選び、テンポ・拍子・継続Note・演奏操作・Automationを区間先頭へ揃えます。選択結果が複数の独立Laneを必要とする場合はエラーになります。
 
-| Option | Default | 内容 |
-|---|---:|---|
-| `--audio-device <id>` | OS Default | CPAL Stable Device ID |
-| `--audio-input-device <id>` | OS Default | 外部Audioを使う定義で選ぶCPAL Input Device ID |
-| `--sample-rate <hz>` | Device Default | PatternをCompileするSample Rate |
-| `--buffer-size <frames>` | 256 | CPALへ要求するFrame数 |
-| `--tail <seconds>` | 1.0 | One-shot終了時に追加するTail |
-| `--loop` | Off | Patternを反復する。MIDI Auditionにはありません |
+`--audio-device`、`--audio-input-device`、`--sample-rate`、`--buffer-size` は `play` と共通です。`--tail` は1回再生の余韻、`--loop` はEnterまでの繰返しを指定します。Loopでは音源状態を保持し、Note IDと固定Latencyを補正します。Scoreの音声配線を含む楽曲確認には `render score` を使います。
 
 ### `audition midi` — MIDI FileのRealtime試聴
 
@@ -316,20 +210,19 @@ sonalloy audition midi <definition> <midi-file>
 sonalloy audition midi <definition> <midi-file> --channel 2
 ```
 
-MIDI FileをTickベースで読み込み、1つのChannelをPatternへ変換してから、`audition pattern`と同じ仕組みで再生します。複数Note Channelを含む場合は`--channel 1..16`が必要です。MIDI Input Deviceは使いません。外部Audioを使う定義では`--audio-input-device <id>`でCPAL Inputを選べます。Loop再生が必要なときは、`pattern import-midi`でPatternへ変換してから`audition pattern --loop`を使います。
+MIDI FileをTickベースで読み込み、1つのChannelを内部演奏イベントへ変換してから、`audition score`と同じ仕組みで再生します。複数Note Channelを含む場合は`--channel 1..16`が必要です。MIDI Input Deviceは使いません。外部Audioを使う定義では`--audio-input-device <id>`でCPAL Inputを選べます。Loop再生が必要なときは、`score import-midi <midi> --instrument <definition> --output <score.yaml>`でScoreへ変換してから`audition score --loop`を使います。
 
 ## 音を鳴らす
 
 `render`コマンドはいずれもWAVを生成します。確認したい内容に合わせて使い分けます。
 
-外部Audioを使う定義では、`render note/events/pattern/midi`に`--audio-input <wav>`を指定します。WAVはCompile時のSample Rateへ準備され、Monoは左右へ複製、Stereoは左右を保持します。入力の終端後は無音を渡します。必須入力の省略は`AUDIO_INPUT_REQUIRED`とMessage `external audio input is required; specify --audio-input <WAV>`を返します。外部Audioを使わない定義への入力指定はErrorです。Demoの入力接続は`audio_input.part`で指定します。
+外部Audioを使う定義では、`render note/events/midi`に`--audio-input <wav>`を指定します。WAVはCompile時のSample Rateへ準備され、Monoは左右へ複製、Stereoは左右を保持します。入力の終端後は無音を渡します。必須入力の省略は`AUDIO_INPUT_REQUIRED`とMessage `external audio input is required; specify --audio-input <WAV>`を返します。外部Audioを使わない定義への入力指定はErrorです。Scoreの入力接続は`instruments.<id>.audio_input`で指定します。
 
 | コマンド | 向いている用途 |
 |---|---|
 | `render note` | 1音の鳴り方（Attack、Sustain、Release）を手軽に確かめる |
 | `render events` | 演奏中のParameter変化（Filter Cutoff、Pitch Bendなど）を正確な位置で再現する |
 | `render midi` | MIDI Fileのフレーズを鳴らす |
-| `render pattern` | Tickベースの演奏パターンを鳴らす（Sample Rateに依存しない長さ） |
 
 ### `render note` — 1音のレンダリング
 
@@ -400,9 +293,9 @@ Event Fileは、Eventの並びをJSONで書いたものです。各Eventは、**
 - Eventは`absolute_frame`の昇順で記述します。同時刻はEventの種類と定義順に従います
 - 次のいずれかはErrorになり、WAVを生成しません：`--duration-frames`を超えるFrameのEvent、音源定義に存在しないParameter ID、Native範囲外の値
 
-Rampの`duration_frames`は正の整数で、`absolute_frame + duration_frames`は`--duration-frames`以下かつ処理Frame数として表現できる必要があります。両端は有限値です。補間と次の変更による置き換えは[PatternのParameter Automation](patterns.md#parameter-automation)と共通です。
+Rampの`duration_frames`は正の整数で、`absolute_frame + duration_frames`は`--duration-frames`以下かつ処理Frame数として表現できる必要があります。両端は有限値です。補間と次の変更による置き換えは[Scoreの演奏制御](score_spec.md#10-演奏イベントマクロ優先規則)と共通です。
 
-`render note`と`render events`は指定Tempoの4/4から始まります。`render midi`はTempo Meta EventとTime Signature Meta Eventを`MusicalTimeMap`へ変換し、Time Signatureがない場合は4/4を使います。`render pattern`もPatternの`tempo_changes`と`time_signature_changes`から同じMapを作ります。Tempo / Meterの変更位置でProcess Blockを分割し、`beat_position`と`bar_position`をProcessContextへ渡します。
+`render note`と`render events`は指定Tempoの4/4から始まります。`render midi`はTempo Meta EventとTime Signature Meta Eventを`MusicalTimeMap`へ変換し、Time Signatureがない場合は4/4を使います。`render score`はScoreの共通テンポ・拍子マップを使います。Tempo / Meterの変更位置でProcess Blockを分割し、`beat_position`と`bar_position`をProcessContextへ渡します。
 
 | Option | Default | 内容 |
 |---|---|---|
@@ -420,7 +313,7 @@ Rampの`duration_frames`は正の整数で、`absolute_frame + duration_frames`�
 
 ### AnalysisとTrace（`--analyze` / `--trace`）
 
-`render note`、`render events`、`render midi`、`render pattern`は、`--analyze`で補正後の出力WAVを決定的に解析し、`--trace`で選択したParameterの実行中の値をJSON成功Reportへ追加します。`--json`を付けない場合も、短いSummaryを標準出力へ表示します。
+`render note`、`render events`、`render midi`、`render score`は、`--analyze`で補正後の出力WAVを決定的に解析し、`--trace`で選択したParameterの実行中の値をJSON成功Reportへ追加します。`--json`を付けない場合も、短いSummaryを標準出力へ表示します。
 
 Analysisの主なFieldは次のとおりです。
 
@@ -437,7 +330,7 @@ Analysisの主なFieldは次のとおりです。
 
 帯域Energyは既存のMono Spectrumと同じ窓から計算し、20–60、60–120、120–250、250–500、500–2000、2000–6000、6000–20000 Hzの帯域へFFT Binを一度ずつ集計します。`mean_square`は窓のPowerを補正した平均二乗値、`power_dbfs`はそのPowerのdBFS、`energy_ratio`は全正周波数Powerに対する比率です。上端はNyquistへ切り詰め、利用できるBinがない帯域は`null`を返します。
 
-LoudnessはCLIのFFmpegによるオフライン計測です。`--analyze`にはFFmpegが必要です。単独Renderでは`analysis.loudness`、Demoでは`mix_loudness` / `output_loudness`に出力します。`short_term_window_seconds`と`short_term_interval_seconds`はいずれも3です。`short_term[]`の`time_seconds`はRender開始からの秒数で、その時刻を終端とする3秒窓の`short_term_lufs`を3秒間隔で返します。3秒未満の音声には完全な窓がなく、配列は空でLRAは`null`になります。無音のLUFSやTrue Peakも`null`です。
+LoudnessはCLIのFFmpegによるオフライン計測です。`--analyze`にはFFmpegが必要です。単独Renderでは`analysis.loudness`、Scoreでは`mix_loudness` / `output_loudness`に出力します。`short_term_window_seconds`と`short_term_interval_seconds`はいずれも3です。`short_term[]`の`time_seconds`はRender開始からの秒数で、その時刻を終端とする3秒窓の`short_term_lufs`を3秒間隔で返します。3秒未満の音声には完全な窓がなく、配列は空でLRAは`null`になります。無音のLUFSやTrue Peakも`null`です。
 
 測定できない項目（無音時のLevel / Activityなど）は`null`になり、NaNとInfinityはJSONへ出力しません。`render note`だけは指定MIDI Noteの標準音高をReference周波数として使い、`events`と`midi`はFundamentalを推測しません。
 
@@ -485,18 +378,6 @@ MIDIを読み込むと、CLIは次の変換を行います：
 | `--trace <id>` | なし | 選択したDynamic ParameterをTrace（複数指定可） |
 | `--trace-every-frames <N>` | 480（Trace指定時） | 定期Trace間隔 |
 | `--json` | Off | 結果を機械可読で出力 |
-
-### `render pattern` — Audition Patternのレンダリング
-
-Audition PatternをInstrumentへCompileし、ほかのrenderコマンドと同じようにWAVを出力します。
-
-```bash
-sonalloy render pattern <definition> <pattern> \
-  --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --output out/pattern.wav
-```
-
-`--analyze`、`--trace`、`--trace-every-frames`、`--json`はほかのrenderコマンドと同じです。`--tail`はPatternの1周の長さに含めず、終端後の余韻として追加します。PatternのParameter ChangeとRampはInstrument Compile後にParameter Catalogで解決されます。
 
 ## 動作確認
 
@@ -577,7 +458,6 @@ Clapによるコマンドラインの構文・値エラーは標準エラーへ�
 | Modulation Source / Route | `SOURCE_ID_INVALID`、`SOURCE_ID_DUPLICATED`、`SOURCE_NOT_FOUND`、`SOURCE_VALUE_INVALID`、`ROUTE_DEPTH_INVALID`、`ROUTE_DEPTH_UNIT_INVALID`、`ROUTE_TARGET_INVALID` |
 | Event File | `EVENT_ORDER_INVALID` |
 | Trace | `TRACE_LIMIT_EXCEEDED` |
-| Bundle | `BUNDLE_OUTPUT_EXISTS` |
 | Asset | `ASSET_NOT_FOUND`、`ASSET_HASH_MISMATCH`、`ASSET_DECODE_FAILED`、`ASSET_RESAMPLED`、`ASSET_DOWNMIXED`、`ASSET_HASH_MISSING`、`ASSET_ABSOLUTE_PATH` |
 | 外部Audio入力 | `AUDIO_INPUT_REQUIRED` |
 | 実行と書き出し | `PROCESS_ERROR`、`DSP_ERROR`、`RENDER_ERROR`、`WAV_OUTPUT_ERROR`、`MIDI_ERROR` |

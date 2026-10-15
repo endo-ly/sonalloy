@@ -8,19 +8,15 @@ use sonalloy_core::{
     DEFAULT_TEMPO_BPM, Diagnostic, DiagnosticCode, ParameterHandle, TimeSignature,
 };
 
-use crate::command::pattern::load_pattern;
 use crate::output::{CliFailure, finish_failure, print_warnings};
 use crate::realtime::{PlayOptions, ScheduledAuditionOptions};
 #[derive(Debug, Subcommand)]
 pub(super) enum AuditionCommand {
-    /// Play a Pattern through an audio output without a MIDI input.
-    #[command(
-        long_about = "Play a tick-based Pattern through an audio output; a MIDI keyboard or MIDI input device is not needed. One-shot playback ends after the Pattern, its additional `--tail`, and engine latency have played. `--loop` repeats the Pattern timeline until Enter is pressed, without resetting the instrument; tail is used only for one-shot playback. Omit `--audio-device` to use the OS default output; an unknown ID fails. Omit `--sample-rate` to use the output device's default rate; an unsupported rate fails. `--buffer-size` must be positive and supported by the device. If the Definition requires external audio, `--audio-input-device` selects an input or defaults to the OS input; it must support the required channel count, sample rate, and buffer size. Specifying an input for a Definition that does not use external audio fails."
-    )]
-    Pattern(AuditionPatternArgs),
+    /// Audition one instrument from a Score YAML timeline.
+    Score(AuditionScoreArgs),
     /// Play one MIDI Note Channel through an audio output without a MIDI input.
     #[command(
-        long_about = "Convert one Note Channel from a Standard MIDI File to a Pattern and play it through an audio output. `--channel` selects a 1-based channel from 1 through 16. If omitted, the only Note Channel is selected automatically; no Note Channels is an error, and multiple Note Channels require `--channel`. This command does not use a MIDI input device. To repeat a MIDI file, convert it with `pattern import-midi` and use `audition pattern --loop`. The optional tail plays after the MIDI phrase ends. Omit `--audio-device` to use the OS default output; an unknown ID fails. Omit `--sample-rate` to use the output device's default rate; an unsupported rate fails. `--buffer-size` must be positive and supported by the device. If the Definition requires external audio, `--audio-input-device` selects an input or defaults to the OS input; it must support the required channel count, sample rate, and buffer size. Specifying an input for a Definition that does not use external audio fails."
+        long_about = "Convert one Note Channel from a Standard MIDI File to a Pattern and play it through an audio output. `--channel` selects a 1-based channel from 1 through 16. If omitted, the only Note Channel is selected automatically; no Note Channels is an error, and multiple Note Channels require `--channel`. This command does not use a MIDI input device. To repeat a MIDI file, convert it with `score import-midi` and use `audition score --loop`. The optional tail plays after the MIDI phrase ends. Omit `--audio-device` to use the OS default output; an unknown ID fails. Omit `--sample-rate` to use the output device's default rate; an unsupported rate fails. `--buffer-size` must be positive and supported by the device. If the Definition requires external audio, `--audio-input-device` selects an input or defaults to the OS input; it must support the required channel count, sample rate, and buffer size. Specifying an input for a Definition that does not use external audio fails."
     )]
     Midi(AuditionMidiArgs),
 }
@@ -73,13 +69,17 @@ pub(super) struct PlayArgs {
 }
 
 #[derive(Debug, Args)]
-pub(super) struct AuditionPatternArgs {
-    /// Definition JSON path.
-    #[arg(value_name = "DEFINITION")]
-    pub(crate) definition: PathBuf,
-    /// Musical-time pattern JSON path.
-    #[arg(value_name = "PATTERN")]
-    pub(crate) pattern: PathBuf,
+pub(super) struct AuditionScoreArgs {
+    /// Score YAML path.
+    pub(crate) score: PathBuf,
+    #[command(flatten)]
+    pub(crate) bindings: crate::score::Bindings,
+    /// Instrument to audition; required for a score with several instruments.
+    #[arg(long)]
+    pub(crate) part: Option<String>,
+    /// Select one named section occurrence.
+    #[arg(long)]
+    pub(crate) section: Option<String>,
     /// Audio Output ID from `device list`; the OS default is used when omitted.
     #[arg(long, value_name = "DEVICE_ID")]
     pub(crate) audio_device: Option<String>,
@@ -270,26 +270,90 @@ fn parse_macro_cc(
     }
 }
 
-fn run_audition_pattern(args: &AuditionPatternArgs) -> ExitCode {
-    let pattern = match load_pattern(&args.pattern) {
-        Ok(pattern) => pattern,
+#[allow(clippy::too_many_lines)]
+fn run_audition_score(args: &AuditionScoreArgs) -> ExitCode {
+    let selected = (|| {
+        let score = crate::score::read(&args.score)?;
+        let paths = crate::performance::definition_paths(&score, &args.score, &args.bindings)?;
+        let id = match &args.part {
+            Some(id) => id.clone(),
+            None if score.instruments.len() == 1 => score
+                .instruments
+                .keys()
+                .next()
+                .expect("one instrument")
+                .clone(),
+            None => {
+                return Err(score_selection_failure(
+                    "select --part for a score with multiple instruments",
+                ));
+            }
+        };
+        if !score.instruments.contains_key(&id) {
+            return Err(score_selection_failure("unknown --part instrument"));
+        }
+        if score.instruments[&id].get("audio_input").is_some() {
+            return Err(score_selection_failure(
+                "score audio routing requires offline render",
+            ));
+        }
+        Ok((score, paths[&id].clone(), id))
+    })();
+    let (score, definition, id) = match selected {
+        Ok(value) => value,
         Err(failure) => return finish_failure(false, failure),
     };
-    let pattern_diagnostics = crate::pattern::validate(&pattern);
-    if !pattern_diagnostics.is_empty() {
-        return finish_failure(
-            false,
-            CliFailure {
-                code: 2,
-                diagnostics: pattern_diagnostics,
-            },
-        );
-    }
     let session = match crate::realtime::start_scheduled_audition(
-        &pattern,
+        |compiled| {
+            let mut lanes = Vec::new();
+            for lane in score.lanes.iter().filter(|lane| lane.id == id) {
+                let mut pattern = lane.pattern.clone();
+                if let Some(section) = &args.section {
+                    crate::performance::events::slice_section(
+                        &mut pattern,
+                        &score.sections,
+                        section,
+                        compiled,
+                    )
+                    .map_err(|message| (1, score_selection_failure(message).diagnostics))?;
+                }
+                if pattern
+                    .events
+                    .iter()
+                    .any(crate::performance::events::MusicalEvent::is_note)
+                    || compiled.required_input_channels() > 0
+                {
+                    lanes.push((pattern, lane.gain_db));
+                }
+            }
+            if lanes.len() > 1 {
+                return Err((
+                    1,
+                    score_selection_failure(
+                        "selected passage requires multiple independent performance lanes",
+                    )
+                    .diagnostics,
+                ));
+            }
+            if let Some(lane) = lanes.pop() {
+                Ok(lane)
+            } else {
+                let mut empty = score.timeline.clone();
+                if let Some(section) = &args.section {
+                    crate::performance::events::slice_section(
+                        &mut empty,
+                        &score.sections,
+                        section,
+                        compiled,
+                    )
+                    .map_err(|message| (1, score_selection_failure(message).diagnostics))?;
+                }
+                Ok((empty, 0.0))
+            }
+        },
         Vec::new(),
         &ScheduledAuditionOptions {
-            definition_path: &args.definition,
+            definition_path: &definition,
             audio_device: args.audio_device.as_deref(),
             audio_input_device: args.audio_input_device.as_deref(),
             requested_sample_rate: args.sample_rate,
@@ -337,7 +401,7 @@ fn run_audition_midi(args: &AuditionMidiArgs) -> ExitCode {
         }
     };
     let (pattern, diagnostics) =
-        match crate::midi::import_pattern(parsed, args.channel.map(|channel| channel - 1)) {
+        match crate::midi::import_performance(parsed, args.channel.map(|channel| channel - 1)) {
             Ok(result) => result,
             Err(diagnostics) => {
                 return finish_failure(
@@ -350,7 +414,7 @@ fn run_audition_midi(args: &AuditionMidiArgs) -> ExitCode {
             }
         };
     let session = match crate::realtime::start_scheduled_audition(
-        &pattern,
+        |_| Ok((pattern.clone(), 0.0)),
         diagnostics,
         &ScheduledAuditionOptions {
             definition_path: &args.definition,
@@ -513,7 +577,7 @@ fn print_realtime_status(status: &crate::realtime::RealtimeStatus) {
 
 pub(super) fn run_audition(command: AuditionCommand) -> ExitCode {
     match command {
-        AuditionCommand::Pattern(args) => run_audition_pattern(&args),
+        AuditionCommand::Score(args) => run_audition_score(&args),
         AuditionCommand::Midi(args) => run_audition_midi(&args),
     }
 }
@@ -649,6 +713,13 @@ pub(super) fn run_play(args: &PlayArgs) -> ExitCode {
             ),
             None => ExitCode::SUCCESS,
         }
+    }
+}
+
+fn score_selection_failure(message: impl Into<String>) -> CliFailure {
+    CliFailure {
+        code: 1,
+        diagnostics: vec![Diagnostic::error(DiagnosticCode::DefinitionError, message)],
     }
 }
 

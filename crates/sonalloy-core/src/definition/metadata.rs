@@ -25,9 +25,6 @@ pub struct InstrumentMetadata {
     /// Optional practical MIDI range for the instrument.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recommended_range: Option<InstrumentRecommendedRange>,
-    /// Optional short browser preview definition.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preview: Option<InstrumentPreviewDefinition>,
 }
 
 /// Practical MIDI range recommended for one instrument.
@@ -38,46 +35,6 @@ pub struct InstrumentRecommendedRange {
     pub min_midi: u8,
     /// Highest recommended MIDI note.
     pub max_midi: u8,
-}
-
-/// Note-only performance used for a browser preview.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InstrumentPreviewDefinition {
-    /// Preview tempo in beats per minute.
-    pub tempo_bpm: f64,
-    /// Number of ticks in one quarter-note beat.
-    pub ticks_per_beat: u16,
-    /// Preview time signature.
-    pub time_signature: InstrumentPreviewTimeSignature,
-    /// Preview length in ticks.
-    pub length_ticks: u64,
-    /// Note events in non-decreasing tick order.
-    pub notes: Vec<InstrumentPreviewNote>,
-}
-
-/// Time signature used by a browser preview.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InstrumentPreviewTimeSignature {
-    /// Beats in one bar.
-    pub numerator: u8,
-    /// Note value that represents one beat.
-    pub denominator: u8,
-}
-
-/// One note event in a browser preview.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InstrumentPreviewNote {
-    /// Start position in ticks.
-    pub tick: u64,
-    /// Note duration in ticks.
-    pub duration_ticks: u64,
-    /// MIDI note number.
-    pub note: u8,
-    /// MIDI velocity.
-    pub velocity: u8,
 }
 
 pub(crate) fn validate_metadata(diagnostics: &mut Vec<Diagnostic>, metadata: &InstrumentMetadata) {
@@ -120,10 +77,6 @@ pub(crate) fn validate_metadata(diagnostics: &mut Vec<Diagnostic>, metadata: &In
             );
         }
     }
-
-    if let Some(preview) = &metadata.preview {
-        validate_preview(diagnostics, preview, metadata.recommended_range);
-    }
 }
 
 fn validate_text(
@@ -163,161 +116,6 @@ fn validate_text(
     }
 }
 
-fn validate_preview(
-    diagnostics: &mut Vec<Diagnostic>,
-    preview: &InstrumentPreviewDefinition,
-    recommended_range: Option<InstrumentRecommendedRange>,
-) {
-    validate_preview_header(diagnostics, preview);
-    validate_preview_notes(diagnostics, preview, recommended_range);
-    validate_preview_duration(diagnostics, preview);
-}
-
-fn validate_preview_header(
-    diagnostics: &mut Vec<Diagnostic>,
-    preview: &InstrumentPreviewDefinition,
-) {
-    if !preview.tempo_bpm.is_finite() || !(30.0..=300.0).contains(&preview.tempo_bpm) {
-        push_value_error(
-            diagnostics,
-            "metadata.preview.tempo_bpm",
-            "preview.tempo_bpm must be finite and between 30 and 300 BPM",
-        );
-    }
-    if !(1..=32_767).contains(&preview.ticks_per_beat) {
-        push_value_error(
-            diagnostics,
-            "metadata.preview.ticks_per_beat",
-            "preview.ticks_per_beat must be between 1 and 32767",
-        );
-    }
-    let signature = preview.time_signature;
-    if !(1..=32).contains(&signature.numerator) {
-        push_value_error(
-            diagnostics,
-            "metadata.preview.time_signature.numerator",
-            "preview.time_signature.numerator must be between 1 and 32",
-        );
-    }
-    if signature.denominator == 0
-        || signature.denominator > 128
-        || !signature.denominator.is_power_of_two()
-    {
-        push_value_error(
-            diagnostics,
-            "metadata.preview.time_signature.denominator",
-            "preview.time_signature.denominator must be a power of two between 1 and 128",
-        );
-    }
-    if preview.length_ticks == 0 {
-        push_value_error(
-            diagnostics,
-            "metadata.preview.length_ticks",
-            "preview.length_ticks must be greater than zero",
-        );
-    }
-    if !(1..=32).contains(&preview.notes.len()) {
-        push_value_error(
-            diagnostics,
-            "metadata.preview.notes",
-            "preview.notes must contain between 1 and 32 notes",
-        );
-    }
-}
-
-fn validate_preview_notes(
-    diagnostics: &mut Vec<Diagnostic>,
-    preview: &InstrumentPreviewDefinition,
-    recommended_range: Option<InstrumentRecommendedRange>,
-) {
-    let mut previous_tick = None;
-    for (index, note) in preview.notes.iter().enumerate() {
-        let path = format!("metadata.preview.notes[{index}]");
-        if note.note > 127 {
-            push_value_error(
-                diagnostics,
-                format!("{path}.note"),
-                "preview note must be between MIDI 0 and 127",
-            );
-        }
-        if !(1..=127).contains(&note.velocity) {
-            push_value_error(
-                diagnostics,
-                format!("{path}.velocity"),
-                "preview velocity must be between 1 and 127",
-            );
-        }
-        if note.tick >= preview.length_ticks {
-            push_value_error(
-                diagnostics,
-                format!("{path}.tick"),
-                "preview note tick must be before length_ticks",
-            );
-        }
-        if note.duration_ticks == 0 {
-            push_value_error(
-                diagnostics,
-                format!("{path}.duration_ticks"),
-                "preview note duration_ticks must be greater than zero",
-            );
-        }
-        if note
-            .tick
-            .checked_add(note.duration_ticks)
-            .is_none_or(|end| end > preview.length_ticks)
-        {
-            push_value_error(
-                diagnostics,
-                path.clone(),
-                "preview note must end at or before length_ticks",
-            );
-        }
-        if previous_tick.is_some_and(|previous| note.tick < previous) {
-            push_value_error(
-                diagnostics,
-                format!("{path}.tick"),
-                "preview notes must be ordered by non-decreasing tick",
-            );
-        }
-        previous_tick = Some(note.tick);
-        if let Some(range) = recommended_range
-            && (note.note < range.min_midi || note.note > range.max_midi)
-        {
-            push_value_error(
-                diagnostics,
-                format!("{path}.note"),
-                "preview note must be inside recommended_range",
-            );
-        }
-    }
-}
-
-fn validate_preview_duration(
-    diagnostics: &mut Vec<Diagnostic>,
-    preview: &InstrumentPreviewDefinition,
-) {
-    if preview.ticks_per_beat > 0 && preview.tempo_bpm.is_finite() && preview.tempo_bpm > 0.0 {
-        #[allow(clippy::cast_precision_loss)]
-        let seconds = preview.length_ticks as f64 / f64::from(preview.ticks_per_beat) * 60.0
-            / preview.tempo_bpm;
-        if !seconds.is_finite() || seconds > 10.0 {
-            push_value_error(
-                diagnostics,
-                "metadata.preview.length_ticks",
-                "preview music time must be at most 10 seconds",
-            );
-        }
-    }
-}
-
-fn push_value_error(
-    diagnostics: &mut Vec<Diagnostic>,
-    path: impl Into<String>,
-    message: impl Into<String>,
-) {
-    diagnostics.push(Diagnostic::error(DiagnosticCode::ValueOutOfRange, message).with_path(path));
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -333,35 +131,6 @@ mod tests {
                 min_midi: 24,
                 max_midi: 60,
             }),
-            preview: Some(InstrumentPreviewDefinition {
-                tempo_bpm: 120.0,
-                ticks_per_beat: 480,
-                time_signature: InstrumentPreviewTimeSignature {
-                    numerator: 4,
-                    denominator: 4,
-                },
-                length_ticks: 1920,
-                notes: vec![
-                    InstrumentPreviewNote {
-                        tick: 0,
-                        duration_ticks: 360,
-                        note: 36,
-                        velocity: 92,
-                    },
-                    InstrumentPreviewNote {
-                        tick: 480,
-                        duration_ticks: 360,
-                        note: 43,
-                        velocity: 108,
-                    },
-                    InstrumentPreviewNote {
-                        tick: 960,
-                        duration_ticks: 480,
-                        note: 48,
-                        velocity: 100,
-                    },
-                ],
-            }),
         }
     }
 
@@ -370,8 +139,6 @@ mod tests {
         validate_metadata(&mut diagnostics, metadata);
         diagnostics
     }
-
-    type PreviewMutation = fn(&mut InstrumentPreviewDefinition);
 
     #[test]
     fn category_and_tags_reject_empty_outer_whitespace_and_duplicates() {
@@ -411,89 +178,5 @@ mod tests {
             max_midi: 127,
         });
         assert_ne!(diagnostics(&out_of_range), Vec::new());
-    }
-
-    #[test]
-    fn preview_rejects_invalid_tempo_time_signature_and_note_count() {
-        for tempo in [29.9, 300.1, f64::NAN] {
-            let mut value = metadata();
-            value.preview.as_mut().expect("preview").tempo_bpm = tempo;
-            assert_ne!(
-                diagnostics(&value),
-                Vec::new(),
-                "tempo {tempo} must be rejected"
-            );
-        }
-
-        for signature in [
-            InstrumentPreviewTimeSignature {
-                numerator: 0,
-                denominator: 4,
-            },
-            InstrumentPreviewTimeSignature {
-                numerator: 4,
-                denominator: 3,
-            },
-        ] {
-            let mut value = metadata();
-            value.preview.as_mut().expect("preview").time_signature = signature;
-            assert_ne!(
-                diagnostics(&value),
-                Vec::new(),
-                "{signature:?} must be rejected"
-            );
-        }
-
-        let mut without_notes = metadata();
-        without_notes
-            .preview
-            .as_mut()
-            .expect("preview")
-            .notes
-            .clear();
-        assert_ne!(diagnostics(&without_notes), Vec::new());
-
-        let mut too_many_notes = metadata();
-        too_many_notes.preview.as_mut().expect("preview").notes = (0..33)
-            .map(|index| InstrumentPreviewNote {
-                tick: index,
-                duration_ticks: 1,
-                note: 36,
-                velocity: 100,
-            })
-            .collect();
-        assert_ne!(diagnostics(&too_many_notes), Vec::new());
-    }
-
-    #[test]
-    fn preview_rejects_note_values_outside_the_declared_music() {
-        let invalid_fields: [(&str, PreviewMutation); 6] = [
-            ("velocity", |preview| preview.notes[0].velocity = 128),
-            ("velocity", |preview| preview.notes[0].velocity = 0),
-            ("tick", |preview| preview.notes[0].tick = 1_920),
-            ("duration_ticks", |preview| {
-                preview.notes[0].duration_ticks = 0;
-            }),
-            ("duration_ticks", |preview| {
-                preview.notes[0].duration_ticks = 1_921;
-            }),
-            ("note", |preview| preview.notes[0].note = 61),
-        ];
-        for (field, invalidate) in invalid_fields {
-            let mut value = metadata();
-            invalidate(value.preview.as_mut().expect("preview"));
-            assert_ne!(
-                diagnostics(&value),
-                Vec::new(),
-                "{field} must stay inside the preview music"
-            );
-        }
-    }
-
-    #[test]
-    fn preview_rejects_music_longer_than_ten_seconds() {
-        let mut value = metadata();
-        value.preview.as_mut().expect("preview").length_ticks = 9_601;
-        assert_ne!(diagnostics(&value), Vec::new());
     }
 }

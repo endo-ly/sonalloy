@@ -1,0 +1,131 @@
+meta:
+  title: "Formant Vocal Chop preview"
+  bpm: 126
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 2
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1'"
+        duration_quarters: "7/16"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "1'"
+        duration_quarters: "3/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "b3'"
+        duration_quarters: "7/16"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "4'"
+        duration_quarters: "7/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "b3'"
+        duration_quarters: "3/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "11/4"
+        degree: "1'"
+        duration_quarters: "7/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "b7"
+        duration_quarters: "7/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "1'"
+        duration_quarters: "7/16"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "1'"
+        duration_quarters: "3/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1"
+        degree: "b3'"
+        duration_quarters: "7/16"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "5'"
+        duration_quarters: "11/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "4'"
+        duration_quarters: "3/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "11/4"
+        degree: "b3'"
+        duration_quarters: "3/16"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "1'"
+        duration_quarters: "15/16"
+        velocity: 112
+instruments:
+  preview:
+    preset: "LEAD/009-formant-vocal-chop"

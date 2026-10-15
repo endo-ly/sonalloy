@@ -1,0 +1,558 @@
+[
+  {
+    "score": "presets/common-scores/bass.score.yaml",
+    "sha256": "98c558182eede293671017556f78ed74b4f7f27a9216f0d4e130356d77d6f6b3"
+  },
+  {
+    "score": "presets/common-scores/chord-stab.score.yaml",
+    "sha256": "146c490b925dad940363d17bdd5c43f345c7f633763357a6dd6119a576068a90"
+  },
+  {
+    "score": "presets/common-scores/drums-clap.score.yaml",
+    "sha256": "fa143efde2da290175cba33551f82fd5f6e64af23d0e4ec199a045d03cef8eee"
+  },
+  {
+    "score": "presets/common-scores/drums-crash.score.yaml",
+    "sha256": "8d7bb3109682f116e2fdc251115af1df55b0d1f1429898dbaec41698929d0202"
+  },
+  {
+    "score": "presets/common-scores/drums-kick.score.yaml",
+    "sha256": "bd87700bb91730a1b84b6acaab1af511dd17077790b4ce00d49d528dce57dee6"
+  },
+  {
+    "score": "presets/common-scores/drums-metallic.score.yaml",
+    "sha256": "32c45a46ee72763b3f2cff483357c60adc79c92bd140a7395d57ecb6e9a8afa5"
+  },
+  {
+    "score": "presets/common-scores/drums-rim.score.yaml",
+    "sha256": "53b39210f31e94bc841128b0cf54efd3cdd4eb135393d8b123b9fa9383206fae"
+  },
+  {
+    "score": "presets/common-scores/drums-snare.score.yaml",
+    "sha256": "bee3fc7b55aa11ddedeb3602b364223fc031f927eb6f542c2c45374318e734a0"
+  },
+  {
+    "score": "presets/common-scores/drums-tom.score.yaml",
+    "sha256": "15f4aaffd98ccc3a3e03810a437c3bb0f5b4ce691f4dbb1107005c820a53b7f8"
+  },
+  {
+    "score": "presets/common-scores/fx-downlifter.score.yaml",
+    "sha256": "5a3510c345ee39c23897d7bda01c981371e42337e30c4b0989bcb2629b90dad1"
+  },
+  {
+    "score": "presets/common-scores/fx-hit.score.yaml",
+    "sha256": "e8fb7bb75d6c7829062c5d65e5a4a129ccf1a958dd9148016fc7c4e5d0fe080f"
+  },
+  {
+    "score": "presets/common-scores/fx-impact.score.yaml",
+    "sha256": "0ed807d31e2b30be75b3a748f3c34bf053496ded9aa3c2f36e51cca16833c891"
+  },
+  {
+    "score": "presets/common-scores/fx-riser.score.yaml",
+    "sha256": "3e13ffe8f58cacf2c7f62ebbe078b50e4299b009eb4231b4269acd21741fd317"
+  },
+  {
+    "score": "presets/common-scores/fx-sub-drop.score.yaml",
+    "sha256": "444f3b0d1b0e890af6facc57c76b978a9bdfb5a43cd7a76fd547bd43d7156f0e"
+  },
+  {
+    "score": "presets/common-scores/keys.score.yaml",
+    "sha256": "97d9bf6dfd0dbb1c807e842fa08f81ea0d2f2b52788cca6b2082a434b35b7508"
+  },
+  {
+    "score": "presets/common-scores/lead.score.yaml",
+    "sha256": "15effc28d7dc896f53186ba23c2379015ad3e5d20075b0818fea7831d1f64769"
+  },
+  {
+    "score": "presets/common-scores/pad.score.yaml",
+    "sha256": "9c26afd51c6570119193e91865e0aa83e0eea1d24363118d7e6663bab2011f73"
+  },
+  {
+    "score": "presets/common-scores/pluck-bell-mallet.score.yaml",
+    "sha256": "20e14552d8d5b9b895cef458859c97715b4be6f35176812997296d13736b019c"
+  },
+  {
+    "score": "presets/common-scores/seq-hold.score.yaml",
+    "sha256": "68b1de2226ebbdce4776225509c35e10f0f7ef0d9d530d77978543dd986db26f"
+  },
+  {
+    "score": "presets/common-scores/supersaw-chords.score.yaml",
+    "sha256": "ae11e59f5689f9172cc363c48b25e2728fc6fe7a3b59e6d9d58505eeb47ca38d"
+  },
+  {
+    "score": "presets/BASS/018-tempo-wobble-bass/showcase.score.yaml",
+    "sha256": "2b96cbb660b4933db5abc34d6f09be4b5a02f3bc99d62948c0cbea14a5d7244e"
+  },
+  {
+    "score": "presets/DRUM/006-808-closed-hat/showcase.score.yaml",
+    "sha256": "e80a8bfcf51049b0886638a131908659f938b6d88e7e1fef9d27f32a3439d8bf"
+  },
+  {
+    "score": "presets/DRUM/019-needle-closed-hat/showcase.score.yaml",
+    "sha256": "86fb03b8b9af81f7c07b55a155437723ec53e510a9e9cd7605718c15cf0e54f0"
+  },
+  {
+    "score": "presets/DRUM/021-808-cowbell/showcase.score.yaml",
+    "sha256": "6da8b7f892ee1a4bf167fb9d6a70fc1e8a6d2fca7afb47ec9867fcf3ddd4504d"
+  },
+  {
+    "score": "presets/DRUM/022-pedal-choke-hi-hat/showcase.score.yaml",
+    "sha256": "e6d204e949bf32cfc7690d9b41c82b477279f91a7a2db5728d83e0c753d8e8b9"
+  },
+  {
+    "score": "presets/KEYS/012-pumping-supersaw-chord/showcase.score.yaml",
+    "sha256": "9ad2519c5332c8db6bf7ef51f168245e77bcabbe17ea3b979ba9c963f1a33c6b"
+  },
+  {
+    "score": "presets/KEYS/013-worn-tine-keys/showcase.score.yaml",
+    "sha256": "36adad36886cd7442ed75f6fd89b259228f672455bda35a05d8cf70a90e67fcc"
+  },
+  {
+    "score": "presets/KEYS/014-percussive-organ-stab/showcase.score.yaml",
+    "sha256": "4732fb14f4227db0bc70785b5a9e8c3aee3d415cf4bd36c72f6e34a0e1f977c3"
+  },
+  {
+    "score": "presets/LEAD/009-formant-vocal-chop/showcase.score.yaml",
+    "sha256": "4e15d8cb817c7392cfefe8369940183d4983f15bbe2688d1c4914b5b9e140925"
+  },
+  {
+    "score": "presets/PLUCK/008-resonant-box-kalimba/showcase.score.yaml",
+    "sha256": "369845f6b00291f67b7ab361ab11be34091e489687476aff404464d1633dcbfc"
+  },
+  {
+    "score": "presets/BASS/001-clean-sub-bass/preview.score.yaml",
+    "sha256": "7ae4d66eac2ab1f6a4afb2c9e9cc98c6a0fad075c7110c137336004e4819282d"
+  },
+  {
+    "score": "presets/BASS/002-808-bass/preview.score.yaml",
+    "sha256": "32ab67dabfc458bdc79733ee6feb15c374dc28251e3830996da699f4557854f8"
+  },
+  {
+    "score": "presets/BASS/003-analog-saw-bass/preview.score.yaml",
+    "sha256": "a54a5e114e7eff518d1475048718ae432d952597c3d4a0e09f0b89c46784ba89"
+  },
+  {
+    "score": "presets/BASS/004-short-pluck-bass/preview.score.yaml",
+    "sha256": "801b41c51713c8f9c7421079a8c58e1b2b2e7c78e705f644b2471dbbab551ead"
+  },
+  {
+    "score": "presets/BASS/005-303-acid-bass/preview.score.yaml",
+    "sha256": "1adc07dfa88426120dd3d7885fe6099d3b6ebcb92b625430015314895d3a2ac9"
+  },
+  {
+    "score": "presets/BASS/006-fm-punch-bass/preview.score.yaml",
+    "sha256": "bb9729dce84a3a48f4677349a0dbbeedc67cfeb60d9552d7a11dfe40503faf68"
+  },
+  {
+    "score": "presets/BASS/007-reese-bass/preview.score.yaml",
+    "sha256": "554a931d67ef2f49e2422d3d6ac9f2fab77c3b38cabb3ee95132917460cb1718"
+  },
+  {
+    "score": "presets/BASS/008-digital-motion-bass/preview.score.yaml",
+    "sha256": "7fb01dd9718f7bfc408e2af83d9d693b92dbe42f85ee429da5f52273f7890af2"
+  },
+  {
+    "score": "presets/BASS/009-wavefold-growl-bass/preview.score.yaml",
+    "sha256": "cf1035479a8b759fb85e656af8c889c5b90f842c861dfd687e370cce003b1a6d"
+  },
+  {
+    "score": "presets/BASS/010-steel-bounce-bass/preview.score.yaml",
+    "sha256": "7321f35f03f48ffeca0e13174a7e1a391332c263e6fbbb263b1bec386dae5d15"
+  },
+  {
+    "score": "presets/BASS/011-vowel-bite-bass/preview.score.yaml",
+    "sha256": "7321f35f03f48ffeca0e13174a7e1a391332c263e6fbbb263b1bec386dae5d15"
+  },
+  {
+    "score": "presets/BASS/012-rubber-rebound-bass/preview.score.yaml",
+    "sha256": "cf1035479a8b759fb85e656af8c889c5b90f842c861dfd687e370cce003b1a6d"
+  },
+  {
+    "score": "presets/BASS/013-soft-round-bass/preview.score.yaml",
+    "sha256": "ced12757beee9e5150259f11432ea1540a92dce6b6a3d91598679bf3da89b764"
+  },
+  {
+    "score": "presets/BASS/014-pulse-reese-bass/preview.score.yaml",
+    "sha256": "fda63b9ac1f1187d4d9598fccf10f959ddcbb61e589547292f7db1b1ae7af74e"
+  },
+  {
+    "score": "presets/BASS/015-octave-sub-bass/preview.score.yaml",
+    "sha256": "7a62bb2eb0d7033e055bed1f386fa5cc115514c5e7b2b8db66b50d29d5e1d4a3"
+  },
+  {
+    "score": "presets/BASS/016-distorted-glide-808/preview.score.yaml",
+    "sha256": "bafc7d8f02a5de464cd167349db2578ade315765e1a3cb9da36b56d3c02fc8e9"
+  },
+  {
+    "score": "presets/BASS/017-log-drum-bass/preview.score.yaml",
+    "sha256": "8f41f14e5bc2e5a4fb6f97aea67ccffca35c5a463f5cb14efc30a2565e250805"
+  },
+  {
+    "score": "presets/BASS/018-tempo-wobble-bass/preview.score.yaml",
+    "sha256": "15a0ef52c5b3ce4f9dd9e19d425f6ebd4468393c9a127af45689a704067e6ec0"
+  },
+  {
+    "score": "presets/DRUM/001-hard-punch-kick/preview.score.yaml",
+    "sha256": "543bfbbc55f72ab298a100c5969d12c148e096a731a2a2a543fb12eddf71579f"
+  },
+  {
+    "score": "presets/DRUM/002-deep-sub-kick/preview.score.yaml",
+    "sha256": "ba142da3457a5852d51371fb5ae2582b3ca192c43f2ad9d3f3ed6e0ff799e973"
+  },
+  {
+    "score": "presets/DRUM/003-tone-snare/preview.score.yaml",
+    "sha256": "71590313a7394a40789336dd4adcbf9e22dc4d5c50f9f704ccbfc57a887a5877"
+  },
+  {
+    "score": "presets/DRUM/004-dry-crack-snare/preview.score.yaml",
+    "sha256": "71590313a7394a40789336dd4adcbf9e22dc4d5c50f9f704ccbfc57a887a5877"
+  },
+  {
+    "score": "presets/DRUM/005-gritty-burst-clap/preview.score.yaml",
+    "sha256": "a146941d64915c673ce89b381fe7908250b13ce0d6746d2e58242792a581692d"
+  },
+  {
+    "score": "presets/DRUM/006-808-closed-hat/preview.score.yaml",
+    "sha256": "00c7c9e44e362301def5a59e3ecf2e282b245c25da2b640ccdf6287e38c9b90b"
+  },
+  {
+    "score": "presets/DRUM/007-loose-sizzle-hat/preview.score.yaml",
+    "sha256": "4ed6ed5b34a5607c89452fdc24474ebce160a738e4449db92a8465b32d19ddda"
+  },
+  {
+    "score": "presets/DRUM/008-wide-wash-crash/preview.score.yaml",
+    "sha256": "c532853f9414cfd6dcb61ccad1cb45bda64f75979802291ad5a93eeefab8902f"
+  },
+  {
+    "score": "presets/DRUM/009-round-drop-tom/preview.score.yaml",
+    "sha256": "575a869076cf283ded1e35ec4799c5daa97c03c2f1728c984cf8dac9fc624afd"
+  },
+  {
+    "score": "presets/DRUM/010-woody-rim-click/preview.score.yaml",
+    "sha256": "d13aad7b4bde83cc6b03ff6f16d79579efd52daca12f201e4a6eef3a40490f82"
+  },
+  {
+    "score": "presets/DRUM/011-noise-shaker/preview.score.yaml",
+    "sha256": "9c8f42845c6f82b9bad74a85e8f4728fa73886bb96ce6a59329820f552b14df9"
+  },
+  {
+    "score": "presets/DRUM/012-scrap-metal-percussion/preview.score.yaml",
+    "sha256": "712d56c5cfef8d2c913598b71b7260e4669ec204c07fe37ee3f82f26f191dc24"
+  },
+  {
+    "score": "presets/DRUM/013-soft-round-kick/preview.score.yaml",
+    "sha256": "543bfbbc55f72ab298a100c5969d12c148e096a731a2a2a543fb12eddf71579f"
+  },
+  {
+    "score": "presets/DRUM/014-double-strike-snap/preview.score.yaml",
+    "sha256": "6793a8113526f600974be887decab02a81499ea51069a4760ec588ac799b9b89"
+  },
+  {
+    "score": "presets/DRUM/015-pm-metallic-percussion/preview.score.yaml",
+    "sha256": "32c45a46ee72763b3f2cff483357c60adc79c92bd140a7395d57ecb6e9a8afa5"
+  },
+  {
+    "score": "presets/DRUM/016-deep-punch-kick/preview.score.yaml",
+    "sha256": "bd87700bb91730a1b84b6acaab1af511dd17077790b4ce00d49d528dce57dee6"
+  },
+  {
+    "score": "presets/DRUM/017-diffuse-tail-clap/preview.score.yaml",
+    "sha256": "fa143efde2da290175cba33551f82fd5f6e64af23d0e4ec199a045d03cef8eee"
+  },
+  {
+    "score": "presets/DRUM/018-round-body-snare/preview.score.yaml",
+    "sha256": "08d5134a241cd01b3a60d7373219cf5062a95b2fde55d2c10dd681d144d6e274"
+  },
+  {
+    "score": "presets/DRUM/019-needle-closed-hat/preview.score.yaml",
+    "sha256": "ba43659a9deb2ceb5e25bb355d608a7d61ba402553030a9f0a54fc5488beb2ce"
+  },
+  {
+    "score": "presets/DRUM/020-silver-open-hat/preview.score.yaml",
+    "sha256": "e840917e867ea76c1d599cefa2cc2db627c3a6a5ba8923af0b8c73b7060ada15"
+  },
+  {
+    "score": "presets/DRUM/021-808-cowbell/preview.score.yaml",
+    "sha256": "79a2f8861197d43f2ddb80da1422acea651990f69806e3de9d3f0de9c785094d"
+  },
+  {
+    "score": "presets/DRUM/022-pedal-choke-hi-hat/preview.score.yaml",
+    "sha256": "1c06c82e01b483196e8ec6eba78b67012eef96eef5f1bc063a0243d552e6a367"
+  },
+  {
+    "score": "presets/DRUM/023-909-open-hat/preview.score.yaml",
+    "sha256": "cab2b960a2a39228fcc8222ddad884a98ff28cdf2a420ba6c81d0fdf781c2777"
+  },
+  {
+    "score": "presets/DRUM/024-bright-ping-ride/preview.score.yaml",
+    "sha256": "411187fae8426554e82edb0dd7458472f6925d2adfb892b5bfa0149aa9e7cb79"
+  },
+  {
+    "score": "presets/DRUM/025-rattle-burst-tambourine/preview.score.yaml",
+    "sha256": "69f4e46713711542a9ac6ef9f5270031eec898c947f19d00e42c65ed39147f61"
+  },
+  {
+    "score": "presets/DRUM/026-dusty-crushed-hat/preview.score.yaml",
+    "sha256": "563e41688e52a4ce457decfd26682173d8845e99e175ecbdf37ad41ac5e6613e"
+  },
+  {
+    "score": "presets/DRUM/027-modal-skin-conga/preview.score.yaml",
+    "sha256": "7abe8dd4669f076498d32cba893ea573d758a1a10287f36dfd17f4b549161468"
+  },
+  {
+    "score": "presets/DRUM/028-resonant-click-clave/preview.score.yaml",
+    "sha256": "3248b2db2864e1453dccc145575ae61f4f6e08a756c5f61da42795f651bcc816"
+  },
+  {
+    "score": "presets/DRUM/029-airy-wash-open-hat/preview.score.yaml",
+    "sha256": "e840917e867ea76c1d599cefa2cc2db627c3a6a5ba8923af0b8c73b7060ada15"
+  },
+  {
+    "score": "presets/FX/001-noise-riser/preview.score.yaml",
+    "sha256": "ae8fa18d372570d73286c046372c67dbbe8852896e98c4f175d1095d36a94189"
+  },
+  {
+    "score": "presets/FX/002-noise-downlifter/preview.score.yaml",
+    "sha256": "b3f6a62d924fbf9f200f1a67ebfb21c6c1f4f05a56d6cf8a09579a04db3c4123"
+  },
+  {
+    "score": "presets/FX/003-metallic-impact/preview.score.yaml",
+    "sha256": "b938e718ee181719505bfa1b0b9029cd617253398335b775b1afdadf1e2ca8d1"
+  },
+  {
+    "score": "presets/FX/004-sub-drop/preview.score.yaml",
+    "sha256": "aa5984cdcc01067f628f4d32334a5f53a90e26210a28684b63e5af3643e68bbf"
+  },
+  {
+    "score": "presets/FX/005-glitch-burst/preview.score.yaml",
+    "sha256": "4376c1ac316ddb4658a649476687707bf15f6d9e8664d663e8afd10564783567"
+  },
+  {
+    "score": "presets/FX/006-spectral-freeze-texture/preview.score.yaml",
+    "sha256": "a612f1a549f910c3228e0f29a2fe054c75f61f2c1f358e7223c2c37f0d70dbcf"
+  },
+  {
+    "score": "presets/FX/007-whistle-noise-riser/preview.score.yaml",
+    "sha256": "952c9ec2d0d6d276f066ad1094808f500529ae27b8986371063e1378eb11b73e"
+  },
+  {
+    "score": "presets/FX/008-noise-crash-impact/preview.score.yaml",
+    "sha256": "88e54aa8194b2f07615f6aa3b69629f8501c0cb19abc4f7d7fb76a7e0d55b263"
+  },
+  {
+    "score": "presets/FX/009-tape-stop-slowdown/preview.score.yaml",
+    "sha256": "2d64c3ef40298e88aded02de9bc5cec55ba8c0444224e16b0b4bf2821e927d88"
+  },
+  {
+    "score": "presets/KEYS/001-fm-electric-piano/preview.score.yaml",
+    "sha256": "ad2cfe151a86cba7e2924d0d8aa1e511142499ea830a42f6f2afcd55c6906048"
+  },
+  {
+    "score": "presets/KEYS/002-tone-wheel-organ/preview.score.yaml",
+    "sha256": "ad2cfe151a86cba7e2924d0d8aa1e511142499ea830a42f6f2afcd55c6906048"
+  },
+  {
+    "score": "presets/KEYS/003-classic-analog-poly/preview.score.yaml",
+    "sha256": "4a7b05880b41ad6b966a938de07273bed2de6ec64ff5669389fe7a75109cd4d4"
+  },
+  {
+    "score": "presets/KEYS/004-synth-strings/preview.score.yaml",
+    "sha256": "4a7b05880b41ad6b966a938de07273bed2de6ec64ff5669389fe7a75109cd4d4"
+  },
+  {
+    "score": "presets/KEYS/005-digital-poly/preview.score.yaml",
+    "sha256": "4a7b05880b41ad6b966a938de07273bed2de6ec64ff5669389fe7a75109cd4d4"
+  },
+  {
+    "score": "presets/KEYS/006-synth-brass-stab/preview.score.yaml",
+    "sha256": "33019ea5defbd11ae47023db28e05f9e95761776c19d6247efcdd71e37160c36"
+  },
+  {
+    "score": "presets/KEYS/007-pulse-chord-stab/preview.score.yaml",
+    "sha256": "33019ea5defbd11ae47023db28e05f9e95761776c19d6247efcdd71e37160c36"
+  },
+  {
+    "score": "presets/KEYS/008-chrome-stab/preview.score.yaml",
+    "sha256": "fffa871724759dc39a8209bbe16e69ec4ab45b7643c79be0b428b69edb12c868"
+  },
+  {
+    "score": "presets/KEYS/009-bloom-poly/preview.score.yaml",
+    "sha256": "ba32a5bcc8256ee5042bbb8fb95150b4b36a32dfda7733927f79cdd78f74fac2"
+  },
+  {
+    "score": "presets/KEYS/010-bell-sparkle-keys/preview.score.yaml",
+    "sha256": "008087f108893e2b06b8a6d0087d6e3b0e0c3b9b649f7bbf6311e4fd47e9cbe5"
+  },
+  {
+    "score": "presets/KEYS/011-midfill-chord-pluck/preview.score.yaml",
+    "sha256": "310132a35365f78df8a44dcd38ca7d52b81a1f5c8898dfaebce7b99f3ecfb316"
+  },
+  {
+    "score": "presets/KEYS/012-pumping-supersaw-chord/preview.score.yaml",
+    "sha256": "62976ed85944d2a76cdc87055d7ad8218273506af07e8020b9ae4e7c50b65220"
+  },
+  {
+    "score": "presets/KEYS/013-worn-tine-keys/preview.score.yaml",
+    "sha256": "2e6e106ac5a80ae57c66de3af7037611b4c0227220d5fcd0f763b27cdd7aaa5c"
+  },
+  {
+    "score": "presets/KEYS/014-percussive-organ-stab/preview.score.yaml",
+    "sha256": "a38d126430d8b887c15dc4dbf8be024427789f82ee4d84fa3c2c42864f8317b2"
+  },
+  {
+    "score": "presets/LEAD/001-analog-saw-lead/preview.score.yaml",
+    "sha256": "727b816cc8badb479f6b03d697a6807c5336c66a53829e7d08d475c25a318709"
+  },
+  {
+    "score": "presets/LEAD/002-supersaw-lead/preview.score.yaml",
+    "sha256": "cfca7e93771069e0822213b18fb82cca91680688f3d5195defe6aa69320f0f35"
+  },
+  {
+    "score": "presets/LEAD/003-pulse-lead/preview.score.yaml",
+    "sha256": "54333a81f14db5f2c6c78e40d7f8d847c9f14acb1771f6d0f7701c951e736a1c"
+  },
+  {
+    "score": "presets/LEAD/004-fm-digital-lead/preview.score.yaml",
+    "sha256": "d27c932101bbc75177846e0bfdfe9235370b8c9334565a62742a22b9764b96cf"
+  },
+  {
+    "score": "presets/LEAD/005-hard-sync-lead/preview.score.yaml",
+    "sha256": "70a81cd4e85157ec2942c30b80ef902ecc1db64ff49090203693e02a86e06f35"
+  },
+  {
+    "score": "presets/LEAD/006-mono-portamento-lead/preview.score.yaml",
+    "sha256": "c98d1ff612ede1ae73416be97295b19d3ef1657edd76c222e4b651212648a850"
+  },
+  {
+    "score": "presets/LEAD/007-phase-distortion-lead/preview.score.yaml",
+    "sha256": "62115ea426a8d8e78b41d9f78be4a0b0542cf2538fd2836bc08c7b9961888ae8"
+  },
+  {
+    "score": "presets/LEAD/008-vocal-formant-lead/preview.score.yaml",
+    "sha256": "2b466828632148b1db3f48de8860199b2f27df17cde33724255a3bf706f35928"
+  },
+  {
+    "score": "presets/LEAD/009-formant-vocal-chop/preview.score.yaml",
+    "sha256": "c27c5b82f028c47ccc28463f8eb16b2bb9f52cefdd9713cbf82fae99ef7a60ed"
+  },
+  {
+    "score": "presets/LEAD/010-breathy-whistle-lead/preview.score.yaml",
+    "sha256": "1d2685fedbb2731c286d3cfeac96d50c972d2f507452400169e8f7c701661de9"
+  },
+  {
+    "score": "presets/MALLET/001-fm-bell/preview.score.yaml",
+    "sha256": "7ff171372360a1354166cc497987276cf0c33a916a0cd8f2d7532322876d9137"
+  },
+  {
+    "score": "presets/MALLET/002-glass-bell/preview.score.yaml",
+    "sha256": "7ff171372360a1354166cc497987276cf0c33a916a0cd8f2d7532322876d9137"
+  },
+  {
+    "score": "presets/MALLET/003-marimba-mallet/preview.score.yaml",
+    "sha256": "7ff171372360a1354166cc497987276cf0c33a916a0cd8f2d7532322876d9137"
+  },
+  {
+    "score": "presets/MALLET/004-mercury-bloom-mallet/preview.score.yaml",
+    "sha256": "a95da6ac3be8e082e5066f201d120eebf5119f6141957515eea28af0ec869e90"
+  },
+  {
+    "score": "presets/MALLET/005-porcelain-rim-mallet/preview.score.yaml",
+    "sha256": "49f3772bd886633abf6b2c82bcfad70a9382d6598f627825bc5b135670e7346a"
+  },
+  {
+    "score": "presets/MALLET/006-pebble-tap-mallet/preview.score.yaml",
+    "sha256": "cd813356ed5c45c64d60f2b64498544d435ae4f5c0c213d1f74fe911d3f2e491"
+  },
+  {
+    "score": "presets/PAD/001-warm-analog-pad/preview.score.yaml",
+    "sha256": "ff771cdcf2bf7c7757cb23a58adbf10e83c317deb71b62fc606cbb3a47dd4f63"
+  },
+  {
+    "score": "presets/PAD/002-dark-texture-pad/preview.score.yaml",
+    "sha256": "8e964fb61dc49e80e4fb99eec0ce14f480808ac66eb8120ecef0cf628e396f5f"
+  },
+  {
+    "score": "presets/PAD/003-bright-wide-pad/preview.score.yaml",
+    "sha256": "5dbf63777fa84633542ccf53954180a10a9ddc9fd787b43449e54012cc793a19"
+  },
+  {
+    "score": "presets/PAD/004-pwm-pad/preview.score.yaml",
+    "sha256": "3323c9ec95d46d10271b072497719b49804cff0a4c5cd29213615c9d5f619397"
+  },
+  {
+    "score": "presets/PAD/005-wavetable-motion-pad/preview.score.yaml",
+    "sha256": "ff771cdcf2bf7c7757cb23a58adbf10e83c317deb71b62fc606cbb3a47dd4f63"
+  },
+  {
+    "score": "presets/PAD/006-vocal-formant-pad/preview.score.yaml",
+    "sha256": "6ddce8e5728c94c1e78b8cdf5eb1c1672634e4692c5a0d2b8ad13a82ebb30711"
+  },
+  {
+    "score": "presets/PAD/007-additive-drone/preview.score.yaml",
+    "sha256": "06c00d5940a477da461261921e3ae1f3e2d6a78462fb8717b1362c97cb4f4d61"
+  },
+  {
+    "score": "presets/PAD/008-granular-texture-pad/preview.score.yaml",
+    "sha256": "014ba235e2d04f6d5fa7883ce9af8f0b9d905182ac8391ba794e3ee01f528fce"
+  },
+  {
+    "score": "presets/PAD/009-glass-vine-pad/preview.score.yaml",
+    "sha256": "06c00d5940a477da461261921e3ae1f3e2d6a78462fb8717b1362c97cb4f4d61"
+  },
+  {
+    "score": "presets/PAD/010-reverse-swell-pad/preview.score.yaml",
+    "sha256": "e90e11a2eceb55b4f565e20279064c602b1da65f05c2c7fd647f896b824660e1"
+  },
+  {
+    "score": "presets/PLUCK/001-analog-pluck/preview.score.yaml",
+    "sha256": "63d3cbb8f0303fbd966a98fd02d5aba22732c11675844f5421b851fe84ebc5e9"
+  },
+  {
+    "score": "presets/PLUCK/002-fm-pluck/preview.score.yaml",
+    "sha256": "63d3cbb8f0303fbd966a98fd02d5aba22732c11675844f5421b851fe84ebc5e9"
+  },
+  {
+    "score": "presets/PLUCK/003-digital-crystal-pluck/preview.score.yaml",
+    "sha256": "63d3cbb8f0303fbd966a98fd02d5aba22732c11675844f5421b851fe84ebc5e9"
+  },
+  {
+    "score": "presets/PLUCK/004-glass-hammer-pluck/preview.score.yaml",
+    "sha256": "57d8c28ec6da6989b37a697803551bdcfaf8ba2eff2f73c7a437e7f7d07491cc"
+  },
+  {
+    "score": "presets/PLUCK/005-bounce-donk-pluck/preview.score.yaml",
+    "sha256": "e843a0bd7cc21dc6903f1242f22b7af841628200351cff8ed7d4bc4d7474ad74"
+  },
+  {
+    "score": "presets/PLUCK/006-clean-picked-string/preview.score.yaml",
+    "sha256": "c7c73ff1dea1e0b714d4a54354187821723fd0bc562e4d237ae1607d40a687f5"
+  },
+  {
+    "score": "presets/PLUCK/007-pm-glass-pluck/preview.score.yaml",
+    "sha256": "3e944756c6f3dd90bb0ec3b34cd94c1b202a6034362d4e19eea57d4b26171285"
+  },
+  {
+    "score": "presets/PLUCK/008-resonant-box-kalimba/preview.score.yaml",
+    "sha256": "f73bbfff1d3007c9786ae5bb1c4b9f267c9165f8fbdd22908f9ad4ce80e66cdd"
+  },
+  {
+    "score": "presets/SEQ/001-rhythmic-wave-sequence/preview.score.yaml",
+    "sha256": "b3f6a62d924fbf9f200f1a67ebfb21c6c1f4f05a56d6cf8a09579a04db3c4123"
+  },
+  {
+    "score": "presets/SEQ/002-pulse-gate-sequence/preview.score.yaml",
+    "sha256": "b3f6a62d924fbf9f200f1a67ebfb21c6c1f4f05a56d6cf8a09579a04db3c4123"
+  },
+  {
+    "score": "presets/SEQ/003-motion-step-sequence/preview.score.yaml",
+    "sha256": "b3f6a62d924fbf9f200f1a67ebfb21c6c1f4f05a56d6cf8a09579a04db3c4123"
+  },
+  {
+    "score": "presets/SEQ/004-percussive-sequence/preview.score.yaml",
+    "sha256": "b3f6a62d924fbf9f200f1a67ebfb21c6c1f4f05a56d6cf8a09579a04db3c4123"
+  },
+  {
+    "score": "presets/SEQ/005-random-step-sequence/preview.score.yaml",
+    "sha256": "b3f6a62d924fbf9f200f1a67ebfb21c6c1f4f05a56d6cf8a09579a04db3c4123"
+  }
+]

@@ -1,0 +1,179 @@
+meta:
+  title: "Pedal Choke Hi-Hat preview"
+  bpm: 100
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 2
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1/2"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 78
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "b6,,"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 78
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 78
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "b6,,"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1/2"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 78
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1"
+        degree: "b6,,"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 78
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 78
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "#4,,"
+        duration_quarters: "1/4"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "b6,,"
+        duration_quarters: "1/4"
+        velocity: 70
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "b7,,"
+        duration_quarters: "1/4"
+        velocity: 108
+instruments:
+  preview:
+    preset: "DRUM/022-pedal-choke-hi-hat"

@@ -1,0 +1,170 @@
+meta:
+  title: "Supersaw - Single Note and Chords"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 5
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "3"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "1,"
+        duration_quarters: "7/2"
+        velocity: 80
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "5,"
+        duration_quarters: "7/2"
+        velocity: 80
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "7/2"
+        velocity: 80
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "7/2"
+        velocity: 80
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "6,,"
+        duration_quarters: "7/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "3,"
+        duration_quarters: "7/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "6,"
+        duration_quarters: "7/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "7/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "4,,"
+        duration_quarters: "7/2"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "1,"
+        duration_quarters: "7/2"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "4,"
+        duration_quarters: "7/2"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "6,"
+        duration_quarters: "7/2"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "0"
+        degree: "5,,"
+        duration_quarters: "7/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "0"
+        degree: "2,"
+        duration_quarters: "7/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "0"
+        degree: "5,"
+        duration_quarters: "7/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "0"
+        degree: "7,"
+        duration_quarters: "7/2"
+        velocity: 100
+    events:
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "1"
+        value: 0.8
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 5
+          offset_quarters: "3"
+        value: 0
+instruments:
+  preview:
+    external: true

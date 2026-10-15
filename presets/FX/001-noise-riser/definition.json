@@ -14,23 +14,6 @@
     "recommended_range": {
       "min_midi": 36,
       "max_midi": 60
-    },
-    "preview": {
-      "tempo_bpm": 120,
-      "ticks_per_beat": 480,
-      "time_signature": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length_ticks": 4800,
-      "notes": [
-        {
-          "tick": 0,
-          "duration_ticks": 4320,
-          "note": 48,
-          "velocity": 100
-        }
-      ]
     }
   },
   "performance": {

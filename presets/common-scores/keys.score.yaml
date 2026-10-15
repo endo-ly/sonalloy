@@ -1,0 +1,214 @@
+meta:
+  title: "keys dynamics and chord voicings"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 9
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "2"
+        velocity: 45
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "1"
+        duration_quarters: "2"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "1"
+        duration_quarters: "2"
+        velocity: 120
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1"
+        degree: "1,"
+        duration_quarters: "3/5"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/2"
+        degree: "5,"
+        duration_quarters: "3/5"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "2"
+        degree: "1"
+        duration_quarters: "3/5"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "3"
+        duration_quarters: "3/5"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3"
+        degree: "1'"
+        duration_quarters: "3/5"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "7/2"
+        degree: "1''"
+        duration_quarters: "3/5"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "1"
+        degree: "1,"
+        duration_quarters: "9"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "1"
+        degree: "5,"
+        duration_quarters: "9"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "1"
+        degree: "7,"
+        duration_quarters: "9"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "1"
+        degree: "3"
+        duration_quarters: "9"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        degree: "4,,"
+        duration_quarters: "10"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        degree: "4,"
+        duration_quarters: "10"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        degree: "6,"
+        duration_quarters: "10"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        degree: "1"
+        duration_quarters: "10"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        degree: "3"
+        duration_quarters: "10"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 6
+          offset_quarters: "1"
+        degree: "5"
+        duration_quarters: "10"
+        velocity: 105
+    events:
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "0"
+        value: 1
+      -
+        kind: "pitch_bend"
+        instrument: "preview"
+        at:
+          bar: 7
+          offset_quarters: "3"
+        value: 0.5
+      -
+        kind: "pitch_bend"
+        instrument: "preview"
+        at:
+          bar: 8
+          offset_quarters: "0"
+        value: 0
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 8
+          offset_quarters: "2"
+        value: 0
+      -
+        kind: "sustain_pedal"
+        instrument: "preview"
+        at:
+          bar: 8
+          offset_quarters: "2"
+        down: true
+      -
+        kind: "sustain_pedal"
+        instrument: "preview"
+        at:
+          bar: 9
+          offset_quarters: "0"
+        down: false
+instruments:
+  preview:
+    external: true

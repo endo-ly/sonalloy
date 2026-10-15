@@ -1,11 +1,11 @@
 ---
 name: create-instrument
-description: Use ONLY when the user asks to create, edit, or debug a Sonalloy instrument definition (音源の作成・編集・修正), add an Additive, Formant, Sample, Wavetable, Spectral, Operator Modulation, Granular, Physical String, or Modal layer with a custom WAV, or render and listen to an instrument sound. Covers instrument init, JSON editing, validate / inspect, SHA-256 asset setup, and render note / midi / pattern.
+description: Use when creating, editing, or debugging Sonalloy instruments, or composing, previewing, auditioning, and rendering Score-based music in Sonalloy. Covers instrument definitions, custom WAV assets, Score YAML, validation, inspection, and audio rendering.
 ---
 
 # Create Instrument
 
-Sonalloyで音源（Instrument）を作成・編集・検証・試聴するための手順書です。
+Sonalloyで音源（Instrument）を制作・検証・試聴し、Scoreを使った楽曲・試奏を作成・編集・確認する手順書です。
 
 ## 参照ファイル
 
@@ -17,23 +17,22 @@ Sonalloyで音源（Instrument）を作成・編集・検証・試聴するた�
 | `references/generators.md` | 全GeneratorのField・Range・Dynamic Parameter・制約 |
 | `references/processors.md` | 全ProcessorのField・Range・Dynamic Parameter・固定Latency |
 | `references/modulation.md` | Modulation Source・Routeの計算規則・Parameter IDのPrefix・MSEG |
-| `references/patterns.md` | Audition PatternのSchema・Event・MIDI Interchange |
-| `references/demos.md` | Demoの定義・時間軸・MIDI / Audio出力の仕様 |
+| `references/score_spec.md` | 楽曲・試奏・プレビューのScore YAML文法と演奏仕様 |
 | `references/cli.md` | 全コマンドのOption・出力Report・診断Code・Exit Code |
 
 ## 全体フロー
 
 ```text
-init → edit → validate → inspect → pattern trial / render / analyze / trace → optional demo trial → optional realtime trial → refine
+init → edit → validate → inspect → Score trial / render / analyze / trace → optional realtime audition → refine
 ```
 
 1. **init**：新規Definitionのひな形を生成（既存を編集する場合は省略）
 2. **edit**：Generator、ADSR、Processor、Modulationを編集
 3. **validate**：`instrument validate`でJSON、制約、Asset準備を検証
 4. **inspect**：`instrument inspect --json`でCompile後の実行値（Parameter ID、Route Effect、Clamp範囲）を確認
-5. **pattern trial / render**：単音だけで判断できない場合は用途に合うAudition Patternを作り、`render pattern`または`render note` / `render events` / `render midi`でWAVを生成する。必要な事実を`--analyze`と`--trace`で取得する
-6. **demo trial**：複数Instrumentをまとめて確認する場合は、[Demo仕様](references/demos.md)の操作の流れに沿って検証・Render・MIDI Exportを行う
-7. **realtime trial**：`device list`でDeviceを確認し、MIDI Keyboardがある場合は`play`、ない場合は`audition pattern`で同じDefinitionを演奏する
+5. **score trial / render**：用途に合うScore YAMLで演奏を定義し、`score validate`から`render score`へ進む。単音や診断には`render note` / `render events` / `render midi`を使い、必要な事実を`--analyze`と`--trace`で取得する
+6. **楽曲の確認**：複数Instrumentを同じScoreからレンダリングし、必要に応じてStem・Master・MIDIを出力する
+7. **realtime trial**：`device list`でDeviceを確認し、MIDI Keyboardがある場合は`play`、ない場合は`audition score`で同じDefinitionを演奏する
 8. **refine**：数値・音色・`metadata`を整理し、再度InspectとRenderを実行
 
 ## Definitionを編集する
@@ -183,43 +182,20 @@ sonalloy render midi <definition> <midi-file> \
   --output out/<name>/phrase.wav
 ```
 
-## Patternで用途を試奏する
+## Scoreで用途を試奏する
 
-単音だけでは音色の判断が難しい場合は、1つのInstrumentへ送る演奏条件をAudition Patternへ記述します。Patternは曲全体や複数InstrumentのArrangementではなく、音源の用途を確認するためのNote、Chord、Phrase、Drum Pattern、Performance Control、Parameter Changeの入力です。SchemaとEventの詳細は[Pattern仕様](references/patterns.md)を参照してください。
-
-```bash
-sonalloy pattern init out/<name>/audition.json
-sonalloy pattern validate out/<name>/audition.json
-sonalloy pattern inspect out/<name>/audition.json
-sonalloy render pattern <definition> out/<name>/audition.json \
-  --sample-rate 48000 --block-size 257 --tail 1.0 \
-  --analyze --output out/<name>/audition.wav
-```
-
-音源の用途に応じて、次のような最小Patternを用意します。
-
-| 音源の用途 | 試奏条件 |
-|---|---|
-| Bass | 短いBass Phrase。低音域とVelocity差を含める |
-| Pad | 同じTickのChord。長いGateとReleaseを含める |
-| Lead | PhraseとPitch Bend、AftertouchまたはMod Wheel |
-| Drum Kit | Kick、Snare、Closed / Open Hi-Hatに対応するKeyのPattern |
-
-Audio Deviceが使える場合は、MIDI Keyboardなしでも次で試奏できます。
+単音だけでは判断できない場合は、[Score YAML](references/score_spec.md)に演奏を記述します。プリセットの短い試聴は `preview.score.yaml` を使い、別の演奏内容で詳細な奏法を試す場合だけ `showcase.score.yaml` を用意します。同じ演奏の詳細試奏にも `preview.score.yaml` を使います。共通の試奏素材は `presets/common-scores/` にあり、未束縛の楽器を `--bind` で指定します。
 
 ```bash
-sonalloy audition pattern <definition> out/<name>/audition.json --loop
+sonalloy score validate presets/common-scores/lead.score.yaml --bind preview=<definition>
+sonalloy render score presets/common-scores/lead.score.yaml \
+  --bind preview=<definition> --output out/<name>/phrase.wav --analyze --json
+sonalloy audition score presets/common-scores/lead.score.yaml --bind preview=<definition> --loop
 ```
 
-MIDI Fileを既存Phraseとして使う場合は、Note Channelを1つ選んでPatternへ保存できます。
+自作の楽曲は `score init <path>` から編集し、`score inspect --json` で展開結果を確かめます。複数楽器のリアルタイム試聴には `--part <id>` を指定し、区間は `--section <name>` で選びます。楽曲全体の音は `render score` で確認します。
 
-```bash
-sonalloy pattern import-midi <phrase.mid> --channel 1 \
-  --output out/<name>/phrase.json
-sonalloy audition midi <definition> <phrase.mid> --channel 1
-```
-
-`parameter_change` / `parameter_ramp`を含むPatternはStandard MIDIへExportできません（変換規則は[Pattern仕様](references/patterns.md)）。
+MIDIは `score import-midi <midi> --instrument <definition> --output <score.yaml>` で取り込み、`score export-midi <score.yaml> --output <song.mid>` で書き出します。音源固有のParameter操作など、MIDIで表現できない内容は診断されます。
 
 ## Deviceが利用できる場合のRealtime試聴
 

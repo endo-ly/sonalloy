@@ -10,14 +10,12 @@ use sonalloy_core::{
 
 use crate::output::CliFailure;
 
-mod demo;
 mod dev;
 mod instrument;
-pub(crate) mod pattern;
 mod realtime;
 mod render;
+pub(crate) mod score;
 
-pub(crate) use render::render_bundle_demo;
 mod update;
 
 const DEFAULT_SAMPLE_RATE: u32 = 48_000;
@@ -27,8 +25,8 @@ const DEFAULT_BLOCK_SIZE: usize = 257;
 #[command(
     name = "sonalloy",
     version,
-    about = "Validate instruments, render audio, audition patterns, and play from MIDI",
-    long_about = "Define instruments in JSON, validate and inspect their compiled configuration, render notes, events, MIDI, patterns, or multi-part demos to audio, audition patterns and MIDI files through an audio output, and play an instrument from a live MIDI input. Use `device list` to find audio and MIDI device IDs."
+    about = "Validate instruments and scores, render audio, and play from MIDI",
+    long_about = "Define instruments in JSON, validate and inspect their compiled configuration, render notes, events, MIDI, or scores to audio, audition scores and MIDI files through an audio output, and play an instrument from a live MIDI input. Use `device list` to find audio and MIDI device IDs."
 )]
 pub(super) struct Cli {
     #[command(subcommand)]
@@ -42,22 +40,17 @@ enum Command {
         #[command(subcommand)]
         command: instrument::InstrumentCommand,
     },
-    /// Create, validate, inspect, and convert one-instrument audition patterns.
-    Pattern {
+    /// Create, validate, inspect, and exchange Score YAML.
+    Score {
         #[command(subcommand)]
-        command: pattern::PatternCommand,
+        command: score::ScoreCommand,
     },
-    /// Validate, inspect, and export a multi-instrument offline Demo.
-    Demo {
-        #[command(subcommand)]
-        command: demo::DemoCommand,
-    },
-    /// Render an instrument, pattern, MIDI file, or Demo to audio.
+    /// Render an instrument, score, or MIDI file to audio.
     Render {
         #[command(subcommand)]
         command: render::RenderCommand,
     },
-    /// Play a pattern or MIDI file through an audio output without a MIDI input.
+    /// Play one score instrument or a MIDI file through an audio output without a MIDI input.
     Audition {
         #[command(subcommand)]
         command: realtime::AuditionCommand,
@@ -91,8 +84,7 @@ If `--midi-device` is omitted, no available MIDI inputs is an error, one input i
 pub(super) fn run(cli: Cli) -> ExitCode {
     match cli.command {
         Command::Instrument { command } => instrument::run(command),
-        Command::Pattern { command } => pattern::run(command),
-        Command::Demo { command } => demo::run(command),
+        Command::Score { command } => score::run(command),
         Command::Render { command } => render::run(command),
         Command::Audition { command } => realtime::run_audition(command),
         Command::Device { command } => realtime::run_device(command),
@@ -107,6 +99,22 @@ pub(crate) fn load_and_compile(
     sample_rate: u32,
     block_size: usize,
 ) -> Result<(Arc<CompiledInstrument>, Vec<Diagnostic>), CliFailure> {
+    load_with_metadata(path, sample_rate, block_size)
+        .map(|(instrument, diagnostics, _)| (instrument, diagnostics))
+}
+
+pub(crate) fn load_with_metadata(
+    path: &Path,
+    sample_rate: u32,
+    block_size: usize,
+) -> Result<
+    (
+        Arc<CompiledInstrument>,
+        Vec<Diagnostic>,
+        sonalloy_core::InstrumentMetadata,
+    ),
+    CliFailure,
+> {
     let text = std::fs::read_to_string(path).map_err(|error| CliFailure {
         code: 2,
         diagnostics: vec![
@@ -166,7 +174,7 @@ pub(crate) fn load_and_compile(
             diagnostics: result.diagnostics,
         });
     };
-    Ok((instrument, result.diagnostics))
+    Ok((instrument, result.diagnostics, definition.metadata))
 }
 
 pub(super) fn parse_positive_f64(value: &str) -> Result<f64, String> {

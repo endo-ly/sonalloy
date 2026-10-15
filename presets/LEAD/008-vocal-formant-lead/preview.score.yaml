@@ -1,0 +1,147 @@
+meta:
+  title: "Vocal Formant Lead preview"
+  bpm: 120
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 4
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "1"
+        duration_quarters: "3/4"
+        velocity: 48
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "1'"
+        duration_quarters: "3/4"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "1''"
+        duration_quarters: "3/4"
+        velocity: 127
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "13/40"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1/2"
+        degree: "5"
+        duration_quarters: "13/40"
+        velocity: 75
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1"
+        degree: "7"
+        duration_quarters: "13/40"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "1'"
+        duration_quarters: "13/40"
+        velocity: 115
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "7"
+        duration_quarters: "13/40"
+        velocity: 85
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "5"
+        duration_quarters: "13/40"
+        velocity: 95
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "3"
+        duration_quarters: "13/40"
+        velocity: 80
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "2"
+        duration_quarters: "13/40"
+        velocity: 105
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "3/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "1"
+        degree: "5"
+        duration_quarters: "3/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "2"
+        degree: "1'"
+        duration_quarters: "3/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3"
+        degree: "3"
+        duration_quarters: "3/2"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "2"
+        degree: "3"
+        duration_quarters: "2"
+        velocity: 100
+instruments:
+  preview:
+    preset: "LEAD/008-vocal-formant-lead"

@@ -9,7 +9,7 @@ use crate::midi::parse::{RawMidiEventKind, RawMidiTempoChange, RawMidiTimeSignat
 use crate::midi::parse_midi;
 use crate::midi::{normalize_control, normalize_pitch_bend, note_id};
 use crate::musical_time::{TempoPoint, TimeSignaturePoint, build_musical_time_map, tick_to_frame};
-use crate::pattern::PatternTimeSignatureChange;
+use crate::performance::events::MeterChange;
 
 pub(crate) struct MidiRender {
     pub(crate) events: Vec<ScheduledEvent>,
@@ -350,8 +350,8 @@ fn midi_tempo_points(changes: &[RawMidiTempoChange]) -> Vec<TempoPoint> {
 #[allow(clippy::too_many_lines)]
 pub(crate) fn imported_time_signature_changes(
     changes: &[RawMidiTimeSignatureChange],
-) -> Result<Vec<PatternTimeSignatureChange>, Vec<Diagnostic>> {
-    let mut result = vec![PatternTimeSignatureChange {
+) -> Result<Vec<MeterChange>, Vec<Diagnostic>> {
+    let mut result = vec![MeterChange {
         tick: 0,
         numerator: 4,
         denominator: 4,
@@ -375,7 +375,7 @@ pub(crate) fn imported_time_signature_changes(
                 .with_detail(format!("track {}, event {}", change.track, change.index)),
             ]);
         };
-        let value = PatternTimeSignatureChange {
+        let value = MeterChange {
             tick: change.tick,
             numerator: change.numerator,
             denominator,

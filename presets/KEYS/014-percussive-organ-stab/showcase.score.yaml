@@ -1,0 +1,809 @@
+meta:
+  title: "Percussive Organ Stab - Syncopated Chords and Rotor Speed"
+  bpm: 124
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 4
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "5"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "6,"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "1"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "3"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "5"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "5"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "5"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "6,"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "1"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "3"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "5"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "5"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "6,"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "1"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "2"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "4"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "6,"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "1"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "2"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "4"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "0"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/4"
+        degree: "6,"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/4"
+        degree: "1"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/4"
+        degree: "3"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/4"
+        degree: "4"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3/2"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "5/2"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3"
+        degree: "6,"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3"
+        degree: "1"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3"
+        degree: "3"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "3"
+        degree: "4"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "7/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "7/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "7/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 3
+          offset_quarters: "7/2"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "5,"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "7,"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/4"
+        degree: "5,"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/4"
+        degree: "7,"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/4"
+        degree: "2"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/4"
+        degree: "3"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "5,"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "7,"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "5/2"
+        degree: "5,"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "5/2"
+        degree: "7,"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "5/2"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "5/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3"
+        degree: "5,"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3"
+        degree: "7,"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3"
+        degree: "2"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "3"
+        degree: "3"
+        duration_quarters: "7/32"
+        velocity: 86
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "7/2"
+        degree: "5,"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "7/2"
+        degree: "7,"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "7/2"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "7/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 108
+    events:
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        value: 0
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "0"
+        value: 1
+      -
+        kind: "mod_wheel"
+        instrument: "preview"
+        at:
+          bar: 4
+          offset_quarters: "1919/480"
+        value: 0
+instruments:
+  preview:
+    preset: "KEYS/014-percussive-organ-stab"

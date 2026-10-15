@@ -1,0 +1,83 @@
+meta:
+  title: "Bounce Donk Pluck preview"
+  bpm: 128
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 2
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "3/8"
+        velocity: 110
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "1"
+        degree: "1"
+        duration_quarters: "3/8"
+        velocity: 88
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "2"
+        degree: "5"
+        duration_quarters: "3/8"
+        velocity: 118
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3"
+        degree: "b3"
+        duration_quarters: "3/8"
+        velocity: 96
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "3/8"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "1"
+        degree: "5,"
+        duration_quarters: "3/8"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "2"
+        degree: "5"
+        duration_quarters: "3/8"
+        velocity: 120
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3"
+        degree: "1'"
+        duration_quarters: "3/8"
+        velocity: 104
+instruments:
+  preview:
+    preset: "PLUCK/005-bounce-donk-pluck"

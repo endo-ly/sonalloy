@@ -258,18 +258,17 @@ fn render_events_supports_parameter_and_external_control_events() {
 }
 
 #[test]
-fn pattern_and_frame_ramps_render_the_same_filter_sweep() {
+fn score_and_frame_ramps_render_the_same_filter_sweep() {
     let directory = tempdir().expect("directory");
-    let pattern = directory.path().join("ramp-pattern.json");
+    let pattern = directory.path().join("ramp.score.yaml");
     let events = directory.path().join("ramp-events.json");
-    std::fs::write(&pattern, r#"{
-        "schema_version":1,"ticks_per_beat":480,"length_ticks":2880,
-        "tempo_changes":[{"tick":0,"bpm":120}],
-        "time_signature_changes":[{"tick":0,"numerator":4,"denominator":4}],
-        "events":[
-          {"type":"note","tick":0,"duration_ticks":2400,"note":60,"velocity":100},
-          {"type":"parameter_ramp","tick":240,"duration_ticks":1920,"parameter":"voice.processor.tone.cutoff","from_value":1200,"to_value":8000}
-        ]}"#).expect("pattern");
+    let definition = fixture_path("instruments/basic-poly-synth.json");
+    let score = serde_json::json!({"meta":{"title":"Sweep","bpm":120,"meter":"4/4","tuning":"12edo","gate":1},"form":[{"section":"phrase","bars":2,"last_bar_quarters":2,"tonic":"C","scale":"ionian"}],"sections":{"phrase":{"placements":[{"instrument":"part","degree":"1","at":{"bar":1,"step":1},"duration_quarters":5}],"events":[{"kind":"automation","instrument":"part","at":{"bar":1,"step":3},"duration_quarters":4,"parameter":"voice.processor.tone.cutoff","from_value":1200,"to_value":8000}]}},"instruments":{"part":{"definition":definition}}});
+    std::fs::write(
+        &pattern,
+        serde_json::to_string_pretty(&score).expect("score YAML"),
+    )
+    .expect("score");
     std::fs::write(&events, r#"{"events":[
         {"absolute_frame":0,"type":"note_on","note_id":0,"note":60,"velocity":100},
         {"absolute_frame":12000,"type":"parameter_ramp","duration_frames":96000,"parameter":"voice.processor.tone.cutoff","from_value":1200,"to_value":8000},
@@ -278,15 +277,17 @@ fn pattern_and_frame_ramps_render_the_same_filter_sweep() {
     let definition = fixture_path("instruments/basic-poly-synth.json");
     let mut renders = Vec::new();
     for (kind, input, block_size) in [
-        ("pattern", &pattern, "257"),
+        ("score", &pattern, "257"),
         ("events", &events, "257"),
         ("events", &events, "64"),
     ] {
         let output = directory.path().join(format!("{kind}-{block_size}.wav"));
         let mut command = Command::cargo_bin("sonalloy").expect("binary");
+        command.args(["render", kind]);
+        if kind == "events" {
+            command.arg(&definition);
+        }
         command
-            .args(["render", kind])
-            .arg(&definition)
             .arg(input)
             .args([
                 "--sample-rate",
@@ -301,7 +302,26 @@ fn pattern_and_frame_ramps_render_the_same_filter_sweep() {
         if kind == "events" {
             command.args(["--duration-frames", "144000"]);
         }
-        command.assert().success();
+        if kind == "score" {
+            command.args([
+                "--trace",
+                "part:voice.processor.tone.cutoff",
+                "--trace-every-frames",
+                "12000",
+                "--json",
+            ]);
+        }
+        let rendered = command.assert().success().get_output().clone();
+        if kind == "score" {
+            let report: serde_json::Value =
+                serde_json::from_slice(&rendered.stdout).expect("trace report");
+            assert_ne!(
+                report["parts"][0]["traces"][0]["parameters"][0]["observations"]
+                    .as_array()
+                    .expect("observations"),
+                &[] as &[serde_json::Value]
+            );
+        }
         renders.push(
             hound::WavReader::open(output)
                 .expect("WAV")
@@ -362,7 +382,7 @@ fn frame_ramps_reject_invalid_duration_and_parameter_endpoints() {
 fn single_instrument_renders_report_required_and_unused_audio_input() {
     let directory = tempdir().expect("directory");
     let output = directory.path().join("missing-input.wav");
-    for kind in ["note", "events", "pattern", "midi"] {
+    for kind in ["note", "events", "midi"] {
         let mut command = Command::cargo_bin("sonalloy").expect("binary");
         command
             .args(["render", kind])
@@ -372,9 +392,6 @@ fn single_instrument_renders_report_required_and_unused_audio_input() {
                 command
                     .arg("missing-events.json")
                     .args(["--duration-frames", "1024"]);
-            }
-            "pattern" => {
-                command.arg("missing-pattern.json");
             }
             "midi" => {
                 command.arg("missing-midi.mid");
@@ -749,6 +766,79 @@ fn render_midi_rejects_control_only_input() {
             "MIDI file contains no note events",
         ));
     assert!(!output.exists());
+}
+
+#[test]
+fn render_score_rejects_asset_and_stem_overwrites_without_changing_the_asset() {
+    let directory = tempdir().expect("temporary directory");
+    let asset = fixture_path("assets/metal-hit.wav");
+    let original_asset = std::fs::read(&asset).expect("source WAV");
+    let aliased_asset_output = asset
+        .parent()
+        .expect("asset directory")
+        .join("missing-output-dir")
+        .join("..")
+        .join("metal-hit.wav");
+    let definition = fixture_path("instruments/mapped-sample-instrument.json");
+    let write_score = |path: &std::path::Path, instrument_id: &str| {
+        let score = serde_json::json!({
+            "meta": {"title":"Asset guard", "bpm":120, "meter":"4/4", "tuning":"12edo", "gate":1},
+            "form": [{"section":"phrase", "bars":1, "tonic":"C", "scale":"ionian"}],
+            "sections": {"phrase":{"placements":[{"instrument":instrument_id, "degree":"1", "at":{"bar":1,"step":1}, "duration_steps":4}]}},
+            "instruments": {instrument_id:{"definition":definition}}
+        });
+        std::fs::write(path, serde_json::to_vec(&score).expect("Score JSON")).expect("write Score");
+    };
+
+    let mix_score = directory.path().join("asset-mix.score.yaml");
+    write_score(&mix_score, "sampled");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "score",
+            mix_score.to_str().expect("Score path"),
+            "--tail",
+            "0",
+            "--output",
+            aliased_asset_output.to_str().expect("asset output alias"),
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicates::str::contains("referenced asset"));
+    assert_eq!(
+        std::fs::read(&asset).expect("source WAV remains"),
+        original_asset
+    );
+
+    let stem_score = directory.path().join("asset-stem.score.yaml");
+    write_score(&stem_score, "metal-hit");
+    let mix_output = directory.path().join("mix.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "score",
+            stem_score.to_str().expect("Score path"),
+            "--tail",
+            "0",
+            "--output",
+            mix_output.to_str().expect("mix path"),
+            "--stems-dir",
+            asset
+                .parent()
+                .expect("asset directory")
+                .to_str()
+                .expect("stem directory"),
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicates::str::contains("referenced asset"));
+    assert_eq!(
+        std::fs::read(&asset).expect("source WAV remains"),
+        original_asset
+    );
+    assert!(!mix_output.exists());
 }
 
 #[test]

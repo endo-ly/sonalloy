@@ -15,137 +15,6 @@
     "recommended_range": {
       "min_midi": 42,
       "max_midi": 46
-    },
-    "preview": {
-      "tempo_bpm": 100,
-      "ticks_per_beat": 480,
-      "time_signature": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length_ticks": 3840,
-      "notes": [
-        {
-          "tick": 0,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 100
-        },
-        {
-          "tick": 240,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 78
-        },
-        {
-          "tick": 480,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 100
-        },
-        {
-          "tick": 480,
-          "duration_ticks": 120,
-          "note": 44,
-          "velocity": 70
-        },
-        {
-          "tick": 720,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 78
-        },
-        {
-          "tick": 960,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 100
-        },
-        {
-          "tick": 1200,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 78
-        },
-        {
-          "tick": 1440,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 100
-        },
-        {
-          "tick": 1440,
-          "duration_ticks": 120,
-          "note": 44,
-          "velocity": 70
-        },
-        {
-          "tick": 1680,
-          "duration_ticks": 120,
-          "note": 46,
-          "velocity": 108
-        },
-        {
-          "tick": 1920,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 100
-        },
-        {
-          "tick": 2160,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 78
-        },
-        {
-          "tick": 2400,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 100
-        },
-        {
-          "tick": 2400,
-          "duration_ticks": 120,
-          "note": 44,
-          "velocity": 70
-        },
-        {
-          "tick": 2640,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 78
-        },
-        {
-          "tick": 2880,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 100
-        },
-        {
-          "tick": 3120,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 78
-        },
-        {
-          "tick": 3360,
-          "duration_ticks": 120,
-          "note": 42,
-          "velocity": 100
-        },
-        {
-          "tick": 3360,
-          "duration_ticks": 120,
-          "note": 44,
-          "velocity": 70
-        },
-        {
-          "tick": 3600,
-          "duration_ticks": 120,
-          "note": 46,
-          "velocity": 108
-        }
-      ]
     }
   },
   "performance": {
@@ -173,20 +42,20 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -16.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -16,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.0002,
         "decay_seconds": 0.01,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.01
       },
       "generator": {
         "noise": {
           "color": "white",
           "seed": 4402,
-          "stereo_correlation": 1.0
+          "stereo_correlation": 1
         }
       },
       "processors": [
@@ -194,7 +63,7 @@
           "type": "filter",
           "id": "band",
           "mode": "band_pass",
-          "cutoff_hz": 3800.0,
+          "cutoff_hz": 3800,
           "resonance": 0.3
         }
       ]
@@ -209,21 +78,21 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -23.0,
-      "pan": 0.0,
-      "tuning_cents": 1188.0,
+      "gain_db": -23,
+      "pan": 0,
+      "tuning_cents": 1188,
       "envelope": {
         "attack_seconds": 0.0003,
         "decay_seconds": 0.07,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.07
       },
       "generator": {
         "additive": {
           "phase_reset": false,
-          "morph": 0.0,
-          "spectrum_tilt_db_per_octave": 0.0,
-          "inharmonicity": 0.0,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": 0,
+          "inharmonicity": 0,
           "partials": [
             {
               "id": "c0",
@@ -232,9 +101,9 @@
               "amplitude_b": 0.3472,
               "phase": 0.7475,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.05464541489416247,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05969080357896676
               }
             },
@@ -245,9 +114,9 @@
               "amplitude_b": 0.614,
               "phase": 0.6977,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.046000737905144286,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04374840023926087
               }
             },
@@ -258,9 +127,9 @@
               "amplitude_b": 0.6729,
               "phase": 0.1023,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04713474093406873,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.032582978346315315
               }
             },
@@ -271,9 +140,9 @@
               "amplitude_b": 0.541,
               "phase": 0.9059,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.053502496363802915,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.0563404458946814
               }
             },
@@ -284,9 +153,9 @@
               "amplitude_b": 0.5155,
               "phase": 0.408,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.040608543920954566,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04271734611236774
               }
             },
@@ -297,9 +166,9 @@
               "amplitude_b": 0.3102,
               "phase": 0.0808,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04890586969437399,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03441493725923232
               }
             },
@@ -310,9 +179,9 @@
               "amplitude_b": 0.5289,
               "phase": 0.7273,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06084606095162727,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06484610607822912
               }
             },
@@ -323,9 +192,9 @@
               "amplitude_b": 0.6955,
               "phase": 0.0952,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03793642611198266,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.030059268984518907
               }
             },
@@ -336,9 +205,9 @@
               "amplitude_b": 0.5823,
               "phase": 0.3687,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03012847428733704,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06853405758424444
               }
             },
@@ -349,9 +218,9 @@
               "amplitude_b": 0.8326,
               "phase": 0.5132,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06415875324787482,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.032407162592478424
               }
             },
@@ -362,9 +231,9 @@
               "amplitude_b": 0.5639,
               "phase": 0.6847,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04376090553079981,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06630691304721198
               }
             },
@@ -375,9 +244,9 @@
               "amplitude_b": 0.8674,
               "phase": 0.3248,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.05124666701630494,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04326662263473478
               }
             },
@@ -388,9 +257,9 @@
               "amplitude_b": 0.6306,
               "phase": 0.4394,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03729845398276459,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03418864628508592
               }
             },
@@ -401,9 +270,9 @@
               "amplitude_b": 0.7823,
               "phase": 0.5911,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.061925562017197164,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06811203581032324
               }
             },
@@ -414,9 +283,9 @@
               "amplitude_b": 0.7532,
               "phase": 0.8578,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0431223022360701,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06119853038012005
               }
             },
@@ -427,9 +296,9 @@
               "amplitude_b": 0.8332,
               "phase": 0.9095,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03996932367514272,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04399812935501002
               }
             },
@@ -440,9 +309,9 @@
               "amplitude_b": 0.8408,
               "phase": 0.8941,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06620055214455564,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06255398047763247
               }
             },
@@ -453,9 +322,9 @@
               "amplitude_b": 0.6653,
               "phase": 0.8303,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06574764369346361,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04576792304047226
               }
             },
@@ -466,9 +335,9 @@
               "amplitude_b": 0.8224,
               "phase": 0.4219,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03841004096745555,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04509818612043919
               }
             },
@@ -479,9 +348,9 @@
               "amplitude_b": 0.8493,
               "phase": 0.8186,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.05345083842509002,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05150208265736284
               }
             },
@@ -492,9 +361,9 @@
               "amplitude_b": 0.8815,
               "phase": 0.6932,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06858936842706528,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.050747000629994155
               }
             },
@@ -505,9 +374,9 @@
               "amplitude_b": 0.6856,
               "phase": 0.7703,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03316117333458698,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05898639079502502
               }
             },
@@ -518,9 +387,9 @@
               "amplitude_b": 0.643,
               "phase": 0.9135,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.058013665604072,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06416392553812633
               }
             },
@@ -531,9 +400,9 @@
               "amplitude_b": 0.542,
               "phase": 0.6965,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06526075132013032,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.036362731865725625
               }
             },
@@ -544,9 +413,9 @@
               "amplitude_b": 0.8009,
               "phase": 0.3337,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.05831357938846628,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06494649850663417
               }
             },
@@ -557,9 +426,9 @@
               "amplitude_b": 0.7993,
               "phase": 0.2308,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06964428811339132,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03682708193742392
               }
             },
@@ -570,9 +439,9 @@
               "amplitude_b": 0.601,
               "phase": 0.0179,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.048093153630291485,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05129509255988658
               }
             },
@@ -583,9 +452,9 @@
               "amplitude_b": 0.7629,
               "phase": 0.6976,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04280199288876504,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04652957115547181
               }
             },
@@ -596,9 +465,9 @@
               "amplitude_b": 0.6626,
               "phase": 0.2893,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.043014406159984475,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.033625057986609856
               }
             },
@@ -609,9 +478,9 @@
               "amplitude_b": 0.9711,
               "phase": 0.4211,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06147637748369521,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04565749773717048
               }
             },
@@ -622,9 +491,9 @@
               "amplitude_b": 0.8662,
               "phase": 0.8939,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04829990410603831,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03677893921945144
               }
             },
@@ -635,9 +504,9 @@
               "amplitude_b": 0.7898,
               "phase": 0.7474,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0472440319124342,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06485606114086756
               }
             },
@@ -648,9 +517,9 @@
               "amplitude_b": 0.5835,
               "phase": 0.4123,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04380216374276178,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03424364755489505
               }
             },
@@ -661,9 +530,9 @@
               "amplitude_b": 0.3812,
               "phase": 0.6618,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0460136654768218,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03861342614705778
               }
             },
@@ -674,9 +543,9 @@
               "amplitude_b": 0.6176,
               "phase": 0.1134,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06688792873412919,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04819973433108632
               }
             },
@@ -687,9 +556,9 @@
               "amplitude_b": 0.7309,
               "phase": 0.4012,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.05670163197037223,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03135238830499062
               }
             },
@@ -700,9 +569,9 @@
               "amplitude_b": 0.6824,
               "phase": 0.0443,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04389662965832049,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05243655567781971
               }
             },
@@ -713,9 +582,9 @@
               "amplitude_b": 0.6376,
               "phase": 0.2828,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03696822926052172,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03802198599794029
               }
             },
@@ -726,9 +595,9 @@
               "amplitude_b": 0.4027,
               "phase": 0.117,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06430699907770245,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06989451769991818
               }
             },
@@ -739,9 +608,9 @@
               "amplitude_b": 0.7464,
               "phase": 0.1491,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06573539654003627,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.0698408302905554
               }
             },
@@ -752,9 +621,9 @@
               "amplitude_b": 0.4553,
               "phase": 0.7108,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03099584051609142,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.044121167656936876
               }
             },
@@ -765,22 +634,22 @@
               "amplitude_b": 0.5779,
               "phase": 0.1617,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06395187343766733,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05507716060307573
               }
             },
             {
               "id": "c42",
               "ratio": 38.61387,
-              "amplitude_a": 1.0,
-              "amplitude_b": 1.0,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
               "phase": 0.0503,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06167638852815954,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06012965808344964
               }
             },
@@ -791,9 +660,9 @@
               "amplitude_b": 0.371,
               "phase": 0.2214,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06813442443174145,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03542983537205906
               }
             },
@@ -804,9 +673,9 @@
               "amplitude_b": 0.5475,
               "phase": 0.8796,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.031836430419586344,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04386258957640892
               }
             },
@@ -817,9 +686,9 @@
               "amplitude_b": 0.4308,
               "phase": 0.2253,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.039598645635352044,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.051517349246231865
               }
             },
@@ -830,9 +699,9 @@
               "amplitude_b": 0.4045,
               "phase": 0.2863,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.033232810048697624,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05013802860077468
               }
             },
@@ -843,9 +712,9 @@
               "amplitude_b": 0.533,
               "phase": 0.0158,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06033703384434899,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03486014588296447
               }
             },
@@ -856,9 +725,9 @@
               "amplitude_b": 0.784,
               "phase": 0.411,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06763732763498453,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.038387956929453966
               }
             },
@@ -869,9 +738,9 @@
               "amplitude_b": 0.4943,
               "phase": 0.9689,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03147323523354187,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06247430530644378
               }
             },
@@ -882,9 +751,9 @@
               "amplitude_b": 0.6805,
               "phase": 0.539,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06773640212175404,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04161568964166711
               }
             },
@@ -895,9 +764,9 @@
               "amplitude_b": 0.8375,
               "phase": 0.2563,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03577173776519836,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03703533774243327
               }
             },
@@ -908,9 +777,9 @@
               "amplitude_b": 0.4386,
               "phase": 0.9109,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0588648414679533,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05267263340308775
               }
             },
@@ -921,9 +790,9 @@
               "amplitude_b": 0.6437,
               "phase": 0.058,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.052168803590808895,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04952615933604583
               }
             },
@@ -934,9 +803,9 @@
               "amplitude_b": 0.6272,
               "phase": 0.8398,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.057581654553046105,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.043511348893228274
               }
             },
@@ -947,9 +816,9 @@
               "amplitude_b": 0.3391,
               "phase": 0.0483,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06041927306630522,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.058735670618210264
               }
             },
@@ -960,9 +829,9 @@
               "amplitude_b": 0.6723,
               "phase": 0.6669,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.060499064661687675,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04283543572555237
               }
             },
@@ -973,9 +842,9 @@
               "amplitude_b": 0.8564,
               "phase": 0.7331,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04655100830224287,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04533509287349222
               }
             },
@@ -986,9 +855,9 @@
               "amplitude_b": 0.8376,
               "phase": 0.5722,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.055630379741926195,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05214723334347314
               }
             },
@@ -999,9 +868,9 @@
               "amplitude_b": 0.761,
               "phase": 0.8056,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0516920186954374,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.030333243359421717
               }
             },
@@ -1012,9 +881,9 @@
               "amplitude_b": 0.407,
               "phase": 0.1784,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04805203191086649,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05806428605893908
               }
             },
@@ -1025,9 +894,9 @@
               "amplitude_b": 0.4478,
               "phase": 0.2911,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.056677984434459774,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03559159000241831
               }
             },
@@ -1038,9 +907,9 @@
               "amplitude_b": 0.6727,
               "phase": 0.2049,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06689542584653754,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06937448380676964
               }
             },
@@ -1051,9 +920,9 @@
               "amplitude_b": 0.3111,
               "phase": 0.2171,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03895393241869916,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.044989152850221835
               }
             }
@@ -1072,13 +941,13 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -16.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -16,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.0003,
         "decay_seconds": 0.05,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.05
       },
       "generator": {
@@ -1093,15 +962,15 @@
           "type": "filter",
           "id": "hp",
           "mode": "high_pass",
-          "cutoff_hz": 7000.0,
+          "cutoff_hz": 7000,
           "resonance": 0.05
         },
         {
           "type": "filter",
           "id": "top",
           "mode": "low_pass",
-          "cutoff_hz": 12000.0,
-          "resonance": 0.0
+          "cutoff_hz": 12000,
+          "resonance": 0
         }
       ]
     },
@@ -1115,20 +984,20 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -15.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -15,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.002,
         "decay_seconds": 0.025,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.025
       },
       "generator": {
         "noise": {
           "color": "white",
           "seed": 4404,
-          "stereo_correlation": 1.0
+          "stereo_correlation": 1
         }
       },
       "processors": [
@@ -1136,7 +1005,7 @@
           "type": "filter",
           "id": "band",
           "mode": "band_pass",
-          "cutoff_hz": 2200.0,
+          "cutoff_hz": 2200,
           "resonance": 0.35
         }
       ]
@@ -1151,21 +1020,21 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -22.0,
-      "pan": 0.0,
-      "tuning_cents": 1188.0,
+      "gain_db": -22,
+      "pan": 0,
+      "tuning_cents": 1188,
       "envelope": {
         "attack_seconds": 0.002,
         "decay_seconds": 0.05,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.05
       },
       "generator": {
         "additive": {
           "phase_reset": false,
-          "morph": 0.0,
-          "spectrum_tilt_db_per_octave": 0.0,
-          "inharmonicity": 0.0,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": 0,
+          "inharmonicity": 0,
           "partials": [
             {
               "id": "p0",
@@ -1174,9 +1043,9 @@
               "amplitude_b": 0.3472,
               "phase": 0.7475,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03848406117062185,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04226810268422507
               }
             },
@@ -1187,9 +1056,9 @@
               "amplitude_b": 0.614,
               "phase": 0.6977,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.032000553428858214,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.030311300179445652
               }
             },
@@ -1200,9 +1069,9 @@
               "amplitude_b": 0.6729,
               "phase": 0.1023,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03285105570055155,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.02193723375973649
               }
             },
@@ -1213,9 +1082,9 @@
               "amplitude_b": 0.541,
               "phase": 0.9059,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.037626872272852184,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03975533442101105
               }
             },
@@ -1226,9 +1095,9 @@
               "amplitude_b": 0.5155,
               "phase": 0.408,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.027956407940715924,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.02953800958427581
               }
             },
@@ -1239,9 +1108,9 @@
               "amplitude_b": 0.3102,
               "phase": 0.0808,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03417940227078049,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.023311202944424243
               }
             },
@@ -1252,9 +1121,9 @@
               "amplitude_b": 0.5289,
               "phase": 0.7273,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04313454571372045,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04613457955867184
               }
             },
@@ -1265,9 +1134,9 @@
               "amplitude_b": 0.6955,
               "phase": 0.0952,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.025952319583986996,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.02004445173838918
               }
             },
@@ -1278,9 +1147,9 @@
               "amplitude_b": 0.5823,
               "phase": 0.3687,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.02009635571550278,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.048900543188183335
               }
             },
@@ -1291,9 +1160,9 @@
               "amplitude_b": 0.8326,
               "phase": 0.5132,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04561906493590612,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.02180537194435882
               }
             },
@@ -1304,9 +1173,9 @@
               "amplitude_b": 0.5639,
               "phase": 0.6847,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.030320679148099855,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04723018478540898
               }
             },
@@ -1317,9 +1186,9 @@
               "amplitude_b": 0.8674,
               "phase": 0.3248,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.035935000262228706,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.029949966976051085
               }
             },
@@ -1330,9 +1199,9 @@
               "amplitude_b": 0.6306,
               "phase": 0.4394,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.02547384048707344,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.023141484713814442
               }
             },
@@ -1343,9 +1212,9 @@
               "amplitude_b": 0.7823,
               "phase": 0.5911,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.043944171512897874,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.048584026857742435
               }
             },
@@ -1356,9 +1225,9 @@
               "amplitude_b": 0.7532,
               "phase": 0.8578,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.02984172667705258,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.043398897785090026
               }
             },
@@ -1369,9 +1238,9 @@
               "amplitude_b": 0.8332,
               "phase": 0.9095,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.027476992756357038,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.030498597016257515
               }
             },
@@ -1382,9 +1251,9 @@
               "amplitude_b": 0.8408,
               "phase": 0.8941,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04715041410841672,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04441548535822436
               }
             },
@@ -1395,9 +1264,9 @@
               "amplitude_b": 0.6653,
               "phase": 0.8303,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.046810732770097715,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.031825942280354194
               }
             },
@@ -1408,9 +1277,9 @@
               "amplitude_b": 0.8224,
               "phase": 0.4219,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.026307530725591666,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03132363959032939
               }
             },
@@ -1421,9 +1290,9 @@
               "amplitude_b": 0.8493,
               "phase": 0.8186,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03758812881881751,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03612656199302213
               }
             },
@@ -1434,9 +1303,9 @@
               "amplitude_b": 0.8815,
               "phase": 0.6932,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04894202632029897,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.035560250472495614
               }
             },
@@ -1447,9 +1316,9 @@
               "amplitude_b": 0.6856,
               "phase": 0.7703,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.022370880000940233,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04173979309626877
               }
             },
@@ -1460,9 +1329,9 @@
               "amplitude_b": 0.643,
               "phase": 0.9135,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.041010249203054,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04562294415359475
               }
             },
@@ -1473,9 +1342,9 @@
               "amplitude_b": 0.542,
               "phase": 0.6965,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.046445563490097735,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.02477204889929422
               }
             },
@@ -1486,9 +1355,9 @@
               "amplitude_b": 0.8009,
               "phase": 0.3337,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0412351845413497,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04620987387997562
               }
             },
@@ -1499,9 +1368,9 @@
               "amplitude_b": 0.7993,
               "phase": 0.2308,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0497332160850435,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.025120311453067944
               }
             },
@@ -1512,9 +1381,9 @@
               "amplitude_b": 0.601,
               "phase": 0.0179,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03356986522271862,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03597131941991494
               }
             },
@@ -1525,9 +1394,9 @@
               "amplitude_b": 0.7629,
               "phase": 0.6976,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.02960149466657378,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03239717836660385
               }
             },
@@ -1538,9 +1407,9 @@
               "amplitude_b": 0.6626,
               "phase": 0.2893,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.02976080461998836,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.02271879348995739
               }
             },
@@ -1551,9 +1420,9 @@
               "amplitude_b": 0.9711,
               "phase": 0.4211,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04360728311277141,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03174312330287786
               }
             },
@@ -1564,9 +1433,9 @@
               "amplitude_b": 0.8662,
               "phase": 0.8939,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03372492807952873,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.02508420441458858
               }
             },
@@ -1577,9 +1446,9 @@
               "amplitude_b": 0.7898,
               "phase": 0.7474,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03293302393432565,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04614204585565066
               }
             },
@@ -1590,9 +1459,9 @@
               "amplitude_b": 0.5835,
               "phase": 0.4123,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.030351622807071335,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.023182735666171288
               }
             },
@@ -1603,9 +1472,9 @@
               "amplitude_b": 0.3812,
               "phase": 0.6618,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03201024910761635,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.02646006961029334
               }
             },
@@ -1616,9 +1485,9 @@
               "amplitude_b": 0.6176,
               "phase": 0.1134,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04766594655059689,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03364980074831474
               }
             },
@@ -1629,9 +1498,9 @@
               "amplitude_b": 0.7309,
               "phase": 0.4012,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04002622397777917,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.021014291228742966
               }
             },
@@ -1642,9 +1511,9 @@
               "amplitude_b": 0.6824,
               "phase": 0.0443,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.030422472243740367,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03682741675836478
               }
             },
@@ -1655,9 +1524,9 @@
               "amplitude_b": 0.6376,
               "phase": 0.2828,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.02522617194539129,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.02601648949845522
               }
             },
@@ -1668,9 +1537,9 @@
               "amplitude_b": 0.4027,
               "phase": 0.117,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.045730249308276835,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04992088827493863
               }
             },
@@ -1681,9 +1550,9 @@
               "amplitude_b": 0.7464,
               "phase": 0.1491,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04680154740502719,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.049880622717916545
               }
             },
@@ -1694,9 +1563,9 @@
               "amplitude_b": 0.4553,
               "phase": 0.7108,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.020746880387068567,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.030590875742702656
               }
             },
@@ -1707,22 +1576,22 @@
               "amplitude_b": 0.5779,
               "phase": 0.1617,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04546390507825049,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.0388078704523068
               }
             },
             {
               "id": "p42",
               "ratio": 34.40104,
-              "amplitude_a": 1.0,
-              "amplitude_b": 1.0,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
               "phase": 0.0503,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.043757291396119655,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04259724356258723
               }
             },
@@ -1733,9 +1602,9 @@
               "amplitude_b": 0.371,
               "phase": 0.2214,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04860081832380608,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.024072376529044294
               }
             },
@@ -1746,9 +1615,9 @@
               "amplitude_b": 0.5475,
               "phase": 0.8796,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.021377322814689757,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.030396942182306687
               }
             },
@@ -1759,9 +1628,9 @@
               "amplitude_b": 0.4308,
               "phase": 0.2253,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.027198984226514032,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.0361380119346739
               }
             },
@@ -1772,9 +1641,9 @@
               "amplitude_b": 0.4045,
               "phase": 0.2863,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.02242460753652322,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.035103521450581016
               }
             },
@@ -1785,9 +1654,9 @@
               "amplitude_b": 0.533,
               "phase": 0.0158,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04275277538326175,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.023645109412223354
               }
             },
@@ -1798,9 +1667,9 @@
               "amplitude_b": 0.784,
               "phase": 0.411,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0482279957262384,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.026290967697090474
               }
             },
@@ -1811,9 +1680,9 @@
               "amplitude_b": 0.4943,
               "phase": 0.9689,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.021104926425156406,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04435572897983284
               }
             },
@@ -1824,9 +1693,9 @@
               "amplitude_b": 0.6805,
               "phase": 0.539,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04830230159131552,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.028711767231250337
               }
             },
@@ -1837,9 +1706,9 @@
               "amplitude_b": 0.8375,
               "phase": 0.2563,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.024328803323898772,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.025276503306824953
               }
             },
@@ -1850,9 +1719,9 @@
               "amplitude_b": 0.4386,
               "phase": 0.9109,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04164863110096498,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03700447505231581
               }
             },
@@ -1863,9 +1732,9 @@
               "amplitude_b": 0.6437,
               "phase": 0.058,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03662660269310667,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.034644619502034374
               }
             },
@@ -1876,9 +1745,9 @@
               "amplitude_b": 0.6272,
               "phase": 0.8398,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04068624091478458,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.030133511669921204
               }
             },
@@ -1889,9 +1758,9 @@
               "amplitude_b": 0.3391,
               "phase": 0.0483,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04281445479972891,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.04155175296365769
               }
             },
@@ -1902,9 +1771,9 @@
               "amplitude_b": 0.6723,
               "phase": 0.6669,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.042874298496265756,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.029626576794164278
               }
             },
@@ -1915,9 +1784,9 @@
               "amplitude_b": 0.8564,
               "phase": 0.7331,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.032413256226682154,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03150131965511917
               }
             },
@@ -1928,9 +1797,9 @@
               "amplitude_b": 0.8376,
               "phase": 0.5722,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.039222784806444644,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03661042500760485
               }
             },
@@ -1941,9 +1810,9 @@
               "amplitude_b": 0.761,
               "phase": 0.8056,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.03626901402157805,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.020249932519566288
               }
             },
@@ -1954,9 +1823,9 @@
               "amplitude_b": 0.407,
               "phase": 0.1784,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.033539023933149864,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.041048214544204306
               }
             },
@@ -1967,9 +1836,9 @@
               "amplitude_b": 0.4478,
               "phase": 0.2911,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04000848832584483,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.024193692501813732
               }
             },
@@ -1980,9 +1849,9 @@
               "amplitude_b": 0.6727,
               "phase": 0.2049,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.04767156938490316,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.049530862855077226
               }
             },
@@ -1993,9 +1862,9 @@
               "amplitude_b": 0.3111,
               "phase": 0.2171,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.026715449314024375,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.03124186463766638
               }
             }
@@ -2014,20 +1883,20 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -16.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -16,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.0002,
         "decay_seconds": 0.012,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.012
       },
       "generator": {
         "noise": {
           "color": "white",
           "seed": 4405,
-          "stereo_correlation": 1.0
+          "stereo_correlation": 1
         }
       },
       "processors": [
@@ -2035,7 +1904,7 @@
           "type": "filter",
           "id": "band",
           "mode": "band_pass",
-          "cutoff_hz": 3800.0,
+          "cutoff_hz": 3800,
           "resonance": 0.3
         }
       ]
@@ -2050,21 +1919,21 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -24.0,
-      "pan": 0.0,
-      "tuning_cents": 1188.0,
+      "gain_db": -24,
+      "pan": 0,
+      "tuning_cents": 1188,
       "envelope": {
         "attack_seconds": 0.0004,
         "decay_seconds": 0.15,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.15
       },
       "generator": {
         "additive": {
           "phase_reset": false,
-          "morph": 0.0,
-          "spectrum_tilt_db_per_octave": 0.0,
-          "inharmonicity": 0.0,
+          "morph": 0,
+          "spectrum_tilt_db_per_octave": 0,
+          "inharmonicity": 0,
           "partials": [
             {
               "id": "o0",
@@ -2073,9 +1942,9 @@
               "amplitude_b": 0.3472,
               "phase": 0.7475,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.10545218351186555,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.11680430805267521
               }
             },
@@ -2086,9 +1955,9 @@
               "amplitude_b": 0.614,
               "phase": 0.6977,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.08600166028657463,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.08093390053833696
               }
             },
@@ -2099,9 +1968,9 @@
               "amplitude_b": 0.6729,
               "phase": 0.1023,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.08855316710165465,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.055811701279209466
               }
             },
@@ -2112,9 +1981,9 @@
               "amplitude_b": 0.541,
               "phase": 0.9059,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.10288061681855656,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.10926600326303315
               }
             },
@@ -2125,9 +1994,9 @@
               "amplitude_b": 0.5155,
               "phase": 0.408,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.07386922382214778,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.07861402875282743
               }
             },
@@ -2138,9 +2007,9 @@
               "amplitude_b": 0.3102,
               "phase": 0.0808,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.09253820681234148,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05993360883327273
               }
             },
@@ -2151,9 +2020,9 @@
               "amplitude_b": 0.5289,
               "phase": 0.7273,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.11940363714116135,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.1284037386760155
               }
             },
@@ -2164,9 +2033,9 @@
               "amplitude_b": 0.6955,
               "phase": 0.0952,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06785695875196099,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05013335521516755
               }
             },
@@ -2177,9 +2046,9 @@
               "amplitude_b": 0.5823,
               "phase": 0.3687,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.05028906714650834,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.13670162956455
               }
             },
@@ -2190,9 +2059,9 @@
               "amplitude_b": 0.8326,
               "phase": 0.5132,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.12685719480771834,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.055416115833076464
               }
             },
@@ -2203,9 +2072,9 @@
               "amplitude_b": 0.5639,
               "phase": 0.6847,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.08096203744429957,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.13169055435622695
               }
             },
@@ -2216,9 +2085,9 @@
               "amplitude_b": 0.8674,
               "phase": 0.3248,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.09780500078668612,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.07984990092815326
               }
             },
@@ -2229,9 +2098,9 @@
               "amplitude_b": 0.6306,
               "phase": 0.4394,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06642152146122034,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05942445414144333
               }
             },
@@ -2242,9 +2111,9 @@
               "amplitude_b": 0.7823,
               "phase": 0.5911,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.12183251453869362,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.1357520805732273
               }
             },
@@ -2255,9 +2124,9 @@
               "amplitude_b": 0.7532,
               "phase": 0.8578,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.07952518003115774,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.1201966933552701
               }
             },
@@ -2268,9 +2137,9 @@
               "amplitude_b": 0.8332,
               "phase": 0.9095,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.07243097826907112,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.08149579104877255
               }
             },
@@ -2281,9 +2150,9 @@
               "amplitude_b": 0.8408,
               "phase": 0.8941,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.13145124232525018,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.12324645607467306
               }
             },
@@ -2294,9 +2163,9 @@
               "amplitude_b": 0.6653,
               "phase": 0.8303,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.13043219831029315,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.08547782684106259
               }
             },
@@ -2307,9 +2176,9 @@
               "amplitude_b": 0.8224,
               "phase": 0.4219,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.068922592176775,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.08397091877098818
               }
             },
@@ -2320,9 +2189,9 @@
               "amplitude_b": 0.8493,
               "phase": 0.8186,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.10276438645645254,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.09837968597906639
               }
             },
@@ -2333,9 +2202,9 @@
               "amplitude_b": 0.8815,
               "phase": 0.6932,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.13682607896089688,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.09668075141748685
               }
             },
@@ -2346,9 +2215,9 @@
               "amplitude_b": 0.6856,
               "phase": 0.7703,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0571126400028207,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.1152193792888063
               }
             },
@@ -2359,9 +2228,9 @@
               "amplitude_b": 0.643,
               "phase": 0.9135,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.113030747609162,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.12686883246078426
               }
             },
@@ -2372,9 +2241,9 @@
               "amplitude_b": 0.542,
               "phase": 0.6965,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.12933669047029323,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06431614669788266
               }
             },
@@ -2385,9 +2254,9 @@
               "amplitude_b": 0.8009,
               "phase": 0.3337,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.11370555362404912,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.12862962163992686
               }
             },
@@ -2398,9 +2267,9 @@
               "amplitude_b": 0.7993,
               "phase": 0.2308,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.13919964825513048,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06536093435920383
               }
             },
@@ -2411,9 +2280,9 @@
               "amplitude_b": 0.601,
               "phase": 0.0179,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.09070959566815585,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.09791395825974482
               }
             },
@@ -2424,9 +2293,9 @@
               "amplitude_b": 0.7629,
               "phase": 0.6976,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.07880448399972134,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.08719153509981156
               }
             },
@@ -2437,9 +2306,9 @@
               "amplitude_b": 0.6626,
               "phase": 0.2893,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.07928241385996508,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.058156380469872176
               }
             },
@@ -2450,9 +2319,9 @@
               "amplitude_b": 0.9711,
               "phase": 0.4211,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.12082184933831422,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.08522936990863358
               }
             },
@@ -2463,9 +2332,9 @@
               "amplitude_b": 0.8662,
               "phase": 0.8939,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.09117478423858619,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06525261324376574
               }
             },
@@ -2476,9 +2345,9 @@
               "amplitude_b": 0.7898,
               "phase": 0.7474,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.08879907180297697,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.12842613756695198
               }
             },
@@ -2489,9 +2358,9 @@
               "amplitude_b": 0.5835,
               "phase": 0.4123,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.08105486842121401,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.05954820699851386
               }
             },
@@ -2502,9 +2371,9 @@
               "amplitude_b": 0.3812,
               "phase": 0.6618,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.08603074732284906,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06938020883088002
               }
             },
@@ -2515,9 +2384,9 @@
               "amplitude_b": 0.6176,
               "phase": 0.1134,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.13299783965179068,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.09094940224494422
               }
             },
@@ -2528,9 +2397,9 @@
               "amplitude_b": 0.7309,
               "phase": 0.4012,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.11007867193333751,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.053042873686228904
               }
             },
@@ -2541,9 +2410,9 @@
               "amplitude_b": 0.6824,
               "phase": 0.0443,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.08126741673122109,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.10048225027509436
               }
             },
@@ -2554,9 +2423,9 @@
               "amplitude_b": 0.6376,
               "phase": 0.2828,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06567851583617387,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06804946849536565
               }
             },
@@ -2567,9 +2436,9 @@
               "amplitude_b": 0.4027,
               "phase": 0.117,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.12719074792483048,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.13976266482481592
               }
             },
@@ -2580,9 +2449,9 @@
               "amplitude_b": 0.7464,
               "phase": 0.1491,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.13040464221508158,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.13964186815374965
               }
             },
@@ -2593,9 +2462,9 @@
               "amplitude_b": 0.4553,
               "phase": 0.7108,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0522406411612057,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.08177262722810796
               }
             },
@@ -2606,22 +2475,22 @@
               "amplitude_b": 0.5779,
               "phase": 0.1617,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.12639171523475148,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.10642361135692038
               }
             },
             {
               "id": "o42",
               "ratio": 30.64785,
-              "amplitude_a": 1.0,
-              "amplitude_b": 1.0,
+              "amplitude_a": 1,
+              "amplitude_b": 1,
               "phase": 0.0503,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.12127187418835898,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.11779173068776168
               }
             },
@@ -2632,9 +2501,9 @@
               "amplitude_b": 0.371,
               "phase": 0.2214,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.13580245497141824,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06221712958713288
               }
             },
@@ -2645,9 +2514,9 @@
               "amplitude_b": 0.5475,
               "phase": 0.8796,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.05413196844406928,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.08119082654692007
               }
             },
@@ -2658,9 +2527,9 @@
               "amplitude_b": 0.4308,
               "phase": 0.2253,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.07159695267954211,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.0984140358040217
               }
             },
@@ -2671,9 +2540,9 @@
               "amplitude_b": 0.4045,
               "phase": 0.2863,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.05727382260956966,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.09531056435174304
               }
             },
@@ -2684,9 +2553,9 @@
               "amplitude_b": 0.533,
               "phase": 0.0158,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.11825832614978524,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06093532823667006
               }
             },
@@ -2697,9 +2566,9 @@
               "amplitude_b": 0.784,
               "phase": 0.411,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.13468398717871521,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06887290309127142
               }
             },
@@ -2710,9 +2579,9 @@
               "amplitude_b": 0.4943,
               "phase": 0.9689,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.053314779275469217,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.12306718693949852
               }
             },
@@ -2723,9 +2592,9 @@
               "amplitude_b": 0.6805,
               "phase": 0.539,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.13490690477394657,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.07613530169375102
               }
             },
@@ -2736,9 +2605,9 @@
               "amplitude_b": 0.8375,
               "phase": 0.2563,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.06298640997169631,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.06582950992047486
               }
             },
@@ -2749,9 +2618,9 @@
               "amplitude_b": 0.4386,
               "phase": 0.9109,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.11494589330289494,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.10101342515694743
               }
             },
@@ -2762,9 +2631,9 @@
               "amplitude_b": 0.6437,
               "phase": 0.058,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.09987980807932001,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.09393385850610311
               }
             },
@@ -2775,9 +2644,9 @@
               "amplitude_b": 0.6272,
               "phase": 0.8398,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.11205872274435374,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.08040053500976362
               }
             },
@@ -2788,9 +2657,9 @@
               "amplitude_b": 0.3391,
               "phase": 0.0483,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.11844336439918673,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.11465525889097308
               }
             },
@@ -2801,9 +2670,9 @@
               "amplitude_b": 0.6723,
               "phase": 0.6669,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.11862289548879727,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.07887973038249284
               }
             },
@@ -2814,9 +2683,9 @@
               "amplitude_b": 0.8564,
               "phase": 0.7331,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.08723976868004646,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.0845039589653575
               }
             },
@@ -2827,9 +2696,9 @@
               "amplitude_b": 0.8376,
               "phase": 0.5722,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.10766835441933392,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.09983127502281455
               }
             },
@@ -2840,9 +2709,9 @@
               "amplitude_b": 0.761,
               "phase": 0.8056,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.09880704206473415,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.050749797558698864
               }
             },
@@ -2853,9 +2722,9 @@
               "amplitude_b": 0.407,
               "phase": 0.1784,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.0906170717994496,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.11314464363261292
               }
             },
@@ -2866,9 +2735,9 @@
               "amplitude_b": 0.4478,
               "phase": 0.2911,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.11002546497753449,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.0625810775054412
               }
             },
@@ -2879,9 +2748,9 @@
               "amplitude_b": 0.6727,
               "phase": 0.2049,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.1330147081547095,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.1385925885652317
               }
             },
@@ -2892,9 +2761,9 @@
               "amplitude_b": 0.3111,
               "phase": 0.2171,
               "envelope": {
-                "attack_seconds": 0.0,
+                "attack_seconds": 0,
                 "decay_seconds": 0.07014634794207313,
-                "sustain_level": 0.0,
+                "sustain_level": 0,
                 "release_seconds": 0.08372559391299914
               }
             }
@@ -2913,13 +2782,13 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -17.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -17,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.002,
         "decay_seconds": 1.5,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 1.5
       },
       "generator": {
@@ -2934,15 +2803,15 @@
           "type": "filter",
           "id": "hp",
           "mode": "high_pass",
-          "cutoff_hz": 5500.0,
+          "cutoff_hz": 5500,
           "resonance": 0.05
         },
         {
           "type": "filter",
           "id": "top",
           "mode": "low_pass",
-          "cutoff_hz": 11500.0,
-          "resonance": 0.0
+          "cutoff_hz": 11500,
+          "resonance": 0
         }
       ]
     },
@@ -2956,13 +2825,13 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -23.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -23,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.001,
         "decay_seconds": 0.6,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 0.6
       },
       "generator": {
@@ -2977,7 +2846,7 @@
           "type": "filter",
           "id": "band",
           "mode": "band_pass",
-          "cutoff_hz": 3400.0,
+          "cutoff_hz": 3400,
           "resonance": 0.25
         }
       ]
@@ -2992,13 +2861,13 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -24.0,
-      "pan": 0.0,
-      "tuning_cents": 0.0,
+      "gain_db": -24,
+      "pan": 0,
+      "tuning_cents": 0,
       "envelope": {
         "attack_seconds": 0.003,
         "decay_seconds": 1.2,
-        "sustain_level": 0.0,
+        "sustain_level": 0,
         "release_seconds": 1.2
       },
       "generator": {
@@ -3013,7 +2882,7 @@
           "type": "filter",
           "id": "band",
           "mode": "band_pass",
-          "cutoff_hz": 8200.0,
+          "cutoff_hz": 8200,
           "resonance": 0.35
         }
       ]
@@ -3027,15 +2896,15 @@
       "pre_delay_seconds": 0.006,
       "decay": 0.28,
       "damping": 0.65,
-      "width": 1.0,
+      "width": 1,
       "mix": 0.05
     },
     {
       "type": "limiter",
       "id": "safety",
-      "ceiling_db": -3.0,
-      "release_ms": 80.0,
-      "input_gain_db": 0.0
+      "ceiling_db": -3,
+      "release_ms": 80,
+      "input_gain_db": 0
     }
   ],
   "modulation": {
@@ -3050,7 +2919,7 @@
         "type": "smooth_random",
         "seed": 4408,
         "rate": {
-          "value": 30.0,
+          "value": 30,
           "unit": "per_second"
         }
       }
@@ -3060,7 +2929,7 @@
         "source": "hit",
         "target": "layer.closed_plate.tuning",
         "depth": {
-          "value": 12.0,
+          "value": 12,
           "unit": "cents"
         },
         "curve": "linear"
@@ -3069,7 +2938,7 @@
         "source": "hit",
         "target": "layer.pedal_plate.tuning",
         "depth": {
-          "value": 12.0,
+          "value": 12,
           "unit": "cents"
         },
         "curve": "linear"
@@ -3078,7 +2947,7 @@
         "source": "hit",
         "target": "layer.open_plate.tuning",
         "depth": {
-          "value": 12.0,
+          "value": 12,
           "unit": "cents"
         },
         "curve": "linear"
@@ -3087,7 +2956,7 @@
         "source": "chatter",
         "target": "layer.open_wash.gain",
         "depth": {
-          "value": 2.0,
+          "value": 2,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3096,7 +2965,7 @@
         "source": "chatter",
         "target": "layer.open_sizzle.gain",
         "depth": {
-          "value": 3.0,
+          "value": 3,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3105,7 +2974,7 @@
         "source": "velocity",
         "target": "layer.closed_chick.gain",
         "depth": {
-          "value": 11.0,
+          "value": 11,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3114,7 +2983,7 @@
         "source": "velocity",
         "target": "layer.closed_plate.gain",
         "depth": {
-          "value": 11.0,
+          "value": 11,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3123,7 +2992,7 @@
         "source": "velocity",
         "target": "layer.closed_air.gain",
         "depth": {
-          "value": 11.0,
+          "value": 11,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3132,7 +3001,7 @@
         "source": "velocity",
         "target": "layer.pedal_chick.gain",
         "depth": {
-          "value": 11.0,
+          "value": 11,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3141,7 +3010,7 @@
         "source": "velocity",
         "target": "layer.pedal_plate.gain",
         "depth": {
-          "value": 11.0,
+          "value": 11,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3150,7 +3019,7 @@
         "source": "velocity",
         "target": "layer.open_chick.gain",
         "depth": {
-          "value": 11.0,
+          "value": 11,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3159,7 +3028,7 @@
         "source": "velocity",
         "target": "layer.open_plate.gain",
         "depth": {
-          "value": 11.0,
+          "value": 11,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3168,7 +3037,7 @@
         "source": "velocity",
         "target": "layer.open_wash.gain",
         "depth": {
-          "value": 11.0,
+          "value": 11,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3177,7 +3046,7 @@
         "source": "velocity",
         "target": "layer.open_body.gain",
         "depth": {
-          "value": 11.0,
+          "value": 11,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3186,7 +3055,7 @@
         "source": "velocity",
         "target": "layer.open_sizzle.gain",
         "depth": {
-          "value": 11.0,
+          "value": 11,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -3213,7 +3082,7 @@
         "source": "pitch_bend",
         "target": "layer.closed_plate.tuning",
         "depth": {
-          "value": -200.0,
+          "value": -200,
           "unit": "cents"
         },
         "curve": "linear"
@@ -3222,7 +3091,7 @@
         "source": "pitch_bend",
         "target": "layer.pedal_plate.tuning",
         "depth": {
-          "value": -200.0,
+          "value": -200,
           "unit": "cents"
         },
         "curve": "linear"
@@ -3231,7 +3100,7 @@
         "source": "pitch_bend",
         "target": "layer.open_plate.tuning",
         "depth": {
-          "value": -200.0,
+          "value": -200,
           "unit": "cents"
         },
         "curve": "linear"

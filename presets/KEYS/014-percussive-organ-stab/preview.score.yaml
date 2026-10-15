@@ -1,0 +1,259 @@
+meta:
+  title: "Percussive Organ Stab preview"
+  bpm: 124
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  -
+    section: "phrase"
+    bars: 2
+    tonic: "C"
+    scale: "ionian"
+sections:
+  phrase:
+    placements:
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "0"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "6,"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "1"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/4"
+        degree: "3"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "3/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "5/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "1"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 1
+          offset_quarters: "7/2"
+        degree: "3"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "0"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 112
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "6,"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "2"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/4"
+        degree: "4"
+        duration_quarters: "7/32"
+        velocity: 90
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "3/2"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 104
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "5/2"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 100
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "6,"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "2"
+        duration_quarters: "15/32"
+        velocity: 108
+      -
+        instrument: "preview"
+        at:
+          bar: 2
+          offset_quarters: "7/2"
+        degree: "4"
+        duration_quarters: "15/32"
+        velocity: 108
+instruments:
+  preview:
+    preset: "KEYS/014-percussive-organ-stab"
