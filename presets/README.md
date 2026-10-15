@@ -56,8 +56,8 @@ presets/
 │     ├─ definition.json
 │     ├─ note-*.wav
 │     ├─ phrase.wav
-│     ├─ preview.score.yaml  # 短いブラウザ試聴
-│     └─ showcase.score.yaml # 詳細な試奏がある場合
+│     ├─ preview.score.yaml  # 短いブラウザ試聴と同一演奏の正本
+│     └─ showcase.score.yaml # 演奏内容が異なる詳細試奏がある場合
 ├─ LEAD/
 ├─ PAD/
 ├─ KEYS/
@@ -74,7 +74,7 @@ presets/
 
 各プリセットディレクトリには `definition.json` を1つ置く。`note-*.wav` と `phrase.wav` は定義から生成するプレビュー音源として同じディレクトリに置く。
 
-短い試聴は `preview.score.yaml`、詳細試奏は `showcase.score.yaml`、共有試奏は `common-scores/<descriptive-name>.score.yaml` に置く。文法は[Score YAML](../.agents/skills/create-instrument/references/score_spec.md)に従う。
+短い試聴は `preview.score.yaml` に置く。詳細試奏を用意する場合は、短い試聴と異なる演奏に限り `showcase.score.yaml` に置く。同じ演奏を両方へ複製せず、両方の用途には `preview.score.yaml` を使う。共有試奏は `common-scores/<descriptive-name>.score.yaml` に置く。文法は[Score YAML](../.agents/skills/create-instrument/references/score_spec.md)に従う。
 
 外部WAV素材は `assets/` にまとめ、カテゴリ配下の定義から `../../assets/<file>` で参照する。
 
@@ -193,7 +193,7 @@ presets/
 ## 追加・変更手順
 
 1. カテゴリ末尾のIDでディレクトリを作り、`definition.json` を配置する。
-2. 短いPreview Scoreと、必要な詳細試奏Score・WAVを配置する。
+2. 短いPreview Scoreを配置し、別の演奏で確認する場合に限り詳細試奏Score・WAVを配置する。
 3. `presets-defs.md` のカタログを更新する。
 4. パスを参照するスクリプト、テスト、Scoreを確認する。
 

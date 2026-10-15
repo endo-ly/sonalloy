@@ -521,7 +521,16 @@ mod tests {
             "../../../../testdata/expected/score-auditions.sha256.json"
         ))
         .expect("event fingerprints");
-        assert_eq!(snapshots.len(), 160);
+        assert_eq!(snapshots.len(), 139);
+        assert_eq!(
+            snapshots
+                .iter()
+                .filter(|snapshot| snapshot["score"]
+                    .as_str()
+                    .is_some_and(|path| path.ends_with("/showcase.score.yaml")))
+                .count(),
+            10
+        );
         for snapshot in snapshots {
             let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../..")
