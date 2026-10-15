@@ -116,6 +116,9 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
                 return preview(&plan);
             }
             if args.summary {
+                if !args.score.json {
+                    print_warnings(&plan.diagnostics);
+                }
                 return Ok(summary(&plan));
             }
             Ok(
@@ -259,6 +262,7 @@ fn summary(plan: &PerformancePlan) -> Value {
             "sections": sections,
             "instruments": instruments,
         },
+        "diagnostics": plan.diagnostics,
     })
 }
 fn ensure_new(path: &Path) -> Result<(), CliFailure> {
@@ -561,16 +565,26 @@ mod tests {
              \x20 b: {definition: instrument.json}\n",
         )
         .expect("score");
-        let args = InspectArgs {
+        let report = execute(ScoreCommand::Inspect(InspectArgs {
+            score: ScoreArgs {
+                score: score_path.clone(),
+                bindings: Bindings::default(),
+                json: false,
+            },
+            preview_json: false,
+            summary: true,
+        }))
+        .expect("summary report");
+        let detailed = execute(ScoreCommand::Inspect(InspectArgs {
             score: ScoreArgs {
                 score: score_path,
                 bindings: Bindings::default(),
                 json: false,
             },
             preview_json: false,
-            summary: true,
-        };
-        let report = execute(ScoreCommand::Inspect(args)).expect("summary report");
+            summary: false,
+        }))
+        .expect("detailed report");
         let summary = report["summary"].as_object().expect("summary object");
         assert_eq!(summary["section_count"], 3);
         assert_eq!(summary["instrument_count"], 2);
@@ -602,5 +616,12 @@ mod tests {
             .map(|part| part["note_count"].as_i64().expect("notes"))
             .sum::<i64>();
         assert_eq!(notes, summary["note_count"]);
+        assert_eq!(report["diagnostics"], detailed["diagnostics"]);
+        assert!(
+            report["diagnostics"]
+                .as_array()
+                .is_some_and(|diagnostics| !diagnostics.is_empty()),
+            "the summary carries the resolution diagnostics: {report}"
+        );
     }
 }

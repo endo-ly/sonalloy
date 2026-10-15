@@ -256,7 +256,6 @@ fn prepare(
                 diagnostics,
             }
         })?;
-    warn_independent_lane_controls(&lanes, &mut diagnostics);
     let mut parts = Vec::new();
     let mut channels = HashMap::new();
     for lane in lanes {
@@ -352,124 +351,6 @@ fn prepare(
         diagnostics,
         score,
     })
-}
-
-/// Warn when controller events of one gain lane overlap notes rendered in
-/// another gain lane of the same instrument. Gain lanes are rendered with
-/// independent controller state, so such notes play without the controllers
-/// the Score addresses to their instrument, while plain lane splits without
-/// overlapping controllers render exactly as written.
-fn warn_independent_lane_controls(
-    lanes: &[crate::score::ScoreLane],
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    let ids: BTreeSet<&str> = lanes.iter().map(|lane| lane.id.as_str()).collect();
-    for id in ids {
-        let part_lanes: Vec<_> = lanes.iter().filter(|lane| lane.id == id).collect();
-        if part_lanes.len() < 2 {
-            continue;
-        }
-        let affected: usize = part_lanes
-            .iter()
-            .filter_map(|lane| {
-                let windows = control_windows(&lane.pattern)?;
-                Some(
-                    part_lanes
-                        .iter()
-                        .filter(|other| other.gain_db.to_bits() != lane.gain_db.to_bits())
-                        .map(|other| notes_overlapping_windows(&other.pattern, &windows))
-                        .sum::<usize>(),
-                )
-            })
-            .sum();
-        if affected > 0 {
-            diagnostics.push(
-                Diagnostic::warning(
-                    DiagnosticCode::DefinitionError,
-                    format!(
-                        "controller events reach only their own gain lane; {affected} notes in other gain lanes overlap those controller states and play without them"
-                    ),
-                )
-                .with_path(format!("instruments.{id}")),
-            );
-        }
-    }
-}
-
-/// Half-open tick windows in which a lane's controller state is deliberately
-/// set. Stateful controllers hold their value until the next event of the same
-/// controller or the end of the Score. Returns `None` for lanes without
-/// controller events.
-fn control_windows(pattern: &PerformanceEvents) -> Option<Vec<(u64, u64)>> {
-    let mut windows = Vec::new();
-    let mut sustain_open: Option<u64> = None;
-    let mut holds: BTreeMap<String, Vec<u64>> = BTreeMap::new();
-    for event in &pattern.events {
-        match event {
-            MusicalEvent::Note { .. } => {}
-            MusicalEvent::SustainPedal { tick, down } => {
-                if *down {
-                    sustain_open.get_or_insert(*tick);
-                } else if let Some(open) = sustain_open.take() {
-                    windows.push((open, *tick));
-                }
-            }
-            MusicalEvent::PitchBend { tick, .. } => {
-                holds.entry("pitch_bend".into()).or_default().push(*tick);
-            }
-            MusicalEvent::ModWheel { tick, .. } => {
-                holds.entry("mod_wheel".into()).or_default().push(*tick);
-            }
-            MusicalEvent::Aftertouch { tick, .. } => {
-                holds.entry("aftertouch".into()).or_default().push(*tick);
-            }
-            MusicalEvent::ParameterChange {
-                tick, parameter, ..
-            }
-            | MusicalEvent::ParameterRamp {
-                tick, parameter, ..
-            } => {
-                holds
-                    .entry(format!("parameter.{parameter}"))
-                    .or_default()
-                    .push(*tick);
-            }
-        }
-    }
-    if let Some(open) = sustain_open {
-        windows.push((open, pattern.length_ticks));
-    }
-    for ticks in holds.values_mut() {
-        ticks.sort_unstable();
-        ticks.dedup();
-        for pair in ticks.windows(2) {
-            windows.push((pair[0], pair[1]));
-        }
-        if let Some(last) = ticks.last() {
-            windows.push((*last, pattern.length_ticks));
-        }
-    }
-    (!windows.is_empty()).then_some(windows)
-}
-
-fn notes_overlapping_windows(pattern: &PerformanceEvents, windows: &[(u64, u64)]) -> usize {
-    pattern
-        .events
-        .iter()
-        .filter_map(|event| match event {
-            MusicalEvent::Note {
-                tick,
-                duration_ticks,
-                ..
-            } => Some((*tick, tick + duration_ticks)),
-            _ => None,
-        })
-        .filter(|(start, end)| {
-            windows
-                .iter()
-                .any(|(open, close)| *start < *close && *end > *open)
-        })
-        .count()
 }
 
 fn insert_part_window_resets(
@@ -717,52 +598,6 @@ mod tests {
         assert_eq!(mixed(1.0), (0.0, 0.25));
         assert_eq!(mixed(0.0), (0.5, 0.25));
         assert_eq!(mixed(0.5), (0.25, 0.25));
-    }
-
-    #[test]
-    fn lane_controls_warn_only_when_windows_reach_other_lanes() {
-        let lane_score = |events: serde_json::Value| {
-            let doc = serde_json::json!({
-                "meta":{"title":"Lanes","bpm":120,"meter":"4/4","tuning":"12edo","gate":1},
-                "form":[{"section":"phrase","bars":1,"tonic":"C","scale":"ionian"}],
-                "sections":{"phrase":{
-                    "placements":[
-                        {"instrument":"part","degree":"1","at":{"bar":1,"step":1},"duration_quarters":"1/4","gain_db":3},
-                        {"instrument":"part","degree":"5","at":{"bar":1,"step":3},"duration_quarters":"1/4"}
-                    ],
-                    "events": events
-                }},
-                "instruments":{"part":{"external":true}}
-            });
-            crate::score::compile(&doc.to_string()).expect("lane score compiles")
-        };
-        let count_warnings = |plan: &crate::score::ScorePlan| {
-            let mut diagnostics = Vec::new();
-            super::warn_independent_lane_controls(&plan.lanes, &mut diagnostics);
-            diagnostics
-        };
-
-        let plan = lane_score(serde_json::json!([
-            {"kind":"mod_wheel","instrument":"part","value":1,"at":{"bar":1,"step":1}}
-        ]));
-        let warnings = count_warnings(&plan);
-        assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0].path.as_deref(), Some("instruments.part"));
-
-        let plan = lane_score(serde_json::json!([
-            {"kind":"sustain_pedal","instrument":"part","down":true,"at":{"bar":1,"step":2}},
-            {"kind":"sustain_pedal","instrument":"part","down":false,"at":{"bar":1,"step":3}}
-        ]));
-        assert!(
-            count_warnings(&plan).is_empty(),
-            "the pedal window stays clear of the extra-lane note"
-        );
-
-        let plan = lane_score(serde_json::json!([]));
-        assert!(
-            count_warnings(&plan).is_empty(),
-            "plain lane splits stay silent"
-        );
     }
 
     fn part_window_score() -> serde_json::Value {

@@ -680,7 +680,11 @@ impl Builder<'_> {
         }
         if let Some(list) = s.value.get("placements") {
             for (i, v) in array(list, &path)?.iter().enumerate() {
-                self.placement(s, v, velocity, &format!("{path}.placements[{i}]"))?;
+                let origin = v
+                    .get("$origin")
+                    .and_then(Value::as_str)
+                    .map_or_else(|| format!("{path}.placements[{i}]"), str::to_owned);
+                self.placement(s, v, velocity, &origin)?;
             }
         }
         let mut transforms = Vec::new();

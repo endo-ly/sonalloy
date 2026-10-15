@@ -2,6 +2,20 @@ use super::{Error, Result, array, fields, integer, number, object, required, str
 use serde_json::Value;
 
 pub(super) fn inherit(dict: &Value, name: &str, drums: bool, path: &str) -> Result<Value> {
+    fn annotated(list: &Value, field: &str, name: &str, path: &str) -> Result<Vec<Value>> {
+        Ok(array(list, path)?
+            .iter()
+            .enumerate()
+            .map(|(index, item)| {
+                let mut item = item.clone();
+                item.as_object_mut().expect("validated placement").insert(
+                    "$origin".to_owned(),
+                    Value::String(format!("sections.{name}.{field}[{index}]")),
+                );
+                item
+            })
+            .collect())
+    }
     fn visit(
         dict: &Value,
         name: &str,
@@ -44,6 +58,8 @@ pub(super) fn inherit(dict: &Value, name: &str, drums: bool, path: &str) -> Resu
                     .as_array_mut()
                     .ok_or_else(|| Error::new(path, "expected overrides list"))?
                     .extend(array(value, path)?.iter().cloned());
+            } else if !drums && key == "placements" {
+                result[key] = Value::Array(annotated(value, "placements", name, path)?);
             } else {
                 result[key] = value.clone();
             }
@@ -57,7 +73,7 @@ pub(super) fn inherit(dict: &Value, name: &str, drums: bool, path: &str) -> Resu
             target
                 .as_array_mut()
                 .ok_or_else(|| Error::new(path, "expected placements list"))?
-                .extend(array(additions, path)?.iter().cloned());
+                .extend(annotated(additions, "add_placements", name, path)?);
         }
         stack.pop();
         Ok(result)
@@ -745,7 +761,10 @@ fn validate_section_references(doc: &Value, section: &Value, path: &str) -> Resu
     }
     if let Some(list) = section.get("placements") {
         for (i, placement) in array(list, path)?.iter().enumerate() {
-            let path = format!("{path}.placements[{i}]");
+            let path = placement
+                .get("$origin")
+                .and_then(Value::as_str)
+                .map_or_else(|| format!("{path}.placements[{i}]"), str::to_owned);
             instrument_ref(doc, required(placement, "instrument", &path)?, &path)?;
             if let Some(name) = placement.get("melody") {
                 melody(&doc["melodies"], string(name, &path)?, &path)?;

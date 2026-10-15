@@ -204,7 +204,7 @@ drums:
 | `replace: {5: "..."}` | `melodies`の指定小節だけ変更 | 展開済みメロディの5小節目をその文字列へ置換。小節番号は1始まり |
 | `{use: verse, bars: [1, 2], shift_steps: -2}` | メロディの区間を抜き出し時間移動 | 元の1～2小節を2小節分の領域として挿入し、音符イベントだけ指定数ステップ平行移動 |
 
-`sections`の`from`は`chords`、`lead`、`comp`、`events`などの**フィールドごと**に上書きする。`placements`は置換、`add_placements`は継承・置換後の配置リストの末尾へ順番どおり追記する。`add_placements`だけを持つ独立セクションでは、空の配置リストへ追加する。複数段継承では各段階で`add_placements`を実際の`placements`へ統合するため、`A → B → C`の追加結果は`A → B → C`の順番で保持され、解決済みのセクションに`add_placements`は残らない。`events`配列は追記ではなく置換。`drums`の`from`は`parts`を楽器ごとに統合し、`overrides`を継承後に追記する。`melodies`の`from`は小節列を継承し、`replace`が指定小節を置換する。継承後の参照は全て検証する。
+`sections`の`from`は`chords`、`lead`、`comp`、`events`などの**フィールドごと**に上書きする。`placements`は置換、`add_placements`は継承・置換後の配置リストの末尾へ順番どおり追記する。`add_placements`だけを持つ独立セクションでは、空の配置リストへ追加する。複数段継承では各段階で`add_placements`を実際の`placements`へ統合するため、`A → B → C`の追加結果は`A → B → C`の順番で保持され、解決済みのセクションに`add_placements`は残らない。統合後の配置も定義元は追跡され、その配置に関する診断の`path`は継承先のセクションではなく**配置を定義した元のYAML位置**（`sections.<元のセクション>.placements[i]`または`<そのセクション>.add_placements[i]`）を指す。`events`配列は追記ではなく置換。`drums`の`from`は`parts`を楽器ごとに統合し、`overrides`を継承後に追記する。`melodies`の`from`は小節列を継承し、`replace`が指定小節を置換する。継承後の参照は全て検証する。
 
 `melodies`のリストに文字列と`use`を混在できる。`use`の負方向シフトで配置領域の先頭より前に出るイベントは、セクション境界を越える意図が明示された場合だけ許す。出力曲の時刻0より前には配置できない。文字列は1小節、`use`は指定された小節数だけ挿入領域を消費する。時間移動したイベントがその領域の外に出る場合は、参照元／先の長さと配置可能範囲を検証する。`lead.slice_bars: [5,8]` はメロディの5～8小節だけを選び、セクションの1小節目へ配置する。
 
@@ -286,7 +286,7 @@ instruments:
 
 同じ楽器の複数フレーズは原則1つのイベント列に統合する。`lead.layers[].gain_db`や`placements[].gain_db`など、特定演奏へ追加ゲインが指定された場合、その発音を同じ音源を参照する別の内部Laneへ割り当てる。実効Gain＝楽器`gain_db`＋追加`gain_db`。独立Laneは音源のVoice/FX状態を共有しないので、通常Laneと同音源が同一に継続すると仮定しない。Laneは `(instrument_id, effective_gain_db, source_order)` に基づいて決定的に生成し、Stemは**元の楽器ID単位**で音量補正後Laneを合算する。
 
-同音源への`audio_input`の接続先は元の楽器IDとし、必要なLaneを合算後に渡す。制御イベントは実効Gainが楽器の基本ゲインに等しいため、常に基本のLaneへ配置される。追加Laneの音符が制御イベントの有効期間（Sustainは踏み文字から離し文字まで、Pitch Bend / Mod Wheel / Aftertouch / Parameterは次の同種イベントまで保持）と重なる場合、それらの音符は制御を受けないことをwarningで報告する。重なりがなく、単にレーンが分割されているだけの構成は正常として診断しない。
+同音源への`audio_input`の接続先は元の楽器IDとし、必要なLaneを合算後に渡す。制御イベントは実効Gainが楽器の基本ゲインに等しいため、常に基本のLaneへ配置される。
 
 ### 8.4 出力・マスター
 
@@ -407,7 +407,7 @@ form:
 
 コマンドのOptionとReportは[CLIリファレンス](cli.md)を参照する。Scoreに関わる公開入口は`score init/validate/inspect/import-midi/export-midi`、`render score`、`audition score`。
 
-`score inspect --summary`は、セクション数・楽器数・総音符数・演奏時間・PPQと総Tick数、セクション別（出現順・小節数・開始終了Tick・主音・指定スケール・テンポ・拍子・区間内開始音符数）、楽器別（音符数・音域・Velocity範囲・制御イベント数）の集計からなる要約を返す。同名セクションの再登場は別の出現として集計する。`--json`と併用でき、`--preview-json`とは排他である。省略時の詳細出力は従来どおり全イベントとソース情報を含む。
+`score inspect --summary`は、セクション数・楽器数・総音符数・演奏時間・PPQと総Tick数、セクション別（出現順・小節数・開始終了Tick・主音・指定スケール・テンポ・拍子・区間内開始音符数）、楽器別（音符数・音域・Velocity範囲・制御イベント数）の集計からなる要約を返す。同名セクションの再登場は別の出現として集計する。`--json`と併用でき、`--preview-json`とは排他である。省略時の詳細出力は従来どおり全イベントとソース情報を含む。要約にも詳細出力と同じ`diagnostics`を含み、`--json`なしのテキスト出力ではwarningを標準エラーへ表示する。
 
 `score import-midi`でMIDI半音クラスを度数へ書き直す際の固定綴り：
 

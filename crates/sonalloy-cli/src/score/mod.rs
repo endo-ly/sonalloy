@@ -626,26 +626,58 @@ mod tests {
             "solo": {"add_placements":[{"instrument":"part","degree":"3","at":{"bar":1,"step":4}}]},
             "replaced": {"from":"phrase","placements":[{"instrument":"part","degree":"5","at":{"bar":1,"step":4}}]}
         });
-        let spellings = |name: &str| {
+        let notes = |name: &str| {
             let mut doc = doc.clone();
             doc["form"][0]["section"] = serde_json::json!(name);
             let plan = super::compile(&doc.to_string()).expect(name);
             plan.lanes[0]
                 .sources
                 .iter()
-                .map(|source| source.spelling.clone().expect("degree spelling"))
+                .map(|source| {
+                    (
+                        source.spelling.clone().expect("degree spelling"),
+                        source.path.clone(),
+                    )
+                })
                 .collect::<Vec<_>>()
         };
-        assert_eq!(spellings("final"), ["1", "3", "5"]);
-        assert_eq!(spellings("solo"), ["3"]);
-        assert_eq!(spellings("replaced"), ["5"]);
+        assert_eq!(
+            notes("final"),
+            [
+                ("1".to_owned(), "sections.phrase.placements[0]".to_owned()),
+                (
+                    "3".to_owned(),
+                    "sections.bridge.add_placements[0]".to_owned()
+                ),
+                (
+                    "5".to_owned(),
+                    "sections.final.add_placements[0]".to_owned()
+                ),
+            ]
+        );
+        assert_eq!(
+            notes("solo"),
+            [("3".to_owned(), "sections.solo.add_placements[0]".to_owned())]
+        );
+        assert_eq!(
+            notes("replaced"),
+            [("5".to_owned(), "sections.replaced.placements[0]".to_owned())]
+        );
         let mut invalid = doc.clone();
         invalid["sections"]["solo"]["add_placements"] =
             serde_json::json!([{"instrument":"part","degree":"9","at":{"bar":1,"step":1}}]);
         let error = super::compile(&invalid.to_string()).expect_err("invalid placement");
         assert_eq!(
             error.diagnostics[0].path.as_deref(),
-            Some("sections.solo.placements[0]")
+            Some("sections.solo.add_placements[0]")
+        );
+        let mut invalid = doc.clone();
+        invalid["sections"]["phrase"]["placements"] =
+            serde_json::json!([{"instrument":"part","degree":"9","at":{"bar":1,"step":1}}]);
+        let error = super::compile(&invalid.to_string()).expect_err("inherited placement");
+        assert_eq!(
+            error.diagnostics[0].path.as_deref(),
+            Some("sections.phrase.placements[0]")
         );
     }
 

@@ -1321,6 +1321,27 @@ struct OutputMeasurements {
     mp3_measurement: Option<LoudnessMeasurement>,
 }
 
+/// Build the warning for an encoded MP3 whose measured true peak exceeds the
+/// `meta.master.max_true_peak_db` ceiling. Encoders can push inter-sample
+/// peaks above the rendered WAV's ceiling, so the comparison uses the value
+/// measured after encoding. `None` while the measurement stays within the
+/// ceiling.
+fn mp3_true_peak_warning(measured_db: f64, limit_db: f64) -> Option<Diagnostic> {
+    if measured_db <= limit_db {
+        return None;
+    }
+    Some(
+        Diagnostic::warning(
+            DiagnosticCode::ValueOutOfRange,
+            format!(
+                "the encoded MP3 measures {measured_db:.2} dBTP, {:.2} dB above the meta.master.max_true_peak_db limit of {limit_db:.2} dBTP; the value is measured after MP3 encoding",
+                measured_db - limit_db
+            ),
+        )
+        .with_path("meta.master.max_true_peak_db"),
+    )
+}
+
 #[allow(clippy::too_many_lines)]
 fn execute_render_score(args: &RenderScoreArgs) -> Result<ScoreRenderReport, CliFailure> {
     validate_score_output_paths(args)?;
@@ -1414,19 +1435,9 @@ fn execute_render_score(args: &RenderScoreArgs) -> Result<ScoreRenderReport, Cli
         demo.definition.mix.master.as_ref(),
         measurements.mp3_measurement.as_ref(),
     ) && let Some(mp3_true_peak_db) = measurement.true_peak_db
-        && mp3_true_peak_db > master.true_peak_db
+        && let Some(warning) = mp3_true_peak_warning(mp3_true_peak_db, master.true_peak_db)
     {
-        diagnostics.push(
-            Diagnostic::warning(
-                DiagnosticCode::ValueOutOfRange,
-                format!(
-                    "the encoded MP3 measures {mp3_true_peak_db:.2} dBTP, {:.2} dB above the meta.master.max_true_peak_db limit of {:.2} dBTP; the value is measured after MP3 encoding",
-                    mp3_true_peak_db - master.true_peak_db,
-                    master.true_peak_db
-                ),
-            )
-            .with_path("meta.master.max_true_peak_db"),
-        );
+        diagnostics.push(warning);
     }
     let report = ScoreRenderReport {
         status: "ok",
@@ -1955,7 +1966,27 @@ mod mastering_tests {
     }
 
     #[test]
-    fn mp3_true_peak_warning_tracks_the_configured_limit() {
+    fn mp3_true_peak_warning_triggers_only_above_the_limit() {
+        assert!(
+            mp3_true_peak_warning(-9.01, -9.0).is_none(),
+            "the ceiling itself is within the limit"
+        );
+        assert!(mp3_true_peak_warning(-12.0, -9.0).is_none());
+        let warning = mp3_true_peak_warning(-8.5, -9.0).expect("overshoot warns");
+        assert_eq!(
+            warning.path.as_deref(),
+            Some("meta.master.max_true_peak_db")
+        );
+        assert_eq!(warning.severity, sonalloy_core::DiagnosticSeverity::Warning);
+        assert!(
+            warning.message.contains("-8.50 dBTP") && warning.message.contains("0.50 dB above"),
+            "the message reports the measured value and the overshoot: {}",
+            warning.message
+        );
+    }
+
+    #[test]
+    fn mp3_render_measures_within_the_configured_limit() {
         if std::process::Command::new("ffmpeg")
             .arg("-version")
             .output()
