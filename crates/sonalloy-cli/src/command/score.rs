@@ -94,11 +94,7 @@ pub(super) fn run(command: ScoreCommand) -> ExitCode {
 fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
     match command {
         ScoreCommand::Init { path } => {
-            let root=std::env::var_os("SONALLOY_PRESET_ROOT").map(PathBuf::from).or_else(||std::env::current_dir().ok()?.ancestors().map(|p|p.join("presets")).find(|p|p.is_dir())).ok_or_else(||failure(&path,"set SONALLOY_PRESET_ROOT to initialize a score with an available instrument"))?;
-            let instrument =
-                std::fs::canonicalize(root.join("LEAD/001-analog-saw-lead/definition.json"))
-                    .map_err(|e| failure(&path, e.to_string()))?;
-            let doc = json!({"meta":{"title":"New score","bpm":120,"meter":"4/4","tuning":"12edo","reference_octave":4,"gate":1},"form":[{"section":"phrase","bars":1,"tonic":"C","scale":"ionian"}],"sections":{"phrase":{"lead":{"instrument":"lead","melody":"phrase"}}},"melodies":{"phrase":["1 - - - | 3 - - - | 5 - - - | 1 - - -"]},"instruments":{"lead":{"definition":instrument}}});
+            let doc = json!({"meta":{"title":"New score","bpm":120,"meter":"4/4","tuning":"12edo","reference_octave":4,"gate":1},"form":[{"section":"phrase","bars":1,"tonic":"C","scale":"ionian"}],"sections":{"phrase":{"lead":{"instrument":"lead","melody":"phrase"}}},"melodies":{"phrase":["1 - - - | 3 - - - | 5 - - - | 1 - - -"]},"instruments":{"lead":{"preset":"LEAD/001-analog-saw-lead"}}});
             write_score(&path, &doc)?;
             Ok(json!({"status":"ok","output":path}))
         }

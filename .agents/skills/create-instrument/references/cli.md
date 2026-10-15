@@ -104,7 +104,7 @@ sonalloy score export-midi phrase.score.yaml --output phrase.mid --json
 sonalloy score import-midi phrase.mid --instrument instrument.json --output imported.score.yaml --json
 ```
 
-`score init` は現在のディレクトリの親階層、または `SONALLOY_PRESET_ROOT` の内蔵プリセットを参照する1小節のScoreを生成します。生成先が存在する場合は失敗します。`validate` は構文・参照・音楽・音源能力・配線を検査し、`inspect` はセクション順、和声、共通時間軸、楽器別イベント、元の度数と入力位置を表示します。
+`score init` は組み込みLEADをPreset IDで参照する1小節のScoreを生成します。生成時にプリセットの配置先を解決しないため、別の環境へ移しても同じIDを使えます。生成先が存在する場合は失敗します。`validate`、`inspect`、`render score`ではPreset IDを実行時に解決します。プリセットの探索順と、見つからない場合の診断は[Score仕様](score_spec.md)を参照してください。`validate` は構文・参照・音楽・音源能力・配線を検査し、`inspect` はセクション順、和声、共通時間軸、楽器別イベント、元の度数と入力位置を表示します。
 
 | 共通Option | 意味 |
 |---|---|

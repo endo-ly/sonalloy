@@ -158,24 +158,51 @@ fn inspect(path: &std::path::Path) -> serde_json::Value {
     serde_json::from_slice(&output.stdout).expect("inspection")
 }
 
+fn inspect_with_preset_root(
+    path: &std::path::Path,
+    preset_root: &std::path::Path,
+) -> serde_json::Value {
+    let output = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["score", "inspect"])
+        .arg(path)
+        .arg("--preset-root")
+        .arg(preset_root)
+        .arg("--json")
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    serde_json::from_slice(&output.stdout).expect("inspection")
+}
+
 #[test]
 fn score_commands_share_the_timeline_and_preserve_midi_controls() {
     let directory = tempdir().expect("directory");
     let score = directory.path().join("score.yaml");
+    let preset_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../presets")
+        .canonicalize()
+        .expect("preset root");
     Command::cargo_bin("sonalloy")
         .expect("binary")
         .args(["score", "init"])
         .arg(&score)
         .assert()
         .success();
+    let generated = std::fs::read_to_string(&score).expect("generated Score");
+    assert!(generated.contains("LEAD/001-analog-saw-lead"));
+    assert!(!generated.contains("definition:"));
     Command::cargo_bin("sonalloy")
         .expect("binary")
         .args(["score", "validate"])
         .arg(&score)
+        .arg("--preset-root")
+        .arg(&preset_root)
         .arg("--json")
         .assert()
         .success();
-    let original = inspect(&score);
+    let original = inspect_with_preset_root(&score, &preset_root);
     assert_eq!(
         original["parts"][0]["events"]
             .as_array()
@@ -190,6 +217,8 @@ fn score_commands_share_the_timeline_and_preserve_midi_controls() {
         .arg(&score)
         .arg("--output")
         .arg(&midi)
+        .arg("--preset-root")
+        .arg(&preset_root)
         .assert()
         .success();
     let bytes = std::fs::read(&midi).expect("MIDI");
@@ -219,6 +248,8 @@ fn score_commands_share_the_timeline_and_preserve_midi_controls() {
         .arg(&score)
         .arg("--output")
         .arg(&output)
+        .arg("--preset-root")
+        .arg(&preset_root)
         .args(["--tail", "0", "--sample-rate", "24000"])
         .assert()
         .success();
