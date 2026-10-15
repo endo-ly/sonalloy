@@ -128,6 +128,7 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
     for section in &sections {
         builder.section(section)?;
     }
+    builder.resolve_rolls()?;
     for (start, value, path) in std::mem::take(&mut builder.transforms) {
         let section = sections
             .iter()
@@ -227,7 +228,7 @@ impl Builder<'_> {
         velocity: i64,
         gain: f64,
         path: &str,
-        roll: bool,
+        origin: Origin,
     ) -> Result<()> {
         if self.events.len() >= 1_000_000 {
             return Err(Error::new(
@@ -250,17 +251,6 @@ impl Builder<'_> {
                 "expected MIDI note 0..127, velocity 1..127, positive duration, and finite gain",
             ));
         }
-        if roll {
-            if self
-                .events
-                .iter()
-                .any(|e| e.id == id && e.at == at && e.origin == Origin::Roll)
-            {
-                return Err(Error::new(path, "overlapping drum rolls"));
-            }
-            self.events
-                .retain(|e| !(e.id == id && e.at == at && e.origin == Origin::Drum));
-        }
         self.events.push(Event {
             id: id.into(),
             gain,
@@ -273,7 +263,7 @@ impl Builder<'_> {
                 velocity: u8::try_from(velocity).expect("range checked"),
             },
             source: path.into(),
-            origin: if roll { Origin::Roll } else { Origin::Musical },
+            origin,
             spelling: None,
         });
         Ok(())
@@ -285,9 +275,27 @@ impl Builder<'_> {
         duration: Quarter,
         velocity: i64,
         path: &str,
-        roll: bool,
+        origin: Origin,
     ) -> Result<()> {
-        let note = optional_int(self.instrument(id)?, "trigger_note_midi", 60, path)?;
+        let instrument_path = format!("instruments.{id}.trigger_note_midi");
+        let instrument = self.instrument(id)?;
+        let note = instrument.get("trigger_note_midi").ok_or_else(|| {
+            Error::new(
+                path,
+                format!(
+                    "instrument `{id}` requires `{instrument_path}` (MIDI 0..127) for a trigger at score quarter {at}"
+                ),
+            )
+        })?;
+        let note = integer(note, &instrument_path)?;
+        if !(0..=127).contains(&note) {
+            return Err(Error::new(
+                path,
+                format!(
+                    "`{instrument_path}` must be MIDI 0..127 for a trigger at score quarter {at}"
+                ),
+            ));
+        }
         self.note(
             id,
             at,
@@ -296,8 +304,23 @@ impl Builder<'_> {
             velocity,
             0.0,
             path,
-            roll,
+            origin,
         )
+    }
+    fn resolve_rolls(&mut self) -> Result<()> {
+        let mut roll_positions = BTreeSet::new();
+        for event in &self.events {
+            if event.origin == Origin::Roll
+                && !roll_positions.insert((event.id.clone(), event.at.clone()))
+            {
+                return Err(Error::new(&event.source, "overlapping drum rolls"));
+            }
+        }
+        self.events.retain(|event| {
+            event.origin != Origin::Drum
+                || !roll_positions.contains(&(event.id.clone(), event.at.clone()))
+        });
+        Ok(())
     }
     fn position(s: &Section, v: &Value, path: &str, allow_end: bool) -> Result<Quarter> {
         let bar = if v["bar"] == "last" {
@@ -607,7 +630,16 @@ impl Builder<'_> {
                 + s.tonic
                 + syntax::degree(&token).map_err(|e| e.at(path))?;
             let pitch = transposed(pitch, transpose, path)?;
-            self.note(id, at, duration, pitch, velocity, gain, path, false)?;
+            self.note(
+                id,
+                at,
+                duration,
+                pitch,
+                velocity,
+                gain,
+                path,
+                Origin::Musical,
+            )?;
             self.events.last_mut().expect("emitted note").spelling = Some(token);
         }
         Ok(())
@@ -659,7 +691,16 @@ impl Builder<'_> {
                 + s.tonic
                 + syntax::degree(string(degree, path)?).map_err(|e| e.at(path))?;
             let note = transposed(note, transpose, path)?;
-            self.note(id, at, duration, note, velocity, gain, path, false)?;
+            self.note(
+                id,
+                at,
+                duration,
+                note,
+                velocity,
+                gain,
+                path,
+                Origin::Musical,
+            )?;
             self.events.last_mut().expect("emitted note").spelling =
                 Some(string(degree, path)?.into());
         } else if let Some(bass) = v.get("bass_note") {
@@ -668,7 +709,16 @@ impl Builder<'_> {
                 transpose,
                 path,
             )?;
-            self.note(id, at, duration, note, velocity, gain, path, false)?;
+            self.note(
+                id,
+                at,
+                duration,
+                note,
+                velocity,
+                gain,
+                path,
+                Origin::Musical,
+            )?;
         } else if let Some(chord) =
             syntax::chord(text_field(v, "chord", path)?).map_err(|e| e.at(path))?
         {
@@ -695,7 +745,7 @@ impl Builder<'_> {
                     velocity,
                     gain,
                     path,
-                    false,
+                    Origin::Musical,
                 )?;
             }
         }
@@ -735,7 +785,14 @@ impl Builder<'_> {
                         "X" => 120,
                         _ => return Err(Error::new(path, "drum cells must be ., o, x, or X")),
                     };
-                    self.trigger(&id, &cursor + at, unit * &self.gate, velocity, path, false)?;
+                    self.trigger(
+                        &id,
+                        &cursor + at,
+                        unit * &self.gate,
+                        velocity,
+                        path,
+                        Origin::Drum,
+                    )?;
                 }
             }
             cursor += length;
@@ -809,7 +866,7 @@ impl Builder<'_> {
                     velocity,
                     0.0,
                     path,
-                    false,
+                    Origin::Musical,
                 )?;
             }
         }
@@ -856,7 +913,7 @@ impl Builder<'_> {
                             velocity,
                             0.0,
                             path,
-                            false,
+                            Origin::Musical,
                         )?;
                     }
                 }
@@ -922,7 +979,7 @@ impl Builder<'_> {
                 velocity,
                 0.0,
                 path,
-                false,
+                Origin::Musical,
             )?;
         }
         Ok(())
@@ -973,7 +1030,7 @@ impl Builder<'_> {
                         velocity,
                         0.0,
                         path,
-                        false,
+                        Origin::Musical,
                     )?;
                 }
             }
@@ -1034,7 +1091,14 @@ impl Builder<'_> {
                     .collect::<Result<Vec<_>>>()?
             };
             for id in ids {
-                self.trigger(&id, at.clone(), duration.clone(), velocity, path, false)?;
+                self.trigger(
+                    &id,
+                    at.clone(),
+                    duration.clone(),
+                    velocity,
+                    path,
+                    Origin::Musical,
+                )?;
             }
             return Ok(());
         }
@@ -1202,7 +1266,7 @@ impl Builder<'_> {
                 duration * &self.gate,
                 velocity,
                 path,
-                true,
+                Origin::Roll,
             )?;
         }
         if let Some(riser) = v.get("riser") {
@@ -1212,7 +1276,7 @@ impl Builder<'_> {
                 q(1, 4),
                 100,
                 path,
-                false,
+                Origin::Musical,
             )?;
         }
         Ok(())

@@ -454,6 +454,55 @@ mod tests {
     }
 
     #[test]
+    fn triggers_require_an_explicit_note_and_rolls_replace_only_pattern_drums() {
+        let mut missing_note = document();
+        missing_note["sections"]["phrase"] = serde_json::json!({"events":[{"kind":"hit","instrument":"part","at":{"bar":1,"step":1}}]});
+        let error = super::compile(&missing_note.to_string()).expect_err("trigger note required");
+        let message = &error.diagnostics[0].message;
+        assert!(message.contains("instruments.part.trigger_note_midi"));
+        assert!(message.contains("score quarter 0"));
+
+        let mut doc = document();
+        doc["instruments"]["part"]["trigger_note_midi"] = serde_json::json!(36);
+        doc["drums"] = serde_json::json!({"beat":{"parts":{"part":"x...|....|....|...."}}});
+        doc["sections"]["phrase"] = serde_json::json!({
+            "drums":"beat",
+            "placements":[{"instrument":"part","degree":"1","at":{"bar":1,"step":1},"duration_quarters":"1/4"}],
+            "events":[{"kind":"step_roll","instrument":"part","bar":1,"from_step":1,"through_step":1,"velocity_from":120,"velocity_to":120}]
+        });
+        let plan = super::compile(&doc.to_string()).expect("explicit trigger note");
+        let notes = plan.lanes[0]
+            .pattern
+            .events
+            .iter()
+            .filter_map(|event| match event {
+                super::MusicalEvent::Note { note, velocity, .. } => Some((*note, *velocity)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(notes.len(), 2);
+        assert!(
+            notes.contains(&(36, 120)),
+            "roll replaces the ordinary drum hit"
+        );
+        assert!(
+            notes.contains(&(60, 100)),
+            "explicit placement remains layered"
+        );
+
+        doc["sections"]["phrase"]["events"] = serde_json::json!([
+            {"kind":"step_roll","instrument":"part","bar":1,"from_step":1,"through_step":1,"velocity_from":120,"velocity_to":120},
+            {"kind":"step_roll","instrument":"part","bar":1,"from_step":1,"through_step":1,"velocity_from":100,"velocity_to":100}
+        ]);
+        let error = super::compile(&doc.to_string()).expect_err("overlapping rolls rejected");
+        assert!(
+            error.diagnostics[0]
+                .message
+                .contains("overlapping drum rolls")
+        );
+    }
+
+    #[test]
     fn audition_scores_preserve_the_complete_event_sequences() {
         use crate::performance::events::MusicalEvent;
         use sha2::{Digest, Sha256};

@@ -301,7 +301,7 @@ instruments:
 - `definition`：Score所在ディレクトリを基点に参照。解決先はInstrument Definition JSON。`definition.json`の`schema_version`等は既存Coreに従う。
 - `external: true`：試奏用Scoreなどの未束縛楽器。CLIの`--bind <instrument_id>=<definition_path>`を**必須**とし、未束縛での実行をエラーにする。固定`preset`・`definition`を持つ楽器への束縛を拒否する。
 - `gain_db`：楽器全体の固定ゲイン（省略時0、有限数）。`role`は表示・分類だけに利用。
-- `voicing_floor_midi`：和音の最下声配置下限（0～127）。`trigger_note_midi`：Drum/FXの単発発音時に使うMIDIノート（0～127、省略時60）。`bass_floor_midi`/`bass_ceiling_midi`はベース参照音の標準配置範囲（省略時28～39）。
+- `voicing_floor_midi`：和音の最下声配置下限（0～127）。`trigger_note_midi`：Drum/FXなど、音程を指定しない打撃・単発音を鳴らすMIDIノート（0～127）。打撃・単発音を生成する場合は必須であり、音源ごとに明示する。`bass_floor_midi`/`bass_ceiling_midi`はベース参照音の標準配置範囲（省略時28～39）。
 - `audio_input: <id>`：ほかの楽器のステレオ出力を音声入力として受ける。入力能力のある音源だけ許可。対象不存在、自己参照、循環、外部入力のチャンネル数不一致はエラー。音源から入力へ渡る音声にはその楽器のPart Gainを適用し、グローバルフェード・マスターを含めない。
 - 技術的な`*_midi`は演奏エンジンのMIDIノート配置用である。**メロディ・コードの音高を書くための第2記法とはしない。**
 
@@ -387,7 +387,7 @@ form:
 - Note、Sustain、Bend、Wheel、Aftertouch、ParameterなどのEventで同時刻が起きても、ソース定義順を保持し、Note Off→Control→Note Onの基本優先順位を適用する。旧Pattern RuntimeのNote ID/レイテンシ/Loop状態を維持する。
 - `kind: drum_roll`で`bars: all`はセクションの全小節、正整数なら末尾N小節。4/4既定マクロ`roll`は最後以外を各拍2打、最後の小節の3拍目までを各拍4打、4拍目は無音。発音順Velocityを指定両端間で線形補間し、整数値への丸め方は`round half away from zero`とする。末尾の`riser`がある場合はロール開始時に1回打撃する。
 - `macro: name`に付いた上書きフィールドはマクロ本体の同名フィールドを置換する。存在しないフィールドの追加は事前にイベント型検証。マクロ循環禁止。自然言語文字列から実行内容を推測しない。
-- `trigger_note_midi`を明示したときはその音程を優先し、省略時は60。演奏に関係する音源Range/Triggerを検証する。`note`が存在しない外部音声処理Partも必要な場合は許す（ダミーNoteを生成しない）。
+- `drums`、`hit`/`hits`、`step_roll`、`drum_roll`、およびそれらを含むMacroは、対象Instrumentの`trigger_note_midi`を必須とし、省略やMIDI 0～127外の値をエラーにする。未指定値からノートを推測しない。`recommended_range`は音域の目安であり、Trigger Noteの許容範囲ではない。実際の演奏に関係する音源Range/Triggerを検証する。`note`が存在しない外部音声処理Partも必要な場合は許す（ダミーNoteを生成しない）。
 
 ### 10.2 継承・再利用の合成順
 

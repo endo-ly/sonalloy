@@ -535,23 +535,23 @@ macros:
     velocity_to: 120
     riser: riser
 instruments:
-  kick: {preset: DRUM/001-hard-punch-kick, gain_db: -2, role: drums}
-  clap: {preset: DRUM/005-gritty-burst-clap, gain_db: -4, role: drums}
-  snare: {preset: DRUM/004-dry-crack-snare, gain_db: -6, role: drums}
-  snare2: {preset: DRUM/018-round-body-snare, gain_db: 2, role: drums}
-  hat: {preset: DRUM/019-needle-closed-hat, gain_db: -8, role: drums}
-  hat2: {preset: DRUM/006-808-closed-hat, gain_db: -9, role: drums}
-  openhat: {preset: DRUM/023-909-open-hat, gain_db: -10, role: drums}
+  kick: {preset: DRUM/001-hard-punch-kick, trigger_note_midi: 36, gain_db: -2, role: drums}
+  clap: {preset: DRUM/005-gritty-burst-clap, trigger_note_midi: 39, gain_db: -4, role: drums}
+  snare: {preset: DRUM/004-dry-crack-snare, trigger_note_midi: 38, gain_db: -6, role: drums}
+  snare2: {preset: DRUM/018-round-body-snare, trigger_note_midi: 52, gain_db: 2, role: drums}
+  hat: {preset: DRUM/019-needle-closed-hat, trigger_note_midi: 42, gain_db: -8, role: drums}
+  hat2: {preset: DRUM/006-808-closed-hat, trigger_note_midi: 42, gain_db: -9, role: drums}
+  openhat: {preset: DRUM/023-909-open-hat, trigger_note_midi: 46, gain_db: -10, role: drums}
   ride: {preset: DRUM/024-bright-ping-ride, trigger_note_midi: 51, gain_db: -10, role: drums}
-  shaker: {preset: DRUM/011-noise-shaker, gain_db: -12, role: drums}
-  rim: {preset: DRUM/010-woody-rim-click, gain_db: -9, role: drums}
-  cowbell: {preset: DRUM/021-808-cowbell, gain_db: -12, role: drums}
-  tamb: {preset: DRUM/025-rattle-burst-tambourine, gain_db: -10, role: drums}
-  crash: {preset: DRUM/008-wide-wash-crash, gain_db: -11, role: drums}
-  riser: {preset: FX/001-noise-riser, gain_db: -6, role: fx}
-  impact: {preset: FX/008-noise-crash-impact, gain_db: -5, role: fx}
-  subdrop: {preset: FX/004-sub-drop, gain_db: -8, role: fx}
-  glitch: {preset: FX/005-glitch-burst, gain_db: -5, role: fx}
+  shaker: {preset: DRUM/011-noise-shaker, trigger_note_midi: 70, gain_db: -12, role: drums}
+  rim: {preset: DRUM/010-woody-rim-click, trigger_note_midi: 37, gain_db: -9, role: drums}
+  cowbell: {preset: DRUM/021-808-cowbell, trigger_note_midi: 73, gain_db: -12, role: drums}
+  tamb: {preset: DRUM/025-rattle-burst-tambourine, trigger_note_midi: 54, gain_db: -10, role: drums}
+  crash: {preset: DRUM/008-wide-wash-crash, trigger_note_midi: 49, gain_db: -11, role: drums}
+  riser: {preset: FX/001-noise-riser, trigger_note_midi: 48, gain_db: -6, role: fx}
+  impact: {preset: FX/008-noise-crash-impact, trigger_note_midi: 36, gain_db: -5, role: fx}
+  subdrop: {preset: FX/004-sub-drop, trigger_note_midi: 44, gain_db: -8, role: fx}
+  glitch: {preset: FX/005-glitch-burst, trigger_note_midi: 60, gain_db: -5, role: fx}
   tapestop: {preset: FX/009-tape-stop-slowdown, gain_db: -6, role: fx}
   b808: {preset: BASS/016-distorted-glide-808, gain_db: -7, role: bass}
   pluckbass: {preset: BASS/004-short-pluck-bass, gain_db: 0, role: bass}
