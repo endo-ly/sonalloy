@@ -90,7 +90,8 @@ pub(crate) struct Occurrence {
     pub(crate) section: String,
     pub(crate) bars: usize,
     pub(crate) tonic: String,
-    pub(crate) scale: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) scale: Option<String>,
     pub(crate) start_tick: u64,
     pub(crate) end_tick: u64,
     pub(crate) bpm: f64,
@@ -598,6 +599,117 @@ mod tests {
                 path.display()
             );
         }
+    }
+
+    #[test]
+    fn instrument_pan_is_validated_and_defaults_to_center() {
+        let mut doc = document();
+        doc["instruments"]["part"]["pan"] = serde_json::json!(2);
+        let error = super::compile(&doc.to_string()).expect_err("pan out of range");
+        assert_eq!(
+            error.diagnostics[0].path.as_deref(),
+            Some("instruments.part.pan")
+        );
+        doc["instruments"]["part"]["pan"] = serde_json::json!("left");
+        assert!(super::compile(&doc.to_string()).is_err());
+        doc["instruments"]["part"]["pan"] = serde_json::json!(-1);
+        assert!(super::compile(&doc.to_string()).is_ok());
+    }
+
+    #[test]
+    fn add_placements_append_across_inheritance_levels_and_placements_replaces() {
+        let mut doc = document();
+        doc["sections"] = serde_json::json!({
+            "phrase": {"placements":[{"instrument":"part","degree":"1","at":{"bar":1,"step":1}}]},
+            "bridge": {"from":"phrase","add_placements":[{"instrument":"part","degree":"3","at":{"bar":1,"step":2}}]},
+            "final": {"from":"bridge","add_placements":[{"instrument":"part","degree":"5","at":{"bar":1,"step":3}}]},
+            "solo": {"add_placements":[{"instrument":"part","degree":"3","at":{"bar":1,"step":4}}]},
+            "replaced": {"from":"phrase","placements":[{"instrument":"part","degree":"5","at":{"bar":1,"step":4}}]}
+        });
+        let spellings = |name: &str| {
+            let mut doc = doc.clone();
+            doc["form"][0]["section"] = serde_json::json!(name);
+            let plan = super::compile(&doc.to_string()).expect(name);
+            plan.lanes[0]
+                .sources
+                .iter()
+                .map(|source| source.spelling.clone().expect("degree spelling"))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(spellings("final"), ["1", "3", "5"]);
+        assert_eq!(spellings("solo"), ["3"]);
+        assert_eq!(spellings("replaced"), ["5"]);
+        let mut invalid = doc.clone();
+        invalid["sections"]["solo"]["add_placements"] =
+            serde_json::json!([{"instrument":"part","degree":"9","at":{"bar":1,"step":1}}]);
+        let error = super::compile(&invalid.to_string()).expect_err("invalid placement");
+        assert_eq!(
+            error.diagnostics[0].path.as_deref(),
+            Some("sections.solo.placements[0]")
+        );
+    }
+
+    #[test]
+    fn form_scale_is_optional_and_does_not_change_notes() {
+        let mut doc = document();
+        doc["form"][0]
+            .as_object_mut()
+            .expect("form entry")
+            .remove("scale");
+        let plan = super::compile(&doc.to_string()).expect("scale-less score compiles");
+        assert!(plan.sections[0].scale.is_none());
+        let occurrence = serde_json::to_value(&plan.sections[0]).expect("occurrence serializes");
+        assert!(occurrence.get("scale").is_none());
+        let events = serde_json::to_value(&plan.lanes[0].pattern.events).expect("events");
+        doc["form"][0]["scale"] = serde_json::json!("aeolian");
+        let plan = super::compile(&doc.to_string()).expect("scaled score compiles");
+        assert_eq!(plan.sections[0].scale.as_deref(), Some("aeolian"));
+        assert_eq!(
+            serde_json::to_value(&plan.lanes[0].pattern.events).expect("events"),
+            events
+        );
+        doc["form"][0]["scale"] = serde_json::json!("mystery");
+        let error = super::compile(&doc.to_string()).expect_err("unknown scale");
+        assert_eq!(error.diagnostics[0].path.as_deref(), Some("form[0].scale"));
+    }
+
+    #[test]
+    fn arps_honor_rests_ties_and_repeat_merging() {
+        let mut doc = document();
+        doc["meta"]["meter"] = serde_json::json!("2/4");
+        doc["sections"]["phrase"] = serde_json::json!({
+            "chords":["1:m"],
+            "arp":{"instrument":"part","pattern":"up"}
+        });
+        doc["arps"] = serde_json::json!({"up":{"order":"0 . 2 - | - - . 1"}});
+        let notes = |text: &str| {
+            let plan = super::compile(text).expect("arp score compiles");
+            plan.lanes[0]
+                .pattern
+                .events
+                .iter()
+                .filter_map(|event| match event {
+                    super::MusicalEvent::Note {
+                        tick,
+                        duration_ticks,
+                        ..
+                    } => Some((*tick, *duration_ticks)),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(notes(&doc.to_string()), [(0, 120), (240, 480), (840, 120)]);
+        doc["arps"]["up"]["order"] = serde_json::json!("1 1 - 2 | . . . .");
+        assert_eq!(notes(&doc.to_string()), [(0, 120), (120, 240), (360, 120)]);
+        doc["arps"]["up"]["retrigger_each_step"] = serde_json::json!(false);
+        assert_eq!(notes(&doc.to_string()), [(0, 360), (360, 120)]);
+        doc["arps"]["up"]["retrigger_each_step"] = serde_json::json!(true);
+        doc["arps"]["up"]["order"] = serde_json::json!("- 1 . . | . . . .");
+        let error = super::compile(&doc.to_string()).expect_err("tie without a note");
+        assert_eq!(
+            error.diagnostics[0].path.as_deref(),
+            Some("sections.phrase.arp")
+        );
     }
 
     #[test]
