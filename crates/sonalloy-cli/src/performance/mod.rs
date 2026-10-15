@@ -560,6 +560,35 @@ mod tests {
             )));
         }
         assert_eq!(lane.pattern.events.len(), lane.sources.len());
+
+        assert_boundary_crossing_note_survives_part_window();
+    }
+
+    fn assert_boundary_crossing_note_survives_part_window() {
+        let mut boundary_score = part_window_score();
+        boundary_score["sections"]["phrase"]["events"][0]["bars"] = serde_json::json!([1, 1]);
+        boundary_score["sections"]["intro"]["placements"] = serde_json::json!([{
+            "instrument": "part",
+            "degree": "1",
+            "at": {"bar": 1, "offset_quarters": "3"},
+            "duration_quarters": "2"
+        }]);
+        let boundary_plan = crate::score::compile(&boundary_score.to_string())
+            .expect("boundary-crossing note compiles");
+        assert!(
+            boundary_plan.lanes[0]
+                .pattern
+                .events
+                .iter()
+                .any(|event| matches!(
+                    event,
+                    MusicalEvent::Note {
+                        tick: 1_440,
+                        duration_ticks: 960,
+                        ..
+                    }
+                ))
+        );
     }
 
     fn part_window_score() -> serde_json::Value {

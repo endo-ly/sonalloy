@@ -287,8 +287,7 @@ impl Builder<'_> {
             for (section_start, section_end, window_start, window_end) in &event_ranges {
                 match &mut event.kind {
                     MusicalEvent::Note { .. } => {
-                        if &event.at + &event.duration <= *section_start || event.at >= *section_end
-                        {
+                        if event.at < *section_start || event.at >= *section_end {
                             continue;
                         }
                         if event.at < *window_start || event.at >= *window_end {

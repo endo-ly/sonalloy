@@ -382,7 +382,7 @@ form:
 | `automation` | `instrument`, `parameter`, `from_value`, `to_value`, `duration_steps`または`duration_quarters` | 既存Parameter Rampと同じ正規化空間の線形補間。 |
 
 - `silence`は指定した小節区間のNote Onを抑制し、境界にまたがるNoteの音価を切断する。演奏制御とParameter Rampには作用しない。Release音・Reverb・External Audioの残響まで完全ミュートする意味ではない。
-- `part_window`は対象InstrumentのそのSection内の演奏を半開区間`[start,end)`に限定する。Note Onの位置が区間外にあるNoteは除き、終端を越える音価は境界で切断する。点の演奏制御は区間内のイベントだけを残す。区間開始では以前の状態をニュートラル値またはParameterのDefinition既定値へ戻し、区間終端でも同じ既定状態へ戻して後続Sectionへ状態を漏らさない。窓をまたぐParameter Rampは許可区間との交差部分へ切り詰め、両端値を元の線形Rampから補間する。窓が空の場合はSection中に制御を残さない。同じInstrument・Sectionへ複数の窓を指定した場合は許可区間の共通部分を使う。
+- `part_window`は対象InstrumentのそのSection内で始まるNote Onと点の演奏制御を半開区間`[start,end)`に限定する。前Sectionで始まり当該Sectionへ持続するNoteは、後続SectionのWindowでは変更しない。対象Section内でWindowに含まれるNoteの音価が終端を越える場合は境界で切断する。点の演奏制御は区間内のイベントだけを残す。区間開始では以前の状態をニュートラル値またはParameterのDefinition既定値へ戻し、区間終端でも同じ既定状態へ戻して後続Sectionへ状態を漏らさない。窓をまたぐParameter Rampは許可区間との交差部分へ切り詰め、両端値を元の線形Rampから補間する。窓が空の場合はSection中に制御を残さない。同じInstrument・Sectionへ複数の窓を指定した場合は許可区間の共通部分を使う。
 - 同一楽器・同時刻の`drum_roll`/`step_roll`と通常ドラム打撃が衝突すればロールが勝つ。**ロール同士**、同一Parameterへの異なる値・重複矛盾、複数の同一楽器Overrideが重なればエラー。`silence`はNoteだけを抑制・切断し、`part_window`は対象InstrumentのNoteと演奏制御を制限する。
 - Note、Sustain、Bend、Wheel、Aftertouch、ParameterなどのEventで同時刻が起きても、ソース定義順を保持し、Note Off→Control→Note Onの基本優先順位を適用する。旧Pattern RuntimeのNote ID/レイテンシ/Loop状態を維持する。
 - `kind: drum_roll`で`bars: all`はセクションの全小節、正整数なら末尾N小節。4/4既定マクロ`roll`は最後以外を各拍2打、最後の小節の3拍目までを各拍4打、4拍目は無音。発音順Velocityを指定両端間で線形補間し、整数値への丸め方は`round half away from zero`とする。末尾の`riser`がある場合はロール開始時に1回打撃する。
