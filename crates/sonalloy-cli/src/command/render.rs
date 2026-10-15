@@ -1123,45 +1123,99 @@ fn validate_score_input_paths(
     plan: &performance::PerformancePlan,
     args: &RenderScoreArgs,
 ) -> Result<(), CliFailure> {
-    let inputs = std::iter::once(args.score.as_path())
-        .chain(plan.parts.iter().map(|p| p.definition.instrument.as_path()))
-        .map(crate::output::output_identity)
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut inputs = vec![crate::output::output_identity(&args.score)?];
+    for part in &plan.parts {
+        let definition = &part.definition.instrument;
+        let identity = crate::output::output_identity(definition)?;
+        if !inputs.contains(&identity) {
+            inputs.push(identity);
+        }
+        for asset in score_asset_paths(definition)? {
+            let identity = crate::output::output_identity(&asset)?;
+            if !inputs.contains(&identity) {
+                inputs.push(identity);
+            }
+        }
+    }
     let mut outputs = std::iter::once(&args.output)
         .chain(args.premaster_output.iter())
         .chain(args.mp3_output.iter())
         .map(|p| crate::output::output_identity(p))
         .collect::<Result<Vec<_>, _>>()?;
     if let Some(directory) = &args.stems_dir {
-        std::fs::create_dir_all(directory).map_err(|error| CliFailure {
-            code: 4,
-            diagnostics: vec![
-                Diagnostic::error(
-                    DiagnosticCode::WavOutputError,
-                    "could not create stems directory",
-                )
-                .with_detail(error.to_string()),
-            ],
-        })?;
         for part in &plan.parts {
             let path = directory.join(format!("{}.wav", part.definition.id));
             let identity = crate::output::output_identity(&path)?;
             if outputs.contains(&identity) {
-                return Err(score_routing_failure(
-                    0,
+                return Err(score_output_path_failure(
+                    &path,
                     "stem and mix output paths must be distinct",
                 ));
             }
             outputs.push(identity);
         }
     }
-    if outputs.iter().any(|output| inputs.contains(output)) {
-        return Err(score_routing_failure(
-            0,
-            "output must not overwrite a score or instrument definition",
+    if let Some(output) = outputs.iter().find(|output| inputs.contains(output)) {
+        return Err(score_output_path_failure(
+            output,
+            "output must not overwrite a score, instrument definition, or referenced asset",
         ));
     }
     Ok(())
+}
+
+fn score_asset_paths(definition_path: &Path) -> Result<Vec<PathBuf>, CliFailure> {
+    let text = std::fs::read_to_string(definition_path).map_err(|error| CliFailure {
+        code: 1,
+        diagnostics: vec![
+            Diagnostic::error(
+                DiagnosticCode::DefinitionError,
+                "could not read instrument definition assets",
+            )
+            .with_path(definition_path.to_string_lossy())
+            .with_detail(error.to_string()),
+        ],
+    })?;
+    let mut definition: sonalloy_core::InstrumentDefinition =
+        serde_json::from_str(&text).map_err(|error| CliFailure {
+            code: 1,
+            diagnostics: vec![
+                Diagnostic::error(
+                    DiagnosticCode::JsonInvalid,
+                    "could not inspect instrument definition assets",
+                )
+                .with_path(definition_path.to_string_lossy())
+                .with_detail(error.to_string()),
+            ],
+        })?;
+    definition.layers.retain(|layer| layer.enabled);
+    let base = definition_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut assets = Vec::new();
+    definition
+        .try_for_each_asset_mut(|_, reference| {
+            let path = Path::new(&reference.path);
+            assets.push(if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                base.join(path)
+            });
+            Ok::<_, std::convert::Infallible>(())
+        })
+        .expect("asset collection is infallible");
+    Ok(assets)
+}
+
+fn score_output_path_failure(path: &Path, detail: &str) -> CliFailure {
+    CliFailure {
+        code: 2,
+        diagnostics: vec![
+            Diagnostic::error(DiagnosticCode::WavOutputError, detail)
+                .with_path(path.to_string_lossy()),
+        ],
+    }
 }
 
 /// Resolve the WAV that mastering and loudness analysis read, filling a temporary

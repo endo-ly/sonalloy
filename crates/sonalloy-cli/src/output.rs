@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use serde::Serialize;
@@ -65,26 +65,58 @@ pub(crate) fn pending_wav(path: &Path) -> Result<tempfile::TempPath, CliFailure>
 }
 
 pub(crate) fn output_identity(path: &Path) -> Result<std::path::PathBuf, CliFailure> {
-    if path.exists() {
-        return std::fs::canonicalize(path).map_err(|error| wav_commit_failure(path, &error));
-    }
-    let parent = path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let parent = std::fs::canonicalize(parent).map_err(|error| wav_commit_failure(path, &error))?;
-    let name = path.file_name().ok_or_else(|| {
-        wav_commit_failure(
+    if path.file_name().is_none() {
+        return Err(wav_commit_failure(
             path,
             &std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "output path must name a file",
             ),
-        )
-    })?;
-    #[cfg(windows)]
-    let name = name.to_ascii_lowercase();
-    Ok(parent.join(name))
+        ));
+    }
+    if path.exists() {
+        return std::fs::canonicalize(path).map_err(|error| wav_commit_failure(path, &error));
+    }
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|error| wav_commit_failure(path, &error))?
+            .join(path)
+    };
+    let mut resolved = PathBuf::new();
+    for component in absolute.components() {
+        match component {
+            std::path::Component::Prefix(_) | std::path::Component::RootDir => {
+                resolved.push(component.as_os_str());
+            }
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                resolved.pop();
+            }
+            std::path::Component::Normal(name) => {
+                let candidate = resolved.join(name);
+                if candidate.exists() {
+                    resolved = std::fs::canonicalize(candidate)
+                        .map_err(|error| wav_commit_failure(path, &error))?;
+                } else {
+                    #[cfg(windows)]
+                    let name = name.to_ascii_lowercase();
+                    resolved.push(name);
+                }
+            }
+        }
+    }
+    if resolved.file_name().is_none() {
+        return Err(wav_commit_failure(
+            path,
+            &std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "output path must name a file",
+            ),
+        ));
+    }
+    Ok(resolved)
 }
 
 pub(crate) fn commit_wav(pending: tempfile::TempPath, output: &Path) -> Result<(), CliFailure> {

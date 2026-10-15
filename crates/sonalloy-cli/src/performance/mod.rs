@@ -1,8 +1,8 @@
 use crate::output::CliFailure;
-use crate::score::{Bindings, ScorePlan};
+use crate::score::{Bindings, EventSource, PartWindow, ScoreLane, ScorePlan};
 use serde::Serialize;
 use sonalloy_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -260,6 +260,8 @@ fn prepare(
     for lane in lanes {
         let instrument = Arc::clone(&cache[&paths[&lane.id]]);
         let spec = &score.instruments[&lane.id];
+        let mut lane = lane;
+        insert_part_window_resets(&mut lane, &score.part_windows, &instrument);
         let definition = Part {
             id: lane.id.clone(),
             instrument: paths[&lane.id].clone(),
@@ -355,6 +357,230 @@ fn prepare(
         diagnostics,
         score,
     })
+}
+
+fn insert_part_window_resets(
+    lane: &mut ScoreLane,
+    windows: &[PartWindow],
+    instrument: &sonalloy_core::CompiledInstrument,
+) {
+    let mut ranges: BTreeMap<(u64, u64), (u64, u64)> = BTreeMap::new();
+    for window in windows.iter().filter(|window| window.instrument == lane.id) {
+        ranges
+            .entry((window.section_start_tick, window.section_end_tick))
+            .and_modify(|(start, end)| {
+                *start = (*start).max(window.start_tick);
+                *end = (*end).min(window.end_tick);
+            })
+            .or_insert((window.start_tick, window.end_tick));
+    }
+    if ranges.is_empty() {
+        return;
+    }
+
+    let mut reset_sustain = false;
+    let mut reset_pitch_bend = false;
+    let mut reset_mod_wheel = false;
+    let mut reset_aftertouch = false;
+    let mut parameters = BTreeSet::new();
+    for event in &lane.pattern.events {
+        match event {
+            MusicalEvent::SustainPedal { .. } => reset_sustain = true,
+            MusicalEvent::PitchBend { .. } => reset_pitch_bend = true,
+            MusicalEvent::ModWheel { .. } => reset_mod_wheel = true,
+            MusicalEvent::Aftertouch { .. } => reset_aftertouch = true,
+            MusicalEvent::ParameterChange { parameter, .. }
+            | MusicalEvent::ParameterRamp { parameter, .. } => {
+                parameters.insert(parameter.clone());
+            }
+            MusicalEvent::Note { .. } => {}
+        }
+    }
+    let parameter_defaults = parameters
+        .into_iter()
+        .filter_map(|parameter| {
+            instrument
+                .parameters()
+                .iter()
+                .find(|descriptor| descriptor.id == parameter)
+                .map(|descriptor| (parameter, descriptor.default))
+        })
+        .collect::<Vec<_>>();
+
+    let mut reset_ticks = BTreeSet::new();
+    for ((section_start, section_end), (window_start, window_end)) in &ranges {
+        if window_start >= window_end {
+            reset_ticks.insert(*section_start);
+            reset_ticks.insert(*section_end);
+        } else {
+            reset_ticks.insert(*window_start);
+            reset_ticks.insert(*window_end);
+        }
+    }
+    let mut events = Vec::new();
+    let mut reset_sources = Vec::new();
+    for tick in reset_ticks {
+        let mut push_reset = |event| {
+            events.push(event);
+            reset_sources.push(part_window_source(tick));
+        };
+        if reset_sustain {
+            push_reset(MusicalEvent::SustainPedal { tick, down: false });
+        }
+        for (parameter, native_value) in &parameter_defaults {
+            push_reset(MusicalEvent::ParameterChange {
+                tick,
+                parameter: parameter.clone(),
+                native_value: *native_value,
+            });
+        }
+        if reset_pitch_bend {
+            push_reset(MusicalEvent::PitchBend { tick, value: 0.0 });
+        }
+        if reset_mod_wheel {
+            push_reset(MusicalEvent::ModWheel { tick, value: 0.0 });
+        }
+        if reset_aftertouch {
+            push_reset(MusicalEvent::Aftertouch { tick, value: 0.0 });
+        }
+    }
+    events.append(&mut lane.pattern.events);
+    reset_sources.append(&mut lane.sources);
+    lane.pattern.events = events;
+    lane.sources = reset_sources;
+}
+
+fn part_window_source(tick: u64) -> EventSource {
+    EventSource {
+        path: "part_window".to_owned(),
+        spelling: None,
+        tick,
+        at_quarters: String::new(),
+        duration_quarters: "0".to_owned(),
+        line: 0,
+        column: 0,
+        section: String::new(),
+        bar: 0,
+        step: String::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn part_window_clips_controls_and_resets_state_at_both_boundaries() {
+        let definition_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata/instruments/basic-poly-synth.json")
+            .canonicalize()
+            .expect("instrument fixture");
+        let (instrument, _) = crate::command::load_and_compile(&definition_path, 48_000, 64)
+            .expect("instrument compiles");
+        let parameter = "voice.processor.tone.cutoff";
+        let score = serde_json::json!({
+            "meta": {"title":"Window", "bpm":120, "meter":"4/4", "tuning":"12edo", "gate":1},
+            "form": [
+                {"section":"intro", "bars":1, "tonic":"C", "scale":"ionian"},
+                {"section":"phrase", "bars":4, "tonic":"C", "scale":"ionian"}
+            ],
+            "sections": {
+                "intro":{"events":[
+                    {"kind":"sustain_pedal", "instrument":"part", "down":true, "at":{"bar":1,"step":3}},
+                    {"kind":"mod_wheel", "instrument":"part", "value":0.4, "at":{"bar":1,"step":1}}
+                ]},
+                "phrase":{"events":[
+                {"kind":"part_window", "instrument":"part", "bars":[2,3]},
+                {"kind":"sustain_pedal", "instrument":"part", "down":true, "at":{"bar":1,"step":3}},
+                {"kind":"pitch_bend", "instrument":"part", "value":0.75, "at":{"bar":2,"step":5}},
+                {"kind":"mod_wheel", "instrument":"part", "value":1, "at":{"bar":4,"step":1}},
+                {"kind":"automation", "instrument":"part", "parameter":"voice.processor.tone.cutoff", "from_value":1000, "to_value":9000, "at":{"bar":1,"step":1}, "duration_quarters":16},
+                {"kind":"parameter_change", "instrument":"part", "parameter":"voice.processor.tone.cutoff", "native_value":1500, "at":{"bar":4,"step":1}}
+            ]}},
+            "instruments": {"part":{"external":true}}
+        });
+        let mut plan = crate::score::compile(&score.to_string()).expect("Score window compiles");
+        let windows = plan.part_windows.clone();
+        assert_eq!(windows.len(), 1);
+        assert_eq!(
+            (
+                windows[0].section_start_tick,
+                windows[0].section_end_tick,
+                windows[0].start_tick,
+                windows[0].end_tick,
+            ),
+            (1_920, 9_600, 3_840, 7_680)
+        );
+        let mut lane = plan.lanes.pop().expect("control lane");
+
+        assert!(!lane.pattern.events.iter().any(|event| matches!(
+            event,
+            MusicalEvent::SustainPedal {
+                tick: 2_160,
+                down: true
+            } | MusicalEvent::ModWheel { value: 1.0, .. }
+                | MusicalEvent::ParameterChange {
+                    native_value: 1_500.0,
+                    ..
+                }
+        )));
+        assert!(lane.pattern.events.iter().any(|event| matches!(
+            event,
+            MusicalEvent::SustainPedal {
+                tick: 240,
+                down: true
+            }
+        )));
+        assert!(lane.pattern.events.iter().any(|event| matches!(
+            event,
+            MusicalEvent::ParameterRamp {
+                tick: 3_840,
+                duration_ticks: 3_840,
+                from_value,
+                to_value,
+                ..
+            } if (*from_value - 3_000.0).abs() < 0.001 && (*to_value - 7_000.0).abs() < 0.001
+        )));
+        let pitch_bends = lane
+            .pattern
+            .events
+            .iter()
+            .filter_map(|event| match event {
+                MusicalEvent::PitchBend { tick, value } => Some((*tick, *value)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(pitch_bends, [(4_320, 0.75)]);
+        insert_part_window_resets(&mut lane, &windows, &instrument);
+        for tick in [3_840, 7_680] {
+            assert!(
+                lane.pattern.events.iter().any(|event| matches!(
+                    event,
+                    MusicalEvent::SustainPedal { tick: event_tick, down: false }
+                        if *event_tick == tick
+                )),
+                "events: {:?}",
+                lane.pattern.events
+            );
+            assert!(lane.pattern.events.iter().any(|event| matches!(
+                event,
+                MusicalEvent::ModWheel { tick: event_tick, value: 0.0 }
+                    if *event_tick == tick
+            )));
+            assert!(lane.pattern.events.iter().any(|event| matches!(
+                event,
+                MusicalEvent::ParameterChange {
+                    tick: event_tick,
+                    parameter: event_parameter,
+                    native_value,
+                } if *event_tick == tick
+                    && event_parameter == parameter
+                    && (*native_value - instrument.parameters().iter().find(|d| d.id == parameter).unwrap().default).abs() < 0.001
+            )));
+        }
+        assert_eq!(lane.pattern.events.len(), lane.sources.len());
+    }
 }
 
 fn resolve_audio_dependencies(

@@ -769,6 +769,79 @@ fn render_midi_rejects_control_only_input() {
 }
 
 #[test]
+fn render_score_rejects_asset_and_stem_overwrites_without_changing_the_asset() {
+    let directory = tempdir().expect("temporary directory");
+    let asset = fixture_path("assets/metal-hit.wav");
+    let original_asset = std::fs::read(&asset).expect("source WAV");
+    let aliased_asset_output = asset
+        .parent()
+        .expect("asset directory")
+        .join("missing-output-dir")
+        .join("..")
+        .join("metal-hit.wav");
+    let definition = fixture_path("instruments/mapped-sample-instrument.json");
+    let write_score = |path: &std::path::Path, instrument_id: &str| {
+        let score = serde_json::json!({
+            "meta": {"title":"Asset guard", "bpm":120, "meter":"4/4", "tuning":"12edo", "gate":1},
+            "form": [{"section":"phrase", "bars":1, "tonic":"C", "scale":"ionian"}],
+            "sections": {"phrase":{"placements":[{"instrument":instrument_id, "degree":"1", "at":{"bar":1,"step":1}, "duration_steps":4}]}},
+            "instruments": {instrument_id:{"definition":definition}}
+        });
+        std::fs::write(path, serde_json::to_vec(&score).expect("Score JSON")).expect("write Score");
+    };
+
+    let mix_score = directory.path().join("asset-mix.score.yaml");
+    write_score(&mix_score, "sampled");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "score",
+            mix_score.to_str().expect("Score path"),
+            "--tail",
+            "0",
+            "--output",
+            aliased_asset_output.to_str().expect("asset output alias"),
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicates::str::contains("referenced asset"));
+    assert_eq!(
+        std::fs::read(&asset).expect("source WAV remains"),
+        original_asset
+    );
+
+    let stem_score = directory.path().join("asset-stem.score.yaml");
+    write_score(&stem_score, "metal-hit");
+    let mix_output = directory.path().join("mix.wav");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args([
+            "render",
+            "score",
+            stem_score.to_str().expect("Score path"),
+            "--tail",
+            "0",
+            "--output",
+            mix_output.to_str().expect("mix path"),
+            "--stems-dir",
+            asset
+                .parent()
+                .expect("asset directory")
+                .to_str()
+                .expect("stem directory"),
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicates::str::contains("referenced asset"));
+    assert_eq!(
+        std::fs::read(&asset).expect("source WAV remains"),
+        original_asset
+    );
+    assert!(!mix_output.exists());
+}
+
+#[test]
 fn invalid_cli_arguments_fail_before_any_output_is_written() {
     let directory = tempdir().expect("temporary directory");
     let output = directory.path().join("note.wav");

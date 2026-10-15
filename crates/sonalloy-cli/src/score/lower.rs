@@ -1,12 +1,12 @@
 use num_traits::ToPrimitive;
 use serde_json::Value;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::time::{Quarter, ppq, rational, tick};
 use super::{
-    Error, MeterChange, MusicalEvent, Occurrence, PerformanceEvents, Result, ScoreLane, ScorePlan,
-    TempoChange, array, integer, number, object, optional_int, optional_number, q, required,
-    string, text_field,
+    Error, MeterChange, MusicalEvent, Occurrence, PartWindow, PerformanceEvents, Result, ScoreLane,
+    ScorePlan, TempoChange, array, integer, number, object, optional_int, optional_number, q,
+    required, string, text_field,
 };
 use super::{resolve, syntax};
 
@@ -49,6 +49,7 @@ struct Builder<'a> {
     gate: Quarter,
     octave: i32,
     transforms: Vec<(Quarter, Value, String)>,
+    part_windows: Vec<(String, Quarter, Quarter, Quarter, Quarter)>,
 }
 
 pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
@@ -104,6 +105,7 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
         gate,
         octave,
         transforms: Vec::new(),
+        part_windows: Vec::new(),
     };
     if let Some(macros) = doc.get("macros") {
         for (name, value) in object(macros, "macros")? {
@@ -136,8 +138,24 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
             .expect("resolved occurrence");
         builder.transform(section, &value, &path)?;
     }
+    builder.apply_part_windows();
     builder.validate_controls()?;
+    let part_windows = std::mem::take(&mut builder.part_windows);
     let timeline = compile_timeline(meta, &builder, &sections, &start, &tempos, &meters)?;
+    let part_windows = part_windows
+        .into_iter()
+        .map(
+            |(instrument, section_start, section_end, window_start, window_end)| {
+                Ok(PartWindow {
+                    instrument,
+                    section_start_tick: tick(&section_start, timeline.ticks_per_beat)?,
+                    section_end_tick: tick(&section_end, timeline.ticks_per_beat)?,
+                    start_tick: tick(&window_start, timeline.ticks_per_beat)?,
+                    end_tick: tick(&window_end, timeline.ticks_per_beat)?,
+                })
+            },
+        )
+        .collect::<Result<Vec<_>>>()?;
     let lanes = compile_lanes(builder.events, &timeline, &start)?;
     let occurrences = inspect_sections(&sections, &builder.harmony, &timeline)?;
     Ok(ScorePlan {
@@ -151,6 +169,7 @@ pub(super) fn lower(doc: &Value) -> Result<ScorePlan> {
         master: meta.get("master").cloned(),
         fade_out_seconds: optional_number(meta, "fade_out_seconds", 0.0, "meta")?,
         timeline,
+        part_windows,
     })
 }
 
@@ -167,6 +186,115 @@ fn event_tick(event: &MusicalEvent) -> u64 {
 }
 
 impl Builder<'_> {
+    fn apply_part_windows(&mut self) {
+        let mut ranges: BTreeMap<(String, Quarter, Quarter), (Quarter, Quarter)> = BTreeMap::new();
+        for (instrument, section_start, section_end, window_start, window_end) in &self.part_windows
+        {
+            ranges
+                .entry((
+                    instrument.clone(),
+                    section_start.clone(),
+                    section_end.clone(),
+                ))
+                .and_modify(|(start, end)| {
+                    *start = start.clone().max(window_start.clone());
+                    *end = end.clone().min(window_end.clone());
+                })
+                .or_insert((window_start.clone(), window_end.clone()));
+        }
+        if ranges.is_empty() {
+            return;
+        }
+
+        let mut events = Vec::with_capacity(self.events.len());
+        for mut event in std::mem::take(&mut self.events) {
+            let event_ranges = ranges
+                .iter()
+                .filter(|((instrument, _, _), _)| instrument == &event.id)
+                .map(
+                    |((_, section_start, section_end), (window_start, window_end))| {
+                        (
+                            section_start.clone(),
+                            section_end.clone(),
+                            window_start.clone(),
+                            window_end.clone(),
+                        )
+                    },
+                )
+                .collect::<Vec<_>>();
+            if event_ranges.is_empty() {
+                events.push(event);
+                continue;
+            }
+
+            let ramp_values = match &event.kind {
+                MusicalEvent::ParameterRamp {
+                    from_value,
+                    to_value,
+                    ..
+                } => Some((*from_value, *to_value)),
+                _ => None,
+            };
+            if let Some((from_value, to_value)) = ramp_values {
+                if event.duration <= q(0, 1) {
+                    events.push(event);
+                    continue;
+                }
+                let ramp_end = &event.at + &event.duration;
+                for (start, end, from, to) in
+                    quarter_ramp_segments(&event.at, &ramp_end, from_value, to_value, &event_ranges)
+                {
+                    let mut segment = event.clone();
+                    segment.at = start;
+                    segment.duration = &end - &segment.at;
+                    if let MusicalEvent::ParameterRamp {
+                        from_value,
+                        to_value,
+                        ..
+                    } = &mut segment.kind
+                    {
+                        *from_value = from;
+                        *to_value = to;
+                    }
+                    events.push(segment);
+                }
+                continue;
+            }
+
+            let mut keep = true;
+            for (section_start, section_end, window_start, window_end) in &event_ranges {
+                match &mut event.kind {
+                    MusicalEvent::Note { .. } => {
+                        if &event.at + &event.duration <= *section_start || event.at >= *section_end
+                        {
+                            continue;
+                        }
+                        if event.at < *window_start || event.at >= *window_end {
+                            keep = false;
+                            break;
+                        }
+                        if &event.at + &event.duration > *window_end {
+                            event.duration = window_end - &event.at;
+                        }
+                    }
+                    _ => {
+                        if event.at >= *section_start
+                            && event.at < *section_end
+                            && (event.at < *window_start || event.at >= *window_end)
+                        {
+                            keep = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            if keep {
+                events.push(event);
+            }
+        }
+        self.events = events;
+    }
+
     fn event_targets(&self, event: &Value, path: &str) -> Result<()> {
         for key in ["instrument", "riser"] {
             if let Some(value) = event.get(key) {
@@ -1308,8 +1436,18 @@ impl Builder<'_> {
             let (a, b) = bar_range(required(v, "bars", path)?, s.bars.len(), path)?;
             let begin = &s.start + s.bars[..a - 1].iter().cloned().sum::<Quarter>();
             let end = &s.start + s.bars[..b].iter().cloned().sum::<Quarter>();
+            self.part_windows.push((
+                id.clone(),
+                s.start.clone(),
+                section_end.clone(),
+                begin.clone(),
+                end.clone(),
+            ));
             (Some(id), begin, end, Vec::new())
         };
+        if kind == "part_window" {
+            return Ok(());
+        }
         self.events.retain_mut(|e| {
             if !matches!(e.kind, MusicalEvent::Note { .. })
                 || &e.at + &e.duration <= s.start
@@ -1415,6 +1553,64 @@ fn condition(v: &Value, bar: usize, length: usize, path: &str) -> Result<bool> {
             == 0);
     }
     Ok(bar_number(required(v, "bar", path)?, length, path)? == bar)
+}
+
+fn quarter_ramp_segments(
+    start: &Quarter,
+    end: &Quarter,
+    from: f32,
+    to: f32,
+    ranges: &[(Quarter, Quarter, Quarter, Quarter)],
+) -> Vec<(Quarter, Quarter, f32, f32)> {
+    let mut boundaries = vec![start.clone(), end.clone()];
+    for (section_start, section_end, window_start, window_end) in ranges {
+        boundaries.extend(
+            [section_start, section_end, window_start, window_end]
+                .into_iter()
+                .filter(|time| start < *time && *time < end)
+                .cloned(),
+        );
+    }
+    boundaries.sort();
+    boundaries.dedup();
+
+    boundaries
+        .windows(2)
+        .filter_map(|interval| {
+            let interval_start = &interval[0];
+            let interval_end = &interval[1];
+            let allowed =
+                ranges
+                    .iter()
+                    .find_map(|(section_start, section_end, window_start, window_end)| {
+                        (interval_start >= section_start && interval_start < section_end).then_some(
+                            interval_start >= window_start && interval_start < window_end,
+                        )
+                    });
+            if allowed == Some(false) {
+                return None;
+            }
+            Some((
+                interval_start.clone(),
+                interval_end.clone(),
+                quarter_ramp_value(start, end, interval_start, from, to),
+                quarter_ramp_value(start, end, interval_end, from, to),
+            ))
+        })
+        .collect()
+}
+
+fn quarter_ramp_value(start: &Quarter, end: &Quarter, at: &Quarter, from: f32, to: f32) -> f32 {
+    if at == start {
+        return from;
+    }
+    if at == end {
+        return to;
+    }
+    let ratio = ((at - start) / (end - start))
+        .to_f64()
+        .expect("ramp interpolation ratio is between zero and one");
+    (f64::from(from) + (f64::from(to) - f64::from(from)) * ratio) as f32
 }
 
 fn signed_int(v: &Value, key: &str, default: i64, path: &str) -> Result<i32> {

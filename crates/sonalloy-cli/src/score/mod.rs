@@ -138,6 +138,16 @@ pub(crate) struct ScorePlan {
     pub(crate) master: Option<Value>,
     pub(crate) fade_out_seconds: f64,
     pub(crate) timeline: PerformanceEvents,
+    pub(crate) part_windows: Vec<PartWindow>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PartWindow {
+    pub(crate) instrument: String,
+    pub(crate) section_start_tick: u64,
+    pub(crate) section_end_tick: u64,
+    pub(crate) start_tick: u64,
+    pub(crate) end_tick: u64,
 }
 
 impl ScorePlan {
