@@ -236,7 +236,7 @@ mod tests {
         part.render_lanes[1].pattern.events.extend(controls.clone());
         let mut diagnostics = Vec::new();
         let merged = merge_lanes(part, &mut diagnostics);
-        assert!(diagnostics.is_empty());
+        assert_eq!(diagnostics, [] as [Diagnostic; 0]);
         assert_eq!(
             merged
                 .events
@@ -342,6 +342,6 @@ mod tests {
 
         std::fs::write(&path, score(0.0).to_string()).unwrap();
         let plan = crate::performance::load(&path, &Bindings::default(), 48000, 257).unwrap();
-        assert!(export_score(&output, &plan).unwrap().is_empty());
+        assert_eq!(export_score(&output, &plan).unwrap(), [] as [Diagnostic; 0]);
     }
 }
