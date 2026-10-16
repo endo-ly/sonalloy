@@ -135,14 +135,20 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
                     .unwrap_or(Path::new(".")),
             )
             .map_err(|e| failure(&output, e.to_string()))?;
-            crate::midi::export_score(pending.path(), &plan).map_err(|diagnostics| CliFailure {
-                code: 1,
-                diagnostics,
-            })?;
+            let mut diagnostics = plan.diagnostics.clone();
+            diagnostics.extend(crate::midi::export_score(pending.path(), &plan).map_err(
+                |diagnostics| CliFailure {
+                    code: 1,
+                    diagnostics,
+                },
+            )?);
             pending
                 .persist_noclobber(&output)
                 .map_err(|e| failure(&output, e.to_string()))?;
-            Ok(json!({"status":"ok","output":output}))
+            if !score.json {
+                print_warnings(&diagnostics);
+            }
+            Ok(json!({"status":"ok","output":output,"diagnostics":diagnostics}))
         }
         ScoreCommand::ImportMidi {
             midi,

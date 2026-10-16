@@ -195,7 +195,7 @@ sonalloy audition score presets/common-scores/lead.score.yaml --bind preview=<de
 
 自作の楽曲は `score init <path>` から編集し、`score inspect --json` で展開結果を確かめます。複数楽器のリアルタイム試聴には `--part <id>` を指定し、区間は `--section <name>` で選びます。楽曲全体の音は `render score` で確認します。
 
-MIDIは `score import-midi <midi> --instrument <definition> --output <score.yaml>` で取り込み、`score export-midi <score.yaml> --output <song.mid>` で書き出します。音源固有のParameter操作など、MIDIで表現できない内容は診断されます。
+MIDIは `score import-midi <midi> --instrument <definition> --output <score.yaml>` で取り込み、`score export-midi <score.yaml> --output <song.mid>` で書き出します。17楽器以上はMIDI Portを分けて出力します。音源固有のParameterやゲインレーン間で異なる制御列は省略され、対象楽器と内容がwarningになります。`--json`では成功Reportの`diagnostics`を確認します。音符ごとの強弱・接続、コードの修飾・声部配置、スウィングは[Score仕様](references/score_spec.md)に従って記述します。
 
 ## Deviceが利用できる場合のRealtime試聴
 

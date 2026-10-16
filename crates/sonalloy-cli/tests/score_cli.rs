@@ -397,3 +397,129 @@ fn assert_control_and_channel_import(directory: &std::path::Path) {
         .success();
     assert_eq!(inspect(&selected)["parts"][0]["events"][0]["note"], 60);
 }
+#[test]
+fn midi_export_preserves_notes_across_ports_and_reports_omitted_controls() {
+    for count in [16, 17, 32, 41] {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("score.yaml");
+        let output = directory.path().join("score.mid");
+        let mut instruments = serde_json::Map::new();
+        let mut placements = Vec::new();
+        for i in 0..count {
+            let id = format!("part{i:02}");
+            instruments.insert(
+                id.clone(),
+                json!({"definition":fixture_path("instruments/basic-poly-synth.json")}),
+            );
+            placements.push(json!({"instrument":id,"degree":"1","at":{"bar":1,"step":1},"duration_quarters":1,"velocity":100}));
+        }
+        placements.push(json!({"instrument":"part00","degree":"1","at":{"bar":1,"step":3},"duration_quarters":1,"gain_db":-6,"velocity":80}));
+        let at = json!({"bar":1,"step":1});
+        let doc = json!({"meta":{"title":"Ports","bpm":120,"meter":"4/4","tuning":"12edo"},
+        "form":[{"section":"a","bars":1,"tonic":"C"}],"instruments":instruments,
+        "sections":{"a":{"placements":placements,"events":[
+            {"kind":"sustain_pedal","instrument":"part00","at":at,"down":true},
+            {"kind":"pitch_bend","instrument":"part00","at":at,"value":0.5},
+            {"kind":"mod_wheel","instrument":"part00","at":at,"value":0.5},
+            {"kind":"aftertouch","instrument":"part00","at":at,"value":0.5},
+            {"kind":"parameter_change","instrument":"part00","at":at,"parameter":"layer.body.gain","native_value":-12},
+            {"kind":"automation","instrument":"part00","at":{"bar":1,"step":5},"parameter":"layer.body.gain","from_value":-12,"to_value":-14,"duration_quarters":1}
+        ]}}});
+        std::fs::write(&path, doc.to_string()).unwrap();
+        let result = Command::cargo_bin("sonalloy")
+            .unwrap()
+            .args(["score", "export-midi"])
+            .arg(&path)
+            .arg("--output")
+            .arg(&output)
+            .arg("--json")
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let report: serde_json::Value = serde_json::from_slice(&result).unwrap();
+        let warnings = report["diagnostics"].as_array().unwrap();
+        for expected in [
+            "sustain pedal omitted",
+            "pitch bend omitted",
+            "mod wheel omitted",
+            "aftertouch omitted",
+            "1 ParameterChange, 1 ParameterRamp",
+            "1 overlapping same-pitch",
+        ] {
+            assert!(
+                warnings.iter().any(|d| d["path"] == "instruments.part00"
+                    && d["severity"] == "warning"
+                    && d["message"].as_str().unwrap().contains(expected)),
+                "{expected}: {report}"
+            );
+        }
+        let bytes = std::fs::read(&output).unwrap();
+        let smf = Smf::parse(&bytes).unwrap();
+        assert_eq!(smf.tracks.len(), count + 1);
+        assert_eq!(smf.header.format, Format::Parallel);
+        assert_exported_tracks(&smf);
+        Command::cargo_bin("sonalloy")
+            .unwrap()
+            .args(["score", "export-midi"])
+            .arg(&path)
+            .arg("--output")
+            .arg(&output)
+            .assert()
+            .failure();
+        assert_eq!(std::fs::read(output).unwrap(), bytes);
+    }
+}
+
+fn assert_exported_tracks(smf: &Smf<'_>) {
+    for (i, track) in smf.tracks[1..].iter().enumerate() {
+        let expected_name = format!("part{i:02}");
+        assert!(track.iter().any(|e| matches!(e.kind, TrackEventKind::Meta(midly::MetaMessage::TrackName(name)) if name == expected_name.as_bytes())));
+        let port = track.iter().find_map(|e| {
+            if let TrackEventKind::Meta(midly::MetaMessage::MidiPort(p)) = e.kind {
+                Some(p.as_int())
+            } else {
+                None
+            }
+        });
+        assert_eq!(
+            port,
+            if i < 16 {
+                None
+            } else {
+                Some(u8::try_from(i / 16).unwrap())
+            }
+        );
+        let mut tick = 0_u64;
+        let mut notes = Vec::new();
+        for event in track {
+            tick += u64::from(event.delta.as_int());
+            if let TrackEventKind::Midi { channel, message } = event.kind {
+                assert_eq!(usize::from(channel.as_int()), i % 16);
+                match message {
+                    MidiMessage::NoteOn { key, vel } => {
+                        notes.push((tick, true, key.as_int(), vel.as_int()));
+                    }
+                    MidiMessage::NoteOff { key, .. } => {
+                        notes.push((tick, false, key.as_int(), 0));
+                    }
+                    _ => panic!("conflicting controls must be omitted"),
+                }
+            }
+        }
+        assert_eq!(
+            notes,
+            if i == 0 {
+                vec![
+                    (0, true, 60, 100),
+                    (240, true, 60, 80),
+                    (480, false, 60, 0),
+                    (720, false, 60, 0),
+                ]
+            } else {
+                vec![(0, true, 60, 100), (480, false, 60, 0)]
+            }
+        );
+    }
+}

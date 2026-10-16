@@ -36,7 +36,7 @@ pub(crate) struct MeterChange {
     pub(crate) denominator: u8,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum MusicalEvent {
     Note {

@@ -73,7 +73,7 @@ pub(crate) fn midi_events(
         return Err(diagnostics);
     }
     let mut events = Vec::with_capacity(pattern.events.len().saturating_mul(2));
-    let mut errors = midi_note_overlap_diagnostics(pattern);
+    let mut errors = Vec::new();
     let mut parameter_event_count = 0;
     for (source_index, event) in pattern.events.iter().enumerate() {
         match event {
@@ -139,55 +139,6 @@ pub(crate) fn midi_events(
     }
     events.sort_by_key(|event| (event.tick, event.kind.priority(), event.source_index));
     Ok(events)
-}
-
-fn midi_note_overlap_diagnostics(pattern: &PerformanceEvents) -> Vec<Diagnostic> {
-    let mut notes = pattern
-        .events
-        .iter()
-        .enumerate()
-        .filter_map(|(source_index, event)| {
-            let MusicalEvent::Note {
-                tick,
-                duration_ticks,
-                note,
-                ..
-            } = event
-            else {
-                return None;
-            };
-            let end_tick = tick
-                .checked_add(*duration_ticks)
-                .expect("validated note duration fits the tick counter");
-            Some((source_index, *note, *tick, end_tick))
-        })
-        .collect::<Vec<_>>();
-    notes.sort_unstable_by_key(|(_, note, tick, end_tick)| (*note, *tick, *end_tick));
-
-    let mut latest_end_by_note = [None; 128];
-    let mut diagnostics = Vec::new();
-    for (source_index, note, start_tick, end_tick) in notes {
-        if let Some((previous_index, previous_end_tick)) = latest_end_by_note[usize::from(note)]
-            && start_tick < previous_end_tick
-        {
-            diagnostics.push(
-                Diagnostic::error(
-                    DiagnosticCode::MidiError,
-                    "notes with the same pitch cannot overlap in Standard MIDI",
-                )
-                .with_path(format!("events[{source_index}]"))
-                .with_detail(format!(
-                    "events[{source_index}] overlaps events[{previous_index}] for note {note}"
-                )),
-            );
-        }
-        if latest_end_by_note[usize::from(note)]
-            .is_none_or(|(_, previous_end_tick)| end_tick > previous_end_tick)
-        {
-            latest_end_by_note[usize::from(note)] = Some((source_index, end_tick));
-        }
-    }
-    diagnostics
 }
 
 pub(crate) fn time_signature_denominator_power(denominator: u8) -> u8 {

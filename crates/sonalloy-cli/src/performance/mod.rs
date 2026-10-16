@@ -59,10 +59,10 @@ pub(crate) struct PartLane {
     pub(crate) instrument: Arc<sonalloy_core::CompiledInstrument>,
     pub(crate) pattern: PerformanceEvents,
     pub(crate) render_lanes: Vec<RenderLane>,
-    pub(crate) midi_channel: Option<u8>,
 }
 #[derive(Debug)]
 pub(crate) struct RenderLane {
+    pub(crate) pattern: PerformanceEvents,
     pub(crate) compiled: CompiledEvents,
     pub(crate) gain_db: f64,
 }
@@ -257,7 +257,6 @@ fn prepare(
             }
         })?;
     let mut parts = Vec::new();
-    let mut channels = HashMap::new();
     for lane in lanes {
         let instrument = Arc::clone(&cache[&paths[&lane.id]]);
         let spec = &score.instruments[&lane.id];
@@ -294,14 +293,15 @@ fn prepare(
         let compiled_pattern =
             events::compile_on_timeline(&lane.pattern, &instrument, &compiled_timeline)
                 .map_err(|diagnostics| lane_failure(&lane, diagnostics))?;
-        let next = channels.len() + 1;
-        let channel = *channels.entry(lane.id.clone()).or_insert(next);
         if let Some(part) = parts
             .iter_mut()
             .find(|p: &&mut PartLane| p.definition.id == lane.id)
         {
-            part.pattern.events.extend(lane.pattern.events);
+            part.pattern
+                .events
+                .extend(lane.pattern.events.iter().cloned());
             part.render_lanes.push(RenderLane {
+                pattern: lane.pattern,
                 compiled: compiled_pattern,
                 gain_db: lane.gain_db,
             });
@@ -309,12 +309,12 @@ fn prepare(
             parts.push(PartLane {
                 definition,
                 instrument,
-                pattern: lane.pattern,
+                pattern: lane.pattern.clone(),
                 render_lanes: vec![RenderLane {
+                    pattern: lane.pattern,
                     compiled: compiled_pattern,
                     gain_db: lane.gain_db,
                 }],
-                midi_channel: u8::try_from(channel).ok().filter(|c| *c <= 16),
             });
         }
     }
