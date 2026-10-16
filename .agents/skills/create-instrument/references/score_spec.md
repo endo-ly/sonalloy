@@ -56,8 +56,8 @@
 
 ```yaml
 meta:
-  title: DOPAMINE OVERLOAD
-  bpm: 168
+  title: Example
+  bpm: 120
   meter: 4/4
   tuning: 12edo
   reference_octave: 4
@@ -70,7 +70,7 @@ meta:
 
 `bpm` は四分音符毎分、`reference_octave` は音符 `1` が属するオクターブ（C4＝MIDIノート60）、`gate` は生成音符の基本音価へ掛ける倍率（0より大きく1以下）。`master` の`target_lufs`と`max_true_peak_db`はレンダラーの達成条件であり、外れた出力はエラーになる。`target_lra_lu`は測定値との比較目標で、目標に到達させるマスタリング処理は行わない。測定結果・差分・計測できない理由をレポートし、差が0.5 LUを超えるか計測できない場合はwarningを返す。
 
-`form` の各項目は `{section, bars, tonic, scale}` を持ち、必要なら`bpm`、`meter`、`last_bar_quarters`を追加できる。テンポと拍子は曲頭で`meta`の値を採用し、`form`で値を変更した場合は後続セクションにも引き継ぐ。`section` は `sections` のキー、`bars` は正の整数で、最後の端数小節も1小節として数える。`tonic` は `C` / `F#` / `Bb` などの音名、`scale` は`ionian` / `dorian` / `phrygian` / `lydian` / `mixolydian` / `aeolian` / `locrian` などの既知の音階名とする。`harmonic_minor`、`melodic_minor`、`major_pentatonic`、`minor_pentatonic`、`whole_tone`も組込み名として扱う。組込み以外はトップレベルの`scale_definitions`に、名前をキー、度数トークンの配列を値として登録する。未登録名はエラーとする。
+`form` の各項目は `{section, bars, tonic}` を必須とし、必要なら`scale`、`bpm`、`meter`、`last_bar_quarters`を追加できる。テンポと拍子は曲頭で`meta`の値を採用し、`form`で値を変更した場合は後続セクションにも引き継ぐ。`section` は `sections` のキー、`bars` は正の整数で、最後の端数小節も1小節として数える。`tonic` は `C` / `F#` / `Bb` などの音名、`scale` は`ionian` / `dorian` / `phrygian` / `lydian` / `mixolydian` / `aeolian` / `locrian` などの既知の音階名とする。`harmonic_minor`、`melodic_minor`、`major_pentatonic`、`minor_pentatonic`、`whole_tone`も組込み名として扱う。組込み以外はトップレベルの`scale_definitions`に、名前をキー、度数トークンの配列を値として登録する。未登録名はエラーとする。`scale`は任意であり、省略した場合はスケール未指定として扱い、音符・コード・演奏イベントは変化しない。
 
 組込みスケールの構成音（音高決定には使わず、生成・分析の文脈に使用）：
 
@@ -191,7 +191,7 @@ drums:
 
 - `comp` の `x` は、現在のコードをその位置で発音。`-`で保持、`.`で休止。`hold`に限り、1小節中にコードが替わった地点で前の和音を終了し、新しい和音を発音し直す。
 - `instruments.*.voicing_floor_midi`は、クローズボイシングをその値以上に配置する下限。転回形のベース指定は和音の最低音へ反映する。**ボイシングの決定規則**：`voicing_floor_midi`以上で最も低い指定ベース音を第1声部とする。残りのコード構成音は、第1声部より上の最も近い位置から昇順に配置する。同じ構成音の重複は除く。ベースがコード構成音でない場合は、ベースとは別に構成音全てを追加する。これを標準クローズボイシングとする。
-- `arps.<name>.order`の `0 1 2 3` は、上記ボイシングの構成音を下から並べた音列のインデックス。コード音が4個未満の場合は構成音を上オクターブへ反復して必要数を作る。`retrigger_each_step`の省略時または`true`では1マスずつ再発音し、`false`では隣接する同音の音価を結合してからGateを適用する。
+- `arps.<name>.order`の各セルは、上記ボイシングの構成音を下から並べた音列のインデックス（非負整数）か、`.`（休符）、`-`（直前の音の継続）である。`-`は直前に発音した同じ音高の音価を延長し、継続中にコードが変わっても発音済みの音高は変わらない。小節をまたぐ継続も許可し、先行する発音がない`-`はエラー。コード音が4個未満の場合は構成音を上オクターブへ反復して必要数を作る。`retrigger_each_step`の省略時または`true`では数値セルごとに再発音し（`-`は常に音価を延長）、`false`では隣接する同音の数値セルを結合してからGateを適用する。`.`はどちらの場合も休符として発音を区切る。Gateは音価が確定した後に一度だけ掛かる。
 - `counters.<name>.when: lead_silent_full_beat` は、その拍の**全期間**にリード音が鳴っていない場合だけ、`cell` の連続音をその1拍に等分配置する。リードの休みはNote Off・Gate処理後に判定する。
 
 ## 6. 素材の参照・反復・変奏
@@ -204,7 +204,7 @@ drums:
 | `replace: {5: "..."}` | `melodies`の指定小節だけ変更 | 展開済みメロディの5小節目をその文字列へ置換。小節番号は1始まり |
 | `{use: verse, bars: [1, 2], shift_steps: -2}` | メロディの区間を抜き出し時間移動 | 元の1～2小節を2小節分の領域として挿入し、音符イベントだけ指定数ステップ平行移動 |
 
-`sections`の`from`は`chords`、`lead`、`comp`、`events`などの**フィールドごと**に上書きする。`events`配列は追記ではなく置換。`drums`の`from`は`parts`を楽器ごとに統合し、`overrides`を継承後に追記する。`melodies`の`from`は小節列を継承し、`replace`が指定小節を置換する。継承後の参照は全て検証する。
+`sections`の`from`は`chords`、`lead`、`comp`、`events`などの**フィールドごと**に上書きする。`placements`は置換、`add_placements`は継承・置換後の配置リストの末尾へ順番どおり追記する。`add_placements`だけを持つ独立セクションでは、空の配置リストへ追加する。複数段継承では各段階で`add_placements`を実際の`placements`へ統合するため、`A → B → C`の追加結果は`A → B → C`の順番で保持され、解決済みのセクションに`add_placements`は残らない。統合後の配置も定義元は追跡され、その配置に関する診断の`path`は継承先のセクションではなく**配置を定義した元のYAML位置**（`sections.<元のセクション>.placements[i]`または`<そのセクション>.add_placements[i]`）を指す。`events`配列は追記ではなく置換。`drums`の`from`は`parts`を楽器ごとに統合し、`overrides`を継承後に追記する。`melodies`の`from`は小節列を継承し、`replace`が指定小節を置換する。継承後の参照は全て検証する。
 
 `melodies`のリストに文字列と`use`を混在できる。`use`の負方向シフトで配置領域の先頭より前に出るイベントは、セクション境界を越える意図が明示された場合だけ許す。出力曲の時刻0より前には配置できない。文字列は1小節、`use`は指定された小節数だけ挿入領域を消費する。時間移動したイベントがその領域の外に出る場合は、参照元／先の長さと配置可能範囲を検証する。`lead.slice_bars: [5,8]` はメロディの5～8小節だけを選び、セクションの1小節目へ配置する。
 
@@ -224,8 +224,8 @@ drums:
 | `comp` | `{楽器名: compパターン名}` |
 | `pad` | `{instrument, pattern}`。`hold`はコードを持続し、コード変更時に再発音 |
 | `arp` / `counter` | `{instrument, pattern}`。それぞれの名前付き規則を参照 |
-| `answers` | `{instrument, melody, at}`の配列。単発の応答フレーズ配置 |
 | `placements` | `{instrument, at, ...}`の配列。特定の音符・コード・切り出しフレーズを指定 |
+| `add_placements` | `placements[]`と同じ要素の配列。継承時に既存の配置リストの末尾へ追記 |
 | `events` | 構造化された演出・制御・マクロの配列（詳細は第10章） |
 | `velocity` | メロディ・コード・ベース等の既定MIDI Velocity（1～127） |
 
@@ -277,6 +277,7 @@ instruments:
 - `definition`：Score所在ディレクトリを基点に参照。解決先はInstrument Definition JSON。`definition.json`の`schema_version`等は既存Coreに従う。
 - `external: true`：試奏用Scoreなどの未束縛楽器。CLIの`--bind <instrument_id>=<definition_path>`を**必須**とし、未束縛での実行をエラーにする。固定`preset`・`definition`を持つ楽器への束縛を拒否する。
 - `gain_db`：楽器全体の固定ゲイン（省略時0、有限数）。`role`は表示・分類だけに利用。
+- `pan`：楽器単位の左右定位。`-1.0`が左、`0.0`が中央、`1.0`が右で、許容範囲は`-1.0..=1.0`の有限数、省略時は`0.0`。同じ楽器の複数ゲインレーンには同一のPanが適用される。中央と省略時は無加工であり、振った側と反対のチャンネルを段階的に減衰させるステレオ・バランス方式（`pan <= 0`は左`1`／右`1 + pan`、`pan > 0`は左`1 - pan`／右`1`）。Panはゲインレーン合算の直後に一度だけ適用され、最終ミックス・Stem・`audio_input`へ渡されるパート音声は同じ定位を持つ。
 - `voicing_floor_midi`：和音の最下声配置下限（0～127）。`trigger_note_midi`：Drum/FXなど、音程を指定しない打撃・単発音を鳴らすMIDIノート（0～127）。打撃・単発音を生成する場合は必須であり、音源ごとに明示する。`bass_floor_midi`/`bass_ceiling_midi`はベース参照音の標準配置範囲（省略時28～39）。
 - `audio_input: <id>`：ほかの楽器のステレオ出力を音声入力として受ける。入力能力のある音源だけ許可。対象不存在、自己参照、循環、外部入力のチャンネル数不一致はエラー。音源から入力へ渡る音声にはその楽器のPart Gainを適用し、グローバルフェード・マスターを含めない。
 - 技術的な`*_midi`は演奏エンジンのMIDIノート配置用である。**メロディ・コードの音高を書くための第2記法とはしない。**
@@ -285,11 +286,11 @@ instruments:
 
 同じ楽器の複数フレーズは原則1つのイベント列に統合する。`lead.layers[].gain_db`や`placements[].gain_db`など、特定演奏へ追加ゲインが指定された場合、その発音を同じ音源を参照する別の内部Laneへ割り当てる。実効Gain＝楽器`gain_db`＋追加`gain_db`。独立Laneは音源のVoice/FX状態を共有しないので、通常Laneと同音源が同一に継続すると仮定しない。Laneは `(instrument_id, effective_gain_db, source_order)` に基づいて決定的に生成し、Stemは**元の楽器ID単位**で音量補正後Laneを合算する。
 
-同音源への`audio_input`の接続先は元の楽器IDとし、必要なLaneを合算後に渡す。
+同音源への`audio_input`の接続先は元の楽器IDとし、必要なLaneを合算後に渡す。制御イベントは実効Gainが楽器の基本ゲインに等しいため、常に基本のLaneへ配置される。
 
 ### 8.4 出力・マスター
 
-`meta.fade_out_seconds`を楽曲全体のフェードアウト（省略時0）に使用する。
+`meta.fade_out_seconds`を楽曲全体のフェードアウト（省略時0）に使用する。MP3出力時、`meta.master.max_true_peak_db`が設定されており、MP3エンコード後の測定`true_peak_db`がその上限を超える場合は、測定値・上限・超過量を含むwarningを返す（対象は`meta.master.max_true_peak_db`。上限以内ならwarningは出ない）。
 
 `sample_rate`、`block_size`、`tail_seconds`、WAV/MP3/Stem/Premasterの出力先は**コマンド実行条件**であり、楽譜には持たせない。`--json`レポートにセクション・音符数・使用楽器・音声接続・正規化された演奏時間を返す。
 
@@ -339,7 +340,7 @@ form:
 
 ### 10.1 イベント形式
 
-セクションの`events`は構造化された演奏イベントのマップのリスト。`macro: <name>`はトップレベル`macros`の同名イベント定義を参照し、`kind`と`macro`の同時指定はエラーとする。全イベントは、対象音源を含めてセクション内座標を解決する。
+セクションの`events`は構造化された演奏イベントのマップのリスト。`kind`は言語に組み込まれたイベント種別であり、利用者は種別を追加できない。`macro: <name>`は、そのScore YAMLのトップレベル`macros`で明示的に宣言された名前を参照し、`kind`と`macro`の同時指定はエラーとする。マクロ名やメロディ素材名は言語が内蔵する予約語ではなく、利用者が定義する識別子である。全イベントは、対象音源を含めてセクション内座標を解決する。
 
 | `kind` | 必須フィールド（共通`at`は省略） | 意味 |
 |---|---|---|
@@ -358,6 +359,7 @@ form:
 | `automation` | `instrument`, `parameter`, `from_value`, `to_value`, `duration_steps`または`duration_quarters` | 既存Parameter Rampと同じ正規化空間の線形補間。 |
 
 - `silence`は指定した小節区間のNote Onを抑制し、境界にまたがるNoteの音価を切断する。演奏制御とParameter Rampには作用しない。Release音・Reverb・External Audioの残響まで完全ミュートする意味ではない。
+- `part_window`の`bars: [start, end]`は**1始まりの小節番号**であり、`start`と`end`の両小節を含む。`bars: [2, 3]`は2小節目と3小節目の両方を対象とし、`last`は最後の小節、端数小節（`last_bar_quarters`で短くなった小節）も通常の1小節として数える。内部では、開始小節の先頭から終了小節の末尾までを`[開始時刻, 終了時刻)`の半開区間として扱う。
 - `part_window`は対象楽器の、そのセクション内で始まるNote Onと点の演奏制御を半開区間`[start,end)`に限定する。前のセクションで始まり当該セクションへ持続するNoteは、このセクションの窓では変更しない。窓に含まれるNoteの音価が終端を越える場合は境界で切断し、点の演奏制御は区間内のイベントだけを残す。区間開始では以前の状態をニュートラル値またはParameter定義の既定値へ戻し、区間終端でも同じ既定状態へ戻して状態を後続セクションへ漏らさない。窓をまたぐParameter Rampは許可区間との交差部分へ切り詰め、両端値を元の線形Rampから補間する。窓が空の場合はセクション中に制御を残さない。同じ楽器・セクションへ複数の窓を指定した場合は許可区間の共通部分を使う。
 - 同一楽器・同時刻の`drum_roll`/`step_roll`と通常ドラム打撃が衝突すればロールが勝つ。**ロール同士**、同一Parameterへの異なる値・重複矛盾、複数の同一楽器Overrideが重なればエラー。`silence`はNoteだけを抑制・切断し、`part_window`は対象楽器のNoteと演奏制御を制限する。
 - Note、Sustain、Bend、Wheel、Aftertouch、ParameterなどのEventが同時刻に起きる場合は、ソース定義順を保持し、Note Off→Control→Note Onの基本優先順位を適用する。
@@ -369,10 +371,10 @@ form:
 
 1. 名前付き素材の`from`を再帰解決（サイクル禁止）。
 2. `melodies.replace`を小節単位で適用し、`use`・`slice_bars`・`shift_steps`を解決。
-3. `sections.from`を**フィールド単位**で上書き。`events`配列は全体置換、`comp`等マップも基本全体置換。`drums.from`は`parts`を音源IDごとに合成、`overrides`リストを追記。
+3. `sections.from`を**フィールド単位**で上書き。`placements`は置換、`add_placements`は継承段階ごとに配置リストの末尾へ統合。`events`配列は全体置換、`comp`等マップも基本全体置換。`drums.from`は`parts`を音源IDごとに合成、`overrides`リストを追記。
 4. `form`出現に応じて調・時間・コードを解決し、グリッドから音符を生成。
 5. 初期メロディ・伴奏・ベースを展開し、**暗黙の音価にだけ一度Gateを適用**してNote On/Offを確定する。
-6. `drums.overrides`、`bass_overrides`、`answers`、`placements`、`macros`、`events`を展開。`counters.when: lead_silent_full_beat`は**Gate適用後のリードの発音区間**で判定する。
+6. `drums.overrides`、`bass_overrides`、`placements`、`macros`、`events`を展開。`counters.when: lead_silent_full_beat`は**Gate適用後のリードの発音区間**で判定する。
 7. 同時刻打撃、状態付き演奏操作、優先順位・衝突を確定し、最後に`silence`/`part_window`を反映する。移調・Gain、音源適合、曲終端、PPQを検証して内部Eventを生成する。
 
 `melodies.answers.gap`のような`.`区切り名を、再利用素材の名前空間参照として扱う。辞書は葉に文字列小節リストまたは`from`/`replace`を持つ継承定義を置き、それ以外は名前空間辞書として再帰する。
@@ -405,13 +407,15 @@ form:
 
 コマンドのOptionとReportは[CLIリファレンス](cli.md)を参照する。Scoreに関わる公開入口は`score init/validate/inspect/import-midi/export-midi`、`render score`、`audition score`。
 
+`score inspect --summary`は、セクション数・楽器数・総音符数・演奏時間・PPQと総Tick数、セクション別（出現順・小節数・開始終了Tick・主音・指定スケール・テンポ・拍子・区間内開始音符数）、楽器別（音符数・音域・Velocity範囲・制御イベント数）の集計からなる要約を返す。同名セクションの再登場は別の出現として集計する。`--json`と併用でき、`--preview-json`とは排他である。省略時の詳細出力は従来どおり全イベントとソース情報を含む。要約にも詳細出力と同じ`diagnostics`を含み、`--json`なしのテキスト出力ではwarningを標準エラーへ表示する。
+
 `score import-midi`でMIDI半音クラスを度数へ書き直す際の固定綴り：
 
 | 半音class（主音=0） | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 度数 | 1 | #1 | 2 | b3 | 3 | 4 | #4 | 5 | b6 | 6 | b7 | 7 |
 
-MIDIは元の調性・異名同音を必ずしも保持しないので、入力時の主音は明示`--tonic`またはCとし、`scale`を表示用の`ionian`に設定する。MIDI Noteの絶対音高は`reference_octave`と度数+オクターブで一致させる。受理できないCC、同音Note重複、16チャネル制限などはSonalloyのMIDI入出力契約に従い、表現不能な情報は診断として報告する。
+MIDIは元の調性・異名同音を必ずしも保持しないので、入力時の主音は明示`--tonic`またはCとする。元のMIDIから音階は特定されないため、`scale`は付与しない。MIDI Noteの絶対音高は`reference_octave`と度数+オクターブで一致させる。受理できないCC、同音Note重複、16チャネル制限などはSonalloyのMIDI入出力契約に従い、表現不能な情報は診断として報告する。
 
 ## 12. 解析・診断・安全性
 
@@ -443,18 +447,19 @@ MIDIは元の調性・異名同音を必ずしも保持しないので、入力�
 | ルート | `meta,form,time_changes,sections,melodies,scale_definitions,drums,bass,comp,arps,counters,macros,instruments,transitions,notes` | 全て定義済み、追加は禁止 |
 | `meta` | `title,bpm,meter,tuning,reference_octave,gate,master,fade_out_seconds` | `tuning: 12edo`だけ受理 |
 | `meta.master` | `target_lufs,max_true_peak_db,target_lra_lu` | Master/計測の設定 |
-| `form[]` | `section,bars,tonic,scale,bpm,meter,last_bar_quarters` | 曲中の出現と時間正本 |
+| `form[]` | `section,bars,tonic,scale,bpm,meter,last_bar_quarters` | 曲中の出現と時間正本。`section`,`bars`,`tonic`は必須で、`scale`は任意（省略時はスケール未指定） |
 | `time_changes[]` | `at_quarters,bpm` | 曲頭からのテンポ変更 |
-| `sections.<name>` | `from,chords,chord_changes,lead,drums,bass,bass_overrides,comp,pad,arp,counter,answers,placements,events,velocity` | 1セクションの演奏宣言 |
+| `sections.<name>` | `from,chords,chord_changes,lead,drums,bass,bass_overrides,comp,pad,arp,counter,placements,add_placements,events,velocity` | 1セクションの演奏宣言 |
 | `melodies` | 小節文字列のリスト、`{from,replace}`、名前空間辞書 | 相対度数と再利用 |
 | `drums.<name>` | `from,parts,overrides` | 1小節Grooveをセクションで反復 |
 | `drums.overrides[]` | `when,parts` | 小節条件を満たしたパートへ置換 |
 | `bass.<name>` | `parts,choices` | 現在・次コード参照 |
 | `bass.choices.<token>` | `odd,even` | セクション内奇数・偶数 |
-| `arps.<name>` | `order,voicing_floor_midi,retrigger_each_step` | 和音の声部を音域配置してArp |
+| `arps.<name>` | `order,voicing_floor_midi,retrigger_each_step` | 和音の声部を音域配置してArp。`order`のセルは非負整数、`.`（休符）、`-`（継続） |
 | `counters.<name>` | `when,cell` | 無音拍に置く対旋律 |
-| `instruments.<id>` | `preset / definition / external`, `gain_db,role,voicing_floor_midi,trigger_note_midi,bass_floor_midi,bass_ceiling_midi,audio_input` | 音源と演奏音域 |
+| `instruments.<id>` | `preset / definition / external`, `gain_db,pan,role,voicing_floor_midi,trigger_note_midi,bass_floor_midi,bass_ceiling_midi,audio_input` | 音源と演奏音域・定位 |
 | `placements[]` | `instrument,at,melody/degree/chord/bass_note,velocity,duration_steps,duration_quarters,transpose,gain_db,mark,slice_steps,take_notes,voicing_floor_midi,add_root_degree` | 明示的発音 |
+| `add_placements[]` | `placements[]`と同じ | 継承時に配置リストの末尾へ追記 |
 | `events[] / macros.<name>` | `kind/macro,at,instrument,instruments,duration_*,parameter,native_value,from_value,to_value,down,value,degree,except_instruments,bars,bar,from_step,through_step,velocity_from,velocity_to,early_hits_per_beat,final_hits_per_beat,last_bar_end_beat,riser` | 演奏・制御・演出 |
 | `transitions[]` | `from,to,method,description` | 解説専用 |
 | `notes` | UTF-8文字列 | 制作ノート、演奏に影響しない |

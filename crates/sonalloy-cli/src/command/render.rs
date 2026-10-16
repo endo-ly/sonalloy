@@ -629,6 +629,7 @@ fn render_score_part_audio(
         mix.add_part(&audio, lane.gain_db)
             .map_err(|detail| score_routing_failure(index, &detail))?;
     }
+    mix.apply_pan(part.definition.pan);
     let audio = mix.into_audio();
     Ok((audio, traces))
 }
@@ -1320,6 +1321,27 @@ struct OutputMeasurements {
     mp3_measurement: Option<LoudnessMeasurement>,
 }
 
+/// Build the warning for an encoded MP3 whose measured true peak exceeds the
+/// `meta.master.max_true_peak_db` ceiling. Encoders can push inter-sample
+/// peaks above the rendered WAV's ceiling, so the comparison uses the value
+/// measured after encoding. `None` while the measurement stays within the
+/// ceiling.
+fn mp3_true_peak_warning(measured_db: f64, limit_db: f64) -> Option<Diagnostic> {
+    if measured_db <= limit_db {
+        return None;
+    }
+    Some(
+        Diagnostic::warning(
+            DiagnosticCode::ValueOutOfRange,
+            format!(
+                "the encoded MP3 measures {measured_db:.2} dBTP, {:.2} dB above the meta.master.max_true_peak_db limit of {limit_db:.2} dBTP; the value is measured after MP3 encoding",
+                measured_db - limit_db
+            ),
+        )
+        .with_path("meta.master.max_true_peak_db"),
+    )
+}
+
 #[allow(clippy::too_many_lines)]
 fn execute_render_score(args: &RenderScoreArgs) -> Result<ScoreRenderReport, CliFailure> {
     validate_score_output_paths(args)?;
@@ -1408,6 +1430,14 @@ fn execute_render_score(args: &RenderScoreArgs) -> Result<ScoreRenderReport, Cli
                 .with_path("meta.master.target_lra_lu"),
             );
         }
+    }
+    if let (Some(master), Some(measurement)) = (
+        demo.definition.mix.master.as_ref(),
+        measurements.mp3_measurement.as_ref(),
+    ) && let Some(mp3_true_peak_db) = measurement.true_peak_db
+        && let Some(warning) = mp3_true_peak_warning(mp3_true_peak_db, master.true_peak_db)
+    {
+        diagnostics.push(warning);
     }
     let report = ScoreRenderReport {
         status: "ok",
@@ -1881,6 +1911,123 @@ mod mastering_tests {
                 path.display()
             );
         }
+    }
+
+    #[test]
+    fn part_pan_positions_stems_and_premaster_consistently() {
+        let directory = tempfile::tempdir().expect("directory");
+        let (definition, mut args) = fixture(directory.path());
+        let samples = |path: &Path| {
+            hound::WavReader::open(path)
+                .expect("WAV")
+                .into_samples::<f32>()
+                .map(|sample| sample.expect("sample"))
+                .collect::<Vec<_>>()
+        };
+        let mut stems: Vec<(Option<f64>, Vec<f32>)> = Vec::new();
+        for pan in [None, Some(0.0), Some(-1.0), Some(1.0)] {
+            let mut definition = definition.clone();
+            definition["meta"]["fade_out_seconds"] = serde_json::json!(0.0);
+            if let Some(pan) = pan {
+                definition["instruments"]["bass"]["pan"] = serde_json::json!(pan);
+            }
+            std::fs::write(
+                &args.score,
+                serde_json::to_string_pretty(&definition).expect("score YAML"),
+            )
+            .expect("score");
+            let label = pan.map_or("absent", |pan| if pan == 0.0 { "center" } else { "side" });
+            let stems_dir = directory.path().join(format!("stems-{label}"));
+            args.stems_dir = Some(stems_dir.clone());
+            args.output = directory.path().join(format!("final-{label}.wav"));
+            args.premaster_output = Some(directory.path().join(format!("premaster-{label}.wav")));
+            assert_eq!(run_render_score(&args), ExitCode::SUCCESS);
+            let stem = samples(&stems_dir.join("bass.wav"));
+            let premaster = samples(args.premaster_output.as_deref().expect("premaster path"));
+            let final_wav = samples(&args.output);
+            assert_eq!(stem, premaster, "stem and premaster share the panned audio");
+            assert_eq!(
+                stem, final_wav,
+                "final mix matches the stem without mastering"
+            );
+            stems.push((pan, stem));
+        }
+        let (absent, center, left, right) = (
+            stems[0].1.as_slice(),
+            stems[1].1.as_slice(),
+            stems[2].1.as_slice(),
+            stems[3].1.as_slice(),
+        );
+        assert_eq!(absent, center, "omitted pan equals pan 0");
+        assert!(left.chunks(2).all(|frame| frame[1] == 0.0));
+        assert!(left.chunks(2).any(|frame| frame[0] != 0.0));
+        assert!(right.chunks(2).all(|frame| frame[0] == 0.0));
+        assert!(right.chunks(2).any(|frame| frame[1] != 0.0));
+    }
+
+    #[test]
+    fn mp3_true_peak_warning_triggers_only_above_the_limit() {
+        assert!(
+            mp3_true_peak_warning(-9.01, -9.0).is_none(),
+            "the ceiling itself is within the limit"
+        );
+        assert!(mp3_true_peak_warning(-12.0, -9.0).is_none());
+        let warning = mp3_true_peak_warning(-8.5, -9.0).expect("overshoot warns");
+        assert_eq!(
+            warning.path.as_deref(),
+            Some("meta.master.max_true_peak_db")
+        );
+        assert_eq!(warning.severity, sonalloy_core::DiagnosticSeverity::Warning);
+        assert!(
+            warning.message.contains("-8.50 dBTP") && warning.message.contains("0.50 dB above"),
+            "the message reports the measured value and the overshoot: {}",
+            warning.message
+        );
+    }
+
+    #[test]
+    fn mp3_render_measures_within_the_configured_limit() {
+        if std::process::Command::new("ffmpeg")
+            .arg("-version")
+            .output()
+            .is_err()
+        {
+            return;
+        }
+        let directory = tempfile::tempdir().expect("directory");
+        let (mut definition, mut args) = fixture(directory.path());
+        args.mp3_output = Some(directory.path().join("master.mp3"));
+        let measure = |definition: &serde_json::Value, args: &mut RenderScoreArgs| {
+            std::fs::write(
+                &args.score,
+                serde_json::to_string_pretty(definition).expect("score YAML"),
+            )
+            .expect("score");
+            let report = execute_render_score(args).expect("render succeeds");
+            let peak = report
+                .mp3_measurement
+                .as_ref()
+                .expect("MP3 is measured")
+                .true_peak_db
+                .expect("MP3 true peak");
+            let warned = report.diagnostics.iter().any(|diagnostic| {
+                diagnostic.path.as_deref() == Some("meta.master.max_true_peak_db")
+            });
+            (peak, warned)
+        };
+
+        definition["meta"]["master"] = serde_json::json!({"target_lufs":-11,"max_true_peak_db":-9});
+        let (peak, warned) = measure(&definition, &mut args);
+        assert!(!warned, "limited output at {peak} dBTP must not warn");
+        assert!(
+            peak <= -9.0,
+            "the limiter pins the output just below the ceiling"
+        );
+
+        definition["meta"]["master"] = serde_json::json!({"target_lufs":-30,"max_true_peak_db":-3});
+        let (peak, warned) = measure(&definition, &mut args);
+        assert!(!warned, "quiet output at {peak} dBTP must not warn");
+        assert!(peak < -3.0);
     }
 
     fn fixture(directory: &Path) -> (serde_json::Value, RenderScoreArgs) {

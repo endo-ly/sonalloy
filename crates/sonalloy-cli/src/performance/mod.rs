@@ -23,6 +23,7 @@ pub(crate) struct Part {
     pub(crate) id: String,
     pub(crate) instrument: PathBuf,
     pub(crate) audio_input: Option<AudioInput>,
+    pub(crate) pan: f64,
 }
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct Mix {
@@ -278,6 +279,10 @@ fn prepare(
                         })
                 })
                 .transpose()?,
+            pan: spec
+                .get("pan")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0),
         };
         validate_lane(
             &lane,
@@ -314,17 +319,6 @@ fn prepare(
         }
     }
     let mix = prepare_mix(&score)?;
-    for part in &parts {
-        if part.render_lanes.len() > 1 && part.pattern.events.iter().any(|event| !event.is_note()) {
-            diagnostics.push(
-                Diagnostic::warning(
-                    DiagnosticCode::DefinitionError,
-                    "additional gain lanes have independent controller state",
-                )
-                .with_path(format!("instruments.{}", part.definition.id)),
-            );
-        }
-    }
     let definition = PerformanceDefinition {
         name: Some(score.title.clone()),
         parts: parts.iter().map(|p| p.definition.clone()).collect(),
@@ -591,6 +585,21 @@ mod tests {
         );
     }
 
+    #[test]
+    fn pan_attenuates_one_channel_and_keeps_center_untouched() {
+        let mixed = |pan: f64| {
+            let mut mix = StereoMix::new(48_000);
+            mix.left = vec![0.5];
+            mix.right = vec![0.25];
+            mix.apply_pan(pan);
+            (mix.left[0], mix.right[0])
+        };
+        assert_eq!(mixed(-1.0), (0.5, 0.0));
+        assert_eq!(mixed(1.0), (0.0, 0.25));
+        assert_eq!(mixed(0.0), (0.5, 0.25));
+        assert_eq!(mixed(0.5), (0.25, 0.25));
+    }
+
     fn part_window_score() -> serde_json::Value {
         serde_json::json!({
             "meta": {"title":"Window", "bpm":120, "meter":"4/4", "tuning":"12edo", "gate":1},
@@ -845,6 +854,27 @@ impl StereoMix {
             *mixed += *sample * gain;
         }
         Ok(())
+    }
+
+    /// Apply the Score's stereo balance for one part after its gain lanes are
+    /// summed. `pan <= 0` keeps the left channel at full gain and attenuates
+    /// the right by `1 + pan`; `pan > 0` attenuates the left by `1 - pan`.
+    /// The center and the omitted value stay unprocessed, so existing renders
+    /// keep their amplitude.
+    pub(crate) fn apply_pan(&mut self, pan: f64) {
+        let (left, right) = if pan <= 0.0 {
+            (1.0, 1.0 + pan)
+        } else {
+            (1.0 - pan, 1.0)
+        };
+        #[allow(clippy::cast_possible_truncation)]
+        let (left, right) = (left as f32, right as f32);
+        for sample in &mut self.left {
+            *sample *= left;
+        }
+        for sample in &mut self.right {
+            *sample *= right;
+        }
     }
 
     pub(crate) fn apply_fade(&mut self, fade_out_seconds: f64) -> Result<(), String> {

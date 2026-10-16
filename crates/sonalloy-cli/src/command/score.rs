@@ -53,6 +53,9 @@ pub(super) struct InspectArgs {
     /// Emit normalized browser preview metadata.
     #[arg(long, conflicts_with = "json")]
     preview_json: bool,
+    /// Emit the structure summary instead of per-event detail.
+    #[arg(long, conflicts_with = "preview_json")]
+    summary: bool,
 }
 
 fn failure(path: impl AsRef<Path>, message: impl Into<String>) -> CliFailure {
@@ -112,6 +115,12 @@ fn execute(command: ScoreCommand) -> Result<Value, CliFailure> {
             if args.preview_json {
                 return preview(&plan);
             }
+            if args.summary {
+                if !args.score.json {
+                    print_warnings(&plan.diagnostics);
+                }
+                return Ok(summary(&plan));
+            }
             Ok(
                 json!({"status":"ok","title":plan.score.title,"sections":plan.score.sections,"ticks_per_beat":plan.score.ticks_per_beat,"length_ticks":plan.length_ticks,"musical_duration_seconds":plan.musical_duration_seconds,"instruments":plan.score.instruments,"lanes":plan.score.lanes.iter().map(|lane|json!({"id":lane.id,"gain_db":lane.gain_db,"events":lane.pattern.events,"sources":lane.sources})).collect::<Vec<_>>(),"parts":plan.parts.iter().map(|part|json!({"id":part.definition.id,"lane_gains_db":part.render_lanes.iter().map(|lane|lane.gain_db).collect::<Vec<_>>(),"audio_input":part.definition.audio_input,"events":part.pattern.events,"summary":crate::performance::events::inspect(&part.pattern).expect("prepared events are valid"),"tempo_changes":part.pattern.tempo_changes,"time_signature_changes":part.pattern.time_signature_changes})).collect::<Vec<_>>(),"diagnostics":plan.diagnostics}),
             )
@@ -170,6 +179,91 @@ fn load(args: &ScoreArgs) -> Result<PerformancePlan, CliFailure> {
         super::DEFAULT_SAMPLE_RATE,
         super::DEFAULT_BLOCK_SIZE,
     )
+}
+
+/// Build the structure summary for `score inspect --summary`: whole-score
+/// totals, one entry per section occurrence, and per-instrument aggregates.
+/// Section note counts cover Note Ons starting inside each occurrence, so
+/// repeated appearances of one section stay separate.
+fn summary(plan: &PerformancePlan) -> Value {
+    let mut section_notes = vec![0_usize; plan.score.sections.len()];
+    let mut total_notes = 0_usize;
+    for part in &plan.parts {
+        for event in &part.pattern.events {
+            if let MusicalEvent::Note { tick, .. } = event {
+                total_notes += 1;
+                if let Some(index) = plan
+                    .score
+                    .sections
+                    .iter()
+                    .position(|section| tick >= &section.start_tick && tick < &section.end_tick)
+                {
+                    section_notes[index] += 1;
+                }
+            }
+        }
+    }
+    let sections = plan
+        .score
+        .sections
+        .iter()
+        .enumerate()
+        .map(|(index, section)| {
+            let mut entry = json!({
+                "section": section.section,
+                "occurrence": index + 1,
+                "bars": section.bars,
+                "start_tick": section.start_tick,
+                "end_tick": section.end_tick,
+                "tonic": section.tonic,
+                "bpm": section.bpm,
+                "meter": section.meter,
+                "note_count": section_notes[index],
+            });
+            if let Some(scale) = &section.scale {
+                entry["scale"] = json!(scale);
+            }
+            entry
+        })
+        .collect::<Vec<_>>();
+    let instruments = plan
+        .parts
+        .iter()
+        .map(|part| {
+            let inspection = crate::performance::events::inspect(&part.pattern)
+                .expect("prepared events are valid");
+            let control_event_count = inspection.sustain_event_count
+                + inspection.pitch_bend_event_count
+                + inspection.mod_wheel_event_count
+                + inspection.aftertouch_event_count
+                + inspection.parameter_change_count
+                + inspection.parameter_ramp_count;
+            json!({
+                "id": part.definition.id,
+                "note_count": inspection.note_count,
+                "note_min": inspection.note_min,
+                "note_max": inspection.note_max,
+                "velocity_min": inspection.velocity_min,
+                "velocity_max": inspection.velocity_max,
+                "control_event_count": control_event_count,
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "status": "ok",
+        "title": plan.score.title,
+        "summary": {
+            "section_count": plan.score.sections.len(),
+            "instrument_count": plan.parts.len(),
+            "note_count": total_notes,
+            "musical_duration_seconds": plan.musical_duration_seconds,
+            "ticks_per_beat": plan.score.ticks_per_beat,
+            "length_ticks": plan.length_ticks,
+            "sections": sections,
+            "instruments": instruments,
+        },
+        "diagnostics": plan.diagnostics,
+    })
 }
 fn ensure_new(path: &Path) -> Result<(), CliFailure> {
     if path.exists() {
@@ -259,7 +353,7 @@ pub(crate) fn import_document(
             .find(|t| t.tick <= start)
             .expect("initial tempo")
             .bpm;
-        let mut entry = json!({"section":name,"bars":count,"tonic":tonic,"scale":"ionian","meter":format!("{}/{}",meter.numerator,meter.denominator),"bpm":bpm});
+        let mut entry = json!({"section":name,"bars":count,"tonic":tonic,"meter":format!("{}/{}",meter.numerator,meter.denominator),"bpm":bpm});
         if i > 0
             && !events
                 .tempo_changes
@@ -335,6 +429,58 @@ fn event_tick(event: &MusicalEvent) -> u64 {
 }
 
 fn display_report(report: &Value) {
+    if let Some(summary) = report["summary"].as_object() {
+        println!("{}", report["title"].as_str().expect("title"));
+        println!(
+            "{} sections, {} instruments, {} notes",
+            summary["section_count"], summary["instrument_count"], summary["note_count"]
+        );
+        println!(
+            "duration: {:.3} seconds; {} ticks at {} PPQ",
+            summary["musical_duration_seconds"]
+                .as_f64()
+                .expect("duration"),
+            summary["length_ticks"],
+            summary["ticks_per_beat"]
+        );
+        for s in summary["sections"].as_array().expect("sections") {
+            let scale = s["scale"]
+                .as_str()
+                .map_or_else(String::new, |name| format!(" {name}"));
+            println!(
+                "  #{} {}: {} bars, {}{}, {} BPM, {}, {} notes (ticks {}..{})",
+                s["occurrence"],
+                s["section"].as_str().expect("name"),
+                s["bars"],
+                s["tonic"].as_str().expect("tonic"),
+                scale,
+                s["bpm"],
+                s["meter"].as_str().expect("meter"),
+                s["note_count"],
+                s["start_tick"],
+                s["end_tick"]
+            );
+        }
+        for part in summary["instruments"].as_array().expect("instruments") {
+            let id = part["id"].as_str().expect("id");
+            match (
+                part["note_min"].as_u64(),
+                part["note_max"].as_u64(),
+                part["velocity_min"].as_u64(),
+                part["velocity_max"].as_u64(),
+            ) {
+                (Some(min), Some(max), Some(velocity_min), Some(velocity_max)) => println!(
+                    "  {id}: {} notes, MIDI {min}..{max}, velocity {velocity_min}..{velocity_max}, {} control events",
+                    part["note_count"], part["control_event_count"]
+                ),
+                _ => println!(
+                    "  {id}: {} notes, {} control events",
+                    part["note_count"], part["control_event_count"]
+                ),
+            }
+        }
+        return;
+    }
     if let Some(title) = report["title"].as_str() {
         println!("{title}");
         println!(
@@ -347,12 +493,15 @@ fn display_report(report: &Value) {
         );
         if let Some(sections) = report["sections"].as_array() {
             for s in sections {
+                let scale = s["scale"]
+                    .as_str()
+                    .map_or_else(String::new, |name| format!(" {name}"));
                 println!(
-                    "  {}: {} bars, {} {}, {} BPM, {} (ticks {}..{})",
+                    "  {}: {} bars, {}{}, {} BPM, {} (ticks {}..{})",
                     s["section"].as_str().expect("name"),
                     s["bars"],
                     s["tonic"].as_str().expect("tonic"),
-                    s["scale"].as_str().expect("scale"),
+                    scale,
                     s["bpm"],
                     s["meter"].as_str().expect("meter"),
                     s["start_tick"],
@@ -375,6 +524,104 @@ fn display_report(report: &Value) {
         println!(
             "valid: {} sections, {} instruments",
             report["sections"], report["instruments"]
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn summary_aggregates_repeated_sections_and_instruments() {
+        let directory = tempfile::tempdir().expect("directory");
+        let instrument = directory.path().join("instrument.json");
+        std::fs::write(
+            &instrument,
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../presets/BASS/001-clean-sub-bass/definition.json"
+            )),
+        )
+        .expect("instrument");
+        let score_path = directory.path().join("score.yaml");
+        std::fs::write(
+            &score_path,
+            "meta: {title: Summary, bpm: 120, meter: 4/4, tuning: 12edo, gate: 1}\n\
+             form:\n\
+             \x20 - {section: phrase, bars: 1, tonic: C, scale: ionian}\n\
+             \x20 - {section: phrase, bars: 1, tonic: C}\n\
+             \x20 - {section: answer, bars: 1, tonic: C}\n\
+             sections:\n\
+             \x20 phrase:\n\
+             \x20   placements:\n\
+             \x20     - {instrument: a, degree: \"1\", at: {bar: 1, step: 1}, duration_quarters: 1}\n\
+             \x20     - {instrument: b, degree: \"3\", at: {bar: 1, step: 3}, duration_quarters: 1}\n\
+             \x20 answer:\n\
+             \x20   placements:\n\
+             \x20     - {instrument: a, degree: \"5\", at: {bar: 1, step: 1}, duration_quarters: 1}\n\
+             instruments:\n\
+             \x20 a: {definition: instrument.json}\n\
+             \x20 b: {definition: instrument.json}\n",
+        )
+        .expect("score");
+        let report = execute(ScoreCommand::Inspect(InspectArgs {
+            score: ScoreArgs {
+                score: score_path.clone(),
+                bindings: Bindings::default(),
+                json: false,
+            },
+            preview_json: false,
+            summary: true,
+        }))
+        .expect("summary report");
+        let detailed = execute(ScoreCommand::Inspect(InspectArgs {
+            score: ScoreArgs {
+                score: score_path,
+                bindings: Bindings::default(),
+                json: false,
+            },
+            preview_json: false,
+            summary: false,
+        }))
+        .expect("detailed report");
+        let summary = report["summary"].as_object().expect("summary object");
+        assert_eq!(summary["section_count"], 3);
+        assert_eq!(summary["instrument_count"], 2);
+        assert_eq!(summary["note_count"], 5);
+        let sections = summary["sections"].as_array().expect("sections");
+        let entries = sections
+            .iter()
+            .map(|s| {
+                (
+                    s["section"].as_str().expect("name"),
+                    s["occurrence"].as_i64().expect("occurrence"),
+                    s["note_count"].as_i64().expect("notes"),
+                    s.get("scale").and_then(|scale| scale.as_str()),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            entries,
+            [
+                ("phrase", 1, 2, Some("ionian")),
+                ("phrase", 2, 2, None),
+                ("answer", 3, 1, None),
+            ]
+        );
+        let notes = summary["instruments"]
+            .as_array()
+            .expect("instruments")
+            .iter()
+            .map(|part| part["note_count"].as_i64().expect("notes"))
+            .sum::<i64>();
+        assert_eq!(notes, summary["note_count"]);
+        assert_eq!(report["diagnostics"], detailed["diagnostics"]);
+        assert!(
+            report["diagnostics"]
+                .as_array()
+                .is_some_and(|diagnostics| !diagnostics.is_empty()),
+            "the summary carries the resolution diagnostics: {report}"
         );
     }
 }

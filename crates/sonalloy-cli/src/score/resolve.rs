@@ -2,6 +2,20 @@ use super::{Error, Result, array, fields, integer, number, object, required, str
 use serde_json::Value;
 
 pub(super) fn inherit(dict: &Value, name: &str, drums: bool, path: &str) -> Result<Value> {
+    fn annotated(list: &Value, field: &str, name: &str, path: &str) -> Result<Vec<Value>> {
+        Ok(array(list, path)?
+            .iter()
+            .enumerate()
+            .map(|(index, item)| {
+                let mut item = item.clone();
+                item.as_object_mut().expect("validated placement").insert(
+                    "$origin".to_owned(),
+                    Value::String(format!("sections.{name}.{field}[{index}]")),
+                );
+                item
+            })
+            .collect())
+    }
     fn visit(
         dict: &Value,
         name: &str,
@@ -22,7 +36,7 @@ pub(super) fn inherit(dict: &Value, name: &str, drums: bool, path: &str) -> Resu
             serde_json::json!({})
         };
         for (key, value) in object(value, path)? {
-            if key == "from" {
+            if key == "from" || key == "add_placements" {
                 continue;
             }
             if drums && key == "parts" {
@@ -44,9 +58,22 @@ pub(super) fn inherit(dict: &Value, name: &str, drums: bool, path: &str) -> Resu
                     .as_array_mut()
                     .ok_or_else(|| Error::new(path, "expected overrides list"))?
                     .extend(array(value, path)?.iter().cloned());
+            } else if !drums && key == "placements" {
+                result[key] = Value::Array(annotated(value, "placements", name, path)?);
             } else {
                 result[key] = value.clone();
             }
+        }
+        if !drums && let Some(additions) = value.get("add_placements") {
+            let target = result
+                .as_object_mut()
+                .expect("mapping")
+                .entry("placements".to_owned())
+                .or_insert_with(|| serde_json::json!([]));
+            target
+                .as_array_mut()
+                .ok_or_else(|| Error::new(path, "expected placements list"))?
+                .extend(annotated(additions, "add_placements", name, path)?);
         }
         stack.pop();
         Ok(result)
@@ -418,8 +445,8 @@ fn validate_sections(sections: &Value) -> Result<()> {
                 "pad",
                 "arp",
                 "counter",
-                "answers",
                 "placements",
+                "add_placements",
                 "events",
                 "velocity",
             ],
@@ -434,7 +461,7 @@ fn validate_sections(sections: &Value) -> Result<()> {
         if let Some(bass) = section.get("bass") {
             fields(bass, &["pattern", "add_parts"], &format!("{path}.bass"))?;
         }
-        for field in ["answers", "placements"] {
+        for field in ["placements", "add_placements"] {
             if let Some(list) = section.get(field) {
                 for (i, item) in array(list, &path)?.iter().enumerate() {
                     let p = format!("{path}.{field}[{i}]");
@@ -522,6 +549,7 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
                 "definition",
                 "external",
                 "gain_db",
+                "pan",
                 "role",
                 "voicing_floor_midi",
                 "trigger_note_midi",
@@ -549,6 +577,12 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
         }
         if let Some(value) = v.get("gain_db") {
             number(value, &format!("{path}.gain_db"))?;
+        }
+        if let Some(value) = v.get("pan") {
+            let pan = number(value, &format!("{path}.pan"))?;
+            if !(-1.0..=1.0).contains(&pan) {
+                return Err(Error::new(format!("{path}.pan"), "expected pan -1..1"));
+            }
         }
         for key in [
             "voicing_floor_midi",
@@ -725,20 +759,21 @@ fn validate_section_references(doc: &Value, section: &Value, path: &str) -> Resu
     if let Some(drums) = section.get("drums") {
         material_ref(doc, "drums", drums, path)?;
     }
-    for field in ["answers", "placements"] {
-        if let Some(list) = section.get(field) {
-            for (i, placement) in array(list, path)?.iter().enumerate() {
-                let path = format!("{path}.{field}[{i}]");
-                instrument_ref(doc, required(placement, "instrument", &path)?, &path)?;
-                if let Some(name) = placement.get("melody") {
-                    melody(&doc["melodies"], string(name, &path)?, &path)?;
-                }
-                if let Some(note) = placement.get("degree") {
-                    super::syntax::degree(string(note, &path)?).map_err(|e| e.at(&path))?;
-                }
-                if let Some(chord) = placement.get("chord") {
-                    super::syntax::chord(string(chord, &path)?).map_err(|e| e.at(&path))?;
-                }
+    if let Some(list) = section.get("placements") {
+        for (i, placement) in array(list, path)?.iter().enumerate() {
+            let path = placement
+                .get("$origin")
+                .and_then(Value::as_str)
+                .map_or_else(|| format!("{path}.placements[{i}]"), str::to_owned);
+            instrument_ref(doc, required(placement, "instrument", &path)?, &path)?;
+            if let Some(name) = placement.get("melody") {
+                melody(&doc["melodies"], string(name, &path)?, &path)?;
+            }
+            if let Some(note) = placement.get("degree") {
+                super::syntax::degree(string(note, &path)?).map_err(|e| e.at(&path))?;
+            }
+            if let Some(chord) = placement.get("chord") {
+                super::syntax::chord(string(chord, &path)?).map_err(|e| e.at(&path))?;
             }
         }
     }

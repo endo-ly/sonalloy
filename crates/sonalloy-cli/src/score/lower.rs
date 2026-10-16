@@ -19,7 +19,7 @@ struct Section {
     bars: Vec<Quarter>,
     meter: (u8, u8),
     tonic: i32,
-    scale: String,
+    scale: Option<String>,
     tonic_name: String,
 }
 
@@ -678,11 +678,13 @@ impl Builder<'_> {
                 &format!("{path}.counter"),
             )?;
         }
-        for field in ["answers", "placements"] {
-            if let Some(list) = s.value.get(field) {
-                for (i, v) in array(list, &path)?.iter().enumerate() {
-                    self.placement(s, v, velocity, &format!("{path}.{field}[{i}]"))?;
-                }
+        if let Some(list) = s.value.get("placements") {
+            for (i, v) in array(list, &path)?.iter().enumerate() {
+                let origin = v
+                    .get("$origin")
+                    .and_then(Value::as_str)
+                    .map_or_else(|| format!("{path}.placements[{i}]"), str::to_owned);
+                self.placement(s, v, velocity, &origin)?;
             }
         }
         let mut transforms = Vec::new();
@@ -1057,37 +1059,45 @@ impl Builder<'_> {
             path,
         )?;
         let mut cursor = s.start.clone();
-        let mut pending: Vec<(Quarter, Quarter, i32)> = Vec::new();
+        let mut cells = Vec::new();
         for length in &s.bars {
             for (at, unit, token) in
                 syntax::grid(text_field(pattern, "order", path)?, s.meter, length, false)
                     .map_err(|e| e.at(path))?
             {
-                let index = token
-                    .parse::<usize>()
-                    .ok()
-                    .filter(|n| *n < 128)
-                    .ok_or_else(|| Error::new(path, "arp index must be 0..127"))?;
-                let at = &cursor + at;
-                let Some((_, Some(chord), tonic)) =
-                    self.harmony.iter().rev().find(|(t, _, _)| t <= &at)
-                else {
-                    continue;
-                };
-                let notes = syntax::voicing(chord, *tonic, floor);
-                let note = notes[index % notes.len()]
-                    + 12 * i32::try_from(index / notes.len()).expect("arp index below 128");
-                if !retrigger
-                    && pending.last().is_some_and(|(previous, duration, pitch)| {
-                        *pitch == note && previous + duration == at
-                    })
-                {
-                    pending.last_mut().expect("previous note").1 += unit;
-                } else {
-                    pending.push((at, unit, note));
-                }
+                cells.push((&cursor + &at, unit, token));
             }
             cursor += length;
+        }
+        let mut pending: Vec<(Quarter, Quarter, i32)> = Vec::new();
+        for (at, duration, token) in spans(cells, path)? {
+            let index = token
+                .parse::<usize>()
+                .ok()
+                .filter(|n| *n < 128)
+                .ok_or_else(|| {
+                    Error::new(
+                        path,
+                        "arp order cells must be numbers below 128, '.', or '-'",
+                    )
+                })?;
+            let Some((_, Some(chord), tonic)) =
+                self.harmony.iter().rev().find(|(t, _, _)| t <= &at)
+            else {
+                continue;
+            };
+            let notes = syntax::voicing(chord, *tonic, floor);
+            let note = notes[index % notes.len()]
+                + 12 * i32::try_from(index / notes.len()).expect("arp index below 128");
+            if !retrigger
+                && pending.last().is_some_and(|(previous, duration, pitch)| {
+                    *pitch == note && previous + duration == at
+                })
+            {
+                pending.last_mut().expect("previous note").1 += duration;
+            } else {
+                pending.push((at, duration, note));
+            }
         }
         for (at, duration, note) in pending {
             self.note(
@@ -1787,31 +1797,37 @@ fn resolve_form(doc: &Value, mut bpm: f64, mut meter: (u8, u8)) -> Result<FormTi
         let length: Quarter = bars.iter().cloned().sum();
         let tonic_name = text_field(entry, "tonic", &path)?.to_owned();
         let tonic = syntax::tonic(&tonic_name).map_err(|e| e.at(&format!("{path}.tonic")))?;
-        let scale = text_field(entry, "scale", &path)?.to_owned();
-        let known = [
-            "ionian",
-            "dorian",
-            "phrygian",
-            "lydian",
-            "mixolydian",
-            "aeolian",
-            "locrian",
-            "harmonic_minor",
-            "melodic_minor",
-            "major_pentatonic",
-            "minor_pentatonic",
-            "whole_tone",
-        ];
-        if !known.contains(&scale.as_str())
-            && doc
-                .get("scale_definitions")
-                .and_then(|d| d.get(&scale))
-                .is_none()
-        {
-            return Err(Error::new(
-                format!("{path}.scale"),
-                "unknown scale; declare it in scale_definitions",
-            ));
+        let scale = entry
+            .get("scale")
+            .map(|_| text_field(entry, "scale", &path))
+            .transpose()?
+            .map(str::to_owned);
+        if let Some(scale) = &scale {
+            let known = [
+                "ionian",
+                "dorian",
+                "phrygian",
+                "lydian",
+                "mixolydian",
+                "aeolian",
+                "locrian",
+                "harmonic_minor",
+                "melodic_minor",
+                "major_pentatonic",
+                "minor_pentatonic",
+                "whole_tone",
+            ];
+            if !known.contains(&scale.as_str())
+                && doc
+                    .get("scale_definitions")
+                    .and_then(|d| d.get(scale))
+                    .is_none()
+            {
+                return Err(Error::new(
+                    format!("{path}.scale"),
+                    "unknown scale; declare it in scale_definitions",
+                ));
+            }
         }
         sections.push(Section {
             name: name.into(),
