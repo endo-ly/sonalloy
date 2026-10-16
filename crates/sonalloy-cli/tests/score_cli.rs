@@ -499,6 +499,7 @@ fn midi_export_preserves_notes_across_ports_and_reports_omitted_controls() {
             placements.push(json!({"instrument":id,"degree":"1","at":{"bar":1,"step":1},"duration_quarters":1,"velocity":100}));
         }
         placements.push(json!({"instrument":"part00","degree":"1","at":{"bar":1,"step":3},"duration_quarters":1,"gain_db":-6,"velocity":80}));
+        instruments["part01"]["gain_db"] = json!(-12);
         let at = json!({"bar":1,"step":1});
         let doc = json!({"meta":{"title":"Ports","bpm":120,"meter":"4/4","tuning":"12edo"},
         "form":[{"section":"a","bars":1,"tonic":"C"}],"instruments":instruments,
@@ -532,6 +533,7 @@ fn midi_export_preserves_notes_across_ports_and_reports_omitted_controls() {
             "aftertouch omitted",
             "1 ParameterChange, 1 ParameterRamp",
             "1 overlapping same-pitch",
+            "lane gains [-6, 0] dB",
         ] {
             assert!(
                 warnings.iter().any(|d| d["path"] == "instruments.part00"
@@ -540,6 +542,23 @@ fn midi_export_preserves_notes_across_ports_and_reports_omitted_controls() {
                 "{expected}: {report}"
             );
         }
+        let gain_warnings: Vec<_> = warnings
+            .iter()
+            .filter(|d| {
+                d["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("audio gain omitted")
+            })
+            .collect();
+        assert_eq!(gain_warnings.len(), 2);
+        assert!(gain_warnings.iter().any(|d| {
+            d["path"] == "instruments.part01"
+                && d["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("lane gains [-12] dB")
+        }));
         let bytes = std::fs::read(&output).unwrap();
         let smf = Smf::parse(&bytes).unwrap();
         assert_eq!(smf.tracks.len(), count + 1);

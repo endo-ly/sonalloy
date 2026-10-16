@@ -96,9 +96,31 @@ fn event_tick(event: &MusicalEvent) -> u64 {
     }
 }
 
+fn warn_audio_gain(part: &PartLane, diagnostics: &mut Vec<Diagnostic>) {
+    let mut gains: Vec<_> = part
+        .render_lanes
+        .iter()
+        .filter(|lane| lane.pattern.events.iter().any(MusicalEvent::is_note))
+        .map(|lane| lane.gain_db)
+        .collect();
+    gains.sort_by(f64::total_cmp);
+    gains.dedup();
+    if gains.iter().any(|gain| *gain != 0.0) {
+        let values = gains
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", ");
+        diagnostics.push(warning(part, format!(
+            "audio gain omitted from MIDI: lane gains [{values}] dB; note velocities are unchanged"
+        )));
+    }
+}
+
 fn merge_lanes(part: &PartLane, diagnostics: &mut Vec<Diagnostic>) -> PerformanceEvents {
     let mut pattern = part.pattern.clone();
     pattern.events.retain(MusicalEvent::is_note);
+    warn_audio_gain(part, diagnostics);
     for (kind, label) in ["sustain pedal", "pitch bend", "mod wheel", "aftertouch"]
         .iter()
         .enumerate()
@@ -215,7 +237,9 @@ mod tests {
         part.render_lanes[1].pattern.events.extend(controls.clone());
         let mut diagnostics = Vec::new();
         let merged = merge_lanes(part, &mut diagnostics);
-        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        assert_eq!(diagnostics.len(), 1);
+        assert!(diagnostics[0].message.contains("lane gains [-6, 0] dB"));
+        diagnostics.clear();
         assert_eq!(
             merged
                 .events
@@ -249,20 +273,15 @@ mod tests {
         ]);
         let merged = merge_lanes(part, &mut diagnostics);
         assert_eq!(midi_events(&merged).unwrap().len(), 4 + controls.len());
-        assert_eq!(diagnostics.len(), 1);
-        assert!(
-            diagnostics[0]
+        assert_eq!(diagnostics.len(), 2);
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
                 .message
                 .contains("1 ParameterChange, 1 ParameterRamp; IDs: layer.body.gain")
-        );
-        part.pattern.events.retain(|e| {
-            matches!(
-                e,
-                MusicalEvent::Note { .. }
-                    | MusicalEvent::SustainPedal { .. }
-                    | MusicalEvent::ModWheel { .. }
-            )
-        });
+        }));
+        part.pattern
+            .events
+            .retain(|event| event.is_note() || control_kind(event).is_some());
         diagnostics.clear();
 
         part.render_lanes[1]
@@ -277,8 +296,12 @@ mod tests {
                 value: 0.5,
             });
         let merged = merge_lanes(part, &mut diagnostics);
-        assert_eq!(diagnostics.len(), 1);
-        assert!(diagnostics[0].message.contains("pitch bend omitted"));
+        assert_eq!(diagnostics.len(), 2);
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("pitch bend omitted"))
+        );
         assert_eq!(
             merged
                 .events

@@ -97,6 +97,7 @@ pub(super) struct Chord {
     pub(super) spelling: String,
     pub(super) root: i32,
     pub(super) bass: i32,
+    slash_bass: bool,
     tones: Vec<ChordTone>,
 }
 
@@ -255,20 +256,27 @@ pub(super) fn chord(text: &str) -> Result<Option<Chord>> {
         .split_once(':')
         .ok_or_else(|| Error::new("", "expected degree:quality[/bass] or NC"))?;
     let root = degree(root)?;
+    let slash_bass = bass.is_some();
     let bass = bass.map(degree).transpose()?.unwrap_or(root);
     let tones = chord_quality(quality)?;
     Ok(Some(Chord {
         spelling: text.into(),
         root,
         bass,
+        slash_bass,
         tones,
     }))
 }
 
 pub(super) fn voicing(chord: &Chord, tonic: i32, floor: i32) -> Vec<i32> {
     let bass = floor + (tonic + chord.bass - floor).rem_euclid(12);
+    let root = bass + (tonic + chord.root - bass).rem_euclid(12);
     let mut notes = vec![bass];
     for tone in &chord.tones {
+        if tone.degree > 7 {
+            notes.push(root + tone.semitones);
+            continue;
+        }
         let pitch_class = (tonic + chord.root + tone.semitones).rem_euclid(12);
         if pitch_class == bass.rem_euclid(12) {
             continue;
@@ -293,7 +301,7 @@ pub(super) fn explicit_voicing(
     let bass = floor + (tonic + chord.bass - floor).rem_euclid(12);
     let root = bass + (tonic + chord.root - bass).rem_euclid(12);
     let mut notes = Vec::new();
-    if chord.bass.rem_euclid(12) != chord.root.rem_euclid(12) {
+    if chord.slash_bass {
         notes.push(bass);
     }
     for role in roles {
@@ -321,6 +329,14 @@ pub(super) fn explicit_voicing(
         let note = root + tone.semitones + octave;
         if !(0..=127).contains(&note) {
             return Err(Error::new("", "voicing is outside MIDI range"));
+        }
+        if chord.slash_bass && note < bass {
+            return Err(Error::new(
+                "",
+                format!(
+                    "voicing tone `{role}` resolves to MIDI {note}, below the slash bass MIDI {bass}"
+                ),
+            ));
         }
         notes.push(note);
     }
@@ -610,6 +626,45 @@ mod tests {
             explicit_voicing(&direct, 0, 48, &["3".into(), "7".into(), "#11'".into()]).unwrap(),
             [55, 63, 70, 90]
         );
+        let inversion = super::chord("1:9/3").unwrap().unwrap();
+        assert_eq!(
+            explicit_voicing(&inversion, 0, 48, &["1".into(), "3".into(), "5".into()]).unwrap(),
+            [52, 60, 64, 67]
+        );
+        assert_eq!(
+            explicit_voicing(&inversion, 0, 48, &["9,".into()]).unwrap(),
+            [52, 62]
+        );
+        for role in ["1,", "9,,"] {
+            assert!(
+                explicit_voicing(&inversion, 0, 48, &[role.into()])
+                    .unwrap_err()
+                    .message
+                    .contains("below the slash bass")
+            );
+        }
+        let root_bass = super::chord("1:maj/1").unwrap().unwrap();
+        assert!(explicit_voicing(&root_bass, 0, 48, &["1,".into()]).is_err());
+    }
+
+    #[test]
+    fn automatic_voicings_preserve_simple_intervals_above_the_bass() {
+        for (quality, expected) in [
+            ("maj", vec![55, 60, 64]),
+            ("m", vec![55, 60, 63]),
+            ("dim", vec![55, 60, 63, 66]),
+            ("aug", vec![55, 56, 60, 64]),
+            ("maj7", vec![55, 59, 60, 64]),
+            ("m7", vec![55, 58, 60, 63]),
+            ("7", vec![55, 58, 60, 64]),
+            ("m7b5", vec![55, 58, 60, 63, 66]),
+            ("dim7", vec![55, 57, 60, 63, 66]),
+            ("sus4", vec![55, 60, 65]),
+            ("7sus4", vec![55, 58, 60, 65]),
+        ] {
+            let chord = chord(&format!("1:{quality}/5")).unwrap().unwrap();
+            assert_eq!(voicing(&chord, 0, 48), expected, "{quality}");
+        }
     }
 
     #[test]

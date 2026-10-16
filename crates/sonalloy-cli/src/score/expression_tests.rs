@@ -122,6 +122,54 @@ fn bass_degrees_follow_tonic_or_slash_bass_after_choices_and_overrides() {
 }
 
 #[test]
+fn automatic_accompaniment_preserves_compound_chord_intervals() {
+    for (quality, expected) in [
+        ("9", vec![48, 52, 55, 58, 62]),
+        ("11", vec![48, 52, 55, 58, 62, 65]),
+        ("13", vec![48, 52, 55, 58, 62, 65, 69]),
+        ("7(b9,#11,omit5)", vec![48, 52, 58, 61, 66]),
+        ("(1,b3,5,b7,#11)", vec![48, 51, 55, 58, 66]),
+    ] {
+        let mut doc = document();
+        doc["sections"]["a"] = json!({"chords":[format!("1:{quality}")],
+            "comp":{"lead":"pulse"},"pad":{"instrument":"pad","pattern":"pulse"},
+            "arp":{"instrument":"arp","pattern":"up"}});
+        for id in ["pad", "arp"] {
+            doc["instruments"][id] = json!({"external":true});
+        }
+        doc["comp"] = json!({"pulse":"x - - - | . . . . | . . . . | . . . ."});
+        let cells: Vec<_> = (0..16)
+            .map(|index| {
+                if index < expected.len() {
+                    index.to_string()
+                } else {
+                    ".".into()
+                }
+            })
+            .collect();
+        let order = cells
+            .chunks(4)
+            .map(|beat| beat.join(" "))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        doc["arps"] = json!({"up":{"order":order}});
+
+        let plan = compile(&doc.to_string()).unwrap();
+
+        for id in ["lead", "pad", "arp"] {
+            assert_eq!(
+                notes(&plan, id)
+                    .iter()
+                    .map(|note| note.2)
+                    .collect::<Vec<_>>(),
+                expected,
+                "{quality}: {id}"
+            );
+        }
+    }
+}
+
+#[test]
 fn voicing_precedence_is_shared_by_comp_pad_arp_and_placements() {
     let mut doc = document();
     doc["instruments"]["lead"]["voicing"] = json!(["3", "7"]);
@@ -162,6 +210,26 @@ fn voicing_precedence_is_shared_by_comp_pad_arp_and_placements() {
         compile(&doc.to_string()).unwrap_err().diagnostics[0]
             .message
             .contains("voicing fields require chord")
+    );
+    doc["sections"]["a"] = json!({"chords":["1:maj/3"],
+        "comp":{"lead":{"pattern":"pulse","voicing":["1,"]}}});
+    let invalid = compile(&doc.to_string()).unwrap_err();
+    assert!(
+        invalid.diagnostics[0]
+            .message
+            .contains("below the slash bass")
+    );
+    assert_eq!(
+        invalid.diagnostics[0].path.as_deref(),
+        Some("sections.a.comp.lead")
+    );
+    doc["sections"]["a"]["comp"]["lead"]["voicing"] = json!(["1"]);
+    assert_eq!(
+        notes(&compile(&doc.to_string()).unwrap(), "lead")
+            .iter()
+            .map(|note| note.2)
+            .collect::<Vec<_>>(),
+        [52, 60]
     );
 }
 
