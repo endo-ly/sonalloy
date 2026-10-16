@@ -123,7 +123,10 @@ pub(crate) fn definition_paths(
             return Err(failure("bind", format!("duplicate binding {id}")));
         }
     }
-    let base = path.parent().unwrap_or(Path::new("."));
+    let base = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
     let preset_root = bindings
         .preset_root
         .clone()

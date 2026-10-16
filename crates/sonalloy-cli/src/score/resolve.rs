@@ -268,6 +268,9 @@ pub(super) fn validate_structure(doc: &Value) -> Result<()> {
     }
     if let Some(comp) = doc.get("comp") {
         for (name, value) in object(comp, "comp")? {
+            if name == "hold" {
+                return Err(Error::new("comp.hold", "hold is a reserved comp pattern"));
+            }
             string(value, &format!("comp.{name}"))?;
         }
     }
@@ -485,41 +488,7 @@ fn validate_sections(sections: &Value) -> Result<()> {
         if let Some(bass) = section.get("bass") {
             fields(bass, &["pattern", "add_parts"], &format!("{path}.bass"))?;
         }
-        for field in ["placements", "add_placements"] {
-            if let Some(list) = section.get(field) {
-                for (i, item) in array(list, &path)?.iter().enumerate() {
-                    let p = format!("{path}.{field}[{i}]");
-                    fields(
-                        item,
-                        &[
-                            "instrument",
-                            "at",
-                            "melody",
-                            "degree",
-                            "chord",
-                            "bass_note",
-                            "velocity",
-                            "duration_steps",
-                            "duration_quarters",
-                            "transpose",
-                            "gain_db",
-                            "mark",
-                            "slice_steps",
-                            "take_notes",
-                            "voicing_floor_midi",
-                            "voicing",
-                            "add_root_degree",
-                        ],
-                        &p,
-                    )?;
-                    validate_voicing(item, &p)?;
-                    position(required(item, "at", &p)?, &format!("{p}.at"))?;
-                    if let Some(slice) = item.get("slice_steps") {
-                        fields(slice, &["start", "count"], &format!("{p}.slice_steps"))?;
-                    }
-                }
-            }
-        }
+        validate_placements(section, &path)?;
         if let Some(events) = section.get("events") {
             for (i, e) in array(events, &path)?.iter().enumerate() {
                 event(e, &format!("{path}.events[{i}]"))?;
@@ -534,7 +503,48 @@ fn validate_sections(sections: &Value) -> Result<()> {
         }
         if let Some(overrides) = section.get("bass_overrides") {
             for (i, e) in array(overrides, &path)?.iter().enumerate() {
-                fields(e, &["bar", "parts"], &format!("{path}.bass_overrides[{i}]"))?;
+                let p = format!("{path}.bass_overrides[{i}]");
+                fields(e, &["when", "parts"], &p)?;
+                validate_bar_condition(required(e, "when", &p)?, &format!("{p}.when"))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_placements(section: &Value, path: &str) -> Result<()> {
+    for field in ["placements", "add_placements"] {
+        if let Some(list) = section.get(field) {
+            for (i, item) in array(list, path)?.iter().enumerate() {
+                let p = format!("{path}.{field}[{i}]");
+                fields(
+                    item,
+                    &[
+                        "instrument",
+                        "at",
+                        "melody",
+                        "degree",
+                        "chord",
+                        "bass_note",
+                        "velocity",
+                        "duration_steps",
+                        "duration_quarters",
+                        "transpose",
+                        "gain_db",
+                        "mark",
+                        "slice_steps",
+                        "take_notes",
+                        "voicing_floor_midi",
+                        "voicing",
+                        "add_root_degree",
+                    ],
+                    &p,
+                )?;
+                validate_voicing(item, &p)?;
+                position(required(item, "at", &p)?, &format!("{p}.at"))?;
+                if let Some(slice) = item.get("slice_steps") {
+                    fields(slice, &["start", "count"], &format!("{p}.slice_steps"))?;
+                }
             }
         }
     }
@@ -673,11 +683,7 @@ fn validate_materials(doc: &Value) -> Result<()> {
                     let p = format!("{p}.overrides[{i}]");
                     fields(v, &["when", "parts"], &p)?;
                     validate_parts(doc, required(v, "parts", &p)?, &p)?;
-                    fields(
-                        required(v, "when", &p)?,
-                        &["odd", "every", "bar"],
-                        &format!("{p}.when"),
-                    )?;
+                    validate_bar_condition(required(v, "when", &p)?, &format!("{p}.when"))?;
                 }
             }
         }
@@ -704,6 +710,9 @@ fn validate_materials(doc: &Value) -> Result<()> {
     Ok(())
 }
 
+fn validate_bar_condition(v: &Value, path: &str) -> Result<()> {
+    fields(v, &["odd", "even", "every", "bar"], path)
+}
 fn instrument_ref(doc: &Value, value: &Value, path: &str) -> Result<()> {
     let id = string(value, path)?;
     if doc["instruments"].get(id).is_none() {
@@ -713,6 +722,9 @@ fn instrument_ref(doc: &Value, value: &Value, path: &str) -> Result<()> {
 }
 fn material_ref(doc: &Value, category: &str, value: &Value, path: &str) -> Result<()> {
     let name = string(value, path)?;
+    if category == "comp" && name == "hold" {
+        return Ok(());
+    }
     if doc.get(category).and_then(|v| v.get(name)).is_none() {
         return Err(Error::new(
             path,

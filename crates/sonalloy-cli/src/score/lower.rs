@@ -970,7 +970,7 @@ impl Builder<'_> {
             let mut overridden = BTreeSet::new();
             if let Some(list) = s.value.get("bass_overrides") {
                 for v in array(list, path)? {
-                    if bar_number(&v["bar"], s.bars.len(), path)? == i + 1 {
+                    if condition(&v["when"], i + 1, s.bars.len(), path)? {
                         for (id, p) in object(&v["parts"], path)? {
                             if !overridden.insert(id.clone()) {
                                 return Err(Error::new(path, "overlapping bass overrides"));
@@ -1046,14 +1046,23 @@ impl Builder<'_> {
         } else {
             text_field(value, "pattern", path)?
         };
-        let pattern = self.doc["comp"]
-            .get(name)
-            .ok_or_else(|| Error::new(path, "undefined comp pattern"))?;
+        let pattern = if name == "hold" {
+            None
+        } else {
+            Some(
+                self.doc["comp"]
+                    .get(name)
+                    .ok_or_else(|| Error::new(path, "undefined comp pattern"))?,
+            )
+        };
         let floor = signed_int(self.instrument(id)?, "voicing_floor_midi", 48, path)?;
         let mut cursor = s.start.clone();
         for length in &s.bars {
-            let cells = Self::grid(s, string(pattern, path)?, length, false, true)
-                .map_err(|e| e.at(path))?;
+            let cells = match &pattern {
+                Some(pattern) => Self::grid(s, string(pattern, path)?, length, false, true)
+                    .map_err(|e| e.at(path))?,
+                None => vec![(q(0, 1), length.clone(), "x".to_owned())],
+            };
             for syntax::Span {
                 at,
                 duration,
@@ -1632,6 +1641,12 @@ fn condition(v: &Value, bar: usize, length: usize, path: &str) -> Result<bool> {
             return Err(Error::new(path, "odd must be true"));
         }
         return Ok(bar % 2 == 1);
+    }
+    if let Some(even) = v.get("even") {
+        if even != &Value::Bool(true) {
+            return Err(Error::new(path, "even must be true"));
+        }
+        return Ok(bar % 2 == 0);
     }
     if let Some(every) = v.get("every") {
         let n = integer(every, path)?;

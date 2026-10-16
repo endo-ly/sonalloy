@@ -85,7 +85,7 @@ Processorはどの配置でもObjectのトップレベルに`type`（種類）�
 ]
 ```
 
-Dynamic ParameterのIDはProcessorの配置でPrefixが決まり、Modulation RouteとParameter ChangeのTargetはこの形式で書きます。上例のLayer Filterは`layer.<layer_id>.processor.attack_tone.cutoff`、Reverbは`global.processor.space.mix`、Generatorは`layer.<layer_id>.generator.<name>`形式（Operator Modulationだけ`operator.<1-4>.<parameter>`）です。Prefixの一覧は[Modulation仕様](references/modulation.md)、ProcessorのFieldは[Processor仕様](references/processors.md)を参照し、Routeを書く前に`instrument inspect --json`で実際のParameter IDと配置を確認します。
+Dynamic ParameterのIDはProcessorの配置でPrefixが決まり、Modulation RouteとParameter ChangeのTargetはこの形式で書きます。上例のLayer Filterは`layer.<layer_id>.processor.attack_tone.cutoff`、Reverbは`global.processor.space.mix`、Generatorは`layer.<layer_id>.generator.<name>`形式（Operator Modulationだけ`layer.<layer_id>.generator.operator.<1-4>.<parameter>`）です。Prefixの一覧は[Modulation仕様](references/modulation.md)、ProcessorのFieldは[Processor仕様](references/processors.md)を参照し、Routeを書く前に`instrument inspect --json`で実際のParameter IDと配置を確認します。
 
 ```json
 "modulation": {
@@ -130,7 +130,7 @@ Get-FileHash -Algorithm SHA256 <path>   # 小文字のhexでJSONへ記録する
 
 ## Generator
 
-GeneratorはLayerの`generator` Fieldへ、いずれか1つを指定します。各GeneratorのField・Range・Dynamic Parameter・制約は[Generator仕様](references/generators.md)を参照してください。Modulation Target IDは`layer.<layer_id>.generator.<name>`形式です（Operator Modulationだけ`operator.<1-4>.<parameter>`）。
+GeneratorはLayerの`generator` Fieldへ、いずれか1つを指定します。各GeneratorのField・Range・Dynamic Parameter・制約は[Generator仕様](references/generators.md)を参照してください。Modulation Target IDは`layer.<layer_id>.generator.<name>`形式です（Operator Modulationだけ`layer.<layer_id>.generator.operator.<1-4>.<parameter>`）。
 
 ## Hybrid構成
 

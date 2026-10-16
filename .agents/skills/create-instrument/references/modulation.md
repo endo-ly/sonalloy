@@ -87,7 +87,7 @@ Layerの組み込みTarget:
 | `layer.<id>.pan` | `pan` |
 | `layer.<id>.tuning` | `cents` |
 
-GeneratorのParameter（Target IDは`layer.<id>.generator.<parameter>`。Operator Modulationだけ`operator.<1-4>.<parameter>`形式）:
+GeneratorのParameter（Target IDは`layer.<id>.generator.<parameter>`。Operator Modulationだけ`layer.<id>.generator.operator.<1-4>.<parameter>`形式）:
 
 | Unit | Parameter |
 |---|---|

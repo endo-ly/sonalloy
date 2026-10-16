@@ -73,7 +73,7 @@ fn note_attributes_gate_and_legato_resolve_on_the_exact_timeline() {
 fn bass_degrees_follow_tonic_or_slash_bass_after_choices_and_overrides() {
     let mut doc = document();
     doc["sections"]["a"] = json!({"chords":["1:m/5"], "bass":{"pattern":"line"},
-        "bass_overrides":[{"bar":1,"parts":{"lead":"T - 5@127 . | b3, - . . | . . . . | . . . ."}}]});
+        "bass_overrides":[{"when":{"bar":1},"parts":{"lead":"T - 5@127 . | b3, - . . | . . . . | . . . ."}}]});
     doc["bass"] = json!({"line":{"parts":{"lead":"1 - - - | . . . . | . . . . | . . . ."}, "choices":{"T":{"odd":"1@1", "even":"3"}}}});
     let tonic = compile(&doc.to_string()).unwrap();
     assert_eq!(
@@ -101,7 +101,7 @@ fn bass_degrees_follow_tonic_or_slash_bass_after_choices_and_overrides() {
     doc["form"] =
         json!([{"section":"a","bars":2,"tonic":"C"},{"section":"b","bars":1,"tonic":"D"}]);
     doc["sections"] = json!({"a":{"velocity":84,"chords":["1:maj","4:maj/6"],"bass":{"pattern":"line"},
-        "bass_overrides":[{"bar":2,"parts":{"lead":"5 - . . | . . . . | 1' - . . | . . . ."}}],
+        "bass_overrides":[{"when":{"bar":2},"parts":{"lead":"5 - . . | . . . . | 1' - . . | . . . ."}}],
         "placements":[
             {"instrument":"lead","degree":"6,,,","at":{"bar":1,"step":5},"duration_quarters":"1/2"},
             {"instrument":"lead","degree":"#1,,","at":{"bar":2,"step":5},"duration_quarters":1}]},
@@ -404,4 +404,62 @@ fn swing_gate_and_legato_are_shared_by_the_accompaniment_generators() {
     }
     assert_eq!(notes(&plan, "counter")[1].0, q(1, 3));
     assert_eq!(notes(&plan, "counter")[1].1, q(1, 4));
+}
+
+#[test]
+fn bar_conditions_gate_drums_and_bass_overrides() {
+    let mut doc = document();
+    doc["form"] = json!([{"section":"a","bars":4,"tonic":"C"}]);
+    doc["sections"]["a"] = json!({
+        "chords":["1:maj","1:maj","1:maj","1:maj"],
+        "drums":"beat",
+        "bass":{"pattern":"line"},
+        "bass_overrides":[{"when":{"every":4},"parts":{"lead":"5 . . . | . . . . | . . . . | . . . ."}}]});
+    doc["instruments"]["drum"] = json!({"external":true,"trigger_note_midi":36});
+    doc["drums"] = json!({"beat":{"parts":{"drum":"x...|....|....|...."},
+        "overrides":[{"when":{"even":true},"parts":{"drum":"X...|....|....|...."}}]}});
+    doc["bass"] = json!({"line":{"parts":{"lead":"1 . . . | . . . . | . . . . | . . . ."}}});
+    let plan = compile(&doc.to_string()).unwrap();
+    assert_eq!(
+        notes(&plan, "drum")
+            .iter()
+            .map(|n| (n.0.clone(), n.2, n.3))
+            .collect::<Vec<_>>(),
+        [
+            (q(0, 1), 36, 96),
+            (q(4, 1), 36, 120),
+            (q(8, 1), 36, 96),
+            (q(12, 1), 36, 120)
+        ]
+    );
+    assert_eq!(
+        notes(&plan, "lead")
+            .iter()
+            .map(|n| (n.0.clone(), n.2))
+            .collect::<Vec<_>>(),
+        [(q(0, 1), 36), (q(4, 1), 36), (q(8, 1), 36), (q(12, 1), 43)]
+    );
+}
+
+#[test]
+fn pad_hold_is_builtin_and_refollows_chord_changes() {
+    let mut doc = document();
+    doc["sections"]["a"] =
+        json!({"chords":["1:maj 4:maj"], "pad":{"instrument":"pad","pattern":"hold"}});
+    doc["instruments"]["pad"] = json!({"external":true});
+    let plan = compile(&doc.to_string()).unwrap();
+    assert_eq!(
+        notes(&plan, "pad"),
+        [
+            (q(0, 1), q(1, 1), 48, 100),
+            (q(0, 1), q(1, 1), 52, 100),
+            (q(0, 1), q(1, 1), 55, 100),
+            (q(2, 1), q(1, 1), 53, 100),
+            (q(2, 1), q(1, 1), 57, 100),
+            (q(2, 1), q(1, 1), 60, 100)
+        ]
+    );
+    doc["comp"] = json!({"hold":"x - - - | . . . . | . . . . | . . . ."});
+    let error = compile(&doc.to_string()).unwrap_err();
+    assert_eq!(error.diagnostics[0].path.as_deref(), Some("comp.hold"));
 }

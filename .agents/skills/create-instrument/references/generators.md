@@ -19,7 +19,7 @@ Assetを参照する有効なLayerでは、必要なWAVの欠落・読み込み�
 | Granular | Grain分解によるTexture再構成 |
 | Wave Sequence | 複数Assetの時系列切り替え |
 
-各GeneratorのField表で**Dynamic**がYesの項目は、Modulation RouteやParameter Changeから動かせます。Dynamic ParameterのIDは`layer.<layer_id>.generator.<name>`形式です（Operator Modulationだけ`operator.<1-4>.<parameter>`）。`position`のような走査位置は、各Generatorが準備したSource領域内の位置を表します。値を変えるときは`instrument inspect`でNative Unit・Scale・Clamp範囲を確認できます。
+各GeneratorのField表で**Dynamic**がYesの項目は、Modulation RouteやParameter Changeから動かせます。Dynamic ParameterのIDは`layer.<layer_id>.generator.<name>`形式です（Operator Modulationだけ`layer.<layer_id>.generator.operator.<1-4>.<parameter>`）。`position`のような走査位置は、各Generatorが準備したSource領域内の位置を表します。値を変えるときは`instrument inspect`でNative Unit・Scale・Clamp範囲を確認できます。
 
 ## Oscillator
 
@@ -363,7 +363,7 @@ A/BのChannel数不一致はCompile Errorです。
 | `operators[].modulation_amount` | Mode依存 | Yes | Phase / Frequencyは0〜8、Amplitude / Ringは0〜1 |
 | `operators[].feedback` | 0〜1 | Yes | 直前Sampleで自己変調する量（Phase / Frequencyのみ） |
 | `operators[].phase` | 0〜1 | No | 初期位相 |
-| `operators[].envelope` | Optional ADSR | No | Operator個別のADSR |
+| `operators[].envelope` | ADSR | No | Operator個別のADSR |
 | `unison.voices` | 1〜4 | No | UnisonのVoice数 |
 
 制約：
@@ -395,7 +395,7 @@ AlgorithmごとのOperator接続は次のとおりです。`A→B`はAの出力�
 | Amplitude | 接続元Operatorの出力でCarrierの振幅を変調する |
 | Ring | Carrier信号と接続元Operator出力の積へ、Amountの割合で近づける |
 
-Dynamic Parameter：`operator.<1-4>.ratio`、`operator.<1-4>.detune`、`operator.<1-4>.level`（Carrierのみ）、`operator.<1-4>.modulation_amount`（接続元のみ）、`operator.<1-4>.feedback`（Phase / Frequencyのみ）、`unison_detune` / `unison_spread`（Unison指定時）
+Dynamic Parameter：`layer.<layer_id>.generator.`に続く`operator.<1-4>.ratio`、`operator.<1-4>.detune`、`operator.<1-4>.level`（Carrierのみ）、`operator.<1-4>.modulation_amount`（接続元のみ）、`operator.<1-4>.feedback`（Phase / Frequencyのみ）、`unison_detune` / `unison_spread`（Unison指定時）
 
 ## Sample
 
