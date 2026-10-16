@@ -61,6 +61,12 @@ fn note_attributes_gate_and_legato_resolve_on_the_exact_timeline() {
         invalid["melodies"]["line"] = json!([line]);
         assert!(compile(&invalid.to_string()).is_err());
     }
+    let mut short_gate = doc;
+    short_gate["instruments"]["lead"]["gate"] = json!("1/100");
+    short_gate["melodies"]["line"] = json!(["1~ 3 . . | . . . . | . . . . | . . . ."]);
+    let connected = notes(&compile(&short_gate.to_string()).unwrap(), "lead");
+    assert!(connected[0].0.clone() + &connected[0].1 > connected[1].0);
+    assert!(connected[0].0.clone() + &connected[0].1 < &connected[1].0 + &connected[1].1);
 }
 
 #[test]
@@ -89,6 +95,30 @@ fn bass_degrees_follow_tonic_or_slash_bass_after_choices_and_overrides() {
     );
     doc["bass"]["line"]["relative_to"] = json!("other");
     assert!(compile(&doc.to_string()).is_err());
+
+    doc["meta"]["gate"] = json!(1);
+    doc["instruments"]["lead"]["gate"] = json!(1);
+    doc["form"] =
+        json!([{"section":"a","bars":2,"tonic":"C"},{"section":"b","bars":1,"tonic":"D"}]);
+    doc["sections"] = json!({"a":{"velocity":84,"chords":["1:maj","4:maj/6"],"bass":{"pattern":"line"},
+        "bass_overrides":[{"bar":2,"parts":{"lead":"5 - . . | . . . . | 1' - . . | . . . ."}}],
+        "placements":[
+            {"instrument":"lead","degree":"6,,,","at":{"bar":1,"step":5},"duration_quarters":"1/2"},
+            {"instrument":"lead","degree":"#1,,","at":{"bar":2,"step":5},"duration_quarters":1}]},
+        "b":{"chords":["5:7/7"],"placements":[{"instrument":"lead","degree":"1","at":{"bar":1,"step":1},"duration_quarters":1}]}});
+    doc["bass"] = json!({"line":{"relative_to":"chord_bass","parts":{"lead":"1 - 5 - | T . . . | . . . . | . . . ."},"choices":{"T":{"odd":".","even":"1'"}}}});
+    assert_eq!(
+        notes(&compile(&doc.to_string()).unwrap(), "lead"),
+        [
+            (q(0, 1), q(1, 2), 36, 84),
+            (q(1, 2), q(1, 2), 43, 84),
+            (q(1, 1), q(1, 2), 33, 84),
+            (q(4, 1), q(1, 2), 40, 84),
+            (q(5, 1), q(1, 1), 37, 84),
+            (q(6, 1), q(1, 2), 45, 84),
+            (q(8, 1), q(1, 1), 62, 100),
+        ]
+    );
 }
 
 #[test]
@@ -125,6 +155,14 @@ fn voicing_precedence_is_shared_by_comp_pad_arp_and_placements() {
             .collect::<Vec<_>>(),
         [51, 58, 43]
     );
+    let placement = &mut doc["sections"]["a"]["placements"][0];
+    placement.as_object_mut().unwrap().remove("chord");
+    placement["degree"] = json!("1");
+    assert!(
+        compile(&doc.to_string()).unwrap_err().diagnostics[0]
+            .message
+            .contains("voicing fields require chord")
+    );
 }
 
 #[test]
@@ -146,6 +184,22 @@ fn counter_rests_and_ties_respect_lead_silence_and_instrument_gate() {
     );
     doc["counters"]["answer"]["cell"] = json!("- 3");
     assert!(compile(&doc.to_string()).is_err());
+
+    doc["counters"]["answer"]["cell"] = json!("3");
+    doc["melodies"]["line"] = json!(["1 - - - | - - - - | . . . . | . . . ."]);
+    doc["instruments"]["lead"]["gate"] = json!("1/4");
+    doc["instruments"]["layer"] = json!({"external":true,"gate":1});
+    doc["sections"]["a"]["lead"]["layers"] = json!([{"instrument":"layer"}]);
+    let layered = compile(&doc.to_string()).unwrap();
+    assert_eq!(notes(&layered, "lead")[0].1, q(1, 2));
+    assert_eq!(notes(&layered, "layer")[0].1, q(2, 1));
+    assert_eq!(
+        notes(&layered, "counter")
+            .iter()
+            .map(|n| n.0.clone())
+            .collect::<Vec<_>>(),
+        [q(2, 1), q(3, 1)]
+    );
 }
 
 #[test]

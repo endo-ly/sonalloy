@@ -100,11 +100,12 @@ pub(super) struct Chord {
     tones: Vec<ChordTone>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 struct ChordTone {
     degree: u8,
     accidental: i32,
     semitones: i32,
+    spelling: String,
 }
 
 fn chord_tone(text: &str) -> Result<ChordTone> {
@@ -112,6 +113,9 @@ fn chord_tone(text: &str) -> Result<ChordTone> {
     let prefix = &text[..text.len() - body.len()];
     if prefix.len() > 2 || (prefix.contains('b') && prefix.contains('#')) {
         return Err(Error::new("", "invalid chord accidental"));
+    }
+    if body.is_empty() || body.starts_with('0') || !body.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(Error::new("", "expected chord degree 1..13"));
     }
     let degree = body
         .parse::<u8>()
@@ -127,6 +131,7 @@ fn chord_tone(text: &str) -> Result<ChordTone> {
         degree,
         accidental,
         semitones,
+        spelling: text.into(),
     })
 }
 
@@ -232,7 +237,7 @@ fn chord_quality(quality: &str) -> Result<Vec<ChordTone>> {
 
 fn normalize_tones(mut tones: Vec<ChordTone>) -> Result<Vec<ChordTone>> {
     tones.sort_by_key(|t| (t.degree, t.accidental));
-    tones.dedup();
+    tones.dedup_by_key(|tone| (tone.degree, tone.accidental));
     if tones.is_empty() {
         return Err(Error::new("", "chord must contain tones"));
     }
@@ -299,7 +304,19 @@ pub(super) fn explicit_voicing(
             .filter(|t| t.degree == degree && accidental.is_none_or(|a| t.accidental == a))
             .collect();
         let [tone] = candidates.as_slice() else {
-            return Err(Error::new("", "voicing tone is absent or ambiguous"));
+            return Err(Error::new(
+                "",
+                format!(
+                    "voicing tone `{role}` is absent or ambiguous in `{}`; available tones: {}",
+                    chord.spelling,
+                    chord
+                        .tones
+                        .iter()
+                        .map(|tone| tone.spelling.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            ));
         };
         let note = root + tone.semitones + octave;
         if !(0..=127).contains(&note) {
@@ -439,21 +456,25 @@ pub(super) fn articulate(
     end: &Quarter,
     path: &str,
 ) -> Result<Vec<Span>> {
+    let mut connections = Vec::with_capacity(notes.len());
+    for span in &mut notes {
+        let connected = note(&span.token).map_err(|e| e.at(path))?.legato;
+        if !connected {
+            span.duration *= gate;
+        }
+        connections.push(connected);
+    }
     for i in 0..notes.len() {
-        let parsed = note(&notes[i].token).map_err(|e| e.at(path))?;
-        let duration = if parsed.legato {
+        if connections[i] {
             let next = notes
                 .get(i + 1)
                 .ok_or_else(|| Error::new(path, "legato has no following note"))?;
             if &notes[i].at + &notes[i].duration != next.at {
                 return Err(Error::new(path, "legato cannot cross a rest or gap"));
             }
-            let overlap = q(1, 64).min(&next.unit / q(4, 1));
-            (&next.at + overlap).min(end.clone()) - &notes[i].at
-        } else {
-            &notes[i].duration * gate
-        };
-        notes[i].duration = duration;
+            let overlap = q(1, 64).min(next.unit.clone().min(next.duration.clone()) / q(4, 1));
+            notes[i].duration = (&next.at + overlap).min(end.clone()) - &notes[i].at;
+        }
     }
     Ok(notes)
 }
@@ -516,11 +537,33 @@ mod tests {
                 expected.iter().map(|n| n + 48).collect::<Vec<_>>()
             );
         }
-        for quality in [
-            "sus2", "6", "m6", "mMaj7", "9", "maj9", "m9", "11", "maj11", "m11", "13", "maj13",
-            "m13", "add9", "madd9",
+        for (quality, expected) in [
+            ("sus2", vec![0, 2, 7]),
+            ("6", vec![0, 4, 7, 9]),
+            ("m6", vec![0, 3, 7, 9]),
+            ("mMaj7", vec![0, 3, 7, 11]),
+            ("9", vec![0, 4, 7, 10, 14]),
+            ("maj9", vec![0, 4, 7, 11, 14]),
+            ("m9", vec![0, 3, 7, 10, 14]),
+            ("11", vec![0, 4, 7, 10, 14, 17]),
+            ("maj11", vec![0, 4, 7, 11, 14, 17]),
+            ("m11", vec![0, 3, 7, 10, 14, 17]),
+            ("13", vec![0, 4, 7, 10, 14, 17, 21]),
+            ("maj13", vec![0, 4, 7, 11, 14, 17, 21]),
+            ("m13", vec![0, 3, 7, 10, 14, 17, 21]),
+            ("add9", vec![0, 4, 7, 14]),
+            ("madd9", vec![0, 3, 7, 14]),
         ] {
-            assert!(chord(&format!("1:{quality}")).is_ok(), "{quality}");
+            let parsed = chord(&format!("1:{quality}")).unwrap().unwrap();
+            assert_eq!(
+                parsed
+                    .tones
+                    .iter()
+                    .map(|tone| tone.semitones)
+                    .collect::<Vec<_>>(),
+                expected,
+                "{quality}"
+            );
         }
         let altered = chord("1:7(b9,#9,#11,omit5,add13)").unwrap().unwrap();
         assert_eq!(
@@ -540,6 +583,8 @@ mod tests {
             "1:()",
             "1:7(b9",
             "1:what",
+            "1:(+3)",
+            "1:(03)",
         ] {
             assert!(chord(invalid).is_err(), "{invalid}");
         }
@@ -560,6 +605,11 @@ mod tests {
             [61, 63]
         );
         assert!(explicit_voicing(&chord, 0, 120, &["#9'".into()]).is_err());
+        let direct = super::chord("1:(1,b3,5,b7,#11)/5").unwrap().unwrap();
+        assert_eq!(
+            explicit_voicing(&direct, 0, 48, &["3".into(), "7".into(), "#11'".into()]).unwrap(),
+            [55, 63, 70, 90]
+        );
     }
 
     #[test]

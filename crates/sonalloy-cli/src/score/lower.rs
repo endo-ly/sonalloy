@@ -643,9 +643,6 @@ impl Builder<'_> {
                 &format!("{path}.lead"),
                 true,
             )?;
-            for e in &self.events[before..] {
-                lead_intervals.push((e.at.clone(), &e.at + &e.duration));
-            }
             if let Some(layers) = lead.get("layers") {
                 for (i, layer) in array(layers, &path)?.iter().enumerate() {
                     let mut copied = lead.clone();
@@ -661,6 +658,9 @@ impl Builder<'_> {
                         true,
                     )?;
                 }
+            }
+            for event in &self.events[before..] {
+                lead_intervals.push((event.at.clone(), &event.at + &event.duration));
             }
         }
         if let Some(drums) = s.value.get("drums") {
@@ -1733,7 +1733,9 @@ fn validate_placement_shape(v: &Value, path: &str) -> Result<()> {
         ));
     }
     if v.get("chord").is_none()
-        && (v.get("voicing_floor_midi").is_some() || v.get("add_root_degree").is_some())
+        && (v.get("voicing").is_some()
+            || v.get("voicing_floor_midi").is_some()
+            || v.get("add_root_degree").is_some())
     {
         return Err(Error::new(path, "voicing fields require chord"));
     }
