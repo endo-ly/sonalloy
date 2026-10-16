@@ -533,7 +533,6 @@ fn midi_export_preserves_notes_across_ports_and_reports_omitted_controls() {
             "aftertouch omitted",
             "1 ParameterChange, 1 ParameterRamp",
             "1 overlapping same-pitch",
-            "lane gains [-6, 0] dB",
         ] {
             assert!(
                 warnings.iter().any(|d| d["path"] == "instruments.part00"
@@ -542,23 +541,25 @@ fn midi_export_preserves_notes_across_ports_and_reports_omitted_controls() {
                 "{expected}: {report}"
             );
         }
-        let gain_warnings: Vec<_> = warnings
+        let gain_infos: Vec<_> = warnings
             .iter()
             .filter(|d| {
                 d["message"]
                     .as_str()
                     .unwrap()
-                    .contains("audio gain omitted")
+                    .contains("audio gain is omitted from MIDI")
             })
             .collect();
-        assert_eq!(gain_warnings.len(), 2);
-        assert!(gain_warnings.iter().any(|d| {
-            d["path"] == "instruments.part01"
-                && d["message"]
-                    .as_str()
-                    .unwrap()
-                    .contains("lane gains [-12] dB")
-        }));
+        assert_eq!(gain_infos.len(), 1);
+        assert_eq!(gain_infos[0]["severity"], "info");
+        assert!(
+            gain_infos[0]["message"]
+                .as_str()
+                .unwrap()
+                .contains("for: part00, part01; note velocities are unchanged"),
+            "{}",
+            gain_infos[0]["message"].as_str().unwrap()
+        );
         let bytes = std::fs::read(&output).unwrap();
         let smf = Smf::parse(&bytes).unwrap();
         assert_eq!(smf.tracks.len(), count + 1);

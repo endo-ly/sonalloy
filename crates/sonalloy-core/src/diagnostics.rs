@@ -204,6 +204,17 @@ impl Diagnostic {
         }
     }
 
+    /// Construct an informational diagnostic without a path.
+    pub fn info(code: DiagnosticCode, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            severity: DiagnosticSeverity::Info,
+            path: None,
+            message: message.into(),
+            detail: None,
+        }
+    }
+
     /// Attach a path to a diagnostic.
     #[must_use]
     pub fn with_path(mut self, path: impl Into<String>) -> Self {

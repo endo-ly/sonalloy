@@ -54,6 +54,21 @@ pub(crate) fn export_score(
         }
         tracks.push(track);
     }
+    let gain_parts = plan
+        .parts
+        .iter()
+        .filter(|part| has_nonzero_lane_gain(part))
+        .map(|part| part.definition.id.as_str())
+        .collect::<Vec<_>>();
+    if !gain_parts.is_empty() {
+        diagnostics.push(Diagnostic::info(
+            DiagnosticCode::MidiError,
+            format!(
+                "audio gain is omitted from MIDI for: {}; note velocities are unchanged",
+                gain_parts.join(", ")
+            ),
+        ));
+    }
     let mut smf = Smf::new(Header::new(
         Format::Parallel,
         Timing::Metrical(u15::new(conductor_pattern.ticks_per_beat)),
@@ -96,31 +111,15 @@ fn event_tick(event: &MusicalEvent) -> u64 {
     }
 }
 
-fn warn_audio_gain(part: &PartLane, diagnostics: &mut Vec<Diagnostic>) {
-    let mut gains: Vec<_> = part
-        .render_lanes
+fn has_nonzero_lane_gain(part: &PartLane) -> bool {
+    part.render_lanes
         .iter()
-        .filter(|lane| lane.pattern.events.iter().any(MusicalEvent::is_note))
-        .map(|lane| lane.gain_db)
-        .collect();
-    gains.sort_by(f64::total_cmp);
-    gains.dedup();
-    if gains.iter().any(|gain| *gain != 0.0) {
-        let values = gains
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join(", ");
-        diagnostics.push(warning(part, format!(
-            "audio gain omitted from MIDI: lane gains [{values}] dB; note velocities are unchanged"
-        )));
-    }
+        .any(|lane| lane.gain_db != 0.0 && lane.pattern.events.iter().any(MusicalEvent::is_note))
 }
 
 fn merge_lanes(part: &PartLane, diagnostics: &mut Vec<Diagnostic>) -> PerformanceEvents {
     let mut pattern = part.pattern.clone();
     pattern.events.retain(MusicalEvent::is_note);
-    warn_audio_gain(part, diagnostics);
     for (kind, label) in ["sustain pedal", "pitch bend", "mod wheel", "aftertouch"]
         .iter()
         .enumerate()
@@ -237,9 +236,7 @@ mod tests {
         part.render_lanes[1].pattern.events.extend(controls.clone());
         let mut diagnostics = Vec::new();
         let merged = merge_lanes(part, &mut diagnostics);
-        assert_eq!(diagnostics.len(), 1);
-        assert!(diagnostics[0].message.contains("lane gains [-6, 0] dB"));
-        diagnostics.clear();
+        assert!(diagnostics.is_empty());
         assert_eq!(
             merged
                 .events
@@ -273,7 +270,7 @@ mod tests {
         ]);
         let merged = merge_lanes(part, &mut diagnostics);
         assert_eq!(midi_events(&merged).unwrap().len(), 4 + controls.len());
-        assert_eq!(diagnostics.len(), 2);
+        assert_eq!(diagnostics.len(), 1);
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic
                 .message
@@ -296,7 +293,7 @@ mod tests {
                 value: 0.5,
             });
         let merged = merge_lanes(part, &mut diagnostics);
-        assert_eq!(diagnostics.len(), 2);
+        assert_eq!(diagnostics.len(), 1);
         assert!(
             diagnostics
                 .iter()
@@ -310,5 +307,41 @@ mod tests {
                 .count(),
             controls.len()
         );
+    }
+
+    #[test]
+    fn export_reports_nonzero_lane_gains_once_as_information() {
+        let directory = tempfile::tempdir().unwrap();
+        let instrument = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata/instruments/basic-poly-synth.json");
+        let score = |gain_db: f64| {
+            json!({"meta":{"title":"Gain","bpm":120,"meter":"4/4","tuning":"12edo"},
+                "form":[{"section":"a","bars":1,"tonic":"C"}],
+                "instruments":{"part":{"definition":instrument,"gain_db":gain_db}},
+                "sections":{"a":{"placements":[
+                    {"instrument":"part","degree":"1","at":{"bar":1,"step":1},"duration_quarters":1}]}}})
+        };
+        let path = directory.path().join("score.yaml");
+        let output = directory.path().join("out.mid");
+
+        std::fs::write(&path, score(-6.0).to_string()).unwrap();
+        let plan = crate::performance::load(&path, &Bindings::default(), 48000, 257).unwrap();
+        let diagnostics = export_score(&output, &plan).unwrap();
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(
+            diagnostics[0].severity,
+            sonalloy_core::DiagnosticSeverity::Info
+        );
+        assert!(
+            diagnostics[0].message.contains(
+                "audio gain is omitted from MIDI for: part; note velocities are unchanged"
+            ),
+            "{}",
+            diagnostics[0].message
+        );
+
+        std::fs::write(&path, score(0.0).to_string()).unwrap();
+        let plan = crate::performance::load(&path, &Bindings::default(), 48000, 257).unwrap();
+        assert!(export_score(&output, &plan).unwrap().is_empty());
     }
 }

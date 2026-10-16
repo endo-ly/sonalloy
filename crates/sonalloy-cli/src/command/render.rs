@@ -1321,20 +1321,25 @@ struct OutputMeasurements {
     mp3_measurement: Option<LoudnessMeasurement>,
 }
 
+/// Typical true peak overshoot that MP3 encoding adds to a WAV already
+/// limited to the ceiling. Overshoot within this margin is lossy-coding
+/// physics, not a mastering mistake.
+const MP3_TRUE_PEAK_TOLERANCE_DB: f64 = 1.0;
+
 /// Build the warning for an encoded MP3 whose measured true peak exceeds the
-/// `meta.master.max_true_peak_db` ceiling. Encoders can push inter-sample
-/// peaks above the rendered WAV's ceiling, so the comparison uses the value
-/// measured after encoding. `None` while the measurement stays within the
-/// ceiling.
+/// `meta.master.max_true_peak_db` ceiling by more than the encoder tolerance.
+/// Encoders push inter-sample peaks above the rendered WAV's ceiling, so the
+/// comparison uses the value measured after encoding. `None` while the
+/// overshoot stays within the tolerance.
 fn mp3_true_peak_warning(measured_db: f64, limit_db: f64) -> Option<Diagnostic> {
-    if measured_db <= limit_db {
+    if measured_db - limit_db <= MP3_TRUE_PEAK_TOLERANCE_DB {
         return None;
     }
     Some(
         Diagnostic::warning(
             DiagnosticCode::ValueOutOfRange,
             format!(
-                "the encoded MP3 measures {measured_db:.2} dBTP, {:.2} dB above the meta.master.max_true_peak_db limit of {limit_db:.2} dBTP; the value is measured after MP3 encoding",
+                "the encoded MP3 measures {measured_db:.2} dBTP, {:.2} dB above the meta.master.max_true_peak_db limit of {limit_db:.2} dBTP; the value is measured after MP3 encoding. lower meta.master.max_true_peak_db to reserve lossy encoding headroom",
                 measured_db - limit_db
             ),
         )
@@ -1971,15 +1976,18 @@ mod mastering_tests {
             mp3_true_peak_warning(-9.01, -9.0).is_none(),
             "the ceiling itself is within the limit"
         );
-        assert!(mp3_true_peak_warning(-12.0, -9.0).is_none());
-        let warning = mp3_true_peak_warning(-8.5, -9.0).expect("overshoot warns");
+        assert!(
+            mp3_true_peak_warning(-8.5, -9.0).is_none(),
+            "typical encoder overshoot stays within the tolerance"
+        );
+        let warning = mp3_true_peak_warning(-7.9, -9.0).expect("abnormal overshoot warns");
         assert_eq!(
             warning.path.as_deref(),
             Some("meta.master.max_true_peak_db")
         );
         assert_eq!(warning.severity, sonalloy_core::DiagnosticSeverity::Warning);
         assert!(
-            warning.message.contains("-8.50 dBTP") && warning.message.contains("0.50 dB above"),
+            warning.message.contains("-7.90 dBTP") && warning.message.contains("1.10 dB above"),
             "the message reports the measured value and the overshoot: {}",
             warning.message
         );
