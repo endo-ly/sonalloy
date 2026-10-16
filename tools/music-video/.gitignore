@@ -2,3 +2,4 @@ node_modules/
 public/
 out/
 projects/*/audio/
+projects/*
