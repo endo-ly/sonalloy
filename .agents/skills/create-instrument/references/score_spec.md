@@ -70,7 +70,7 @@ meta:
 
 `bpm` は四分音符毎分、`reference_octave` は音符 `1` が属するオクターブ（C4＝MIDIノート60）、`gate` は生成音符の基本音価へ掛ける倍率（0より大きく1以下）。`master` の`target_lufs`と`max_true_peak_db`はレンダラーの達成条件であり、外れた出力はエラーになる。`target_lra_lu`は測定値との比較目標で、目標に到達させるマスタリング処理は行わない。測定結果・差分・計測できない理由をレポートし、差が0.5 LUを超えるか計測できない場合はwarningを返す。
 
-`form` の各項目は `{section, bars, tonic}` を必須とし、必要なら`scale`、`bpm`、`meter`、`last_bar_quarters`を追加できる。テンポと拍子は曲頭で`meta`の値を採用し、`form`で値を変更した場合は後続セクションにも引き継ぐ。`section` は `sections` のキー、`bars` は正の整数で、最後の端数小節も1小節として数える。`tonic` は `C` / `F#` / `Bb` などの音名、`scale` は`ionian` / `dorian` / `phrygian` / `lydian` / `mixolydian` / `aeolian` / `locrian` などの既知の音階名とする。`harmonic_minor`、`melodic_minor`、`major_pentatonic`、`minor_pentatonic`、`whole_tone`も組込み名として扱う。組込み以外はトップレベルの`scale_definitions`に、名前をキー、度数トークンの配列を値として登録する。未登録名はエラーとする。`scale`は任意であり、省略した場合はスケール未指定として扱い、音符・コード・演奏イベントは変化しない。
+`form` の各項目は `{section, bars, tonic}` を必須とし、必要なら`scale`、`bpm`、`meter`、`last_bar_quarters`、`swing`を追加できる。テンポと拍子は曲頭で`meta`の値を採用し、`form`で値を変更した場合は後続セクションにも引き継ぐ。`section` は `sections` のキー、`bars` は正の整数で、最後の端数小節も1小節として数える。`tonic` は `C` / `F#` / `Bb` などの音名、`scale` は`ionian` / `dorian` / `phrygian` / `lydian` / `mixolydian` / `aeolian` / `locrian` などの既知の音階名とする。`harmonic_minor`、`melodic_minor`、`major_pentatonic`、`minor_pentatonic`、`whole_tone`も組込み名として扱う。組込み以外はトップレベルの`scale_definitions`に、名前をキー、度数トークンの配列を値として登録する。未登録名はエラーとする。`scale`は任意であり、省略した場合はスケール未指定として扱い、音符・コード・演奏イベントは変化しない。
 
 組込みスケールの構成音（音高決定には使わず、生成・分析の文脈に使用）：
 
@@ -143,7 +143,11 @@ melodies:
 - `|`：拍・区間の区切り。小節ごとの文字列は拍数・区間数を満たす。
 - `[1 2 b3]`：1つの拍・区間を3等分した連符。各要素は同じ長さを持つ。括弧内は空白区切りで、連続文字列のドラム表記とは区別する。
 
-音符の基本長は、次の新しい発音・休符または文字列の終了まで。長さが確定した後、`gate`を適用する。独立した同時発音や精密な音価は`placements`の構造化イベントを使用する。
+メロディ・ベース・対旋律の度数には、`3@110`のように整数1～127のVelocityを付けられる。省略時はセクションの`velocity`（既定100）を使う。臨時記号とオクターブも組み合わせられ、`b3'@90`のように書く。
+
+音符の基本長は、後続の`-`を含めた長さで決める。Gateは楽器の`gate`、`meta.gate`、既定値1の順に選び、基本音価に一度だけ掛ける。値は0より大きく1以下とする。ドラム・コード伴奏・アルペジオにも同じ優先順位を使う。
+
+音符末尾の`~`は次音へのレガート接続で、`1~ 3@110~ 5 -`のように使う。接続元はGateによる短縮を受けず、次音の開始まで保持して短く重なる。重なりは接続先の発音中に収める。休符を越える接続と接続先のない`~`はエラー。単音レガート・ポルタメントの音高遷移は音源定義の演奏設定に従い、ポリフォニック音源では音符の重なりとして演奏する。独立した同時発音や精密な音価は`placements`の構造化イベントを使用する。
 
 ### 4.3 ドラム文字列
 
@@ -156,6 +160,12 @@ drums:
 ```
 
 ドラム1マスは`.`（休み）、`o`（弱）、`x`（通常）、`X`（アクセント）。基本Velocityは`o=64`、`x=96`、`X=120`、発音長は1グリッドマス。`[oooxxx]`なら1区間を6等分し、各文字で同じ長さの音を発音する。音の種類は`parts`のキーが参照する音源で指定する。ドラム以外のメロディ・ベース・コード伴奏のVelocityとは独立する。
+
+### 4.4 スウィング
+
+`meta.swing: {subdivision: 8, ratio: "2/3"}`で8分スウィング、`subdivision: 16`で16分スウィングを指定する。`ratio`は0より大きく1より小さい有理数で、`1/2`は均等、`2/3`は2対1。`form[].swing`は、そのセクションの出現だけで全体設定を上書きする。
+
+メロディ、ドラム、ベース、コード伴奏、アルペジオ、対旋律のグリッド位置と基本音価へ適用する。小節境界を固定し、小節末の不完全な組は均等なまま扱う。連符は組の開始・終了を変換して内部を等分する。変換後に継続・Gate・レガートを解決する。`placements`と`events`の明示位置・音価は保持する。
 
 ## 5. コードと伴奏
 
@@ -177,22 +187,64 @@ drums:
 | `sus4` | 0, 5, 7 |
 | `7sus4` | 0, 5, 7, 10 |
 
+基本構造に6度、7度、9度、11度、13度を組み合わせて指定できる。
+
+| コード名 | 構成の規則 |
+|---|---|
+| `sus2` | 1, 2, 5 |
+| `6` / `m6` | 長三和音・短三和音に6度を追加 |
+| `mMaj7` | 短三和音に長7度を追加 |
+| `9` / `11` / `13` | 長三和音に短7度と、9度・11度・13度を指定段階まで追加 |
+| `maj9` / `maj11` / `maj13` | 長三和音に長7度と、指定段階までの拡張音を追加 |
+| `m9` / `m11` / `m13` | 短三和音に短7度と、指定段階までの拡張音を追加 |
+| `add9` / `madd9` | 長三和音・短三和音に9度を追加 |
+
+9、11、13は複合音程として保持する。コード品質の後ろに、`1:7(b9,#11,omit5)`のように修飾子を付けられる。
+
+| 修飾子 | 意味 |
+|---|---|
+| `add9`, `add11`, `add13` | 指定度数を追加 |
+| `b5`, `#5`, `b9`, `#9`, `#11`, `b13` | 同度数の通常音を変化音に置換。通常音がなければ追加 |
+| `omit3`, `omit5`, `omit7` | 指定度数の構成音を省略 |
+
+追加、変化、省略の順で正規化し、同一構成音の重複は除く。`b9`と`#9`など異なる変化音は共存できる。同じ度数の変化と省略の併用はエラー。
+
+`1:(1,b3,5,b7,#11)`は構成音の直接指定。括弧内はコードルート基準の1～13度と、`b`・`#`・二重臨時記号を使う。基本コード名と同じボイシング指定を利用できる。
+
 例：`tonic: Eb`で `5:7/7` はB♭7/D、`tonic: A`で `1:m` はAm、`tonic: C`で `#1:dim7` はC#dim7。`/`の後も**コードルートからの音程ではなくセクション主音からの度数**。コードのルートと構成音がスケール外でも許容する。
 
 1小節のコードが1個なら全小節、2個なら前後半の同じ長さで割り当てる。より細かい和声変化はセクション内`chord_changes: [{at: ..., chord: ...}]`を用いる（時刻の競合はエラー）。
 
-### 5.2 ベース参照
+### 5.2 ベースの度数と基準音
 
-`bass.<name>.parts`の `R` は**その発音位置で有効なコードのベース音**（分数コードならスラッシュ以降）を指す。`R5`はその音の完全5度上、`N`は次のコードイベントのベース音。`R'`などの `'` / `,` はその音をオクターブ移動する。`choices.T`のような名前付きトークンは宣言済みのものだけ許容し、小節の奇数・偶数で置換してから解析する。奇数・偶数はセクション内1始まり。
+ベースもメロディと同じ度数・臨時記号・オクターブ・Velocity・レガート記法を使う。
 
-ベース参照音の標準配置範囲は **E1～Eb2（MIDI28～39）** とし（`bass_floor_midi` / `bass_ceiling_midi`の省略値）、各コードのベース音をその範囲の同名音へ配置してから `R5` / `N` とオクターブ変化を適用する。`NC`上で `R` を参照した場合、および次のコードが存在しない場合は検証エラー。`N`が次セクションを参照する場合は`form`上の次のコードを使用する。
+```yaml
+bass:
+  groove:
+    relative_to: chord_bass
+    parts:
+      bass: "1 - 5@110 . | b3 - . . | 1 - - - | 5 - . ."
+```
+
+`relative_to`の省略時または`tonic`ではセクション主音、`chord_bass`では発音位置のコードベース音を基準にする。分数コードはスラッシュ指定の音を使う。コード参照を`NC`上で使うとエラーになる。
+
+基準音を`bass_floor_midi`～`bass_ceiling_midi`（既定28～39）に配置してから、度数とオクターブ移動を加える。度数適用後の音高はその音域へ折り返さず、最終MIDIノート0～127を検証する。
+
+`choices.T`のような名前付きトークンは、小節の奇数・偶数に従って置換してから音符を解析する。奇数・偶数はセクション内1始まり。`bass_overrides`と`add_parts`も同じ基準音・音符記法を使う。
 
 ### 5.3 伴奏・アルペジオ・対旋律
 
+`voicing: ["1", "3", "7", "9'"]`で演奏する構成音とオクターブを選べる。`3`はコード品質に含まれる3度を指し、短三和音では短3度になる。同じ度数の変化音が複数ある場合は`b9`や`#9`で特定する。含まれない音や曖昧な指定はエラーとする。
+
+指定先は`instruments.<id>.voicing`、`sections.<id>.comp.<instrument>`の`{pattern, voicing}`形式、`pad`、`arp`、`placements[]`。使用箇所、楽器既定、自動配置の順に優先する。`comp`の値はパターン名の文字列でも指定できる。
+
+明示配置では、下限以上の指定ベース音からコードルートの配置基準を決め、各構成音の複合音程とオクターブ移動を適用して音高順に並べる。配列から外した構成音は演奏せず、分数コードのベースは最低音として保持する。オクターブ移動後の構成音が指定ベースより低くなる場合はエラーとし、音高を自動補正しない。未指定時は以下の自動配置を使う。
+
 - `comp` の `x` は、現在のコードをその位置で発音。`-`で保持、`.`で休止。`hold`に限り、1小節中にコードが替わった地点で前の和音を終了し、新しい和音を発音し直す。
-- `instruments.*.voicing_floor_midi`は、クローズボイシングをその値以上に配置する下限。転回形のベース指定は和音の最低音へ反映する。**ボイシングの決定規則**：`voicing_floor_midi`以上で最も低い指定ベース音を第1声部とする。残りのコード構成音は、第1声部より上の最も近い位置から昇順に配置する。同じ構成音の重複は除く。ベースがコード構成音でない場合は、ベースとは別に構成音全てを追加する。これを標準クローズボイシングとする。
+- `instruments.*.voicing_floor_midi`は、自動ボイシングのベース配置下限。下限以上で最も低い指定ベース音を最低音とし、1～7度の構成音はその直上の最も近い位置に配置する。8度以上の複合音程は、ベース以上の最も低いコードルートを基準として、ルートからの半音数を保持する。例えば下限48の`1:9`は`48,52,55,58,62`となる。同じ音高の重複を除き、昇順に整列する。ベースが構成音でない場合は、ベースと構成音全てを含める。
 - `arps.<name>.order`の各セルは、上記ボイシングの構成音を下から並べた音列のインデックス（非負整数）か、`.`（休符）、`-`（直前の音の継続）である。`-`は直前に発音した同じ音高の音価を延長し、継続中にコードが変わっても発音済みの音高は変わらない。小節をまたぐ継続も許可し、先行する発音がない`-`はエラー。コード音が4個未満の場合は構成音を上オクターブへ反復して必要数を作る。`retrigger_each_step`の省略時または`true`では数値セルごとに再発音し（`-`は常に音価を延長）、`false`では隣接する同音の数値セルを結合してからGateを適用する。`.`はどちらの場合も休符として発音を区切る。Gateは音価が確定した後に一度だけ掛かる。
-- `counters.<name>.when: lead_silent_full_beat` は、その拍の**全期間**にリード音が鳴っていない場合だけ、`cell` の連続音をその1拍に等分配置する。リードの休みはNote Off・Gate処理後に判定する。
+- `counters.<name>.when: lead_silent_full_beat` は、その拍の**全期間**にリード音が鳴っていない場合だけ、`cell`の各セルをその1拍に等分配置する。`.`は休符、`-`は直前の音の継続で、先行音のない継続はエラー。リードの休みは、重ねたリードも含めてNote Off・Gate処理後に判定する。
 
 ## 6. 素材の参照・反復・変奏
 
@@ -221,9 +273,9 @@ drums:
 | `drums` | `drums`内のパターン名 |
 | `bass` | `{pattern, add_parts?}`。`add_parts`は新しい楽器のベースパターンを追加 |
 | `bass_overrides` | 指定小節のベース楽器別パターンの上書き |
-| `comp` | `{楽器名: compパターン名}` |
-| `pad` | `{instrument, pattern}`。`hold`はコードを持続し、コード変更時に再発音 |
-| `arp` / `counter` | `{instrument, pattern}`。それぞれの名前付き規則を参照 |
+| `comp` | `{楽器名: パターン名}`または`{楽器名: {pattern, voicing}}` |
+| `pad` | `{instrument, pattern, voicing?}`。`hold`はコードを持続し、コード変更時に再発音 |
+| `arp` / `counter` | `{instrument, pattern}`。`arp`は`voicing`も指定できる。それぞれの名前付き規則を参照 |
 | `placements` | `{instrument, at, ...}`の配列。特定の音符・コード・切り出しフレーズを指定 |
 | `add_placements` | `placements[]`と同じ要素の配列。継承時に既存の配置リストの末尾へ追記 |
 | `events` | 構造化された演出・制御・マクロの配列（詳細は第10章） |
@@ -237,8 +289,8 @@ drums:
 
 - `melody`：既存の素材名。`slice_steps: {start, count}`で開始位置と切り出すステップ数、`take_notes`で先頭からの発音数を指定できる。切り出した音符イベントの時刻は選択範囲の先頭を0として`at`に配置する。
 - `degree`：指定した度数の1音。`duration_steps`、`velocity`を付与できる。
-- `chord`：指定した度数コードの和音。必要なら`voicing_floor_midi`と`add_root_degree`を指定する。
-- `bass_note`：`R` / `R5` / `N`など、ベース参照による1音。
+- `chord`：指定した度数コードの和音。必要なら`voicing`、`voicing_floor_midi`、`add_root_degree`を指定する。
+- `bass_note`：主音を楽器のベース音域へ配置してから度数を加えた1音。
 
 追加の`transpose`（半音）、`gain_db`（dB）、`mark`（タイムライン表示用の識別子）は許可する。`duration_steps`は正の有理数として解析する。YAMLの数値`1.5`は3/2として正確に扱う。イベントがセクション境界を越える場合は、明示された長さと出力先の許容範囲で検証する。
 
@@ -415,7 +467,22 @@ form:
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 度数 | 1 | #1 | 2 | b3 | 3 | 4 | #4 | 5 | b6 | 6 | b7 | 7 |
 
-MIDIは元の調性・異名同音を必ずしも保持しないので、入力時の主音は明示`--tonic`またはCとする。元のMIDIから音階は特定されないため、`scale`は付与しない。MIDI Noteの絶対音高は`reference_octave`と度数+オクターブで一致させる。受理できないCC、同音Note重複、16チャネル制限などはSonalloyのMIDI入出力契約に従い、表現不能な情報は診断として報告する。
+MIDIは元の調性・異名同音を必ずしも保持しないので、入力時の主音は明示`--tonic`またはCとする。元のMIDIから音階は特定されないため、`scale`は付与しない。MIDI Noteの絶対音高は`reference_octave`と度数+オクターブで一致させる。受理できないCCなど、取り込めない情報は診断として報告する。
+
+### 11.3 MIDI出力
+
+`score export-midi`は、Conductorと楽器ごとの演奏トラックを持つType 1 MIDIを出力する。テンポ・拍子変更、全ゲインレーンの音符と元のVelocity、Sustain Pedal、Pitch Bend、Mod Wheel、Aftertouchを対象とする。音声GainをVelocityへ変換しない。
+
+演奏トラックの0始まり番号を`i`として、ポート`i / 16`、チャンネル`i % 16`を割り当てる。ポート0は既定とし、追加ポートにはMIDI Port情報を記録する。最大128ポートを使用できる。
+
+| 警告対象 | MIDIへの出力 |
+|---|---|
+| 発音レーンの非ゼロの実効Gain | 音声Gainを省略し、楽器IDとレーンごとのGain値を集約して診断。Velocityは保持 |
+| ゲインレーン間で異なる制御列 | 制御の種類ごとに比較し、異なる種類だけ省略。同じ列は1列に統合 |
+| Sonalloy独自Parameter | ParameterChange・ParameterRampを省略し、件数とParameter IDを診断 |
+| 時間的に重複する同音 | Note On・Note Offの件数と時刻を保持して出力。Note IDを持たないMIDI 1.0では、終了対応が再生側に依存することを診断 |
+
+警告は対象楽器を示し、通常表示とJSON成功Reportの`diagnostics`から取得できる。JSONは`status`と`output`も返す。変換に失敗した場合や出力先が存在する場合は、その出力先を変更しない。
 
 ## 12. 解析・診断・安全性
 
@@ -445,20 +512,21 @@ MIDIは元の調性・異名同音を必ずしも保持しないので、入力�
 | 場所 | 許可された主要キー | 解釈 |
 |---|---|---|
 | ルート | `meta,form,time_changes,sections,melodies,scale_definitions,drums,bass,comp,arps,counters,macros,instruments,transitions,notes` | 全て定義済み、追加は禁止 |
-| `meta` | `title,bpm,meter,tuning,reference_octave,gate,master,fade_out_seconds` | `tuning: 12edo`だけ受理 |
+| `meta` | `title,bpm,meter,tuning,reference_octave,gate,swing,master,fade_out_seconds` | `tuning: 12edo`だけ受理 |
+| `meta.swing` / `form[].swing` | `subdivision,ratio` | グリッドのスウィング |
 | `meta.master` | `target_lufs,max_true_peak_db,target_lra_lu` | Master/計測の設定 |
-| `form[]` | `section,bars,tonic,scale,bpm,meter,last_bar_quarters` | 曲中の出現と時間正本。`section`,`bars`,`tonic`は必須で、`scale`は任意（省略時はスケール未指定） |
+| `form[]` | `section,bars,tonic,scale,bpm,meter,last_bar_quarters,swing` | 曲中の出現と時間正本。`section`,`bars`,`tonic`は必須で、`scale`は任意（省略時はスケール未指定） |
 | `time_changes[]` | `at_quarters,bpm` | 曲頭からのテンポ変更 |
 | `sections.<name>` | `from,chords,chord_changes,lead,drums,bass,bass_overrides,comp,pad,arp,counter,placements,add_placements,events,velocity` | 1セクションの演奏宣言 |
 | `melodies` | 小節文字列のリスト、`{from,replace}`、名前空間辞書 | 相対度数と再利用 |
 | `drums.<name>` | `from,parts,overrides` | 1小節Grooveをセクションで反復 |
 | `drums.overrides[]` | `when,parts` | 小節条件を満たしたパートへ置換 |
-| `bass.<name>` | `parts,choices` | 現在・次コード参照 |
+| `bass.<name>` | `parts,choices,relative_to` | 主音またはコードベース基準の度数 |
 | `bass.choices.<token>` | `odd,even` | セクション内奇数・偶数 |
 | `arps.<name>` | `order,voicing_floor_midi,retrigger_each_step` | 和音の声部を音域配置してArp。`order`のセルは非負整数、`.`（休符）、`-`（継続） |
 | `counters.<name>` | `when,cell` | 無音拍に置く対旋律 |
-| `instruments.<id>` | `preset / definition / external`, `gain_db,pan,role,voicing_floor_midi,trigger_note_midi,bass_floor_midi,bass_ceiling_midi,audio_input` | 音源と演奏音域・定位 |
-| `placements[]` | `instrument,at,melody/degree/chord/bass_note,velocity,duration_steps,duration_quarters,transpose,gain_db,mark,slice_steps,take_notes,voicing_floor_midi,add_root_degree` | 明示的発音 |
+| `instruments.<id>` | `preset / definition / external`, `gain_db,pan,role,gate,voicing,voicing_floor_midi,trigger_note_midi,bass_floor_midi,bass_ceiling_midi,audio_input` | 音源と演奏音域・定位 |
+| `placements[]` | `instrument,at,melody/degree/chord/bass_note,velocity,duration_steps,duration_quarters,transpose,gain_db,mark,slice_steps,take_notes,voicing,voicing_floor_midi,add_root_degree` | 明示的発音 |
 | `add_placements[]` | `placements[]`と同じ | 継承時に配置リストの末尾へ追記 |
 | `events[] / macros.<name>` | `kind/macro,at,instrument,instruments,duration_*,parameter,native_value,from_value,to_value,down,value,degree,except_instruments,bars,bar,from_step,through_step,velocity_from,velocity_to,early_hits_per_beat,final_hits_per_beat,last_bar_end_beat,riser` | 演奏・制御・演出 |
 | `transitions[]` | `from,to,method,description` | 解説専用 |

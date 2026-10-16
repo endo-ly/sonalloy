@@ -116,7 +116,7 @@ sonalloy score import-midi phrase.mid --instrument instrument.json --output impo
 
 `inspect --summary` はイベント明細を省いた要約を返します。曲全体（セクション数・楽器数・総音符数・演奏時間・PPQと総Tick数）、セクション別（出現順・小節数・開始終了Tick・主音・スケール・テンポ・拍子・区間内開始音符数）、楽器別（音符数・音域・Velocity範囲・制御イベント数）の集計を含み、同名セクションの再登場は別の出現として数えます。解決時に出た `diagnostics` も詳細出力と同じ形で含み、`--json` なしの場合はwarningを標準エラーへ表示します。`--json` と併用でき、`--preview-json` とは併用できません。省略時は従来どおりの詳細出力です。
 
-MIDI入力の `--channel 1..16` はNote Channelを選び、`--tonic` は度数表記の主音（既定C）を指定します。テンポ、拍子、非グリッド位置、Note、Sustain、Bend、Wheel、Aftertouchを保持します。出力はConductorと楽器ごとのTrackを持つType 1 MIDIです。最大16チャンネル、同音Noteの重複、音源固有Parameter操作などの制約を診断します。MIDI入出力は既存の出力先を上書きしません。
+MIDI入力の `--channel 1..16` はNote Channelを選び、`--tonic` は度数表記の主音（既定C）を指定します。テンポ、拍子、非グリッド位置、Note、Sustain、Bend、Wheel、Aftertouchを保持します。出力はConductorと楽器ごとのTrackを持つType 1 MIDIです。楽器順に16チャンネルごとにMIDI Portを分け、最大128ポートを使用します。成功Reportは`status`、`output`、`diagnostics`を返し、通常表示では出力先とwarningを表示します。省略情報と同音重複の扱いは[Score仕様](score_spec.md#113-midi出力)を参照してください。MIDI入出力は既存の出力先を上書きしません。
 
 ### `render score` — 楽曲・試奏の音声出力
 

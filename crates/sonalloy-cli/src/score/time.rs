@@ -7,6 +7,49 @@ use super::{Error, Result};
 
 pub(super) type Quarter = BigRational;
 
+#[derive(Clone)]
+pub(super) struct Swing {
+    pair: Quarter,
+    ratio: Quarter,
+}
+
+impl Swing {
+    pub(super) fn parse(value: &Value, path: &str) -> Result<Self> {
+        super::fields(value, &["subdivision", "ratio"], path)?;
+        let subdivision = super::integer(super::required(value, "subdivision", path)?, path)?;
+        if ![8, 16].contains(&subdivision) {
+            return Err(Error::new(path, "swing subdivision must be 8 or 16"));
+        }
+        let ratio = rational(super::required(value, "ratio", path)?, path)?;
+        if ratio <= q(0, 1) || ratio >= q(1, 1) {
+            return Err(Error::new(
+                path,
+                "swing ratio must be greater than zero and less than one",
+            ));
+        }
+        Ok(Self {
+            pair: q(8, subdivision),
+            ratio,
+        })
+    }
+
+    pub(super) fn warp(&self, at: &Quarter, length: &Quarter) -> Quarter {
+        let complete =
+            Quarter::from_integer((length / &self.pair).floor().to_integer()) * &self.pair;
+        if at >= &complete {
+            return at.clone();
+        }
+        let start = Quarter::from_integer((at / &self.pair).floor().to_integer()) * &self.pair;
+        let phase = (at - &start) / &self.pair;
+        let position = if phase <= q(1, 2) {
+            phase * q(2, 1) * &self.ratio
+        } else {
+            &self.ratio + (phase - q(1, 2)) * q(2, 1) * (q(1, 1) - &self.ratio)
+        };
+        start + position * &self.pair
+    }
+}
+
 pub(super) fn q(n: i64, d: i64) -> Quarter {
     Quarter::new(BigInt::from(n), BigInt::from(d))
 }

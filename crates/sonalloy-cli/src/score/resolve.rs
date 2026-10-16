@@ -1,6 +1,19 @@
 use super::{Error, Result, array, fields, integer, number, object, required, string, text_field};
 use serde_json::Value;
 
+fn validate_voicing(value: &Value, path: &str) -> Result<()> {
+    if let Some(roles) = value.get("voicing") {
+        let roles = array(roles, path)?;
+        if roles.is_empty() {
+            return Err(Error::new(path, "voicing must contain at least one tone"));
+        }
+        for role in roles {
+            super::syntax::voicing_role(string(role, path)?).map_err(|e| e.at(path))?;
+        }
+    }
+    Ok(())
+}
+
 pub(super) fn inherit(dict: &Value, name: &str, drums: bool, path: &str) -> Result<Value> {
     fn annotated(list: &Value, field: &str, name: &str, path: &str) -> Result<Vec<Value>> {
         Ok(array(list, path)?
@@ -179,11 +192,15 @@ pub(super) fn validate_structure(doc: &Value) -> Result<()> {
             "tuning",
             "reference_octave",
             "gate",
+            "swing",
             "master",
             "fade_out_seconds",
         ],
         "meta",
     )?;
+    if let Some(value) = meta.get("swing") {
+        super::time::Swing::parse(value, "meta.swing")?;
+    }
     if let Some(fade) = meta.get("fade_out_seconds") {
         if number(fade, "meta.fade_out_seconds")? < 0.0 {
             return Err(Error::new(
@@ -237,6 +254,7 @@ pub(super) fn validate_structure(doc: &Value) -> Result<()> {
                 "bpm",
                 "meter",
                 "last_bar_quarters",
+                "swing",
             ],
             &format!("form[{i}]"),
         )?;
@@ -454,7 +472,13 @@ fn validate_sections(sections: &Value) -> Result<()> {
         )?;
         for field in ["pad", "arp", "counter"] {
             if let Some(v) = section.get(field) {
-                fields(v, &["instrument", "pattern"], &format!("{path}.{field}"))?;
+                let allowed = if field == "counter" {
+                    vec!["instrument", "pattern"]
+                } else {
+                    vec!["instrument", "pattern", "voicing"]
+                };
+                fields(v, &allowed, &format!("{path}.{field}"))?;
+                validate_voicing(v, &format!("{path}.{field}"))?;
             }
         }
         validate_lead(section, &path)?;
@@ -483,10 +507,12 @@ fn validate_sections(sections: &Value) -> Result<()> {
                             "slice_steps",
                             "take_notes",
                             "voicing_floor_midi",
+                            "voicing",
                             "add_root_degree",
                         ],
                         &p,
                     )?;
+                    validate_voicing(item, &p)?;
                     position(required(item, "at", &p)?, &format!("{p}.at"))?;
                     if let Some(slice) = item.get("slice_steps") {
                         fields(slice, &["start", "count"], &format!("{p}.slice_steps"))?;
@@ -552,6 +578,8 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
                 "pan",
                 "role",
                 "voicing_floor_midi",
+                "voicing",
+                "gate",
                 "trigger_note_midi",
                 "bass_floor_midi",
                 "bass_ceiling_midi",
@@ -570,6 +598,16 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
             ));
         }
         let path = format!("instruments.{name}");
+        validate_voicing(v, &path)?;
+        if let Some(value) = v.get("gate") {
+            let gate = super::time::rational(value, &format!("{path}.gate"))?;
+            if gate <= super::q(0, 1) || gate > super::q(1, 1) {
+                return Err(Error::new(
+                    format!("{path}.gate"),
+                    "gate must be greater than zero and at most one",
+                ));
+            }
+        }
         for key in ["preset", "definition", "role", "audio_input"] {
             if let Some(value) = v.get(key) {
                 string(value, &format!("{path}.{key}"))?;
@@ -609,7 +647,7 @@ fn validate_instruments(instruments: &Value) -> Result<()> {
 }
 fn validate_materials(doc: &Value) -> Result<()> {
     for (key, allowed) in [
-        ("bass", vec!["parts", "choices"]),
+        ("bass", vec!["parts", "choices", "relative_to"]),
         (
             "arps",
             vec!["order", "voicing_floor_midi", "retrigger_each_step"],
@@ -693,6 +731,11 @@ fn validate_parts(doc: &Value, parts: &Value, path: &str) -> Result<()> {
 fn validate_material(doc: &Value, category: &str, value: &Value, path: &str) -> Result<()> {
     match category {
         "bass" => {
+            if let Some(value) = value.get("relative_to") {
+                if !["tonic", "chord_bass"].contains(&string(value, path)?) {
+                    return Err(Error::new(path, "relative_to must be tonic or chord_bass"));
+                }
+            }
             validate_parts(doc, required(value, "parts", path)?, path)?;
             if let Some(choices) = value.get("choices") {
                 for (name, choice) in object(choices, path)? {
@@ -720,9 +763,30 @@ fn validate_material(doc: &Value, category: &str, value: &Value, path: &str) -> 
             if text_field(value, "when", path)? != "lead_silent_full_beat" {
                 return Err(Error::new(path, "expected lead_silent_full_beat"));
             }
-            for note in text_field(value, "cell", path)?.split_whitespace() {
-                super::syntax::degree(note).map_err(|e| e.at(path))?;
+            let cells: Vec<_> = text_field(value, "cell", path)?
+                .split_whitespace()
+                .enumerate()
+                .map(|(i, token)| {
+                    Ok((
+                        super::q(
+                            i64::try_from(i)
+                                .map_err(|_| Error::new(path, "counter cell is too long"))?,
+                            1,
+                        ),
+                        super::q(1, 1),
+                        token.into(),
+                    ))
+                })
+                .collect::<Result<_>>()?;
+            if cells.is_empty() {
+                return Err(Error::new(path, "counter cell must not be empty"));
             }
+            let end = super::q(
+                i64::try_from(cells.len())
+                    .map_err(|_| Error::new(path, "counter cell is too long"))?,
+                1,
+            );
+            super::syntax::note_spans(cells, &super::q(1, 1), &end, path)?;
         }
         _ => unreachable!("material category"),
     }
@@ -747,7 +811,13 @@ fn validate_section_references(doc: &Value, section: &Value, path: &str) -> Resu
     if let Some(comp) = section.get("comp") {
         for (id, value) in object(comp, path)? {
             instrument_ref(doc, &Value::String(id.clone()), path)?;
-            material_ref(doc, "comp", value, path)?;
+            if value.is_string() {
+                material_ref(doc, "comp", value, path)?;
+            } else {
+                fields(value, &["pattern", "voicing"], path)?;
+                validate_voicing(value, path)?;
+                material_ref(doc, "comp", required(value, "pattern", path)?, path)?;
+            }
         }
     }
     if let Some(bass) = section.get("bass") {

@@ -2,6 +2,7 @@ use num_traits::ToPrimitive;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::syntax::{note_spans, spans};
 use super::time::{Quarter, ppq, rational, tick};
 use super::{
     Error, MeterChange, MusicalEvent, Occurrence, PartWindow, PerformanceEvents, Result, ScoreLane,
@@ -21,6 +22,7 @@ struct Section {
     tonic: i32,
     scale: Option<String>,
     tonic_name: String,
+    swing: Option<super::time::Swing>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -222,6 +224,48 @@ fn merged_part_window_ranges(
 }
 
 impl Builder<'_> {
+    fn gate(&self, id: &str, path: &str) -> Result<Quarter> {
+        self.instrument(id)?
+            .get("gate")
+            .map_or_else(|| Ok(self.gate.clone()), |v| rational(v, path))
+    }
+
+    fn voicing(
+        &self,
+        id: &str,
+        value: &Value,
+        chord: &syntax::Chord,
+        tonic: i32,
+        floor: i32,
+        path: &str,
+    ) -> Result<Vec<i32>> {
+        let roles = value
+            .get("voicing")
+            .or_else(|| self.doc["instruments"][id].get("voicing"));
+        if let Some(roles) = roles {
+            let roles = array(roles, path)?
+                .iter()
+                .map(|v| string(v, path).map(str::to_owned))
+                .collect::<Result<Vec<_>>>()?;
+            syntax::explicit_voicing(chord, tonic, floor, &roles).map_err(|e| e.at(path))
+        } else {
+            Ok(syntax::voicing(chord, tonic, floor))
+        }
+    }
+
+    fn grid(
+        s: &Section,
+        text: &str,
+        length: &Quarter,
+        drums: bool,
+        swing: bool,
+    ) -> Result<Vec<(Quarter, Quarter, String)>> {
+        Ok(time_cells(
+            syntax::grid(text, s.meter, length, drums)?,
+            s.swing.as_ref().filter(|_| swing),
+            length,
+        ))
+    }
     fn apply_part_windows(&mut self) {
         let ranges = merged_part_window_ranges(&self.part_windows);
         if ranges.is_empty() {
@@ -560,12 +604,8 @@ impl Builder<'_> {
         self.harmony.sort_by(|a, b| a.0.cmp(&b.0));
         Ok(())
     }
-    fn harmony_at(&self, at: &Quarter, next: bool, path: &str) -> Result<(&syntax::Chord, i32)> {
-        let entry = if next {
-            self.harmony.iter().find(|(t, _, _)| t > at)
-        } else {
-            self.harmony.iter().rev().find(|(t, _, _)| t <= at)
-        };
+    fn harmony_at(&self, at: &Quarter, path: &str) -> Result<(&syntax::Chord, i32)> {
+        let entry = self.harmony.iter().rev().find(|(t, _, _)| t <= at);
         let (_, chord, tonic) =
             entry.ok_or_else(|| Error::new(path, "no chord exists at the requested time"))?;
         Ok((
@@ -575,34 +615,17 @@ impl Builder<'_> {
             *tonic,
         ))
     }
-    fn bass_note(&self, id: &str, token: &str, at: &Quarter, path: &str) -> Result<i32> {
-        let base = token.trim_end_matches(['\'', ',']);
-        let suffix = &token[base.len()..];
-        if suffix.len() > 12
-            || !(suffix.chars().all(|c| c == '\'') || suffix.chars().all(|c| c == ','))
-        {
-            return Err(Error::new(path, "mixed bass octave marks"));
-        }
-        let (chord, tonic) = self.harmony_at(at, base == "N", path)?;
+    fn bass_note(&self, id: &str, pitch: i32, base: i32, path: &str) -> Result<i32> {
         let instrument = self.instrument(id)?;
         let floor = optional_int(instrument, "bass_floor_midi", 28, path)?;
         let ceiling = optional_int(instrument, "bass_ceiling_midi", 39, path)?;
-        let pc = i64::from(tonic + chord.bass);
+        let pc = i64::from(base);
         let note = floor + (pc - floor).rem_euclid(12);
         if note > ceiling {
             return Err(Error::new(path, "bass range contains no matching pitch"));
         }
-        let fifth = match base {
-            "R" | "N" => 0,
-            "R5" => 7,
-            _ => return Err(Error::new(path, "unknown bass token")),
-        };
-        i32::try_from(
-            note + fifth
-                + 12 * i64::try_from(suffix.len()).unwrap_or(128)
-                    * if suffix.starts_with(',') { -1 } else { 1 },
-        )
-        .map_err(|_| Error::new(path, "bass pitch is out of range"))
+        i32::try_from(note + i64::from(pitch))
+            .map_err(|_| Error::new(path, "bass pitch is out of range"))
     }
     fn section(&mut self, s: &Section) -> Result<()> {
         let path = format!("sections.{}", s.name);
@@ -620,9 +643,6 @@ impl Builder<'_> {
                 &format!("{path}.lead"),
                 true,
             )?;
-            for e in &self.events[before..] {
-                lead_intervals.push((e.at.clone(), &e.at + &e.duration));
-            }
             if let Some(layers) = lead.get("layers") {
                 for (i, layer) in array(layers, &path)?.iter().enumerate() {
                     let mut copied = lead.clone();
@@ -639,6 +659,9 @@ impl Builder<'_> {
                     )?;
                 }
             }
+            for event in &self.events[before..] {
+                lead_intervals.push((event.at.clone(), &event.at + &event.duration));
+            }
         }
         if let Some(drums) = s.value.get("drums") {
             self.drums(s, string(drums, &path)?, &format!("{path}.drums"))?;
@@ -648,20 +671,14 @@ impl Builder<'_> {
         }
         if let Some(comp) = s.value.get("comp") {
             for (id, pattern) in object(comp, &path)? {
-                self.comp(
-                    s,
-                    id,
-                    string(pattern, &path)?,
-                    velocity,
-                    &format!("{path}.comp.{id}"),
-                )?;
+                self.comp(s, id, pattern, velocity, &format!("{path}.comp.{id}"))?;
             }
         }
         if let Some(pad) = s.value.get("pad") {
             self.comp(
                 s,
                 text_field(pad, "instrument", &path)?,
-                text_field(pad, "pattern", &path)?,
+                pad,
                 velocity,
                 &format!("{path}.pad"),
             )?;
@@ -745,8 +762,8 @@ impl Builder<'_> {
                 shift += q(optional_int(value, "shift_steps", 0, path)?, 4);
                 value = b;
             }
-            for (at, unit, token) in syntax::grid(string(value, path)?, s.meter, &length, false)
-                .map_err(|e| e.at(path))?
+            for (at, unit, token) in
+                Self::grid(s, string(value, path)?, &length, false, full).map_err(|e| e.at(path))?
             {
                 cells.push((&cursor + at + &shift, unit, token));
             }
@@ -766,32 +783,37 @@ impl Builder<'_> {
         if take <= 0 {
             return Err(Error::new(path, "take_notes must be positive"));
         }
-        let mut count = 0;
-        for (at, duration, token) in spans {
-            if at < slice_start || at >= slice_end {
-                continue;
-            }
-            if count >= take {
-                break;
-            }
-            count += 1;
-            let duration = duration.min(&slice_end - &at) * &self.gate;
+        let selected = spans
+            .into_iter()
+            .filter(|span| span.at >= slice_start && span.at < slice_end)
+            .take(usize::try_from(take).unwrap_or(usize::MAX))
+            .map(|mut span| {
+                span.duration = span.duration.min(&slice_end - &span.at);
+                span
+            })
+            .collect();
+        for syntax::Span {
+            at,
+            duration,
+            token,
+            ..
+        } in syntax::articulate(selected, &self.gate(id, path)?, &slice_end, path)?
+        {
             let at = &s.start + offset + at - &slice_start;
-            let pitch = (self.octave + 1) * 12
-                + s.tonic
-                + syntax::degree(&token).map_err(|e| e.at(path))?;
+            let parsed = syntax::note(&token).map_err(|e| e.at(path))?;
+            let pitch = (self.octave + 1) * 12 + s.tonic + parsed.pitch;
             let pitch = transposed(pitch, transpose, path)?;
             self.note(
                 id,
                 at,
                 duration,
                 pitch,
-                velocity,
+                parsed.velocity.unwrap_or(velocity),
                 gain,
                 path,
                 Origin::Musical,
             )?;
-            self.events.last_mut().expect("emitted note").spelling = Some(token);
+            self.events.last_mut().expect("emitted note").spelling = Some(parsed.spelling.into());
         }
         Ok(())
     }
@@ -826,7 +848,12 @@ impl Builder<'_> {
                 Some(string(degree, path)?.into());
         } else if let Some(bass) = v.get("bass_note") {
             let note = transposed(
-                self.bass_note(id, string(bass, path)?, &at, path)?,
+                self.bass_note(
+                    id,
+                    syntax::degree(string(bass, path)?).map_err(|e| e.at(path))?,
+                    s.tonic,
+                    path,
+                )?,
                 transpose,
                 path,
             )?;
@@ -849,7 +876,7 @@ impl Builder<'_> {
                 optional_int(self.instrument(id)?, "voicing_floor_midi", 48, path)?,
                 path,
             )?;
-            let mut notes = syntax::voicing(&chord, s.tonic, floor);
+            let mut notes = self.voicing(id, v, &chord, s.tonic, floor, path)?;
             if let Some(root) = v.get("add_root_degree") {
                 notes.push(
                     (self.octave + 1) * 12
@@ -895,9 +922,8 @@ impl Builder<'_> {
             }
             for (id, pattern) in parts {
                 self.instrument(&id)?;
-                for (at, unit, token) in
-                    syntax::grid(string(&pattern, path)?, s.meter, length, true)
-                        .map_err(|e| e.at(path))?
+                for (at, unit, token) in Self::grid(s, string(&pattern, path)?, length, true, true)
+                    .map_err(|e| e.at(path))?
                 {
                     let velocity = match token.as_str() {
                         "." => continue,
@@ -909,7 +935,7 @@ impl Builder<'_> {
                     self.trigger(
                         &id,
                         &cursor + at,
-                        unit * &self.gate,
+                        unit * self.gate(&id, path)?,
                         velocity,
                         path,
                         Origin::Drum,
@@ -956,7 +982,7 @@ impl Builder<'_> {
             }
             for (id, p) in parts {
                 self.instrument(&id)?;
-                let mut cells = syntax::grid(string(&p, path)?, s.meter, length, false)
+                let mut cells = Self::grid(s, string(&p, path)?, length, false, true)
                     .map_err(|e| e.at(path))?;
                 for (_, _, token) in &mut cells {
                     if let Some(choice) = bass.get("choices").and_then(|v| v.get(token.as_str())) {
@@ -977,14 +1003,28 @@ impl Builder<'_> {
             cursor += length;
         }
         for (id, cells) in patterns {
-            for (at, duration, token) in spans(cells, path)? {
-                let note = self.bass_note(&id, &token, &at, path)?;
+            for syntax::Span {
+                at,
+                duration,
+                token,
+                ..
+            } in note_spans(cells, &self.gate(&id, path)?, &(&s.start + &s.length), path)?
+            {
+                let parsed = syntax::note(&token).map_err(|e| e.at(path))?;
+                let reference =
+                    if bass.get("relative_to").and_then(Value::as_str) == Some("chord_bass") {
+                        let (chord, tonic) = self.harmony_at(&at, path)?;
+                        tonic + chord.bass
+                    } else {
+                        s.tonic
+                    };
+                let note = self.bass_note(&id, parsed.pitch, reference, path)?;
                 self.note(
                     &id,
                     at,
-                    duration * &self.gate,
+                    duration,
                     note,
-                    velocity,
+                    parsed.velocity.unwrap_or(velocity),
                     0.0,
                     path,
                     Origin::Musical,
@@ -993,16 +1033,34 @@ impl Builder<'_> {
         }
         Ok(())
     }
-    fn comp(&mut self, s: &Section, id: &str, name: &str, velocity: i64, path: &str) -> Result<()> {
+    fn comp(
+        &mut self,
+        s: &Section,
+        id: &str,
+        value: &Value,
+        velocity: i64,
+        path: &str,
+    ) -> Result<()> {
+        let name = if value.is_string() {
+            string(value, path)?
+        } else {
+            text_field(value, "pattern", path)?
+        };
         let pattern = self.doc["comp"]
             .get(name)
             .ok_or_else(|| Error::new(path, "undefined comp pattern"))?;
         let floor = signed_int(self.instrument(id)?, "voicing_floor_midi", 48, path)?;
         let mut cursor = s.start.clone();
         for length in &s.bars {
-            let cells = syntax::grid(string(pattern, path)?, s.meter, length, false)
+            let cells = Self::grid(s, string(pattern, path)?, length, false, true)
                 .map_err(|e| e.at(path))?;
-            for (at, duration, token) in spans(cells, path)? {
+            for syntax::Span {
+                at,
+                duration,
+                token,
+                ..
+            } in spans(cells, path)?
+            {
                 if token != "x" {
                     return Err(Error::new(path, "comp cells must be x, -, or ."));
                 }
@@ -1024,12 +1082,12 @@ impl Builder<'_> {
                     else {
                         continue;
                     };
-                    let notes = syntax::voicing(chord, *tonic, floor);
+                    let notes = self.voicing(id, value, chord, *tonic, floor, path)?;
                     for note in notes {
                         self.note(
                             id,
                             pair[0].clone(),
-                            (&pair[1] - &pair[0]) * &self.gate,
+                            (&pair[1] - &pair[0]) * self.gate(id, path)?,
                             note,
                             velocity,
                             0.0,
@@ -1062,7 +1120,7 @@ impl Builder<'_> {
         let mut cells = Vec::new();
         for length in &s.bars {
             for (at, unit, token) in
-                syntax::grid(text_field(pattern, "order", path)?, s.meter, length, false)
+                Self::grid(s, text_field(pattern, "order", path)?, length, false, true)
                     .map_err(|e| e.at(path))?
             {
                 cells.push((&cursor + &at, unit, token));
@@ -1070,7 +1128,13 @@ impl Builder<'_> {
             cursor += length;
         }
         let mut pending: Vec<(Quarter, Quarter, i32)> = Vec::new();
-        for (at, duration, token) in spans(cells, path)? {
+        for syntax::Span {
+            at,
+            duration,
+            token,
+            ..
+        } in spans(cells, path)?
+        {
             let index = token
                 .parse::<usize>()
                 .ok()
@@ -1086,7 +1150,7 @@ impl Builder<'_> {
             else {
                 continue;
             };
-            let notes = syntax::voicing(chord, *tonic, floor);
+            let notes = self.voicing(id, v, chord, *tonic, floor, path)?;
             let note = notes[index % notes.len()]
                 + 12 * i32::try_from(index / notes.len()).expect("arp index below 128");
             if !retrigger
@@ -1103,7 +1167,7 @@ impl Builder<'_> {
             self.note(
                 id,
                 at,
-                duration * &self.gate,
+                duration * self.gate(id, path)?,
                 note,
                 velocity,
                 0.0,
@@ -1142,28 +1206,53 @@ impl Builder<'_> {
                     .map_err(|_| Error::new(path, "counter cell is too long"))?,
                 1,
             );
-        let mut at = s.start.clone();
-        let end = &s.start + &s.length;
-        while at < end {
-            let beat_end = (&at + &beat).min(end.clone());
-            if &beat_end - &at == beat && lead.iter().all(|(a, b)| b <= &at || a >= &beat_end) {
-                for (i, token) in cell.iter().enumerate() {
-                    let note = (self.octave + 1) * 12
-                        + s.tonic
-                        + syntax::degree(token).map_err(|e| e.at(path))?;
-                    self.note(
-                        id,
-                        &at + &unit * q(i64::try_from(i).expect("bounded cell index"), 1),
-                        &unit * &self.gate,
-                        note,
-                        velocity,
-                        0.0,
-                        path,
-                        Origin::Musical,
-                    )?;
+        let mut cursor = s.start.clone();
+        for length in &s.bars {
+            let mut offset = q(0, 1);
+            while &offset + &beat <= *length {
+                let cells = cell
+                    .iter()
+                    .enumerate()
+                    .map(|(i, token)| syntax::GridCell {
+                        at: &offset + &unit * q(i64::try_from(i).expect("bounded cell index"), 1),
+                        duration: unit.clone(),
+                        token: (*token).into(),
+                        tuplet: (!cell.len().is_power_of_two())
+                            .then(|| (offset.clone(), beat.clone())),
+                    })
+                    .collect();
+                let cells = time_cells(cells, s.swing.as_ref(), length);
+                let beat_start = &cursor + &cells[0].0;
+                let last = cells.last().expect("nonempty cell");
+                let beat_end = &cursor + &last.0 + &last.1;
+                if lead.iter().all(|(a, b)| b <= &beat_start || a >= &beat_end) {
+                    let cells = cells
+                        .into_iter()
+                        .map(|(at, duration, token)| (&cursor + at, duration, token))
+                        .collect();
+                    for syntax::Span {
+                        at: start,
+                        duration,
+                        token,
+                        ..
+                    } in note_spans(cells, &self.gate(id, path)?, &beat_end, path)?
+                    {
+                        let parsed = syntax::note(&token).map_err(|e| e.at(path))?;
+                        self.note(
+                            id,
+                            start,
+                            duration,
+                            (self.octave + 1) * 12 + s.tonic + parsed.pitch,
+                            parsed.velocity.unwrap_or(velocity),
+                            0.0,
+                            path,
+                            Origin::Musical,
+                        )?;
+                    }
                 }
+                offset += &beat;
             }
-            at += &beat;
+            cursor += length;
         }
         Ok(())
     }
@@ -1480,33 +1569,33 @@ impl Builder<'_> {
     }
 }
 
-fn spans(
-    cells: Vec<(Quarter, Quarter, String)>,
-    path: &str,
-) -> Result<Vec<(Quarter, Quarter, String)>> {
-    let mut result: Vec<(Quarter, Quarter, String)> = Vec::new();
-    let mut active = false;
-    for (at, unit, token) in cells {
-        match token.as_str() {
-            "-" => {
-                if !active {
-                    return Err(Error::new(path, "tie has no preceding note"));
+fn time_cells(
+    cells: Vec<syntax::GridCell>,
+    swing: Option<&super::time::Swing>,
+    length: &Quarter,
+) -> Vec<(Quarter, Quarter, String)> {
+    cells
+        .into_iter()
+        .map(|cell| {
+            let start = cell.at;
+            let end = &start + &cell.duration;
+            let (at, end) = if let Some(swing) = swing {
+                if let Some((group, duration)) = &cell.tuplet {
+                    let a = swing.warp(group, length);
+                    let b = swing.warp(&(group + duration), length);
+                    let map = |t: &Quarter| &a + (t - group) / duration * (&b - &a);
+                    (map(&start), map(&end))
+                } else {
+                    (swing.warp(&start, length), swing.warp(&end, length))
                 }
-                let last = result.last_mut().expect("active note");
-                if &last.0 + &last.1 != at {
-                    return Err(Error::new(path, "tie crosses an unnotated gap"));
-                }
-                last.1 = at + unit - &last.0;
-            }
-            "." => active = false,
-            _ => {
-                result.push((at, unit, token));
-                active = true;
-            }
-        }
-    }
-    Ok(result)
+            } else {
+                (start, end)
+            };
+            (at.clone(), end - at, cell.token)
+        })
+        .collect()
 }
+
 fn bar_range(v: &Value, length: usize, path: &str) -> Result<(usize, usize)> {
     let range = array(v, path)?;
     if range.len() != 2 {
@@ -1644,7 +1733,9 @@ fn validate_placement_shape(v: &Value, path: &str) -> Result<()> {
         ));
     }
     if v.get("chord").is_none()
-        && (v.get("voicing_floor_midi").is_some() || v.get("add_root_degree").is_some())
+        && (v.get("voicing").is_some()
+            || v.get("voicing_floor_midi").is_some()
+            || v.get("add_root_degree").is_some())
     {
         return Err(Error::new(path, "voicing fields require chord"));
     }
@@ -1830,6 +1921,11 @@ fn resolve_form(doc: &Value, mut bpm: f64, mut meter: (u8, u8)) -> Result<FormTi
             }
         }
         sections.push(Section {
+            swing: entry
+                .get("swing")
+                .or_else(|| doc["meta"].get("swing"))
+                .map(|value| super::time::Swing::parse(value, &format!("{path}.swing")))
+                .transpose()?,
             name: name.into(),
             value,
             start: start.clone(),
