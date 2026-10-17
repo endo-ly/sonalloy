@@ -1,0 +1,474 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Felt Hammer Keys",
+    "author": "claude-opus-5-5",
+    "description": "わずかに音程をずらした2本の物理モデル弦に、フェルト越しの鈍いハンマー音と息のような柔らかい打鍵音を重ねた鍵盤。丸い発音から弦のうなりを伴って減衰し、離鍵時にはダンパーが弦に触れる小さな擦れが残る。弱く弾くと輪郭がこもり、強く弾くほど明るさと打鍵感が増し、Mod Wheelでフェルトの覆いを外したように明るくなる。",
+    "category": "Keys",
+    "tags": [
+      "Physical",
+      "Mellow",
+      "Soft",
+      "Warm"
+    ],
+    "recommended_range": {
+      "min_midi": 36,
+      "max_midi": 88
+    }
+  },
+  "external_audio": null,
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 24,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "string_a",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -6,
+      "pan": -0.18,
+      "tuning_cents": -1.6,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.1,
+        "sustain_level": 1,
+        "release_seconds": 0.32
+      },
+      "generator": {
+        "physical_string": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.009,
+            "brightness": 0.22,
+            "seed": 1501
+          },
+          "decay_seconds": 6.5,
+          "brightness": 0.5,
+          "stiffness": 0.12
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "felt",
+          "mode": "low_pass",
+          "cutoff_hz": 1900,
+          "resonance": 0.04
+        }
+      ]
+    },
+    {
+      "id": "string_b",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -6,
+      "pan": 0.18,
+      "tuning_cents": 1.9,
+      "envelope": {
+        "attack_seconds": 0.005,
+        "decay_seconds": 0.1,
+        "sustain_level": 1,
+        "release_seconds": 0.36
+      },
+      "generator": {
+        "physical_string": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.011,
+            "brightness": 0.2,
+            "seed": 1502
+          },
+          "decay_seconds": 5.6,
+          "brightness": 0.48000000000000004,
+          "stiffness": 0.13
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "felt",
+          "mode": "low_pass",
+          "cutoff_hz": 1900,
+          "resonance": 0.04
+        }
+      ]
+    },
+    {
+      "id": "thock",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -9,
+      "pan": 0,
+      "tuning_cents": -1200,
+      "envelope": {
+        "attack_seconds": 0.001,
+        "decay_seconds": 0.07,
+        "sustain_level": 0,
+        "release_seconds": 0.05
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.006,
+            "brightness": 0.3,
+            "seed": 1503
+          },
+          "mode_count": 8,
+          "structure": 0.3,
+          "brightness": 0.25,
+          "decay": 0.18
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "wood",
+          "mode": "band_pass",
+          "cutoff_hz": 420,
+          "resonance": 0.15
+        }
+      ]
+    },
+    {
+      "id": "puff",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -37,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.003,
+        "decay_seconds": 0.035,
+        "sustain_level": 0,
+        "release_seconds": 0.03
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 1505,
+          "stereo_correlation": 0.5
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "felt_air",
+          "mode": "band_pass",
+          "cutoff_hz": 2400,
+          "resonance": 0.05
+        }
+      ]
+    },
+    {
+      "id": "damper",
+      "enabled": true,
+      "trigger": {
+        "event": "note_off",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -30,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.006,
+        "decay_seconds": 0.07,
+        "sustain_level": 0,
+        "release_seconds": 0.04
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 1504,
+          "stereo_correlation": 0.7
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "cloth",
+          "mode": "band_pass",
+          "cutoff_hz": 700,
+          "resonance": 0.1
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "dc",
+      "mode": "high_pass",
+      "cutoff_hz": 38,
+      "resonance": 0
+    },
+    {
+      "type": "eq",
+      "id": "body",
+      "low_frequency_hz": 120,
+      "low_gain_db": -1.5,
+      "mid_frequency_hz": 280,
+      "mid_gain_db": 2,
+      "mid_q": 0.7,
+      "high_frequency_hz": 5000,
+      "high_gain_db": -4
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "compressor",
+      "id": "settle",
+      "detector": "self_signal",
+      "threshold_db": -16,
+      "ratio": 1.8,
+      "attack_ms": 15,
+      "release_ms": 180,
+      "knee_db": 10,
+      "makeup_gain_db": 7,
+      "mix": 0.8
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.006,
+      "decay": 0.5,
+      "damping": 0.68,
+      "width": 0.8,
+      "mix": 0.16
+    },
+    {
+      "type": "limiter",
+      "id": "ceiling",
+      "ceiling_db": -1,
+      "release_ms": 120,
+      "input_gain_db": 8
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "hand",
+        "type": "random",
+        "seed": 1511
+      },
+      {
+        "id": "hand_b",
+        "type": "random",
+        "seed": 1512
+      }
+    ],
+    "routes": [
+      {
+        "source": "velocity",
+        "target": "layer.string_a.gain",
+        "depth": {
+          "value": 18,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.string_b.gain",
+        "depth": {
+          "value": 18,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.thock.gain",
+        "depth": {
+          "value": 14,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.string_a.processor.felt.cutoff",
+        "depth": {
+          "value": 1.4,
+          "unit": "octaves"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.string_b.processor.felt.cutoff",
+        "depth": {
+          "value": 1.4,
+          "unit": "octaves"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.string_a.generator.physical_string_brightness",
+        "depth": {
+          "value": 0.16,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.string_b.generator.physical_string_brightness",
+        "depth": {
+          "value": 0.16,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.string_a.processor.felt.cutoff",
+        "depth": {
+          "value": 1.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.string_b.processor.felt.cutoff",
+        "depth": {
+          "value": 1.3,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.string_a.generator.physical_string_decay_seconds",
+        "depth": {
+          "value": -1.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.string_b.generator.physical_string_decay_seconds",
+        "depth": {
+          "value": -1.6,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.thock.processor.wood.cutoff",
+        "depth": {
+          "value": 1,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hand",
+        "target": "layer.string_a.tuning",
+        "depth": {
+          "value": 1.5,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hand_b",
+        "target": "layer.string_b.tuning",
+        "depth": {
+          "value": 1.5,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hand",
+        "target": "layer.string_a.processor.felt.cutoff",
+        "depth": {
+          "value": 0.12,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hand_b",
+        "target": "layer.thock.gain",
+        "depth": {
+          "value": 2,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.string_a.processor.felt.cutoff",
+        "depth": {
+          "value": 1.2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.string_b.processor.felt.cutoff",
+        "depth": {
+          "value": 1.2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.puff.gain",
+        "depth": {
+          "value": 16,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.puff.processor.felt_air.cutoff",
+        "depth": {
+          "value": 0.8,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

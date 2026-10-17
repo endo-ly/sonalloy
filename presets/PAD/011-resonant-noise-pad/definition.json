@@ -1,0 +1,386 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Resonant Noise Pad",
+    "author": "claude-opus-5-5",
+    "description": "音程に追従する共鳴器へノイズを通し、息そのものが倍音列として鳴るように作ったパッド。ゆっくり立ち上がった後も共鳴の鋭さと明るさが呼吸のように揺れ、上の倍音域では左右に広がる空気の層が重なる。和音では各声部が息の質感を保ったまま溶け合い、強いベロシティほど音程が明瞭に、Mod Wheelを上げるほど息の成分が増える。",
+    "category": "Pad",
+    "tags": [
+      "Noisy",
+      "Resonant",
+      "Airy",
+      "Evolving",
+      "Wide"
+    ],
+    "recommended_range": {
+      "min_midi": 43,
+      "max_midi": 84
+    }
+  },
+  "external_audio": null,
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 12,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "core",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -17,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.8,
+        "decay_seconds": 2.2,
+        "sustain_level": 0.82,
+        "release_seconds": 2.4
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 1101,
+          "stereo_correlation": 0.35
+        }
+      },
+      "processors": [
+        {
+          "type": "resonator",
+          "id": "throat",
+          "frequency_hz": 320.24,
+          "decay_seconds": 0.8,
+          "damping": 0.55,
+          "mix": 1
+        },
+        {
+          "type": "filter",
+          "id": "breath",
+          "mode": "low_pass",
+          "cutoff_hz": 2400,
+          "resonance": 0.08
+        }
+      ]
+    },
+    {
+      "id": "halo",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -31,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 1.6,
+        "decay_seconds": 2.5,
+        "sustain_level": 0.9,
+        "release_seconds": 3.2
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 1102,
+          "stereo_correlation": 0
+        }
+      },
+      "processors": [
+        {
+          "type": "resonator",
+          "id": "throat",
+          "frequency_hz": 640.48,
+          "decay_seconds": 2.4,
+          "damping": 0.6,
+          "mix": 1
+        },
+        {
+          "type": "filter",
+          "id": "thin",
+          "mode": "high_pass",
+          "cutoff_hz": 700,
+          "resonance": 0
+        }
+      ]
+    },
+    {
+      "id": "anchor",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -32,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 1.2,
+        "decay_seconds": 2,
+        "sustain_level": 0.8,
+        "release_seconds": 2
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "triangle"
+          },
+          "phase_reset": false,
+          "phase": 0
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "soft",
+          "mode": "low_pass",
+          "cutoff_hz": 700,
+          "resonance": 0
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "floor",
+      "mode": "high_pass",
+      "cutoff_hz": 70,
+      "resonance": 0
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "eq",
+      "id": "clear",
+      "low_frequency_hz": 150,
+      "low_gain_db": -2,
+      "mid_frequency_hz": 380,
+      "mid_gain_db": -2.5,
+      "mid_q": 0.8,
+      "high_frequency_hz": 9000,
+      "high_gain_db": 1.5
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.03,
+      "decay": 0.86,
+      "damping": 0.45,
+      "width": 1,
+      "mix": 0.3
+    },
+    {
+      "type": "limiter",
+      "id": "ceiling",
+      "ceiling_db": -1,
+      "release_ms": 200,
+      "input_gain_db": 0
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "breathing",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 0.11,
+          "unit": "per_second"
+        },
+        "phase": 0
+      },
+      {
+        "id": "drift_core",
+        "type": "smooth_random",
+        "seed": 1111,
+        "rate": {
+          "value": 0.35,
+          "unit": "per_second"
+        }
+      },
+      {
+        "id": "drift_halo",
+        "type": "smooth_random",
+        "seed": 1112,
+        "rate": {
+          "value": 0.28,
+          "unit": "per_second"
+        }
+      },
+      {
+        "id": "voice_offset",
+        "type": "random",
+        "seed": 1113
+      }
+    ],
+    "routes": [
+      {
+        "source": "key_tracking",
+        "target": "layer.core.processor.throat.frequency_hz",
+        "depth": {
+          "value": 5.2917,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.halo.processor.throat.frequency_hz",
+        "depth": {
+          "value": 5.2917,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.core.processor.breath.cutoff",
+        "depth": {
+          "value": 1.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.halo.processor.thin.cutoff",
+        "depth": {
+          "value": 2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "key_tracking",
+        "target": "layer.anchor.processor.soft.cutoff",
+        "depth": {
+          "value": 2.5,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "voice_offset",
+        "target": "layer.core.processor.throat.frequency_hz",
+        "depth": {
+          "value": 0.004,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "breathing",
+        "target": "layer.core.processor.throat.damping",
+        "depth": {
+          "value": 0.12,
+          "unit": "normalized"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "breathing",
+        "target": "layer.core.processor.breath.cutoff",
+        "depth": {
+          "value": 0.45,
+          "unit": "octaves"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "drift_halo",
+        "target": "layer.halo.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.core.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.halo.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.anchor.gain",
+        "depth": {
+          "value": 8,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.core.processor.throat.damping",
+        "depth": {
+          "value": -0.15,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.core.processor.throat.damping",
+        "depth": {
+          "value": 0.3,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "mod_wheel",
+        "target": "layer.halo.gain",
+        "depth": {
+          "value": 6,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "drift_core",
+        "target": "layer.core.processor.throat.damping",
+        "depth": {
+          "value": 0.06,
+          "unit": "normalized"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "drift_halo",
+        "target": "layer.halo.processor.thin.cutoff",
+        "depth": {
+          "value": 0.5,
+          "unit": "octaves"
+        },
+        "curve": "smooth_step"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

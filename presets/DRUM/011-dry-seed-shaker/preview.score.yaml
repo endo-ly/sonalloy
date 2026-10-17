@@ -1,5 +1,5 @@
 meta:
-  title: "Noise Shaker preview"
+  title: "Dry Seed Shaker preview"
   bpm: 120
   meter: "4/4"
   tuning: "12edo"
@@ -64,4 +64,4 @@ sections:
         velocity: 100
 instruments:
   preview:
-    preset: "DRUM/011-noise-shaker"
+    preset: "DRUM/011-dry-seed-shaker"

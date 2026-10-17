@@ -1,0 +1,25 @@
+meta:
+  title: "Felt Hammer Keys preview"
+  bpm: 72
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  - {section: "phrase", bars: 2, tonic: "Eb", scale: "ionian"}
+sections:
+  phrase:
+    placements:
+      - {instrument: "preview", at: {bar: 1, offset_quarters: "0"}, chord: "4:maj9", voicing: ["1", "5", "9", "3'"], voicing_floor_midi: 44, duration_quarters: "4", velocity: 72}
+      - {instrument: "preview", at: {bar: 1, offset_quarters: "1/2"}, degree: "2'", duration_quarters: "1", velocity: 74}
+      - {instrument: "preview", at: {bar: 1, offset_quarters: "3/2"}, degree: "5", duration_quarters: "1/2", velocity: 52}
+      - {instrument: "preview", at: {bar: 1, offset_quarters: "2"}, degree: "3'", duration_quarters: "3/2", velocity: 86}
+      - {instrument: "preview", at: {bar: 1, offset_quarters: "7/2"}, degree: "2'", duration_quarters: "1/2", velocity: 46}
+      - {instrument: "preview", at: {bar: 2, offset_quarters: "0"}, chord: "6:m9", voicing: ["1", "b3", "7", "9"], voicing_floor_midi: 43, duration_quarters: "7/2", velocity: 66}
+      - {instrument: "preview", at: {bar: 2, offset_quarters: "0"}, degree: "1'", duration_quarters: "1", velocity: 78}
+      - {instrument: "preview", at: {bar: 2, offset_quarters: "5/4"}, degree: "1'", duration_quarters: "1/4", velocity: 40}
+      - {instrument: "preview", at: {bar: 2, offset_quarters: "3/2"}, degree: "7", duration_quarters: "1/2", velocity: 58}
+      - {instrument: "preview", at: {bar: 2, offset_quarters: "2"}, degree: "5", duration_quarters: "3/2", velocity: 64}
+instruments:
+  preview:
+    preset: "KEYS/015-felt-hammer-keys"

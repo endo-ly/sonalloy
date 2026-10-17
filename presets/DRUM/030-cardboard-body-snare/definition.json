@@ -1,0 +1,449 @@
+{
+  "schema_version": 6,
+  "metadata": {
+    "name": "Cardboard Body Snare",
+    "author": "claude-opus-5-5",
+    "description": "段ボール箱を叩いたような、響き線を持たない鈍く短いスネア。低中域の箱鳴りと手のひらで叩いたような打音が先に立ち、紙のかすれた中域が一瞬だけ重なって、狭い部屋鳴りへすぐ収まる。弱い打撃ではこもった胴鳴りだけが残り、強いほど紙の擦れと接触音が増え、低い鍵ほど大きな箱の鳴りになる。",
+    "category": "Drum",
+    "tags": [
+      "Hollow",
+      "Percussive",
+      "Short",
+      "Dark"
+    ],
+    "recommended_range": {
+      "min_midi": 33,
+      "max_midi": 41
+    }
+  },
+  "external_audio": null,
+  "performance": {
+    "mode": "polyphonic",
+    "polyphony": 4,
+    "voice_stealing": "quietest_releasing_then_oldest"
+  },
+  "layers": [
+    {
+      "id": "box",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": 0,
+      "pan": 0,
+      "tuning_cents": 1500,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.2,
+        "sustain_level": 0,
+        "release_seconds": 0.08
+      },
+      "generator": {
+        "modal": {
+          "exciter": {
+            "type": "noise_burst",
+            "duration_seconds": 0.003,
+            "brightness": 0.45,
+            "seed": 3001
+          },
+          "mode_count": 12,
+          "structure": 0.3,
+          "brightness": 0.3,
+          "decay": 0.3
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "dull",
+          "mode": "low_pass",
+          "cutoff_hz": 1800,
+          "resonance": 0.05
+        }
+      ]
+    },
+    {
+      "id": "thup",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -30,
+      "pan": 0,
+      "tuning_cents": 1200,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.085,
+        "sustain_level": 0,
+        "release_seconds": 0.04
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "sine"
+          },
+          "phase_reset": true,
+          "phase": 0
+        }
+      },
+      "processors": []
+    },
+    {
+      "id": "slap",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": 6,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.05,
+        "sustain_level": 0,
+        "release_seconds": 0.03
+      },
+      "generator": {
+        "noise": {
+          "color": "brown",
+          "seed": 3005,
+          "stereo_correlation": 0.8
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "palm",
+          "mode": "band_pass",
+          "cutoff_hz": 380,
+          "resonance": 0.2
+        },
+        {
+          "type": "filter",
+          "id": "muffle",
+          "mode": "low_pass",
+          "cutoff_hz": 1400,
+          "resonance": 0
+        }
+      ]
+    },
+    {
+      "id": "paper",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -16,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0008,
+        "decay_seconds": 0.085,
+        "sustain_level": 0,
+        "release_seconds": 0.03
+      },
+      "generator": {
+        "noise": {
+          "color": "pink",
+          "seed": 3003,
+          "stereo_correlation": 0.6
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "fiber",
+          "mode": "band_pass",
+          "cutoff_hz": 1700,
+          "resonance": 0.25
+        }
+      ]
+    },
+    {
+      "id": "contact",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -30,
+      "pan": 0,
+      "tuning_cents": 0,
+      "envelope": {
+        "attack_seconds": 0.0002,
+        "decay_seconds": 0.012,
+        "sustain_level": 0,
+        "release_seconds": 0.01
+      },
+      "generator": {
+        "noise": {
+          "color": "white",
+          "seed": 3004,
+          "stereo_correlation": 0.9
+        }
+      },
+      "processors": [
+        {
+          "type": "filter",
+          "id": "edge",
+          "mode": "high_pass",
+          "cutoff_hz": 3500,
+          "resonance": 0
+        },
+        {
+          "type": "filter",
+          "id": "soft_edge",
+          "mode": "low_pass",
+          "cutoff_hz": 6500,
+          "resonance": 0
+        }
+      ]
+    }
+  ],
+  "voice_processors": [
+    {
+      "type": "filter",
+      "id": "floor",
+      "mode": "high_pass",
+      "cutoff_hz": 90,
+      "resonance": 0
+    },
+    {
+      "type": "eq",
+      "id": "carton",
+      "low_frequency_hz": 200,
+      "low_gain_db": 0,
+      "mid_frequency_hz": 520,
+      "mid_gain_db": 3,
+      "mid_q": 1.4,
+      "high_frequency_hz": 6000,
+      "high_gain_db": -5
+    },
+    {
+      "type": "transient_shaper",
+      "id": "snap",
+      "attack": 0.25,
+      "sustain": -0.35,
+      "mix": 1
+    }
+  ],
+  "global_processors": [
+    {
+      "type": "compressor",
+      "id": "squash",
+      "detector": "self_signal",
+      "threshold_db": -18,
+      "ratio": 3,
+      "attack_ms": 4,
+      "release_ms": 70,
+      "knee_db": 6,
+      "makeup_gain_db": 3,
+      "mix": 0.7
+    },
+    {
+      "type": "reverb",
+      "id": "closet",
+      "pre_delay_seconds": 0.004,
+      "decay": 0.22,
+      "damping": 0.7,
+      "width": 0.6,
+      "mix": 0.1
+    },
+    {
+      "type": "limiter",
+      "id": "ceiling",
+      "ceiling_db": -1,
+      "release_ms": 60,
+      "input_gain_db": 4
+    }
+  ],
+  "modulation": {
+    "sources": [
+      {
+        "id": "thump",
+        "type": "mseg",
+        "initial_value": 1,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.022,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": null
+      },
+      {
+        "id": "flap",
+        "type": "lfo",
+        "waveform": "triangle",
+        "rate": {
+          "value": 34,
+          "unit": "per_second"
+        },
+        "phase": 0
+      },
+      {
+        "id": "hit",
+        "type": "random",
+        "seed": 3011
+      },
+      {
+        "id": "hit_b",
+        "type": "random",
+        "seed": 3012
+      }
+    ],
+    "routes": [
+      {
+        "source": "thump",
+        "target": "layer.thup.tuning",
+        "depth": {
+          "value": 500,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "flap",
+        "target": "layer.paper.gain",
+        "depth": {
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.box.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.thup.gain",
+        "depth": {
+          "value": 10,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.paper.gain",
+        "depth": {
+          "value": 16,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.contact.gain",
+        "depth": {
+          "value": 18,
+          "unit": "decibels"
+        },
+        "curve": "smooth_step"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.box.generator.modal_brightness",
+        "depth": {
+          "value": 0.25,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit",
+        "target": "layer.box.tuning",
+        "depth": {
+          "value": 30,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit",
+        "target": "layer.paper.processor.fiber.cutoff",
+        "depth": {
+          "value": 0.35,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit_b",
+        "target": "layer.thup.tuning",
+        "depth": {
+          "value": 20,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit_b",
+        "target": "layer.contact.gain",
+        "depth": {
+          "value": 3,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit_b",
+        "target": "layer.box.generator.modal_structure",
+        "depth": {
+          "value": 0.04,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.slap.gain",
+        "depth": {
+          "value": 12,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "hit_b",
+        "target": "layer.slap.processor.palm.cutoff",
+        "depth": {
+          "value": 0.2,
+          "unit": "octaves"
+        },
+        "curve": "linear"
+      }
+    ]
+  },
+  "macros": [],
+  "vectors": []
+}

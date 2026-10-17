@@ -1,0 +1,17 @@
+meta:
+  title: "Resonant Noise Pad preview"
+  bpm: 76
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 4
+  gate: 1
+form:
+  - {section: "phrase", bars: 3, tonic: "D", scale: "dorian"}
+sections:
+  phrase:
+    placements:
+      - {instrument: "preview", at: {bar: 1, offset_quarters: "0"}, chord: "1:m9", voicing: ["1", "5", "9", "b3'"], voicing_floor_midi: 50, duration_quarters: "4", velocity: 84}
+      - {instrument: "preview", at: {bar: 2, offset_quarters: "0"}, chord: "b6:maj7(#11)", voicing: ["1", "5", "7", "#11"], voicing_floor_midi: 46, duration_quarters: "4", velocity: 96}
+instruments:
+  preview:
+    preset: "PAD/011-resonant-noise-pad"

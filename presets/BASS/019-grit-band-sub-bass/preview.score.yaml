@@ -1,0 +1,25 @@
+meta:
+  title: "Grit Band Sub Bass preview"
+  bpm: 92
+  meter: "4/4"
+  tuning: "12edo"
+  reference_octave: 2
+  gate: 0.9
+form:
+  -
+    section: "phrase"
+    bars: 2
+    tonic: "E"
+    scale: "aeolian"
+sections:
+  phrase:
+    lead:
+      instrument: "preview"
+      melody: "riff"
+melodies:
+  riff:
+    - "1@112 - - . | . 1@58 . b3@96~ | 4 - . b7,@104 | 1@92 . 5,@70 ."
+    - "b6,@116 - - - | - . b6,@60 . | b7,@100~ 1~ b3@108 - | - - . 5@84"
+instruments:
+  preview:
+    preset: "BASS/019-grit-band-sub-bass"
