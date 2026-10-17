@@ -133,6 +133,32 @@ Layerは「Generator + Layer Processor + ADSR + Gain + Pan」のセットで、T
 
 最小値は最大値以下にします。
 
+### Velocityの作用
+
+Note OnのVelocityは、Layerの発音条件、Generator固有の制御、Modulation Sourceの3通りで利用できます。
+
+1. `trigger.velocity_min`〜`velocity_max`はLayerの発音範囲です。
+2. GeneratorごとのVelocity制御は各仕様に従います。Sample Generatorは各ZoneのVelocity範囲で再生Zoneを選びます。
+3. Modulation Sourceの`velocity`は、Note Onの値を`0..1`へ正規化したVoice単位の値です。音量を調整する場合はGain ParameterへRouteします。
+
+Layerの`gain_db`はLayerの基準音量です。Velocityによる音量差を作る最小例は次のとおりです。
+
+```json
+"modulation": {
+  "sources": [],
+  "routes": [
+    {
+      "source": "velocity",
+      "target": "layer.body.gain",
+      "depth": { "value": 8.0, "unit": "decibels" },
+      "curve": "linear"
+    }
+  ]
+}
+```
+
+このRouteはVelocityに応じてLayer Gainを最大8 dB加算します。
+
 Layerの全体例は「全体構造」の例にある`layers[0]`です。
 
 Open HatとClosed Hatのような排他発音では、別々のNote範囲を持つLayerに同じ`choke_group: "hats"`を指定します。実際に発音するLayerだけがChokeを起こし、同Groupの古いLayerはADSRのRelease設定によらず5msで停止します。Voice内の他GroupのLayerとGlobal Processorの残響は継続します。`performance.choke_groups`も宣言した場合は、Keyに応じたNote全体の停止も適用されます。

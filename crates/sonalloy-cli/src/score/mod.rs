@@ -17,6 +17,17 @@ use time::q;
 
 type Result<T> = std::result::Result<T, Error>;
 
+#[derive(Debug, Default)]
+struct ErrorContext {
+    token_location: Option<(usize, String)>,
+    score_position: Option<time::Quarter>,
+    section: Option<String>,
+    occurrence: Option<usize>,
+    bar: Option<usize>,
+    step: Option<String>,
+    source_bar: Option<usize>,
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("{path}: {message}")]
 struct Error {
@@ -25,6 +36,7 @@ struct Error {
     line: usize,
     column: usize,
     actual: Option<Box<Value>>,
+    context: Option<Box<ErrorContext>>,
 }
 
 impl Error {
@@ -35,6 +47,7 @@ impl Error {
             line: 0,
             column: 0,
             actual: None,
+            context: None,
         }
     }
     fn at(mut self, path: &str) -> Self {
@@ -43,7 +56,48 @@ impl Error {
         }
         self
     }
+    fn with_token_location(mut self, path: &str, offset: usize, token: &str) -> Self {
+        self = self.at(path);
+        self.context.get_or_insert_with(Box::default).token_location =
+            Some((offset, token.to_owned()));
+        self
+    }
+    fn with_score_position(mut self, position: time::Quarter, source_bar: Option<usize>) -> Self {
+        let context = self.context.get_or_insert_with(Box::default);
+        context.score_position = Some(position);
+        context.source_bar = source_bar;
+        self
+    }
+    fn with_score_context(
+        mut self,
+        section: &str,
+        occurrence: usize,
+        bar: usize,
+        step: String,
+    ) -> Self {
+        let context = self.context.get_or_insert_with(Box::default);
+        context.section = Some(section.to_owned());
+        context.occurrence = Some(occurrence);
+        context.bar = Some(bar);
+        context.step = Some(step);
+        context.score_position = None;
+        self
+    }
+    fn take_score_position(&mut self) -> Option<time::Quarter> {
+        self.context
+            .as_mut()
+            .and_then(|context| context.score_position.take())
+    }
     fn failure(mut self, source: &Source) -> CliFailure {
+        if let Some((offset, token)) = self
+            .context
+            .as_deref()
+            .and_then(|context| context.token_location.as_ref())
+            && let Some((line, column)) = source.token_location(&self.path, *offset, token)
+        {
+            self.line = line;
+            self.column = column;
+        }
         if self.line == 0 {
             let mut path = self.path.as_str();
             loop {
@@ -58,31 +112,99 @@ impl Error {
                 path = &path[..index];
             }
         }
+        let token = self
+            .context
+            .as_deref()
+            .and_then(|context| context.token_location.as_ref())
+            .map(|(_, token)| Box::new(Value::String(token.clone())));
         self.actual = self
             .actual
+            .or(token)
             .or_else(|| source.values.get(&self.path).cloned().map(Box::new));
-        let mut context = self.path.as_str();
-        let mut bar = None;
-        let mut step = None;
+        let mut path_context = self.path.as_str();
+        let mut bar = self
+            .context
+            .as_deref()
+            .and_then(|context| context.bar)
+            .map(Value::from);
+        let mut step = self
+            .context
+            .as_deref()
+            .and_then(|context| context.step.clone())
+            .map(Value::from);
         loop {
-            if let Some(value) = source.values.get(&format!("{context}.at.bar")) {
-                bar = Some(value.clone());
-                step = source.values.get(&format!("{context}.at.step")).cloned();
+            if bar.is_some() {
                 break;
             }
-            let Some(index) = context.rfind(['.', '[']) else {
+            if let Some(value) = source.values.get(&format!("{path_context}.at.bar")) {
+                bar = Some(value.clone());
+                step = source
+                    .values
+                    .get(&format!("{path_context}.at.step"))
+                    .cloned();
+                break;
+            }
+            let Some(index) = path_context.rfind(['.', '[']) else {
                 break;
             };
-            context = &context[..index];
+            path_context = &path_context[..index];
         }
-        CliFailure { code: 1, diagnostics: vec![sonalloy_core::Diagnostic::error(sonalloy_core::DiagnosticCode::DefinitionError, &self.message).with_path(&self.path).with_detail(serde_json::json!({"source_type":"score","bar":bar,"step":step,"line":self.line,"column":self.column,"actual":self.actual,"expected":self.message,"section":self.path.strip_prefix("sections.").and_then(|s|s.split('.').next())}).to_string())] }
+        let section = self
+            .context
+            .as_deref()
+            .and_then(|context| context.section.clone())
+            .or_else(|| {
+                self.path
+                    .strip_prefix("sections.")
+                    .and_then(|s| s.split('.').next())
+                    .map(str::to_owned)
+            });
+        let source_bar = self
+            .context
+            .as_deref()
+            .and_then(|context| context.source_bar);
+        let occurrence = self
+            .context
+            .as_deref()
+            .and_then(|context| context.occurrence);
+        CliFailure { code: 1, diagnostics: vec![sonalloy_core::Diagnostic::error(sonalloy_core::DiagnosticCode::DefinitionError, &self.message).with_path(&self.path).with_detail(serde_json::json!({"source_type":"score","source_bar":source_bar,"bar":bar,"step":step,"line":self.line,"column":self.column,"actual":self.actual,"expected":self.message,"section":section,"occurrence":occurrence}).to_string())] }
     }
 }
 
 #[derive(Debug, Clone, Default)]
 struct Source {
+    text: String,
     positions: BTreeMap<String, (usize, usize)>,
+    indices: BTreeMap<String, usize>,
     values: BTreeMap<String, Value>,
+}
+
+impl Source {
+    fn token_location(&self, path: &str, offset: usize, token: &str) -> Option<(usize, usize)> {
+        let value = self.values.get(path)?.as_str()?;
+        let start = *self.indices.get(path)?;
+        let end = self
+            .indices
+            .values()
+            .copied()
+            .filter(|index| *index > start)
+            .min()
+            .unwrap_or(self.text.len());
+        let prefix = value.get(..offset)?;
+        let occurrence = prefix.match_indices(token).count();
+        let raw = self.text.get(start..end)?;
+        let raw_offset = raw.match_indices(token).nth(occurrence)?.0;
+        let source_prefix = self.text.get(..start + raw_offset)?;
+        let line = source_prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
+        let column = source_prefix
+            .rsplit('\n')
+            .next()?
+            .trim_end_matches('\r')
+            .chars()
+            .count()
+            + 1;
+        Some((line, column))
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -97,6 +219,9 @@ pub(crate) struct Occurrence {
     pub(crate) bpm: f64,
     pub(crate) meter: String,
     pub(crate) chords: Vec<ChordChange>,
+    pub(crate) bar_start_ticks: Vec<u64>,
+    pub(crate) bar_end_ticks: Vec<u64>,
+    pub(crate) part_gains: BTreeMap<String, f64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -117,6 +242,10 @@ pub(crate) struct ScoreLane {
 pub(crate) struct EventSource {
     pub(crate) path: String,
     pub(crate) spelling: Option<String>,
+    #[serde(skip_serializing)]
+    pub(crate) token_offset: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) source_bar: Option<usize>,
     pub(crate) tick: u64,
     pub(crate) at_quarters: String,
     pub(crate) duration_quarters: String,
@@ -125,6 +254,7 @@ pub(crate) struct EventSource {
     pub(crate) section: String,
     pub(crate) bar: usize,
     pub(crate) step: String,
+    pub(crate) occurrence: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -204,16 +334,19 @@ pub(crate) fn compile(text: &str) -> std::result::Result<ScorePlan, CliFailure> 
         .map(|mut plan| {
             for lane in &mut plan.lanes {
                 for origin in &mut lane.sources {
-                    if let Some(section) = plan
+                    if let Some((section_index, section)) = plan
                         .sections
                         .iter()
-                        .find(|section| {
+                        .enumerate()
+                        .find(|(_, section)| {
                             origin.tick >= section.start_tick && origin.tick < section.end_tick
                         })
                         .or_else(|| {
                             plan.sections
-                                .last()
-                                .filter(|section| origin.tick == section.end_tick)
+                                .iter()
+                                .enumerate()
+                                .next_back()
+                                .filter(|(_, section)| origin.tick == section.end_tick)
                         })
                     {
                         let (numerator, denominator) =
@@ -230,12 +363,24 @@ pub(crate) fn compile(text: &str) -> std::result::Result<ScorePlan, CliFailure> 
                             .expect("resolved bar")
                             .min(section.bars - 1);
                         origin.section = section.section.clone();
+                        origin.occurrence = section_index + 1;
                         origin.bar = index + 1;
                         origin.step = ((elapsed
                             - bar_length * q(i64::try_from(index).expect("resolved bar"), 1))
                             * q(4, 1)
                             + q(1, 1))
                         .to_string();
+                    }
+                    let token_location = origin
+                        .token_offset
+                        .zip(origin.spelling.as_deref())
+                        .and_then(|(offset, token)| {
+                            source.token_location(&origin.path, offset, token)
+                        });
+                    if let Some((line, column)) = token_location {
+                        origin.line = line;
+                        origin.column = column;
+                        continue;
                     }
                     let mut path = origin.path.as_str();
                     loop {
@@ -462,6 +607,68 @@ mod tests {
             assert!(detail["line"].as_u64().expect("line") > 0);
             assert!(detail["column"].as_u64().expect("column") > 0);
         }
+    }
+
+    #[test]
+    fn melody_diagnostics_follow_from_replace_and_use_source_tokens() {
+        let diagnostic = |doc: &serde_json::Value, melody: &str, source_path: &str| {
+            let mut doc = doc.clone();
+            doc["meta"]["title"] = serde_json::json!("青い夜");
+            doc["sections"]["phrase"]["lead"] = serde_json::json!({
+                "instrument": "part",
+                "melody": melody
+            });
+            let yaml = super::to_yaml(&doc).expect("Score YAML");
+            let text = format!("# 日本語のコメント\n{yaml}");
+            let expected_token = text.find(". - - -").expect("quoted tie token") + 2;
+            let error = super::compile(&text).expect_err("unmatched tie fails");
+            let diagnostic = &error.diagnostics[0];
+            assert_eq!(diagnostic.path.as_deref(), Some(source_path));
+            let detail: serde_json::Value =
+                serde_json::from_str(diagnostic.detail.as_deref().expect("source detail"))
+                    .expect("structured source detail");
+            let before = &text[..expected_token];
+            assert_eq!(
+                detail["line"],
+                before.bytes().filter(|byte| *byte == b'\n').count() + 1
+            );
+            assert_eq!(
+                detail["column"],
+                before
+                    .rsplit('\n')
+                    .next()
+                    .expect("line prefix")
+                    .chars()
+                    .count()
+                    + 1
+            );
+            assert_eq!(detail["actual"], "-");
+            assert_eq!(detail["section"], "phrase");
+            assert_eq!(detail["occurrence"], 1);
+            assert_eq!(detail["bar"], 1);
+            assert_eq!(detail["step"], "2");
+            assert_eq!(detail["source_bar"], 1);
+        };
+
+        let mut inherited = document();
+        inherited["melodies"]["source"] =
+            serde_json::json!([". - - - | - - - - | - - - - | - - - -"]);
+        inherited["melodies"]["from_copy"] = serde_json::json!({"from":"source"});
+        diagnostic(&inherited, "from_copy", "melodies.source[0]");
+
+        let mut replaced = document();
+        replaced["melodies"]["base"] =
+            serde_json::json!(["1 - - - | 3 - - - | 5 - - - | 1' - - -"]);
+        replaced["melodies"]["replace_copy"] = serde_json::json!({
+            "from":"base",
+            "replace":{"1":". - - - | - - - - | - - - - | - - - -"}
+        });
+        diagnostic(&replaced, "replace_copy", "melodies.replace_copy.replace.1");
+
+        let mut used = document();
+        used["melodies"]["source"] = serde_json::json!([". - - - | - - - - | - - - - | - - - -"]);
+        used["melodies"]["use_copy"] = serde_json::json!([{"use":"source","bars":[1,1]}]);
+        diagnostic(&used, "use_copy", "melodies.source[0]");
     }
 
     #[test]

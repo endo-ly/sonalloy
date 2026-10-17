@@ -82,7 +82,9 @@ pub use definition::{
     ModulationDefinition, ModulationRouteDefinition, ModulationSourceDefinition, RandomDefinition,
     SampleHoldDefinition, SmoothRandomDefinition, StepModulatorDefinition, VectorDefinition,
 };
-pub use diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity, from_render_error};
+pub use diagnostics::{
+    Diagnostic, DiagnosticCode, DiagnosticContext, DiagnosticSeverity, from_render_error,
+};
 pub use parameter::{
     BUILTIN_SOURCE_IDS, ModulationUnit, ParameterCatalog, ParameterCatalogRevision,
     ParameterDescriptor, ParameterHandle, ParameterOwner, ParameterScale, ParameterUnit,

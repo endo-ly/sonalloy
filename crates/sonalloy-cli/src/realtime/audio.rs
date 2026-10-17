@@ -226,6 +226,9 @@ pub(crate) struct AudioEngine {
     queued_events: Vec<QueuedEvent>,
     process_events: Vec<ProcessEvent>,
     output_gain: f32,
+    gain_timeline: Option<super::ScheduledGainTimeline>,
+    gain_segment_index: usize,
+    gain_last_frame: u64,
 }
 
 pub(crate) struct BuiltAudioStreams {
@@ -266,6 +269,9 @@ impl AudioEngine {
             input_right: vec![0.0; max_block_size],
             queued_events: Vec::with_capacity(REALTIME_EVENT_QUEUE_CAPACITY),
             process_events: Vec::with_capacity(REALTIME_EVENT_QUEUE_CAPACITY),
+            gain_timeline: None,
+            gain_segment_index: 0,
+            gain_last_frame: 0,
         }
     }
 
@@ -279,6 +285,7 @@ impl AudioEngine {
         channels: usize,
         input_channels: usize,
         input_queue: Option<Arc<ArrayQueue<InputFrame>>>,
+        gain_timeline: Option<super::ScheduledGainTimeline>,
     ) -> Self {
         let process_event_capacity = feed.max_events_per_block();
         let time_signature = feed.context_at(0).time_signature;
@@ -301,6 +308,9 @@ impl AudioEngine {
             input_right: vec![0.0; max_block_size],
             queued_events: Vec::with_capacity(1),
             process_events: Vec::with_capacity(process_event_capacity),
+            gain_timeline,
+            gain_segment_index: 0,
+            gain_last_frame: 0,
         }
     }
 
@@ -385,8 +395,9 @@ impl AudioEngine {
             }
             for frame in 0..block_frames {
                 let offset = (frame_start + frame) * self.channels;
-                data[offset] = T::from_sample_(self.left[frame] * self.output_gain);
-                data[offset + 1] = T::from_sample_(self.right[frame] * self.output_gain);
+                let gain = self.gain_at(absolute_frame + u64::try_from(frame).unwrap_or(u64::MAX));
+                data[offset] = T::from_sample_(self.left[frame] * gain);
+                data[offset + 1] = T::from_sample_(self.right[frame] * gain);
             }
             frame_start += block_frames;
             if self.scheduled_finished() {
@@ -433,6 +444,47 @@ impl AudioEngine {
                 Ok(Some((frames, feed.context_at(absolute_frame))))
             }
         }
+    }
+
+    fn gain_at(&mut self, absolute_frame: u64) -> f32 {
+        let Some(timeline) = self.gain_timeline.as_ref() else {
+            return self.output_gain;
+        };
+        if timeline.loop_length_frames == 0 {
+            return self.output_gain;
+        }
+        if !timeline.looping && absolute_frame >= timeline.loop_length_frames {
+            return timeline
+                .segments
+                .last()
+                .map_or(self.output_gain, |segment| segment.to_gain);
+        }
+        let frame = if timeline.looping {
+            absolute_frame % timeline.loop_length_frames
+        } else {
+            absolute_frame
+        };
+        if frame < self.gain_last_frame && timeline.looping {
+            self.gain_segment_index = 0;
+        }
+        self.gain_last_frame = frame;
+        while self.gain_segment_index + 1 < timeline.segments.len()
+            && frame >= timeline.segments[self.gain_segment_index].end_frame
+        {
+            self.gain_segment_index += 1;
+        }
+        let segment = &timeline.segments[self.gain_segment_index];
+        if frame < segment.start_frame {
+            return segment.from_gain;
+        }
+        let elapsed = frame - segment.start_frame;
+        let duration = segment.transition_end_frame - segment.start_frame;
+        if elapsed >= duration || duration == 0 {
+            return segment.to_gain;
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let progress = elapsed as f32 / duration as f32;
+        segment.from_gain + (segment.to_gain - segment.from_gain) * progress
     }
 
     fn scheduled_finished(&self) -> bool {
@@ -540,6 +592,7 @@ pub(crate) fn build_scheduled_stream(
     runtime: InstrumentRuntime,
     feed: ScheduledEventFeed,
     gain: f32,
+    gain_timeline: Option<super::ScheduledGainTimeline>,
     status: &Arc<RealtimeStatus>,
     max_block_size: usize,
 ) -> Result<BuiltAudioStreams, DeviceError> {
@@ -571,6 +624,7 @@ pub(crate) fn build_scheduled_stream(
         channels,
         input_channels,
         input_queue.clone(),
+        gain_timeline,
     );
 
     engine.output_gain = gain;
@@ -1031,6 +1085,7 @@ mod tests {
             48_000.0,
             2,
             0,
+            None,
             None,
         )
     }

@@ -663,22 +663,26 @@ fn compile_vectors(
                 .iter()
                 .position(|layer| layer.id == id)
                 .ok_or_else(|| {
-                    Diagnostic::error(
-                        DiagnosticCode::ParameterNotFound,
-                        "vector layer is not present in the compiled layer table",
+                    Box::new(
+                        Diagnostic::error(
+                            DiagnosticCode::ParameterNotFound,
+                            "vector layer is not present in the compiled layer table",
+                        )
+                        .with_path(format!("vectors[{vector_index}]")),
                     )
-                    .with_path(format!("vectors[{vector_index}]"))
                 })
         };
         let parameter = |axis: &str| {
             catalog
                 .parameter_handle(&format!("vector.{}.{}", vector_id(vector), axis))
                 .ok_or_else(|| {
-                    Diagnostic::error(
-                        DiagnosticCode::ParameterNotFound,
-                        "vector axis is not present in the parameter catalog",
+                    Box::new(
+                        Diagnostic::error(
+                            DiagnosticCode::ParameterNotFound,
+                            "vector axis is not present in the parameter catalog",
+                        )
+                        .with_path(format!("vectors[{vector_index}]")),
                     )
-                    .with_path(format!("vectors[{vector_index}]"))
                 })
         };
         let compiled = match vector {
@@ -719,7 +723,7 @@ fn compile_vectors(
         };
         match compiled {
             Ok(value) => result.push(value),
-            Err(error) => diagnostics.push(error),
+            Err(error) => diagnostics.push(*error),
         }
     }
     result.into_boxed_slice()

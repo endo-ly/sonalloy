@@ -40,14 +40,6 @@ pub(crate) struct ResetComparison {
     pub(crate) different_sample_count: usize,
 }
 
-#[derive(Debug, Serialize)]
-pub(crate) struct StatusReport {
-    pub(crate) status: &'static str,
-    pub(crate) command: &'static str,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) diagnostics: Vec<Diagnostic>,
-}
-
 #[derive(Debug)]
 pub(crate) struct CliFailure {
     pub(crate) code: u8,
@@ -195,7 +187,10 @@ pub(crate) fn input_failure(error: &RenderError) -> CliFailure {
 }
 
 pub(crate) fn render_failure(error: &RenderError) -> CliFailure {
-    let code = if matches!(error, RenderError::Process(_)) {
+    let code = if matches!(
+        error,
+        RenderError::Process(_) | RenderError::ProcessAt { .. }
+    ) {
         3
     } else {
         2
@@ -312,25 +307,121 @@ pub(crate) fn print_failure(json: bool, failure: &CliFailure) {
             if let Some(path) = &diagnostic.path {
                 eprintln!("  path: {path}");
             }
+            if let Some(context) = diagnostic.context.as_deref() {
+                if let Some(part) = &context.part {
+                    eprintln!("  part: {part}");
+                }
+                if let Some(section) = &context.section {
+                    eprintln!("  section: {section}");
+                }
+                if let Some(occurrence) = context.occurrence {
+                    eprintln!("  occurrence: {occurrence}");
+                }
+                if let Some(time_seconds) = context.time_seconds {
+                    eprintln!("  time_seconds: {time_seconds:.6}");
+                }
+                if let Some(block_start_frame) = context.block_start_frame {
+                    eprintln!("  block_start_frame: {block_start_frame}");
+                }
+                if context.tail == Some(true) {
+                    eprintln!("  position: tail");
+                }
+            }
             if let Some(detail) = &diagnostic.detail {
-                eprintln!("  detail: {detail}");
+                if let Ok(fields) = serde_json::from_str::<serde_json::Value>(detail)
+                    && fields["source_type"] == "score"
+                {
+                    for key in [
+                        "line",
+                        "column",
+                        "source_bar",
+                        "section",
+                        "occurrence",
+                        "bar",
+                        "step",
+                        "actual",
+                    ] {
+                        if let Some(value) = fields.get(key).filter(|value| !value.is_null()) {
+                            eprintln!("  {key}: {value}");
+                        }
+                    }
+                } else {
+                    eprintln!("  detail: {detail}");
+                }
             }
         }
     }
 }
 
 pub(crate) fn print_warnings(diagnostics: &[Diagnostic]) {
+    let mut score_range_warnings = Vec::new();
     for diagnostic in diagnostics {
-        if diagnostic.severity == sonalloy_core::DiagnosticSeverity::Warning {
-            eprintln!("warning[{:?}]: {}", diagnostic.code, diagnostic.message);
-            if let Some(path) = &diagnostic.path {
-                eprintln!("  path: {path}");
+        if diagnostic.severity != sonalloy_core::DiagnosticSeverity::Warning {
+            continue;
+        }
+        let detail = diagnostic
+            .detail
+            .as_deref()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
+            .filter(|detail| detail["source_type"] == "score" && detail["midi_note"].is_number());
+        if let Some(detail) = detail {
+            score_range_warnings.push((diagnostic, detail));
+        } else {
+            print_warning(diagnostic);
+        }
+    }
+    if !score_range_warnings.is_empty() {
+        eprintln!(
+            "warning: {} Score notes are outside their recommended ranges; showing at most 3",
+            score_range_warnings.len()
+        );
+        for (diagnostic, detail) in score_range_warnings.iter().take(3) {
+            print_warning(diagnostic);
+            for key in [
+                "line",
+                "column",
+                "source_path",
+                "source_bar",
+                "part",
+                "section",
+                "occurrence",
+                "bar",
+                "step",
+                "midi_note",
+                "recommended_range",
+            ] {
+                if let Some(value) = detail.get(key).filter(|value| !value.is_null()) {
+                    eprintln!("  {key}: {value}");
+                }
             }
         }
     }
 }
 
-fn diagnostic_value(diagnostic: &Diagnostic) -> serde_json::Value {
+fn print_warning(diagnostic: &Diagnostic) {
+    eprintln!("warning[{:?}]: {}", diagnostic.code, diagnostic.message);
+    if let Some(path) = &diagnostic.path {
+        eprintln!("  path: {path}");
+    }
+}
+
+pub(crate) fn print_diagnostics(diagnostics: &[Diagnostic]) {
+    for diagnostic in diagnostics {
+        eprintln!("error[{:?}]: {}", diagnostic.code, diagnostic.message);
+        if let Some(path) = &diagnostic.path {
+            eprintln!("  path: {path}");
+        }
+        if let Some(detail) = &diagnostic.detail {
+            eprintln!("  detail: {detail}");
+        }
+    }
+}
+
+pub(crate) fn diagnostic_values(diagnostics: &[Diagnostic]) -> Vec<serde_json::Value> {
+    diagnostics.iter().map(diagnostic_value).collect()
+}
+
+pub(crate) fn diagnostic_value(diagnostic: &Diagnostic) -> serde_json::Value {
     let mut value = serde_json::to_value(diagnostic).expect("diagnostic serializes");
     if let Some(detail) = diagnostic
         .detail
@@ -341,7 +432,19 @@ fn diagnostic_value(diagnostic: &Diagnostic) -> serde_json::Value {
         let map = value.as_object_mut().expect("diagnostic object");
         map.remove("detail");
         for key in [
-            "line", "column", "section", "bar", "step", "actual", "expected",
+            "line",
+            "column",
+            "source_path",
+            "source_bar",
+            "section",
+            "occurrence",
+            "bar",
+            "step",
+            "actual",
+            "expected",
+            "part",
+            "midi_note",
+            "recommended_range",
         ] {
             if let Some(field) = detail.get(key) {
                 map.insert(key.into(), field.clone());
@@ -358,9 +461,12 @@ mod tests {
 
     #[test]
     fn native_error_maps_to_process_exit_and_diagnostic() {
-        let error = RenderError::Process(ProcessError::DspFailure {
-            kind: DspFailureKind::InvalidInput,
-        });
+        let error = RenderError::ProcessAt {
+            error: ProcessError::DspFailure {
+                kind: DspFailureKind::InvalidInput,
+            },
+            block_start_frame: 8,
+        };
         let failure = render_failure(&error);
         assert_eq!(failure.code, 3);
         assert_eq!(failure.diagnostics[0].code, DiagnosticCode::DspError);

@@ -281,6 +281,65 @@ fn score_commands_share_the_timeline_and_preserve_midi_controls() {
 }
 
 #[test]
+fn preroll_bar_render_matches_the_same_interval_of_a_full_render() {
+    let directory = tempdir().expect("directory");
+    let score = directory.path().join("preroll.score.yaml");
+    let full_output = directory.path().join("full.wav");
+    let partial_output = directory.path().join("partial.wav");
+    let definition = fixture_path("instruments/basic-poly-synth.json");
+    let doc = json!({
+        "meta":{"title":"Preroll","bpm":120,"meter":"4/4","tuning":"12edo","gate":1,"fade_out_seconds":0},
+        "form":[{"section":"phrase","bars":4,"tonic":"C","scale":"ionian"}],
+        "sections":{"phrase":{"placements":[
+            {"instrument":"part","degree":"1","at":{"bar":1,"step":1},"duration_quarters":5},
+            {"instrument":"part","degree":"3","at":{"bar":3,"step":1},"duration_quarters":1}
+        ]}},
+        "instruments":{"part":{"definition":definition}}
+    });
+    std::fs::write(&score, serde_json::to_string_pretty(&doc).expect("YAML")).expect("score");
+    let render = |output: &std::path::Path, extra: &[&str]| {
+        let mut command = Command::cargo_bin("sonalloy").expect("binary");
+        command
+            .args(["render", "score"])
+            .arg(&score)
+            .args(extra)
+            .arg("--output")
+            .arg(output)
+            .args(["--tail", "0", "--json"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone()
+    };
+    let full: serde_json::Value =
+        serde_json::from_slice(&render(&full_output, &[])).expect("full render report");
+    let partial: serde_json::Value = serde_json::from_slice(&render(
+        &partial_output,
+        &["--bars", "2-3", "--preroll-bars", "1"],
+    ))
+    .expect("partial render report");
+    assert_eq!(full["frames"], 384_000);
+    assert_eq!(partial["frames"], 192_000);
+
+    let read = |path: &std::path::Path| {
+        hound::WavReader::open(path)
+            .expect("WAV")
+            .into_samples::<f32>()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>()
+    };
+    let full_samples = read(&full_output);
+    let partial_samples = read(&partial_output);
+    assert_eq!(partial_samples.len(), 192_000 * 2);
+    assert_eq!(
+        &full_samples[96_000 * 2..288_000 * 2],
+        partial_samples.as_slice(),
+        "preroll output is bit-exact with the matching full-render interval"
+    );
+}
+
+#[test]
 fn routed_lanes_apply_gain_before_stems_and_reject_invalid_graphs() {
     let directory = tempdir().expect("directory");
     let score = directory.path().join("routed.score.yaml");
@@ -316,6 +375,29 @@ fn routed_lanes_apply_gain_before_stems_and_reject_invalid_graphs() {
             .zip(source.iter().zip(&receiver))
             .all(|(m, (a, b))| (m - a - b).abs() < 1e-6)
     );
+
+    let selected_output = directory.path().join("receiver-only.wav");
+    let selected_stems = directory.path().join("receiver-only-stems");
+    Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["render", "score"])
+        .arg(&score)
+        .arg("--part")
+        .arg("receiver")
+        .arg("--output")
+        .arg(&selected_output)
+        .arg("--stems-dir")
+        .arg(&selected_stems)
+        .args(["--tail", "0", "--json"])
+        .assert()
+        .success();
+    assert!(!selected_stems.join("source.wav").exists());
+    assert!(
+        read(&selected_stems.join("receiver.wav"))
+            .iter()
+            .any(|sample| sample.abs() > 0.01)
+    );
+
     for invalid in ["missing", "receiver"] {
         doc["instruments"]["receiver"]["audio_input"] = json!(invalid);
         std::fs::write(&score, serde_json::to_string_pretty(&doc).expect("YAML")).expect("score");

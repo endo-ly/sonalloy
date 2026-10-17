@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+
+use serde::Serialize;
 use std::process::ExitCode;
 
 use clap::{Args, Subcommand};
@@ -8,7 +11,7 @@ use sonalloy_core::{
     PerformanceDefinition, ProcessorDefinition, VoiceStealingDefinition,
 };
 
-use crate::output::{CliFailure, StatusReport, print_failure, print_warnings};
+use crate::output::{CliFailure, print_diagnostics, print_failure, print_warnings};
 
 use super::{DEFAULT_BLOCK_SIZE, DEFAULT_SAMPLE_RATE, load_and_compile};
 
@@ -21,11 +24,13 @@ pub(super) enum InstrumentCommand {
         long_about = "Create a new Instrument Definition JSON file without replacing an existing destination. The starter Definition is a 16-voice polyphonic Saw oscillator with one low-pass filter and no external audio input."
     )]
     Init(InitArgs),
-    /// Check that a Definition JSON file is valid and can be compiled.
+    /// Check one or more Definition JSON files and collect all diagnostics.
     #[command(
-        long_about = "Parse and compile an Instrument Definition, including its referenced assets. This checks whether the file can be used as an instrument, not only whether its JSON syntax is valid. With `--json`, success is reported as JSON and execution failures include structured diagnostics."
+        long_about = "Parse and compile every supplied Definition JSON file. Files, directories, and CLI glob patterns are accepted; a failure in one file does not stop the remaining files. With `--json`, each file has its own status and diagnostics."
     )]
-    Validate(DefinitionArgs),
+    Validate(BatchDefinitionArgs),
+    /// Render and compare a single note from one or more Definitions.
+    Report(ReportArgs),
     /// Inspect the instrument configuration produced from a Definition.
     #[command(
         long_about = "Compile the Definition and display the instrument configuration that will be used, including Parameters, Generators, Processors, Modulation, Macros, Vectors, and reported latency. Use `--json` for a machine-readable result. Compilation also checks referenced assets."
@@ -50,10 +55,46 @@ pub(super) struct DefinitionArgs {
     json: bool,
 }
 
+#[derive(Debug, Args)]
+pub(super) struct BatchDefinitionArgs {
+    /// Definition JSON path, directory, or glob pattern. Repeat for multiple inputs.
+    #[arg(value_name = "DEFINITION", num_args = 1..)]
+    definitions: Vec<String>,
+    /// Emit machine-readable JSON results; execution failures include structured diagnostics.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
+pub(super) struct ReportArgs {
+    /// Definition JSON path, directory, or glob pattern. Repeat for multiple inputs.
+    #[arg(value_name = "DEFINITION", num_args = 1..)]
+    definitions: Vec<String>,
+    /// MIDI note number (0..=127).
+    #[arg(long, default_value_t = 60, value_parser = clap::value_parser!(u8).range(0..=127))]
+    note: u8,
+    /// MIDI velocity (1..=127).
+    #[arg(long, default_value_t = 127, value_parser = clap::value_parser!(u8).range(1..=127))]
+    velocity: u8,
+    /// Note On duration in seconds.
+    #[arg(long, default_value_t = 0.5, value_parser = crate::command::parse_positive_f64)]
+    gate: f64,
+    /// Additional tail in seconds.
+    #[arg(long, default_value_t = 0.5, value_parser = crate::command::parse_nonnegative_f64)]
+    tail: f64,
+    /// External Audio WAV, or `silence`.
+    #[arg(long, value_name = "WAV|silence")]
+    audio_input: Option<String>,
+    /// Emit machine-readable JSON.
+    #[arg(long)]
+    json: bool,
+}
+
 pub(super) fn run(command: InstrumentCommand) -> ExitCode {
     match command {
         InstrumentCommand::Init(args) => run_init(&args),
         InstrumentCommand::Validate(args) => run_validate(&args),
+        InstrumentCommand::Report(args) => run_report(&args),
         InstrumentCommand::Inspect(args) => run_inspect(&args),
     }
 }
@@ -111,30 +152,84 @@ fn run_init(args: &InitArgs) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn run_validate(args: &DefinitionArgs) -> ExitCode {
-    let result = load_and_compile(&args.definition, DEFAULT_SAMPLE_RATE, DEFAULT_BLOCK_SIZE);
-    match result {
-        Ok((_, diagnostics)) => {
-            let report = StatusReport {
+#[derive(Debug, Serialize)]
+struct BatchValidationFile {
+    path: String,
+    status: &'static str,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Serialize)]
+struct BatchValidationReport {
+    status: &'static str,
+    command: &'static str,
+    files: Vec<BatchValidationFile>,
+    valid: usize,
+    invalid: usize,
+}
+
+fn run_validate(args: &BatchDefinitionArgs) -> ExitCode {
+    let collection = collect_definition_paths(&args.definitions);
+    let mut files = collection
+        .failures
+        .into_iter()
+        .map(|failure| BatchValidationFile {
+            path: failure.path,
+            status: "error",
+            diagnostics: failure.diagnostics,
+        })
+        .collect::<Vec<_>>();
+    for path in collection.paths {
+        match load_and_compile(&path, DEFAULT_SAMPLE_RATE, DEFAULT_BLOCK_SIZE) {
+            Ok((_, diagnostics)) => files.push(BatchValidationFile {
+                path: path.to_string_lossy().into_owned(),
                 status: "ok",
-                command: "instrument validate",
                 diagnostics,
-            };
-            if args.json {
-                println!(
-                    "{}",
-                    serde_json::to_string(&report).expect("status report is serializable")
-                );
-            } else {
-                println!("valid {}", args.definition.display());
-                print_warnings(&report.diagnostics);
+            }),
+            Err(failure) => files.push(BatchValidationFile {
+                path: path.to_string_lossy().into_owned(),
+                status: "error",
+                diagnostics: failure.diagnostics,
+            }),
+        }
+    }
+    files.sort_by(|left, right| left.path.cmp(&right.path));
+    let valid = files.iter().filter(|file| file.status == "ok").count();
+    let invalid = files.len() - valid;
+    let report = BatchValidationReport {
+        status: if invalid == 0 { "ok" } else { "error" },
+        command: "instrument validate",
+        files,
+        valid,
+        invalid,
+    };
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string(&report).expect("batch validation report is serializable")
+        );
+    } else {
+        for file in &report.files {
+            println!("{} {}", file.status, file.path);
+            print_warnings(&file.diagnostics);
+            for diagnostic in &file.diagnostics {
+                if diagnostic.severity == sonalloy_core::DiagnosticSeverity::Error {
+                    eprintln!("  error[{:?}]: {}", diagnostic.code, diagnostic.message);
+                }
             }
-            ExitCode::SUCCESS
         }
-        Err(failure) => {
-            print_failure(args.json, &failure);
-            ExitCode::from(failure.code)
-        }
+        println!(
+            "validated {} files: {} valid, {} invalid",
+            report.files.len(),
+            valid,
+            invalid
+        );
+    }
+    if invalid == 0 {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
     }
 }
 
@@ -149,6 +244,322 @@ fn run_inspect(args: &DefinitionArgs) -> ExitCode {
             print_failure(args.json, &failure);
             ExitCode::from(failure.code)
         }
+    }
+}
+
+fn definition_path_diagnostic(input: &str, message: &str, detail: Option<String>) -> Diagnostic {
+    let mut diagnostic =
+        Diagnostic::error(DiagnosticCode::DefinitionError, message).with_path(input);
+    diagnostic.detail = detail;
+    diagnostic
+}
+
+#[derive(Debug)]
+struct DefinitionInputFailure {
+    path: String,
+    diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug)]
+struct DefinitionPathCollection {
+    paths: Vec<PathBuf>,
+    failures: Vec<DefinitionInputFailure>,
+}
+
+fn normalize_definition_path(
+    path: &Path,
+    input: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<PathBuf> {
+    match std::fs::canonicalize(path) {
+        Ok(path) => Some(path),
+        Err(error) => {
+            diagnostics.push(definition_path_diagnostic(
+                input,
+                "could not normalize instrument path",
+                Some(format!("{}: {error}", path.display())),
+            ));
+            None
+        }
+    }
+}
+
+fn walk_definition_directory(
+    directory: &Path,
+    input: &str,
+    paths: &mut BTreeSet<PathBuf>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let entries = match std::fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) => {
+            diagnostics.push(definition_path_diagnostic(
+                input,
+                "could not scan instrument directory",
+                Some(format!("{}: {error}", directory.display())),
+            ));
+            return;
+        }
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                diagnostics.push(definition_path_diagnostic(
+                    input,
+                    "could not read instrument directory entry",
+                    Some(format!("{}: {error}", directory.display())),
+                ));
+                continue;
+            }
+        };
+        let path = entry.path();
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(error) => {
+                diagnostics.push(definition_path_diagnostic(
+                    input,
+                    "could not inspect instrument directory entry",
+                    Some(format!("{}: {error}", path.display())),
+                ));
+                continue;
+            }
+        };
+        if file_type.is_dir() {
+            walk_definition_directory(&path, input, paths, diagnostics);
+        } else if path
+            .file_name()
+            .is_some_and(|name| name == "definition.json")
+            && let Some(path) = normalize_definition_path(&path, input, diagnostics)
+        {
+            paths.insert(path);
+        }
+    }
+}
+
+fn collect_glob_definition_paths(
+    input: &str,
+    paths: &mut BTreeSet<PathBuf>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let entries = match glob::glob(input) {
+        Ok(entries) => entries,
+        Err(error) => {
+            diagnostics.push(definition_path_diagnostic(
+                input,
+                "instrument glob pattern is invalid",
+                Some(error.to_string()),
+            ));
+            return;
+        }
+    };
+    let mut matched_file = false;
+    for entry in entries {
+        let candidate = match entry {
+            Ok(candidate) => candidate,
+            Err(error) => {
+                diagnostics.push(definition_path_diagnostic(
+                    input,
+                    "could not read instrument glob result",
+                    Some(error.to_string()),
+                ));
+                continue;
+            }
+        };
+        match std::fs::metadata(&candidate) {
+            Ok(metadata) if metadata.is_file() => {
+                matched_file = true;
+                if let Some(path) = normalize_definition_path(&candidate, input, diagnostics) {
+                    paths.insert(path);
+                }
+            }
+            Ok(_) => {}
+            Err(error) => diagnostics.push(definition_path_diagnostic(
+                input,
+                "could not inspect instrument glob result",
+                Some(format!("{}: {error}", candidate.display())),
+            )),
+        }
+    }
+    if !matched_file && diagnostics.is_empty() {
+        diagnostics.push(definition_path_diagnostic(
+            input,
+            "instrument glob matched no files",
+            None,
+        ));
+    }
+}
+
+fn collect_definition_input(
+    input: &str,
+    paths: &mut BTreeSet<PathBuf>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if input.contains(['*', '?', '[']) {
+        collect_glob_definition_paths(input, paths, diagnostics);
+        return;
+    }
+    match std::fs::metadata(input) {
+        Ok(metadata) if metadata.is_file() => {
+            if let Some(path) = normalize_definition_path(Path::new(input), input, diagnostics) {
+                paths.insert(path);
+            }
+        }
+        Ok(metadata) if metadata.is_dir() => {
+            walk_definition_directory(Path::new(input), input, paths, diagnostics);
+            if paths.is_empty() && diagnostics.is_empty() {
+                diagnostics.push(definition_path_diagnostic(
+                    input,
+                    "instrument directory contains no definition.json files",
+                    None,
+                ));
+            }
+        }
+        Ok(_) => diagnostics.push(definition_path_diagnostic(
+            input,
+            "instrument input is not a file or directory",
+            None,
+        )),
+        Err(error) => {
+            let message = if error.kind() == std::io::ErrorKind::NotFound {
+                "instrument input does not exist"
+            } else {
+                "could not inspect instrument input"
+            };
+            diagnostics.push(definition_path_diagnostic(
+                input,
+                message,
+                Some(error.to_string()),
+            ));
+        }
+    }
+}
+
+fn collect_definition_paths(inputs: &[String]) -> DefinitionPathCollection {
+    let mut collected = BTreeSet::new();
+    let mut failures = Vec::new();
+    for input in inputs {
+        let mut input_paths = BTreeSet::new();
+        let mut diagnostics = Vec::new();
+        collect_definition_input(input, &mut input_paths, &mut diagnostics);
+        collected.extend(input_paths);
+        if !diagnostics.is_empty() {
+            diagnostics.sort_by(|left, right| {
+                left.detail
+                    .cmp(&right.detail)
+                    .then_with(|| left.message.cmp(&right.message))
+            });
+            failures.push(DefinitionInputFailure {
+                path: input.clone(),
+                diagnostics,
+            });
+        }
+    }
+    failures.sort_by(|left, right| left.path.cmp(&right.path));
+    DefinitionPathCollection {
+        paths: collected.into_iter().collect(),
+        failures,
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct InstrumentReportFile {
+    path: String,
+    status: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    analysis: Option<sonalloy_core::AudioAnalysis>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Serialize)]
+struct InstrumentReport {
+    status: &'static str,
+    note: u8,
+    velocity: u8,
+    files: Vec<InstrumentReportFile>,
+}
+
+fn run_report(args: &ReportArgs) -> ExitCode {
+    let collection = collect_definition_paths(&args.definitions);
+    let mut files = collection
+        .failures
+        .into_iter()
+        .map(|failure| InstrumentReportFile {
+            path: failure.path,
+            status: "error",
+            analysis: None,
+            diagnostics: failure.diagnostics,
+        })
+        .collect::<Vec<_>>();
+    for path in collection.paths {
+        let result = crate::command::render::render_note_report(
+            &path,
+            args.note,
+            args.velocity,
+            args.gate,
+            args.tail,
+            args.audio_input.as_deref(),
+        );
+        match result {
+            Ok(analysis) => files.push(InstrumentReportFile {
+                path: path.to_string_lossy().into_owned(),
+                status: "ok",
+                analysis: Some(analysis),
+                diagnostics: Vec::new(),
+            }),
+            Err(failure) => files.push(InstrumentReportFile {
+                path: path.to_string_lossy().into_owned(),
+                status: "error",
+                analysis: None,
+                diagnostics: failure.diagnostics,
+            }),
+        }
+    }
+    files.sort_by(|left, right| left.path.cmp(&right.path));
+    let failed = files.iter().any(|file| file.status == "error");
+    let report = InstrumentReport {
+        status: if failed { "error" } else { "ok" },
+        note: args.note,
+        velocity: args.velocity,
+        files,
+    };
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string(&report).expect("instrument report is serializable")
+        );
+    } else {
+        for file in &report.files {
+            if let Some(analysis) = &file.analysis {
+                println!(
+                    "ok {}: peak {:?} dBFS, rms {:?} dBFS",
+                    file.path, analysis.level.peak_dbfs, analysis.level.rms_dbfs
+                );
+                let bands = analysis
+                    .spectrum
+                    .bands
+                    .iter()
+                    .map(|band| {
+                        let ratio = band.energy_ratio.map_or_else(
+                            || "n/a".to_owned(),
+                            |ratio| format!("{:.1}%", ratio * 100.0),
+                        );
+                        format!("{:.0}–{:.0} Hz {ratio}", band.lower_hz, band.upper_hz)
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                println!("  band energy ratio: {bands}");
+            } else {
+                println!("error {}", file.path);
+                print_diagnostics(&file.diagnostics);
+            }
+        }
+    }
+    if failed {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
     }
 }
 

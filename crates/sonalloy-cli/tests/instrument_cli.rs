@@ -347,6 +347,240 @@ fn inspect_lists_external_modulation_sources() {
 }
 
 #[test]
+fn instrument_validate_collects_directories_globs_and_all_file_results() {
+    let directory = tempdir().expect("temporary directory");
+    let root = directory.path().join("instruments");
+    let first = root.join("first/definition.json");
+    let invalid = root.join("invalid/definition.json");
+    let nested = root.join("nested/third/definition.json");
+    for path in [&first, &nested] {
+        std::fs::create_dir_all(path.parent().expect("definition directory"))
+            .expect("directory created");
+        std::fs::copy(fixture_path("instruments/basic-poly-synth.json"), path)
+            .expect("valid Definition copied");
+    }
+    std::fs::create_dir_all(invalid.parent().expect("invalid directory"))
+        .expect("directory created");
+    std::fs::write(&invalid, "{invalid json").expect("invalid Definition written");
+
+    let missing = directory.path().join("missing.json");
+    let unmatched_glob = format!("{}/unmatched-*/definition.json", root.display());
+    let output = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["instrument", "validate"])
+        .arg(&first)
+        .arg(&root)
+        .arg(&missing)
+        .arg(&unmatched_glob)
+        .arg("--json")
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let report: serde_json::Value = serde_json::from_slice(&output).expect("batch report");
+    assert_eq!(report["status"], "error");
+    let files = report["files"].as_array().expect("per-file results");
+    assert_eq!(
+        files.len(),
+        5,
+        "the direct file is de-duplicated and input errors are collected"
+    );
+    assert_eq!(
+        files.iter().filter(|file| file["status"] == "ok").count(),
+        2
+    );
+    assert_eq!(
+        files
+            .iter()
+            .filter(|file| file["status"] == "error")
+            .count(),
+        3
+    );
+    assert!(files.iter().any(|file| {
+        file["path"] == missing.to_string_lossy().as_ref() && file["status"] == "error"
+    }));
+    assert!(
+        files
+            .iter()
+            .any(|file| { file["path"] == unmatched_glob && file["status"] == "error" })
+    );
+
+    let glob = format!("{}/*/definition.json", root.display());
+    let output = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["instrument", "validate", &glob, "--json"])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let report: serde_json::Value = serde_json::from_slice(&output).expect("glob report");
+    assert_eq!(report["files"].as_array().expect("glob files").len(), 2);
+}
+
+#[test]
+fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() {
+    let directory = tempdir().expect("temporary directory");
+    let root = directory.path().join("instruments");
+    let valid = root.join("valid/definition.json");
+    let invalid = root.join("invalid/definition.json");
+    std::fs::create_dir_all(valid.parent().expect("valid directory")).expect("directory created");
+    std::fs::create_dir_all(invalid.parent().expect("invalid directory"))
+        .expect("directory created");
+    std::fs::copy(fixture_path("instruments/basic-poly-synth.json"), &valid)
+        .expect("valid Definition copied");
+    std::fs::write(&invalid, "{invalid json").expect("invalid Definition written");
+
+    let missing = directory.path().join("missing.json");
+    let unmatched_glob = format!("{}/unmatched-*/definition.json", root.display());
+    let report_output = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["instrument", "report"])
+        .arg(&root)
+        .arg(&missing)
+        .arg(&unmatched_glob)
+        .args([
+            "--note",
+            "60",
+            "--velocity",
+            "127",
+            "--gate",
+            "0.1",
+            "--tail",
+            "0.1",
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let report: serde_json::Value =
+        serde_json::from_slice(&report_output).expect("instrument report");
+    assert_eq!(report["status"], "error");
+    let files = report["files"].as_array().expect("per-file results");
+    assert_eq!(files.len(), 4);
+    assert!(files.iter().any(|file| {
+        file["path"] == missing.to_string_lossy().as_ref() && file["status"] == "error"
+    }));
+    assert!(
+        files
+            .iter()
+            .any(|file| { file["path"] == unmatched_glob && file["status"] == "error" })
+    );
+    let file = files
+        .iter()
+        .find(|file| file["status"] == "ok")
+        .expect("valid Definition report");
+    assert_eq!(file["analysis"]["sample_rate"], 48_000);
+    assert_eq!(file["analysis"]["channels"], 2);
+    assert_eq!(
+        file["analysis"]["spectrum"]["bands"]
+            .as_array()
+            .unwrap()
+            .len(),
+        7
+    );
+    assert!(files.iter().any(|file| file["status"] == "error"));
+
+    let note_output = directory.path().join("note.wav");
+    let rendered = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["render", "note"])
+        .arg(&valid)
+        .args([
+            "--note",
+            "60",
+            "--velocity",
+            "127",
+            "--gate",
+            "0.1",
+            "--tail",
+            "0.1",
+            "--output",
+        ])
+        .arg(&note_output)
+        .args(["--analyze", "--json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let rendered: serde_json::Value = serde_json::from_slice(&rendered).expect("render report");
+    let mut expected = rendered["analysis"].clone();
+    expected
+        .as_object_mut()
+        .expect("analysis object")
+        .remove("loudness");
+    assert_eq!(file["analysis"], expected);
+}
+
+#[test]
+fn instrument_report_silence_input_only_reaches_audio_consumers() {
+    let output = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["instrument", "report"])
+        .arg(fixture_path("instruments/basic-poly-synth.json"))
+        .arg(fixture_path("instruments/sidechain-ducking.json"))
+        .args([
+            "--audio-input",
+            "silence",
+            "--gate",
+            "0.1",
+            "--tail",
+            "0.1",
+            "--json",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let report: serde_json::Value = serde_json::from_slice(&output).expect("report");
+
+    assert_eq!(report["status"], "ok");
+    let files = report["files"].as_array().expect("files");
+    assert_eq!(files.len(), 2);
+    assert!(files.iter().all(|file| file["status"] == "ok"));
+}
+
+#[test]
+fn instrument_report_text_includes_all_band_energy_ratios() {
+    let output = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["instrument", "report"])
+        .arg(fixture_path("instruments/basic-poly-synth.json"))
+        .args([
+            "--note",
+            "60",
+            "--velocity",
+            "127",
+            "--gate",
+            "0.1",
+            "--tail",
+            "0.1",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let output = String::from_utf8(output).expect("report output");
+    for band in [
+        "20–60 Hz",
+        "60–120 Hz",
+        "120–250 Hz",
+        "250–500 Hz",
+        "500–2000 Hz",
+        "2000–6000 Hz",
+        "6000–20000 Hz",
+    ] {
+        assert!(output.contains(band), "missing band {band} in {output}");
+    }
+}
+
+#[test]
 fn invalid_definition_json_has_a_specific_diagnostic_code() {
     let directory = tempdir().expect("temporary directory");
     let definition = directory.path().join("invalid.json");

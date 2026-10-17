@@ -41,7 +41,23 @@ sonalloy instrument init <path>
 ```bash
 sonalloy instrument validate <definition>
 sonalloy instrument validate <definition> --json   # 結果を機械可読で出力
+sonalloy instrument validate a.json b.json
+sonalloy instrument validate instruments/
+sonalloy instrument validate "instruments/*/definition.json" --json
 ```
+
+複数のファイルを指定できます。Directoryでは配下の`definition.json`を再帰的に収集し、Globでは一致したファイルを検証します。入力や定義に問題があっても、ほかの入力の検証を続けます。通常表示にはファイルごとの結果と全体件数、JSONには`files[]`（各要素の`path`、`status`、`diagnostics`）と全体の`valid` / `invalid`件数を出力します。
+
+### `instrument report` — 複数音源の音響比較
+
+指定したNote / Velocityを各音源で1回鳴らして解析し、結果を比較します。WAVは出力しません。入力方法は`instrument validate`と共通です。GateとTailは既定で0.5秒です。外部Audio入力が必要な音源は`--audio-input silence`で評価できます。
+
+```bash
+sonalloy instrument report instruments/ --note 60 --velocity 127 --json
+sonalloy instrument report "instruments/*/definition.json" --gate 1.0 --tail 1.0
+```
+
+JSONの`files[]`は音源ごとの`path`、`status`、`analysis`、`diagnostics`を持ち、`analysis`にはPeak、RMS、7帯域のEnergy Ratioを含みます。通常表示にも7帯域のEnergy Ratioを表示します。入力や解析に失敗した場合も残りを処理し、1件でも失敗すると終了コード1になります。
 
 ### `instrument inspect` — コンパイル結果の確認
 
@@ -127,16 +143,21 @@ MIDI入力の `--channel 1..16` はNote Channelを選び、`--tonic` は度数�
 | `--output WAV` | 完成Stereo WAV。必須 |
 | `--sample-rate HZ` / `--block-size FRAMES` | 全楽器共通の処理条件。既定48000 / 257 |
 | `--tail SEC` | 曲終端後の余韻。既定1秒 |
-| `--stems-dir DIR` | 楽器Gain適用後・全体Fade/Master適用前の楽器別WAV |
+| `--stems-dir DIR` | Part Gain・Pan適用後、全体Fade・Master適用前の楽器別WAV |
 | `--premaster-output WAV` | Gain・全体Fade適用後、Master前のMix |
 | `--mp3-output PATH` | 完成音声からMP3を生成し測定。FFmpeg必須 |
 | `--analyze` | Premasterと完成WAVの音響・LUFS・True Peak・LRA解析。FFmpeg必須 |
+| `--section NAME` / `--occurrence N` | 指定Sectionの1出現を選択。Occurrenceは`form`内の1始まり。名前が一意ならOccurrenceを省略可 |
+| `--bars START-END` | 曲頭からの通し小節範囲（両端を含む）。`--section`とは排他的 |
+| `--part ID` / `--mute ID` | Mixへ含める / 除外するPart。複数回指定可。Audio Inputに必要なPartも処理されますが、選択外Partは出力に含まれません |
+| `--preroll-bars N` | 選択出力の前から処理する小節数。出力は指定区間から始まる |
+| `--apply-master` | 範囲・Part・Muteを指定した場合もScore Masterを適用 |
 | `--trace [ID:]PARAMETER` | 指定楽器、または該当する全楽器のParameterを観測。複数回指定可 |
 | `--trace-every-frames N` | Trace間隔。正の整数、既定480 |
 
-MasterはScoreの `meta.master` を使い、LUFS差0.5以内・True Peak上限以下のWAVを確定します。LRAは測定値との差と警告を返します。PremasterはMaster失敗時にも残り、完成WAVは後続の解析やMP3出力を含む処理が成功してから確定します。出力先の衝突はエラーです。
+MasterはScoreの `meta.master` を使い、LUFS差0.5以内・True Peak上限以下のWAVを確定します。LRAは測定値との差と警告を返します。Score全体のFadeはPart / Mute選択でも適用され、範囲選択ではFade区間と重なる部分に反映されます。PremasterはMaster失敗時にも残り、完成WAVは後続の解析やMP3出力を含む処理が成功してから確定します。出力先の衝突はエラーです。
 
-JSON Reportには `sample_rate`、`frames`、`output`、楽器別の `parts` を含みます。指定した処理に応じて `mix_analysis`、`output_analysis`、`mix_loudness`、`output_loudness`、`master`、`mp3_measurement`、各Partの `traces` を返します。
+JSON Reportには `sample_rate`、`frames`、`output`、楽器別の `parts` を含みます。指定した処理に応じて `mix_analysis`、`output_analysis`、`mix_loudness`、`output_loudness`、`master`、`mp3_measurement`、各Partの `traces` を返します。`--analyze`では、マスタリング前MixのSection別分析を`sections[]`に返します。各要素には`section`、`occurrence`、Score先頭からの範囲（`start_frame` / `end_frame`、`start_seconds` / `end_seconds`）、`integrated_lufs`、`true_peak_db`、`rms`、`peak`、7帯域の`bands`、Part別の`parts`が含まれます。`parts[]`はPart IDごとのRMS / Peakを持ちます。LUFS・True Peak・帯域を測定できない場合、その値は`null`です。Part処理の診断には`part`、`section`、`occurrence`、`time_seconds`、`block_start_frame`、`tail`を含みます。
 
 ## リアルタイム演奏
 
@@ -198,10 +219,10 @@ MIDIのNote、Pitch Bend、CC1、Channel Aftertouch、CC64（Sustain Pedal）は
 
 ```bash
 sonalloy audition score phrase.score.yaml --loop
-sonalloy audition score song.score.yaml --part lead --section verse
+sonalloy audition score song.score.yaml --part lead --section verse --occurrence 2
 ```
 
-複数楽器のScoreでは `--part` が必須です。`--section` は1つの出現を選び、テンポ・拍子・継続Note・演奏操作・Automationを区間先頭へ揃えます。選択結果が複数の独立Laneを必要とする場合はエラーになります。
+複数楽器のScoreでは `--part` が必須です。`--section` は1つの出現を選び、同名Sectionが複数回ある場合は`--occurrence`（1始まり）で特定します。テンポ・拍子・継続Note・演奏操作・Automationを区間先頭へ揃え、`sections.<name>.part_gains`を試聴に反映します。選択結果が複数の独立Laneを必要とする場合はエラーになります。
 
 `--audio-device`、`--audio-input-device`、`--sample-rate`、`--buffer-size` は `play` と共通です。`--tail` は1回再生の余韻、`--loop` はEnterまでの繰返しを指定します。Loopでは音源状態を保持し、Note IDと固定Latencyを補正します。Scoreの音声配線を含む楽曲確認には `render score` を使います。
 
@@ -218,7 +239,7 @@ MIDI FileをTickベースで読み込み、1つのChannelを内部演奏イベ�
 
 `render`コマンドはいずれもWAVを生成します。確認したい内容に合わせて使い分けます。
 
-外部Audioを使う定義では、`render note/events/midi`に`--audio-input <wav>`を指定します。WAVはCompile時のSample Rateへ準備され、Monoは左右へ複製、Stereoは左右を保持します。入力の終端後は無音を渡します。必須入力の省略は`AUDIO_INPUT_REQUIRED`とMessage `external audio input is required; specify --audio-input <WAV>`を返します。外部Audioを使わない定義への入力指定はErrorです。Scoreの入力接続は`instruments.<id>.audio_input`で指定します。
+外部Audioを使う定義では、`render note/events/midi`に`--audio-input <wav>`または`--audio-input silence`を指定します。`silence`は無音入力として扱います。WAVはCompile時のSample Rateへ準備され、Monoは左右へ複製、Stereoは左右を保持します。入力の終端後は無音を渡します。必須入力の省略は`AUDIO_INPUT_REQUIRED`とMessage `external audio input is required; specify --audio-input <WAV> or --audio-input silence`を返します。外部Audioを使わない定義への入力指定はErrorです。Scoreの入力接続は`instruments.<id>.audio_input`で指定します。
 
 | コマンド | 向いている用途 |
 |---|---|
@@ -246,7 +267,7 @@ sonalloy render note <definition> \
 | `--tempo` | 120 | Tempo Sync SampleとTempo同期Sourceの基準BPM |
 | `--sample-rate` | 48000 | 出力Sample Rate |
 | `--block-size` | 257 | 処理の最大Block Size |
-| `--audio-input <wav>` | なし | Definitionへ接続するMono / Stereoの外部Audio WAV |
+| `--audio-input <WAV|silence>` | なし | Definitionへ接続するMono / Stereoの外部Audio WAV、または無音Bus |
 | `--output` | — | 出力先（必須） |
 | `--analyze` | Off | 補正後WAVのLevel、DC、Activity、Continuity、Stereo、Spectrumを計算 |
 | `--trace <id>` | なし | 選択したDynamic ParameterをTrace（複数指定可） |

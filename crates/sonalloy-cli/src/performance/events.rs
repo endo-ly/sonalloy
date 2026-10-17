@@ -523,19 +523,15 @@ pub(crate) fn inspect(pattern: &PerformanceEvents) -> Result<EventInspection, Ve
 }
 
 #[allow(clippy::too_many_lines)]
-pub(crate) fn slice_section(
+pub(crate) fn slice_range(
     pattern: &mut PerformanceEvents,
-    sections: &[crate::score::Occurrence],
-    name: &str,
+    start: u64,
+    end: u64,
     instrument: &sonalloy_core::CompiledInstrument,
 ) -> Result<(), String> {
-    let found: Vec<_> = sections.iter().filter(|s| s.section == name).collect();
-    if found.len() != 1 {
-        return Err("section selection must identify exactly one occurrence".into());
+    if start >= end || end > pattern.length_ticks {
+        return Err("selection range must be within the performance timeline".into());
     }
-    let section = found[0];
-    let start = section.start_tick;
-    let end = section.end_tick;
     let tempos = tempo_points(pattern);
     let seconds = |tick| {
         crate::musical_time::musical_duration_seconds(tick, pattern.ticks_per_beat, &tempos)
@@ -707,6 +703,31 @@ pub(crate) fn slice_section(
     Ok(())
 }
 
+pub(crate) fn slice_section_occurrence(
+    pattern: &mut PerformanceEvents,
+    sections: &[crate::score::Occurrence],
+    name: &str,
+    occurrence: Option<usize>,
+    instrument: &sonalloy_core::CompiledInstrument,
+) -> Result<(), String> {
+    let selected = if let Some(occurrence) = occurrence {
+        sections
+            .get(occurrence.saturating_sub(1))
+            .filter(|section| occurrence > 0 && section.section == name)
+            .ok_or_else(|| "section occurrence does not match the selected form entry".to_owned())?
+    } else {
+        let mut found = sections.iter().filter(|section| section.section == name);
+        let Some(selected) = found.next() else {
+            return Err("section does not occur in the Score form".to_owned());
+        };
+        if found.next().is_some() {
+            return Err("section selection must identify exactly one occurrence".to_owned());
+        }
+        selected
+    };
+    slice_range(pattern, selected.start_tick, selected.end_tick, instrument)
+}
+
 fn sustained_at_cut(pattern: &PerformanceEvents, note_end: u64, start: u64) -> bool {
     let down = pattern
         .events
@@ -734,8 +755,14 @@ mod tests {
             crate::command::load_and_compile(&path, 48000, 257).expect("instrument");
         let mut events = plan.lanes[0].pattern.clone();
 
-        super::slice_section(&mut events, &plan.sections, "second", &instrument)
-            .expect("selected section");
+        super::slice_section_occurrence(
+            &mut events,
+            &plan.sections,
+            "second",
+            Some(2),
+            &instrument,
+        )
+        .expect("the global form occurrence selects its matching section");
 
         assert_eq!(events.length_ticks, 1920);
         assert!((events.tempo_changes[0].bpm - 60.0).abs() < f64::EPSILON);
@@ -757,6 +784,16 @@ mod tests {
                 ..
             }
         )));
+        assert!(
+            super::slice_section_occurrence(
+                &mut events,
+                &plan.sections,
+                "second",
+                Some(1),
+                &instrument,
+            )
+            .is_err()
+        );
         assert!(events.events.iter().any(|e|matches!(e,super::MusicalEvent::PitchBend{tick:0,value} if (*value-0.5).abs()<f32::EPSILON)));
         assert!(events.events.iter().any(|e| matches!(
             e,

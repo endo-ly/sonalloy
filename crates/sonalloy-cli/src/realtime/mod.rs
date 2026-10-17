@@ -67,6 +67,34 @@ fn select_audio_input(
         .map_err(|error| (2, vec![error.diagnostic]))
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct ScheduledGainSegment {
+    pub(crate) start_tick: u64,
+    pub(crate) end_tick: u64,
+    pub(crate) gain_db: f64,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ScheduledGainPlan {
+    pub(crate) segments: Vec<ScheduledGainSegment>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ScheduledGainFrameSegment {
+    pub(crate) start_frame: u64,
+    pub(crate) transition_end_frame: u64,
+    pub(crate) end_frame: u64,
+    pub(crate) from_gain: f32,
+    pub(crate) to_gain: f32,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ScheduledGainTimeline {
+    pub(crate) segments: Vec<ScheduledGainFrameSegment>,
+    pub(crate) loop_length_frames: u64,
+    pub(crate) looping: bool,
+}
+
 pub(crate) struct ScheduledAuditionOptions<'a> {
     pub(crate) definition_path: &'a std::path::Path,
     pub(crate) audio_device: Option<&'a str>,
@@ -111,7 +139,11 @@ pub(crate) fn start_scheduled_audition(
     prepare: impl FnOnce(
         &sonalloy_core::CompiledInstrument,
     ) -> Result<
-        (crate::performance::events::PerformanceEvents, f64),
+        (
+            crate::performance::events::PerformanceEvents,
+            f64,
+            Option<ScheduledGainPlan>,
+        ),
         (u8, Vec<Diagnostic>),
     >,
     mut diagnostics: Vec<Diagnostic>,
@@ -139,7 +171,7 @@ pub(crate) fn start_scheduled_audition(
     let (compiled, compile_diagnostics) =
         load(options.definition_path, sample_rate, options.buffer_size)?;
     diagnostics.extend(compile_diagnostics);
-    let (pattern, gain_db) = prepare(&compiled)?;
+    let (pattern, gain_db, gain_plan) = prepare(&compiled)?;
     let gain = crate::performance::gain_linear(gain_db).ok_or_else(|| {
         (
             2,
@@ -167,6 +199,27 @@ pub(crate) fn start_scheduled_audition(
         sample_rate,
         options.buffer_size,
     )?;
+    let gain_timeline = match prepare_scheduled_gain(
+        gain_db,
+        gain_plan.as_ref(),
+        &pattern,
+        f64::from(sample_rate),
+        options.looping,
+    ) {
+        Ok(timeline) => timeline,
+        Err(detail) => {
+            return Err((
+                2,
+                vec![
+                    Diagnostic::error(
+                        DiagnosticCode::ValueOutOfRange,
+                        "could not prepare scheduled gain changes",
+                    )
+                    .with_detail(detail),
+                ],
+            ));
+        }
+    };
     let compiled_pattern =
         match crate::performance::events::compile(&pattern, &compiled, f64::from(sample_rate)) {
             Ok(pattern) => pattern,
@@ -261,6 +314,7 @@ pub(crate) fn start_scheduled_audition(
         runtime,
         feed,
         gain,
+        gain_timeline,
         &status,
         options.buffer_size,
     ) {
@@ -297,6 +351,75 @@ pub(crate) fn start_scheduled_audition(
         reported_latency_frames,
         diagnostics,
     })
+}
+
+fn prepare_scheduled_gain(
+    base_gain_db: f64,
+    plan: Option<&ScheduledGainPlan>,
+    pattern: &crate::performance::events::PerformanceEvents,
+    sample_rate: f64,
+    looping: bool,
+) -> Result<Option<ScheduledGainTimeline>, String> {
+    let Some(plan) = plan else {
+        return Ok(None);
+    };
+    let tempo_changes = crate::performance::events::tempo_points(pattern);
+    let frame = |tick| {
+        crate::musical_time::tick_to_frame(
+            tick,
+            pattern.ticks_per_beat,
+            &tempo_changes,
+            sample_rate,
+        )
+        .map_err(|error| error.to_string())
+    };
+    let loop_length_frames = frame(pattern.length_ticks)?;
+    let transition_frames = seconds_to_frames(0.005, sample_rate)
+        .map_err(|error| error.to_string())?
+        .max(1);
+    let mut segments = Vec::with_capacity(plan.segments.len());
+    let mut previous_gain = None;
+    let mut previous_end = 0;
+    for segment in &plan.segments {
+        if segment.start_tick >= segment.end_tick {
+            return Err("scheduled gain segment must have positive duration".to_owned());
+        }
+        let start_frame = frame(segment.start_tick)?;
+        let end_frame = frame(segment.end_tick)?;
+        if end_frame <= start_frame || start_frame < previous_end || end_frame > loop_length_frames
+        {
+            return Err("scheduled gain segment is outside the Pattern timeline".to_owned());
+        }
+        let to_gain = crate::performance::gain_linear(base_gain_db + segment.gain_db)
+            .ok_or_else(|| "scheduled gain is not finite".to_owned())?;
+        #[allow(clippy::cast_possible_truncation)]
+        let to_gain = to_gain as f32;
+        if !to_gain.is_finite() {
+            return Err("scheduled gain exceeds the audio range".to_owned());
+        }
+        let from_gain = previous_gain.unwrap_or(to_gain);
+        let transition_end_frame = start_frame
+            .checked_add(transition_frames)
+            .unwrap_or(end_frame)
+            .min(end_frame);
+        segments.push(ScheduledGainFrameSegment {
+            start_frame,
+            transition_end_frame,
+            end_frame,
+            from_gain,
+            to_gain,
+        });
+        previous_gain = Some(to_gain);
+        previous_end = end_frame;
+    }
+    if segments.is_empty() || segments[0].start_frame != 0 {
+        return Err("scheduled gain plan must start at Pattern frame zero".to_owned());
+    }
+    Ok(Some(ScheduledGainTimeline {
+        segments,
+        loop_length_frames,
+        looping,
+    }))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -493,6 +616,41 @@ fn start_input_stream(
 #[cfg(test)]
 mod tests {
     use super::device;
+
+    #[test]
+    fn scheduled_section_gain_is_precomputed_on_the_pattern_timeline() {
+        let pattern = crate::performance::events::default_pattern();
+        let plan = super::ScheduledGainPlan {
+            segments: vec![
+                super::ScheduledGainSegment {
+                    start_tick: 0,
+                    end_tick: 960,
+                    gain_db: -6.0,
+                },
+                super::ScheduledGainSegment {
+                    start_tick: 960,
+                    end_tick: 1_920,
+                    gain_db: 6.0,
+                },
+            ],
+        };
+
+        let timeline = super::prepare_scheduled_gain(-10.0, Some(&plan), &pattern, 48_000.0, true)
+            .expect("gain plan prepares")
+            .expect("gain timeline");
+
+        let quiet = 10.0_f32.powf(-16.0 / 20.0);
+        let loud = 10.0_f32.powf(-4.0 / 20.0);
+        assert_eq!(timeline.loop_length_frames, 96_000);
+        assert!(timeline.looping);
+        assert_eq!(timeline.segments[0].start_frame, 0);
+        assert_eq!(timeline.segments[0].from_gain, quiet);
+        assert_eq!(timeline.segments[0].to_gain, quiet);
+        assert_eq!(timeline.segments[1].start_frame, 48_000);
+        assert_eq!(timeline.segments[1].transition_end_frame, 48_240);
+        assert_eq!(timeline.segments[1].from_gain, quiet);
+        assert_eq!(timeline.segments[1].to_gain, loud);
+    }
 
     #[test]
     fn device_report_serialization_preserves_opaque_ids_and_unknown_buffer_size() {

@@ -95,6 +95,14 @@ pub(super) fn inherit(dict: &Value, name: &str, drums: bool, path: &str) -> Resu
 }
 
 pub(super) fn melody(dict: &Value, name: &str, path: &str) -> Result<Vec<Value>> {
+    fn located_bar(value: &Value, origin: &str, source_bar: usize) -> Value {
+        serde_json::json!({
+            "resolved_bar": value,
+            "$origin": origin,
+            "$source_bar": source_bar
+        })
+    }
+
     fn visit(dict: &Value, name: &str, path: &str, stack: &mut Vec<String>) -> Result<Vec<Value>> {
         if stack.iter().any(|s| s == name) {
             return Err(Error::new(path, format!("cyclic melody reference {name}")));
@@ -108,13 +116,18 @@ pub(super) fn melody(dict: &Value, name: &str, path: &str) -> Result<Vec<Value>>
         stack.push(name.into());
         let result = if let Some(list) = value.as_array() {
             let mut bars = Vec::new();
-            for item in list {
+            for (bar_index, item) in list.iter().enumerate() {
                 if item.is_string() {
-                    bars.push(item.clone());
+                    bars.push(located_bar(
+                        item,
+                        &format!("melodies.{name}[{bar_index}]"),
+                        bar_index + 1,
+                    ));
                     continue;
                 }
                 fields(item, &["use", "bars", "shift_steps"], path)?;
-                let referenced = visit(dict, text_field(item, "use", path)?, path, stack)?;
+                let use_name = text_field(item, "use", path)?;
+                let referenced = visit(dict, use_name, path, stack)?;
                 let range = array(required(item, "bars", path)?, path)?;
                 if range.len() != 2 {
                     return Err(Error::new(path, "bars must be [start,end]"));
@@ -133,7 +146,12 @@ pub(super) fn melody(dict: &Value, name: &str, path: &str) -> Result<Vec<Value>>
                 }
                 let shift = item.get("shift_steps").cloned().unwrap_or(Value::from(0));
                 for bar in &referenced[start - 1..end] {
-                    bars.push(serde_json::json!({"resolved_bar":bar,"shift_steps":shift}));
+                    bars.push(serde_json::json!({
+                        "resolved_bar": bar,
+                        "shift_steps": shift,
+                        "$origin": bar["$origin"],
+                        "$source_bar": bar["$source_bar"]
+                    }));
                 }
             }
             bars
@@ -148,7 +166,8 @@ pub(super) fn melody(dict: &Value, name: &str, path: &str) -> Result<Vec<Value>>
                         .filter(|n| *n > 0 && *n <= bars.len())
                         .ok_or_else(|| Error::new(path, "replacement bar is outside melody"))?;
                     string(bar, path)?;
-                    bars[index - 1] = bar.clone();
+                    bars[index - 1] =
+                        located_bar(bar, &format!("melodies.{name}.replace.{index}"), index);
                 }
             }
             bars
@@ -261,6 +280,7 @@ pub(super) fn validate_structure(doc: &Value) -> Result<()> {
     }
     let sections = required(doc, "sections", "")?;
     validate_sections(sections)?;
+    validate_part_gains(sections, required(doc, "instruments", "")?)?;
     validate_instruments(required(doc, "instruments", "")?)?;
     validate_materials(doc)?;
     if let Some(notes) = doc.get("notes") {
@@ -441,6 +461,26 @@ pub(super) fn event_kind(v: &Value, path: &str) -> Result<()> {
     Ok(())
 }
 
+fn validate_part_gains(sections: &Value, instruments: &Value) -> Result<()> {
+    for (name, _) in object(sections, "sections")? {
+        let path = format!("sections.{name}");
+        let section = inherit(sections, name, false, &path)?;
+        let Some(gains) = section.get("part_gains") else {
+            continue;
+        };
+        for (id, value) in object(gains, &format!("{path}.part_gains"))? {
+            if instruments.get(id).is_none() {
+                return Err(Error::new(
+                    format!("{path}.part_gains.{id}"),
+                    "part_gains key must name an instrument",
+                ));
+            }
+            number(value, &format!("{path}.part_gains.{id}"))?;
+        }
+    }
+    Ok(())
+}
+
 fn validate_sections(sections: &Value) -> Result<()> {
     for (name, section) in object(sections, "sections")? {
         let path = format!("sections.{name}");
@@ -470,6 +510,7 @@ fn validate_sections(sections: &Value) -> Result<()> {
                 "add_placements",
                 "events",
                 "velocity",
+                "part_gains",
             ],
             &path,
         )?;

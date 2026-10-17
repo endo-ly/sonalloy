@@ -8,7 +8,7 @@ pub(super) struct NoteToken<'a> {
     pub(super) spelling: &'a str,
 }
 
-pub(super) fn note(token: &str) -> Result<NoteToken<'_>> {
+pub(super) fn note_parts(token: &str) -> Result<(&str, Option<i64>, bool)> {
     let legato = token.ends_with('~');
     let body = token.strip_suffix('~').unwrap_or(token);
     let (pitch, velocity) = body
@@ -25,6 +25,11 @@ pub(super) fn note(token: &str) -> Result<NoteToken<'_>> {
                 .ok_or_else(|| Error::new("", "expected velocity 1..127 after @"))
         })
         .transpose()?;
+    Ok((pitch, velocity, legato))
+}
+
+pub(super) fn note(token: &str) -> Result<NoteToken<'_>> {
+    let (pitch, velocity, legato) = note_parts(token)?;
     Ok(NoteToken {
         pitch: degree(pitch)?,
         velocity,
@@ -345,6 +350,35 @@ pub(super) fn explicit_voicing(
     Ok(notes)
 }
 
+pub(super) fn chord_tone_interval(chord: &Chord, role: &str) -> Result<i32> {
+    let (degree, accidental, octave) = voicing_role(role)?;
+    let candidates: Vec<_> = chord
+        .tones
+        .iter()
+        .filter(|tone| {
+            tone.degree == degree && accidental.is_none_or(|value| tone.accidental == value)
+        })
+        .collect();
+    let [tone] = candidates.as_slice() else {
+        return Err(Error::new(
+            "",
+            format!(
+                "chord tone `{role}` is absent or ambiguous in `{}`; available tones: {}",
+                chord.spelling,
+                chord
+                    .tones
+                    .iter()
+                    .map(|tone| tone.spelling.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        ));
+    };
+    tone.semitones
+        .checked_add(octave)
+        .ok_or_else(|| Error::new("", "chord tone interval is out of range"))
+}
+
 pub(super) fn voicing_role(role: &str) -> Result<(u8, Option<i32>, i32)> {
     let body = role.trim_end_matches(['\'', ',']);
     let suffix = &role[body.len()..];
@@ -380,6 +414,7 @@ pub(super) struct GridCell {
     pub(super) at: Quarter,
     pub(super) duration: Quarter,
     pub(super) token: String,
+    pub(super) token_offset: usize,
     pub(super) tuplet: Option<(Quarter, Quarter)>,
 }
 
@@ -397,22 +432,35 @@ pub(super) fn grid(
     }
     let mut cells = Vec::new();
     let mut at = q(0, 1);
-    for group in text.split('|') {
-        let group = group.trim();
+    let mut group_offset = 0;
+    for raw_group in text.split('|') {
+        let leading = raw_group.len() - raw_group.trim_start().len();
+        let group = raw_group.trim();
+        let source_group_offset = group_offset + leading;
         let tuplet = group.starts_with('[') && group.ends_with(']');
         let inner = if tuplet {
             &group[1..group.len() - 1]
         } else {
             group
         };
-        let tokens: Vec<String> = if drums {
+        let inner_offset = source_group_offset + usize::from(tuplet);
+        let tokens: Vec<(String, usize)> = if drums {
             inner
-                .chars()
-                .filter(|c| !c.is_whitespace())
-                .map(|c| c.to_string())
+                .char_indices()
+                .filter(|(_, character)| !character.is_whitespace())
+                .map(|(offset, character)| (character.to_string(), offset))
                 .collect()
         } else {
-            inner.split_whitespace().map(str::to_owned).collect()
+            let mut cursor = 0;
+            inner
+                .split_whitespace()
+                .map(|token| {
+                    let offset =
+                        inner[cursor..].find(token).expect("split token is present") + cursor;
+                    cursor = offset + token.len();
+                    (token.to_owned(), offset)
+                })
+                .collect()
         };
         if tokens.is_empty() {
             return Err(Error::new("", "grid interval must contain cells"));
@@ -434,15 +482,17 @@ pub(super) fn grid(
             ));
         }
         let group_start = at.clone();
-        for token in tokens {
+        for (token, token_offset) in tokens {
             cells.push(GridCell {
                 at: at.clone(),
                 duration: unit.clone(),
                 token,
+                token_offset: inner_offset + token_offset,
                 tuplet: tuplet.then(|| (group_start.clone(), interval.clone())),
             });
             at += &unit;
         }
+        group_offset += raw_group.len() + 1;
     }
     if &at != length {
         return Err(Error::new("", "grid length must equal the bar length"));
@@ -454,6 +504,9 @@ pub(super) struct Span {
     pub(super) at: Quarter,
     pub(super) duration: Quarter,
     pub(super) token: String,
+    pub(super) source_path: Option<String>,
+    pub(super) token_offset: Option<usize>,
+    pub(super) source_bar: Option<usize>,
     unit: Quarter,
 }
 
@@ -474,7 +527,21 @@ pub(super) fn articulate(
 ) -> Result<Vec<Span>> {
     let mut connections = Vec::with_capacity(notes.len());
     for span in &mut notes {
-        let connected = note(&span.token).map_err(|e| e.at(path))?.legato;
+        let source_path = span.source_path.as_deref().unwrap_or(path);
+        let token_error = |error: Error| {
+            let error = if let Some(offset) = span.token_offset {
+                error.with_token_location(source_path, offset, &span.token)
+            } else {
+                error.at(source_path)
+            };
+            error.with_score_position(span.at.clone(), span.source_bar)
+        };
+        let (pitch, _, legato) = note_parts(&span.token).map_err(token_error)?;
+        let connected = if pitch.starts_with('c') {
+            legato
+        } else {
+            note(&span.token).map_err(token_error)?.legato
+        };
         if !connected {
             span.duration *= gate;
         }
@@ -482,17 +549,68 @@ pub(super) fn articulate(
     }
     for i in 0..notes.len() {
         if connections[i] {
+            let note = &notes[i];
+            let source_path = note.source_path.as_deref().unwrap_or(path);
+            let error = |message| {
+                let error = Error::new(source_path, message);
+                let error = if let Some(offset) = note.token_offset {
+                    error.with_token_location(source_path, offset, &note.token)
+                } else {
+                    error
+                };
+                error.with_score_position(note.at.clone(), note.source_bar)
+            };
             let next = notes
                 .get(i + 1)
-                .ok_or_else(|| Error::new(path, "legato has no following note"))?;
-            if &notes[i].at + &notes[i].duration != next.at {
-                return Err(Error::new(path, "legato cannot cross a rest or gap"));
+                .ok_or_else(|| error("legato has no following note"))?;
+            if &note.at + &note.duration != next.at {
+                return Err(error("legato cannot cross a rest or gap"));
             }
             let overlap = q(1, 64).min(next.unit.clone().min(next.duration.clone()) / q(4, 1));
             notes[i].duration = (&next.at + overlap).min(end.clone()) - &notes[i].at;
         }
     }
     Ok(notes)
+}
+
+pub(super) fn spans_with_source(
+    cells: Vec<(Quarter, Quarter, String, String, usize, usize)>,
+) -> Result<Vec<Span>> {
+    let mut result: Vec<Span> = Vec::new();
+    let mut active = false;
+    for (at, unit, token, source_path, token_offset, source_bar) in cells {
+        let located_error = |message| {
+            Error::new(&source_path, message)
+                .with_token_location(&source_path, token_offset, &token)
+                .with_score_position(at.clone(), Some(source_bar))
+        };
+        match token.as_str() {
+            "-" => {
+                if !active {
+                    return Err(located_error("tie has no preceding note"));
+                }
+                let last = result.last_mut().expect("active note");
+                if &last.at + &last.duration != at {
+                    return Err(located_error("tie crosses an unnotated gap"));
+                }
+                last.duration = at + unit - &last.at;
+            }
+            "." => active = false,
+            _ => {
+                result.push(Span {
+                    at,
+                    duration: unit.clone(),
+                    unit,
+                    token,
+                    source_path: Some(source_path),
+                    token_offset: Some(token_offset),
+                    source_bar: Some(source_bar),
+                });
+                active = true;
+            }
+        }
+    }
+    Ok(result)
 }
 
 pub(super) fn spans(cells: Vec<(Quarter, Quarter, String)>, path: &str) -> Result<Vec<Span>> {
@@ -517,6 +635,9 @@ pub(super) fn spans(cells: Vec<(Quarter, Quarter, String)>, path: &str) -> Resul
                     duration: unit.clone(),
                     unit,
                     token,
+                    source_path: None,
+                    token_offset: None,
+                    source_bar: None,
                 });
                 active = true;
             }

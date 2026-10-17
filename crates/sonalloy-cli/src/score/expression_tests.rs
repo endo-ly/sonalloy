@@ -122,6 +122,71 @@ fn bass_degrees_follow_tonic_or_slash_bass_after_choices_and_overrides() {
 }
 
 #[test]
+fn bass_chord_tone_tokens_follow_the_active_chord() {
+    let mut doc = document();
+    doc["sections"]["a"] = json!({
+        "chords": ["1:maj7"],
+        "bass": {"pattern": "line"}
+    });
+    doc["bass"] = json!({
+        "line": {"parts": {"lead": "c1 c3 c5 c7 | . . . . | . . . . | . . . ."}}
+    });
+    assert_eq!(
+        notes(&compile(&doc.to_string()).unwrap(), "lead")
+            .iter()
+            .map(|note| note.2)
+            .collect::<Vec<_>>(),
+        [36, 40, 43, 47]
+    );
+
+    doc["sections"]["a"]["chords"] = json!(["1:m7"]);
+    assert_eq!(
+        notes(&compile(&doc.to_string()).unwrap(), "lead")
+            .iter()
+            .map(|note| note.2)
+            .collect::<Vec<_>>(),
+        [36, 39, 43, 46]
+    );
+
+    doc["sections"]["a"]["chords"] = json!(["5:maj7/3"]);
+    assert_eq!(
+        notes(&compile(&doc.to_string()).unwrap(), "lead")
+            .iter()
+            .map(|note| note.2)
+            .collect::<Vec<_>>(),
+        [31, 35, 38, 42]
+    );
+
+    doc["sections"]["a"]["chords"] = json!(["1:maj"]);
+    assert!(compile(&doc.to_string()).is_err());
+}
+
+#[test]
+fn bass_chord_tone_root_must_fit_the_instrument_range() {
+    let mut doc = document();
+    doc["sections"]["a"] = json!({
+        "chords": ["1:maj"],
+        "bass": {"pattern": "line"}
+    });
+    doc["bass"] = json!({
+        "line": {"parts": {"lead": "c1 . . . | . . . . | . . . . | . . . ."}}
+    });
+    doc["instruments"]["lead"]["bass_floor_midi"] = json!(28);
+    doc["instruments"]["lead"]["bass_ceiling_midi"] = json!(34);
+
+    let error = compile(&doc.to_string()).expect_err("C2 exceeds the bass ceiling");
+
+    assert_eq!(
+        error.diagnostics[0].message,
+        "bass range contains no matching pitch"
+    );
+    assert_eq!(
+        error.diagnostics[0].path.as_deref(),
+        Some("sections.a.bass")
+    );
+}
+
+#[test]
 fn automatic_accompaniment_preserves_compound_chord_intervals() {
     for (quality, expected) in [
         ("9", vec![48, 52, 55, 58, 62]),

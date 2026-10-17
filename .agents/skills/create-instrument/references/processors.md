@@ -42,6 +42,42 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
 
 `Dynamic Parameter`列はModulation RouteやParameter Changeで動かせるField、`Static Field`列はCompile時に確定するFieldです。Filterの`cutoff_hz`だけ、既存のCanonical IDとして`cutoff`をCatalog IDに用います。Processorの種類・ID・配置・順序やStatic Fieldを変えた場合は、再Compileが必要です。
 
+## EQとDelayの定義例
+
+EQはLayer / Voice / Global Chainに、DelayはGlobal Chainに配置します。次のObjectをProcessor配列へ追加できます。
+
+### EQ
+
+```json
+{
+  "type": "eq",
+  "id": "tone",
+  "low_frequency_hz": 120.0,
+  "low_gain_db": -2.0,
+  "mid_frequency_hz": 1000.0,
+  "mid_gain_db": 1.5,
+  "mid_q": 1.0,
+  "high_frequency_hz": 8000.0,
+  "high_gain_db": -1.0
+}
+```
+
+### Delay
+
+```json
+{
+  "type": "delay",
+  "id": "echo",
+  "time": {"value": 0.25, "unit": "beats"},
+  "feedback_mode": "ping_pong",
+  "feedback": 0.3,
+  "taps": [
+    {"time": {"value": 0.5, "unit": "beats"}, "gain_db": -6.0}
+  ],
+  "mix": 0.3
+}
+```
+
 ## 種類ごとの補足
 
 **Formant** — Profileは`id`と周波数昇順の5 Bandを持ち、Band FieldはGeneratorのFormantと共通です（`frequency_hz`: 100〜12000 Hz、`bandwidth_hz`: 20〜5000 Hz、`gain_db`: -60〜12 dB）。
