@@ -3,14 +3,15 @@
   "external_audio": null,
   "metadata": {
     "name": "Pulse Lead",
-    "author": "gpt-6-astra low",
-    "description": "Pulse波特有の細く明確な音像を持つリード。高域の倍音が音の輪郭を明確にし、基音の芯を保ったまま明るく安定して伸びる。短い旋律では各音が分離し、長音では細い中央の音像が崩れにくい。",
+    "author": "claude-opus-5.5",
+    "description": "わずかにずらした2本のPulse波を重ね、パルス幅がゆっくり揺れることで厚みと動きを持たせたリード。発音直後はフィルターが開いた鋭い輪郭で、すぐに中域中心の太い音色へ落ち着き、伸ばすと遅れてビブラートがかかり、短いディレイと残響が後ろに広がる。レガートでは音程が滑らかにつながり、ベロシティで明るさ、Mod Wheelでビブラートの深さが変わる。",
     "category": "Lead",
     "tags": [
-      "Bright",
+      "Analog-Style",
+      "Detuned",
       "Sharp",
-      "Sustained",
-      "Stable"
+      "Evolving",
+      "Sustained"
     ],
     "recommended_range": {
       "min_midi": 48,
@@ -19,7 +20,10 @@
   },
   "performance": {
     "mode": "monophonic",
-    "legato": false
+    "legato": true,
+    "portamento": {
+      "time_seconds": 0.045
+    }
   },
   "layers": [
     {
@@ -32,14 +36,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -12,
+      "gain_db": -12.5,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
-        "attack_seconds": 0.003,
-        "decay_seconds": 0.1,
-        "sustain_level": 0.7,
-        "release_seconds": 0.08
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.82,
+        "release_seconds": 0.18
       },
       "generator": {
         "oscillator": {
@@ -52,26 +56,209 @@
         }
       },
       "processors": []
+    },
+    {
+      "id": "shadow",
+      "enabled": true,
+      "trigger": {
+        "event": "note_on",
+        "key_min": 0,
+        "key_max": 127,
+        "velocity_min": 1,
+        "velocity_max": 127
+      },
+      "gain_db": -15.5,
+      "pan": 0,
+      "tuning_cents": 7,
+      "envelope": {
+        "attack_seconds": 0.004,
+        "decay_seconds": 0.3,
+        "sustain_level": 0.82,
+        "release_seconds": 0.18
+      },
+      "generator": {
+        "oscillator": {
+          "waveform": {
+            "type": "pulse",
+            "pulse_width": 0.3
+          },
+          "phase_reset": false,
+          "phase": 0
+        }
+      },
+      "processors": []
     }
   ],
   "voice_processors": [
     {
-      "type": "filter",
+      "type": "ladder_filter",
       "id": "tone",
-      "mode": "low_pass",
-      "cutoff_hz": 6906.427882998493,
-      "resonance": 0.05
+      "cutoff_hz": 2300,
+      "resonance": 0.18,
+      "drive": 0.25
     }
   ],
-  "global_processors": [],
+  "global_processors": [
+    {
+      "type": "chorus",
+      "id": "width",
+      "delay_ms": 9,
+      "rate_hz": 0.6,
+      "depth": 0.35,
+      "feedback": 0,
+      "width": 0.8,
+      "mix": 0.25
+    },
+    {
+      "type": "delay",
+      "id": "echo",
+      "time": {
+        "value": 0.75,
+        "unit": "beats"
+      },
+      "feedback_mode": "ping_pong",
+      "feedback": 0.25,
+      "taps": [],
+      "mix": 0.14
+    },
+    {
+      "type": "reverb",
+      "id": "space",
+      "pre_delay_seconds": 0.02,
+      "decay": 0.55,
+      "damping": 0.5,
+      "width": 1,
+      "mix": 0.12
+    }
+  ],
   "modulation": {
-    "sources": [],
+    "sources": [
+      {
+        "id": "bite",
+        "type": "envelope",
+        "attack_seconds": 0.002,
+        "decay_seconds": 0.35,
+        "sustain_level": 0.3,
+        "release_seconds": 0.2
+      },
+      {
+        "id": "pwm",
+        "type": "lfo",
+        "waveform": "triangle",
+        "rate": {
+          "value": 0.4,
+          "unit": "per_second"
+        },
+        "phase": 0
+      },
+      {
+        "id": "pwm_shadow",
+        "type": "lfo",
+        "waveform": "triangle",
+        "rate": {
+          "value": 0.55,
+          "unit": "per_second"
+        },
+        "phase": 0.5
+      },
+      {
+        "id": "late_vibrato",
+        "type": "mseg",
+        "initial_value": 0,
+        "segments": [
+          {
+            "duration": {
+              "value": 0.3,
+              "unit": "seconds"
+            },
+            "target": 0,
+            "curve": "linear"
+          },
+          {
+            "duration": {
+              "value": 0.09,
+              "unit": "seconds"
+            },
+            "target": 0.3,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.09,
+              "unit": "seconds"
+            },
+            "target": -0.3,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.09,
+              "unit": "seconds"
+            },
+            "target": 0.65,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.09,
+              "unit": "seconds"
+            },
+            "target": -0.65,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.09,
+              "unit": "seconds"
+            },
+            "target": 1,
+            "curve": "smooth_step"
+          },
+          {
+            "duration": {
+              "value": 0.09,
+              "unit": "seconds"
+            },
+            "target": -1,
+            "curve": "smooth_step"
+          }
+        ],
+        "loop_range": {
+          "start_segment": 5,
+          "end_segment": 7
+        }
+      },
+      {
+        "id": "wheel_vibrato",
+        "type": "lfo",
+        "waveform": "sine",
+        "rate": {
+          "value": 5.6,
+          "unit": "per_second"
+        },
+        "phase": 0
+      },
+      {
+        "id": "drift",
+        "type": "random",
+        "seed": 3003
+      }
+    ],
     "routes": [
       {
         "source": "velocity",
         "target": "layer.pulse.gain",
         "depth": {
-          "value": 8,
+          "value": 7,
+          "unit": "decibels"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "velocity",
+        "target": "layer.shadow.gain",
+        "depth": {
+          "value": 7,
           "unit": "decibels"
         },
         "curve": "linear"
@@ -80,32 +267,115 @@
         "source": "velocity",
         "target": "voice.processor.tone.cutoff",
         "depth": {
-          "value": 0.3,
+          "value": 0.8,
           "unit": "octaves"
         },
         "curve": "linear"
       },
       {
-        "source": "mod_wheel",
-        "target": "layer.pulse.generator.pulse_width",
+        "source": "bite",
+        "target": "voice.processor.tone.cutoff",
         "depth": {
-          "value": 0.08,
-          "unit": "normalized"
+          "value": 1.6,
+          "unit": "octaves"
         },
-        "curve": "linear"
+        "curve": "smooth_step"
       },
       {
         "source": "key_tracking",
         "target": "voice.processor.tone.cutoff",
         "depth": {
-          "value": 1.5875000000000001,
+          "value": 1.5,
           "unit": "octaves"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pwm",
+        "target": "layer.pulse.generator.pulse_width",
+        "depth": {
+          "value": 0.1,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pwm_shadow",
+        "target": "layer.shadow.generator.pulse_width",
+        "depth": {
+          "value": 0.12,
+          "unit": "normalized"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "late_vibrato",
+        "target": "layer.pulse.tuning",
+        "depth": {
+          "value": 9,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "late_vibrato",
+        "target": "layer.shadow.tuning",
+        "depth": {
+          "value": 9,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "wheel_vibrato",
+        "target": "layer.pulse.tuning",
+        "depth": {
+          "value": 30,
+          "unit": "cents"
+        },
+        "curve": "linear",
+        "depth_control": "mod_wheel"
+      },
+      {
+        "source": "wheel_vibrato",
+        "target": "layer.shadow.tuning",
+        "depth": {
+          "value": 30,
+          "unit": "cents"
+        },
+        "curve": "linear",
+        "depth_control": "mod_wheel"
+      },
+      {
+        "source": "drift",
+        "target": "layer.pulse.tuning",
+        "depth": {
+          "value": 3,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "drift",
+        "target": "layer.shadow.tuning",
+        "depth": {
+          "value": -3,
+          "unit": "cents"
         },
         "curve": "linear"
       },
       {
         "source": "pitch_bend",
         "target": "layer.pulse.tuning",
+        "depth": {
+          "value": 200,
+          "unit": "cents"
+        },
+        "curve": "linear"
+      },
+      {
+        "source": "pitch_bend",
+        "target": "layer.shadow.tuning",
         "depth": {
           "value": 200,
           "unit": "cents"

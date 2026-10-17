@@ -2,15 +2,14 @@
   "schema_version": 6,
   "metadata": {
     "name": "Double Strike Snap",
-    "author": "glm-5.3-flash",
-    "description": "二つの鋭い接触音が時間差で重なり、ごく短い中域の共鳴がひとまとまりの響きを作る指スナップ。接触音が収まった直後だけ中域の小さな共鳴が残り、低い胴にはならずにすっと消える。連打しても前の音に重ならず、強いスナップでは押し出しが増す。",
+    "author": "claude-opus-5.5",
+    "description": "鋭い指先の接触音に、手のひらで鳴る中高域の短い共鳴と小さな胴鳴りを重ねた指スナップ。乾いた当たりの直後に二打目の当たりが重なって一つの厚い打音になり、共鳴が短く鳴って小さな部屋鳴りへすっと消える。打つたびに共鳴の高さがわずかに変わるため連打でも単調にならず、強く鳴らすと接触音が前に出て明るくなる。",
     "category": "Drum",
     "tags": [
-      "Noisy",
-      "Bright",
+      "Sharp",
+      "Punchy",
       "Percussive",
-      "Short",
-      "Sharp"
+      "Short"
     ],
     "recommended_range": {
       "min_midi": 39,
@@ -24,7 +23,7 @@
   },
   "layers": [
     {
-      "id": "palm",
+      "id": "click",
       "enabled": true,
       "trigger": {
         "event": "note_on",
@@ -33,84 +32,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -17,
+      "gain_db": -18,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
-        "attack_seconds": 0.0004,
-        "decay_seconds": 0,
-        "sustain_level": 1,
-        "release_seconds": 0.03
-      },
-      "generator": {
-        "additive": {
-          "phase_reset": true,
-          "morph": 0,
-          "spectrum_tilt_db_per_octave": 0,
-          "inharmonicity": 0.12,
-          "partials": [
-            {
-              "id": "palm_lo",
-              "ratio": 9.5,
-              "amplitude_a": 1,
-              "amplitude_b": 1,
-              "phase": 0,
-              "envelope": {
-                "attack_seconds": 0.0004,
-                "decay_seconds": 0.032,
-                "sustain_level": 0,
-                "release_seconds": 0.02
-              }
-            },
-            {
-              "id": "palm_mid",
-              "ratio": 15.2,
-              "amplitude_a": 0.6,
-              "amplitude_b": 0.6,
-              "phase": 0,
-              "envelope": {
-                "attack_seconds": 0.0004,
-                "decay_seconds": 0.026,
-                "sustain_level": 0,
-                "release_seconds": 0.02
-              }
-            },
-            {
-              "id": "palm_hi",
-              "ratio": 23,
-              "amplitude_a": 0.4,
-              "amplitude_b": 0.4,
-              "phase": 0,
-              "envelope": {
-                "attack_seconds": 0.0004,
-                "decay_seconds": 0.02,
-                "sustain_level": 0,
-                "release_seconds": 0.02
-              }
-            }
-          ]
-        }
-      },
-      "processors": []
-    },
-    {
-      "id": "impact",
-      "enabled": true,
-      "trigger": {
-        "event": "note_on",
-        "key_min": 0,
-        "key_max": 127,
-        "velocity_min": 1,
-        "velocity_max": 127
-      },
-      "gain_db": -14,
-      "pan": 0,
-      "tuning_cents": 0,
-      "envelope": {
-        "attack_seconds": 0.0005,
-        "decay_seconds": 0.011,
+        "attack_seconds": 0,
+        "decay_seconds": 0.004,
         "sustain_level": 0,
-        "release_seconds": 0.012
+        "release_seconds": 0.004
       },
       "generator": {
         "noise": {
@@ -122,22 +51,15 @@
       "processors": [
         {
           "type": "filter",
-          "id": "band_lo",
+          "id": "edge",
           "mode": "high_pass",
-          "cutoff_hz": 1500,
-          "resonance": 0.06
-        },
-        {
-          "type": "filter",
-          "id": "band_hi",
-          "mode": "low_pass",
-          "cutoff_hz": 8600,
+          "cutoff_hz": 2500,
           "resonance": 0.05
         }
       ]
     },
     {
-      "id": "snap2",
+      "id": "crack",
       "enabled": true,
       "trigger": {
         "event": "note_on",
@@ -146,14 +68,14 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -16,
+      "gain_db": -10,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
-        "attack_seconds": 0.014,
-        "decay_seconds": 0.013,
+        "attack_seconds": 0.0003,
+        "decay_seconds": 0.045,
         "sustain_level": 0,
-        "release_seconds": 0.014
+        "release_seconds": 0.04
       },
       "generator": {
         "noise": {
@@ -165,22 +87,15 @@
       "processors": [
         {
           "type": "filter",
-          "id": "band_lo",
-          "mode": "high_pass",
-          "cutoff_hz": 1500,
-          "resonance": 0.06
-        },
-        {
-          "type": "filter",
-          "id": "band_hi",
-          "mode": "low_pass",
-          "cutoff_hz": 8600,
-          "resonance": 0.05
+          "id": "palm",
+          "mode": "band_pass",
+          "cutoff_hz": 2300,
+          "resonance": 0.55
         }
       ]
     },
     {
-      "id": "drag",
+      "id": "pop",
       "enabled": true,
       "trigger": {
         "event": "note_on",
@@ -189,36 +104,29 @@
         "velocity_min": 1,
         "velocity_max": 127
       },
-      "gain_db": -27,
+      "gain_db": -12,
       "pan": 0,
       "tuning_cents": 0,
       "envelope": {
-        "attack_seconds": 0.001,
-        "decay_seconds": 0.05,
+        "attack_seconds": 0.0005,
+        "decay_seconds": 0.028,
         "sustain_level": 0,
-        "release_seconds": 0.05
+        "release_seconds": 0.025
       },
       "generator": {
         "noise": {
-          "color": "white",
+          "color": "pink",
           "seed": 61443,
-          "stereo_correlation": 0.85
+          "stereo_correlation": 1
         }
       },
       "processors": [
         {
           "type": "filter",
-          "id": "band_lo",
-          "mode": "high_pass",
-          "cutoff_hz": 2200,
-          "resonance": 0.05
-        },
-        {
-          "type": "filter",
-          "id": "band_hi",
-          "mode": "low_pass",
-          "cutoff_hz": 7200,
-          "resonance": 0.05
+          "id": "knuckle",
+          "mode": "band_pass",
+          "cutoff_hz": 950,
+          "resonance": 0.4
         }
       ]
     }
@@ -228,18 +136,39 @@
       "type": "filter",
       "id": "floor",
       "mode": "high_pass",
-      "cutoff_hz": 640,
+      "cutoff_hz": 280,
       "resonance": 0.04
     },
     {
-      "type": "filter",
-      "id": "air",
-      "mode": "low_pass",
-      "cutoff_hz": 11000,
-      "resonance": 0.04
+      "type": "transient_shaper",
+      "id": "snap",
+      "attack": 0.4,
+      "sustain": -0.1,
+      "mix": 1
     }
   ],
   "global_processors": [
+    {
+      "type": "delay",
+      "id": "second_strike",
+      "time": {
+        "value": 0.008,
+        "unit": "seconds"
+      },
+      "feedback_mode": "stereo",
+      "feedback": 0,
+      "taps": [],
+      "mix": 0.3
+    },
+    {
+      "type": "reverb",
+      "id": "room",
+      "pre_delay_seconds": 0.004,
+      "decay": 0.35,
+      "damping": 0.45,
+      "width": 1,
+      "mix": 0.08
+    },
     {
       "type": "limiter",
       "id": "cap",
@@ -249,20 +178,26 @@
     }
   ],
   "modulation": {
-    "sources": [],
+    "sources": [
+      {
+        "id": "hand",
+        "type": "random",
+        "seed": 61444
+      }
+    ],
     "routes": [
       {
         "source": "velocity",
-        "target": "layer.impact.gain",
+        "target": "layer.click.gain",
         "depth": {
-          "value": 8,
+          "value": 10,
           "unit": "decibels"
         },
         "curve": "smooth_step"
       },
       {
         "source": "velocity",
-        "target": "layer.snap2.gain",
+        "target": "layer.crack.gain",
         "depth": {
           "value": 9,
           "unit": "decibels"
@@ -271,30 +206,39 @@
       },
       {
         "source": "velocity",
-        "target": "layer.drag.gain",
+        "target": "layer.pop.gain",
         "depth": {
-          "value": 8,
+          "value": 6,
           "unit": "decibels"
         },
         "curve": "smooth_step"
       },
       {
         "source": "velocity",
-        "target": "voice.processor.air.cutoff",
+        "target": "layer.crack.processor.palm.cutoff",
         "depth": {
-          "value": 0.3,
+          "value": 0.25,
           "unit": "octaves"
         },
         "curve": "linear"
       },
       {
-        "source": "velocity",
-        "target": "layer.palm.gain",
+        "source": "hand",
+        "target": "layer.crack.processor.palm.cutoff",
         "depth": {
-          "value": 4,
-          "unit": "decibels"
+          "value": 0.12,
+          "unit": "octaves"
         },
-        "curve": "smooth_step"
+        "curve": "linear"
+      },
+      {
+        "source": "hand",
+        "target": "layer.pop.processor.knuckle.cutoff",
+        "depth": {
+          "value": -0.1,
+          "unit": "octaves"
+        },
+        "curve": "linear"
       }
     ]
   },
