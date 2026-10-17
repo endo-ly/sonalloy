@@ -410,18 +410,20 @@ fn single_instrument_renders_report_required_and_unused_audio_input() {
             ));
         assert!(!output.exists());
     }
-    Command::cargo_bin("sonalloy")
-        .expect("binary")
-        .args(["render", "note"])
-        .arg(fixture_path("instruments/basic-poly-synth.json"))
-        .args(["--audio-input", "missing-input.wav", "--output"])
-        .arg(&output)
-        .arg("--json")
-        .assert()
-        .code(2)
-        .stdout(predicates::str::contains(
-            "external audio input is not used by this instrument",
-        ));
+    for input in ["missing-input.wav", "silence"] {
+        Command::cargo_bin("sonalloy")
+            .expect("binary")
+            .args(["render", "note"])
+            .arg(fixture_path("instruments/basic-poly-synth.json"))
+            .args(["--audio-input", input, "--output"])
+            .arg(&output)
+            .arg("--json")
+            .assert()
+            .code(2)
+            .stdout(predicates::str::contains(
+                "external audio input is not used by this instrument",
+            ));
+    }
 }
 
 #[test]

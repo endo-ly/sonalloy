@@ -1092,12 +1092,10 @@ impl Builder<'_> {
                     syntax::note_parts(&token).map_err(|e| e.at(path))?;
                 let note = if let Some(role) = body.strip_prefix('c') {
                     let (chord, tonic) = self.harmony_at(&at, path)?;
-                    let instrument = self.instrument(&id)?;
-                    let floor = optional_int(instrument, "bass_floor_midi", 28, path)?;
-                    let root = floor + (i64::from(tonic + chord.root) - floor).rem_euclid(12);
+                    let root = self.bass_note(&id, 0, tonic + chord.root, path)?;
                     let interval =
                         syntax::chord_tone_interval(chord, role).map_err(|e| e.at(path))?;
-                    let note = root
+                    let note = i64::from(root)
                         .checked_add(i64::from(interval))
                         .ok_or_else(|| Error::new(path, "bass pitch is out of range"))?;
                     i32::try_from(note)

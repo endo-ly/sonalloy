@@ -517,6 +517,35 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
 }
 
 #[test]
+fn instrument_report_silence_input_only_reaches_audio_consumers() {
+    let output = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["instrument", "report"])
+        .arg(fixture_path("instruments/basic-poly-synth.json"))
+        .arg(fixture_path("instruments/sidechain-ducking.json"))
+        .args([
+            "--audio-input",
+            "silence",
+            "--gate",
+            "0.1",
+            "--tail",
+            "0.1",
+            "--json",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let report: serde_json::Value = serde_json::from_slice(&output).expect("report");
+
+    assert_eq!(report["status"], "ok");
+    let files = report["files"].as_array().expect("files");
+    assert_eq!(files.len(), 2);
+    assert!(files.iter().all(|file| file["status"] == "ok"));
+}
+
+#[test]
 fn instrument_report_text_includes_all_band_energy_ratios() {
     let output = Command::cargo_bin("sonalloy")
         .expect("binary")

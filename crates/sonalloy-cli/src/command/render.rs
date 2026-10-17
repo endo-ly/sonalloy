@@ -1144,7 +1144,7 @@ fn trim_rendered_audio(
 type ScoreMixRender = (
     sonalloy_core::RenderedAudio,
     Vec<PartRenderReport>,
-    Vec<(String, sonalloy_core::RenderedAudio)>,
+    Vec<Vec<SectionPartLevel>>,
 );
 
 fn render_score_mix(
@@ -1173,7 +1173,11 @@ fn render_score_mix(
     let trace_requests = score_trace_requests(demo, args)?;
     let mut mix = StereoMix::new(args.sample_rate);
     let mut part_reports = Vec::with_capacity(demo.parts.len());
-    let mut part_audio = Vec::with_capacity(demo.parts.len());
+    let mut part_section_levels = Vec::new();
+    let mut section_ranges = None;
+    if args.analyze {
+        part_section_levels.resize_with(demo.score.sections.len(), Vec::new);
+    }
     render_score_parts(
         demo,
         args,
@@ -1209,7 +1213,13 @@ fn render_score_mix(
                         ],
                     })?;
                 if args.analyze {
-                    part_audio.push((part.definition.id.clone(), output_audio));
+                    collect_section_part_levels(
+                        demo,
+                        &part.definition.id,
+                        &output_audio,
+                        &mut section_ranges,
+                        &mut part_section_levels,
+                    )?;
                 }
             }
             part_reports.push(PartRenderReport {
@@ -1222,31 +1232,40 @@ fn render_score_mix(
             Ok(())
         },
     )?;
-    let fade_out_seconds = demo.definition.mix.fade_out_seconds;
-    if fade_out_seconds != 0.0 {
-        let timeline_start_frame = score_timeline_frame(demo, demo.output_start_tick, sample_rate)?;
-        let score_end_frame = score_timeline_frame(demo, demo.length_ticks, sample_rate)?;
-        let timeline_frames =
-            score_end_frame
-                .checked_add(tail_frames)
-                .ok_or_else(|| CliFailure {
-                    code: 2,
-                    diagnostics: vec![Diagnostic::error(
-                        DiagnosticCode::ValueOutOfRange,
-                        "Score mix frame range overflows the timeline",
-                    )],
-                })?;
-        mix.apply_fade(fade_out_seconds, timeline_start_frame, timeline_frames)
-            .map_err(|error| CliFailure {
-                code: 3,
-                diagnostics: vec![
-                    Diagnostic::error(DiagnosticCode::RenderError, error)
-                        .with_path("mix.fade_out_seconds"),
-                ],
-            })?;
-    }
+    apply_score_mix_fade(&mut mix, demo, sample_rate, tail_frames)?;
     let mix_audio = mix.into_audio();
-    Ok((mix_audio, part_reports, part_audio))
+    Ok((mix_audio, part_reports, part_section_levels))
+}
+
+fn apply_score_mix_fade(
+    mix: &mut StereoMix,
+    demo: &performance::PerformancePlan,
+    sample_rate: f64,
+    tail_frames: u64,
+) -> Result<(), CliFailure> {
+    let fade_out_seconds = demo.definition.mix.fade_out_seconds;
+    if fade_out_seconds == 0.0 {
+        return Ok(());
+    }
+    let timeline_start_frame = score_timeline_frame(demo, demo.output_start_tick, sample_rate)?;
+    let score_end_frame = score_timeline_frame(demo, demo.length_ticks, sample_rate)?;
+    let timeline_frames = score_end_frame
+        .checked_add(tail_frames)
+        .ok_or_else(|| CliFailure {
+            code: 2,
+            diagnostics: vec![Diagnostic::error(
+                DiagnosticCode::ValueOutOfRange,
+                "Score mix frame range overflows the timeline",
+            )],
+        })?;
+    mix.apply_fade(fade_out_seconds, timeline_start_frame, timeline_frames)
+        .map_err(|error| CliFailure {
+            code: 3,
+            diagnostics: vec![
+                Diagnostic::error(DiagnosticCode::RenderError, error)
+                    .with_path("mix.fade_out_seconds"),
+            ],
+        })
 }
 
 /// Reject a Score render whose final, premaster and MP3 outputs would share a path.
@@ -1734,7 +1753,8 @@ fn execute_render_score(args: &RenderScoreArgs) -> Result<ScoreRenderReport, Cli
         )?;
     }
     validate_score_input_paths(&demo, args)?;
-    let (mix_audio, part_reports, part_audio) = render_score_mix(&demo, args, tail_frames)?;
+    let (mix_audio, part_reports, part_section_levels) =
+        render_score_mix(&demo, args, tail_frames)?;
     // Persist a requested premaster before any mastering or FFmpeg analysis can fail.
     if let Some(path) = &args.premaster_output
         && let Err(error) = write_wav(path, &mix_audio)
@@ -1750,7 +1770,11 @@ fn execute_render_score(args: &RenderScoreArgs) -> Result<ScoreRenderReport, Cli
         None
     };
     let section_analysis = if args.analyze {
-        Some(analyze_score_sections(&demo, &mix_audio, &part_audio)?)
+        Some(analyze_score_sections(
+            &demo,
+            &mix_audio,
+            part_section_levels,
+        )?)
     } else {
         None
     };
@@ -2086,6 +2110,12 @@ struct SectionAnalysisReport {
     parts: Vec<SectionPartAnalysisReport>,
 }
 
+struct SectionPartLevel {
+    id: String,
+    rms: f32,
+    peak: f32,
+}
+
 #[derive(Debug, Serialize)]
 struct SectionPartAnalysisReport {
     id: String,
@@ -2196,28 +2226,24 @@ fn analyze_audio(
     })
 }
 
-#[allow(clippy::too_many_lines)]
-fn analyze_score_sections(
+#[derive(Clone, Copy)]
+struct SectionFrameRange {
+    start_frame: u64,
+    end_frame: u64,
+    start_seconds: f64,
+    end_seconds: f64,
+    relative_start: usize,
+    relative_end: usize,
+}
+
+fn section_analysis_ranges(
     demo: &performance::PerformancePlan,
-    mix_audio: &sonalloy_core::RenderedAudio,
-    part_audio: &[(String, sonalloy_core::RenderedAudio)],
-) -> Result<Vec<SectionAnalysisReport>, CliFailure> {
-    let tempo_changes = performance::events::tempo_points(&demo.score.timeline);
-    let output_start_frame = crate::musical_time::tick_to_frame(
-        demo.output_start_tick,
-        demo.score.ticks_per_beat,
-        &tempo_changes,
-        f64::from(demo.sample_rate),
-    )
-    .map_err(|error| CliFailure {
-        code: 2,
-        diagnostics: vec![Diagnostic::error(
-            DiagnosticCode::ValueOutOfRange,
-            error.to_string(),
-        )],
-    })?;
+    output_frames: usize,
+) -> Result<Vec<Option<SectionFrameRange>>, CliFailure> {
+    let sample_rate = f64::from(demo.sample_rate);
+    let output_start_frame = score_timeline_frame(demo, demo.output_start_tick, sample_rate)?;
     let output_end_frame = output_start_frame
-        .checked_add(u64::try_from(mix_audio.frames()).map_err(|_| CliFailure {
+        .checked_add(u64::try_from(output_frames).map_err(|_| CliFailure {
             code: 2,
             diagnostics: vec![Diagnostic::error(
                 DiagnosticCode::ValueOutOfRange,
@@ -2231,31 +2257,20 @@ fn analyze_score_sections(
                 "section analysis frame range overflows",
             )],
         })?;
-    let tick_to_frame = |tick| {
-        crate::musical_time::tick_to_frame(
-            tick,
-            demo.score.ticks_per_beat,
-            &tempo_changes,
-            f64::from(demo.sample_rate),
-        )
-        .map_err(|error| CliFailure {
-            code: 2,
-            diagnostics: vec![Diagnostic::error(
-                DiagnosticCode::ValueOutOfRange,
-                error.to_string(),
-            )],
-        })
-    };
-    let mut reports = Vec::new();
-    for (occurrence, section) in demo.score.sections.iter().enumerate() {
+    let tempo_changes = performance::events::tempo_points(&demo.score.timeline);
+    let mut ranges = Vec::with_capacity(demo.score.sections.len());
+    for section in &demo.score.sections {
         let start_tick = section.start_tick.max(demo.output_start_tick);
         let end_tick = section.end_tick.min(demo.output_end_tick);
         if start_tick >= end_tick {
+            ranges.push(None);
             continue;
         }
-        let start_frame = tick_to_frame(start_tick)?.max(output_start_frame);
-        let end_frame = tick_to_frame(end_tick)?.min(output_end_frame);
+        let start_frame =
+            score_timeline_frame(demo, start_tick, sample_rate)?.max(output_start_frame);
+        let end_frame = score_timeline_frame(demo, end_tick, sample_rate)?.min(output_end_frame);
         if start_frame >= end_frame {
+            ranges.push(None);
             continue;
         }
         let relative_start =
@@ -2274,23 +2289,6 @@ fn analyze_score_sections(
                     "section analysis end frame does not fit in memory",
                 )],
             })?;
-        let section_audio = slice_rendered_audio(mix_audio, relative_start, relative_end);
-        let analysis = analyze_audio(&section_audio, None)?;
-        let loudness = section_loudness(&section_audio)?;
-        let mut parts = Vec::with_capacity(part_audio.len());
-        for (id, audio) in part_audio {
-            let analysis = analyze_audio(
-                &slice_rendered_audio(audio, relative_start, relative_end),
-                None,
-            )?;
-            parts.push(SectionPartAnalysisReport {
-                id: id.clone(),
-                rms: analysis.level.rms,
-                peak: analysis.level.peak,
-                rms_dbfs: analysis.level.rms_dbfs,
-                peak_dbfs: analysis.level.peak_dbfs,
-            });
-        }
         let start_seconds = crate::musical_time::musical_duration_seconds(
             start_tick,
             demo.score.ticks_per_beat,
@@ -2315,13 +2313,117 @@ fn analyze_score_sections(
                 error.to_string(),
             )],
         })?;
-        reports.push(SectionAnalysisReport {
-            section: section.section.clone(),
-            occurrence: occurrence + 1,
+        ranges.push(Some(SectionFrameRange {
             start_frame,
             end_frame,
             start_seconds,
             end_seconds,
+            relative_start,
+            relative_end,
+        }));
+    }
+    Ok(ranges)
+}
+
+fn collect_section_part_levels(
+    demo: &performance::PerformancePlan,
+    id: &str,
+    audio: &sonalloy_core::RenderedAudio,
+    section_ranges: &mut Option<Vec<Option<SectionFrameRange>>>,
+    part_section_levels: &mut [Vec<SectionPartLevel>],
+) -> Result<(), CliFailure> {
+    if section_ranges.is_none() {
+        *section_ranges = Some(section_analysis_ranges(demo, audio.frames())?);
+    }
+    for (index, range) in section_ranges
+        .as_ref()
+        .expect("section analysis ranges are initialized")
+        .iter()
+        .copied()
+        .enumerate()
+    {
+        if let Some(range) = range {
+            part_section_levels[index].push(analyze_section_part(id, audio, range));
+        }
+    }
+    Ok(())
+}
+
+fn analyze_section_part(
+    id: &str,
+    audio: &sonalloy_core::RenderedAudio,
+    range: SectionFrameRange,
+) -> SectionPartLevel {
+    let mut peak = 0.0_f32;
+    let mut sum_squares = 0.0_f64;
+    let mut sample_count = 0_usize;
+    for channel in &audio.channels {
+        let start = range.relative_start.min(channel.len());
+        let end = range.relative_end.min(channel.len()).max(start);
+        for sample in &channel[start..end] {
+            if sample.is_finite() {
+                peak = peak.max(sample.abs());
+                sum_squares += f64::from(*sample) * f64::from(*sample);
+                sample_count += 1;
+            }
+        }
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    let rms = if sample_count == 0 {
+        0.0
+    } else {
+        (sum_squares / sample_count as f64).sqrt() as f32
+    };
+    SectionPartLevel {
+        id: id.to_owned(),
+        rms,
+        peak,
+    }
+}
+
+fn amplitude_dbfs(value: f32) -> Option<f32> {
+    (value > 0.0 && value.is_finite()).then(|| 20.0 * value.log10())
+}
+
+fn analyze_score_sections(
+    demo: &performance::PerformancePlan,
+    mix_audio: &sonalloy_core::RenderedAudio,
+    part_section_levels: Vec<Vec<SectionPartLevel>>,
+) -> Result<Vec<SectionAnalysisReport>, CliFailure> {
+    let ranges = section_analysis_ranges(demo, mix_audio.frames())?;
+    let mut reports = Vec::new();
+    for (occurrence, ((section, range), parts)) in demo
+        .score
+        .sections
+        .iter()
+        .zip(ranges)
+        .zip(part_section_levels)
+        .enumerate()
+    {
+        let Some(range) = range else {
+            continue;
+        };
+        let section_audio =
+            slice_rendered_audio(mix_audio, range.relative_start, range.relative_end);
+        let analysis = analyze_audio(&section_audio, None)?;
+        let loudness = section_loudness(&section_audio)?;
+        let parts = parts
+            .into_iter()
+            .map(|part| SectionPartAnalysisReport {
+                id: part.id,
+                rms: part.rms,
+                peak: part.peak,
+                rms_dbfs: amplitude_dbfs(part.rms),
+                peak_dbfs: amplitude_dbfs(part.peak),
+            })
+            .collect();
+        reports.push(SectionAnalysisReport {
+            section: section.section.clone(),
+            occurrence: occurrence + 1,
+            start_frame: range.start_frame,
+            end_frame: range.end_frame,
+            start_seconds: range.start_seconds,
+            end_seconds: range.end_seconds,
             integrated_lufs: loudness.integrated_lufs,
             true_peak_db: loudness.true_peak_db,
             rms: analysis.level.rms,
@@ -2547,28 +2649,28 @@ pub(crate) fn render_note_report(
 ) -> Result<AudioAnalysis, CliFailure> {
     let (compiled, _) =
         super::load_and_compile(definition, DEFAULT_SAMPLE_RATE, DEFAULT_BLOCK_SIZE)?;
-    let external_audio = if compiled.required_input_channels() == 0 && audio_input.is_some() {
-        return Err(CliFailure {
-            code: 2,
-            diagnostics: vec![Diagnostic::error(
-                DiagnosticCode::DefinitionError,
-                "external audio input is not used by this instrument",
-            )],
-        });
-    } else if compiled.required_input_channels() > 0 && audio_input.is_none() {
-        return Err(CliFailure {
-            code: 2,
-            diagnostics: vec![Diagnostic::error(
-                DiagnosticCode::AudioInputRequired,
-                "external audio input is required; specify --audio-input <WAV> or --audio-input silence",
-            )],
-        });
-    } else {
-        prepare_render_audio_input(
-            audio_input,
-            compiled.required_input_channels(),
-            DEFAULT_SAMPLE_RATE,
-        )?
+    let required_channels = compiled.required_input_channels();
+    let external_audio = match audio_input {
+        Some(value) if required_channels == 0 && value.eq_ignore_ascii_case("silence") => None,
+        Some(_) if required_channels == 0 => {
+            return Err(CliFailure {
+                code: 2,
+                diagnostics: vec![Diagnostic::error(
+                    DiagnosticCode::DefinitionError,
+                    "external audio input is not used by this instrument",
+                )],
+            });
+        }
+        None if required_channels > 0 => {
+            return Err(CliFailure {
+                code: 2,
+                diagnostics: vec![Diagnostic::error(
+                    DiagnosticCode::AudioInputRequired,
+                    "external audio input is required; specify --audio-input <WAV> or --audio-input silence",
+                )],
+            });
+        }
+        input => prepare_render_audio_input(input, required_channels, DEFAULT_SAMPLE_RATE)?,
     };
     let gate_frames = seconds_to_frames(gate, f64::from(DEFAULT_SAMPLE_RATE))
         .map_err(|error| input_failure(&error))?;
@@ -2775,7 +2877,7 @@ mod mastering_tests {
         let tail_frames =
             seconds_to_frames(args.tail, f64::from(args.sample_rate)).expect("tail converts");
         let (mix, _, parts) = render_score_mix(&plan, &args, tail_frames).expect("mix renders");
-        let report = analyze_score_sections(&plan, &mix, &parts).expect("sections analyze");
+        let report = analyze_score_sections(&plan, &mix, parts).expect("sections analyze");
 
         assert_eq!(report.len(), 1);
         assert_eq!(report[0].section, "phrase");

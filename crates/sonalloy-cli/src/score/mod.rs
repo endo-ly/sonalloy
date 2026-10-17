@@ -613,11 +613,13 @@ mod tests {
     fn melody_diagnostics_follow_from_replace_and_use_source_tokens() {
         let diagnostic = |doc: &serde_json::Value, melody: &str, source_path: &str| {
             let mut doc = doc.clone();
+            doc["meta"]["title"] = serde_json::json!("青い夜");
             doc["sections"]["phrase"]["lead"] = serde_json::json!({
                 "instrument": "part",
                 "melody": melody
             });
-            let text = super::to_yaml(&doc).expect("Score YAML");
+            let yaml = super::to_yaml(&doc).expect("Score YAML");
+            let text = format!("# 日本語のコメント\n{yaml}");
             let expected_token = text.find(". - - -").expect("quoted tie token") + 2;
             let error = super::compile(&text).expect_err("unmatched tie fails");
             let diagnostic = &error.diagnostics[0];

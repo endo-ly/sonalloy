@@ -6,13 +6,18 @@ use super::{Error, Result, Source};
 
 pub(super) fn parse(text: &str, source: &mut Source) -> Result<Value> {
     text.clone_into(&mut source.text);
+    let char_to_byte = text
+        .char_indices()
+        .map(|(byte_index, _)| byte_index)
+        .chain(std::iter::once(text.len()))
+        .collect::<Vec<_>>();
     let mut parser = Parser::new_from_str(text);
     next(&mut parser)?;
     let (start, _) = next(&mut parser)?;
     if start != Event::DocumentStart {
         return Err(Error::new("", "expected one YAML document"));
     }
-    let value = node(&mut parser, source, "", 0)?;
+    let value = node(&mut parser, source, &char_to_byte, "", 0)?;
     if next(&mut parser)?.0 != Event::DocumentEnd || next(&mut parser)?.0 != Event::StreamEnd {
         return Err(Error::new("", "expected exactly one YAML document"));
     }
@@ -32,6 +37,7 @@ fn next(parser: &mut Parser<std::str::Chars<'_>>) -> Result<(Event, Marker)> {
 fn node(
     parser: &mut Parser<std::str::Chars<'_>>,
     source: &mut Source,
+    char_to_byte: &[usize],
     path: &str,
     depth: usize,
 ) -> Result<Value> {
@@ -42,7 +48,9 @@ fn node(
     source
         .positions
         .insert(path.into(), (mark.line(), mark.col() + 1));
-    source.indices.insert(path.into(), mark.index());
+    source
+        .indices
+        .insert(path.into(), char_to_byte[mark.index()]);
     let fail = |message: &str| {
         let mut error = Error::new(path, message);
         error.line = mark.line();
@@ -88,6 +96,7 @@ fn node(
                 values.push(node(
                     parser,
                     source,
+                    char_to_byte,
                     &format!("{path}[{}]", values.len()),
                     depth + 1,
                 )?);
@@ -132,7 +141,7 @@ fn node(
                     e.column = key_mark.col() + 1;
                     return Err(e);
                 }
-                let value = node(parser, source, &child, depth + 1)?;
+                let value = node(parser, source, char_to_byte, &child, depth + 1)?;
                 map.insert(key, value);
             }
             next(parser)?;
