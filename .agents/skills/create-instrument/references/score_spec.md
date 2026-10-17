@@ -305,6 +305,8 @@ bass:
 
 `relative_to`の省略時または`tonic`ではセクション主音、`chord_bass`では発音位置のコードベース音を基準にする。分数コードはスラッシュ指定の音を使う。コード参照を`NC`上で使うとエラーになる。
 
+`c1`、`c3`、`c5`、`c7`、`c9`のように`c`を付けたTokenは、発音位置のChord構成音を指定するBass専用記法です。`c3`はMajor / Minorなど現在のChordが持つ実際の3度へ解決し、`relative_to`の基準音ではなくChord Rootを基準に配置します。`c1`～`c13`と臨時記号、オクターブ記号を使えます。指定した構成音がない、同じ度数が曖昧、またはChordが`NC`の場合はErrorです。Velocity（`@1`～`@127`）とLegato（`~`）は通常のBass Tokenと共通です。
+
 基準音を`bass_floor_midi`～`bass_ceiling_midi`（既定28～39）に配置してから、度数とオクターブ移動を加える。度数適用後の音高はその音域へ折り返さず、最終MIDIノート0～127を検証する。
 
 `choices.T`のような名前付きトークンは、小節の奇数・偶数に従って置換してから音符を解析する。奇数・偶数はセクション内1始まり。`bass_overrides`と`add_parts`も同じ基準音・音符記法を使う。
@@ -528,15 +530,16 @@ form:
 | `meta.master` | `target_lufs,max_true_peak_db,target_lra_lu` | Master/計測の設定 |
 | `form[]` | `section,bars,tonic,scale,bpm,meter,last_bar_quarters,swing` | 曲中の出現と時間正本。`section`,`bars`,`tonic`は必須で、`scale`は任意（省略時はスケール未指定） |
 | `time_changes[]` | `at_quarters,bpm` | 曲頭からのテンポ変更 |
-| `sections.<name>` | `from,chords,chord_changes,lead,drums,bass,bass_overrides,comp,pad,arp,counter,placements,add_placements,events,velocity` | 1セクションの演奏宣言 |
+| `sections.<name>` | `from,chords,chord_changes,lead,drums,bass,bass_overrides,comp,pad,arp,counter,placements,add_placements,events,velocity,part_gains` | 1セクションの演奏宣言 |
 | `melodies` | 小節文字列のリスト、`{from,replace}`、名前空間辞書 | 相対度数と再利用 |
 | `drums.<name>` | `from,parts,overrides` | 1小節Grooveをセクションで反復 |
 | `drums.overrides[]` | `when,parts` | 小節条件を満たしたパートへ置換 |
 | `bass_overrides[]` | `when,parts` | 小節条件を満たしたベースパートへ置換。条件は`drums.overrides[]`と共通 |
-| `bass.<name>` | `parts,choices,relative_to` | 主音またはコードベース基準の度数 |
+| `bass.<name>` | `parts,choices,relative_to` | 主音またはコードベース基準の度数。`c1`などは構成音参照 |
 | `bass.choices.<token>` | `odd,even` | セクション内奇数・偶数 |
 | `arps.<name>` | `order,voicing_floor_midi,retrigger_each_step` | 和音の声部を音域配置してArp。`order`のセルは非負整数、`.`（休符）、`-`（継続） |
 | `counters.<name>` | `when,cell` | 無音拍に置く対旋律 |
+| `sections.<name>.part_gains` | `instrument_id: number` | Section中だけ加算するPart Gain（dB） |
 | `instruments.<id>` | `preset / definition / external`, `gain_db,pan,role,gate,voicing,voicing_floor_midi,trigger_note_midi,bass_floor_midi,bass_ceiling_midi,audio_input` | 音源と演奏音域・定位 |
 | `placements[]` | `instrument,at,melody/degree/chord/bass_note,velocity,duration_steps,duration_quarters,transpose,gain_db,mark,slice_steps,take_notes,voicing,voicing_floor_midi,add_root_degree` | 明示的発音 |
 | `add_placements[]` | `placements[]`と同じ | 継承時に配置リストの末尾へ追記 |

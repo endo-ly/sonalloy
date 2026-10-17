@@ -1,7 +1,7 @@
 use crate::output::CliFailure;
 use crate::score::{Bindings, EventSource, PartWindow, ScoreLane, ScorePlan};
 use serde::Serialize;
-use sonalloy_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
+use sonalloy_core::{Diagnostic, DiagnosticCode, DiagnosticContext, DiagnosticSeverity};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -52,6 +52,12 @@ pub(crate) struct PerformancePlan {
     pub(crate) musical_duration_seconds: f64,
     pub(crate) diagnostics: Vec<Diagnostic>,
     pub(crate) score: ScorePlan,
+    /// Tick at which the rendered performance starts on the original Score timeline.
+    pub(crate) render_start_tick: u64,
+    /// Tick at which the published output starts on the original Score timeline.
+    pub(crate) output_start_tick: u64,
+    /// Tick at which the selected Score output ends on the original timeline.
+    pub(crate) output_end_tick: u64,
 }
 #[derive(Debug)]
 pub(crate) struct PartLane {
@@ -87,7 +93,7 @@ fn lane_failure(lane: &crate::score::ScoreLane, mut diagnostics: Vec<Diagnostic>
         {
             if let Some(source) = lane.sources.get(index) {
                 diagnostic.path = Some(format!("{}{suffix}", source.path));
-                diagnostic.detail=Some(serde_json::json!({"source_type":"score","line":source.line,"column":source.column,"section":source.section,"bar":source.bar,"step":source.step,"actual":lane.pattern.events[index],"expected":diagnostic.message}).to_string());
+                diagnostic.detail=Some(serde_json::json!({"source_type":"score","line":source.line,"column":source.column,"section":source.section,"occurrence":source.occurrence,"bar":source.bar,"step":source.step,"actual":lane.pattern.events[index],"expected":diagnostic.message}).to_string());
             }
         }
     }
@@ -344,6 +350,7 @@ fn prepare(
         &events::tempo_points(&timeline),
     )
     .map_err(|e| failure("form", e.to_string()))?;
+    let output_end_tick = score.length_ticks;
     Ok(PerformancePlan {
         sample_rate,
         length_ticks: score.length_ticks,
@@ -353,7 +360,42 @@ fn prepare(
         audio_dependencies,
         diagnostics,
         score,
+        render_start_tick: 0,
+        output_start_tick: 0,
+        output_end_tick,
     })
+}
+
+pub(crate) fn select_range(
+    plan: &mut PerformancePlan,
+    start_tick: u64,
+    end_tick: u64,
+    output_start_tick: u64,
+) -> Result<(), CliFailure> {
+    if start_tick >= end_tick || end_tick > plan.length_ticks || output_start_tick < start_tick {
+        return Err(failure(
+            "render range",
+            "render range is outside the Score timeline",
+        ));
+    }
+    for part in &mut plan.parts {
+        events::slice_range(&mut part.pattern, start_tick, end_tick, &part.instrument)
+            .map_err(|message| failure(format!("parts.{}", part.definition.id), message))?;
+        for lane in &mut part.render_lanes {
+            events::slice_range(&mut lane.pattern, start_tick, end_tick, &part.instrument)
+                .map_err(|message| failure(format!("parts.{}", part.definition.id), message))?;
+            lane.compiled =
+                events::compile(&lane.pattern, &part.instrument, f64::from(plan.sample_rate))
+                    .map_err(|diagnostics| CliFailure {
+                        code: 1,
+                        diagnostics,
+                    })?;
+        }
+    }
+    plan.render_start_tick = start_tick;
+    plan.output_start_tick = output_start_tick;
+    plan.output_end_tick = end_tick;
+    Ok(())
 }
 
 fn insert_part_window_resets(
@@ -451,6 +493,8 @@ fn part_window_source(tick: u64) -> EventSource {
     EventSource {
         path: "part_window".to_owned(),
         spelling: None,
+        token_offset: None,
+        source_bar: None,
         tick,
         at_quarters: String::new(),
         duration_quarters: "0".to_owned(),
@@ -459,6 +503,7 @@ fn part_window_source(tick: u64) -> EventSource {
         section: String::new(),
         bar: 0,
         step: String::new(),
+        occurrence: 0,
     }
 }
 
@@ -586,6 +631,52 @@ mod tests {
                     }
                 ))
         );
+    }
+
+    #[test]
+    fn section_part_gain_uses_linear_amplitude_and_a_five_millisecond_transition() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let instrument = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../testdata/instruments/basic-poly-synth.json")
+            .canonicalize()
+            .expect("instrument fixture");
+        let score = serde_json::json!({
+            "meta": {"title":"Gain", "bpm":120, "meter":"4/4", "tuning":"12edo", "gate":1},
+            "form": [
+                {"section":"quiet", "bars":1, "tonic":"C", "scale":"ionian"},
+                {"section":"loud", "bars":1, "tonic":"C", "scale":"ionian"}
+            ],
+            "sections": {
+                "quiet":{"part_gains":{"part":-6}},
+                "loud":{"part_gains":{"part":6}}
+            },
+            "instruments":{"part":{"definition":instrument}}
+        });
+        let score_path = directory.path().join("gain.score.yaml");
+        std::fs::write(
+            &score_path,
+            crate::score::to_yaml(&score).expect("Score YAML"),
+        )
+        .expect("score file");
+        let plan =
+            crate::performance::load(&score_path, &crate::score::Bindings::default(), 48_000, 257)
+                .expect("Score loads");
+        let mut audio = sonalloy_core::RenderedAudio {
+            sample_rate: 48_000,
+            channels: vec![vec![1.0; 192_000], vec![1.0; 192_000]],
+        };
+
+        apply_section_part_gain(&mut audio, &plan, "part").expect("gain applies");
+
+        let quiet = 10.0_f32.powf(-6.0 / 20.0);
+        let loud = 10.0_f32.powf(6.0 / 20.0);
+        for channel in &audio.channels {
+            assert!((channel[0] - quiet).abs() < 1.0e-6);
+            assert!((channel[95_999] - quiet).abs() < 1.0e-6);
+            assert!((channel[96_000] - quiet).abs() < 1.0e-6);
+            assert!((channel[96_120] - f32::midpoint(quiet, loud)).abs() < 1.0e-6);
+            assert!((channel[96_240] - loud).abs() < 1.0e-6);
+        }
     }
 
     #[test]
@@ -733,7 +824,7 @@ pub(crate) fn render_order(demo: &PerformancePlan) -> Vec<usize> {
     order
 }
 
-pub(crate) fn prerender_order(demo: &PerformancePlan) -> Vec<usize> {
+pub(crate) fn prerender_order(demo: &PerformancePlan, required_parts: &[bool]) -> Vec<usize> {
     fn mark_required(
         index: usize,
         dependencies: &[Option<usize>],
@@ -751,24 +842,25 @@ pub(crate) fn prerender_order(demo: &PerformancePlan) -> Vec<usize> {
         }
     }
 
-    let mut required = vec![false; demo.parts.len()];
+    let mut prerender_required = vec![false; demo.parts.len()];
     let mut rendered = vec![false; demo.parts.len()];
     for (index, source_index) in demo.audio_dependencies.iter().enumerate() {
-        if let Some(source_index) = source_index
+        if required_parts[index]
+            && let Some(source_index) = source_index
             && !rendered[*source_index]
         {
             mark_required(
                 *source_index,
                 &demo.audio_dependencies,
                 &rendered,
-                &mut required,
+                &mut prerender_required,
             );
         }
         rendered[index] = true;
     }
     render_order(demo)
         .into_iter()
-        .filter(|index| required[*index])
+        .filter(|index| prerender_required[*index])
         .collect()
 }
 
@@ -808,6 +900,93 @@ pub(crate) fn gain_linear(gain_db: f64) -> Option<f64> {
     }
     let gain = 10.0_f64.powf(gain_db / 20.0);
     gain.is_finite().then_some(gain)
+}
+
+pub(crate) fn apply_section_part_gain(
+    audio: &mut sonalloy_core::RenderedAudio,
+    plan: &PerformancePlan,
+    part_id: &str,
+) -> Result<(), String> {
+    let Some(first_channel) = audio.channels.first() else {
+        return Ok(());
+    };
+    let tempo_changes = events::tempo_points(&plan.score.timeline);
+    let render_start_frame = crate::musical_time::tick_to_frame(
+        plan.render_start_tick,
+        plan.score.ticks_per_beat,
+        &tempo_changes,
+        f64::from(audio.sample_rate),
+    )
+    .map_err(|error| error.to_string())?;
+    let transitions = usize::try_from(
+        sonalloy_core::seconds_to_frames(0.005, f64::from(audio.sample_rate))
+            .map_err(|error| error.to_string())?,
+    )
+    .map_err(|_| "part gain transition does not fit in memory".to_owned())?
+    .max(1);
+    let sections = plan
+        .score
+        .sections
+        .iter()
+        .map(|section| {
+            let start = crate::musical_time::tick_to_frame(
+                section.start_tick,
+                plan.score.ticks_per_beat,
+                &tempo_changes,
+                f64::from(audio.sample_rate),
+            )
+            .map_err(|error| error.to_string())?;
+            let end = crate::musical_time::tick_to_frame(
+                section.end_tick,
+                plan.score.ticks_per_beat,
+                &tempo_changes,
+                f64::from(audio.sample_rate),
+            )
+            .map_err(|error| error.to_string())?;
+            let gain = section.part_gains.get(part_id).copied().unwrap_or(0.0);
+            Ok::<_, String>((start, end, gain))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    if sections.is_empty() {
+        return Ok(());
+    }
+    let gains = |frame: usize| -> Result<f64, String> {
+        let absolute = render_start_frame
+            .checked_add(u64::try_from(frame).map_err(|_| "frame overflow".to_owned())?)
+            .ok_or_else(|| "frame overflow".to_owned())?;
+        let index = sections
+            .iter()
+            .position(|(_, end, _)| absolute < *end)
+            .unwrap_or(sections.len() - 1);
+        let (_, _, target_db) = sections[index];
+        let target = gain_linear(target_db).ok_or_else(|| "part gain is not finite".to_owned())?;
+        if index == 0 {
+            return Ok(target);
+        }
+        let boundary = sections[index].0;
+        if absolute < boundary {
+            return Ok(target);
+        }
+        let previous_db = sections[index - 1].2;
+        let previous =
+            gain_linear(previous_db).ok_or_else(|| "part gain is not finite".to_owned())?;
+        let elapsed = absolute - boundary;
+        if elapsed >= u64::try_from(transitions).unwrap_or(u64::MAX) {
+            return Ok(target);
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let progress = elapsed as f64 / transitions as f64;
+        Ok(previous + (target - previous) * progress)
+    };
+    for frame in 0..first_channel.len() {
+        let gain = gains(frame)?;
+        #[allow(clippy::cast_possible_truncation)]
+        let gain = gain as f32;
+        for channel in &mut audio.channels {
+            channel[frame] *= gain;
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -1001,18 +1180,66 @@ fn validate_lane(
         }
     }
     if let Some(range) = range {
-        let outside=lane.pattern.events.iter().filter(|e|matches!(e,MusicalEvent::Note{note,..} if *note<range.min_midi||*note>range.max_midi)).count();
-        if outside > 0 {
-            diagnostics.push(
-                Diagnostic::warning(
-                    DiagnosticCode::ValueOutOfRange,
-                    format!(
-                        "{outside} notes are outside the recommended range {}..{}",
-                        range.min_midi, range.max_midi
-                    ),
+        let outside = lane
+            .pattern
+            .events
+            .iter()
+            .enumerate()
+            .filter_map(|(index, event)| {
+                let MusicalEvent::Note { note, .. } = event else {
+                    return None;
+                };
+                (*note < range.min_midi || *note > range.max_midi).then_some((index, *note))
+            })
+            .collect::<Vec<_>>();
+        for (index, note) in outside {
+            let source = lane.sources.get(index);
+            let mut diagnostic = Diagnostic::warning(
+                DiagnosticCode::ValueOutOfRange,
+                format!(
+                    "note {note} is outside the recommended range {}..{}",
+                    range.min_midi, range.max_midi
+                ),
+            )
+            .with_path(source.map_or_else(
+                || format!("instruments.{}.events[{index}]", lane.id),
+                |source| source.path.clone(),
+            ));
+            let context = diagnostic
+                .context
+                .get_or_insert_with(|| Box::new(DiagnosticContext::default()));
+            context.part = Some(lane.id.clone());
+            if let Some(source) = source {
+                context.section = (!source.section.is_empty()).then(|| source.section.clone());
+                context.occurrence = (source.occurrence > 0).then_some(source.occurrence);
+                context.time_seconds = crate::musical_time::musical_duration_seconds(
+                    source.tick,
+                    lane.pattern.ticks_per_beat,
+                    &events::tempo_points(&lane.pattern),
                 )
-                .with_path(format!("instruments.{}", lane.id)),
-            );
+                .ok();
+                diagnostic.detail = Some(
+                    serde_json::json!({
+                        "source_type": "score",
+                        "part": lane.id,
+                        "source_path": source.path,
+                        "source_bar": source.source_bar,
+                        "line": source.line,
+                        "column": source.column,
+                        "section": source.section,
+                        "occurrence": source.occurrence,
+                        "bar": source.bar,
+                        "step": source.step,
+                        "midi_note": note,
+                        "recommended_range": {
+                            "min_midi": range.min_midi,
+                            "max_midi": range.max_midi
+                        }
+                    })
+                    .to_string(),
+                );
+            }
+            diagnostics.push(diagnostic);
         }
     }
     Ok(())

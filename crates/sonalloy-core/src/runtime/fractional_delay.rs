@@ -23,14 +23,16 @@ impl FractionalDelayLine {
                 kind: ProcessorFailureKind::InvalidState,
             });
         }
-        #[allow(clippy::cast_precision_loss)]
-        let position = self.write_position as f32 - delay_frames;
         let length = self.buffer.len();
-        #[allow(clippy::cast_precision_loss)]
-        let wrapped = position.rem_euclid(length as f32);
+        // `write_position - delay_frames` may be just below an integer when the
+        // delay is fractional.  Keeping the buffer position as an integer and
+        // carrying only the interpolation fraction avoids rounding a wrapped
+        // float up to `length`.
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let index = wrapped.floor() as usize;
-        let fraction = wrapped - wrapped.floor();
+        let delay_ceiling = delay_frames.ceil() as usize;
+        #[allow(clippy::cast_precision_loss)]
+        let fraction = delay_ceiling as f32 - delay_frames;
+        let index = (self.write_position + length - delay_ceiling % length) % length;
         let p0 = self.buffer[(index + length - 1) % length];
         let p1 = self.buffer[index];
         let p2 = self.buffer[(index + 1) % length];
@@ -83,5 +85,20 @@ mod tests {
         line.write(1.0).expect("write impulse");
         line.reset();
         assert!(line.read(1.0).expect("read reset line").abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn fractional_reads_wrap_without_exposing_the_buffer_length() {
+        let mut line = FractionalDelayLine::new(8);
+        for value in 0..line.capacity() {
+            #[allow(clippy::cast_precision_loss)]
+            let value = value as f32;
+            line.write(value).expect("write sample");
+        }
+
+        for delay in [f32::EPSILON, 0.0, 0.25, 0.5, 0.75, 1.0, 7.0, 7.25] {
+            let value = line.read(delay).expect("boundary read");
+            assert!(value.is_finite(), "delay {delay} returned {value}");
+        }
     }
 }

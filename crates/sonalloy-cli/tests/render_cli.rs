@@ -471,6 +471,59 @@ fn render_events_accepts_external_audio_input() {
 }
 
 #[test]
+fn silence_audio_input_matches_a_silent_stereo_wav() {
+    let directory = tempdir().expect("temporary directory");
+    let definition = fixture_path("instruments/sidechain-ducking.json");
+    let events = fixture_path("events/sidechain-ducking.json");
+    let silent_wav = directory.path().join("silence.wav");
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: 48_000,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(&silent_wav, spec).expect("silent WAV");
+    for _ in 0..72_001 * 2 {
+        writer.write_sample(0.0_f32).expect("silence sample");
+    }
+    writer.finalize().expect("silent WAV finalized");
+
+    let render = |audio_input: &str, label: &str| {
+        let output = directory.path().join(format!("{label}.wav"));
+        Command::cargo_bin("sonalloy")
+            .expect("binary")
+            .args(["render", "events"])
+            .arg(&definition)
+            .arg(&events)
+            .arg("--audio-input")
+            .arg(audio_input)
+            .args([
+                "--duration-frames",
+                "72001",
+                "--sample-rate",
+                "48000",
+                "--block-size",
+                "257",
+                "--tail",
+                "0",
+                "--output",
+            ])
+            .arg(&output)
+            .arg("--json")
+            .assert()
+            .success();
+        hound::WavReader::open(output)
+            .expect("rendered WAV")
+            .into_samples::<f32>()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>()
+    };
+    let silence = render("silence", "silence-input");
+    let file = render(silent_wav.to_str().expect("UTF-8 path"), "silent-wav-input");
+    assert_eq!(silence, file);
+}
+
+#[test]
 fn render_events_accepts_sustain_pedal_events() {
     let directory = tempdir().expect("temporary directory");
     let events = directory.path().join("sustain-events.json");

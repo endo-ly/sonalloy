@@ -5,6 +5,7 @@ use yaml_rust2::scanner::{Marker, TScalarStyle};
 use super::{Error, Result, Source};
 
 pub(super) fn parse(text: &str, source: &mut Source) -> Result<Value> {
+    text.clone_into(&mut source.text);
     let mut parser = Parser::new_from_str(text);
     next(&mut parser)?;
     let (start, _) = next(&mut parser)?;
@@ -41,6 +42,7 @@ fn node(
     source
         .positions
         .insert(path.into(), (mark.line(), mark.col() + 1));
+    source.indices.insert(path.into(), mark.index());
     let fail = |message: &str| {
         let mut error = Error::new(path, message);
         error.line = mark.line();

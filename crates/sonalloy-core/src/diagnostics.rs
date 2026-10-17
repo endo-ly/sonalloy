@@ -166,8 +166,31 @@ pub enum DiagnosticCode {
     TraceLimitExceeded,
 }
 
+/// Position and Score context attached to a diagnostic.
+#[derive(Debug, Clone, PartialEq, Serialize, Default)]
+pub struct DiagnosticContext {
+    /// Part identifier associated with a render failure.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub part: Option<String>,
+    /// Section name associated with a render failure.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
+    /// One-based occurrence number in the Score form.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub occurrence: Option<usize>,
+    /// Estimated position on the original Score timeline in seconds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_seconds: Option<f64>,
+    /// Start frame of the failed processing block.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub block_start_frame: Option<u64>,
+    /// Whether the reported position is in render tail audio.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tail: Option<bool>,
+}
+
 /// A structured, frontend-neutral diagnostic.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Diagnostic {
     /// Stable machine-readable category.
     pub code: DiagnosticCode,
@@ -179,6 +202,9 @@ pub struct Diagnostic {
     pub message: String,
     /// Optional implementation detail.
     pub detail: Option<String>,
+    /// Optional render and Score context. Its fields are serialized alongside the diagnostic.
+    #[serde(flatten)]
+    pub context: Option<Box<DiagnosticContext>>,
 }
 
 impl Diagnostic {
@@ -190,6 +216,7 @@ impl Diagnostic {
             path: None,
             message: message.into(),
             detail: None,
+            context: None,
         }
     }
 
@@ -201,6 +228,7 @@ impl Diagnostic {
             path: None,
             message: message.into(),
             detail: None,
+            context: None,
         }
     }
 
@@ -212,6 +240,7 @@ impl Diagnostic {
             path: None,
             message: message.into(),
             detail: None,
+            context: None,
         }
     }
 
@@ -245,15 +274,31 @@ pub fn from_process_error(error: &ProcessError) -> Diagnostic {
 #[must_use]
 pub fn from_render_error(error: &RenderError) -> Diagnostic {
     let code = match error {
-        RenderError::Process(ProcessError::DspFailure { .. }) => DiagnosticCode::DspError,
-        RenderError::Process(ProcessError::StretchRatioOutOfRange { .. }) => {
-            DiagnosticCode::InvalidStretchRatio
-        }
-        RenderError::Process(_) => DiagnosticCode::ProcessError,
+        RenderError::Process(ProcessError::DspFailure { .. })
+        | RenderError::ProcessAt {
+            error: ProcessError::DspFailure { .. },
+            ..
+        } => DiagnosticCode::DspError,
+        RenderError::Process(ProcessError::StretchRatioOutOfRange { .. })
+        | RenderError::ProcessAt {
+            error: ProcessError::StretchRatioOutOfRange { .. },
+            ..
+        } => DiagnosticCode::InvalidStretchRatio,
+        RenderError::Process(_) | RenderError::ProcessAt { .. } => DiagnosticCode::ProcessError,
         RenderError::TraceLimitExceeded { .. } => DiagnosticCode::TraceLimitExceeded,
         _ => DiagnosticCode::RenderError,
     };
-    Diagnostic::error(code, error.to_string())
+    let mut diagnostic = Diagnostic::error(code, error.to_string());
+    if let RenderError::ProcessAt {
+        block_start_frame, ..
+    } = error
+    {
+        diagnostic.context = Some(Box::new(DiagnosticContext {
+            block_start_frame: Some(*block_start_frame),
+            ..DiagnosticContext::default()
+        }));
+    }
+    diagnostic
 }
 
 #[cfg(test)]
@@ -267,10 +312,18 @@ mod tests {
         let process = from_process_error(&ProcessError::StretchRatioOutOfRange { ratio: 2.5 });
         assert_eq!(process.code, DiagnosticCode::InvalidStretchRatio);
 
-        let render = from_render_error(&RenderError::Process(
-            ProcessError::StretchRatioOutOfRange { ratio: 2.5 },
-        ));
+        let render = from_render_error(&RenderError::ProcessAt {
+            error: ProcessError::StretchRatioOutOfRange { ratio: 2.5 },
+            block_start_frame: 12,
+        });
         assert_eq!(render.code, DiagnosticCode::InvalidStretchRatio);
+        assert_eq!(
+            render
+                .context
+                .as_ref()
+                .and_then(|context| context.block_start_frame),
+            Some(12)
+        );
     }
 
     #[test]

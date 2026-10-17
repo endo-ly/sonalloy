@@ -80,6 +80,9 @@ pub(super) struct AuditionScoreArgs {
     /// Select one named section occurrence.
     #[arg(long)]
     pub(crate) section: Option<String>,
+    /// One-based occurrence number used with `--section`.
+    #[arg(long, requires = "section", value_parser = super::parse_positive_usize)]
+    pub(crate) occurrence: Option<usize>,
     /// Audio Output ID from `device list`; the OS default is used when omitted.
     #[arg(long, value_name = "DEVICE_ID")]
     pub(crate) audio_device: Option<String>,
@@ -309,10 +312,11 @@ fn run_audition_score(args: &AuditionScoreArgs) -> ExitCode {
             for lane in score.lanes.iter().filter(|lane| lane.id == id) {
                 let mut pattern = lane.pattern.clone();
                 if let Some(section) = &args.section {
-                    crate::performance::events::slice_section(
+                    crate::performance::events::slice_section_occurrence(
                         &mut pattern,
                         &score.sections,
                         section,
+                        args.occurrence,
                         compiled,
                     )
                     .map_err(|message| (1, score_selection_failure(message).diagnostics))?;
@@ -335,20 +339,35 @@ fn run_audition_score(args: &AuditionScoreArgs) -> ExitCode {
                     .diagnostics,
                 ));
             }
-            if let Some(lane) = lanes.pop() {
-                Ok(lane)
+            if let Some((pattern, gain)) = lanes.pop() {
+                let gain_plan = score_gain_plan(
+                    &score,
+                    &id,
+                    args.section.as_deref(),
+                    args.occurrence,
+                    pattern.length_ticks,
+                )?;
+                Ok((pattern, gain, Some(gain_plan)))
             } else {
                 let mut empty = score.timeline.clone();
                 if let Some(section) = &args.section {
-                    crate::performance::events::slice_section(
+                    crate::performance::events::slice_section_occurrence(
                         &mut empty,
                         &score.sections,
                         section,
+                        args.occurrence,
                         compiled,
                     )
                     .map_err(|message| (1, score_selection_failure(message).diagnostics))?;
                 }
-                Ok((empty, 0.0))
+                let gain_plan = score_gain_plan(
+                    &score,
+                    &id,
+                    args.section.as_deref(),
+                    args.occurrence,
+                    empty.length_ticks,
+                )?;
+                Ok((empty, 0.0, Some(gain_plan)))
             }
         },
         Vec::new(),
@@ -414,7 +433,7 @@ fn run_audition_midi(args: &AuditionMidiArgs) -> ExitCode {
             }
         };
     let session = match crate::realtime::start_scheduled_audition(
-        |_| Ok((pattern.clone(), 0.0)),
+        |_| Ok((pattern.clone(), 0.0, None)),
         diagnostics,
         &ScheduledAuditionOptions {
             definition_path: &args.definition,
@@ -714,6 +733,69 @@ pub(super) fn run_play(args: &PlayArgs) -> ExitCode {
             None => ExitCode::SUCCESS,
         }
     }
+}
+
+fn score_gain_plan(
+    score: &crate::score::ScorePlan,
+    part_id: &str,
+    section_name: Option<&str>,
+    occurrence: Option<usize>,
+    pattern_length_ticks: u64,
+) -> Result<crate::realtime::ScheduledGainPlan, (u8, Vec<Diagnostic>)> {
+    let segments = if let Some(section_name) = section_name {
+        let section = if let Some(occurrence) = occurrence {
+            score
+                .sections
+                .get(occurrence.saturating_sub(1))
+                .filter(|section| occurrence > 0 && section.section == section_name)
+                .ok_or_else(|| {
+                    (
+                        1,
+                        score_selection_failure(
+                            "section occurrence does not match the selected form entry",
+                        )
+                        .diagnostics,
+                    )
+                })?
+        } else {
+            let mut matches = score
+                .sections
+                .iter()
+                .filter(|section| section.section == section_name);
+            let Some(section) = matches.next() else {
+                return Err((
+                    1,
+                    score_selection_failure("section does not occur in the Score form").diagnostics,
+                ));
+            };
+            if matches.next().is_some() {
+                return Err((
+                    1,
+                    score_selection_failure(
+                        "section selection must identify exactly one occurrence",
+                    )
+                    .diagnostics,
+                ));
+            }
+            section
+        };
+        vec![crate::realtime::ScheduledGainSegment {
+            start_tick: 0,
+            end_tick: pattern_length_ticks,
+            gain_db: section.part_gains.get(part_id).copied().unwrap_or(0.0),
+        }]
+    } else {
+        score
+            .sections
+            .iter()
+            .map(|section| crate::realtime::ScheduledGainSegment {
+                start_tick: section.start_tick,
+                end_tick: section.end_tick,
+                gain_db: section.part_gains.get(part_id).copied().unwrap_or(0.0),
+            })
+            .collect()
+    };
+    Ok(crate::realtime::ScheduledGainPlan { segments })
 }
 
 fn score_selection_failure(message: impl Into<String>) -> CliFailure {

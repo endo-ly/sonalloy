@@ -112,6 +112,46 @@ fn note_on() -> ScheduledEvent {
 }
 
 #[test]
+fn chorus_delay_boundaries_remain_valid_during_long_renders() {
+    let mut definition = base_definition();
+    definition.global_processors = vec![ProcessorDefinition::Chorus(ChorusProcessorDefinition {
+        id: "chorus".to_owned(),
+        delay_ms: 15.0,
+        rate_hz: 0.35,
+        depth: 0.65,
+        feedback: 0.1,
+        width: 0.8,
+        mix: 0.3,
+    })];
+    let duration_frames = 60 * 48_000;
+    for block_size in [64, 257, 1_024] {
+        let audio = render(&definition, 48_000.0, block_size, duration_frames);
+        assert_eq!(
+            audio.frames(),
+            usize::try_from(duration_frames).expect("duration fits in memory")
+        );
+        assert!(
+            audio
+                .channels
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite())
+        );
+    }
+
+    let short_257 = render(&definition, 48_000.0, 257, 4_800);
+    let short_1_024 = render(&definition, 48_000.0, 1_024, 4_800);
+    for (left, right) in short_257.channels.iter().zip(&short_1_024.channels) {
+        assert!(
+            left.iter()
+                .zip(right)
+                .all(|(left, right)| (left - right).abs() < 1.0e-6),
+            "short chorus render changed across block sizes"
+        );
+    }
+}
+
+#[test]
 fn filter_mode_defaults_to_low_pass_when_omitted() {
     let processor: ProcessorDefinition = serde_json::from_value(serde_json::json!({
         "type": "filter",

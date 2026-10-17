@@ -306,9 +306,17 @@ pub enum RenderError {
     /// The duration is invalid.
     #[error("duration must be finite and non-negative")]
     InvalidDuration,
-    /// The runtime rejected a process block.
+    /// The runtime rejected a process block without a known render position.
     #[error("process failed: {0}")]
     Process(#[from] ProcessError),
+    /// The runtime rejected a process block at the reported block start frame.
+    #[error("process failed at frame {block_start_frame}: {error}")]
+    ProcessAt {
+        /// Runtime failure returned by the processor.
+        error: ProcessError,
+        /// Absolute frame at which the failed block began.
+        block_start_frame: u64,
+    },
     /// Scheduled events are not ordered by absolute frame.
     #[error("scheduled events must be ordered by absolute frame")]
     ScheduledEventsNotSorted,
@@ -631,7 +639,10 @@ pub fn render_instrument_with_input_and_trace(
         collector
             .observe(runtime, frame, context)
             .map_err(|error| match error {
-                TraceCollectError::Process(error) => RenderError::Process(error),
+                TraceCollectError::Process(error) => RenderError::ProcessAt {
+                    error,
+                    block_start_frame: frame,
+                },
                 TraceCollectError::LimitExceeded { observed, limit } => {
                     RenderError::TraceLimitExceeded {
                         estimated: observed,
@@ -747,7 +758,7 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn render_prepared_processor_with_musical_time_map_observed<P, F>(
     processor: &mut P,
     request: RenderRequest,
@@ -829,9 +840,11 @@ where
                         input_right_scratch[index] = right;
                     }
                     actual => {
-                        return Err(RenderError::Process(ProcessError::InvalidInputChannels {
-                            actual,
-                        }));
+                        return Err(RenderError::ProcessAt {
+                            error: ProcessError::InvalidInputChannels { actual },
+                            block_start_frame: u64::try_from(offset)
+                                .map_err(|_| RenderError::FrameCountOverflow)?,
+                        });
                     }
                 }
             }
@@ -854,7 +867,14 @@ where
                 input,
                 output: &mut output,
             };
-            processor.process(block)?;
+            let block_start_frame =
+                u64::try_from(offset).map_err(|_| RenderError::FrameCountOverflow)?;
+            processor
+                .process(block)
+                .map_err(|error| RenderError::ProcessAt {
+                    error,
+                    block_start_frame,
+                })?;
         }
         offset = end;
         if next_observation == Some(end as u64) {
@@ -904,9 +924,12 @@ fn validate_external_audio(
             Err(RenderError::ExternalInputSampleRateMismatch)
         }
         (_, Some(audio)) if !matches!(audio.channel_count(), 1 | 2) => {
-            Err(RenderError::Process(ProcessError::InvalidInputChannels {
-                actual: audio.channel_count(),
-            }))
+            Err(RenderError::ProcessAt {
+                error: ProcessError::InvalidInputChannels {
+                    actual: audio.channel_count(),
+                },
+                block_start_frame: 0,
+            })
         }
         (_, Some(_)) => Ok(()),
     }
@@ -1030,7 +1053,13 @@ mod tests {
         let mut processor = FailingProcessor { calls: 0 };
         let error = render_processor(&mut processor, request(17, 0, 5))
             .expect_err("second process call should fail");
-        assert_eq!(error, RenderError::Process(ProcessError::EventsUnsupported));
+        assert_eq!(
+            error,
+            RenderError::ProcessAt {
+                error: ProcessError::EventsUnsupported,
+                block_start_frame: 5,
+            }
+        );
         assert_eq!(processor.calls, 2);
     }
 
