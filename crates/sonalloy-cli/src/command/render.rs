@@ -155,7 +155,7 @@ pub(super) struct RenderScoreArgs {
     /// Additional tail after each Part Pattern, in seconds (finite and non-negative).
     #[arg(long, value_name = "SECONDS", default_value_t = 1.0, value_parser = super::parse_nonnegative_f64)]
     tail: f64,
-    /// Write each Part's WAV before Part gain, global fade, and mastering are applied.
+    /// Write each Part's WAV after Part gain and pan, before global fade and mastering are applied.
     #[arg(long, value_name = "DIRECTORY")]
     stems_dir: Option<PathBuf>,
     /// Write the Stereo mix after Part gain and global fade, before mastering.
@@ -1092,37 +1092,32 @@ fn score_part_is_selected(args: &RenderScoreArgs, id: &str) -> bool {
         && !args.mutes.iter().any(|part| part == id)
 }
 
+fn score_timeline_frame(
+    demo: &performance::PerformancePlan,
+    tick: u64,
+    sample_rate: f64,
+) -> Result<u64, CliFailure> {
+    crate::musical_time::tick_to_frame(
+        tick,
+        demo.score.ticks_per_beat,
+        &performance::events::tempo_points(&demo.score.timeline),
+        sample_rate,
+    )
+    .map_err(|error| CliFailure {
+        code: 2,
+        diagnostics: vec![Diagnostic::error(
+            DiagnosticCode::ValueOutOfRange,
+            error.to_string(),
+        )],
+    })
+}
+
 fn score_output_offset_frames(
     demo: &performance::PerformancePlan,
     sample_rate: f64,
 ) -> Result<usize, CliFailure> {
-    let tempo_changes = performance::events::tempo_points(&demo.score.timeline);
-    let render_start = crate::musical_time::tick_to_frame(
-        demo.render_start_tick,
-        demo.score.ticks_per_beat,
-        &tempo_changes,
-        sample_rate,
-    )
-    .map_err(|error| CliFailure {
-        code: 2,
-        diagnostics: vec![Diagnostic::error(
-            DiagnosticCode::ValueOutOfRange,
-            error.to_string(),
-        )],
-    })?;
-    let output_start = crate::musical_time::tick_to_frame(
-        demo.output_start_tick,
-        demo.score.ticks_per_beat,
-        &tempo_changes,
-        sample_rate,
-    )
-    .map_err(|error| CliFailure {
-        code: 2,
-        diagnostics: vec![Diagnostic::error(
-            DiagnosticCode::ValueOutOfRange,
-            error.to_string(),
-        )],
-    })?;
+    let render_start = score_timeline_frame(demo, demo.render_start_tick, sample_rate)?;
+    let output_start = score_timeline_frame(demo, demo.output_start_tick, sample_rate)?;
     usize::try_from(output_start.saturating_sub(render_start)).map_err(|_| CliFailure {
         code: 2,
         diagnostics: vec![Diagnostic::error(
@@ -1227,19 +1222,28 @@ fn render_score_mix(
             Ok(())
         },
     )?;
-    let partial = args.section.is_some()
-        || args.bars.is_some()
-        || !args.parts.is_empty()
-        || !args.mutes.is_empty()
-        || args.preroll_bars > 0;
-    if !partial && let Err(error) = mix.apply_fade(demo.definition.mix.fade_out_seconds) {
-        return Err(CliFailure {
-            code: 3,
-            diagnostics: vec![
-                Diagnostic::error(DiagnosticCode::RenderError, error)
-                    .with_path("mix.fade_out_seconds"),
-            ],
-        });
+    let fade_out_seconds = demo.definition.mix.fade_out_seconds;
+    if fade_out_seconds != 0.0 {
+        let timeline_start_frame = score_timeline_frame(demo, demo.output_start_tick, sample_rate)?;
+        let score_end_frame = score_timeline_frame(demo, demo.length_ticks, sample_rate)?;
+        let timeline_frames =
+            score_end_frame
+                .checked_add(tail_frames)
+                .ok_or_else(|| CliFailure {
+                    code: 2,
+                    diagnostics: vec![Diagnostic::error(
+                        DiagnosticCode::ValueOutOfRange,
+                        "Score mix frame range overflows the timeline",
+                    )],
+                })?;
+        mix.apply_fade(fade_out_seconds, timeline_start_frame, timeline_frames)
+            .map_err(|error| CliFailure {
+                code: 3,
+                diagnostics: vec![
+                    Diagnostic::error(DiagnosticCode::RenderError, error)
+                        .with_path("mix.fade_out_seconds"),
+                ],
+            })?;
     }
     let mix_audio = mix.into_audio();
     Ok((mix_audio, part_reports, part_audio))
@@ -3036,6 +3040,82 @@ mod mastering_tests {
             json: true,
         };
         (definition, args)
+    }
+
+    #[test]
+    fn part_only_full_render_keeps_the_score_fade() {
+        let directory = tempfile::tempdir().expect("directory");
+        let (_, mut args) = fixture(directory.path());
+        args.stems_dir = None;
+        let plan = performance::load(
+            &args.score,
+            &args.bindings,
+            args.sample_rate,
+            args.block_size,
+        )
+        .expect("Score loads");
+        let tail_frames =
+            seconds_to_frames(args.tail, f64::from(args.sample_rate)).expect("tail converts");
+        let full = render_score_mix(&plan, &args, tail_frames)
+            .expect("full render")
+            .0;
+
+        args.parts = vec!["bass".to_owned()];
+        let part_only = render_score_mix(&plan, &args, tail_frames)
+            .expect("Part-only render")
+            .0;
+
+        assert_eq!(part_only.channels, full.channels);
+        assert!(plan.definition.mix.fade_out_seconds > 0.0);
+    }
+
+    #[test]
+    fn partial_render_applies_only_the_overlap_with_the_score_fade() {
+        let directory = tempfile::tempdir().expect("directory");
+        let (mut definition, mut args) = fixture(directory.path());
+        definition["form"][0]["bars"] = serde_json::json!(2);
+        definition["meta"]["fade_out_seconds"] = serde_json::json!(1.0);
+        std::fs::write(
+            &args.score,
+            serde_json::to_vec_pretty(&definition).expect("Score YAML"),
+        )
+        .expect("score file");
+        args.stems_dir = None;
+        args.parts = vec!["bass".to_owned()];
+        let mut plan = performance::load(
+            &args.score,
+            &args.bindings,
+            args.sample_rate,
+            args.block_size,
+        )
+        .expect("Score loads");
+        let tail_frames =
+            seconds_to_frames(args.tail, f64::from(args.sample_rate)).expect("tail converts");
+        let full = render_score_mix(&plan, &args, tail_frames)
+            .expect("full render")
+            .0;
+
+        args.bars = Some("2-2".to_owned());
+        args.preroll_bars = 1;
+        let selection = resolve_score_selection(&plan, &args).expect("range resolves");
+        performance::select_range(
+            &mut plan,
+            selection.render_start_tick,
+            selection.end_tick,
+            selection.output_start_tick,
+        )
+        .expect("range applies");
+        let partial = render_score_mix(&plan, &args, tail_frames)
+            .expect("partial render")
+            .0;
+
+        let start_frame = 96_000;
+        for channel in 0..2 {
+            assert_eq!(
+                partial.channels[channel],
+                full.channels[channel][start_frame..]
+            );
+        }
     }
 
     #[test]

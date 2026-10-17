@@ -45,7 +45,7 @@ sonalloy instrument validate instruments/
 sonalloy instrument validate "instruments/*/definition.json" --json
 ```
 
-ファイルを複数指定でき、Directoryでは配下の`definition.json`を再帰的に収集します。Globは一致するファイルをCLI側で解決し、重複を除いた安定した順番で検証します。1件の失敗後も残りを検証し、通常表示ではファイルごとの結果と全体件数、JSONでは`files[]`の`path`、`status`、`diagnostics`、`valid`、`invalid`を返します。
+ファイルを複数指定でき、Directoryでは配下の`definition.json`を再帰的に収集します。Globは一致するファイルをCLI側で解決し、重複を除いた安定した順番で検証します。定義の検証失敗に加え、存在しない入力や展開できないGlob、読み取れないDirectoryも入力ごとの失敗として記録し、残りを処理します。通常表示ではファイルごとの結果と全体件数、JSONでは`files[]`の`path`、`status`、`diagnostics`、`valid`、`invalid`を返します。
 
 ### `instrument report` — 複数音源の音響比較
 
@@ -56,7 +56,7 @@ sonalloy instrument report instruments/ --note 60 --velocity 127 --json
 sonalloy instrument report "instruments/*/definition.json" --gate 1.0 --tail 1.0
 ```
 
-JSONの`files[]`は音源ごとの`path`、`status`、`analysis`（Peak / RMS / 7帯域を含む）、`diagnostics`を返します。1件でも失敗すると終了コード1になります。
+JSONの`files[]`は音源ごとの`path`、`status`、`analysis`（Peak / RMS / 7帯域を含む）、`diagnostics`を返します。通常表示もPeak / RMSに続けて7帯域のEnergy Ratioを1行で示します。入力の展開や解析に失敗した音源があっても残りを処理し、1件でも失敗すると終了コード1になります。
 
 ### `instrument inspect` — コンパイル結果の確認
 
@@ -142,7 +142,7 @@ MIDI入力の `--channel 1..16` はNote Channelを選び、`--tonic` は度数�
 | `--output WAV` | 完成Stereo WAV。必須 |
 | `--sample-rate HZ` / `--block-size FRAMES` | 全楽器共通の処理条件。既定48000 / 257 |
 | `--tail SEC` | 曲終端後の余韻。既定1秒 |
-| `--stems-dir DIR` | 楽器Gain適用後・全体Fade/Master適用前の楽器別WAV |
+| `--stems-dir DIR` | Part GainとPan適用後・全体Fade/Master適用前の楽器別WAV |
 | `--premaster-output WAV` | Gain・全体Fade適用後、Master前のMix |
 | `--mp3-output PATH` | 完成音声からMP3を生成し測定。FFmpeg必須 |
 | `--analyze` | Premasterと完成WAVの音響・LUFS・True Peak・LRA解析。FFmpeg必須 |
@@ -154,7 +154,7 @@ MIDI入力の `--channel 1..16` はNote Channelを選び、`--tonic` は度数�
 | `--trace [ID:]PARAMETER` | 指定楽器、または該当する全楽器のParameterを観測。複数回指定可 |
 | `--trace-every-frames N` | Trace間隔。正の整数、既定480 |
 
-MasterはScoreの `meta.master` を使い、LUFS差0.5以内・True Peak上限以下のWAVを確定します。LRAは測定値との差と警告を返します。PremasterはMaster失敗時にも残り、完成WAVは後続の解析やMP3出力を含む処理が成功してから確定します。出力先の衝突はエラーです。
+MasterはScoreの `meta.master` を使い、LUFS差0.5以内・True Peak上限以下のWAVを確定します。LRAは測定値との差と警告を返します。PartまたはMuteだけを指定したMixにもScore全体のFadeを適用し、範囲選択では元のScore時間軸上でFade区間と重なる音声だけをフェードします。PremasterはMaster失敗時にも残り、完成WAVは後続の解析やMP3出力を含む処理が成功してから確定します。出力先の衝突はエラーです。
 
 JSON Reportには `sample_rate`、`frames`、`output`、楽器別の `parts` を含みます。指定した処理に応じて `mix_analysis`、`output_analysis`、`mix_loudness`、`output_loudness`、`master`、`mp3_measurement`、各Partの `traces` を返します。`--analyze`では、マスタリング前Mixを元のScore時間軸でSectionごとに集計した`sections[]`も返します。各要素は`section`、`occurrence`、Score先頭からの`start_frame` / `end_frame`と`start_seconds` / `end_seconds`、Integrated LUFS、True Peak、7帯域の`bands`、Part別のRMS / Peakを持ちます。無音や測定できない値は`null`です。Part処理に失敗した場合の診断には、`part`、`section`、`occurrence`、`time_seconds`、`block_start_frame`、`tail`を含みます。時刻とFrameはLatency補正とPrerollを反映した元のScore時間軸上の位置です。
 

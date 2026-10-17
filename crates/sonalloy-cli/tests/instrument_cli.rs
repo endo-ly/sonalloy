@@ -363,11 +363,15 @@ fn instrument_validate_collects_directories_globs_and_all_file_results() {
         .expect("directory created");
     std::fs::write(&invalid, "{invalid json").expect("invalid Definition written");
 
+    let missing = directory.path().join("missing.json");
+    let unmatched_glob = format!("{}/unmatched-*/definition.json", root.display());
     let output = Command::cargo_bin("sonalloy")
         .expect("binary")
         .args(["instrument", "validate"])
         .arg(&first)
         .arg(&root)
+        .arg(&missing)
+        .arg(&unmatched_glob)
         .arg("--json")
         .assert()
         .code(1)
@@ -379,8 +383,8 @@ fn instrument_validate_collects_directories_globs_and_all_file_results() {
     let files = report["files"].as_array().expect("per-file results");
     assert_eq!(
         files.len(),
-        3,
-        "the direct file and directory are de-duplicated"
+        5,
+        "the direct file is de-duplicated and input errors are collected"
     );
     assert_eq!(
         files.iter().filter(|file| file["status"] == "ok").count(),
@@ -391,7 +395,15 @@ fn instrument_validate_collects_directories_globs_and_all_file_results() {
             .iter()
             .filter(|file| file["status"] == "error")
             .count(),
-        1
+        3
+    );
+    assert!(files.iter().any(|file| {
+        file["path"] == missing.to_string_lossy().as_ref() && file["status"] == "error"
+    }));
+    assert!(
+        files
+            .iter()
+            .any(|file| { file["path"] == unmatched_glob && file["status"] == "error" })
     );
 
     let glob = format!("{}/*/definition.json", root.display());
@@ -420,10 +432,14 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
         .expect("valid Definition copied");
     std::fs::write(&invalid, "{invalid json").expect("invalid Definition written");
 
+    let missing = directory.path().join("missing.json");
+    let unmatched_glob = format!("{}/unmatched-*/definition.json", root.display());
     let report_output = Command::cargo_bin("sonalloy")
         .expect("binary")
         .args(["instrument", "report"])
         .arg(&root)
+        .arg(&missing)
+        .arg(&unmatched_glob)
         .args([
             "--note",
             "60",
@@ -444,7 +460,15 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
         serde_json::from_slice(&report_output).expect("instrument report");
     assert_eq!(report["status"], "error");
     let files = report["files"].as_array().expect("per-file results");
-    assert_eq!(files.len(), 2);
+    assert_eq!(files.len(), 4);
+    assert!(files.iter().any(|file| {
+        file["path"] == missing.to_string_lossy().as_ref() && file["status"] == "error"
+    }));
+    assert!(
+        files
+            .iter()
+            .any(|file| { file["path"] == unmatched_glob && file["status"] == "error" })
+    );
     let file = files
         .iter()
         .find(|file| file["status"] == "ok")
@@ -490,6 +514,41 @@ fn instrument_report_matches_render_note_analysis_and_keeps_per_file_failures() 
         .expect("analysis object")
         .remove("loudness");
     assert_eq!(file["analysis"], expected);
+}
+
+#[test]
+fn instrument_report_text_includes_all_band_energy_ratios() {
+    let output = Command::cargo_bin("sonalloy")
+        .expect("binary")
+        .args(["instrument", "report"])
+        .arg(fixture_path("instruments/basic-poly-synth.json"))
+        .args([
+            "--note",
+            "60",
+            "--velocity",
+            "127",
+            "--gate",
+            "0.1",
+            "--tail",
+            "0.1",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let output = String::from_utf8(output).expect("report output");
+    for band in [
+        "20–60 Hz",
+        "60–120 Hz",
+        "120–250 Hz",
+        "250–500 Hz",
+        "500–2000 Hz",
+        "2000–6000 Hz",
+        "6000–20000 Hz",
+    ] {
+        assert!(output.contains(band), "missing band {band} in {output}");
+    }
 }
 
 #[test]

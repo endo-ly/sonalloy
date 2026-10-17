@@ -680,6 +680,34 @@ mod tests {
     }
 
     #[test]
+    fn fade_uses_the_full_score_timeline_for_partial_mix_ranges() {
+        let render = |start_frame, frames| {
+            let mut mix = StereoMix::new(10);
+            mix.left = vec![1.0; frames];
+            mix.right = vec![1.0; frames];
+            mix.apply_fade(0.4, start_frame, 12)
+                .expect("timeline fade applies");
+            mix.into_audio()
+        };
+        let full = render(0, 12);
+        let early = render(0, 6);
+        let overlapping = render(6, 6);
+
+        assert!(
+            early
+                .channels
+                .iter()
+                .flatten()
+                .all(|sample| (*sample - 1.0).abs() < f32::EPSILON)
+        );
+        for channel in 0..2 {
+            assert_eq!(overlapping.channels[channel], full.channels[channel][6..]);
+        }
+        assert_eq!(full.channels[0][8], 1.0);
+        assert_eq!(full.channels[0][11], 0.0);
+    }
+
+    #[test]
     fn pan_attenuates_one_channel_and_keeps_center_untouched() {
         let mixed = |pan: f64| {
             let mut mix = StereoMix::new(48_000);
@@ -910,6 +938,16 @@ pub(crate) fn apply_section_part_gain(
     let Some(first_channel) = audio.channels.first() else {
         return Ok(());
     };
+    if plan.score.sections.is_empty()
+        || plan
+            .score
+            .sections
+            .iter()
+            .all(|section| section.part_gains.get(part_id).copied().unwrap_or(0.0) == 0.0)
+    {
+        return Ok(());
+    }
+
     let tempo_changes = events::tempo_points(&plan.score.timeline);
     let render_start_frame = crate::musical_time::tick_to_frame(
         plan.render_start_tick,
@@ -918,12 +956,10 @@ pub(crate) fn apply_section_part_gain(
         f64::from(audio.sample_rate),
     )
     .map_err(|error| error.to_string())?;
-    let transitions = usize::try_from(
-        sonalloy_core::seconds_to_frames(0.005, f64::from(audio.sample_rate))
-            .map_err(|error| error.to_string())?,
-    )
-    .map_err(|_| "part gain transition does not fit in memory".to_owned())?
-    .max(1);
+    let transition_frames = sonalloy_core::seconds_to_frames(0.005, f64::from(audio.sample_rate))
+        .map_err(|error| error.to_string())?
+        .max(1);
+    let mut previous_gain = 1.0;
     let sections = plan
         .score
         .sections
@@ -943,43 +979,37 @@ pub(crate) fn apply_section_part_gain(
                 f64::from(audio.sample_rate),
             )
             .map_err(|error| error.to_string())?;
-            let gain = section.part_gains.get(part_id).copied().unwrap_or(0.0);
-            Ok::<_, String>((start, end, gain))
+            let gain_db = section.part_gains.get(part_id).copied().unwrap_or(0.0);
+            let target_gain =
+                gain_linear(gain_db).ok_or_else(|| "part gain is not finite".to_owned())?;
+            let transition_delta = target_gain - previous_gain;
+            let gain = (start, end, target_gain, previous_gain, transition_delta);
+            previous_gain = target_gain;
+            Ok::<_, String>(gain)
         })
         .collect::<Result<Vec<_>, String>>()?;
-    if sections.is_empty() {
-        return Ok(());
-    }
-    let gains = |frame: usize| -> Result<f64, String> {
-        let absolute = render_start_frame
+
+    let mut section_index = 0;
+    for frame in 0..first_channel.len() {
+        let absolute_frame = render_start_frame
             .checked_add(u64::try_from(frame).map_err(|_| "frame overflow".to_owned())?)
             .ok_or_else(|| "frame overflow".to_owned())?;
-        let index = sections
-            .iter()
-            .position(|(_, end, _)| absolute < *end)
-            .unwrap_or(sections.len() - 1);
-        let (_, _, target_db) = sections[index];
-        let target = gain_linear(target_db).ok_or_else(|| "part gain is not finite".to_owned())?;
-        if index == 0 {
-            return Ok(target);
+        while section_index + 1 < sections.len() && absolute_frame >= sections[section_index].1 {
+            section_index += 1;
         }
-        let boundary = sections[index].0;
-        if absolute < boundary {
-            return Ok(target);
-        }
-        let previous_db = sections[index - 1].2;
-        let previous =
-            gain_linear(previous_db).ok_or_else(|| "part gain is not finite".to_owned())?;
-        let elapsed = absolute - boundary;
-        if elapsed >= u64::try_from(transitions).unwrap_or(u64::MAX) {
-            return Ok(target);
-        }
-        #[allow(clippy::cast_precision_loss)]
-        let progress = elapsed as f64 / transitions as f64;
-        Ok(previous + (target - previous) * progress)
-    };
-    for frame in 0..first_channel.len() {
-        let gain = gains(frame)?;
+        let (start, _, target_gain, previous_gain, transition_delta) = sections[section_index];
+        let gain = if section_index == 0 || absolute_frame < start {
+            target_gain
+        } else {
+            let elapsed = absolute_frame - start;
+            if elapsed >= transition_frames {
+                target_gain
+            } else {
+                #[allow(clippy::cast_precision_loss)]
+                let progress = elapsed as f64 / transition_frames as f64;
+                previous_gain + transition_delta * progress
+            }
+        };
         #[allow(clippy::cast_possible_truncation)]
         let gain = gain as f32;
         for channel in &mut audio.channels {
@@ -1059,14 +1089,19 @@ impl StereoMix {
         }
     }
 
-    pub(crate) fn apply_fade(&mut self, fade_out_seconds: f64) -> Result<(), String> {
+    pub(crate) fn apply_fade(
+        &mut self,
+        fade_out_seconds: f64,
+        timeline_start_frame: u64,
+        timeline_frames: u64,
+    ) -> Result<(), String> {
         if !fade_out_seconds.is_finite() || fade_out_seconds < 0.0 {
             return Err("fade_out_seconds must be finite and non-negative".to_owned());
         }
         #[allow(clippy::cast_precision_loss)]
-        let duration_seconds = self.left.len() as f64 / f64::from(self.sample_rate);
-        if fade_out_seconds > duration_seconds {
-            return Err("fade_out_seconds must not exceed the final mix duration".to_owned());
+        let timeline_duration_seconds = timeline_frames as f64 / f64::from(self.sample_rate);
+        if fade_out_seconds > timeline_duration_seconds {
+            return Err("fade_out_seconds must not exceed the full mix duration".to_owned());
         }
         if fade_out_seconds == 0.0 || self.left.is_empty() {
             return Ok(());
@@ -1074,20 +1109,36 @@ impl StereoMix {
         let fade_frames =
             sonalloy_core::seconds_to_frames(fade_out_seconds, f64::from(self.sample_rate))
                 .map_err(|error| error.to_string())?;
-        let fade_frames = usize::try_from(fade_frames)
-            .map_err(|_| "fade frame count does not fit in memory".to_owned())?;
         if fade_frames == 0 {
             return Ok(());
         }
-        let start = self.left.len().saturating_sub(fade_frames);
-        for frame in start..self.left.len() {
+        let fade_start_frame = timeline_frames - fade_frames;
+        let mix_frames = u64::try_from(self.left.len())
+            .map_err(|_| "mix frame count does not fit in the Score timeline".to_owned())?;
+        let mix_end_frame = timeline_start_frame
+            .checked_add(mix_frames)
+            .ok_or_else(|| "mix frame range overflows the Score timeline".to_owned())?;
+        let overlap_start = fade_start_frame.max(timeline_start_frame);
+        let overlap_end = timeline_frames.min(mix_end_frame);
+        if overlap_start >= overlap_end {
+            return Ok(());
+        }
+        let first_frame = usize::try_from(overlap_start - timeline_start_frame)
+            .map_err(|_| "fade start frame does not fit in memory".to_owned())?;
+        let end_frame = usize::try_from(overlap_end - timeline_start_frame)
+            .map_err(|_| "fade end frame does not fit in memory".to_owned())?;
+        for frame in first_frame..end_frame {
+            let absolute_frame = timeline_start_frame
+                .checked_add(u64::try_from(frame).map_err(|_| "frame overflow".to_owned())?)
+                .ok_or_else(|| "frame overflow".to_owned())?;
+            let elapsed = absolute_frame - fade_start_frame;
             let gain = if fade_frames == 1 {
                 0.0
             } else {
                 #[allow(clippy::cast_precision_loss)]
                 let denominator = (fade_frames - 1) as f32;
                 #[allow(clippy::cast_precision_loss)]
-                let progress = (frame - start) as f32 / denominator;
+                let progress = elapsed as f32 / denominator;
                 (1.0 - progress).clamp(0.0, 1.0)
             };
             self.left[frame] *= gain;
