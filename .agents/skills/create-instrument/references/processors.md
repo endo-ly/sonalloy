@@ -40,41 +40,7 @@ LayerはGeneratorの出力がMonoでもStereoでも同じChainを使い、出力
 | Spectral Morph（Globalのみ） | `morph`: 0〜1、`output_gain_db`: -24〜24 dB | `morph`、`output_gain_db` | FFT 1024 / Hop 256、1024 frames |
 | Limiter | `ceiling_db`: -12〜0 dBFS、`release_ms`: 5〜1000、`input_gain_db`: -24〜24 dB | `ceiling_db`、`input_gain_db` | `release_ms` |
 
-すべてのProcessor Objectは`type`（文字列）と`id`（小文字で始まり、小文字・数字・`_`の識別子）を持ちます。表の数値はJSON number、`time`は`{"value": number, "unit": "seconds" | "beats"}`、`profiles`と`taps`は配列です。`detector`は`self_signal`または`external_audio`です。`external_audio`はGlobal配置のGate / Compressorだけで使用できます。
-
-`Dynamic Parameter`列はModulation RouteやParameter Changeで動かせるField、`Static Field`列はCompile時に確定するFieldです。表に記載のないFieldは受け付けません。Filterの`cutoff_hz`だけ、既存のCanonical IDとして`cutoff`をCatalog IDに用います。Processorの種類・ID・配置・順序やStatic Fieldを変えた場合は、再Compileが必要です。
-
-## Processor Objectの最小例
-
-次のObjectは各Processorの必須Fieldを示します。`convolution.ir.path`は実際に存在するWAVへ置き換え、FormantのProfileは5個のBandを用意します。配置制約は上の表に従います。
-
-```json
-[
-  {"type":"filter", "id":"filter", "cutoff_hz":1000, "resonance":0.1},
-  {"type":"ladder_filter", "id":"ladder", "cutoff_hz":1000, "resonance":0.1, "drive":0.1},
-  {"type":"drive", "id":"drive", "amount":0.2, "mix":0.5},
-  {"type":"eq", "id":"eq", "low_frequency_hz":120, "low_gain_db":0, "mid_frequency_hz":1000, "mid_gain_db":0, "mid_q":1, "high_frequency_hz":8000, "high_gain_db":0},
-  {"type":"formant", "id":"formant", "vowel_position":0, "formant_shift_cents":0, "throat":0.5, "profiles":[{"id":"a", "formants":[{"frequency_hz":500,"bandwidth_hz":80,"gain_db":0},{"frequency_hz":1000,"bandwidth_hz":80,"gain_db":0},{"frequency_hz":2000,"bandwidth_hz":80,"gain_db":0},{"frequency_hz":3000,"bandwidth_hz":80,"gain_db":0},{"frequency_hz":4000,"bandwidth_hz":80,"gain_db":0}]}], "mix":0.5},
-  {"type":"resonator", "id":"resonator", "frequency_hz":440, "decay_seconds":1, "damping":0.5, "mix":0.5},
-  {"type":"bitcrusher", "id":"bitcrusher", "bit_depth":8, "sample_rate_ratio":1, "mix":0.5},
-  {"type":"chorus", "id":"chorus", "delay_ms":15, "rate_hz":0.5, "depth":0.5, "feedback":0, "width":0.5, "mix":0.5},
-  {"type":"flanger", "id":"flanger", "delay_ms":2, "rate_hz":0.5, "depth":0.5, "feedback":0, "width":0.5, "mix":0.5},
-  {"type":"phaser", "id":"phaser", "stages":4, "center_hz":1000, "sweep_octaves":1, "rate_hz":0.5, "depth":0.5, "feedback":0, "width":0.5, "mix":0.5},
-  {"type":"frequency_shifter", "id":"shift", "shift_hz":0, "mix":0.5},
-  {"type":"delay", "id":"delay", "time":{"value":0.25,"unit":"seconds"}, "feedback_mode":"stereo", "feedback":0.3, "taps":[], "mix":0.5},
-  {"type":"reverb", "id":"reverb", "pre_delay_seconds":0.02, "decay":0.5, "damping":0.5, "width":0.5, "mix":0.5},
-  {"type":"convolution", "id":"convolution", "ir":{"path":"assets/room.wav"}, "gain_db":0, "mix":0.5},
-  {"type":"gate", "id":"gate", "threshold_db":-40, "hysteresis_db":3, "attack_ms":2, "hold_ms":20, "release_ms":80, "range_db":-60, "detector":"self_signal"},
-  {"type":"vocoder", "id":"vocoder", "attack_ms":8, "release_ms":80, "modulator_gain_db":0, "output_gain_db":0, "mix":0.5},
-  {"type":"envelope_transfer", "id":"transfer", "attack_ms":8, "release_ms":80, "input_gain_db":0, "floor_db":-60, "mix":0.5},
-  {"type":"spectral_morph", "id":"morph", "morph":0.5, "output_gain_db":0},
-  {"type":"transient_shaper", "id":"transient", "attack":0, "sustain":0, "mix":0.5},
-  {"type":"compressor", "id":"compressor", "threshold_db":-18, "ratio":4, "attack_ms":10, "release_ms":100, "knee_db":6, "makeup_gain_db":0, "mix":0.5, "detector":"self_signal"},
-  {"type":"limiter", "id":"limiter", "ceiling_db":-1, "release_ms":100, "input_gain_db":0}
-]
-```
-
-Delayの`time`は秒または四分音符単位のBeatです。`feedback_mode: "stereo"`は左右を独立して帰還し、`"ping_pong"`は左右を交差して帰還します。`taps`は`{"time": {"value": number, "unit": ...}, "gain_db": number}`の配列で、最大8個です。Delay Processor自体はGlobal Chainに最大4個まで置けます。
+`Dynamic Parameter`列はModulation RouteやParameter Changeで動かせるField、`Static Field`列はCompile時に確定するFieldです。Filterの`cutoff_hz`だけ、既存のCanonical IDとして`cutoff`をCatalog IDに用います。Processorの種類・ID・配置・順序やStatic Fieldを変えた場合は、再Compileが必要です。
 
 ## 種類ごとの補足
 

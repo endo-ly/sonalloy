@@ -305,7 +305,7 @@ bass:
 
 `relative_to`の省略時または`tonic`ではセクション主音、`chord_bass`では発音位置のコードベース音を基準にする。分数コードはスラッシュ指定の音を使う。コード参照を`NC`上で使うとエラーになる。
 
-`c1`、`c3`、`c5`、`c7`、`c9`のように`c`を付けたTokenは、発音位置のChord構成音を指定するBass専用記法です。`c3`はMajor / Minorなど現在のChordが持つ実際の3度へ解決し、`relative_to`の基準音ではなくChord Rootを基準に配置します。`c1`～`c13`と臨時記号、オクターブ記号を使えます。指定した構成音がない、同じ度数が曖昧、またはChordが`NC`の場合はErrorです。Velocity（`@1`～`@127`）とLegato（`~`）は通常のBass Tokenと共通です。
+`c`を付けた記法（`c1`〜`c13`）は、その位置のコード構成音を指定します。たとえば`c3`はコードの長短に応じた3度を指し、`relative_to`ではなくコードルートを基準にします。臨時記号やオクターブ記号も付けられ、Velocity（`@1`〜`@127`）とレガート（`~`）は通常のベース記法と共通です。指定した度数がコードにない場合や、複数の構成音に当てはまる場合は検証エラーになります。
 
 基準音を`bass_floor_midi`～`bass_ceiling_midi`（既定28～39）に配置してから、度数とオクターブ移動を加える。度数適用後の音高はその音域へ折り返さず、最終MIDIノート0～127を検証する。
 
@@ -535,11 +535,11 @@ form:
 | `drums.<name>` | `from,parts,overrides` | 1小節Grooveをセクションで反復 |
 | `drums.overrides[]` | `when,parts` | 小節条件を満たしたパートへ置換 |
 | `bass_overrides[]` | `when,parts` | 小節条件を満たしたベースパートへ置換。条件は`drums.overrides[]`と共通 |
-| `bass.<name>` | `parts,choices,relative_to` | 主音またはコードベース基準の度数。`c1`などは構成音参照 |
+| `bass.<name>` | `parts,choices,relative_to` | 主音またはコードベース基準の度数。`c1`などはコード構成音を指定 |
 | `bass.choices.<token>` | `odd,even` | セクション内奇数・偶数 |
 | `arps.<name>` | `order,voicing_floor_midi,retrigger_each_step` | 和音の声部を音域配置してArp。`order`のセルは非負整数、`.`（休符）、`-`（継続） |
 | `counters.<name>` | `when,cell` | 無音拍に置く対旋律 |
-| `sections.<name>.part_gains` | `instrument_id: number` | Section中だけ加算するPart Gain（dB） |
+| `sections.<name>.part_gains` | `instrument_id: number` | セクション内の楽器別Gain（dB。楽器Gainに加算） |
 | `instruments.<id>` | `preset / definition / external`, `gain_db,pan,role,gate,voicing,voicing_floor_midi,trigger_note_midi,bass_floor_midi,bass_ceiling_midi,audio_input` | 音源と演奏音域・定位 |
 | `placements[]` | `instrument,at,melody/degree/chord/bass_note,velocity,duration_steps,duration_quarters,transpose,gain_db,mark,slice_steps,take_notes,voicing,voicing_floor_midi,add_root_degree` | 明示的発音 |
 | `add_placements[]` | `placements[]`と同じ | 継承時に配置リストの末尾へ追記 |

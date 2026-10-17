@@ -135,11 +135,11 @@ Layerは「Generator + Layer Processor + ADSR + Gain + Pan」のセットで、T
 
 ### Velocityの作用
 
-Note OnのVelocityは、同じ値が3つの場所で異なる役割を持ちます。
+Note OnのVelocityは、Layerの発音条件、Generator固有の制御、Modulation Sourceの3通りで利用できます。
 
-1. `trigger.velocity_min`〜`velocity_max`はLayerを発音する条件です。範囲外のVelocityでは、そのLayerは選択されません。Sample Generatorの各Zoneにも同じ`velocity_min` / `velocity_max`があり、該当するZoneの選択条件になります。
-2. GeneratorがVelocityを固有の発音制御に使う場合は、そのGeneratorの仕様に従います。たとえばSampleはVelocity範囲でZoneを選びます。通常のOscillatorやEnvelopeは、Velocityを書くだけでは自動的に音量を変えません。
-3. Modulation Sourceの`velocity`は、Note Onの値を`0..1`へ正規化したVoice単位の値です。音量を変えるには、これをGain ParameterへRouteします。
+1. `trigger.velocity_min`〜`velocity_max`はLayerの発音範囲です。
+2. GeneratorごとのVelocity制御は各仕様に従います。Sample Generatorは各ZoneのVelocity範囲で再生Zoneを選びます。
+3. Modulation Sourceの`velocity`は、Note Onの値を`0..1`へ正規化したVoice単位の値です。音量を調整する場合はGain ParameterへRouteします。
 
 Layerの`gain_db`はLayerの基準音量です。Velocityによる音量差を作る最小例は次のとおりです。
 
@@ -157,7 +157,7 @@ Layerの`gain_db`はLayerの基準音量です。Velocityによる音量差を�
 }
 ```
 
-このRouteでは、Velocity 0に相当する基準から最大8 dBまでLayer Gainを変化させます。`velocity` Sourceが存在するだけでは音量は変わらず、RouteのTarget、Depth、Curveの設定が必要です。発音条件を変えるだけならTriggerのVelocity範囲を使います。
+このRouteはVelocityに応じてLayer Gainを最大8 dB加算します。
 
 Layerの全体例は「全体構造」の例にある`layers[0]`です。
 
